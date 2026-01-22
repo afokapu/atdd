@@ -25,7 +25,19 @@ Meta-validation (conventions + schemas)
   ↺ feeds back into coherence checks
 ```
 
-Note: The default stack assumes Supabase PostgreSQL + JSONB (migrations), a Python FastAPI 4-layer backend, a TypeScript/Preact 4-layer frontend, JSON Schema contracts, and Python/pytest + YAML/JSON Schema for validation. It can be adapted to any stack with comparable capabilities.
+Note: The default stack assumes:
+- Supabase PostgreSQL + JSONB (migrations)
+- Python FastAPI 4-layer backend
+- TypeScript/Preact 4-layer frontend
+- JSON Schema contracts
+- Python/pytest + YAML/JSON Schema for validation
+- Claude for agentic execution
+- PostHog for analytics
+- Railway for backend hosting
+- Vercel for web hosting
+- GitHub for source control
+
+It can be adapted to any stack with comparable capabilities.
 
 ## Quick start
 
