@@ -25,6 +25,8 @@ Meta-validation (conventions + schemas)
   ↺ feeds back into coherence checks
 ```
 
+Note: The default stack assumes Python for validation, pytest for execution, and YAML/JSON Schema for conventions. It can be adapted to any stack with comparable capabilities.
+
 ## Quick start
 
 ```bash
