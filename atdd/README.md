@@ -46,6 +46,22 @@ Generate comprehensive repository inventory cataloging all artifacts:
 
 ---
 
+### 🗂️ Registry Updates
+
+Refresh registries derived from source artifacts:
+
+```bash
+# Update all registries
+./atdd/atdd.py --update-registry all
+
+# Update specific registries
+./atdd/atdd.py --update-registry wagons
+./atdd/atdd.py --update-registry contracts
+./atdd/atdd.py --update-registry telemetry
+```
+
+---
+
 ### 🧪 Validation
 
 Run ATDD meta-validators to validate platform quality:
@@ -496,7 +512,7 @@ Total validators: 57 files
 
 ## Related Documentation
 
-- `.claude/CLAUDE.md` - Project-level ATDD workflow and missions
+- `CLAUDE.md` - Project-level ATDD workflow and missions
 - `sessions/SESSION-00-atdd-platform-migration.md` - Migration progress tracking
 - Individual convention files in `atdd/*/conventions/`
 - Individual schema files in `atdd/*/schemas/`
