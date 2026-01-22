@@ -1,0 +1,325 @@
+schema_version: "1.0.0"
+convention_id: "coder.train"
+name: "Train Composition Root Convention"
+description: "Production orchestration layer for executing user journeys across wagons"
+
+rationale: |
+  Trains are PRODUCTION orchestration, not test infrastructure. They execute user journeys
+  defined in YAML specifications by coordinating wagons through contract-based communication.
+
+  TRANSFORMATION (SESSION-12):
+    - OLD: Trains in e2e/ (test-only), custom orchestration in game.py
+    - NEW: Trains in python/trains/ (production), game.py becomes thin Station Master
+
+  BENEFITS:
+    - Single source of truth (YAML defines both production AND tests)
+    - Declarative orchestration (change workflows via YAML, not code)
+    - Zero drift (tests use production TrainRunner)
+    - Operational visibility (train_id in logs = exact journey executed)
+
+cross_references:
+  composition_hierarchy:
+    - file: "refactor.convention.yaml"
+      section: "composition_root.hierarchy"
+      note: "Trains add new orchestration layer between game.py and wagon.py"
+
+  boundaries:
+    - file: "boundaries.convention.yaml"
+      section: "interaction"
+      note: "Trains enforce boundaries via contract-based wagon communication"
+
+  specifications:
+    - file: "../../planner/conventions/train.convention.yaml"
+      note: "Planner defines train YAML structure and semantics"
+
+# ============================================================================
+# COMPOSITION ROOT HIERARCHY (with Trains)
+# ============================================================================
+
+composition_hierarchy:
+  description: "Trains sit between application (game.py) and wagons (wagon.py)"
+
+  levels:
+    application:
+      file: "python/game.py"
+      role: "Station Master - thin router"
+      responsibility: "Map user actions → train_ids, invoke TrainRunner"
+      size: "< 50 lines of routing logic"
+
+    train:
+      file: "python/trains/runner.py"
+      role: "Engine - THE orchestration layer"
+      responsibility: "Load YAML, orchestrate wagons, pass artifacts"
+      location: "python/trains/"
+      note: "NEW level introduced in SESSION-12"
+
+    wagon:
+      file: "python/{wagon}/wagon.py"
+      role: "Wagon - domain orchestration"
+      responsibility: "Expose run_train(inputs, timing) interface"
+
+    feature:
+      file: "python/{wagon}/{feature}/composition.py"
+      role: "Feature - layer wiring"
+      responsibility: "DI for domain/application/integration"
+
+  dependency_flow:
+    rule: "Dependencies flow downward only"
+    chain: "game.py → trains.runner → wagon.py → composition.py → src/"
+    forbidden: "NEVER: wagon imports from trains or game"
+
+# ============================================================================
+# TRAIN INFRASTRUCTURE
+# ============================================================================
+
+train_structure:
+  location: "python/trains/"
+
+  files:
+    runner_py:
+      file: "python/trains/runner.py"
+      class: "TrainRunner"
+      composition_root: true
+      responsibilities:
+        - "Load train YAML from plan/_trains/{train_id}.yaml"
+        - "Orchestrate wagons in sequence"
+        - "Pass artifacts as cargo between wagons"
+        - "Enforce boundaries (no direct wagon imports)"
+        - "Capture execution trace"
+
+      interface: |
+        class TrainRunner:
+            def __init__(self, train_yaml_path: str)
+            def execute(self, inputs: Dict, timing: Dict, capture_trace: bool) -> TrainResult
+            def get_train_info(self) -> Dict
+
+    models_py:
+      file: "python/trains/models.py"
+      models:
+        - "TrainSpec: Parsed train definition"
+        - "TrainStep: Single step in sequence"
+        - "TrainResult: Execution result + artifacts"
+        - "Cargo: Artifacts passed between wagons"
+
+# ============================================================================
+# WAGON TRAIN INTERFACE
+# ============================================================================
+
+wagon_train_mode:
+  description: "Wagons must implement run_train() to participate in trains"
+
+  signature: "def run_train(inputs: Dict[str, Any], timing: Dict[str, float] = None) -> Dict[str, Any]"
+
+  location: "python/{wagon}/wagon.py (module-level function or class method)"
+
+  responsibilities:
+    - "Extract relevant artifacts from cargo (inputs dict)"
+    - "Execute wagon business logic"
+    - "Return artifact dictionary (URN → data)"
+    - "Handle timing configuration (delays, timeouts)"
+
+  example: |
+    # python/pace_dilemmas/wagon.py
+    def run_train(inputs: Dict[str, Any], timing: Dict[str, float] = None) -> Dict[str, Any]:
+        """Train mode: Execute wagon in train orchestration."""
+        # Extract inputs
+        fragments = inputs.get("fragments", [])
+        domain_scores = inputs.get("domain_scores", {})
+
+        # Execute logic
+        dilemma = pair_fragments_use_case.execute(fragments, domain_scores)
+
+        # Return artifacts (URN → data)
+        return {
+            "match:dilemma.selected": {"dilemma_id": dilemma.id, ...},
+            "mechanic:quiz.progress": {"answered_count": 1, ...}
+        }
+
+  multi_mode_pattern:
+    description: "Wagons support multiple execution modes"
+    cli: "Interactive demo (python3 wagon.py)"
+    http: "API endpoints (via game.py)"
+    train: "Production orchestration (via TrainRunner)"
+
+# ============================================================================
+# CARGO AND ARTIFACTS
+# ============================================================================
+
+cargo_pattern:
+  description: "Cargo carries artifacts between wagons during execution"
+
+  cargo_model:
+    structure: "Dict[artifact_urn, artifact_data]"
+    operations:
+      - "cargo.add_artifact(urn, data)"
+      - "cargo.get_artifact(urn)"
+      - "cargo.has_artifact(urn)"
+
+  artifact_flow: |
+    Step 1: pace_dilemmas produces match:dilemma.selected
+    Cargo: {"match:dilemma.selected": {...}}
+
+    Step 2: resolve_dilemmas consumes match:dilemma.selected, produces mechanic:decision.choice
+    Cargo: {"match:dilemma.selected": {...}, "mechanic:decision.choice": {...}}
+
+    Step 3: Artifacts accumulate as train progresses
+
+  contract_validation:
+    validator: "e2e/shared/fixtures/contract_validator.py"
+    schemas: "contracts/{theme}/{domain}/{resource}.schema.json"
+    method: "JSON Schema Draft-07 validation"
+
+# ============================================================================
+# STATION MASTER PATTERN (game.py)
+# ============================================================================
+
+station_master:
+  description: "game.py becomes thin router that delegates to TrainRunner"
+
+  pattern: |
+    # game.py - Station Master
+    from trains.runner import TrainRunner
+
+    JOURNEY_MAP = {
+        "start_quiz": "1006-quiz-workflow-adaptive",
+        "start_match": "3001-solo-match-complete"
+    }
+
+    @app.post("/action/{action_name}")
+    def execute_journey(action_name: str, inputs: dict):
+        train_id = JOURNEY_MAP[action_name]
+        runner = TrainRunner(f"plan/_trains/{train_id}.yaml")
+        result = runner.execute(inputs=inputs)
+        return {"success": result.success, "artifacts": result.artifacts}
+
+  responsibilities:
+    - "Route user actions to train IDs"
+    - "Invoke TrainRunner"
+    - "Translate HTTP ↔ artifacts"
+    - "Handle errors"
+
+  anti_pattern: "Business logic in game.py (belongs in trains/wagons)"
+
+# ============================================================================
+# TESTING
+# ============================================================================
+
+testing_pattern:
+  description: "Tests use production TrainRunner - no mocks, zero drift"
+
+  e2e_tests:
+    location: "e2e/mechanic/test_1006_quiz_workflow_adaptive.py"
+
+    pattern: |
+      def test_ac001_all_dilemmas_selected(train_runner, contract_validator):
+          # Execute train (production code)
+          result = train_runner.execute(
+              train_id="1006-quiz-workflow-adaptive",
+              inputs={"quiz_config": {...}}
+          )
+
+          # Validate artifacts
+          assert result.success
+          contract_validator.validate(
+              result.artifacts["mechanic:quiz.completed"],
+              "contracts/mechanic/quiz/completed.schema.json"
+          )
+
+          # Assert acceptance criteria
+          assert result.artifacts["mechanic:quiz.completed"]["answered_count"] == 10
+
+  fixtures:
+    train_runner:
+      source: "from trains.runner import TrainRunner (production)"
+      location: "e2e/conftest.py"
+
+    contract_validator:
+      source: "e2e/shared/fixtures/contract_validator.py (real JSON schema validator)"
+      library: "jsonschema"
+
+# ============================================================================
+# BOUNDARIES
+# ============================================================================
+
+boundary_enforcement:
+  no_direct_imports:
+    rule: "Wagons NEVER import from other wagons"
+    enforcement: "TrainRunner uses dynamic imports, artifacts only"
+
+  contract_communication:
+    rule: "Wagons communicate exclusively via artifact contracts"
+    enforcement: "Contract schemas validate structure"
+
+  qualified_imports:
+    rule: "All imports fully qualified (from {wagon}.{feature}.src.{layer}...)"
+    benefit: "Prevents module shadowing"
+
+  composition_root_exception:
+    rule: "Composition roots may manipulate sys.path"
+    files: ["python/trains/runner.py", "python/{wagon}/wagon.py"]
+    rationale: "Entrypoints (executed, never imported)"
+
+# ============================================================================
+# OBSERVABILITY
+# ============================================================================
+
+observability:
+  execution_trace:
+    enabled: "runner.execute(capture_trace=True)"
+    structure: "List[{step, wagon, duration_ms, success, error}]"
+
+  logging:
+    include_train_id: "All log entries include train_id"
+    correlation: "train_id + timestamp for cross-wagon correlation"
+    replay: "Reproduce execution with train_id + inputs"
+
+# ============================================================================
+# MIGRATION GUIDE
+# ============================================================================
+
+migration:
+  step_1: "Identify user journeys in game.py"
+  step_2: "Create train YAML (plan/_trains/{train_id}.yaml)"
+  step_3: "Add run_train() to participating wagons"
+  step_4: "Refactor game.py to Station Master pattern"
+  step_5: "Update tests to use TrainRunner"
+
+# ============================================================================
+# ANTI-PATTERNS
+# ============================================================================
+
+anti_patterns:
+  business_logic_in_runner:
+    problem: "TrainRunner contains business logic"
+    correct: "Business logic in wagons, TrainRunner only orchestrates"
+
+  wagon_imports_wagon:
+    problem: "Wagon A imports from wagon B"
+    correct: "Wagons communicate via artifacts in cargo"
+
+  test_only_trains:
+    problem: "Separate trains for tests vs production"
+    correct: "Production trains ARE test subjects"
+
+  mocking_train_runner:
+    problem: "Tests mock TrainRunner"
+    correct: "Tests use real TrainRunner"
+
+# ============================================================================
+# EXAMPLES
+# ============================================================================
+
+examples:
+  simple:
+    train_id: "1001-decision-standard"
+    wagons: ["pace-dilemmas", "resolve-dilemmas", "commit-state"]
+
+  complex:
+    train_id: "1006-quiz-workflow-adaptive"
+    wagons: ["supply-fragments", "pace-dilemmas", "juggle-domains", "resolve-dilemmas"]
+    artifacts:
+      - "match:dilemma.selected"
+      - "mechanic:decision.choice"
+      - "scenario:graph.pagerank"
+      - "mechanic:domain.associations"
+      - "mechanic:quiz.completed"

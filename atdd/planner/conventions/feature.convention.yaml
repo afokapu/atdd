@@ -1,0 +1,371 @@
+version: "1.0"
+name: "Feature Convention"
+description: "Convention for feature assembly from WMBTs"
+
+# Feature structure defined in schema
+structure:
+  $ref: "schemas:planner:feature"
+
+# URN naming pattern
+urn_naming:
+  pattern: "feature:{wagon}:{feature}"
+  description: "Unique identifier for feature within wagon hierarchy"
+  utility: "utils.graph.URNBuilder.feature(wagon_id, feature_id)"
+
+  parts:
+    wagon: "Parent wagon identifier (kebab-case)"
+    feature: "Feature identifier (kebab-case, verb-object pattern)"
+
+  examples:
+    - urn: "feature:resolve-dilemmas:choose-option"
+      wagon: "resolve-dilemmas"
+      feature: "choose-option"
+
+    - urn: "feature:manage-inventory:track-stock"
+      wagon: "manage-inventory"
+      feature: "track-stock"
+
+    - urn: "feature:manage-users:authenticate-user"
+      wagon: "manage-users"
+      feature: "authenticate-user"
+
+  validation:
+    pattern: "^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$"
+    format: "kebab-case for both wagon and feature"
+
+# Artifact seeds for feature naming
+artifact_seeds:
+  description: "Artifacts are the primary seeds for feature names"
+  overview: |
+    Feature names are derived from wagon produce/consume artifacts.
+    The artifact type determines which verbs are appropriate.
+    Features follow verb-object pattern where object comes from artifact domain or resource.
+
+  verb_selection:
+    by_artifact_type:
+      events:
+        description: "Past tense artifacts indicate completed actions or state transitions"
+        verbs: ["publish", "emit", "start", "close", "trigger", "notify"]
+        examples:
+          - artifact: "match:started"
+            feature: "start-match"
+            rationale: "Event 'started' suggests action 'start'"
+
+          - artifact: "wallet:credited"
+            feature: "credit-wallet"
+            rationale: "Event 'credited' suggests action 'credit'"
+
+      states:
+        description: "Adjectives or present participles indicating ongoing conditions"
+        verbs: ["track", "monitor", "maintain", "update", "manage"]
+        examples:
+          - artifact: "mechanic:timebank.remaining"
+            feature: "track-timebank"
+            rationale: "State 'remaining' requires tracking"
+
+          - artifact: "session:active"
+            feature: "maintain-session"
+            rationale: "State 'active' requires maintenance"
+
+      data:
+        description: "Nouns representing entities or information"
+        verbs: ["create", "manage", "process", "handle", "make", "generate"]
+        examples:
+          - artifact: "mechanic:decision.choice"
+            feature: "make-choice"
+            rationale: "Data 'choice' is made/created"
+
+          - artifact: "player:profile"
+            feature: "manage-profile"
+            rationale: "Data 'profile' is managed"
+
+      configs:
+        description: "Configuration or settings nouns"
+        verbs: ["configure", "setup", "initialize", "define", "establish"]
+        examples:
+          - artifact: "match:config"
+            feature: "configure-match"
+            rationale: "Config is configured/setup"
+
+          - artifact: "league:config"
+            feature: "define-league"
+            rationale: "Config defines league parameters"
+
+  transformation_guidance:
+    step_1: "Identify artifact from wagon produce/consume"
+    step_2: "Determine artifact type: event, state, data, or config"
+    step_3: "Select appropriate verb from type-specific verb list"
+    step_4: "Choose object: use domain OR resource depending on focus"
+    step_5: "Combine as: {verb}-{object} in kebab-case"
+
+  examples:
+    - wagon: "resolve-dilemmas"
+      artifact: "mechanic:decision.choice"
+      type: "data"
+      verb: "make"
+      object: "choice"
+      feature: "make-choice"
+
+    - wagon: "burn-timebank"
+      artifact: "mechanic:timebank.remaining"
+      type: "state"
+      verb: "track"
+      object: "timebank"
+      feature: "track-timebank"
+
+    - wagon: "play-match"
+      artifact: "match:started"
+      type: "event"
+      verb: "start"
+      object: "match"
+      feature: "start-match"
+
+# Footprint limits defined in schema
+footprint:
+  $ref: "schemas:planner:footprint"
+
+# Component-centric footprint scoring with universal complexity rubric
+footprint_scoring:
+  description: "Component-based architectural footprint using granular types from coder conventions"
+
+  complexity_rubric:
+    0: "Pure configuration/declaration (routes, dtos, events, ports, styles)"
+    0.5: "Simple transformation/validation (serializers, mappers, validators, hooks, filters)"
+    1: "Single-responsibility with business logic (controllers, services, clients, views)"
+    2: "Complex orchestration/state/persistence (use_cases, repositories, queues, workflows)"
+    3: "Very complex algorithms/integrations (engines with ML/graph/optimization)"
+
+  component_type_weights:
+    backend:
+      presentation:
+        controllers: 1
+        routes: 0
+        serializers: 0.5
+        validators: 0.5
+        middleware: 1
+        guards: 1
+        views: 1
+
+      application:
+        use_cases: 2
+        handlers: 1
+        ports: 0
+        dtos: 0
+        policies: 1
+        workflows: 2
+
+      domain:
+        entities: 1
+        value_objects: 0.5
+        aggregates: 2
+        services: 1
+        specifications: 0.5
+        events: 0
+        exceptions: 0
+
+      integration:
+        repositories: 2
+        clients: 1
+        caches: 0.5
+        engines: 3
+        formatters: 1
+        notifiers: 1
+        queues: 2
+        stores: 1
+        mappers: 0.5
+        schedulers: 2
+        monitors: 1
+
+    frontend:
+      presentation:
+        views: 1
+        components: 0.5
+        containers: 1
+        controllers: 2
+        routes: 0
+        layouts: 1
+        styles: 0
+        animations: 0.5
+        forms: 1
+        hooks: 0.5
+        directives: 0.5
+        filters: 0.5
+
+      application:
+        use_cases: 2
+        ports: 0
+        policies: 1
+        dtos: 0
+
+      domain:
+        entities: 1
+        value_objects: 0.5
+        services: 1
+        specifications: 0.5
+        exceptions: 0
+
+      integration:
+        repositories: 2
+        clients: 1
+        stores: 1
+        serializers: 0.5
+        mappers: 0.5
+        interceptors: 1
+        caches: 0.5
+        synchronizers: 2
+        monitors: 1
+        validators: 0.5
+        workers: 2
+        connectors: 1
+
+  calculation:
+    formula: "sum(component.count × weight[component.urn])"
+    rounding: "Round UP to nearest integer (ceiling function)"
+    examples:
+      integer: "2 controllers (2×1) + 1 repository (1×2) + 1 view (1×1) = 5 points → S bracket"
+      fractional: "3 serializers (3×0.5=1.5) + 2 controllers (2×1=2) = 3.5 → ceiling(3.5) = 4 points → S bracket"
+
+  brackets:
+    XS:
+      max: 5
+      description: "≤5 points"
+    S:
+      max: 10
+      description: "6-10 points"
+    M:
+      max: 15
+      description: "11-15 points — decompose if necessary"
+    L:
+      max: 25
+      description: "16-25 points — split"
+    XL:
+      min: 26
+      description: "≥26 points — split"
+
+  migration:
+    from_abstract_metrics: "Replaced screens/endpoints/tables with granular component types"
+    alignment:
+      old_endpoints: "controllers: 1"
+      old_new_tables: "repositories: 2"
+      old_screens: "views: 1"
+      old_async_jobs: "schedulers/queues/workers: 2"
+
+# Sizing rules for features (agent-optimized)
+sizing:
+  description: "Strict sizing rubric for AI agent work. Features MUST be S or smaller."
+  strategy: "blended"
+  rule: "Final feature size = max(WMBT size, Footprint size)"
+  final_size_rule: "max(wmbt_count_size, footprint_size)"
+
+  enforcement:
+    max_size: "S"
+    overflow_action: "Split or stage the feature before execution"
+
+  wmbt_brackets:
+    XS:
+      max: 5
+      description: "≤5 WMBTs"
+    S:
+      min: 6
+      max: 10
+      description: "6-10 WMBTs"
+    M:
+      min: 11
+      max: 20
+      description: "11-20 WMBTs — must be decomposed or staged"
+    L:
+      min: 21
+      description: ">20 WMBTs — split immediately"
+
+  approach:
+    pass1:
+      name: "Planning Pass"
+      description: "Size by WMBT-count to unblock decomposition"
+    pass2:
+      name: "Post-decomposition Pass"
+      description: "Compute footprint, reclassify size with max rule, gate M/L features"
+
+  constraints:
+    max_components: 8
+    max_events: 3
+    max_new_events: 3
+    description: "Each feature should have ≤8 components and emit/consume ≤3 new events"
+
+  hard_limits:
+    new_tables:
+      maximum: 2
+      rationale: "Carry high cost for maintenance, schema evolution, and performance impact"
+    async_jobs:
+      maximum: 2
+      rationale: "Add significant operational complexity (monitoring, retry logic, data inconsistency)"
+    integrations:
+      maximum: 2
+      rationale: "Introduce external dependencies, security vulnerabilities, and uncontrolled failure points"
+
+# Grouping strategies
+grouping_strategies:
+  by_step:
+    description: "Group WMBTs that share the same JTBD step"
+    max_per_group: 10
+
+  by_dimension:
+    description: "Group WMBTs that measure the same dimension"
+    max_per_group: 10
+
+  by_object:
+    description: "Group WMBTs that control the same object"
+    max_per_group: 10
+
+  by_coherence:
+    description: "Group WMBTs that form a coherent user story"
+    max_per_group: 10
+
+# Naming patterns
+naming:
+  pattern: "{verb}-{object}"
+  examples:
+    - "manage-inventory"
+    - "track-performance"
+    - "optimize-workflow"
+
+grouping_heuristics:
+  heuristics:
+    - "Shared object of control (e.g., timebank, ability, score)"
+    - "Shared metric kind (latency, likelihood, effort)"
+    - "Shared plane/domain (ui, be, nw, etc.)"
+    - "Same user story or flow"
+  avoid: "Miscellaneous buckets — every feature must be user-facing and cohesive"
+
+estimation:
+  from_wmbts:
+    display_animation: "likely screen/view"
+    apply_validate: "endpoint"
+    reconcile_persist: "table/migration"
+    notify_retry_queue: "async"
+  from_interfaces:
+    new_events: "event count"
+    external_consumes_produces: "integration points"
+  from_component_layers:
+    be_repository: "table/migration"
+    fe_presentation: "number of screens"
+
+rationale:
+  wmbt_count:
+    always_present: "Every wagon enumerates WMBTs; early-stage features can be sized immediately"
+    scope_safety: "Prevents feature bloat by tying size to explicit outcomes"
+    decomposition_driver: "Maps cleanly to test coverage and acceptance criteria"
+  architectural_footprint:
+    effort_proxy: "Screens, endpoints, tables, migrations, async jobs correlate with build/test/deploy time"
+    risk_surface: "Storage schemas, migrations, background workers carry failure modes not visible in WMBTs"
+    coordination_cost: "Cross-cutting infra (authZ, observability, caching) scales with endpoints/tables"
+
+schema_references:
+  feature: "schemas/planner/feature.schema.json"
+  note: "sizing field is defined inline in feature.schema.json (no separate sizing.schema.json)"
+
+validation_rules:
+  - "size field must equal max(WMBT size, Footprint size)"
+  - "covers_wmbts determines WMBT size bracket"
+  - "footprint scores architectural complexity using point system"
+  - "Features exceeding component/event limits must be split"
+  - "Features exceeding hard limits (tables/jobs/integrations) MUST be split"

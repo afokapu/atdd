@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Edge Function Test Harness Template",
+  "description": "Template for testing Supabase Edge Functions",
+  "language": "typescript",
+  "framework": "vitest",
+  "category": "backend",
+  "template": "\n// URN: {urn}\nimport { test, expect } from 'vitest';\nimport axios from 'axios';\n\ntest('{test_name}', async () => {{\n  const functionUrl = `${{process.env.SUPABASE_URL}}/functions/v1/{function_name}`;\n  const headers = {{\n    'Authorization': `Bearer ${{process.env.SUPABASE_ANON_KEY}}`,\n    'Content-Type': 'application/json'\n  }};\n\n  // Given\n  {given_setup}\n\n  // When\n  const response = await axios.post(\n    functionUrl,\n    {payload},\n    {{ headers, validateStatus: () => true }}\n  );\n\n  // Then\n  {then_assertions}\n\n  console.log(JSON.stringify({{\n    urn: '{urn}',\n    status: 'PASS',\n    details: {{ function: '{function_name}', status: response.status }}\n  }}));\n}});\n",
+  "variables": [
+    "urn",
+    "test_name",
+    "function_name",
+    "given_setup",
+    "payload",
+    "then_assertions"
+  ]
+}

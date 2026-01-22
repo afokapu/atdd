@@ -1,0 +1,361 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wagons.dev/schemas/coder/design_system.schema.json",
+  "title": "Design System Manifest",
+  "description": "Schema for design system manifest and component metadata",
+  "type": "object",
+  "required": ["version", "name", "layers"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of design system"
+    },
+    "name": {
+      "type": "string",
+      "description": "Design system name",
+      "default": "design_system"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of design system purpose"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When design system was first created"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time design system was modified"
+    },
+    "layers": {
+      "type": "object",
+      "required": ["tokens", "primitives", "components", "templates"],
+      "properties": {
+        "tokens": {
+          "$ref": "#/definitions/tokenLayer"
+        },
+        "primitives": {
+          "$ref": "#/definitions/primitiveLayer"
+        },
+        "components": {
+          "$ref": "#/definitions/componentLayer"
+        },
+        "templates": {
+          "$ref": "#/definitions/templateLayer"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Design system usage metrics",
+      "properties": {
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of wagons using design system"
+        },
+        "avg_component_reuse": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average number of wagons using each component"
+        },
+        "hardcoded_density": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of UI files with hardcoded values"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "tokenLayer": {
+      "type": "object",
+      "description": "Design tokens (spacing, radii, motion)",
+      "properties": {
+        "spacing": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/token"
+          },
+          "description": "Spacing scale tokens"
+        },
+        "radii": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/token"
+          },
+          "description": "Border radius tokens"
+        },
+        "motion": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/token"
+          },
+          "description": "Animation duration tokens"
+        }
+      }
+    },
+    "token": {
+      "type": "object",
+      "required": ["name", "value"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z]+$",
+          "description": "Token name (e.g., 's', 'm', 'l')",
+          "enum": ["xxs", "xs", "s", "m", "l", "xl", "xxl", "fast", "base", "slow"]
+        },
+        "value": {
+          "description": "Token value (numeric for spacing/radii, duration for motion)"
+        },
+        "unit": {
+          "type": "string",
+          "enum": ["px", "dp", "ms"],
+          "description": "Value unit"
+        },
+        "description": {
+          "type": "string",
+          "description": "Token usage description"
+        }
+      }
+    },
+    "primitiveLayer": {
+      "type": "object",
+      "description": "Primitive components (AppBox, AppText, AppIcon)",
+      "properties": {
+        "primitives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/primitive"
+          }
+        }
+      }
+    },
+    "primitive": {
+      "type": "object",
+      "required": ["name", "file_path", "abstraction_of"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^App[A-Z][a-zA-Z]*$",
+          "description": "Primitive name (e.g., AppBox, AppText)"
+        },
+        "file_path": {
+          "type": "string",
+          "pattern": ".*_primitive\\.dart$",
+          "description": "Relative file path from design_system/"
+        },
+        "abstraction_of": {
+          "type": "string",
+          "enum": ["Container", "Text", "Icon", "SizedBox", "Row", "Column", "Stack"],
+          "description": "Flutter widget being abstracted"
+        },
+        "description": {
+          "type": "string",
+          "description": "What this primitive provides"
+        },
+        "dependencies": {
+          "type": "object",
+          "properties": {
+            "tokens": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Token files imported"
+            },
+            "primitives": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Other primitives imported (rarely needed)"
+            }
+          }
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "componentLayer": {
+      "type": "object",
+      "description": "Composed components (AppButton, AppTextField)",
+      "properties": {
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/component"
+          }
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["name", "file_path", "composed_from"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^App[A-Z][a-zA-Z]*$",
+          "description": "Component name (e.g., AppButton, AppTextField)"
+        },
+        "file_path": {
+          "type": "string",
+          "pattern": ".*_component\\.dart$",
+          "description": "Relative file path from design_system/"
+        },
+        "composed_from": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Primitives used to build this component",
+          "minItems": 1
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Available component variants (e.g., primary, secondary)"
+        },
+        "sizes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["sm", "md", "lg"]
+          },
+          "description": "Available component sizes"
+        },
+        "description": {
+          "type": "string",
+          "description": "What this component provides"
+        },
+        "dependencies": {
+          "type": "object",
+          "properties": {
+            "tokens": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "primitives": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Other components (for complex components)"
+            }
+          }
+        },
+        "usage_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of wagons using this component"
+        },
+        "used_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of wagons using this component"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "templateLayer": {
+      "type": "object",
+      "description": "UI pattern templates (EmptyState, ListWithFilter)",
+      "properties": {
+        "templates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/template"
+          }
+        }
+      }
+    },
+    "template": {
+      "type": "object",
+      "required": ["name", "file_path", "pattern", "composed_from"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Template name (e.g., EmptyState, ListWithFilter)"
+        },
+        "file_path": {
+          "type": "string",
+          "pattern": ".*_template\\.dart$",
+          "description": "Relative file path from design_system/"
+        },
+        "pattern": {
+          "type": "string",
+          "description": "UI pattern description (e.g., 'Icon + Title + Description + Action')"
+        },
+        "composed_from": {
+          "type": "object",
+          "properties": {
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Components used in template"
+            },
+            "primitives": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Primitives used in template (for layout)"
+            }
+          },
+          "required": ["components"]
+        },
+        "configurable_props": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Configurable template properties"
+        },
+        "description": {
+          "type": "string",
+          "description": "What this template provides"
+        },
+        "usage_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of wagons using this template"
+        },
+        "used_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of wagons using this template"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

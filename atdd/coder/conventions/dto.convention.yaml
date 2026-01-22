@@ -1,0 +1,660 @@
+version: "1.0"
+name: "DTO Convention"
+description: "Data Transfer Objects and mapping patterns for wagon boundaries across all languages"
+
+purpose: |
+  Defines how to implement contract boundaries in code across Python, Dart, TypeScript, and other languages.
+
+  DTOs are the CODE-SIDE mirror of contract JSON schemas (spec side).
+  They enable type-safe wagon-to-wagon communication without coupling wagons together.
+
+  Key principle: Wagons communicate via contracts (DTOs), never via direct imports of domain entities.
+
+relationship:
+  mirrors: "contract.convention.yaml (spec side - language-agnostic JSON schemas)"
+  enforced_by: "boundaries.convention.yaml (forbidden cross-wagon imports)"
+  used_in: "green.convention.yaml (implementation guidance for wagon internals)"
+  generated_by: "coder agent (manual first, codegen later)"
+
+architecture:
+  layers:
+    1_contract_spec:
+      what: "JSON Schema files"
+      location: "contracts/{theme}/{domain}/{resource}.schema.json"
+      authority: "contract.convention.yaml"
+      owner: "tester agent"
+
+    2_contract_dto:
+      what: "Language-specific data classes mirroring schemas"
+      location: "python/contracts/, dart/lib/contracts/, ts/contracts/"
+      authority: "dto.convention.yaml (this file)"
+      owner: "coder agent"
+
+    3_domain_model:
+      what: "Wagon-internal business logic entities"
+      location: "{wagon}/src/domain/entities/"
+      authority: "green.convention.yaml"
+      owner: "coder agent"
+
+    4_mapper:
+      what: "DTO ↔ Domain conversion functions"
+      location: "{wagon}/src/integration/dto_mapping.{ext}"
+      authority: "dto.convention.yaml (mapper_patterns section)"
+      owner: "coder agent"
+
+  flow: |
+    Producer Wagon:
+      domain_model → mapper.domain_to_dto() → DTO → (serialize to JSON)
+
+    Contract Boundary:
+      JSON payload (validated against contract schema)
+
+    Consumer Wagon:
+      (deserialize from JSON) → DTO → mapper.dto_to_domain() → domain_model
+
+# ============================================================================
+# PYTHON
+# ============================================================================
+
+languages:
+  python:
+    version_support: "3.11+"
+
+    dto_structure:
+      base_class: "dataclass from dataclasses"
+      immutability: "frozen=True recommended for DTOs"
+      location_pattern: "python/contracts/{theme}/{domain}/{resource}.py"
+      naming_convention: "{Resource}DTO"
+      urn_marker: "# urn: contract:{theme}:{domain}:{resource}.dto"
+
+      file_header_template: |
+        """
+        # urn: contract:{theme}:{domain}:{resource}.dto
+
+        {Resource}DTO - Contract Data Transfer Object
+
+        Generated from: contracts/{theme}/{domain}/{resource}.schema.json
+        Contract: {theme}:{domain}:{resource}
+        Version: {version}
+
+        This DTO is a pure data structure with NO business logic.
+        It represents the contract boundary between wagons.
+
+        Producer: wagon:{producer_wagon}
+        Consumers: {consumer_list}
+        """
+        from dataclasses import dataclass
+        from typing import Optional, List, Dict, Any
+
+        @dataclass(frozen=True)
+        class {Resource}DTO:
+            """Contract DTO for {theme}:{domain}:{resource}"""
+            # fields derived from JSON schema
+
+      examples:
+        simple:
+          schema_file: "contracts/match/dilemma/current.schema.json"
+          dto_file: "python/contracts/match/dilemma/current.py"
+          code: |
+            """
+            # urn: contract:match:dilemma.current.dto
+
+            CurrentDilemmaDTO - Contract Data Transfer Object
+            """
+            from dataclasses import dataclass
+            from typing import Optional
+
+            @dataclass(frozen=True)
+            class FragmentDTO:
+                """Fragment within a dilemma"""
+                id: str
+                label: str
+                description: str
+                kg_subject: str
+                domain_attribute: str
+
+            @dataclass(frozen=True)
+            class CurrentDilemmaDTO:
+                """Current dilemma for player presentation"""
+                id: str
+                fragment_a: FragmentDTO
+                fragment_b: FragmentDTO
+                selection_metadata: Optional[dict] = None
+                presentation: Optional[dict] = None
+
+    type_mapping:
+      description: "JSON Schema types → Python types"
+      primitives:
+        string: "str"
+        integer: "int"
+        number: "float"
+        boolean: "bool"
+        "null": "None"
+
+      containers:
+        array: "List[T]"
+        object: "Dict[str, Any]"
+
+      optionality:
+        required_field: "field_name: str"
+        optional_field: "field_name: Optional[str] = None"
+
+      format_specific:
+        "date-time": "str  # ISO 8601 string, not datetime object in DTO"
+        uuid: "str  # UUID string, not UUID object in DTO"
+        uri: "str"
+        email: "str"
+
+      rationale: |
+        DTOs use simple types (str, int, float) rather than rich types (datetime, UUID, Decimal)
+        because DTOs cross boundaries and must serialize/deserialize cleanly.
+        Rich types belong in domain models, not DTOs.
+
+    mapper_patterns:
+      location: "{wagon}/src/integration/dto_mapping.py"
+      naming:
+        to_domain: "dto_to_domain()"
+        to_dto: "domain_to_dto()"
+
+      file_structure: |
+        """
+        DTO Mapping - Integration Layer
+
+        Converts between contract DTOs and wagon domain models.
+        """
+        from contracts.{theme}.{domain}.{resource} import {Resource}DTO
+        from {wagon}.src.domain.entities.{resource} import {Resource}
+
+        def dto_to_domain(dto: {Resource}DTO) -> {Resource}:
+            """
+            Convert contract DTO to wagon domain model.
+
+            This is where you:
+            - Parse/validate rich types (str → UUID, str → datetime)
+            - Apply domain-specific business rules
+            - Enrich with wagon-specific context
+
+            Args:
+                dto: Contract DTO from producer wagon
+
+            Returns:
+                Domain model for this wagon's internal use
+            """
+            return {Resource}(
+                id=UUID(dto.id),  # str → UUID
+                # ... map fields, apply business logic
+            )
+
+        def domain_to_dto(entity: {Resource}) -> {Resource}DTO:
+            """
+            Convert wagon domain model to contract DTO.
+
+            This is where you:
+            - Serialize rich types (UUID → str, datetime → str)
+            - Project to contract shape (may omit internal fields)
+            - Ensure contract compliance
+
+            Args:
+                entity: Domain model from this wagon
+
+            Returns:
+                Contract DTO for consumer wagons
+            """
+            return {Resource}DTO(
+                id=str(entity.id),  # UUID → str
+                # ... map fields to DTO shape
+            )
+
+      examples:
+        full_mapper:
+          file: "python/resolve_dilemmas/src/integration/dto_mapping.py"
+          code: |
+            from uuid import UUID
+            from contracts.match.dilemma.current import CurrentDilemmaDTO, FragmentDTO
+            from resolve_dilemmas.src.domain.entities.dilemma import Dilemma
+            from resolve_dilemmas.src.domain.entities.fragment import Fragment
+
+            def dto_to_domain(dto: CurrentDilemmaDTO) -> Dilemma:
+                """Convert CurrentDilemmaDTO to Dilemma domain model."""
+                return Dilemma(
+                    id=UUID(dto.id),
+                    fragment_a=fragment_dto_to_domain(dto.fragment_a),
+                    fragment_b=fragment_dto_to_domain(dto.fragment_b),
+                    # May add wagon-specific enrichment here
+                )
+
+            def fragment_dto_to_domain(dto: FragmentDTO) -> Fragment:
+                """Convert FragmentDTO to Fragment domain model."""
+                return Fragment(
+                    id=UUID(dto.id),
+                    label=dto.label,
+                    description=dto.description,
+                    kg_subject=dto.kg_subject,
+                    domain_attribute=dto.domain_attribute,
+                )
+
+            def domain_to_dto(entity: Dilemma) -> CurrentDilemmaDTO:
+                """Convert Dilemma domain model to CurrentDilemmaDTO."""
+                return CurrentDilemmaDTO(
+                    id=str(entity.id),
+                    fragment_a=fragment_domain_to_dto(entity.fragment_a),
+                    fragment_b=fragment_domain_to_dto(entity.fragment_b),
+                )
+
+            def fragment_domain_to_dto(entity: Fragment) -> FragmentDTO:
+                """Convert Fragment domain model to FragmentDTO."""
+                return FragmentDTO(
+                    id=str(entity.id),
+                    label=entity.label,
+                    description=entity.description,
+                    kg_subject=entity.kg_subject,
+                    domain_attribute=entity.domain_attribute,
+                )
+
+    validation:
+      dto_validation: "DTOs should be validated against JSON schema after deserialization"
+      mapper_validation: "Mappers should validate domain invariants when creating domain models"
+      testing: "Each mapper should have unit tests covering both directions (dto→domain, domain→dto)"
+
+# ============================================================================
+# DART
+# ============================================================================
+
+  dart:
+    version_support: "3.0+"
+
+    dto_structure:
+      base_class: "none (plain immutable class with const constructor)"
+      immutability: "All fields final"
+      location_pattern: "dart/lib/contracts/{theme}/{domain}/{resource}.dart"
+      naming_convention: "{Resource}Dto"
+
+      file_header_template: |
+        /// # urn: contract:{theme}:{domain}:{resource}.dto
+        ///
+        /// {Resource}Dto - Contract Data Transfer Object
+        ///
+        /// Generated from: contracts/{theme}/{domain}/{resource}.schema.json
+        /// Contract: {theme}:{domain}:{resource}
+        /// Version: {version}
+        ///
+        /// This DTO is a pure data structure with NO business logic.
+        /// It represents the contract boundary between wagons.
+
+        class {Resource}Dto {
+          const {Resource}Dto({
+            required this.field1,
+            required this.field2,
+          });
+
+          final String field1;
+          final int field2;
+
+          Map<String, dynamic> toJson() => {
+            'field1': field1,
+            'field2': field2,
+          };
+
+          factory {Resource}Dto.fromJson(Map<String, dynamic> json) => {Resource}Dto(
+            field1: json['field1'] as String,
+            field2: json['field2'] as int,
+          );
+        }
+
+      examples:
+        simple:
+          schema_file: "contracts/match/dilemma/current.schema.json"
+          dto_file: "dart/lib/contracts/match/dilemma/current.dart"
+          code: |
+            /// # urn: contract:match:dilemma.current.dto
+
+            class FragmentDto {
+              const FragmentDto({
+                required this.id,
+                required this.label,
+                required this.description,
+                required this.kgSubject,
+                required this.domainAttribute,
+              });
+
+              final String id;
+              final String label;
+              final String description;
+              final String kgSubject;
+              final String domainAttribute;
+
+              Map<String, dynamic> toJson() => {
+                'id': id,
+                'label': label,
+                'description': description,
+                'kg_subject': kgSubject,
+                'domain_attribute': domainAttribute,
+              };
+
+              factory FragmentDto.fromJson(Map<String, dynamic> json) => FragmentDto(
+                id: json['id'] as String,
+                label: json['label'] as String,
+                description: json['description'] as String,
+                kgSubject: json['kg_subject'] as String,
+                domainAttribute: json['domain_attribute'] as String,
+              );
+            }
+
+            class CurrentDilemmaDto {
+              const CurrentDilemmaDto({
+                required this.id,
+                required this.fragmentA,
+                required this.fragmentB,
+                this.selectionMetadata,
+                this.presentation,
+              });
+
+              final String id;
+              final FragmentDto fragmentA;
+              final FragmentDto fragmentB;
+              final Map<String, dynamic>? selectionMetadata;
+              final Map<String, dynamic>? presentation;
+
+              Map<String, dynamic> toJson() => {
+                'id': id,
+                'fragment_a': fragmentA.toJson(),
+                'fragment_b': fragmentB.toJson(),
+                if (selectionMetadata != null) 'selection_metadata': selectionMetadata,
+                if (presentation != null) 'presentation': presentation,
+              };
+
+              factory CurrentDilemmaDto.fromJson(Map<String, dynamic> json) => CurrentDilemmaDto(
+                id: json['id'] as String,
+                fragmentA: FragmentDto.fromJson(json['fragment_a'] as Map<String, dynamic>),
+                fragmentB: FragmentDto.fromJson(json['fragment_b'] as Map<String, dynamic>),
+                selectionMetadata: json['selection_metadata'] as Map<String, dynamic>?,
+                presentation: json['presentation'] as Map<String, dynamic>?,
+              );
+            }
+
+    type_mapping:
+      description: "JSON Schema types → Dart types"
+      primitives:
+        string: "String"
+        integer: "int"
+        number: "double"
+        boolean: "bool"
+        "null": "null"
+
+      containers:
+        array: "List<T>"
+        object: "Map<String, dynamic>"
+
+      optionality:
+        required_field: "required this.fieldName"
+        optional_field: "this.fieldName"
+
+      format_specific:
+        "date-time": "String  // ISO 8601 string"
+        uuid: "String  // UUID string"
+        uri: "String"
+        email: "String"
+
+    mapper_patterns:
+      location: "{wagon}/lib/integration/dto_mapping.dart"
+      naming:
+        to_domain: "dtoToDomain()"
+        to_dto: "domainToDto()"
+
+      file_structure: |
+        import 'package:contracts/match/dilemma/current.dart';
+        import 'package:{wagon}/domain/entities/dilemma.dart';
+
+        Dilemma dtoToDomain(CurrentDilemmaDto dto) {
+          return Dilemma(
+            id: dto.id,
+            // ... map fields
+          );
+        }
+
+        CurrentDilemmaDto domainToDto(Dilemma entity) {
+          return CurrentDilemmaDto(
+            id: entity.id,
+            // ... map fields
+          );
+        }
+
+# ============================================================================
+# TYPESCRIPT
+# ============================================================================
+
+  typescript:
+    version_support: "5.0+"
+
+    dto_structure:
+      base_class: "interface (or type alias)"
+      immutability: "readonly properties"
+      location_pattern: "ts/contracts/{theme}/{domain}/{resource}.ts"
+      naming_convention: "{Resource}DTO"
+
+      file_header_template: |
+        /**
+         * # urn: contract:{theme}:{domain}:{resource}.dto
+         *
+         * {Resource}DTO - Contract Data Transfer Object
+         *
+         * Generated from: contracts/{theme}/{domain}/{resource}.schema.json
+         * Contract: {theme}:{domain}:{resource}
+         * Version: {version}
+         */
+
+        export interface {Resource}DTO {
+          readonly field1: string;
+          readonly field2: number;
+        }
+
+      examples:
+        simple:
+          schema_file: "contracts/match/dilemma/current.schema.json"
+          dto_file: "ts/contracts/match/dilemma/current.ts"
+          code: |
+            /**
+             * # urn: contract:match:dilemma.current.dto
+             */
+
+            export interface FragmentDTO {
+              readonly id: string;
+              readonly label: string;
+              readonly description: string;
+              readonly kg_subject: string;
+              readonly domain_attribute: string;
+            }
+
+            export interface CurrentDilemmaDTO {
+              readonly id: string;
+              readonly fragment_a: FragmentDTO;
+              readonly fragment_b: FragmentDTO;
+              readonly selection_metadata?: Record<string, unknown>;
+              readonly presentation?: Record<string, unknown>;
+            }
+
+    type_mapping:
+      description: "JSON Schema types → TypeScript types"
+      primitives:
+        string: "string"
+        integer: "number"
+        number: "number"
+        boolean: "boolean"
+        "null": "null"
+
+      containers:
+        array: "Array<T> or T[]"
+        object: "Record<string, unknown> or { [key: string]: unknown }"
+
+      optionality:
+        required_field: "fieldName: string"
+        optional_field: "fieldName?: string"
+
+      format_specific:
+        "date-time": "string  // ISO 8601 string"
+        uuid: "string  // UUID string"
+        uri: "string"
+        email: "string"
+
+    mapper_patterns:
+      location: "{wagon}/src/integration/dtoMapping.ts"
+      naming:
+        to_domain: "dtoToDomain()"
+        to_dto: "domainToDto()"
+
+      file_structure: |
+        import type { CurrentDilemmaDTO } from '@contracts/match/dilemma/current';
+        import { Dilemma } from '@{wagon}/domain/entities/dilemma';
+
+        export function dtoToDomain(dto: CurrentDilemmaDTO): Dilemma {
+          return new Dilemma({
+            id: dto.id,
+            // ... map fields
+          });
+        }
+
+        export function domainToDto(entity: Dilemma): CurrentDilemmaDTO {
+          return {
+            id: entity.id,
+            // ... map fields
+          };
+        }
+
+# ============================================================================
+# VALIDATION & ENFORCEMENT
+# ============================================================================
+
+validation:
+  dto_requirements:
+    - rule: "DTOs MUST be pure data structures with NO methods (except serialization)"
+      violation: "Adding business logic to DTO"
+      fix: "Move logic to domain model or mapper"
+
+    - rule: "DTOs MUST match contract schema exactly (fields, types, optionality)"
+      violation: "DTO diverges from schema"
+      fix: "Regenerate DTO from schema or update schema"
+
+    - rule: "DTOs MUST use simple types (str, int, float), not rich types (UUID, datetime)"
+      violation: "DTO has UUID field instead of str"
+      fix: "Use str in DTO, convert in mapper"
+
+    - rule: "DTOs MUST be immutable (frozen=True in Python, final in Dart, readonly in TS)"
+      violation: "Mutable DTO field"
+      fix: "Make all fields immutable"
+
+  mapper_requirements:
+    - rule: "Mappers MUST live in integration layer, never in domain"
+      violation: "Mapper in domain/entities/"
+      fix: "Move to {wagon}/src/integration/dto_mapping.{ext}"
+
+    - rule: "Mappers MUST handle both directions (dto→domain, domain→dto)"
+      violation: "Only one-way mapper"
+      fix: "Implement both conversion functions"
+
+    - rule: "Mappers MUST validate domain invariants when creating domain models"
+      violation: "Mapper creates invalid domain object"
+      fix: "Add validation in dto_to_domain()"
+
+    - rule: "Mappers MUST NOT call other wagons' code"
+      violation: "Mapper imports from another wagon"
+      fix: "Use composition or pass dependencies"
+
+  testing_requirements:
+    - "Each DTO MUST have serialization round-trip test (toJson/fromJson)"
+    - "Each mapper MUST have unit tests for both directions"
+    - "Mapper tests MUST verify domain invariants are enforced"
+    - "Integration tests MUST verify DTOs match contract schemas"
+    - "Integration tests MUST use ID comparison (not object identity) when asserting DTO→Entity conversions"
+
+  testing_patterns:
+    dto_entity_boundary_assertions:
+      problem: "After DTO→Entity conversion, object identity (in operator) fails"
+      reason: "Mapper creates new entity instances; DTO and Entity are different objects"
+
+      antipattern:
+        code: |
+          # ❌ WRONG: Object identity fails after DTO→Entity conversion
+          returned_entity = use_case.execute(dto_list)
+          assert returned_entity in dto_list  # FAILS: different types/instances
+
+        why_fails: "Python 'in' operator uses __eq__ or identity; Entity ≠ DTO"
+
+      correct_pattern:
+        code: |
+          # ✅ CORRECT: Use ID comparison across DTO/Entity boundary
+          returned_entity = use_case.execute(dto_list)
+          dto_ids = {dto.id for dto in dto_list}
+          assert returned_entity.id in dto_ids  # PASSES: ID is stable
+
+        rationale: "IDs are stable across DTO/Entity boundary per contract"
+
+      when_to_use:
+        - "Integration tests where use cases accept DTOs but return entities"
+        - "Tests validating that returned data came from input pool"
+        - "Pairing/selection algorithms that filter input lists"
+
+      examples:
+        - "Fragment pairing: assert dilemma.fragment_a.id in {f.id for f in fragments}"
+        - "Hot pool selection: assert selected.id in {f.id for f in warm_library}"
+        - "Domain filtering: assert choice.id in {c.id for c in available_choices}"
+
+  enforcement:
+    test_location: "atdd/coder/test_wagon_boundaries.py"
+    rules:
+      - "No cross-wagon imports of domain entities (use DTOs)"
+      - "No cross-wagon imports of use cases or controllers (never allowed)"
+      - "DTOs must live in neutral contracts/ namespace"
+      - "Mappers must live in wagon integration/ layer"
+
+# ============================================================================
+# GENERATION STRATEGY
+# ============================================================================
+
+generation:
+  phase_1_manual:
+    when: "Initial implementation (now)"
+    scope: "First 2-3 contracts (Fragment, Dilemma)"
+    process:
+      - "Read JSON schema"
+      - "Hand-write DTO following patterns above"
+      - "Hand-write mapper following patterns above"
+      - "Validate with tests"
+    goal: "Establish pattern and validate conventions"
+
+  phase_2_codegen:
+    when: "After pattern is validated"
+    scope: "Remaining contracts"
+    tools:
+      - "Custom generator reading contracts/**/*.schema.json"
+      - "Emits python/contracts/, dart/lib/contracts/, ts/contracts/"
+      - "Idempotent and safe to re-run"
+    considerations:
+      - "May use datamodel-code-generator as base for Python"
+      - "Need custom wrapper for URN comments and naming"
+      - "Should respect this convention file"
+
+# ============================================================================
+# CROSS-REFERENCES
+# ============================================================================
+
+references:
+  spec_authority: ".claude/conventions/tester/contract.convention.yaml"
+  enforcement: ".claude/conventions/coder/boundaries.convention.yaml"
+  implementation: ".claude/conventions/coder/green.convention.yaml"
+  testing: "atdd/coder/test_wagon_boundaries.py"
+
+cross_convention_rules:
+  from_contract_convention:
+    - "JSON schema is source of truth for DTO structure"
+    - "Contract $id maps to DTO URN"
+    - "Contract versioning drives DTO versioning"
+
+  to_boundaries_convention:
+    - "DTOs are the ONLY allowed cross-wagon data type"
+    - "Use cases/controllers NEVER cross boundaries"
+    - "Qualified imports only (python/contracts/..., never from wagon)"
+
+  to_green_convention:
+    - "Domain models are wagon-internal"
+    - "Mappers live in integration layer"
+    - "Clean Architecture respected within wagons"

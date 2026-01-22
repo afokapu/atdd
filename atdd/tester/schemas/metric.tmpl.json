@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Metric Test Harness Template",
+  "description": "Template for metric/monitoring tests",
+  "language": "python",
+  "framework": "pytest",
+  "category": "integration",
+  "template": "\n# URN: {urn}\nimport pytest\nimport json\nfrom datetime import datetime, timedelta\n{imports}\n\ndef test_{test_name}():\n    # Given\n    {given_setup}\n    \n    # When\n    start_time = datetime.now() - timedelta(minutes={window_minutes})\n    metrics = {metric_query}\n    \n    # Then\n    {then_assertions}\n    \n    print(json.dumps({{\n        'urn': '{urn}',\n        'status': 'PASS',\n        'details': {{\n            'metric': '{metric_name}',\n            'value': metrics.get('value')\n        }}\n    }}))\n",
+  "variables": [
+    "urn",
+    "test_name",
+    "imports",
+    "given_setup",
+    "window_minutes",
+    "metric_query",
+    "metric_name",
+    "then_assertions"
+  ]
+}

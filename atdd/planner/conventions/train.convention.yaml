@@ -1,0 +1,552 @@
+version: "1.0"
+name: "Train Convention"
+description: "Convention for multi-wagon workflow orchestration with theme-based numbering"
+
+# Production implementation (SESSION-12)
+production_implementation:
+  location: "python/trains/"
+  executor: "TrainRunner (python/trains/runner.py)"
+  pattern: "Trains are production orchestration, not test infrastructure"
+  convention: "atdd/coder/conventions/train.convention.yaml"
+  note: "See coder train convention for implementation patterns"
+
+# Train structure defined in schema
+structure:
+  $ref: "schemas:planner:train"
+
+# Hierarchical numbering system: [Theme][Category][Variation]
+numbering:
+  pattern: "{theme_digit}{category_digit}{variation_digits}-{kebab-case-name}"
+  description: "Four-digit hierarchical prefix: [Theme 0-9][Category 0-3][Variation 01-99] + kebab-case name"
+
+  structure:
+    theme: "Single digit 0-9 identifying the theme"
+    category: "Single digit 0-3 identifying the test category"
+    variation: "Two digits 01-99 identifying specific train within category"
+
+  categories:
+    "0":
+      name: "nominal"
+      description: "Happy path - perfect conditions, standard flows"
+      examples:
+        - "0001-auth-session-standard"
+        - "2001-story-to-graph-perfect"
+        - "3001-solo-match-complete"
+
+    "1":
+      name: "error"
+      description: "Unexpected system failures - crashes, unavailability, infrastructure issues"
+      examples:
+        - "0101-auth-service-offline"
+        - "2101-graph-database-offline"
+        - "3101-state-commit-service-crash"
+
+    "2":
+      name: "alternate"
+      description: "Valid alternative flows - different inputs, modes, configurations"
+      examples:
+        - "0201-sso-authentication"
+        - "2201-xml-source-conversion"
+        - "3201-match-with-pause-resume"
+
+    "3":
+      name: "exception"
+      description: "Expected failures handled gracefully - validation errors, business rule violations"
+      examples:
+        - "0301-invalid-credentials"
+        - "2301-empty-input-file"
+        - "3301-fragment-pool-exhausted"
+
+  theme_ranges:
+    commons:
+      theme_digit: "0"
+      category_range: "00-03"
+      variation_range: "01-99"
+      description: "Identity, session, account, identifiers, UX systems"
+      capacity: "400 trains (4 categories × 100 variations)"
+      examples:
+        - "0001-auth-session-standard (nominal)"
+        - "0101-auth-service-offline (error)"
+        - "0201-sso-authentication (alternate)"
+        - "0301-invalid-credentials (exception)"
+
+    mechanic:
+      theme_digit: "1"
+      category_range: "10-13"
+      variation_range: "01-99"
+      description: "Core decision loop, timebank, predictions, domain impacts"
+      capacity: "400 trains (4 categories × 100 variations)"
+      examples:
+        - "1001-decision-standard (nominal)"
+        - "1101-state-commit-service-crash (error)"
+        - "1201-instant-decision-no-timebank (alternate)"
+        - "1301-timebank-exhausted (exception)"
+
+    scenario:
+      theme_digit: "2"
+      category_range: "20-23"
+      variation_range: "01-99"
+      description: "Story processing, curation, graph construction, fragments"
+      capacity: "400 trains (4 categories × 100 variations)"
+      examples:
+        - "2001-story-to-graph-perfect (nominal)"
+        - "2101-graph-database-offline (error)"
+        - "2201-xml-source-conversion (alternate)"
+        - "2301-empty-input-file (exception)"
+
+    match:
+      theme_digit: "3"
+      category_range: "30-33"
+      variation_range: "01-99"
+      description: "Solo, duel, team gameplay orchestration"
+      capacity: "400 trains (4 categories × 100 variations)"
+      examples:
+        - "3001-solo-match-complete (nominal)"
+        - "3101-state-commit-service-crash (error)"
+        - "3201-match-with-pause-resume (alternate)"
+        - "3301-fragment-pool-exhausted (exception)"
+
+    sensory:
+      theme_digit: "4"
+      category_range: "40-43"
+      variation_range: "01-99"
+      description: "Gesture interpretation, tone, feedback, audio, haptics"
+      capacity: "400 trains (4 categories × 100 variations)"
+      examples:
+        - "4001-gesture-interpretation-standard (nominal)"
+        - "4101-gesture-sensor-failure (error)"
+        - "4201-keyboard-input-fallback (alternate)"
+        - "4301-ambiguous-gesture-detected (exception)"
+
+    player:
+      theme_digit: "5"
+      category_range: "50-53"
+      variation_range: "01-99"
+      description: "Onboarding, progression, achievements, review"
+      capacity: "400 trains (4 categories × 100 variations)"
+      examples:
+        - "5001-rating-update-standard (nominal)"
+        - "5101-rating-service-unavailable (error)"
+        - "5201-provisional-rating-period (alternate)"
+        - "5301-achievement-already-unlocked (exception)"
+
+    league:
+      theme_digit: "6"
+      category_range: "60-63"
+      variation_range: "01-99"
+      description: "Tournaments, brackets, leaderboards, rewards"
+      capacity: "400 trains (4 categories × 100 variations)"
+      examples:
+        - "6001-league-definition-standard (nominal)"
+        - "6101-leaderboard-service-crash (error)"
+        - "6201-league-delegation-to-partner (alternate)"
+        - "6301-insufficient-participants (exception)"
+
+    audience:
+      theme_digit: "7"
+      category_range: "70-73"
+      variation_range: "01-99"
+      description: "Streaming, donations, viewer engagement"
+      capacity: "400 trains (4 categories × 100 variations)"
+      examples:
+        - "7001-stream-broadcast-standard (nominal)"
+        - "7101-streaming-platform-offline (error)"
+        - "7201-multi-platform-broadcast (alternate)"
+        - "7301-donation-insufficient-balance (exception)"
+
+    monetization:
+      theme_digit: "8"
+      category_range: "80-83"
+      variation_range: "01-99"
+      description: "Wallets, cameo flows, transactions, reconciliation"
+      capacity: "400 trains (4 categories × 100 variations)"
+      examples:
+        - "8001-wallet-initialization-standard (nominal)"
+        - "8101-wallet-service-unavailable (error)"
+        - "8201-sponsor-backed-minting (alternate)"
+        - "8301-insufficient-balance-for-spend (exception)"
+
+    partnership:
+      theme_digit: "9"
+      category_range: "90-93"
+      variation_range: "01-99"
+      description: "Sponsors, partners, personas, attribution, reporting"
+      capacity: "400 trains (4 categories × 100 variations)"
+      examples:
+        - "9001-sponsor-onboarding-standard (nominal)"
+        - "9101-reporting-service-crash (error)"
+        - "9201-multi-sponsor-agreement (alternate)"
+        - "9301-sponsor-agreement-expired (exception)"
+
+  capacity:
+    per_theme: 400
+    per_category: 100
+    total_system: 4000
+    description: "10 themes × 4 categories × 100 variations = 4,000 possible trains"
+
+  validation:
+    pattern: "^[0-9]{4}-[a-z][a-z0-9-]*$"
+    theme_digit: "Position 0: Theme category (0-9)"
+    category_digit: "Position 1: Test category (0=nominal, 1=error, 2=alternate, 3=exception)"
+    variation_digits: "Position 2-3: Variation within category (01-99)"
+    name_part: "kebab-case descriptive name"
+
+# URN naming pattern
+urn_naming:
+  pattern: "train:{train_id}"
+  description: "Unique identifier for train using hierarchical theme-category-variation-name format"
+
+  examples:
+    - urn: "train:2001-story-to-graph-perfect"
+      train_id: "2001-story-to-graph-perfect"
+      theme: "scenario"
+      theme_digit: "2"
+      category: "nominal"
+      category_digit: "0"
+      variation: 1
+
+  theme_orchestrator_urn:
+    pattern: "urn: train:{theme}:{train_id}"
+    description: "Theme-level implementation of specific train workflows"
+    location: "python/shared/{theme}.py"
+
+    examples:
+      - urn: "train:mechanic:1001-decision-standard"
+        file: "python/shared/mechanic.py"
+        theme: "mechanic"
+        train_id: "1001-decision-standard"
+        description: "Implements standard decision flow: pace → resolve → commit → juggle"
+
+      - urn: "train:match:3001-match-setup-standard"
+        file: "python/shared/match.py"
+        theme: "match"
+        train_id: "3001-match-setup-standard"
+        description: "Implements match setup: supply-fragments → setup-match → play-match"
+
+    multi_train_format:
+      pattern: "Multiple URN lines for files implementing multiple trains"
+      example: |
+        # urn: train:match:3001-match-setup-standard
+        # urn: train:match:3004-match-completion-standard
+        # urn: train:match:3005-match-turn-cycle-standard
+
+    rationale: |
+      Theme orchestrators implement the workflows defined in train YAML files.
+      Each orchestrator can implement multiple trains within its theme.
+      URN format: train:{theme}:{train_id} directly references the train specification.
+
+  examples_continued:
+    - urn: "train:3301-fragment-pool-exhausted"
+      train_id: "3301-fragment-pool-exhausted"
+      theme: "match"
+      theme_digit: "3"
+      category: "exception"
+      category_digit: "3"
+      variation: 1
+
+    - urn: "train:0101-auth-service-offline"
+      train_id: "0101-auth-service-offline"
+      theme: "commons"
+      theme_digit: "0"
+      category: "error"
+      category_digit: "1"
+      variation: 1
+
+# Registry organization
+registry:
+  structure: "theme-category-grouped"
+  description: "Trains grouped by theme, then by category (nominal/error/alternate/exception) in _trains.yaml manifest"
+
+  format: |
+    trains:
+      0-commons:
+        00-commons-nominal:
+          - train_id: 0001-auth-session-standard
+            description: Standard authentication flow with session initialization
+            path: plan/_trains/0001-auth-session-standard.yaml
+            wagons: [authenticate-identity, init-session]
+
+        01-commons-error:
+          - train_id: 0101-auth-service-offline
+            description: Authentication service unavailable during login
+            path: plan/_trains/0101-auth-service-offline.yaml
+            wagons: [authenticate-identity]
+
+        02-commons-alternate:
+          - train_id: 0201-sso-authentication
+            description: Single sign-on authentication flow
+            path: plan/_trains/0201-sso-authentication.yaml
+            wagons: [authenticate-identity, init-session]
+
+        03-commons-exception:
+          - train_id: 0301-invalid-credentials
+            description: User provides invalid credentials (expected failure)
+            path: plan/_trains/0301-invalid-credentials.yaml
+            wagons: [authenticate-identity]
+
+      2-scenario:
+        20-scenario-nominal:
+          - train_id: 2001-story-to-graph-perfect
+            description: Perfect story conversion to knowledge graph
+            path: plan/_trains/2001-story-to-graph-perfect.yaml
+            wagons: [curate-scenario, prepare-materials, model-scenario, construct-graph]
+
+  path_structure: "plan/_trains/{train_id}.yaml"
+
+  benefits:
+    - "Flat file structure - no subdirectories needed"
+    - "Train ID contains all metadata (theme, category, variation)"
+    - "Simple file organization - all trains in single directory"
+    - "Natural sorting by train ID (numeric order)"
+    - "4-category structure mirrors WMBT test categories"
+
+# Naming conventions
+naming:
+  train_id:
+    pattern: "{number}-{descriptive-name}"
+    format: "kebab-case"
+    preference: "Action-object or flow-descriptor pattern"
+    examples:
+      - "20-story-to-scenario (process flow)"
+      - "30-match-solo (mode-type)"
+      - "00-auth-session (action-object)"
+
+  title:
+    format: "Title Case"
+    description: "Human-readable name for display"
+    examples:
+      - "Story to Scenario Pipeline"
+      - "Match Solo Core Loop"
+      - "Auth Session Handshake"
+
+  file_naming:
+    pattern: "{train_id}.yaml"
+    location: "plan/_trains/"
+    structure: "flat (no subdirectories)"
+    examples:
+      - "plan/_trains/0001-auth-session-standard.yaml"
+      - "plan/_trains/2001-story-to-graph-perfect.yaml"
+      - "plan/_trains/3001-solo-match-complete.yaml"
+      - "plan/_trains/4301-ambiguous-gesture-detected.yaml"
+
+# Theme alignment
+theme_alignment:
+  description: "Train themes should align with primary wagon themes"
+  rules:
+    - "Primary theme = first digit of train_id"
+    - "Secondary themes allowed when train spans multiple themes"
+    - "Most wagons in train should match primary theme"
+
+  examples:
+    - train_id: "20-story-to-scenario"
+      themes: ["scenario"]
+      wagons: ["prepare-materials", "model-scenario", "construct-graph"]
+      alignment: "All wagons are scenario theme"
+
+    - train_id: "30-match-solo"
+      themes: ["match", "mechanic"]
+      wagons: ["play-match", "pace-dilemmas", "resolve-dilemmas", "burn-timebank"]
+      alignment: "Mix of match and mechanic wagons"
+
+# Dependency patterns
+dependencies:
+  format: "train:{train_id}"
+  description: "Reference prerequisite trains that must run first"
+
+  patterns:
+    foundation_first:
+      description: "Commons trains (00-09) often precede others"
+      examples:
+        - "train:00-auth-session required before train:30-match-solo"
+        - "train:01-account-registration required before train:00-auth-session"
+
+    data_flow:
+      description: "Trains consuming artifacts depend on producing trains"
+      examples:
+        - "train:30-match-solo depends on train:21-scenario-curation for fragments"
+        - "train:21-scenario-curation depends on train:20-story-to-scenario for graphs"
+
+  validation:
+    pattern: "^train:[0-9]{2}-[a-z][a-z0-9-]*$"
+    circular: "Circular dependencies are not allowed"
+
+# Train scope and sizing
+scope:
+  wagon_count:
+    recommended_range: "3-7 wagons"
+    rationale: "Trains should tell ONE coherent journey with clear outcome"
+
+  guidelines:
+    minimum: "2 wagons (too simple, might just be a step)"
+    sweet_spot: "3-7 wagons (focused journey with clear narrative)"
+    warning: "8-12 wagons (review for multiple journeys)"
+    antipattern: "13+ wagons (definitely multiple journeys - decompose)"
+
+  examples:
+    good_5_wagon:
+      train_id: "1001-decision-standard"
+      wagons: 5
+      journey: "Player makes decision and sees domain impact"
+      outcome: "ONE clear result: Domain impact visualization"
+
+    good_6_wagon:
+      train_id: "1004-decision-with-domain-preview"
+      wagons: 6
+      journey: "Player explores domain before deciding"
+      outcome: "ONE clear result: Informed decision after preview"
+
+    bad_16_wagon:
+      train_id: "3001-solo-match-complete (antipattern)"
+      wagons: 16
+      journeys: "MULTIPLE: setup AND exploration AND scoring AND logging"
+      problem: "No single outcome - trying to be entire game loop"
+      solution: "Decompose into 5-6 focused trains of 3-7 wagons each"
+
+  one_journey_test:
+    description: "Can you state the outcome in ONE sentence without 'and'?"
+    pass: "Player sees domain impact from their decision"
+    fail: "Player sets up match AND makes decisions AND sees impact AND gets scored"
+
+  decomposition_signals:
+    - "Outcome description contains multiple 'AND' conjunctions"
+    - "Train has both setup AND teardown (match lifecycle)"
+    - "Mix of exploratory (gesture) AND core mechanic flows"
+    - "Multiple independent feedback loops"
+    - "Participants from 3+ different themes"
+
+# Participant patterns
+participants:
+  description: "Actors involved in the train workflow"
+
+  types:
+    wagon:
+      pattern: "wagon:{wagon-id}"
+      description: "Wagon that performs processing"
+      examples:
+        - "wagon:prepare-materials"
+        - "wagon:resolve-dilemmas"
+
+    user:
+      pattern: "user:{role}"
+      description: "Human actor with specific role"
+      examples:
+        - "user:player"
+        - "user:sponsor"
+        - "user:partner"
+
+    system:
+      pattern: "system:{source}"
+      description: "External system or data source"
+      examples:
+        - "system:external"
+        - "system:scenario-library"
+        - "system:filesystem"
+
+  validation:
+    pattern: "^(wagon|user|system):[a-z][a-z0-9-]*$"
+    uniqueness: "Each participant should be listed once"
+
+# Sequence patterns
+sequence:
+  description: "Ordered workflow steps with control flow"
+
+  elements:
+    step:
+      description: "Single artifact transfer between participants"
+      required: ["step", "intent", "from", "to", "artifact"]
+      example:
+        step: 1
+        intent: "transform raw materials into structured steps"
+        from: "system:external"
+        to: "wagon:prepare-materials"
+        artifact: "material:raw-story"
+
+    loop:
+      description: "Repeated sequence until condition met"
+      required: ["name", "condition", "steps"]
+      example:
+        loop:
+          name: "dilemma cycle"
+          condition: "repeat until pace-dilemmas emits pacing:exhausted"
+          steps:
+            - step: 8
+              intent: "surface dilemma to resolution"
+              from: "wagon:pace-dilemmas"
+              to: "wagon:resolve-dilemmas"
+              artifact: "match:dilemma.current"
+
+    route:
+      description: "Conditional branching based on conditions"
+      required: ["name", "branches"]
+      example:
+        route:
+          name: "gesture routing"
+          branches:
+            - condition: "when gesture:swipe detected"
+              steps:
+                - step: 10
+                  intent: "derive tone for preview"
+                  from: "wagon:interpret-gesture"
+                  to: "wagon:derive-tone"
+                  artifact: "gesture:raw"
+
+# Artifact flow
+artifact_flow:
+  description: "Artifacts flow between participants as the train executes"
+
+  format: "{domain}:{resource}"
+  pattern: "^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$"
+
+  examples:
+    - artifact: "material:raw-story"
+      domain: "material"
+      resource: "raw-story"
+
+    - artifact: "scenario:material.steps"
+      domain: "scenario"
+      resource: "material.steps"
+
+    - artifact: "match:dilemma.current"
+      domain: "match"
+      resource: "dilemma.current"
+
+  validation:
+    produced_before_consumed: "Artifacts must be produced before being consumed in sequence"
+    defined_in_wagons: "Artifacts should be defined in participant wagon manifests"
+
+# Variation strategies
+variation_strategies:
+  description: "How to create train variations within a theme"
+
+  by_mode:
+    description: "Different operational modes"
+    examples:
+      - "30-match-solo, 31-match-duel, 32-match-team"
+      - "80-wallet-init, 81-wallet-transfer, 82-wallet-reconcile"
+
+  by_complexity:
+    description: "Progressive enhancement of base flow"
+    examples:
+      - "10-decision-core (basic), 11-decision-timeout (adds timebank), 12-decision-preview (adds prediction)"
+
+  by_persona:
+    description: "Different user journeys"
+    examples:
+      - "01-player-registration, 02-sponsor-registration, 03-partner-registration"
+
+  by_phase:
+    description: "Lifecycle or temporal phases"
+    examples:
+      - "60-tournament-setup, 61-tournament-active, 62-tournament-complete"
+
+schema_references:
+  train: "schemas/planner/train.schema.json"
+
+validation_rules:
+  - "train_id must match pattern: {theme_digit}{variation_digit}-{name}"
+  - "First digit determines primary theme category"
+  - "File must exist at path: plan/_trains/{train_id}.yaml"
+  - "All participants must be declared in participants list"
+  - "Dependencies must reference valid train_ids"
+  - "Artifacts in sequence must follow domain:resource pattern"
+  - "Themes array must include primary theme based on first digit"

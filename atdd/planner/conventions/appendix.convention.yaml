@@ -1,0 +1,187 @@
+version: "1.0"
+name: "Appendix Convention"
+description: "Convention defining rules for attaching multimodal supplementary content to planner outputs to enrich context and reduce ambiguity"
+
+# Purpose: Why appendices exist
+purpose:
+  enrichment:
+    description: "Appendices provide additional context during creation of planner outputs to drastically reduce ambiguity"
+    when: "During wagon, wmbt, feature, component, or acceptance creation"
+    benefits:
+      - "LLM extracts richer requirements from visual, structural, or detailed artifacts"
+      - "Better component identification from mockups showing UI sections"
+      - "More accurate harness selection based on visual/interaction patterns"
+      - "Domain-specific context from diagrams (ERDs, architecture, sequences)"
+      - "User insights from audio/video interviews and research sessions"
+
+  disambiguation:
+    description: "During routing, appendices serve as anchors for LLM to ask better clarifying questions"
+    when: "User input is ambiguous and requires clarification"
+    benefits:
+      - "Grounded questions instead of abstract ones"
+      - "Example: 'I see your mockup shows a login form - are you creating a wagon or adding a feature?'"
+      - "Reduces back-and-forth by referencing concrete artifacts"
+      - "LLM can analyze appendix content to infer user intent"
+
+# Appendix types and when to use them
+appendix_types:
+  mockup:
+    description: "Visual designs, UI mockups, wireframes, prototypes"
+    extensions: ["PNG", "JPG", "JPEG", "SVG", "GIF"]
+    use_cases:
+      - "UI screen designs to inform component structure during feature decomposition"
+      - "User flow diagrams to inform WMBT decomposition and when/must/then statements"
+      - "Visual states (loading, error, success) to inform harness selection (visual, e2e)"
+      - "Responsive variants (mobile, tablet, desktop) to inform acceptance criteria"
+    example: "checkout-flow_mockup_payment-form.png"
+
+  spreadsheet:
+    description: "Data models, calculations, business rules, requirements matrices"
+    extensions: ["XLSX", "CSV", "TSV"]
+    use_cases:
+      - "Complex pricing/tax calculation logic to inform domain model and business rules"
+      - "Data validation rules to inform acceptance criteria"
+      - "Requirement traceability matrices for feature clustering"
+      - "Test data sets for acceptance given/when sections"
+    example: "pricing_spreadsheet_tax-calculations.xlsx"
+
+  document:
+    description: "Specifications, research findings, technical guides, PRDs"
+    extensions: ["PDF", "DOCX", "MD", "TXT"]
+    use_cases:
+      - "Product requirements documents to inform wagon description and scope"
+      - "Technical specifications to inform component contracts and responsibilities"
+      - "User research findings to inform WMBT scenarios and pain points"
+      - "API documentation to inform integration acceptance criteria"
+    example: "auth_document_security-spec.pdf"
+
+  diagram:
+    description: "Architecture diagrams, ERDs, sequence diagrams, flowcharts, state machines"
+    extensions: ["PNG", "SVG", "MERMAID", "DRAWIO"]
+    use_cases:
+      - "System architecture diagrams to inform 4-layer structure and component boundaries"
+      - "Entity-relationship diagrams for domain model and data structures"
+      - "Sequence diagrams to inform WMBT when/then steps and integration points"
+      - "State machine diagrams for component behavior and state transitions"
+    example: "auth_diagram_sequence.svg"
+
+  audio:
+    description: "User interviews, voice notes, recorded requirements sessions"
+    extensions: ["MP3", "WAV", "M4A", "OGG"]
+    use_cases:
+      - "User interview recordings for extracting pain points and requirements"
+      - "Stakeholder requirement sessions for wagon scope and priorities"
+      - "Voice memos with context and clarifications"
+      - "Accessibility testing feedback for a11y harness criteria"
+    example: "user-research_audio_interview-checkout.mp3"
+
+  video:
+    description: "Screen recordings, demos, walkthroughs, user testing sessions"
+    extensions: ["MP4", "MOV", "WEBM", "AVI"]
+    use_cases:
+      - "Demo of existing system behavior to inform feature parity requirements"
+      - "User testing sessions showing pain points and interaction patterns"
+      - "Tutorial videos for understanding complex workflows"
+      - "Screen recordings of bugs to inform WMBT reproduce steps"
+    example: "checkout_video_user-session.mp4"
+
+# Naming patterns (rules)
+naming_patterns:
+  rule: "Appendices follow pattern: {artifact-name}_{type}_{filename}"
+  rationale: "Ensures uniqueness, traceability, and clear type identification"
+  examples:
+    wagon: "checkout-flow_mockup_overview.png"
+    wmbt: "E023_diagram_sequence.svg"
+    feature: "payment-processing_spreadsheet_tax-rules.xlsx"
+    component: "PaymentForm_mockup_states.png"
+
+# Storage location rules
+storage_rules:
+  rule: "Appendices stored in appendices/ subdirectory of artifact"
+  rationale: "Keeps artifacts self-contained and appendices co-located with what they describe"
+
+  locations:
+    wagon: "{output_dir}/wagons/{wagon-name}/appendices/"
+    wmbt: "{output_dir}/wagons/{wagon-name}/plan/{wmbt-id}/appendices/"
+    feature: "{output_dir}/wagons/{wagon-name}/features/{feature-name}/appendices/"
+    component: "{output_dir}/wagons/{wagon-name}/features/{feature-name}/components/{component-name}/appendices/"
+
+  examples:
+    wagon_appendix: "demo/wagons/checkout-flow/appendices/checkout-flow_mockup_overview.png"
+    wmbt_appendix: "demo/wagons/checkout-flow/plan/E023/appendices/E023_mockup_payment-error.png"
+
+# LLM processing guidelines
+llm_guidelines:
+  during_creation:
+    description: "How planner agent should process appendices when creating outputs"
+
+    workflow:
+      - step: "Detect appendix in user input"
+        pattern: "User includes file path, mentions 'appendix:', or provides file URL"
+
+      - step: "Use Read tool to consume appendix content"
+        capability: "Claude can read PNG, JPG, SVG, PDF, audio, video as multimodal input"
+
+      - step: "Analyze appendix based on type"
+        analysis:
+          mockup: "Identify UI components, layouts, flows, states, interactions, responsive variants"
+          spreadsheet: "Extract business rules, calculations, data models, validation constraints"
+          document: "Extract requirements, constraints, specifications, acceptance criteria"
+          diagram: "Understand architecture, entities, sequences, state transitions, relationships"
+          audio: "Transcribe and extract user pain points, requirements, context, clarifications"
+          video: "Analyze workflows, interactions, pain points, existing behavior patterns"
+
+      - step: "Enrich output with extracted context"
+        enrichment:
+          wagon: "More accurate description, domain model informed by diagrams/docs"
+          wmbt: "Better when/must/then statements informed by flows/interactions"
+          acceptance: "Accurate harness selection (mockup→visual, diagram→integration)"
+          feature: "Better component clustering based on mockup sections"
+          component: "Accurate props/state/behavior from mockups and diagrams"
+
+      - step: "Reference appendix in manifest"
+        note: "Manifest structure defined in schema, not convention"
+
+  during_disambiguation:
+    description: "How appendices help LLM ask better clarifying questions during routing"
+
+    workflow:
+      - scenario: "User provides appendix without clear intent keyword (no 'wagon', 'wmbt', etc.)"
+
+      - step: "LLM uses Read tool to view appendix"
+        analysis: "Understand what the appendix shows (multi-screen flow, single component, architecture, etc.)"
+
+      - step: "Ask grounded clarification question"
+        examples:
+          - input: "mockup showing 3-screen checkout flow"
+            question: "I see your mockup shows a multi-screen checkout flow. What would you like to create?\n1. New wagon for entire checkout\n2. WMBT for specific screen\n3. Feature in existing wagon"
+
+          - input: "ERD diagram with 5 entities"
+            question: "Your ERD shows 5 entities. Are you:\n1. Creating new wagon with this domain model\n2. Adding feature to existing wagon\n3. Defining component data structures"
+
+      - benefit: "Questions grounded in concrete artifact reduce confusion and back-and-forth"
+
+  examples:
+    text_only:
+      input: "Create wagon for checkout"
+      result: "Generic wagon with placeholder description and no specific WMBTs"
+
+    with_mockup_appendix:
+      input: "Create wagon for checkout, appendix: mockup-checkout.png"
+      appendix_shows: "3 screens: cart review, payment form, confirmation with loading states"
+      result: "Rich wagon with accurate description, 3-4 specific WMBTs inferred from screens, component suggestions"
+
+# Related conventions
+related:
+  wagon: "conventions:planner:wagon"
+  wmbt: "conventions:planner:wmbt"
+  acceptance: "conventions:planner:acceptance"
+  feature: "conventions:planner:feature"
+  component: "conventions:planner:component"
+
+# Important notes
+notes:
+  - "This convention defines RULES only - not schema structure or action implementation"
+  - "Schema structure defined in: schemas:planner:appendix"
+  - "Action implementation defined in: actions:planner:appendix"
+  - "Manifest structure defined in individual artifact schemas (wagon, wmbt, etc.)"

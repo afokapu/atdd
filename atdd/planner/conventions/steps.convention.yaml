@@ -1,0 +1,141 @@
+---
+title: JTBD Steps Convention
+description: Unified 9-step convention with minimal but routable architecture mapping.
+version: 4
+
+steps:
+
+  define:
+    key_terms: [Define, Plan, Select, Determine, rule, policy, constraint, specification, invariant, requirement]
+    purpose: Frame the work and set boundaries
+    question: What must be defined upfront before anything else can proceed?
+    example: Define a duel as a synchronous PvP match between two teams
+    outputs: [Clear objectives, Success metrics, Constraint boundaries]
+    linguistic_patterns:
+      - "Define {object} as {specification}"
+      - "Plan {approach} for {outcome}"
+      - "Select {option} from {alternatives}"
+      - "Determine {criteria} for {decision}"
+    architecture:
+      layers: [domain]
+      sequence: [presentation.command, application.use_case, domain.create, integration.persist]
+
+  locate:
+    key_terms: [Locate, Gather, Access, Retrieve, find, search, fetch, query, lookup, discover]
+    purpose: Identify and access required inputs or resources
+    question: What must be found or accessed to do the job?
+    example: Locate peers across devices within 100ms latency
+    outputs: [Resource inventory, Access patterns, Dependency map]
+    linguistic_patterns:
+      - "Locate {resource} within {constraint}"
+      - "Gather {inputs} from {sources}"
+      - "Access {data} via {method}"
+      - "Retrieve {information} in {timeframe}"
+    architecture:
+      layers: [application]
+      sequence: [application.query, integration.read, application.aggregate, presentation.display]
+
+  prepare:
+    key_terms: [Prepare, Set up, Organize, Examine, setup, configure, initialize, stage, arrange, organize]
+    purpose: Make the environment/resources ready without starting execution
+    question: How must the executor prepare before acting?
+    example: Prepare the duel lobby and match players before countdown
+    outputs: [Prepared resources, Validated inputs, Ready state confirmation]
+    linguistic_patterns:
+      - "Prepare {environment} for {activity}"
+      - "Set up {infrastructure} with {configuration}"
+      - "Organize {resources} by {criteria}"
+      - "Examine {inputs} for {validation}"
+    architecture:
+      layers: [application]
+      sequence: [application.use_case, domain.validate, integration.read, application.stage]
+
+  confirm:
+    key_terms: [Confirm, Validate, Prioritize, Decide, validate, verify, check, ensure, authorize, approve]
+    purpose: Ensure preconditions and synchronization before moving forward
+    question: What must be verified or agreed upon to continue?
+    example: Confirm readiness from both teams before duel starts
+    outputs: [Precondition checklist, Permission verification, Go/no-go decision]
+    linguistic_patterns:
+      - "Confirm {precondition} before {action}"
+      - "Validate {input} against {criteria}"
+      - "Prioritize {items} by {importance}"
+      - "Decide {path} based on {conditions}"
+    architecture:
+      layers: [application]
+      sequence: [application.query, integration.read, domain.validate, application.decide]
+
+  execute:
+    key_terms: [Execute, Perform, Transact, Administer, perform, process, calculate, transform, create, generate]
+    purpose: Carry out the core action that changes state
+    question: What must the executor do to perform the job itself?
+    example: Execute player move and apply it locally in ≤2ms
+    outputs: [Completed core job, State changes, Performance metrics]
+    linguistic_patterns:
+      - "Execute {action} within {constraint}"
+      - "Perform {operation} on {target}"
+      - "Transact {change} to {system}"
+      - "Administer {process} per {protocol}"
+    architecture:
+      layers: [domain, application]
+      sequence: [presentation.command, application.use_case, domain.mutate, integration.persist]
+
+  monitor:
+    key_terms: [Monitor, Verify, Track, Check, display, show, track, observe, report, visualize]
+    purpose: Observe progress, quality, or risks to enable correction
+    question: What must be tracked during execution to ensure success?
+    example: Monitor state divergence and resync if thresholds are exceeded
+    outputs: [Progress indicators, Performance data, Anomaly reports]
+    linguistic_patterns:
+      - "Monitor {metric} for {threshold}"
+      - "Verify {state} remains {condition}"
+      - "Track {progress} against {target}"
+      - "Check {status} every {interval}"
+    architecture:
+      layers: [presentation]
+      sequence: [presentation.query, application.query, integration.read, application.aggregate, presentation.display]
+
+  modify:
+    key_terms: [Modify, Update, Adjust, Maintain, adjust, update, correct, patch, tune, amend]
+    purpose: Proactively adjust or optimize during normal operation
+    question: What might need to be changed for better outcomes?
+    example: Modify scoring rules mid-season if the meta shifts
+    outputs: [Adjustments made, Optimization results, Updated configurations]
+    linguistic_patterns:
+      - "Modify {parameter} when {condition}"
+      - "Update {configuration} to {value}"
+      - "Adjust {setting} for {optimization}"
+      - "Maintain {state} within {bounds}"
+    architecture:
+      layers: [application]
+      sequence: [presentation.command, application.use_case, domain.mutate, integration.persist]
+
+  resolve:
+    key_terms: [Resolve, Troubleshoot, Fix, Handle, error, exception, retry, recover, fallback, compensate]
+    purpose: Reactive problem-solving and exception handling
+    question: What problems must be addressed when things go wrong?
+    example: Resolve a disconnection by substituting a bot
+    outputs: [Problem resolutions, Recovery procedures, Workaround documentation]
+    linguistic_patterns:
+      - "Resolve {issue} using {method}"
+      - "Troubleshoot {problem} via {diagnosis}"
+      - "Fix {error} within {timeframe}"
+      - "Handle {exception} with {fallback}"
+    architecture:
+      layers: [application]
+      sequence: [application.event, application.use_case, domain.policy, integration.call_external, integration.persist]
+
+  conclude:
+    key_terms: [Conclude, Store, Finish, Close, complete, finish, archive, cleanup, close, record]
+    purpose: Close the loop and capture results
+    question: What must be done to finish the job and capture results?
+    example: Conclude the duel by updating Elo and archiving the match summary
+    outputs: [Completion confirmation, Results captured, Final documentation]
+    linguistic_patterns:
+      - "Conclude {job} with {summary}"
+      - "Store {results} in {location}"
+      - "Finish {process} by {action}"
+      - "Close {session} after {cleanup}"
+    architecture:
+      layers: [integration, application]
+      sequence: [application.use_case, domain.validate, integration.persist, integration.archive]

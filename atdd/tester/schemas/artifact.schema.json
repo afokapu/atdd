@@ -1,0 +1,189 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Artifact Schema",
+  "description": "Schema for artifact-centric contract definitions. Artifacts are shared schemas organized by domain with REST API mapping.",
+  "type": "object",
+  "required": ["$schema", "$id", "version", "title", "type", "properties"],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "http://json-schema.org/draft-07/schema#",
+      "description": "JSON Schema version (Draft-07)"
+    },
+    "$id": {
+      "type": "string",
+      "pattern": "^[a-z_]+:[a-z_]+(\\.[a-z_]+)?$",
+      "description": "Artifact identifier in format {theme}:{resource} - NO version suffix (e.g., 'commons:player.identity', 'mechanic:decision.choice', 'ux:foundations')"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version (e.g., '1.2.3')"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "description": "Human-readable title for the artifact"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional description of the artifact"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["object", "array", "string", "number", "boolean", "null"],
+      "description": "JSON Schema type"
+    },
+    "properties": {
+      "type": "object",
+      "description": "Object properties definition (for type: object)"
+    },
+    "items": {
+      "type": "object",
+      "description": "Array items definition (for type: array)"
+    },
+    "required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Required property names"
+    },
+    "x-artifact-metadata": {
+      "type": "object",
+      "description": "Artifact metadata for tooling, API generation, and documentation",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "pattern": "^[a-z]+$",
+          "description": "Resource domain (e.g., 'match', 'player', 'session')"
+        },
+        "resource": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Resource type (e.g., 'result', 'new', 'updated')"
+        },
+        "api": {
+          "type": "object",
+          "description": "REST API mapping information",
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+              "description": "HTTP method"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^/",
+              "description": "REST endpoint path (e.g., '/matches/{id}/result')"
+            },
+            "description": {
+              "type": "string",
+              "description": "API operation description"
+            }
+          },
+          "required": ["method", "path"]
+        },
+        "producer": {
+          "type": "string",
+          "pattern": "^wagon:[a-z][a-z0-9-]*$",
+          "description": "Wagon that produces this artifact (e.g., 'wagon:resolve-dilemmas')"
+        },
+        "consumers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^wagon:[a-z][a-z0-9-]*$"
+          },
+          "description": "Wagons that consume this artifact"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional tags for categorization"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "mechanic:decision.choice:v1",
+      "version": "1.0.0",
+      "title": "Decision Choice",
+      "description": "Player's choice selection on a dilemma fragment",
+      "type": "object",
+      "properties": {
+        "playerId": {
+          "type": "string",
+          "description": "Player identifier"
+        },
+        "choice": {
+          "type": "string",
+          "enum": ["left", "right"],
+          "description": "Selected option"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Choice timestamp"
+        }
+      },
+      "required": ["playerId", "choice"],
+      "x-artifact-metadata": {
+        "domain": "decision",
+        "resource": "choice",
+        "api": {
+          "method": "POST",
+          "path": "/decisions",
+          "description": "Submit player decision"
+        },
+        "producer": "wagon:resolve-dilemmas",
+        "consumers": ["wagon:track-progress", "wagon:analyze-choices"]
+      }
+    },
+    {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "$id": "match:result:v1",
+      "version": "1.0.0",
+      "title": "Match Result",
+      "description": "Final result of a completed match",
+      "type": "object",
+      "properties": {
+        "matchId": {
+          "type": "string",
+          "description": "Match identifier"
+        },
+        "winner": {
+          "type": "string",
+          "description": "Winning player ID"
+        },
+        "score": {
+          "type": "object",
+          "properties": {
+            "player1": {"type": "number"},
+            "player2": {"type": "number"}
+          }
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["matchId", "winner", "score"],
+      "x-artifact-metadata": {
+        "domain": "match",
+        "resource": "result",
+        "api": {
+          "method": "GET",
+          "path": "/matches/{id}/result",
+          "description": "Retrieve match result"
+        },
+        "producer": "wagon:play-match"
+      }
+    }
+  ]
+}

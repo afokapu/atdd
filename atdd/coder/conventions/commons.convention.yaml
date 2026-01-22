@@ -1,0 +1,460 @@
+version: "1.0"
+name: "Commons Convention"
+description: |
+  Cross-stack commons module structure for shared utilities.
+  Defines consistent naming and architecture patterns for shared code across Python and Frontend.
+
+rationale: |
+  Wagons share cross-cutting concerns (validation, events, HTTP clients, auth) that don't belong
+  to any single wagon. The 'commons' module provides a canonical location for these utilities
+  with consistent naming across all technology stacks.
+
+  ARCHITECTURAL PRINCIPLES:
+    - Use 'commons' consistently across Python and Frontend (not 'shared' or 'core')
+    - Dependencies point inward: integration -> application -> domain
+    - Domain layer must be framework-agnostic (no preact, flask, etc.)
+
+  STRUCTURAL PATTERN DIVERGENCE (Intentional):
+    Python uses FEATURE-FIRST organization:
+      - Complex features (events/) have their own layers internally
+      - Simple utilities (resilience/, validation.py) are flat
+      - Matches Python package ecosystem conventions
+
+    Frontend uses LAYER-FIRST organization:
+      - All code organized by architectural layer at root
+      - Enables structural enforcement of layer dependencies
+      - Matches React/Preact ecosystem conventions
+
+    Both patterns enforce the same dependency rules; only the directory structure differs.
+
+# ============================================================================
+# STRUCTURAL PATTERN RATIONALE
+# ============================================================================
+
+structure_patterns:
+  divergence_rationale: |
+    The Python and Frontend commons use different organizational patterns.
+    This is INTENTIONAL and reflects ecosystem conventions and complexity differences.
+
+  python:
+    pattern: "feature-first"
+    description: |
+      Complex shared features use wagon-like structure with internal layers.
+      Simple utilities are flat at the commons root.
+
+    rationale:
+      - events/ is a complex feature with ports and adapters (mini-wagon pattern)
+      - resilience/ contains simple utilities (retry, circuit_breaker) - flat is appropriate
+      - validation.py is a pure utility - flat is appropriate
+      - Matches Python package ecosystem conventions
+
+    categories:
+      complex_features:
+        description: "Features with ports/adapters use internal layer structure"
+        examples:
+          - path: "events/"
+            structure: "events/src/{application/ports, integration/queues}"
+            reason: "Event bus abstraction needs port/adapter separation"
+
+      simple_utilities:
+        description: "Pure utilities are flat at commons root"
+        examples:
+          - path: "resilience/"
+            contents: ["retry.py", "circuit_breaker.py"]
+            reason: "No layering needed for pure utility functions"
+          - path: "validation.py"
+            reason: "Single-file utility for validation types"
+
+      shared_types:
+        description: "Domain types shared across features"
+        examples:
+          - path: "domain/enums/"
+            reason: "Enumerations used by multiple wagons"
+
+  frontend:
+    pattern: "layer-first"
+    description: |
+      All shared code organized by architectural layer at the root level.
+      Features are spread across layers but grouped by subdirectory within each layer.
+
+    rationale:
+      - Explicit layer directories enable structural auditing (domain has no framework imports)
+      - Matches React/Preact ecosystem patterns (hooks/, context/, etc.)
+      - Frontend cross-cutting concerns are simpler than backend
+      - TypeScript path aliases work well with layer-based imports (@commons/domain)
+
+    categories:
+      domain_layer:
+        description: "Framework-agnostic types and errors"
+        contents:
+          - "domain/auth/types.ts"    # User, AuthContextValue
+          - "domain/errors.ts"        # ApiError, NotFoundError, etc.
+        audit: "No preact, react, or @tanstack imports allowed"
+
+      application_layer:
+        description: "Hooks, context, orchestration"
+        contents:
+          - "application/auth/"       # AuthContext, AuthProvider, useAuth
+          - "application/query/"      # QueryClientConfig
+        audit: "May import from domain, preact/hooks allowed"
+
+      integration_layer:
+        description: "External clients and adapters"
+        contents:
+          - "integration/http/"       # HttpClient
+          - "integration/supabase/"   # Supabase client
+        audit: "May import from domain and application"
+
+  common_principles:
+    - principle: "Domain layer purity"
+      description: "Domain layer has no framework imports in both stacks"
+      python_enforcement: "No flask, fastapi, django imports"
+      frontend_enforcement: "No preact, react, @tanstack, @maintain-ux imports"
+
+    - principle: "Dependency direction"
+      description: "Dependencies point inward: integration -> application -> domain"
+      applies_to: "Both stacks"
+
+    - principle: "Consistent naming"
+      description: "Use 'commons' (not 'shared', 'core', 'lib') in all stacks"
+      applies_to: "Both stacks"
+
+cross_references:
+  backend_layers:
+    - file: "backend.convention.yaml"
+      note: "Defines 4-layer architecture (domain, application, integration, presentation)"
+
+  frontend_layers:
+    - file: "frontend.convention.yaml"
+      note: "Defines frontend-specific layer patterns"
+
+  wagon_boundaries:
+    - file: "boundaries.convention.yaml"
+      note: "Defines qualified import patterns"
+
+# ============================================================================
+# NAMING CONVENTION
+# ============================================================================
+
+naming:
+  canonical_name: "commons"
+  description: "Use 'commons' consistently across all technology stacks"
+
+  paths:
+    python: "python/commons/"
+    frontend: "web/src/commons/"
+    supabase: "supabase/functions/commons/"
+
+  forbidden_names:
+    - "shared"       # Inconsistent with Python
+    - "core"         # Too generic
+    - "common"       # Singular form
+    - "utils"        # Implies utility functions only
+    - "lib"          # Too generic
+
+  path_aliases:
+    frontend:
+      alias: "@commons"
+      resolution: "./src/commons"
+      config_files:
+        - "web/tsconfig.json"
+        - "web/vite.config.ts"
+
+# ============================================================================
+# LAYER STRUCTURE
+# ============================================================================
+
+layers:
+  domain:
+    description: "Framework-agnostic types, entities, errors, value objects"
+    allowed_imports: []
+    forbidden_imports:
+      python: ["flask", "fastapi", "django"]
+      frontend: ["preact", "react", "@tanstack", "@maintain-ux"]
+
+    python_contents:
+      - "domain/enums/"       # Shared enumerations
+      - "validation.py"       # ValidationResult, Result[T]
+
+    frontend_contents:
+      - "domain/auth/types.ts"   # User, AuthContextValue
+      - "domain/errors.ts"       # ApiError, NotFoundError, etc.
+
+    component_suffixes:
+      python: ["*.py"]
+      frontend: ["*types.ts", "*-vo.ts", "errors.ts"]
+
+  application:
+    description: "Hooks, context, orchestration logic, ports"
+    allowed_imports: ["domain"]
+    forbidden_imports:
+      frontend: ["preact"]   # Only preact/hooks allowed, not preact core
+
+    python_contents:
+      - "events/src/application/ports/"   # EventBusPort
+
+    frontend_contents:
+      - "application/auth/"               # AuthContext, AuthProvider, useAuth
+      - "application/query/"              # QueryClientConfig
+
+    component_suffixes:
+      python: ["*_port.py", "*_service.py", "protocols.py"]
+      frontend: ["*Context.tsx", "*Provider.tsx", "use*.ts", "*Config.ts"]
+
+  integration:
+    description: "External clients, adapters, infrastructure implementations"
+    allowed_imports: ["domain", "application"]
+
+    python_contents:
+      - "events/src/integration/queues/"     # InMemoryEventQueue
+      - "events/src/integration/adapters/"   # Event adapters
+      - "resilience/"                        # retry.py, circuit_breaker.py
+
+    frontend_contents:
+      - "integration/http/"        # HttpClient
+      - "integration/supabase/"    # Supabase client singleton
+
+    component_suffixes:
+      python: ["*_client.py", "*_adapter.py", "*_queue.py", "*_repository.py"]
+      frontend: ["*Client.ts", "*-client.ts", "client.ts"]
+
+# ============================================================================
+# DEPENDENCY RULES
+# ============================================================================
+
+dependency_rules:
+  description: "Dependencies point inward only"
+
+  allowed_edges:
+    - from: application
+      to: [domain]
+    - from: integration
+      to: [domain, application]
+
+  forbidden_edges:
+    - from: domain
+      to: [application, integration]
+      reason: "Domain must be pure - no external dependencies"
+
+    - from: application
+      to: [integration]
+      reason: "Application uses ports; integration implements them"
+
+# ============================================================================
+# STACK-SPECIFIC PATTERNS
+# ============================================================================
+
+stacks:
+  python:
+    path: "python/commons/"
+    structure: |
+      python/commons/
+      ├── __init__.py                     # urn:jel:commons
+      ├── validation.py                   # Domain: ValidationResult, Result[T]
+      ├── domain/
+      │   └── enums/                      # Domain: Shared enumerations
+      ├── events/
+      │   └── src/
+      │       ├── application/ports/      # Application: EventBusPort
+      │       └── integration/
+      │           ├── queues/             # Integration: InMemoryEventQueue
+      │           └── adapters/           # Integration: Event adapters
+      └── resilience/
+          ├── retry.py                    # Integration: Retry with backoff
+          └── circuit_breaker.py          # Integration: Circuit breaker
+
+  frontend:
+    path: "web/src/commons/"
+    structure: |
+      web/src/commons/
+      ├── index.ts                        # Public API barrel
+      ├── domain/
+      │   ├── index.ts                    # Domain exports
+      │   ├── auth/
+      │   │   └── types.ts                # User, AuthContextValue
+      │   └── errors.ts                   # ApiError, NotFoundError, etc.
+      ├── application/
+      │   ├── index.ts                    # Application exports
+      │   ├── auth/
+      │   │   ├── index.ts
+      │   │   ├── AuthContext.tsx
+      │   │   ├── AuthProvider.tsx
+      │   │   └── useAuth.ts
+      │   └── query/
+      │       ├── index.ts
+      │       └── QueryClientConfig.ts
+      └── integration/
+          ├── index.ts                    # Integration exports
+          ├── http/
+          │   ├── index.ts
+          │   └── HttpClient.ts
+          └── supabase/
+              ├── index.ts
+              └── client.ts
+
+# ============================================================================
+# IMPORT PATTERNS
+# ============================================================================
+
+import_patterns:
+  frontend:
+    from_wagons:
+      description: "Import from @commons/{layer}"
+      examples:
+        - "import { HttpClient } from '@commons/integration';"
+        - "import { NotFoundError } from '@commons/domain';"
+        - "import { useAuth, AuthProvider } from '@commons/application';"
+
+    forbidden:
+      - pattern: "@shared/*"
+        reason: "Legacy naming - use @commons instead"
+      - pattern: "../shared/*"
+        reason: "Legacy relative import - use @commons alias"
+      - pattern: "./shared/*"
+        reason: "Legacy relative import - use @commons alias"
+
+  python:
+    from_wagons:
+      description: "Import with qualified path from commons"
+      examples:
+        - "from commons.validation import ValidationResult"
+        - "from commons.events.src.application.ports.event_bus_port import EventBusPort"
+        - "from commons.resilience.retry import retry_with_backoff"
+
+# ============================================================================
+# ENFORCEMENT
+# ============================================================================
+
+enforcement:
+  validators:
+    location: "atdd/coder/validators/test_commons_structure.py"
+
+    specs:
+      # Cross-stack validation
+      - id: "SPEC-CODER-COMMONS-0001"
+        description: "Commons exists in both Python and Frontend"
+        validates: "Consistent naming across stacks"
+
+      - id: "SPEC-CODER-COMMONS-0003"
+        description: "Old 'shared' directory does not exist"
+        validates: "Migration from shared to commons complete"
+
+      # Frontend structure validation (layer-first)
+      - id: "SPEC-CODER-COMMONS-0002"
+        description: "Frontend commons has domain/application/integration layers"
+        validates: "Layer-first structure for frontend"
+
+      - id: "SPEC-CODER-COMMONS-0004"
+        description: "Path aliases use @commons not @shared"
+        validates: "Correct path alias configuration"
+
+      - id: "SPEC-CODER-COMMONS-0005"
+        description: "No imports from @shared or ./shared"
+        validates: "All imports migrated to @commons"
+
+      - id: "SPEC-CODER-COMMONS-0006"
+        description: "Frontend domain layer has no framework imports"
+        validates: "Domain layer purity (no preact, react, @tanstack)"
+
+      - id: "SPEC-CODER-COMMONS-0007"
+        description: "Frontend commons has proper barrel exports (index.ts)"
+        validates: "Public API structure"
+
+      # Python structure validation (feature-first)
+      - id: "SPEC-CODER-COMMONS-0008"
+        description: "Python commons has __init__.py files"
+        validates: "Python package structure"
+
+      - id: "SPEC-CODER-COMMONS-0009"
+        description: "Python events feature has internal layer structure"
+        validates: "Feature-first pattern for complex features"
+
+      - id: "SPEC-CODER-COMMONS-0010"
+        description: "Python resilience is flat (no internal layers)"
+        validates: "Flat structure for simple utilities"
+
+      - id: "SPEC-CODER-COMMONS-0011"
+        description: "Python domain layer has no framework imports"
+        validates: "Domain layer purity (no flask, fastapi, django)"
+
+  ci_checks:
+    - name: "commons_naming"
+      description: "Verify 'commons' naming used, not 'shared'"
+
+    - name: "commons_frontend_layers"
+      description: "Verify layer-first structure in frontend commons"
+
+    - name: "commons_python_features"
+      description: "Verify feature-first structure in python commons"
+
+    - name: "commons_imports"
+      description: "Verify @commons path alias used"
+
+    - name: "commons_domain_purity"
+      description: "Verify domain layers have no framework imports"
+
+# ============================================================================
+# MIGRATION GUIDE
+# ============================================================================
+
+migration:
+  from_shared_to_commons:
+    description: "Steps to migrate from 'shared' to 'commons' naming"
+
+    steps:
+      - step: 1
+        action: "Create commons directory with 3-layer structure"
+        command: |
+          mkdir -p web/src/commons/domain/auth
+          mkdir -p web/src/commons/application/auth
+          mkdir -p web/src/commons/application/query
+          mkdir -p web/src/commons/integration/http
+          mkdir -p web/src/commons/integration/supabase
+
+      - step: 2
+        action: "Move files to appropriate layers"
+        mapping:
+          - from: "shared/auth/types.ts"
+            to: "commons/domain/auth/types.ts"
+          - from: "shared/api/errors.ts"
+            to: "commons/domain/errors.ts"
+          - from: "shared/auth/AuthContext.tsx"
+            to: "commons/application/auth/AuthContext.tsx"
+          - from: "shared/auth/useAuth.ts"
+            to: "commons/application/auth/useAuth.ts"
+          - from: "shared/auth/AuthProvider.tsx"
+            to: "commons/application/auth/AuthProvider.tsx"
+          - from: "shared/query/QueryClientConfig.ts"
+            to: "commons/application/query/QueryClientConfig.ts"
+          - from: "shared/api/HttpClient.ts"
+            to: "commons/integration/http/HttpClient.ts"
+          - from: "shared/supabase/client.ts"
+            to: "commons/integration/supabase/client.ts"
+
+      - step: 3
+        action: "Update path aliases in config files"
+        files:
+          - "web/tsconfig.json"
+          - "web/vite.config.ts"
+        change: "@shared -> @commons"
+
+      - step: 4
+        action: "Update all imports"
+        patterns:
+          - from: "@shared/api"
+            to: "@commons/integration"
+          - from: "@shared/auth"
+            to: "@commons/application"
+          - from: "../shared/auth"
+            to: "@commons/application"
+
+      - step: 5
+        action: "Delete old shared directory"
+        command: "rm -rf web/src/shared"
+
+      - step: 6
+        action: "Run verification"
+        commands:
+          - "cd web && npx tsc --noEmit"
+          - "cd web && npm test"
+          - "./atdd/atdd.py --test coder -k commons"

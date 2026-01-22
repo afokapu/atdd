@@ -1,0 +1,192 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Train Schema",
+  "description": "Schema for train definitions orchestrating multi-wagon workflows with theme-based numbering",
+  "type": "object",
+  "additionalProperties": false,
+  "$comment": "Trains use hierarchical numbering [Theme][Category][Variation] (0001-0099: commons nominal, 0101-0199: commons error, etc.) where first digit = theme (0-9), second digit = category (0=nominal, 1=error, 2=alternate, 3=exception), third-fourth digits = variation (01-99)",
+  "required": [
+    "train_id",
+    "title",
+    "description",
+    "themes",
+    "participants",
+    "sequence"
+  ],
+  "properties": {
+    "train_id": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[a-z][a-z0-9-]*$",
+      "description": "Train identifier with hierarchical numbering: {theme}{category}{variation}-{kebab-case-name} (e.g., 0001-auth-session-standard, 2301-empty-input-file)"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "description": "Human-readable display name for the train"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Concise description of the train's purpose and workflow"
+    },
+    "themes": {
+      "type": "array",
+      "description": "Theme categories this train belongs to",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "commons",
+          "mechanic",
+          "scenario",
+          "match",
+          "sensory",
+          "player",
+          "league",
+          "audience",
+          "monetization",
+          "partnership"
+        ]
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "Other trains that must run before this train",
+      "items": {
+        "type": "string",
+        "pattern": "^train:[0-9]{4}-[a-z][a-z0-9-]*$",
+        "description": "Train reference in format: train:{train_id}"
+      }
+    },
+    "participants": {
+      "type": "array",
+      "description": "Wagons, users, and systems involved in this train",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^(wagon|user|system):[a-z][a-z0-9-]*$",
+        "description": "Participant reference: wagon:{wagon-id}, user:{role}, system:{source}"
+      }
+    },
+    "sequence": {
+      "type": "array",
+      "description": "Ordered steps, loops, and routes defining the train workflow",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/definitions/step" },
+          { "$ref": "#/definitions/loop" },
+          { "$ref": "#/definitions/route" }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "step": {
+      "type": "object",
+      "required": ["step", "intent", "from", "to", "artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Step number in sequence"
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 5,
+          "description": "What this step accomplishes"
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^(wagon|user|system):[a-z][a-z0-9-]*$",
+          "description": "Source participant"
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^(wagon|user|system):[a-z][a-z0-9-]*$",
+          "description": "Destination participant"
+        },
+        "artifact": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$",
+          "description": "Artifact passed between participants (domain:resource format)"
+        }
+      }
+    },
+    "loop": {
+      "type": "object",
+      "required": ["loop"],
+      "additionalProperties": false,
+      "properties": {
+        "loop": {
+          "type": "object",
+          "required": ["name", "condition", "steps"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 3,
+              "description": "Loop identifier"
+            },
+            "condition": {
+              "type": "string",
+              "minLength": 5,
+              "description": "Loop continuation/exit condition"
+            },
+            "steps": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "oneOf": [
+                  { "$ref": "#/definitions/step" },
+                  { "$ref": "#/definitions/route" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "required": ["route"],
+      "additionalProperties": false,
+      "properties": {
+        "route": {
+          "type": "object",
+          "required": ["name", "branches"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 3,
+              "description": "Route identifier"
+            },
+            "branches": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["condition", "steps"],
+                "additionalProperties": false,
+                "properties": {
+                  "condition": {
+                    "type": "string",
+                    "minLength": 5,
+                    "description": "Branch condition"
+                  },
+                  "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "$ref": "#/definitions/step" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

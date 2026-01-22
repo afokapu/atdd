@@ -1,0 +1,458 @@
+version: "2.0"
+name: "Unified Telemetry Convention"
+description: "Universal tracking plan supporting dual-destination observability (OpenTelemetry) and analytics (PostHog)"
+
+# Schema Reference
+schema:
+  path: "atdd/tester/schemas/telemetry.schema.json"
+  version: "1.0.0"
+  title: "Unified Telemetry Signal"
+  description: "Single source of truth for both observability and analytics signals"
+
+# Unified Telemetry Architecture
+architecture:
+  observability:
+    standard: "OpenTelemetry"
+    modalities: ["metric", "trace", "log"]
+    destination: "OTel-compatible backends (Jaeger, Tempo, Prometheus, Grafana)"
+    sdk: "OpenTelemetry SDK (Python, Dart, TypeScript)"
+
+  analytics:
+    platform: "PostHog"
+    modalities: ["event"]
+    destination: "PostHog API"
+    sdk: "PostHog SDK (Python, Dart, TypeScript)"
+
+  dual_destination:
+    description: "Critical signals sent to BOTH observability and analytics"
+    use_case: "Business-critical events need trace correlation AND user impact analysis"
+    example: "Pool exhaustion → OTel trace (where failed) + PostHog event (user impact)"
+
+  plane_vs_deployment:
+    plane:
+      description: "Logical observability layer - WHAT kind of signal"
+      values: ["ui", "ux", "be", "db", "nw", "st", "tm", "sc", "au", "fn", "if"]
+      examples:
+        - "nw (network) for HTTP requests, regardless of WHERE they run"
+        - "db (database) for queries, whether in backend/edge/job"
+        - "ui (interface) for rendering, whether browser/mobile"
+    deployment:
+      description: "Runtime execution context - WHERE code runs"
+      values: ["frontend", "backend", "edge", "job", "mobile"]
+      examples:
+        - "backend = runs on server (Kubernetes pods, VMs)"
+        - "frontend = runs in browser (JavaScript/WASM)"
+        - "edge = runs on edge functions (Cloudflare Workers, Vercel Edge)"
+        - "job = runs as background job (cron, queue workers)"
+        - "mobile = runs in mobile app (iOS/Android native)"
+
+# Required Fields for Unified Telemetry Signals
+required_fields:
+  core:
+    - "$schema"          # JSON Schema draft-07
+    - "$id"              # Signal identifier (NO "telemetry:" prefix)
+    - "version"          # Semantic version
+    - "type"             # Signal type (event|metric|trace|log)
+    - "plane"            # Logical layer (ui|ux|be|db|nw|st|tm|sc|au|fn|if)
+    - "artifact_ref"     # Reference to contract schema
+    - "acceptance_criteria"  # Array of acceptance URNs (at least 1)
+    - "properties"       # JSON Schema properties object
+    - "required"         # Array of required property names
+
+  conditional_required:
+    metric:
+      - "measure"        # Required for metric signals
+    event:
+      - []               # No additional requirements
+    trace:
+      - []               # No additional requirements
+    log:
+      - []               # No additional requirements
+
+  rationale: |
+    All telemetry signals MUST have complete traceability to:
+    - Enable bidirectional navigation (signal → wagon → plan)
+    - Support impact analysis for metric/event changes
+    - Maintain observability governance and audit trails
+    - Link signals to acceptance criteria for validation
+
+traceability:
+  acceptance_criteria:
+    description: "Signals reference acceptance criteria in content"
+    field: "acceptance_criteria"
+    format: "Array of acceptance URNs (at least 1 for non-placeholder signals)"
+    example: ["acc:resolve-dilemmas:M001-INTEGRATION-001"]
+    validation: "Platform test verifies URNs exist"
+
+# Telemetry structure (tracking plans generated from signal field)
+telemetry_structure:
+  output_location: "telemetry/"
+
+# Metrics classification based on planes
+metrics_by_plane:
+  ui:
+    typical_metrics:
+      - render_latency
+      - interaction_response_time
+      - animation_fps
+    collection: "Browser Performance API"
+    aggregations: ["p50", "p95", "p99"]
+
+  ux:
+    typical_metrics:
+      - user_steps_count
+      - time_to_complete
+      - error_recovery_time
+    collection: "User session tracking"
+    aggregations: ["mean", "median", "max"]
+
+  be:
+    typical_metrics:
+      - business_rule_execution_time
+      - validation_success_rate
+      - processing_throughput
+    collection: "Application metrics"
+    aggregations: ["p95", "success_rate", "ops_per_sec"]
+
+  nw:
+    typical_metrics:
+      - request_latency
+      - response_time
+      - timeout_rate
+    collection: "Network monitoring"
+    aggregations: ["p50", "p95", "p99", "error_rate"]
+
+  db:
+    typical_metrics:
+      - query_execution_time
+      - transaction_duration
+      - lock_wait_time
+    collection: "Database metrics"
+    aggregations: ["p95", "p99", "max"]
+
+  st:
+    typical_metrics:
+      - asset_load_time
+      - cache_hit_ratio
+      - storage_latency
+    collection: "Storage metrics"
+    aggregations: ["p95", "hit_rate", "bytes_per_sec"]
+
+  tm:
+    typical_metrics:
+      - event_ingestion_rate
+      - pipeline_lag
+      - drop_ratio
+    collection: "Telemetry pipeline metrics"
+    aggregations: ["rate", "p99", "loss_percentage"]
+
+  sc:
+    typical_metrics:
+      - schema_validation_errors
+      - contract_violations
+      - version_mismatches
+    collection: "Contract monitoring"
+    aggregations: ["count", "error_rate"]
+
+  au:
+    typical_metrics:
+      - auth_success_rate
+      - permission_check_latency
+      - rate_limit_hits
+    collection: "Auth metrics"
+    aggregations: ["success_rate", "p95", "throttle_rate"]
+
+  fn:
+    typical_metrics:
+      - transaction_value
+      - processing_cost
+      - margin_percentage
+    collection: "Financial metrics"
+    aggregations: ["sum", "mean", "percentile"]
+
+  if:
+    typical_metrics:
+      - cpu_utilization
+      - memory_usage
+      - pod_restart_count
+    collection: "Infrastructure metrics"
+    aggregations: ["p95", "max", "count"]
+
+# Data source configuration
+data_sources:
+  opentelemetry:
+    spans: "Distributed tracing"
+    metrics: "Time series data"
+    logs: "Structured logging"
+
+  prometheus:
+    scrape_interval: "15s"
+    retention: "15d"
+
+  custom:
+    application_metrics: "Custom business metrics"
+    user_analytics: "User behavior tracking"
+
+# Window and aggregation rules
+temporal_windows:
+  real_time: "1min"
+  near_real_time: "5min"
+  batch: "1hour"
+  daily: "24hour"
+
+  selection_criteria:
+    latency_metrics: "5min"  # Balance between noise and responsiveness
+    throughput_metrics: "1hour"  # Smooth out variations
+    error_metrics: "1min"  # Quick detection
+    cost_metrics: "24hour"  # Daily aggregation
+
+# Adapter configuration for different harnesses
+adapters:
+  http:
+    metrics: ["latency", "status_codes", "payload_size"]
+    source: "HTTP client instrumentation"
+
+  e2e:
+    metrics: ["user_journey_time", "interaction_count"]
+    source: "Browser automation framework"
+
+  db:
+    metrics: ["query_time", "row_count", "lock_duration"]
+    source: "Database query profiler"
+
+  event:
+    metrics: ["publish_latency", "consume_lag", "message_size"]
+    source: "Message broker metrics"
+
+# Alert thresholds (defaults, overrideable per acceptance)
+default_thresholds:
+  latency:
+    warning: "2x baseline"
+    critical: "5x baseline"
+
+  error_rate:
+    warning: "1%"
+    critical: "5%"
+
+  availability:
+    warning: "99.9%"
+    critical: "99%"
+
+# Validation rules
+validation_rules:
+  metric_naming:
+    pattern: "{plane}.{entity}.{operation}.{measure}"
+    example: "ui.login.form.submit.latency"
+
+  data_quality:
+    required_tags: ["wagon", "feature", "component", "environment"]
+    timestamp_precision: "milliseconds"
+
+  aggregation_compatibility:
+    percentiles: ["latency", "duration", "size"]
+    rates: ["throughput", "errors", "requests"]
+    counts: ["events", "users", "transactions"]
+
+# Signal processing rules
+classification:
+  signal_to_tracking_plan:
+    description: "Maps signal field to dual tracking plan (observability + analytics)"
+
+    metrics_to_observability:
+      description: "signal.metrics → OpenTelemetry tracking plan"
+      rules:
+        - "Extract metric name, type, threshold, aggregation"
+        - "Validate plane.component.operation.measure pattern"
+        - "Map to OpenTelemetry metric definition"
+        - "Generate threshold alerts (warning, critical)"
+
+    events_to_analytics:
+      description: "signal.events → Analytics tracking plan (Segment/Mixpanel)"
+      rules:
+        - "Extract event_name, properties"
+        - "Generate event schema with property types"
+        - "Link to tracking_plan_ref"
+        - "Map to analytics provider format"
+
+signal_processing:
+  description: "Active derivation from acceptance.signal field"
+
+  validation_hierarchy:
+    1_parse_signal: "Extract signal.metrics and signal.events from acceptance"
+    2_classify: "Map metrics → observability, events → analytics"
+    3_derive_plane: "Use harness.type + metric name to determine plane"
+    4_generate_pack: "Create telemetry pack with both tracking plans"
+    5_validate: "Ensure pack consistency and schema compliance"
+
+  plane_derivation:
+    from_harness:
+      http: ["nw", "be"]
+      db: ["db", "st"]
+      event: ["tm", "be"]
+      e2e: ["ui", "ux"]
+
+  tracking_plan_structure:
+    manifest_pattern: "{wagon}.telemetry.pack.yaml"
+    required_fields:
+      - "wagon"
+      - "observability_metrics"  # From signal.metrics
+      - "analytics_events"       # From signal.events
+      - "acceptance_refs"        # Traceability
+
+# TODO: Sections to be filled later
+correlation_rules:
+  # TODO: Define how metrics correlate across planes
+  placeholder: "Define metric correlation patterns"
+
+synthetic_monitoring:
+  # TODO: Define synthetic test patterns
+  placeholder: "Define synthetic monitoring approach"
+
+cost_tracking:
+  # TODO: Define cost attribution for telemetry
+  placeholder: "Define telemetry cost model"
+
+# Artifact-centric tracking structure (v1.1.0 addition)
+tracking_structure:
+  description: "Telemetry signals organized by artifact with contract references"
+  version: "1.1.0"
+
+  manifest:
+    location: "telemetry/_tracking.yaml"
+    format: "YAML"
+    purpose: "Central registry of all telemetry signals per artifact"
+
+  directory_pattern: "telemetry/{theme}/{domain}/"
+  file_pattern: "{aspect}.{signal-type}.{plane}[.{measure}].json"
+  note: "Mirrors contracts/ structure exactly - aspect is filename prefix, not folder"
+
+  structure_comparison:
+    contracts: "contracts/{theme}/{domain}/{aspect}.schema.json"
+    telemetry: "telemetry/{theme}/{domain}/{aspect}.{type}.{plane}[.{measure}].json"
+    example:
+      contracts: "contracts/match/dilemma/current.schema.json"
+      telemetry: "telemetry/match/dilemma/current.metric.be.selection-duration.json"
+
+  validation:
+    meta_validation:
+      structure_location: "atdd/tester/validators/test_telemetry_structure.py"
+      content_location: "atdd/tester/validators/test_telemetry_structure.py"
+      scope: "Platform-level structural and content validation"
+      type: "infrastructure"
+      urn_required: false
+      checks:
+        - "Directory structure (theme/domain hierarchy)"
+        - "File naming patterns (*.event|*.metric.*.json)"
+        - "JSON Schema Draft-07 compliance"
+        - "Required metadata ($schema, $id, version)"
+        - "Signal type/plane/measure validity"
+        - "Contract reference integrity"
+        - "Acceptance traceability (acceptance_criteria exist)"
+        - "Duplicate detection (unique $id)"
+
+  examples:
+    - path: "telemetry/match/dilemma/current.event.be.json"
+      urn: "telemetry:match:dilemma:current:event:be"
+      note: "aspect 'current' is filename prefix"
+    - path: "telemetry/match/dilemma/current.metric.be.selection-duration.json"
+      urn: "telemetry:match:dilemma:current:metric:be:selection-duration"
+      note: "aspect 'current' prefixes the metric signal"
+    - path: "telemetry/commons/ux/foundations.metric.nw.latency.json"
+      urn: "telemetry:commons:ux:foundations:metric:nw:latency"
+      note: "aspect 'foundations' prefixes the metric signal"
+    - path: "telemetry/match/dilemma/paired.metric.be.pairing-duration.json"
+      urn: "telemetry:match:dilemma:paired:metric:be:pairing-duration"
+      note: "Multiple aspects in same domain directory"
+
+  manifest_schema:
+    required_fields:
+      - version: "Manifest version"
+      - planes: "Array of valid plane identifiers [ui, ux, be, db, nw]"
+      - measures: "Array of valid measure types"
+      - artifacts: "Array of artifact signal declarations"
+
+    artifact_entry:
+      required:
+        - artifact: "Artifact identifier (domain:resource)"
+        - contract_ref: "Contract reference (contract:domain:resource)"
+        - signals: "Array of signal declarations"
+
+    signal_declaration:
+      type: "object"
+      required: ["type"]
+      optional: ["plane", "measure", "unit"]
+      examples:
+        - "{ type: event }"
+        - "{ type: metric, plane: be, measure: duration, unit: ms }"
+
+  signal_file_schema:
+    required_fields:
+      - "$schema": "http://json-schema.org/draft-07/schema#"
+      - "$id": "Signal identifier (NO 'telemetry:' prefix)"
+      - "version": "Signal schema version (semver)"
+      - "type": "Signal type (event|metric|trace|log)"
+      - "artifact_ref": "Contract reference (WITH 'contract:' prefix)"
+      - "acceptance_criteria": "Array of acceptance URNs for traceability"
+      - "properties": "JSON Schema properties object"
+      - "required": "Array of required property names"
+
+  id_vs_urn:
+    signal_id: "{theme}(:{path})*:{aspect}.{type}.{plane}[.{measure}]"
+    signal_id_examples:
+      - "commons:ux:foundations:color.metric.be.count"
+      - "match:dilemma:current.metric.be.selection_duration"
+      - "commons:ux:foundations:foundations.metric.be.error_rate"
+    urn: "telemetry:{theme}(:{path})*:{aspect}"
+    urn_examples:
+      - "telemetry:commons:ux:foundations"
+      - "telemetry:match:dilemma"
+    note: |
+      $id in signal file: NO "telemetry:" prefix (e.g., commons:ux:foundations:color.metric.be.count)
+      URN in wagon manifests: WITH "telemetry:" prefix (e.g., telemetry:commons:ux:foundations)
+      artifact_ref: WITH "contract:" prefix (e.g., contract:commons:ux:foundations:color)
+
+      Hierarchy (colons) for path segments, dots for signal facets (type.plane.measure).
+      Mirrors contract structure perfectly.
+
+      Examples:
+        File: telemetry/commons/ux/foundations/color.metric.be.count.json
+        $id:  commons:ux:foundations:color.metric.be.count
+        Wagon URN: telemetry:commons:ux:foundations
+        artifact_ref: contract:commons:ux:foundations:color
+
+  urn_path_mapping:
+    pattern: "telemetry:{theme}(:{path})*:{aspect} (wagon manifest format)"
+    path_construction:
+      directory: "telemetry/{theme}/{path}/{aspect}/"
+      filename: "{resource}.{type}.{plane}[.{measure}].json"
+    round_trip: "URN ↔ path must be identity transformation"
+    note: "Directory structure mirrors contracts exactly - aspect is subdirectory, resource is filename prefix"
+    comparison:
+      contract_path: "contracts/commons/ux/foundations/color.schema.json"
+      contract_id: "commons:ux:foundations:color"
+      contract_urn: "contract:commons:ux:foundations:color"
+      telemetry_path: "telemetry/commons/ux/foundations/color.metric.be.count.json"
+      telemetry_id: "commons:ux:foundations:color.metric.be.count"
+      telemetry_urn: "telemetry:commons:ux:foundations"
+
+  artifact_naming_grammar:
+    pattern: "{theme}:{domain}:{aspect}"
+    structure: "Same as contracts - complete mirror"
+    examples:
+      - "match:dilemma:current"
+      - "commons:ux:foundations"
+      - "scenario:fragment:pool"
+    forbidden: "No wagon or operation segments"
+
+  validation_levels:
+    level_1: "Manifest structure validation"
+    level_2: "Filesystem structure validation"
+    level_3: "Signal file schema validation"
+    level_4: "Contract and acceptance reference validation"
+    level_5: "Cross-system synchronization validation"
+
+  testing:
+    location: "atdd/tester/validators/test_telemetry_structure.py"
+    framework: "pytest"
+    markers: ["telemetry", "validation"]
+    specs: "SPEC-TESTER-CONV-0050 through SPEC-TESTER-CONV-0058"

@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Storage Test Harness Template",
+  "description": "Template for testing Supabase Storage operations",
+  "language": "typescript",
+  "framework": "vitest",
+  "category": "backend",
+  "template": "\n// URN: {urn}\nimport { test, expect } from 'vitest';\nimport { createClient } from '@supabase/supabase-js';\n\ntest('{test_name}', async () => {{\n  const supabase = createClient(\n    process.env.SUPABASE_URL,\n    process.env.SUPABASE_ANON_KEY\n  );\n\n  // Given\n  {given_setup}\n\n  // When\n  const {{ data, error }} = await supabase\n    .storage\n    .from('{bucket_name}')\n    .{operation}({operation_params});\n\n  // Then\n  {then_assertions}\n\n  console.log(JSON.stringify({{\n    urn: '{urn}',\n    status: 'PASS',\n    details: {{ bucket: '{bucket_name}', operation: '{operation}' }}\n  }}));\n}});\n",
+  "variables": [
+    "urn",
+    "test_name",
+    "given_setup",
+    "bucket_name",
+    "operation",
+    "operation_params",
+    "then_assertions"
+  ]
+}

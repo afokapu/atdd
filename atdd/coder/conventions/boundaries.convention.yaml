@@ -1,0 +1,666 @@
+schema_version: "1.0.0"
+convention_id: "coder.boundaries"
+name: "Wagon Boundary Convention"
+description: |
+  Defines how wagons maintain clean boundaries through namespacing (package structure)
+  and interaction rules (contracts only, no direct imports).
+
+rationale: |
+  Wagons are isolated units that must not interfere with each other's internals.
+
+  ARCHITECTURAL PRINCIPLE (from design.convention.yaml):
+    - "Wagons cannot import from other wagons" (VC-DS-06)
+
+  MECHANISM:
+    1. Namespacing: Qualified imports prevent module name collisions
+    2. Interaction: Wagons communicate only via contracts, never direct imports
+
+  Without proper boundaries, wagons with identical layer names (domain/, application/)
+  shadow each other's modules, causing import collisions and breaking tests.
+
+cross_references:
+  architectural_rules:
+    - file: "design.convention.yaml"
+      rule: "VC-DS-06: No cross-wagon imports"
+      note: "This convention provides implementation details for that rule"
+
+  composition_patterns:
+    - file: "green.convention.yaml"
+      section: "composition_root"
+      note: "Defines composition.py and wagon.py patterns"
+
+  refactoring_stability:
+    - file: "refactor.convention.yaml"
+      section: "composition_root"
+      note: "Composition roots survive refactoring; only import paths change"
+
+  wagon_communication:
+    - file: "../tester/contract.convention.yaml"
+      section: "x-artifact-metadata.producer/consumers"
+      note: "Contracts define official wagon interaction interface"
+
+  layer_definitions:
+    - file: "backend.convention.yaml"
+      note: "Defines domain/application/integration/presentation layers"
+
+# ============================================================================
+# SECTION 1: NAMESPACING (How to structure packages and imports)
+# ============================================================================
+
+namespacing:
+  description: |
+    Use qualified imports with full package paths to prevent module collisions.
+    Multiple wagons use identical layer names (domain, application, integration),
+    so bare imports like "from domain.X import Y" cause shadowing.
+
+  package_hierarchy:
+    description: "Establish Python/Dart/TS package structure for all wagons"
+
+    required_structure:
+      python:
+        - path: "python/__init__.py"
+          purpose: "Make python/ the package root"
+
+        - path: "python/{wagon}/__init__.py"
+          purpose: "Make wagon a package"
+          example: "python/commit_state/__init__.py"
+
+        - path: "python/{wagon}/{feature}/__init__.py"
+          purpose: "Make feature a package"
+          example: "python/commit_state/sign_commit/__init__.py"
+
+        - path: "python/{wagon}/{feature}/src/__init__.py"
+          purpose: "Make src a package (usually already exists)"
+          note: "Created during GREEN phase with clean architecture"
+
+      dart:
+        - path: "lib/{wagon}/{feature}/src/"
+          purpose: "Dart package structure via pubspec.yaml"
+          note: "Dart uses package: imports, not __init__.dart files"
+
+      typescript:
+        - path: "supabase/functions/{wagon}/{feature}/src/"
+          purpose: "TypeScript module structure"
+          note: "Uses path aliases in tsconfig.json"
+
+  import_patterns:
+    description: "Use qualified imports to prevent name collisions"
+
+    qualified_pattern:
+      format: "from {wagon}.{feature}.src.{layer}.{module} import {Class}"
+
+      examples:
+        python_domain:
+          import: "from commit_state.sign_commit.src.domain.signature_algorithm import SignatureAlgorithm"
+          context: "Test or implementation importing domain entity"
+
+        python_integration:
+          import: "from juggle_domains.score_domains.src.integration.repositories.domain_repository import YamlDomainRepository"
+          context: "Test importing repository"
+
+        dart_domain:
+          import: "import 'package:jel/maintain_ux/provide_foundations/src/domain/entities/foundation.dart';"
+          context: "Flutter widget importing domain model"
+
+        typescript_application:
+          import: "import { CaptureChoiceUseCase } from '@resolve-dilemmas/capture-decision/src/application/use-cases/capture-choice';"
+          context: "Edge function importing use case"
+
+    forbidden_patterns:
+      bare_layer_imports:
+        pattern: "from domain.X import Y"
+        reason: "Multiple wagons have 'domain' modules; causes shadowing"
+        example: "from domain.signature_algorithm import SignatureAlgorithm  # ❌ FORBIDDEN"
+
+      bare_application_imports:
+        pattern: "from application.X import Y"
+        reason: "Causes module shadowing across wagons"
+        example: "from application.use_cases.X import Y  # ❌ FORBIDDEN"
+
+      src_relative_imports:
+        pattern: "from src.domain.X import Y"
+        reason: "Only works if src/ in sys.path; breaks cross-wagon tests"
+        example: "from src.domain.signature_algorithm import SignatureAlgorithm  # ❌ FORBIDDEN"
+
+      syspath_manipulation_in_tests:
+        pattern: "sys.path.insert(0, str(src_path))"
+        reason: "Causes path collisions; use pytest pythonpath instead"
+        location: "test_*.py files"
+        example: |
+          # ❌ FORBIDDEN in test files
+          import sys
+          from pathlib import Path
+          src_path = Path(__file__).parent.parent / "src"
+          sys.path.insert(0, str(src_path))
+
+    allowed_patterns:
+      qualified_imports:
+        pattern: "from {wagon}.{feature}.src.{layer}.{module} import {Class}"
+        required: true
+        example: "from commit_state.sign_commit.src.domain.signature_algorithm import SignatureAlgorithm  # ✅ CORRECT"
+
+      relative_imports_within_layer:
+        pattern: "from .{sibling} import {Class}"
+        allowed: true
+        scope: "Within same directory only"
+        example: "from .base_repository import BaseRepository  # ✅ OK within same layer"
+        note: "Use sparingly; qualified imports preferred for clarity"
+
+  test_configuration:
+    description: "Configure test runners to make package root available"
+
+    pytest:
+      file: "python/pyproject.toml"
+      section: "tool.pytest.ini_options"
+      setting: "pythonpath = [\".\"]"
+      purpose: "Add python/ directory to PYTHONPATH for all tests"
+
+      example: |
+        [tool.pytest.ini_options]
+        pythonpath = ["."]
+        testpaths = [
+            "commit-state/",
+            "juggle-domains/",
+        ]
+        python_files = "test_*.py"
+
+      validation:
+        command: "pytest python/commit_state/*/test/ python/juggle_domains/*/test/ -v"
+        success_criteria:
+          - "All tests from multiple wagons pass when run together"
+          - "No ModuleNotFoundError for domain/application/integration"
+          - "No module shadowing"
+
+    dart_flutter:
+      file: "pubspec.yaml"
+      note: "Dart package resolution automatic via pubspec.yaml"
+
+    typescript:
+      file: "tsconfig.json"
+      setting: "paths"
+      example: |
+        {
+          "compilerOptions": {
+            "paths": {
+              "@resolve-dilemmas/*": ["supabase/functions/resolve_dilemmas/*"],
+              "@commit-state/*": ["supabase/functions/commit_state/*"]
+            }
+          }
+        }
+
+  conftest_prohibition:
+    description: "Feature-level conftest.py must NOT manipulate sys.path"
+
+    forbidden:
+      - pattern: "sys.path.insert(0, str(feature_src))"
+        location: "python/{wagon}/{feature}/test/conftest.py"
+        reason: "Causes cross-wagon path collisions"
+
+      - pattern: "sys.path.append(str(src_path))"
+        location: "python/{wagon}/{feature}/test/conftest.py"
+        reason: "Causes cross-wagon path collisions"
+
+    allowed_purpose: "conftest.py should only define fixtures, not manipulate sys.path"
+
+    correct_example: |
+      # python/{wagon}/{feature}/test/conftest.py
+      """Pytest configuration for {feature} tests. Defines feature-specific fixtures."""
+      import pytest
+
+      @pytest.fixture
+      def sample_data():
+          return {"key": "value"}
+
+      # NO sys.path manipulation!
+
+# ============================================================================
+# SECTION 2: INTERACTION (How wagons communicate)
+# ============================================================================
+
+interaction:
+  description: |
+    Wagons communicate ONLY via contracts, never via direct imports.
+    This enforces loose coupling and enables independent evolution.
+
+  communication_channels:
+    contracts_only:
+      rule: "Wagons interact exclusively through contract schemas"
+      reference: "../tester/contract.convention.yaml"
+      mechanism: "producer/consumer artifact declarations in wagon manifests"
+
+      example: |
+        # plan/commit_state/_commit_state.yaml
+        produce:
+          - artifact: "state:committed-decision"
+            contract: "contracts/state/decision/committed.schema.json"
+
+        # plan/juggle_domains/_juggle_domains.yaml
+        consume:
+          - artifact: "state:committed-decision"
+            contract: "contracts/state/decision/committed.schema.json"
+
+      validation: "Contracts define producer/consumer relationships in x-artifact-metadata"
+
+  composition_roots:
+    description: |
+      Composition roots (composition.py, wagon.py, trains/runner.py, game.py) are entrypoints
+      that wire dependencies. They are executed, never imported by other code.
+
+    feature_composition:
+      file: "python/{wagon}/{feature}/composition.py"
+      purpose: "Wire dependencies for a single feature"
+
+      pattern: |
+        #!/usr/bin/env python3
+        # urn: component:{wagon}:{feature}.composition.backend.infrastructure
+
+        import sys
+        from pathlib import Path
+
+        # ⚠️ composition.py MAY use sys.path (it's an entrypoint, not imported)
+        src_path = Path(__file__).parent / "src"
+        sys.path.insert(0, str(src_path))
+
+        # Can use bare imports within composition.py only
+        from domain.signature_algorithm import SignatureAlgorithm
+        from application.signature_verifier import SignatureVerifier
+
+        class SignCommitComposition:
+            def __init__(self):
+                self.algorithm = SignatureAlgorithm()
+                self.verifier = SignatureVerifier(self.algorithm)
+
+        def main():
+            composition = SignCommitComposition()
+            composition.run()
+
+        if __name__ == "__main__":
+            main()
+
+      note: "composition.py is executed, never imported; sys.path manipulation allowed here"
+
+    train_composition:
+      file: "python/trains/runner.py"
+      purpose: "Orchestrate wagons to execute user journeys (SESSION-12)"
+      note: "Production orchestration layer - loads train YAML, calls wagon.run_train()"
+
+    wagon_composition:
+      file: "python/{wagon}/wagon.py"
+      purpose: "Orchestrate multiple features within a wagon"
+
+      pattern: |
+        #!/usr/bin/env python3
+        # urn: component:{wagon}.wagon.infrastructure
+
+        import sys
+        from pathlib import Path
+
+        # Import from feature composition roots
+        sign_commit_path = Path(__file__).parent / "sign_commit"
+        sys.path.insert(0, str(sign_commit_path))
+        from composition import SignCommitComposition
+
+        class CommitStateWagon:
+            def __init__(self):
+                self.features = {
+                    'sign-commit': SignCommitComposition(),
+                }
+
+            def run_all(self):
+                for name, feature in self.features.items():
+                    feature.run()
+
+        if __name__ == "__main__":
+            CommitStateWagon().run_all()
+
+      note: "wagon.py orchestrates features; allowed to manipulate sys.path"
+
+    stability_during_refactor:
+      rule: "Composition roots are the LAST files to change during refactoring"
+      reference: "refactor.convention.yaml::composition_root"
+
+      approach: |
+        During REFACTOR phase:
+        1. Refactor domain/application/integration layers (move, rename, split)
+        2. Update import paths in composition.py/wagon.py
+        3. Composition LOGIC stays unchanged (only import paths change)
+
+      benefit: "As long as composition.py works, external consumers unaffected"
+
+    # ========================================================================
+    # STATION MASTER PATTERN (Monolith Composition)
+    # ========================================================================
+    station_master_pattern:
+      description: |
+        When multiple wagons run in a single process (game.py), the Station Master
+        pattern enables shared dependency injection without HTTP self-calls.
+
+        game.py creates shared singletons (StateRepository, EventBus, etc.) and
+        passes them to wagon composition.py functions, which decide internally
+        whether to use Direct adapters (monolith) or HTTP adapters (microservices).
+
+      architecture: |
+        game.py (Station Master / Thin Router)
+          │
+          ├── Creates shared singletons:
+          │     - StateRepository (commit-state data)
+          │     - EventBus (cross-wagon events)
+          │     - player_timebanks (burn-timebank data)
+          │
+          └── Calls: wagon.composition.wire_api_dependencies(
+                  state_repository=state_repository,
+                  player_timebanks=player_timebanks,
+                  match_repository=match_repository
+              )
+                    │
+                    └── composition.py (Wagon Engine)
+                          ├── When shared deps provided → DirectXXXClient
+                          ├── When shared deps None → FakeXXXClient (testing)
+                          └── Makes all wiring decisions internally
+
+      shared_dependencies_class:
+        description: "Use SharedDependencies dataclass for clean dependency passing"
+        location: "python/commons/composition/shared_dependencies.py"
+
+        benefits:
+          - "Single parameter instead of many individual parameters"
+          - "Type-safe with dataclass and Optional type hints"
+          - "Self-documenting through field names"
+          - "Extensible: add new fields without changing function signatures"
+          - "IDE autocomplete support"
+
+        usage_in_game_py: |
+          from commons.composition import SharedDependencies
+
+          # Create SharedDependencies with all monolith singletons
+          shared = SharedDependencies(
+              state_repository=state_repository,
+              player_timebanks=player_timebanks,
+              match_repository=match_repository,
+              event_bus=event_bus
+          )
+
+          # Pass single parameter to wagon composition
+          wire_api_dependencies(shared=shared)
+
+      composition_function_signature:
+        description: "Wagon composition.py SHOULD accept SharedDependencies parameter"
+
+        pattern: |
+          def wire_api_dependencies(shared=None):
+              """Wire dependencies with optional SharedDependencies.
+
+              Args:
+                  shared: SharedDependencies from game.py (monolith mode).
+                          When provided, uses Direct adapters for cross-wagon data.
+                          When None, uses Fake adapters for standalone testing.
+              """
+              from commons.composition import SharedDependencies
+              shared = shared or SharedDependencies()  # Default empty
+
+              if shared.state_repository is not None:
+                  commit_client = DirectCommitStateClient(shared.state_repository)
+              else:
+                  commit_client = FakeCommitStateClient()
+
+      direct_adapter_naming:
+        pattern: "Direct{WagonName}Client"
+        examples:
+          - "DirectCommitStateClient - reads from shared StateRepository"
+          - "DirectTimebankClient - reads from shared player_timebanks dict"
+          - "DirectJuggleDomainsClient - calls shared score_domain_use_case"
+
+        location: "python/{wagon}/{feature}/src/integration/clients/direct_*_client.py"
+
+      why_not_http_self_calls:
+        problem: |
+          HTTP calls to localhost (http://127.0.0.1:8000) fail in containers:
+          - Railway: Container network doesn't route localhost to itself
+          - Docker: Container localhost is isolated
+          - Kubernetes: Pod localhost is isolated
+
+        solution: |
+          Direct adapters read from shared memory instead of making HTTP calls.
+          Same interface (implements Port), different implementation.
+
+      station_master_responsibilities:
+        game_py:
+          - "Create shared singletons (StateRepository, EventBus)"
+          - "Pass shared deps to wagon composition.py"
+          - "Include wagon routers in FastAPI app"
+          - "NOT duplicate wagon wiring logic"
+
+        composition_py:
+          - "Accept optional shared dependency parameters"
+          - "Decide adapter type based on what's provided"
+          - "Own ALL wiring decisions for the wagon"
+          - "Export wired components to controllers"
+
+      validation:
+        required:
+          - "composition.py accepts optional shared dependency parameters"
+          - "Direct adapters exist for cross-wagon data access"
+          - "game.py calls composition.py, not duplicates wiring"
+
+        forbidden:
+          - "game.py creating use cases that composition.py should own"
+          - "HTTP clients calling localhost in production monolith"
+          - "Duplicated wiring logic between game.py and composition.py"
+
+  forbidden_cross_wagon_imports:
+    rule: "Code in wagon A MUST NOT import directly from wagon B"
+    reference: "design.convention.yaml::VC-DS-06"
+
+    examples:
+      forbidden:
+        - from_wagon: "commit_state"
+          to_wagon: "juggle_domains"
+          import: "from juggle_domains.score_domains.src.domain.choice import Choice"
+          reason: "Direct import creates tight coupling"
+          verdict: "❌ FORBIDDEN"
+
+        - from_wagon: "resolve_dilemmas"
+          to_wagon: "commit_state"
+          import: "from commit_state.sign_commit.src.application.signature_verifier import SignatureVerifier"
+          reason: "Bypasses contract interface"
+          verdict: "❌ FORBIDDEN"
+
+      allowed:
+        - from_wagon: "commit_state"
+          to_wagon: "juggle_domains"
+          mechanism: "Via contract: state:committed-decision"
+          approach: "Emit event → contract schema → wagons consume via their own adapters"
+          verdict: "✅ CORRECT"
+
+# ============================================================================
+# ENFORCEMENT
+# ============================================================================
+
+enforcement:
+  phase: "GREEN and RED"
+  agents:
+    - "coder: Implements components with qualified imports"
+    - "tester: Creates tests with qualified imports"
+
+  validation_checklist:
+    before_implementation:
+      - "Verify package hierarchy exists (__init__.py files at python/, wagon/, feature/)"
+      - "Verify pytest pythonpath configured in pyproject.toml"
+      - "Verify wagon manifests declare produce/consume contracts"
+
+    during_implementation:
+      - "Use qualified imports: from {wagon}.{feature}.src.{layer}.{module} import Class"
+      - "NEVER use bare imports: from domain.X import Y"
+      - "NEVER add sys.path manipulation in implementation files"
+      - "NEVER import directly from other wagons"
+
+    during_test_creation:
+      - "Use qualified imports in test files"
+      - "NEVER add sys.path.insert() in test files"
+      - "NEVER add sys.path manipulation in feature-level conftest.py"
+
+    after_implementation:
+      - "Run pytest on multiple wagons together to verify no collisions"
+      - "Verify imports work from python/ as package root"
+      - "Verify composition.py and wagon.py execute successfully"
+
+  automated_checks:
+    lint_bare_imports:
+      command: "grep -r 'from domain\\.' python/*/src/ python/*/test/"
+      expected: "No matches (all imports should be qualified)"
+
+    lint_syspath_in_tests:
+      command: "grep -r 'sys.path.insert' python/*/test/*.py"
+      expected: "No matches (tests should not manipulate sys.path)"
+
+    test_cross_wagon:
+      command: "pytest python/*/test/ -v"
+      expected: "All tests pass when run together across wagons"
+
+# ============================================================================
+# TROUBLESHOOTING
+# ============================================================================
+
+troubleshooting:
+  module_not_found:
+    symptom: "ModuleNotFoundError: No module named 'commit_state'"
+    causes:
+      - "pytest pythonpath not configured"
+      - "__init__.py files missing"
+
+    solution: |
+      1. Add pythonpath = ["."] to python/pyproject.toml
+      2. Verify __init__.py exists: python/, python/{wagon}/, python/{wagon}/{feature}/
+      3. Run pytest from python/ directory
+
+  module_shadowing:
+    symptom: "Tests pass individually but fail together; wrong module imported"
+    cause: "Using bare imports (from domain.X) instead of qualified imports"
+
+    solution: |
+      1. Update imports to: from {wagon}.{feature}.src.{layer}.{module} import Class
+      2. Remove sys.path manipulation from test files
+      3. Remove sys.path manipulation from conftest.py
+
+  composition_works_tests_fail:
+    symptom: "composition.py runs fine but tests can't import"
+    cause: "composition.py uses sys.path (allowed) but tests don't use qualified imports"
+
+    solution: "Tests must use qualified imports; composition.py can use bare imports"
+
+# ============================================================================
+# MIGRATION FROM OLD PATTERN
+# ============================================================================
+
+migration:
+  description: "How to migrate existing code from bare imports to qualified imports"
+
+  step_1_create_packages:
+    action: "Create package hierarchy"
+    command: |
+      touch python/__init__.py
+      find python/*/src -type d | while read src_dir; do
+        feature_dir=$(dirname "$src_dir")
+        wagon_dir=$(dirname "$feature_dir")
+        touch "$wagon_dir/__init__.py"
+        touch "$feature_dir/__init__.py"
+      done
+
+  step_2_update_test_imports:
+    action: "Replace bare imports with qualified imports"
+    example: |
+      # For commit_state wagon
+      sed -i.bak \
+        -e 's|from domain\.|from commit_state.sign_commit.src.domain.|g' \
+        -e 's|from application\.|from commit_state.sign_commit.src.application.|g' \
+        -e 's|from integration\.|from commit_state.sign_commit.src.integration.|g' \
+        python/commit_state/sign_commit/test/test_*.py
+
+  step_3_remove_syspath:
+    action: "Remove sys.path manipulation from test files"
+    command: |
+      sed -i.bak \
+        -e '/^import sys$/d' \
+        -e '/^from pathlib import Path$/d' \
+        -e '/^src_path = /d' \
+        -e '/sys\.path\.insert/d' \
+        python/*/test/test_*.py
+
+  step_4_configure_pytest:
+    action: "Add pythonpath to pyproject.toml"
+    file: "python/pyproject.toml"
+    add: |
+      [tool.pytest.ini_options]
+      pythonpath = ["."]
+
+  step_5_validate:
+    action: "Verify cross-wagon tests pass"
+    command: "pytest python/commit_state/*/test/ python/juggle_domains/*/test/ -v"
+
+# ============================================================================
+# EXAMPLES
+# ============================================================================
+
+examples:
+  test_file_correct:
+    path: "python/commit_state/sign_commit/test/test_d001_unit_001_signature_schema_structure.py"
+    content: |
+      # urn: acc:commit-state:D001-UNIT-001-signature-schema-structure
+      # Runtime: python
+
+      """Test for Define state commit schema with cryptographic signature fields."""
+
+      def test_ac_unit_001_signature_schema_structure():
+          # ✅ Qualified import
+          from commit_state.sign_commit.src.domain.state_commit_schema import StateCommitSchema
+
+          schema = StateCommitSchema.define()
+          assert hasattr(schema, 'decision_id')
+
+  test_file_incorrect:
+    path: "python/commit_state/sign_commit/test/test_WRONG_pattern.py"
+    content: |
+      # ❌ WRONG - This causes module shadowing
+
+      import sys
+      from pathlib import Path
+
+      # ❌ sys.path manipulation
+      src_path = Path(__file__).parent.parent / "src"
+      sys.path.insert(0, str(src_path))
+
+      def test_wrong_pattern():
+          # ❌ Bare import
+          from domain.state_commit_schema import StateCommitSchema
+
+          schema = StateCommitSchema.define()
+
+  composition_file:
+    path: "python/commit_state/sign_commit/composition.py"
+    content: |
+      #!/usr/bin/env python3
+      # urn: component:commit-state:sign-commit.composition.backend.infrastructure
+
+      """Composition root for sign-commit feature."""
+
+      import sys
+      from pathlib import Path
+
+      # ⚠️ Allowed: composition.py is an entrypoint
+      src_path = Path(__file__).parent / "src"
+      sys.path.insert(0, str(src_path))
+
+      # Can use bare imports within composition.py
+      from domain.signature_algorithm import SignatureAlgorithm
+      from application.signature_verifier import SignatureVerifier
+
+      class SignCommitComposition:
+          def __init__(self):
+              self.algorithm = SignatureAlgorithm()
+              self.verifier = SignatureVerifier(self.algorithm)
+
+          def run(self):
+              print("✅ Sign Commit feature running")
+
+      if __name__ == "__main__":
+          SignCommitComposition().run()

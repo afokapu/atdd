@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "E2E Test Harness Template",
+  "description": "Template for end-to-end browser tests",
+  "language": "typescript",
+  "framework": "playwright",
+  "category": "frontend",
+  "template": "\ndescribe('{test_name}', () => {{\n  let page: Page;\n\n  beforeEach(async () => {{\n    page = await browser.newPage();\n  }});\n\n  afterEach(async () => {{\n    await page.close();\n  }});\n\n  it('{acceptance_name}', async () => {{\n    // Given\n    await page.goto('{e2e_url}');\n    {given_setup}\n\n    // When\n    {when_action}\n\n    // Then\n    {then_assertions}\n  }});\n}});\n",
+  "variables": [
+    "test_name",
+    "acceptance_name",
+    "e2e_url",
+    "given_setup",
+    "when_action",
+    "then_assertions"
+  ]
+}

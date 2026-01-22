@@ -1,0 +1,141 @@
+version: "1.0"
+name: "Acceptance Criteria Blocks"
+description: "Reusable acceptance scaffolding primitives (planes, harness defaults, metrics)."
+
+defaults:
+  given:
+    auth:
+      scopes: []
+    builders: []
+    time: {}
+    stubbing:
+      policy: strict
+      overrides: []
+    knobs: {}
+
+planes:
+  keywords:
+    presentation: ["display", "visible", "screen", "render", "animation", "button", "form", "modal"]
+    application: ["workflow", "orchestrate", "use case", "policy", "state", "saga"]
+    domain: ["rule", "validate", "aggregate", "entity", "invariant", "business"]
+    integration: ["database", "persist", "external", "queue", "api", "webhook", "repository"]
+  sequence:
+    presentation: command
+    application: use_case
+    domain: validate
+    integration: persist
+
+harnesses:
+  http:
+    layers: ["presentation", "application", "domain", "integration"]
+    given:
+      auth:
+        scopes: ["purchase:create"]
+    when:
+      method: POST
+      path: "/api/example"
+      headers: {"Content-Type": "application/json"}
+      body: {sample: true}
+    then:
+      - kind: status
+        expect: 200
+      - kind: body
+        expect: {ok: true}
+  unit:
+    layers: ["application", "domain"]
+    when:
+      target: "Service.method"
+      args: {payload: {sample: true}}
+    then:
+      - kind: result
+        expect: {ok: true}
+  event:
+    layers: ["application", "integration"]
+    when:
+      topic: "sample.event"
+      payload: {sample: true}
+    then:
+      - kind: event
+        expect: "sample.event"
+  ws:
+    layers: ["integration"]
+    when:
+      url: "ws://example/events"
+      subscribe_msg: {action: "subscribe", channel: "updates"}
+    then:
+      - kind: message
+        expect: {frame: "connected"}
+  e2e:
+    layers: ["presentation", "application", "domain", "integration"]
+    when:
+      url: "http://example/ui"
+      actions: ["fill #field", "click #submit"]
+    then:
+      - kind: visual
+        expect: "success-banner"
+  a11y:
+    layers: ["presentation"]
+    when: {}
+    then:
+      - kind: a11y
+        expect: "passes"
+  visual:
+    layers: ["presentation"]
+    when: {}
+    then:
+      - kind: snapshot
+        expect: "unchanged"
+  metric:
+    layers: ["application", "integration"]
+    when: {}
+    then:
+      - kind: metric
+        expect: "metric:placeholder"
+  job:
+    layers: ["application", "integration"]
+    when: {}
+    then:
+      - kind: status
+        expect: "completed"
+  db:
+    layers: ["integration", "domain"]
+    when: {}
+    then:
+      - kind: rows
+        expect: "updated"
+  sec:
+    layers: ["application", "integration"]
+    when: {}
+    then:
+      - kind: security
+        expect: "granted"
+  load:
+    layers: ["integration", "application"]
+    when: {}
+    then:
+      - kind: metrics
+        expect: "within_limits"
+  script:
+    layers: ["application"]
+    when: {}
+    then:
+      - kind: status
+        expect: 0
+
+metrics:
+  time:
+    minimize: metric:latency_p50
+    maximize: metric:latency_increase
+  likelihood:
+    maximize: metric:success_ratio
+    minimize: metric:error_ratio
+  effort:
+    decrease: metric:user_steps
+  "frequency":
+    decrease: metric:occurrence_rate
+  "quantity / amount":
+    decrease: metric:scrap_rate
+    maximize: metric:throughput
+  "financial value":
+    minimize: metric:cost_per_unit
+    maximize: metric:net_margin

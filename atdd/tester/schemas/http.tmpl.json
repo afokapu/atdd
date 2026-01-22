@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HTTP Test Harness Template",
+  "description": "Template for HTTP/REST API tests",
+  "language": "typescript",
+  "framework": "supertest",
+  "category": "backend",
+  "template": "\ndescribe('{test_name}', () => {{\n  let request: SuperTest<any>;\n\n  beforeEach(() => {{\n    request = supertest(app);\n  }});\n\n  it('{acceptance_name}', async () => {{\n    // Given\n    {given_setup}\n\n    // When\n    const response = await request\n      .{http_method}('{http_path}')\n      {http_headers}\n      {http_body};\n\n    // Then\n    {then_assertions}\n  }});\n}});\n",
+  "variables": [
+    "test_name",
+    "acceptance_name",
+    "given_setup",
+    "http_method",
+    "http_path",
+    "http_headers",
+    "http_body",
+    "then_assertions"
+  ]
+}

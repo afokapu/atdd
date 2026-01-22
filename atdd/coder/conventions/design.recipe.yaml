@@ -1,0 +1,273 @@
+recipe: design
+pattern: "Design System Build (Composite + Decorator + Strategy + Tokens)"
+category: presentation_design_system
+source: "Design system best practices"
+utils: "design.py"
+
+applies_when:
+  - "Frontend code with hardcoded spacing/colors/radii"
+  - "Repeated Container/button/card patterns detected"
+
+smell_indicators:
+  - "EdgeInsets.all(16.0) instead of AppSpacing.m"
+  - "BorderRadius.circular(8.0) instead of AppRadii.m"
+  - "Color(0xFF3B82F6) instead of Theme.of(context).colorScheme.primary"
+  - "Repeated Container patterns (potential primitives)"
+  - "Repeated button-like widgets (potential components)"
+  - "Repeated page layouts (potential templates)"
+
+refactoring_steps:
+  # STEP 1: Create full design_system structure
+  - step: 1
+    what: "Create design_system directory structure (all 4 levels)"
+    where: "lib/design_system/"
+    template: |
+      lib/design_system/
+        tokens/       # Design tokens (spacing, colors, radii, motion)
+        primitives/   # Basic UI elements (boxes, containers, text)
+        components/   # Reusable components (buttons, cards, inputs)
+        templates/    # Page templates (empty states, list views, detail views)
+    verify:
+      - run: pytest -xvs tests/design_system/
+        expect: GREEN
+
+  # STEP 2: Extract tokens from hardcoded values
+  - step: 2
+    what: "Extract hardcoded tokens to design_system/tokens/"
+    where: "lib/design_system/tokens/"
+    instruction: |
+      For each hardcoded value detected by scan_hardcoded_tokens():
+
+      1. Check if token already exists; if missing, create token file:
+         - spacing_tokens.dart: AppSpacing class (xxs, xs, s, m, l, xl, xxl)
+         - radii_tokens.dart: AppRadii class (s, m, l)
+         - motion_tokens.dart: AppMotion class (fast, base, slow)
+
+      3. Use semantic naming:
+         - 8.0 → AppSpacing.s (small)
+         - 16.0 → AppSpacing.m (medium)
+         - 24.0 → AppSpacing.l (large)
+
+    example: |
+      // spacing_tokens.dart
+      class AppSpacing {
+        static const double xxs = 2.0;
+        static const double xs = 4.0;
+        static const double s = 8.0;
+        static const double m = 16.0;
+        static const double l = 24.0;
+        static const double xl = 32.0;
+        static const double xxl = 48.0;
+      }
+
+    verify:
+      - run: pytest -xvs tests/design_system/tokens/
+        expect: GREEN
+
+  # STEP 3: Detect and extract primitives
+  - step: 3
+    what: "Detect repeated Container patterns and extract primitives"
+    where: "lib/design_system/primitives/"
+    instruction: |
+      1. Identify repeated Container patterns (3+ occurrences) in the codebase.
+
+      2. For each candidate (e.g., "AppBox" from repeated styled Containers):
+         Create primitive in primitives/:
+         - AppBox: Styled Container using AppSpacing, AppRadii tokens
+         - AppText: Styled Text using typography tokens
+         - AppSpacer: Consistent spacing widget
+
+      3. Primitives MUST only import from tokens/ (hierarchy rule)
+
+    example: |
+      // app_box.dart
+      import '../tokens/spacing_tokens.dart';
+      import '../tokens/radii_tokens.dart';
+
+      class AppBox extends StatelessWidget {
+        final Widget child;
+        final EdgeInsets? padding;
+        final BorderRadius? borderRadius;
+
+        AppBox({required this.child, this.padding, this.borderRadius});
+
+        @override
+        Widget build(BuildContext context) {
+          return Container(
+            padding: padding ?? EdgeInsets.all(AppSpacing.m),
+            decoration: BoxDecoration(
+              borderRadius: borderRadius ?? BorderRadius.circular(AppRadii.m),
+            ),
+            child: child,
+          );
+        }
+      }
+
+    verify:
+      - run: pytest -xvs tests/design_system/primitives/
+        expect: GREEN
+
+  # STEP 4: Detect and extract components
+  - step: 4
+    what: "Detect repeated button/card patterns and extract components"
+    where: "lib/design_system/components/"
+    instruction: |
+      1. Identify repeated button/card patterns (5+ occurrences) in the codebase.
+
+      2. For each candidate (e.g., "AppButton" from repeated button patterns):
+         Create component in components/:
+         - AppButton: Composed from AppBox + AppText + GestureDetector
+         - AppCard: Composed from AppBox with elevation/shadow
+         - AppInput: Composed from AppBox + TextField
+
+      3. Components SHOULD compose primitives (not raw widgets)
+         - Prefer: AppButton uses AppBox, AppText
+         - Avoid: AppButton uses Container, Text directly
+
+    example: |
+      // app_button.dart
+      import '../primitives/app_box.dart';
+      import '../primitives/app_text.dart';
+
+      class AppButton extends StatelessWidget {
+        final String label;
+        final VoidCallback onPressed;
+
+        AppButton({required this.label, required this.onPressed});
+
+        @override
+        Widget build(BuildContext context) {
+          return GestureDetector(
+            onTap: onPressed,
+            child: AppBox(
+              child: AppText(label),
+            ),
+          );
+        }
+      }
+
+    verify:
+      - run: pytest -xvs tests/design_system/components/
+        expect: GREEN
+
+  # STEP 5: Detect and extract templates
+  - step: 5
+    what: "Detect repeated page layouts and extract templates"
+    where: "lib/design_system/templates/"
+    instruction: |
+      1. Identify repeated multi-component layouts (Icon + Title + Description + Button).
+
+      2. For each candidate (e.g., "EmptyState" from repeated empty list patterns):
+         Create template in templates/:
+         - EmptyStateTemplate: Icon + Title + Description + Action button
+         - ListViewTemplate: Scrollable list with header/footer
+         - DetailViewTemplate: Hero image + content sections
+
+      3. Templates SHOULD compose components (not primitives directly)
+         - Prefer: EmptyState uses AppButton, AppText
+         - Avoid: EmptyState uses AppBox directly
+
+    example: |
+      // empty_state_template.dart
+      import '../components/app_button.dart';
+      import '../primitives/app_text.dart';
+
+      class EmptyStateTemplate extends StatelessWidget {
+        final IconData icon;
+        final String title;
+        final String description;
+        final String actionLabel;
+        final VoidCallback onAction;
+
+        EmptyStateTemplate({
+          required this.icon,
+          required this.title,
+          required this.description,
+          required this.actionLabel,
+          required this.onAction,
+        });
+
+        @override
+        Widget build(BuildContext context) {
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 64),
+              SizedBox(height: AppSpacing.l),
+              AppText(title, style: TitleStyle()),
+              SizedBox(height: AppSpacing.s),
+              AppText(description, style: BodyStyle()),
+              SizedBox(height: AppSpacing.l),
+              AppButton(label: actionLabel, onPressed: onAction),
+            ],
+          );
+        }
+      }
+
+    verify:
+      - run: pytest -xvs tests/design_system/templates/
+        expect: GREEN
+
+  # STEP 6: Refactor presentation to use design_system (all levels)
+  - step: 6
+    what: "Refactor presentation to use design_system (tokens, primitives, components, templates)"
+    where: "presentation/"
+    before: |
+      // Hardcoded values and duplicated widgets
+      Container(
+        padding: EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        child: Text("Hello"),
+      )
+
+      // Repeated button pattern
+      GestureDetector(
+        onTap: () {},
+        child: Container(/* styled */),
+      )
+    after: |
+      import 'package:app/design_system/primitives/app_box.dart';
+      import 'package:app/design_system/primitives/app_text.dart';
+      import 'package:app/design_system/components/app_button.dart';
+      import 'package:app/design_system/templates/empty_state_template.dart';
+
+      // Use primitives
+      AppBox(
+        child: AppText("Hello"),
+      )
+
+      // Use components
+      AppButton(label: "Click me", onPressed: () {})
+
+      // Use templates
+      EmptyStateTemplate(
+        icon: Icons.inbox,
+        title: "No items",
+        description: "Add your first item",
+        actionLabel: "Add Item",
+        onAction: () {},
+      )
+    verify:
+      - run: pytest -xvs
+        expect: GREEN
+
+final_verify:
+  - "Hierarchy valid: tokens ← primitives ← components ← templates"
+  - "Wagons import from design_system only (no reverse imports)"
+  - "All tests GREEN"
+  - "Coverage maintained or improved"
+  - "Primitives use tokens (not hardcoded values)"
+  - "Components use primitives (not raw widgets)"
+  - "Templates use components (not primitives directly)"
+
+related_patterns:
+  - "Composite: Hierarchical tree structure (tokens → primitives → components → templates)"
+  - "Strategy: Theme/variant selection (light/dark, responsive)"
+  - "Decorator: Behavior wrapping for styled components"
+  - "RF-DS-TOKEN (DS-001-004): Token detection and extraction"
+  - "RF-DS-PRIMITIVE (DS-005-007): Primitive detection and validation"
+  - "RF-DS-COMPONENT (DS-008-011): Component detection and composition"
+  - "RF-DS-TEMPLATE (DS-012-014): Template detection and composition"
+  - "RF-DS-HIERARCHY (DS-015-017): Hierarchy validation"

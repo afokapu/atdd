@@ -1,0 +1,509 @@
+version: "1.1"
+name: "Contract-Driven Migration Convention"
+description: "Generate Supabase PostgreSQL migrations from contract JSON schemas and infrastructure tables"
+
+# Workflow Integration
+workflow:
+  trigger: "After contract generation by tester"
+
+  phases:
+    1_scan: "Identify contracts without corresponding migrations"
+    2_generate: "Create migration template with TODO markers"
+    3_validate: "Ensure all contracts have migrations (ATDD test)"
+    4_review: "Human completes TODOs (foreign keys, indexes, RLS)"
+    5_apply: "supabase db push"
+
+  automation_level: "template_generation"
+  requires_human_review: true
+
+  command: "python atdd/coach/command/migration.py"
+
+# Table Naming Convention
+table_naming:
+  pattern: "{theme}_{domain}_{aspect}"
+  description: "Derives from contract x-artifact-metadata and file path"
+
+  examples:
+    - contract: "contracts/match/dilemma/current.schema.json"
+      metadata: "{domain: 'dilemma', resource: 'current'}"
+      path_theme: "match"
+      table_name: "match_dilemma_current"
+
+    - contract: "contracts/commons/ux/foundations.schema.json"
+      metadata: "{domain: 'ux', resource: 'foundations'}"
+      path_theme: "commons"
+      table_name: "commons_ux_foundations"
+
+  normalization: "snake_case"
+  max_length: 63  # PostgreSQL limit
+
+# Type Mapping: JSON Schema → PostgreSQL
+type_mapping:
+  primitives:
+    string:
+      default: "TEXT"
+      with_pattern_uuid: "UUID"
+      with_format_date_time: "TIMESTAMPTZ"
+      with_format_date: "DATE"
+      with_format_time: "TIME"
+      with_format_email: "TEXT"  # Consider VARCHAR(255) for indexing
+      with_format_uri: "TEXT"
+
+    integer: "INTEGER"
+    number: "NUMERIC"
+    boolean: "BOOLEAN"
+
+  complex:
+    object: "JSONB"  # Flag for normalization review
+    array: "JSONB"   # Flag for normalization review
+
+  special_cases:
+    enum: "TEXT"     # Add CHECK constraint
+    const: "TEXT"    # Add CHECK constraint with value
+
+  notes:
+    - "JSONB for complex types requires TODO marker to consider normalization"
+    - "UUID pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    - "Enums generate CHECK constraints: CHECK (column IN ('val1', 'val2'))"
+
+# Migration Template Structure
+template_structure:
+  header:
+    - "-- Generated from {contract_path}"
+    - "-- Generation time: {timestamp}"
+    - "-- ⚠️ REVIEW REQUIRED BEFORE APPLYING"
+    - ""
+
+  table_definition:
+    primary_key: "id UUID PRIMARY KEY DEFAULT gen_random_uuid()"
+    columns: "Derived from contract properties"
+    constraints: "NOT NULL for required fields, CHECK for patterns"
+
+  standard_columns:
+    - "created_at TIMESTAMPTZ DEFAULT NOW()"
+    - "updated_at TIMESTAMPTZ DEFAULT NOW()"
+
+  todo_markers:
+    - "-- ⚠️ TODO: Add foreign key constraints"
+    - "-- ⚠️ TODO: Add indexes for common queries"
+    - "-- ⚠️ TODO: Add RLS policies"
+    - "-- ⚠️ TODO: Add trigger for updated_at"
+    - "-- ⚠️ TODO: Review JSONB columns for normalization"
+
+  footer:
+    - "-- End of migration"
+
+# Required TODOs for Human Review
+human_review_required:
+  foreign_keys:
+    description: "Identify relationships between tables"
+    example: "ALTER TABLE match_dilemma_current ADD CONSTRAINT fk_fragment_a FOREIGN KEY (fragment_a_id) REFERENCES fragments(id);"
+    rationale: "Contract doesn't define referential integrity"
+
+  indexes:
+    description: "Add indexes for query performance"
+    example: "CREATE INDEX idx_dilemma_created ON match_dilemma_current(created_at DESC);"
+    rationale: "Access patterns unknown at generation time"
+
+  rls_policies:
+    description: "Row-level security for multi-tenant isolation"
+    example: "CREATE POLICY 'users_own_data' ON match_dilemma_current FOR SELECT USING (auth.uid() = user_id);"
+    rationale: "Security requirements specific to application"
+
+  triggers:
+    description: "Lifecycle hooks like updated_at timestamps"
+    example: "CREATE TRIGGER set_updated_at BEFORE UPDATE ON match_dilemma_current FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();"
+    rationale: "Automation preferences vary"
+
+  normalization:
+    description: "Extract nested objects to separate tables"
+    example: "Instead of JSONB, create separate fragments table"
+    rationale: "Schema design requires domain knowledge"
+
+# Validation Rules
+validation:
+  coverage:
+    rule: "Every contract must have migration or existing table"
+    test: "atdd/tester/test_migration_coverage.py::test_all_contracts_have_migrations"
+    failure: "Lists contracts without migrations"
+
+  no_unreviewed_todos:
+    rule: "Migrations cannot be applied with TODO markers"
+    test: "atdd/tester/test_migration_coverage.py::test_migration_templates_reviewed"
+    failure: "Lists migrations with unresolved TODOs"
+
+  type_mapping_complete:
+    rule: "All JSON Schema types must map to PostgreSQL"
+    test: "atdd/tester/test_migration_generation.py::test_json_to_postgres_type_mapping"
+    failure: "Reports unmapped types"
+
+# Output Paths
+output:
+  migrations_directory: "supabase/migrations/"
+  filename_pattern: "{timestamp}_{theme}_{domain}_{aspect}.sql"
+  timestamp_format: "%Y%m%d%H%M%S"
+
+  example: "supabase/migrations/20251030143000_match_dilemma_current.sql"
+
+# Integration with ATDD Workflow
+atdd_integration:
+  phase: "tester"
+  trigger: "After contract generation"
+
+  steps:
+    1: "Generate contract from wagon interface"
+    2: "Generate migration template from contract"
+    3: "Run coverage validation (RED if missing)"
+    4: "Human reviews and completes TODOs"
+    5: "Run validation (GREEN when complete)"
+    6: "Apply migration: supabase db push"
+
+  tests:
+    generation: "atdd/tester/test_migration_generation.py"
+    coverage: "atdd/tester/test_migration_coverage.py"
+
+# References
+references:
+  contract_convention: ".claude/conventions/tester/contract.convention.yaml"
+  supabase_docs: "https://supabase.com/docs/guides/database/tables"
+  postgres_types: "https://www.postgresql.org/docs/current/datatype.html"
+
+# Command Usage
+usage: |
+  # Generate all missing migrations
+  python atdd/coach/command/migration.py
+
+  # Generate for specific contract
+  python atdd/coach/command/migration.py --contract contracts/match/dilemma/current.schema.json
+
+  # Validate coverage
+  python atdd/coach/command/migration.py --validate
+
+  # Check for unreviewed TODOs
+  pytest atdd/tester/test_migration_coverage.py::test_migration_templates_reviewed
+
+# JSONB-First Storage Strategy
+jsonb_strategy:
+  pattern: "JSONB blob storage for document-like wagon contracts"
+  rationale: |
+    Wagon architecture treats contracts as atomic documents consumed by wagons.
+    JSONB blob storage aligns with this pattern:
+    - Wagons process complete contracts, not normalized fields
+    - Contract validation happens at application layer (JSON Schema)
+    - No SQL joins needed (references resolved via URNs in application)
+    - Event-driven: hot path is in-memory, DB is persistence layer
+    - Bounded contexts: each entity lives in its lifecycle (match/session/scenario)
+
+  standard_table_structure: |
+    CREATE TABLE {theme}_{domain}_{aspect} (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      data JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX idx_{table}_data ON {table} USING GIN (data);
+
+  migrations_not_needed:
+    description: "Contract schema changes do NOT trigger database migrations"
+    scenarios:
+      - change: "Add optional field to contract"
+        migration: "❌ Not needed"
+        reason: "Old records lack field, app provides default"
+      - change: "Remove field from contract"
+        migration: "❌ Not needed"
+        reason: "Old records keep field in JSONB (ignored by app)"
+      - change: "Change field type (string → int)"
+        migration: "❌ Not needed"
+        reason: "App handles both formats via _version field"
+      - change: "Rename field"
+        migration: "❌ Not needed (but code complexity)"
+        reason: "App reads old and new field names during transition"
+
+  migrations_needed:
+    description: "Only structural changes require database migrations"
+    scenarios:
+      - change: "New contract introduced"
+        migration: "✅ CREATE TABLE"
+        tool: "migration.py from contract schema"
+      - change: "Contract retired/deleted"
+        migration: "✅ DROP TABLE (optional)"
+        tool: "Manual via Supabase CLI"
+      - change: "Add index for discovered query pattern"
+        migration: "✅ CREATE INDEX"
+        tool: "Supabase CLI: supabase db diff"
+      - change: "Extract column for performance"
+        migration: "✅ ALTER TABLE ADD COLUMN"
+        tool: "Manual optimization (rare)"
+
+  versioning:
+    description: "Dual versioning strategy for schema evolution"
+
+    schema_version:
+      location: "contracts/{theme}/{domain}/{aspect}.schema.json"
+      field: "version"
+      format: "Semantic versioning (1.0.0, 1.1.0, 2.0.0)"
+      purpose: "Documents contract schema definition version"
+      used_by: "Developers, validators, documentation"
+      example: |
+        {
+          "$id": "match:dilemma:current",
+          "version": "2.0.0",  ← Contract schema is at v2.0.0
+          "properties": { ... }
+        }
+
+    data_version:
+      location: "Database JSONB data blob"
+      field: "_version"
+      format: "String major version (\"1\", \"2\")"
+      purpose: "Tags which schema version this specific data conforms to"
+      used_by: "Application runtime code for backward compatibility"
+      example: |
+        // Data in Supabase JSONB column
+        {
+          "_version": "1",  ← This record uses v1 format
+          "id": "abc123",
+          "amount": "100"  // string in v1
+        }
+
+    version_skew_handling:
+      description: "Application code handles multiple data formats"
+      pattern: |
+        def parse_dilemma(data: dict) -> Dilemma:
+            version = data.get("_version", "1")  # Default to v1
+
+            if version == "1":
+                # OLD FORMAT: amount is string
+                return Dilemma(
+                    id=data["id"],
+                    amount=int(data["amount"])  # Convert string → int
+                )
+            else:  # version 2+
+                # NEW FORMAT: amount is int
+                return Dilemma(
+                    id=data["id"],
+                    amount=data["amount"]  # Already int
+                )
+
+    semantic_versioning_rules: |
+      | Change                | Version | Example              | Migration Needed?          |
+      |-----------------------|---------|----------------------|----------------------------|
+      | Remove required field | v2.0.0  | amount deleted       | ❌ No (JSONB flexible)      |
+      | Change field type     | v2.0.0  | amount: string → int | ❌ No (app handles both)    |
+      | Add optional field    | v1.1.0  | description added    | ❌ No (old records lack it) |
+      | Fix docs              | v1.0.1  | Better descriptions  | ❌ No                       |
+
+    lifecycle_signals: |
+      - v0.x.x = Draft (planner/tester iterating on structure)
+      - v1.x.x+ = Stable (published, used by runtime code)
+      - Major bumps = Breaking changes (old code can't read new format without _version check)
+
+# Supabase CLI Integration
+cli_integration:
+  description: "Supabase CLI for structural changes only, NOT contract evolution"
+  cli_version: "v2.54.11"
+
+  commands:
+    db_diff:
+      command: "supabase db diff -f <migration_name>"
+      purpose: "Generate migration from local schema changes"
+      use_case: "Adding indexes or rare table structure changes"
+      example: |
+        # After adding an index manually in local DB
+        supabase db diff -f add_dilemma_match_index
+
+    db_push:
+      command: "supabase db push"
+      purpose: "Apply migrations to remote database"
+      use_case: "Deploy new tables or index changes"
+      example: |
+        # Apply all pending migrations
+        supabase db push
+
+    db_pull:
+      command: "supabase db pull"
+      purpose: "Sync remote schema to local"
+      use_case: "Pull schema changes from production"
+      example: |
+        # Fetch remote schema
+        supabase db pull
+
+    gen_types_dart:
+      command: "supabase gen types dart --linked > lib/types/database.dart"
+      purpose: "Generate Dart types from database schema"
+      use_case: "Type safety for Dart client code"
+      example: |
+        # Generate types after schema changes
+        supabase gen types dart --linked > lib/types/database.dart
+
+  workflow:
+    description: "When to use migration.py vs Supabase CLI"
+
+    create_table:
+      trigger: "New contract introduced"
+      tool: "migration.py"
+      process: |
+        1. Tester generates contract from wagon interface
+        2. migration.py detects new contract
+        3. Generates CREATE TABLE migration with standard JSONB structure
+        4. Human reviews (no TODO markers for JSONB approach)
+        5. Apply: supabase db push
+
+    add_index:
+      trigger: "Discover slow query pattern in production"
+      tool: "Supabase CLI"
+      process: |
+        1. Identify query performance issue
+        2. Add index manually in local DB for testing
+        3. Generate migration: supabase db diff -f add_index_name
+        4. Review generated migration
+        5. Apply: supabase db push
+
+    contract_evolution:
+      trigger: "Contract schema changes (field add/remove/type change)"
+      tool: "❌ NO MIGRATION NEEDED"
+      process: |
+        1. Update contract schema version (e.g., 1.0.0 → 2.0.0)
+        2. Add _version field to contract properties if not present
+        3. Update application code to handle version skew
+        4. Deploy code changes
+        5. No database migration required
+
+    structural_vs_schema:
+      structural_migrations:
+        description: "Changes to database structure"
+        examples: ["CREATE TABLE", "DROP TABLE", "CREATE INDEX", "ALTER TABLE ADD COLUMN (rare)"]
+        tool: "migration.py (CREATE) or Supabase CLI (INDEX/ALTER)"
+
+      schema_evolution:
+        description: "Changes to contract schema"
+        examples: ["Add field", "Remove field", "Change type", "Rename field"]
+        tool: "❌ No migration - handled in application code via _version"
+
+# ============================================================================
+# TABLE CATEGORIES (Added in v1.1)
+# ============================================================================
+table_categories:
+  description: "Distinguish contract tables from infrastructure tables"
+
+  contract_tables:
+    definition: "Tables storing wagon contracts (data interchange between wagons)"
+    pattern: "JSONB blob storage (see jsonb_strategy section)"
+    examples: ["commons_ux_skin", "match_dilemma_current", "match_dilemma_paired"]
+    naming: "{theme}_{domain}_{aspect} (from contract path)"
+    rationale: |
+      - Wagons consume complete contracts as documents
+      - Schema evolution via _version field in JSONB
+      - No migrations needed for contract changes
+
+  infrastructure_tables:
+    definition: "Tables for event sourcing, caching, queuing (non-contract data)"
+    pattern: "Choose pattern based on access patterns and constraints"
+    examples: ["domain_impact_events", "preload_card_cache", "background_jobs"]
+    naming: "{feature}_{purpose} (descriptive, not contract-derived)"
+    rationale: |
+      - Optimize for query performance, concurrency, or consistency
+      - Pattern choice driven by infrastructure needs, not contract versioning
+
+# ============================================================================
+# INFRASTRUCTURE PATTERNS (Added in v1.1)
+# ============================================================================
+infrastructure_patterns:
+  event_logs:
+    use_when: "Implementing event sourcing pattern (append-only immutable logs)"
+    pattern: "Normalized columns for event schema + JSONB for metadata"
+    rationale: |
+      Event logs have different constraints than contract tables:
+      - Events are immutable (no updates → no schema migration risk)
+      - Query performance critical (event replay by aggregate_id, timestamp)
+      - Type safety critical (corrupt events break state reconstruction)
+      - Normalized columns outperform JSONB path queries by 5-8x
+
+    schema_template: |
+      CREATE TABLE {wagon}_events (
+          id BIGSERIAL PRIMARY KEY,
+          aggregate_id BIGINT NOT NULL,
+          event_type VARCHAR(50) NOT NULL,
+          event_data JSONB NOT NULL,
+          timestamp TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+          -- NOTE: No updated_at - events are immutable
+      );
+      CREATE INDEX idx_{wagon}_events_aggregate ON {wagon}_events(aggregate_id, timestamp DESC);
+
+    real_example: |
+      CREATE TABLE domain_impact_events (
+          id BIGSERIAL PRIMARY KEY,
+          match_id BIGINT NOT NULL,
+          cell_id VARCHAR(2) NOT NULL CHECK (cell_id ~ '^[adfes][COPFI]$'),
+          delta NUMERIC(10, 2) NOT NULL CHECK (delta >= 0),
+          timestamp TIMESTAMPTZ NOT NULL,
+          event_metadata JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX idx_events_match ON domain_impact_events(match_id, timestamp);
+
+  caches:
+    use_when: "Temporary or preloaded data for query optimization"
+    pattern: "Hybrid (normalized lookup keys + JSONB payloads)"
+    rationale: "Lookups by FKs (normalized) + flexible cache payload (JSONB)"
+
+    schema_template: |
+      CREATE TABLE {feature}_cache (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          lookup_key UUID NOT NULL,
+          cached_data JSONB NOT NULL,
+          expires_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX idx_{feature}_cache_lookup ON {feature}_cache (lookup_key);
+
+  queues:
+    use_when: "Background job queues, task scheduling"
+    pattern: "Normalized columns for queue operations + JSONB for task data"
+
+    schema_template: |
+      CREATE TABLE background_jobs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          job_type VARCHAR(50) NOT NULL,
+          status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed')),
+          priority INT DEFAULT 0,
+          scheduled_at TIMESTAMPTZ NOT NULL,
+          job_data JSONB NOT NULL,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX idx_jobs_queue ON background_jobs (status, priority DESC, scheduled_at)
+        WHERE status IN ('pending', 'running');
+
+# ============================================================================
+# PATTERN DECISION TREE (Added in v1.1)
+# ============================================================================
+pattern_decision_tree:
+  step_1:
+    question: "Is this a wagon contract table?"
+    yes: "Use JSONB blob pattern → See jsonb_strategy"
+    no: "Proceed to step 2"
+
+  step_2:
+    question: "What is the table's purpose?"
+    event_log: "Use normalized columns → See infrastructure_patterns.event_logs"
+    cache: "Use hybrid pattern → See infrastructure_patterns.caches"
+    queue: "Use normalized + JSONB → See infrastructure_patterns.queues"
+    other: "Analyze access patterns (high read = normalized, high write = JSONB)"
+
+# ============================================================================
+# CHANGELOG
+# ============================================================================
+changelog_v1_1:
+  date: "2025-11-08"
+  summary: "Add infrastructure patterns for event logs, caches, queues"
+  rationale: |
+    v1.0 assumed all tables are contract tables. This created confusion for
+    event sourcing infrastructure where normalized columns outperform JSONB
+    by 5-8x for event replay queries.
+
+  new_sections:
+    - "table_categories: Distinguish contract vs infrastructure"
+    - "infrastructure_patterns: Event logs, caches, queues"
+    - "pattern_decision_tree: Guide for choosing pattern"

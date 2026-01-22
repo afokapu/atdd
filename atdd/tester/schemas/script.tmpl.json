@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Script Test Harness Template",
+  "description": "Template for general script execution tests",
+  "language": "shell",
+  "framework": "bash",
+  "category": "integration",
+  "template": "\n#!/bin/bash\n# URN: {urn}\n\n# Given\n{given_setup}\n\n# When\nstart_time=$(date +%s)\noutput=$({script_command} {script_args} 2>&1)\nexit_code=$?\nend_time=$(date +%s)\nduration=$((end_time - start_time))\n\n# Then\nif [ $exit_code -eq {expected_exit_code} ]; then\n  status=\"PASS\"\nelse\n  status=\"FAIL\"\nfi\n\necho \"{\\\"urn\\\":\\\"{urn}\\\",\\\"status\\\":\\\"$status\\\",\\\"details\\\":{\\\"exit_code\\\":$exit_code,\\\"duration_seconds\\\":$duration}}\"\n\n[ \"$status\" == \"PASS\" ]\n",
+  "variables": [
+    "urn",
+    "given_setup",
+    "script_command",
+    "script_args",
+    "expected_exit_code"
+  ]
+}

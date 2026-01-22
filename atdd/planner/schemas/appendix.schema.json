@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wagons.dev/schemas/planner/appendix.schema.json",
+  "title": "Appendix Schema",
+  "description": "Schema for appendix references - supplementary multimodal content attached to planner outputs",
+  "definitions": {
+    "appendix_reference": {
+      "type": "object",
+      "description": "Reference to a supplementary file (mockup, diagram, document, etc.) that provides additional context",
+      "required": ["path", "type", "purpose", "title"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to appendix file within artifact's appendices/ subdirectory",
+          "pattern": "^[a-zA-Z0-9_-]+_(mockup|spreadsheet|document|diagram|audio|video)_[a-zA-Z0-9_.-]+$",
+          "examples": [
+            "checkout-flow_mockup_payment-screen.png",
+            "E023_diagram_sequence.svg",
+            "payment-processing_spreadsheet_tax-rules.xlsx"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of appendix content",
+          "enum": ["mockup", "spreadsheet", "document", "diagram", "audio", "video"]
+        },
+        "purpose": {
+          "type": "string",
+          "description": "Why this appendix is attached - what context does it provide?",
+          "minLength": 10,
+          "examples": [
+            "Visual flow of checkout screens showing payment validation",
+            "Complex tax calculation logic for pricing domain model",
+            "Entity-relationship diagram for authentication domain"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable title for the appendix",
+          "minLength": 5,
+          "examples": [
+            "Checkout Payment Screen Mockup",
+            "Tax Calculation Rules Spreadsheet",
+            "Authentication Sequence Diagram"
+          ]
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Optional metadata about the appendix",
+          "properties": {
+            "author": {
+              "type": "string",
+              "description": "Creator of the appendix"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "description": "When appendix was created (ISO 8601 format)"
+            },
+            "source": {
+              "type": "string",
+              "description": "Where appendix originated (Figma, user research session, etc.)"
+            },
+            "tags": {
+              "type": "array",
+              "description": "Tags for categorization",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,382 @@
+version: "1.0"
+name: "Interface Convention"
+description: "Conventions for interface naming, contracts, and transformation patterns. Interfaces are produce/consume artifacts that define communication between wagons."
+
+# Artifact contract references
+artifact_contracts:
+  description: "Wagon manifests can reference shared artifact contracts for produce/consume items"
+
+  naming:
+    logical_pattern: "{domain}:{resource}[.{category}]"
+    physical_pattern: "contracts/{domain}/{resource}[/{category}].json"
+    rationale: "Domain-based organization enables REST API mapping and clear ownership. Colon separator denotes hierarchy, dot separator denotes facet. Optional category supports nested resources."
+
+    structure_rules:
+      flat: "Simple resources use FLAT structure: contracts/{domain}/{resource}.schema.json"
+      faceted: "Resources with category facet use NESTED structure: contracts/{domain}/{resource}/{category}.schema.json"
+      collection: "Resources containing MULTIPLE schemas use COLLECTION structure: contracts/{domain}/{resource}/*.schema.json"
+      determination: "Structure determined by: (1) dot (.) indicates faceted, (2) multiple schema files indicate collection, (3) otherwise flat"
+
+    patterns:
+      flat:
+        description: "Single schema file for single resource"
+        structure: "contracts/{domain}/{resource}.schema.json"
+        tests: "contracts/{domain}/tests/{resource}_schema_test.*"
+        artifact_name: "{domain}:{resource}"
+        examples: ["match:dilemma.current", "fragment:pool", "pacing:exhausted"]
+
+      faceted:
+        description: "Nested schema using dot notation for category facet"
+        structure: "contracts/{domain}/{resource}/{category}.schema.json"
+        tests: "contracts/{domain}/{resource}/tests/{category}_schema_test.*"
+        artifact_name: "{domain}:{resource}.{category}"
+        examples: ["ux:foundations.color", "ux:primitives.icon"]
+        note: "Category expressed as dot facet in artifact name"
+
+      collection:
+        description: "Directory containing multiple related schemas for a single resource"
+        structure: "contracts/{domain}/{resource}/*.schema.json"
+        tests: "contracts/{domain}/{resource}/tests/*_schema_test.*"
+        artifact_name: "{domain}:{resource}"
+        examples: ["ux:foundations (contains color, spacing, typography)", "ux:primitives (contains icon, shape, mask)"]
+        note: "Single wagon artifact maps to MULTIPLE schema files; may include optional catalog.schema.json as master index"
+        metadata:
+          collection: true
+          member: "Identifies specific schema (e.g., 'color', 'spacing')"
+          resource: "Same for all schemas in collection (e.g., 'foundations')"
+        metadata_example: |
+          {
+            "domain": "ux",
+            "resource": "foundations",
+            "collection": true,
+            "member": "color"
+          }
+
+    examples:
+      # Flat pattern examples
+      - logical: "match:dilemma.current"
+        physical: "contracts/dilemma/current.schema.json"
+        pattern: "flat"
+        note: "Single resource, singular noun → flat structure (NOT contracts/dilemma/current/current.schema.json)"
+
+      - logical: "fragment:pool"
+        physical: "contracts/fragment/pool.schema.json"
+        pattern: "flat"
+        note: "Single resource → flat structure (NOT contracts/fragment/pool/pool.schema.json)"
+
+      - logical: "mechanic:decision.choice"
+        physical: "contracts/decision/choice.schema.json"
+        pattern: "flat"
+        note: "Single resource → flat structure"
+
+      # Collection pattern examples (plural resources)
+      - logical: "ux:foundations"
+        physical: "contracts/commons/ux/foundations/*.schema.json"
+        pattern: "collection"
+        note: "Plural noun → collection with multiple schemas (color.schema.json, spacing.schema.json, typography.schema.json)"
+
+      - logical: "ux:primitives"
+        physical: "contracts/commons/ux/primitives/*.schema.json"
+        pattern: "collection"
+        note: "Plural noun → collection with multiple schemas (icon.schema.json, shape.schema.json, mask.schema.json)"
+
+      # Faceted pattern examples (dot notation)
+      - logical: "ux:foundations.color"
+        physical: "contracts/commons/ux/foundations/color.schema.json"
+        pattern: "faceted"
+        note: "Has dot facet → nested structure (alternative to collection pattern)"
+
+  directory_structure:
+    description: "Contracts and telemetry follow flexible directory pattern with required tests/"
+
+    contracts:
+      pattern: "contracts/{domain}/{resource}[/{category}]/"
+      tests_required: true
+      tests_pattern: "contracts/{domain}/{resource}[/{category}]/tests/"
+
+      flat_example:
+        structure: "contracts/commons/ux/foundations/"
+        contents:
+          - "color.schema.json"
+          - "spacing.schema.json"
+          - "tests/color_schema_test.json"
+          - "tests/spacing_schema_test.json"
+
+      nested_example:
+        structure: "contracts/commons/ux/primitives/icons/"
+        contents:
+          - "icon.schema.json"
+          - "tests/icon_schema_test.json"
+
+    telemetry:
+      pattern: "telemetry/{domain}/{resource}[/{category}]/"
+      tests_required: true
+      tests_pattern: "telemetry/{domain}/{resource}[/{category}]/tests/"
+
+      flat_example:
+        structure: "telemetry/ux/foundations/"
+        contents:
+          - "metric.ui.duration.json"
+          - "event.ux.json"
+          - "tests/metric_ui_duration_test.json"
+
+      nested_example:
+        structure: "telemetry/ux/primitives/icons/"
+        contents:
+          - "event.ui.json"
+          - "tests/event_ui_test.yaml"
+
+    validation:
+      enforcement: "Platform validation tests in tests/platform_validation/"
+      contracts_test: "test_contract_directories_have_tests_subdirectory"
+      telemetry_test: "test_telemetry_directories_have_tests_subdirectory"
+      rule: "Leaf directories (containing .schema.json or signal .json files) must have tests/"
+
+  ownership_rules:
+    producer: "Generates artifact contract (wagon that declares artifact in produce[])"
+    consumer: "References existing contract (wagon that declares artifact in consume[])"
+
+  contract_field:
+    required: false
+    recommended: true
+    rationale: "Optional for backward compatibility; recommended for artifact-centric contract system"
+    migration: "Transition from implicit contracts (no contract field) to explicit contracts (with contract field). Existing wagons work without contract field; new wagons should add explicit contract references"
+
+  api_mapping:
+    description: "Artifact names map to REST API endpoints for external consumption. Category facets add path segments."
+    pattern: "/{domain}s/{id}/{resource}[/{category}]"
+    methods:
+      new: POST
+      created: POST
+      registered: POST
+      started: POST
+      result: GET
+      active: GET
+      config: GET
+      events: GET
+      foundations: GET
+      updated: PUT
+      closed: PUT
+      completed: PUT
+      terminated: DELETE
+      deleted: DELETE
+    examples:
+      - artifact: "ux:foundations"
+        endpoint: "GET /uxs/{id}/foundations"
+      - artifact: "ux:foundations.colors"
+        endpoint: "GET /uxs/{id}/foundations/colors"
+      - artifact: "match:result"
+        endpoint: "GET /matches/{id}/result"
+      - artifact: "session:new"
+        endpoint: "POST /sessions"
+      - artifact: "player:identity"
+        endpoint: "GET /players/{id}"
+
+  examples:
+    producer:
+      wagon: "resolve-dilemmas"
+      produce:
+        - name: "mechanic:decision.choice"
+          to: "external"
+          contract: "contracts/artifacts/decision/choice.json"
+      note: "Producer wagon generates the artifact contract"
+
+    consumer:
+      wagon: "commit-state"
+      consume:
+        - name: "mechanic:decision.choice"
+          from: "wagon:resolve-dilemmas"
+          contract: "contracts/artifacts/decision/choice.json"
+      note: "Consumer wagon references existing contract"
+
+# Artifact URNs (Uniform Resource Names)
+artifact_urns:
+  description: "Stable URN references for wagon-contract bidirectional linkage"
+
+  purpose:
+    rationale: "Decouple wagon artifacts from contract versioning"
+    stability: "URNs remain stable while contract versions evolve"
+    separation_of_concerns: "Wagons declare WHAT (URN), contracts define HOW (version, schema, API)"
+    loose_coupling: "Contract evolution (v1→v2) doesn't require wagon YAML changes"
+    human_readable: "Clear domain language without version noise"
+
+  urn_pattern:
+    format: "contract:{domain}:{resource}[.{category}]"
+    domain: "First part of artifact name (before first colon)"
+    resource: "Second part of artifact name (after first colon, before dot if present)"
+    category: "Optional third part (after dot)"
+    conversion_rule: "Keep colon for hierarchy (domain:resource); preserve category as dot facet when present"
+
+  examples:
+    artifact_to_urn:
+      - artifact_name: "ux:foundations"
+        urn: "contract:ux:foundations"
+      - artifact_name: "ux:foundations.colors"
+        urn: "contract:ux:foundations.colors"
+      - artifact_name: "mechanic:decision.choice"
+        urn: "contract:mechanic:decision.choice"
+      - artifact_name: "match:result"
+        urn: "contract:match:result"
+      - artifact_name: "player:identity"
+        urn: "contract:player:identity"
+
+  wagon_artifacts:
+    description: "Artifacts in wagon YAML manifests (plan/{wagon}/*.yaml)"
+    urn_field: "urn"
+    purpose: "Links wagon artifact to contract without version coupling"
+    location: "Added to each produce/consume entry"
+
+    produce_example:
+      wagon: "maintain-ux"
+      produce:
+        - name: "ux:foundations"
+          urn: "contract:ux:foundations"
+          to: "external"
+        - name: "ux:foundations.colors"
+          urn: "contract:ux:foundations.colors"
+          to: "external"
+
+    consume_example:
+      wagon: "stage-characters"
+      consume:
+        - name: "ux:foundations"
+          urn: "contract:ux:foundations"
+          from: "wagon:maintain-ux"
+
+  contract_artifacts:
+    description: "Contract definitions in contracts/_artifacts.yaml"
+    id_field: "id: {domain}:{resource}[.{category}]:v{version}"
+    purpose: "Authoritative source for contract schema, version, API"
+    urn_mapping: "URN contract:{domain}:{resource}[.{category}] maps to any version of id {domain}:{resource}[.{category}]:v*"
+
+    example:
+      - id: "ux:foundations:v1"
+        version: "1.0.0"
+        path: "ux/foundations.json"
+        producer: "wagon:maintain-ux"
+        urn_match: "contract:ux:foundations"
+        note: "URN is version-agnostic, ID includes version"
+      - id: "ux:foundations.colors:v1"
+        version: "1.0.0"
+        path: "ux/foundations/colors.json"
+        producer: "wagon:maintain-ux"
+        urn_match: "contract:ux:foundations.colors"
+        note: "Category preserved in both URN and ID"
+
+  bidirectional_linkage:
+    wagon_to_contract: "Wagon URN → Contract ID lookup via domain.resource matching"
+    contract_to_wagon: "Contract producer field → Wagon name"
+    validation: "URN must resolve to contract in registry"
+    orphan_detection: "Wagon URN without matching contract = violation"
+
+  migration_strategy:
+    phase1: "Add urn field to all wagon artifacts (this upgrade)"
+    phase2: "Validate all URNs resolve to contracts"
+    phase3: "Generate missing contracts for orphaned URNs"
+    backward_compatibility: "URN field optional initially, required for new wagons"
+    refactor_note: "Legacy URNs contract:{domain}.{resource} → contract:{domain}:{resource}; category stays as a dot facet: contract:{domain}:{resource}.{category}"
+
+# Artifact naming patterns
+naming_patterns:
+  produce:
+    prompt: "What artifacts does this wagon create and own? Specify visibility with 'to'. Follow naming pattern: domain:activity-verb for signals/events (e.g., match:started, pacing:exhausted), domain:data-noun for state/data (e.g., player:identity, match:config)"
+    pattern: "array of {name: 'domain:artifact-name', to: 'internal|external'}"
+    naming_convention: "Events = past tense verbs, State = nouns/adjectives, Collections = plural"
+    examples:
+      - {name: "decision:chosen", to: "external", note: "data-noun pattern"}
+      - {name: "match:started", to: "external", note: "activity-verb pattern for signal"}
+      - {name: "player:identity", to: "external", note: "data-noun pattern for state"}
+
+  consume:
+    prompt: "What artifacts does this wagon consume? Follow naming pattern: domain:activity-verb for signals/events, domain:data-noun for state/data"
+    pattern: "array of {name: 'domain:artifact-name', from: 'wagon:slug|system:external|internal'}"
+    naming_convention: "Events = past tense verbs, State = nouns/adjectives, Collections = plural"
+    examples:
+      - {name: "match:dilemma.current", from: "wagon:pace-dilemmas", note: "data-noun"}
+      - {name: "time:remaining", from: "wagon:burn-timebank", note: "data-noun"}
+      - {name: "match:started", from: "wagon:play-match", note: "activity-verb signal"}
+      - {name: "player:identity", from: "system:external", note: "data-noun from external train"}
+
+# Artifact transformation to features
+artifact_transformation:
+  description: "How produce/consume artifacts seed feature names"
+  overview: |
+    Artifacts describe WHAT is produced/consumed (entities, states, events).
+    Features describe HOW to work with artifacts (actions, capabilities).
+    Transformation: artifact (WHAT) → feature (HOW)
+
+  rules:
+    domain_as_object:
+      pattern: "{verb}-{domain}"
+      when: "Domain is the primary focus of the feature"
+      rationale: "Feature acts on the entire domain"
+
+    resource_as_object:
+      pattern: "{verb}-{resource}"
+      when: "Resource is the primary focus of the feature"
+      rationale: "Feature acts on specific resource within domain"
+
+  by_artifact_type:
+    events:
+      description: "Past tense artifacts (ended, started, closed)"
+      typical_verbs: ["publish", "emit", "start", "close", "trigger"]
+      examples:
+        - artifact: "match:started"
+          domain: "match"
+          resource: "started"
+          feature: "start-match"
+          rationale: "Feature starts the match (verb:start + domain:match)"
+
+        - artifact: "session:closed"
+          domain: "session"
+          resource: "closed"
+          feature: "close-session"
+          rationale: "Feature closes the session (verb:close + domain:session)"
+
+    states:
+      description: "Adjective artifacts (remaining, active, current)"
+      typical_verbs: ["track", "monitor", "maintain", "update"]
+      examples:
+        - artifact: "mechanic:timebank.remaining"
+          domain: "timebank"
+          resource: "remaining"
+          feature: "track-timebank"
+          rationale: "Feature tracks the timebank (verb:track + domain:timebank)"
+
+        - artifact: "session:active"
+          domain: "session"
+          resource: "active"
+          feature: "maintain-session"
+          rationale: "Feature maintains active session (verb:maintain + domain:session)"
+
+    data:
+      description: "Noun artifacts (choice, identity, profile)"
+      typical_verbs: ["create", "manage", "process", "handle", "make"]
+      examples:
+        - artifact: "mechanic:decision.choice"
+          domain: "decision"
+          resource: "choice"
+          feature: "make-choice"
+          rationale: "Feature makes the choice (verb:make + resource:choice)"
+
+        - artifact: "player:identity"
+          domain: "player"
+          resource: "identity"
+          feature: "identify-player"
+          rationale: "Feature identifies the player (verb:identify + domain:player)"
+
+    configs:
+      description: "Configuration artifacts (config, settings, agreement)"
+      typical_verbs: ["configure", "setup", "initialize", "define"]
+      examples:
+        - artifact: "match:config"
+          domain: "match"
+          resource: "config"
+          feature: "configure-match"
+          rationale: "Feature configures the match (verb:configure + domain:match)"
+
+        - artifact: "league:config"
+          domain: "league"
+          resource: "config"
+          feature: "define-league"
+          rationale: "Feature defines league configuration (verb:define + domain:league)"

@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Visual Regression Test Harness Template",
+  "description": "Template for visual regression tests",
+  "language": "typescript",
+  "framework": "playwright",
+  "category": "frontend",
+  "template": "\n// URN: {urn}\nimport {{ test, expect }} from '@playwright/test';\n\ntest('{test_name}', async ({{ page }}) => {{\n  // Given\n  await page.goto('{url}');\n  {given_setup}\n\n  // When\n  await page.waitForLoadState('networkidle');\n  {when_action}\n\n  // Then\n  await expect(page).toHaveScreenshot('{snapshot_name}.png', {{\n    threshold: {threshold}\n  }});\n}});\n",
+  "variables": [
+    "urn",
+    "test_name",
+    "url",
+    "given_setup",
+    "when_action",
+    "snapshot_name",
+    "threshold"
+  ]
+}

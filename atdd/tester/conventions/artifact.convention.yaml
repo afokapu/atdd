@@ -1,0 +1,257 @@
+# Artifact Convention
+# Defines naming, versioning, organization, and API mapping rules for artifact-centric contracts
+
+description: "Artifact-centric contract system uses shared schemas organized by domain"
+
+naming:
+  logical_pattern: "{domain}:{resource}[.{category}]"
+  physical_pattern: "contracts/{domain}/{resource}[/{category}].json"
+  rationale: "Domain-based organization enables REST API mapping and clear ownership. Colon separator denotes hierarchy (domain:resource), dot separator denotes facet (resource.category). Optional category facet supports nested resources like ux:foundations.colors."
+
+  examples:
+    - logical: "ux:foundations"
+      physical: "contracts/commons/ux/foundations.json"
+
+    - logical: "ux:foundations.colors"
+      physical: "contracts/commons/ux/foundations/colors.json"
+
+    - logical: "mechanic:decision.choice"
+      physical: "contracts/decision/choice.json"
+
+    - logical: "match:result"
+      physical: "contracts/match/result.json"
+
+versioning:
+  location: "$id field"
+  filename_pattern: "{domain}/{resource}[/{category}].json"
+  id_pattern: "{domain}:{resource}[.{category}]:{version}"
+  rationale: "Version tracked in $id field, not filename. Supports monolithic deployment with coordinated releases. Breaking changes require coordinated updates across all consumers. Category facet preserved in ID with dot separator."
+
+  examples:
+    - artifact: "ux/foundations.json"
+      id_field: "ux:foundations:v1"
+      version_field: "1.0.0"
+
+    - artifact: "ux/foundations/colors.json"
+      id_field: "ux:foundations.colors:v1"
+      version_field: "1.0.0"
+
+    - artifact: "decision/choice.json"
+      id_field: "mechanic:decision.choice:v1"
+      version_field: "1.0.0"
+
+    - artifact: "match/result.json"
+      id_field: "match:result:v1"
+      version_field: "1.2.3"
+
+organization:
+  strategy: "by_domain"
+  directory_structure: "contracts/{domain}/"
+  rationale: "Domain-based directories enable natural mapping to REST API endpoints. Each domain represents a resource collection with multiple artifact types (new, result, updated, config, etc.). Category facets create nested directories when present."
+
+  structure:
+    root: "contracts/"
+    domains:
+      - "ux/"
+      - "decision/"
+      - "match/"
+      - "player/"
+      - "session/"
+      - "dilemma/"
+      - "pacing/"
+
+api_mapping:
+  description: "Artifact names map to REST API endpoints for external consumption. Category facets add path segments."
+  pattern: "/{domain}s/{id}/{resource}[/{category}]"
+
+  methods:
+    new: POST
+    created: POST
+    registered: POST
+    started: POST
+    result: GET
+    active: GET
+    config: GET
+    events: GET
+    current: GET
+    foundations: GET
+    updated: PUT
+    closed: PUT
+    completed: PUT
+    terminated: DELETE
+    deleted: DELETE
+
+  examples:
+    - artifact: "ux:foundations"
+      endpoint: "GET /uxs/{id}/foundations"
+      description: "Retrieve UX foundations"
+
+    - artifact: "ux:foundations.colors"
+      endpoint: "GET /uxs/{id}/foundations/colors"
+      description: "Retrieve UX color foundations"
+
+    - artifact: "match:result"
+      endpoint: "GET /matches/{id}/result"
+      description: "Retrieve match result"
+
+    - artifact: "session:new"
+      endpoint: "POST /sessions"
+      description: "Create new session"
+
+    - artifact: "player:identity"
+      endpoint: "GET /players/{id}"
+      description: "Retrieve player identity"
+
+    - artifact: "match:config"
+      endpoint: "GET /matches/{id}/config"
+      description: "Retrieve match configuration"
+
+    - artifact: "player:updated"
+      endpoint: "PUT /players/{id}"
+      description: "Update player"
+
+    - artifact: "match:terminated"
+      endpoint: "DELETE /matches/{id}"
+      description: "Terminate match"
+
+ownership:
+  producer: "Generates artifact contract (wagon that declares artifact in produce[])"
+  consumer: "References existing contract (wagon that declares artifact in consume[])"
+  single_source: "One artifact = one JSON file. Multiple wagons reference same file. Zero duplication."
+
+  rules:
+    - "Producer wagon owns the artifact schema generation"
+    - "Consumer wagon validates artifact existence and references it"
+    - "Artifact path declared in wagon manifest contract: field"
+    - "Only producer generates; consumers must never modify"
+
+metadata:
+  description: "Artifact schemas include x-artifact-metadata for tooling and API generation"
+
+  fields:
+    domain: "Resource collection (match, player, session)"
+    resource: "Specific artifact type (result, new, updated)"
+    api:
+      method: "HTTP method (GET, POST, PUT, DELETE)"
+      path: "REST endpoint path"
+
+  example:
+    domain: "match"
+    resource: "result"
+    api:
+      method: "GET"
+      path: "/matches/{id}/result"
+
+validation:
+  required_fields: ["$schema", "$id", "version", "title", "type", "properties"]
+  schema_compliance: "JSON Schema Draft-07"
+  id_pattern: "^[a-z]+:[a-z][a-z0-9-]+(?:\\.[a-z0-9-]+)*:v\\d+$"
+  version_pattern: "^\\d+\\.\\d+\\.\\d+$"
+
+artifact_urns:
+  urn_pattern:
+    format: "contract:{domain}:{resource}[.{category}]"
+    conversion_rule: "Keep colon for hierarchy (domain:resource); append category as a dot facet when present (resource.category)."
+
+  examples:
+    artifact_to_urn:
+      - artifact_name: "ux:foundations"
+        urn: "contract:ux:foundations"
+
+      - artifact_name: "ux:foundations.colors"
+        urn: "contract:ux:foundations.colors"
+
+      - artifact_name: "mechanic:decision.choice"
+        urn: "contract:mechanic:decision.choice"
+
+  bidirectional_linkage:
+    validation: "URN must resolve to a contract in the registry (including optional .category facet)."
+
+  migration_strategy:
+    refactor_note: "Legacy URNs contract:{domain}.{resource} → contract:{domain}:{resource}; category stays as a dot facet: contract:{domain}:{resource}.{category}"
+
+wagon_artifacts:
+  produce_example:
+    wagon: "maintain-ux"
+    produce:
+      - name: "ux:foundations"
+        urn: "contract:ux:foundations"
+        to: "external"
+
+      - name: "ux:foundations.colors"
+        urn: "contract:ux:foundations.colors"
+        to: "external"
+
+  consume_example:
+    wagon: "stage-characters"
+    consume:
+      - name: "ux:foundations"
+        urn: "contract:ux:foundations"
+        from: "wagon:maintain-ux"
+
+contract_artifacts:
+  id_field: "id: {domain}:{resource}[.{category}]:v{version}"
+  urn_mapping: "URN contract:{domain}:{resource}[.{category}] maps to any version of id {domain}:{resource}[.{category}]:v*"
+
+  example:
+    - id: "ux:foundations:v1"
+      version: "1.0.0"
+      path: "ux/foundations.json"
+      producer: "wagon:maintain-ux"
+      urn_match: "contract:ux:foundations"
+
+    - id: "ux:foundations.colors:v1"
+      version: "1.0.0"
+      path: "ux/foundations/colors.json"
+      producer: "wagon:maintain-ux"
+      urn_match: "contract:ux:foundations.colors"
+
+demo_mode:
+  description: "Artifacts write to demo/contracts/artifacts/ when mode_demo: true"
+  path_prefix: "demo/contracts/artifacts/"
+
+examples:
+  complete_workflow:
+    - step: "Wagon declares artifact in produce[]"
+      example: |
+        produce:
+          - name: mechanic:decision.choice
+            to: external
+            contract: contracts/artifacts/decision/choice.json
+
+    - step: "Tester agent classifies artifact ownership"
+      result: "producer: true, path: decision/choice.json"
+
+    - step: "Schema generation creates artifact"
+      output: "contracts/artifacts/decision/choice.json"
+      content: |
+        {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "$id": "mechanic:decision.choice:v1",
+          "version": "1.0.0",
+          "title": "Decision Choice",
+          "type": "object",
+          "properties": {...},
+          "x-artifact-metadata": {
+            "domain": "decision",
+            "resource": "choice",
+            "api": {
+              "method": "POST",
+              "path": "/decisions"
+            }
+          }
+        }
+
+    - step: "Consumer wagon references artifact"
+      example: |
+        consume:
+          - name: mechanic:decision.choice
+            from: wagon:resolve-dilemmas
+            contract: contracts/artifacts/decision/choice.json
+
+    - step: "Pack generation references (not embeds) artifact"
+      pack_manifest: |
+        produce:
+          - artifact: mechanic:decision.choice
+            contract: ../artifacts/decision/choice.json
+            owner: true

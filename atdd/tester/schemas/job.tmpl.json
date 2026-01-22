@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Job Test Harness Template",
+  "description": "Template for background job/cron tests",
+  "language": "python",
+  "framework": "pytest",
+  "category": "integration",
+  "template": "\n# URN: {urn}\nimport pytest\nimport json\nimport time\n{imports}\n\ndef test_{test_name}():\n    # Given\n    {given_setup}\n    \n    # When\n    start_time = time.time()\n    result = {job_invocation}\n    duration = time.time() - start_time\n    \n    # Then\n    {then_assertions}\n    \n    print(json.dumps({{\n        'urn': '{urn}',\n        'status': 'PASS',\n        'details': {{\n            'job': '{job_name}',\n            'duration_seconds': duration,\n            'result': str(result)\n        }}\n    }}))\n",
+  "variables": [
+    "urn",
+    "test_name",
+    "imports",
+    "given_setup",
+    "job_name",
+    "job_invocation",
+    "then_assertions"
+  ]
+}

@@ -1,0 +1,460 @@
+version: "1.0"
+name: "Backend Component Convention"
+description: "Layer catalog and component suffixes for backend implementation."
+
+backend:
+  layers:
+    presentation:
+      description: "External interface adapters exposed to clients"
+      component_types:
+        - name: controllers
+          description: "Request/response handlers for external interfaces"
+          suffix:
+            python: "*_controller.py"
+            typescript: "*-controller.ts"
+            dart: "*_controller.dart"
+          examples:
+            - "HTTP REST endpoint handlers"
+            - "GraphQL resolvers"
+            - "gRPC service implementations"
+            - "CLI command handlers"
+            - "WebSocket message handlers"
+
+        - name: routes
+          description: "Routing configuration and endpoint definitions"
+          suffix:
+            python: "*_routes.py"
+            typescript: "*-routes.ts"
+          examples:
+            - "URL path definitions"
+            - "Route-to-controller bindings"
+            - "API versioning routes"
+
+        - name: serializers
+          description: "Input/output data serialization and formatting"
+          suffix:
+            python: "*_serializer.py"
+            typescript: "*-serializer.ts"
+            dart: "*_serializer.dart"
+          examples:
+            - "Request DTOs and deserialization"
+            - "Response DTOs and formatting"
+            - "JSON/XML/Protobuf serialization"
+            - "Content negotiation"
+
+        - name: validators
+          description: "Input validation at the edge"
+          suffix:
+            python: "*_validator.py"
+            typescript: "*-validator.ts"
+          examples:
+            - "Schema validation (JSON Schema, Pydantic)"
+            - "Business rule validation at API boundary"
+            - "Security input sanitization"
+
+        - name: middleware
+          description: "Cross-cutting request/response processing"
+          suffix:
+            python: "*_middleware.py"
+            typescript: "*-middleware.ts"
+          examples:
+            - "Logging and tracing"
+            - "Error handling and formatting"
+            - "CORS and security headers"
+            - "Rate limiting"
+            - "Request/response transformation"
+
+        - name: guards
+          description: "Authentication and authorization at transport layer"
+          suffix:
+            python: "*_guard.py"
+            typescript: "*-guard.ts"
+          examples:
+            - "JWT validation"
+            - "API key verification"
+            - "Role-based access control"
+            - "OAuth2 flow handlers"
+
+        - name: views
+          description: "Server-side rendered templates and UI components"
+          suffix:
+            python: "*_view.py"
+            typescript: "*-view.ts"
+          examples:
+            - "HTML templates"
+            - "SSR components"
+            - "Email templates"
+
+    application:
+      description: "Business use cases and orchestration - coordinates domain and ports"
+      component_types:
+        - name: use_cases
+          description: "Application-specific business workflows"
+          suffix:
+            python: "*_use_case.py"
+            typescript: "*-use-case.ts"
+            dart: "*_use_case.dart"
+          examples:
+            - "Create order workflow"
+            - "User registration flow"
+            - "Score domain based on choice"
+            - "Process payment"
+
+        - name: handlers
+          description: "Command, query, and event processing"
+          suffix:
+            python: "*_handler.py"
+            typescript: "*-handler.ts"
+          examples:
+            - "CQRS command handlers"
+            - "CQRS query handlers"
+            - "Domain event handlers"
+            - "Application event handlers"
+            - "Message queue consumers"
+
+        - name: ports
+          description: "Interfaces and protocols for integration layer"
+          suffix:
+            python: "protocols.py, *_port.py"
+            typescript: "*-port.ts, *-interface.ts"
+            dart: "*_port.dart"
+          examples:
+            - "Repository interfaces"
+            - "External service interfaces"
+            - "Event publisher interfaces"
+            - "Cache interfaces"
+
+        - name: dtos
+          description: "Data transfer objects between layers"
+          suffix:
+            python: "*_dto.py"
+            typescript: "*-dto.ts"
+            dart: "*_dto.dart"
+          examples:
+            - "Application-internal payloads"
+            - "Cross-layer data structures"
+            - "Integration messages"
+          note: "Keep separate from domain entities and API serializers"
+
+        - name: policies
+          description: "Application-level business policies and rules"
+          suffix:
+            python: "*_policy.py"
+            typescript: "*-policy.ts"
+          examples:
+            - "Authorization policies"
+            - "Rate limiting policies"
+            - "Retry policies"
+            - "Idempotency rules"
+
+        - name: workflows
+          description: "Long-running processes and orchestrations"
+          suffix:
+            python: "*_workflow.py, *_saga.py"
+            typescript: "*-workflow.ts, *-saga.ts"
+          examples:
+            - "Sagas (distributed transactions)"
+            - "Process managers"
+            - "Compensation logic"
+            - "Multi-step orchestrations"
+
+    domain:
+      description: "Pure business logic - framework-agnostic"
+      component_types:
+        - name: entities
+          description: "Core business objects with identity and lifecycle"
+          suffix:
+            python: "*.py"
+            typescript: "*.ts"
+            dart: "*.dart"
+          examples:
+            - "User, Order, Product (e-commerce)"
+            - "Dilemma, Statement, Choice (your domain)"
+            - "Invoice, Transaction (finance)"
+          note: "Use plain filenames (user.py, not user_entity.py) - context is clear from directory"
+
+        - name: value_objects
+          description: "Immutable types with equality-by-value semantics"
+          suffix:
+            python: "*_vo.py, *.py"
+            typescript: "*-vo.ts, *.ts"
+          examples:
+            - "Money, Email, Phone, Address"
+            - "DateRange, Coordinates"
+            - "DomainScore, CellID"
+
+        - name: aggregates
+          description: "Transactional consistency boundaries"
+          suffix:
+            python: "*_aggregate.py, *.py"
+            typescript: "*-aggregate.ts"
+          examples:
+            - "Order aggregate (Order + LineItems)"
+            - "Cart aggregate (Cart + CartItems)"
+            - "DomainProfile aggregate"
+          note: "Often aggregates are just entities with child entity management"
+
+        - name: services
+          description: "Domain services for cross-entity business logic"
+          suffix:
+            python: "*_service.py"
+            typescript: "*-service.ts"
+            dart: "*_service.dart"
+          examples:
+            - "Pricing calculation across products"
+            - "Transfer funds between accounts"
+            - "Domain scoring logic"
+            - "Conflict resolution"
+
+        - name: specifications
+          description: "Composable business rules and predicates"
+          suffix:
+            python: "*_spec.py"
+            typescript: "*-spec.ts"
+          examples:
+            - "IsEligibleForDiscount"
+            - "IsValidCellID"
+            - "HasSufficientBalance"
+            - "Composite specifications (AND, OR, NOT)"
+
+        - name: events
+          description: "Domain events representing facts that happened"
+          suffix:
+            python: "*_event.py"
+            typescript: "*-event.ts"
+          examples:
+            - "OrderPlaced, PaymentReceived"
+            - "UserRegistered, ProfileUpdated"
+            - "ChoiceMade, DomainScored"
+
+        - name: exceptions
+          description: "Domain-specific errors and invariant violations"
+          suffix:
+            python: "*_exception.py, exceptions.py, errors.py"
+            typescript: "*-exception.ts, exceptions.ts, errors.ts"
+          examples:
+            - "InsufficientFundsError"
+            - "InvalidDomainError"
+            - "BusinessRuleViolation"
+
+    integration:
+      description: "External systems, persistence, and adapters implementing ports"
+      component_types:
+        - name: repositories
+          description: "Data persistence and retrieval adapters"
+          suffix:
+            python: "*_repository.py"
+            typescript: "*-repository.ts"
+            dart: "*_repository.dart"
+          examples:
+            - "SQL database repositories (PostgreSQL, MySQL)"
+            - "NoSQL repositories (MongoDB, DynamoDB)"
+            - "File-based repositories (JSON, YAML, CSV)"
+            - "In-memory repositories (testing)"
+            - "Graph database repositories (Neo4j)"
+
+        - name: clients
+          description: "External API and service clients"
+          suffix:
+            python: "*_client.py"
+            typescript: "*-client.ts"
+            dart: "*_client.dart"
+          examples:
+            - "REST API clients (HTTP)"
+            - "GraphQL clients"
+            - "gRPC clients"
+            - "SOAP clients"
+            - "Third-party service SDKs (Stripe, Twilio, AWS)"
+
+          # Station Master Pattern: Direct vs HTTP adapters
+          adapter_variants:
+            description: |
+              Cross-wagon clients have multiple implementations based on deployment:
+              - HttpXXXClient: Makes HTTP calls (microservices architecture)
+              - DirectXXXClient: Reads from shared memory (monolith architecture)
+              - FakeXXXClient: Returns mock data (testing)
+
+            http_adapter:
+              pattern: "http_*_client.py or *_client.py"
+              use_when: "Wagon runs as separate service (microservices)"
+              example: "HttpCommitStateClient calls GET /api/v1/matches/{id}/state/domains"
+
+            direct_adapter:
+              pattern: "direct_*_client.py"
+              use_when: "Wagons run in same process (monolith via game.py)"
+              example: "DirectCommitStateClient reads from shared StateRepository"
+              benefits:
+                - "No network latency"
+                - "Works in containers (no localhost issues)"
+                - "Shared memory consistency"
+
+            fake_adapter:
+              pattern: "fake_*_client.py"
+              use_when: "Unit testing, standalone wagon development"
+              example: "FakeCommitStateClient returns mock 25-cell grid"
+
+            selection_logic: |
+              # In composition.py wire_api_dependencies():
+              if state_repository is not None:
+                  client = DirectCommitStateClient(state_repository)  # Monolith
+              elif os.getenv("CLIENT_MODE") == "http":
+                  client = HttpCommitStateClient(base_url)  # Microservices
+              else:
+                  client = FakeCommitStateClient()  # Testing
+
+        - name: caches
+          description: "Caching implementations"
+          suffix:
+            python: "*_cache.py"
+            typescript: "*-cache.ts"
+          examples:
+            - "Redis cache"
+            - "Memcached"
+            - "In-memory LRU cache"
+            - "CDN cache integration"
+            - "HTTP cache"
+
+        - name: engines
+          description: "Computational and processing engines"
+          suffix:
+            python: "*_engine.py, *_analyzer.py, *_processor.py"
+            typescript: "*-engine.ts, *-analyzer.ts"
+          examples:
+            - "Graph algorithms (PageRank, clustering, pathfinding)"
+            - "Machine learning (training, inference, feature extraction)"
+            - "Statistical analysis (regression, time-series)"
+            - "Optimization solvers (linear programming)"
+            - "Rules engines"
+            - "Search engines (Elasticsearch, Algolia)"
+
+        - name: formatters
+          description: "Output formatting and rendering services"
+          suffix:
+            python: "*_formatter.py, *_renderer.py, *_generator.py"
+            typescript: "*-formatter.ts, *-renderer.ts"
+          examples:
+            - "Chart and graph rendering (matplotlib, D3)"
+            - "PDF generation"
+            - "Excel/CSV export"
+            - "Report generation"
+            - "Image rendering"
+            - "Template rendering"
+
+        - name: notifiers
+          description: "Communication and notification services"
+          suffix:
+            python: "*_notifier.py, *_sender.py"
+            typescript: "*-notifier.ts, *-sender.ts"
+          examples:
+            - "Email services (SMTP, SendGrid, AWS SES)"
+            - "SMS services (Twilio, Nexmo)"
+            - "Push notifications (FCM, APNs)"
+            - "Webhooks (outbound events)"
+            - "In-app notifications"
+
+        - name: queues
+          description: "Message queue and event streaming clients"
+          suffix:
+            python: "*_queue.py, *_publisher.py, *_subscriber.py"
+            typescript: "*-queue.ts, *-publisher.ts"
+          examples:
+            - "Kafka producers/consumers"
+            - "RabbitMQ publishers/subscribers"
+            - "AWS SQS/SNS"
+            - "Redis Pub/Sub"
+            - "NATS"
+
+        - name: stores
+          description: "File and object storage adapters"
+          suffix:
+            python: "*_store.py, *_storage.py"
+            typescript: "*-store.ts, *-storage.ts"
+          examples:
+            - "AWS S3"
+            - "Google Cloud Storage"
+            - "Azure Blob Storage"
+            - "Local filesystem"
+            - "FTP/SFTP"
+
+        - name: mappers
+          description: "Data transformation and mapping between layers"
+          suffix:
+            python: "*_mapper.py"
+            typescript: "*-mapper.ts"
+          examples:
+            - "Entity ↔ ORM model mapping"
+            - "Domain ↔ DTO mapping"
+            - "API response ↔ Entity mapping"
+            - "Data normalization/denormalization"
+
+        - name: schedulers
+          description: "Background tasks and scheduled jobs"
+          suffix:
+            python: "*_scheduler.py, *_job.py, *_task.py"
+            typescript: "*-scheduler.ts, *-job.ts"
+          examples:
+            - "Cron jobs"
+            - "Celery tasks"
+            - "Background workers"
+            - "Periodic cleanup jobs"
+            - "Data synchronization jobs"
+
+        - name: monitors
+          description: "Observability and infrastructure monitoring"
+          suffix:
+            python: "*_monitor.py, *_tracker.py"
+            typescript: "*-monitor.ts"
+          examples:
+            - "Metrics exporters (Prometheus, StatsD)"
+            - "Distributed tracing (Jaeger, OpenTelemetry)"
+            - "Logging aggregation"
+            - "Health checks"
+            - "Performance monitoring"
+
+  structure:
+    python:
+      src_path_pattern: "python/{wagon}/{feature}/src/{layer}/"
+      layers: [presentation, application, domain, integration]
+
+    typescript:
+      src_path_pattern: "supabase/functions/{wagon}/{feature}/{layer}/"
+      layers: [presentation, application, domain, integration]
+
+    supabase:
+      src_path_pattern: "supabase/functions/{wagon}/{feature}/{layer}/"
+      layers: [presentation, application, domain, integration]
+      entrypoint_rules:
+        index_ts:
+          role: "thin_adapter"
+          allowed_imports: ["./presentation", "presentation"]
+          no_business_logic: true
+
+  dependency:
+    allowed_edges:
+      - from: presentation
+        to: [application, domain]
+      - from: application
+        to: [domain]
+      - from: integration
+        to: [application, domain]
+    forbidden_examples:
+      - "domain → application"
+      - "domain → presentation"
+      - "application → presentation"
+      - "presentation → integration (bypass application)"
+
+  ci_enforcement:
+    checks:
+      - name: "arch_import_rules"
+        description: "Verify imports follow dependency_rules."
+      - name: "suffix_placement"
+        description: "Verify files live in layer matching suffix."
+      - name: "no_cross_feature_imports"
+        description: "Features cannot import other features' internals."
+      - name: "dto_boundary"
+        description: "Ensure DTOs are not imported in domain."
+      - name: "test_coverage_threshold"
+        description: "Min coverage for layers (configurable)."
+    tools:
+      - "eslint/depcruiser or ArchUnit (per stack)"
+    failure_policy: "block_on_violation"

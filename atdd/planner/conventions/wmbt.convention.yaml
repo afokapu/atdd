@@ -1,0 +1,258 @@
+version: "1.0"
+name: "WMBT Convention"
+description: "Convention for What Must Be True (WMBT) decomposition"
+
+
+# WMBT structure defined in schema
+structure:
+  $ref: "schemas:planner:wmbt"
+
+# URN naming pattern
+urn_naming:
+  pattern: "wmbt:{wagon}:{STEP_CODE}{NNN}"
+  description: "Unique identifier for WMBT using step-coded sequence"
+  utility: "utils.graph.URNBuilder.wmbt(wagon_id, sequence)"
+
+  parts:
+    wagon: "Parent wagon identifier (kebab-case)"
+    STEP_CODE: "Single letter step code (D|L|P|C|E|M|Y|R|K)"
+    NNN: "Three-digit zero-padded sequence (001-999)"
+
+  step_codes:
+    D: "define - Define requirements, criteria, or constraints"
+    L: "locate - Locate, discover, or find resources"
+    P: "prepare - Prepare, setup, or configure prerequisites"
+    C: "confirm - Confirm, verify, or validate conditions"
+    E: "execute - Execute, perform, or run the main action"
+    M: "monitor - Monitor, observe, or track progress"
+    Y: "modify - Modify, update, or adjust state"
+    R: "resolve - Resolve, fix, or handle issues"
+    K: "conclude - Conclude, complete, or finalize"
+
+  examples:
+    - urn: "wmbt:resolve-dilemmas:E001"
+      wagon: "resolve-dilemmas"
+      step_code: "E"
+      step_name: "execute"
+      sequence: "001"
+
+    - urn: "wmbt:burn-timebank:M045"
+      wagon: "burn-timebank"
+      step_code: "M"
+      step_name: "monitor"
+      sequence: "045"
+
+    - urn: "wmbt:user-mgmt:C023"
+      wagon: "user-mgmt"
+      step_code: "C"
+      step_name: "confirm"
+      sequence: "023"
+
+  validation:
+    pattern: "^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$"
+    step_codes: "Must be one of: D, L, P, C, E, M, Y, R, K"
+    sequence_range: "001-999"
+
+# External data sources
+steps:
+  $ref: "conventions:planner:steps:steps"
+
+dimension_instructions:
+  - "Analyze the user requirement to identify the core metric the user wants to optimize."
+  - "Use the 'keywords' to match the user's intent to one of the dimensions below."
+  - "Decompose the requirement into a structured format specifying the 'dimension', the 'actor' (e.g., employee, manager), the 'action' (e.g., minimize, increase, reduce), and the 'object' of the action."
+  - "Use the 'description' and 'rationale' to understand the purpose of each dimension."
+
+dimensions:
+  generator: &dimension_generator
+    prompt: "From '${inputs.description}', identify the primary dimension being worked on"
+    pattern: "single dimension keyword"
+    source: "conventions:planner:wmbt:dimensions.options"
+  options:
+    - name: "Time"
+      keywords: ["time", "duration", "fast", "slow", "quick", "speed", "delay", "wait", "rework", "onboard", "productive"]
+      description: "Measures the duration associated with executing a job or any of its steps. It encompasses speed, waiting, delays, and the time spent on rework and corrections. It's a measure of the job performer's most finite resource."
+      rationale: "Minimizing the time it takes to achieve a goal is a primary driver of value. Solutions that give the job performer their time back are highly valued, as that time can be reallocated to other tasks."
+      examples:
+        - "(Employee): Minimize the time it takes for a new employee to be fully onboarded and productive."
+        - "(Surgeon): Minimize the time it takes to complete a specific surgical procedure safely."
+
+    - name: "Effort"
+      keywords: ["effort", "physical", "mental", "cognitive", "easy", "intuitive", "concentration", "load", "force", "fatigue", "bug"]
+      description: "Measures the physical or cognitive load the job performer must endure to get a job done. Physical effort is muscular force; mental effort is the amount of concentration, learning, memory, and decision-making required."
+      rationale: "All actors are wired to conserve energy. Solutions that feel 'easy,' 'intuitive,' or 'effortless' are superior. High effort leads to frustration, errors, fatigue, and potential abandonment of the task."
+      examples:
+        - "(Nurse): Minimize the physical effort required to move a patient from a bed to a wheelchair."
+        - "(Software Developer): Reduce the mental effort required to find a specific bug in the code."
+
+    - name: "Likelihood"
+      keywords: ["likelihood", "probability", "chance", "risk", "error", "failure", "success", "predictability", "control", "reliability", "reject", "usable"]
+      description: "Measures the probability of a specific outcome occurring. It's used to articulate the desire for predictability, control, and success. It can be about increasing the probability of a desired outcome or decreasing the probability of an undesired one."
+      rationale: "Uncertainty creates stress, inefficiency, and risk. Increasing the likelihood of success and reducing the likelihood of errors builds trust and confidence."
+      examples:
+        - "(Scientist): Increase the likelihood that an experiment will produce a usable result."
+        - "(Citizen): Decrease the likelihood that a submitted application form will be rejected due to an error."
+
+    - name: "Frequency"
+      keywords: ["frequency", "often", "repetitive", "manual", "number of times", "switch", "resets"]
+      description: "Measures the rate of occurrence of an event or action within the execution of a job. It is most often used to reduce how often the job performer must perform an undesirable, repetitive, or non-value-added task."
+      rationale: "Repetitive tasks are a major source of frustration and wasted effort. Reducing the frequency of these annoyances frees the job performer to focus on what truly matters."
+      examples:
+        - "(System Admin): Reduce the frequency with which manual server resets are required."
+        - "(Call Center Agent): Minimize the number of times they have to switch between different software applications to resolve one issue."
+
+    - name: "Quantity / Amount"
+      keywords: ["quantity", "amount", "volume", "number", "resource", "consumed", "produced", "scrap", "leads", "spent"]
+      description: "Measures the volume, number, or amount of a resource that is either consumed or produced. It's about optimizing the tangible inputs and outputs of a job to improve efficiency."
+      rationale: "Every job performer operates with finite resources. Using fewer resources (inputs) translates directly into higher efficiency. Conversely, increasing the output from the same input is a universal measure of productivity."
+      examples:
+        - "(Factory Manager): Minimize the amount of scrap material generated per production run."
+        - "(Marketing Manager): Increase the number of qualified leads generated per dollar spent."
+
+    - name: "Financial Value"
+      keywords: ["financial", "value", "cost", "revenue", "money", "budget", "expense", "profit", "earnings", "currency", "fleet"]
+      description: "Measures the monetary impact of getting the job done from the job performer's perspective. It includes direct costs, operational expenses, opportunity costs, revenue lost, or revenue gained."
+      rationale: "Financial impact is a primary consideration in almost any organized system. A solution that helps an organization operate more profitably or a public institution to work more efficiently provides clear, quantifiable value."
+      examples:
+        - "(CFO): Minimize the financial impact of currency fluctuations on the company's earnings."
+        - "(Fleet Manager): Minimize the annual cost of maintaining the vehicle fleet."
+
+directions:
+  generator: &direction_generator
+    prompt: "From '${inputs.description}', pick the most suitable direction verb for the optimization goal"
+    pattern: "single action verb matching schema enum"
+    source: "conventions:planner:wmbt:directions.palette"
+  palette:
+    minimize: [reduce, decrease, lower, shrink]
+    maximize: [increase, boost, raise, grow]
+    increase: [improve, elevate, accelerate]
+    decrease: [cut, dampen, slow, limit]
+
+# Lenses for viewing the work
+lenses:
+  generator: &lens_generator
+    prompt: "From '${inputs.description}', determine the quality lens most relevant to this work"
+    pattern: "single quality attribute"
+    source: "conventions:planner:wmbt:lenses.catalog"
+  catalog:
+    social:
+      - id: belong
+        definition: "The drive to be accepted by a group and align with its norms—finding community and connection."
+        example: "Using the same communication tool as teammates to stay included in shared conversations."
+      - id: stand_out
+        definition: "The drive to differentiate oneself positively—signaling uniqueness, status, taste, or expertise."
+        example: "Choosing a distinctive design or advanced configuration to showcase personal style or mastery."
+      - id: affirm
+        definition: "The drive to reinforce an existing identity—expressing and validating a role one already holds."
+        example: "Selecting professional-grade tools consistent with one’s established expertise."
+      - id: aspire
+        definition: "The drive to become a better future self—signaling progress toward a desired identity."
+        example: "Enrolling in a skills program to move toward a new career path."
+
+    functional:
+      - id: efficiency
+        definition: "Minimizing time, effort, or resources required to complete a task."
+        example: "Completing a routine workflow in fewer steps or less time."
+      - id: effectiveness
+        definition: "Improving the quality, accuracy, or impact of outcomes."
+        example: "Raising the percentage of correct results produced by a process."
+      - id: availability
+        definition: "Ensuring a system or resource is accessible and operational when needed."
+        example: "Keeping a service reliably reachable during expected usage periods."
+      - id: adaptability
+        definition: "Enabling a process or system to handle new or changing requirements."
+        example: "Allowing users to add new data inputs without custom engineering work."
+      - id: sustainability
+        definition: "Maintaining performance over time without degradation or undue negative impact."
+        example: "Automating repetitive tasks to reduce manual effort and error over the long term."
+
+    emotional:
+      - id: joy
+        definition: "Pleasure or happiness when a product exceeds expectations or removes friction."
+        example: "Feeling satisfied when a task completes smoothly without extra effort."
+      - id: trust
+        definition: "Confidence that a product is reliable and safe, performing as promised."
+        example: "Feeling secure because progress is auto-saved and data is protected."
+      - id: fear
+        definition: "Anxiety about a potential negative outcome."
+        example: "Hesitating before confirming an irreversible action."
+      - id: surprise
+        definition: "A reaction to the unexpected—positive (delight) or negative (confusion)."
+        example: "Encountering a helpful hint unexpectedly—or an unexplained interface change."
+      - id: sadness
+        definition: "Unhappiness triggered by loss or a blocked goal."
+        example: "Feeling disappointed when informed a task cannot be completed right now."
+      - id: disgust
+        definition: "Aversion caused by unethical design, clutter, or offensive elements."
+        example: "Reacting negatively to an interface overloaded with intrusive prompts."
+      - id: anger
+        definition: "Frustration or hostility when things fail to work as expected."
+        example: "Feeling upset when a critical function fails at a key moment."
+      - id: anticipation
+        definition: "Hopeful expectation while awaiting a desired outcome."
+        example: "Watching a progress indicator while a process nears completion."
+
+object_of_control:
+  generator: &object_of_control_generator
+    prompt: "From '${inputs.description}' and '${inputs.step}', synthesize what specific thing is being controlled or manipulated"
+    pattern: "kebab-case noun phrase (e.g., 'user-profile', 'payment-flow')"
+
+context_clarifier:
+  generator: &context_clarifier_generator
+    prompt: "From '${inputs.description}', extract any contextual clarifier that specifies when/where/how this applies"
+    pattern: "detailed situational phrase, one line maximum"
+    required: true
+
+statement:
+  generator: &statement_generator
+    pattern: "${direction} ${dimension} of ${object_of_control}${context_clarifier ? ' ' + context_clarifier : ''}"
+
+generators:
+  direction: *direction_generator
+  dimension: *dimension_generator
+  lens: *lens_generator
+  object_of_control: *object_of_control_generator
+  context_clarifier: *context_clarifier_generator
+  statement: *statement_generator
+
+# Splitting rules for WMBT decomposition
+splitting_rules:
+  acceptance_cap:
+    maximum: 5
+    rationale: "Beyond 5 acceptances indicates mixed concerns that should be separate WMBTs"
+    enforcement: "schemas:planner:wmbt enforces via acceptance array maxItems"
+
+  when_to_split:
+    mixed_dimensions:
+      indicator: "Statement mentions multiple dimensions (e.g., 'fast AND reliable')"
+      action: "Create separate WMBTs: one for time dimension, one for likelihood"
+      example: "Split 'Minimize time while maximizing reliability' into two WMBTs"
+
+    multiple_actors:
+      indicator: "Different actors performing different actions"
+      action: "One WMBT per actor-action pair"
+      example: "Split 'Manager approves and employee submits' into separate WMBTs"
+
+    divergent_gates:
+      indicator: "Different acceptances need different gate modes (ALL vs ANY)"
+      action: "Group acceptances by gate requirements into separate WMBTs"
+
+  when_to_keep_together:
+    single_truth_multiple_layers:
+      indicator: "Same outcome verified at UI, API, and DB layers"
+      example: "Latency measured at presentation, application, integration"
+      gate_mode: "ALL - all layers must meet the requirement"
+
+    coherent_sequence:
+      indicator: "Sequential steps of a single process"
+      example: "Upload → Validate → Store → Confirm"
+      note: "Each acceptance tests one step, all must pass"
+
+  consistency_with_acceptances:
+    reference: "conventions:planner:acceptance:rules.acceptance_cap"
+    note: "This rule aligns with acceptance convention cap of ≤5 per WMBT"
+
+# Filename pattern (step-coded, no prefix)
+filename:
+- pattern: "{STEP_CODE}{NNN}.yaml"
+- examples: ["E001.yaml", "L045.yaml", "K023.yaml"]

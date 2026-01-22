@@ -1,0 +1,281 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Wagon Manifest Schema",
+  "description": "Minimal wagon header (1:1 fields) with step-coded WMBT registry and retired index.",
+  "type": "object",
+  "additionalProperties": false,
+  "$comment": "SPEC-COACH-UTILS-0281: Naming Conventions - URNs/slugs use kebab-case (wagon:maintain-ux, maintain-ux), directories use snake_case (plan/maintain_design/), manifest files use _{dirname}.yaml (_maintain_design.yaml). Conversion: slug.replace('-','_')→dirname, dirname.replace('_','-')→slug. Note: enforce total matches live WMBT entries in CI/code; draft-07 cannot express that constraint.",
+  "required": [
+    "wagon",
+    "description",
+    "subject",
+    "context",
+    "action",
+    "goal",
+    "outcome",
+    "produce",
+    "consume",
+    "wmbt"
+  ],
+  "properties": {
+    "wagon": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Wagon identifier in verb-object kebab-case (e.g., resolve-dilemmas, commit-state)."
+    },
+    "urn": {
+      "type": "string",
+      "pattern": "^wagon:[a-z][a-z0-9-]*$",
+      "description": "Optional URN for global addressing. Format: wagon:{slug}."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "description": "Optional human-readable display name (title-case allowed)."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Concise one-liner explaining the wagon's purpose and scope."
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["mechanic","scenario","match","sensory","player","league","audience","monetization","partnership","commons"],
+      "description": "High-level category to group related wagons for navigation and reporting."
+    },
+
+    "subject": {
+      "type": "string",
+      "pattern": "^[a-z]+:[a-z][a-z0-9-]*$",
+      "description": "Who/what performs the action (typed identifier, e.g., player:active, engine:orchestrator)."
+    },
+    "context": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Situs/when/where as a short phrase (e.g., \"in-match, timebank-active\")."
+    },
+    "action":  {
+      "type": "string",
+      "minLength": 1,
+      "description": "Single present-tense phrase of what the subject does (e.g., \"applies the chosen option\")."
+    },
+    "goal":    {
+      "type": "string",
+      "minLength": 1,
+      "description": "Single intent that motivates the action (e.g., \"advance toward a stable business trajectory\")."
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Single measurable progress statement (e.g., \"choice applied and state updated\")."
+    },
+    "produce": {
+      "type": "array",
+      "description": "Artifacts produced and owned by this wagon",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "contract", "telemetry"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?$",
+            "description": "Artifact name per artifact-naming.convention.yaml: domain(:category)*:aspect(.variant)? - supports hierarchy (colons) and facets (dots). Examples: match:started, commons:auth.claims, commons:ux:foundations:color"
+          },
+          "to": {
+            "type": "string",
+            "enum": ["internal", "external"],
+            "default": "external",
+            "description": "Optional visibility: internal (private to this wagon), external (public to all wagons including self). Defaults to external when omitted."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^v\\d+$",
+            "description": "Optional version (e.g., v1)"
+          },
+          "contract": {
+            "type": ["string", "null"],
+            "pattern": "^(contract:[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?|contracts/[a-z]+/[a-z][a-z0-9-]+\\.json)$",
+            "description": "Contract URN per artifact-naming.convention.yaml (e.g., contract:commons:ux:foundations, contract:commons:player.identity, contract:match:result) or legacy path (e.g., contracts/commons/ux/foundations.json). Required field, use null if no contract exists."
+          },
+          "telemetry": {
+            "type": ["string", "null"],
+            "pattern": "^telemetry:[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?$",
+            "description": "Telemetry URN for observability and analytics per artifact-naming.convention.yaml (e.g., telemetry:commons:ux:foundations, telemetry:mechanic:decision.choice → telemetry/mechanic/decision/choice/). Maps to directory containing signal files: metric.{plane}.{measure}.json and event.{plane}.json. Manifest generated from source files. Required field, use null if telemetry not tracked."
+          }
+        }
+      }
+    },
+    "consume": {
+      "type": "array",
+      "description": "Artifacts consumed from other wagons",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?$",
+            "description": "Artifact name per artifact-naming.convention.yaml: domain(:category)*:aspect(.variant)? - supports hierarchy (colons) and facets (dots). Examples: match:started, match:dilemma.current, commons:player.identity, appendix:mockup. Pattern: Events = past tense verbs, State = nouns/adjectives, Collections = plural"
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^((wagon|system|appendix):[a-z][a-z0-9-]*|internal)$",
+            "description": "Optional source: wagon:slug (external wagon), system:service (platform), appendix:type (supplementary), or 'internal' (same wagon). Can be omitted when source is inferred from contract URN."
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^v\\d+$",
+            "description": "Optional version requirement"
+          },
+          "contract": {
+            "type": ["string", "null"],
+            "pattern": "^(contract:[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?|contracts/[a-z]+/[a-z][a-z0-9-]+\\.json)$",
+            "description": "Optional contract URN per artifact-naming.convention.yaml (e.g., contract:appendix:mockup, contract:match:dilemma.current, contract:match:result) or legacy path (e.g., contracts/appendix/mockup.json). Can be null if no contract exists."
+          },
+          "telemetry": {
+            "type": ["string", "null"],
+            "pattern": "^telemetry:[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?$",
+            "description": "Optional telemetry URN for observability and analytics per artifact-naming.convention.yaml (e.g., telemetry:appendix:mockup, telemetry:mechanic:decision.choice → telemetry/mechanic/decision/choice/). Maps to directory containing signal JSON files. Can be null if telemetry not tracked."
+          }
+        }
+      }
+    },
+
+    "wmbt_step_codes": {
+      "type": "object",
+      "readOnly": true,
+      "const": {
+        "D": "Define",
+        "L": "Locate",
+        "P": "Prepare",
+        "C": "Confirm",
+        "E": "Execute",
+        "M": "Monitor",
+        "Y": "Modify",
+        "R": "Resolve",
+        "K": "Conclude"
+      }
+    },
+
+    "wmbt": {
+      "type": "object",
+      "minProperties": 0,
+      "additionalProperties": false,
+      "required": ["total"],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of WMBTs in this wagon (sum across all steps). Can be 0 initially, populated via wmbt.action handoff."
+        },
+        "coverage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Optional WMBT coverage percentage (0-100). Measures completeness of WMBT planning and implementation."
+        }
+      },
+      "patternProperties": {
+        "^[DLPCEMYRK][0-9]{3}$": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "retired": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[DLPCEMYRK][0-9]{3}$": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "features": {
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "Legacy: Features as object with slug:description pairs",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z]+-[a-z0-9-]+$": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
+          }
+        },
+        {
+          "type": "array",
+          "description": "Features as URN array (e.g., [{ urn: 'feature:maintain-ux.provide-foundations' }])",
+          "items": {
+            "type": "object",
+            "required": ["urn"],
+            "additionalProperties": false,
+            "properties": {
+              "urn": {
+                "type": "string",
+                "pattern": "^feature:[a-z][a-z0-9-]+:[a-z][a-z0-9-]+$",
+                "description": "Feature URN in format feature:wagon-slug:feature-name (e.g., feature:maintain-ux:provide-foundations)"
+              }
+            }
+          }
+        }
+      ]
+    },
+
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional coverage counts by lens for planning/reporting.",
+      "properties": {
+        "functional": { "type": "integer", "minimum": 0, "description": "Count of functional/technical WMBTs." },
+        "emotional":  { "type": "integer", "minimum": 0, "description": "Count of emotional/UX WMBTs." },
+        "social":     { "type": "integer", "minimum": 0, "description": "Count of social/collaborative WMBTs." }
+      }
+    },
+
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional metadata for versioning, dependencies, and timestamps.",
+      "properties": {
+        "version":  { "type": "string", "pattern": "^\\d+\\.\\d+(\\.\\d+)?$", "description": "Semantic version of this manifest." },
+        "dependencies": {
+          "type": "array",
+          "description": "Other wagon slugs this wagon depends on (planning view; interfaces are derived from artifacts).",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+        },
+        "created": { "type": "string", "format": "date", "description": "Creation date (YYYY-MM-DD)." },
+        "updated": { "type": "string", "format": "date", "description": "Last updated (YYYY-MM-DD)." }
+      }
+    },
+
+    "appendices": {
+      "type": "array",
+      "description": "Supplementary files (mockups, diagrams, documents, etc.) that provide additional context for this wagon",
+      "items": {
+        "$ref": "appendix.schema.json#/definitions/appendix_reference"
+      }
+    }
+  },
+  "definitions": {
+    "wmbt_ids": {
+      "type": "array",
+      "description": "List of WMBT ids for a given step. Use 3-digit ids, optional slug suffix.",
+      "items": {
+        "oneOf": [
+          { "type": "integer", "minimum": 1, "maximum": 999, "description": "Numeric WMBT id (1..999 maps to 001..999)." },
+          { "type": "string", "pattern": "^\\d{3}(-[a-z][a-z0-9-]*)?$", "description": "String id with optional suffix (e.g., \"001\" or \"001-define-scope\")." }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,587 @@
+version: "1.0"
+name: "Presentation Convention"
+description: "Presentation layer implementation patterns across Python, TypeScript, and Dart"
+
+purpose: |
+  Defines how to implement presentation layer (HTTP REST, CLI, GraphQL) across runtimes.
+
+  Presentation layer translates external protocols (HTTP, CLI args) to domain operations
+  and formats domain artifacts back to external representations (JSON responses, terminal output).
+
+  Key principle: Presentation is THIN - all business logic stays in domain/application layers.
+
+relationship:
+  component_types: "backend.convention.yaml (defines controller/route/serializer types)"
+  phase_guidance: "green.convention.yaml (when to create, GREEN simplifications)"
+  contract_alignment: "dto.convention.yaml (DTOs as API response models)"
+  architecture: "design.convention.yaml (dependency flow: presentation → application → domain)"
+
+architecture:
+  layers:
+    presentation:
+      what: "External interface adapters (HTTP, CLI, GraphQL)"
+      location: "{wagon}/{feature}/src/presentation/"
+      authority: "presentation.convention.yaml (this file)"
+      owner: "coder agent"
+
+    application:
+      what: "Use cases orchestrating domain operations"
+      location: "{wagon}/{feature}/src/application/"
+      note: "Presentation calls application use cases, never domain directly"
+
+    contract_dto:
+      what: "Response models aligned with contract schemas"
+      location: "python/contracts/, dart/lib/contracts/"
+      note: "Pydantic/Freezed models matching JSON schemas"
+
+  flow: |
+    HTTP Request → Controller → Use Case → Domain
+         ↓
+    JSON Response ← Response Model ← Artifact ← Domain
+
+# ============================================================================
+# HTTP REST API PATTERNS
+# ============================================================================
+
+http_rest_api:
+  description: "REST API implementation patterns across runtimes"
+
+  when_to_use:
+    - "Wagon produces artifacts (100% of wagons in contract-driven architecture)"
+    - "Artifact has contract schema that needs validation"
+    - "Manual testing via Swagger UI (faster than writing pytest)"
+    - "Game server/mobile app needs HTTP endpoint to consume artifact"
+    - "Cross-team testing without Python/runtime setup"
+    - "Debugging requires inspecting artifact JSON in browser"
+
+  rationale: |
+    We are CONTRACT-DRIVEN. Every wagon produces artifacts with schemas.
+
+    Pattern: Wagon → Domain → Artifact → Presentation (HTTP) → JSON Response
+
+    Benefits:
+    - Swagger UI validates contract alignment automatically
+    - Pydantic models enforce schema at runtime
+    - Developers test via browser, not pytest
+    - Game server integrates via REST, not Python imports
+    - QA tests without local Python setup
+
+  when_not_to_use:
+    - "Wagon produces no artifacts (0% of current wagons)"
+    - "Pure library code with no outputs (e.g., shared crypto utils)"
+
+  # --------------------------------------------------------------------------
+  # PYTHON FASTAPI
+  # --------------------------------------------------------------------------
+
+  python_fastapi:
+    version_support: "FastAPI 0.100+, Pydantic 2.0+, uvicorn"
+
+    file_structure:
+      controller: "python/{wagon}/{feature}/src/presentation/controllers/{feature}_controller.py"
+      response_models: "Pydantic models in same controller file (GREEN) or separate models.py (REFACTOR)"
+      urn_marker: "# urn: component:{wagon}:{feature}.{Feature}Controller.backend.presentation"
+
+    pattern:
+      description: "FastAPI app with Pydantic models aligned to contract schemas"
+
+      minimal_example: |
+        # urn: component:burn-timebank:track-remaining.RemainingController.backend.presentation
+        # Runtime: python
+        # Purpose: HTTP REST endpoint for timebank remaining
+
+        """
+        RemainingController - FastAPI REST endpoint.
+
+        Contract: mechanic:timebank.remaining
+        """
+        from fastapi import FastAPI, Query
+        from pydantic import BaseModel, Field
+        from typing import Optional
+
+        # Import domain/application layers using QUALIFIED imports
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
+
+        from burn_timebank.track_remaining.src.domain.entities.timebank import Timebank
+
+
+        # Pydantic response model matching contract schema
+        class TimebankRemainingResponse(BaseModel):
+            """
+            Response model for mechanic:timebank.remaining artifact.
+
+            Contract: contracts/mechanic/timebank/remaining.schema.json
+            """
+            remaining_seconds: float = Field(
+                ...,
+                description="Time remaining in seconds",
+                example=180.0
+            )
+            is_low: bool = Field(
+                ...,
+                description="Whether time is below warning threshold",
+                example=False
+            )
+            preset: Optional[str] = Field(
+                None,
+                description="Time control preset",
+                example="blitz"
+            )
+            artifact_name: str = Field(
+                default="mechanic:timebank.remaining",
+                description="Artifact identifier"
+            )
+
+
+        # FastAPI application
+        app = FastAPI(
+            title="Burn Timebank API",
+            description="Track remaining time with low-time warnings",
+            version="0.1.0",
+            docs_url="/docs",
+            redoc_url="/redoc",
+        )
+
+
+        # GREEN: Simple global state
+        # TODO(REFACTOR): Use Redis/database for state management
+        _timebank_instance: Optional[Timebank] = None
+
+
+        @app.get(
+            "/timebank/remaining",
+            response_model=TimebankRemainingResponse,
+            summary="Get remaining timebank",
+            tags=["timebank"],
+        )
+        def get_remaining(
+            initial_seconds: Optional[float] = Query(None, example=180.0)
+        ) -> TimebankRemainingResponse:
+            """
+            Get current timebank state.
+
+            Contract: mechanic:timebank.remaining
+            """
+            global _timebank_instance
+
+            # GREEN: Initialize if needed
+            if _timebank_instance is None or initial_seconds is not None:
+                _timebank_instance = Timebank(
+                    initial_seconds=initial_seconds or 180.0,
+                    preset="blitz"
+                )
+
+            # Call domain layer
+            artifact = _timebank_instance.emit_remaining()
+
+            # Map domain artifact to response model
+            return TimebankRemainingResponse(
+                remaining_seconds=artifact.remaining_seconds,
+                is_low=artifact.is_low,
+                preset=artifact.preset,
+                artifact_name=artifact.artifact_name
+            )
+
+
+        @app.post(
+            "/timebank/tick",
+            response_model=TimebankRemainingResponse,
+            summary="Decrement timebank",
+            tags=["timebank"],
+        )
+        def tick_timebank(
+            elapsed_seconds: float = Query(..., example=10.0)
+        ) -> TimebankRemainingResponse:
+            """Simulate time passage."""
+            global _timebank_instance
+
+            if _timebank_instance is None:
+                _timebank_instance = Timebank(180.0, "blitz")
+
+            # Call domain mutation
+            _timebank_instance.tick(elapsed_seconds=elapsed_seconds)
+
+            # Return updated state
+            artifact = _timebank_instance.emit_remaining()
+            return TimebankRemainingResponse(
+                remaining_seconds=artifact.remaining_seconds,
+                is_low=artifact.is_low,
+                preset=artifact.preset,
+                artifact_name=artifact.artifact_name
+            )
+
+    composition_integration:
+      description: "Dual-mode composition.py supporting CLI and HTTP"
+
+      pattern: |
+        # composition.py supports both modes
+        def main(mode: str = "cli"):
+            """
+            Bootstrap application in CLI or HTTP mode.
+
+            Args:
+                mode: "cli" for terminal demo, "http" for FastAPI server
+            """
+            # Wire dependencies
+            timebank = Timebank(initial_seconds=180.0, preset="blitz")
+
+            if mode == "cli":
+                # CLI mode: Terminal demo
+                print("📊 Demo: Simulating time passage...")
+                for i in range(3):
+                    timebank.tick(elapsed_seconds=10.0)
+                    artifact = timebank.emit_remaining()
+                    print(f"Tick {i+1}: {artifact.remaining_seconds}s")
+
+                return timebank
+
+            elif mode == "http":
+                # HTTP mode: FastAPI server
+                from src.presentation.controllers.feature_controller import app, _set_timebank
+                import uvicorn
+
+                # Initialize app with wired dependencies
+                _set_timebank(timebank)
+
+                print("🚀 Starting FastAPI server...")
+                print("📖 Swagger UI: http://127.0.0.1:8000/docs")
+                print("🔗 API: http://127.0.0.1:8000/resource")
+
+                # Run server
+                uvicorn.run(app, host="127.0.0.1", port=8000, reload=False)
+                return app
+
+        if __name__ == "__main__":
+            import argparse
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--mode", choices=["cli", "http"], default="cli")
+            args = parser.parse_args()
+            main(mode=args.mode)
+
+      usage:
+        cli_demo: "python3 python/{wagon}/{feature}/composition.py"
+        http_server: "python3 python/{wagon}/{feature}/composition.py --mode http"
+        swagger_ui: "Open http://127.0.0.1:8000/docs for interactive testing"
+
+    contract_alignment:
+      principle: "Pydantic models MUST match contract JSON schemas field-for-field"
+
+      validation:
+        - "Response model fields match contract artifact schema"
+        - "Field types match JSON schema types (string→str, number→float, boolean→bool)"
+        - "Required fields marked with ..."
+        - "Optional fields marked with Optional[T]"
+        - "Default values match contract defaults"
+
+      example_mapping: |
+        # Contract schema: contracts/mechanic/timebank/remaining.schema.json
+        {
+          "remaining_seconds": {"type": "number", "description": "..."},
+          "is_low": {"type": "boolean"},
+          "preset": {"type": "string", "enum": ["blitz", "rapid", "classical"]},
+          "artifact_name": {"type": "string", "default": "mechanic:timebank.remaining"}
+        }
+
+        # Pydantic model (MUST match)
+        class TimebankRemainingResponse(BaseModel):
+            remaining_seconds: float = Field(..., description="...")
+            is_low: bool
+            preset: Optional[str]
+            artifact_name: str = Field(default="mechanic:timebank.remaining")
+
+    green_phase_simplifications:
+      description: "Acceptable shortcuts in GREEN phase with TODO markers for REFACTOR"
+
+      allowed:
+        state_management:
+          green: "Global variable: _instance = None"
+          refactor: "TODO(REFACTOR): Use Redis/database for state management"
+
+        authentication:
+          green: "Skip authentication in GREEN"
+          refactor: "TODO(REFACTOR): Add JWT authentication with FastAPI Depends"
+
+        error_handling:
+          green: "Basic try/except with 500 responses"
+          refactor: "TODO(REFACTOR): Add custom exception handlers and status codes"
+
+        validation:
+          green: "Pydantic validates input automatically"
+          refactor: "TODO(REFACTOR): Add domain-level business rule validation"
+
+        cors:
+          green: "Allow all origins: CORSMiddleware(allow_origins=['*'])"
+          refactor: "TODO(REFACTOR): Configure proper CORS for production"
+
+    swagger_ui:
+      description: "Auto-generated interactive API documentation"
+
+      benefits:
+        - "Instant manual testing without writing test code"
+        - "Interactive request builder with example values"
+        - "Response schema visualization"
+        - "Contract validation via example requests"
+        - "Stakeholder demos without separate frontend"
+
+      customization: |
+        app = FastAPI(
+            title="{Wagon} API",
+            description="...",
+            version="0.1.0",
+            docs_url="/docs",           # Swagger UI
+            redoc_url="/redoc",          # ReDoc alternative
+            openapi_url="/openapi.json"  # OpenAPI schema
+        )
+
+    api_tagging:
+      rule: "All endpoints MUST use wagon name in Title Case as single tag"
+      pattern: 'tags=["{Wagon Name}"]'
+
+      examples:
+        - 'burn_timebank → "Burn Timebank"'
+        - 'play_match → "Play Match"'
+        - 'juggle_domains → "Juggle Domains"'
+
+      anti_patterns:
+        - '"match-lifecycle" (kebab-case, not wagon name)'
+        - '"Impact Domains" (incorrect wagon name)'
+        - 'Multiple tags per wagon ("Burn Time", "Handle Timeout")'
+
+      rationale: "Wagon-based grouping aligns with domain boundaries and provides clear ownership in Swagger UI"
+
+    reference_implementation:
+      file: "python/burn_timebank/track_remaining/src/presentation/controllers/remaining_controller.py"
+      composition: "python/burn_timebank/track_remaining/composition.py"
+      note: "Study this as the canonical example"
+
+  # --------------------------------------------------------------------------
+  # TYPESCRIPT SUPABASE EDGE FUNCTIONS
+  # --------------------------------------------------------------------------
+
+  typescript_supabase:
+    version_support: "Deno 1.30+, Supabase Edge Functions"
+
+    file_structure:
+      handler: "supabase/functions/{wagon}/{feature}/index.ts"
+      types: "supabase/functions/{wagon}/{feature}/types.ts (if needed)"
+      urn_marker: "// urn: component:{wagon}:{feature}.handler.backend.presentation"
+
+    pattern:
+      description: "Thin edge function handler calling domain logic"
+
+      minimal_example: |
+        // urn: component:authenticate-identity:validate-credentials.handler.backend.presentation
+        // Runtime: supabase
+        // Purpose: HTTP endpoint for credential validation
+
+        /**
+         * ValidateCredentialsHandler - Supabase Edge Function
+         *
+         * Contract: identity:credentials.validation
+         */
+        import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+        import { corsHeaders } from "../_shared/cors.ts"
+
+        // Type matching contract schema
+        interface ValidationRequest {
+          username: string
+          password: string
+        }
+
+        interface ValidationResponse {
+          valid: boolean
+          user_id?: string
+          artifact_name: string
+        }
+
+        serve(async (req: Request) => {
+          // CORS preflight
+          if (req.method === "OPTIONS") {
+            return new Response("ok", { headers: corsHeaders })
+          }
+
+          try {
+            // Parse request
+            const body: ValidationRequest = await req.json()
+
+            // GREEN: Simple validation logic
+            // TODO(REFACTOR): Call domain service via use case
+            const valid = body.username.length > 0 && body.password.length >= 8
+
+            // Build response matching contract
+            const response: ValidationResponse = {
+              valid,
+              user_id: valid ? "user-123" : undefined,
+              artifact_name: "identity:credentials.validation"
+            }
+
+            return new Response(
+              JSON.stringify(response),
+              {
+                headers: {
+                  ...corsHeaders,
+                  "Content-Type": "application/json"
+                },
+                status: 200
+              }
+            )
+
+          } catch (error) {
+            return new Response(
+              JSON.stringify({ error: error.message }),
+              {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 500
+              }
+            )
+          }
+        })
+
+    green_simplifications:
+      allowed:
+        - "Inline validation logic (move to domain in REFACTOR)"
+        - "Simple error handling (enhance in REFACTOR)"
+        - "Allow all CORS origins (restrict in REFACTOR)"
+        - "No authentication (add Supabase Auth in REFACTOR)"
+
+    reference:
+      note: "Supabase functions are THIN by design - keep logic in Python backend"
+
+# ============================================================================
+# CLI PATTERNS
+# ============================================================================
+
+cli_pattern:
+  description: "Command-line interface patterns for feature demos and testing"
+
+  python_argparse:
+    pattern: |
+      # composition.py with CLI argument parsing
+      import argparse
+
+      def main():
+          parser = argparse.ArgumentParser(
+              description="{Feature} - {description}"
+          )
+          parser.add_argument("param", type=float, help="...")
+          parser.add_argument("--preset", choices=["a", "b"], default="a")
+          parser.add_argument("--verbose", action="store_true")
+
+          args = parser.parse_args()
+
+          # Wire dependencies and run
+          entity = DomainEntity(args.param)
+          result = entity.execute()
+
+          # Format output
+          print(f"Result: {result}")
+
+    rich_output:
+      description: "Enhanced terminal output per refactor.convention.yaml"
+
+      patterns:
+        colors:
+          green: "✅ Success indicators"
+          yellow: "⚠️ Warning states"
+          red: "❌ Error states"
+          cyan: "ℹ️ Info messages"
+
+        progress_bars:
+          pattern: "[████████░░░░] 80.0% (80/100)"
+          usage: "Time depletion, resource consumption"
+
+        animations:
+          dots: "Processing... (animated dots)"
+          delays: "Small delays (0.3s) for realism"
+
+        structure:
+          sections: "Clear headers with ======="
+          indentation: "Hierarchical output structure"
+          summaries: "Final summary tables"
+
+    reference_implementation:
+      file: "python/burn_timebank/wagon.py"
+      note: "Rich CLI feedback with colors, progress bars, delays"
+
+# ============================================================================
+# VALIDATION
+# ============================================================================
+
+validation:
+  description: "Automated checks for presentation layer compliance"
+
+  validator_location: "atdd/coder/validate_presentation.py"
+
+  checks:
+    fastapi_controller:
+      - "File has URN marker: # urn: component:{wagon}:{feature}.{Name}Controller.backend.presentation"
+      - "Imports FastAPI and Pydantic"
+      - "Defines Pydantic response model with Field(...) descriptors"
+      - "Response model has artifact_name field"
+      - "Has @app.get or @app.post decorators"
+      - "Endpoints have summary and tags"
+
+    contract_alignment:
+      - "Pydantic model fields match contract schema fields"
+      - "Field types match (number→float, boolean→bool)"
+      - "Required fields marked with ..."
+      - "Optional fields marked with Optional[T]"
+
+    composition_integration:
+      - "composition.py has mode parameter ('cli' or 'http')"
+      - "HTTP mode imports controller and calls uvicorn.run"
+      - "CLI mode runs domain demo without HTTP"
+
+    green_simplifications:
+      - "Global state variables have TODO(REFACTOR) comments"
+      - "Missing auth has TODO(REFACTOR) marker"
+      - "Simple error handling has TODO(REFACTOR) marker"
+
+    unified_game_server:
+      description: "python/game.py must aggregate all wagon presentation layers"
+      file: "python/game.py"
+      requirements:
+        - "When new wagon adds FastAPI controller, game.py MUST be updated"
+        - "game.py imports controller's app and includes via app.include_router()"
+        - "All wagon endpoints accessible via unified game server"
+        - "Validator checks: all wagons with presentation are registered in game.py"
+
+      rationale: |
+        game.py is the unified entry point for all backend services.
+        Without registration, wagon endpoints are inaccessible to game server/mobile app.
+
+      pattern: |
+        # python/game.py
+        from burn_timebank.track_remaining.src.presentation.controllers.remaining_controller import app as timebank_app
+        app.include_router(timebank_app.router, prefix="/timebank")
+
+      anti_pattern: |
+        # ❌ WRONG: Wagon has FastAPI controller but not registered in game.py
+        # Result: Endpoints exist but unreachable from unified server
+
+  usage: |
+    python3 atdd/coder/test_presentation_convention.py
+    python3 atdd/coder/test_presentation_convention.py --check-game-server
+
+# ============================================================================
+# CROSS-REFERENCES
+# ============================================================================
+
+cross_references:
+  component_types: "backend.convention.yaml::presentation (controller/route/serializer types)"
+  phase_guidance: "green.convention.yaml::composition_root (when to create)"
+  contract_dto: "dto.convention.yaml (Pydantic/Freezed models)"
+  architecture: "design.convention.yaml (Clean Architecture dependency flow)"
+  rich_cli: "refactor.convention.yaml::rich_cli_feedback (colors, progress bars)"
+  boundaries: "boundaries.convention.yaml (qualified imports)"
+
+examples:
+  python_fastapi:
+    full: "python/burn_timebank/track_remaining/src/presentation/controllers/remaining_controller.py"
+    composition: "python/burn_timebank/track_remaining/composition.py"
+
+  cli_rich:
+    wagon: "python/burn_timebank/wagon.py"
+    note: "Rich output with colors, progress bars, delays"

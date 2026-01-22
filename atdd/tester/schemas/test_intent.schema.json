@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "test_intent.schema.json",
+  "title": "Test Intent Structure",
+  "description": "Schema for test intent built from acceptance criteria during RED test generation",
+  "type": "object",
+  "required": [
+    "identity",
+    "harness",
+    "given",
+    "when",
+    "then",
+    "metadata",
+    "contract_schema"
+  ],
+  "properties": {
+    "identity": {
+      "type": "object",
+      "description": "Test identity information",
+      "required": ["urn", "id", "phase"],
+      "properties": {
+        "urn": {
+          "type": "string",
+          "description": "Unique resource name for the test",
+          "pattern": "^acc:"
+        },
+        "id": {
+          "type": "string",
+          "description": "Acceptance criteria ID"
+        },
+        "phase": {
+          "type": "string",
+          "description": "ATDD phase (RED, GREEN, REFACTOR)",
+          "enum": ["RED", "GREEN", "REFACTOR"]
+        }
+      }
+    },
+    "harness": {
+      "type": "object",
+      "description": "Test harness information",
+      "required": ["type", "category"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Harness type",
+          "enum": [
+            "unit", "http", "event", "ws", "e2e", "db",
+            "widget", "bloc", "golden", "a11y", "visual",
+            "integration", "metric", "job", "load", "sec", "script",
+            "rls", "edge_function", "realtime", "storage"
+          ]
+        },
+        "category": {
+          "type": "string",
+          "description": "Harness category",
+          "enum": ["frontend", "backend", "integration"]
+        }
+      }
+    },
+    "given": {
+      "type": "object",
+      "description": "Test preconditions",
+      "properties": {
+        "auth": {
+          "type": ["object", "null"],
+          "description": "Authentication setup"
+        },
+        "data": {
+          "type": ["object", "array", "null"],
+          "description": "Initial data state"
+        },
+        "environment": {
+          "type": ["object", "null"],
+          "description": "Environment configuration"
+        }
+      }
+    },
+    "when": {
+      "type": "object",
+      "description": "Test action",
+      "required": ["action"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "Action to perform"
+        },
+        "target": {
+          "type": "string",
+          "description": "Action target (endpoint, function, component)"
+        },
+        "parameters": {
+          "type": ["object", "array", "null"],
+          "description": "Action parameters"
+        }
+      }
+    },
+    "then": {
+      "type": "object",
+      "description": "Expected outcomes",
+      "required": ["assertions"],
+      "properties": {
+        "assertions": {
+          "type": "array",
+          "description": "List of assertions to verify",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "red_strategy": {
+          "type": "string",
+          "description": "Strategy for ensuring RED state",
+          "enum": ["fail", "throw", "expect_false", "assert_false"]
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Test metadata",
+      "required": ["wagon", "feature"],
+      "properties": {
+        "wagon": {
+          "type": "string",
+          "description": "Wagon name"
+        },
+        "feature": {
+          "type": "string",
+          "description": "Feature name"
+        },
+        "route": {
+          "type": "string",
+          "description": "Route hint for language detection"
+        },
+        "filename": {
+          "type": "object",
+          "description": "URN-based filename metadata (optional, for new approach)",
+          "properties": {
+            "urn": {
+              "type": "string",
+              "description": "Acceptance URN for filename generation",
+              "pattern": "^acc:([a-z][a-z0-9-]*):([DLPCEMYRK][0-9]{3})-([A-Z0-9]+)-([0-9]{3})(?:-([a-z0-9-]+))?$"
+            },
+            "language": {
+              "type": "string",
+              "description": "Target language for filename generation",
+              "enum": ["dart", "typescript", "python", "go", "java", "kotlin"]
+            },
+            "generated_filename": {
+              "type": "string",
+              "description": "Generated test filename following language conventions"
+            },
+            "convention_ref": {
+              "type": "string",
+              "description": "Reference to filename convention",
+              "const": "filename.convention.yaml"
+            }
+          }
+        }
+      }
+    },
+    "contract_schema": {
+      "type": "object",
+      "description": "Contract schema reference for I/O validation",
+      "required": ["schema_ref", "version"],
+      "properties": {
+        "schema_ref": {
+          "type": "string",
+          "description": "Path to contract schema file",
+          "pattern": "^contracts/"
+        },
+        "version": {
+          "type": "string",
+          "description": "Schema version",
+          "pattern": "^v\\d+$"
+        }
+      }
+    }
+  }
+}

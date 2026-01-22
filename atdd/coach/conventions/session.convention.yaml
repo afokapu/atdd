@@ -1,0 +1,749 @@
+version: "2.1"
+name: "Session Convention"
+description: "Deterministic template and rules for planning sessions in sessions/ directory"
+
+# =============================================================================
+# ATDD WORKFLOW SEQUENCE (MANDATORY)
+# =============================================================================
+# The ATDD workflow MUST be followed in strict order. Gate tests enforce this.
+# Reference: atdd/tester/conventions/red.convention.yaml (contract_schema_validation)
+
+workflow:
+  name: "ATDD Flow"
+  description: "Planner → Tester → Coder sequence with gate enforcement"
+  principle: "Plan before Test, Test before Code"
+
+  phases:
+    # -------------------------------------------------------------------------
+    # PHASE 1: PLANNER (Design)
+    # -------------------------------------------------------------------------
+    planner:
+      order: 1
+      description: "Define WHAT needs to be built"
+      scope: "atdd/planner/"
+      artifacts:
+        train:
+          description: "Release orchestration manifest"
+          location: "plan/_trains.yaml"
+          convention: "atdd/planner/conventions/train.convention.yaml"
+        wagon:
+          description: "Bounded context definition"
+          location: "plan/{wagon}/_{wagon}.yaml"
+          convention: "atdd/planner/conventions/wagon.convention.yaml"
+        feature:
+          description: "Feature specification with sizing"
+          location: "plan/{wagon}/features/{feature}.yaml"
+          convention: "atdd/planner/conventions/feature.convention.yaml"
+        wmbt:
+          description: "What Must Be True acceptance criteria"
+          location: "plan/{wagon}/features/{feature}.yaml (wmbt section)"
+          convention: "atdd/planner/conventions/wmbt.convention.yaml"
+      validators:
+        - "atdd/planner/validators/test_train_validation.py"
+        - "atdd/planner/validators/test_wagon_urn_chain.py"
+        - "atdd/planner/validators/test_wmbt_consistency.py"
+        - "atdd/planner/validators/test_wmbt_vocabulary.py"
+      gate_command: "python3 -m pytest atdd/planner/validators/ -v"
+      gate_expected: "PASS"
+      completion_criteria:
+        - "Train manifest exists and is valid"
+        - "Wagon manifest exists with produce/consume contracts"
+        - "Feature YAML exists with WMBTs"
+        - "All planner validators pass"
+
+    # -------------------------------------------------------------------------
+    # PHASE 2: TESTER (Contract + RED)
+    # -------------------------------------------------------------------------
+    tester:
+      order: 2
+      description: "Define HOW to verify it works (contracts + failing tests)"
+      scope: "atdd/tester/"
+      depends_on: ["planner"]
+      artifacts:
+        contract:
+          description: "JSON Schema contracts for data exchange"
+          location: "contracts/{domain}/{resource}.schema.json"
+          convention: "atdd/tester/conventions/contract.convention.yaml"
+        red_test:
+          description: "Failing acceptance tests from WMBTs"
+          location: "{runtime}/{wagon}/{feature}/tests/"
+          convention: "atdd/tester/conventions/red.convention.yaml"
+      validators:
+        - "atdd/tester/validators/test_contract_schema_compliance.py"
+        - "atdd/tester/validators/test_acceptance_urn_filename_mapping.py"
+        - "atdd/tester/validators/test_python_test_naming.py"
+        - "atdd/tester/validators/test_typescript_test_naming.py"
+      gate_command: "python3 -m pytest atdd/tester/validators/ -v"
+      gate_expected: "PASS"
+      red_phase:
+        description: "Write failing tests BEFORE any implementation"
+        rule: "All acceptance tests MUST fail (no implementation exists yet)"
+        gate_command: "pytest {test_path} -v"
+        gate_expected: "FAIL"
+      completion_criteria:
+        - "Contracts exist for all wagon I/O boundaries"
+        - "RED tests exist for all WMBTs"
+        - "All RED tests fail (NotImplementedError)"
+        - "All tester validators pass"
+
+    # -------------------------------------------------------------------------
+    # PHASE 3: CODER (GREEN + REFACTOR)
+    # -------------------------------------------------------------------------
+    coder:
+      order: 3
+      description: "Implement code that makes tests pass"
+      scope: "atdd/coder/"
+      depends_on: ["planner", "tester"]
+      artifacts:
+        implementation:
+          description: "Code following 4-layer architecture"
+          location: "{runtime}/{wagon}/{feature}/src/{layer}/"
+          convention: "atdd/coder/conventions/green.convention.yaml"
+      validators:
+        - "atdd/coder/validators/test_python_architecture.py"
+        - "atdd/coder/validators/test_typescript_architecture.py"
+        - "atdd/coder/validators/test_import_boundaries.py"
+        - "atdd/coder/validators/test_wagon_boundaries.py"
+      gate_command: "python3 -m pytest atdd/coder/validators/ -v"
+      gate_expected: "PASS"
+      green_phase:
+        description: "Make tests pass with minimal implementation"
+        rule: "RED test MUST exist before writing implementation"
+        convention: "atdd/coder/conventions/green.convention.yaml"
+        gate_command: "pytest {test_path} -v"
+        gate_expected: "PASS"
+      refactor_phase:
+        description: "Clean architecture, convention compliance"
+        rule: "All coder validators must pass after GREEN"
+        convention: "atdd/coder/conventions/refactor.convention.yaml"
+        gate_command: "python3 -m pytest atdd/coder/validators/ -v"
+        gate_expected: "PASS"
+      completion_criteria:
+        - "All acceptance tests pass"
+        - "Code follows 4-layer architecture"
+        - "All coder validators pass"
+
+  # ---------------------------------------------------------------------------
+  # WORKFLOW ENFORCEMENT RULES
+  # ---------------------------------------------------------------------------
+  enforcement:
+    principle: "Gate tests block progression until phase is complete"
+
+    sequence_rules:
+      - id: "WF-001"
+        rule: "MUST complete planner phase before tester phase"
+        check: "atdd/planner/validators/ PASS before writing contracts/tests"
+
+      - id: "WF-002"
+        rule: "MUST complete tester phase before coder phase"
+        check: "atdd/tester/validators/ PASS and RED tests fail before implementation"
+
+      - id: "WF-003"
+        rule: "MUST have RED test before writing implementation"
+        check: "Test file exists and fails before src file is created"
+        reference: "atdd/coder/conventions/green.convention.yaml:220"
+
+      - id: "WF-004"
+        rule: "MUST complete GREEN before REFACTOR"
+        check: "All tests pass before running coder validators"
+
+    violation_handling:
+      skip_planner: "BLOCKED - Cannot write tests without WMBT specifications"
+      skip_tester: "BLOCKED - Cannot implement without failing tests"
+      skip_red: "BLOCKED - Implementation without RED test is untested code"
+
+  # ---------------------------------------------------------------------------
+  # SESSION TYPE WORKFLOW MAPPING
+  # ---------------------------------------------------------------------------
+  session_type_workflows:
+    implementation:
+      required_phases: ["planner", "tester", "coder"]
+      workflow: "Full ATDD cycle: Plan → Test (RED) → Code (GREEN) → Refactor"
+
+    migration:
+      required_phases: ["planner", "tester", "coder"]
+      workflow: "Plan migration → Write tests for new behavior → Migrate code"
+
+    refactor:
+      required_phases: ["tester", "coder"]
+      workflow: "Ensure tests exist → Refactor code → Verify tests still pass"
+
+    analysis:
+      required_phases: []
+      workflow: "No code changes - investigation only"
+
+    planning:
+      required_phases: ["planner"]
+      workflow: "Design only - produce specifications"
+
+    cleanup:
+      required_phases: ["coder"]
+      workflow: "Fix violations - tests already exist"
+
+    tracking:
+      required_phases: []
+      workflow: "Progress log - no direct implementation"
+
+# File format
+format:
+  type: "hybrid"
+  description: "YAML frontmatter (machine-parseable) + Markdown body (human-readable)"
+  frontmatter:
+    delimiter: "---"
+    parser: "yaml.safe_load"
+    required: true
+  body:
+    format: "markdown"
+    sections: "## headings"
+
+# Session file location and naming
+filesystem:
+  directory: "sessions/"
+  archive: "sessions/archive/"
+  template: "sessions/SESSION-TEMPLATE.md"
+  naming:
+    pattern: "SESSION-{NN}-{slug}.md"
+    examples:
+      - "SESSION-36-atdd-validator-fixes.md"
+      - "SESSION-37-contract-alignment.md"
+    rules:
+      - "NN = two-digit zero-padded sequence (01-99)"
+      - "slug = kebab-case descriptive name"
+      - "Always use next available number"
+
+# Session types - determines context and focus
+session_types:
+  implementation:
+    description: "Building new features via ATDD cycle"
+    focus: "WMBT decomposition, RED→GREEN→REFACTOR phases"
+
+  migration:
+    description: "Moving from one architecture/pattern to another"
+    focus: "Before/after diagrams, ripple effects, rollback plan"
+
+  refactor:
+    description: "Improving code structure without changing behavior"
+    focus: "Problem statement, architecture changes, test preservation"
+
+  analysis:
+    description: "Investigation and discovery work"
+    focus: "Findings, recommendations, evidence"
+
+  planning:
+    description: "Designing approach before implementation"
+    focus: "Design decisions, WMBT decomposition, scope definition"
+
+  cleanup:
+    description: "Removing tech debt, deprecated code, or fixing violations"
+    focus: "Inventory of issues, prioritized fixes, validation gates"
+
+  tracking:
+    description: "Ongoing progress log across multiple sessions"
+    focus: "Chronological log, metrics, cross-session dependencies"
+
+# Status values - deterministic state machine
+status:
+  values:
+    - INIT        # Session file created, scope being defined
+    - PLANNED     # Scope locked, phases defined, ready for work
+    - ACTIVE      # Work in progress
+    - BLOCKED     # Cannot proceed, dependency or decision needed
+    - COMPLETE    # All success criteria met
+    - OBSOLETE    # Superseded by another session
+  transitions:
+    INIT: [PLANNED, OBSOLETE]
+    PLANNED: [ACTIVE, OBSOLETE]
+    ACTIVE: [BLOCKED, COMPLETE, OBSOLETE]
+    BLOCKED: [ACTIVE, OBSOLETE]
+    COMPLETE: []  # Terminal state
+    OBSOLETE: []  # Terminal state
+
+# Infrastructure archetypes - what can be changed
+archetypes:
+  database:
+    id: "db"
+    description: "Supabase PostgreSQL with JSONB contract pattern"
+    artifacts:
+      - "supabase/migrations/*.sql"
+    patterns:
+      - "Contract-driven JSONB: id + data JSONB + timestamps"
+      - "Views for query optimization"
+      - "RLS policies for security"
+    validation: "supabase db push --dry-run"
+
+  backend:
+    id: "be"
+    description: "Python FastAPI with 4-layer architecture"
+    artifacts:
+      - "python/{wagon}/{feature}/src/domain/"
+      - "python/{wagon}/{feature}/src/application/"
+      - "python/{wagon}/{feature}/src/integration/"
+      - "python/{wagon}/{feature}/src/presentation/"
+    patterns:
+      - "Domain: Pure business logic, no external imports"
+      - "Application: Use cases, orchestration"
+      - "Integration: Adapters, clients, repositories"
+      - "Presentation: Controllers, DTOs"
+    validation: "python3 -m pytest atdd/coder/validators/test_python_architecture.py -v"
+
+  frontend:
+    id: "fe"
+    description: "TypeScript/Preact with 4-layer architecture"
+    artifacts:
+      - "web/src/{wagon}/{feature}/domain/"
+      - "web/src/{wagon}/{feature}/application/"
+      - "web/src/{wagon}/{feature}/integration/"
+      - "web/src/{wagon}/{feature}/presentation/"
+    patterns:
+      - "Domain: Types, interfaces, pure logic"
+      - "Application: Hooks, state management"
+      - "Integration: API clients, adapters"
+      - "Presentation: Components, pages"
+    validation: "cd web && npm run typecheck"
+
+  contracts:
+    id: "contracts"
+    description: "JSON Schema contracts for cross-wagon communication"
+    artifacts:
+      - "contracts/{domain}/{entity}/*.schema.json"
+    patterns:
+      - "Schema-first design"
+      - "Version in filename if breaking changes"
+      - "Shared via contracts/ directory"
+    validation: "python3 -m pytest atdd/tester/validators/test_contract_*.py -v"
+
+  wmbt:
+    id: "wmbt"
+    description: "What Must Be True acceptance criteria"
+    artifacts:
+      - "plan/{wagon}/*.yaml"
+    patterns:
+      - "URN: wmbt:{wagon}:{STEP_CODE}{NNN}"
+      - "Step codes: D=define, L=locate, P=prepare, C=confirm, E=execute, M=monitor, Y=modify, R=resolve, K=conclude"
+      - "Max 5 acceptances per WMBT"
+    validation: "python3 -m pytest atdd/planner/validators/test_wmbt_*.py -v"
+
+  wagon:
+    id: "wagon"
+    description: "Bounded context / domain module"
+    artifacts:
+      - "plan/{wagon}/_*.yaml"
+      - "plan/{wagon}/features/*.yaml"
+    patterns:
+      - "Manifest: plan/{wagon}/_{wagon}.yaml"
+      - "Features: plan/{wagon}/features/{feature}.yaml"
+      - "Registered in plan/_wagons.yaml"
+    validation: "python3 -m pytest atdd/planner/validators/test_wagon_*.py -v"
+
+  train:
+    id: "train"
+    description: "Production release orchestration"
+    artifacts:
+      - "plan/_trains.yaml"
+    patterns:
+      - "Train = release with multiple wagons"
+      - "Defines deployment order and dependencies"
+    validation: "python3 -m pytest atdd/planner/validators/test_train_*.py -v"
+
+  telemetry:
+    id: "telemetry"
+    description: "Observability and monitoring artifacts"
+    artifacts:
+      - "telemetry/_telemetry.yaml"
+      - "telemetry/{domain}/*.yaml"
+    patterns:
+      - "Metrics: telemetry:metric:{layer}:{wagon}:{name}"
+      - "Logs: Structured with URN attributes"
+      - "Traces: Span context propagation"
+    validation: "python3 -m pytest atdd/tester/validators/test_telemetry_*.py -v"
+
+  migrations:
+    id: "migrations"
+    description: "Database schema evolution"
+    artifacts:
+      - "supabase/migrations/*.sql"
+    patterns:
+      - "Filename: {timestamp}_{description}.sql"
+      - "Idempotent when possible"
+      - "Rollback plan documented"
+    validation: "supabase db push --dry-run"
+
+# Mandatory sections - ALL sessions must have these
+sections:
+  header:
+    required: true
+    description: "Session metadata at top of file"
+    fields:
+      - name: "title"
+        format: "# SESSION-{NN}: {Title}"
+        example: "# SESSION-36: Fix ATDD Validator Failures"
+
+      - name: "date"
+        format: "**Date:** YYYY-MM-DD"
+        example: "**Date:** 2026-01-19"
+
+      - name: "status"
+        format: "**Status:** {STATUS}"
+        values: ["INIT", "PLANNED", "ACTIVE", "BLOCKED", "COMPLETE", "OBSOLETE"]
+
+      - name: "branch"
+        format: "**Branch:** {branch-name}"
+        example: "**Branch:** mechanic"
+
+      - name: "type"
+        format: "**Type:** {type}"
+        values: ["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"]
+
+      - name: "complexity"
+        format: "**Complexity:** {stars} ({label})"
+        values:
+          - "1 (Trivial)"
+          - "2 (Low)"
+          - "3 (Medium)"
+          - "4 (High)"
+          - "5 (Very High)"
+
+      - name: "archetypes"
+        format: "**Archetypes:** {comma-separated-list}"
+        example: "**Archetypes:** db, be, contracts, wmbt"
+
+  context:
+    required: true
+    description: "Why this session exists"
+    subsections:
+      - name: "Problem Statement"
+        format: "table"
+        columns: ["Aspect", "Current", "Target", "Issue"]
+
+      - name: "User Impact"
+        format: "paragraph"
+        description: "How this affects users or developers"
+
+      - name: "Root Cause"
+        format: "paragraph"
+        description: "Why the problem exists"
+
+  scope:
+    required: true
+    description: "Boundaries of the work"
+    subsections:
+      - name: "In Scope"
+        format: "bullet-list"
+
+      - name: "Out of Scope"
+        format: "bullet-list"
+
+      - name: "Dependencies"
+        format: "bullet-list"
+        description: "Other sessions or external requirements"
+
+  architecture:
+    required: true
+    description: "Technical design"
+    subsections:
+      - name: "Conceptual Model"
+        format: "ascii-diagram or table"
+        description: "Key concepts and relationships"
+
+      - name: "Before State"
+        format: "code-block"
+        description: "Current architecture/structure"
+
+      - name: "After State"
+        format: "code-block"
+        description: "Target architecture/structure"
+
+      - name: "Data Model"
+        format: "sql or yaml"
+        description: "Schema changes if applicable"
+        when: "archetypes includes db"
+
+  phases:
+    required: true
+    description: "Ordered work breakdown"
+    format: |
+      ### Phase {N}: {Name}
+      **Gate:** {validation-command}
+      **Deliverables:**
+      - {artifact-path} - {description}
+      **Files:**
+      | File | Change |
+      |------|--------|
+
+  progress:
+    required: true
+    description: "Current state tracking"
+    subsections:
+      - name: "Progress Tracker"
+        format: "table"
+        columns: ["Phase", "Task", "Status", "Gate"]
+        status_values: ["TODO", "IN_PROGRESS", "DONE", "BLOCKED", "SKIPPED", "N/A"]
+
+      - name: "WMBT Status"
+        format: "table"
+        columns: ["WMBT", "Description", "RED", "GREEN", "REFACTOR"]
+        when: "type == implementation"
+        status_values: ["TODO", "IN_PROGRESS", "DONE", "SKIPPED", "N/A"]
+
+      - name: "ATDD Phase Summary"
+        format: "table"
+        columns: ["Phase", "Description", "Status", "Gate"]
+        when: "type == implementation"
+        phases:
+          RED:
+            description: "Write failing tests from acceptances"
+            gate: "pytest {test-path} -v (expect FAIL)"
+          GREEN:
+            description: "Implement minimal code to pass tests"
+            gate: "pytest {test-path} -v (expect PASS)"
+          REFACTOR:
+            description: "Clean architecture, 4-layer compliance"
+            gate: "pytest atdd/coder/validators/ -v"
+
+  validation:
+    required: true
+    description: "How to verify correctness"
+    subsections:
+      - name: "Gate Commands"
+        format: "code-blocks"
+        description: "Commands to run at each phase gate"
+
+      - name: "Success Criteria"
+        format: "checkbox-list"
+        description: "Measurable outcomes"
+
+  decisions:
+    required: true
+    description: "Choices made during session"
+    format: "table"
+    columns: ["#", "Question", "Decision", "Rationale"]
+
+  session_log:
+    required: true
+    description: "Chronological work diary"
+    format: |
+      ### Session {N} (YYYY-MM-DD): {Focus}
+      **Completed:**
+      - {work-item}
+      **Blocked:**
+      - {blocker} (if any)
+      **Next:**
+      - {next-action}
+
+  artifacts:
+    required: true
+    description: "Files created or modified"
+    subsections:
+      - name: "Created"
+        format: "bullet-list with paths"
+
+      - name: "Modified"
+        format: "bullet-list with paths"
+
+      - name: "Deleted"
+        format: "bullet-list with paths"
+
+  related:
+    required: true
+    description: "Cross-references"
+    subsections:
+      - name: "Related Sessions"
+        format: "bullet-list"
+
+      - name: "Related WMBTs"
+        format: "bullet-list"
+        when: "type == implementation"
+
+# Rules for session management
+rules:
+  creation:
+    - "FIRST: Rename Claude conversation with /rename SESSION-{NN}-{slug}"
+    - "Use next available session number"
+    - "Copy SESSION-TEMPLATE.md and fill all sections"
+    - "Set status to INIT"
+    - "Create branch if needed"
+
+  implementation:
+    - "BEFORE creating/updating files: Identify existing patterns in the codebase"
+    - "New files MUST follow conventions in atdd/*/conventions/*.yaml"
+    - "New files MUST match patterns of similar existing files"
+    - "When in doubt: find 2-3 similar files and replicate their structure"
+    - "NEVER introduce new patterns without explicit decision documented"
+    - "Validate against conventions before committing"
+
+  pattern_discovery:
+    - "Search for similar files: glob, grep for class/function names"
+    - "Check layer structure: domain/, application/, integration/, presentation/"
+    - "Check naming conventions: URN patterns, file naming, test naming"
+    - "Check import patterns: what's allowed between layers/wagons"
+    - "Document discovered patterns in Architecture section"
+
+  progression:
+    - "Update status on state transitions"
+    - "Log all work in Session Log section"
+    - "Run gate commands before marking phase DONE"
+    - "Update Progress Tracker after each work item"
+
+  completion:
+    - "All success criteria must be checked"
+    - "All phases must be DONE or SKIPPED with rationale"
+    - "Set status to COMPLETE"
+    - "Rename file: SESSION-{NN}-{slug}.md → SESSION-{NN}-{slug}-(completed).md"
+    - "Or add checkmark: SESSION-{NN}-{slug}-✅.md"
+    - "Move to archive/ after 1 week"
+
+  blocking:
+    - "Document blocker in Session Log"
+    - "Set status to BLOCKED"
+    - "Create dependency link if blocked by another session"
+
+  obsolete:
+    - "Add warning banner at top of file"
+    - "Link to superseding session"
+    - "Set status to OBSOLETE"
+
+# Gate Tests - Required validation gates per session
+# Each session MUST define gate_tests that reference ATDD validators
+gate_tests:
+  description: "Validation gates that enforce conventions via ATDD validators"
+  required: true
+
+  # Structure of a gate_test entry
+  structure:
+    id:
+      type: "string"
+      pattern: "GT-{NNN}"
+      description: "Unique gate test identifier"
+    phase:
+      type: "string"
+      values: ["design", "implementation", "validation", "completion"]
+      description: "Which phase this gate applies to"
+    archetype:
+      type: "string"
+      values: ["db", "be", "fe", "contracts", "wmbt", "wagon", "train", "telemetry", "migrations", "all"]
+      description: "Which archetype this gate validates (or 'all')"
+    command:
+      type: "string"
+      description: "Bash command to execute for validation"
+    expected:
+      type: "string"
+      values: ["PASS", "FAIL"]
+      description: "Expected outcome (FAIL for RED phase, PASS otherwise)"
+    atdd_validator:
+      type: "string"
+      pattern: "atdd/{scope}/validators/{file}.py"
+      description: "Path to ATDD validator being invoked"
+      required: true
+
+  # Required gates based on archetypes
+  required_by_archetype:
+    db:
+      - command: "supabase db push --dry-run"
+        atdd_validator: "manual"
+      - command: "python3 -m pytest atdd/tester/validators/test_migration_*.py -v"
+        atdd_validator: "atdd/tester/validators/test_migration_coverage.py"
+
+    be:
+      - command: "python3 -m pytest atdd/coder/validators/test_python_architecture.py -v"
+        atdd_validator: "atdd/coder/validators/test_python_architecture.py"
+      - command: "python3 -m pytest atdd/coder/validators/test_import_boundaries.py -v"
+        atdd_validator: "atdd/coder/validators/test_import_boundaries.py"
+
+    fe:
+      - command: "cd web && npm run typecheck"
+        atdd_validator: "manual"
+      - command: "python3 -m pytest atdd/coder/validators/test_typescript_architecture.py -v"
+        atdd_validator: "atdd/coder/validators/test_typescript_architecture.py"
+
+    contracts:
+      - command: "python3 -m pytest atdd/tester/validators/test_contract_*.py -v"
+        atdd_validator: "atdd/tester/validators/test_contract_schema_compliance.py"
+
+    wmbt:
+      - command: "python3 -m pytest atdd/planner/validators/test_wmbt_*.py -v"
+        atdd_validator: "atdd/planner/validators/test_wmbt_consistency.py"
+
+    wagon:
+      - command: "python3 -m pytest atdd/planner/validators/test_wagon_*.py -v"
+        atdd_validator: "atdd/planner/validators/test_wagon_urn_chain.py"
+      - command: "python3 -m pytest atdd/coder/validators/test_wagon_boundaries.py -v"
+        atdd_validator: "atdd/coder/validators/test_wagon_boundaries.py"
+
+    train:
+      - command: "python3 -m pytest atdd/planner/validators/test_train_*.py -v"
+        atdd_validator: "atdd/planner/validators/test_train_validation.py"
+
+    telemetry:
+      - command: "python3 -m pytest atdd/tester/validators/test_telemetry_*.py -v"
+        atdd_validator: "atdd/tester/validators/test_telemetry_structure.py"
+
+    migrations:
+      - command: "supabase db push --dry-run"
+        atdd_validator: "manual"
+      - command: "python3 -m pytest atdd/tester/validators/test_migration_*.py -v"
+        atdd_validator: "atdd/tester/validators/test_migration_coverage.py"
+
+  # Universal gates (all sessions)
+  universal:
+    design_phase:
+      - id: "GT-001"
+        phase: "design"
+        archetype: "all"
+        command: "python3 -m pytest atdd/coach/validators/test_session_validation.py -v"
+        expected: "PASS"
+        atdd_validator: "atdd/coach/validators/test_session_validation.py"
+        description: "Session structure compliance"
+
+    completion_phase:
+      - id: "GT-900"
+        phase: "completion"
+        archetype: "all"
+        command: "python3 -m pytest atdd/ -v --tb=short"
+        expected: "PASS"
+        atdd_validator: "atdd/"
+        description: "Full ATDD validator suite"
+
+  # ATDD cycle gates (for implementation sessions)
+  atdd_cycle:
+    red:
+      description: "Write failing tests from acceptances"
+      gates:
+        - id: "GT-100"
+          phase: "implementation"
+          command: "pytest {test_path} -v"
+          expected: "FAIL"
+          atdd_validator: "feature-specific"
+          description: "Tests must fail before implementation"
+
+    green:
+      description: "Implement minimal code to pass tests"
+      gates:
+        - id: "GT-200"
+          phase: "implementation"
+          command: "pytest {test_path} -v"
+          expected: "PASS"
+          atdd_validator: "feature-specific"
+          description: "Tests must pass after implementation"
+
+    refactor:
+      description: "Clean architecture, convention compliance"
+      gates:
+        - id: "GT-300"
+          phase: "implementation"
+          command: "python3 -m pytest atdd/coder/validators/ -v"
+          expected: "PASS"
+          atdd_validator: "atdd/coder/validators/"
+          description: "Architecture conventions met"
+
+# Validation
+validation:
+  command: "python3 -m pytest atdd/coach/validators/test_session_*.py -v"
+  checks:
+    - "All required sections present"
+    - "Status is valid value"
+    - "Type is valid value"
+    - "Archetypes are valid values"
+    - "Progress tracker has valid status values"
+    - "Session log has at least one entry"
+    - "Gate tests defined for all declared archetypes"
+    - "Gate tests reference valid ATDD validators"

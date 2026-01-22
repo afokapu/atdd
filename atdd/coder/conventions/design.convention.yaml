@@ -1,0 +1,327 @@
+schema_version: "1.0.1"
+convention_id: "coder.design_system"
+name: "Design System Convention"
+description: "Hierarchy rules and validation standards for design system architecture within presentation layer."
+
+design_system:
+  goal: "Enforce reusable UI patterns via tokens → primitives → components → templates hierarchy"
+
+  location:
+    path: "lib/design_system/"
+    note: "Design system is a shared wagon at same level as feature wagons"
+    structure:
+      - "tokens/"       # Pure values
+      - "primitives/"   # Basic components
+      - "components/"   # Composed from primitives
+      - "templates/"    # Composed from components
+
+  principles:
+    - id: DS-01
+      text: "Tokens are pure values (no logic, no widgets)"
+    - id: DS-02
+      text: "Primitives are simplest components consuming tokens"
+    - id: DS-03
+      text: "Components compose primitives and tokens only"
+    - id: DS-04
+      text: "Templates compose components, primitives, and tokens"
+    - id: DS-05
+      text: "Dependency flow: tokens ← primitives ← components ← templates"
+    - id: DS-06
+      text: "Wagons import from design_system, never reverse"
+    - id: DS-07
+      text: "Extract to design_system on 3rd occurrence (DRY threshold)"
+
+  layers:
+    tokens:
+      description: "Pure design values (spacing, radii, motion)"
+      path: "design_system/tokens/"
+      file_suffix:
+        dart: "*_tokens.dart"
+      can_import:
+        - "dart:core"
+        - "package:flutter/material.dart (for Duration, EdgeInsets)"
+      cannot_import:
+        - "primitives/"
+        - "components/"
+        - "templates/"
+        - "wagons/*"
+      examples:
+        - "spacing_tokens.dart: AppSpacing.m = 16.0"
+        - "radii_tokens.dart: AppRadii.m = 8.0"
+        - "motion_tokens.dart: AppMotion.base = Duration(milliseconds: 250)"
+      validation:
+        - type: no_widgets
+          message: "Tokens must not contain widget definitions"
+        - type: no_logic
+          message: "Tokens are pure values, no business logic"
+
+    primitives:
+      description: "Simplest reusable components (AppBox, AppText, AppIcon)"
+      path: "design_system/primitives/"
+      file_suffix:
+        dart: "*_primitive.dart"
+      naming_convention: "App{Primitive} (e.g., AppBox, AppText)"
+      can_import:
+        - "../tokens/"
+        - "dart:core"
+        - "package:flutter/widgets.dart"
+        - "package:flutter/material.dart"
+      cannot_import:
+        - "../components/"
+        - "../templates/"
+        - "wagons/*"
+      examples:
+        - "app_box_primitive.dart: Container abstraction with token-based styling"
+        - "app_text_primitive.dart: Text abstraction with theme typography"
+        - "app_icon_primitive.dart: Icon abstraction with token-based sizing"
+      validation:
+        - type: import_scan
+          forbid:
+            - "primitives → components"
+            - "primitives → templates"
+        - type: must_use_tokens
+          message: "Primitives should reference tokens for spacing/sizing/radii"
+
+    components:
+      description: "Composed UI elements (AppButton, AppTextField, AppCard)"
+      path: "design_system/components/"
+      file_suffix:
+        dart: "*_component.dart"
+      naming_convention: "App{Component} (e.g., AppButton, AppTextField)"
+      can_import:
+        - "../tokens/"
+        - "../primitives/"
+        - "dart:core"
+        - "package:flutter/widgets.dart"
+        - "package:flutter/material.dart"
+      cannot_import:
+        - "../templates/"
+        - "wagons/*"
+      examples:
+        - "app_button_component.dart: Button using AppBox + AppText"
+        - "app_text_field_component.dart: Input using AppBox + theme"
+        - "app_card_component.dart: Card using AppBox + elevation"
+      validation:
+        - type: import_scan
+          forbid:
+            - "components → templates"
+        - type: composition_check
+          recommend: "Use primitives over raw Container/Text widgets"
+
+    templates:
+      description: "Multi-component UI patterns (EmptyState, ListWithFilter)"
+      path: "design_system/templates/"
+      file_suffix:
+        dart: "*_template.dart"
+      naming_convention: "Descriptive name (e.g., EmptyState, ListWithFilter)"
+      can_import:
+        - "../tokens/"
+        - "../primitives/"
+        - "../components/"
+        - "dart:core"
+        - "package:flutter/widgets.dart"
+        - "package:flutter/material.dart"
+      cannot_import:
+        - "wagons/*"
+      examples:
+        - "empty_state_template.dart: Icon + Title + Description + Button"
+        - "list_with_filter_template.dart: Search + List + EmptyState"
+      validation:
+        - type: composition_check
+          recommend: "Templates should primarily use components, not raw primitives"
+
+  dependency_rules:
+    allowed_edges:
+      - from: primitives
+        to: [tokens]
+      - from: components
+        to: [tokens, primitives]
+      - from: templates
+        to: [tokens, primitives, components]
+      - from: wagons
+        to: [design_system/tokens, design_system/primitives, design_system/components, design_system/templates]
+
+    forbidden_edges:
+      - from: tokens
+        to: [primitives, components, templates]
+        message: "Tokens cannot import other design system layers"
+      - from: primitives
+        to: [components, templates]
+        message: "Primitives can only import tokens"
+      - from: components
+        to: [templates]
+        message: "Components cannot import templates"
+      - from: design_system
+        to: [wagons]
+        message: "Design system cannot import from feature wagons"
+
+    cross_wagon:
+      forbidden: true
+      message: "Wagons cannot import from other wagons (except via design_system or shared packages)"
+
+  extraction_rules:
+    dry_threshold:
+      occurrences: 3
+      rule: "Extract pattern to design_system on 3rd occurrence"
+      rationale: "Avoid premature abstraction; wait for proven reuse need"
+
+    token_extraction:
+      triggers:
+        - "Hardcoded spacing: EdgeInsets.all(16.0)"
+        - "Hardcoded radius: BorderRadius.circular(8.0)"
+        - "Hardcoded duration: Duration(milliseconds: 250)"
+        - "Hardcoded color: Color(0xFF...)"
+      actions:
+        - "Extract to appropriate token file"
+        - "Reuse if token value already exists"
+        - "Colors: prefer theme over tokens"
+
+    primitive_extraction:
+      triggers:
+        - "Repeated Container patterns (3+ similar usages)"
+        - "Repeated Text patterns with consistent styling"
+        - "Repeated Icon patterns"
+      actions:
+        - "Create primitive if not exists"
+        - "Primitive must only import tokens"
+        - "Name: App{Widget} (AppBox, AppText, AppIcon)"
+
+    component_extraction:
+      triggers:
+        - "Repeated composed widgets (button-like patterns)"
+        - "Similar input field patterns"
+        - "Card/container patterns with interaction"
+      actions:
+        - "Create component if not exists"
+        - "Component must use primitives (not raw widgets)"
+        - "Name: App{Component} (AppButton, AppTextField)"
+
+    template_extraction:
+      triggers:
+        - "Repeated multi-component patterns"
+        - "Common layouts (empty state, list+filter)"
+        - "Used across 2+ features"
+      actions:
+        - "Create template if not exists"
+        - "Template must primarily use components"
+        - "Descriptive name reflecting UI pattern"
+
+  validation_checks:
+    - id: VC-DS-01
+      name: "No hardcoded spacing in wagons"
+      check: "grep -r 'EdgeInsets\\.[a-z]*([0-9]' lib/*/features/"
+      must_not_match: true
+      fix: "Use AppSpacing tokens"
+
+    - id: VC-DS-02
+      name: "No hardcoded colors in wagons"
+      check: "grep -r 'Color(0x' lib/*/features/"
+      must_not_match: true
+      fix: "Use Theme.of(context).colorScheme"
+
+    - id: VC-DS-03
+      name: "Primitives don't import components"
+      check_imports:
+        path: "lib/design_system/primitives/"
+        forbid: "../components/"
+      violation: "DS-05: Primitives can only import tokens"
+
+    - id: VC-DS-04
+      name: "Components don't import templates"
+      check_imports:
+        path: "lib/design_system/components/"
+        forbid: "../templates/"
+      violation: "DS-05: Components cannot import templates"
+
+    - id: VC-DS-05
+      name: "Design system doesn't import wagons"
+      check_imports:
+        path: "lib/design_system/"
+        forbid_pattern: "package:app/((?!design_system)[^/]+)/"
+      violation: "DS-06: design_system cannot import from wagons"
+
+    - id: VC-DS-06
+      name: "No cross-wagon imports"
+      check_imports:
+        path: "lib/*/features/"
+        forbid_pattern: "package:app/((?!design_system)[^/]+)/features/"
+      violation: "Wagons cannot import from other wagons"
+
+  metrics:
+    - id: METRIC-DS-01
+      name: "Design system coverage"
+      formula: "wagons_using_ds / total_wagons"
+      target: ">= 80%"
+      description: "Percentage of wagons using design system components"
+
+    - id: METRIC-DS-02
+      name: "Component reuse rate"
+      formula: "avg(component_usage_count)"
+      target: ">= 3"
+      description: "Average number of wagons using each component"
+
+    - id: METRIC-DS-03
+      name: "Hardcoded value density"
+      formula: "hardcoded_tokens / total_ui_files"
+      target: "< 5%"
+      description: "Percentage of UI files with hardcoded values"
+
+    - id: METRIC-DS-04
+      name: "Hierarchy compliance"
+      formula: "valid_imports / total_imports"
+      target: "100%"
+      description: "All imports follow hierarchy rules"
+
+  ci_enforcement:
+    on: "pull_request"
+    checks:
+      - name: "validate_design_system_hierarchy"
+        command: "python .claude/utils/coder/design.py --validate-hierarchy"
+        on_failure: "block"
+
+      - name: "scan_hardcoded_tokens"
+        command: "python .claude/utils/coder/design.py --scan-tokens lib/*/features/"
+        on_failure: "warn"
+
+      - name: "check_import_rules"
+        command: "python .claude/utils/coder/design.py --check-imports"
+        on_failure: "block"
+
+      - name: "design_system_metrics"
+        command: "python .claude/utils/coder/design.py --metrics"
+        on_failure: "report_only"
+
+  anti_patterns:
+    - id: AP-DS-01
+      text: "Premature abstraction"
+      avoid: "Creating design system components before 3rd usage"
+      fix: "Wait for proven reuse need (DRY threshold: 3)"
+
+    - id: AP-DS-02
+      text: "Leaky abstraction"
+      avoid: "Design system components importing from wagons"
+      fix: "Design system must be wagon-agnostic"
+
+    - id: AP-DS-03
+      text: "Hierarchy bypass"
+      avoid: "Components using raw Container instead of AppBox"
+      fix: "Always use lower-level abstractions"
+
+    - id: AP-DS-04
+      text: "Token duplication"
+      avoid: "Creating new token when similar value exists"
+      fix: "Reuse existing tokens (e.g., AppSpacing.m = 16, don't create new 16px token)"
+
+    - id: AP-DS-05
+      text: "God component"
+      avoid: "Single component with too many variants/options"
+      fix: "Split into multiple focused components"
+
+  handoff_criteria:
+    description: "Ready for wagon refactoring when design system meets criteria"
+    checklist:
+      - "Token files created (spacing, radii, motion)"
+      - "Core primitives exist (AppBox, AppText, AppIcon)"
+      - "No hardcoded values in existing design system components"
+      - "Hierarchy validation passing"
+      - "Zero design_system → wagon imports"

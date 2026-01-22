@@ -1,0 +1,535 @@
+schema_version: "1.0.1"
+convention_id: "coder.refactor"
+name: "REFACTOR Phase Convention"
+description: "Transformation process and quality standards for refactoring GREEN code to clean architecture."
+
+refactor_phase:
+  goal: "Preserve behavior; enforce architecture, clarity, and sustainability"
+
+  principles:
+    - id: RP-01
+      text: "No new behavior without new tests"
+    - id: RP-02
+      text: "No test changes except renames/moves"
+    - id: RP-03
+      text: "Improve internal structure until changes are cheap"
+    - id: RP-04
+      text: "Enforce dependency rules strictly"
+
+  architecture_target:
+    description: "Target 4-layer clean architecture (defined in code-type-specific conventions)"
+    conventions:
+      frontend: "conventions:coder:frontend"
+      backend: "conventions:coder:backend"
+    note: "Layer definitions, component types, file suffixes, and dependency rules defined in frontend/backend conventions"
+
+  # Composition Root Pattern (Maintained During Refactoring)
+  composition_root:
+    description: "composition.py and wagon.py survive refactoring unchanged - they orchestrate refactored components"
+
+    refactoring_approach: |
+      During REFACTOR, composition roots are the LAST files to change:
+        1. Refactor domain/application/integration/presentation layers
+        2. Update imports in composition.py/wagon.py to point to new locations
+        3. Composition logic stays the same (only import paths change)
+
+    hierarchy:
+      feature_level: "python/{wagon}/{feature}/composition.py"
+      wagon_level: "python/{wagon}/wagon.py"
+      train_level: "python/trains/runner.py (NEW in SESSION-12)"
+      application_level: "main.py or server.py (becomes Station Master)"
+
+    refactoring_workflow:
+      step_1:
+        action: "Refactor layers (domain, application, integration, presentation)"
+        note: "Move files to proper subdirectories, extract use cases, create ports"
+
+      step_2:
+        action: "Update composition.py imports to reflect new structure"
+        before: "from src.domain.timebank import Timebank"
+        after: "from src.domain.entities.timebank import Timebank"
+
+      step_3:
+        action: "Verify composition.py still works after refactoring"
+        command: "python3 python/{wagon}/{feature}/composition.py"
+        expectation: "Should run without errors"
+
+      step_4:
+        action: "Update wagon.py imports if features were restructured"
+        before: "from {wagon}.{feature}.src.domain.model import Model"
+        after: "from {wagon}.{feature}.src.domain.entities.model import Model"
+
+      step_5:
+        action: "Verify wagon.py orchestration after refactoring"
+        command: "python3 python/{wagon}/wagon.py"
+        expectation: "All features orchestrate correctly"
+
+    stability_principle: |
+      Composition roots provide STABILITY during refactoring:
+        - Features can be completely restructured internally
+        - As long as composition.py still works, external consumers are unaffected
+        - wagon.py provides integration regression testing during refactoring
+        - trains/runner.py orchestrates wagons for production user journeys (SESSION-12)
+
+    testing_strategy:
+      unit_tests: "Test refactored domain/application layers"
+      integration_tests: "Test via feature composition.py"
+      wagon_tests: "Test via wagon.py orchestration"
+      acceptance_tests: "Still GREEN throughout refactoring"
+
+    rich_cli_feedback:
+      description: "wagon.py should provide rich visual feedback during orchestration"
+      rationale: |
+        wagon.py is a manual test harness and demo tool.
+        Rich CLI feedback makes it:
+        - More engaging for stakeholder demos
+        - Easier to understand mechanic behavior
+        - Better for debugging and manual testing
+        - More professional and polished
+
+      standard_patterns:
+        real_time_simulation:
+          description: "Add delays to simulate real-world timing"
+          examples:
+            - "Animated dots during processing: 'Turn 1: ...'"
+            - "Small delays between steps (0.3s)"
+            - "Simulates user thinking time"
+
+        progress_visualization:
+          description: "Visual progress bars for time/resource depletion"
+          examples:
+            - "Color-coded progress bars (green/yellow/red)"
+            - "Percentage and absolute values shown"
+            - "Example: [████████░░░░] 80.0s / 100.0s"
+
+        status_indicators:
+          description: "Clear visual status with emojis and colors"
+          examples:
+            - "✅ Success indicators"
+            - "⚠️ Warning states"
+            - "🔴 Error/critical states"
+            - "📊 Status summaries"
+
+        structured_output:
+          description: "Organized output with headers and sections"
+          examples:
+            - "Section headers: ========"
+            - "Subsections with indentation"
+            - "Summary tables at end"
+
+      implementation_example: |
+        # Real-time simulation with progress bar
+        def show_progress_bar(current: float, total: float, width: int = 40):
+            percentage = current / total
+            filled = int(width * percentage)
+            bar = "█" * filled + "░" * (width - filled)
+
+            # Color coding
+            if percentage > 0.5:
+                color = "\033[92m"  # Green
+            elif percentage > 0.2:
+                color = "\033[93m"  # Yellow
+            else:
+                color = "\033[91m"  # Red
+            reset = "\033[0m"
+
+            return f"{color}[{bar}]{reset} {current:.1f} / {total:.1f}"
+
+        # Animated processing
+        for turn in turns:
+            print(f"   Turn {i}: ", end="", flush=True)
+            for _ in range(3):
+                print(".", end="", flush=True)
+                time.sleep(0.15)
+            print(f" {turn:.1f}s")
+            print(f"   {show_progress_bar(remaining, total)}")
+            time.sleep(0.3)
+
+      when_to_add:
+        timing: "During REFACTOR phase (after GREEN is complete)"
+        scenarios:
+          - "Wagon orchestrates multiple features"
+          - "Time-based or resource-based mechanics"
+          - "Need for stakeholder demos"
+          - "Manual testing of complex flows"
+        not_needed:
+          - "Simple wagons with instant operations"
+          - "Pure library/utility wagons"
+          - "Wagons only used in automated tests"
+
+  actions:
+    - id: RF-DOMAIN
+      action: "Extract/move logic to Domain layer; keep it pure"
+      checklist:
+        - "Identify business rules currently in handlers/services"
+        - "Extract to pure functions/classes with no dependencies"
+        - "Create value objects for primitives (Email, Money, OrderId)"
+        - "Create entities with identity and lifecycle"
+        - "Move invariant validation into domain models"
+      verification:
+        - "Domain tests run without any infrastructure"
+        - "No imports from application/presentation/integration"
+      pattern: |
+        // Domain layer - Pure business logic
+        class Order {
+          private constructor(
+            public readonly id: OrderId,
+            public readonly items: OrderItem[],
+            public readonly total: Money
+          ) {}
+
+          static create(data: CreateOrderData): Order {
+            if (data.items.length === 0) {
+              throw new DomainException('Order must have at least one item')
+            }
+            // All business rules validated here
+            return new Order(...)
+          }
+
+          canBeCancelled(): boolean {
+            return this.status === 'pending'  // Pure business logic
+          }
+        }
+      checks:
+        - type: import_scan
+          path: "domain/**"
+          forbid:
+            - "domain → application"
+            - "domain → presentation"
+            - "domain → integration"
+        - type: grep
+          path: "domain/**"
+          must_not_match:
+            - "import.*from.*['\"].*/(application|presentation|integration)"
+
+    - id: RF-USECASE
+      action: "Create Application use cases; inject ports"
+      checklist:
+        - "Define port interfaces for all I/O operations"
+        - "Create use case classes that orchestrate domain + ports"
+        - "Inject ports via constructor"
+        - "Keep use cases framework-agnostic"
+      pattern: |
+        // Application layer
+        interface OrderRepository {  // Port
+          save(order: Order): Promise<void>
+          findById(id: OrderId): Promise<Order>
+        }
+
+        class CreateOrderUseCase {
+          constructor(
+            private orderRepo: OrderRepository,  // Port injection
+            private paymentGateway: PaymentGateway
+          ) {}
+
+          async execute(data: CreateOrderInput): Promise<Order> {
+            const order = Order.create(data)  // Domain logic
+            await this.paymentGateway.charge(order.total)
+            await this.orderRepo.save(order)
+            return order
+          }
+        }
+      checks:
+        - type: import_scan
+          path: "application/**"
+          forbid:
+            - "application → presentation"
+            - "application → integration (except port interfaces)"
+
+    - id: RF-PRESENTATION
+      action: "Extract presentation layer; handlers become thin"
+      checklist:
+        - "Move all handlers to presentation/"
+        - "Handlers only: parse request → call use case → format response"
+        - "Move DTOs/validators to presentation/"
+        - "No business logic in handlers"
+      pattern: |
+        // Presentation layer
+        async function handleCreateOrder(req: Request): Promise<Response> {
+          // 1. Parse & validate
+          const input = CreateOrderDTO.parse(req.body)
+
+          // 2. Call use case
+          const order = await createOrderUseCase.execute(input)
+
+          // 3. Format response
+          return { status: 201, body: OrderResponseDTO.from(order) }
+        }
+      checks:
+        - type: grep
+          path: "presentation/**"
+          must_not_match:
+            - "new PgClient\\("
+            - "new Pool\\("
+            - "axios\\."
+            - "fetch\\("
+            - "fs\\."
+
+    - id: RF-INFRA
+      action: "Implement ports in Integration layer; remove direct calls"
+      checklist:
+        - "Create concrete implementations of all ports"
+        - "Move DB/HTTP/file code to integration/"
+        - "Wire implementations via DI/factory"
+        - "Replace in-memory fakes with real adapters"
+      pattern: |
+        // Integration layer
+        class PostgresOrderRepository implements OrderRepository {
+          constructor(private db: Database) {}
+
+          async save(order: Order): Promise<void> {
+            const row = OrderMapper.toRow(order)  // Map domain → DB
+            await this.db.insert('orders', row)
+          }
+
+          async findById(id: OrderId): Promise<Order> {
+            const row = await this.db.findOne('orders', { id: id.value })
+            return OrderMapper.toDomain(row)  // Map DB → domain
+          }
+        }
+      checks:
+        - type: reference
+          note: "Verify every port interface has at least one adapter implementation"
+
+    - id: RF-SPLIT
+      action: "Split large functions; remove duplication; name precisely"
+      guidelines:
+        - "Functions < 20 lines"
+        - "Cyclomatic complexity < 10"
+        - "Extract helper functions"
+        - "Use descriptive names (no abbreviations)"
+        - "Apply DRY after 3rd occurrence"
+      checks:
+        - type: complexity_scan
+          max_cyclomatic: 10
+          max_function_lines: 30
+
+    - id: RF-ARCHTESTS
+      action: "Add boundary tests/lint to enforce layers"
+      examples:
+        - "Domain layer imports nothing"
+        - "Application layer doesn't import presentation/integration"
+        - "Integration implements all defined ports"
+        - "No cross-feature imports"
+      tools:
+        - "ESLint + eslint-plugin-boundaries"
+        - "ArchUnit (Java/Kotlin)"
+        - "dependency-cruiser (TypeScript)"
+        - "Custom import analyzer"
+
+    - id: RF-FAKES
+      action: "Replace in-memory fakes with real adapters (keep fakes for tests)"
+      strategy:
+        - "Production: wire real adapters (PostgresOrderRepo)"
+        - "Tests: keep using in-memory fakes (InMemoryOrderRepo)"
+        - "Both implement same port interface"
+
+    - id: RF-CROSSCUT
+      action: "Add logging/telemetry at edges; handle errors centrally"
+      patterns:
+        - "Middleware for request logging"
+        - "Centralized error handler"
+        - "Use case decorators for tracing"
+        - "Domain events for audit logs"
+
+  non_functional:
+    - id: NF-VALIDATION
+      requirement: "Centralized at Presentation/Application boundary"
+      pattern: |
+        // Presentation: syntax validation
+        class CreateOrderDTO {
+          @IsString() customerId: string
+          @IsArray() items: OrderItemDTO[]
+
+          static parse(raw: unknown): CreateOrderDTO {
+            // Validate structure & types
+          }
+        }
+
+        // Domain: semantic validation
+        class Order {
+          static create(data: CreateOrderInput): Order {
+            if (data.items.length === 0) {
+              throw new DomainException('Order must have at least one item')
+            }
+            // Business rules validated here
+          }
+        }
+
+    - id: NF-CONFIG
+      requirement: "Config via env; secrets via provider; no hardcoded creds"
+      pattern: |
+        // Integration layer
+        class DatabaseConfig {
+          static fromEnv(): DatabaseConfig {
+            return {
+              host: process.env.DB_HOST,
+              password: secretsManager.get('DB_PASSWORD')  // Not hardcoded
+            }
+          }
+        }
+
+    - id: NF-PERF
+      requirement: "Only optimize where profiling shows need"
+      approach:
+        - "Profile first"
+        - "Optimize hot paths only"
+        - "Add caching strategically"
+        - "Don't sacrifice clarity for premature optimization"
+
+    - id: NF-ERRORS
+      requirement: "Domain errors vs infrastructure errors"
+      pattern: |
+        // Domain errors (expected)
+        class OrderAlreadyShippedException extends DomainException {}
+
+        // Infrastructure errors (unexpected)
+        class DatabaseConnectionError extends InfrastructureException {}
+
+        // Presentation: map to HTTP status
+        function errorHandler(error: Error): Response {
+          if (error instanceof DomainException) return { status: 400 }
+          if (error instanceof InfrastructureException) return { status: 500 }
+        }
+
+  deliverables:
+    - id: DL-STRUCTURE
+      rule: "4-layer folder structure enforced per code-type convention"
+      reference: "See frontend.convention.yaml or backend.convention.yaml for specific component types and file suffixes"
+
+    - id: DL-PORTS
+      rule: "Port interfaces in application/; adapters in integration/"
+      verification:
+        - "Every port has at least one implementation"
+        - "Implementations injected via DI/factory"
+        - "Tests can swap implementations easily"
+
+    - id: DL-GUARDS
+      rule: "Architecture guardrails active in CI"
+      examples:
+        - "ESLint rules block forbidden imports"
+        - "CI fails if domain imports application"
+        - "ArchUnit tests verify layer boundaries"
+      checks:
+        - type: import_scan
+          forbid:
+            - "domain → application|presentation|integration"
+            - "application → presentation|integration"
+            - "presentation → integration"
+
+    - id: DL-TESTS
+      rule: "Internal unit tests for Domain & Application; acceptance tests still green"
+      targets:
+        domain_coverage: ">=90%"
+        application_coverage: ">=80%"
+        integration_coverage: ">=70%"
+      note: "Presentation layer covered by acceptance tests"
+
+    - id: DL-LOG
+      rule: "Short log documenting moves and remaining debt"
+      template: |
+        ## Refactoring Summary
+
+        ### Extracted to Domain
+        - Order entity with validation
+        - Money value object
+        - OrderPolicy business rules
+
+        ### Created Use Cases
+        - CreateOrderUseCase
+        - CancelOrderUseCase
+
+        ### Ports Defined
+        - OrderRepository (implemented by PostgresOrderRepo)
+        - PaymentGateway (implemented by StripePaymentGateway)
+
+        ### Remaining Tech Debt
+        - TODO: Add caching layer for frequent queries
+        - TODO: Implement outbox pattern for event publishing
+        - TODO: Add circuit breaker to payment gateway
+
+  done_criteria:
+    - id: DC-TESTS
+      requirement: "All acceptance tests still pass (no behavior change)"
+    - id: DC-ARCH
+      requirement: "Layers compile without upward leaks (no infra import in domain/app)"
+    - id: DC-COMPLEXITY
+      requirement: "Cyclomatic complexity and duplication reduced"
+    - id: DC-SEAMS
+      requirement: "Clear seams for future changes"
+    - id: DC-MAINT
+      requirement: "New features can be added with minimal changes"
+
+  anti_patterns:
+    - id: AP-LEAK
+      text: "Leaky abstractions"
+      avoid: "Domain/application importing integration types"
+      example: "Order entity importing PostgreSQL types"
+      fix: "Use mappers in integration layer"
+
+    - id: AP-ANEMIC
+      text: "Anemic domain model"
+      avoid: "Entities with only getters/setters; all logic in services"
+      fix: "Move business rules into entity methods"
+
+    - id: AP-FATUC
+      text: "Fat use cases"
+      avoid: "Use cases with complex business logic"
+      fix: "Extract domain services or move logic to entities"
+
+    - id: AP-SKIPPORTS
+      text: "Skipping ports pattern"
+      avoid: "Presentation calling integration directly"
+      fix: "Always route through application use cases"
+
+    - id: AP-OVERENG
+      text: "Over-engineering"
+      avoid: "Adding patterns before they're needed"
+      fix: "Wait for 3rd occurrence before abstracting"
+
+  quality_metrics:
+    - id: QM-ARCH
+      metrics:
+        - "Zero forbidden imports detected"
+        - "All ports have adapters"
+        - "Domain layer has zero external dependencies"
+      checks:
+        - type: import_scan
+          report: "forbidden_edges_count"
+
+    - id: QM-COMPLEXITY
+      metrics:
+        - "Average cyclomatic complexity < 5"
+        - "Max function length < 30 lines"
+        - "Max class length < 200 lines"
+
+    - id: QM-DUP
+      metrics:
+        - "< 5% code duplication"
+        - "Similar logic extracted to shared helpers"
+
+    - id: QM-TEST
+      metrics:
+        - "Domain: 100% testable without infrastructure"
+        - "Application: 100% testable with mocked ports"
+        - "Integration: Testable with test containers/fakes"
+
+  ci_gates:
+    description: "Automated enforcement in CI pipeline"
+    on: "pull_request"
+    require:
+      - "acceptance: green"
+      - DL-GUARDS
+      - QM-ARCH
+    thresholds:
+      complexity: "avg < 5"
+      coverage_domain: ">=90%"
+      coverage_application: ">=80%"
+
+  handoff_criteria:
+    description: "Ready for next feature when all criteria met"
+    checklist:
+      - "All GREEN TODOs addressed"
+      - "Boundary tests passing"
+      - "Refactor log committed"
+      - "Ready for next feature"

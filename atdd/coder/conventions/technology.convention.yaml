@@ -1,0 +1,206 @@
+version: "1.0"
+name: "Technology Stack Convention"
+description: "Lean map of default technologies with rationales, constraints, and deviation guidance"
+
+technology:
+  backend:
+    presentation:
+      default: "Supabase Edge Functions (TypeScript on Deno)"
+      rationale: "Runs next to the Supabase cluster, inherits auth, scales automatically, and keeps request-response code minimal."
+      use_for: "Low-latency APIs, auth-guarded endpoints, simple business logic glued to Supabase data."
+      avoid_when: "Workloads need long-lived processes, heavy native dependencies, or complex multi-service orchestration."
+      alternatives:
+        - option: "Dedicated Node.js/Express service on managed infrastructure"
+          status: "approved"
+          use_when: "Domain logic depends on heavy SDKs, long-lived processes, or custom runtimes Supabase cannot host."
+          tradeoff: "Adds infrastructure surface area and manual scaling."
+    application:
+      default: "Supabase Edge Functions orchestrating Supabase Auth and database access"
+      rationale: "Keeps authorization, data access, and domain logic in a single managed layer with row-level security enforced."
+      use_for: "Transactional CRUD flows, admin automation, server-side validation."
+      avoid_when: "Throughput or scheduling requirements exceed Edge quotas, or logic depends on non-Supabase data sources."
+      alternatives:
+        - option: "Supabase Scheduled Functions"
+          status: "approved"
+          use_when: "Workloads are cron-like or event-driven and finish within Supabase execution limits."
+          tradeoff: "Still bound by platform quotas and limited runtime flexibility."
+        - option: "External task runner (Temporal, BullMQ, etc.)"
+          status: "approved"
+          use_when: "Jobs require retries, long execution windows, or integration with non-Supabase systems."
+          tradeoff: "Demands separate deployment, observability, and on-call coverage."
+    domain:
+      default: "PostgreSQL stored procedures and row-level security policies"
+      rationale: "Guarantees business rules live with the data for consistency and integrity enforcement."
+      use_for: "Invariants, data validation, and domain events that must run on every write."
+      avoid_when: "Logic needs complex external integrations or is easier to iterate outside SQL."
+      alternatives:
+        - option: "Edge Function domain services"
+          status: "approved"
+          use_when: "Rules benefit from TypeScript tooling or orchestration with external APIs."
+          tradeoff: "Moves guarantees out of the database; must guard against bypass paths."
+    integration:
+      default:
+        - "Supabase Realtime"
+        - "Gun.js mesh"
+      rationale: "Supabase anchors authoritative state while Gun.js delivers sub-100ms peer sync, offline-first UX, and lower infrastructure costs."
+      use_for: "Multiplayer messaging, collaborative gameplay state, or any feature needing optimistic UI with later checkpointing."
+      avoid_when: "Workflows demand strict ACID semantics end-to-end or the team cannot support Gun.js expertise."
+      constraints:
+        team_size: "2-5 engineers"
+        budget_focus: "Minimize server and database spend"
+        user_expectations: "Mobile-first clients expect instant feedback"
+      infrastructure: "Client: Gun.js peer + Supabase Flutter client (embedded); Relay: 2-3 WebSocket VPS; Validation: Node.js service (containerized); Persistence: Supabase (PostgreSQL, Auth, Realtime)"
+      data_partition:
+        ephemeral_store: "Gun.js handles: chat (last 100), presence, optimistic UI writes (<5KB/message)"
+        authoritative_store: "Supabase handles: auth, balances, settlements, checkpoint history, analytics"
+      tradeoffs:
+        accepted_risks: ["Eventual consistency Gun ↔ Supabase", "Smaller Gun.js hiring pool", "Distributed logging complexity"]
+        mitigations: ["Validator enforces checkpoint frequency", "Health checks on relay uptime and lag", "Keep Gun graph structures shallow"]
+      operations:
+        monitoring_focus:
+          relay: "Uptime >99.5%, mesh connectivity"
+          checkpoint_lag: "P99 <5s"
+          persistence: "Error rate, query latency <200ms P95"
+      cost_comparison:
+        hybrid: "~$40/mo (2 relay VPS + Supabase checkpoints)"
+        managed_only: "~$950/mo at 1M messages/day (Supabase Realtime only)"
+        savings: "~$10,920/year; revisit if traffic >1M messages/day"
+      fallback_paths:
+        - trigger: "Checkpoint lag exceeds SLA or team lacks Gun expertise"
+          action: "Migrate to Supabase Realtime + Redis cache"
+      alternatives:
+        - option: "Supabase Realtime only"
+          use_when: "Offline mode optional and last-write-wins semantics acceptable"
+
+  frontend:
+    presentation:
+      default: "Flutter 3.x with custom design system"
+      rationale: "Single codebase delivers high-performance experiences across iOS, Android, and web."
+      use_for: "Feature-rich game UI, animation-heavy interfaces, and rapid UI iteration with hot reload."
+      avoid_when: "Team already maintains a React-native web stack or needs platform-specific native capabilities not exposed in Flutter."
+      alternatives:
+        - option: "React Native"
+          status: "approved"
+          use_when: "Team ships JavaScript mobile apps today and performance demands are moderate."
+          tradeoff: "Potentially lower graphics fidelity and more platform quirks for game-heavy features."
+    application:
+      default:
+        - "Riverpod"
+        - "BLoC/Cubit"
+      rationale: "Separates UI from state orchestration, supports testability, and matches community best practices."
+      use_for: "Feature modules that require deterministic state flow and clear dependency injection."
+      avoid_when: "Very small widgets where Provider or setState keeps maintenance lighter."
+      alternatives:
+        - option: "Provider or ValueNotifier"
+          status: "approved"
+          use_when: "Screens are simple, team velocity matters more than architecture purity."
+          tradeoff: "Scaling to complex flows later may require refactoring to BLoC."
+    domain:
+      default: "Dart domain models using Freezed"
+      rationale: "Immutability, pattern matching, and serialization with minimal boilerplate."
+      use_for: "Shared business rules, input validation, and data contracts across UI and services."
+      avoid_when: "Models originate from generated SDKs or performance-critical code paths where Freezed overhead is excessive."
+      alternatives:
+        - option: "Manual Dart classes"
+          status: "approved"
+          use_when: "Need bespoke constructors, performance tuning, or external SDK models."
+          tradeoff: "Lose Freezed conveniences (copyWith, unions, generated equality)."
+    integration:
+      default:
+        - "Supabase Flutter client"
+        - "Gun.js client"
+      rationale: "Mirrors backend hybrid stack, keeping authentication and realtime semantics consistent."
+      use_for: "Data access layers, multiplayer state sync, and offline caching strategies aligned with backend decisions."
+      avoid_when: "Application does not use Gun.js features or requires a different backend."
+      alternatives:
+        - option: "Supabase client only"
+          use_when: "Features interact solely with Supabase data and collaboration is minimal"
+
+  media:
+    presentation:
+      default:
+        video: "WebM (VP9) with MP4 (H.264) fallback for iOS <14"
+        images: "WebP with JPEG fallback for iOS <14"
+        audio: "Opus (WebM container) with AAC fallback for iOS <14"
+      rationale: "WebM/WebP/Opus reduce bandwidth by 30% vs MP4/JPEG/AAC; Flutter supports natively on Android/web."
+      use_for: "User content, game assets, profile media, background music, SFX, voiceover."
+      avoid_when: "User base is 90%+ iOS <14 or team lacks transcoding capability."
+      platform_support: "Android/web native; iOS 14+ native WebP/AAC, WebM/Opus via AVPlayer; iOS <14 serve fallback formats"
+    application:
+      default: "Client → Supabase Storage → Edge Function enqueues transcoding → FFmpeg worker → CDN delivery"
+      rationale: "Integrates with Supabase auth/RLS while async transcoding keeps upload fast."
+      use_for: "User uploads requiring format conversion and quality optimization."
+      avoid_when: "Media volume exceeds Supabase Storage quotas or transcoding SLA unmet."
+      workflow: "Client validates → Upload to Supabase Storage → Webhook triggers optimization → Transcode to primary + fallback formats → CDN caches (1yr TTL)"
+      alternatives:
+        - option: "Cloudinary/Imgix managed service"
+          use_when: "Team cannot maintain transcoding infrastructure or needs DRM/adaptive streaming"
+    domain:
+      default: "PostgreSQL triggers enforce quotas; Edge Functions validate format selection per tier"
+      rationale: "Quota and format rules live with data to prevent bypass."
+      use_for: "Storage quotas, quality tiers, content moderation policies."
+    integration:
+      default: "Supabase Storage + Cloudflare CDN + Containerized FFmpeg worker (Cloud Run, Fly.io)"
+      rationale: "Supabase Storage integrates auth; Cloudflare caches globally; FFmpeg handles standard transcoding."
+      use_for: "Secure storage, global delivery, format optimization."
+      avoid_when: "Compliance requires on-premise or volume exceeds Supabase pricing efficiency."
+      infrastructure: "Storage (Supabase with RLS), CDN (Cloudflare, 1yr TTL), Transcoding (serverless FFmpeg, queue-based autoscaling)"
+      cost_comparison: "Self-hosted ~$60/mo vs managed service ~$200/mo; savings ~$1,680/year"
+      fallback_paths:
+        - trigger: "Queue depth exceeds SLA"
+          action: "Scale workers or migrate to managed API"
+        - trigger: "iOS <14 usage <5%"
+          action: "Drop MP4/JPEG/AAC fallback generation"
+
+  ai:
+    presentation:
+      default: "LLM-generated text/dialog, decision evaluations, gesture/content classifications"
+      rationale: "AI outputs integrate with Flutter UI as text, scores, or metadata; no client-side model execution."
+      use_for: "Dynamic content creation, gameplay evaluation, input interpretation."
+      avoid_when: "Latency SLA <200ms or cost per interaction exceeds budget."
+      constraints: "Structured JSON output, P95 <2s interactive / <10s background, graceful degradation to cached/rule-based on failure"
+    application:
+      default: "Edge Function orchestrates LLM APIs with rate limiting, token budgets, caching (PostgreSQL/Redis), fallback chain: LLM → local model → rules"
+      rationale: "Centralized orchestration controls costs, latency, and observability."
+      use_for: "Prompt management, cost control, request routing, response validation."
+      avoid_when: "All AI logic can run locally on-device without quality loss."
+      workflow: "Client request → Edge Function validates → LLM API call → Cache response → Return JSON; on timeout/error serve cache or local model"
+      alternatives:
+        - option: "Client-side on-device ML models (TensorFlow Lite)"
+          use_when: "Latency critical and quality acceptable with small models"
+    domain:
+      default: "Game evaluation rules, scoring algorithms, pattern matching logic via PostgreSQL functions + Edge Function validation"
+      rationale: "Core AI logic lives with business rules to ensure consistency and auditability."
+      use_for: "Evaluation scoring formulas, decision tree traversal, outcome prediction."
+      avoid_when: "Logic requires heavy computation better suited to async workers or external APIs."
+    integration:
+      default: "LLM APIs (Claude, Mistral), local models (open source), knowledge graphs (PostgreSQL graph extensions)"
+      rationale: "LLMs for complex reasoning, local models for latency-critical tasks, graphs for structured domain logic."
+      use_for: "Text generation, strategic evaluation, semantic classification, content reasoning."
+      avoid_when: "All use cases satisfied by rule-based logic or simpler heuristics."
+      infrastructure: "LLM tier (Edge Function + API key rotation + PostgreSQL quotas), Local model tier (TF Lite in Flutter app), Knowledge graph tier (PostgreSQL pg_graph)"
+      cost_comparison: "Hybrid strategy: 80% local models, 20% LLM → ~$20/mo LLM spend vs ~$100/mo LLM-only"
+      fallback_paths:
+        - trigger: "LLM API error rate >5% or latency >5s"
+          action: "Switch to cached responses or local model"
+        - trigger: "Token budget 80% consumed mid-month"
+          action: "Throttle non-critical AI features; prioritize premium users"
+
+  telemetry:
+    observability:
+      default: "Sentry"
+      rationale: "Cross-platform error tracking, transaction tracing, and alerting with minimal setup."
+      use_for: "Production services and clients where regressions must surface within minutes."
+      avoid_when: "Throwaway experiments or spikes that never reach users."
+      alternatives:
+        - option: "Self-hosted OpenTelemetry stack"
+          use_when: "Regulatory rules or cost controls require keeping telemetry in-house"
+    analytics:
+      default: "PostHog"
+      rationale: "Event analytics, feature flags, and user journey insights integrated with Supabase/Flutter stack."
+      use_for: "Activation, retention, and feature adoption tracking across mobile and web clients."
+      avoid_when: "Internal prototypes where event instrumentation would slow delivery."
+
+notes:
+  deviation_process: "Document any alternative choice in the architecture log with rationale and expected revisit date."
+  decision_scope: "This mapping applies to new services and major rewrites; legacy codebases may continue with their existing stack until refactored."

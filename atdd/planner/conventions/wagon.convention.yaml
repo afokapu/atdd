@@ -1,0 +1,275 @@
+version: "1.0"
+name: "Wagon Convention"
+description: "Semantic refinement patterns for converting ambiguous input to structured wagon definitions"
+
+# Wagon structure defined in schema
+structure:
+  $ref: "schemas:planner:wagon"
+
+# URN naming pattern
+urn_naming:
+  pattern: "wagon:{kebab-case-name}"
+  description: "Unique identifier for wagon using verb-object pattern"
+  utility: "utils.graph.URNBuilder.wagon(wagon_id)"
+
+  format:
+    pattern: "kebab-case (lowercase, alphanumeric with hyphens)"
+    preference: "verb-object (e.g., resolve-dilemmas, commit-state)"
+
+  examples:
+    - urn: "wagon:resolve-dilemmas"
+      name: "Resolve Dilemmas"
+      slug: "resolve-dilemmas"
+
+    - urn: "wagon:burn-timebank"
+      name: "Burn Timebank"
+      slug: "burn-timebank"
+
+    - urn: "wagon:manage-users"
+      name: "Manage Users"
+      slug: "manage-users"
+
+  validation:
+    pattern: "^wagon:[a-z][a-z0-9-]*$"
+    must_start_with: "lowercase letter"
+    allowed_chars: "lowercase letters, digits, hyphens"
+
+# Naming conventions (SPEC-COACH-UTILS-0281)
+naming:
+  slug_derivation:
+    pattern: "kebab-case from name"
+    preference: "verb-object pattern (e.g., resolve-dilemmas, commit-state)"
+    transformation: "lowercase, replace spaces/underscores with hyphens"
+
+  filesystem_naming:
+    description: "Filesystem uses snake_case, logical identifiers use kebab-case"
+    rules:
+      urns_and_slugs:
+        format: "kebab-case"
+        examples:
+          - "wagon:maintain-ux"
+          - "maintain-ux"
+          - "resolve-dilemmas"
+          - "feature:authenticate-identity:verify-session"
+        usage: "URNs, slug fields in YAML, references"
+
+      directories:
+        format: "snake_case"
+        pattern: "plan/{wagon_dirname}/"
+        examples:
+          - "plan/maintain_design/"
+          - "plan/resolve_dilemmas/"
+          - "plan/commit_state/"
+          - "plan/authenticate_identity/"
+        derivation: "slug.replace('-', '_')"
+
+      manifest_files:
+        format: "_{dirname}.yaml"
+        pattern: "plan/{dirname}/_{dirname}.yaml"
+        examples:
+          - "plan/maintain_design/_maintain_design.yaml"
+          - "plan/resolve_dilemmas/_resolve_dilemmas.yaml"
+          - "plan/authenticate_identity/_authenticate_identity.yaml"
+        note: "File name matches directory name, NOT slug"
+
+      feature_files:
+        format: "snake_case"
+        pattern: "plan/{wagon_dirname}/features/{feature_name}.yaml"
+        examples:
+          - "plan/authenticate_identity/features/verify_session.yaml"
+          - "plan/authenticate_identity/features/link_match_user.yaml"
+          - "plan/burn_timebank/features/track_remaining.yaml"
+          - "plan/setup_match/features/configure_match.yaml"
+        derivation: "feature_slug.replace('-', '_')"
+        note: "Feature file names use underscores, even though URNs use hyphens"
+
+    conversion:
+      slug_to_dirname: "slug.replace('-', '_')"
+      dirname_to_slug: "dirname.replace('_', '-')"
+      feature_slug_to_filename: "feature_slug.replace('-', '_') + '.yaml'"
+      feature_filename_to_slug: "filename.replace('_', '-').replace('.yaml', '')"
+
+    rationale: "Consistent filesystem naming reduces conversion complexity; clear separation between logical (kebab) and physical (snake) identifiers"
+
+    summary:
+      logical_identifiers: "kebab-case with hyphens (-) - used in URNs, slugs, YAML references"
+      filesystem: "snake_case with underscores (_) - used in directories, manifest files, feature files"
+      examples:
+        - logical: "feature:authenticate-identity:verify-session"
+          directory: "plan/authenticate_identity/"
+          manifest: "plan/authenticate_identity/_authenticate_identity.yaml"
+          feature_file: "plan/authenticate_identity/features/verify_session.yaml"
+
+# Refinement process for converting ambiguous input to structured wagon
+refinement:
+  # How to extract semantic fields from name + requirements
+  extraction:
+    subject:
+      prompt: "From '${inputs.requirements}', identify WHO or WHAT performs the main action (single actor, e.g., 'player:active', 'engine:orchestrator')"
+      pattern: "actor:role or entity:state format preferred"
+      images:
+        - ".claude/docs/examples/wagon-subjects-good.png"
+        - ".claude/docs/examples/wagon-subjects-bad.png"
+
+    action:
+      prompt: "Extract the core ACTION verb from '${inputs.requirements}' as present-tense phrase (e.g., 'applies the chosen option')"
+      pattern: "single present-tense verb phrase"
+      image: ".claude/docs/examples/action-verbs-reference.png"
+
+    goal:
+      prompt: "Identify the WHY/motivation behind this action from '${inputs.requirements}' (e.g., 'advance toward stable trajectory')"
+      pattern: "single intent statement"
+
+    context:
+      prompt: "Determine WHEN/WHERE this action occurs from '${inputs.requirements}' (e.g., 'in-match, timebank-active')"
+      pattern: "situational phrase, comma-separated conditions"
+
+    outcome:
+      prompt: "Define the measurable result from '${inputs.requirements}' (e.g., 'choice applied and state updated')"
+      pattern: "single measurable progress statement"
+
+    produce:
+      $ref: "conventions:planner:artifact#/naming_patterns/produce"
+
+    consume:
+      $ref: "conventions:planner:artifact#/naming_patterns/consume"
+
+    theme:
+      prompt: "Select most appropriate theme category for this wagon"
+      options:
+        mechanic: "Core game rules, decision systems, and immediate feedback loops"
+        scenario: "Content ingestion, entity extraction, and narrative structure processing"
+        match: "Session orchestration, state management, and lifecycle control, Multi-player coordination, turn management"
+        sensory: "UI rendering, audio mixing, gesture capture, and player interaction"
+        player: "Individual lifecycle, onboarding, progression, and session management"
+        league: "Competitive organization, bracket management, and tournament operations"
+        audience: "Spectator engagement, streaming infrastructure, and viewer participation"
+        monetization: "Token economy, wallet operations, and transaction processing"
+        partnership: "Sponsor/partner onboarding, delegation, and commercial integration"
+        commons: "Shared infrastructure, cross-cutting utilities, and platform services"
+
+    description:
+      template: "Generate concise one-liner from refined understanding of subject, action, goal, and context"
+      min_length: 10
+
+    wmbt:
+      default: {}
+      note: "Placeholder - WMBTs will be generated via handoff to wmbt.action"
+
+    total:
+      default: 0
+      note: "Placeholder - count will be updated when WMBTs are added via wmbt.action"
+
+# Validation rules for semantic coherence
+validation:
+  coherence_checks:
+    - "subject and action must align (subject can perform the action)"
+    - "action and goal must align (action serves the goal)"
+    - "outcome must be measurable result of action"
+    - "all produce artifacts must be owned by this wagon"
+    - "all consume artifacts must be owned by different wagons"
+    - "context must make sense for when/where action occurs"
+    - "at least one produce artifact must be external (scope: 'external')"
+
+# Artifact conventions (see artifact.convention.yaml for full details)
+artifact_contracts:
+  $ref: "conventions:planner:artifact#/artifact_contracts"
+  note: "Full artifact contract conventions defined in artifact.convention.yaml"
+
+  urn_format:
+    contract_urn: "contract:domain:resource (e.g., contract:ux:foundations, contract:match:result)"
+    telemetry_urn: "telemetry:domain:resource[.category] (e.g., telemetry:ux:foundations, telemetry:ux:foundations.colors)"
+
+    telemetry_filesystem:
+      description: "Telemetry URN maps to filesystem directory containing signal files"
+      pattern: "telemetry/{domain}/{resource}[/{category}]/{signal-type}.{plane}[.{measure}].json"
+      urn_to_path: "telemetry:{domain}:{resource}[.{category}] → telemetry/{domain}/{resource}[/{category}]/"
+
+      examples:
+        - urn: "telemetry:mechanic:decision.choice"
+          path: "telemetry/decision/choice/"
+          files:
+            - "metric.db.count.json"
+            - "metric.be.duration.json"
+            - "event.be.json"
+
+        - urn: "telemetry:ux:foundations"
+          path: "telemetry/ux/foundations/"
+          files:
+            - "metric.ui.render_latency.json"
+            - "event.ui.json"
+
+        - urn: "telemetry:ux:foundations.colors"
+          path: "telemetry/ux/foundations/colors/"
+          files:
+            - "metric.ui.render_latency.json"
+            - "event.ui.json"
+
+      signal_types:
+        metric: "Observability metrics (OpenTelemetry) - requires measure suffix"
+        event: "Analytics events (Segment/Mixpanel) - no measure suffix"
+
+      planes: ["ui", "ux", "be", "nw", "db", "st", "tm", "sc", "au", "fn", "if"]
+
+      measures:
+        metrics_only: ["count", "duration", "latency", "size", "rate", "percentage"]
+        not_for_events: "Events use pattern {signal-type}.{plane}.json (no measure)"
+
+      manifest_generation:
+        description: "Manifest generated from telemetry/ source files"
+        source: "telemetry/{domain}/{resource}/*.json"
+        output: "Generated manifest aggregates all signal definitions"
+
+  produce_artifacts:
+    required_fields:
+      - name: "Artifact name (e.g., ux:foundations)"
+      - contract: "Contract URN or null (e.g., contract:ux:foundations)"
+      - telemetry: "Telemetry URN for observability and analytics or null (e.g., telemetry:ux:foundations)"
+    optional_fields:
+      - to: "Visibility (internal|external), defaults to external"
+      - urn: "Legacy artifact URN"
+      - version: "Version string (e.g., v1)"
+
+    example:
+      - name: ux:foundations
+        contract: contract:ux:foundations
+        telemetry: telemetry:ux:foundations
+      - name: internal:cache
+        contract: null
+        telemetry: null
+        to: internal
+
+  consume_artifacts:
+    required_fields:
+      - name: "Artifact name (e.g., appendix:mockup)"
+    optional_fields:
+      - from: "Source (wagon:slug|system:service|appendix:type|internal)"
+      - contract: "Contract URN or null"
+      - telemetry: "Telemetry URN or null"
+      - urn: "Legacy artifact URN"
+      - version: "Version requirement"
+
+    example:
+      - name: appendix:mockup
+      - name: match:config
+        from: wagon:setup-match
+        contract: contract:match:config
+        telemetry: telemetry:match:config
+
+  features_format:
+    legacy_format:
+      type: "object"
+      example:
+        provide-foundations: "Provide foundation design tokens"
+        compose-primitives: "Compose UI primitives"
+
+    urn_format:
+      type: "array of URN objects"
+      example:
+        - urn: feature:maintain-ux:provide-foundations
+        - urn: feature:maintain-ux:compose-primitives
+      pattern: "feature:{wagon-slug}:{feature-name}"
+
+artifact_transformation:
+  $ref: "conventions:planner:artifact#/artifact_transformation"
+  note: "Full artifact transformation patterns defined in artifact.convention.yaml"

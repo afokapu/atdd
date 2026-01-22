@@ -1,0 +1,797 @@
+version: "1.0"
+name: "Neurosymbolic RED Test Generation Convention"
+description: "Deterministic intent extraction + bounded agent rendering + multi-level validation"
+
+# Core Architecture
+architecture:
+  phases:
+    symbolic:
+      description: "Deterministic extraction and classification"
+      utils: ["harness", "detect", "intent"]
+      deterministic: true
+
+    neural:
+      description: "Agent-based code rendering"
+      utils: ["render"]
+      deterministic: false
+      bounded: true
+
+    validation:
+      description: "Multi-level correctness verification"
+      utils: ["valid", "red"]
+      deterministic: true
+
+# Harness Classification (Deterministic)
+harness_classification:
+  frontend:
+    harnesses: ["unit", "widget", "e2e", "a11y", "visual", "golden", "bloc", "integration"]
+    default_language: "dart"
+    framework: "flutter_test"
+
+  backend:
+    harnesses: ["http", "db", "rls", "event", "ws", "edge_function", "realtime", "storage"]
+    default_language: "typescript"
+    framework: "vitest"
+
+  integration:
+    harnesses: ["metric", "job", "load", "sec", "script"]
+    language: "context_dependent"
+
+# Language Detection Rules (Deterministic)
+language_detection:
+  priority_order:
+    1_explicit: "wagon.yaml runtime field"
+    2_structure: "directory patterns"
+    3_route: "layer hints"
+    4_harness: "category defaults"
+
+  directory_patterns:
+    dart: ["lib/${wagon}/", "test/${wagon}/"]
+    typescript: ["supabase/functions/${wagon}/", "web/src/${wagon}/", "web/tests/${wagon}/", "src/${wagon}/"]
+    python: ["${wagon}/__init__.py", "tests/${wagon}/"]
+    go: ["cmd/${wagon}/", "pkg/${wagon}/"]
+
+# Runtime Placement Decision (Deterministic)
+runtime_placement:
+  principle: "Test path determines implementation runtime"
+  rationale: "Tester creates RED test first → path signals Python or Supabase → Coder follows"
+
+  decision_criteria:
+    supabase:
+      indicators:
+        - "Auth & identity verification"
+        - "Session lifecycle management"
+        - "Database CRUD operations"
+        - "Real-time subscriptions"
+        - "Row-level security enforcement"
+        - "API gateway/routing"
+        - "Client-proximity real-time logic"
+      runtime: "typescript"
+      test_path_pattern: "supabase/functions/{wagon}/{feature}/tests/{layer}/"
+      src_path_pattern: "supabase/functions/{wagon}/{feature}/{layer}/"
+      note: "Supabase functions have no 'src' directory - layers are direct children"
+
+    python:
+      indicators:
+        - "Game mechanics computation"
+        - "AI/ML processing"
+        - "Graph algorithms"
+        - "Domain impact calculations"
+        - "Analytics aggregation"
+        - "Scenario processing"
+        - "Business rule evaluation"
+        - "Stateful algorithms"
+      runtime: "python"
+      test_path_pattern: "python/{wagon}/{feature}/tests/{layer}/"
+      src_path_pattern: "python/{wagon}/{feature}/src/{layer}/"
+      note: "Python uses explicit 'src' directory for implementation"
+
+  workflow:
+    1_analyze: "Read feature URN + acceptance criteria"
+    2_classify: "Apply decision_criteria indicators"
+    3_select_runtime: "Choose python or supabase based on indicators"
+    4_select_path: "Use corresponding test_path_pattern"
+    5_create_test: "Generate RED test at selected path with layer directory"
+    6_document: "Add placement rationale in test header comment"
+
+  header_documentation:
+    required: true
+    format: |
+      # Runtime: {python|supabase|dart}
+      # Rationale: {brief explanation based on decision_criteria}
+      # URN: {full acceptance criteria URN}
+      # Phase: {RED|GREEN|REFACTOR}
+      # Purpose: {acceptance criteria purpose}
+      """
+      RED Test for {full acceptance criteria URN}
+      wagon: {wagon-slug} | feature: {feature-slug} | phase: {RED|GREEN|REFACTOR}
+      WMBT: {wmbt URN}
+      Purpose: {acceptance criteria purpose}
+      """
+    validation:
+      dual_reference_required: true
+      rationale: "Header comment for machine parsing, docstring for human readability"
+      enforcement: "Both MUST contain identical AC URN for redundancy and validation"
+    examples:
+      python: |
+        # Runtime: python
+        # Rationale: Game mechanics - stateful timebank depletion algorithm
+        # URN: acc:burn-timebank:E001-UNIT-001
+        # Phase: GREEN
+        # Purpose: Verify timebank decrements during active decision
+        """
+        RED Test for acc:burn-timebank:E001-UNIT-001
+        wagon: burn-timebank | feature: burn-time | phase: GREEN
+        WMBT: wmbt:burn-timebank:E001
+        Purpose: Verify timebank decrements during active decision
+        """
+      supabase: |
+        # Runtime: supabase
+        # Rationale: Auth verification - database-centric
+        # URN: acc:authenticate-identity:C001-UNIT-001
+        # Phase: RED
+        # Purpose: Verify valid credentials are accepted
+        """
+        RED Test for acc:authenticate-identity:C001-UNIT-001
+        wagon: authenticate-identity | feature: sign-in | phase: RED
+        WMBT: wmbt:authenticate-identity:C001
+        Purpose: Verify valid credentials are accepted
+        """
+
+  additional_runtimes:
+    dart:
+      indicators:
+        - "Flutter widgets and UI components"
+        - "Mobile application logic"
+        - "Client-side state management"
+        - "BLoC/Cubit patterns"
+      runtime: "dart"
+      test_path_pattern: "test/{wagon}/{feature}/{layer}/"
+      src_path_pattern: "lib/{wagon}/{feature}/{layer}/"
+      note: "Dart uses lib/ for implementation (no src/ subdirectory)"
+
+    preact:
+      indicators:
+        - "Web UI components and pages"
+        - "Browser-based frontend logic"
+        - "Preact/React patterns"
+        - "Client-side web application"
+      runtime: "typescript"
+      test_path_pattern: "web/tests/{wagon}/{feature}/{layer}/"
+      src_path_pattern: "web/src/{wagon}/{feature}/{layer}/"
+      framework: "vitest + @testing-library/preact"
+      file_extensions: [".test.ts", ".test.tsx"]
+      note: "Preact uses web/ directory; .tsx for component tests, .ts for logic tests"
+
+  declaration_artifacts:
+    description: "Artifacts that ARE the deliverable (not executable code)"
+
+    contract:
+      description: "Schema definitions for data contracts"
+      artifact_pattern: "contracts/{theme}/{domain}/{aspect}/*.schema.json"
+      validation: "Centralized in atdd/tester/validators/test_contract_schema_compliance.py"
+      validation_type: "Platform meta-validation (infrastructure)"
+      no_colocated_tests: "Validators are centralized, not co-located"
+      validation_focus: "Schema correctness, naming conventions, required fields"
+      note: "1 artifact = 1 producer; theme/domain/aspect mirrors exactly"
+      examples:
+        - artifact: "contracts/match/dilemma/current.schema.json"
+          test: "atdd/tester/validators/test_contract_schema_compliance.py"
+        - artifact: "contracts/commons/ux/foundations.schema.json"
+          test: "atdd/tester/validators/test_contract_schema_compliance.py"
+
+    telemetry:
+      description: "Observability signal definitions (metrics, events, traces)"
+      artifact_pattern: "telemetry/{theme}/{domain}/{aspect}.{type}.{plane}[.{measure}].json"
+      validation: "Centralized in atdd/tester/validators/test_telemetry_structure.py"
+      validation_type: "Platform meta-validation (infrastructure)"
+      no_colocated_tests: "Validators are centralized, not co-located"
+      validation_focus: "Signal validity, contract references, naming conventions"
+      note: "Mirrors contracts/ exactly - aspect is filename prefix, not folder"
+      structure_comparison:
+        contracts: "contracts/{theme}/{domain}/{aspect}.schema.json"
+        telemetry: "telemetry/{theme}/{domain}/{aspect}.{type}.{plane}[.{measure}].json"
+      signal_naming:
+        metric: "{aspect}.metric.{plane}.{measure}.json"
+        event: "{aspect}.event.{plane}.json"
+      examples:
+        - artifact: "telemetry/match/dilemma/current.metric.be.selection-duration.json"
+          test: "atdd/tester/validators/test_telemetry_structure.py"
+        - artifact: "telemetry/commons/ux/foundations.metric.nw.latency.json"
+          test: "atdd/tester/validators/test_telemetry_structure.py"
+        - artifact: "telemetry/match/dilemma/paired.metric.be.pairing-duration.json"
+          test: "atdd/tester/validators/test_telemetry_structure.py"
+
+  enforcement:
+    tester:
+      - "MUST classify artifact type: implementation OR declaration"
+      - "For implementations: classify runtime (python/supabase/dart)"
+      - "For declarations: identify artifact type (contract/telemetry)"
+      - "MUST document rationale in test header"
+      - "For declarations: validation is centralized in atdd/tester/audits"
+      - "Do NOT create co-located tests directories for contracts/telemetry"
+
+    coder:
+      - "MUST read test location to infer runtime/artifact type"
+      - "For implementations: implement at corresponding src_path_pattern"
+      - "For declarations: create artifact at corresponding artifact_pattern"
+      - "NEVER create implementation without existing test"
+      - "MUST validate test path matches runtime convention"
+      - "For declarations: rely on platform audits (no co-located tests)"
+
+# Test Intent Schema (Deterministic)
+intent_structure:
+  required_fields:
+    - identity: {urn, id, phase}
+    - harness: {type, category}
+    - given: {auth, data, environment}
+    - when: {action, target, parameters}
+    - then: {assertions, red_strategy}
+    - metadata: {wagon, feature, route}
+    - contract_schema: {schema_ref, version}
+
+  action_mapping:
+    http: "request"
+    unit: "invoke"
+    event: "emit"
+    ws: "connect"
+    e2e: "navigate"
+    db: "query"
+    metric: "measure"
+
+# Agent Rendering Constraints (Bounded)
+agent_constraints:
+  prompt_structure:
+    required_elements:
+      - "Use ${language} with ${framework}"
+      - "Test MUST fail (RED state)"
+      - "Include URN comment"
+      - "Structure as Given/When/Then"
+      - "Validate I/O against contract schema"
+      - "Assert schema compliance as primary assertion"
+
+  forbidden_patterns:
+    - "Console.log (except structured output)"
+    - "Commented code blocks"
+    - "TODO markers (except RED)"
+
+  timeout: 5000
+  temperature: 0.1
+  max_retries: 2
+
+# Validation Pipeline (Deterministic)
+validation_levels:
+  1_syntax:
+    description: "Code can be parsed"
+    tools:
+      dart: "dart analyze"
+      typescript: "tsc --noEmit"
+      python: "python -m py_compile"
+      go: "go fmt"
+
+  2_structure:
+    description: "Has required elements"
+    checks:
+      - "Test declaration present"
+      - "URN referenced"
+      - "Assertions exist"
+      - "RED marker present"
+
+  3_semantic:
+    description: "Maps to intent"
+    checks:
+      - "Assertion count matches"
+      - "Action type correct"
+      - "Given setup present"
+
+  4_behavioral:
+    description: "Actually fails"
+    verification: "Execute test, expect non-zero exit"
+
+  5_contract_schema:
+    description: "Contract schema validation present"
+    checks:
+      - "Schema file exists at path"
+      - "Schema is JSON Schema Draft-07"
+      - "Test includes schema validation assertion"
+
+# RED State Enforcement (Deterministic)
+red_patterns:
+  dart:
+    fail: "fail('Not implemented: ${URN}');"
+    expect_false: "expect(false, isTrue);"
+    throw: "throw UnimplementedError('${URN}');"
+
+  typescript:
+    fail: "throw new Error('Not implemented: ${URN}');"
+    expect_false: "expect(false).toBe(true);"
+    reject: "return Promise.reject(new Error('${URN}'));"
+
+  python:
+    fail: "assert False, 'Not implemented: ${URN}'"
+    pytest_fail: "pytest.fail('${URN}')"
+    raise: "raise NotImplementedError('${URN}')"
+
+  go:
+    fail: "t.Fatal('Not implemented: ${URN}')"
+    error: "t.Errorf('${URN}')"
+    panic: "panic('${URN}')"
+
+# Contract Schema Validation
+contract_schema_validation:
+  principle: "Schemas are single source of truth for data contracts"
+  rationale: |
+    ATDD flow: Planner → Tester (schemas + RED tests) → Coder (comply to GREEN)
+    Tests enforce contract compliance at architecture boundaries
+
+  architecture_scope:
+    - backend: "API responses, DB artifacts, event payloads"
+    - frontend: "Widget inputs/outputs, state management"
+    - integration: "External API contracts, message formats"
+
+  schema_sources:
+    priority_1: "acceptance.contract field (explicit reference)"
+    priority_2: "wagon I/O pack manifest lookup"
+    priority_3: "contract pack schemas"
+
+  test_requirements:
+    schema_loading:
+      dart: "final schema = await rootBundle.loadString('contracts/domain/resource.json');"
+      typescript: "import schema from '../../contracts/domain/resource.json' assert { type: 'json' };"
+      python: "with open('contracts/domain/resource.json') as f: schema = json.load(f)"
+
+    schema_assertion:
+      requirement: "MANDATORY for external I/O"
+      priority: "first assertion (before business logic)"
+      examples:
+        dart: "expect(() => validate(result, schema), returnsNormally);"
+        typescript: "expect(ajv.validate(schema, response.body)).toBe(true);"
+        python: "jsonschema.validate(instance=result, schema=schema)"
+      failure_message: "Include field violations in error message"
+
+  harness_specific_validation:
+    http: "Validate response body against output schema"
+    unit: "Validate return value and args against schemas"
+    event: "Validate payload against event schema"
+    db: "Validate persisted artifact against artifact schema"
+    ws: "Validate messages against protocol schema"
+    widget: "Validate widget props against component schema"
+
+  cross_layer_enforcement:
+    tests:
+      role: "Primary enforcement"
+      requirement: "MUST validate against contract schemas"
+    implementation:
+      role: "Satisfy contracts"
+      requirement: "Code must pass schema validation tests"
+    ci_cd:
+      role: "Continuous validation"
+      requirement: "Block merges on schema validation failures"
+
+  validation_hierarchy:
+    level_1: "Schema file exists at expected path"
+    level_2: "Schema is valid JSON Schema Draft-07"
+    level_3: "I/O data validates against schema"
+    level_4: "Version matches acceptance expectation"
+
+# 4-Layer Test Structure
+test_structure:
+  description: "Tests mirror source code 4-layer architecture"
+  principle: "Tests are organized by architectural layer to enforce boundaries"
+
+  layers:
+    - presentation
+    - application
+    - domain
+    - integration
+
+  python:
+    layers: [presentation, application, domain, integration]
+    test_path_pattern: "python/{wagon}/{feature}/tests/{layer}/"
+    file_naming: "test_{component}.py"
+    auto_create_directories: true
+
+    layer_mapping:
+      presentation: ["controller", "handler", "cli", "api"]
+      application: ["use_case", "service", "workflow"]
+      domain: ["entity", "value_object", "business_rule"]
+      integration: ["repository", "client", "adapter"]
+
+    validation:
+      require_layer_directory: true
+      enforce_layer_structure: true
+      error_messages:
+        missing_layer: "Test file must be in a layer directory: {expected_path}"
+        wrong_layer: "Test for {component_type} should be in {expected_layer} layer"
+
+  dart:
+    layers: [presentation, application, domain, integration]
+    test_path_pattern: "test/{wagon}/{feature}/{layer}/"
+    file_naming: "{component}_test.dart"
+    auto_create_directories: true
+
+    layer_mapping:
+      presentation: ["widget", "screen", "page", "controller", "bloc", "cubit"]
+      application: ["use_case", "viewmodel", "interactor"]
+      domain: ["model", "entity", "value_object"]
+      integration: ["repository", "api_client", "data_source"]
+
+    validation:
+      require_layer_directory: true
+      enforce_layer_structure: true
+      error_messages:
+        missing_layer: "Test file must be in a layer directory: {expected_path}"
+        wrong_layer: "Test for {component_type} should be in {expected_layer} layer"
+
+  flutter:
+    layers: [presentation, application, domain, integration]
+    test_path_pattern: "test/{wagon}/{feature}/{layer}/"
+    file_naming: "{component}_test.dart"
+    auto_create_directories: true
+
+    layer_mapping:
+      presentation: ["widget", "screen", "page", "controller", "bloc", "cubit"]
+      application: ["use_case", "viewmodel", "interactor"]
+      domain: ["model", "entity", "value_object"]
+      integration: ["repository", "api_client", "data_source"]
+
+    validation:
+      require_layer_directory: true
+      enforce_layer_structure: true
+
+  preact:
+    layers: [presentation, application, domain, integration]
+    test_path_pattern: "web/tests/{wagon}/{feature}/{layer}/"
+    file_naming: "{WMBT}_{HARNESS}_{NNN}[_{slug_snake}].test.ts[x]"
+    auto_create_directories: true
+
+    layer_mapping:
+      presentation: ["component", "page", "view", "hook"]
+      application: ["use_case", "service", "port"]
+      domain: ["entity", "value_object", "service"]
+      integration: ["repository", "client", "mapper"]
+
+    validation:
+      require_layer_directory: true
+      enforce_layer_structure: true
+      error_messages:
+        missing_layer: "Test file must be in a layer directory: {expected_path}"
+        wrong_layer: "Test for {component_type} should be in {expected_layer} layer"
+
+  typescript:
+    layers: [presentation, application, domain, integration]
+    test_path_pattern: "supabase/functions/{wagon}/{feature}/tests/{layer}/"
+    file_naming: "{component}.test.ts"
+    auto_create_directories: true
+
+    layer_mapping:
+      presentation: ["controller", "handler", "route"]
+      application: ["use_case", "service"]
+      domain: ["entity", "value_object"]
+      integration: ["repository", "client", "supabase"]
+
+    validation:
+      require_layer_directory: true
+      enforce_layer_structure: true
+      error_messages:
+        missing_layer: "Test file must be in a layer directory: {expected_path}"
+        wrong_layer: "Test for {component_type} should be in {expected_layer} layer"
+
+  supabase:
+    layers: [presentation, application, domain, integration]
+    test_path_pattern: "supabase/functions/{wagon}/{feature}/tests/{layer}/"
+    file_naming: "{component}.test.ts"
+    auto_create_directories: true
+
+    layer_mapping:
+      presentation: ["http", "controller", "handler"]
+      application: ["use_case", "service"]
+      domain: ["entity", "value_object"]
+      integration: ["repository", "client", "supabase"]
+
+    validation:
+      require_layer_directory: true
+      enforce_layer_structure: true
+
+# TypeScript/Preact Test Patterns
+typescript_test_patterns:
+  framework: "vitest"
+  assertion_library: "@testing-library/preact"
+  test_structure:
+    unit_test:
+      template: |
+        // URN: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}
+        // Purpose: {purpose}
+        // Layer: {domain|application|integration}
+        import { describe, test, expect } from 'vitest';
+        import { Subject } from '@/{wagon}/{feature}/{layer}/Subject';
+
+        describe('acc:{wagon}:{WMBT}-{HARNESS}-{NNN}', () => {
+          test('{purpose}', () => {
+            // GIVEN: Setup
+            // WHEN: Action
+            // THEN: Assertions
+            expect(true).toBe(true);
+          });
+        });
+
+    component_test:
+      template: |
+        // URN: acc:{wagon}:{WMBT}-WIDGET-{NNN}
+        // Purpose: {purpose}
+        // Layer: presentation
+        import { describe, test, expect } from 'vitest';
+        import { render, screen } from '@testing-library/preact';
+        import { Component } from '@/{wagon}/{feature}/presentation/components/Component';
+
+        describe('acc:{wagon}:{WMBT}-WIDGET-{NNN}', () => {
+          test('{purpose}', () => {
+            render(<Component />);
+            expect(screen.getByText('')).toBeTruthy();
+          });
+        });
+
+    integration_test:
+      template: |
+        // URN: acc:{wagon}:{WMBT}-HTTP-{NNN}
+        // Purpose: {purpose}
+        // Layer: integration
+        import { describe, test, expect, vi } from 'vitest';
+        import { Repository } from '@/{wagon}/{feature}/integration/repositories/Repository';
+
+        describe('acc:{wagon}:{WMBT}-HTTP-{NNN}', () => {
+          test('{purpose}', async () => {
+            global.fetch = vi.fn(() =>
+              Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ data: 'test' })
+              } as Response)
+            );
+            const repository = new Repository();
+            const result = await repository.getData();
+            expect(result).toMatchObject({ data: 'test' });
+          });
+        });
+
+  harness_classification:
+    harnesses: ["unit", "widget", "integration", "e2e"]
+    harness_to_layer:
+      unit: ["domain", "application"]
+      widget: ["presentation"]
+      integration: ["integration"]
+      e2e: ["presentation"]
+
+# File Organization
+file_patterns:
+  description: "Test file naming patterns by language and harness"
+
+  dart:
+    test: "test/${wagon}/${feature}/${normalized_id}_${purpose_slug}_test.dart"
+    integration: "integration_test/${wagon}/${normalized_id}_${purpose_slug}_test.dart"
+
+    naming_rules:
+      normalized_id:
+        description: "Convert acceptance ID to snake_case"
+        pattern: "AC-HTTP-006 → ac_http_006"
+        transformation:
+          - "Convert to lowercase"
+          - "Replace hyphens with underscores"
+
+      purpose_slug:
+        description: "Extract key terms from identity.purpose field"
+        pattern: "Verify primitives API endpoint is accessible → primitive_endpoint"
+        transformation:
+          - "Remove filler words (Verify, Ensure, Confirm, is, the, etc.)"
+          - "Extract 2-3 key nouns/verbs"
+          - "Convert to snake_case"
+          - "Join with underscores"
+
+      examples:
+        - identity:
+            id: "AC-HTTP-006"
+            purpose: "Verify primitives API endpoint is accessible"
+          filename: "ac_http_006_primitive_endpoint_test.dart"
+
+        - identity:
+            id: "AC-UNIT-007"
+            purpose: "Ensure primitives reference only foundation tokens"
+          filename: "ac_unit_007_primitives_reference_foundations_test.dart"
+
+        - identity:
+            id: "AC-WIDGET-009"
+            purpose: "Verify primitives render without errors"
+          filename: "ac_widget_009_primitives_render_test.dart"
+
+  typescript:
+    test: "supabase/functions/${wagon}/test/${normalized_id}.${purpose_slug}.test.ts"
+    e2e: "e2e/${wagon}/${normalized_id}.${purpose_slug}.test.ts"
+
+    naming_rules:
+      normalized_id:
+        description: "Convert acceptance ID to kebab-case"
+        pattern: "AC-HTTP-006 → ac-http-006"
+        transformation:
+          - "Convert to lowercase"
+          - "Keep hyphens (TypeScript/Node convention)"
+
+      purpose_slug:
+        description: "Extract key terms from identity.purpose field"
+        pattern: "Verify primitives API endpoint is accessible → primitive-endpoint"
+        transformation:
+          - "Remove filler words (Verify, Ensure, Confirm, is, the, etc.)"
+          - "Extract 2-3 key nouns/verbs"
+          - "Convert to kebab-case"
+          - "Join with hyphens"
+
+      examples:
+        - identity:
+            id: "AC-HTTP-006"
+            purpose: "Verify primitives API endpoint is accessible"
+          filename: "ac-http-006.primitive-endpoint.test.ts"
+
+        - identity:
+            id: "AC-UNIT-007"
+            purpose: "Ensure primitives reference only foundation tokens"
+          filename: "ac-unit-007.primitives-reference-foundations.test.ts"
+
+        - identity:
+            id: "AC-DB-015"
+            purpose: "Validate user records persist correctly"
+          filename: "ac-db-015.user-records-persist.test.ts"
+
+  typescript_preact:
+    test: "web/tests/${wagon}/${feature}/${layer}/${WMBT}_${HARNESS}_${NNN}[_{slug_snake}].test.ts[x]"
+
+    naming_rules:
+      wmbt_harness_nnn:
+        description: "Use WMBT/HARNESS/NNN from acceptance URN"
+        pattern: "C004-E2E-019 → C004_E2E_019"
+        transformation:
+          - "Preserve WMBT and HARNESS uppercase"
+          - "Use underscore separators"
+
+      slug:
+        description: "Slug from acceptance URN in snake_case"
+        pattern: "user-connection → user_connection"
+        transformation:
+          - "Convert kebab-case to snake_case"
+
+      extension_rules:
+        ".test.ts": "Logic tests (domain, application, integration)"
+        ".test.tsx": "Component tests (presentation, widget harness)"
+
+      examples:
+        - identity:
+            id: "acc:maintain-ux:C004-E2E-019-user-connection"
+          filename: "C004_E2E_019_user_connection.test.ts"
+
+        - identity:
+            id: "acc:maintain-ux:C004-UNIT-001"
+          filename: "C004_UNIT_001.test.ts"
+
+        - identity:
+            id: "acc:maintain-ux:C001-WIDGET-001-button"
+          filename: "C001_WIDGET_001_button.test.tsx"
+
+  python:
+    test: "tests/${wagon}/test_${acceptance_id}.py"
+
+  go:
+    test: "${wagon}/${acceptance_id}_test.go"
+
+  urn_based_naming:
+    description: "New URN-based filename generation (replaces legacy acceptance ID approach)"
+    convention: "filename.convention.yaml"
+    status: "CURRENT"
+
+    approach: |
+      The URN-based approach generates filenames directly from acceptance URNs,
+      ensuring bidirectional traceability between acceptance criteria and test files.
+
+      URN Format: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
+      Example: acc:maintain-ux:C004-E2E-019-user-connection
+
+      Generated Filenames:
+        - Dart: C004_E2E_019_user_connection_test.dart
+        - TypeScript: c004-e2e-019-user-connection.test.ts
+        - TypeScript (Preact): C004_E2E_019_user_connection.test.ts
+        - Python: test_c004_e2e_019_user_connection.py
+        - Go: c004_e2e_019_user_connection_test.go
+        - Java/Kotlin: C004E2E019UserConnectionTest
+
+    utilities:
+      module: "atdd.tester.utils.filename"
+      functions:
+        - "parse_acceptance_urn(urn: str) -> Dict"
+        - "dart_filename(urn: str) -> str"
+        - "typescript_filename(urn: str) -> str"
+        - "typescript_preact_filename(urn: str) -> str"
+        - "python_filename(urn: str) -> str"
+        - "go_filename(urn: str) -> str"
+        - "java_classname(urn: str) -> str"
+        - "generate_test_filename(urn: str, language: str) -> str"
+
+    migration:
+      from_legacy: |
+        Legacy file_patterns above use acceptance ID and purpose slug extraction.
+        New approach embeds WMBT and slug directly in URN, eliminating extraction logic.
+
+        Migration path:
+          1. Extract URN from test file header comment
+          2. Generate new filename using atdd.tester.utils.filename
+          3. Rename file and update imports
+          4. Validate with platform_validation tests
+
+      backward_compatibility: |
+        Both approaches supported during transition. Legacy patterns remain for
+        existing tests. New tests should use URN-based naming.
+
+    validation:
+      platform_tests:
+        - "test_acceptance_urn_filename_mapping.py"
+        - "test_dart_test_naming.py"
+        - "test_typescript_test_naming.py"
+
+      convention_tests:
+        - "conventions/tester/tests/filename/test_convention_completeness.py"
+
+# Fallback Strategies
+fallback:
+  on_render_failure:
+    1_retry: "Simpler prompt"
+    2_template: "Use template if exists"
+    3_log: "Record in violations.log"
+
+  on_validation_failure:
+    syntax: "Log and skip"
+    structure: "Inject missing elements"
+    semantic: "Re-render with constraints"
+    behavioral: "Force failure injection"
+
+# Success Metrics
+metrics:
+  required:
+    generation_rate: ">= 80%"
+    red_state: "100%"
+    validation_pass: ">= 90%"
+
+  quality:
+    syntax_valid: "100%"
+    structure_complete: ">= 95%"
+    semantic_match: ">= 90%"
+    behavioral_correct: "100%"
+
+# Template Deprecation
+templates:
+  status: "DEPRECATED"
+  reason: "Replaced by neurosymbolic approach"
+  migration: "Templates remain for emergency fallback only"
+  removal_date: "After 3 successful sprints"
+
+# Utils Dependencies
+utils_required:
+  - utils:agents:tester:harness  # Classify harness type
+  - utils:agents:tester:detect   # Detect language
+  - utils:agents:tester:render   # Agent rendering
+  - utils:agents:tester:valid    # Structure validation
+  - utils:agents:tester:red      # RED state validation (includes intent building)
+
+# Schema Dependencies
+schemas_required:
+  - schemas:planner:acceptance  # Acceptance structure
+  - schemas:tester:pack         # Contract reference
+  - schemas:tester:test_filename  # URN-based filename generation
+
+# Handoff Contract
+handoff:
+  to: "coder"
+  provides:
+    - test_manifest: "List of generated tests"
+    - test_files: "Actual test code files"
+    - languages: "Languages used"
+    - acceptance_mapping: "Test to acceptance URN map"
+
+  expects:
+    - green_tests: "All tests passing"
+    - implementation: "Code satisfying tests"
+    - coverage: ">= 80%"

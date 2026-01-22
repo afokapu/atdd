@@ -1,0 +1,852 @@
+version: "2.1"
+name: "Artifact Naming Convention"
+description: "Convention for naming artifacts using theme-based hierarchical taxonomy with variant facets"
+
+changelog:
+  v2.1:
+    date: "2025-10-28"
+    changes:
+      - "Clarified separator semantics: colon for hierarchy, dot for variants"
+      - "Hierarchy (colon) can be unlimited depth, variants (dot) typically shallow (0-1)"
+      - "Updated all examples to reflect hierarchy vs variant distinction"
+  v2.0:
+    date: "2025-10-28"
+    changes:
+      - "Introduced theme:hierarchy:aspect.variant pattern"
+      - "Added theme-based taxonomy (commons, match, mechanic, sensory, etc.)"
+      - "Aligned artifact names with contract file paths"
+
+purpose: |
+  Establish consistent naming patterns for artifacts that:
+  - Provide semantic clarity through theme-based organization
+  - Enable namespace safety to prevent naming collisions
+  - Support unlimited hierarchical depth using colons
+  - Support lateral variants using dots (typically single level)
+  - Scale gracefully as the system grows
+  - Align artifact names with contract file paths
+
+separator_semantics:
+  colon:
+    symbol: ":"
+    purpose: "Hierarchical descent - navigate deeper into resource tree"
+    multiplicity: "Unlimited - as many levels as needed"
+    visual_weight: "Strong boundary - indicates different conceptual levels"
+    use_for:
+      - "Moving from general to specific (ux → foundations → color)"
+      - "Navigating down organizational structure"
+      - "Different conceptual levels"
+    examples:
+      - "commons:ux:foundations:color (theme → subsystem → category → item)"
+      - "commons:telemetry:observability:traces:span"
+      - "scenario:catalog:primitives:actor"
+
+  dot:
+    symbol: "."
+    purpose: "Lateral variation - different flavors/states of same thing"
+    multiplicity: "Typically 1, rarely 2 - keep shallow"
+    visual_weight: "Soft boundary - indicates same level, different facet"
+    use_for:
+      - "State variations (session.active vs session.closed)"
+      - "Type variations (config.duel vs config.team)"
+      - "Facet variations (gesture.raw vs gesture.tapped)"
+    examples:
+      - "sensory:gesture.raw (aspect + variant)"
+      - "player:session.active (aspect + state variant)"
+      - "match:config.duel (aspect + type variant)"
+
+    warning: "Multiple dots (e.g., .uuid.v7.encoded) usually indicates over-specification"
+
+visual_hierarchy:
+  structure: |
+    theme : category : subcategory : aspect . variant
+    └─┬─┘   └──────────┬──────────────────┘   └──┬──┘
+      │              HIERARCHY                  VARIANT
+      │           (vertical depth)          (lateral facet)
+    NAMESPACE
+
+naming_pattern:
+  full_pattern: "{theme}(:{category})*:{aspect}(.{variant})?"
+
+  components:
+    theme:
+      definition: "Top-level architectural theme grouping related artifacts"
+      format: "lowercase, no separators"
+      multiplicity: "Required, exactly 1"
+      examples: ["commons", "match", "mechanic", "sensory", "player", "partnership", "scenario"]
+
+    category:
+      definition: "Hierarchical path segments navigating down the resource tree"
+      format: "kebab-case"
+      multiplicity: "Optional, 0+ segments"
+      examples: ["ux", "foundations", "telemetry", "observability", "catalog"]
+
+    aspect:
+      definition: "The final leaf resource noun"
+      format: "kebab-case"
+      multiplicity: "Required, exactly 1"
+      examples: ["color", "gesture", "session", "config", "identifiers"]
+
+    variant:
+      definition: "Lateral variation, facet, or state of the aspect"
+      format: "kebab-case"
+      multiplicity: "Optional, typically 0-1 segments"
+      examples: ["raw", "uuid", "active", "duel", "primary"]
+
+examples:
+  hierarchy_only:
+    pattern: "theme:category:subcategory:aspect"
+    description: "Deep hierarchy, no variants"
+    cases:
+      - name: "commons:ux:foundations:color"
+        breakdown:
+          theme: "commons"
+          hierarchy: ["ux", "foundations"]
+          aspect: "color"
+        contract: "contracts/commons/ux/foundations/color.schema.json"
+        rationale: "Navigate from commons → ux subsystem → foundations category → color resource"
+
+      - name: "commons:telemetry:observability:span"
+        breakdown:
+          theme: "commons"
+          hierarchy: ["telemetry", "observability"]
+          aspect: "span"
+        contract: "contracts/commons/telemetry/observability/span.schema.json"
+        rationale: "Navigate from commons → telemetry → observability → span"
+
+      - name: "scenario:catalog:primitives:actor"
+        breakdown:
+          theme: "scenario"
+          hierarchy: ["catalog", "primitives"]
+          aspect: "actor"
+        contract: "contracts/scenario/catalog/primitives/actor.schema.json"
+        rationale: "Navigate from scenario → catalog → primitives → actor"
+
+  variant_only:
+    pattern: "theme:aspect.variant"
+    description: "Shallow hierarchy with variant"
+    cases:
+      - name: "commons:identifiers.uuid"
+        breakdown:
+          theme: "commons"
+          aspect: "identifiers"
+          variant: "uuid"
+        contract: "contracts/commons/identifiers/uuid.schema.json"
+        rationale: "UUID is one variant of identifiers (username is another)"
+
+      - name: "sensory:gesture.raw"
+        breakdown:
+          theme: "sensory"
+          aspect: "gesture"
+          variant: "raw"
+        contract: "contracts/sensory/gesture/raw.schema.json"
+        rationale: "Raw kinematics variant of gesture"
+
+      - name: "match:config.duel"
+        breakdown:
+          theme: "match"
+          aspect: "config"
+          variant: "duel"
+        contract: "contracts/match/config/duel.schema.json"
+        rationale: "Duel variant of match configuration"
+
+  hierarchy_and_variant:
+    pattern: "theme:category:subcategory:aspect.variant"
+    description: "Deep hierarchy with variant"
+    cases:
+      - name: "commons:ux:foundations:color.primary"
+        breakdown:
+          theme: "commons"
+          hierarchy: ["ux", "foundations"]
+          aspect: "color"
+          variant: "primary"
+        contract: "contracts/commons/ux/foundations/color/primary.schema.json"
+        rationale: "Navigate to color, then get primary variant"
+
+      - name: "commons:ux:components:button.primary"
+        breakdown:
+          theme: "commons"
+          hierarchy: ["ux", "components"]
+          aspect: "button"
+          variant: "primary"
+        contract: "contracts/commons/ux/components/button/primary.schema.json"
+        rationale: "Navigate to button component, get primary variant"
+
+      - name: "sensory:feedback:haptic:pulse.short"
+        breakdown:
+          theme: "sensory"
+          hierarchy: ["feedback", "haptic"]
+          aspect: "pulse"
+          variant: "short"
+        contract: "contracts/sensory/feedback/haptic/pulse/short.schema.json"
+        rationale: "Navigate to haptic pulse, get short duration variant"
+
+  simple_form:
+    pattern: "theme:aspect"
+    description: "No hierarchy, no variant - simplest form"
+    cases:
+      - name: "match:config"
+        breakdown:
+          theme: "match"
+          aspect: "config"
+        contract: "contracts/match/config/config.schema.json"
+        rationale: "Base match configuration (variants like .duel, .team exist separately)"
+
+      - name: "scenario:fragments"
+        breakdown:
+          theme: "scenario"
+          aspect: "fragments"
+        contract: "contracts/scenario/fragments/fragments.schema.json"
+        rationale: "Collection of fragments, no variants needed"
+
+cardinality_semantics:
+  collection_indicator:
+    rule: "The ASPECT (final noun before variant) determines cardinality"
+    key_principle: "Pluralization of the aspect indicates collection/array schema"
+
+    detection:
+      - "Look at the final noun (aspect) in the artifact name"
+      - "If aspect ends in 's' (or is plural) → collection schema"
+      - "If aspect is singular → single item schema"
+      - "Categories in hierarchy don't affect cardinality"
+      - "Variants don't affect cardinality"
+
+    position_matters:
+      aspect_position:
+        location: "Final noun before variant (or final word if no variant)"
+        affects_cardinality: true
+        examples:
+          - artifact: "scenario:fragments"
+            aspect: "fragments"
+            cardinality: "plural → collection"
+
+          - artifact: "scenario:fragment"
+            aspect: "fragment"
+            cardinality: "singular → one item"
+
+          - artifact: "commons:ux:foundations"
+            aspect: "foundations"
+            cardinality: "plural → collection"
+
+      category_position:
+        location: "Any segment in hierarchy except final aspect"
+        affects_cardinality: false
+        note: "Category can be plural without making it a collection"
+        examples:
+          - artifact: "commons:ux:foundations:color"
+            category: "foundations (plural, but just a category name)"
+            aspect: "color (singular)"
+            cardinality: "singular → one color item"
+
+          - artifact: "commons:ux:foundations:colors"
+            category: "foundations (plural category name)"
+            aspect: "colors (plural)"
+            cardinality: "plural → collection of colors"
+
+      variant_position:
+        location: "After dot separator"
+        affects_cardinality: false
+        note: "Variant can be plural but doesn't change aspect cardinality"
+        examples:
+          - artifact: "scenario:fragment.colors"
+            aspect: "fragment (singular)"
+            variant: "colors (just a variant name)"
+            cardinality: "singular → one fragment (with colors variant)"
+
+  plural_vs_singular:
+    rule: "Use singular aspect for item schema, plural aspect for collection"
+
+    singular_aspect:
+      meaning: "Schema defines a single item"
+      pattern: "theme:path:to:item(.variant)?"
+      examples:
+        - name: "scenario:fragment"
+          aspect: "fragment (singular)"
+          file: "contracts/scenario/fragment/fragment.schema.json"
+          defines: "Schema for ONE fragment object"
+
+        - name: "commons:ux:foundation"
+          aspect: "foundation (singular)"
+          file: "contracts/commons/ux/foundation/foundation.schema.json"
+          defines: "Schema for ONE foundation item"
+
+        - name: "commons:ux:foundations:color"
+          aspect: "color (singular)"
+          file: "contracts/commons/ux/foundations/color.schema.json"
+          defines: "Schema for ONE color (foundations is just the category)"
+
+        - name: "scenario:fragment.active"
+          aspect: "fragment (singular)"
+          variant: "active"
+          defines: "Schema for ONE active fragment"
+
+    plural_aspect:
+      meaning: "Schema defines collection (array) OR references directory of items"
+      pattern: "theme:path:to:items(.variant)?"
+      examples:
+        - name: "scenario:fragments"
+          aspect: "fragments (plural)"
+          file: "contracts/scenario/fragments/fragments.schema.json"
+          defines: "Schema for ARRAY of fragments"
+
+        - name: "commons:ux:foundations"
+          aspect: "foundations (plural)"
+          represents: "All schemas in contracts/commons/ux/foundations/"
+          defines: "Collection reference or array schema for foundations"
+
+        - name: "commons:ux:foundations:colors"
+          aspect: "colors (plural)"
+          file: "contracts/commons/ux/foundations/colors.schema.json"
+          defines: "Schema for ARRAY of colors"
+
+        - name: "scenario:fragments.active"
+          aspect: "fragments (plural)"
+          variant: "active"
+          defines: "Schema for ARRAY of active fragments"
+
+    both_can_exist: true
+    coexistence_examples:
+      - singular: "scenario:fragment"
+        plural: "scenario:fragments"
+        difference: "One vs many - both valid"
+
+      - singular: "commons:ux:foundation"
+        plural: "commons:ux:foundations"
+        difference: "Item vs collection - both schemas exist"
+
+      - singular: "commons:ux:foundations:color"
+        plural: "commons:ux:foundations:colors"
+        difference: "One color vs array of colors in foundations category"
+
+  pluralization_guide:
+    regular_plurals:
+      rule: "Add 's' to singular form"
+      examples:
+        - "fragment → fragments"
+        - "color → colors"
+        - "button → buttons"
+        - "gesture → gestures"
+
+    irregular_plurals:
+      rule: "Follow English irregular plural forms"
+      examples:
+        - "analysis → analyses"
+        - "policy → policies"
+        - "datum → data"
+        - "index → indices"
+        - "child → children"
+
+    uncountable_nouns:
+      rule: "Use explicit suffix when noun doesn't pluralize naturally"
+      examples:
+        - bad: "config → configs (awkward)"
+          better: "config vs config.collection"
+
+        - bad: "data → datas (incorrect)"
+          better: "data.item vs data.items"
+
+        - ok: "metrics → metrics (already plural form acceptable)"
+
+    compound_nouns:
+      rule: "Pluralize the primary noun"
+      examples:
+        - "button-group → button-groups"
+        - "session-state → session-states"
+        - "color-palette → color-palettes"
+
+logical_vs_physical_mapping:
+  overview: "Artifact names (logical) map to file paths (physical) with specific rules"
+
+  mapping_algorithm:
+    steps:
+      1. "Split artifact name by colons (:) and dots (.)"
+      2. "Each segment creates a directory level"
+      3. "Determine final target based on artifact type"
+
+    pseudocode: |
+      segments = split(artifact, /[:.]/g)
+      path = "contracts/" + segments[0..-1].join("/") + "/"
+
+      if has_variant:
+        file = segments[-1] + ".schema.json"
+      elif is_directory_reference:
+        file = null  // directory only
+      else:
+        file = segments[-1] + ".schema.json"
+
+  three_physical_forms:
+    directory_reference:
+      when: "Logical grouping without concrete schema file"
+      artifact: "commons:ux:foundations"
+      physical_path: "contracts/commons/ux/foundations/"
+      contains: ["color.schema.json", "typography.schema.json", "spacing.schema.json"]
+      schema_file: "none - directory only"
+      usage: "Organizational grouping, not a runtime artifact"
+      note: "Plural aspect referencing a collection of related schemas"
+
+    array_schema:
+      when: "Runtime array containing multiple items of singular type"
+      artifact: "scenario:fragments"
+      physical_path: "contracts/scenario/fragments/fragments.schema.json"
+      schema_structure: |
+        {
+          "type": "array",
+          "items": {
+            "$ref": "../fragment/fragment.schema.json"
+          }
+        }
+      runtime_value: "[{fragment}, {fragment}, ...]"
+      usage: "Contract for array/collection payload"
+      note: "Plural aspect with concrete array schema file"
+
+    singular_schema:
+      when: "Single item definition"
+      artifact: "scenario:fragment"
+      physical_path: "contracts/scenario/fragment/fragment.schema.json"
+      schema_structure: |
+        {
+          "type": "object",
+          "properties": {
+            "id": {"type": "string"},
+            "label": {"type": "string"}
+          }
+        }
+      runtime_value: "{id: '...', label: '...'}"
+      usage: "Contract for single item payload"
+      note: "Singular aspect = single object schema"
+
+  detailed_examples:
+    no_variant_singular:
+      artifact: "scenario:fragment"
+      breakdown: ["scenario", "fragment"]
+      physical: "contracts/scenario/fragment/fragment.schema.json"
+      explanation: "Final segment 'fragment' repeated as filename"
+
+    no_variant_plural_array:
+      artifact: "scenario:fragments"
+      breakdown: ["scenario", "fragments"]
+      physical: "contracts/scenario/fragments/fragments.schema.json"
+      schema_type: "array"
+      explanation: "Final segment 'fragments' repeated, schema defines array type"
+
+    no_variant_plural_directory:
+      artifact: "commons:ux:foundations"
+      breakdown: ["commons", "ux", "foundations"]
+      physical: "contracts/commons/ux/foundations/"
+      contains: ["color.schema.json", "typography.schema.json", "spacing.schema.json"]
+      explanation: "Directory reference - no single schema file"
+
+    with_variant_singular:
+      artifact: "sensory:gesture.raw"
+      breakdown: ["sensory", "gesture", "raw"]
+      physical: "contracts/sensory/gesture/raw.schema.json"
+      explanation: "Variant 'raw' becomes filename (no repetition of aspect)"
+
+    with_variant_plural:
+      artifact: "scenario:fragments.active"
+      breakdown: ["scenario", "fragments", "active"]
+      physical: "contracts/scenario/fragments/active.schema.json"
+      schema_type: "array (filtered subset)"
+      explanation: "Variant 'active' becomes filename, schema defines filtered array"
+
+    deep_hierarchy_singular:
+      artifact: "commons:ux:foundations:color"
+      breakdown: ["commons", "ux", "foundations", "color"]
+      physical: "contracts/commons/ux/foundations/color.schema.json"
+      explanation: "'foundations' is directory, 'color' is filename"
+
+    deep_hierarchy_plural:
+      artifact: "commons:ux:foundations:colors"
+      breakdown: ["commons", "ux", "foundations", "colors"]
+      physical: "contracts/commons/ux/foundations/colors.schema.json"
+      schema_type: "array"
+      explanation: "'foundations' is directory, 'colors' is array schema file"
+
+    deep_with_variant:
+      artifact: "commons:ux:foundations:color.primary"
+      breakdown: ["commons", "ux", "foundations", "color", "primary"]
+      physical: "contracts/commons/ux/foundations/color/primary.schema.json"
+      explanation: "'color' becomes directory, 'primary' variant becomes filename"
+
+  array_schema_structure:
+    description: "Array schemas use JSON Schema 'array' type referencing item schemas"
+
+    pattern: |
+      {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "urn:contract:{artifact_name}",
+        "type": "array",
+        "items": {
+          "$ref": "../{singular_item}/{singular_item}.schema.json"
+        }
+      }
+
+    concrete_example:
+      singular_schema:
+        file: "contracts/scenario/fragment/fragment.schema.json"
+        content: |
+          {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$id": "urn:contract:scenario:fragment",
+            "type": "object",
+            "properties": {
+              "id": {"type": "string", "format": "uuid"},
+              "label": {"type": "string"},
+              "kg_subject": {"type": "string", "format": "uri"}
+            },
+            "required": ["id", "label", "kg_subject"]
+          }
+
+      array_schema:
+        file: "contracts/scenario/fragments/fragments.schema.json"
+        content: |
+          {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "$id": "urn:contract:scenario:fragments",
+            "type": "array",
+            "items": {
+              "$ref": "../fragment/fragment.schema.json"
+            },
+            "minItems": 1
+          }
+        runtime_example: |
+          [
+            {"id": "uuid-1", "label": "Fragment A", "kg_subject": "http://..."},
+            {"id": "uuid-2", "label": "Fragment B", "kg_subject": "http://..."}
+          ]
+
+  disambiguation_guide:
+    question: "How to know if plural artifact is directory reference or array schema?"
+
+    heuristics:
+      organizational_grouping:
+        indicator: "Contains multiple distinct types/schemas"
+        example: "commons:ux:foundations (contains color, typography, spacing - different types)"
+        physical: "Directory with multiple .schema.json files"
+
+      runtime_collection:
+        indicator: "Contains multiple instances of same type"
+        example: "scenario:fragments (contains many fragments - same type)"
+        physical: "Single fragments.schema.json with type: array"
+
+    clarification_rules:
+      - "If plural aspect represents diverse sub-resources → directory reference"
+      - "If plural aspect represents homogeneous collection → array schema"
+      - "When in doubt, create array schema (more explicit contract)"
+
+theme_taxonomy:
+  description: "Standard themes for artifact organization"
+
+  themes:
+    commons:
+      definition: "Shared infrastructure and cross-cutting concerns"
+      scope: "Identity, authentication, identifiers, telemetry, UX system"
+      examples: ["commons:auth.claims", "commons:identifiers.uuid", "commons:ux:foundations:color"]
+
+    match:
+      definition: "Match orchestration and game state"
+      scope: "Game sessions, dilemmas, events, scoring, configuration"
+      examples: ["match:dilemma.current", "match:state.committed", "match:config.duel"]
+
+    mechanic:
+      definition: "Core game mechanics and rules"
+      scope: "Decisions, timebank, cascades, domain impacts, predictions"
+      examples: ["mechanic:decision.choice", "mechanic:domain.impact", "mechanic:timebank.remaining"]
+
+    sensory:
+      definition: "User interaction and presentation layer"
+      scope: "Gestures, feedback, character interactions, UI state"
+      examples: ["sensory:gesture.raw", "sensory:feedback.visual", "sensory:character.dialog"]
+
+    player:
+      definition: "Player lifecycle and progression"
+      scope: "Sessions, profiles, agreements, achievements"
+      examples: ["player:session.active", "player:profile", "player:achievement.earned"]
+
+    partnership:
+      definition: "Sponsor and partner relationships"
+      scope: "Agreements, reporting, persona mapping"
+      examples: ["partnership:sponsor.agreement", "partnership:report.attribution"]
+
+    scenario:
+      definition: "Content and scenario management"
+      scope: "Fragments, graphs, materials, catalogs"
+      examples: ["scenario:fragments", "scenario:catalog:primitives:actor"]
+
+    league:
+      definition: "Competitive structures"
+      scope: "Leaderboards, brackets, rewards"
+      examples: ["league:leaderboard.current", "league:bracket.current"]
+
+    audience:
+      definition: "Viewer and streaming features"
+      scope: "Donations, streams"
+      examples: ["audience:donation.completed", "audience:stream.data"]
+
+    monetization:
+      definition: "Economic system"
+      scope: "Wallets, tokens, transactions"
+      examples: ["monetization:wallet.player", "monetization:cameo.minted"]
+
+decision_rules:
+  when_to_use_colon:
+    description: "Use colon for hierarchical descent"
+    indicators:
+      - "Different conceptual levels"
+      - "Navigating deeper into a structure"
+      - "Moving from general to specific"
+      - "Organizational subsystems"
+    examples:
+      - "commons:ux:foundations:color (theme → subsystem → category → item)"
+      - "scenario:catalog:primitives:actor (domain → collection → type → entity)"
+
+  when_to_use_dot:
+    description: "Use dot for lateral variation"
+    indicators:
+      - "Same conceptual level, different flavor"
+      - "State variations"
+      - "Type variations"
+      - "Facet variations"
+    examples:
+      - "sensory:gesture.raw vs sensory:gesture.tapped (different gestures)"
+      - "player:session.active vs player:session.closed (different states)"
+      - "match:config.duel vs match:config.team (different modes)"
+
+  depth_guidelines:
+    hierarchy_depth:
+      typical: "2-3 levels (theme:cat1:cat2:aspect)"
+      maximum: "4-5 levels (use sparingly)"
+      guideline: "Each colon should add clear semantic value"
+
+    variant_depth:
+      typical: "0-1 levels (.variant)"
+      maximum: "2 levels (.variant.subvariant)"
+      warning: "Multiple dots often indicate over-specification"
+      guideline: "Keep variants shallow - internal details should stay internal"
+
+urn_structure:
+  rule: "URN exactly matches artifact name - preserves colons and dots"
+  pattern: "contract:{artifact_name}"
+
+  examples:
+    - artifact: "commons:identifiers.uuid"
+      urn: "contract:commons:identifiers.uuid"
+      note: "Colon and dot preserved in URN"
+
+    - artifact: "commons:ux:foundations:color"
+      urn: "contract:commons:ux:foundations:color"
+      note: "All colons preserved"
+
+    - artifact: "commons:ux:foundations:color.primary"
+      urn: "contract:commons:ux:foundations:color.primary"
+      note: "Colons and dot preserved"
+
+    - artifact: "sensory:gesture.raw"
+      urn: "contract:sensory:gesture.raw"
+      note: "Matches exactly"
+
+schema_identifier:
+  description: "How artifact names map to JSON Schema $id field and URN references"
+
+  id_field:
+    description: "The $id field in JSON Schema files"
+    pattern: "{theme}:{resource}[.{category}]"
+    examples:
+      - "mechanic:timebank.exhausted"
+      - "commons:ux:foundations:color"
+      - "commons:identifiers.uuid"
+      - "sensory:gesture.raw"
+    note: "NO 'urn:contract:' prefix, NO version suffix - clean artifact identifier"
+
+  urn_reference:
+    description: "URN format used in wagon produce[]/consume[] to reference contracts"
+    pattern: "contract:{artifact_name}"
+    examples:
+      - "contract:mechanic:timebank.exhausted"
+      - "contract:commons:ux:foundations:color"
+      - "contract:commons:identifiers.uuid"
+    usage: "Used in wagon manifests (plan/*/_*.yaml) to reference contract schemas"
+    note: "URN adds 'contract:' prefix for wagon produce/consume declarations"
+
+  version_separation:
+    rule: "Version is SEPARATE top-level field in schema, NOT part of $id"
+    rationale: "Allows artifact identity to remain stable across versions"
+    example:
+      $id: "mechanic:timebank.exhausted"
+      version: "1.0.0"
+    counter_example:
+      wrong: "mechanic:timebank.exhausted:v1"
+      reason: "Version in $id breaks artifact identity stability"
+
+contract_file_mapping:
+  rule: "Artifact path maps directly to contract file path"
+  algorithm: |
+    1. Split artifact name by colons and dots
+    2. Theme becomes first directory
+    3. All segments become subdirectories
+    4. Final segment becomes filename
+    5. Add .schema.json extension
+
+  formula: |
+    artifact: theme:seg1:seg2:aspect.variant
+    contract: contracts/theme/seg1/seg2/aspect/variant.schema.json
+
+  examples:
+    - artifact: "commons:identifiers.uuid"
+      contract: "contracts/commons/identifiers/uuid.schema.json"
+      breakdown: ["commons", "identifiers", "uuid"]
+
+    - artifact: "commons:ux:foundations:color"
+      contract: "contracts/commons/ux/foundations/color.schema.json"
+      breakdown: ["commons", "ux", "foundations", "color"]
+
+    - artifact: "commons:ux:foundations:color.primary"
+      contract: "contracts/commons/ux/foundations/color/primary.schema.json"
+      breakdown: ["commons", "ux", "foundations", "color", "primary"]
+
+    - artifact: "sensory:feedback:haptic:pulse.short"
+      contract: "contracts/sensory/feedback/haptic/pulse/short.schema.json"
+      breakdown: ["sensory", "feedback", "haptic", "pulse", "short"]
+
+anti_patterns:
+  wrong_separator_for_hierarchy:
+    bad: "commons:ux.foundations.color"
+    why: "Uses dots for hierarchy - visually suggests variants when it's actually depth"
+    fix: "commons:ux:foundations:color (colons for hierarchical descent)"
+
+  wrong_separator_for_variant:
+    bad: "sensory:gesture:raw"
+    why: "Uses colon for variant - suggests hierarchy when it's lateral variation"
+    fix: "sensory:gesture.raw (dot for variant facet)"
+
+  missing_theme:
+    bad: "gesture.raw"
+    why: "No theme - unclear which system owns this"
+    fix: "sensory:gesture.raw (adds architectural context)"
+
+  too_many_dots:
+    bad: "commons:identifiers.uuid.v7.timestamp.encoded"
+    why: "Over-specified - internal details leak into public name"
+    fix: "commons:identifiers.uuid (v7, timestamp are internal)"
+
+  unnecessary_hierarchy:
+    bad: "match:config:base:standard"
+    why: "Adds hierarchy levels without semantic value"
+    fix: "match:config (keep it simple when hierarchy doesn't add clarity)"
+
+  generic_aspect:
+    bad: "match:data"
+    why: "Too vague - what kind of data?"
+    fix: "match:state.committed (specific and meaningful)"
+
+  theme_in_aspect:
+    bad: "sensory:sensory-feedback.visual"
+    why: "Theme repeated in aspect - redundant"
+    fix: "sensory:feedback.visual (theme already provides context)"
+
+validation_rules:
+  format:
+    - "Theme must be lowercase, no separators"
+    - "Category segments must be kebab-case"
+    - "Aspect must be kebab-case"
+    - "Variant must be kebab-case"
+    - "Use colon (:) for hierarchical descent"
+    - "Use dot (.) for lateral variants"
+
+  semantic:
+    - "Theme must be from approved taxonomy"
+    - "Each hierarchy level should add clear semantic value"
+    - "Aspect should be a concrete noun"
+    - "Variant should describe a state, type, or facet"
+    - "URN must exactly match artifact name"
+    - "Avoid deep variant nesting (typically 0-1 dots)"
+
+  technical:
+    - "Contract file must exist at contracts/{path_segments}.schema.json"
+    - "$id in contract must be urn:contract:{artifact_name}"
+    - "All consumers must reference the same artifact name"
+    - "File path must be derivable from artifact name by splitting on : and ."
+
+migration_guide:
+  from_v1_to_v2:
+    overview: "Migrate from old pattern to theme:hierarchy:aspect.variant"
+
+    steps:
+      - step: "Identify current artifact names"
+        action: "List all produce/consume artifact names in wagons"
+
+      - step: "Determine appropriate theme"
+        action: "Map artifacts to theme taxonomy"
+
+      - step: "Identify hierarchy levels"
+        action: "Determine if artifact needs category/subcategory levels"
+
+      - step: "Separate hierarchy from variants"
+        action: "Use colons for levels, dots for variants"
+
+      - step: "Update wagon manifests"
+        action: "Update produce/consume sections"
+
+      - step: "Update feature files"
+        action: "Update ioSeeds/produces sections"
+
+      - step: "Update URNs"
+        action: "Ensure URNs match artifact names exactly"
+
+      - step: "Reorganize contracts"
+        action: "Move files to match new hierarchy"
+
+      - step: "Update contract $id fields"
+        action: "Set $id to match new URN"
+
+    example_migrations:
+      simple_rename:
+        old: "identifiers:uuid"
+        new: "commons:identifiers.uuid"
+        reason: "Added theme, converted colon to dot for variant"
+
+      hierarchy_correction:
+        old: "ux.foundations.color"
+        new: "commons:ux:foundations:color"
+        reason: "Added theme, converted dots to colons for hierarchy"
+
+      mixed:
+        old: "ux.foundations.color.primary"
+        new: "commons:ux:foundations:color.primary"
+        reason: "Added theme, colons for hierarchy, dot for variant"
+
+benefits:
+  clear_separation:
+    description: "Visual distinction between hierarchy and variants"
+    example: "commons:ux:foundations:color.primary clearly shows 4 hierarchical levels + 1 variant"
+
+  unlimited_hierarchy:
+    description: "Can go as deep as needed without confusion"
+    example: "commons:telemetry:observability:traces:span:context (6 levels)"
+
+  controlled_variants:
+    description: "Dots signal lateral variation, discourage deep nesting"
+    example: "gesture.raw not gesture.raw.filtered.normalized (too deep)"
+
+  file_path_clarity:
+    description: "Direct mapping to filesystem structure"
+    example: "Every colon or dot becomes a directory boundary"
+
+  semantic_consistency:
+    description: "Same separator always means same thing"
+    example: "Colon always = deeper, dot always = lateral"
+
+references:
+  conventions:
+    - "conventions:planner:wagon - Wagon structure"
+    - "conventions:planner:component - Component naming"
+    - "conventions:coder:component-naming - Implementation naming"
+
+  schemas:
+    - "schemas:planner:wagon - Wagon schema with produce/consume"
+    - "schemas:planner:feature - Feature schema"
+
+  related:
+    - "Theme taxonomy derives from bounded contexts"
+    - "Contract file structure mirrors artifact naming"
+    - "Hierarchy reflects domain organization"
+    - "Variants reflect runtime/configuration differences"

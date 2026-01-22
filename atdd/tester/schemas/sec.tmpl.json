@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Security Test Harness Template",
+  "description": "Template for security/penetration tests",
+  "language": "shell",
+  "framework": "bash",
+  "category": "integration",
+  "template": "\n#!/bin/bash\n# URN: {urn}\n\n# Given\n{given_setup}\n\n# When\nresponse=$(curl -s -w \"\\n%{{http_code}}\" \\\n  -X {method} \\\n  {headers} \\\n  {body} \\\n  \"{url}\")\n\nstatus_code=$(echo \"$response\" | tail -n1)\nbody=$(echo \"$response\" | head -n-1)\n\n# Then\nif [ \"$status_code\" -eq {expected_status} ]; then\n  status=\"PASS\"\nelse\n  status=\"FAIL\"\nfi\n\necho \"{\\\"urn\\\":\\\"{urn}\\\",\\\"status\\\":\\\"$status\\\",\\\"details\\\":{\\\"status_code\\\":$status_code}}\"\n\n[ \"$status\" == \"PASS\" ]\n",
+  "variables": [
+    "urn",
+    "given_setup",
+    "method",
+    "headers",
+    "body",
+    "url",
+    "expected_status"
+  ]
+}

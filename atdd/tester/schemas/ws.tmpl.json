@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WebSocket Test Harness Template",
+  "description": "Template for WebSocket/real-time connection tests",
+  "language": "typescript",
+  "framework": "ws",
+  "category": "backend",
+  "template": "\ndescribe('{test_name}', () => {{\n  let wsClient: WebSocket;\n  let messages: any[] = [];\n\n  beforeEach(async () => {{\n    wsClient = new WebSocket('{ws_url}');\n    wsClient.on('message', (data) => messages.push(JSON.parse(data)));\n    await waitForConnection(wsClient);\n  }});\n\n  afterEach(() => {{\n    wsClient.close();\n  }});\n\n  it('{acceptance_name}', async () => {{\n    // Given\n    {given_setup}\n\n    // When\n    wsClient.send(JSON.stringify({ws_message}));\n    await waitForMessages(1);\n\n    // Then\n    {then_assertions}\n  }});\n}});\n",
+  "variables": [
+    "test_name",
+    "ws_url",
+    "acceptance_name",
+    "given_setup",
+    "ws_message",
+    "then_assertions"
+  ]
+}

@@ -1,0 +1,538 @@
+version: "1.0"
+name: "Acceptance Convention"
+description: "Convention for acceptance criteria generation with Gherkin and harness types"
+
+# Acceptance structure defined in schema
+structure:
+  $ref: "schemas:planner:acceptance"
+
+# Abstract Fields for Stakeholder Readability (within each section)
+abstract_fields:
+  description: "Gherkin-style abstract narrative within given/when/then sections for human readability"
+  purpose: "Enable stakeholder review and WMBT verbosity with business-focused Gherkin narratives"
+  usage: "Optional - enhances acceptance criteria with natural language alongside structured data"
+  location: "Within each section: given.abstract, when.abstract, then.abstract"
+
+  fields:
+    given_abstract:
+      location: "given.abstract"
+      type: "array of strings"
+      constraint: "minItems: 1"
+      required: true
+      description: "Gherkin Given statements describing preconditions (REQUIRED)"
+      pattern: "Each item describes a single precondition or setup state"
+      example:
+        - "appendix.convention.yaml defines manifest structure"
+        - "User account exists in the database"
+        - "Valid credentials are provided"
+
+    when_abstract:
+      location: "when.abstract"
+      type: "string"
+      constraint: "minLength: 5"
+      required: true
+      description: "Gherkin When statement describing the trigger action (REQUIRED)"
+      pattern: "Present tense, clear actor and action"
+      example: "User submits login form with credentials"
+
+    then_abstract:
+      location: "then.abstract"
+      type: "array of strings"
+      constraint: "minItems: 1"
+      required: true
+      description: "Gherkin Then statements describing expected outcomes (REQUIRED)"
+      pattern: "Each item describes a single observable outcome"
+      example:
+        - "Wagon manifest includes appendices: [] array at root level"
+        - "WMBT files include appendices: [] array"
+        - "Feature manifests include appendices: [] array"
+        - "Resolver can resolve appendix paths using URN pattern"
+
+  relationship_to_structured_fields:
+    complementary: "Abstract fields coexist with structured fields within same section"
+    purpose_distinction: "Abstract for stakeholders (Gherkin), structured for machines (test generation)"
+    required: "All abstract fields (given.abstract, when.abstract, then.abstract) are REQUIRED"
+    identity_purpose: "identity.purpose already serves as scenario name - no separate top-level name needed"
+    example: |
+      given:
+        abstract: ["User is logged in", "Account has credits"]
+        auth: {required: true, type: "bearer"}
+        data: [{user_id: "123", credits: 100}]
+
+      when:
+        abstract: "User purchases a product"
+        action: "request"
+        target: "/api/purchase"
+        parameters: {product_id: "abc"}
+
+      then:
+        abstract: ["Purchase succeeds", "Credits are deducted", "Receipt is generated"]
+        assertions: [{type: "equals", target: "status", value: 200}]
+
+# URN Generation
+urn_generation:
+  utility: "utils.graph.URNBuilder"
+  method: "URNBuilder.acceptance(wagon_id, wmbt_id, harness_code, seq, slug=None)"
+  pattern: "acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]"
+
+  example: |
+    from utils.graph import URNBuilder
+    urn = URNBuilder.acceptance("authenticate-user", "C004", "E2E", "019")
+    # Returns: "acc:authenticate-user:C004-E2E-019"
+
+    urn_with_slug = URNBuilder.acceptance("maintain-ux", "C004", "E2E", "019", "user-connection")
+    # Returns: "acc:maintain-ux:C004-E2E-019-user-connection"
+
+  rationale: |
+    - Makes WMBT tie explicit (wmbt_id = step code + seq, e.g., C004)
+    - Bakes in harness visibility for quick routing
+    - Keeps per-harness sequence (NNN) and allows optional slug for readability
+    - Enforces colon = hierarchy, dash = facet cluster
+
+  validation:
+    pattern: "^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-[0-9]{3}(?:-[a-z0-9-]+)?$"
+    description: "Enforces colon for hierarchy (acc:wagon:wmbt_id) and dash-joined facet cluster (-harness-NNN[-slug])"
+
+  legacy_format:
+    pattern: "acc:{wagon}:{nnn}:{acceptance_id}"
+    example: "acc:authenticate-user:001:AC-EXEC-201"
+    note: "Old format - being migrated to new pattern"
+
+# Harness code mapping (authoritative)
+harness_codes:
+  unit: UNIT
+  http: HTTP
+  event: EVENT
+  ws: WS
+  e2e: E2E
+  a11y: A11Y
+  visual: VIS
+  metric: METRIC
+  job: JOB
+  db: DB
+  sec: SEC
+  load: LOAD
+  script: SCRIPT
+  widget: WIDGET
+  golden: GOLDEN
+  bloc: BLOC
+  integration: INTEGRATION
+  rls: RLS
+  edge_function: EDGE
+  realtime: REALTIME
+  storage: STORAGE
+
+generators:
+  id:
+    prompt: "Compose the acceptance id with the step code and a zero-padded index (AC-{STEP}-{NNN})."
+    pattern: "AC-{STEP}-{NNN}"
+    source: "conventions:planner:acceptance:id_mapping"
+    note: "Legacy format - kept for backward compatibility in identity.id field"
+
+  urn:
+    prompt: "Derive the URN from the wagon slug, WMBT ID, harness code, and sequence using URNBuilder.acceptance."
+    pattern: "acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]"
+    example: "acc:maintain-ux:C004-E2E-019-user-connection"
+    parts:
+      wagon: "Parent wagon identifier (kebab-case)"
+      wmbt_id: "WMBT step code + seq (e.g., C004, E001)"
+      harness: "Harness code (UPPERCASE from harness_codes mapping)"
+      NNN: "Zero-padded per-harness acceptance sequence (001-999)"
+      slug: "Optional kebab-case descriptor for readability"
+
+  harness:
+    prompt: "Select the harness that best exercises the outcome (unit/http/event/ws/e2e/a11y/visual/metric/job/db/sec/load/script)."
+    source: "conventions:planner:acceptance:harness_types"
+  route:
+    prompt: "Populate route.layers and route.sequence so actions flow from presentation → application → domain → integration as needed."
+    pattern: "{layer}.{action}"
+    source: "conventions:planner:acceptance:route_construction"
+  given:
+    prompt: "Declare only the preconditions needed (auth, builders, time, stubbing, knobs) before the action runs."
+    source: "conventions:planner:acceptance:gherkin_structure.given"
+  when:
+    prompt: "Describe the trigger using the harness-specific shape (http request details, unit target, event topic, etc.)."
+    source: "conventions:planner:acceptance:gherkin_structure.when"
+  then:
+    prompt: "List assertions that prove the outcome (status, body, headers, error, metrics, etc.)."
+    source: "conventions:planner:acceptance:gherkin_structure.then"
+
+guidelines:
+  acceptance_cap: "Keep acceptances ≤5 per WMBT; if you need more, split the WMBT into clearer outcomes."
+  metric_binding: "Each acceptance maps to exactly one metric_id from plan/_lego/acceptance-metrics.yaml (no mixed measures)."
+  lens_dimension_dependency: "Respect WMBT rules: one dimension and one lens_ref per WMBT; acceptances inherit context from the parent WMBT."
+  collocation: "Store WMBT, acceptances, tests, and generated artifacts together to keep history and review cohesive."
+
+related_resources:
+  metrics_catalog: "conventions:criteria:metrics"
+  template_registry: ".claude/templates/tester/templates.manifest.yaml"
+  blocks: "conventions:criteria"
+
+planes:
+  description: "Keyword cues for selecting test layer planes when routing"
+  table:
+    ui: ["display", "visible", "screen", "render", "animation"]
+    ux: ["understand", "clarity", "steps", "easy", "confusing"]
+    be: ["validate", "apply", "compute", "reconcile", "rule"]
+    nw: ["request", "response", "timeout", "websocket", "stream"]
+    db: ["query", "index", "transaction", "lock", "row"]
+    st: ["asset", "download", "upload", "cache", "blob", "cdn"]
+    tm: ["event", "metrics", "trace", "ingest", "drop"]
+    sc: ["schema", "contract", "version", "field", "json"]
+    au: ["login", "token", "permission", "rate-limit", "403"]
+    fn: ["price", "balance", "payout", "token"]
+    if: ["cpu", "memory", "pod", "node", "gpu"]
+
+# Harness types and their typical usage
+harness_types:
+  unit:
+    description: "Unit tests for isolated logic"
+    prompt: "Use when verifying pure functions or domain policies without IO." 
+    typical_layers: ["domain", "application"]
+
+  http:
+    description: "HTTP API endpoint tests"
+    prompt: "Exercise REST/GraphQL handlers via network boundaries."
+    typical_layers: ["integration", "application"]
+
+  event:
+    description: "Event-driven behavior tests"
+    prompt: "Assert publish/consume flows through message topics."
+    typical_layers: ["application", "integration"]
+
+  ws:
+    description: "WebSocket real-time tests"
+    prompt: "Validate realtime subscriptions and streaming semantics."
+    typical_layers: ["integration"]
+
+  e2e:
+    description: "End-to-end user journey tests"
+    prompt: "Drive the UI like a user across presentation + backend layers."
+    typical_layers: ["presentation"]
+
+  a11y:
+    description: "Accessibility compliance tests"
+    prompt: "Check accessibility tree, focus order, contrast ratios."
+    typical_layers: ["presentation"]
+
+  visual:
+    description: "Visual regression tests"
+    prompt: "Compare rendered snapshots or layout diffs."
+    typical_layers: ["presentation"]
+
+  metric:
+    description: "Performance metric tests"
+    prompt: "Assert telemetry counters, spans, or service-level thresholds."
+    typical_layers: ["application", "integration"]
+
+  job:
+    description: "Background job/task tests"
+    prompt: "Trigger schedulers or workers and verify side effects."
+    typical_layers: ["application"]
+
+  db:
+    description: "Database operation tests"
+    prompt: "Validate persistence semantics using real repositories/queries."
+    typical_layers: ["integration"]
+
+  sec:
+    description: "Security tests"
+    prompt: "Probe authz, permissions, or threat scenarios."
+    typical_layers: ["application", "integration"]
+
+  load:
+    description: "Load and stress tests"
+    prompt: "Measure system resilience under concurrent demand."
+    typical_layers: ["integration"]
+
+  script:
+    description: "Script execution tests"
+    prompt: "Invoke maintenance or CLI scripts end-to-end."
+    typical_layers: ["application"]
+
+  widget:
+    description: "Widget/component tests"
+    prompt: "Test isolated UI widgets or components."
+    typical_layers: ["presentation"]
+
+  golden:
+    description: "Golden file tests"
+    prompt: "Compare output against golden reference files."
+    typical_layers: ["presentation", "application"]
+
+  bloc:
+    description: "BLoC pattern tests"
+    prompt: "Test Business Logic Component state management."
+    typical_layers: ["application"]
+
+  integration:
+    description: "Integration tests"
+    prompt: "Test integration between multiple components or services."
+    typical_layers: ["integration"]
+
+  rls:
+    description: "Row-level security tests"
+    prompt: "Validate database row-level security policies."
+    typical_layers: ["integration"]
+
+  edge_function:
+    description: "Edge function tests"
+    prompt: "Test serverless edge functions and their behavior."
+    typical_layers: ["integration"]
+
+  realtime:
+    description: "Realtime subscription tests"
+    prompt: "Validate realtime data subscriptions and updates."
+    typical_layers: ["integration"]
+
+  storage:
+    description: "Storage operation tests"
+    prompt: "Test file storage, uploads, and retrieval operations."
+    typical_layers: ["integration"]
+
+# ID generation pattern
+id_pattern: "AC-{STEP}-{NNN}"
+id_mapping:
+  define: "DEF"
+  locate: "LOC"
+  prepare: "PREP"
+  confirm: "CONF"
+  execute: "EXEC"
+  monitor: "MON"
+  modify: "MOD"
+  resolve: "RES"
+  conclude: "CONC"
+
+# Route sequence construction
+route_construction:
+  description: "How to build route.sequence based on test flow"
+  prompt: "Describe the layer transitions the test exercises in execution order."
+  pattern: "{layer}.{action}"
+  examples:
+    presentation_flow:
+      - "presentation.command"    # User initiates action
+      - "application.use_case"     # Business logic processes
+      - "domain.validate"          # Domain rules applied
+      - "integration.persist"      # Data saved
+
+    query_flow:
+      - "presentation.query"       # User requests data
+      - "application.query"        # Query handled
+      - "integration.read"         # Data fetched
+
+    event_flow:
+      - "integration.call_external" # External event received
+      - "application.aggregate"     # Event aggregated
+      - "domain.mutate"            # State changed
+      - "integration.persist"      # Change persisted
+
+
+# Maximum acceptances
+max_per_wmbt: 5
+expected_ratios:
+    acceptance_to_test: "1:1"   # One acceptance → one test
+    test_to_component: "N:1"    # Many tests → one component
+
+# Layer routing based on harness type
+layer_routing:
+  presentation: ["presentation.command", "presentation.query", "presentation.display"]
+  application: ["application.use_case", "application.query", "application.aggregate"]
+  domain: ["domain.create", "domain.validate", "domain.mutate", "domain.policy"]
+  integration: ["integration.read", "integration.persist", "integration.call_external"]
+
+# Given/When/Then Structure Guide
+gherkin_structure:
+  given:
+    description: "Setup and preconditions"
+    prompt: "Capture only the state required for the acceptance to run deterministically."
+    fields:
+      auth:
+        description: "Authentication context"
+        prompt: "List credentials/scopes required prior to executing the WHEN."
+        example:
+          scopes: ["read:users", "write:users"]
+      builders:
+        description: "Test data builders to set up state"
+        prompt: "Reference builders to create domain objects with minimal parameters."
+        example:
+          - ref: "UserBuilder"
+            as: "testUser"
+            params: {email: "test@example.com"}
+      time:
+        description: "Time-related setup"
+        prompt: "Freeze time or advance clocks when timing impacts the assertions."
+        example:
+          freeze_at: "2024-01-01T00:00:00Z"
+      stubbing:
+        description: "External dependency stubs"
+        prompt: "Declare mock policies or capability overrides needed for deterministic runs."
+        example:
+          policy: "strict"
+          overrides:
+            - capability: "payment-api"
+              mode: "mock"
+      knobs:
+        description: "Feature flags and configuration"
+        prompt: "Toggle only the flags relevant to this acceptance."
+        example:
+          featureX: true
+          maxRetries: 3
+
+  when:
+    description: "Action or trigger - varies by harness type (REQUIRED)"
+    prompt: "Express the single trigger that moves the system under test. The when.abstract field is REQUIRED."
+    required: true
+    harness_specific:
+      http:
+        required: ["method", "path"]
+        prompt: "Define the HTTP method/path and payload sent to the endpoint."
+        example:
+          method: "POST"
+          path: "/api/users"
+          headers: {"Content-Type": "application/json"}
+          body: {name: "John", email: "john@example.com"}
+
+      unit:
+        required: ["target"]
+        prompt: "Call the unit under test with explicit arguments/state."
+        example:
+          target: "UserService.createUser"
+          args: {userData: {name: "John"}}
+
+      event:
+        required: ["topic"]
+        prompt: "Publish or consume the event topic and payload being validated."
+        example:
+          topic: "user.created"
+          payload: {userId: "123", timestamp: "2024-01-01T00:00:00Z"}
+
+      ws:
+        prompt: "Open/subscribe to websocket channels relevant to the assertion."
+        example:
+          url: "ws://localhost:8080/events"
+          subscribe_msg: {action: "subscribe", channel: "updates"}
+
+      e2e:
+        prompt: "List the user interactions or navigation steps to perform end-to-end."
+        example:
+          url: "http://localhost:3000/login"
+          actions: ["fill #email", "fill #password", "click #submit"]
+
+  then:
+    description: "Expected outcomes - array of assertions (REQUIRED)"
+    prompt: "Assert observable effects that prove the acceptance criteria satisfied. The then.abstract field is REQUIRED."
+    required: true
+    assertion_kinds:
+      - kind: "status"
+        prompt: "Use when verifying response status codes or job exit codes."
+        example: {kind: "status", expect: 200}
+
+      - kind: "body"
+        prompt: "Compare structured payloads (JSON/object fields)."
+        example: {kind: "body", expect: {id: "123", name: "John"}}
+
+      - kind: "headers"
+        prompt: "Validate response headers or metadata returned."
+        example: {kind: "headers", expect: {"Content-Type": "application/json"}}
+
+      - kind: "error"
+        prompt: "Assert errors, codes, or validation messages."
+        example: {kind: "error", expect: {code: "USER_EXISTS", message: "User already exists"}}
+
+      - kind: "event_published"
+        example: {kind: "event_published", expect: {topic: "user.created", payload: {userId: "123"}}}
+
+      - kind: "state_changed"
+        example: {kind: "state_changed", expect: {entity: "User", id: "123", field: "status", value: "active"}}
+
+      - kind: "metric"
+        example: {kind: "metric", expect: {name: "response_time", operator: "<", value: 1000}}
+
+  signal:
+    description: "Telemetry signals emitted when acceptance executes (OpenTelemetry + analytics) - REQUIRED"
+    prompt: "Define what metrics, traces, logs, and events prove this acceptance works in production. Extract operational expectations (latency, errors) → metrics. Extract user actions (conversions, feature usage) → events."
+    required: true
+
+    fields:
+      metrics:
+        description: "OpenTelemetry metrics for observability using artifact-based URN naming"
+        prompt: "Derive from 'then' quantifiable expectations. Use format: telemetry:metric:{plane}:{domain}:{resource}[.{category}]:{measure}. Artifact must exist in contracts/_artifacts.yaml. No operations/wagons in URN."
+        naming_rules:
+          - "Format: telemetry:metric:{plane}:{artifact}[.{category}]:{measure}"
+          - "plane: ui | ux | be | db | nw | st | tm | sc | au | fn | if"
+          - "artifact: domain:resource (e.g., decision:chosen, match:result, ux:foundations.colors)"
+          - "category: optional third facet for nested resources (e.g., colors, typography, spacing)"
+          - "measure: latency | duration | throughput | error_rate | success_rate | count | size | age | staleness | freshness"
+          - "Entity artifacts (nouns) use: count, size, age, staleness, freshness"
+          - "Event artifacts (past-tense verbs) use: latency, duration, throughput, error_rate, success_rate"
+          - "Operations/wagons go in attributes, NOT in URN"
+        example:
+          - name: "telemetry:metric:be:order:created:duration"
+            type: "histogram"
+            threshold: "200ms"
+            aggregation: "p95"
+            attributes: ["operation:persist", "phase:commit"]
+
+      traces:
+        description: "OpenTelemetry distributed trace spans using artifact-based URN naming"
+        prompt: "Define expected spans during execution. Use format: telemetry:trace:{plane}:{domain}:{resource}[.{category}]. No measure segment for traces."
+        naming_rules:
+          - "Format: telemetry:trace:{plane}:{artifact}[.{category}]"
+          - "No measure segment (traces are execution flows, not metrics)"
+          - "category: optional facet for nested resources (follows same pattern as metrics)"
+        example:
+          - name: "telemetry:trace:be:order:created"
+            kind: "server"
+            attributes: ["order_id", "user_id"]
+
+      logs:
+        description: "OpenTelemetry structured logs (optional URN naming)"
+        prompt: "Expected log patterns with severity levels. Optional name field for structured telemetry."
+        naming_rules:
+          - "Format (optional): telemetry:log:{plane}:{artifact}[.{category}]"
+          - "name field is optional; body is required"
+          - "category: optional facet for nested resources"
+        example:
+          - body: "Order created successfully"
+            severity: "info"
+            name: "telemetry:log:be:order:created"
+
+      events:
+        description: "Analytics events for product tracking (Segment/Mixpanel/Amplitude) or OTel events"
+        prompt: "Derive from 'when' user actions. Use telemetry URN for OTel events, or analytics naming for product events. Resource must be past-tense verb from lexicon."
+        naming_rules:
+          - "Telemetry URN: telemetry:event:{plane}:{artifact}[.{category}]"
+          - "Analytics: Title Case with Spaces (e.g., 'Order Created')"
+          - "Resource must be past-tense verb from lexicon: started, finished, chosen, validated, created, etc."
+          - "category: optional facet for nested resources"
+        example:
+          - name: "telemetry:event:be:order:created"
+            properties: ["order_id", "user_id", "total"]
+          - name: "Order Created"
+            properties: ["order_id", "total"]
+            tracking_plan_ref: "order_events_v1"
+
+    examples:
+      full_signal_with_telemetry_urns:
+        metrics:
+          - name: "telemetry:metric:be:order:created:duration"
+            type: "histogram"
+            threshold: "200ms"
+            attributes: ["operation:persist"]
+        traces:
+          - name: "telemetry:trace:be:order:created"
+            kind: "server"
+        logs:
+          - body: "Order created"
+            severity: "info"
+            name: "telemetry:log:be:order:created"
+        events:
+          - name: "telemetry:event:be:order:created"
+            properties: ["order_id", "total"]
+
+# Extraction: Pure conversational approach
+extraction:
+  description: "Ask user directly for missing context (no inference, no suggestions)"
+  
+  wagon_inference:
+    prompt: "Which wagon should this acceptance belong to?"

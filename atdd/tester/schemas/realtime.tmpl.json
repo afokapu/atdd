@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Realtime Test Harness Template",
+  "description": "Template for testing Supabase Realtime subscriptions",
+  "language": "typescript",
+  "framework": "vitest",
+  "category": "backend",
+  "template": "\n// URN: {urn}\nimport { test, expect } from 'vitest';\nimport { createClient } from '@supabase/supabase-js';\n\ntest('{test_name}', async () => {{\n  const supabase = createClient(\n    process.env.SUPABASE_URL,\n    process.env.SUPABASE_ANON_KEY\n  );\n\n  const messages = [];\n  \n  // Given\n  {given_setup}\n\n  // When\n  const channel = supabase\n    .channel('{channel_name}')\n    .on('{event_type}', {{ event: '{event_filter}' }}, (payload) => {{\n      messages.push(payload);\n    }})\n    .subscribe();\n\n  {trigger_action}\n\n  await new Promise(resolve => setTimeout(resolve, {wait_ms}));\n\n  // Then\n  {then_assertions}\n\n  await channel.unsubscribe();\n}});\n",
+  "variables": [
+    "urn",
+    "test_name",
+    "given_setup",
+    "channel_name",
+    "event_type",
+    "event_filter",
+    "trigger_action",
+    "wait_ms",
+    "then_assertions"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Load Test Harness Template",
+  "description": "Template for load/performance tests using k6",
+  "language": "javascript",
+  "framework": "k6",
+  "category": "integration",
+  "template": "\n// URN: {urn}\nimport http from 'k6/http';\nimport {{ check, sleep }} from 'k6';\n\nexport const options = {{\n  vus: {vus},\n  duration: '{duration}',\n  thresholds: {{\n    http_req_duration: ['p(95)<{threshold_ms}'],\n  }},\n}};\n\nexport default function() {{\n  // Given\n  {given_setup}\n\n  // When\n  const response = http.{method}('{url}', {params});\n\n  // Then\n  check(response, {{\n    'status is {expected_status}': (r) => r.status === {expected_status},\n    {additional_checks}\n  }});\n\n  sleep(1);\n}}\n",
+  "variables": [
+    "urn",
+    "vus",
+    "duration",
+    "threshold_ms",
+    "given_setup",
+    "method",
+    "url",
+    "params",
+    "expected_status",
+    "additional_checks"
+  ]
+}

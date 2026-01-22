@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Database Test Harness Template",
+  "description": "Template for Supabase database operation tests",
+  "language": "typescript",
+  "framework": "vitest",
+  "category": "backend",
+  "template": "\n// URN: {urn}\nimport { test, expect } from 'vitest';\nimport { createClient } from '@supabase/supabase-js';\n\ntest('{test_name}', async () => {{\n  const supabaseUrl = process.env.SUPABASE_URL;\n  const supabaseKey = process.env.SUPABASE_ANON_KEY;\n  const supabase = createClient(supabaseUrl, supabaseKey);\n\n  // Given\n  {given_setup}\n\n  // When\n  const startTime = Date.now();\n  const {{ data, error, count }} = await supabase\n    .from('{table}')\n    .{operation}({operation_params})\n    {filters}\n    {options};\n  const queryTime = Date.now() - startTime;\n\n  // Then\n  {then_assertions}\n\n  console.log(JSON.stringify({{\n    urn: '{urn}',\n    status: 'PASS',\n    details: {{ table: '{table}', operation: '{operation}', query_time_ms: queryTime }}\n  }}));\n}});\n",
+  "variables": [
+    "urn",
+    "test_name",
+    "given_setup",
+    "table",
+    "operation",
+    "operation_params",
+    "filters",
+    "options",
+    "then_assertions"
+  ]
+}

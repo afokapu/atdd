@@ -1,0 +1,51 @@
+version: "1.0"
+name: "Test Layer Convention"
+description: "Test routing rules to determine which layer a test belongs to based on acceptance criteria keywords."
+
+test_routing_rules:
+  backend:
+    presentation:
+      keywords: ["API", "endpoint", "HTTP", "status code", "request", "response", "version", "health", "OpenAPI", "CORS", "rate limit"]
+      patterns: ["returns {status}", "API responds", "endpoint accepts", "exposes /health", "publishes OpenAPI"]
+    application:
+      keywords: ["workflow", "orchestrate", "coordinate", "use case", "saga", "policy", "idempotent", "unit of work"]
+      patterns: ["coordinates multiple", "executes workflow", "processes request", "enforces policy", "idempotency"]
+    domain:
+      keywords: ["business rule", "validation", "calculation", "entity", "aggregate", "specification", "domain event"]
+      patterns: ["validates that", "calculates", "must satisfy", "emits event"]
+    integration:
+      keywords: ["database", "cache", "external service", "persistence", "storage", "queue", "outbox", "migration", "retry", "circuit"]
+      patterns: ["saves to", "retrieves from", "publishes event", "calls external", "applies retry"]
+  frontend:
+    presentation:
+      keywords: ["display", "renders", "button", "form", "UI", "i18n", "a11y", "navigation", "animation"]
+      patterns: ["displays", "user sees", "button enabled", "localized", "focus order"]
+    application:
+      keywords: ["use case", "state orchestration", "port", "repository interface", "policy"]
+      patterns: ["invokes use case", "maps view to port", "applies policy"]
+    domain:
+      keywords: ["client validation", "frontend rule", "pure function", "derive"]
+      patterns: ["validates locally", "derives value"]
+    integration:
+      keywords: ["API call", "local storage", "cache", "offline sync", "interceptor", "background task", "connectivity"]
+      patterns: ["fetches from API", "stores locally", "caches response", "syncs pending", "retries on failure"]
+
+routing_examples:
+  backend:
+    - text: "Endpoint returns 200 and publishes OpenAPI"
+      routes_to: "presentation"
+    - text: "Use case coordinates payment then reserves stock"
+      routes_to: "application"
+    - text: "Aggregate decrements stock and emits DomainEvent"
+      routes_to: "domain"
+    - text: "Repository saves purchase and writes outbox message"
+      routes_to: "integration"
+  frontend:
+    - text: "Button is disabled while submitting"
+      routes_to: "presentation"
+    - text: "Bloc transitions from Idle → Loading → Success"
+      routes_to: "application"
+    - text: "Validate cart total against discount rules"
+      routes_to: "domain"
+    - text: "Client caches response and retries on offline"
+      routes_to: "integration"

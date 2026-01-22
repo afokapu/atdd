@@ -1,0 +1,194 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wagons.dev/schemas/tester/test_filename.schema.json",
+  "title": "Test Filename Generation Schema",
+  "description": "Schema for test filename generation from acceptance URNs with language-specific conventions",
+  "type": "object",
+  "required": ["urn", "language"],
+  "properties": {
+    "urn": {
+      "type": "string",
+      "description": "Acceptance URN in format acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]",
+      "pattern": "^acc:([a-z][a-z0-9-]*):([DLPCEMYRK][0-9]{3})-([A-Z0-9]+)-([0-9]{3})(?:-([a-z0-9-]+))?$",
+      "examples": [
+        "acc:maintain-ux:C004-E2E-019-user-connection",
+        "acc:pace-dilemmas:P003-UNIT-042",
+        "acc:commit-state:D001-HTTP-007"
+      ]
+    },
+    "language": {
+      "type": "string",
+      "description": "Target language for test filename generation",
+      "enum": ["dart", "typescript", "typescript_preact", "python", "go", "java", "kotlin"],
+      "examples": ["dart", "typescript", "typescript_preact"]
+    },
+    "filename": {
+      "type": "string",
+      "description": "Generated test filename following language conventions",
+      "examples": [
+        "C004_E2E_019_user_connection_test.dart",
+        "c004-e2e-019-user-connection.test.ts",
+        "C001_WIDGET_001_button.test.tsx",
+        "test_c004_e2e_019_user_connection.py"
+      ]
+    },
+    "components": {
+      "type": "object",
+      "description": "Parsed URN components",
+      "properties": {
+        "wagon": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Wagon identifier in kebab-case",
+          "examples": ["maintain-ux", "pace-dilemmas"]
+        },
+        "WMBT": {
+          "type": "string",
+          "pattern": "^[DLPCEMYRK][0-9]{3}$",
+          "description": "Step code + zero-padded WMBT sequence",
+          "examples": ["C004", "E019", "P003"]
+        },
+        "HARNESS": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]+$",
+          "description": "Test harness code (uppercase)",
+          "examples": ["UNIT", "HTTP", "E2E", "EVENT", "WIDGET"]
+        },
+        "NNN": {
+          "type": "string",
+          "pattern": "^[0-9]{3}$",
+          "description": "Zero-padded 3-digit acceptance sequence",
+          "examples": ["001", "019", "042"]
+        },
+        "slug": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Optional kebab-case descriptor",
+          "examples": ["user-connection", "primitive-endpoint", null]
+        }
+      },
+      "required": ["wagon", "WMBT", "HARNESS", "NNN"],
+      "additionalProperties": false
+    }
+  },
+  "definitions": {
+    "dart_filename": {
+      "type": "string",
+      "pattern": "^[A-Z][0-9]{3}_[A-Z0-9]+_[0-9]{3}(?:_[a-z0-9_]+)?_test\\.dart$",
+      "description": "Dart test filename pattern: {WMBT}_{HARNESS}_{NNN}[_{slug_snake}]_test.dart",
+      "examples": [
+        "C004_E2E_019_user_connection_test.dart",
+        "P003_UNIT_042_test.dart"
+      ]
+    },
+    "typescript_filename": {
+      "type": "string",
+      "pattern": "^[a-z][0-9]{3}-[a-z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?\\.test\\.ts$",
+      "description": "TypeScript test filename pattern: {wmbt_lower}-{harness_lower}-{nnn}[-{slug-kebab}].test.ts",
+      "examples": [
+        "c004-e2e-019-user-connection.test.ts",
+        "p003-unit-042.test.ts"
+      ]
+    },
+    "typescript_preact_filename": {
+      "type": "string",
+      "pattern": "^[A-Z][0-9]{3}_[A-Z0-9]+_[0-9]{3}(?:_[a-z0-9_]+)?\\.test\\.ts(x)?$",
+      "description": "Preact TypeScript test filename pattern: {WMBT}_{HARNESS}_{NNN}[_{slug_snake}].test.ts[x]",
+      "examples": [
+        "C004_E2E_019_user_connection.test.ts",
+        "C001_WIDGET_001_button.test.tsx"
+      ]
+    },
+    "python_filename": {
+      "type": "string",
+      "pattern": "^test_[a-z][0-9]{3}_[a-z0-9]+_[0-9]{3}(?:_[a-z0-9_]+)?\\.py$",
+      "description": "Python test filename pattern: test_{wmbt_lower}_{harness_lower}_{nnn}[_{slug_snake}].py",
+      "examples": [
+        "test_c004_e2e_019_user_connection.py",
+        "test_p003_unit_042.py"
+      ]
+    },
+    "go_filename": {
+      "type": "string",
+      "pattern": "^[a-z][0-9]{3}_[a-z0-9]+_[0-9]{3}(?:_[a-z0-9_]+)?_test\\.go$",
+      "description": "Go test filename pattern: {wmbt_lower}_{harness_lower}_{nnn}[_{slug_snake}]_test.go",
+      "examples": [
+        "c004_e2e_019_user_connection_test.go",
+        "p003_unit_042_test.go"
+      ]
+    },
+    "java_classname": {
+      "type": "string",
+      "pattern": "^[A-Z][0-9]{3}[A-Z0-9]+[0-9]{3}(?:[A-Z][a-zA-Z0-9]*)?Test$",
+      "description": "Java/Kotlin test classname pattern: {WMBT}{HARNESS}{NNN}{SlugPascal}Test",
+      "examples": [
+        "C004E2E019UserConnectionTest",
+        "P003UNIT042Test"
+      ]
+    },
+    "harness_code": {
+      "type": "string",
+      "enum": [
+        "UNIT", "HTTP", "EVENT", "WS", "E2E", "A11Y", "VIS",
+        "METRIC", "JOB", "DB", "SEC", "LOAD", "SCRIPT",
+        "WIDGET", "GOLDEN", "BLOC", "INTEGRATION", "RLS",
+        "EDGE", "REALTIME", "STORAGE"
+      ],
+      "description": "Valid test harness codes"
+    },
+    "wmbt_code": {
+      "type": "string",
+      "enum": ["D", "L", "P", "C", "E", "M", "Y", "R", "K"],
+      "description": "Valid WMBT step codes",
+      "x-descriptions": {
+        "D": "Derive (Derive Entities)",
+        "L": "Launch (Launch Cascade)",
+        "P": "Pace (Pace Dilemmas)",
+        "C": "Commit (Commit State)",
+        "E": "Evaluate (Evaluate Cascade)",
+        "M": "Match (Match Priorities)",
+        "Y": "Yield (Yield Options)",
+        "R": "Resolve (Resolve Dilemmas)",
+        "K": "Keep (Keep Momentum)"
+      }
+    }
+  },
+  "examples": [
+    {
+      "urn": "acc:maintain-ux:C004-E2E-019-user-connection",
+      "language": "dart",
+      "filename": "C004_E2E_019_user_connection_test.dart",
+      "components": {
+        "wagon": "maintain-ux",
+        "WMBT": "C004",
+        "HARNESS": "E2E",
+        "NNN": "019",
+        "slug": "user-connection"
+      }
+    },
+    {
+      "urn": "acc:pace-dilemmas:P003-UNIT-042",
+      "language": "python",
+      "filename": "test_p003_unit_042.py",
+      "components": {
+        "wagon": "pace-dilemmas",
+        "WMBT": "P003",
+        "HARNESS": "UNIT",
+        "NNN": "042",
+        "slug": null
+      }
+    },
+    {
+      "urn": "acc:commit-state:D001-HTTP-007-create-endpoint",
+      "language": "typescript",
+      "filename": "d001-http-007-create-endpoint.test.ts",
+      "components": {
+        "wagon": "commit-state",
+        "WMBT": "D001",
+        "HARNESS": "HTTP",
+        "NNN": "007",
+        "slug": "create-endpoint"
+      }
+    }
+  ]
+}

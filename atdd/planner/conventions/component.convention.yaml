@@ -1,0 +1,670 @@
+version: "1.0"
+name: "Component Convention"
+description: "Rules for deriving components from feature details with business capability focus"
+
+# URN naming pattern
+urn_naming:
+  pattern: "component:{wagon}:{feature}[.{objectCamelCase}][.{side}][.{layer}]"
+  description: "Stable component URN: hierarchy via colons (kind:wagon:feature), optional facets via dots."
+  utility: "utils.graph.URNBuilder.component(wagon_id, feature_id, component_name?, side?, layer?)"
+
+  parts:
+    wagon: "Parent wagon identifier (kebab-case), e.g., resolve-dilemmas"
+    feature: "Parent feature identifier (kebab-case), e.g., choose-option"
+    objectCamelCase: "Logical component name (PascalCase or camelCase), e.g., OptionValidator"
+    side: "Deployment side (frontend|backend)"
+    layer: "Architectural layer (presentation|application|domain|integration)"
+
+  rules:
+    hierarchy_separator: ":"
+    facet_separator: "."
+    casing:
+      wagon_feature: "^[a-z][a-z0-9-]*$"
+      facets:
+        - "^[a-z][a-z0-9-]*$"          # kebab/lower facet allowed
+        - "^[A-Z][a-zA-Z0-9]*$"        # CamelCase facet allowed
+    no_file_extensions: "Do not include .py/.dart/etc. Use a 'lang-*' facet if needed."
+    case_policy: "IDs are case-sensitive; store exactly as written."
+
+  lint_regex: "^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*\.[A-Z][a-zA-Z0-9]*\.(frontend|backend)\.(presentation|application|domain|integration)$"
+
+  examples:
+    - urn: "component:resolve-dilemmas:choose-option.OptionValidator.backend.domain"
+      wagon: "resolve-dilemmas"
+      feature: "choose-option"
+      component: "OptionValidator"
+      side: "backend"
+      layer: "domain"
+
+    - urn: "component:manage-users:authenticate-user.LoginForm.frontend.presentation"
+      wagon: "manage-users"
+      feature: "authenticate-user"
+      component: "LoginForm"
+      side: "frontend"
+      layer: "presentation"
+
+    - urn: "component:maintain-ux:assets-catalog.AssetIndexer.backend.integration"
+      wagon: "maintain-ux"
+      feature: "assets-catalog"
+      component: "AssetIndexer"
+      side: "backend"
+      layer: "integration"
+
+  note: "Side and layer values are defined by component_type_catalog structure below"
+
+# Component type catalog from coder conventions with complexity weights
+component_type_catalog:
+  description: "Canonical catalog of all component types from coder conventions with weights"
+  source: "Derived from .claude/conventions/coder/{backend,frontend}.convention.yaml"
+
+  backend:
+    presentation:
+      controllers:
+        suffix: {python: "*_controller.py", typescript: "*-controller.ts"}
+        description: "Request/response handlers for external interfaces"
+        weight: 1
+      routes:
+        suffix: {python: "*_routes.py", typescript: "*-routes.ts"}
+        description: "Routing configuration and endpoint definitions"
+        weight: 0
+      serializers:
+        suffix: {python: "*_serializer.py", typescript: "*-serializer.ts"}
+        description: "Input/output data serialization and formatting"
+        weight: 0.5
+      validators:
+        suffix: {python: "*_validator.py", typescript: "*-validator.ts"}
+        description: "Input validation at the edge"
+        weight: 0.5
+      middleware:
+        suffix: {python: "*_middleware.py", typescript: "*-middleware.ts"}
+        description: "Cross-cutting request/response processing"
+        weight: 1
+      guards:
+        suffix: {python: "*_guard.py", typescript: "*-guard.ts"}
+        description: "Authentication and authorization at transport layer"
+        weight: 1
+      views:
+        suffix: {python: "*_view.py", typescript: "*-view.ts"}
+        description: "Server-side rendered templates and UI components"
+        weight: 1
+
+    application:
+      use_cases:
+        suffix: {python: "*_use_case.py", typescript: "*-use-case.ts"}
+        description: "Application-specific business workflows"
+        weight: 2
+      handlers:
+        suffix: {python: "*_handler.py", typescript: "*-handler.ts"}
+        description: "Command, query, and event processing"
+        weight: 1
+      ports:
+        suffix: {python: "protocols.py, *_port.py", typescript: "*-port.ts"}
+        description: "Interfaces and protocols for integration layer"
+        weight: 0
+      dtos:
+        suffix: {python: "*_dto.py", typescript: "*-dto.ts"}
+        description: "Data transfer objects between layers"
+        weight: 0
+      policies:
+        suffix: {python: "*_policy.py", typescript: "*-policy.ts"}
+        description: "Application-level business policies and rules"
+        weight: 1
+      workflows:
+        suffix: {python: "*_workflow.py, *_saga.py", typescript: "*-workflow.ts"}
+        description: "Long-running processes and orchestrations"
+        weight: 2
+
+    domain:
+      entities:
+        suffix: {python: "*.py", typescript: "*.ts"}
+        description: "Core business objects with identity and lifecycle"
+        weight: 1
+      value_objects:
+        suffix: {python: "*_vo.py, *.py", typescript: "*-vo.ts"}
+        description: "Immutable types with equality-by-value semantics"
+        weight: 0.5
+      aggregates:
+        suffix: {python: "*_aggregate.py", typescript: "*-aggregate.ts"}
+        description: "Transactional consistency boundaries"
+        weight: 2
+      services:
+        suffix: {python: "*_service.py", typescript: "*-service.ts"}
+        description: "Domain services for cross-entity business logic"
+        weight: 1
+      specifications:
+        suffix: {python: "*_spec.py", typescript: "*-spec.ts"}
+        description: "Composable business rules and predicates"
+        weight: 0.5
+      events:
+        suffix: {python: "*_event.py", typescript: "*-event.ts"}
+        description: "Domain events representing facts that happened"
+        weight: 0
+      exceptions:
+        suffix: {python: "*_exception.py", typescript: "*-exception.ts"}
+        description: "Domain-specific errors and invariant violations"
+        weight: 0
+
+    integration:
+      repositories:
+        suffix: {python: "*_repository.py", typescript: "*-repository.ts"}
+        description: "Data persistence and retrieval adapters"
+        weight: 2
+      clients:
+        suffix: {python: "*_client.py", typescript: "*-client.ts"}
+        description: "External API and service clients"
+        weight: 1
+      caches:
+        suffix: {python: "*_cache.py", typescript: "*-cache.ts"}
+        description: "Caching implementations"
+        weight: 0.5
+      engines:
+        suffix: {python: "*_engine.py", typescript: "*-engine.ts"}
+        description: "Computational and processing engines (ML, graph, optimization)"
+        weight: 3
+      formatters:
+        suffix: {python: "*_formatter.py", typescript: "*-formatter.ts"}
+        description: "Output formatting and rendering services"
+        weight: 1
+      notifiers:
+        suffix: {python: "*_notifier.py", typescript: "*-notifier.ts"}
+        description: "Communication and notification services"
+        weight: 1
+      queues:
+        suffix: {python: "*_queue.py", typescript: "*-queue.ts"}
+        description: "Message queue and event streaming clients"
+        weight: 2
+      stores:
+        suffix: {python: "*_store.py", typescript: "*-store.ts"}
+        description: "File and object storage adapters"
+        weight: 1
+      mappers:
+        suffix: {python: "*_mapper.py", typescript: "*-mapper.ts"}
+        description: "Data transformation and mapping between layers"
+        weight: 0.5
+      schedulers:
+        suffix: {python: "*_scheduler.py", typescript: "*-scheduler.ts"}
+        description: "Background tasks and scheduled jobs"
+        weight: 2
+      monitors:
+        suffix: {python: "*_monitor.py", typescript: "*-monitor.ts"}
+        description: "Observability and infrastructure monitoring"
+        weight: 1
+
+  frontend:
+    presentation:
+      views:
+        suffix: {dart: "*_page.dart", typescript: "*-page.tsx"}
+        description: "Full-screen views and pages"
+        weight: 1
+      components:
+        suffix: {dart: "*_widget.dart", typescript: "*.tsx"}
+        description: "Reusable UI components"
+        weight: 0.5
+      containers:
+        suffix: {typescript: "*-container.tsx"}
+        description: "Smart components connected to state"
+        weight: 1
+      controllers:
+        suffix: {dart: "*_bloc.dart", typescript: "*-store.ts"}
+        description: "UI state management and business logic"
+        weight: 2
+      routes:
+        suffix: {dart: "*_router.dart", typescript: "*-routes.ts"}
+        description: "Navigation and routing configuration"
+        weight: 0
+      layouts:
+        suffix: {dart: "*_layout.dart", typescript: "*-layout.tsx"}
+        description: "Page structure and composition templates"
+        weight: 1
+      styles:
+        suffix: {dart: "*_theme.dart", typescript: "*.css"}
+        description: "Design tokens, themes, and styling"
+        weight: 0
+      animations:
+        suffix: {dart: "*_animation.dart", typescript: "*-animation.ts"}
+        description: "UI animations and transitions"
+        weight: 0.5
+      forms:
+        suffix: {dart: "*_form.dart", typescript: "*-form.ts"}
+        description: "Form state management and validation"
+        weight: 1
+      hooks:
+        suffix: {typescript: "use-*.ts"}
+        description: "Reusable stateful logic (React-style)"
+        weight: 0.5
+      directives:
+        suffix: {typescript: "*-directive.ts"}
+        description: "Custom DOM/element behaviors (Vue/Angular)"
+        weight: 0.5
+      filters:
+        suffix: {typescript: "*-filter.ts"}
+        description: "Data formatting pipes/filters"
+        weight: 0.5
+
+    application:
+      use_cases:
+        suffix: {dart: "*_use_case.dart", typescript: "*-use-case.ts"}
+        description: "Frontend-initiated workflows"
+        weight: 2
+      ports:
+        suffix: {dart: "*_port.dart", typescript: "*-port.ts"}
+        description: "Interfaces for data access and external services"
+        weight: 0
+      policies:
+        suffix: {dart: "*_policy.dart", typescript: "*-policy.ts"}
+        description: "Frontend business policies and rules"
+        weight: 1
+      dtos:
+        suffix: {dart: "*_dto.dart", typescript: "*-dto.ts"}
+        description: "Application-internal data structures"
+        weight: 0
+
+    domain:
+      entities:
+        suffix: {dart: "*.dart", typescript: "*.ts"}
+        description: "Domain models used on the client"
+        weight: 1
+      value_objects:
+        suffix: {dart: "*_vo.dart", typescript: "*-vo.ts"}
+        description: "Immutable typed values"
+        weight: 0.5
+      services:
+        suffix: {dart: "*_service.dart", typescript: "*-service.ts"}
+        description: "Pure domain logic services"
+        weight: 1
+      specifications:
+        suffix: {dart: "*_spec.dart", typescript: "*-spec.ts"}
+        description: "Composable rules and predicates"
+        weight: 0.5
+      exceptions:
+        suffix: {dart: "*_exception.dart", typescript: "*-exception.ts"}
+        description: "Domain-level errors"
+        weight: 0
+
+    integration:
+      repositories:
+        suffix: {dart: "*_repository.dart", typescript: "*-repository.ts"}
+        description: "Data access implementations"
+        weight: 2
+      clients:
+        suffix: {dart: "*_client.dart", typescript: "*-client.ts"}
+        description: "HTTP/WebSocket/GraphQL API clients"
+        weight: 1
+      stores:
+        suffix: {dart: "*_store.dart", typescript: "*-store.ts"}
+        description: "Local persistence implementations"
+        weight: 1
+      serializers:
+        suffix: {dart: "*_serializer.dart", typescript: "*-serializer.ts"}
+        description: "API data transformation"
+        weight: 0.5
+      mappers:
+        suffix: {dart: "*_mapper.dart", typescript: "*-mapper.ts"}
+        description: "Data transformation between layers"
+        weight: 0.5
+      interceptors:
+        suffix: {dart: "*_interceptor.dart", typescript: "*-interceptor.ts"}
+        description: "HTTP request/response middleware"
+        weight: 1
+      caches:
+        suffix: {dart: "*_cache.dart", typescript: "*-cache.ts"}
+        description: "Client-side caching implementations"
+        weight: 0.5
+      synchronizers:
+        suffix: {dart: "*_sync.dart", typescript: "*-sync.ts"}
+        description: "Offline sync and conflict resolution"
+        weight: 2
+      monitors:
+        suffix: {dart: "*_monitor.dart", typescript: "*-monitor.ts"}
+        description: "Client-side monitoring and telemetry"
+        weight: 1
+      validators:
+        suffix: {dart: "*_validator.dart", typescript: "*-validator.ts"}
+        description: "Client-side validation engines"
+        weight: 0.5
+      workers:
+        suffix: {typescript: "*.worker.ts"}
+        description: "Background processing and web workers"
+        weight: 2
+      connectors:
+        suffix: {dart: "*_connector.dart", typescript: "*-connector.ts"}
+        description: "Real-time and streaming connections"
+        weight: 1
+
+# Artifact derivation for component naming
+artifact_derivation:
+  description: "How to derive component names from artifact resources"
+  overview: |
+    Component names come from artifact resources (the part after colon).
+    Transform resource to PascalCase and add capability suffix based on artifact type.
+    Components describe CAPABILITY to handle artifacts.
+
+  rules:
+    pascalcase_conversion:
+      rule: "Convert artifact resource to PascalCase"
+      examples:
+        - from: "choice"
+          to: "Choice"
+        - from: "player-wallet"
+          to: "PlayerWallet"
+        - from: "domain-impacts"
+          to: "DomainImpacts"
+        - from: "remaining"
+          to: "Remaining"
+
+    capability_suffix:
+      rule: "Add capability suffix based on artifact type and component responsibility"
+      by_artifact_type:
+        events:
+          description: "Past tense resources (started, closed, credited)"
+          suffixes: ["Publisher", "Emitter", "Broadcaster"]
+          examples:
+            - artifact: "match:started"
+              resource: "started"
+              component: "MatchStartedPublisher"
+              urn: "component:resolve-dilemmas:make-choice.MatchStartedPublisher.backend.integration"
+
+            - artifact: "wallet:credited"
+              resource: "credited"
+              component: "WalletCreditedEmitter"
+              urn: "component:manage-wallets:credit-wallet.WalletCreditedEmitter.backend.integration"
+
+        states:
+          description: "Adjective resources (remaining, active, current)"
+          suffixes: ["Tracker", "Monitor", "Manager"]
+          examples:
+            - artifact: "mechanic:timebank.remaining"
+              resource: "remaining"
+              component: "TimebankTracker"
+              urn: "component:burn-timebank:track-timebank.TimebankTracker.backend.domain"
+
+            - artifact: "session:active"
+              resource: "active"
+              component: "SessionManager"
+              urn: "component:init-session:maintain-session.SessionManager.backend.application"
+
+        data:
+          description: "Noun resources (choice, identity, profile)"
+          suffixes: ["Provider", "Handler", "Processor", "Maker"]
+          examples:
+            - artifact: "mechanic:decision.choice"
+              resource: "choice"
+              component: "ChoiceMaker"
+              urn: "component:resolve-dilemmas:make-choice.ChoiceMaker.backend.domain"
+
+            - artifact: "player:identity"
+              resource: "identity"
+              component: "IdentityProvider"
+              urn: "component:contextualize-identity:identify-player.IdentityProvider.backend.application"
+
+        configs:
+          description: "Configuration resources (config, settings, agreement)"
+          suffixes: ["Configurator", "Builder", "Initializer"]
+          examples:
+            - artifact: "match:config"
+              resource: "config"
+              component: "MatchConfigurator"
+              urn: "component:setup-match:configure-match.MatchConfigurator.backend.application"
+
+            - artifact: "league:config"
+              resource: "config"
+              component: "LeagueBuilder"
+              urn: "component:define-league:configure-league.LeagueBuilder.backend.application"
+
+  layer_assignment:
+    description: "Assign components to layers based on artifact type and responsibility"
+
+    events:
+      typical_layers: ["integration", "application"]
+      rationale: "Event publishers at boundaries (external integration or internal application)"
+      examples:
+        - "MatchStartedPublisher → backend.integration (publishes to external systems)"
+        - "StateCommittedEmitter → backend.application (emits internal events)"
+
+    states:
+      typical_layers: ["domain", "application"]
+      rationale: "State trackers manage business state (domain) or coordinate (application)"
+      examples:
+        - "TimebankTracker → backend.domain (tracks core business state)"
+        - "SessionManager → backend.application (coordinates session lifecycle)"
+
+    data:
+      typical_layers: ["domain", "application", "integration"]
+      rationale: "Data handlers span layers based on responsibility"
+      examples:
+        - "ChoiceMaker → backend.domain (business logic for making choice)"
+        - "ChoiceHandler → backend.application (coordinates choice workflow)"
+        - "ChoicePersister → backend.integration (persists to database)"
+
+    configs:
+      typical_layers: ["application", "integration"]
+      rationale: "Configuration components coordinate setup or load settings"
+      examples:
+        - "MatchConfigurator → backend.application (coordinates match setup)"
+        - "ConfigLoader → backend.integration (loads from external config store)"
+
+  complete_example:
+    artifact: "mechanic:decision.choice"
+    wagon: "resolve-dilemmas"
+    feature: "make-choice"
+    components:
+      - name: "ChoiceDisplay"
+        urn: "component:resolve-dilemmas:make-choice.ChoiceDisplay.frontend.presentation"
+        purpose: "Renders choice options to user"
+        derivation: "Resource 'choice' → ChoiceDisplay (presentation UI)"
+
+      - name: "ChoiceValidator"
+        urn: "component:resolve-dilemmas:make-choice.ChoiceValidator.frontend.application"
+        purpose: "Validates user selection before submission"
+        derivation: "Resource 'choice' → ChoiceValidator (validation logic)"
+
+      - name: "ChoiceMaker"
+        urn: "component:resolve-dilemmas:make-choice.ChoiceMaker.backend.domain"
+        purpose: "Applies business rules to make the choice"
+        derivation: "Resource 'choice' → ChoiceMaker (core business logic)"
+
+      - name: "ChoicePersister"
+        urn: "component:resolve-dilemmas:make-choice.ChoicePersister.backend.integration"
+        purpose: "Persists choice to database"
+        derivation: "Resource 'choice' → ChoicePersister (persistence)"
+
+# Component limits - similar to WMBT acceptance limits
+component_limits:
+  max_per_feature: 8
+  rationale: "Beyond 8 components indicates feature is too large and should be split"
+  typical_distribution:
+    frontend: 2  # presentation + application
+    backend: 3   # application + domain + integration
+    shared: 3    # cross-cutting concerns
+
+  layer_distribution:
+    frontend: ["presentation", "application"]
+    backend: ["application", "domain", "integration"]
+
+# Component derivation from feature analysis
+component_derivation:
+  from_io_seeds:
+    produce_events:
+      trigger: "feature.ioSeeds.produce contains event:* or notification:*"
+      generates: "Component with event publishing capability"
+      layer: "application or integration"
+
+    consume_events:
+      trigger: "feature.ioSeeds.consume contains event:* or notification:*"
+      generates: "Component with event handling capability"
+      layer: "application or integration"
+
+    consume_commands:
+      trigger: "feature.ioSeeds.consume contains command:*"
+      generates: "Component with command processing capability"
+      layer: "application"
+
+    produce_queries:
+      trigger: "feature.ioSeeds.produce contains query:*"
+      generates: "Component with query handling capability"
+      layer: "application or domain"
+
+  from_wmbt_analysis:
+    validation_needs:
+      trigger: "WMBTs contain 'validate', 'verify', 'check'"
+      generates: "Validation component"
+      business_capability: "validator"
+      layer: "domain"
+
+    processing_needs:
+      trigger: "WMBTs contain 'process', 'compute', 'calculate'"
+      generates: "Processing component"
+      business_capability: "processor"
+      layer: "application or domain"
+
+    presentation_needs:
+      trigger: "WMBTs contain 'display', 'show', 'render'"
+      generates: "Presentation component"
+      business_capability: "display"
+      layer: "presentation"
+
+    persistence_needs:
+      trigger: "WMBTs contain 'store', 'save', 'persist'"
+      generates: "Persistence component"
+      business_capability: "persister"
+      layer: "integration"
+
+    coordination_needs:
+      trigger: "WMBTs contain 'coordinate', 'orchestrate', 'manage'"
+      generates: "Coordination component"
+      business_capability: "coordinator"
+      layer: "application"
+
+# Component naming rules
+component_naming:
+  pattern: "{business-capability}-{layer-role}"
+
+  business_capabilities:
+    # Core business functions
+    validator: "Validates business rules and constraints"
+    processor: "Processes business logic and computations"
+    coordinator: "Coordinates multiple operations"
+    transformer: "Transforms data between formats"
+    aggregator: "Aggregates data from multiple sources"
+
+    # UI/UX capabilities
+    display: "Displays information to users"
+    collector: "Collects user input"
+    navigator: "Manages navigation flow"
+
+    # Integration capabilities
+    persister: "Persists data to storage"
+    fetcher: "Fetches data from external sources"
+    publisher: "Publishes events/notifications"
+    subscriber: "Subscribes to events/notifications"
+
+  examples:
+    - "option-validator"      # Validates user options
+    - "decision-processor"     # Processes decisions
+    - "dilemma-display"       # Displays dilemma UI
+    - "choice-persister"      # Persists choice data
+    - "result-publisher"      # Publishes results
+
+# Component structure generation rules
+component_structure:
+  urn:
+    pattern: "component:{wagon}.{feature}.{business_capability}.{side}.{layer}"
+    example: "component:resolve-dilemmas:choose-option.option-validator.backend.domain"
+    note: "Pattern updated to use {side} instead of {tier} for clarity"
+
+  parent_feature:
+    source: "feature URN from input"
+    required: true
+
+  description:
+    template: "Handles {business_capability} for {feature} using {layer} patterns"
+    example: "Handles validation for choose-option using domain patterns"
+
+  events:
+    consumes:
+      source: "feature.ioSeeds.consume filtered by component role"
+      maximum: 3
+      example: ["dilemma:presented", "user:authenticated"]
+
+    produces:
+      source: "feature.ioSeeds.produce filtered by component capability"
+      maximum: 3
+      example: ["decision:made", "validation:completed"]
+
+  dependencies:
+    source: "Other components in same feature + external dependencies"
+    example: ["component:same:feature.other", "wagon:external#io"]
+
+# Layer-specific patterns
+layer_patterns:
+  presentation:
+    typical_methods: ["render", "handleInput", "updateDisplay"]
+    consumes: ["user interactions", "display updates"]
+    produces: ["ui events", "user actions"]
+
+  application:
+    typical_methods: ["execute", "coordinate", "validate"]
+    consumes: ["commands", "queries"]
+    produces: ["events", "responses"]
+
+  domain:
+    typical_methods: ["process", "calculate", "applyRules"]
+    consumes: ["domain events"]
+    produces: ["domain events", "state changes"]
+
+  integration:
+    typical_methods: ["fetch", "save", "publish"]
+    consumes: ["external events"]
+    produces: ["external calls", "persistence operations"]
+
+# Validation rules
+validation_rules:
+  component_count:
+    rule: "Feature must have ≤ 8 components"
+    action: "Split feature if more components needed"
+
+  business_focus:
+    rule: "Each component must have single business capability"
+    check: "Component name reflects its primary business purpose"
+
+  layer_consistency:
+    rule: "Component belongs to exactly one layer"
+    check: "URN contains valid layer: presentation|application|domain|integration"
+
+  io_alignment:
+    rule: "Component events must subset of feature ioSeeds"
+    check: "All consumed/produced events traceable to feature ioSeeds"
+
+  method_limit:
+    rule: "Component has ≤ 5 methods"
+    action: "Split component if more methods needed"
+
+# Component generation strategy
+generation_strategy:
+  step_1_analyze: "Analyze feature ioSeeds and WMBTs"
+  step_2_identify: "Identify needed business capabilities"
+  step_3_assign: "Assign capabilities to appropriate layers"
+  step_4_generate: "Generate up to 8 components with complete structure"
+  step_5_validate: "Ensure all feature needs covered by components"
+
+# Examples of feature → component mapping
+mapping_examples:
+  binary_choice_feature:
+    input:
+      ioSeeds:
+        consume: ["dilemma:presented"]
+        produce: ["decision:made"]
+      wmbts: ["validate options", "process choice", "display result"]
+
+    output_components:
+      - business_capability: "option-validator"
+        layer: "domain"
+        reason: "WMBT mentions validation"
+
+      - business_capability: "choice-processor"
+        layer: "application"
+        reason: "WMBT mentions processing"
+
+      - business_capability: "result-display"
+        layer: "presentation"
+        reason: "WMBT mentions display"

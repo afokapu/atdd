@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Event Test Harness Template",
+  "description": "Template for event-driven/message bus tests",
+  "language": "typescript",
+  "framework": "vitest",
+  "category": "backend",
+  "template": "\ndescribe('{test_name}', () => {{\n  let eventBus: EventBus;\n  let publishedEvents: any[] = [];\n\n  beforeEach(() => {{\n    eventBus = new EventBus();\n    eventBus.on('*', (event) => publishedEvents.push(event));\n  }});\n\n  it('{acceptance_name}', async () => {{\n    // Given\n    {given_setup}\n\n    // When\n    await eventBus.publish({{\n      topic: '{event_topic}',\n      payload: {event_payload}\n    }});\n\n    // Then\n    {then_assertions}\n  }});\n}});\n",
+  "variables": [
+    "test_name",
+    "acceptance_name",
+    "given_setup",
+    "event_topic",
+    "event_payload",
+    "then_assertions"
+  ]
+}

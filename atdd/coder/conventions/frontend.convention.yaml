@@ -1,0 +1,542 @@
+version: "1.0"
+name: "Frontend Component Convention"
+description: "Layer catalog and component suffixes for frontend implementation."
+
+frontend:
+  layers:
+    presentation:
+      description: "User interface components and visual elements"
+      component_types:
+        - name: views
+          description: "Full-screen views and pages"
+          suffix:
+            dart: "*_page.dart, *_screen.dart"
+            typescript: "*-page.tsx, *-view.tsx"
+            vue: "*-view.vue"
+          examples:
+            - "Home page, login screen, dashboard"
+            - "Product detail page, checkout flow"
+            - "Settings page, profile view"
+
+        - name: components
+          description: "Reusable UI components"
+          suffix:
+            dart: "*_widget.dart"
+            typescript: "*.tsx, *.vue"
+            vue: "*.vue"
+          examples:
+            - "Buttons, inputs, cards, modals"
+            - "Data tables, charts, forms"
+            - "Navigation bars, sidebars, menus"
+            - "Stateless display components"
+            - "Stateful interactive components"
+
+        - name: containers
+          description: "Smart components connected to state"
+          suffix:
+            typescript: "*-container.tsx"
+            vue: "*-container.vue"
+          examples:
+            - "Connected components (Redux, Vuex)"
+            - "Data-fetching wrappers"
+            - "State-injecting HOCs"
+
+        - name: controllers
+          description: "UI state management and business logic"
+          suffix:
+            dart: "*_bloc.dart, *_cubit.dart, *_controller.dart"
+            typescript: "*-store.ts, *-slice.ts"
+            vue: "*-store.ts"
+          examples:
+            - "BLoC/Cubit (Flutter)"
+            - "Redux slices/reducers"
+            - "Vuex modules"
+            - "MobX stores"
+            - "View models (MVVM)"
+
+        - name: routes
+          description: "Navigation and routing configuration"
+          suffix:
+            dart: "*_router.dart, *_routes.dart"
+            typescript: "*-routes.ts, router.ts"
+          examples:
+            - "Route definitions"
+            - "Navigation guards"
+            - "Deep linking"
+            - "Route parameters"
+
+        - name: layouts
+          description: "Page structure and composition templates"
+          suffix:
+            dart: "*_layout.dart"
+            typescript: "*-layout.tsx"
+          examples:
+            - "App shell, main layout"
+            - "Sidebar layout, grid layout"
+            - "Responsive layouts"
+
+        - name: styles
+          description: "Design tokens, themes, and styling"
+          suffix:
+            dart: "*_theme.dart, *_styles.dart"
+            typescript: "*.css, *.scss, *-theme.ts"
+          examples:
+            - "Color palettes, typography"
+            - "Spacing, shadows, borders"
+            - "Dark mode themes"
+            - "CSS-in-JS configurations"
+
+        - name: animations
+          description: "UI animations and transitions"
+          suffix:
+            dart: "*_animation.dart"
+            typescript: "*-animation.ts"
+          examples:
+            - "Page transitions"
+            - "Loading animations"
+            - "Gesture animations"
+            - "Spring physics"
+
+        - name: forms
+          description: "Form state management and validation"
+          suffix:
+            dart: "*_form.dart"
+            typescript: "*-form.ts, *-schema.ts"
+          examples:
+            - "Form builders"
+            - "Validation rules (Yup, Zod, FormBuilder)"
+            - "Form state (Formik, React Hook Form)"
+
+        - name: hooks
+          description: "Reusable stateful logic (React/Preact-style)"
+          suffix:
+            typescript: "use-*.ts, use-*.tsx"
+            preact: "use-*.ts"
+            dart: "use_*.dart"
+          examples:
+            - "useAuth, useQuery, useLocalStorage"
+            - "useFetch, useDebounce, useThrottle"
+            - "Custom business logic hooks"
+          layer_guidance:
+            presentation: "UI state hooks (useCarouselState, useModalState)"
+            application: "Business logic hooks (useDilemma, useTimebank)"
+
+        - name: directives
+          description: "Custom DOM/element behaviors (Vue/Angular)"
+          suffix:
+            typescript: "*-directive.ts"
+            vue: "v-*.ts"
+          examples:
+            - "v-tooltip, v-click-outside"
+            - "Custom attribute directives"
+            - "Structural directives"
+
+        - name: filters
+          description: "Data formatting pipes/filters"
+          suffix:
+            typescript: "*-filter.ts, *-pipe.ts"
+            vue: "*-filter.ts"
+          examples:
+            - "Date formatting"
+            - "Currency formatting"
+            - "Text truncation"
+
+    application:
+      description: "Frontend-specific business logic and orchestration"
+      component_types:
+        - name: use_cases
+          description: "Frontend-initiated workflows"
+          suffix:
+            dart: "*_use_case.dart"
+            typescript: "*-use-case.ts"
+          examples:
+            - "Submit order flow"
+            - "Load user profile"
+            - "Search products"
+            - "Upload file with progress"
+
+        - name: ports
+          description: "Interfaces for data access and external services"
+          suffix:
+            dart: "*_port.dart"
+            typescript: "*-port.ts, *-interface.ts"
+          examples:
+            - "Repository interfaces"
+            - "API client interfaces"
+            - "Storage interfaces"
+            - "Analytics interfaces"
+
+        - name: policies
+          description: "Frontend business policies and rules"
+          suffix:
+            dart: "*_policy.dart"
+            typescript: "*-policy.ts"
+          examples:
+            - "Authorization policies"
+            - "Feature flags"
+            - "A/B test logic"
+            - "Validation policies"
+
+        - name: dtos
+          description: "Application-internal data structures"
+          suffix:
+            dart: "*_dto.dart"
+            typescript: "*-dto.ts"
+          examples:
+            - "View models (different from API DTOs)"
+            - "Internal transfer objects"
+            - "Aggregated UI state"
+
+    domain:
+      description: "Frontend domain types and pure logic (UI-framework agnostic)"
+      component_types:
+        - name: entities
+          description: "Domain models used on the client"
+          suffix:
+            dart: "*.dart, *_entity.dart"
+            typescript: "*.ts, *-entity.ts"
+          examples:
+            - "User, Product, Order"
+            - "Domain entities mirrored from backend"
+            - "Client-specific entities"
+
+        - name: value_objects
+          description: "Immutable typed values"
+          suffix:
+            dart: "*_vo.dart"
+            typescript: "*-vo.ts, *.ts"
+          examples:
+            - "Email, Money, Coordinates"
+            - "DateRange, Color, Dimension"
+
+        - name: services
+          description: "Pure domain logic services"
+          suffix:
+            dart: "*_service.dart"
+            typescript: "*-service.ts"
+          examples:
+            - "Calculation services"
+            - "Formatting services (pure functions)"
+            - "Business rule evaluation"
+
+        - name: specifications
+          description: "Composable rules and predicates"
+          suffix:
+            dart: "*_spec.dart"
+            typescript: "*-spec.ts"
+          examples:
+            - "Validation specifications"
+            - "Filter specifications"
+            - "Eligibility checks"
+
+        - name: exceptions
+          description: "Domain-level errors"
+          suffix:
+            dart: "*_exception.dart"
+            typescript: "*-exception.ts, errors.ts"
+          examples:
+            - "ValidationError"
+            - "BusinessRuleViolation"
+            - "InvalidStateError"
+
+    integration:
+      description: "API clients, storage, and external service adapters"
+      component_types:
+        - name: repositories
+          description: "Data access implementations"
+          suffix:
+            dart: "*_repository.dart"
+            typescript: "*-repository.ts"
+          examples:
+            - "API-backed repositories"
+            - "Local storage repositories"
+            - "Hybrid online/offline repositories"
+            - "IndexedDB repositories"
+
+        - name: clients
+          description: "HTTP/WebSocket/GraphQL API clients"
+          suffix:
+            dart: "*_client.dart"
+            typescript: "*-client.ts, *-api.ts"
+          examples:
+            - "REST API clients (fetch, axios)"
+            - "GraphQL clients (Apollo, urql)"
+            - "WebSocket clients"
+            - "gRPC-web clients"
+
+        - name: stores
+          description: "Local persistence implementations"
+          suffix:
+            dart: "*_store.dart"
+            typescript: "*-store.ts"
+          examples:
+            - "LocalStorage adapters"
+            - "SessionStorage adapters"
+            - "IndexedDB wrappers"
+            - "Secure storage (mobile)"
+            - "SQLite (mobile)"
+
+        - name: serializers
+          description: "API data transformation"
+          suffix:
+            dart: "*_serializer.dart"
+            typescript: "*-serializer.ts"
+          examples:
+            - "JSON serialization/deserialization"
+            - "API DTO → Entity mapping"
+            - "Entity → API DTO mapping"
+            - "Date/time normalization"
+
+        - name: mappers
+          description: "Data transformation between layers"
+          suffix:
+            dart: "*_mapper.dart"
+            typescript: "*-mapper.ts"
+          examples:
+            - "API response → Domain entity"
+            - "Domain entity → View model"
+            - "Form data → Request DTO"
+
+        - name: interceptors
+          description: "HTTP request/response middleware"
+          suffix:
+            dart: "*_interceptor.dart"
+            typescript: "*-interceptor.ts"
+          examples:
+            - "Auth token injection"
+            - "Error handling"
+            - "Request/response logging"
+            - "Retry logic"
+            - "Cache headers"
+
+        - name: caches
+          description: "Client-side caching implementations"
+          suffix:
+            dart: "*_cache.dart"
+            typescript: "*-cache.ts"
+          examples:
+            - "In-memory caches (LRU)"
+            - "HTTP cache"
+            - "Query result caches (React Query, SWR)"
+            - "Persistent caches"
+
+        - name: synchronizers
+          description: "Offline sync and conflict resolution"
+          suffix:
+            dart: "*_sync.dart"
+            typescript: "*-sync.ts"
+          examples:
+            - "Offline queue managers"
+            - "Sync engines"
+            - "Conflict resolution strategies"
+            - "Background sync"
+
+        - name: monitors
+          description: "Client-side monitoring and telemetry"
+          suffix:
+            dart: "*_monitor.dart, *_tracker.dart"
+            typescript: "*-monitor.ts, *-tracker.ts"
+          examples:
+            - "Analytics trackers (GA, Mixpanel)"
+            - "Error tracking (Sentry, Bugsnag)"
+            - "Performance monitoring (Web Vitals)"
+            - "User session recording"
+
+        - name: validators
+          description: "Client-side validation engines"
+          suffix:
+            dart: "*_validator.dart"
+            typescript: "*-validator.ts"
+          examples:
+            - "Form validators"
+            - "Schema validators (Yup, Zod)"
+            - "Business rule validators"
+
+        - name: workers
+          description: "Background processing and web workers"
+          suffix:
+            typescript: "*.worker.ts"
+            dart: "*_worker.dart"
+          examples:
+            - "Web Workers for heavy computation"
+            - "Service Workers for PWA"
+            - "Background tasks"
+
+        - name: connectors
+          description: "Real-time and streaming connections"
+          suffix:
+            dart: "*_connector.dart"
+            typescript: "*-connector.ts"
+          examples:
+            - "WebSocket managers"
+            - "SSE (Server-Sent Events)"
+            - "Firebase real-time database"
+            - "SignalR connections"
+
+  structure:
+    dart:
+      src_path_pattern: "lib/{wagon}/{feature}/{layer}/"
+      layers: [presentation, application, domain, integration]
+
+    flutter:
+      src_path_pattern: "lib/{wagon}/{feature}/{layer}/"
+      layers: [presentation, application, domain, integration]
+      import_restrictions:
+        domain:
+          forbidden_imports: ["package:flutter", "flutter"]
+          disallowed: ["package:flutter", "flutter"]
+        application:
+          forbidden_imports: ["package:flutter"]
+
+    preact:
+      framework: "preact + vite + typescript"
+      src_path_pattern: "web/src/{wagon}/{feature}/{layer}/"
+      test_path_pattern: "web/tests/{wagon}/{feature}/{layer}/"
+      layers: [presentation, application, domain, integration]
+      contracts:
+        description: "Cross-wagon domain types and catalogs that mirror contract schemas"
+        path: "web/src/commons/domain/"
+        purpose: "Pure domain types/constants usable across wagons; UI extensions allowed only as additive metadata"
+        allowed_content: ["types", "interfaces", "constants", "enums", "pure functions"]
+        forbidden_content: ["hooks", "components", "side-effects"]
+        import_rule: "Any layer in any wagon may import from web/src/commons/domain"
+        traceability: "TypeScript files must include @contract {schema_id} JSDoc"
+        structure:
+          - "commons/domain/DomainCatalog.ts   # core contract + UI metadata"
+          - "commons/domain/AttributeCatalog.ts"
+          - "commons/domain/MatchContext.ts"
+      file_extensions: [".ts", ".tsx"]
+      layer_mapping:
+        presentation: ["pages", "components", "hooks", "styles"]
+        application: ["use-cases", "hooks", "ports", "context"]
+        domain: ["entities", "value-objects", "services", "types", "constants"]
+        integration: ["api", "repositories", "mappers", "adapters", "stores"]
+      import_restrictions:
+        domain:
+          forbidden_imports: ["preact", "preact/hooks", "@maintain-ux", "react"]
+          rationale: "Domain must be framework-agnostic - no UI imports"
+        application:
+          forbidden_imports: ["preact", "@maintain-ux"]
+          allowed_imports: ["preact/hooks"]
+          rationale: "Application orchestrates with hooks but doesn't render UI (no JSX)"
+        presentation:
+          forbidden_imports: ["integration layer directly"]
+          allowed_imports: ["preact", "preact/hooks", "@maintain-ux", "application layer", "domain types"]
+          rationale: "Presentation uses application layer, never calls APIs directly"
+        integration:
+          forbidden_imports: ["preact", "presentation layer"]
+          allowed_imports: ["application ports", "domain types"]
+          rationale: "Integration implements ports, doesn't know about UI"
+      component_patterns:
+        presentation_component:
+          pattern: |
+            import { h } from 'preact';
+            import type { ComponentProps } from './types';
+
+            export function ComponentName(props: ComponentProps) {
+              return <div>{props.children}</div>;
+            }
+        application_hook:
+          pattern: |
+            import { useState } from 'preact/hooks';
+            import { UseCase } from '../use-cases/UseCase';
+
+            export function useFeature() {
+              const [state, setState] = useState();
+              return { state };
+            }
+        domain_entity:
+          pattern: |
+            // No framework imports allowed
+            export class EntityName {
+              constructor(public readonly id: string) {
+                this.validate();
+              }
+              private validate(): void {}
+            }
+        integration_repository:
+          pattern: |
+            import type { Port } from '../../application/ports/Port';
+
+            export class Repository implements Port {
+              async method(): Promise<Result> {
+                return Promise.resolve({} as Result);
+              }
+            }
+      file_organization:
+        feature_index:
+          path: "src/{wagon}/{feature}/index.ts"
+          purpose: "Public API - exports only what's needed"
+          exports:
+            - "Presentation: pages, components"
+            - "Application: hooks, use cases"
+            - "Domain: types, entities (read-only)"
+            - "Integration: NEVER (internal only)"
+        layer_index:
+          path: "src/{wagon}/{feature}/{layer}/index.ts"
+          purpose: "Layer-level exports for internal use"
+      testing:
+        framework: "vitest + @testing-library/preact"
+        test_pattern: "{component}.test.tsx or {component}.test.ts"
+        test_location: "web/tests/{wagon}/{feature}/{layer}/"
+        harness_to_layer:
+          unit: ["domain", "application"]
+          widget: ["presentation"]
+          integration: ["integration"]
+        test_types:
+          unit:
+            layer: "domain, application"
+            pattern: "Pure logic tests, no DOM"
+          integration:
+            layer: "integration"
+            pattern: "API mocking, repository tests"
+          component:
+            layer: "presentation"
+            pattern: "Component rendering, user interactions"
+      design_system:
+        wagon: "maintain-ux"
+        special_layers: ["foundations", "primitives", "components", "templates"]
+        import_aliases:
+          primary: "@maintain-ux"
+        exception:
+          description: "maintain-ux uses flat design-system layout; traceability via URN headers"
+
+  dependency:
+    # Frontend-specific dependency rules (different from backend)
+    # Rationale: Frontend hooks naturally orchestrate both domain logic and integration
+    # services (API clients, repositories). This is pragmatic for React/Preact ecosystems
+    # where hooks serve as composition points.
+    allowed_edges:
+      - from: presentation
+        to: [application, domain]
+      - from: application
+        to: [domain, integration]  # Frontend hooks CAN import integration (differs from backend)
+      - from: integration
+        to: [application, domain]
+    forbidden_examples:
+      - "domain → application (domain must be pure)"
+      - "domain → integration (domain must be pure)"
+      - "domain → presentation (domain must be pure)"
+      - "presentation → integration (must go through application hooks)"
+    note: |
+      Frontend application layer (hooks/use-cases) is allowed to import from integration
+      because hooks serve as natural composition points in React/Preact apps.
+      This differs from backend where application layer uses ports for strict decoupling.
+      Backend rule: application → domain only (use ports for integration)
+      Frontend rule: application → domain, integration (pragmatic for hooks)
+
+  ci_enforcement:
+    checks:
+      - name: "arch_import_rules"
+        description: "Verify imports follow dependency_rules."
+      - name: "suffix_placement"
+        description: "Verify files live in layer matching suffix."
+      - name: "no_cross_feature_imports"
+        description: "Features cannot import other features' internals."
+      - name: "dto_boundary"
+        description: "Ensure DTOs are not imported in domain."
+      - name: "test_coverage_threshold"
+        description: "Min coverage for layers (configurable)."
+    tools:
+      - "dart import lints + custom scripts (melos/workspaces)"
+    failure_policy: "block_on_violation"

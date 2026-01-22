@@ -1,0 +1,82 @@
+recipe: thinness
+pattern: "Thin Handler + Use Case"
+category: presentation_application
+source: "Clean Architecture (Robert C. Martin)"
+utils: "thinness.py"
+
+applies_when:
+  - "Handler contains business logic"
+
+steps:
+  - step: 1
+    what: "Create use case in application layer"
+    where: "application/{feature}_usecase.py"
+    template: |
+      class {Action}UseCase:
+          """Execute {action} business logic."""
+
+          def __init__(self, repo: {Resource}Repository):
+              self.repo = repo
+
+          def execute(self, input: {Action}Input) -> {Resource}:
+              # Business logic here
+              result = {Resource}.create(input)
+              self.repo.save(result)
+              return result
+
+    verify:
+      - run: pytest -xvs tests/application/test_{feature}_usecase.py
+        expect: GREEN
+
+  - step: 2
+    what: "Define port interface (if not exists)"
+    where: "application/ports/{resource}_repository.py"
+    template: |
+      class {Resource}Repository:
+          """Port interface for {resource} persistence."""
+
+          def save(self, entity: {Resource}) -> None:
+              raise NotImplementedError
+
+          def find_by_id(self, id: {Resource}Id) -> {Resource}:
+              raise NotImplementedError
+
+  - step: 3
+    what: "Thin the handler (parse → call → format)"
+    where: "presentation/handlers/{feature}_handler.py"
+    before: |
+      # Fat handler with business logic
+      async def handle_create_order(req: Request) -> Response:
+          order_data = req.body
+          # Validation logic
+          if not order_data.get('customer_id'):
+              return Response(400, "Missing customer")
+          # Business logic (BAD - should be in use case)
+          total = sum(item['price'] * item['qty'] for item in order_data['items'])
+          discount = total * 0.1 if total > 100 else 0
+          final_total = total - discount
+          # Persistence (BAD - should be behind port)
+          db.execute("INSERT INTO orders ...")
+          return Response(201, {"id": order_id})
+
+    after: |
+      # Thin handler
+      async def handle_create_order(req: Request) -> Response:
+          # Parse
+          input = CreateOrderDTO.parse(req.body)
+
+          # Call use case
+          order = create_order_usecase.execute(input)
+
+          # Format
+          return Response(201, CreateOrderDTO.from_domain(order))
+
+    verify:
+      - run: pytest -xvs tests/presentation/test_{feature}_handler.py
+        expect: GREEN
+
+final_verify:
+  - "Handler has NO business logic (only parse/call/format)"
+  - "Use case orchestrates domain + ports"
+  - "All tests GREEN"
+  - "Coverage maintained or improved"

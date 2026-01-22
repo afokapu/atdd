@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "{theme}:{resource}[.{facet}]",
+  "title": "{PascalCaseTitle}",
+  "description": "{Concise description of contract purpose}",
+  "version": "1.0.0",
+  "type": "object",
+
+  "required": ["version"],
+  "additionalProperties": false,
+
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Contract version (semver)"
+    }
+  },
+
+  "$defs": {
+  },
+
+  "examples": [
+    {
+    }
+  ],
+
+  "x-artifact-metadata": {
+    "domain": "{domain}",
+    "resource": "{resource}",
+    "version": "1.0.0",
+    "hash": "<sha256-content-hash>",
+
+    "producer": "wagon:{wagon-name}",
+    "consumers": [
+      "wagon:{consumer-wagon}",
+      "external:{external-service}"
+    ],
+
+    "dependencies": [
+      "contract:{domain}:{resource}.{facet}"
+    ],
+
+    "api": {
+      "method": "GET|POST|PUT|DELETE",
+      "path": "/{domain}s/{id}/{resource}",
+      "auth": "required|optional|none"
+    },
+
+    "traceability": {
+      "wagon_ref": "plan/{wagon}/_<wagon>.yaml",
+      "feature_refs": [
+        "feature:{wagon}:{feature-slug}"
+      ],
+      "acceptance_refs": [
+        "acc:{wagon}:{epic-id}.{AC-ID}"
+      ]
+    },
+
+    "testing": {
+      "directory": "contracts/{domain}/tests/",
+      "schema_tests": [
+        "{schema_name}_schema_test.json",
+        "{schema_name}_validation_test.ts"
+      ]
+    },
+
+    "telemetry_refs": [
+      "telemetry:event:{domain}:{resource}:{signal}",
+      "telemetry:metric:{domain}:latency:{measure}"
+    ],
+
+    "governance": {
+      "status": "draft|active|deprecated",
+      "stability": "experimental|stable|frozen"
+    },
+
+    "persistence": {
+      "strategy": "jsonb",
+      "table": "{theme}_{domain}_{aspect}",
+      "migration": "supabase/migrations/{timestamp}_{table_name}.sql",
+      "indexes": [
+        {
+          "name": "idx_{table}_data",
+          "type": "gin",
+          "fields": ["data"]
+        }
+      ],
+      "_comment": "Only for persistent entities. Options: 'none' (events/DTOs), 'jsonb' (recommended for document storage), 'relational' (normalized tables). Remove this entire field if not persisted."
+    },
+
+    "extensions": {
+    }
+  }
+}

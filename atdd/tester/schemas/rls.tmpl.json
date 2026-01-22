@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Row Level Security Test Harness Template",
+  "description": "Template for testing RLS policies in Supabase",
+  "language": "typescript",
+  "framework": "vitest",
+  "category": "backend",
+  "template": "\n// URN: {urn}\nimport { test, expect } from 'vitest';\nimport { createClient } from '@supabase/supabase-js';\n\ntest('{test_name}', async () => {{\n  const supabaseUrl = process.env.SUPABASE_URL;\n  \n  const testCases = [\n    {{\n      name: 'anonymous_user',\n      key: process.env.SUPABASE_ANON_KEY,\n      shouldAccess: {anon_access}\n    }},\n    {{\n      name: 'authenticated_user',\n      key: process.env.SUPABASE_USER_KEY,\n      shouldAccess: {user_access}\n    }}\n  ];\n\n  const results = [];\n  for (const testCase of testCases) {{\n    const supabase = createClient(supabaseUrl, testCase.key);\n    const {{ data, error }} = await supabase\n      .from('{table}')\n      .{operation}({operation_params});\n    \n    const hasAccess = error === null;\n    results.push({{\n      context: testCase.name,\n      expected: testCase.shouldAccess,\n      actual: hasAccess,\n      passed: hasAccess === testCase.shouldAccess\n    }});\n  }}\n\n  const allPassed = results.every(r => r.passed);\n  expect(allPassed).toBe(true);\n}});\n",
+  "variables": [
+    "urn",
+    "test_name",
+    "table",
+    "operation",
+    "operation_params",
+    "anon_access",
+    "user_access"
+  ]
+}

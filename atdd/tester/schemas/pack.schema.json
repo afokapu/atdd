@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Contract Pack Manifest",
+  "description": "Schema for contract packs that define I/O interfaces with strict validation",
+  "type": "object",
+  "required": ["feature", "version", "map", "acceptance_refs"],
+  "additionalProperties": false,
+  "properties": {
+    "feature": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Feature identifier in kebab-case"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Pack version number (increments on breaking changes)"
+    },
+    "acceptance_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^\\.\\./\\.\\./plan/.+\\.yaml$"
+      },
+      "description": "References to acceptance YAML files"
+    },
+    "map": {
+      "type": "object",
+      "required": ["consume", "produce"],
+      "additionalProperties": false,
+      "properties": {
+        "consume": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {"$ref": "#/definitions/io_item"},
+          "description": "Inputs consumed by this feature (cap: 3)"
+        },
+        "produce": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {"$ref": "#/definitions/io_item"},
+          "description": "Outputs produced by this feature (cap: 2)"
+        }
+      }
+    },
+    "schemas": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "List of schema files generated for this pack"
+    },
+    "ports": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "List of port interface files"
+    },
+    "tests": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "List of generated RED test files"
+    }
+  },
+  "definitions": {
+    "io_item": {
+      "type": "object",
+      "required": ["name", "scope", "kind", "port"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z]+:[a-z][a-z0-9-]*$",
+          "description": "Typed identifier (e.g., match:dilemma.current)"
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["external", "internal"],
+          "description": "External crosses port boundary, internal stays in domain"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "dto", "command", "query", "event", "message", "notification",
+            "artifact", "config", "metric", "clock", "id", "job", "stream", "saga",
+            "entity", "value", "mutation", "state", "domain-input"
+          ],
+          "description": "Type of I/O artifact"
+        },
+        "port": {
+          "type": "string",
+          "enum": ["Repo", "Http", "Bus", "Knowledge", "Runner", "Clock", "IdGen", "Stream", "(none)"],
+          "description": "Port through which the I/O flows"
+        },
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z]+\\.[a-zA-Z0-9.-]+$",
+          "description": "Schema name without version (e.g., event.decision.chosen)"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^v[0-9]+$",
+          "description": "Schema version (e.g., v1)"
+        },
+        "durability": {
+          "type": "string",
+          "enum": ["transient", "persisted"],
+          "description": "Whether the artifact is persisted"
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Whether operations are idempotent"
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"scope": {"const": "external"}}},
+          "then": {
+            "required": ["schema", "version"],
+            "properties": {"port": {"not": {"const": "(none)"}}},
+            "errorMessage": "External I/O requires schema, version, and real port"
+          }
+        },
+        {
+          "if": {"properties": {"scope": {"const": "internal"}}},
+          "then": {
+            "properties": {"port": {"const": "(none)"}},
+            "not": {"required": ["version"]},
+            "errorMessage": "Internal I/O must have port=(none) and no version"
+          }
+        },
+        {
+          "if": {"properties": {"kind": {"enum": ["entity", "value", "mutation", "state", "domain-input"]}}},
+          "then": {"properties": {"scope": {"const": "internal"}},
+            "errorMessage": "Domain kinds (entity, value, mutation, state, domain-input) must be internal"
+          }
+        }
+      ]
+    }
+  }
+}

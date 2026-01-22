@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Accessibility Test Harness Template",
+  "description": "Template for accessibility tests using axe-core",
+  "language": "typescript",
+  "framework": "playwright",
+  "category": "frontend",
+  "template": "\n// URN: {urn}\nimport {{ test, expect }} from '@playwright/test';\nimport AxeBuilder from '@axe-core/playwright';\n\ntest('{test_name}', async ({{ page }}) => {{\n  // Given\n  await page.goto('{url}');\n  {given_setup}\n\n  // When\n  const results = await new AxeBuilder({{ page }})\n    {axe_ruleset_call}\n    .analyze();\n\n  // Then\n  const critical = results.violations.filter(v => v.impact === 'critical');\n  const ok = critical.length <= {max_critical};\n\n  console.log(JSON.stringify({{\n    urn: '{urn}',\n    status: ok ? 'PASS' : 'FAIL',\n    details: {{ critical: critical.length, violations: results.violations.length }}\n  }}));\n\n  expect(ok).toBeTruthy();\n}});\n",
+  "variables": [
+    "urn",
+    "test_name",
+    "url",
+    "given_setup",
+    "axe_ruleset_call",
+    "max_critical"
+  ]
+}

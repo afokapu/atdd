@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WMBT (What Must Be True) Schema",
+  "description": "Schema for What Must Be True statements that define measurable outcomes",
+  "type": "object",
+  "required": ["urn", "step", "direction", "dimension", "object_of_control", "lens"],
+  "additionalProperties": false,
+  "properties": {
+    "urn": {
+      "type": "string",
+      "pattern": "^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$",
+      "description": "WMBT URN: wmbt:{wagon}:{step_coded_id} (e.g., wmbt:burn-timebank:E001) - step-coded sequence"
+    },
+    "step": {
+      "type": "string",
+      "enum": ["define", "locate", "prepare", "confirm", "execute", "monitor", "modify", "resolve", "conclude"],
+      "description": "JTBD decomposition step indicating where in the job flow this outcome matters"
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["minimize", "maximize", "increase", "decrease"],
+      "description": "Optimization direction indicating how to improve the outcome"
+    },
+    "dimension": {
+      "type": "string",
+      "enum": ["time", "effort", "likelihood", "frequency", "quantity", "financial value"],
+      "description": "Measurement dimension - exactly one per WMBT to maintain focus"
+    },
+    "object_of_control": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "minLength": 2,
+      "description": "Descriptive of what is being controlled or measured"
+    },
+    "context_clarifier": {
+      "type": "string",
+      "pattern": "^[a-z].{1,250}$",
+      "description": "Detailed situational phrase specifying when/where/how this applies (one line maximum)"
+    },
+    "lens": {
+      "type": "string",
+      "pattern": "^(functional|emotional|social)\\.[a-z][a-z0-9-]*$",
+      "description": "Specific lens aspect reference (e.g., functional.efficiency, emotional.trust, social.belong)"
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Human-readable statement: direction + dimension + object_of_control + context_clarifier"
+    },
+
+    "appendices": {
+      "type": "array",
+      "description": "Supplementary files specific to this WMBT scenario",
+      "items": {
+        "$ref": "appendix.schema.json#/definitions/appendix_reference"
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+protocol: refactor_verification
+constraint: "ATDD - Refactor MUST preserve GREEN"
+
+before_refactor:
+  - id: check_initial_state
+    steps:
+      - run: pytest
+        expect: all_pass
+        on_fail: "BLOCKED - fix tests before refactoring"
+
+      - run: git status --porcelain
+        expect: clean_or_staged_only
+        on_fail: "WARN - uncommitted changes detected"
+
+during_refactor:
+  per_step:
+    - apply_with_journal:
+        before: capture_pre_state
+        transform: execute_step
+        after: capture_diff
+        save: journal_entry
+
+    - verify_step:
+        run: pytest
+        on_pass: continue_to_next_step
+        on_fail:
+          - rollback: journal.rollback_step(current_step_id)
+          - abort: "Step failed verification"
+
+after_refactor:
+  - id: final_verification
+    steps:
+      - run: pytest
+        expect: all_pass
+        on_fail:
+          - rollback: journal.rollback_batch(all_steps)
+          - abort: "Final verification failed - all changes rolled back"
+
+      - report: "Refactor successful - all tests GREEN"
+
+rollback:
+  method: "Git-based with structured logging"
+  implementation: "git restore (runtime helpers archived)"
+  how: "git restore --source=HEAD -- <files>"
+  logging: "agent.log with trace_id for auditability"
+
+  on_step_fail:
+    - log_refactor_step_end(step_id, "RED", trace_id)
+    - rollback_refactor_step(files, trace_id=trace_id)
+
+  on_final_fail:
+    - rollback_refactor_step(all_files, trace_id=trace_id)
+    - git checkout - (return to original branch)

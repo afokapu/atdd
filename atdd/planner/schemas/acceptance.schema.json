@@ -1,0 +1,336 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Acceptance Schema (V2)",
+  "description": "Validates acceptance criteria in WMBT files. Used by both planner (generates) and tester (consumes).",
+  "type": "object",
+  "required": ["identity", "harness", "given", "when", "then", "signal", "metadata"],
+  "additionalProperties": false,
+  "properties": {
+    "identity": {
+      "type": "object",
+      "required": ["urn", "id", "purpose", "phase"],
+      "additionalProperties": false,
+      "properties": {
+        "urn": {
+          "type": "string",
+          "pattern": "^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-[0-9]{3}(?:-[a-z0-9-]+)?$",
+          "description": "Acceptance URN format: acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^AC-(HTTP|UNIT|EVENT|WS|E2E|A11Y|VISUAL|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE_FUNCTION|REALTIME|STORAGE)-[0-9]{3}$"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 3
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["RED", "GREEN", "REFACTOR"]
+        }
+      }
+    },
+
+    "harness": {
+      "type": "object",
+      "required": ["type", "category"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["unit", "http", "event", "ws", "e2e", "a11y", "visual", "metric", "job", "db", "sec", "load", "script", "widget", "golden", "bloc", "integration", "rls", "edge_function", "realtime", "storage"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["frontend", "backend", "integration"]
+        },
+        "language_hint": {
+          "type": "string",
+          "enum": ["dart", "typescript", "python", "go", "auto"]
+        }
+      }
+    },
+
+    "given": {
+      "type": "object",
+      "required": ["abstract"],
+      "additionalProperties": false,
+      "properties": {
+        "abstract": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Human-readable Gherkin Given statements for stakeholder readability"
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "required": {"type": "boolean"},
+            "type": {"type": "string"},
+            "scopes": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "data": {
+          "type": "array",
+          "items": {"type": "object"}
+        },
+        "environment": {
+          "type": "object"
+        },
+        "stubs": {
+          "type": "object"
+        },
+        "custom": {
+          "type": "object"
+        }
+      }
+    },
+
+    "when": {
+      "type": "object",
+      "required": ["abstract", "action"],
+      "additionalProperties": false,
+      "properties": {
+        "abstract": {
+          "type": "string",
+          "minLength": 5,
+          "description": "Human-readable Gherkin When statement for stakeholder readability"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["request", "invoke", "emit", "connect", "navigate", "query", "measure", "render", "mutate"]
+        },
+        "target": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+
+    "then": {
+      "type": "object",
+      "required": ["abstract", "assertions"],
+      "additionalProperties": false,
+      "properties": {
+        "abstract": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Human-readable Gherkin Then statements for stakeholder readability"
+        },
+        "assertions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["equals", "contains", "matches", "exists", "count", "performance"]
+              },
+              "target": {"type": "string"},
+              "value": {},
+              "tolerance": {"type": "object"}
+            }
+          }
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "red_strategy": {
+          "type": "string",
+          "enum": ["not_implemented", "expect_false", "throw_error", "timeout"]
+        }
+      }
+    },
+
+    "signal": {
+      "type": "object",
+      "description": "Telemetry signals following OpenTelemetry (metrics, traces, logs) + analytics events",
+      "additionalProperties": false,
+      "properties": {
+        "metrics": {
+          "type": "array",
+          "description": "OpenTelemetry metrics for observability",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "threshold"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^telemetry:metric:(ui|ux|be|nw|db|st|tm|sc|au|fn|if):[a-z][a-z0-9-]*:[a-z][a-z0-9-]*(?:-[a-z][a-z0-9-]*)?:(latency|duration|throughput|error_rate|success_rate|count|size|age|staleness|freshness)$",
+                "description": "Metric URN: telemetry:metric:{plane}:{domain}:{resource}:{measure}. Artifact (domain:resource) must exist in contracts/_artifacts.yaml. No operation/wagon names in URN."
+              },
+              "type": {
+                "type": "string",
+                "enum": ["counter", "gauge", "histogram", "summary"],
+                "description": "OpenTelemetry metric instrument type"
+              },
+              "unit": {
+                "type": "string",
+                "description": "Unit (ms, s, bytes, percent, count) per OpenTelemetry semantic conventions"
+              },
+              "description": {
+                "type": "string",
+                "description": "Human-readable metric description"
+              },
+              "aggregation": {
+                "type": "string",
+                "enum": ["p50", "p95", "p99", "mean", "sum", "count", "rate", "max", "min"],
+                "description": "Aggregation method for metric (query-time, not OTel core but practical)"
+              },
+              "threshold": {
+                "oneOf": [
+                  {"type": "number"},
+                  {"type": "string", "pattern": "^[0-9]+(ms|s|%|MB|GB|bytes)$"}
+                ],
+                "description": "Expected threshold from acceptance (for alerting/testing)"
+              },
+              "attributes": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Metric attributes/dimensions (OTel terminology)"
+              }
+            }
+          }
+        },
+        "traces": {
+          "type": "array",
+          "description": "OpenTelemetry trace spans expected during execution",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^telemetry:trace:(ui|ux|be|nw|db|st|tm|sc|au|fn|if):[a-z][a-z0-9-]*:[a-z][a-z0-9-]*(?:-[a-z][a-z0-9-]*)?$",
+                "description": "Trace URN: telemetry:trace:{plane}:{domain}:{resource}. Artifact must exist in contracts/_artifacts.yaml. No measure segment for traces."
+              },
+              "kind": {
+                "type": "string",
+                "enum": ["server", "client", "producer", "consumer", "internal"],
+                "description": "Span kind per OpenTelemetry spec"
+              },
+              "attributes": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Required span attributes"
+              },
+              "parent": {
+                "type": "string",
+                "description": "Parent span name (for nested spans)"
+              }
+            }
+          }
+        },
+        "logs": {
+          "type": "array",
+          "description": "OpenTelemetry log records expected during execution",
+          "items": {
+            "type": "object",
+            "required": ["body"],
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "type": "string",
+                "description": "Log message body (can include {placeholders})"
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["trace", "debug", "info", "warn", "error", "fatal"],
+                "description": "Log severity per OpenTelemetry spec"
+              },
+              "attributes": {
+                "type": "object",
+                "description": "Structured log attributes"
+              },
+              "name": {
+                "type": "string",
+                "pattern": "^telemetry:log:(ui|ux|be|nw|db|st|tm|sc|au|fn|if):[a-z][a-z0-9-]*:[a-z][a-z0-9-]*(?:-[a-z][a-z0-9-]*)?$",
+                "description": "Log URN (optional): telemetry:log:{plane}:{domain}:{resource}. Artifact must exist in contracts/_artifacts.yaml."
+              }
+            }
+          }
+        },
+        "events": {
+          "type": "array",
+          "description": "Analytics events (product tracking via Segment/Mixpanel/Amplitude)",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^telemetry:event:(ui|ux|be|nw|db|st|tm|sc|au|fn|if):[a-z][a-z0-9-]*:[a-z][a-z0-9-]*(?:-[a-z][a-z0-9-]*)?$",
+                    "description": "Event URN: telemetry:event:{plane}:{domain}:{resource}. Resource must be past-tense verb from lexicon."
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Z][a-zA-Z0-9 ]*$",
+                    "description": "Analytics event name (e.g., 'Order Created')"
+                  }
+                ],
+                "description": "Event name: telemetry URN for OTel events, or analytics convention for product events"
+              },
+              "properties": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Event properties to track"
+              },
+              "category": {
+                "type": "string",
+                "description": "Event category (conversion, engagement, etc.)"
+              },
+              "tracking_plan_ref": {
+                "type": "string",
+                "description": "Reference to analytics tracking plan"
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "metadata": {
+      "type": "object",
+      "required": ["wagon"],
+      "additionalProperties": false,
+      "properties": {
+        "wagon": {"type": "string"},
+        "feature": {"type": "string"},
+        "route": {
+          "type": "object",
+          "properties": {
+            "layers": {"type": "array", "items": {"type": "string"}},
+            "sequence": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+
+    "appendices": {
+      "type": "array",
+      "description": "Supplementary files for this acceptance criterion",
+      "items": {
+        "$ref": "appendix.schema.json#/definitions/appendix_reference"
+      }
+    }
+  }
+}

@@ -1,0 +1,197 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Feature Schema",
+  "description": "Schema for feature YAML files",
+  "type": "object",
+  "required": ["urn", "wagon", "description", "sizing", "wmbts", "components"],
+  "properties": {
+    "urn": {
+      "type": "string",
+      "pattern": "^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$",
+      "description": "Feature URN: feature:{wagon}:{feature}"
+    },
+    "wagon": {
+      "type": "string",
+      "pattern": "^wagon:[a-z][a-z0-9-]*$",
+      "description": "Parent wagon URN (e.g., wagon:burn-timebank)"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 200,
+      "description": "One-liner describing feature purpose"
+    },
+    "sizing": {
+      "type": "object",
+      "required": ["wmbts", "footprint_score", "footprint_size"],
+      "additionalProperties": false,
+      "properties": {
+        "wmbts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "WMBT count covered by this feature"
+        },
+        "footprint_score": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Calculated footprint complexity score"
+        },
+        "footprint_size": {
+          "type": "string",
+          "enum": ["XS", "S", "M", "L", "XL"],
+          "description": "Footprint size category based on score"
+        }
+      },
+      "description": "Feature sizing metrics combining WMBT coverage and architectural footprint"
+    },
+    "wmbts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$"
+      },
+      "description": "WMBTs covered by this feature (e.g., wmbt:burn-timebank:E001)"
+    },
+    "components": {
+      "type": "object",
+      "description": "Component enumeration using URN references to component types from coder conventions",
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "type": "object",
+          "description": "Backend components grouped by architectural layer",
+          "additionalProperties": false,
+          "properties": {
+            "presentation": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/componentEntry"}
+            },
+            "application": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/componentEntry"}
+            },
+            "domain": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/componentEntry"}
+            },
+            "integration": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/componentEntry"}
+            }
+          }
+        },
+        "frontend": {
+          "type": "object",
+          "description": "Frontend components grouped by architectural layer",
+          "additionalProperties": false,
+          "properties": {
+            "presentation": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/componentEntry"}
+            },
+            "application": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/componentEntry"}
+            },
+            "domain": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/componentEntry"}
+            },
+            "integration": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/componentEntry"}
+            }
+          }
+        }
+      },
+      "anyOf": [
+        {"required": ["backend"]},
+        {"required": ["frontend"]}
+      ]
+    },
+    "ioSeeds": {
+      "type": "object",
+      "description": "I/O seeds that propagate to child components with explicit wagon references",
+      "required": ["consume", "produce"],
+      "additionalProperties": false,
+      "properties": {
+        "consume": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "contract"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?$",
+                "description": "Artifact name per artifact-naming.convention.yaml: domain(:category)*:aspect(.variant)?"
+              },
+              "contract": {
+                "type": ["string", "null"],
+                "pattern": "^(contract:[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?|contracts/[a-z]+/[a-z][a-z0-9-]+\\.json)$",
+                "description": "Contract URN per artifact-naming.convention.yaml (e.g., contract:commons:ux:foundations, contract:match:result) or legacy path. Use null if no contract exists."
+              },
+              "telemetry": {
+                "type": ["string", "null"],
+                "pattern": "^telemetry:[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?$",
+                "description": "Telemetry URN for observability per artifact-naming.convention.yaml (e.g., telemetry:mechanic:decision.choice). Use null if telemetry not tracked."
+              },
+              "derived": {
+                "type": "boolean",
+                "description": "True if this is a new internal seed not in parent wagon"
+              }
+            }
+          },
+          "description": "Input seeds consumed by this feature"
+        },
+        "produce": {
+          "type": "array",
+          "items": {"$ref": "#/properties/ioSeeds/properties/consume/items"},
+          "description": "Output seeds produced by this feature"
+        }
+      }
+    },
+
+    "appendices": {
+      "type": "array",
+      "description": "Supplementary files for this feature",
+      "items": {
+        "$ref": "appendix.schema.json#/definitions/appendix_reference"
+      }
+    }
+  },
+
+  "definitions": {
+    "componentEntry": {
+      "type": "object",
+      "required": ["type", "count", "rationale"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "controllers", "routes", "serializers", "validators", "middleware", "guards", "views",
+            "use_cases", "handlers", "ports", "dtos", "policies", "workflows",
+            "entities", "value_objects", "aggregates", "services", "specifications", "events", "exceptions",
+            "repositories", "clients", "caches", "engines", "formatters", "notifiers", "queues", "stores", "mappers", "schedulers", "monitors",
+            "components", "containers", "layouts", "styles", "animations", "forms", "hooks", "directives", "filters",
+            "interceptors", "synchronizers", "workers", "connectors"
+          ],
+          "description": "Component type from component.schema.json componentType enum. Side and layer inferred from YAML hierarchy."
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of components of this type"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Brief explanation for why this component type is needed"
+        }
+      }
+    }
+  }
+}

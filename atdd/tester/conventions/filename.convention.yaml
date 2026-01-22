@@ -1,0 +1,555 @@
+# Test Filename Convention
+# Defines deterministic filename generation from acceptance URNs
+
+version: "1.0.0"
+
+description: |
+  Test filename generation follows language-specific conventions derived from
+  acceptance URN format. This ensures consistent, traceable naming across all
+  test files, enabling bidirectional mapping between acceptance criteria and
+  their test implementations.
+
+rationale: |
+  Standardized test filenames derived from acceptance URNs provide:
+  1. Traceability: Direct mapping from acceptance criteria to test files
+  2. Consistency: Language-specific conventions followed systematically
+  3. Discoverability: Predictable filenames enable tooling and automation
+  4. Maintainability: Clear relationship between requirements and tests
+
+  The URN-based approach ensures that test files can be generated deterministically
+  from acceptance criteria, and conversely, acceptance URNs can be extracted from
+  test filenames, supporting bidirectional navigation in the ATDD workflow.
+
+urn_format:
+  pattern: "acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]"
+  description: "Acceptance URN format with optional slug"
+
+  components:
+    wagon:
+      description: "Wagon identifier in kebab-case"
+      pattern: "[a-z][a-z0-9-]*"
+      example: "maintain-ux"
+
+    WMBT:
+      description: "Step code + zero-padded 3-digit WMBT sequence"
+      pattern: "[DLPCEMYRK][0-9]{3}"
+      examples:
+        - "C004"  # Code step 4
+        - "E019"  # Evaluate step 19
+        - "P003"  # Pace step 3
+
+    HARNESS:
+      description: "Test harness code (uppercase)"
+      pattern: "[A-Z0-9]+"
+      examples:
+        - "UNIT"
+        - "HTTP"
+        - "E2E"
+        - "EVENT"
+        - "WIDGET"
+
+    NNN:
+      description: "Zero-padded 3-digit per-harness acceptance sequence"
+      pattern: "[0-9]{3}"
+      examples:
+        - "001"
+        - "019"
+        - "042"
+
+    slug:
+      description: "Optional kebab-case descriptor"
+      pattern: "[a-z0-9-]+"
+      optional: true
+      examples:
+        - "user-connection"
+        - "primitive-endpoint"
+        - "avatar-display"
+
+  regex: "^acc:([a-z][a-z0-9-]*):([DLPCEMYRK][0-9]{3})-([A-Z0-9]+)-([0-9]{3})(?:-([a-z0-9-]+))?$"
+
+  examples:
+    - urn: "acc:maintain-ux:C004-E2E-019-user-connection"
+      wagon: "maintain-ux"
+      WMBT: "C004"
+      HARNESS: "E2E"
+      NNN: "019"
+      slug: "user-connection"
+
+    - urn: "acc:pace-dilemmas:P003-UNIT-042"
+      wagon: "pace-dilemmas"
+      WMBT: "P003"
+      HARNESS: "UNIT"
+      NNN: "042"
+      slug: null
+
+slug_transformations:
+  kebab_to_snake:
+    description: "Convert kebab-case to snake_case (for Dart, Python, Go)"
+    example_input: "user-connection"
+    example_output: "user_connection"
+    algorithm: "Replace hyphens with underscores"
+
+  kebab_to_pascal:
+    description: "Convert kebab-case to PascalCase (for Java, Kotlin)"
+    example_input: "user-connection"
+    example_output: "UserConnection"
+    algorithm: "Split on hyphens, capitalize each part, join without separator"
+
+  kebab_to_kebab:
+    description: "Preserve kebab-case (legacy TypeScript or no-op cases)"
+    example_input: "user-connection"
+    example_output: "user-connection"
+    algorithm: "No transformation"
+
+languages:
+  dart:
+    pattern: "{WMBT}_{HARNESS}_{NNN}[_{slug_snake}]_test.dart"
+    separator: "underscore"
+    casing: "WMBT and HARNESS uppercase, slug snake_case"
+    suffix: "_test.dart"
+    slug_transform: "kebab_to_snake"
+
+    example_urn: "acc:maintain-ux:C004-E2E-019-user-connection"
+    example_filename: "C004_E2E_019_user_connection_test.dart"
+
+    rationale: |
+      Dart/Flutter conventions use snake_case with underscores. Test files
+      are suffixed with _test.dart. Uppercase WMBT and HARNESS codes maintain
+      visual distinction from the slug portion.
+
+    file_locations:
+      - "test/{wagon}/{feature}/"
+      - "integration_test/{wagon}/"
+
+  typescript:
+    pattern: "{wmbt_lower}-{harness_lower}-{nnn}[-{slug-kebab}].test.ts"
+    separator: "hyphen"
+    casing: "all lowercase, slug kebab-case"
+    suffix: ".test.ts"
+    slug_transform: "kebab_to_kebab"
+
+    example_urn: "acc:maintain-ux:C004-E2E-019-user-connection"
+    example_filename: "c004-e2e-019-user-connection.test.ts"
+
+    rationale: |
+      TypeScript conventions favor kebab-case for filenames. Use .test.ts
+      suffixes for consistency across TypeScript runtimes. All lowercase ensures
+      modern JavaScript/TypeScript module naming.
+
+    file_locations:
+      - "supabase/functions/{wagon}/{feature}/test/"
+      - "e2e/{train}/"
+      - "supabase/functions/{feature}/test/"  # DEPRECATED: Legacy flat structure
+
+  typescript_preact:
+    pattern: "{WMBT}_{HARNESS}_{NNN}[_{slug_snake}].test.ts[x]"
+    separator: "underscore"
+    casing: "WMBT and HARNESS uppercase, slug snake_case"
+    suffix: ".test.ts"
+    alternative_suffix: ".test.tsx"
+    slug_transform: "kebab_to_snake"
+
+    example_urn: "acc:maintain-ux:C001-WIDGET-001-button"
+    example_filename: "C001_WIDGET_001_button.test.tsx"
+
+    extension_rules:
+      ".test.ts": "Logic tests (domain, application, integration)"
+      ".test.tsx": "Component tests (presentation, widget harness)"
+
+    rationale: |
+      Preact/TypeScript tests align with URN-based filenames and use
+      underscore separators for readability. Use .test.tsx for component
+      tests that include JSX, and .test.ts for pure logic tests.
+
+    file_locations:
+      - "web/tests/{wagon}/{feature}/{layer}/"
+
+  python:
+    pattern: "test_{wmbt_lower}_{harness_lower}_{nnn}_{slug_snake}.py"
+    separator: "underscore"
+    casing: "all lowercase, slug snake_case"
+    prefix: "test_"
+    slug_transform: "kebab_to_snake"
+    slug_required: true
+    slug_source: "acceptance.identity.purpose"
+
+    example_urn: "acc:maintain-ux:C004-E2E-019-user-connection"
+    example_filename: "test_c004_e2e_019_user_connection.py"
+
+    rationale: |
+      pytest requires test files to start with test_ prefix. Python conventions
+      use snake_case throughout. Lowercase codes maintain consistency with
+      Python's typical module naming.
+
+      Slugs are MANDATORY and derived from acceptance criteria purposes to:
+      1. Enable human-readable test filenames
+      2. Support ATDD test discovery and traceability
+      3. Provide clear intent without opening files
+      4. Facilitate code review and navigation
+
+      Slug extraction: Take the acceptance purpose field, remove "Verify" prefix,
+      convert to lowercase, replace spaces with hyphens, and limit to first 5 words.
+
+    file_locations:
+      - "python/{wagon_snake}/{feature_snake}/test/"  # Feature-based structure (preferred)
+      - "tests/{wagon}/"  # Legacy wagon-level tests
+      - ".claude/utils/{agent}/tests/"  # Platform utility tests
+
+  go:
+    pattern: "{wmbt_lower}_{harness_lower}_{nnn}[_{slug_snake}]_test.go"
+    separator: "underscore"
+    casing: "all lowercase, slug snake_case"
+    suffix: "_test.go"
+    slug_transform: "kebab_to_snake"
+
+    example_urn: "acc:maintain-ux:C004-E2E-019-user-connection"
+    example_filename: "c004_e2e_019_user_connection_test.go"
+
+    rationale: |
+      Go testing convention requires _test.go suffix. Go uses snake_case for
+      test files. Lowercase maintains consistency with Go's filename conventions.
+
+    file_locations:
+      - "{wagon}/"
+      - "cmd/{wagon}/"
+      - "pkg/{wagon}/"
+
+  java:
+    pattern: "{WMBT}{HARNESS}{NNN}{SlugPascal}Test"
+    separator: "none"
+    casing: "WMBT and HARNESS uppercase, slug PascalCase"
+    suffix: "Test"
+    slug_transform: "kebab_to_pascal"
+
+    example_urn: "acc:maintain-ux:C004-E2E-019-user-connection"
+    example_filename: "C004E2E019UserConnectionTest.java"
+    example_classname: "C004E2E019UserConnectionTest"
+
+    rationale: |
+      Java requires filename to match class name. JUnit convention uses Test
+      suffix. PascalCase without separators follows Java class naming standards.
+
+    file_locations:
+      - "src/test/java/{package}/{wagon}/"
+
+  kotlin:
+    pattern: "{WMBT}{HARNESS}{NNN}{SlugPascal}Test.kt"
+    separator: "none"
+    casing: "WMBT and HARNESS uppercase, slug PascalCase"
+    suffix: "Test"
+    slug_transform: "kebab_to_pascal"
+
+    example_urn: "acc:maintain-ux:C004-E2E-019-user-connection"
+    example_filename: "C004E2E019UserConnectionTest.kt"
+    example_classname: "C004E2E019UserConnectionTest"
+
+    rationale: |
+      Kotlin follows same conventions as Java for test naming. JUnit/KotlinTest
+      frameworks expect Test suffix and PascalCase class names.
+
+    file_locations:
+      - "src/test/kotlin/{package}/{wagon}/"
+
+harness_codes:
+  - code: "UNIT"
+    description: "Unit tests for isolated component logic"
+  - code: "HTTP"
+    description: "HTTP API endpoint tests"
+  - code: "EVENT"
+    description: "Event handler and pub/sub tests"
+  - code: "WS"
+    description: "WebSocket connection tests"
+  - code: "E2E"
+    description: "End-to-end integration tests"
+  - code: "A11Y"
+    description: "Accessibility compliance tests"
+  - code: "VIS"
+    description: "Visual regression tests"
+  - code: "METRIC"
+    description: "Performance metric tests"
+  - code: "JOB"
+    description: "Background job tests"
+  - code: "DB"
+    description: "Database operation tests"
+  - code: "SEC"
+    description: "Security validation tests"
+  - code: "LOAD"
+    description: "Load and stress tests"
+  - code: "SCRIPT"
+    description: "Script execution tests"
+  - code: "WIDGET"
+    description: "Widget component tests"
+  - code: "GOLDEN"
+    description: "Golden file comparison tests"
+  - code: "BLOC"
+    description: "BLoC pattern tests"
+  - code: "INTEGRATION"
+    description: "Integration tests"
+  - code: "RLS"
+    description: "Row-level security tests"
+  - code: "EDGE"
+    description: "Edge function tests"
+  - code: "REALTIME"
+    description: "Realtime subscription tests"
+  - code: "STORAGE"
+    description: "Storage operation tests"
+
+utility_functions:
+  module: ".claude/utils/tester/filename.py"
+
+  functions:
+    - name: "parse_acceptance_urn"
+      description: "Parse URN into components (wagon, WMBT, HARNESS, NNN, slug)"
+      signature: "parse_acceptance_urn(urn: str) -> Dict[str, Optional[str]]"
+
+    - name: "dart_filename"
+      description: "Generate Dart test filename from URN"
+      signature: "dart_filename(urn: str) -> str"
+
+    - name: "typescript_filename"
+      description: "Generate TypeScript test filename from URN"
+      signature: "typescript_filename(urn: str) -> str"
+
+    - name: "typescript_preact_filename"
+      description: "Generate Preact TypeScript test filename from URN"
+      signature: "typescript_preact_filename(urn: str, tsx: Optional[bool] = None) -> str"
+
+    - name: "python_filename"
+      description: "Generate Python test filename from URN"
+      signature: "python_filename(urn: str) -> str"
+
+    - name: "go_filename"
+      description: "Generate Go test filename from URN"
+      signature: "go_filename(urn: str) -> str"
+
+    - name: "java_classname"
+      description: "Generate Java/Kotlin test classname from URN"
+      signature: "java_classname(urn: str) -> str"
+
+    - name: "generate_test_filename"
+      description: "Unified interface accepting language parameter"
+      signature: "generate_test_filename(urn: str, language: str) -> str"
+
+    - name: "kebab_to_snake"
+      description: "Convert kebab-case to snake_case"
+      signature: "kebab_to_snake(slug: Optional[str]) -> str"
+
+    - name: "kebab_to_pascal"
+      description: "Convert kebab-case to PascalCase"
+      signature: "kebab_to_pascal(slug: Optional[str]) -> str"
+
+validation:
+  urn_format:
+    - "URN must match regex pattern"
+    - "Wagon must be lowercase with hyphens"
+    - "WMBT must be uppercase letter + 3 digits"
+    - "HARNESS must be uppercase code from approved list"
+    - "NNN must be 3-digit zero-padded sequence"
+    - "Slug (if present) must be lowercase with hyphens"
+
+  filename_format:
+    - "Generated filename must follow language-specific pattern"
+    - "Casing transformations must be applied correctly"
+    - "Separators must match language conventions"
+    - "File extension must match language requirements"
+
+test_file_header:
+  description: "All test files should include URN comment for traceability"
+
+  formats:
+    dart: |
+      // urn: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
+
+    typescript: |
+      // urn: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
+
+    python: |
+      # urn: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
+
+    go: |
+      // urn: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
+
+    java: |
+      // urn: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
+
+directory_structure:
+  description: |
+    Tests are organized by feature within wagon directories. Each feature contains
+    separate src/ and test/ folders following clean architecture principles.
+
+  pattern: "{language}/{wagon_snake}/{feature_snake}/{src|test}/"
+
+  rationale: |
+    Feature-based organization provides:
+    1. Feature Isolation: Each feature's code and tests are colocated
+    2. Traceability: Direct mapping from wagon manifest features to code structure
+    3. Scalability: Wagons can contain multiple features without test conflicts
+    4. Clarity: Clear separation between implementation (src/) and verification (test/)
+
+  examples:
+    python:
+      structure: |
+        python/
+          {wagon_snake}/                    # Wagon directory (kebab→snake)
+            {feature_snake}/                # Feature directory (kebab→snake)
+              src/                          # Implementation code
+                __init__.py
+                domain/                     # Domain layer
+                application/                # Application layer
+                integration/                # Integration layer
+              test/                         # Test code
+                __init__.py
+                test_{wmbt}_{harness}_{nnn}.py  # Acceptance tests
+                conftest.py                 # Pytest fixtures
+
+      example_wagon: "generate-identifiers"
+      example_features:
+        - "generate-uuid"
+        - "generate-username"
+
+      concrete_structure: |
+        python/
+          generate_identifiers/
+            generate_uuid/
+              src/
+                __init__.py
+                uuid_generator.py
+              test/
+                __init__.py
+                test_l001_unit_001.py       # Performance test
+                test_l001_load_001.py       # Throughput test
+                test_c005.py                # RFC compliance
+                test_c006.py                # Deterministic generation
+            generate_username/
+              src/
+                __init__.py
+                username_sanitizer.py
+                username_validator.py
+              test/
+                __init__.py
+                test_p001_unit_001.py       # Sanitization
+                test_p001_unit_002.py       # Unicode handling
+                test_c001_unit_001.py       # Uniqueness (taken)
+                test_c001_unit_002.py       # Uniqueness (available)
+                test_c004.py                # Reserved words
+                test_c007.py                # Format enforcement
+
+    dart:
+      structure: |
+        lib/
+          {wagon_snake}/                    # Wagon directory
+            {feature_snake}/                # Feature directory
+              src/                          # Implementation
+                domain/
+                application/
+                presentation/
+        test/
+          {wagon_snake}/                    # Test mirror structure
+            {feature_snake}/
+              {WMBT}_{HARNESS}_{NNN}_test.dart
+
+      example: |
+        lib/maintain_ux/provide_foundations/src/
+        test/maintain_ux/provide_foundations/L001_UNIT_001_test.dart
+
+  naming_transformations:
+    wagon_name:
+      input: "Wagon name from manifest (kebab-case)"
+      python_output: "snake_case"
+      dart_output: "snake_case"
+      typescript_output: "kebab-case"
+      example_input: "generate-identifiers"
+      example_python: "generate_identifiers"
+      example_dart: "generate_identifiers"
+
+    feature_name:
+      input: "Feature name from wagon manifest (kebab-case)"
+      python_output: "snake_case"
+      dart_output: "snake_case"
+      typescript_output: "kebab-case"
+      example_input: "generate-uuid"
+      example_python: "generate_uuid"
+      example_dart: "generate_uuid"
+
+  feature_discovery:
+    description: "Features are defined in wagon manifest YAML"
+    manifest_location: "plan/{wagon}/_{wagon}.yaml"
+    manifest_field: "features[]"
+
+    example_manifest: |
+      wagon: generate-identifiers
+      features:
+        - urn: feature:generate-identifiers:generate-uuid
+        - urn: feature:generate-identifiers:generate-username
+
+    feature_extraction:
+      pattern: "feature:{wagon}:{feature_name}"
+      regex: "^feature:([a-z][a-z0-9-]*):([a-z][a-z0-9-]*)$"
+      wagon_group: 1
+      feature_group: 2
+
+  acceptance_to_feature_mapping:
+    description: |
+      Each acceptance criteria belongs to a feature. The feature name determines
+      which test directory the test file should be placed in.
+
+    lookup_process:
+      1: "Parse acceptance URN to extract wagon and WMBT code"
+      2: "Load wagon manifest from plan/{wagon}/_{wagon}.yaml"
+      3: "Load WMBT file from plan/{wagon}/{WMBT}.yaml"
+      4: "Extract feature URNs from wagon manifest features[]"
+      5: "Match acceptance to feature via acceptance.identity.purpose or metadata.feature"
+      6: "Extract feature name from feature URN"
+      7: "Generate test path: {lang}/{wagon_snake}/{feature_snake}/test/"
+
+    example:
+      acceptance_urn: "acc:generate-identifiers:L001-UNIT-001"
+      wagon: "generate-identifiers"
+      wmbt_file: "plan/generate_identifiers/L001.yaml"
+      feature_urn: "feature:generate-identifiers:generate-uuid"
+      feature_name: "generate-uuid"
+      test_path: "python/generate_identifiers/generate_uuid/test/"
+      test_filename: "test_l001_unit_001.py"
+      full_path: "python/generate_identifiers/generate_uuid/test/test_l001_unit_001.py"
+
+references:
+  spec_ids:
+    - "SPEC-TESTER-CONV-0068"  # Parse acceptance URN components
+    - "SPEC-TESTER-CONV-0069"  # Generate Dart filename
+    - "SPEC-TESTER-CONV-0070"  # Generate TypeScript filename
+    - "SPEC-TESTER-CONV-0071"  # Generate Python filename
+    - "SPEC-TESTER-CONV-0072"  # Generate Go filename
+    - "SPEC-TESTER-CONV-0073"  # Generate Java/Kotlin classname
+    - "SPEC-TESTER-CONV-0074"  # Handle URN without slug
+    - "SPEC-TESTER-CONV-0075"  # Slug transformations
+    - "SPEC-TESTER-CONV-0076"  # URN regex validation
+    - "SPEC-TESTER-CONV-0077"  # Convention documentation
+    - "SPEC-TESTER-CONV-0078"  # Platform validation enforcement
+    - "SPEC-TESTER-CONV-0079"  # Feature-based directory structure
+    - "SPEC-TESTER-CONV-0080"  # Acceptance-to-feature mapping
+
+  related_conventions:
+    - "red.convention.yaml"  # References test generation
+    - "artifact.convention.yaml"  # Pattern for URN-to-path mapping
+    - "backend.convention.yaml"  # Layer structure within src/
+
+  related_schemas:
+    - ".claude/schemas/tester/test_intent.schema.json"
+    - ".claude/schemas/planner/acceptance.schema.json"
+    - ".claude/schemas/planner/wagon.schema.json"
+    - ".claude/schemas/planner/feature.schema.json"
+
+migration:
+  from_legacy:
+    description: "Legacy test files may not follow URN-based naming"
+    strategy: |
+      1. Extract URN from test file header comment
+      2. Generate expected filename using utility
+      3. Rename file if filename doesn't match convention
+      4. Update imports and references
+
+    example_transformation:
+      legacy_dart: "ac_http_006_primitive_endpoint_test.dart"
+      legacy_urn_comment: "// urn: acc:maintain-ux.001.AC-HTTP-006"
+      new_urn: "acc:maintain-ux:C004-HTTP-006-primitive-endpoint"
+      new_filename: "C004_HTTP_006_primitive_endpoint_test.dart"

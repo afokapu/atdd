@@ -1,0 +1,178 @@
+# URN naming pattern
+urn_naming:
+  pattern: "component:{wagon}:{feature}[.{objectCamelCase}][.{side}][.{layer}][@vN]"
+  description: "Stable component URN: hierarchy via colons (kind:wagon:feature), optional facets via dots."
+  utility: "utils.graph.URNBuilder.component(wagon_id, feature_id, component_name?, side?, layer?, version?)"
+
+  parts:
+    wagon: "Parent wagon identifier (kebab-case)"
+    feature: "Parent feature identifier (kebab-case)"
+    objectCamelCase: "Component name in PascalCase or camelCase"
+    side: "Component deployment side (frontend|backend)"
+    layer: "Architectural layer (presentation|application|domain|integration)"
+    version: "@vN suffix for explicit versioning (optional), e.g., @v2"
+
+  rules:
+    hierarchy_separator: ":"
+    facet_separator: "."
+    casing:
+      wagon_feature: "^[a-z][a-z0-9-]*$"
+      facets:
+        - "^[a-z][a-z0-9-]*$"          # kebab/lower facet allowed
+        - "^[A-Z][a-zA-Z0-9]*$"        # CamelCase facet allowed
+    no_file_extensions: "Do not include .py/.dart/etc. Use a 'lang-*' facet if needed."
+    case_policy: "IDs are case-sensitive; store exactly as written."
+
+  examples:
+    - urn: "component:resolve-dilemmas:choose-option.OptionValidator.backend.domain"
+      wagon: "resolve-dilemmas"
+      feature: "choose-option"
+      component: "OptionValidator"
+      side: "backend"
+      layer: "domain"
+
+    - urn: "component:manage-users:authenticate-user.LoginForm.frontend.presentation"
+      wagon: "manage-users"
+      feature: "authenticate-user"
+      component: "LoginForm"
+      side: "frontend"
+      layer: "presentation"
+
+  note: "Side and layer values are defined by component_type_catalog structure below"
+
+# Artifact derivation for component naming
+artifact_derivation:
+  description: "How to derive component names from artifact resources"
+  overview: |
+    Component names come from artifact resources (the part after colon).
+    Transform resource to PascalCase and add capability suffix based on artifact type.
+    Components describe CAPABILITY to handle artifacts.
+
+  rules:
+    pascalcase_conversion:
+      rule: "Convert artifact resource to PascalCase"
+      examples:
+      - from: "choice"
+        to: "Choice"
+      - from: "player-wallet"
+        to: "PlayerWallet"
+      - from: "domain-impacts"
+        to: "DomainImpacts"
+      - from: "remaining"
+        to: "Remaining"
+
+    capability_suffix:
+      rule: "Add capability suffix based on artifact type and component responsibility"
+      by_artifact_type:
+        events:
+          description: "Past tense resources (started, closed, credited)"
+          suffixes: ["Publisher", "Emitter", "Broadcaster"]
+          examples:
+          - artifact: "match:started"
+            resource: "started"
+            component: "MatchStartedPublisher"
+            urn: "component:resolve-dilemmas:make-choice.MatchStartedPublisher.backend.integration"
+
+          - artifact: "wallet:credited"
+            resource: "credited"
+            component: "WalletCreditedEmitter"
+            urn: "component:manage-wallets:credit-wallet.WalletCreditedEmitter.backend.integration"
+
+        states:
+          description: "Adjective resources (remaining, active, current)"
+          suffixes: ["Tracker", "Monitor", "Manager"]
+          examples:
+          - artifact: "mechanic:timebank.remaining"
+            resource: "remaining"
+            component: "TimebankTracker"
+            urn: "component:burn-timebank:track-timebank.TimebankTracker.backend.domain"
+
+          - artifact: "session:active"
+            resource: "active"
+            component: "SessionManager"
+            urn: "component:init-session:maintain-session.SessionManager.backend.application"
+
+        data:
+          description: "Noun resources (choice, identity, profile)"
+          suffixes: ["Provider", "Handler", "Processor", "Maker"]
+          examples:
+          - artifact: "mechanic:decision.choice"
+            resource: "choice"
+            component: "ChoiceMaker"
+            urn: "component:resolve-dilemmas:make-choice.ChoiceMaker.backend.domain"
+
+          - artifact: "player:identity"
+            resource: "identity"
+            component: "IdentityProvider"
+            urn: "component:contextualize-identity:identify-player.IdentityProvider.backend.application"
+
+        configs:
+          description: "Configuration resources (config, settings, agreement)"
+          suffixes: ["Configurator", "Builder", "Initializer"]
+          examples:
+          - artifact: "match:config"
+            resource: "config"
+            component: "MatchConfigurator"
+            urn: "component:setup-match:configure-match.MatchConfigurator.backend.application"
+
+          - artifact: "league:config"
+            resource: "config"
+            component: "LeagueBuilder"
+            urn: "component:define-league:configure-league.LeagueBuilder.backend.application"
+
+layer_assignment:
+  description: "Assign components to layers based on artifact type and responsibility"
+
+  events:
+    typical_layers: ["integration", "application"]
+    rationale: "Event publishers at boundaries (external integration or internal application)"
+    examples:
+      - "MatchStartedPublisher → backend.integration (publishes to external systems)"
+      - "StateCommittedEmitter → backend.application (emits internal events)"
+
+  states:
+    typical_layers: ["domain", "application"]
+    rationale: "State trackers manage business state (domain) or coordinate (application)"
+    examples:
+      - "TimebankTracker → backend.domain (tracks core business state)"
+      - "SessionManager → backend.application (coordinates session lifecycle)"
+
+  data:
+    typical_layers: ["domain", "application", "integration"]
+    rationale: "Data handlers span layers based on responsibility"
+    examples:
+      - "ChoiceMaker → backend.domain (business logic for making choice)"
+      - "ChoiceHandler → backend.application (coordinates choice workflow)"
+      - "ChoicePersister → backend.integration (persists to database)"
+
+  configs:
+    typical_layers: ["application", "integration"]
+    rationale: "Configuration components coordinate setup or load settings"
+    examples:
+      - "MatchConfigurator → backend.application (coordinates match setup)"
+      - "ConfigLoader → backend.integration (loads from external config store)"
+
+complete_example:
+  artifact: "mechanic:decision.choice"
+  wagon: "resolve-dilemmas"
+  feature: "make-choice"
+  components:
+    - name: "ChoiceDisplay"
+      urn: "component:resolve-dilemmas:make-choice.ChoiceDisplay.frontend.presentation"
+      purpose: "Renders choice options to user"
+      derivation: "Resource 'choice' → ChoiceDisplay (presentation UI)"
+
+    - name: "ChoiceValidator"
+      urn: "component:resolve-dilemmas:make-choice.ChoiceValidator.frontend.application"
+      purpose: "Validates user selection before submission"
+      derivation: "Resource 'choice' → ChoiceValidator (validation logic)"
+
+    - name: "ChoiceMaker"
+      urn: "component:resolve-dilemmas:make-choice.ChoiceMaker.backend.domain"
+      purpose: "Applies business rules to make the choice"
+      derivation: "Resource 'choice' → ChoiceMaker (core business logic)"
+
+    - name: "ChoicePersister"
+      urn: "component:resolve-dilemmas:make-choice.ChoicePersister.backend.integration"
+      purpose: "Persists choice to database"
+      derivation: "Resource 'choice' → ChoicePersister (persistence)"

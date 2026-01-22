@@ -1,0 +1,1012 @@
+schema_version: "1.0.1"
+convention_id: "coder.green"
+name: "GREEN Phase Convention"
+description: "Behavioral rules and guardrails for making acceptance tests pass (RED → GREEN)."
+
+green_phase:
+  goal: "Make acceptance tests pass with the thinnest vertical slice"
+  # URN naming pattern
+  urn_naming:
+    pattern: "component:{wagon}:{feature}[.{objectCamelCase}][.{side}][.{layer}][@vN]"
+    description: "Stable component URN: hierarchy via colons (kind:wagon:feature), optional facets via dots."
+    utility: "utils.graph.URNBuilder.component(wagon_id, feature_id, component_name?, side?, layer?, version?)"
+
+    parts:
+      wagon: "Parent wagon identifier (kebab-case)"
+      feature: "Parent feature identifier (kebab-case)"
+      objectCamelCase: "Component name in PascalCase or camelCase"
+      side: "Component deployment side (frontend|backend)"
+      layer: "Architectural layer (presentation|application|domain|integration)"
+
+    examples:
+      - urn: "component:resolve-dilemmas:choose-option.OptionValidator.backend.domain"
+        wagon: "resolve-dilemmas"
+        feature: "choose-option"
+        component: "OptionValidator"
+        side: "backend"
+        layer: "domain"
+
+      - urn: "component:manage-users:authenticate-user.LoginForm.frontend.presentation"
+        wagon: "manage-users"
+        feature: "authenticate-user"
+        component: "LoginForm"
+        side: "frontend"
+        layer: "presentation"
+
+    note: "Side and layer values are defined by component_type_catalog structure below"
+
+  # File Header Requirements (Traceability)
+  file_header_requirements:
+    description: "All implementation files MUST include traceability markers in file header"
+
+    component_urn_marker:
+      required: true
+      format: "# urn: component:{wagon}:{feature}.{ComponentName}.{side}.{layer}"
+      position: "First non-empty line in file (before imports)"
+
+      rationale: |
+        Component URN markers enable:
+        1. Bidirectional traceability: component ↔ wagon ↔ feature
+        2. Automated validation: verify component belongs to correct wagon/feature
+        3. Dependency analysis: track component relationships
+        4. Code navigation: jump from component to its specifications
+        5. Impact analysis: identify all components affected by feature changes
+
+      examples:
+        python: |
+          # urn: component:burn-timebank:track-remaining.TimebankMonitor.backend.domain
+          # Runtime: python
+          # Purpose: Monitor and emit timebank remaining artifacts
+
+          """
+          TimebankMonitor domain model.
+          """
+          from typing import Optional
+
+        typescript: |
+          // urn: component:authenticate-identity:validate-credentials.CredentialValidator.backend.application
+          // Runtime: supabase
+          // Purpose: Validate user credentials against stored hash
+
+          import { createClient } from '@supabase/supabase-js'
+
+        dart: |
+          // urn: component:maintain-ux:provide-foundations.FoundationLoader.frontend.presentation
+          // Runtime: flutter
+          // Purpose: Load and cache UX foundation assets
+
+          import 'package:flutter/material.dart';
+
+      enforcement:
+        level: "CRITICAL"
+        validation:
+          - "Every implementation file MUST have component URN marker"
+          - "URN MUST match pattern: component:{wagon}:{feature}.{ComponentName}.{side}.{layer}"
+          - "Wagon and feature MUST exist in wagon manifest"
+          - "Component name MUST match filename (with casing transformation)"
+          - "Side MUST be 'frontend' or 'backend'"
+          - "Layer MUST be one of: domain, application, integration, presentation"
+
+        auto_validation:
+          tool: ".claude/utils/coach/manifest/validate_component_urns.py"
+          run_on: ["pre-commit", "CI"]
+          fail_on_missing: true
+
+      urn_components:
+        wagon:
+          description: "Parent wagon identifier in kebab-case"
+          pattern: "^[a-z][a-z0-9-]*$"
+          example: "burn-timebank"
+          source: "Extracted from wagon manifest plan/{wagon}/_{wagon}.yaml"
+
+        feature:
+          description: "Parent feature identifier in kebab-case"
+          pattern: "^[a-z][a-z0-9-]*$"
+          example: "track-remaining"
+          source: "Extracted from feature URN in wagon manifest"
+
+        ComponentName:
+          description: "Component name in PascalCase or camelCase"
+          pattern: "^[A-Z][a-zA-Z0-9]*$"
+          example: "TimebankMonitor"
+          derivation: "Based on artifact resource + capability suffix (see component-naming.convention.yaml)"
+
+        side:
+          description: "Deployment side"
+          values: ["frontend", "backend"]
+          example: "backend"
+
+        layer:
+          description: "Clean Architecture layer"
+          values: ["domain", "application", "integration", "presentation"]
+          example: "domain"
+
+    additional_headers:
+      runtime:
+        required: true
+        format: "# Runtime: {python|supabase|flutter}"
+        purpose: "Specify execution runtime for component"
+        source: "Read from test file header (tester already defined this)"
+        examples:
+          - "# Runtime: python"
+          - "# Runtime: supabase"
+          - "# Runtime: flutter"
+
+      purpose:
+        required: true
+        format: "# Purpose: {brief-description}"
+        purpose: "One-line description of component responsibility"
+        max_length: 80
+        examples:
+          - "# Purpose: Monitor and emit timebank remaining artifacts"
+          - "# Purpose: Validate user credentials against stored hash"
+          - "# Purpose: Load and cache UX foundation assets"
+
+    header_order:
+      1: "Component URN marker (# urn: component:...)"
+      2: "Runtime declaration (# Runtime: ...)"
+      3: "Purpose description (# Purpose: ...)"
+      4: "Blank line"
+      5: "Module docstring (optional)"
+      6: "Imports"
+
+    full_example:
+      python: |
+        # urn: component:burn-timebank:track-remaining.TimebankMonitor.backend.domain
+        # Runtime: python
+        # Purpose: Monitor and emit timebank remaining artifacts
+
+        """
+        TimebankMonitor domain model - Track remaining time and emit artifacts.
+
+        Handles:
+        - Emit remaining artifact per contract schema
+        - Low-time warning detection
+        """
+        from typing import Optional
+        from dataclasses import dataclass
+
+        class TimebankMonitor:
+            """Monitors timebank and emits remaining artifacts."""
+            pass
+
+      typescript: |
+        // urn: component:authenticate-identity:validate-credentials.CredentialValidator.backend.application
+        // Runtime: supabase
+        // Purpose: Validate user credentials against stored hash
+
+        /**
+         * CredentialValidator application service.
+         *
+         * Coordinates credential validation workflow.
+         */
+        import { createClient } from '@supabase/supabase-js'
+
+        export class CredentialValidator {
+          // ...
+        }
+
+  # Runtime Placement (Test-Driven)
+  runtime_placement:
+    principle: "Implementation path follows test path"
+    reference: "convention:tester:red (runtime_placement section)"
+
+    workflow:
+      1_locate_test: "Find RED test file (tester already created it)"
+      2_extract_runtime: "Read test header comment for runtime decision"
+      3_extract_path: "Parse test path to derive implementation path"
+      4_validate_colocation: "Ensure test and src follow co-location pattern"
+      5_implement: "Write code at co-located src/ path"
+
+    path_derivation:
+      python:
+        test_pattern: "python/{wagon}/{feature}/tests/{layer}/test_{component}.py"
+        src_pattern: "python/{wagon}/{feature}/src/{layer}/{component}.py"
+        note: "Python uses explicit 'src' directory"
+        example:
+          test: "python/pace_dilemmas/curate_pool/tests/application/test_pool_curator.py"
+          src: "python/pace_dilemmas/curate_pool/src/application/pool_curator.py"
+
+      supabase:
+        test_pattern: "supabase/functions/{wagon}/{feature}/tests/{layer}/{component}.test.ts"
+        src_pattern: "supabase/functions/{wagon}/{feature}/{layer}/{component}.ts"
+        note: "Supabase has no 'src' directory - layers are direct children of feature"
+        example:
+          test: "supabase/functions/authenticate_identity/validate_credentials/tests/application/validate_credentials.test.ts"
+          src: "supabase/functions/authenticate_identity/validate_credentials/application/validate_credentials.ts"
+
+    enforcement:
+      mandatory:
+        - "RED test MUST exist before writing implementation"
+        - "Implementation path MUST be co-located with test"
+        - "Runtime MUST match test's documented runtime"
+        - "Layer MUST match test's layer directory"
+
+      validation:
+        - "Check test file exists at expected location"
+        - "Parse runtime from test header comment"
+        - "Verify src/ path mirrors tests/ path structure"
+        - "Ensure no cross-runtime implementations (python test → typescript src)"
+
+    header_format:
+      required_in_test: |
+        # Runtime: {python|supabase}
+        # Rationale: {reason from tester}
+
+      coder_reads:
+        runtime: "Determines which language/framework to use"
+        rationale: "Context for understanding placement decision"
+
+    anti_patterns:
+      - id: AP-WRONGRUNTIME
+        text: "Implementing in wrong runtime"
+        avoid: "Python test → TypeScript implementation (or vice versa)"
+        check: "Test runtime header MUST match implementation language"
+
+      - id: AP-NONCOLOCATION
+        text: "Breaking co-location pattern"
+        avoid: "Test in python/, implementation in supabase/"
+        check: "Src path MUST mirror test path structure"
+
+      - id: AP-NOTEST
+        text: "Implementing without test"
+        avoid: "Writing code before tester creates RED test"
+        check: "RED test MUST exist in same feature directory"
+
+  # Composition Root Pattern (Dependency Wiring)
+  composition_root:
+    description: "Hierarchical composition roots for dependency wiring at feature, wagon, and application levels"
+
+    cross_reference:
+      file: "boundaries.convention.yaml"
+      sections:
+        - "interaction.composition_roots: Full patterns and wagon isolation rules"
+        - "namespacing: Package structure and import patterns for tests/implementation"
+      note: "See boundaries.convention.yaml for complete wagon isolation architecture"
+
+    purpose: |
+      Composition roots serve as dependency injection containers and entry points.
+      They are the DIRTY GLUE that wires together CLEAN components from all layers.
+
+      COMPOSITIONAL HIERARCHY:
+        Feature-level:     {feature}/composition.py   (single feature)
+        Wagon-level:       {wagon}/wagon.py           (orchestrate features)
+        Application-level: main.py/server.py          (orchestrate wagons)
+
+    location:
+      python:
+        feature_pattern: "python/{wagon}/{feature}/composition.py"
+        wagon_pattern: "python/{wagon}/wagon.py"
+        position: "Feature or wagon root directory, OUTSIDE src/"
+        rationale: "Lives outside clean architecture to clearly separate wiring from business logic"
+
+        feature_structure: |
+          python/{wagon}/{feature}/
+          ├── composition.py           # ⚠️ DIRTY GLUE - Feature-level wiring
+          ├── tests/                   # Test directory
+          └── src/                     # ✅ CLEAN - 4-layer architecture
+              ├── presentation/
+              ├── application/
+              ├── domain/
+              └── integration/
+
+        wagon_structure: |
+          python/{wagon}/
+          ├── wagon.py                 # ⚠️ DIRTY GLUE - Wagon-level orchestration
+          ├── {feature_1}/
+          │   ├── composition.py       # Feature wiring
+          │   └── src/                 # Clean architecture
+          ├── {feature_2}/
+          │   ├── composition.py
+          │   └── src/
+          └── {feature_n}/
+              ├── composition.py
+              └── src/
+
+      dart:
+        pattern: "lib/{wagon}/{feature}/composition.dart"
+        position: "Feature root directory, OUTSIDE feature src/"
+        rationale: "Lives outside clean architecture to clearly separate wiring from business logic"
+
+        structure: |
+          lib/{wagon}/{feature}/
+          ├── composition.dart         # ⚠️ DIRTY GLUE - Dependency wiring
+          ├── tests/                   # Test directory (mirror lib/)
+          └── src/                     # ✅ CLEAN - 4-layer architecture
+              ├── presentation/
+              ├── application/
+              ├── domain/
+              └── integration/
+
+    permissions:
+      allowed:
+        - "Import from ALL layers (domain, application, integration, presentation)"
+        - "Instantiate concrete implementations"
+        - "Wire dependencies together"
+        - "Violate dependency rule (e.g., import integration in presentation wiring)"
+        - "Create entry point for running feature or wagon"
+        - "Configure environment and logging"
+        - "Load configuration from environment variables"
+        - "Orchestrate multiple features (wagon.py only)"
+
+      forbidden:
+        - "Business logic (belongs in domain/application)"
+        - "Data persistence (belongs in integration)"
+        - "HTTP routing (belongs in presentation)"
+        - "Any logic that should be testable"
+
+    responsibilities:
+      feature_composition:
+        1: "Instantiate all dependencies (repositories, use cases, controllers)"
+        2: "Wire dependencies using constructor injection"
+        3: "Provide CLI entry point for running single feature"
+        4: "Support multiple modes if needed (static, dynamic, etc.)"
+        5: "Bootstrap the application and hand off to presentation layer"
+
+      wagon_composition:
+        1: "Orchestrate multiple features within wagon"
+        2: "Provide unified CLI for wagon-level testing"
+        3: "Wire feature-to-feature dependencies if needed"
+        4: "Demonstrate end-to-end wagon integration"
+        5: "Enable manual mechanic testing for game wagons"
+
+    usage:
+      feature_cli_execution:
+        description: "Run composition.py directly as feature entry point"
+        examples:
+          - command: "python3 python/resolve_dilemmas/capture_decision/composition.py"
+            mode: "Default mode (static)"
+          - command: "python3 python/resolve_dilemmas/capture_decision/composition.py dynamic"
+            mode: "Dynamic mode with argument"
+
+      wagon_cli_execution:
+        description: "Run wagon.py to orchestrate all wagon features"
+        examples:
+          - command: "python3 python/burn_timebank/wagon.py"
+            mode: "Default orchestration (all features)"
+          - command: "python3 python/burn_timebank/wagon.py --preset rapid"
+            mode: "Orchestration with arguments"
+          - command: "python3 python/burn_timebank/wagon.py --verbose"
+            mode: "Verbose mode with debug output"
+
+      import_pattern:
+        avoid: "DO NOT import composition.py or wagon.py from other modules"
+        rationale: "Composition roots should only be executed, never imported"
+
+    header_template:
+      feature_composition:
+        python:
+          format: |
+            #!/usr/bin/env python3
+            # urn: component:{wagon}:{feature}.composition.backend.infrastructure
+            # Runtime: python
+            # Purpose: Dependency injection and application bootstrap
+
+            """
+            ⚠️ COMPOSITION ROOT - DIRTY GLUE CODE ⚠️
+
+            Composition Root for {FeatureName}.
+
+            This module wires all dependencies together and provides the entry point
+            for running the feature. It's the ONLY place allowed to violate clean
+            architecture for dependency injection.
+
+            Usage:
+                python3 python/{wagon}/{feature}/composition.py [mode]
+            """
+
+      wagon_composition:
+        python:
+          format: |
+            #!/usr/bin/env python3
+            # urn: component:{wagon}.wagon.infrastructure
+            # Runtime: python
+            # Purpose: Wagon-level orchestration and feature integration
+
+            """
+            ⚠️ WAGON COMPOSITION ROOT - DIRTY GLUE CODE ⚠️
+
+            Orchestrates all {WagonName} features for integrated testing.
+            Lives OUTSIDE src/ and violates clean architecture by design.
+
+            This is infrastructure tooling, not production code.
+            Real application-level composition happens in the consuming application (game server).
+
+            COMPOSITIONAL HIERARCHY:
+              Feature-level:     {feature}/composition.py      (single feature)
+              Wagon-level:       {wagon}/wagon.py              (orchestrate features) ← YOU ARE HERE
+              Application-level: game_server/main.py           (orchestrate wagons)
+
+            FEATURES ORCHESTRATED:
+              1. {feature_1} - {description}
+              2. {feature_2} - {description}
+              ...
+
+            Usage:
+                python3 python/{wagon}/wagon.py [options]
+            """
+
+        example: |
+          #!/usr/bin/env python3
+          # urn: component:resolve-dilemmas:capture-decision.composition.backend.infrastructure
+          # Runtime: python
+          # Purpose: Dependency injection and application bootstrap
+
+          """
+          ⚠️ COMPOSITION ROOT - DIRTY GLUE CODE ⚠️
+
+          Composition Root for Capture Decision.
+
+          Wires all dependencies and provides entry point for the quiz application.
+          This is the ONLY place allowed to violate clean architecture for DI.
+
+          Usage:
+              python3 python/resolve_dilemmas/capture_decision/composition.py        # Static mode
+              python3 python/resolve_dilemmas/capture_decision/composition.py dynamic # Dynamic mode
+          """
+          import sys
+          from pathlib import Path
+
+          # Add project root to path (REQUIRED pattern per boundaries.convention.yaml)
+          # Composition roots manipulate sys.path (they are entrypoints, never imported)
+          project_root = Path(__file__).parent.parent.parent
+          sys.path.insert(0, str(project_root))
+
+          # Domain layer - QUALIFIED imports (prevents module shadowing across wagons)
+          from resolve_dilemmas.capture_decision.src.domain.entities.choice import Choice
+
+          # Application layer
+          from resolve_dilemmas.capture_decision.src.application.use_cases.capture_choice import CaptureChoiceUseCase
+
+          # Integration layer
+          from resolve_dilemmas.capture_decision.src.integration.repositories.choice_repository import FileChoiceRepository
+
+          # Presentation layer
+          from resolve_dilemmas.capture_decision.src.presentation.controllers.quiz_controller import QuizController
+
+          def main(mode: str = "static"):
+              """Bootstrap and run the application."""
+              # Wire dependencies (dependency injection)
+              choice_repo = FileChoiceRepository(data_dir=Path("data"))
+              capture_use_case = CaptureChoiceUseCase(repository=choice_repo)
+              controller = QuizController(
+                  capture_choice=capture_use_case,
+                  mode=mode
+              )
+
+              # Run application
+              controller.run()
+
+          if __name__ == "__main__":
+              mode = sys.argv[1] if len(sys.argv) > 1 else "static"
+              main(mode)
+
+      dart:
+        format: |
+          // urn: component:{wagon}:{feature}.composition.frontend.infrastructure
+          // Runtime: flutter
+          // Purpose: Dependency injection and application bootstrap
+
+          /// Composition Root for {FeatureName}.
+          ///
+          /// This module wires all dependencies together and provides the entry point
+          /// for running the feature. It's the ONLY place allowed to violate clean
+          /// architecture for dependency injection.
+          library composition;
+
+        example: |
+          // urn: component:maintain-ux:provide-foundations.composition.frontend.infrastructure
+          // Runtime: flutter
+          // Purpose: Dependency injection and application bootstrap
+
+          /// ⚠️ COMPOSITION ROOT - DIRTY GLUE CODE ⚠️
+          ///
+          /// Composition Root for Provide Foundations.
+          ///
+          /// Wires all dependencies and provides entry point for the foundation loader.
+          /// This is the ONLY place allowed to violate clean architecture for DI.
+          library composition;
+
+          import 'package:flutter/material.dart';
+
+          // Domain layer (relative imports allowed in composition.dart within same feature)
+          // Alternatively, use: import 'package:jel/maintain_ux/provide_foundations/src/domain/entities/foundation.dart';
+          import 'src/domain/entities/foundation.dart';
+
+          // Application layer
+          import 'src/application/use_cases/load_foundations.dart';
+
+          // Integration layer
+          import 'src/integration/repositories/foundation_repository.dart';
+
+          // Presentation layer
+          import 'src/presentation/widgets/foundation_loader_widget.dart';
+
+          /// Compose and wire dependencies for Provide Foundations feature
+          class ProvideFoundationsComposition {
+            /// Create the composed feature with all dependencies wired
+            static Widget create() {
+              // Wire dependencies (dependency injection)
+              final foundationRepo = AssetFoundationRepository();
+              final loadFoundationsUseCase = LoadFoundationsUseCase(
+                repository: foundationRepo,
+              );
+
+              return FoundationLoaderWidget(
+                loadFoundations: loadFoundationsUseCase,
+              );
+            }
+          }
+
+    architectural_note:
+      principle: "Dependency Injection at the Edges"
+      description: |
+        Clean Architecture requires dependencies to flow INWARD (presentation → application → domain).
+        But someone has to INSTANTIATE and WIRE these dependencies. That's composition.py's job.
+
+        By keeping wiring separate from business logic:
+        1. Business logic stays testable (no concrete dependencies)
+        2. Dependencies can be easily swapped (different implementations)
+        3. Clear separation between WHAT (clean src/) and HOW (dirty composition.py)
+
+      quote: '"New is Glue" - composition.py is where new keyword lives'
+
+    when_to_create:
+      feature_composition:
+        timing: "During GREEN phase when implementing first use case"
+        trigger: "When you need to run the feature end-to-end"
+        scenarios:
+          - "Feature has multiple layers that need wiring"
+          - "Need CLI entry point for manual testing"
+          - "Integration tests need real dependencies"
+
+      wagon_composition:
+        timing: "After multiple features are GREEN"
+        trigger: "When you need integrated wagon testing"
+        scenarios:
+          - "Wagon has 2+ features that work together"
+          - "Need to test feature-to-feature orchestration"
+          - "Manual testing of complete wagon mechanic"
+          - "Demonstrating wagon to stakeholders"
+        note: "Not all wagons need wagon.py - only those with feature orchestration"
+
+    when_not_needed:
+      feature_composition:
+        scenarios:
+          - "Pure domain entities (no dependencies)"
+          - "Single-layer features (just presentation)"
+          - "Features only used as libraries (imported by others)"
+
+      wagon_composition:
+        scenarios:
+          - "Wagon has only 1 feature"
+          - "Features are completely independent"
+          - "No wagon-level orchestration needed"
+
+    validation:
+      feature_composition:
+        checks:
+          - "composition.py exists at feature root (not in src/)"
+          - "Imports from all layers if needed"
+          - "No business logic in composition.py"
+          - "Executable with shebang (#!/usr/bin/env python3)"
+          - "Has proper URN header with .infrastructure suffix"
+
+      wagon_composition:
+        checks:
+          - "wagon.py exists at wagon root (not in feature/)"
+          - "Orchestrates multiple features"
+          - "No business logic in wagon.py"
+          - "Executable with shebang (#!/usr/bin/env python3)"
+          - "Has proper URN header: component:{wagon}.wagon.infrastructure"
+          - "Provides CLI for integrated testing"
+
+      anti_patterns:
+        - avoid: "Business logic in composition.py or wagon.py"
+          instead: "Move to domain/application layer"
+        - avoid: "Importing composition.py or wagon.py from other modules"
+          instead: "Only execute directly as CLI entry points"
+        - avoid: "Multiple composition files per feature"
+          instead: "One composition.py per feature, use modes/arguments"
+        - avoid: "wagon.py duplicating feature logic"
+          instead: "wagon.py calls feature composition functions, doesn't reimplement"
+
+  principles:
+    - id: GP-01
+      text: "Do minimum to satisfy behavior"
+    - id: GP-02
+      text: "Defer structure and optimizations"
+    - id: GP-03
+      text: "Avoid irreversible coupling"
+    - id: GP-04
+      text: "Prefer duplication over premature abstraction"
+    - id: GP-05
+      text: "Define HOW through schema-driven architecture: validate all external data against schemas, use type-safe parsing"
+
+  guardrails:
+    - id: GR-PORTS
+      severity: error
+      rule: "All side-effects MUST be behind a tiny port/interface"
+      rationale: "Enables refactoring to clean architecture without breaking tests"
+      examples_ok:
+        - "Database access → RepositoryPort interface"
+        - "HTTP calls → HttpClientPort interface"
+        - "File I/O → FileStoragePort interface"
+        - "Queue/pub-sub → MessageBusPort interface"
+      examples_bad:
+        - "Direct DB connection in handler"
+        - "Hard-coded HTTP client in business logic"
+        - "File system calls without abstraction"
+      pattern: |
+        // Good: Side-effect behind port
+        interface OrderRepository {
+          save(order: Order): Promise<void>
+          findById(id: string): Promise<Order>
+        }
+
+        async function handleCreateOrder(req: Request, repo: OrderRepository) {
+          const order = createOrder(req.data)  // pure logic
+          await repo.save(order)  // I/O behind port
+          return order
+        }
+      checks:
+        - type: grep
+          path: "presentation/**"
+          must_not_match:
+            # JavaScript/TypeScript patterns
+            - "new PgClient\\("
+            - "new Pool\\("
+            - "axios\\."
+            - "fetch\\("
+            - "fs\\.readFile"
+            - "fs\\.writeFile"
+            # Dart patterns
+            - "File\\("
+            - "HttpClient\\("
+            - "dart:io"
+        - type: grep
+          path: "domain/**"
+          must_not_match:
+            # JavaScript/TypeScript patterns
+            - "new PgClient\\("
+            - "axios\\."
+            - "fetch\\("
+            - "fs\\."
+            # Dart patterns
+            - "File\\("
+            - "HttpClient\\("
+            - "dart:io"
+        - type: grep
+          path: "lib/**"
+          must_not_match:
+            # Dart package patterns
+            - "File\\("
+            - "HttpClient\\("
+            - "dart:io"
+
+    - id: GR-PURE
+      severity: error
+      rule: "Core decision logic MUST be in a pure function callable from entrypoint"
+      rationale: "Enables testing without infrastructure"
+      pattern: |
+        // Entrypoint (can have side effects)
+        async function handleRequest(req: Request): Promise<Response> {
+          const data = await repo.fetch(req.id)
+          const result = computeResult(data)  // ← PURE function
+          await repo.save(result)
+          return { status: 'ok', result }
+        }
+
+        // Pure function (no I/O, no side effects)
+        function computeResult(data: Data): Result {
+          // All business logic here
+          return { ... }
+        }
+      examples_bad:
+        - "Business logic mixed with database calls"
+        - "No pure function extractable from handler"
+      checks:
+        - type: reference
+          note: "Manually verify core logic is extractable and testable without mocks"
+
+    - id: GR-NOGLOBALS
+      severity: error
+      rule: "No globals/singletons; inject dependencies (even if manually)"
+      rationale: "Enables testing and future DI refactoring"
+      allowed:
+        - "Constructor injection (manual)"
+        - "Function parameter injection"
+      forbidden:
+        - "Global singleton DB instance"
+        - "Module-level HTTP client"
+        - "Static class members holding state"
+      pattern: |
+        // Good: Dependency injection
+        class OrderService {
+          constructor(
+            private repo: OrderRepository,
+            private emailClient: EmailClient
+          ) {}
+
+          async createOrder(data: OrderData) {
+            const order = Order.create(data)
+            await this.repo.save(order)
+            await this.emailClient.send(order.confirmationEmail)
+            return order
+          }
+        }
+
+        // Bad: Global singleton
+        // export const db = new PgClient()  ❌
+      checks:
+        - type: grep
+          path: "**/*.ts"
+          must_not_match:
+            - "export const db\\s*="
+            - "export const client\\s*="
+            - "global\\."
+            - "static.*client"
+        - type: grep
+          path: "**/*.dart"
+          must_not_match:
+            - "static.*database"
+            - "static.*client"
+            - "final.*=.*Database\\("
+
+    - id: GR-BASICSEC
+      severity: error
+      rule: "Basic security sanity checks (no secrets in code, validate inputs minimally)"
+      required:
+        - "No hardcoded credentials"
+        - "No secrets committed"
+        - "Basic input type validation (string/number/email format)"
+        - "No SQL injection vulnerabilities"
+      deferred_to_refactor:
+        - "Comprehensive input validation"
+        - "Rate limiting"
+        - "CSRF protection"
+        - "Detailed authorization policies"
+      checks:
+        - type: grep
+          path: "**/*"
+          must_not_match:
+            - "password\\s*=\\s*['\"][^'\"]+['\"]"
+            - "api_key\\s*=\\s*['\"][^'\"]+['\"]"
+            - "secret\\s*=\\s*['\"][^'\"]+['\"]"
+            - "Bearer [A-Za-z0-9_-]{20,}"
+        - type: grep
+          path: "presentation/**"
+          must_match:
+            - "validate|schema|zod|class-validator|joi"
+
+    - id: GR-SCHEMA
+      severity: error
+      rule: "All external data MUST be validated against schemas; use schema-driven parsing, not manual validation"
+      rationale: "Schema-first architecture ensures contracts are explicit, validated, and type-safe"
+      scope: "All boundary layers (presentation, integration)"
+      applies_to:
+        - "HTTP request bodies"
+        - "HTTP responses from external APIs"
+        - "Database query results"
+        - "File contents loaded from disk"
+        - "Environment variables"
+        - "CLI arguments"
+      benefits:
+        - "Single source of truth for data contracts"
+        - "Automatic type inference from schemas"
+        - "Runtime validation with compile-time types"
+        - "Self-documenting API contracts"
+        - "Easier refactoring when contract changes"
+        - "Prevention of data injection attacks"
+        - "Clear failure modes with structured error messages"
+      examples_ok:
+        - "Zod schema parsing HTTP request body (TypeScript)"
+        - "Freezed/json_serializable for API models (Dart)"
+        - "JSON Schema validation at integration boundaries"
+        - "Contract testing with shared schema files"
+      examples_bad:
+        - "Manual 'if' checks on req.body fields"
+        - "Type casting external data without validation"
+        - "Trusting external API response shape"
+        - "Parsing JSON without schema validation"
+      pattern: |
+        // TypeScript: Zod schema-driven parsing
+        import { z } from 'zod'
+
+        const CreateOrderSchema = z.object({
+          items: z.array(z.object({ id: z.string(), qty: z.number().positive() })),
+          shippingAddress: z.string().min(1)
+        })
+
+        type CreateOrderInput = z.infer<typeof CreateOrderSchema>
+
+        async function handleCreateOrder(req: Request): Promise<Response> {
+          // Schema validates AND provides type-safe data
+          const input: CreateOrderInput = CreateOrderSchema.parse(req.body)
+
+          // Now 'input' is guaranteed to match schema
+          const result = createOrder(input, orderRepo)
+          return { status: 'ok', data: result }
+        }
+
+        // Dart: Freezed + json_serializable
+        @freezed
+        class CreateOrderInput with _$CreateOrderInput {
+          const factory CreateOrderInput({
+            required List<OrderItem> items,
+            required String shippingAddress,
+          }) = _CreateOrderInput;
+
+          factory CreateOrderInput.fromJson(Map<String, dynamic> json) =>
+            _$CreateOrderInputFromJson(json);
+        }
+
+        // Schema-driven parsing
+        Future<Response> handleCreateOrder(Request req) async {
+          final input = CreateOrderInput.fromJson(req.body); // validates structure
+          final result = await createOrder(input, orderRepo);
+          return Response.ok(result);
+        }
+      checks:
+        - type: grep
+          path: "presentation/**"
+          must_match:
+            - "zod|z\\.object|z\\.infer|freezed|@freezed|json_serializable|JsonSerializable"
+          description: "Presentation layer must use schema validation library"
+        - type: grep
+          path: "integration/**"
+          must_match:
+            - "parse|validate|fromJson|toJson|schema"
+          description: "Integration layer must validate external data"
+        - type: grep
+          path: "presentation/**/*.ts"
+          must_not_match:
+            - "req\\.body\\[|req\\.query\\[|req\\.params\\["
+          description: "Avoid direct property access on unvalidated request objects"
+
+  shortcuts:
+    - id: SH-FLAT
+      permitted: true
+      note: "Handler can call gateway/repo directly via a minimal service"
+      example: |
+        // GREEN: acceptable
+        function handleOrder(req) {
+          const result = orderService.process(req.data)  // direct call
+          return result
+        }
+      refactor_target: "Handler → Use Case → Port → Gateway"
+
+    - id: SH-INMEM
+      permitted: true
+      note: "Use in-memory fakes for infrastructure"
+      example: |
+        // GREEN: acceptable
+        class InMemoryOrderRepo {
+          private orders = new Map()
+          save(order) { this.orders.set(order.id, order) }
+          find(id) { return this.orders.get(id) }
+        }
+      refactor_target: "Real DB adapter with connection pooling"
+
+    - id: SH-DUP
+      permitted: true
+      note: "Duplicate until 3rd occurrence"
+      rationale: "Wait to see pattern before abstracting"
+      example: "Same validation logic in 2 handlers is OK"
+      refactor_target: "Extract to shared validator after 3rd occurrence"
+
+    - id: SH-FILES
+      permitted: true
+      note: "Flat files/dirs (no 4-layer enforcement yet)"
+      example: |
+        feature/
+          handler.ts
+          service.ts
+          repo.ts
+      refactor_target: |
+        feature/
+          presentation/handler.ts
+          application/service.ts
+          integration/repo.ts
+
+  deliverables:
+    - id: DL-PASS
+      rule: "All acceptance tests must pass"
+      verification: "Run test suite and confirm GREEN"
+      checks:
+        - type: test_suite
+          suite: "acceptance"
+          must_be: "green"
+
+    - id: DL-ENTRY
+      rule: "Entrypoint → use-case function → ports"
+      flexibility: "Can be in same file initially"
+      example: |
+        // All in one file is OK for GREEN
+        export async function handleCreateOrder(req) {
+          const result = createOrderUseCase(req.data, orderRepo)
+          return result
+        }
+
+        function createOrderUseCase(data, repo: OrderRepo) {  // pure-ish
+          const order = new Order(data)
+          repo.save(order)
+          return order
+        }
+
+    - id: DL-PORTS
+      rule: "Minimal ports defined (interfaces + simplest impl/fake)"
+      example: |
+        // Port definition
+        interface OrderRepo {
+          save(order: Order): Promise<void>
+          find(id: string): Promise<Order>
+        }
+
+        // Simplest implementation
+        class InMemoryOrderRepo implements OrderRepo {
+          private orders = new Map()
+          async save(order) { this.orders.set(order.id, order) }
+          async find(id) { return this.orders.get(id) }
+        }
+
+    - id: DL-TODOS
+      rule: "Mark seams with TODO(REFACTOR) comments"
+      example: |
+        // TODO(REFACTOR): Extract to application/use_cases/
+        // TODO(REFACTOR): Move to domain/entities/
+        // TODO(REFACTOR): Replace InMemoryOrderRepo with PostgresOrderRepo
+
+  done_criteria:
+    - id: DC-TESTS
+      requirement: "All acceptance criteria pass"
+    - id: DC-SEAMS
+      requirement: "Clear seams exist to replace fakes/direct calls later"
+    - id: DC-PORTS
+      requirement: "Side effects abstracted behind interfaces"
+    - id: DC-PURITY
+      requirement: "Core logic extractable and testable"
+
+  anti_patterns:
+    - id: AP-OPT
+      text: "Premature optimization"
+      avoid: "Optimizing before profiling"
+      reasoning: "Wait until REFACTOR phase"
+
+    - id: AP-ABST
+      text: "Premature abstraction"
+      avoid: "Creating generic framework before 3 use cases"
+      reasoning: "Extract patterns only after repetition"
+
+    - id: AP-FWCOUPLE
+      text: "Framework coupling in business logic"
+      avoid: "Business logic importing framework classes"
+      reasoning: "Even in GREEN, keep domain pure"
+      example: "Order entity importing Express types"
+
+    - id: AP-MISSINGPORTS
+      text: "Missing port abstraction"
+      avoid: "Direct database/HTTP calls without interface"
+      reasoning: "Blocks refactoring; violates mandatory guardrail GR-PORTS"
+
+  handoff_to_refactor:
+    trigger: "All tests GREEN"
+    checklist:
+      - "✓ Tests passing"
+      - "✓ Ports defined"
+      - "✓ Pure functions identified"
+      - "✓ TODOs marked for refactoring"
+      - "✓ No mandatory guardrail violations"
+    next_phase: "refactor.convention.yaml"
+
+  ci_gates:
+    description: "Automated enforcement in CI pipeline"
+    on: "pull_request"
+    require:
+      - GR-PORTS
+      - GR-NOGLOBALS
+      - GR-BASICSEC
+      - GR-SCHEMA
+      - DL-PASS
+    optional_warnings:
+      - GR-PURE

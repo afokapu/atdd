@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Unit Test Harness Template",
+  "description": "Template for unit/component tests",
+  "language": "typescript",
+  "framework": "vitest",
+  "category": "frontend",
+  "template": "\ndescribe('{test_name}', () => {{\n  let component: {component_name};\n  let mockDependencies: any;\n\n  beforeEach(() => {{\n    mockDependencies = {{\n      {mock_setup}\n    }};\n    component = new {component_name}(mockDependencies);\n  }});\n\n  it('{acceptance_name}', async () => {{\n    // Given\n    {given_setup}\n\n    // When\n    {when_action}\n\n    // Then\n    {then_assertions}\n  }});\n}});\n",
+  "variables": [
+    "test_name",
+    "component_name",
+    "mock_setup",
+    "acceptance_name",
+    "given_setup",
+    "when_action",
+    "then_assertions"
+  ]
+}

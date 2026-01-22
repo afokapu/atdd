@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wagons.dev/schemas/tester/telemetry.schema.json",
+  "title": "Telemetry Signal Schema",
+  "description": "Meta-schema that validates telemetry signal files for naming, metadata, and traceability.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "$schema",
+    "$id",
+    "version",
+    "type",
+    "plane",
+    "artifact_ref",
+    "acceptance_criteria",
+    "properties",
+    "required"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "http://json-schema.org/draft-07/schema#",
+      "description": "Must use JSON Schema Draft-07"
+    },
+    "$id": {
+      "type": "string",
+      "pattern": "^([a-z][a-z0-9\\-]*:)+[a-z][a-z0-9\\-.]*\\.(event|metric|trace|log)\\.(ui|ux|be|nw|db|st|tm|sc|au|fn|if)(\\.[a-z0-9_-]+)?$",
+      "description": "Signal ID pattern: {theme}(:{path})*:{aspect}.{type}.{plane}[.{measure}] (aspect may include dots)"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version (REQUIRED): 0.x.x for draft, 1.x.x+ for stable"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "event",
+        "metric",
+        "trace",
+        "log"
+      ],
+      "description": "Signal type"
+    },
+    "plane": {
+      "type": "string",
+      "enum": [
+        "ui",
+        "ux",
+        "be",
+        "nw",
+        "db",
+        "st",
+        "tm",
+        "sc",
+        "au",
+        "fn",
+        "if"
+      ],
+      "description": "Logical observability layer"
+    },
+    "measure": {
+      "type": "string",
+      "description": "Metric measure (required for type=metric)"
+    },
+    "unit": {
+      "type": "string",
+      "description": "Metric unit"
+    },
+    "artifact_ref": {
+      "type": "string",
+      "pattern": "^contract:([a-z][a-z0-9\\-]*:)+[a-z][a-z0-9\\-]*$",
+      "description": "Reference to contract schema with URN format: contract:{theme}(:{path})*:{resource}"
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "string",
+        "pattern": "^acc:[a-z][a-z0-9_-]*:([DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-[0-9]{3}(?:-[a-z0-9-]+)?|[A-Z][0-9]{3})$"
+      },
+      "description": "Array of acceptance criteria URNs that validate this signal"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable signal description"
+    },
+    "note": {
+      "type": "string",
+      "description": "Optional placeholder or implementation notes"
+    },
+    "properties": {
+      "type": "object",
+      "description": "JSON Schema properties object"
+    },
+    "required": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Required property names"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "metric" }
+        }
+      },
+      "then": {
+        "required": ["measure"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "const": "event" }
+        }
+      },
+      "then": {
+        "not": {
+          "required": ["measure"]
+        }
+      }
+    }
+  ]
+}

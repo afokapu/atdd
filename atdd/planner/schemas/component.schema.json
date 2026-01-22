@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Component Schema",
+  "description": "Schema for component YAML files",
+  "type": "object",
+  "required": ["urn", "parentFeature", "description"],
+  "properties": {
+    "urn": {
+      "type": "string",
+      "pattern": "^component:[a-z0-9]+(-[a-z0-9]+)*\\.[a-z0-9]+(-[a-z0-9]+)*\\.[a-zA-Z0-9]+\\.(frontend|backend)\\.(presentation|application|domain|integration)$",
+      "description": "Component URN: component:{wagon}.{feature}.{objectCamelCase}.{layer}"
+    },
+    "parentFeature": {
+      "type": "string",
+      "pattern": "^feature:[a-z0-9]+(-[a-z0-9]+)*\\.[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Parent feature URN"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 200,
+      "description": "Purpose of the component"
+    },
+    "inputs": {
+      "type": "array",
+      "description": "Component inputs with references to feature ioSeeds",
+      "items": {
+        "type": "object",
+        "required": ["name", "urn"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z]+:[a-z][a-z0-9-]*$",
+            "description": "Input name in typed format"
+          },
+          "urn": {
+            "type": "string",
+            "pattern": "^feature:[a-z0-9-]+\\.[a-z0-9-]+#[a-z]+:[a-z][a-z0-9-]*$",
+            "description": "Reference to feature ioSeed URN (feature:wagon.feature#name:item)"
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "description": "Component outputs with references to feature ioSeeds",
+      "items": {"$ref": "#/properties/inputs/items"}
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^component:[a-z0-9]+(-[a-z0-9]+)*\\.[a-z0-9]+(-[a-z0-9]+)*\\.[a-zA-Z0-9]+\\.(frontend|backend)\\.(presentation|application|domain|integration)$"
+      },
+      "description": "Component dependencies"
+    },
+    "events": {
+      "type": "object",
+      "properties": {
+        "consumes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["event"],
+            "properties": {
+              "event": {
+                "type": "string",
+                "description": "Event name"
+              }
+            }
+          },
+          "maxItems": 3,
+          "description": "Events this component consumes"
+        },
+        "produces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["event"],
+            "properties": {
+              "event": {
+                "type": "string",
+                "description": "Event name"
+              }
+            }
+          },
+          "maxItems": 3,
+          "description": "Events this component produces"
+        }
+      }
+    },
+
+    "componentType": {
+      "type": "string",
+      "description": "Component type from coder conventions catalog",
+      "enum": [
+        "controllers", "routes", "serializers", "validators", "middleware", "guards", "views",
+        "use_cases", "handlers", "ports", "dtos", "policies", "workflows",
+        "entities", "value_objects", "aggregates", "services", "specifications", "events", "exceptions",
+        "repositories", "clients", "caches", "engines", "formatters", "notifiers", "queues", "stores", "mappers", "schedulers", "monitors",
+        "components", "containers", "layouts", "styles", "animations", "forms", "hooks", "directives", "filters",
+        "interceptors", "synchronizers", "validators", "workers", "connectors"
+      ]
+    },
+    "appendices": {
+      "type": "array",
+      "description": "Supplementary files for this component",
+      "items": {
+        "$ref": "appendix.schema.json#/definitions/appendix_reference"
+      }
+    }
+  }
+}

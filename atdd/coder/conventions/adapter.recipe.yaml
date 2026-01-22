@@ -1,0 +1,88 @@
+recipe: adapter
+pattern: "Adapter (implements port interface)"
+category: integration
+source: "GoF Design Patterns + Hexagonal Architecture"
+utils: "architecture.py"
+
+applies_when:
+  - "Port interface exists without implementation"
+  - "Need external system integration"
+
+steps:
+  - step: 1
+    what: "Verify port interface exists in application layer"
+    where: "application/ports/{resource}_repository.py"
+    example: |
+      class OrderRepository:
+          """Port for order persistence."""
+
+          def save(self, order: Order) -> None:
+              raise NotImplementedError
+
+          def find_by_id(self, id: OrderId) -> Order:
+              raise NotImplementedError
+
+  - step: 2
+    what: "Implement adapter in integration layer"
+    where: "integration/{tech}_{resource}_repository.py"
+    naming: "{Technology}{ResourceName}Repository"
+    template: |
+      class PostgresOrderRepository(OrderRepository):
+          """PostgreSQL adapter for OrderRepository port."""
+
+          def __init__(self, db: Database):
+              self.db = db
+
+          def save(self, order: Order) -> None:
+              row = OrderMapper.to_row(order)
+              self.db.insert('orders', row)
+
+          def find_by_id(self, id: OrderId) -> Order:
+              row = self.db.find_one('orders', {'id': id.value})
+              if not row:
+                  raise OrderNotFound(id)
+              return OrderMapper.to_domain(row)
+
+    verify:
+      - run: pytest -xvs tests/integration/test_postgres_order_repository.py
+        expect: GREEN
+
+  - step: 3
+    what: "Create mapper (isolate domain from infrastructure)"
+    where: "integration/mappers/{resource}_mapper.py"
+    purpose: "Prevent infrastructure types from leaking into domain"
+    template: |
+      class OrderMapper:
+          """Map between Order domain entity and database row."""
+
+          @staticmethod
+          def to_row(order: Order) -> dict:
+              return {
+                  "id": order.id.value,
+                  "customer_id": order.customer_id.value,
+                  "total_cents": order.total.cents,
+                  "status": order.status.value,
+                  "created_at": order.created_at.isoformat()
+              }
+
+          @staticmethod
+          def to_domain(row: dict) -> Order:
+              return Order.reconstitute(
+                  id=OrderId(row["id"]),
+                  customer_id=CustomerId(row["customer_id"]),
+                  total=Money.from_cents(row["total_cents"]),
+                  status=OrderStatus(row["status"]),
+                  created_at=datetime.fromisoformat(row["created_at"])
+              )
+
+pattern_distinction:
+  adapter: "IMPLEMENTS the port interface"
+  strategy: "SELECTS which adapter to use at runtime"
+  mapper: "TRANSFORMS between domain and infrastructure types"
+
+final_verify:
+  - "Adapter implements port interface"
+  - "Domain layer has NO infrastructure imports"
+  - "Mapper isolates type transformations"
+  - "Tests can swap implementations (in-memory vs real)"
+  - "All tests GREEN"

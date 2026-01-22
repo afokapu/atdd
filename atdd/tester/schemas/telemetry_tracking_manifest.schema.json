@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "telemetry-tracking-manifest-schema",
+  "title": "Telemetry Tracking Manifest Schema",
+  "description": "Schema for telemetry/_tracking.yaml manifest file",
+  "type": "object",
+  "required": ["version", "planes", "measures", "artifacts"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the manifest"
+    },
+    "planes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["ui", "ux", "be", "db", "nw", "st", "tm", "sc", "au", "fn", "if"]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Valid plane identifiers"
+    },
+    "measures": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "latency",
+          "duration",
+          "count",
+          "size",
+          "error_rate",
+          "success_rate",
+          "throughput"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Valid measure types"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/artifact_entry"
+      },
+      "minItems": 1,
+      "description": "Array of artifact signal declarations"
+    }
+  },
+  "definitions": {
+    "artifact_entry": {
+      "type": "object",
+      "required": ["artifact", "contract_ref", "signals"],
+      "properties": {
+        "artifact": {
+          "type": "string",
+          "pattern": "^[a-z_]+:[a-z_]+(\\.[a-z_]+)?$",
+          "description": "Artifact identifier in domain:resource[.category] format"
+        },
+        "contract_ref": {
+          "type": "string",
+          "pattern": "^contract:[a-z_]+:[a-z_]+(\\.[a-z_]+)?$",
+          "description": "Contract reference (supports category facets)"
+        },
+        "signals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/signal_declaration"
+          },
+          "minItems": 1,
+          "description": "Array of signal declarations for this artifact"
+        }
+      },
+      "additionalProperties": false
+    },
+    "signal_declaration": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["event", "metric", "trace", "log"],
+          "description": "Signal type"
+        },
+        "plane": {
+          "type": "string",
+          "enum": ["ui", "ux", "be", "db", "nw", "st", "tm", "sc", "au", "fn", "if"],
+          "description": "Plane identifier (required for metric/trace)"
+        },
+        "measure": {
+          "type": "string",
+          "enum": [
+            "latency",
+            "duration",
+            "count",
+            "size",
+            "error_rate",
+            "success_rate",
+            "throughput"
+          ],
+          "description": "Measure type (required for metric)"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement (e.g., ms, bytes, count)"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "metric" } }
+          },
+          "then": {
+            "required": ["plane", "measure"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "trace" } }
+          },
+          "then": {
+            "required": ["plane"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "event" } }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["plane"] },
+                { "required": ["measure"] }
+              ]
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,109 @@
+recipe: complexity
+pattern: "Complexity Reduction (Split/Extract)"
+category: domain
+source: "Refactoring: Improving the Design of Existing Code (Martin Fowler)"
+utils: "complexity.py"
+
+applies_when:
+  - "ATDD audit flags excessive complexity"
+  - "Complex boolean conditionals (cyclomatic > 10)"
+
+steps:
+  - step: 1
+    what: "Create base complexity reduction interface"
+    where: "domain/complexity/base.py"
+    template: |
+      class ComplexityRule:
+          """Base class for composable complexity reduction rules."""
+
+          def is_satisfied_by(self, candidate) -> bool:
+              """Check if candidate satisfies this rule."""
+              raise NotImplementedError
+
+          def and_(self, other: 'ComplexityRule') -> 'ComplexityRule':
+              return AndRule(self, other)
+
+          def or_(self, other: 'ComplexityRule') -> 'ComplexityRule':
+              return OrRule(self, other)
+
+          def not_(self) -> 'ComplexityRule':
+              return NotRule(self)
+
+
+      class AndRule(ComplexityRule):
+          def __init__(self, left: ComplexityRule, right: ComplexityRule):
+              self.left = left
+              self.right = right
+
+          def is_satisfied_by(self, candidate) -> bool:
+              return self.left.is_satisfied_by(candidate) and self.right.is_satisfied_by(candidate)
+
+
+      class OrRule(ComplexityRule):
+          def __init__(self, left: ComplexityRule, right: ComplexityRule):
+              self.left = left
+              self.right = right
+
+          def is_satisfied_by(self, candidate) -> bool:
+              return self.left.is_satisfied_by(candidate) or self.right.is_satisfied_by(candidate)
+
+
+      class NotRule(ComplexityRule):
+          def __init__(self, rule: ComplexityRule):
+              self.rule = rule
+
+          def is_satisfied_by(self, candidate) -> bool:
+              return not self.rule.is_satisfied_by(candidate)
+
+  - step: 2
+    what: "Extract each complex conditional to named rule class"
+    where: "domain/complexity/{rule}.py"
+    example: |
+      # Before (complex conditional):
+      if customer.is_premium and order.total > 1000 or customer.is_first_time:
+          apply_discount()
+
+      # After (extract to rules):
+      class IsPremiumCustomerRule(ComplexityRule):
+          def is_satisfied_by(self, candidate) -> bool:
+              return candidate['customer'].is_premium
+
+      class MinimumOrderRule(ComplexityRule):
+          def __init__(self, min_amount: Money):
+              self.min_amount = min_amount
+
+          def is_satisfied_by(self, candidate) -> bool:
+              return candidate['order'].total >= self.min_amount
+
+      class IsFirstTimeCustomerRule(ComplexityRule):
+          def is_satisfied_by(self, candidate) -> bool:
+              return candidate['customer'].is_first_time
+
+  - step: 3
+    what: "Compose complexity rules with and_/or_/not_"
+    template: |
+      # Compose
+      eligible_for_discount = (
+          IsPremiumCustomerRule()
+          .and_(MinimumOrderRule(Money.from_dollars(1000)))
+          .or_(IsFirstTimeCustomerRule())
+      )
+
+      # Use
+      if eligible_for_discount.is_satisfied_by({'customer': customer, 'order': order}):
+          apply_discount()
+
+    verify:
+      - run: pytest -xvs tests/domain/complexity/
+        expect: GREEN
+
+requirements:
+  - "Complexity rules MUST be side-effect free (pure functions)"
+  - "Each rule testable in isolation"
+  - "Composition works (and_/or_/not_)"
+
+final_verify:
+  - "Cyclomatic complexity reduced below threshold"
+  - "Boolean logic is explicit and named"
+  - "Rules reusable across validation/filtering/queries"
+  - "All tests GREEN"
