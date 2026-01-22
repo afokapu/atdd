@@ -2,6 +2,29 @@
 
 A unified Acceptance Test-Driven Development (ATDD) framework that orchestrates planning, testing, and implementation validation through a single CLI.
 
+## Problem
+
+Agentic coding breaks down when instructions are ambiguous. It took dozens of iterations to reach a workflow where I could trust that agents would follow good practice, preserve standards, and keep the codebase understandable.
+
+## Solution
+
+ATDD provides a structured flow and a meta-validation layer to keep artifacts coherent:
+
+```
+Session (user need)
+  ↓
+Plan (requirements)
+  ↓
+Tests (contracts + acceptance criteria)
+  ↓
+Code implementation
+  ↓
+Refactor
+  ↓
+Meta-validation (conventions + schemas)
+  ↺ feeds back into coherence checks
+```
+
 ## Quick start
 
 ```bash
