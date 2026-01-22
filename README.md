@@ -25,7 +25,7 @@ Meta-validation (conventions + schemas)
   ↺ feeds back into coherence checks
 ```
 
-Note: The default stack assumes Python for validation, pytest for execution, and YAML/JSON Schema for conventions. It can be adapted to any stack with comparable capabilities.
+Note: The default stack assumes Supabase PostgreSQL + JSONB (migrations), a Python FastAPI 4-layer backend, a TypeScript/Preact 4-layer frontend, JSON Schema contracts, and Python/pytest + YAML/JSON Schema for validation. It can be adapted to any stack with comparable capabilities.
 
 ## Quick start
 
