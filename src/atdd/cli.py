@@ -9,12 +9,16 @@ The coach orchestrates all ATDD lifecycle operations:
 - Validate: Validate artifacts against conventions
 - Init: Initialize ATDD structure in consumer repos
 - Session: Manage session files
+- Sync: Sync ATDD rules to agent config files
 
 Usage:
     atdd init                                # Initialize ATDD in consumer repo
     atdd session new my-feature              # Create new session
     atdd session list                        # List all sessions
     atdd session archive 01                  # Archive session
+    atdd sync                                # Sync ATDD rules to agent configs
+    atdd sync --verify                       # Check if files are in sync
+    atdd sync --agent claude                 # Sync specific agent only
     atdd --inventory                         # Generate inventory
     atdd --test all                          # Run all meta-tests
     atdd --test planner                      # Run planner phase tests
@@ -36,6 +40,7 @@ from atdd.coach.commands.test_runner import TestRunner
 from atdd.coach.commands.registry import RegistryUpdater
 from atdd.coach.commands.initializer import ProjectInitializer
 from atdd.coach.commands.session import SessionManager
+from atdd.coach.commands.sync import AgentConfigSync
 
 
 class ATDDCoach:
@@ -145,6 +150,12 @@ Examples:
   %(prog)s session list                   List all sessions
   %(prog)s session archive 01             Archive SESSION-01-*.md
 
+  # Agent config sync
+  %(prog)s sync                           Sync ATDD rules to agent configs
+  %(prog)s sync --verify                  Check if files are in sync (CI)
+  %(prog)s sync --agent claude            Sync specific agent only
+  %(prog)s sync --status                  Show sync status
+
   # Existing flag-based commands (backwards compatible)
   %(prog)s --inventory                    Generate full inventory (YAML)
   %(prog)s --inventory --format json      Generate inventory (JSON)
@@ -232,6 +243,29 @@ Phase descriptions:
     session_subparsers.add_parser(
         "sync",
         help="Sync manifest with actual session files"
+    )
+
+    # ----- atdd sync -----
+    sync_parser = subparsers.add_parser(
+        "sync",
+        help="Sync ATDD rules to agent config files",
+        description="Sync managed ATDD blocks to agent config files (CLAUDE.md, AGENTS.md, etc.)"
+    )
+    sync_parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Check if files are in sync (for CI)"
+    )
+    sync_parser.add_argument(
+        "--agent",
+        type=str,
+        choices=["claude", "codex", "gemini", "qwen"],
+        help="Sync specific agent only"
+    )
+    sync_parser.add_argument(
+        "--status",
+        action="store_true",
+        help="Show sync status for all agents"
     )
 
     # ----- Existing flag-based arguments (backwards compatible) -----
@@ -323,6 +357,15 @@ Phase descriptions:
         else:
             session_parser.print_help()
             return 0
+
+    # atdd sync
+    elif args.command == "sync":
+        syncer = AgentConfigSync()
+        if args.status:
+            return syncer.status()
+        if args.verify:
+            return syncer.verify()
+        return syncer.sync(agents=[args.agent] if args.agent else None)
 
     # ----- Handle flag-based commands (backwards compatible) -----
 

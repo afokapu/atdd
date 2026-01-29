@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://atdd.dev/schemas/config.schema.json",
+  "title": "ATDD Config",
+  "description": "Schema for .atdd/config.yaml configuration file",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration schema version",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "examples": ["1.0"]
+    },
+    "sync": {
+      "type": "object",
+      "description": "Agent config file sync settings",
+      "properties": {
+        "agents": {
+          "type": "array",
+          "description": "List of agents to sync ATDD rules to",
+          "items": {
+            "type": "string",
+            "enum": ["claude", "codex", "gemini", "qwen"]
+          },
+          "uniqueItems": true,
+          "default": ["claude"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["version"],
+  "additionalProperties": false
+}

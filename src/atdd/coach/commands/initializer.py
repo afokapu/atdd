@@ -3,11 +3,13 @@ Project initializer for ATDD structure in consumer repos.
 
 Creates the following structure:
     consumer-repo/
+    ├── CLAUDE.md                (with managed ATDD block)
     ├── atdd-sessions/
     │   ├── SESSION-TEMPLATE.md  (copied from package)
     │   └── archive/
     └── .atdd/
-        └── manifest.yaml        (machine-readable session tracking)
+        ├── manifest.yaml        (machine-readable session tracking)
+        └── config.yaml          (agent sync configuration)
 
 Usage:
     atdd init                    # Initialize ATDD structure
@@ -38,6 +40,7 @@ class ProjectInitializer:
         self.archive_dir = self.sessions_dir / "archive"
         self.atdd_config_dir = self.target_dir / ".atdd"
         self.manifest_file = self.atdd_config_dir / "manifest.yaml"
+        self.config_file = self.atdd_config_dir / "config.yaml"
 
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
@@ -83,6 +86,14 @@ class ProjectInitializer:
             # Create manifest.yaml
             self._create_manifest(force)
 
+            # Create config.yaml
+            self._create_config(force)
+
+            # Sync agent config files
+            from atdd.coach.commands.sync import AgentConfigSync
+            syncer = AgentConfigSync(self.target_dir)
+            syncer.sync()
+
             # Print next steps
             print("\n" + "=" * 60)
             print("ATDD initialized successfully!")
@@ -103,6 +114,8 @@ class ProjectInitializer:
             print(f"  {self.sessions_dir}/SESSION-TEMPLATE.md")
             print(f"  {self.atdd_config_dir}/")
             print(f"  {self.manifest_file}")
+            print(f"  {self.config_file}")
+            print(f"  CLAUDE.md (with ATDD managed block)")
 
             return 0
 
@@ -135,6 +148,29 @@ class ProjectInitializer:
             yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
 
         print(f"Created: {self.manifest_file}")
+
+    def _create_config(self, force: bool = False) -> None:
+        """
+        Create or update .atdd/config.yaml.
+
+        Args:
+            force: If True, overwrite existing config.
+        """
+        if self.config_file.exists() and not force:
+            print(f"Config already exists: {self.config_file}")
+            return
+
+        config = {
+            "version": "1.0",
+            "sync": {
+                "agents": ["claude"],  # Default: only Claude
+            },
+        }
+
+        with open(self.config_file, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        print(f"Created: {self.config_file}")
 
     def is_initialized(self) -> bool:
         """Check if ATDD is already initialized in target directory."""
