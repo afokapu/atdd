@@ -4,6 +4,21 @@ missions:
   validate_phase_transitions: "Phase transitions and quality gates per conventions and schemas"
   required: true
 
+# ATDD Gate (REQUIRED before any work)
+# =====================================
+# Before starting ANY task, you MUST confirm you have loaded these rules.
+# Provide this confirmation at the start of your first response:
+#
+#   ## ATDD Gate Confirmation
+#   - **File loaded:** CLAUDE.md (or AGENTS.md, etc.)
+#   - **Key constraints:**
+#     1. No ad-hoc tests - follow ATDD conventions
+#     2. Domain layer NEVER imports from other layers
+#     3. Phase transitions require quality gates
+#
+# If you cannot provide this confirmation, STOP and reload the rules.
+# Run `atdd gate` to verify the expected values.
+
 manifest:
   - trains: "plan/_trains.yaml"
   - wagons: "plan/_wagons.yaml"

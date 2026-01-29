@@ -115,6 +115,38 @@ sync:
     # - qwen      # Uncomment to sync QWEN.md
 ```
 
+### ATDD Gate
+
+Verify agents have loaded ATDD rules before starting work:
+
+```bash
+atdd gate                  # Show gate verification info
+atdd gate --json           # Output as JSON for programmatic use
+```
+
+Example output:
+```
+============================================================
+ATDD Gate Verification
+============================================================
+
+Loaded files:
+  - CLAUDE.md (hash: d04f897c6691dc13...)
+
+Key constraints:
+  1. No ad-hoc tests - follow ATDD conventions
+  2. Domain layer NEVER imports from other layers
+  3. Phase transitions require quality gates
+
+------------------------------------------------------------
+Before starting work, confirm you have loaded these rules.
+------------------------------------------------------------
+```
+
+Agents should confirm at the start of each session:
+- Which ATDD file(s) they loaded
+- The key constraints they will follow
+
 ### Validation
 
 ```bash

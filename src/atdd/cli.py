@@ -10,6 +10,7 @@ The coach orchestrates all ATDD lifecycle operations:
 - Init: Initialize ATDD structure in consumer repos
 - Session: Manage session files
 - Sync: Sync ATDD rules to agent config files
+- Gate: Verify agents loaded ATDD rules
 
 Usage:
     atdd init                                # Initialize ATDD in consumer repo
@@ -19,6 +20,7 @@ Usage:
     atdd sync                                # Sync ATDD rules to agent configs
     atdd sync --verify                       # Check if files are in sync
     atdd sync --agent claude                 # Sync specific agent only
+    atdd gate                                # Show ATDD gate verification
     atdd --inventory                         # Generate inventory
     atdd --test all                          # Run all meta-tests
     atdd --test planner                      # Run planner phase tests
@@ -41,6 +43,7 @@ from atdd.coach.commands.registry import RegistryUpdater
 from atdd.coach.commands.initializer import ProjectInitializer
 from atdd.coach.commands.session import SessionManager
 from atdd.coach.commands.sync import AgentConfigSync
+from atdd.coach.commands.gate import ATDDGate
 from atdd.version_check import print_update_notice
 
 
@@ -157,6 +160,10 @@ Examples:
   %(prog)s sync --agent claude            Sync specific agent only
   %(prog)s sync --status                  Show sync status
 
+  # ATDD gate verification
+  %(prog)s gate                           Show gate verification info
+  %(prog)s gate --json                    Output as JSON
+
   # Existing flag-based commands (backwards compatible)
   %(prog)s --inventory                    Generate full inventory (YAML)
   %(prog)s --inventory --format json      Generate inventory (JSON)
@@ -269,6 +276,18 @@ Phase descriptions:
         help="Show sync status for all agents"
     )
 
+    # ----- atdd gate -----
+    gate_parser = subparsers.add_parser(
+        "gate",
+        help="Show ATDD gate verification info",
+        description="Verify agents have loaded ATDD rules before starting work"
+    )
+    gate_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output as JSON for programmatic use"
+    )
+
     # ----- Existing flag-based arguments (backwards compatible) -----
 
     # Main command groups
@@ -367,6 +386,11 @@ Phase descriptions:
         if args.verify:
             return syncer.verify()
         return syncer.sync(agents=[args.agent] if args.agent else None)
+
+    # atdd gate
+    elif args.command == "gate":
+        gate = ATDDGate()
+        return gate.verify(json=args.json)
 
     # ----- Handle flag-based commands (backwards compatible) -----
 
