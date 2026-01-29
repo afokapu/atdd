@@ -4,20 +4,41 @@ missions:
   validate_phase_transitions: "Phase transitions and quality gates per conventions and schemas"
   required: true
 
-# ATDD Gate (REQUIRED before any work)
-# =====================================
-# Before starting ANY task, you MUST confirm you have loaded these rules.
-# Provide this confirmation at the start of your first response:
+# =============================================================================
+# ATDD AGENT BOOTSTRAP PROTOCOL (REQUIRED)
+# =============================================================================
 #
-#   ## ATDD Gate Confirmation
-#   - **File loaded:** CLAUDE.md (or AGENTS.md, etc.)
-#   - **Key constraints:**
-#     1. No ad-hoc tests - follow ATDD conventions
-#     2. Domain layer NEVER imports from other layers
-#     3. Phase transitions require quality gates
+# Problem: Agents often skip instruction files and work without ATDD context.
+# Solution: Coercive context - inject rules via mandatory tool output.
 #
-# If you cannot provide this confirmation, STOP and reload the rules.
-# Run `atdd gate` to verify the expected values.
+# PROTOCOL:
+# ---------
+# 1. Run this command FIRST:
+#
+#    atdd gate
+#
+# 2. Paste the output and confirm:
+#    - Which file(s) were loaded
+#    - The reported hash
+#    - The key ATDD constraints
+#
+# 3. If output shows missing/unsynced files, run:
+#
+#    atdd sync
+#
+#    Then re-run: atdd gate
+#
+# WHY THIS WORKS:
+# - Gate output is mandatory tool output - agent can't ignore it
+# - Proves which ATDD files were actually loaded
+# - Forces consistency across all agents
+#
+# FAILURE MODE:
+# - If agent skips the gate: STOP and run atdd gate again
+# - Don't proceed until gate confirmation is posted
+#
+# RULE: If ATDD rules matter, start with `atdd gate`. No gate = no guarantees.
+# =============================================================================
 
 manifest:
   - trains: "plan/_trains.yaml"

@@ -130,16 +130,29 @@ sync:
 atdd sync  # Creates/updates CLAUDE.md, AGENTS.md, GEMINI.md, QWEN.md
 ```
 
-### ATDD Gate
+### ATDD Gate (Bootstrap Protocol)
 
-Verify agents have loaded ATDD rules before starting work:
+Agents often skip instruction files. The gate solves this by injecting rules via mandatory tool output.
 
-```bash
-atdd gate                  # Show gate verification info
-atdd gate --json           # Output as JSON for programmatic use
-```
+**Protocol:**
 
-Example output:
+1. Run this command first:
+   ```bash
+   atdd gate
+   ```
+
+2. Agent must paste output and confirm:
+   - Which file(s) were loaded
+   - The reported hash
+   - The key constraints
+
+3. If files are missing/unsynced:
+   ```bash
+   atdd sync
+   atdd gate  # Re-verify
+   ```
+
+**Example output:**
 ```
 ============================================================
 ATDD Gate Verification
@@ -158,9 +171,12 @@ Before starting work, confirm you have loaded these rules.
 ------------------------------------------------------------
 ```
 
-Agents should confirm at the start of each session:
-- Which ATDD file(s) they loaded
-- The key constraints they will follow
+**Why this works:**
+- Gate output is mandatory tool output - agent can't ignore it
+- Proves which ATDD files were actually loaded
+- Forces consistency across all agents
+
+**Rule:** If ATDD rules matter, start with `atdd gate`. No gate = no guarantees.
 
 ### Validation
 
