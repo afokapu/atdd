@@ -40,7 +40,7 @@ atdd sync                      # Sync rules to agent config files
 atdd --test all                # Run validators
 ```
 
-> **⚠️ `atdd gate` is required.** Agents skip instruction files but can't ignore tool output. No gate = no ATDD guarantees.
+> **⚠️ `atdd gate` is required.** Tell agents: "Run `atdd gate` and follow it rigorously." Agents skip instruction files but can't ignore tool output. No gate = no ATDD guarantees.
 
 ## What It Does
 
