@@ -4,10 +4,10 @@ Acceptance Test Driven Development toolkit for structured planning and conventio
 
 ## Installation
 
-### From GitHub (recommended for now)
+### From PyPI
 
 ```bash
-pip install git+https://github.com/afokapu/atdd.git
+pip install atdd
 ```
 
 ### For Development
@@ -24,13 +24,6 @@ pip install -e ".[dev]"
 atdd --help
 ```
 
-### Future: PyPI
-
-Once published to PyPI:
-```bash
-pip install atdd
-```
-
 ## Quick Start
 
 ```bash
@@ -43,6 +36,9 @@ atdd session new my-feature
 # List sessions
 atdd session list
 
+# Sync ATDD rules to agent config files
+atdd sync
+
 # Run validators
 atdd --test all
 ```
@@ -54,24 +50,27 @@ ATDD provides:
 1. **Session Management** - Structured planning documents with templates and tracking
 2. **Convention Enforcement** - YAML-based conventions validated via pytest
 3. **ATDD Lifecycle** - Planner → Tester → Coder phase gates
+4. **Agent Config Sync** - Keep ATDD rules in sync across AI agent config files
 
 ## Commands
 
 ### Project Initialization
 
 ```bash
-atdd init              # Create atdd-sessions/ and .atdd/ directories
+atdd init              # Create atdd-sessions/, .atdd/, and CLAUDE.md
 atdd init --force      # Reinitialize (overwrites existing)
 ```
 
 Creates:
 ```
 your-project/
+├── CLAUDE.md              # With managed ATDD block
 ├── atdd-sessions/
 │   ├── SESSION-TEMPLATE.md
 │   └── archive/
 └── .atdd/
-    └── manifest.yaml
+    ├── manifest.yaml      # Session tracking
+    └── config.yaml        # Agent sync configuration
 ```
 
 ### Session Management
@@ -85,6 +84,36 @@ atdd session sync                       # Sync manifest with files
 ```
 
 Session types: `implementation`, `migration`, `refactor`, `analysis`, `planning`, `cleanup`, `tracking`
+
+### Agent Config Sync
+
+Sync ATDD rules to agent config files using managed blocks that preserve user content:
+
+```bash
+atdd sync                  # Sync all enabled agents from config
+atdd sync --agent claude   # Sync specific agent only
+atdd sync --verify         # Check if files are in sync (for CI)
+atdd sync --status         # Show sync status for all agents
+```
+
+Supported agents:
+| Agent | File |
+|-------|------|
+| claude | CLAUDE.md |
+| codex | AGENTS.md |
+| gemini | GEMINI.md |
+| qwen | QWEN.md |
+
+Configure which agents to sync in `.atdd/config.yaml`:
+```yaml
+version: "1.0"
+sync:
+  agents:
+    - claude      # Enabled by default
+    # - codex     # Uncomment to sync AGENTS.md
+    # - gemini    # Uncomment to sync GEMINI.md
+    # - qwen      # Uncomment to sync QWEN.md
+```
 
 ### Validation
 
@@ -112,8 +141,9 @@ src/atdd/
 ├── coach/
 │   ├── commands/          # CLI command implementations
 │   ├── conventions/       # Coach conventions (YAML)
+│   ├── overlays/          # Agent-specific additions
 │   ├── schemas/           # JSON schemas
-│   ├── templates/         # Session templates
+│   ├── templates/         # Session templates, ATDD.md
 │   └── validators/        # Coach validators
 ├── planner/
 │   ├── conventions/       # Planning conventions
