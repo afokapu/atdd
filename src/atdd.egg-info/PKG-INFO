@@ -1,3 +1,17 @@
+Metadata-Version: 2.4
+Name: atdd
+Version: 0.1.0
+Summary: ATDD Platform - Acceptance Test Driven Development toolkit
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pyyaml
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Dynamic: license-file
+
 # ATDD Platform - Unified Command Interface
 
 **The Coach orchestrates all ATDD lifecycle operations through a single entry point.**

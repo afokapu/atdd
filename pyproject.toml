@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atdd"
+version = "0.1.0"
+description = "ATDD Platform - Acceptance Test Driven Development toolkit"
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+dependencies = ["pyyaml"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-xdist"]
+
+[project.scripts]
+atdd = "atdd.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["src/atdd"]

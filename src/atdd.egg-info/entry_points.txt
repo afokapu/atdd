@@ -1,0 +1,2 @@
+[console_scripts]
+atdd = atdd.cli:main
