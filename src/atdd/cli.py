@@ -7,16 +7,22 @@ The coach orchestrates all ATDD lifecycle operations:
 - Test: Run meta-tests (planner/tester/coder)
 - Report: Generate test reports
 - Validate: Validate artifacts against conventions
+- Init: Initialize ATDD structure in consumer repos
+- Session: Manage session files
 
 Usage:
-    ./atdd.py --inventory                    # Generate inventory
-    ./atdd.py --test all                     # Run all meta-tests
-    ./atdd.py --test planner                 # Run planner phase tests
-    ./atdd.py --test tester                  # Run tester phase tests
-    ./atdd.py --test coder                   # Run coder phase tests
-    ./atdd.py --test all --coverage          # With coverage report
-    ./atdd.py --test all --html              # With HTML report
-    ./atdd.py --help                         # Show help
+    atdd init                                # Initialize ATDD in consumer repo
+    atdd session new my-feature              # Create new session
+    atdd session list                        # List all sessions
+    atdd session archive 01                  # Archive session
+    atdd --inventory                         # Generate inventory
+    atdd --test all                          # Run all meta-tests
+    atdd --test planner                      # Run planner phase tests
+    atdd --test tester                       # Run tester phase tests
+    atdd --test coder                        # Run coder phase tests
+    atdd --test all --coverage               # With coverage report
+    atdd --test all --html                   # With HTML report
+    atdd --help                              # Show help
 """
 
 import argparse
@@ -28,6 +34,8 @@ ATDD_DIR = Path(__file__).parent
 from atdd.coach.commands.inventory import RepositoryInventory
 from atdd.coach.commands.test_runner import TestRunner
 from atdd.coach.commands.registry import RegistryUpdater
+from atdd.coach.commands.initializer import ProjectInitializer
+from atdd.coach.commands.session import SessionManager
 
 
 class ATDDCoach:
@@ -127,17 +135,28 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --inventory                  Generate full inventory (YAML)
-  %(prog)s --inventory --format json    Generate inventory (JSON)
-  %(prog)s --test all                   Run all meta-tests
-  %(prog)s --test planner               Run planner phase tests
-  %(prog)s --test tester                Run tester phase tests
-  %(prog)s --test coder                 Run coder phase tests
-  %(prog)s --test all --coverage        Run with coverage report
-  %(prog)s --test all --html            Run with HTML report
-  %(prog)s --test all --verbose         Run with verbose output
-  %(prog)s --quick                      Quick smoke test
-  %(prog)s --status                     Show platform status
+  # Initialize ATDD in consumer repo
+  %(prog)s init                           Create atdd-sessions/, .atdd/
+  %(prog)s init --force                   Overwrite if exists
+
+  # Session management
+  %(prog)s session new my-feature         Create SESSION-NN-my-feature.md
+  %(prog)s session new my-feature --type migration
+  %(prog)s session list                   List all sessions
+  %(prog)s session archive 01             Archive SESSION-01-*.md
+
+  # Existing flag-based commands (backwards compatible)
+  %(prog)s --inventory                    Generate full inventory (YAML)
+  %(prog)s --inventory --format json      Generate inventory (JSON)
+  %(prog)s --test all                     Run all meta-tests
+  %(prog)s --test planner                 Run planner phase tests
+  %(prog)s --test tester                  Run tester phase tests
+  %(prog)s --test coder                   Run coder phase tests
+  %(prog)s --test all --coverage          Run with coverage report
+  %(prog)s --test all --html              Run with HTML report
+  %(prog)s --test all --verbose           Run with verbose output
+  %(prog)s --quick                        Quick smoke test
+  %(prog)s --status                       Show platform status
 
 Phase descriptions:
   planner - Validates planning artifacts (wagons, trains, URNs)
@@ -145,6 +164,77 @@ Phase descriptions:
   coder   - Validates implementation (architecture, quality)
         """
     )
+
+    # Subparsers for new commands
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # ----- atdd init -----
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Initialize ATDD structure in consumer repo",
+        description="Create atdd-sessions/ and .atdd/ directories with manifest"
+    )
+    init_parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Overwrite existing files"
+    )
+
+    # ----- atdd session {new,list,archive,sync} -----
+    session_parser = subparsers.add_parser(
+        "session",
+        help="Manage session files",
+        description="Create, list, and archive session files"
+    )
+    session_subparsers = session_parser.add_subparsers(
+        dest="session_command",
+        help="Session commands"
+    )
+
+    # atdd session new <slug>
+    new_parser = session_subparsers.add_parser(
+        "new",
+        help="Create new session from template",
+        description="Create a new session file with next available number"
+    )
+    new_parser.add_argument(
+        "slug",
+        type=str,
+        help="Session name (will be converted to kebab-case)"
+    )
+    new_parser.add_argument(
+        "--type", "-t",
+        type=str,
+        default="implementation",
+        choices=["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
+        help="Session type (default: implementation)"
+    )
+
+    # atdd session list
+    session_subparsers.add_parser(
+        "list",
+        help="List all sessions from manifest"
+    )
+
+    # atdd session archive <session_id>
+    archive_parser = session_subparsers.add_parser(
+        "archive",
+        help="Move session to archive/",
+        description="Archive a completed session"
+    )
+    archive_parser.add_argument(
+        "session_id",
+        type=str,
+        help="Session ID to archive (e.g., '01' or '1')"
+    )
+
+    # atdd session sync
+    session_subparsers.add_parser(
+        "sync",
+        help="Sync manifest with actual session files"
+    )
+
+    # ----- Existing flag-based arguments (backwards compatible) -----
 
     # Main command groups
     parser.add_argument(
@@ -210,6 +300,31 @@ Phase descriptions:
     )
 
     args = parser.parse_args()
+
+    # ----- Handle subcommands -----
+
+    # atdd init
+    if args.command == "init":
+        initializer = ProjectInitializer()
+        return initializer.init(force=args.force)
+
+    # atdd session {new,list,archive,sync}
+    elif args.command == "session":
+        manager = SessionManager()
+
+        if args.session_command == "new":
+            return manager.new(slug=args.slug, session_type=args.type)
+        elif args.session_command == "list":
+            return manager.list()
+        elif args.session_command == "archive":
+            return manager.archive(session_id=args.session_id)
+        elif args.session_command == "sync":
+            return manager.sync()
+        else:
+            session_parser.print_help()
+            return 0
+
+    # ----- Handle flag-based commands (backwards compatible) -----
 
     # Create coach instance
     coach = ATDDCoach()

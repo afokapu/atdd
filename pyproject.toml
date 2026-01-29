@@ -20,6 +20,17 @@ atdd = "atdd.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"atdd.coach.templates" = ["*.md"]
+"atdd.coach.schemas" = ["*.json"]
+"atdd.coach.conventions" = ["*.yaml"]
+"atdd.planner.conventions" = ["*.yaml"]
+"atdd.planner.schemas" = ["*.json"]
+"atdd.tester.conventions" = ["*.yaml"]
+"atdd.tester.schemas" = ["*.json"]
+"atdd.coder.conventions" = ["*.yaml"]
+"atdd.coder.schemas" = ["*.json"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["src/atdd"]

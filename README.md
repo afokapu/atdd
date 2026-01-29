@@ -1,527 +1,177 @@
-# ATDD Platform - Unified Command Interface
+# ATDD
 
-**The Coach orchestrates all ATDD lifecycle operations through a single entry point.**
+Acceptance Test Driven Development toolkit for structured planning and convention enforcement.
+
+## Installation
+
+### From GitHub (recommended for now)
+
+```bash
+pip install git+https://github.com/afokapu/atdd.git
+```
+
+### For Development
+
+```bash
+# Clone the repo
+git clone https://github.com/afokapu/atdd.git
+cd atdd
+
+# Install in editable mode with dev dependencies
+pip install -e ".[dev]"
+
+# Verify installation
+atdd --help
+```
+
+### Future: PyPI
+
+Once published to PyPI:
+```bash
+pip install atdd
+```
 
 ## Quick Start
 
-All ATDD operations through one command:
+```bash
+# Initialize ATDD in your project
+atdd init
+
+# Create a planning session
+atdd session new my-feature
+
+# List sessions
+atdd session list
+
+# Run validators
+atdd --test all
+```
+
+## What It Does
+
+ATDD provides:
+
+1. **Session Management** - Structured planning documents with templates and tracking
+2. **Convention Enforcement** - YAML-based conventions validated via pytest
+3. **ATDD Lifecycle** - Planner → Tester → Coder phase gates
+
+## Commands
+
+### Project Initialization
 
 ```bash
-# Show all available commands
-./atdd/atdd.py --help
-
-# Quick status check
-./atdd/atdd.py --status
-
-# Generate inventory
-./atdd/atdd.py --inventory
-
-# Run all validators
-./atdd/atdd.py --test all
+atdd init              # Create atdd-sessions/ and .atdd/ directories
+atdd init --force      # Reinitialize (overwrites existing)
 ```
 
----
+Creates:
+```
+your-project/
+├── atdd-sessions/
+│   ├── SESSION-TEMPLATE.md
+│   └── archive/
+└── .atdd/
+    └── manifest.yaml
+```
 
-## Commands Reference
-
-### 📊 Inventory
-
-Generate comprehensive repository inventory cataloging all artifacts:
+### Session Management
 
 ```bash
-# Generate inventory (YAML format)
-./atdd/atdd.py --inventory
-
-# Generate inventory (JSON format)
-./atdd/atdd.py --inventory --format json
+atdd session new <slug>                 # Create new session
+atdd session new <slug> --type <type>   # Specify type
+atdd session list                       # List all sessions
+atdd session archive <id>               # Archive session
+atdd session sync                       # Sync manifest with files
 ```
 
-**Catalogs:**
-- ATDD infrastructure (`atdd/` - conventions, schemas, validators)
-- Planning artifacts (`plan/` - trains, wagons, features, WMBT)
-- Testing artifacts (`contracts/`, `telemetry/`)
-- Implementation files (`python/`, `supabase/`, `web/`)
-- Test files (meta-validators + feature tests)
-- Documentation and facts/logs
+Session types: `implementation`, `migration`, `refactor`, `analysis`, `planning`, `cleanup`, `tracking`
 
----
-
-### 🗂️ Registry Updates
-
-Refresh registries derived from source artifacts:
+### Validation
 
 ```bash
-# Update all registries
-./atdd/atdd.py --update-registry all
-
-# Update specific registries
-./atdd/atdd.py --update-registry wagons
-./atdd/atdd.py --update-registry contracts
-./atdd/atdd.py --update-registry telemetry
+atdd --test all        # Run all validators
+atdd --test planner    # Planning artifacts only
+atdd --test tester     # Testing artifacts only
+atdd --test coder      # Implementation only
+atdd --quick           # Fast smoke test
 ```
 
----
-
-### 🧪 Validation
-
-Run ATDD meta-validators to validate platform quality:
+### Other Commands
 
 ```bash
-# Run all meta-validators (planner + tester + coder)
-./atdd/atdd.py --test all
-
-# Run specific phase validators
-./atdd/atdd.py --test planner    # Planning phase validation
-./atdd/atdd.py --test tester     # Testing phase validation
-./atdd/atdd.py --test coder      # Implementation phase validation
-./atdd/atdd.py --test coach      # Coach utilities validation
-
-# With options
-./atdd/atdd.py --test all --verbose     # Verbose output
-./atdd/atdd.py --test all --coverage    # With coverage report
-./atdd/atdd.py --test all --html        # Generate HTML report
-./atdd/atdd.py --test all --coverage --html  # Both!
-
-# Quick smoke test (fast, no reports)
-./atdd/atdd.py --quick
+atdd --status          # Platform status
+atdd --inventory       # Generate artifact inventory
+atdd --help            # Full help
 ```
 
----
-
-### 📈 Status
-
-Quick platform status summary:
-
-```bash
-./atdd/atdd.py --status
-```
-
-Shows:
-- Directory structure
-- Validator file counts
-- Phase breakdown
-
----
-
-## Validator Organization
-
-### ATDD Lifecycle Meta-Validators (`atdd/`)
-
-Validators that validate the ATDD platform itself. **Auto-discovered** by pytest - just add `test_*.py` files!
-
-#### 📋 Planner (`atdd/planner/`)
-
-Validates planning artifacts in `plan/`:
-
-- ✅ Wagon manifest schema validation
-- ✅ Train structure and URN validation
-- ✅ Cross-reference coherence
-- ✅ URN → filesystem resolution
-- ✅ Uniqueness constraints
-- ✅ Traceability chain validation
-- ✅ WMBT consistency and vocabulary
-
-**Count:** 9 validator files
-
-**Run:**
-```bash
-./atdd/atdd.py --test planner
-```
-
-#### 🧪 Tester (`atdd/tester/`)
-
-Validates testing artifacts and conventions:
-
-- ✅ Contract schema compliance (`contracts/`)
-- ✅ Telemetry structure (`telemetry/`)
-- ✅ Test naming conventions (Python, TypeScript)
-- ✅ Preact/TypeScript web test structure (`web/tests/`)
-- ✅ Acceptance criteria mapping
-- ✅ Coverage adequacy
-- ✅ Fixture validity
-- ✅ Test isolation (no sys.path manipulation, no global state)
-- ✅ Dual AC reference enforcement
-
-**Count:** 21 validator files
-
-**Run:**
-```bash
-./atdd/atdd.py --test tester
-```
-
-#### ⚙️ Coder (`atdd/coder/`)
-
-Validates implementation quality across languages:
-
-- ✅ Architecture compliance (`python/`, `supabase/`, `web/`)
-- ✅ Preact 4-layer boundary enforcement (`web/src/`)
-- ✅ Commons structure (Python & TypeScript)
-- ✅ Import boundary enforcement
-- ✅ DTO testing patterns
-- ✅ Train infrastructure compliance
-- ✅ Complexity thresholds
-- ✅ Quality metrics
-- ✅ Cross-language consistency
-
-**Count:** 22 validator files
-
-**Run:**
-```bash
-./atdd/atdd.py --test coder
-```
-
-#### 🎯 Coach (`atdd/coach/`)
-
-Validates cross-phase coordination:
-
-- ✅ Registry integrity (wagons, contracts, telemetry)
-- ✅ Contract consumer validation
-- ✅ Traceability enforcement
-- ✅ Feature path updates
-
-**Count:** 5 validator files
-
-**Run:**
-```bash
-./atdd/atdd.py --test coach
-```
-
----
-
-## Architecture
+## Project Structure
 
 ```
-atdd/
-├── atdd.py                      # Main CLI entry point (THE COACH)
-├── coach/                       # Cross-phase coordination
-│   ├── commands/                # Command implementations
-│   │   ├── inventory.py         # Repository inventory generator
-│   │   ├── test_runner.py       # Test execution engine
-│   │   └── registry.py          # Registry update commands
-│   ├── utils/                   # Coach utilities
-│   │   └── graph/               # URN graph utilities
-│   └── validators/              # Coach meta-validators
-│       ├── shared_fixtures.py   # Shared pytest fixtures
-│       ├── test_registry.py
-│       ├── test_traceability.py
-│       └── test_validate_contract_consumers.py
-│
-├── planner/                     # Phase 1: Planning validation
-│   ├── conventions/             # Planning conventions (YAML)
-│   │   ├── wagon.convention.yaml
-│   │   ├── train.convention.yaml
-│   │   ├── wmbt.convention.yaml
-│   │   └── feature.convention.yaml
-│   ├── schemas/                 # Planning schemas (JSON Schema)
-│   │   ├── wagon.schema.json
-│   │   ├── train.schema.json
-│   │   ├── wmbt.schema.json
-│   │   └── feature.schema.json
-│   ├── validators/              # Planning validators (auto-discovered)
-│   │   ├── conftest.py          # Imports coach.validators.shared_fixtures
-│   │   ├── test_plan_wagons.py
-│   │   ├── test_plan_cross_refs.py
-│   │   ├── test_plan_urn_resolution.py
-│   │   ├── test_plan_uniqueness.py
-│   │   ├── test_wagon_urn_chain.py
-│   │   ├── test_train_validation.py
-│   │   └── test_wmbt_*.py
-│   └── conftest.py              # Root planner configuration
-│
-├── tester/                      # Phase 2: Testing validation
-│   ├── conventions/             # Testing conventions (YAML)
-│   │   ├── red.convention.yaml
-│   │   ├── contract.convention.yaml
-│   │   ├── telemetry.convention.yaml
-│   │   ├── filename.convention.yaml
-│   │   └── artifact.convention.yaml
-│   ├── schemas/                 # Testing schemas (JSON Schema)
-│   │   ├── contract.schema.json
-│   │   ├── telemetry_signal.schema.json
-│   │   └── artifact.schema.json
-│   ├── utils/                   # Tester utilities
-│   │   └── filename.py          # URN-based filename utilities
-│   ├── validators/              # Testing validators (auto-discovered)
-│   │   ├── conftest.py          # Imports coach.validators.shared_fixtures
-│   │   ├── test_contract_*.py
-│   │   ├── test_telemetry_*.py
-│   │   ├── test_*_test_naming.py
-│   │   ├── test_red_*.py
-│   │   ├── test_acceptance_*.py
-│   │   ├── test_coverage_*.py
-│   │   ├── test_fixture_*.py
-│   │   └── test_isolation.py
-│   └── conftest.py              # Root tester configuration
-│
-├── coder/                       # Phase 3: Implementation validation
-│   ├── conventions/             # Coding conventions (YAML)
-│   │   ├── backend.convention.yaml
-│   │   ├── frontend.convention.yaml
-│   │   ├── boundaries.convention.yaml
-│   │   ├── commons.convention.yaml
-│   │   ├── green.convention.yaml
-│   │   ├── refactor.convention.yaml
-│   │   ├── train.convention.yaml
-│   │   └── dto.convention.yaml
-│   ├── schemas/                 # Coder schemas (JSON Schema)
-│   │   └── (future schemas)
-│   └── validators/              # Implementation validators (auto-discovered)
-│       ├── test_python_architecture.py
-│       ├── test_typescript_architecture.py
-│       ├── test_preact_layer_boundaries.py
-│       ├── test_commons_structure.py
-│       ├── test_import_boundaries.py
-│       ├── test_wagon_boundaries.py
-│       ├── test_dto_testing_patterns.py
-│       ├── test_train_*.py
-│       ├── test_complexity.py
-│       ├── test_quality_metrics.py
-│       └── test_cross_language_consistency.py
-│
-├── conftest.py                  # Root pytest configuration
-└── README.md                    # This file
+src/atdd/
+├── cli.py                 # Entry point
+├── coach/
+│   ├── commands/          # CLI command implementations
+│   ├── conventions/       # Coach conventions (YAML)
+│   ├── schemas/           # JSON schemas
+│   ├── templates/         # Session templates
+│   └── validators/        # Coach validators
+├── planner/
+│   ├── conventions/       # Planning conventions
+│   ├── schemas/           # Planning schemas
+│   └── validators/        # Planning validators
+├── tester/
+│   ├── conventions/       # Testing conventions
+│   ├── schemas/           # Testing schemas
+│   └── validators/        # Testing validators
+└── coder/
+    ├── conventions/       # Coding conventions
+    ├── schemas/           # Coder schemas
+    └── validators/        # Implementation validators
 ```
-
----
-
-## Coach Role
-
-The **coach** orchestrates all ATDD operations:
-
-- **Coordinates** across the three phases (planner → tester → coder)
-- **Provides** shared fixtures for cross-phase data
-- **Executes** commands (inventory, test, report, validate)
-- **Enforces** platform conventions and boundaries
-- **Centralizes** conventions and schemas in `atdd/*/conventions/` and `atdd/*/schemas/`
-
-### Conventions & Schemas
-
-Each phase has its own conventions (YAML) and schemas (JSON Schema):
-
-```yaml
-atdd/
-├── planner/conventions/    # Planning rules
-├── planner/schemas/        # Planning data structures
-├── tester/conventions/     # Testing rules
-├── tester/schemas/         # Testing data structures
-├── coder/conventions/      # Coding rules
-└── coder/schemas/          # Coding data structures
-```
-
-Validators reference these via:
-```python
-CONVENTION = REPO_ROOT / "atdd" / "coder" / "conventions" / "backend.convention.yaml"
-SCHEMA = REPO_ROOT / "atdd" / "planner" / "schemas" / "wagon.schema.json"
-```
-
----
-
-## Auto-Discovery
-
-**Validators are auto-discovered by pytest!** Just follow the pattern:
-
-1. Create a file: `atdd/{phase}/validators/test_{feature}.py`
-2. Write tests with `def test_*()` or `class Test*`
-3. Run: `./atdd/atdd.py --test {phase}`
-
-**No registration needed!** Pytest finds all `test_*.py` files automatically.
-
-```bash
-# Example: Add new validator
-touch atdd/coder/validators/test_my_new_check.py
-
-# It's automatically discovered and run
-./atdd/atdd.py --test coder
-```
-
----
-
-## Philosophy
-
-All validators follow the **Independence Principle**:
-
-- ✅ **Self-contained** - No external utility dependencies
-- ✅ **Well-documented** - Clear rules in docstrings
-- ✅ **Convention-driven** - Reference YAML conventions
-- ✅ **Executable specifications** - Validators ARE the contracts
-
-Validators may be **inspired by** utilities but are **not coupled to** them.
-
----
-
-## Examples
-
-### Generate Inventory + Run Validators
-
-```bash
-# Get full repository snapshot
-./atdd/atdd.py --inventory > inventory.yaml
-
-# Validate everything
-./atdd/atdd.py --test all --html --coverage
-
-# View results
-open atdd/test_report.html
-open atdd/htmlcov/index.html
-```
-
-### Validate Specific Phase
-
-```bash
-# Just validate planning artifacts
-./atdd/atdd.py --test planner --verbose
-
-# Just validate contracts and test naming
-./atdd/atdd.py --test tester --html
-
-# Just validate implementation architecture
-./atdd/atdd.py --test coder --coverage
-```
-
-### CI/CD Integration
-
-```bash
-# In CI pipeline
-./atdd/atdd.py --test all --coverage --html || exit 1
-
-# Quick pre-commit check
-./atdd/atdd.py --quick
-
-# Parallel execution (default)
-./atdd/atdd.py --test all  # Uses pytest-xdist -n auto
-```
-
----
 
 ## Development
 
-### Adding New Validators
-
-1. **Choose the right phase:**
-   - **planner/validators/** - Validating planning artifacts (wagons, trains, URNs, WMBT)
-   - **tester/validators/** - Validating testing artifacts (contracts, test naming, coverage)
-   - **coder/validators/** - Validating implementation (architecture, quality, boundaries)
-   - **coach/validators/** - Validating cross-phase concerns (registries, traceability)
-
-2. **Create the validator file:**
-   ```bash
-   touch atdd/{phase}/validators/test_my_feature.py
-   ```
-
-3. **Write the validator:**
-   ```python
-   """
-   Test my feature follows convention.
-
-   Convention: atdd/{phase}/conventions/my.convention.yaml
-   """
-   import pytest
-   from pathlib import Path
-
-   REPO_ROOT = Path(__file__).resolve().parents[3]
-
-   def test_my_validation():
-       """SPEC-{PHASE}-{ID}: Description"""
-       # Your validation logic
-       assert condition, "Error message"
-   ```
-
-4. **Run validators:**
-   ```bash
-   ./atdd/atdd.py --test <phase> --verbose
-   ```
-
-5. **It's automatically discovered!** No registration needed.
-
-### Adding New Conventions
-
-1. **Create convention file:**
-   ```bash
-   touch atdd/{phase}/conventions/my_feature.convention.yaml
-   ```
-
-2. **Define the convention:**
-   ```yaml
-   version: "1.0"
-   name: "My Feature Convention"
-   description: "Rules for my feature"
-
-   rules:
-     rule_1:
-       description: "First rule"
-       example: "Example pattern"
-
-   enforcement:
-     validators:
-       location: "src/atdd/{phase}/validators/test_my_feature.py"
-       specs:
-         - id: "SPEC-{PHASE}-{ID}"
-           description: "What this validates"
-   ```
-
-3. **Reference in validator:**
-   ```python
-   MY_CONVENTION = ATDD_PKG_ROOT / "{phase}" / "conventions" / "my_feature.convention.yaml"
-   ```
-
-### Extending the CLI
-
-Add new commands in `atdd/coach/commands/`:
-
-```python
-# coach/commands/my_command.py
-class MyCommand:
-    def __init__(self, repo_root):
-        self.repo_root = repo_root
-
-    def run(self):
-        # Implementation
-        return 0
-
-# Register in atdd/atdd.py
-from coach.commands.my_command import MyCommand
-
-# Add argument in main()
-parser.add_argument("--my-command", ...)
-
-# Handle in main()
-if args.my_command:
-    cmd = MyCommand(repo_root)
-    return cmd.run()
-```
-
----
-
-## Test Results
-
-Current status (as of latest run):
+### Setup
 
 ```bash
-$ ./atdd/atdd.py --test all
-========== 30 failed, 445 passed, 411 skipped ==========
-
-Pass rate: 93.7%
-Total validators: 57 files
-  - Planner: 9 validators
-  - Tester: 21 validators
-  - Coder: 22 validators
-  - Coach: 5 validators
+git clone https://github.com/afokapu/atdd.git
+cd atdd
+pip install -e ".[dev]"
 ```
 
----
+### Run Tests
 
-## Related Documentation
+```bash
+# All tests
+pytest
 
-- `CLAUDE.md` - Project-level ATDD workflow and missions
-- Individual convention files in `src/atdd/*/conventions/`
-- Individual schema files in `src/atdd/*/schemas/`
+# Specific phase
+pytest src/atdd/planner/validators/
 
----
+# With coverage
+pytest --cov=atdd --cov-report=html
+```
 
-## Support
+### Adding Validators
 
-For questions or issues:
-- Review conventions in `src/atdd/*/conventions/*.yaml`
-- Review schemas in `src/atdd/*/schemas/*.json`
-- Run `atdd --help`
-- Check validator output for specific validation failures
+1. Create `src/atdd/{phase}/validators/test_{name}.py`
+2. Write pytest test functions
+3. Run `atdd --test {phase}`
+
+Validators are auto-discovered by pytest.
+
+### Adding Conventions
+
+1. Create `src/atdd/{phase}/conventions/{name}.convention.yaml`
+2. Reference in validators via `Path(__file__).parent.parent / "conventions" / "..."`
+
+## Requirements
+
+- Python 3.10+
+- pyyaml
+
+Dev dependencies: pytest, pytest-xdist
+
+## License
+
+MIT

@@ -30,10 +30,10 @@ ATDD_PKG_ROOT = Path(__file__).parent.parent.parent  # src/atdd
 CONVENTION_FILE = ATDD_PKG_ROOT / "coach" / "conventions" / "session.convention.yaml"
 TEMPLATE_FILE = ATDD_PKG_ROOT / "coach" / "templates" / "SESSION-TEMPLATE.md"
 
-# Consumer repo paths (where sessions are created)
+# Consumer repo paths (where sessions are created via `atdd init`)
 # Default to current working directory, can be overridden
 REPO_ROOT = Path.cwd()
-SESSIONS_DIR = REPO_ROOT / "sessions"
+SESSIONS_DIR = REPO_ROOT / "atdd-sessions"
 
 # Valid values from convention
 VALID_STATUSES = {"INIT", "PLANNED", "ACTIVE", "BLOCKED", "COMPLETE", "OBSOLETE"}
@@ -183,7 +183,7 @@ def convention() -> Dict:
 def session_files() -> List[Path]:
     """Get all session files (excluding template and archive)."""
     if not SESSIONS_DIR.exists():
-        pytest.skip(f"Sessions directory not found: {SESSIONS_DIR}")
+        pytest.skip(f"Sessions directory not found: {SESSIONS_DIR}. Run 'atdd init' first.")
 
     files = []
     for f in SESSIONS_DIR.glob("SESSION-*.md"):

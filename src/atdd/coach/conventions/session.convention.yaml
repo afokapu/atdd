@@ -197,12 +197,14 @@ format:
     sections: "## headings"
 
 # Session file location and naming
-# Note: sessions/ is created in the consuming repo, not in this package
+# Note: atdd-sessions/ is created in the consuming repo via `atdd init`
 filesystem:
   # Consumer repo paths (where sessions are created)
-  directory: "sessions/"
-  archive: "sessions/archive/"
-  # Package template location (copy to consumer repo)
+  directory: "atdd-sessions/"
+  archive: "atdd-sessions/archive/"
+  config_dir: ".atdd/"
+  manifest: ".atdd/manifest.yaml"
+  # Package template location (copy to consumer repo via `atdd init`)
   template: "atdd.coach.templates/SESSION-TEMPLATE.md"
   naming:
     pattern: "SESSION-{NN}-{slug}.md"

@@ -199,17 +199,26 @@ agents:
     audits: "src/atdd/coder/validators/*.py"
 
 # Session Planning (Design before implementation)
-# Note: sessions/ is created in the consuming repo, not in this package
+# Note: atdd-sessions/ is created in the consuming repo via `atdd init`
 sessions:
-  # Consumer repo paths
-  directory: "sessions/"
-  archive: "sessions/archive/"
+  # Consumer repo paths (created via `atdd init`)
+  directory: "atdd-sessions/"
+  archive: "atdd-sessions/archive/"
+  config_dir: ".atdd/"
+  manifest: ".atdd/manifest.yaml"
   # Package resources
   template: "src/atdd/coach/templates/SESSION-TEMPLATE.md"
   convention: "src/atdd/coach/conventions/session.convention.yaml"
 
+  commands:
+    init: "atdd init                    # Initialize atdd-sessions/ and .atdd/"
+    new: "atdd session new my-feature   # Create SESSION-NN-my-feature.md"
+    list: "atdd session list            # List all sessions from manifest"
+    archive: "atdd session archive 01   # Move session to archive/"
+
   workflow:
-    create: "Copy template from atdd package to sessions/SESSION-{NN}-{slug}.md"
+    init: "Run 'atdd init' to create atdd-sessions/ directory structure"
+    create: "Run 'atdd session new <slug>' to create new session from template"
     fill: "Fill ALL sections - write 'N/A' if not applicable, never omit"
     track: "Update Progress Tracker and Session Log after each work item"
     validate: "python3 -m pytest src/atdd/coach/validators/test_session_*.py -v"

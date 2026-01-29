@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "manifest.schema.json",
+  "title": "ATDD Session Manifest",
+  "description": "Schema for .atdd/manifest.yaml - machine-readable session tracking",
+  "type": "object",
+  "required": ["version", "sessions_dir", "sessions"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Manifest schema version",
+      "pattern": "^\\d+\\.\\d+$",
+      "examples": ["1.0"]
+    },
+    "sessions_dir": {
+      "type": "string",
+      "description": "Path to sessions directory relative to repo root",
+      "default": "atdd-sessions",
+      "examples": ["atdd-sessions"]
+    },
+    "created": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the manifest was created (YYYY-MM-DD)"
+    },
+    "sessions": {
+      "type": "array",
+      "description": "List of tracked sessions",
+      "items": {
+        "$ref": "#/$defs/session"
+      }
+    }
+  },
+  "$defs": {
+    "session": {
+      "type": "object",
+      "description": "Session entry in manifest",
+      "required": ["id", "slug", "file", "type", "status", "created"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Two-digit session identifier",
+          "pattern": "^\\d{2}$",
+          "examples": ["01", "02", "10"]
+        },
+        "slug": {
+          "type": "string",
+          "description": "Kebab-case session name",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "examples": ["my-feature", "api-migration"]
+        },
+        "file": {
+          "type": "string",
+          "description": "Path to session file relative to sessions_dir",
+          "pattern": "^(archive/)?SESSION-\\d{2}-.+\\.md$",
+          "examples": [
+            "SESSION-01-my-feature.md",
+            "archive/SESSION-01-my-feature.md"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "description": "Session type determining workflow",
+          "enum": [
+            "implementation",
+            "migration",
+            "refactor",
+            "analysis",
+            "planning",
+            "cleanup",
+            "tracking",
+            "unknown"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "description": "Current session status",
+          "enum": [
+            "INIT",
+            "PLANNED",
+            "ACTIVE",
+            "BLOCKED",
+            "COMPLETE",
+            "OBSOLETE",
+            "UNKNOWN"
+          ]
+        },
+        "created": {
+          "type": "string",
+          "format": "date",
+          "description": "Date the session was created (YYYY-MM-DD)"
+        },
+        "archived": {
+          "type": ["string", "null"],
+          "format": "date",
+          "description": "Date the session was archived (YYYY-MM-DD), null if not archived"
+        }
+      }
+    }
+  }
+}
