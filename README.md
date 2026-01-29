@@ -10,6 +10,12 @@ Acceptance Test Driven Development toolkit for structured planning and conventio
 pip install atdd
 ```
 
+### Upgrade
+
+```bash
+pip install --upgrade atdd
+```
+
 ### For Development
 
 ```bash
