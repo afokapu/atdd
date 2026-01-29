@@ -115,6 +115,21 @@ sync:
     # - qwen      # Uncomment to sync QWEN.md
 ```
 
+**Multi-agent setup:** To use multiple agents with consistent rules, enable them all in config and run sync:
+
+```yaml
+sync:
+  agents:
+    - claude
+    - codex
+    - gemini
+    - qwen
+```
+
+```bash
+atdd sync  # Creates/updates CLAUDE.md, AGENTS.md, GEMINI.md, QWEN.md
+```
+
 ### ATDD Gate
 
 Verify agents have loaded ATDD rules before starting work:
