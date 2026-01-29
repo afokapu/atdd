@@ -15,7 +15,7 @@ dependencies = ["pyyaml"]
 dev = ["pytest", "pytest-xdist"]
 
 [project.scripts]
-atdd = "atdd.cli:main"
+atdd = "atdd.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]

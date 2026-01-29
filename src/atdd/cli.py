@@ -41,6 +41,7 @@ from atdd.coach.commands.registry import RegistryUpdater
 from atdd.coach.commands.initializer import ProjectInitializer
 from atdd.coach.commands.session import SessionManager
 from atdd.coach.commands.sync import AgentConfigSync
+from atdd.version_check import print_update_notice
 
 
 class ATDDCoach:
@@ -400,5 +401,14 @@ Phase descriptions:
         return 0
 
 
+def cli() -> int:
+    """CLI entry point with version check."""
+    try:
+        result = main()
+    finally:
+        print_update_notice()
+    return result
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(cli())
