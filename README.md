@@ -27,21 +27,14 @@ atdd --help
 ## Quick Start
 
 ```bash
-# Initialize ATDD in your project
-atdd init
-
-# Create a planning session
-atdd session new my-feature
-
-# List sessions
-atdd session list
-
-# Sync ATDD rules to agent config files
-atdd sync
-
-# Run validators
-atdd --test all
+atdd init                      # Initialize ATDD in your project
+atdd gate                      # ⚠️ START EVERY SESSION WITH THIS
+atdd session new my-feature    # Create a planning session
+atdd sync                      # Sync rules to agent config files
+atdd --test all                # Run validators
 ```
+
+> **⚠️ `atdd gate` is required.** Agents skip instruction files but can't ignore tool output. No gate = no ATDD guarantees.
 
 ## What It Does
 
