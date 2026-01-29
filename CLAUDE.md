@@ -43,19 +43,19 @@ dev_servers:
 
 # Audits & Validation (Give context, pinpoint issues, validate compliance)
 audits:
-  cli: "./atdd/atdd.py"
+  cli: "atdd"
   purpose: "Meta-tests that validate ATDD artifacts against conventions"
 
   commands:
-    inventory: "./atdd/atdd.py --inventory"
-    status: "./atdd/atdd.py --status"
-    quick_check: "./atdd/atdd.py --quick"
-    validate_all: "./atdd/atdd.py --test all"
-    validate_planner: "./atdd/atdd.py --test planner"
-    validate_tester: "./atdd/atdd.py --test tester"
-    validate_coder: "./atdd/atdd.py --test coder"
-    with_coverage: "./atdd/atdd.py --test all --coverage"
-    with_html: "./atdd/atdd.py --test all --html"
+    inventory: "atdd --inventory"
+    status: "atdd --status"
+    quick_check: "atdd --quick"
+    validate_all: "atdd --test all"
+    validate_planner: "atdd --test planner"
+    validate_tester: "atdd --test tester"
+    validate_coder: "atdd --test coder"
+    with_coverage: "atdd --test all --coverage"
+    with_html: "atdd --test all --html"
 
   workflow:
     before_init: "Run planner audits to validate plan structure"
@@ -67,13 +67,13 @@ audits:
     before_green: "Run coder audits for architecture readiness"
     after_green: "Validate layer dependencies, boundaries"
     after_refactor: "Validate architecture compliance, quality metrics"
-    continuous: "CI runs './atdd/atdd.py --test all' on every commit"
+    continuous: "CI runs 'atdd --test all' on every commit"
 
   audit_scope:
-    planner: "atdd/planner/audits/*.py (wagons, trains, URNs, cross-refs, WMBT)"
-    tester: "atdd/tester/audits/*.py (test naming, contracts, telemetry, coverage)"
-    coder: "atdd/coder/audits/*.py (architecture, boundaries, layers, quality)"
-    coach: "atdd/coach/audits/*.py (registry, traceability, contract consumers)"
+    planner: "src/atdd/planner/validators/*.py (wagons, trains, URNs, cross-refs, WMBT)"
+    tester: "src/atdd/tester/validators/*.py (test naming, contracts, telemetry, coverage)"
+    coder: "src/atdd/coder/validators/*.py (architecture, boundaries, layers, quality)"
+    coach: "src/atdd/coach/validators/*.py (registry, traceability, contract consumers)"
 
   usage:
     pinpoint_issues: "Audits fail with detailed error messages showing violations"
@@ -85,37 +85,37 @@ atdd_cycle:
   phases:
     - name: INIT
       agent: planner
-      conventions: "atdd/planner/conventions/*.yaml"
-      audits: "atdd/planner/audits/*.py"
+      conventions: "src/atdd/planner/conventions/*.yaml"
+      audits: "src/atdd/planner/validators/*.py"
       deliverables: ["train_path", "wagon_path", "wmbt_path", "feature_path"]
       transitions: "INIT → PLANNED"
 
     - name: PLANNED
       agent: tester
-      conventions: "atdd/tester/conventions/*.yaml"
-      audits: "atdd/tester/audits/*.py"
+      conventions: "src/atdd/tester/conventions/*.yaml"
+      audits: "src/atdd/tester/validators/*.py"
       deliverables: ["test_paths", "contract_paths", "telemetry_paths"]
       transitions: "PLANNED → RED"
 
     - name: RED
       agent: coder
       task: "Make tests GREEN"
-      conventions: "atdd/coder/conventions/green.convention.yaml"
-      audits: "atdd/coder/audits/test_green_*.py"
+      conventions: "src/atdd/coder/conventions/green.convention.yaml"
+      audits: "src/atdd/coder/validators/test_green_*.py"
       deliverables: ["code_paths", "tests_passing"]
       transitions: "RED → GREEN"
 
     - name: GREEN
       agent: coder
       task: "REFACTOR to 4-layer architecture"
-      conventions: "atdd/coder/conventions/refactor.convention.yaml"
-      audits: "atdd/coder/audits/test_architecture_*.py"
+      conventions: "src/atdd/coder/conventions/refactor.convention.yaml"
+      audits: "src/atdd/coder/validators/test_architecture_*.py"
       deliverables: ["refactor_paths"]
       transitions: "GREEN → REFACTOR"
 
     - name: REFACTOR
       status: complete
-      audits: "atdd/coder/audits/test_quality_metrics.py"
+      audits: "src/atdd/coder/validators/test_quality_metrics.py"
 
   execution:
     assess_first: "MUST assess current state before any action"
@@ -130,16 +130,16 @@ infrastructure:
     default: "Supabase JSONB"  # Schema evolution without migrations
     exceptions: "Relational for complex queries, indexes"
   conventions:
-    contracts: "atdd/tester/conventions/contract.convention.yaml"
-    technology: "atdd/coder/conventions/technology.convention.yaml"
+    contracts: "src/atdd/tester/conventions/contract.convention.yaml"
+    technology: "src/atdd/coder/conventions/technology.convention.yaml"
 
 # Architecture (Detailed rules in conventions)
 architecture:
   conventions:
-    layers: "atdd/coder/conventions/backend.convention.yaml"
-    boundaries: "atdd/coder/conventions/boundaries.convention.yaml"
-    composition: "atdd/coder/conventions/green.convention.yaml"
-    design_system: "atdd/coder/conventions/design.convention.yaml"
+    layers: "src/atdd/coder/conventions/backend.convention.yaml"
+    boundaries: "src/atdd/coder/conventions/boundaries.convention.yaml"
+    composition: "src/atdd/coder/conventions/green.convention.yaml"
+    design_system: "src/atdd/coder/conventions/design.convention.yaml"
 
   principles:
     - "Domain layer NEVER imports from other layers"
@@ -151,10 +151,10 @@ architecture:
 # Testing (Detailed rules in conventions)
 testing:
   conventions:
-    red: "atdd/tester/conventions/red.convention.yaml"
-    filename: "atdd/tester/conventions/filename.convention.yaml"
-    contract: "atdd/tester/conventions/contract.convention.yaml"
-    artifact: "atdd/tester/conventions/artifact.convention.yaml"
+    red: "src/atdd/tester/conventions/red.convention.yaml"
+    filename: "src/atdd/tester/conventions/filename.convention.yaml"
+    contract: "src/atdd/tester/conventions/contract.convention.yaml"
+    artifact: "src/atdd/tester/conventions/artifact.convention.yaml"
 
   principles:
     - "No ad-hoc tests - follow conventions"
@@ -182,33 +182,37 @@ git:
 agents:
   planner:
     role: "Create wagons with acceptance criteria"
-    conventions: "atdd/planner/conventions/*.yaml"
-    schemas: "atdd/planner/schemas/*.json"
-    audits: "atdd/planner/audits/*.py"
+    conventions: "src/atdd/planner/conventions/*.yaml"
+    schemas: "src/atdd/planner/schemas/*.json"
+    audits: "src/atdd/planner/validators/*.py"
 
   tester:
     role: "Generate RED tests from acceptance criteria"
-    conventions: "atdd/tester/conventions/*.yaml"
-    schemas: "atdd/tester/schemas/*.json"
-    audits: "atdd/tester/audits/*.py"
+    conventions: "src/atdd/tester/conventions/*.yaml"
+    schemas: "src/atdd/tester/schemas/*.json"
+    audits: "src/atdd/tester/validators/*.py"
 
   coder:
     role: "Implement GREEN code, then REFACTOR to clean architecture"
-    conventions: "atdd/coder/conventions/*.yaml"
-    schemas: "atdd/coder/schemas/*.json"
-    audits: "atdd/coder/audits/*.py"
+    conventions: "src/atdd/coder/conventions/*.yaml"
+    schemas: "src/atdd/coder/schemas/*.json"
+    audits: "src/atdd/coder/validators/*.py"
 
 # Session Planning (Design before implementation)
+# Note: sessions/ is created in the consuming repo, not in this package
 sessions:
+  # Consumer repo paths
   directory: "sessions/"
-  template: "sessions/SESSION-TEMPLATE.md"
-  convention: "atdd/coach/conventions/session.convention.yaml"
+  archive: "sessions/archive/"
+  # Package resources
+  template: "src/atdd/coach/templates/SESSION-TEMPLATE.md"
+  convention: "src/atdd/coach/conventions/session.convention.yaml"
 
   workflow:
-    create: "cp sessions/SESSION-TEMPLATE.md sessions/SESSION-{NN}-{slug}.md"
+    create: "Copy template from atdd package to sessions/SESSION-{NN}-{slug}.md"
     fill: "Fill ALL sections - write 'N/A' if not applicable, never omit"
     track: "Update Progress Tracker and Session Log after each work item"
-    validate: "python3 -m pytest atdd/coach/validators/test_session_*.py -v"
+    validate: "python3 -m pytest src/atdd/coach/validators/test_session_*.py -v"
 
   archetypes:
     db: "Supabase PostgreSQL + JSONB"

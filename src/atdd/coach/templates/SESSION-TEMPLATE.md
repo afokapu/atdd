@@ -33,7 +33,7 @@ workflow_phases:
       wagon: false      # plan/{wagon}/_{wagon}.yaml exists
       feature: false    # plan/{wagon}/features/{feature}.yaml exists
       wmbt: false       # WMBTs defined in feature YAML
-    gate: "python3 -m pytest atdd/planner/validators/ -v"
+    gate: "python3 -m pytest src/src/atdd/planner/validators/ -v"
     gate_status: "TODO"
 
   tester:
@@ -42,7 +42,7 @@ workflow_phases:
     artifacts:
       contracts: false  # contracts/{domain}/{resource}.schema.json exists
       red_tests: false  # Failing tests exist for all WMBTs
-    gate: "python3 -m pytest atdd/tester/validators/ -v"
+    gate: "python3 -m pytest src/src/atdd/tester/validators/ -v"
     gate_status: "TODO"
     red_gate: "pytest {test_path} -v (expect FAIL)"
     red_gate_status: "TODO"
@@ -52,11 +52,11 @@ workflow_phases:
     depends_on: "tester"
     artifacts:
       implementation: false  # Code exists in {runtime}/{wagon}/{feature}/src/
-    gate: "python3 -m pytest atdd/coder/validators/ -v"
+    gate: "python3 -m pytest src/atdd/coder/validators/ -v"
     gate_status: "TODO"
     green_gate: "pytest {test_path} -v (expect PASS)"
     green_gate_status: "TODO"
-    refactor_gate: "python3 -m pytest atdd/coder/validators/ -v"
+    refactor_gate: "python3 -m pytest src/atdd/coder/validators/ -v"
     refactor_gate_status: "TODO"
 
 # Progress tracking (machine-readable)
@@ -94,18 +94,18 @@ progress:
       gate: "pytest {test-path} -v (expect PASS)"
     refactor:
       status: "TODO"
-      gate: "pytest atdd/coder/validators/ -v"
+      gate: "pytest src/atdd/coder/validators/ -v"
 
 # Gate Tests - Required validation gates with ATDD validators
-# See: atdd/coach/conventions/session.convention.yaml for required gates per archetype
+# See: src/atdd/coach/conventions/session.convention.yaml for required gates per archetype
 gate_tests:
   # Universal gates (required for all sessions)
   - id: "GT-001"
     phase: "design"
     archetype: "all"
-    command: "python3 -m pytest atdd/coach/validators/test_session_validation.py -v"
+    command: "python3 -m pytest src/atdd/coach/validators/test_session_validation.py -v"
     expected: "PASS"
-    atdd_validator: "atdd/coach/validators/test_session_validation.py"
+    atdd_validator: "src/atdd/coach/validators/test_session_validation.py"
     status: "TODO"
 
   # Archetype-specific gates (add based on declared archetypes)
@@ -113,27 +113,27 @@ gate_tests:
   # - id: "GT-010"
   #   phase: "implementation"
   #   archetype: "be"
-  #   command: "python3 -m pytest atdd/coder/validators/test_python_architecture.py -v"
+  #   command: "python3 -m pytest src/atdd/coder/validators/test_python_architecture.py -v"
   #   expected: "PASS"
-  #   atdd_validator: "atdd/coder/validators/test_python_architecture.py"
+  #   atdd_validator: "src/atdd/coder/validators/test_python_architecture.py"
   #   status: "TODO"
 
   # Example for 'fe' archetype:
   # - id: "GT-020"
   #   phase: "implementation"
   #   archetype: "fe"
-  #   command: "python3 -m pytest atdd/coder/validators/test_typescript_architecture.py -v"
+  #   command: "python3 -m pytest src/atdd/coder/validators/test_typescript_architecture.py -v"
   #   expected: "PASS"
-  #   atdd_validator: "atdd/coder/validators/test_typescript_architecture.py"
+  #   atdd_validator: "src/atdd/coder/validators/test_typescript_architecture.py"
   #   status: "TODO"
 
   # Completion gate (required for all sessions)
   - id: "GT-900"
     phase: "completion"
     archetype: "all"
-    command: "python3 -m pytest atdd/ -v --tb=short"
+    command: "python3 -m pytest src/atdd/ -v --tb=short"
     expected: "PASS"
-    atdd_validator: "atdd/"
+    atdd_validator: "src/atdd/"
     status: "TODO"
 
 # Success criteria (checkboxes tracked here)
@@ -171,7 +171,7 @@ IMPLEMENTATION RULES:
 3. New files MUST match patterns of similar existing files
 4. When in doubt: find 2-3 similar files and replicate their structure
 5. NEVER introduce new patterns without explicit decision documented
-6. Validate: python3 -m pytest atdd/ -v --tb=short
+6. Validate: python3 -m pytest src/atdd/ -v --tb=short
 -->
 
 # SESSION-{NN}: {Title}
@@ -274,14 +274,14 @@ CREATE TABLE IF NOT EXISTS public.{table_name} (
 <!--
 Gate tests enforce conventions via ATDD validators.
 Each declared archetype MUST have corresponding gate tests.
-Reference: atdd/coach/conventions/session.convention.yaml
+Reference: src/atdd/coach/conventions/session.convention.yaml
 -->
 
 | ID | Phase | Archetype | Command | Expected | ATDD Validator | Status |
 |----|-------|-----------|---------|----------|----------------|--------|
-| GT-001 | design | all | `python3 -m pytest atdd/coach/validators/test_session_validation.py -v` | PASS | `atdd/coach/validators/test_session_validation.py` | TODO |
+| GT-001 | design | all | `python3 -m pytest src/atdd/coach/validators/test_session_validation.py -v` | PASS | `src/atdd/coach/validators/test_session_validation.py` | TODO |
 | GT-010 | implementation | {archetype} | `{command}` | PASS | `{atdd_validator_path}` | TODO |
-| GT-900 | completion | all | `python3 -m pytest atdd/ -v --tb=short` | PASS | `atdd/` | TODO |
+| GT-900 | completion | all | `python3 -m pytest src/atdd/ -v --tb=short` | PASS | `src/atdd/` | TODO |
 
 ### Phase Gates
 

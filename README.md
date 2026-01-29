@@ -453,7 +453,7 @@ open atdd/htmlcov/index.html
 
    enforcement:
      validators:
-       location: "atdd/{phase}/validators/test_my_feature.py"
+       location: "src/atdd/{phase}/validators/test_my_feature.py"
        specs:
          - id: "SPEC-{PHASE}-{ID}"
            description: "What this validates"
@@ -461,7 +461,7 @@ open atdd/htmlcov/index.html
 
 3. **Reference in validator:**
    ```python
-   MY_CONVENTION = REPO_ROOT / "atdd" / "{phase}" / "conventions" / "my_feature.convention.yaml"
+   MY_CONVENTION = ATDD_PKG_ROOT / "{phase}" / "conventions" / "my_feature.convention.yaml"
    ```
 
 ### Extending the CLI
@@ -513,17 +513,15 @@ Total validators: 57 files
 ## Related Documentation
 
 - `CLAUDE.md` - Project-level ATDD workflow and missions
-- `sessions/SESSION-00-atdd-platform-migration.md` - Migration progress tracking
-- Individual convention files in `atdd/*/conventions/`
-- Individual schema files in `atdd/*/schemas/`
+- Individual convention files in `src/atdd/*/conventions/`
+- Individual schema files in `src/atdd/*/schemas/`
 
 ---
 
 ## Support
 
 For questions or issues:
-- Review conventions in `atdd/*/conventions/*.yaml`
-- Review schemas in `atdd/*/schemas/*.json`
-- Run `./atdd/atdd.py --help`
+- Review conventions in `src/atdd/*/conventions/*.yaml`
+- Review schemas in `src/atdd/*/schemas/*.json`
+- Run `atdd --help`
 - Check validator output for specific validation failures
-- See `sessions/SESSION-00-atdd-platform-migration.md` for recent changes

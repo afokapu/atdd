@@ -1,6 +1,6 @@
 version: "2.1"
 name: "Session Convention"
-description: "Deterministic template and rules for planning sessions in sessions/ directory"
+description: "Deterministic template and rules for planning sessions in consumer repos"
 
 # =============================================================================
 # ATDD WORKFLOW SEQUENCE (MANDATORY)
@@ -197,10 +197,13 @@ format:
     sections: "## headings"
 
 # Session file location and naming
+# Note: sessions/ is created in the consuming repo, not in this package
 filesystem:
+  # Consumer repo paths (where sessions are created)
   directory: "sessions/"
   archive: "sessions/archive/"
-  template: "sessions/SESSION-TEMPLATE.md"
+  # Package template location (copy to consumer repo)
+  template: "atdd.coach.templates/SESSION-TEMPLATE.md"
   naming:
     pattern: "SESSION-{NN}-{slug}.md"
     examples:
@@ -559,7 +562,7 @@ rules:
   creation:
     - "FIRST: Rename Claude conversation with /rename SESSION-{NN}-{slug}"
     - "Use next available session number"
-    - "Copy SESSION-TEMPLATE.md and fill all sections"
+    - "Copy template from atdd package and fill all sections"
     - "Set status to INIT"
     - "Create branch if needed"
 

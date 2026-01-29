@@ -2,14 +2,17 @@
 Session file validation against session.convention.yaml.
 
 Purpose: Validate session files before implementation starts, after design/planning phase.
-Convention: atdd/coach/conventions/session.convention.yaml
-Template: sessions/SESSION-TEMPLATE.md
+Convention: src/atdd/coach/conventions/session.convention.yaml
+Template: src/atdd/coach/templates/SESSION-TEMPLATE.md
+
+Note: Sessions are created in the consuming repo, not in the ATDD package itself.
+      This validator runs against {consumer_repo}/sessions/ directory.
 
 Supports two formats:
 1. Hybrid (new): YAML frontmatter + Markdown body
 2. Legacy: Pure Markdown with **Field:** patterns
 
-Run: python3 -m pytest atdd/coach/validators/test_session_validation.py -v
+Run: python3 -m pytest src/atdd/coach/validators/test_session_validation.py -v
 """
 import pytest
 import re
@@ -22,9 +25,15 @@ import yaml
 # Configuration
 # ============================================================================
 
-REPO_ROOT = Path(__file__).parent.parent.parent.parent
+# Package paths (relative to this file)
+ATDD_PKG_ROOT = Path(__file__).parent.parent.parent  # src/atdd
+CONVENTION_FILE = ATDD_PKG_ROOT / "coach" / "conventions" / "session.convention.yaml"
+TEMPLATE_FILE = ATDD_PKG_ROOT / "coach" / "templates" / "SESSION-TEMPLATE.md"
+
+# Consumer repo paths (where sessions are created)
+# Default to current working directory, can be overridden
+REPO_ROOT = Path.cwd()
 SESSIONS_DIR = REPO_ROOT / "sessions"
-CONVENTION_FILE = REPO_ROOT / "atdd" / "coach" / "conventions" / "session.convention.yaml"
 
 # Valid values from convention
 VALID_STATUSES = {"INIT", "PLANNED", "ACTIVE", "BLOCKED", "COMPLETE", "OBSOLETE"}
