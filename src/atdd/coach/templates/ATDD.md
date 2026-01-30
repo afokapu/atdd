@@ -13,6 +13,11 @@ missions:
 #
 # PROTOCOL:
 # ---------
+# 0. TOOL GATE (MANDATORY)
+#    If your agent supports plan mode (Claude Code, etc.), enable it NOW.
+#    This is a tool capability gate, NOT the ATDD Planner phase.
+#    If unavailable, state: "Plan mode unavailable" and proceed.
+#
 # 1. Run this command FIRST:
 #
 #    atdd gate

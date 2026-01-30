@@ -1,3 +1,12 @@
+<!--
+# =============================================================================
+# TOOL GATE (MANDATORY BEFORE FILLING THIS FILE)
+# =============================================================================
+# If your agent supports plan mode (Claude Code, etc.), enable it NOW.
+# This is a tool capability gate, NOT the ATDD Planner phase.
+# If unavailable, state: "Plan mode unavailable" and proceed.
+# =============================================================================
+-->
 ---
 # SESSION METADATA (YAML frontmatter - machine-parseable)
 #
