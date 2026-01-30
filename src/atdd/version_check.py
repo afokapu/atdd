@@ -1,11 +1,13 @@
 """
 Version check for ATDD CLI.
 
-Checks PyPI for newer versions and notifies users. Uses a cached check
-to avoid adding latency to every command.
+Two types of version checks:
+1. PyPI update check - notifies when a newer version is available on PyPI
+2. Repo sync check - notifies when installed version is newer than repo's last_version
 
 Cache location: ~/.atdd/version_cache.json
-Disable: Set ATDD_NO_UPDATE_CHECK=1 environment variable
+Disable PyPI check: Set ATDD_NO_UPDATE_CHECK=1
+Disable sync reminder: Set ATDD_NO_UPGRADE_NOTICE=1
 """
 import json
 import os
@@ -15,6 +17,8 @@ from pathlib import Path
 from typing import Optional, Tuple
 from urllib.request import urlopen
 from urllib.error import URLError
+
+import yaml
 
 from atdd import __version__
 
@@ -124,3 +128,107 @@ def print_update_notice() -> None:
             print(notice, file=sys.stderr)
     except Exception:
         pass  # Never fail the main command due to version check
+
+
+# --- Repo sync upgrade check ---
+
+def _load_repo_config() -> Tuple[Optional[dict], Optional[Path]]:
+    """
+    Load .atdd/config.yaml from current directory.
+
+    Returns:
+        Tuple of (config_dict, config_path) or (None, None) if not found.
+    """
+    config_path = Path.cwd() / ".atdd" / "config.yaml"
+    if not config_path.exists():
+        return None, None
+
+    try:
+        with open(config_path) as f:
+            return yaml.safe_load(f) or {}, config_path
+    except (yaml.YAMLError, OSError):
+        return None, None
+
+
+def _get_last_toolkit_version(config: dict) -> Optional[str]:
+    """Extract toolkit.last_version from config."""
+    toolkit = config.get("toolkit", {})
+    return toolkit.get("last_version")
+
+
+def check_upgrade_sync_needed() -> Optional[str]:
+    """
+    Check if repo needs sync after ATDD upgrade.
+
+    Compares installed version vs toolkit.last_version in .atdd/config.yaml.
+
+    Returns:
+        Message to display if sync needed, None otherwise.
+    """
+    # Respect disable flag
+    if os.environ.get("ATDD_NO_UPGRADE_NOTICE", "").lower() in ("1", "true", "yes"):
+        return None
+
+    # Skip if running in development
+    if __version__ == "0.0.0":
+        return None
+
+    config, config_path = _load_repo_config()
+    if config is None:
+        # No .atdd/config.yaml - not an ATDD repo or not initialized
+        return None
+
+    last_version = _get_last_toolkit_version(config)
+    if last_version is None:
+        # First run or old config without toolkit.last_version
+        # Treat as needing sync
+        return f"ATDD upgraded to {__version__}. Run: atdd sync"
+
+    # Compare versions
+    if _is_newer(__version__, last_version):
+        return f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync"
+
+    return None
+
+
+def update_toolkit_version(config_path: Optional[Path] = None) -> bool:
+    """
+    Update toolkit.last_version in .atdd/config.yaml to current installed version.
+
+    Args:
+        config_path: Path to config file. Defaults to .atdd/config.yaml in cwd.
+
+    Returns:
+        True if updated, False otherwise.
+    """
+    if config_path is None:
+        config_path = Path.cwd() / ".atdd" / "config.yaml"
+
+    if not config_path.exists():
+        return False
+
+    try:
+        with open(config_path) as f:
+            config = yaml.safe_load(f) or {}
+
+        # Update toolkit.last_version
+        if "toolkit" not in config:
+            config["toolkit"] = {}
+        config["toolkit"]["last_version"] = __version__
+
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        return True
+    except (yaml.YAMLError, OSError):
+        return False
+
+
+def print_upgrade_sync_notice() -> None:
+    """Print upgrade sync notice to stderr if needed."""
+    try:
+        notice = check_upgrade_sync_needed()
+        if notice:
+            print(f"\n⚠️  {notice}\n", file=sys.stderr)
+    except Exception:
+        pass  # Never fail the main command

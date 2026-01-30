@@ -160,10 +160,20 @@ class ProjectInitializer:
             print(f"Config already exists: {self.config_file}")
             return
 
+        # Get installed ATDD version
+        try:
+            from atdd import __version__
+            toolkit_version = __version__
+        except ImportError:
+            toolkit_version = "0.0.0"
+
         config = {
             "version": "1.0",
             "sync": {
                 "agents": ["claude"],  # Default: only Claude
+            },
+            "toolkit": {
+                "last_version": toolkit_version,  # Track installed version
             },
         }
 

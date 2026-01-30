@@ -115,6 +115,13 @@ class AgentConfigSync:
                 unchanged_count += 1
 
         print(f"\nSync complete: {synced_count} updated, {unchanged_count} unchanged")
+
+        # Update toolkit.last_version to mark sync complete
+        from atdd.version_check import update_toolkit_version
+        if update_toolkit_version(self.config_file):
+            from atdd import __version__
+            print(f"Updated toolkit.last_version to {__version__}")
+
         return 0
 
     def verify(self) -> int:

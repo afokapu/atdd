@@ -45,7 +45,7 @@ from atdd.coach.commands.session import SessionManager
 from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.commands.gate import ATDDGate
 from atdd.coach.utils.repo import find_repo_root
-from atdd.version_check import print_update_notice
+from atdd.version_check import print_update_notice, print_upgrade_sync_notice
 
 
 class ATDDCoach:
@@ -436,10 +436,14 @@ Phase descriptions:
 
 
 def cli() -> int:
-    """CLI entry point with version check."""
+    """CLI entry point with version and upgrade checks."""
+    # Check if repo needs sync after ATDD upgrade (at startup)
+    print_upgrade_sync_notice()
+
     try:
         result = main()
     finally:
+        # Check for newer versions on PyPI (at end)
         print_update_notice()
     return result
 
