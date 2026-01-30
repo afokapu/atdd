@@ -7,6 +7,7 @@ Tests ensure contract directories align with URN conventions.
 import pytest
 import re
 from pathlib import Path
+from typing import Optional
 
 # Path constants
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -197,4 +198,84 @@ def test_contract_files_are_valid_formats():
             "\n".join(f"  {f}" for f in invalid_files[:10]) +
             (f"\n  ... and {len(invalid_files) - 10} more" if len(invalid_files) > 10 else "") +
             f"\n  Allowed: {', '.join(sorted(allowed_extensions))}"
+        )
+
+
+def contract_urn_to_path(contract_urn: str) -> Optional[Path]:
+    """
+    Convert contract URN to expected file path.
+
+    Pattern: contract:{theme}:{domain}.{facet} → contracts/{theme}/{domain}/{facet}.schema.json
+
+    Examples:
+      contract:commons:player.identity → contracts/commons/player/identity.schema.json
+      contract:mechanic:decision.choice → contracts/mechanic/decision/choice.schema.json
+      contract:match:dilemma:current → contracts/match/dilemma/current.schema.json
+    """
+    if not contract_urn or contract_urn == "null":
+        return None
+    if not contract_urn.startswith("contract:"):
+        return None
+
+    # Remove "contract:" prefix
+    urn_without_prefix = contract_urn[9:]
+
+    # Split by colon
+    parts = urn_without_prefix.split(":")
+    if len(parts) < 2:
+        return None
+
+    # First part is theme
+    theme = parts[0]
+
+    # Remaining parts form domain.facet (join with : if multiple)
+    domain_facet = ":".join(parts[1:])
+
+    # Convert domain.facet to domain/facet path (dots become slashes)
+    path_parts = domain_facet.replace(".", "/")
+
+    # Also convert colons to slashes for multi-level URNs
+    path_parts = path_parts.replace(":", "/")
+
+    return CONTRACTS_DIR / theme / f"{path_parts}.schema.json"
+
+
+@pytest.mark.platform
+def test_wagon_produce_contracts_exist(wagon_manifests):
+    """
+    SPEC-PLATFORM-CONTRACTS-0006: All wagon produce contracts have schema files
+
+    Given: Wagon manifests with produce[] declarations
+    When: Checking for declared contract URNs
+    Then: Each contract:* URN resolves to an existing .schema.json file
+
+    This ensures the planner's intent (wagon declares contract) matches
+    the tester's reality (contract file exists).
+    """
+    missing_contracts = []
+
+    for manifest_path, manifest in wagon_manifests:
+        wagon_slug = manifest.get("wagon", "unknown")
+
+        for produce_item in manifest.get("produce", []):
+            contract_urn = produce_item.get("contract")
+
+            if not contract_urn or contract_urn == "null":
+                continue
+
+            expected_path = contract_urn_to_path(contract_urn)
+
+            if expected_path and not expected_path.exists():
+                artifact_name = produce_item.get("name", "?")
+                missing_contracts.append(
+                    f"wagon:{wagon_slug} → {contract_urn}\n"
+                    f"    Artifact: {artifact_name}\n"
+                    f"    Expected: {expected_path.relative_to(REPO_ROOT)}"
+                )
+
+    if missing_contracts:
+        pytest.fail(
+            f"Found {len(missing_contracts)} wagon produce declarations without contract files:\n\n" +
+            "\n\n".join(missing_contracts[:10]) +
+            (f"\n\n... and {len(missing_contracts) - 10} more" if len(missing_contracts) > 10 else "")
         )

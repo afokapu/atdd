@@ -1,0 +1,165 @@
+version: "1.0"
+name: "Security Convention"
+description: "Security validation rules for contract schemas"
+
+# Validator Specifications
+validators:
+  - id: "SPEC-TESTER-SEC-0001"
+    name: "Secured operations must declare auth headers"
+    test: "test_secured_operations_have_required_headers"
+    mode: "hard"
+    description: |
+      Secured operations must include appropriate authentication headers
+      based on their declared security scheme. This ensures that all
+      protected endpoints have proper header declarations for auth tokens.
+
+  - id: "SPEC-TESTER-SEC-0002"
+    name: "Operations must have explicit security field"
+    test: "test_operations_have_explicit_security"
+    mode: "soft (xfail)"
+    description: |
+      All API operations should declare their security requirements explicitly.
+      Use security: [] for public endpoints and security: [{...}] for protected.
+      This ensures security posture is intentional, not accidental.
+
+  - id: "SPEC-TESTER-SEC-0003"
+    name: "Secured operations need SEC/RLS acceptance coverage"
+    test: "test_secured_operations_have_security_acceptance"
+    mode: "soft (xfail)"
+    description: |
+      Secured operations must have at least one acceptance criteria using
+      the SEC (Security) or RLS (Row-Level Security) harness. This ensures
+      security requirements are tested.
+
+  - id: "SPEC-TESTER-SEC-0004"
+    name: "Error responses should not expose sensitive data"
+    test: "test_error_responses_have_no_sensitive_fields"
+    mode: "warning only"
+    description: |
+      Error responses (4xx/5xx) should not contain fields with sensitive
+      names like password, secret, credential, ssn, api_key, private_key.
+      This prevents accidental exposure of sensitive data in error messages.
+
+# Security Scheme to Header Mapping
+scheme_header_mapping:
+  jwt:
+    headers: ["authorization"]
+    format: "Bearer {token}"
+    description: "JSON Web Token authentication"
+
+  bearer:
+    headers: ["authorization"]
+    format: "Bearer {token}"
+    description: "Bearer token authentication"
+
+  oauth2:
+    headers: ["authorization"]
+    format: "Bearer {access_token}"
+    description: "OAuth 2.0 authentication"
+
+  http:
+    headers: ["authorization"]
+    format: "Varies by scheme (basic, bearer, digest)"
+    description: "HTTP authentication"
+
+  apiKey:
+    headers: "dynamic"
+    source: "security[].name (default: x-api-key)"
+    location: "security[].in (header, query, or cookie)"
+    description: "API Key authentication"
+
+# Enforcement Modes
+enforcement:
+  environment_variable: "ATDD_SECURITY_ENFORCE"
+  default: "0"
+  modes:
+    soft:
+      value: "0"
+      behavior: "pytest.xfail - test marked as expected failure"
+      visibility: "Visible in test output as XFAIL"
+      use_case: "Development, incremental adoption"
+
+    hard:
+      value: "1"
+      behavior: "pytest.fail - test fails the suite"
+      visibility: "Visible as FAILED"
+      use_case: "CI/CD, production readiness"
+
+# Sensitive Data Detection
+sensitive_data_detection:
+  description: "Rules for detecting potentially sensitive fields in error responses"
+
+  sensitive_fields:
+    - "password"
+    - "secret"
+    - "credential"
+    - "ssn"
+    - "api_key"
+    - "private_key"
+    - "token"
+
+  allowed_exceptions:
+    - "error_key"
+    - "key_id"
+    - "token_type"
+
+  detection_method: "Substring match (case-insensitive)"
+  note: "Review flagged fields manually - not all matches are security issues"
+
+# Threat Modeling Integration
+threat_modeling:
+  canonical_location: "feature.yaml: security.abuse_cases[]"
+  description: |
+    Threat models and abuse cases should be documented in the feature YAML
+    files under the security.abuse_cases array. This ensures security
+    considerations are part of the feature specification.
+
+  schema:
+    abuse_case:
+      required:
+        - id       # Unique identifier (e.g., THREAT-001)
+        - name     # Short name
+        - threat   # Description of the threat
+        - mitigation # How the threat is addressed
+      optional:
+        - severity # low, medium, high, critical
+        - likelihood # unlikely, possible, likely
+        - acceptance_ref # URN to acceptance test covering this threat
+
+  example:
+    security:
+      abuse_cases:
+        - id: "THREAT-001"
+          name: "Session Hijacking"
+          threat: "Attacker steals session token via XSS"
+          mitigation: "HttpOnly cookies, CSP headers"
+          severity: "high"
+          acceptance_ref: "acc:auth:D001-SEC-001-session-protection"
+
+# Acceptance Coverage Requirements
+acceptance_coverage:
+  description: "Requirements for security acceptance test coverage"
+
+  valid_harnesses:
+    - "SEC"  # Security-focused tests
+    - "RLS"  # Row-Level Security tests
+
+  urn_format: "acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]"
+  full_format_required: true
+  note: |
+    Short refs (without harness) cannot be validated for SEC/RLS coverage.
+    Always use the full URN format with the harness identifier.
+
+  examples:
+    valid:
+      - "acc:auth:D001-SEC-001-token-validation"
+      - "acc:player:P002-RLS-001-own-data-only"
+    invalid:
+      - "SEC-001"  # Missing wagon and WMBT
+      - "D001-001" # Missing harness identifier
+
+# Cross-References
+references:
+  test_file: "atdd/tester/validators/test_contract_security.py"
+  contract_convention: "atdd/tester/conventions/contract.convention.yaml"
+  api_structure: "contract.convention.yaml#api_structure.authentication"
