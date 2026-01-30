@@ -88,11 +88,11 @@ class TestRunner:
         # Show collected tests summary
         cmd.append("--tb=short")
 
-        # Run pytest
+        # Run pytest from current directory (consumer repo)
         print(f"🧪 Running: {' '.join(cmd)}")
         print("=" * 60)
 
-        result = subprocess.run(cmd, cwd=self.repo_root)
+        result = subprocess.run(cmd)
         return result.returncode
 
     def run_phase(self, phase: str, **kwargs) -> int:
