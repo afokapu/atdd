@@ -35,3 +35,8 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["src/atdd"]
+markers = [
+    "tester: marks tests as tester validators",
+    "platform: marks tests as platform validators",
+    "security: marks tests as security validators",
+]
