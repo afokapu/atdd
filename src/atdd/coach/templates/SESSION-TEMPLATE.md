@@ -331,6 +331,31 @@ Reference: src/atdd/coach/conventions/session.convention.yaml
 
 ---
 
+## Release Gate (MANDATORY)
+
+<!--
+Every session MUST end with a version bump + matching git tag.
+
+Change Class:
+- PATCH: bug fixes, docs, refactors, internal changes
+- MINOR: new feature, new validator, new command, new convention (non-breaking)
+- MAJOR: breaking API/CLI/schema/convention change or behavior removal
+
+Rules:
+- Tag must match version exactly: v{version}
+- No tag without version bump
+- No version bump without tag
+-->
+
+- [ ] Determine change class: PATCH / MINOR / MAJOR
+- [ ] Bump version in version file (pyproject.toml, package.json, etc.)
+- [ ] Commit: "Bump version to {version}"
+- [ ] Create tag: `git tag v{version}`
+- [ ] Push with tags: `git push origin {branch} --tags`
+- [ ] Record tag in Session Log: "Released: v{version}"
+
+---
+
 ## Notes
 
 {Additional context, learnings, or decisions that don't fit elsewhere.}

@@ -219,6 +219,35 @@ git:
       - "GREEN: commit passing implementation"
       - "REFACTOR: commit clean architecture"
 
+# Release Gate (MANDATORY - session completion)
+# Every session MUST end with version bump + tag
+release:
+  mandatory: true
+
+  rules:
+    - "Tag must match version exactly: v{version}"
+    - "No tag without version bump"
+    - "No version bump without tag"
+    - "Every repo MUST have versioning"
+
+  change_class:
+    PATCH: "bug fixes, docs, refactors, internal changes"
+    MINOR: "new feature, new validator, new command, new convention (non-breaking)"
+    MAJOR: "breaking API/CLI/schema/convention change or behavior removal"
+
+  workflow:
+    - "Determine change class"
+    - "Bump version in version file"
+    - "Commit: 'Bump version to {version}'"
+    - "Create tag: git tag v{version}"
+    - "Push with tags: git push origin {branch} --tags"
+    - "Record in Session Log: 'Released: v{version}'"
+
+  # Consumer repos configure version file location in .atdd/config.yaml:
+  # release:
+  #   version_file: "pyproject.toml"  # or package.json, VERSION, etc.
+  #   tag_prefix: "v"
+
 # Agent Coordination (Detailed in action files)
 agents:
   planner:
