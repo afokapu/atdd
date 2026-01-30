@@ -15,7 +15,7 @@ class TestRunner:
     """Run ATDD meta-tests with various configurations."""
 
     def __init__(self, repo_root: Path = None):
-        self.repo_root = repo_root or Path(__file__).parent.parent.parent.parent
+        self.repo_root = repo_root or Path.cwd()
         self.atdd_dir = self.repo_root / "atdd"
 
     def run_tests(

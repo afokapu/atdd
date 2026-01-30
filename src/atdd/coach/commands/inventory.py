@@ -26,7 +26,7 @@ class RepositoryInventory:
     """Generate comprehensive repository inventory."""
 
     def __init__(self, repo_root: Path = None):
-        self.repo_root = repo_root or Path(__file__).parent.parent
+        self.repo_root = repo_root or Path.cwd()
         self.inventory = {
             "inventory": {
                 "generated_at": datetime.now().isoformat(),
@@ -288,7 +288,7 @@ class RepositoryInventory:
         feature_files = len(python_tests) + len(ts_tests)
 
         meta_cases = planner_cases + tester_cases + coder_cases + platform_cases
-        feature_cases = python_cases  # Dart/TS case counting would require parsing those languages
+        feature_cases = python_cases  # TS case counting would require parsing those languages
 
         return {
             "total_files": meta_files + feature_files,
@@ -312,13 +312,11 @@ class RepositoryInventory:
             "feature_tests": {
                 "files": {
                     "python": len(python_tests),
-                    "dart": len(dart_tests),
                     "typescript": len(ts_tests),
                     "total": feature_files
                 },
                 "cases": {
                     "python": python_cases,
-                    "dart": "not_counted",
                     "typescript": "not_counted",
                     "total": feature_cases
                 }

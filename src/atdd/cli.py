@@ -44,6 +44,7 @@ from atdd.coach.commands.initializer import ProjectInitializer
 from atdd.coach.commands.session import SessionManager
 from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.commands.gate import ATDDGate
+from atdd.coach.utils.repo import find_repo_root
 from atdd.version_check import print_update_notice
 
 
@@ -57,8 +58,8 @@ class ATDDCoach:
     - Coder: Implementation phase validation
     """
 
-    def __init__(self):
-        self.repo_root = ATDD_DIR.parent
+    def __init__(self, repo_root: Path = None):
+        self.repo_root = repo_root or find_repo_root()
         self.inventory = RepositoryInventory(self.repo_root)
         self.test_runner = TestRunner(self.repo_root)
         self.registry_updater = RegistryUpdater(self.repo_root)
@@ -290,6 +291,14 @@ Phase descriptions:
 
     # ----- Existing flag-based arguments (backwards compatible) -----
 
+    # Repository root override
+    parser.add_argument(
+        "--repo",
+        type=str,
+        metavar="PATH",
+        help="Target repository root (default: auto-detect from .atdd/)"
+    )
+
     # Main command groups
     parser.add_argument(
         "--inventory",
@@ -394,8 +403,9 @@ Phase descriptions:
 
     # ----- Handle flag-based commands (backwards compatible) -----
 
-    # Create coach instance
-    coach = ATDDCoach()
+    # Create coach instance with optional repo override
+    repo_path = Path(args.repo) if args.repo else None
+    coach = ATDDCoach(repo_root=repo_path)
 
     # Handle commands
     if args.inventory:
