@@ -16,7 +16,7 @@ from typing import Optional
 
 
 @lru_cache(maxsize=1)
-def find_repo_root(start: Optional[Path] = None) -> Optional[Path]:
+def find_repo_root(start: Optional[Path] = None) -> Path:
     """
     Find repo root by searching upward for ATDD project markers.
 
@@ -30,7 +30,7 @@ def find_repo_root(start: Optional[Path] = None) -> Optional[Path]:
         start: Starting directory (default: cwd)
 
     Returns:
-        Path to repo root, or None if no markers found and start is None
+        Path to repo root (falls back to cwd if no markers found)
 
     Note:
         Results are cached for performance. If .atdd/manifest.yaml is not found,

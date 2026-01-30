@@ -118,6 +118,8 @@ def wagon_manifests() -> List[Tuple[Path, Dict[str, Any]]]:
                             manifests.append((manifest_path, manifest_data))
 
     # Also discover individual wagon manifests (pattern: plan/*/_{wagon}.yaml)
+    if not PLAN_DIR.exists():
+        return manifests
     for wagon_dir in PLAN_DIR.iterdir():
         if wagon_dir.is_dir() and not wagon_dir.name.startswith("_"):
             for manifest_file in wagon_dir.glob("_*.yaml"):
