@@ -14,10 +14,12 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 def get_python_dir() -> Path:
-    """Get the python directory path."""
-    return Path(__file__).parent.parent.parent.parent / "python"
+    """Get the python directory path in the consumer repo."""
+    return find_repo_root() / "python"
 
 
 def test_composition_accepts_shared_dependencies():

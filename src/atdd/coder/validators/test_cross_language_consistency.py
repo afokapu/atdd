@@ -17,9 +17,11 @@ import json
 from pathlib import Path
 from typing import Dict, List, Set
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 LIB_DIR = REPO_ROOT / "lib"
 SUPABASE_DIR = REPO_ROOT / "supabase"

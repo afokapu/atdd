@@ -15,9 +15,11 @@ import re
 from pathlib import Path
 from typing import List, Set, Dict, Tuple
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 WEB_SRC = REPO_ROOT / "web" / "src"
 MAINTAIN_UX = WEB_SRC / "maintain-ux"
 PRIMITIVES_DIR = MAINTAIN_UX / "primitives"

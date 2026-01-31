@@ -2,14 +2,19 @@
 Repository root detection utility.
 
 Finds the consumer repository root using multiple detection strategies:
-1. .atdd/manifest.yaml (preferred - explicit ATDD project marker)
-2. plan/ AND contracts/ both exist (ATDD project structure)
-3. .git/ directory (fallback - any git repo)
-4. cwd (last resort - allows commands to work on uninitialized repos)
+1. ATDD_REPO_ROOT env var (set by test runner for validators)
+2. .atdd/manifest.yaml (preferred - explicit ATDD project marker)
+3. plan/ AND contracts/ both exist (ATDD project structure)
+4. .git/ directory (fallback - any git repo)
+5. cwd (last resort - allows commands to work on uninitialized repos)
 
 This ensures ATDD commands operate on the user's repo, not the package root.
+
+For validators running from the installed package, the test runner sets
+ATDD_REPO_ROOT to point to the consumer repo being validated.
 """
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -21,10 +26,11 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
     Find repo root by searching upward for ATDD project markers.
 
     Detection order (first match wins):
-    1. .atdd/manifest.yaml - explicit ATDD project marker
-    2. plan/ AND contracts/ both exist - ATDD project structure
-    3. .git/ directory - fallback for any git repository
-    4. cwd - last resort if no markers found
+    1. ATDD_REPO_ROOT env var - set by test runner for validators
+    2. .atdd/manifest.yaml - explicit ATDD project marker
+    3. plan/ AND contracts/ both exist - ATDD project structure
+    4. .git/ directory - fallback for any git repository
+    5. cwd - last resort if no markers found
 
     Args:
         start: Starting directory (default: cwd)
@@ -35,7 +41,17 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
     Note:
         Results are cached for performance. If .atdd/manifest.yaml is not found,
         commands may operate in a degraded mode.
+
+        For validators running from installed package, ATDD_REPO_ROOT env var
+        is set by the test runner to point to the consumer repo.
     """
+    # Strategy 0: Check ATDD_REPO_ROOT env var (set by test runner)
+    env_root = os.environ.get("ATDD_REPO_ROOT")
+    if env_root:
+        env_path = Path(env_root).resolve()
+        if env_path.is_dir():
+            return env_path
+
     current = start or Path.cwd()
     current = current.resolve()
 

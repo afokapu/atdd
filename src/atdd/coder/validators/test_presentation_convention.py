@@ -16,8 +16,10 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 import re
 
+from atdd.coach.utils.repo import find_repo_root
+
 # Project root constant (pytest pythonpath handles imports)
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 
 
 class PresentationValidator:

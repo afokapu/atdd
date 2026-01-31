@@ -7,7 +7,9 @@ import pytest
 import yaml
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[5]
+from atdd.coach.utils.repo import find_repo_root
+
+REPO_ROOT = find_repo_root()
 COMPONENT_NAMING_PATH = REPO_ROOT / "atdd/coder/conventions/component-naming.convention.yaml"
 GREEN_CONV_PATH = REPO_ROOT / "atdd/coder/conventions/green.convention.yaml"
 

@@ -18,9 +18,11 @@ import re
 from pathlib import Path
 from typing import List
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]  # Go up 3 levels: file -> audits -> coder -> atdd -> repo
+REPO_ROOT = find_repo_root()
 WEB_SRC = REPO_ROOT / "web" / "src"
 WEB_TESTS = REPO_ROOT / "web" / "tests"
 

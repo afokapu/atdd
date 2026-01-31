@@ -9,8 +9,10 @@ import re
 from pathlib import Path
 from typing import Optional
 
+from atdd.coach.utils.repo import find_repo_root
+
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 
 

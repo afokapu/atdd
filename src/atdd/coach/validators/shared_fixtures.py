@@ -2,6 +2,9 @@
 Shared fixtures for platform tests.
 
 Provides schemas, file discovery, and validation utilities for E2E platform tests.
+
+All validators should use find_repo_root() to locate the consumer repository,
+NOT Path(__file__).parents[N] which points to the installed package location.
 """
 import json
 import yaml
@@ -9,10 +12,12 @@ from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import pytest
 
+from atdd.coach.utils.repo import find_repo_root
 
-# Path constants
-# File is at atdd/coach/audits/shared_fixtures.py, so go up 3 levels to reach repo root
-REPO_ROOT = Path(__file__).resolve().parents[4]
+
+# Path constants - use find_repo_root() to locate consumer repo
+# This works both when running from source AND when installed as a package
+REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
 ATDD_DIR = REPO_ROOT / "atdd"
 CONTRACTS_DIR = REPO_ROOT / "contracts"

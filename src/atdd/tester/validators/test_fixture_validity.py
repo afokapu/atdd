@@ -17,9 +17,10 @@ import yaml
 from pathlib import Path
 from typing import Dict, List, Any
 
+from atdd.coach.utils.repo import find_repo_root
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 

@@ -3,6 +3,10 @@
 Test runner for ATDD meta-tests.
 
 Replaces run_all_tests.sh with a more flexible Python-based test runner.
+
+The test runner executes validators from the installed atdd package against
+the current consumer repository. Tests are discovered from the package's
+planner/tester/coder/coach validator directories.
 """
 
 import subprocess
@@ -10,13 +14,26 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+import atdd
+from atdd.coach.utils.repo import find_repo_root
+
+
+def _xdist_available() -> bool:
+    """Check if pytest-xdist is installed."""
+    try:
+        import xdist  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
 
 class TestRunner:
     """Run ATDD meta-tests with various configurations."""
 
     def __init__(self, repo_root: Path = None):
-        self.repo_root = repo_root or Path.cwd()
-        self.atdd_dir = self.repo_root / "atdd"
+        self.repo_root = repo_root or find_repo_root()
+        # Point to the installed atdd package validators, not a local atdd/ dir
+        self.atdd_pkg_dir = Path(atdd.__file__).resolve().parent
 
     def run_tests(
         self,
@@ -36,7 +53,7 @@ class TestRunner:
             coverage: Generate coverage report
             html_report: Generate HTML report
             markers: Additional pytest markers to filter
-            parallel: Run tests in parallel (uses pytest-xdist)
+            parallel: Run tests in parallel (uses pytest-xdist if available)
 
         Returns:
             Exit code from pytest
@@ -44,16 +61,25 @@ class TestRunner:
         # Build pytest command
         cmd = ["pytest"]
 
-        # Determine test path
+        # Determine test path from installed package
         if phase and phase != "all":
-            test_path = self.atdd_dir / phase
+            test_path = self.atdd_pkg_dir / phase / "validators"
             if not test_path.exists():
                 print(f"❌ Error: Test phase '{phase}' not found at {test_path}")
                 return 1
             cmd.append(str(test_path))
         else:
-            # Run all atdd tests
-            cmd.append(str(self.atdd_dir))
+            # Run all validator tests from the package
+            # Include validators from all phases
+            validator_dirs = []
+            for subdir in ["planner", "tester", "coder", "coach"]:
+                validators_path = self.atdd_pkg_dir / subdir / "validators"
+                if validators_path.exists():
+                    validator_dirs.append(str(validators_path))
+            if not validator_dirs:
+                print("❌ Error: No validator directories found in atdd package")
+                return 1
+            cmd.extend(validator_dirs)
 
         # Add verbosity
         if verbose:
@@ -66,33 +92,43 @@ class TestRunner:
             for marker in markers:
                 cmd.extend(["-m", marker])
 
-        # Add coverage
+        # Add coverage (coverage reports go to consumer repo's .atdd/ dir)
         if coverage:
+            htmlcov_path = self.repo_root / ".atdd" / "htmlcov"
             cmd.extend([
                 "--cov=atdd",
                 "--cov-report=term-missing",
-                "--cov-report=html:atdd/htmlcov"
+                f"--cov-report=html:{htmlcov_path}"
             ])
 
-        # Add HTML report
+        # Add HTML report (reports go to consumer repo's .atdd/ dir)
         if html_report:
+            report_path = self.repo_root / ".atdd" / "test_report.html"
             cmd.extend([
-                "--html=atdd/test_report.html",
+                f"--html={report_path}",
                 "--self-contained-html"
             ])
 
-        # Add parallel execution
-        if parallel:
+        # Add parallel execution (only if pytest-xdist is available)
+        if parallel and _xdist_available():
             cmd.extend(["-n", "auto"])
+        elif parallel and not _xdist_available():
+            print("⚠️  pytest-xdist not installed, running tests sequentially")
 
         # Show collected tests summary
         cmd.append("--tb=short")
 
-        # Run pytest from current directory (consumer repo)
+        # Set up environment with repo root for validators
+        import os
+        env = os.environ.copy()
+        env["ATDD_REPO_ROOT"] = str(self.repo_root)
+
+        # Run pytest with consumer repo as cwd
         print(f"🧪 Running: {' '.join(cmd)}")
+        print(f"📁 Repo root: {self.repo_root}")
         print("=" * 60)
 
-        result = subprocess.run(cmd)
+        result = subprocess.run(cmd, env=env, cwd=str(self.repo_root))
         return result.returncode
 
     def run_phase(self, phase: str, **kwargs) -> int:

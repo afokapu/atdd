@@ -25,9 +25,11 @@ import ast
 from pathlib import Path
 from typing import List, Tuple, Set
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 DTO_CONVENTION = REPO_ROOT / "atdd" / "coder" / "conventions" / "dto.convention.yaml"
 

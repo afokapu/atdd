@@ -10,8 +10,10 @@ import re
 import json
 from jsonschema import validate, ValidationError
 
+from atdd.coach.utils.repo import find_repo_root
+
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 TELEMETRY_DIR = REPO_ROOT / "telemetry"
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 PLAN_DIR = REPO_ROOT / "plan"

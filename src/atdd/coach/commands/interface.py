@@ -21,7 +21,9 @@ import json
 from jsonschema import Draft7Validator
 from dataclasses import dataclass, field
 
-REPO_ROOT = Path(__file__).parent.parent.parent.parent
+from atdd.coach.utils.repo import find_repo_root
+
+REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 ARTIFACT_SCHEMA_PATH = REPO_ROOT / ".claude/schemas/tester/artifact.schema.json"

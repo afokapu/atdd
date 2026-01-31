@@ -18,9 +18,11 @@ import ast
 from pathlib import Path
 from typing import List, Tuple, Set
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 DART_DIRS = [REPO_ROOT / "lib", REPO_ROOT / "dart"]
 TS_DIRS = [REPO_ROOT / "supabase" / "functions", REPO_ROOT / "typescript"]

@@ -9,6 +9,8 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, List
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 # Utility functions for loading YAML files
 def load_yaml(file_path: Path) -> Dict[str, Any]:
@@ -18,9 +20,8 @@ def load_yaml(file_path: Path) -> Dict[str, Any]:
 
 
 def get_project_root() -> Path:
-    """Get the project root directory."""
-    # From tests/ directory, go up 4 levels: tests -> conventions -> coder -> atdd -> root
-    return Path(__file__).parent.parent.parent.parent.parent
+    """Get the consumer project root directory."""
+    return find_repo_root()
 
 
 def load_convention_backend() -> Dict[str, Any]:

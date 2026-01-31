@@ -8,8 +8,10 @@ import pytest
 from pathlib import Path
 import yaml
 
+from atdd.coach.utils.repo import find_repo_root
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+
+REPO_ROOT = find_repo_root()
 BACKEND_CONVENTION = REPO_ROOT / "atdd" / "coder" / "conventions" / "backend.convention.yaml"
 FRONTEND_CONVENTION = REPO_ROOT / "atdd" / "coder" / "conventions" / "frontend.convention.yaml"
 

@@ -9,8 +9,10 @@ and keeps only the new standardized ones.
 import re
 from pathlib import Path
 
+from atdd.coach.utils.repo import find_repo_root
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+
+REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 
 

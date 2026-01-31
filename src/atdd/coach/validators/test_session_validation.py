@@ -20,19 +20,19 @@ from pathlib import Path
 from typing import List, Dict, Optional, Set, Tuple, Any
 import yaml
 
+from atdd.coach.utils.repo import find_repo_root
 
 # ============================================================================
 # Configuration
 # ============================================================================
 
-# Package paths (relative to this file)
+# Package paths (relative to this file) - for loading package resources
 ATDD_PKG_ROOT = Path(__file__).parent.parent.parent  # src/atdd
 CONVENTION_FILE = ATDD_PKG_ROOT / "coach" / "conventions" / "session.convention.yaml"
 TEMPLATE_FILE = ATDD_PKG_ROOT / "coach" / "templates" / "SESSION-TEMPLATE.md"
 
 # Consumer repo paths (where sessions are created via `atdd init`)
-# Default to current working directory, can be overridden
-REPO_ROOT = Path.cwd()
+REPO_ROOT = find_repo_root()
 SESSIONS_DIR = REPO_ROOT / "atdd-sessions"
 
 # Valid values from convention

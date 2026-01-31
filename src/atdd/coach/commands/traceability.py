@@ -26,9 +26,11 @@ from typing import Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, field
 from collections import defaultdict
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 TELEMETRY_DIR = REPO_ROOT / "telemetry"

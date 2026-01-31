@@ -13,8 +13,10 @@ import re
 from pathlib import Path
 import pytest
 
+from atdd.coach.utils.repo import find_repo_root
 
-REPO_ROOT = Path(__file__).parent.parent.parent
+
+REPO_ROOT = find_repo_root()
 
 
 # SPEC-TESTER-CONV-0069: Dart URN to filename mapping

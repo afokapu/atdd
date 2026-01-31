@@ -17,7 +17,7 @@ from pathlib import Path
 
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 
 
@@ -209,6 +209,8 @@ Purpose: Verify timebank decrements during active decision
 """
 
 import pytest
+
+from atdd.coach.utils.repo import find_repo_root
 
 
 def test_e001_unit_001_timebank_decrements_during_decision():

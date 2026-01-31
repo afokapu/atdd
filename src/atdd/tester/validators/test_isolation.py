@@ -17,9 +17,11 @@ import ast
 from pathlib import Path
 from typing import List, Set, Tuple
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 TEST_DIRS = [
     REPO_ROOT / "test",
     REPO_ROOT / "tests",

@@ -24,9 +24,11 @@ import re
 from pathlib import Path
 from typing import List, Dict, Set, Tuple
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 TRAINS_DIR = REPO_ROOT / "python" / "trains"
 WAGONS_DIR = REPO_ROOT / "python"
 GAME_PY = REPO_ROOT / "python" / "game.py"

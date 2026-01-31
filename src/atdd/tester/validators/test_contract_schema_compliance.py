@@ -12,8 +12,10 @@ import re
 from pathlib import Path
 from jsonschema import validate, ValidationError, Draft7Validator
 
+from atdd.coach.utils.repo import find_repo_root
+
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 PLAN_DIR = REPO_ROOT / "plan"
 META_SCHEMA_PATH = REPO_ROOT / "atdd" / "tester" / "schemas" / "contract.schema.json"

@@ -17,9 +17,11 @@ from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 # Path constants
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
 PYTHON_DIR = REPO_ROOT / "python"
 LIB_DIR = REPO_ROOT / "lib"
