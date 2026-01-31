@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-Test runner for ATDD meta-tests.
+Validator runner for ATDD.
 
-Replaces run_all_tests.sh with a more flexible Python-based test runner.
-
-The test runner executes validators from the installed atdd package against
-the current consumer repository. Tests are discovered from the package's
+Executes validators from the installed atdd package against the current
+consumer repository. Validators are discovered from the package's
 planner/tester/coder/coach validator directories.
+
+Usage:
+    atdd validate                # Run all validators
+    atdd validate planner        # Run planner validators only
+    atdd validate --quick        # Quick smoke test
 """
 
 import subprocess
@@ -28,7 +31,7 @@ def _xdist_available() -> bool:
 
 
 class TestRunner:
-    """Run ATDD meta-tests with various configurations."""
+    """Run ATDD validators with various configurations."""
 
     def __init__(self, repo_root: Path = None):
         self.repo_root = repo_root or find_repo_root()
@@ -45,15 +48,15 @@ class TestRunner:
         parallel: bool = True,
     ) -> int:
         """
-        Run ATDD tests with specified options.
+        Run ATDD validators with specified options.
 
         Args:
-            phase: Test phase to run (planner, tester, coder, all, None=all)
+            phase: Validator phase to run (planner, tester, coder, coach, all, None=all)
             verbose: Enable verbose output
             coverage: Generate coverage report
             html_report: Generate HTML report
             markers: Additional pytest markers to filter
-            parallel: Run tests in parallel (uses pytest-xdist if available)
+            parallel: Run validators in parallel (uses pytest-xdist if available)
 
         Returns:
             Exit code from pytest
@@ -113,7 +116,7 @@ class TestRunner:
         if parallel and _xdist_available():
             cmd.extend(["-n", "auto"])
         elif parallel and not _xdist_available():
-            print("⚠️  pytest-xdist not installed, running tests sequentially")
+            print("⚠️  pytest-xdist not installed, running validators sequentially")
 
         # Show collected tests summary
         cmd.append("--tb=short")
@@ -132,16 +135,16 @@ class TestRunner:
         return result.returncode
 
     def run_phase(self, phase: str, **kwargs) -> int:
-        """Run tests for a specific phase."""
+        """Run validators for a specific phase."""
         return self.run_tests(phase=phase, **kwargs)
 
     def run_all(self, **kwargs) -> int:
-        """Run all ATDD meta-tests."""
+        """Run all ATDD validators."""
         return self.run_tests(phase="all", **kwargs)
 
     def quick_check(self) -> int:
-        """Quick smoke test - run without parallelization."""
-        print("🚀 Running quick check (no parallel)...")
+        """Quick smoke validation - run without parallelization."""
+        print("🚀 Running quick validation (no parallel)...")
         return self.run_tests(
             phase="all",
             verbose=False,
@@ -150,8 +153,8 @@ class TestRunner:
         )
 
     def full_suite(self) -> int:
-        """Full test suite with coverage and HTML report."""
-        print("🎯 Running full test suite...")
+        """Full validation suite with coverage and HTML report."""
+        print("🎯 Running full validation suite...")
         return self.run_tests(
             phase="all",
             verbose=True,
@@ -162,7 +165,7 @@ class TestRunner:
 
 
 def main():
-    """CLI entry point for test runner."""
+    """CLI entry point for validator runner."""
     runner = TestRunner()
 
     # Simple usage for now - can be enhanced with argparse

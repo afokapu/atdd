@@ -2,6 +2,15 @@
 
 Acceptance Test Driven Development toolkit for structured planning and convention enforcement.
 
+ATDD covers the full software lifecycle, not just code. It starts from a job to be done (e.g., user problem or goal), turns it into deterministic requirements, validates them with tests, and then drives implementation.
+
+```mermaid
+flowchart LR
+    A[Job to be Done] -->|Planner| B[Wagon + Acceptance Criteria]
+    B -->|Tester| C[RED Tests]
+    C -->|Coder| D[GREEN Code]
+```
+
 ## Installation
 
 ### From PyPI
@@ -35,9 +44,9 @@ atdd --help
 ```bash
 atdd init                      # Initialize ATDD in your project
 atdd gate                      # ⚠️ START EVERY SESSION WITH THIS
-atdd session new my-feature    # Create a planning session
+atdd session new <capability>    # Create a planning session
 atdd sync                      # Sync rules to agent config files
-atdd --test all                # Run validators
+atdd validate                  # Run all validators
 ```
 
 > **⚠️ `atdd gate` is required.** 
@@ -52,6 +61,22 @@ ATDD provides:
 2. **Convention Enforcement** - YAML-based conventions validated via pytest
 3. **ATDD Lifecycle** - Planner → Tester → Coder phase gates
 4. **Agent Config Sync** - Keep ATDD rules in sync across AI agent config files
+
+```mermaid
+flowchart LR
+    A[Job to be Done] -->|Planner| B[Wagon + Acceptance Criteria]
+    B -->|Tester| C[RED Tests]
+    C -->|Coder| D[GREEN Code]
+    D -->|Coder| E[REFACTOR]
+    E -.->|feedback| B
+
+    subgraph "ATDD Lifecycle"
+        B
+        C
+        D
+        E
+    end
+```
 
 ## Commands
 
@@ -182,19 +207,23 @@ Before starting work, confirm you have loaded these rules.
 ### Validation
 
 ```bash
-atdd --test all        # Run all validators
-atdd --test planner    # Planning artifacts only
-atdd --test tester     # Testing artifacts only
-atdd --test coder      # Implementation only
-atdd --quick           # Fast smoke test
+atdd validate              # Run all validators
+atdd validate planner      # Planning validators only
+atdd validate tester       # Testing validators only
+atdd validate coder        # Implementation validators only
+atdd validate --quick      # Fast smoke test
+atdd validate --coverage   # With coverage report
+atdd validate --html       # With HTML report
 ```
 
 ### Other Commands
 
 ```bash
-atdd --status          # Platform status
-atdd --inventory       # Generate artifact inventory
-atdd --help            # Full help
+atdd status                    # Platform status
+atdd inventory                 # Generate artifact inventory
+atdd inventory --format json   # Inventory as JSON
+atdd registry update           # Update all registries
+atdd --help                    # Full help
 ```
 
 ## Project Structure
@@ -250,7 +279,7 @@ pytest --cov=atdd --cov-report=html
 
 1. Create `src/atdd/{phase}/validators/test_{name}.py`
 2. Write pytest test functions
-3. Run `atdd --test {phase}`
+3. Run `atdd validate {phase}`
 
 Validators are auto-discovered by pytest.
 

@@ -85,30 +85,30 @@ dev_servers:
 # Audits & Validation (Give context, pinpoint issues, validate compliance)
 audits:
   cli: "atdd"
-  purpose: "Meta-tests that validate ATDD artifacts against conventions"
+  purpose: "Validators that check ATDD artifacts against conventions"
 
   commands:
-    inventory: "atdd --inventory"
-    status: "atdd --status"
-    quick_check: "atdd --quick"
-    validate_all: "atdd --test all"
-    validate_planner: "atdd --test planner"
-    validate_tester: "atdd --test tester"
-    validate_coder: "atdd --test coder"
-    with_coverage: "atdd --test all --coverage"
-    with_html: "atdd --test all --html"
+    validate_all: "atdd validate"
+    validate_planner: "atdd validate planner"
+    validate_tester: "atdd validate tester"
+    validate_coder: "atdd validate coder"
+    quick_check: "atdd validate --quick"
+    with_coverage: "atdd validate --coverage"
+    with_html: "atdd validate --html"
+    inventory: "atdd inventory"
+    status: "atdd status"
 
   workflow:
-    before_init: "Run planner audits to validate plan structure"
+    before_init: "Run planner validators to check plan structure"
     after_init: "Validate wagon URNs, cross-refs, uniqueness"
-    before_planned: "Run tester audits to validate test prerequisites"
+    before_planned: "Run tester validators to check test prerequisites"
     after_planned: "Validate test naming, contracts, coverage"
     before_red: "Validate layer structure expectations"
     after_red: "Validate tests are RED and properly structured"
-    before_green: "Run coder audits for architecture readiness"
+    before_green: "Run coder validators for architecture readiness"
     after_green: "Validate layer dependencies, boundaries"
     after_refactor: "Validate architecture compliance, quality metrics"
-    continuous: "CI runs 'atdd --test all' on every commit"
+    continuous: "CI runs 'atdd validate' on every commit"
 
   audit_scope:
     planner: "src/atdd/planner/validators/*.py (wagons, trains, URNs, cross-refs, WMBT)"
@@ -291,7 +291,7 @@ sessions:
     create: "Run 'atdd session new <slug>' to create new session from template"
     fill: "Fill ALL sections - write 'N/A' if not applicable, never omit"
     track: "Update Progress Tracker and Session Log after each work item"
-    validate: "python3 -m pytest src/atdd/coach/validators/test_session_*.py -v"
+    validate: "atdd validate coach"
 
   archetypes:
     db: "Supabase PostgreSQL + JSONB"

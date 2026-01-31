@@ -3,14 +3,14 @@
 ATDD Platform - Unified command-line interface.
 
 The coach orchestrates all ATDD lifecycle operations:
-- Inventory: Catalog repository artifacts
-- Test: Run meta-tests (planner/tester/coder)
-- Report: Generate test reports
-- Validate: Validate artifacts against conventions
-- Init: Initialize ATDD structure in consumer repos
-- Session: Manage session files
-- Sync: Sync ATDD rules to agent config files
-- Gate: Verify agents loaded ATDD rules
+- validate: Run validators (planner/tester/coder/coach)
+- inventory: Catalog repository artifacts
+- status: Show platform status
+- registry: Update registries from source files
+- init: Initialize ATDD structure in consumer repos
+- session: Manage session files
+- sync: Sync ATDD rules to agent config files
+- gate: Verify agents loaded ATDD rules
 
 Usage:
     atdd init                                # Initialize ATDD in consumer repo
@@ -21,18 +21,22 @@ Usage:
     atdd sync --verify                       # Check if files are in sync
     atdd sync --agent claude                 # Sync specific agent only
     atdd gate                                # Show ATDD gate verification
-    atdd --inventory                         # Generate inventory
-    atdd --test all                          # Run all meta-tests
-    atdd --test planner                      # Run planner phase tests
-    atdd --test tester                       # Run tester phase tests
-    atdd --test coder                        # Run coder phase tests
-    atdd --test all --coverage               # With coverage report
-    atdd --test all --html                   # With HTML report
+    atdd validate                            # Run all validators
+    atdd validate planner                    # Run planner validators
+    atdd validate tester                     # Run tester validators
+    atdd validate coder                      # Run coder validators
+    atdd validate --quick                    # Quick smoke test
+    atdd validate --coverage                 # With coverage report
+    atdd inventory                           # Generate inventory (YAML)
+    atdd inventory --format json             # Generate inventory (JSON)
+    atdd status                              # Show platform status
+    atdd registry update                     # Update all registries
     atdd --help                              # Show help
 """
 
 import argparse
 import sys
+import warnings
 from pathlib import Path
 
 ATDD_DIR = Path(__file__).parent
@@ -48,6 +52,11 @@ from atdd.coach.utils.repo import find_repo_root
 from atdd.version_check import print_update_notice, print_upgrade_sync_notice
 
 
+def _deprecation_warning(old: str, new: str) -> None:
+    """Emit a deprecation warning for legacy flags."""
+    print(f"\033[33m⚠️  Deprecated: '{old}' will be removed. Use '{new}' instead.\033[0m")
+
+
 class ATDDCoach:
     """
     ATDD Platform Coach - orchestrates all operations.
@@ -61,7 +70,7 @@ class ATDDCoach:
     def __init__(self, repo_root: Path = None):
         self.repo_root = repo_root or find_repo_root()
         self.inventory = RepositoryInventory(self.repo_root)
-        self.test_runner = TestRunner(self.repo_root)
+        self.validator_runner = TestRunner(self.repo_root)
         self.registry_updater = RegistryUpdater(self.repo_root)
 
     def run_inventory(self, format: str = "yaml") -> int:
@@ -81,7 +90,7 @@ class ATDDCoach:
 
         return 0
 
-    def run_tests(
+    def run_validators(
         self,
         phase: str = "all",
         verbose: bool = False,
@@ -89,11 +98,11 @@ class ATDDCoach:
         html: bool = False,
         quick: bool = False
     ) -> int:
-        """Run ATDD meta-tests."""
+        """Run ATDD validators."""
         if quick:
-            return self.test_runner.quick_check()
+            return self.validator_runner.quick_check()
 
-        return self.test_runner.run_tests(
+        return self.validator_runner.run_tests(
             phase=phase,
             verbose=verbose,
             coverage=coverage,
@@ -119,21 +128,23 @@ class ATDDCoach:
         print("ATDD Platform Status")
         print("=" * 60)
         print("\nDirectory structure:")
-        print(f"  📋 Planner tests: {ATDD_DIR / 'planner'}")
-        print(f"  🧪 Tester tests:  {ATDD_DIR / 'tester'}")
-        print(f"  ⚙️  Coder tests:   {ATDD_DIR / 'coder'}")
-        print(f"  🎯 Coach:         {ATDD_DIR / 'coach'}")
+        print(f"  📋 Planner validators: {ATDD_DIR / 'planner' / 'validators'}")
+        print(f"  🧪 Tester validators:  {ATDD_DIR / 'tester' / 'validators'}")
+        print(f"  ⚙️  Coder validators:   {ATDD_DIR / 'coder' / 'validators'}")
+        print(f"  🎯 Coach validators:   {ATDD_DIR / 'coach' / 'validators'}")
 
         # Quick stats
-        planner_tests = len(list((ATDD_DIR / "planner").glob("test_*.py")))
-        tester_tests = len(list((ATDD_DIR / "tester").glob("test_*.py")))
-        coder_tests = len(list((ATDD_DIR / "coder").glob("test_*.py")))
+        planner_validators = len(list((ATDD_DIR / "planner" / "validators").glob("test_*.py")))
+        tester_validators = len(list((ATDD_DIR / "tester" / "validators").glob("test_*.py")))
+        coder_validators = len(list((ATDD_DIR / "coder" / "validators").glob("test_*.py")))
+        coach_validators = len(list((ATDD_DIR / "coach" / "validators").glob("test_*.py")))
 
-        print(f"\nTest files:")
-        print(f"  Planner: {planner_tests} files")
-        print(f"  Tester:  {tester_tests} files")
-        print(f"  Coder:   {coder_tests} files")
-        print(f"  Total:   {planner_tests + tester_tests + coder_tests} files")
+        print(f"\nValidator files:")
+        print(f"  Planner: {planner_validators} files")
+        print(f"  Tester:  {tester_validators} files")
+        print(f"  Coder:   {coder_validators} files")
+        print(f"  Coach:   {coach_validators} files")
+        print(f"  Total:   {planner_validators + tester_validators + coder_validators + coach_validators} files")
 
         return 0
 
@@ -148,6 +159,27 @@ Examples:
   # Initialize ATDD in consumer repo
   %(prog)s init                           Create atdd-sessions/, .atdd/
   %(prog)s init --force                   Overwrite if exists
+
+  # Run validators
+  %(prog)s validate                       Run all validators
+  %(prog)s validate planner               Run planner validators only
+  %(prog)s validate tester                Run tester validators only
+  %(prog)s validate coder                 Run coder validators only
+  %(prog)s validate --quick               Quick smoke test
+  %(prog)s validate --coverage            With coverage report
+  %(prog)s validate --html                With HTML report
+  %(prog)s validate -v                    Verbose output
+
+  # Repository inspection
+  %(prog)s inventory                      Generate full inventory (YAML)
+  %(prog)s inventory --format json        Generate inventory (JSON)
+  %(prog)s status                         Show platform status
+
+  # Registry management
+  %(prog)s registry update                Update all registries
+  %(prog)s registry update wagons         Update wagon registry only
+  %(prog)s registry update contracts      Update contract registry only
+  %(prog)s registry update telemetry      Update telemetry registry only
 
   # Session management
   %(prog)s session new my-feature         Create SESSION-NN-my-feature.md
@@ -165,28 +197,97 @@ Examples:
   %(prog)s gate                           Show gate verification info
   %(prog)s gate --json                    Output as JSON
 
-  # Existing flag-based commands (backwards compatible)
-  %(prog)s --inventory                    Generate full inventory (YAML)
-  %(prog)s --inventory --format json      Generate inventory (JSON)
-  %(prog)s --test all                     Run all meta-tests
-  %(prog)s --test planner                 Run planner phase tests
-  %(prog)s --test tester                  Run tester phase tests
-  %(prog)s --test coder                   Run coder phase tests
-  %(prog)s --test all --coverage          Run with coverage report
-  %(prog)s --test all --html              Run with HTML report
-  %(prog)s --test all --verbose           Run with verbose output
-  %(prog)s --quick                        Quick smoke test
-  %(prog)s --status                       Show platform status
-
 Phase descriptions:
   planner - Validates planning artifacts (wagons, trains, URNs)
   tester  - Validates testing artifacts (contracts, telemetry)
   coder   - Validates implementation (architecture, quality)
+  coach   - Validates coach artifacts (sessions, registries)
         """
     )
 
-    # Subparsers for new commands
+    # Subparsers for commands
     subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # ----- atdd validate [phase] -----
+    validate_parser = subparsers.add_parser(
+        "validate",
+        help="Run ATDD validators",
+        description="Run validators to check artifacts against conventions"
+    )
+    validate_parser.add_argument(
+        "phase",
+        nargs="?",
+        type=str,
+        default="all",
+        choices=["all", "planner", "tester", "coder", "coach"],
+        help="Phase to validate (default: all)"
+    )
+    validate_parser.add_argument(
+        "--quick", "-q",
+        action="store_true",
+        help="Quick smoke test (no parallel, no reports)"
+    )
+    validate_parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Verbose output"
+    )
+    validate_parser.add_argument(
+        "--coverage",
+        action="store_true",
+        help="Generate coverage report"
+    )
+    validate_parser.add_argument(
+        "--html",
+        action="store_true",
+        help="Generate HTML report"
+    )
+
+    # ----- atdd inventory -----
+    inventory_parser = subparsers.add_parser(
+        "inventory",
+        help="Generate repository inventory",
+        description="Catalog all ATDD artifacts in the repository"
+    )
+    inventory_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["yaml", "json"],
+        default="yaml",
+        help="Output format (default: yaml)"
+    )
+
+    # ----- atdd status -----
+    subparsers.add_parser(
+        "status",
+        help="Show platform status",
+        description="Display ATDD platform status and validator counts"
+    )
+
+    # ----- atdd registry {update} -----
+    registry_parser = subparsers.add_parser(
+        "registry",
+        help="Manage registries",
+        description="Update registries from source files"
+    )
+    registry_subparsers = registry_parser.add_subparsers(
+        dest="registry_command",
+        help="Registry commands"
+    )
+
+    # atdd registry update [type]
+    registry_update_parser = registry_subparsers.add_parser(
+        "update",
+        help="Update registries from source files"
+    )
+    registry_update_parser.add_argument(
+        "type",
+        nargs="?",
+        type=str,
+        default="all",
+        choices=["all", "wagons", "contracts", "telemetry"],
+        help="Registry type to update (default: all)"
+    )
 
     # ----- atdd init -----
     init_parser = subparsers.add_parser(
@@ -289,9 +390,9 @@ Phase descriptions:
         help="Output as JSON for programmatic use"
     )
 
-    # ----- Existing flag-based arguments (backwards compatible) -----
+    # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
 
-    # Repository root override
+    # Repository root override (not deprecated - still useful)
     parser.add_argument(
         "--repo",
         type=str,
@@ -299,75 +400,110 @@ Phase descriptions:
         help="Target repository root (default: auto-detect from .atdd/)"
     )
 
-    # Main command groups
-    parser.add_argument(
-        "--inventory",
-        action="store_true",
-        help="Generate repository inventory"
-    )
-
+    # DEPRECATED: --test → atdd validate
     parser.add_argument(
         "--test",
         type=str,
         choices=["all", "planner", "tester", "coder"],
         metavar="PHASE",
-        help="Run tests for specific phase (all, planner, tester, coder)"
+        help=argparse.SUPPRESS  # Hide from help, deprecated
     )
 
+    # DEPRECATED: --inventory → atdd inventory
+    parser.add_argument(
+        "--inventory",
+        action="store_true",
+        help=argparse.SUPPRESS  # Hide from help, deprecated
+    )
+
+    # DEPRECATED: --status → atdd status
     parser.add_argument(
         "--status",
         action="store_true",
-        help="Show platform status summary"
+        help=argparse.SUPPRESS  # Hide from help, deprecated
     )
 
+    # DEPRECATED: --quick → atdd validate --quick
     parser.add_argument(
         "--quick",
         action="store_true",
-        help="Quick smoke test (no parallel, no reports)"
+        help=argparse.SUPPRESS  # Hide from help, deprecated
     )
 
+    # DEPRECATED: --update-registry → atdd registry update
     parser.add_argument(
         "--update-registry",
         type=str,
         choices=["all", "wagons", "contracts", "telemetry"],
         metavar="TYPE",
-        help="Update registry from source files (all, wagons, contracts, telemetry)"
+        help=argparse.SUPPRESS  # Hide from help, deprecated
     )
 
-    # Options for inventory
+    # Options that work with both legacy and modern commands
     parser.add_argument(
         "--format",
         type=str,
         choices=["yaml", "json"],
         default="yaml",
-        help="Inventory output format (default: yaml)"
+        help=argparse.SUPPRESS  # Hide, use subcommand option instead
     )
-
-    # Options for tests
     parser.add_argument(
         "--verbose", "-v",
         action="store_true",
-        help="Verbose test output"
+        help=argparse.SUPPRESS  # Hide, use subcommand option instead
     )
-
     parser.add_argument(
         "--coverage",
         action="store_true",
-        help="Generate coverage report"
+        help=argparse.SUPPRESS  # Hide, use subcommand option instead
     )
-
     parser.add_argument(
         "--html",
         action="store_true",
-        help="Generate HTML test report"
+        help=argparse.SUPPRESS  # Hide, use subcommand option instead
     )
 
     args = parser.parse_args()
 
-    # ----- Handle subcommands -----
+    # ----- Handle modern subcommands -----
+
+    # atdd validate [phase]
+    if args.command == "validate":
+        repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+        coach = ATDDCoach(repo_root=repo_path)
+        return coach.run_validators(
+            phase=args.phase,
+            verbose=args.verbose,
+            coverage=args.coverage,
+            html=args.html,
+            quick=args.quick
+        )
+
+    # atdd inventory
+    elif args.command == "inventory":
+        repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+        coach = ATDDCoach(repo_root=repo_path)
+        return coach.run_inventory(format=args.format)
+
+    # atdd status
+    elif args.command == "status":
+        repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+        coach = ATDDCoach(repo_root=repo_path)
+        return coach.show_status()
+
+    # atdd registry {update}
+    elif args.command == "registry":
+        repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+        coach = ATDDCoach(repo_root=repo_path)
+
+        if args.registry_command == "update":
+            return coach.update_registries(registry_type=args.type)
+        else:
+            registry_parser.print_help()
+            return 0
 
     # atdd init
-    if args.command == "init":
+    elif args.command == "init":
         initializer = ProjectInitializer()
         return initializer.init(force=args.force)
 
@@ -401,18 +537,20 @@ Phase descriptions:
         gate = ATDDGate()
         return gate.verify(json=args.json)
 
-    # ----- Handle flag-based commands (backwards compatible) -----
+    # ----- Handle deprecated flag-based commands -----
 
-    # Create coach instance with optional repo override
     repo_path = Path(args.repo) if args.repo else None
     coach = ATDDCoach(repo_root=repo_path)
 
-    # Handle commands
+    # DEPRECATED: --inventory
     if args.inventory:
+        _deprecation_warning("atdd --inventory", "atdd inventory")
         return coach.run_inventory(format=args.format)
 
+    # DEPRECATED: --test
     elif args.test:
-        return coach.run_tests(
+        _deprecation_warning(f"atdd --test {args.test}", f"atdd validate {args.test}")
+        return coach.run_validators(
             phase=args.test,
             verbose=args.verbose,
             coverage=args.coverage,
@@ -420,13 +558,22 @@ Phase descriptions:
             quick=False
         )
 
+    # DEPRECATED: --quick
     elif args.quick:
-        return coach.run_tests(quick=True)
+        _deprecation_warning("atdd --quick", "atdd validate --quick")
+        return coach.run_validators(quick=True)
 
+    # DEPRECATED: --status
     elif args.status:
+        _deprecation_warning("atdd --status", "atdd status")
         return coach.show_status()
 
+    # DEPRECATED: --update-registry
     elif args.update_registry:
+        _deprecation_warning(
+            f"atdd --update-registry {args.update_registry}",
+            f"atdd registry update {args.update_registry}"
+        )
         return coach.update_registries(registry_type=args.update_registry)
 
     else:
