@@ -16,7 +16,7 @@ workflow:
   automation_level: "template_generation"
   requires_human_review: true
 
-  command: "python atdd/coach/command/migration.py"
+  command: "python -m atdd.coach.commands.migration"
 
 # Table Naming Convention
 table_naming:
@@ -171,16 +171,16 @@ references:
 # Command Usage
 usage: |
   # Generate all missing migrations
-  python atdd/coach/command/migration.py
+  python -m atdd.coach.commands.migration
 
   # Generate for specific contract
-  python atdd/coach/command/migration.py --contract contracts/match/dilemma/current.schema.json
+  python -m atdd.coach.commands.migration --contract contracts/match/dilemma/current.schema.json
 
   # Validate coverage
-  python atdd/coach/command/migration.py --validate
+  python -m atdd.coach.commands.migration --validate
 
   # Check for unreviewed TODOs
-  pytest atdd/tester/test_migration_coverage.py::test_migration_templates_reviewed
+  atdd validate tester
 
 # JSONB-First Storage Strategy
 jsonb_strategy:

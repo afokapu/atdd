@@ -43,7 +43,7 @@ workflow:
         - "atdd/planner/validators/test_wagon_urn_chain.py"
         - "atdd/planner/validators/test_wmbt_consistency.py"
         - "atdd/planner/validators/test_wmbt_vocabulary.py"
-      gate_command: "python3 -m pytest atdd/planner/validators/ -v"
+      gate_command: "atdd validate planner"
       gate_expected: "PASS"
       completion_criteria:
         - "Train manifest exists and is valid"
@@ -73,7 +73,7 @@ workflow:
         - "atdd/tester/validators/test_acceptance_urn_filename_mapping.py"
         - "atdd/tester/validators/test_python_test_naming.py"
         - "atdd/tester/validators/test_typescript_test_naming.py"
-      gate_command: "python3 -m pytest atdd/tester/validators/ -v"
+      gate_command: "atdd validate tester"
       gate_expected: "PASS"
       red_phase:
         description: "Write failing tests BEFORE any implementation"
@@ -104,7 +104,7 @@ workflow:
         - "atdd/coder/validators/test_typescript_architecture.py"
         - "atdd/coder/validators/test_import_boundaries.py"
         - "atdd/coder/validators/test_wagon_boundaries.py"
-      gate_command: "python3 -m pytest atdd/coder/validators/ -v"
+      gate_command: "atdd validate coder"
       gate_expected: "PASS"
       green_phase:
         description: "Make tests pass with minimal implementation"
@@ -116,7 +116,7 @@ workflow:
         description: "Clean architecture, convention compliance"
         rule: "All coder validators must pass after GREEN"
         convention: "atdd/coder/conventions/refactor.convention.yaml"
-        gate_command: "python3 -m pytest atdd/coder/validators/ -v"
+        gate_command: "atdd validate coder"
         gate_expected: "PASS"
       completion_criteria:
         - "All acceptance tests pass"
@@ -289,7 +289,7 @@ archetypes:
       - "Application: Use cases, orchestration"
       - "Integration: Adapters, clients, repositories"
       - "Presentation: Controllers, DTOs"
-    validation: "python3 -m pytest atdd/coder/validators/test_python_architecture.py -v"
+    validation: "atdd validate coder"
 
   frontend:
     id: "fe"
@@ -315,7 +315,7 @@ archetypes:
       - "Schema-first design"
       - "Version in filename if breaking changes"
       - "Shared via contracts/ directory"
-    validation: "python3 -m pytest atdd/tester/validators/test_contract_*.py -v"
+    validation: "atdd validate tester"
 
   wmbt:
     id: "wmbt"
@@ -326,7 +326,7 @@ archetypes:
       - "URN: wmbt:{wagon}:{STEP_CODE}{NNN}"
       - "Step codes: D=define, L=locate, P=prepare, C=confirm, E=execute, M=monitor, Y=modify, R=resolve, K=conclude"
       - "Max 5 acceptances per WMBT"
-    validation: "python3 -m pytest atdd/planner/validators/test_wmbt_*.py -v"
+    validation: "atdd validate planner"
 
   wagon:
     id: "wagon"
@@ -338,7 +338,7 @@ archetypes:
       - "Manifest: plan/{wagon}/_{wagon}.yaml"
       - "Features: plan/{wagon}/features/{feature}.yaml"
       - "Registered in plan/_wagons.yaml"
-    validation: "python3 -m pytest atdd/planner/validators/test_wagon_*.py -v"
+    validation: "atdd validate planner"
 
   train:
     id: "train"
@@ -348,7 +348,7 @@ archetypes:
     patterns:
       - "Train = release with multiple wagons"
       - "Defines deployment order and dependencies"
-    validation: "python3 -m pytest atdd/planner/validators/test_train_*.py -v"
+    validation: "atdd validate planner"
 
   telemetry:
     id: "telemetry"
@@ -360,7 +360,7 @@ archetypes:
       - "Metrics: telemetry:metric:{layer}:{wagon}:{name}"
       - "Logs: Structured with URN attributes"
       - "Traces: Span context propagation"
-    validation: "python3 -m pytest atdd/tester/validators/test_telemetry_*.py -v"
+    validation: "atdd validate tester"
 
   migrations:
     id: "migrations"
@@ -503,7 +503,7 @@ sections:
             gate: "pytest {test-path} -v (expect PASS)"
           REFACTOR:
             description: "Clean architecture, 4-layer compliance"
-            gate: "pytest atdd/coder/validators/ -v"
+            gate: "atdd validate coder"
 
   validation:
     required: true
@@ -645,47 +645,47 @@ gate_tests:
     db:
       - command: "supabase db push --dry-run"
         atdd_validator: "manual"
-      - command: "python3 -m pytest atdd/tester/validators/test_migration_*.py -v"
+      - command: "atdd validate tester"
         atdd_validator: "atdd/tester/validators/test_migration_coverage.py"
 
     be:
-      - command: "python3 -m pytest atdd/coder/validators/test_python_architecture.py -v"
+      - command: "atdd validate coder"
         atdd_validator: "atdd/coder/validators/test_python_architecture.py"
-      - command: "python3 -m pytest atdd/coder/validators/test_import_boundaries.py -v"
+      - command: "atdd validate coder"
         atdd_validator: "atdd/coder/validators/test_import_boundaries.py"
 
     fe:
       - command: "cd web && npm run typecheck"
         atdd_validator: "manual"
-      - command: "python3 -m pytest atdd/coder/validators/test_typescript_architecture.py -v"
+      - command: "atdd validate coder"
         atdd_validator: "atdd/coder/validators/test_typescript_architecture.py"
 
     contracts:
-      - command: "python3 -m pytest atdd/tester/validators/test_contract_*.py -v"
+      - command: "atdd validate tester"
         atdd_validator: "atdd/tester/validators/test_contract_schema_compliance.py"
 
     wmbt:
-      - command: "python3 -m pytest atdd/planner/validators/test_wmbt_*.py -v"
+      - command: "atdd validate planner"
         atdd_validator: "atdd/planner/validators/test_wmbt_consistency.py"
 
     wagon:
-      - command: "python3 -m pytest atdd/planner/validators/test_wagon_*.py -v"
+      - command: "atdd validate planner"
         atdd_validator: "atdd/planner/validators/test_wagon_urn_chain.py"
-      - command: "python3 -m pytest atdd/coder/validators/test_wagon_boundaries.py -v"
+      - command: "atdd validate coder"
         atdd_validator: "atdd/coder/validators/test_wagon_boundaries.py"
 
     train:
-      - command: "python3 -m pytest atdd/planner/validators/test_train_*.py -v"
+      - command: "atdd validate planner"
         atdd_validator: "atdd/planner/validators/test_train_validation.py"
 
     telemetry:
-      - command: "python3 -m pytest atdd/tester/validators/test_telemetry_*.py -v"
+      - command: "atdd validate tester"
         atdd_validator: "atdd/tester/validators/test_telemetry_structure.py"
 
     migrations:
       - command: "supabase db push --dry-run"
         atdd_validator: "manual"
-      - command: "python3 -m pytest atdd/tester/validators/test_migration_*.py -v"
+      - command: "atdd validate tester"
         atdd_validator: "atdd/tester/validators/test_migration_coverage.py"
 
   # Universal gates (all sessions)
@@ -694,7 +694,7 @@ gate_tests:
       - id: "GT-001"
         phase: "design"
         archetype: "all"
-        command: "python3 -m pytest atdd/coach/validators/test_session_validation.py -v"
+        command: "atdd validate coach"
         expected: "PASS"
         atdd_validator: "atdd/coach/validators/test_session_validation.py"
         description: "Session structure compliance"
@@ -703,7 +703,7 @@ gate_tests:
       - id: "GT-900"
         phase: "completion"
         archetype: "all"
-        command: "python3 -m pytest atdd/ -v --tb=short"
+        command: "atdd validate"
         expected: "PASS"
         atdd_validator: "atdd/"
         description: "Full ATDD validator suite"
@@ -735,14 +735,14 @@ gate_tests:
       gates:
         - id: "GT-300"
           phase: "implementation"
-          command: "python3 -m pytest atdd/coder/validators/ -v"
+          command: "atdd validate coder"
           expected: "PASS"
           atdd_validator: "atdd/coder/validators/"
           description: "Architecture conventions met"
 
 # Validation
 validation:
-  command: "python3 -m pytest atdd/coach/validators/test_session_*.py -v"
+  command: "atdd validate coach"
   checks:
     - "All required sections present"
     - "Status is valid value"

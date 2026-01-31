@@ -444,7 +444,7 @@ persistence_traceability:
 
   workflow:
     1_identify_persistent_contracts:
-      command: "python atdd/coach/commands/migration.py"
+      command: "python -m atdd.coach.commands.migration"
       output: "List of contracts needing persistence"
 
     2_create_migration:

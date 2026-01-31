@@ -12,7 +12,7 @@ Supports two formats:
 1. Hybrid (new): YAML frontmatter + Markdown body
 2. Legacy: Pure Markdown with **Field:** patterns
 
-Run: python3 -m pytest src/atdd/coach/validators/test_session_validation.py -v
+Run: atdd validate coach
 """
 import pytest
 import re

@@ -266,5 +266,5 @@ class TestDTOTestingPatterns:
 
 
 if __name__ == '__main__':
-    # Run with: pytest atdd/coder/test_dto_testing_patterns.py -v
+    # Run with: atdd validate coder
     pytest.main([__file__, '-v'])

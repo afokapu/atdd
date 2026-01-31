@@ -42,7 +42,7 @@ workflow_phases:
       wagon: false      # plan/{wagon}/_{wagon}.yaml exists
       feature: false    # plan/{wagon}/features/{feature}.yaml exists
       wmbt: false       # WMBTs defined in feature YAML
-    gate: "python3 -m pytest src/src/atdd/planner/validators/ -v"
+    gate: "atdd validate planner"
     gate_status: "TODO"
 
   tester:
@@ -51,7 +51,7 @@ workflow_phases:
     artifacts:
       contracts: false  # contracts/{domain}/{resource}.schema.json exists
       red_tests: false  # Failing tests exist for all WMBTs
-    gate: "python3 -m pytest src/src/atdd/tester/validators/ -v"
+    gate: "atdd validate tester"
     gate_status: "TODO"
     red_gate: "pytest {test_path} -v (expect FAIL)"
     red_gate_status: "TODO"
@@ -61,11 +61,11 @@ workflow_phases:
     depends_on: "tester"
     artifacts:
       implementation: false  # Code exists in {runtime}/{wagon}/{feature}/src/
-    gate: "python3 -m pytest src/atdd/coder/validators/ -v"
+    gate: "atdd validate coder"
     gate_status: "TODO"
     green_gate: "pytest {test_path} -v (expect PASS)"
     green_gate_status: "TODO"
-    refactor_gate: "python3 -m pytest src/atdd/coder/validators/ -v"
+    refactor_gate: "atdd validate coder"
     refactor_gate_status: "TODO"
 
 # Progress tracking (machine-readable)
@@ -103,7 +103,7 @@ progress:
       gate: "pytest {test-path} -v (expect PASS)"
     refactor:
       status: "TODO"
-      gate: "pytest src/atdd/coder/validators/ -v"
+      gate: "atdd validate coder"
 
 # Gate Tests - Required validation gates with ATDD validators
 # See: src/atdd/coach/conventions/session.convention.yaml for required gates per archetype
@@ -112,7 +112,7 @@ gate_tests:
   - id: "GT-001"
     phase: "design"
     archetype: "all"
-    command: "python3 -m pytest src/atdd/coach/validators/test_session_validation.py -v"
+    command: "atdd validate coach"
     expected: "PASS"
     atdd_validator: "src/atdd/coach/validators/test_session_validation.py"
     status: "TODO"
@@ -122,7 +122,7 @@ gate_tests:
   # - id: "GT-010"
   #   phase: "implementation"
   #   archetype: "be"
-  #   command: "python3 -m pytest src/atdd/coder/validators/test_python_architecture.py -v"
+  #   command: "atdd validate coder"
   #   expected: "PASS"
   #   atdd_validator: "src/atdd/coder/validators/test_python_architecture.py"
   #   status: "TODO"
@@ -131,7 +131,7 @@ gate_tests:
   # - id: "GT-020"
   #   phase: "implementation"
   #   archetype: "fe"
-  #   command: "python3 -m pytest src/atdd/coder/validators/test_typescript_architecture.py -v"
+  #   command: "atdd validate coder"
   #   expected: "PASS"
   #   atdd_validator: "src/atdd/coder/validators/test_typescript_architecture.py"
   #   status: "TODO"
@@ -140,7 +140,7 @@ gate_tests:
   - id: "GT-900"
     phase: "completion"
     archetype: "all"
-    command: "python3 -m pytest src/atdd/ -v --tb=short"
+    command: "atdd validate"
     expected: "PASS"
     atdd_validator: "src/atdd/"
     status: "TODO"
@@ -180,7 +180,7 @@ IMPLEMENTATION RULES:
 3. New files MUST match patterns of similar existing files
 4. When in doubt: find 2-3 similar files and replicate their structure
 5. NEVER introduce new patterns without explicit decision documented
-6. Validate: python3 -m pytest src/atdd/ -v --tb=short
+6. Validate: atdd validate
 -->
 
 # SESSION-{NN}: {Title}
@@ -288,9 +288,9 @@ Reference: src/atdd/coach/conventions/session.convention.yaml
 
 | ID | Phase | Archetype | Command | Expected | ATDD Validator | Status |
 |----|-------|-----------|---------|----------|----------------|--------|
-| GT-001 | design | all | `python3 -m pytest src/atdd/coach/validators/test_session_validation.py -v` | PASS | `src/atdd/coach/validators/test_session_validation.py` | TODO |
+| GT-001 | design | all | `atdd validate coach` | PASS | `src/atdd/coach/validators/test_session_validation.py` | TODO |
 | GT-010 | implementation | {archetype} | `{command}` | PASS | `{atdd_validator_path}` | TODO |
-| GT-900 | completion | all | `python3 -m pytest src/atdd/ -v --tb=short` | PASS | `src/atdd/` | TODO |
+| GT-900 | completion | all | `atdd validate` | PASS | `src/atdd/` | TODO |
 
 ### Phase Gates
 

@@ -10,8 +10,8 @@ Catalogs all artifacts across the ATDD lifecycle:
 - Tracking: Facts/logs, ATDD documentation
 
 Usage:
-    python atdd/inventory.py > atdd/INVENTORY.yaml
-    pytest atdd/ --inventory
+    atdd inventory                 # Generate inventory (YAML)
+    atdd inventory --format json   # Generate inventory (JSON)
 """
 
 import yaml

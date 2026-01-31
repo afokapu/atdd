@@ -5,9 +5,12 @@ Generate Supabase JSONB migrations from contract schemas.
 SPEC-COACH-CONV-0033: Simplified JSONB-only migration generator
 
 Usage:
-    python atdd/coach/commands/migration.py                     # Generate all missing
-    python atdd/coach/commands/migration.py --contract <path>   # Generate specific
-    python atdd/coach/commands/migration.py --validate          # Check coverage only
+    python -m atdd.coach.commands.migration                     # Generate all missing
+    python -m atdd.coach.commands.migration --contract <path>   # Generate specific
+    python -m atdd.coach.commands.migration --validate          # Check coverage only
+
+Validation:
+    atdd validate tester   # Runs migration coverage validators
 """
 
 import argparse
@@ -166,7 +169,7 @@ def main():
 
     if args.validate:
         print("Validating migration coverage...")
-        print("Run: pytest atdd/tester/test_migration_coverage.py")
+        print("Run: atdd validate tester")
         return
 
     # Generate for specific contract
@@ -235,7 +238,7 @@ def main():
         print(f"ℹ️  Skipped {skipped} non-persistent contracts")
     print(f"📦 All use standard JSONB blob storage")
     print(f"🚀 Apply: supabase db push")
-    print(f"\nValidate: pytest atdd/tester/test_migration_coverage.py")
+    print(f"\nValidate: atdd validate tester")
 
 
 if __name__ == "__main__":

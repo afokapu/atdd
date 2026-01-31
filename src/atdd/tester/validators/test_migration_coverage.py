@@ -147,7 +147,7 @@ def test_all_contracts_have_migrations():
             error_msg += f"\n  ... and {len(missing) - 20} more"
         if skipped > 0:
             error_msg += f"\n\nℹ️  Skipped {skipped} internal/transient contracts"
-        error_msg += "\n\nRun: python atdd/coach/commands/migration.py to generate"
+        error_msg += "\n\nRun: python -m atdd.coach.commands.migration to generate"
         pytest.fail(error_msg)
 
 
