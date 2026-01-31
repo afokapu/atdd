@@ -3,8 +3,13 @@ Shared fixtures for platform tests.
 
 Provides schemas, file discovery, and validation utilities for E2E platform tests.
 
-All validators should use find_repo_root() to locate the consumer repository,
-NOT Path(__file__).parents[N] which points to the installed package location.
+Path resolution strategy:
+- REPO_ROOT (via find_repo_root()) = consumer repository artifacts (plan/, contracts/, etc.)
+- ATDD_PKG_DIR (via atdd.__file__) = installed package resources (schemas, conventions)
+
+Validators should use:
+- REPO_ROOT for consumer repo artifacts (plan/, contracts/, telemetry/, web/, python/)
+- ATDD_PKG_DIR for package-bundled resources (schemas, conventions, templates)
 """
 import json
 import yaml
@@ -12,53 +17,56 @@ from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import pytest
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 
-# Path constants - use find_repo_root() to locate consumer repo
-# This works both when running from source AND when installed as a package
+# Path constants
+# Consumer repo artifacts - use find_repo_root() to locate consumer repository
 REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
-ATDD_DIR = REPO_ROOT / "atdd"
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 TELEMETRY_DIR = REPO_ROOT / "telemetry"
 WEB_DIR = REPO_ROOT / "web"
 
+# Package resources - use atdd.__file__ to locate installed package
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 
-# Schema fixtures - Planner schemas
+
+# Schema fixtures - Planner schemas (loaded from installed package)
 @pytest.fixture(scope="module")
 def wagon_schema() -> Dict[str, Any]:
     """Load wagon.schema.json for validation."""
-    with open(ATDD_DIR / "planner/schemas/wagon.schema.json") as f:
+    with open(ATDD_PKG_DIR / "planner/schemas/wagon.schema.json") as f:
         return json.load(f)
 
 
 @pytest.fixture(scope="module")
 def wmbt_schema() -> Dict[str, Any]:
     """Load wmbt.schema.json for validation."""
-    with open(ATDD_DIR / "planner/schemas/wmbt.schema.json") as f:
+    with open(ATDD_PKG_DIR / "planner/schemas/wmbt.schema.json") as f:
         return json.load(f)
 
 
 @pytest.fixture(scope="module")
 def feature_schema() -> Dict[str, Any]:
     """Load feature.schema.json for validation."""
-    with open(ATDD_DIR / "planner/schemas/feature.schema.json") as f:
+    with open(ATDD_PKG_DIR / "planner/schemas/feature.schema.json") as f:
         return json.load(f)
 
 
 @pytest.fixture(scope="module")
 def acceptance_schema() -> Dict[str, Any]:
     """Load acceptance.schema.json for validation."""
-    with open(ATDD_DIR / "planner/schemas/acceptance.schema.json") as f:
+    with open(ATDD_PKG_DIR / "planner/schemas/acceptance.schema.json") as f:
         return json.load(f)
 
 
-# Schema fixtures - Tester schemas
+# Schema fixtures - Tester schemas (loaded from installed package)
 @pytest.fixture(scope="module")
 def telemetry_signal_schema() -> Dict[str, Any]:
     """Load telemetry_signal.schema.json for validation."""
-    schema_path = ATDD_DIR / "tester/schemas/telemetry_signal.schema.json"
+    schema_path = ATDD_PKG_DIR / "tester/schemas/telemetry_signal.schema.json"
     if schema_path.exists():
         with open(schema_path) as f:
             return json.load(f)
@@ -68,20 +76,20 @@ def telemetry_signal_schema() -> Dict[str, Any]:
 @pytest.fixture(scope="module")
 def telemetry_tracking_manifest_schema() -> Dict[str, Any]:
     """Load telemetry_tracking_manifest.schema.json for validation."""
-    schema_path = ATDD_DIR / "tester/schemas/telemetry_tracking_manifest.schema.json"
+    schema_path = ATDD_PKG_DIR / "tester/schemas/telemetry_tracking_manifest.schema.json"
     if schema_path.exists():
         with open(schema_path) as f:
             return json.load(f)
     return {}
 
 
-# Generic schema loader
+# Generic schema loader (loads from installed package)
 @pytest.fixture(scope="module")
 def load_schema():
     """Factory fixture to load any schema by path."""
     def _loader(agent: str, schema_name: str) -> Dict[str, Any]:
         """
-        Load a schema from atdd/{agent}/schemas/{schema_name}.
+        Load a schema from the installed atdd package.
 
         Args:
             agent: Agent name (planner, tester, coach, coder)
@@ -90,7 +98,7 @@ def load_schema():
         Returns:
             Parsed JSON schema
         """
-        schema_path = ATDD_DIR / agent / "schemas" / schema_name
+        schema_path = ATDD_PKG_DIR / agent / "schemas" / schema_name
         if not schema_path.exists():
             raise FileNotFoundError(f"Schema not found: {schema_path}")
         with open(schema_path) as f:

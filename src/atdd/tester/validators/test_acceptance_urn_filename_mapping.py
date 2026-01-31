@@ -13,10 +13,14 @@ import re
 from pathlib import Path
 import pytest
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 
 REPO_ROOT = find_repo_root()
+
+# Package resources
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 
 
 # SPEC-TESTER-CONV-0069: Dart URN to filename mapping
@@ -299,8 +303,8 @@ def test_python_files_match_convention():
 
     test_dirs = [
         REPO_ROOT / "tests",
-        REPO_ROOT / "atdd" / "coach" / "validators",
-        REPO_ROOT / "atdd" / "tester" / "validators",
+        ATDD_PKG_DIR / "coach" / "validators",
+        ATDD_PKG_DIR / "tester" / "validators",
     ]
 
     violations = []

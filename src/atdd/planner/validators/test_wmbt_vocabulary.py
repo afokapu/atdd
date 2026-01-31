@@ -23,12 +23,17 @@ import re
 from pathlib import Path
 from typing import Dict, List, Tuple, Set, Optional
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 # Path constants
+# Consumer repo artifacts
 REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
-WMBT_CONVENTION = REPO_ROOT / "atdd" / "planner" / "conventions" / "wmbt.convention.yaml"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+WMBT_CONVENTION = ATDD_PKG_DIR / "planner" / "conventions" / "wmbt.convention.yaml"
 
 
 # Authorized vocabulary from convention

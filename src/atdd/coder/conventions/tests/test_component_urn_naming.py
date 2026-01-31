@@ -7,11 +7,15 @@ import pytest
 import yaml
 from pathlib import Path
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 REPO_ROOT = find_repo_root()
-COMPONENT_NAMING_PATH = REPO_ROOT / "atdd/coder/conventions/component-naming.convention.yaml"
-GREEN_CONV_PATH = REPO_ROOT / "atdd/coder/conventions/green.convention.yaml"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+COMPONENT_NAMING_PATH = ATDD_PKG_DIR / "coder/conventions/component-naming.convention.yaml"
+GREEN_CONV_PATH = ATDD_PKG_DIR / "coder/conventions/green.convention.yaml"
 
 
 def test_coder_convention_uses_colon_hierarchy():

@@ -22,13 +22,18 @@ import yaml
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 
 # Path constants
+# Consumer repo artifacts
 REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
-BACKEND_CONVENTION = REPO_ROOT / "atdd" / "coder" / "conventions" / "backend.convention.yaml"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+BACKEND_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "backend.convention.yaml"
 
 
 def determine_layer_from_path(file_path: Path) -> str:

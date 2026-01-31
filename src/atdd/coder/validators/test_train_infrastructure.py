@@ -24,17 +24,22 @@ import re
 from pathlib import Path
 from typing import List, Dict, Set, Tuple
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 
 # Path constants
+# Consumer repo artifacts
 REPO_ROOT = find_repo_root()
 TRAINS_DIR = REPO_ROOT / "python" / "trains"
 WAGONS_DIR = REPO_ROOT / "python"
 GAME_PY = REPO_ROOT / "python" / "game.py"
 E2E_CONFTEST = REPO_ROOT / "e2e" / "conftest.py"
 CONTRACT_VALIDATOR = REPO_ROOT / "e2e" / "shared" / "fixtures" / "contract_validator.py"
-TRAIN_CONVENTION = REPO_ROOT / "atdd" / "coder" / "conventions" / "train.convention.yaml"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+TRAIN_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "train.convention.yaml"
 
 
 def find_wagons() -> List[Path]:

@@ -18,13 +18,18 @@ import re
 from pathlib import Path
 from typing import List
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 
+# Consumer repo artifacts
 REPO_ROOT = find_repo_root()
 PYTHON_COMMONS = REPO_ROOT / "python" / "commons"
 WEB_COMMONS = REPO_ROOT / "web" / "src" / "commons"
 WEB_SRC = REPO_ROOT / "web" / "src"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 
 
 # ============================================================================
@@ -459,7 +464,7 @@ def test_structural_patterns_documented():
 
     Validates: Convention documents intentional divergence
     """
-    convention_file = REPO_ROOT / "atdd" / "coder" / "conventions" / "commons.convention.yaml"
+    convention_file = ATDD_PKG_DIR / "coder" / "conventions" / "commons.convention.yaml"
 
     if not convention_file.exists():
         pytest.fail(

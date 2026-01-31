@@ -15,8 +15,10 @@ import pytest
 import re
 from pathlib import Path
 
+from atdd.coach.utils.repo import find_repo_root
 
-# Path constants
+
+# Path constants - consumer repo artifacts
 REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 

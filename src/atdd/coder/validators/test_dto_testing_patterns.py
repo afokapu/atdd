@@ -25,13 +25,18 @@ import ast
 from pathlib import Path
 from typing import List, Tuple, Set
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 
 # Path constants
+# Consumer repo artifacts
 REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
-DTO_CONVENTION = REPO_ROOT / "atdd" / "coder" / "conventions" / "dto.convention.yaml"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+DTO_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "dto.convention.yaml"
 
 
 def find_integration_test_files() -> List[Path]:

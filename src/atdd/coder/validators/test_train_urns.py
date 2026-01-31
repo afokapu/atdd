@@ -21,14 +21,19 @@ import yaml
 from pathlib import Path
 from typing import List, Dict, Set, Tuple
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 
 # Path constants
+# Consumer repo artifacts
 REPO_ROOT = find_repo_root()
 PYTHON_SHARED_DIR = REPO_ROOT / "python" / "shared"
 TRAINS_DIR = REPO_ROOT / "plan" / "_trains"
-TRAIN_CONVENTION = REPO_ROOT / "atdd" / "planner" / "conventions" / "train.convention.yaml"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+TRAIN_CONVENTION = ATDD_PKG_DIR / "planner" / "conventions" / "train.convention.yaml"
 
 
 def find_theme_orchestrators() -> List[Path]:

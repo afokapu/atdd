@@ -12,13 +12,18 @@ import re
 from pathlib import Path
 from jsonschema import validate, ValidationError, Draft7Validator
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 # Path constants
+# Consumer repo artifacts
 REPO_ROOT = find_repo_root()
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 PLAN_DIR = REPO_ROOT / "plan"
-META_SCHEMA_PATH = REPO_ROOT / "atdd" / "tester" / "schemas" / "contract.schema.json"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+META_SCHEMA_PATH = ATDD_PKG_DIR / "tester" / "schemas" / "contract.schema.json"
 
 
 @pytest.fixture

@@ -8,10 +8,14 @@ import pytest
 from pathlib import Path
 import yaml
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 REPO_ROOT = find_repo_root()
-RED_CONVENTION = REPO_ROOT / "atdd" / "tester" / "conventions" / "red.convention.yaml"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+RED_CONVENTION = ATDD_PKG_DIR / "tester" / "conventions" / "red.convention.yaml"
 
 
 @pytest.mark.tester

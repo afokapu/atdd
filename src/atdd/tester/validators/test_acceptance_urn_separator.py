@@ -24,12 +24,16 @@ import yaml
 import re
 from pathlib import Path
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 # Path constants
 REPO_ROOT = find_repo_root()
-CONVENTIONS_DIR = REPO_ROOT / "atdd" / "planner" / "conventions"
-SCHEMAS_DIR = REPO_ROOT / "atdd" / "planner" / "schemas"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+CONVENTIONS_DIR = ATDD_PKG_DIR / "planner" / "conventions"
+SCHEMAS_DIR = ATDD_PKG_DIR / "planner" / "schemas"
 
 
 # SPEC-COACH-UTILS-0282

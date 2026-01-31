@@ -27,13 +27,18 @@ from pathlib import Path
 from typing import List, Tuple, Set
 import ast
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 # Path constants
+# Consumer repo artifacts
 REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 PYPROJECT_TOML = PYTHON_DIR / "pyproject.toml"
-BOUNDARIES_CONVENTION = REPO_ROOT / "atdd" / "coder" / "conventions" / "boundaries.convention.yaml"
+
+# Package resources (conventions, schemas)
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+BOUNDARIES_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "boundaries.convention.yaml"
 
 
 def find_test_files() -> List[Path]:

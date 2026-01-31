@@ -457,4 +457,4 @@ migration:
         commands:
           - "cd web && npx tsc --noEmit"
           - "cd web && npm test"
-          - "./atdd/atdd.py --test coder -k commons"
+          - "atdd validate coder -k commons"

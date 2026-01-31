@@ -17,15 +17,20 @@ import ast
 from pathlib import Path
 from typing import List, Set, Tuple
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
+
+# Package resources
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+
 TEST_DIRS = [
     REPO_ROOT / "test",
     REPO_ROOT / "tests",
-    REPO_ROOT / "atdd",
+    ATDD_PKG_DIR,  # Validators in installed package
 ]
 
 
