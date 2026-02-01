@@ -194,6 +194,11 @@ class AgentConfigSync:
         """
         agents = self._get_enabled_agents()
 
+        # Get configured vs detected for display
+        config = self._load_config()
+        sync_config = config.get("sync", {})
+        configured_agents = set(sync_config.get("agents", []))
+
         print("\n" + "=" * 60)
         print("ATDD Agent Config Sync Status")
         print("=" * 60)
@@ -202,8 +207,8 @@ class AgentConfigSync:
         print(f"ATDD template: {self.atdd_template}")
         print(f"Overlays dir: {self.overlays_dir}")
 
-        print(f"\n{'Agent':<10} {'File':<15} {'Status':<20}")
-        print("-" * 50)
+        print(f"\n{'Agent':<10} {'File':<15} {'Status':<20} {'Source':<12}")
+        print("-" * 62)
 
         for agent, target_file in sorted(self.AGENT_FILES.items()):
             target_path = self.target_dir / target_file
@@ -211,18 +216,22 @@ class AgentConfigSync:
 
             if not enabled:
                 status = "disabled"
+                source = ""
             elif not target_path.exists():
                 status = "missing"
+                source = "config"
             elif not self._has_managed_block(target_path.read_text()):
                 status = "no managed block"
+                source = "auto" if agent not in configured_agents else "config"
             else:
                 status = "synced"
+                source = "auto" if agent not in configured_agents else "config"
 
             enabled_marker = "*" if enabled else " "
-            print(f"{enabled_marker} {agent:<8} {target_file:<15} {status:<20}")
+            print(f"{enabled_marker} {agent:<8} {target_file:<15} {status:<20} {source:<12}")
 
-        print("-" * 50)
-        print("* = enabled in config")
+        print("-" * 62)
+        print("* = enabled for sync (config = explicit, auto = file exists)")
 
         # Show overlay status
         print("\nOverlays:")
@@ -250,14 +259,32 @@ class AgentConfigSync:
 
     def _get_enabled_agents(self) -> List[str]:
         """
-        Return agents from config.
+        Return agents to sync: configured agents + existing agent files.
+
+        Auto-includes any supported agent file that already exists in the
+        target directory, in addition to explicitly configured agents.
+        This ensures existing agent files stay in sync without requiring
+        explicit configuration.
 
         Returns:
-            List of agent names enabled for sync.
+            List of unique agent names enabled for sync.
         """
+        # Get explicitly configured agents
         config = self._load_config()
         sync_config = config.get("sync", {})
-        return sync_config.get("agents", [])
+        configured_agents = set(sync_config.get("agents", []))
+
+        # Auto-detect existing agent files
+        detected_agents = set()
+        for agent, filename in self.AGENT_FILES.items():
+            agent_path = self.target_dir / filename
+            if agent_path.exists():
+                detected_agents.add(agent)
+
+        # Merge: configured + detected
+        all_agents = configured_agents | detected_agents
+
+        return sorted(all_agents)
 
     def _load_base_content(self) -> Optional[str]:
         """
