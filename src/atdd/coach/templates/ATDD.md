@@ -225,7 +225,9 @@ release:
   mandatory: true
 
   rules:
+    - "Version file is required (configured in .atdd/config.yaml)"
     - "Tag must match version exactly: v{version}"
+    - "Tag must be on HEAD"
     - "No tag without version bump"
     - "No version bump without tag"
     - "Every repo MUST have versioning"
@@ -243,10 +245,11 @@ release:
     - "Push with tags: git push origin {branch} --tags"
     - "Record in Session Log: 'Released: v{version}'"
 
-  # Consumer repos configure version file location in .atdd/config.yaml:
+  # Config (required in .atdd/config.yaml):
   # release:
   #   version_file: "pyproject.toml"  # or package.json, VERSION, etc.
   #   tag_prefix: "v"
+  # Validator: atdd validate coach enforces version file + tag on HEAD
 
 # Agent Coordination (Detailed in action files)
 agents:

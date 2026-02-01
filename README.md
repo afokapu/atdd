@@ -216,6 +216,20 @@ atdd validate --coverage   # With coverage report
 atdd validate --html       # With HTML report
 ```
 
+### Release Versioning
+
+ATDD enforces release versioning via coach validators. Configure the version file and tag prefix in `.atdd/config.yaml`:
+
+```yaml
+release:
+  version_file: "pyproject.toml"  # or package.json, VERSION, etc.
+  tag_prefix: "v"
+```
+
+Validation (`atdd validate coach` or `atdd validate`) requires:
+- Version file exists and contains a version
+- Git tag on HEAD matches `{tag_prefix}{version}`
+
 ### Other Commands
 
 ```bash

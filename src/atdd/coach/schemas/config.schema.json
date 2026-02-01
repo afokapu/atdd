@@ -11,6 +11,25 @@
       "pattern": "^[0-9]+\\.[0-9]+$",
       "examples": ["1.0"]
     },
+    "release": {
+      "type": "object",
+      "description": "Release/versioning settings",
+      "properties": {
+        "version_file": {
+          "type": "string",
+          "description": "Path to version file (relative to repo root)",
+          "examples": ["pyproject.toml", "package.json", "VERSION"]
+        },
+        "tag_prefix": {
+          "type": "string",
+          "description": "Prefix for git tags",
+          "default": "v",
+          "examples": ["v", ""]
+        }
+      },
+      "required": ["version_file"],
+      "additionalProperties": false
+    },
     "sync": {
       "type": "object",
       "description": "Agent config file sync settings",
@@ -27,8 +46,20 @@
         }
       },
       "additionalProperties": false
+    },
+    "toolkit": {
+      "type": "object",
+      "description": "ATDD toolkit metadata",
+      "properties": {
+        "last_version": {
+          "type": "string",
+          "description": "Last installed ATDD toolkit version"
+        }
+      },
+      "required": ["last_version"],
+      "additionalProperties": false
     }
   },
-  "required": ["version"],
+  "required": ["version", "release"],
   "additionalProperties": false
 }

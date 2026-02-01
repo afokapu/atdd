@@ -169,6 +169,10 @@ class ProjectInitializer:
 
         config = {
             "version": "1.0",
+            "release": {
+                "version_file": "VERSION",
+                "tag_prefix": "v",
+            },
             "sync": {
                 "agents": ["claude"],  # Default: only Claude
             },
