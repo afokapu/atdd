@@ -1555,6 +1555,6 @@ def main(repo_root: Path):
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-    repo_root = Path(__file__).resolve().parents[4]
+    from atdd.coach.utils.repo import find_repo_root
+    repo_root = find_repo_root()
     main(repo_root)

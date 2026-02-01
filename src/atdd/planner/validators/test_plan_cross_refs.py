@@ -5,7 +5,10 @@ Validates that cross-references between wagons, trains, and artifacts are cohere
 Tests ensure that consume references point to valid produce artifacts.
 """
 import pytest
+from pathlib import Path
 from typing import Dict, Set, List, Tuple, Any
+
+from atdd.coach.utils.repo import find_repo_root
 
 
 @pytest.mark.platform
@@ -117,8 +120,7 @@ def test_trains_reference_valid_wagons(trains_registry, wagon_manifests):
             # Load individual train file if path exists
             if train_path:
                 import yaml
-                from pathlib import Path
-                train_file = Path(__file__).resolve().parents[4] / train_path
+                train_file = find_repo_root() / train_path
 
                 if train_file.exists():
                     with open(train_file) as f:

@@ -13,6 +13,8 @@ import yaml
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
+from atdd.coach.utils.repo import find_repo_root
+
 
 @pytest.mark.platform
 def test_train_ids_follow_numbering_convention(trains_registry):
@@ -91,7 +93,7 @@ def test_train_files_exist_for_registry_entries(trains_registry):
     When: Checking for train files
     Then: Each train has a file at plan/_trains/{train_id}.yaml
     """
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = find_repo_root()
     trains_dir = repo_root / "plan" / "_trains"
 
     missing_files = []
@@ -121,7 +123,7 @@ def test_all_train_files_registered(trains_registry):
     When: Checking registry
     Then: Each file is registered in plan/_trains.yaml
     """
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = find_repo_root()
     trains_dir = repo_root / "plan" / "_trains"
 
     # Get all registered train IDs
@@ -153,7 +155,7 @@ def test_train_id_matches_filename(trains_registry):
     When: Loading train data
     Then: train_id field matches filename (without .yaml)
     """
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = find_repo_root()
     trains_dir = repo_root / "plan" / "_trains"
 
     mismatches = []
@@ -183,7 +185,7 @@ def test_train_wagons_exist(trains_registry, wagon_manifests):
     When: Checking wagon references
     Then: Each wagon exists in registry or has a manifest in plan/*
     """
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = find_repo_root()
     trains_dir = repo_root / "plan" / "_trains"
 
     # Build wagon name set from manifests
@@ -231,7 +233,7 @@ def test_train_dependencies_are_valid(trains_registry):
     When: Checking dependency references
     Then: Each dependency points to a valid train_id
     """
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = find_repo_root()
     trains_dir = repo_root / "plan" / "_trains"
 
     # Get all valid train IDs
@@ -287,7 +289,7 @@ def test_train_artifacts_follow_naming_convention(trains_registry):
     """
     import re
 
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = find_repo_root()
     trains_dir = repo_root / "plan" / "_trains"
 
     pattern = re.compile(r"^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)+(?:\.[a-z][a-z0-9-]*)*$")
@@ -355,7 +357,7 @@ def test_train_artifacts_exist_in_wagons(trains_registry, wagon_manifests):
     Then: Each artifact should be in wagon produce/consume lists
     Note: Soft check - external/system artifacts are allowed
     """
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = find_repo_root()
     trains_dir = repo_root / "plan" / "_trains"
 
     # Build artifact index from wagons
@@ -488,7 +490,7 @@ def test_trains_match_schema(trains_registry):
     from jsonschema import Draft7Validator
     import json
 
-    repo_root = Path(__file__).resolve().parents[4]
+    repo_root = find_repo_root()
     schema_path = repo_root / ".claude" / "schemas" / "planner" / "train.schema.json"
     trains_dir = repo_root / "plan" / "_trains"
 
