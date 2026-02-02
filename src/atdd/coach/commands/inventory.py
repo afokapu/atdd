@@ -302,26 +302,88 @@ class RepositoryInventory:
         }
 
     def scan_telemetry(self) -> Dict[str, Any]:
-        """Scan telemetry/ for signal definitions."""
+        """Scan telemetry/ for signal definitions.
+
+        Signal file pattern: {aspect}.{type}.{plane}[.{measure}].json
+        Examples: metric.ui.duration.json, event.be.json
+
+        Excludes: _telemetry.yaml, _taxonomy.yaml, .pack.* files
+        Falls back to _telemetry.yaml registry if no signal files found.
+        """
         telemetry_dir = self.repo_root / "telemetry"
 
         if not telemetry_dir.exists():
-            return {"total": 0, "by_domain": {}}
+            return {"total": 0, "by_theme": {}, "source": "none"}
 
-        # Find all signal files
-        signal_files = list(telemetry_dir.glob("**/*.signal.yaml"))
+        # Find JSON signal files (primary) and YAML signal files (legacy)
+        json_files = list(telemetry_dir.glob("**/*.json"))
+        yaml_files = list(telemetry_dir.glob("**/*.yaml"))
 
-        by_domain = defaultdict(int)
+        # Filter out manifest/registry/pack files
+        def is_signal_file(f: Path) -> bool:
+            name = f.name
+            # Exclude registry and manifest files
+            if name.startswith("_"):
+                return False
+            # Exclude pack files
+            if ".pack." in name:
+                return False
+            return True
+
+        signal_files = [f for f in json_files + yaml_files if is_signal_file(f)]
+
+        by_theme = defaultdict(int)
 
         for signal_file in signal_files:
             rel_path = signal_file.relative_to(telemetry_dir)
-            domain = rel_path.parts[0] if rel_path.parts else "unknown"
-            by_domain[domain] += 1
+            # First path segment is theme (per artifact-naming.convention.yaml v2.1)
+            theme = rel_path.parts[0] if rel_path.parts else "unknown"
+            by_theme[theme] += 1
+
+        # If no signal files found, fallback to registry
+        if not signal_files:
+            return self._scan_telemetry_from_registry(telemetry_dir)
 
         return {
             "total": len(signal_files),
-            "by_domain": dict(by_domain)
+            "by_theme": dict(by_theme),
+            "source": "files"
         }
+
+    def _scan_telemetry_from_registry(self, telemetry_dir: Path) -> Dict[str, Any]:
+        """Fallback: count telemetry entries from _telemetry.yaml registry."""
+        registry_file = telemetry_dir / "_telemetry.yaml"
+
+        if not registry_file.exists():
+            return {"total": 0, "by_theme": {}, "source": "none"}
+
+        try:
+            with open(registry_file, 'r', encoding='utf-8') as f:
+                registry = yaml.safe_load(f) or {}
+
+            signals = registry.get("signals", [])
+            by_theme = defaultdict(int)
+            valid_count = 0
+
+            for signal in signals:
+                # Only count signals with non-empty ids
+                signal_id = signal.get("id") or signal.get("$id", "")
+                if not signal_id:
+                    continue
+
+                valid_count += 1
+                # Parse theme from id (first segment before colon)
+                parts = signal_id.split(":")
+                theme = parts[0] if parts else "unknown"
+                by_theme[theme] += 1
+
+            return {
+                "total": valid_count,
+                "by_theme": dict(by_theme),
+                "source": "registry"
+            }
+        except Exception:
+            return {"total": 0, "by_theme": {}, "source": "error"}
 
     def count_test_cases_in_file(self, test_file: Path) -> int:
         """Count number of test functions/cases in a test file."""
