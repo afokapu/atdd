@@ -62,6 +62,12 @@ def _read_version_from_file(path: Path) -> str:
         version = _parse_package_json_version(path)
     else:
         version = _parse_plain_version(path)
+        if not version:
+            pytest.fail(
+                f"Could not read version from {path}. "
+                "Expected first non-comment line to contain a semver like "
+                "'1.2.3' or '1.2.3 - short summary'."
+            )
 
     if not version:
         pytest.fail(f"Could not read version from {path}")
@@ -127,11 +133,17 @@ def _parse_package_json_version(path: Path) -> Optional[str]:
 
 
 def _parse_plain_version(path: Path) -> Optional[str]:
+    version_pattern = re.compile(
+        r"\bv?(?P<version>\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)\b"
+    )
     for line in path.read_text().splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        return stripped
+        match = version_pattern.search(stripped)
+        if match:
+            return match.group("version")
+        return None
     return None
 
 

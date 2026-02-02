@@ -44,14 +44,20 @@ atdd --help
 ```bash
 atdd init                      # Initialize ATDD in your project
 atdd gate                      # ⚠️ START EVERY SESSION WITH THIS
-atdd session new <capability>    # Create a planning session
+atdd session new <task>        # Create a planning session
 atdd sync                      # Sync rules to agent config files
 atdd validate                  # Run all validators
 ```
 
 > **⚠️ `atdd gate` is required.** 
 > 🤖 Tell your agent: "Run `atdd gate` and follow ATDD rigorously." 
-> Agents skip instruction files but can't ignore tool output. No gate = no ATDD guarantees.
+> Agents skip instruction files but can't ignore tool ou
+
+
+
+
+
+tput. No gate = no ATDD guarantees.
 
 ## What It Does
 
@@ -218,13 +224,15 @@ atdd validate --html       # With HTML report
 
 ### Release Versioning
 
-ATDD enforces release versioning via coach validators. Configure the version file and tag prefix in `.atdd/config.yaml`:
+ATDD enforces release versioning via coach validators. Recommended: keep a single root `VERSION` file as the canonical source (first line like `1.2.3 - short summary`; trailing summary is ignored). Configure the version file and tag prefix in `.atdd/config.yaml`:
 
 ```yaml
 release:
-  version_file: "pyproject.toml"  # or package.json, VERSION, etc.
+  version_file: "VERSION"  # recommended single source of truth
   tag_prefix: "v"
 ```
+
+If you also publish with language-specific manifests (e.g., `pyproject.toml`, `package.json`), keep their version fields in sync with `VERSION`.
 
 Validation (`atdd validate coach` or `atdd validate`) requires:
 - Version file exists and contains a version

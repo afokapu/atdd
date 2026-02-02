@@ -348,7 +348,7 @@ Rules:
 -->
 
 - [ ] Determine change class: PATCH / MINOR / MAJOR
-- [ ] Bump version in version file (pyproject.toml, package.json, etc.)
+- [ ] Bump version in version file (recommended: VERSION; sync any language manifests if used)
 - [ ] Commit: "Bump version to {version}"
 - [ ] Create tag: `git tag v{version}`
 - [ ] Push with tags: `git push origin {branch} --tags`
