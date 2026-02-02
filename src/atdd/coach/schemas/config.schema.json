@@ -58,6 +58,69 @@
       },
       "required": ["last_version"],
       "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "description": "Hierarchy coverage validation settings (ATDD Hierarchy Coverage Spec v0.1)",
+      "properties": {
+        "exceptions": {
+          "type": "object",
+          "description": "Allow-lists for coverage exceptions",
+          "properties": {
+            "wagons_not_in_train": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Wagon slugs allowed without train coverage"
+            },
+            "features_orphaned": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Feature URNs allowed without wagon manifest reference"
+            },
+            "wmbts_without_acceptance": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "WMBT URNs allowed without acceptance criteria"
+            },
+            "acceptance_without_tests": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Acceptance URNs allowed without test coverage"
+            },
+            "contracts_unreferenced": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Contract URNs allowed without produce/consume"
+            },
+            "telemetry_unreferenced": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Telemetry URNs allowed without references"
+            },
+            "features_without_implementation": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Feature URNs allowed without code implementation"
+            }
+          },
+          "additionalProperties": false
+        },
+        "thresholds": {
+          "type": "object",
+          "description": "Coverage threshold settings",
+          "properties": {
+            "min_acceptance_coverage": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 80,
+              "description": "Minimum percentage of acceptances that must have tests"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": ["version", "release"],

@@ -1,0 +1,95 @@
+version: "1.0"
+name: "Planner Coverage Convention"
+description: "Section 2 of ATDD Hierarchy Coverage Spec v0.1 - Ensures every planner artifact participates in lifecycle graph"
+
+rules:
+  - id: "COVERAGE-PLAN-2.1"
+    name: "Train - Wagon Coverage"
+    description: "Bidirectional coverage between trains and wagons"
+    bidirectional:
+      - direction: "wagon -> train"
+        requirement: "Every wagon must appear in at least one train's participants"
+        exceptions: "wagons_not_in_train allow-list or status:draft"
+        validator: "test_all_wagons_in_at_least_one_train"
+
+      - direction: "train -> wagon"
+        requirement: "Every wagon: participant must have a wagon manifest"
+        validator: "test_all_train_wagon_refs_exist"
+
+  - id: "COVERAGE-PLAN-2.2"
+    name: "Wagon - Feature Coverage"
+    description: "Bidirectional coverage between wagons and features"
+    bidirectional:
+      - direction: "feature -> wagon"
+        requirement: "Every feature file must be referenced by its wagon manifest"
+        exceptions: "features_orphaned allow-list"
+        validator: "test_all_features_in_wagon_manifest"
+
+      - direction: "wagon -> feature"
+        requirement: "Every features[] entry must have corresponding YAML file"
+        validator: "test_all_wagon_feature_refs_exist"
+
+  - id: "COVERAGE-PLAN-2.3"
+    name: "WMBT - Feature Coverage"
+    description: "Every WMBT must be referenced by at least one feature"
+    bidirectional:
+      - direction: "wmbt -> feature"
+        requirement: "Every WMBT file must appear in at least one feature's wmbts list"
+        validator: "test_all_wmbts_in_at_least_one_feature"
+
+  - id: "COVERAGE-PLAN-2.4"
+    name: "WMBT - Acceptance Coverage"
+    description: "Every WMBT must have at least one acceptance criterion"
+    requirement: "Every WMBT must have at least one acceptance (except status:draft)"
+    exceptions: "wmbts_without_acceptance allow-list"
+    validator: "test_all_wmbts_have_acceptances"
+
+coverage_graph:
+  description: "The planner coverage graph ensures traceability from trains down to acceptances"
+  levels:
+    - name: "Train"
+      contains: "Wagons (via participants)"
+      validators: ["COVERAGE-PLAN-2.1"]
+
+    - name: "Wagon"
+      contains: "Features (via features[])"
+      validators: ["COVERAGE-PLAN-2.1", "COVERAGE-PLAN-2.2"]
+
+    - name: "Feature"
+      contains: "WMBTs (via wmbts[])"
+      validators: ["COVERAGE-PLAN-2.2", "COVERAGE-PLAN-2.3"]
+
+    - name: "WMBT"
+      contains: "Acceptances (via acceptances[])"
+      validators: ["COVERAGE-PLAN-2.3", "COVERAGE-PLAN-2.4"]
+
+    - name: "Acceptance"
+      contains: "Test criteria"
+      validators: ["COVERAGE-PLAN-2.4"]
+
+exception_handling:
+  description: "How exceptions are handled in coverage validation"
+  allow_lists:
+    wagons_not_in_train:
+      description: "Wagon slugs that are allowed to exist without train coverage"
+      use_case: "Utility wagons, shared infrastructure, or wagons under development"
+      config_path: "coverage.exceptions.wagons_not_in_train"
+
+    features_orphaned:
+      description: "Feature URNs that are allowed without wagon manifest reference"
+      use_case: "Deprecated features being phased out, or experimental features"
+      config_path: "coverage.exceptions.features_orphaned"
+
+    wmbts_without_acceptance:
+      description: "WMBT URNs that are allowed without acceptance criteria"
+      use_case: "Draft WMBTs or placeholder definitions"
+      config_path: "coverage.exceptions.wmbts_without_acceptance"
+
+  status_exemptions:
+    - status: "draft"
+      exempted_from: ["COVERAGE-PLAN-2.1", "COVERAGE-PLAN-2.4"]
+      reason: "Draft artifacts are work-in-progress and not yet ready for full coverage"
+
+rollout:
+  phase: "PLANNER_TESTER_ENFORCEMENT"
+  description: "Section 2 validators become strict in Phase 2"

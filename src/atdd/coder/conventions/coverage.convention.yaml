@@ -1,0 +1,85 @@
+version: "1.0"
+name: "Coder Coverage Convention"
+description: "Section 4 of ATDD Hierarchy Coverage Spec v0.1 - Ensures code implementation covers all features"
+
+rules:
+  - id: "COVERAGE-CODE-4.1"
+    name: "Feature - Implementation Coverage"
+    description: "Every feature must have corresponding code implementation"
+    requirement: "Each feature's components must map to code paths"
+    exceptions: "features_without_implementation allow-list"
+    validator: "test_all_features_have_implementations"
+
+  - id: "COVERAGE-CODE-4.2"
+    name: "Implementation - Tests Coverage"
+    description: "Every implementation must have at least one linked test"
+    requirement: "Each implementation must have at least one linked test"
+    validator: "test_all_implementations_have_tests"
+
+coverage_graph:
+  description: "The coder coverage graph ensures features are implemented and tested"
+  levels:
+    - name: "Feature"
+      implemented_by: "Code files in python/, supabase/, web/"
+      validators: ["COVERAGE-CODE-4.1"]
+
+    - name: "Implementation"
+      tested_by: "Test files referencing feature/component"
+      validators: ["COVERAGE-CODE-4.2"]
+
+exception_handling:
+  description: "How exceptions are handled in coder coverage validation"
+  allow_lists:
+    features_without_implementation:
+      description: "Feature URNs that are allowed without code implementation"
+      use_case: "Planned features, design-only features, or features implemented externally"
+      config_path: "coverage.exceptions.features_without_implementation"
+
+implementation_patterns:
+  description: "How features map to code implementations"
+
+  python:
+    location: "python/{wagon}/"
+    patterns:
+      - "use_case_{feature_slug}.py"
+      - "service_{feature_slug}.py"
+      - "{feature_slug}_handler.py"
+    example: "python/maintain_ux/use_case_provide_foundations.py"
+
+  typescript:
+    location: "supabase/functions/{wagon}/{feature}/"
+    patterns:
+      - "index.ts"
+      - "handler.ts"
+      - "{feature_slug}.ts"
+    example: "supabase/functions/maintain-ux/provide-foundations/index.ts"
+
+  web:
+    location: "web/src/features/{wagon}/{feature}/"
+    patterns:
+      - "index.tsx"
+      - "{feature_slug}.tsx"
+      - "components/"
+    example: "web/src/features/maintain-ux/provide-foundations/index.tsx"
+
+test_patterns:
+  description: "How implementations map to tests"
+
+  python:
+    location: "python/{wagon}/"
+    filename: "test_*.py"
+    reference_method: "Import or reference to implementation module"
+
+  typescript:
+    location: "supabase/functions/{wagon}/{feature}/test/"
+    filename: "*.test.ts"
+    reference_method: "Import or reference to implementation"
+
+  web:
+    location: "web/tests/{wagon}/{feature}/"
+    filename: "*.test.tsx"
+    reference_method: "Import or reference to component"
+
+rollout:
+  phase: "FULL_ENFORCEMENT"
+  description: "Section 4 validators become strict in Phase 3 (after planner+tester)"

@@ -1,0 +1,114 @@
+version: "1.0"
+name: "Tester Coverage Convention"
+description: "Section 3 of ATDD Hierarchy Coverage Spec v0.1 - Ensures test artifacts have complete coverage"
+
+rules:
+  - id: "COVERAGE-TEST-3.1"
+    name: "Acceptance - Tests Coverage"
+    description: "Every acceptance criterion must have corresponding test(s)"
+    bidirectional:
+      - direction: "acceptance -> test"
+        requirement: "Each acceptance URN must be referenced by at least one test"
+        exceptions: "acceptance_without_tests allow-list"
+        validator: "test_all_acceptances_have_tests"
+
+  - id: "COVERAGE-TEST-3.2"
+    name: "Contract - Wagon Coverage"
+    description: "Bidirectional coverage between contracts and wagon produce/consume"
+    bidirectional:
+      - direction: "contract -> wagon"
+        requirement: "Every contract schema must be referenced by produce/consume"
+        exceptions: "contracts_unreferenced allow-list or x-artifact-metadata.status: draft|external|deprecated"
+        validator: "test_all_contracts_referenced"
+
+      - direction: "wagon -> contract"
+        requirement: "Every produce/consume contract ref must have schema file"
+        validator: "test_all_contract_refs_exist"
+
+  - id: "COVERAGE-TEST-3.3"
+    name: "Telemetry - Wagon Coverage"
+    description: "Bidirectional coverage between telemetry signals and wagon produce"
+    bidirectional:
+      - direction: "telemetry -> wagon"
+        requirement: "Every telemetry signal must be referenced by wagon produce"
+        exceptions: "telemetry_unreferenced allow-list or status: draft|external|deprecated"
+        validator: "test_all_telemetry_referenced"
+
+      - direction: "wagon -> telemetry"
+        requirement: "Every produce telemetry ref must have signal files"
+        validator: "test_all_telemetry_refs_exist"
+
+  - id: "COVERAGE-TEST-3.4"
+    name: "Telemetry Tracking Manifest"
+    description: "Tracking manifest must be complete if present"
+    requirement: "If telemetry/_tracking_manifest.yaml exists, all signals must be present"
+    validator: "test_telemetry_manifest_complete"
+
+coverage_graph:
+  description: "The tester coverage graph ensures acceptance-to-test traceability and artifact completeness"
+  levels:
+    - name: "Acceptance"
+      covered_by: "Tests (Python, TypeScript, Dart)"
+      validators: ["COVERAGE-TEST-3.1"]
+
+    - name: "Contract"
+      referenced_by: "Wagon produce/consume"
+      validators: ["COVERAGE-TEST-3.2"]
+
+    - name: "Telemetry"
+      referenced_by: "Wagon produce"
+      validators: ["COVERAGE-TEST-3.3", "COVERAGE-TEST-3.4"]
+
+exception_handling:
+  description: "How exceptions are handled in tester coverage validation"
+  allow_lists:
+    acceptance_without_tests:
+      description: "Acceptance URNs that are allowed without test coverage"
+      use_case: "Future acceptances, integration-only criteria, or manual verification"
+      config_path: "coverage.exceptions.acceptance_without_tests"
+
+    contracts_unreferenced:
+      description: "Contract URNs that are allowed without produce/consume"
+      use_case: "External contracts, deprecated schemas, or system-level contracts"
+      config_path: "coverage.exceptions.contracts_unreferenced"
+
+    telemetry_unreferenced:
+      description: "Telemetry URNs that are allowed without references"
+      use_case: "System telemetry, deprecated signals, or external observability"
+      config_path: "coverage.exceptions.telemetry_unreferenced"
+
+  metadata_exemptions:
+    contracts:
+      field: "x-artifact-metadata.status"
+      values: ["draft", "external", "deprecated"]
+      reason: "Contract schemas with these statuses are exempt from coverage requirements"
+
+    telemetry:
+      field: "status"
+      values: ["draft", "external", "deprecated"]
+      reason: "Telemetry signals with these statuses are exempt from coverage requirements"
+
+test_discovery:
+  description: "How tests are discovered and linked to acceptances"
+  patterns:
+    python:
+      location: "python/{wagon}/"
+      filename: "test_*.py"
+      reference_method: "Docstring URN reference or header comment"
+      example: "# URN: acc:maintain-ux:D001-UNIT-001"
+
+    typescript:
+      location: "supabase/functions/{wagon}/{feature}/test/"
+      filename: "*.test.ts"
+      reference_method: "Comment at top of file or JSDoc annotation"
+      example: "// urn: acc:maintain-ux:D001-UNIT-001"
+
+    dart:
+      location: "test/"
+      filename: "*_test.dart"
+      reference_method: "Comment at top of file"
+      example: "// urn: acc:maintain-ux:D001-UNIT-001"
+
+rollout:
+  phase: "PLANNER_TESTER_ENFORCEMENT"
+  description: "Section 3 validators become strict in Phase 2"

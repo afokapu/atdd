@@ -445,3 +445,157 @@ def pytest_html_results_summary(prefix, summary, postfix):
         'against platform schemas and conventions.</p>'
         '</div>'
     ])
+
+
+# ============================================================================
+# COVERAGE VALIDATION FIXTURES (ATDD Hierarchy Coverage Spec v0.1)
+# ============================================================================
+
+
+@pytest.fixture(scope="module")
+def coverage_exceptions(atdd_config: Dict[str, Any]) -> Dict[str, List[str]]:
+    """
+    Load coverage exception allow-lists from .atdd/config.yaml.
+
+    Returns:
+        Dict mapping exception type to list of allowed URNs/slugs
+    """
+    return atdd_config.get("coverage", {}).get("exceptions", {})
+
+
+@pytest.fixture(scope="module")
+def coverage_thresholds(atdd_config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Load coverage threshold settings from .atdd/config.yaml.
+
+    Returns:
+        Dict with threshold settings (min_acceptance_coverage, etc.)
+    """
+    defaults = {"min_acceptance_coverage": 80}
+    thresholds = atdd_config.get("coverage", {}).get("thresholds", {})
+    return {**defaults, **thresholds}
+
+
+@pytest.fixture(scope="module")
+def feature_files() -> List[Tuple[Path, Dict[str, Any]]]:
+    """
+    Discover all feature files in plan/*/features/.
+
+    Returns:
+        List of (path, feature_data) tuples
+    """
+    import re
+    features = []
+    if not PLAN_DIR.exists():
+        return features
+
+    for wagon_dir in PLAN_DIR.iterdir():
+        if wagon_dir.is_dir() and not wagon_dir.name.startswith("_"):
+            features_dir = wagon_dir / "features"
+            if features_dir.exists():
+                for feature_file in features_dir.glob("*.yaml"):
+                    try:
+                        with open(feature_file) as f:
+                            data = yaml.safe_load(f)
+                            if data:
+                                features.append((feature_file, data))
+                    except Exception:
+                        pass
+    return features
+
+
+@pytest.fixture(scope="module")
+def wmbt_files() -> List[Tuple[Path, Dict[str, Any]]]:
+    """
+    Discover all WMBT files in plan/*/.
+
+    WMBT files match pattern: [DLPCEMYRK]NNN.yaml (e.g., D001.yaml, L010.yaml)
+
+    Returns:
+        List of (path, wmbt_data) tuples
+    """
+    import re
+    wmbts = []
+    if not PLAN_DIR.exists():
+        return wmbts
+
+    wmbt_pattern = re.compile(r"^[DLPCEMYRK]\d{3}\.yaml$")
+
+    for wagon_dir in PLAN_DIR.iterdir():
+        if wagon_dir.is_dir() and not wagon_dir.name.startswith("_"):
+            for wmbt_file in wagon_dir.glob("*.yaml"):
+                if wmbt_pattern.match(wmbt_file.name):
+                    try:
+                        with open(wmbt_file) as f:
+                            data = yaml.safe_load(f)
+                            if data:
+                                wmbts.append((wmbt_file, data))
+                    except Exception:
+                        pass
+    return wmbts
+
+
+@pytest.fixture(scope="module")
+def acceptance_urns_by_wagon(wmbt_files: List[Tuple[Path, Dict[str, Any]]]) -> Dict[str, List[str]]:
+    """
+    Extract all acceptance URNs grouped by wagon slug.
+
+    Returns:
+        Dict mapping wagon slug to list of acceptance URNs
+    """
+    by_wagon: Dict[str, List[str]] = {}
+
+    for path, wmbt_data in wmbt_files:
+        # Derive wagon slug from directory name (snake_case -> kebab-case)
+        wagon_slug = path.parent.name.replace("_", "-")
+
+        if wagon_slug not in by_wagon:
+            by_wagon[wagon_slug] = []
+
+        for acc in wmbt_data.get("acceptances", []):
+            if isinstance(acc, dict) and "identity" in acc:
+                urn = acc["identity"].get("urn", "")
+                if urn:
+                    by_wagon[wagon_slug].append(urn)
+            elif isinstance(acc, str):
+                by_wagon[wagon_slug].append(acc)
+
+    return by_wagon
+
+
+@pytest.fixture(scope="module")
+def all_acceptance_urns(acceptance_urns_by_wagon: Dict[str, List[str]]) -> List[str]:
+    """
+    Get flat list of all acceptance URNs across all wagons.
+
+    Returns:
+        List of all acceptance URNs
+    """
+    all_urns = []
+    for urns in acceptance_urns_by_wagon.values():
+        all_urns.extend(urns)
+    return all_urns
+
+
+@pytest.fixture(scope="module")
+def wagon_to_train_mapping(train_files: List[Tuple[Path, Dict]]) -> Dict[str, List[str]]:
+    """
+    Build mapping of wagon slugs to train IDs that reference them.
+
+    Returns:
+        Dict mapping wagon slug to list of train IDs
+    """
+    mapping: Dict[str, List[str]] = {}
+
+    for train_path, train_data in train_files:
+        train_id = train_data.get("train_id", train_path.stem)
+        participants = train_data.get("participants", [])
+
+        for participant in participants:
+            if isinstance(participant, str) and participant.startswith("wagon:"):
+                wagon_slug = participant.replace("wagon:", "")
+                if wagon_slug not in mapping:
+                    mapping[wagon_slug] = []
+                mapping[wagon_slug].append(train_id)
+
+    return mapping
