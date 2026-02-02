@@ -148,9 +148,16 @@ class RepositoryInventory:
                 by_theme[theme] += 1
 
             # Gap analysis
-            expectations = train.get("expectations", {})
-            test_fields = train.get("test", {})
-            code_fields = train.get("code", {})
+            expectations = train.get("expectations")
+            test_fields = train.get("test")
+            code_fields = train.get("code")
+
+            if not isinstance(expectations, dict):
+                expectations = {}
+            if test_fields is None:
+                test_fields = {}
+            if code_fields is None:
+                code_fields = {}
 
             # Normalize test/code to dict form
             if isinstance(test_fields, str):
