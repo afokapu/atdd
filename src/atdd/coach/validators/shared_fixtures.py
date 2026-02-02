@@ -14,11 +14,12 @@ Validators should use:
 import json
 import yaml
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import pytest
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import load_atdd_config, get_train_config
 
 
 # Path constants
@@ -190,6 +191,72 @@ def trains_registry() -> Dict[str, Any]:
         "monetization": [],
         "partnership": []
     }
+
+
+@pytest.fixture(scope="module")
+def trains_registry_with_groups() -> Dict[str, Dict[str, List[Dict]]]:
+    """
+    Load trains registry preserving full group structure for theme validation.
+
+    Returns:
+        Trains data with full nesting preserved:
+        {"0-commons": {"00-commons-nominal": [train1, train2], ...}, ...}
+
+    This fixture is used for validating theme derivation from group keys.
+    """
+    trains_file = PLAN_DIR / "_trains.yaml"
+    if trains_file.exists():
+        with open(trains_file) as f:
+            data = yaml.safe_load(f)
+            return data.get("trains", {})
+    return {}
+
+
+@pytest.fixture(scope="module")
+def train_files() -> List[Tuple[Path, Dict]]:
+    """
+    Load all train YAML files with their data.
+
+    Returns:
+        List of (path, train_data) tuples for all train files in plan/_trains/
+    """
+    trains_dir = PLAN_DIR / "_trains"
+    train_files_data = []
+
+    if trains_dir.exists():
+        for train_file in sorted(trains_dir.glob("*.yaml")):
+            if not train_file.name.startswith("_"):
+                try:
+                    with open(train_file) as f:
+                        train_data = yaml.safe_load(f)
+                        if train_data:
+                            train_files_data.append((train_file, train_data))
+                except Exception:
+                    pass
+
+    return train_files_data
+
+
+@pytest.fixture(scope="module")
+def atdd_config() -> Dict[str, Any]:
+    """
+    Load .atdd/config.yaml configuration.
+
+    Returns:
+        Configuration dict with train and validation settings
+    """
+    return load_atdd_config(REPO_ROOT)
+
+
+@pytest.fixture(scope="module")
+def train_config() -> Dict[str, Any]:
+    """
+    Load train-specific configuration with defaults.
+
+    Returns:
+        Train configuration dict with defaults applied
+    """
+    return get_train_config(REPO_ROOT)
 
 
 @pytest.fixture(scope="module")

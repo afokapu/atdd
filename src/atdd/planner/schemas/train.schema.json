@@ -16,7 +16,7 @@
   "properties": {
     "train_id": {
       "type": "string",
-      "pattern": "^[0-9]{4}-[a-z][a-z0-9-]*$",
+      "pattern": "^\\d{4}-[a-z0-9-]+$",
       "description": "Train identifier with hierarchical numbering: {theme}{category}{variation}-{kebab-case-name} (e.g., 0001-auth-session-standard, 2301-empty-input-file)"
     },
     "title": {
@@ -28,6 +28,15 @@
       "type": "string",
       "minLength": 10,
       "description": "Concise description of the train's purpose and workflow"
+    },
+    "path": {
+      "type": "string",
+      "description": "Canonical path to the train YAML file relative to repo root"
+    },
+    "file": {
+      "type": "string",
+      "description": "DEPRECATED: Use 'path' instead. Alias for backward compatibility",
+      "deprecated": true
     },
     "themes": {
       "type": "array",
@@ -49,12 +58,17 @@
         ]
       }
     },
+    "primary_wagon": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "The primary wagon responsible for this train's core functionality"
+    },
     "dependencies": {
       "type": "array",
       "description": "Other trains that must run before this train",
       "items": {
         "type": "string",
-        "pattern": "^train:[0-9]{4}-[a-z][a-z0-9-]*$",
+        "pattern": "^train:\\d{4}-[a-z0-9-]+$",
         "description": "Train reference in format: train:{train_id}"
       }
     },
@@ -67,6 +81,115 @@
         "pattern": "^(wagon|user|system):[a-z][a-z0-9-]*$",
         "description": "Participant reference: wagon:{wagon-id}, user:{role}, system:{source}"
       }
+    },
+    "test": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Single backend test file path"
+        },
+        {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of backend test file paths"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "backend": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ],
+              "description": "Backend test file path(s)"
+            },
+            "frontend": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ],
+              "description": "Frontend (web) test file path(s)"
+            },
+            "frontend_python": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ],
+              "description": "Frontend Python (Streamlit) test file path(s)"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Test files organized by platform"
+        }
+      ],
+      "description": "Test file references for this train (string, array, or object with backend/frontend/frontend_python)"
+    },
+    "code": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Single backend implementation file path"
+        },
+        {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of backend implementation file paths"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "backend": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ],
+              "description": "Backend implementation file path(s)"
+            },
+            "frontend": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ],
+              "description": "Frontend (web) implementation file path(s)"
+            },
+            "frontend_python": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ],
+              "description": "Frontend Python (Streamlit) implementation file path(s)"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Implementation files organized by platform"
+        }
+      ],
+      "description": "Implementation file references for this train (string, array, or object with backend/frontend/frontend_python)"
+    },
+    "expectations": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "boolean",
+          "description": "Whether backend implementation is expected"
+        },
+        "frontend": {
+          "type": "boolean",
+          "description": "Whether frontend (web) implementation is expected"
+        },
+        "frontend_python": {
+          "type": "boolean",
+          "description": "Whether frontend Python (Streamlit) implementation is expected"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Explicit expectations for which platforms this train should be implemented on"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["planned", "tested", "implemented"],
+      "default": "planned",
+      "description": "Current implementation status of the train"
     },
     "sequence": {
       "type": "array",

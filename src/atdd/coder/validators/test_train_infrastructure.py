@@ -1,5 +1,5 @@
 """
-Test train infrastructure validation (SESSION-12).
+Test train infrastructure validation (SESSION-12 + Train First-Class Spec v0.6).
 
 Validates conventions from:
 - atdd/coder/conventions/train.convention.yaml
@@ -13,6 +13,11 @@ Enforces:
 - E2E tests use production TrainRunner
 - Station Master pattern in game.py
 
+Train First-Class Spec v0.6 additions:
+- SPEC-TRAIN-VAL-0031: Backend runner paths
+- SPEC-TRAIN-VAL-0032: Frontend code allowed roots
+- SPEC-TRAIN-VAL-0033: FastAPI template enforcement
+
 Rationale:
 Trains are production orchestration, not test infrastructure (SESSION-12).
 These audits ensure the train composition root pattern is correctly implemented.
@@ -21,11 +26,18 @@ These audits ensure the train composition root pattern is correctly implemented.
 import pytest
 import ast
 import re
+import yaml
 from pathlib import Path
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Set, Tuple, Any
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.train_spec_phase import (
+    TrainSpecPhase,
+    should_enforce,
+    emit_phase_warning
+)
+from atdd.coach.utils.config import get_train_config
 
 
 # Path constants
@@ -459,3 +471,225 @@ def test_no_wagon_to_wagon_imports():
             "\n\nWagons must communicate via contracts only, not direct imports\n"
             "See: atdd/coder/conventions/boundaries.convention.yaml"
         )
+
+
+# ============================================================================
+# TRAIN FIRST-CLASS SPEC v0.6 VALIDATORS
+# ============================================================================
+
+
+def _get_all_train_ids() -> List[str]:
+    """Get all train IDs from registry."""
+    train_ids = []
+    trains_file = REPO_ROOT / "plan" / "_trains.yaml"
+
+    if trains_file.exists():
+        with open(trains_file) as f:
+            data = yaml.safe_load(f)
+
+        for theme_key, categories in data.get("trains", {}).items():
+            if isinstance(categories, dict):
+                for category_key, trains_list in categories.items():
+                    if isinstance(trains_list, list):
+                        for train in trains_list:
+                            train_id = train.get("train_id")
+                            if train_id:
+                                train_ids.append(train_id)
+
+    return train_ids
+
+
+def test_backend_runner_paths():
+    """
+    SPEC-TRAIN-VAL-0031: Backend runner paths validation.
+
+    Given: Train infrastructure
+    When: Checking runner file locations
+    Then: Runners exist at python/trains/runner.py or python/trains/<train_id>/runner.py
+
+    Section 9: Backend Runner Paths
+    """
+    train_config = get_train_config(REPO_ROOT)
+    allowed_paths = train_config.get("backend_runner_paths", [
+        "python/trains/runner.py",
+        "python/trains/{train_id}/runner.py"
+    ])
+
+    # Check for main runner
+    main_runner = TRAINS_DIR / "runner.py"
+    if not main_runner.exists():
+        if should_enforce(TrainSpecPhase.BACKEND_ENFORCEMENT):
+            pytest.fail(
+                f"Main TrainRunner not found at {main_runner}\n"
+                "Expected: python/trains/runner.py"
+            )
+        else:
+            emit_phase_warning(
+                "SPEC-TRAIN-VAL-0031",
+                f"Main TrainRunner not found at {main_runner}",
+                TrainSpecPhase.BACKEND_ENFORCEMENT
+            )
+        return
+
+    # Check for train-specific runners if trains have custom runners
+    train_ids = _get_all_train_ids()
+    custom_runners = []
+
+    for train_id in train_ids:
+        custom_runner = TRAINS_DIR / train_id / "runner.py"
+        if custom_runner.exists():
+            custom_runners.append((train_id, custom_runner))
+
+    # Validate custom runners extend base TrainRunner
+    for train_id, runner_path in custom_runners:
+        with open(runner_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        if "TrainRunner" not in content:
+            if should_enforce(TrainSpecPhase.BACKEND_ENFORCEMENT):
+                pytest.fail(
+                    f"Custom runner at {runner_path} does not reference TrainRunner\n"
+                    "Custom runners should extend or use the base TrainRunner"
+                )
+            else:
+                emit_phase_warning(
+                    "SPEC-TRAIN-VAL-0031",
+                    f"Custom runner {train_id}/runner.py should reference TrainRunner",
+                    TrainSpecPhase.BACKEND_ENFORCEMENT
+                )
+
+
+def test_frontend_code_allowed_roots():
+    """
+    SPEC-TRAIN-VAL-0032: Frontend code in allowed root directories.
+
+    Given: Frontend (web) code files
+    When: Checking file locations
+    Then: Code is in allowed roots (web/src/, web/components/, web/pages/)
+
+    Section 10: Frontend Code Allowed Roots
+    """
+    train_config = get_train_config(REPO_ROOT)
+    allowed_roots = train_config.get("frontend_allowed_roots", [
+        "web/src/",
+        "web/components/",
+        "web/pages/"
+    ])
+
+    web_dir = REPO_ROOT / "web"
+    if not web_dir.exists():
+        pytest.skip("No web/ directory found")
+
+    # Find all TypeScript/JavaScript files in web/
+    code_files = []
+    for pattern in ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]:
+        code_files.extend(web_dir.glob(pattern))
+
+    # Exclude test files, node_modules, and build directories
+    code_files = [
+        f for f in code_files
+        if "node_modules" not in str(f)
+        and ".next" not in str(f)
+        and "dist" not in str(f)
+        and not f.name.endswith(".test.ts")
+        and not f.name.endswith(".test.tsx")
+        and not f.name.endswith(".spec.ts")
+    ]
+
+    violations = []
+    for code_file in code_files:
+        rel_path = code_file.relative_to(REPO_ROOT)
+        in_allowed_root = any(str(rel_path).startswith(root) for root in allowed_roots)
+
+        # Also allow e2e/ directory for tests (already excluded above but be explicit)
+        in_e2e = str(rel_path).startswith("web/e2e/")
+
+        if not in_allowed_root and not in_e2e:
+            # Check if it's a config file at root level (allow those)
+            is_config = code_file.parent == web_dir and code_file.suffix in [".js", ".ts"]
+            if not is_config:
+                violations.append(str(rel_path))
+
+    if violations and len(violations) > 10:
+        if should_enforce(TrainSpecPhase.FULL_ENFORCEMENT):
+            pytest.fail(
+                f"Frontend code outside allowed roots ({len(violations)} files):\n  " +
+                "\n  ".join(violations[:10]) +
+                f"\n  ... and {len(violations) - 10} more" +
+                f"\n\nAllowed roots: {allowed_roots}"
+            )
+        else:
+            emit_phase_warning(
+                "SPEC-TRAIN-VAL-0032",
+                f"{len(violations)} frontend files outside allowed roots",
+                TrainSpecPhase.FULL_ENFORCEMENT
+            )
+
+
+def test_fastapi_template_enforcement():
+    """
+    SPEC-TRAIN-VAL-0033: FastAPI template enforcement when configured.
+
+    Given: .atdd/config.yaml with enforce_fastapi_template=true
+    When: Checking API endpoint files
+    Then: Endpoints follow FastAPI template conventions
+
+    Section 11: FastAPI Template Enforcement
+    """
+    train_config = get_train_config(REPO_ROOT)
+
+    if not train_config.get("enforce_fastapi_template", False):
+        pytest.skip("FastAPI template enforcement not enabled in config")
+
+    # Look for FastAPI app files
+    python_dir = REPO_ROOT / "python"
+    if not python_dir.exists():
+        pytest.skip("No python/ directory found")
+
+    # Find files that define FastAPI apps
+    fastapi_files = []
+    for py_file in python_dir.rglob("*.py"):
+        if "__pycache__" in str(py_file):
+            continue
+
+        try:
+            with open(py_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            if "FastAPI" in content and ("app = FastAPI" in content or "router = APIRouter" in content):
+                fastapi_files.append(py_file)
+        except Exception:
+            pass
+
+    if not fastapi_files:
+        pytest.skip("No FastAPI app files found")
+
+    # Check template conventions
+    violations = []
+    for api_file in fastapi_files:
+        with open(api_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Check for required template elements
+        required_elements = [
+            ("response_model", "Endpoints should use response_model parameter"),
+            ("HTTPException", "Endpoints should use HTTPException for errors"),
+        ]
+
+        for element, description in required_elements:
+            if element not in content:
+                violations.append(f"{api_file.name}: {description}")
+
+    if violations:
+        if should_enforce(TrainSpecPhase.FULL_ENFORCEMENT):
+            pytest.fail(
+                f"FastAPI template violations:\n  " + "\n  ".join(violations) +
+                "\n\nSee: train.convention.yaml for FastAPI template requirements"
+            )
+        else:
+            for violation in violations:
+                emit_phase_warning(
+                    "SPEC-TRAIN-VAL-0033",
+                    violation,
+                    TrainSpecPhase.FULL_ENFORCEMENT
+                )

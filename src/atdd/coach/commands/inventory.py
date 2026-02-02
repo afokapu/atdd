@@ -75,11 +75,32 @@ class RepositoryInventory:
         }
 
     def scan_trains(self) -> Dict[str, Any]:
-        """Scan plan/ for train manifests (aggregations of wagons)."""
+        """
+        Scan plan/ for train manifests (aggregations of wagons).
+
+        Train First-Class Spec v0.6 Section 14: Gap Reporting
+        Reports missing test/code for each platform (backend/frontend/frontend_python).
+        """
         plan_dir = self.repo_root / "plan"
 
         if not plan_dir.exists():
-            return {"total": 0, "trains": []}
+            return {
+                "total": 0,
+                "trains": [],
+                "by_theme": {},
+                "train_ids": [],
+                "detail_files": 0,
+                "missing_test_backend": [],
+                "missing_test_frontend": [],
+                "missing_test_frontend_python": [],
+                "missing_code_backend": [],
+                "missing_code_frontend": [],
+                "missing_code_frontend_python": [],
+                "gaps": {
+                    "test": {"backend": 0, "frontend": 0, "frontend_python": 0},
+                    "code": {"backend": 0, "frontend": 0, "frontend_python": 0}
+                }
+            }
 
         # Load trains registry
         trains_file = plan_dir / "_trains.yaml"
@@ -103,6 +124,14 @@ class RepositoryInventory:
         by_theme = defaultdict(int)
         train_ids = []
 
+        # Gap tracking (Section 14)
+        missing_test_backend = []
+        missing_test_frontend = []
+        missing_test_frontend_python = []
+        missing_code_backend = []
+        missing_code_frontend = []
+        missing_code_frontend_python = []
+
         for train in all_trains:
             train_id = train.get("train_id", "unknown")
             train_ids.append(train_id)
@@ -118,6 +147,46 @@ class RepositoryInventory:
                 theme = theme_map.get(theme_digit, "unknown")
                 by_theme[theme] += 1
 
+            # Gap analysis
+            expectations = train.get("expectations", {})
+            test_fields = train.get("test", {})
+            code_fields = train.get("code", {})
+
+            # Normalize test/code to dict form
+            if isinstance(test_fields, str):
+                test_fields = {"backend": [test_fields]}
+            elif isinstance(test_fields, list):
+                test_fields = {"backend": test_fields}
+
+            if isinstance(code_fields, str):
+                code_fields = {"backend": [code_fields]}
+            elif isinstance(code_fields, list):
+                code_fields = {"backend": code_fields}
+
+            # Check backend gaps (default expectation is True for backend)
+            expects_backend = expectations.get("backend", True)
+            if expects_backend:
+                if not test_fields.get("backend"):
+                    missing_test_backend.append(train_id)
+                if not code_fields.get("backend"):
+                    missing_code_backend.append(train_id)
+
+            # Check frontend gaps
+            expects_frontend = expectations.get("frontend", False)
+            if expects_frontend:
+                if not test_fields.get("frontend"):
+                    missing_test_frontend.append(train_id)
+                if not code_fields.get("frontend"):
+                    missing_code_frontend.append(train_id)
+
+            # Check frontend_python gaps
+            expects_frontend_python = expectations.get("frontend_python", False)
+            if expects_frontend_python:
+                if not test_fields.get("frontend_python"):
+                    missing_test_frontend_python.append(train_id)
+                if not code_fields.get("frontend_python"):
+                    missing_code_frontend_python.append(train_id)
+
         # Find train detail files
         train_detail_files = list((plan_dir / "_trains").glob("*.yaml")) if (plan_dir / "_trains").exists() else []
 
@@ -125,7 +194,26 @@ class RepositoryInventory:
             "total": len(all_trains),
             "by_theme": dict(by_theme),
             "train_ids": train_ids,
-            "detail_files": len(train_detail_files)
+            "detail_files": len(train_detail_files),
+            # Gap reporting (Section 14)
+            "missing_test_backend": missing_test_backend,
+            "missing_test_frontend": missing_test_frontend,
+            "missing_test_frontend_python": missing_test_frontend_python,
+            "missing_code_backend": missing_code_backend,
+            "missing_code_frontend": missing_code_frontend,
+            "missing_code_frontend_python": missing_code_frontend_python,
+            "gaps": {
+                "test": {
+                    "backend": len(missing_test_backend),
+                    "frontend": len(missing_test_frontend),
+                    "frontend_python": len(missing_test_frontend_python)
+                },
+                "code": {
+                    "backend": len(missing_code_backend),
+                    "frontend": len(missing_code_frontend),
+                    "frontend_python": len(missing_code_frontend_python)
+                }
+            }
         }
 
     def scan_wagons(self) -> Dict[str, Any]:

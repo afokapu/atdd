@@ -910,6 +910,44 @@ class RegistryBuilder:
             mode = "check" if preview_only else "interactive"
         return self.update_telemetry_registry(mode)
 
+    def _normalize_test_code_field(self, field_value: Any) -> Dict[str, List[str]]:
+        """
+        Normalize test/code field to canonical structure.
+
+        Train First-Class Spec v0.6 Section 5: Test/Code Field Typing Normalization
+        - string -> {"backend": [string]}
+        - list -> {"backend": list}
+        - dict -> normalize each sub-field to list
+        """
+        if field_value is None:
+            return {}
+
+        if isinstance(field_value, str):
+            return {"backend": [field_value]}
+        elif isinstance(field_value, list):
+            return {"backend": field_value}
+        elif isinstance(field_value, dict):
+            result = {}
+            for key in ["backend", "frontend", "frontend_python"]:
+                if key in field_value:
+                    val = field_value[key]
+                    result[key] = [val] if isinstance(val, str) else (val or [])
+            return result
+        return {}
+
+    def _extract_wagons_from_participants(self, participants: List[str]) -> List[str]:
+        """
+        Extract wagon names from participants list.
+
+        Train First-Class Spec v0.6 Section 4: Participants is Canonical Wagon Source
+        """
+        wagons = []
+        for participant in participants:
+            if isinstance(participant, str) and participant.startswith("wagon:"):
+                wagon_name = participant.replace("wagon:", "")
+                wagons.append(wagon_name)
+        return wagons
+
     def build_trains(self, mode: str = "interactive") -> Dict[str, Any]:
         """
         Build trains registry from train manifest files.
@@ -920,12 +958,19 @@ class RegistryBuilder:
         - XX = category within theme
         - name = train slug
 
+        Train First-Class Spec v0.6 Normalization:
+        - Section 1: Normalize file→path (deprecation)
+        - Section 4: Extract wagons from participants
+        - Section 5: Normalize test/code fields to {backend/frontend/frontend_python: []}
+
         Args:
             mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
 
         Returns:
             Statistics about the update (includes has_changes flag for check mode)
         """
+        import warnings
+
         print("\n📊 Analyzing trains registry from manifest files...")
 
         # Set up paths
@@ -947,6 +992,7 @@ class RegistryBuilder:
             "new": 0,
             "errors": 0,
             "preserved_drafts": 0,
+            "file_to_path_migrations": 0,
             "changes": []
         }
 
@@ -987,23 +1033,84 @@ class RegistryBuilder:
                     # Try to infer from filename (e.g., 01-01-setup.yaml -> 01-01-setup)
                     train_id = manifest_path.stem
 
-                # Parse theme from train_id (first 2 digits)
+                # Parse theme from train_id (first digit maps to theme name)
                 theme = ""
-                if len(train_id) >= 2 and train_id[:2].isdigit():
-                    theme = train_id[:2]
+                theme_map = {
+                    "0": "commons", "1": "mechanic", "2": "scenario", "3": "match",
+                    "4": "sensory", "5": "player", "6": "league", "7": "audience",
+                    "8": "monetization", "9": "partnership"
+                }
+                if train_id and train_id[0].isdigit():
+                    theme = theme_map.get(train_id[0], "")
 
                 # Build train entry
                 rel_manifest = str(manifest_path.relative_to(self.repo_root))
+
+                # Section 1: Normalize file→path
+                path_value = manifest.get("path")
+                file_value = manifest.get("file")
+                if file_value and not path_value:
+                    # Migrate file to path
+                    path_value = file_value
+                    stats["file_to_path_migrations"] += 1
+                    warnings.warn(
+                        f"Train {train_id}: 'file' field is deprecated, migrating to 'path'",
+                        DeprecationWarning,
+                        stacklevel=2
+                    )
+
+                # Section 4: Extract wagons from participants
+                participants = manifest.get("participants", [])
+                wagons = self._extract_wagons_from_participants(participants)
+
+                # Also include explicitly listed wagons
+                explicit_wagons = manifest.get("wagons", [])
+                if explicit_wagons:
+                    # Validate subset relationship
+                    explicit_set = set(explicit_wagons)
+                    participant_set = set(wagons)
+                    if not explicit_set.issubset(participant_set) and participant_set:
+                        extra = explicit_set - participant_set
+                        warnings.warn(
+                            f"Train {train_id}: registry wagons {extra} not in YAML participants",
+                            UserWarning,
+                            stacklevel=2
+                        )
+                    wagons = explicit_wagons  # Use explicit if provided
+
+                # Section 5: Normalize test/code fields
+                test_normalized = self._normalize_test_code_field(manifest.get("test"))
+                code_normalized = self._normalize_test_code_field(manifest.get("code"))
 
                 entry = {
                     "train_id": train_id,
                     "theme": theme,
                     "title": manifest.get("title", manifest.get("description", "")),
                     "description": manifest.get("description", ""),
-                    "wagons": manifest.get("wagons", []),
+                    "wagons": wagons,
                     "status": manifest.get("status", "planned"),
                     "manifest": rel_manifest
                 }
+
+                # Add path if present
+                if path_value:
+                    entry["path"] = path_value
+
+                # Add primary_wagon if present
+                primary_wagon = manifest.get("primary_wagon")
+                if primary_wagon:
+                    entry["primary_wagon"] = primary_wagon
+
+                # Add normalized test/code if present
+                if test_normalized:
+                    entry["test"] = test_normalized
+                if code_normalized:
+                    entry["code"] = code_normalized
+
+                # Add expectations if present
+                expectations = manifest.get("expectations")
+                if expectations:
+                    entry["expectations"] = expectations
 
                 # Check if updating or new
                 if train_id in existing_trains:
@@ -1011,7 +1118,7 @@ class RegistryBuilder:
                     # Check for field changes
                     old = existing_trains[train_id]
                     changed_fields = []
-                    for field in ["title", "description", "wagons", "status", "theme"]:
+                    for field in ["title", "description", "wagons", "status", "theme", "path", "test", "code", "expectations"]:
                         if old.get(field) != entry.get(field):
                             changed_fields.append(field)
                     if changed_fields:
@@ -1052,6 +1159,8 @@ class RegistryBuilder:
         print(f"  • {stats['updated']} trains will be updated")
         print(f"  • {stats['new']} new trains will be added")
         print(f"  • {stats['preserved_drafts']} draft trains will be preserved")
+        if stats["file_to_path_migrations"] > 0:
+            print(f"  ⚠️  {stats['file_to_path_migrations']} file→path migrations (deprecation)")
         if stats["errors"] > 0:
             print(f"  ⚠️  {stats['errors']} errors encountered")
 
