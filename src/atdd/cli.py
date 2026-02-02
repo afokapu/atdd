@@ -110,16 +110,60 @@ class ATDDCoach:
             parallel=True
         )
 
-    def update_registries(self, registry_type: str = "all") -> int:
-        """Update registries from source files."""
-        if registry_type == "wagons":
-            self.registry_updater.update_wagon_registry()
-        elif registry_type == "contracts":
-            self.registry_updater.update_contract_registry()
-        elif registry_type == "telemetry":
-            self.registry_updater.update_telemetry_registry()
-        else:  # all
-            self.registry_updater.update_all()
+    def update_registries(
+        self,
+        registry_type: str = "all",
+        apply: bool = False,
+        check: bool = False
+    ) -> int:
+        """Update registries from source files.
+
+        Args:
+            registry_type: Which registry to update (all, wagons, trains, contracts, etc.)
+            apply: If True, apply changes without prompting (CI mode)
+            check: If True, only check for drift without applying (exit 1 if drift)
+
+        Returns:
+            0 on success, 1 if --check and drift detected
+        """
+        # Convert flags to mode string
+        if check:
+            mode = "check"
+        elif apply:
+            mode = "apply"
+        else:
+            mode = "interactive"
+
+        # Registry type handlers
+        handlers = {
+            "wagons": self.registry_updater.update_wagon_registry,
+            "trains": self.registry_updater.build_trains,
+            "contracts": self.registry_updater.update_contract_registry,
+            "telemetry": self.registry_updater.update_telemetry_registry,
+            "tester": self.registry_updater.build_tester,
+            "coder": self.registry_updater.build_coder,
+            "supabase": self.registry_updater.build_supabase,
+        }
+
+        if registry_type == "all":
+            result = self.registry_updater.build_all(mode=mode)
+            # In check mode, return 1 if any registry has changes
+            if check:
+                has_changes = any(
+                    r.get("has_changes", False) or r.get("new", 0) > 0 or len(r.get("changes", [])) > 0
+                    for r in result.values()
+                )
+                return 1 if has_changes else 0
+        elif registry_type in handlers:
+            result = handlers[registry_type](mode=mode)
+            # In check mode, return 1 if this registry has changes
+            if check:
+                has_changes = result.get("has_changes", False) or result.get("new", 0) > 0 or len(result.get("changes", [])) > 0
+                return 1 if has_changes else 0
+        else:
+            print(f"Unknown registry type: {registry_type}")
+            return 1
+
         return 0
 
     def show_status(self) -> int:
@@ -285,8 +329,19 @@ Phase descriptions:
         nargs="?",
         type=str,
         default="all",
-        choices=["all", "wagons", "contracts", "telemetry"],
+        choices=["all", "wagons", "trains", "contracts", "telemetry", "tester", "coder", "supabase"],
         help="Registry type to update (default: all)"
+    )
+    registry_update_parser.add_argument(
+        "--yes", "--apply",
+        action="store_true",
+        dest="apply",
+        help="Apply changes without prompting (for CI/automation)"
+    )
+    registry_update_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check for drift without applying (exit 1 if changes detected)"
     )
 
     # ----- atdd init -----
@@ -497,7 +552,11 @@ Phase descriptions:
         coach = ATDDCoach(repo_root=repo_path)
 
         if args.registry_command == "update":
-            return coach.update_registries(registry_type=args.type)
+            return coach.update_registries(
+                registry_type=args.type,
+                apply=args.apply,
+                check=args.check
+            )
         else:
             registry_parser.print_help()
             return 0

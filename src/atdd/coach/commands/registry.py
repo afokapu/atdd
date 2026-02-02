@@ -161,6 +161,74 @@ class RegistryBuilder:
         self.supabase_dir = repo_root / "supabase"
 
     # ========================================================================
+    # MODE HANDLING - Unified confirmation and apply logic
+    # ========================================================================
+    # Handles interactive, apply, and check modes for all registries
+    # ========================================================================
+
+    def _confirm_and_apply(
+        self,
+        mode: str,
+        registry_name: str,
+        registry_path: Path,
+        output_data: Dict[str, Any],
+        stats: Dict[str, Any],
+        preview_msg: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Handle confirmation and apply based on mode.
+
+        Args:
+            mode: "interactive", "apply", or "check"
+            registry_name: Human-readable name for messages (e.g., "wagon", "contract")
+            registry_path: Path to the registry file
+            output_data: Data to write to the registry
+            stats: Statistics dict to update with results
+            preview_msg: Optional custom preview message
+
+        Returns:
+            Updated stats dict with has_changes flag
+        """
+        has_changes = stats.get("new", 0) > 0 or len(stats.get("changes", [])) > 0
+        stats["has_changes"] = has_changes
+
+        if mode == "check":
+            if has_changes:
+                print(f"\n⚠️  Drift detected in {registry_name} registry")
+            else:
+                print(f"\n✅ {registry_name.capitalize()} registry is in sync")
+            return stats
+
+        if mode == "apply":
+            # Write without prompting
+            registry_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(registry_path, "w") as f:
+                yaml.dump(output_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+            print(f"\n✅ {registry_name.capitalize()} registry updated successfully!")
+            print(f"  📝 Registry: {registry_path}")
+            return stats
+
+        # Interactive mode - ask for confirmation
+        print(f"\n❓ Do you want to apply these changes to the {registry_name} registry?")
+        print("   Type 'yes' to confirm, or anything else to cancel:")
+        response = input("   > ").strip().lower()
+
+        if response != "yes":
+            print("\n❌ Update cancelled by user")
+            stats["cancelled"] = True
+            return stats
+
+        # Write registry
+        registry_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(registry_path, "w") as f:
+            yaml.dump(output_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+        print(f"\n✅ {registry_name.capitalize()} registry updated successfully!")
+        print(f"  📝 Registry: {registry_path}")
+        return stats
+
+    # ========================================================================
     # DOMAIN LAYER - Pure Business Logic (Change Detection)
     # ========================================================================
     # No I/O, no side effects - pure functions for detecting changes
@@ -469,16 +537,20 @@ class RegistryBuilder:
     # Reads/writes YAML files, scans directories for source files
     # ========================================================================
 
-    def update_wagon_registry(self, preview_only: bool = False) -> Dict[str, Any]:
+    def update_wagon_registry(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
         Update plan/_wagons.yaml from wagon manifest files.
 
         Args:
-            preview_only: If True, only show what would change without applying
+            mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
+            preview_only: Deprecated - use mode="check" instead
 
         Returns:
-            Statistics about the update
+            Statistics about the update (includes has_changes flag for check mode)
         """
+        # Backwards compatibility
+        if preview_only is not None:
+            mode = "check" if preview_only else "interactive"
         print("📊 Analyzing wagon registry from manifest files...")
 
         # Load existing registry
@@ -500,7 +572,7 @@ class RegistryBuilder:
             "updated": 0,
             "new": 0,
             "preserved_drafts": 0,
-            "changes": []  # Track detailed changes
+            "changes": []
         }
 
         for manifest_path in sorted(manifest_files):
@@ -539,7 +611,6 @@ class RegistryBuilder:
                 # Check if updating or new
                 if slug in existing_wagons:
                     stats["updated"] += 1
-                    # Track field-level changes
                     changes = self._detect_changes(slug, existing_wagons[slug], entry)
                     if changes:
                         stats["changes"].append({
@@ -560,13 +631,17 @@ class RegistryBuilder:
             except Exception as e:
                 print(f"  ❌ Error processing {manifest_path}: {e}")
 
-        # Preserve draft wagons (those without manifests)
+        # Preserve draft wagons (those without manifests or with draft: true)
         preserved_drafts = []
         for slug, wagon in existing_wagons.items():
-            if not wagon.get("manifest") and not wagon.get("path"):
-                updated_wagons.append(wagon)
-                preserved_drafts.append(slug)
-                stats["preserved_drafts"] += 1
+            is_draft = wagon.get("draft", False)
+            has_no_manifest = not wagon.get("manifest") and not wagon.get("path")
+            if is_draft or has_no_manifest:
+                # Check if already added from manifest scan
+                if slug not in [w.get("wagon") for w in updated_wagons]:
+                    updated_wagons.append(wagon)
+                    preserved_drafts.append(slug)
+                    stats["preserved_drafts"] += 1
 
         # Sort by wagon slug
         updated_wagons.sort(key=lambda w: w.get("wagon", ""))
@@ -580,44 +655,24 @@ class RegistryBuilder:
         # Print detailed change report
         self._print_change_report(stats["changes"], preserved_drafts)
 
-        # If preview only, return early
-        if preview_only:
-            print("\n⚠️  Preview mode - no changes applied")
-            return stats
-
-        # Ask for user approval
-        print("\n❓ Do you want to apply these changes to the registry?")
-        print("   Type 'yes' to confirm, or anything else to cancel:")
-        response = input("   > ").strip().lower()
-
-        if response != "yes":
-            print("\n❌ Update cancelled by user")
-            stats["cancelled"] = True
-            return stats
-
-        # Write updated registry
+        # Use helper for confirm/apply
         output = {"wagons": updated_wagons}
-        with open(registry_path, "w") as f:
-            yaml.dump(output, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        return self._confirm_and_apply(mode, "wagon", registry_path, output, stats)
 
-        print(f"\n✅ Registry updated successfully!")
-        print(f"  • Updated {stats['updated']} wagons")
-        print(f"  • Added {stats['new']} new wagons")
-        print(f"  • Preserved {stats['preserved_drafts']} draft wagons")
-        print(f"  📝 Registry: {registry_path}")
-
-        return stats
-
-    def update_contract_registry(self, preview_only: bool = False) -> Dict[str, Any]:
+    def update_contract_registry(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
         Update contracts/_artifacts.yaml from contract schema files.
 
         Args:
-            preview_only: If True, only show what would change without applying
+            mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
+            preview_only: Deprecated - use mode="check" instead
 
         Returns:
-            Statistics about the update
+            Statistics about the update (includes has_changes flag for check mode)
         """
+        # Backwards compatibility
+        if preview_only is not None:
+            mode = "check" if preview_only else "interactive"
         print("\n📊 Analyzing contract registry from schema files...")
 
         # Load existing registry
@@ -635,6 +690,7 @@ class RegistryBuilder:
             "updated": 0,
             "new": 0,
             "errors": 0,
+            "preserved_drafts": 0,
             "changes": []
         }
 
@@ -657,7 +713,7 @@ class RegistryBuilder:
                 # Build artifact entry
                 rel_path = str(schema_path.relative_to(self.repo_root))
 
-                artifact_id = schema_id  # No :v1 suffix - version tracked separately
+                artifact_id = schema_id
                 artifact = {
                     "id": artifact_id,
                     "urn": f"contract:{schema_id}",
@@ -694,55 +750,44 @@ class RegistryBuilder:
                 print(f"  ⚠️  Error processing {schema_path}: {e}")
                 stats["errors"] += 1
 
+        # Preserve draft artifacts (path doesn't exist or draft: true)
+        for artifact_id, artifact in existing_artifacts.items():
+            is_draft = artifact.get("draft", False)
+            path_exists = artifact.get("path") and (self.repo_root / artifact.get("path")).exists()
+            if is_draft or not path_exists:
+                if artifact_id not in [a.get("id") for a in artifacts]:
+                    artifacts.append(artifact)
+                    stats["preserved_drafts"] += 1
+
         # Show preview
         print(f"\n📋 PREVIEW:")
         print(f"  • {stats['updated']} artifacts will be updated")
         print(f"  • {stats['new']} new artifacts will be added")
+        print(f"  • {stats['preserved_drafts']} draft artifacts will be preserved")
         if stats["errors"] > 0:
             print(f"  ⚠️  {stats['errors']} errors encountered")
 
         # Print detailed change report
         self._print_contract_change_report(stats["changes"])
 
-        # If preview only, return early
-        if preview_only:
-            print("\n⚠️  Preview mode - no changes applied")
-            return stats
-
-        # Ask for user approval
-        print("\n❓ Do you want to apply these changes to the contract registry?")
-        print("   Type 'yes' to confirm, or anything else to cancel:")
-        response = input("   > ").strip().lower()
-
-        if response != "yes":
-            print("\n❌ Update cancelled by user")
-            stats["cancelled"] = True
-            return stats
-
-        # Write registry
-        registry_path = self.contracts_dir / "_artifacts.yaml"
+        # Use helper for confirm/apply
         output = {"artifacts": artifacts}
+        return self._confirm_and_apply(mode, "contract", registry_path, output, stats)
 
-        with open(registry_path, "w") as f:
-            yaml.dump(output, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
-
-        print(f"\n✅ Contract registry updated successfully!")
-        print(f"  • Updated {stats['updated']} artifacts")
-        print(f"  • Added {stats['new']} new artifacts")
-        print(f"  📝 Registry: {registry_path}")
-
-        return stats
-
-    def update_telemetry_registry(self, preview_only: bool = False) -> Dict[str, Any]:
+    def update_telemetry_registry(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
         Update telemetry/_signals.yaml from telemetry signal files.
 
         Args:
-            preview_only: If True, only show what would change without applying
+            mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
+            preview_only: Deprecated - use mode="check" instead
 
         Returns:
-            Statistics about the update
+            Statistics about the update (includes has_changes flag for check mode)
         """
+        # Backwards compatibility
+        if preview_only is not None:
+            mode = "check" if preview_only else "interactive"
         print("\n📊 Analyzing telemetry registry from signal files...")
 
         # Load existing registry
@@ -760,6 +805,7 @@ class RegistryBuilder:
             "updated": 0,
             "new": 0,
             "errors": 0,
+            "preserved_drafts": 0,
             "changes": []
         }
 
@@ -820,63 +866,211 @@ class RegistryBuilder:
                 print(f"  ⚠️  Error processing {signal_path}: {e}")
                 stats["errors"] += 1
 
+        # Preserve draft signals (path doesn't exist or draft: true)
+        for signal_id, signal in existing_signals.items():
+            is_draft = signal.get("draft", False)
+            path_exists = signal.get("path") and (self.repo_root / signal.get("path")).exists()
+            if is_draft or not path_exists:
+                if signal_id not in [s.get("id") for s in signals]:
+                    signals.append(signal)
+                    stats["preserved_drafts"] += 1
+
         # Show preview
         print(f"\n📋 PREVIEW:")
         print(f"  • {stats['updated']} signals will be updated")
         print(f"  • {stats['new']} new signals will be added")
+        print(f"  • {stats['preserved_drafts']} draft signals will be preserved")
         if stats["errors"] > 0:
             print(f"  ⚠️  {stats['errors']} errors encountered")
 
         # Print detailed change report
         self._print_telemetry_change_report(stats["changes"])
 
-        # If preview only, return early
-        if preview_only:
-            print("\n⚠️  Preview mode - no changes applied")
-            return stats
-
-        # Ask for user approval
-        print("\n❓ Do you want to apply these changes to the telemetry registry?")
-        print("   Type 'yes' to confirm, or anything else to cancel:")
-        response = input("   > ").strip().lower()
-
-        if response != "yes":
-            print("\n❌ Update cancelled by user")
-            stats["cancelled"] = True
-            return stats
-
-        # Write registry
-        registry_path = self.telemetry_dir / "_signals.yaml"
+        # Use helper for confirm/apply
         output = {"signals": signals}
-
-        with open(registry_path, "w") as f:
-            yaml.dump(output, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
-
-        print(f"\n✅ Telemetry registry updated successfully!")
-        print(f"  • Updated {stats['updated']} signals")
-        print(f"  • Added {stats['new']} new signals")
-        print(f"  📝 Registry: {registry_path}")
-
-        return stats
+        return self._confirm_and_apply(mode, "telemetry", registry_path, output, stats)
 
     # Alias methods for unified API
-    def build_planner(self, preview_only: bool = False) -> Dict[str, Any]:
+    def build_planner(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """Build planner registry (alias for update_wagon_registry)."""
-        return self.update_wagon_registry(preview_only)
+        # Backwards compatibility: preview_only=True maps to mode="check"
+        if preview_only is not None:
+            mode = "check" if preview_only else "interactive"
+        return self.update_wagon_registry(mode)
 
-    def build_contracts(self, preview_only: bool = False) -> Dict[str, Any]:
+    def build_contracts(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """Build contracts registry (alias for update_contract_registry)."""
-        return self.update_contract_registry(preview_only)
+        if preview_only is not None:
+            mode = "check" if preview_only else "interactive"
+        return self.update_contract_registry(mode)
 
-    def build_telemetry(self, preview_only: bool = False) -> Dict[str, Any]:
+    def build_telemetry(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """Build telemetry registry (alias for update_telemetry_registry)."""
-        return self.update_telemetry_registry(preview_only)
+        if preview_only is not None:
+            mode = "check" if preview_only else "interactive"
+        return self.update_telemetry_registry(mode)
 
-    def build_tester(self, preview_only: bool = False) -> Dict[str, Any]:
+    def build_trains(self, mode: str = "interactive") -> Dict[str, Any]:
+        """
+        Build trains registry from train manifest files.
+        Scans plan/_trains/*.yaml files and builds plan/_trains.yaml.
+
+        Train ID convention: NN-XX-name where:
+        - NN = theme prefix (first 2 digits for grouping)
+        - XX = category within theme
+        - name = train slug
+
+        Args:
+            mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
+
+        Returns:
+            Statistics about the update (includes has_changes flag for check mode)
+        """
+        print("\n📊 Analyzing trains registry from manifest files...")
+
+        # Set up paths
+        trains_dir = self.plan_dir / "_trains"
+        registry_path = self.plan_dir / "_trains.yaml"
+
+        # Load existing registry
+        existing_trains = {}
+        if registry_path.exists():
+            with open(registry_path) as f:
+                registry_data = yaml.safe_load(f)
+                existing_trains = {t.get("train_id"): t for t in registry_data.get("trains", [])}
+
+        trains = []
+        stats = {
+            "total_manifests": 0,
+            "processed": 0,
+            "updated": 0,
+            "new": 0,
+            "errors": 0,
+            "preserved_drafts": 0,
+            "changes": []
+        }
+
+        # Check if trains directory exists
+        if not trains_dir.exists():
+            print(f"  ⚠️  No _trains/ directory found at {trains_dir}")
+            # Still preserve existing drafts
+            for train_id, train in existing_trains.items():
+                if train.get("draft", False):
+                    trains.append(train)
+                    stats["preserved_drafts"] += 1
+
+            if stats["preserved_drafts"] > 0:
+                print(f"\n📋 PREVIEW:")
+                print(f"  • {stats['preserved_drafts']} draft trains will be preserved")
+                output = {"trains": trains}
+                return self._confirm_and_apply(mode, "trains", registry_path, output, stats)
+
+            stats["has_changes"] = False
+            return stats
+
+        # Scan for train manifests
+        manifest_files = list(trains_dir.glob("*.yaml"))
+        manifest_files = [f for f in manifest_files if not f.name.startswith("_")]
+        stats["total_manifests"] = len(manifest_files)
+
+        for manifest_path in sorted(manifest_files):
+            try:
+                with open(manifest_path) as f:
+                    manifest = yaml.safe_load(f)
+
+                if not manifest:
+                    print(f"  ⚠️  Skipping empty manifest: {manifest_path}")
+                    continue
+
+                train_id = manifest.get("train_id", manifest.get("train", ""))
+                if not train_id:
+                    # Try to infer from filename (e.g., 01-01-setup.yaml -> 01-01-setup)
+                    train_id = manifest_path.stem
+
+                # Parse theme from train_id (first 2 digits)
+                theme = ""
+                if len(train_id) >= 2 and train_id[:2].isdigit():
+                    theme = train_id[:2]
+
+                # Build train entry
+                rel_manifest = str(manifest_path.relative_to(self.repo_root))
+
+                entry = {
+                    "train_id": train_id,
+                    "theme": theme,
+                    "title": manifest.get("title", manifest.get("description", "")),
+                    "description": manifest.get("description", ""),
+                    "wagons": manifest.get("wagons", []),
+                    "status": manifest.get("status", "planned"),
+                    "manifest": rel_manifest
+                }
+
+                # Check if updating or new
+                if train_id in existing_trains:
+                    stats["updated"] += 1
+                    # Check for field changes
+                    old = existing_trains[train_id]
+                    changed_fields = []
+                    for field in ["title", "description", "wagons", "status", "theme"]:
+                        if old.get(field) != entry.get(field):
+                            changed_fields.append(field)
+                    if changed_fields:
+                        stats["changes"].append({
+                            "train": train_id,
+                            "type": "updated",
+                            "fields": changed_fields
+                        })
+                else:
+                    stats["new"] += 1
+                    stats["changes"].append({
+                        "train": train_id,
+                        "type": "new",
+                        "fields": ["all fields (new train)"]
+                    })
+
+                trains.append(entry)
+                stats["processed"] += 1
+
+            except Exception as e:
+                print(f"  ❌ Error processing {manifest_path}: {e}")
+                stats["errors"] += 1
+
+        # Preserve draft trains (those without manifests or with draft: true)
+        for train_id, train in existing_trains.items():
+            is_draft = train.get("draft", False)
+            has_no_manifest = not train.get("manifest")
+            if is_draft or has_no_manifest:
+                if train_id not in [t.get("train_id") for t in trains]:
+                    trains.append(train)
+                    stats["preserved_drafts"] += 1
+
+        # Sort by train_id
+        trains.sort(key=lambda t: t.get("train_id", ""))
+
+        # Show preview
+        print(f"\n📋 PREVIEW:")
+        print(f"  • {stats['updated']} trains will be updated")
+        print(f"  • {stats['new']} new trains will be added")
+        print(f"  • {stats['preserved_drafts']} draft trains will be preserved")
+        if stats["errors"] > 0:
+            print(f"  ⚠️  {stats['errors']} errors encountered")
+
+        # Use helper for confirm/apply
+        output = {"trains": trains}
+        return self._confirm_and_apply(mode, "trains", registry_path, output, stats)
+
+    def build_tester(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
         Build tester registry from test files.
         Scans atdd/tester/**/*_test.py files for URNs and metadata.
+
+        Args:
+            mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
+            preview_only: Deprecated - use mode="check" instead
         """
+        # Backwards compatibility
+        if preview_only is not None:
+            mode = "check" if preview_only else "interactive"
         print("\n📊 Analyzing tester registry from test files...")
 
         # Load existing registry
@@ -894,12 +1088,12 @@ class RegistryBuilder:
             "updated": 0,
             "new": 0,
             "errors": 0,
+            "preserved_drafts": 0,
             "changes": []
         }
 
         # Scan for test files
         if self.tester_dir.exists():
-            # Look for both test_*.py and *_test.py patterns
             test_files = list(self.tester_dir.glob("**/*_test.py"))
             test_files.extend(list(self.tester_dir.glob("**/test_*.py")))
             test_files = [f for f in test_files if not f.name.startswith("_")]
@@ -910,16 +1104,13 @@ class RegistryBuilder:
                     with open(test_file) as f:
                         content = f.read()
 
-                    # Extract URN markers from docstring or comments
                     urns = re.findall(r'URN:\s*(\S+)', content)
                     spec_urns = re.findall(r'Spec:\s*(\S+)', content)
                     acceptance_urns = re.findall(r'Acceptance:\s*(\S+)', content)
 
-                    # Extract wagon from path
                     rel_path = test_file.relative_to(self.tester_dir)
                     wagon = rel_path.parts[0] if len(rel_path.parts) > 1 else "unknown"
 
-                    # Build test entry
                     for urn in urns:
                         test_entry = {
                             "urn": urn,
@@ -932,7 +1123,6 @@ class RegistryBuilder:
                         if acceptance_urns:
                             test_entry["acceptance_urn"] = acceptance_urns[0]
 
-                        # Track changes
                         if urn in existing_tests:
                             stats["updated"] += 1
                         else:
@@ -950,45 +1140,39 @@ class RegistryBuilder:
                     print(f"  ⚠️  Error processing {test_file}: {e}")
                     stats["errors"] += 1
 
+        # Preserve draft tests (file doesn't exist or draft: true)
+        for urn, test in existing_tests.items():
+            is_draft = test.get("draft", False)
+            file_exists = test.get("file") and (self.repo_root / test.get("file")).exists()
+            if is_draft or not file_exists:
+                if urn not in [t.get("urn") for t in tests]:
+                    tests.append(test)
+                    stats["preserved_drafts"] += 1
+
         # Show preview
         print(f"\n📋 PREVIEW:")
         print(f"  • {stats['updated']} tests will be updated")
         print(f"  • {stats['new']} new tests will be added")
+        print(f"  • {stats['preserved_drafts']} draft tests will be preserved")
         if stats["errors"] > 0:
             print(f"  ⚠️  {stats['errors']} errors encountered")
 
-        if preview_only:
-            print("\n⚠️  Preview mode - no changes applied")
-            return stats
-
-        # Ask for confirmation
-        print("\n❓ Do you want to apply these changes to the tester registry?")
-        print("   Type 'yes' to confirm, or anything else to cancel:")
-        response = input("   > ").strip().lower()
-
-        if response != "yes":
-            print("\n❌ Update cancelled by user")
-            stats["cancelled"] = True
-            return stats
-
-        # Write registry
+        # Use helper for confirm/apply
         output = {"tests": tests}
-        registry_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(registry_path, "w") as f:
-            yaml.dump(output, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        return self._confirm_and_apply(mode, "tester", registry_path, output, stats)
 
-        print(f"\n✅ Tester registry updated successfully!")
-        print(f"  • Updated {stats['updated']} tests")
-        print(f"  • Added {stats['new']} new tests")
-        print(f"  📝 Registry: {registry_path}")
-
-        return stats
-
-    def build_coder(self, preview_only: bool = False) -> Dict[str, Any]:
+    def build_coder(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
         Build coder implementation registry from Python files.
         Scans python/**/*.py files for implementations.
+
+        Args:
+            mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
+            preview_only: Deprecated - use mode="check" instead
         """
+        # Backwards compatibility
+        if preview_only is not None:
+            mode = "check" if preview_only else "interactive"
         print("\n📊 Analyzing coder registry from Python files...")
 
         # Load existing registry
@@ -1006,13 +1190,13 @@ class RegistryBuilder:
             "updated": 0,
             "new": 0,
             "errors": 0,
+            "preserved_drafts": 0,
             "changes": []
         }
 
         # Scan for Python implementation files
         if self.python_dir.exists():
             py_files = list(self.python_dir.glob("**/*.py"))
-            # Filter out __init__, __pycache__, and files in specific test directories
             py_files = [
                 f for f in py_files
                 if not f.name.startswith("_")
@@ -1029,18 +1213,15 @@ class RegistryBuilder:
                     with open(py_file) as f:
                         content = f.read()
 
-                    # Extract metadata from docstring
                     spec_urns = re.findall(r'Spec:\s*(\S+)', content)
                     test_urns = re.findall(r'Test:\s*(\S+)', content)
 
-                    # Extract wagon and layer from path
                     rel_path = py_file.relative_to(self.python_dir)
                     parts = rel_path.parts
 
                     wagon = parts[0] if len(parts) > 0 else "unknown"
                     layer = "unknown"
 
-                    # Try to detect layer from path
                     if "domain" in str(py_file):
                         layer = "domain"
                     elif "application" in str(py_file):
@@ -1050,17 +1231,15 @@ class RegistryBuilder:
                     elif "presentation" in str(py_file):
                         layer = "presentation"
 
-                    # Generate URN
                     component = py_file.stem
                     impl_urn = f"impl:{wagon}:{layer}:{component}:python"
 
-                    # Build implementation entry
                     impl_entry = {
                         "urn": impl_urn,
                         "file": str(py_file.relative_to(self.repo_root)),
                         "wagon": wagon,
                         "layer": layer,
-                        "component_type": "entity",  # Default
+                        "component_type": "entity",
                         "language": "python"
                     }
 
@@ -1069,7 +1248,6 @@ class RegistryBuilder:
                     if test_urns:
                         impl_entry["test_urn"] = test_urns[0]
 
-                    # Track changes
                     if impl_urn in existing_impls:
                         stats["updated"] += 1
                     else:
@@ -1087,45 +1265,39 @@ class RegistryBuilder:
                     print(f"  ⚠️  Error processing {py_file}: {e}")
                     stats["errors"] += 1
 
+        # Preserve draft implementations (file doesn't exist or draft: true)
+        for urn, impl in existing_impls.items():
+            is_draft = impl.get("draft", False)
+            file_exists = impl.get("file") and (self.repo_root / impl.get("file")).exists()
+            if is_draft or not file_exists:
+                if urn not in [i.get("urn") for i in implementations]:
+                    implementations.append(impl)
+                    stats["preserved_drafts"] += 1
+
         # Show preview
         print(f"\n📋 PREVIEW:")
         print(f"  • {stats['updated']} implementations will be updated")
         print(f"  • {stats['new']} new implementations will be added")
+        print(f"  • {stats['preserved_drafts']} draft implementations will be preserved")
         if stats["errors"] > 0:
             print(f"  ⚠️  {stats['errors']} errors encountered")
 
-        if preview_only:
-            print("\n⚠️  Preview mode - no changes applied")
-            return stats
-
-        # Ask for confirmation
-        print("\n❓ Do you want to apply these changes to the coder registry?")
-        print("   Type 'yes' to confirm, or anything else to cancel:")
-        response = input("   > ").strip().lower()
-
-        if response != "yes":
-            print("\n❌ Update cancelled by user")
-            stats["cancelled"] = True
-            return stats
-
-        # Write registry
+        # Use helper for confirm/apply
         output = {"implementations": implementations}
-        registry_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(registry_path, "w") as f:
-            yaml.dump(output, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        return self._confirm_and_apply(mode, "coder", registry_path, output, stats)
 
-        print(f"\n✅ Coder registry updated successfully!")
-        print(f"  • Updated {stats['updated']} implementations")
-        print(f"  • Added {stats['new']} new implementations")
-        print(f"  📝 Registry: {registry_path}")
-
-        return stats
-
-    def build_supabase(self, preview_only: bool = False) -> Dict[str, Any]:
+    def build_supabase(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
         Build supabase functions registry.
         Scans supabase/functions/**/ for function directories.
+
+        Args:
+            mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
+            preview_only: Deprecated - use mode="check" instead
         """
+        # Backwards compatibility
+        if preview_only is not None:
+            mode = "check" if preview_only else "interactive"
         print("\n📊 Analyzing supabase registry from function files...")
 
         # Load existing registry
@@ -1134,7 +1306,7 @@ class RegistryBuilder:
         if registry_path.exists():
             with open(registry_path) as f:
                 registry_data = yaml.safe_load(f)
-                existing_funcs = {f.get("id"): f for f in registry_data.get("functions", [])}
+                existing_funcs = {fn.get("id"): fn for fn in registry_data.get("functions", [])}
 
         functions = []
         stats = {
@@ -1143,6 +1315,7 @@ class RegistryBuilder:
             "updated": 0,
             "new": 0,
             "errors": 0,
+            "preserved_drafts": 0,
             "changes": []
         }
 
@@ -1168,7 +1341,6 @@ class RegistryBuilder:
                         "description": f"Supabase function: {func_id}"
                     }
 
-                    # Track changes
                     if func_id in existing_funcs:
                         stats["updated"] += 1
                     else:
@@ -1186,37 +1358,24 @@ class RegistryBuilder:
                     print(f"  ⚠️  Error processing {func_dir}: {e}")
                     stats["errors"] += 1
 
+        # Preserve draft functions (path doesn't exist or draft: true)
+        for func_id, func in existing_funcs.items():
+            is_draft = func.get("draft", False)
+            path_exists = func.get("path") and (self.repo_root / func.get("path")).exists()
+            if is_draft or not path_exists:
+                if func_id not in [fn.get("id") for fn in functions]:
+                    functions.append(func)
+                    stats["preserved_drafts"] += 1
+
         # Show preview
         print(f"\n📋 PREVIEW:")
         print(f"  • {stats['updated']} functions will be updated")
         print(f"  • {stats['new']} new functions will be added")
+        print(f"  • {stats['preserved_drafts']} draft functions will be preserved")
 
-        if preview_only:
-            print("\n⚠️  Preview mode - no changes applied")
-            return stats
-
-        # Ask for confirmation
-        print("\n❓ Do you want to apply these changes to the supabase registry?")
-        print("   Type 'yes' to confirm, or anything else to cancel:")
-        response = input("   > ").strip().lower()
-
-        if response != "yes":
-            print("\n❌ Update cancelled by user")
-            stats["cancelled"] = True
-            return stats
-
-        # Write registry
+        # Use helper for confirm/apply
         output = {"functions": functions}
-        registry_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(registry_path, "w") as f:
-            yaml.dump(output, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
-
-        print(f"\n✅ Supabase registry updated successfully!")
-        print(f"  • Updated {stats['updated']} functions")
-        print(f"  • Added {stats['new']} new functions")
-        print(f"  📝 Registry: {registry_path}")
-
-        return stats
+        return self._confirm_and_apply(mode, "supabase", registry_path, output, stats)
 
     def build_python_manifest(self, preview_only: bool = False) -> Dict[str, Any]:
         """
@@ -1317,19 +1476,24 @@ class RegistryBuilder:
 
         return stats
 
-    def build_all(self) -> Dict[str, Any]:
-        """Build all registries."""
+    def build_all(self, mode: str = "interactive") -> Dict[str, Any]:
+        """Build all registries.
+
+        Args:
+            mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
+        """
         print("=" * 60)
         print("Unified Registry Builder - Synchronizing from source files")
         print("=" * 60)
 
         results = {
-            "plan": self.build_planner(),
-            "contracts": self.build_contracts(),
-            "telemetry": self.build_telemetry(),
-            "tester": self.build_tester(),
-            "coder": self.build_coder(),
-            "supabase": self.build_supabase()
+            "plan": self.build_planner(mode),
+            "trains": self.build_trains(mode),
+            "contracts": self.build_contracts(mode),
+            "telemetry": self.build_telemetry(mode),
+            "tester": self.build_tester(mode),
+            "coder": self.build_coder(mode),
+            "supabase": self.build_supabase(mode)
         }
 
         print("\n" + "=" * 60)
