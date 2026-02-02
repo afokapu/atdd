@@ -180,16 +180,16 @@ class PresentationValidator:
 
 
     def validate_game_server_registration(self):
-        """Validate python/game.py includes all wagons with presentation."""
-        game_file = self.python_root / "game.py"
+        """Validate python/app.py includes all wagons with presentation."""
+        server_file = self.python_root / "app.py"
 
-        if not game_file.exists():
-            self.violations.append("❌ python/game.py not found - unified game server missing")
+        if not server_file.exists():
+            self.violations.append("❌ python/app.py not found - unified server missing")
             return
 
-        print(f"\nValidating unified game server: python/game.py")
+        print("\nValidating unified server: python/app.py")
 
-        content = game_file.read_text()
+        content = server_file.read_text()
 
         # Find all wagons with FastAPI controllers
         wagons_with_controllers = {}
@@ -209,7 +209,7 @@ class PresentationValidator:
                         if "fastapi" in controller_file.read_text().lower():
                             wagons_with_controllers[f"{wagon_dir.name}/{feature_dir.name}"] = controller_file
 
-        # Check if each controller is registered in game.py
+        # Check if each controller is registered in the unified server file
         for wagon_feature, controller_file in wagons_with_controllers.items():
             wagon, feature = wagon_feature.split('/')
 
@@ -217,17 +217,17 @@ class PresentationValidator:
             import_pattern = f"from {wagon}.{feature}.src.presentation.controllers"
             if import_pattern not in content:
                 self.violations.append(
-                    f"❌ game.py missing import for {wagon}/{feature} controller"
+                    f"❌ app.py missing import for {wagon}/{feature} controller"
                 )
 
             # Check for include_router
             if "include_router" in content and wagon not in content.lower():
                 self.violations.append(
-                    f"⚠️  game.py may not be registering {wagon}/{feature} routes"
+                    f"⚠️  app.py may not be registering {wagon}/{feature} routes"
                 )
 
         if not self.violations:
-            print(f"  ✓ All {len(wagons_with_controllers)} wagons registered in game.py")
+            print(f"  ✓ All {len(wagons_with_controllers)} wagons registered in app.py")
 
 
 def main():
@@ -236,7 +236,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Validate presentation layer convention")
     parser.add_argument("--check-game-server", action="store_true",
-                       help="Validate python/game.py is up to date")
+                       help="Validate python/app.py is up to date")
     args = parser.parse_args()
 
     python_root = REPO_ROOT / "python"

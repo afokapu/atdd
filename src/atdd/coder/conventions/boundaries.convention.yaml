@@ -243,7 +243,7 @@ interaction:
 
   composition_roots:
     description: |
-      Composition roots (composition.py, wagon.py, trains/runner.py, game.py) are entrypoints
+      Composition roots (composition.py, wagon.py, trains/runner.py, app.py) are entrypoints
       that wire dependencies. They are executed, never imported by other code.
 
     feature_composition:
@@ -332,15 +332,15 @@ interaction:
     # ========================================================================
     station_master_pattern:
       description: |
-        When multiple wagons run in a single process (game.py), the Station Master
+        When multiple wagons run in a single process (app.py), the Station Master
         pattern enables shared dependency injection without HTTP self-calls.
 
-        game.py creates shared singletons (StateRepository, EventBus, etc.) and
+        app.py creates shared singletons (StateRepository, EventBus, etc.) and
         passes them to wagon composition.py functions, which decide internally
         whether to use Direct adapters (monolith) or HTTP adapters (microservices).
 
       architecture: |
-        game.py (Station Master / Thin Router)
+        app.py (Station Master / Thin Router)
           │
           ├── Creates shared singletons:
           │     - StateRepository (commit-state data)
@@ -391,7 +391,7 @@ interaction:
               """Wire dependencies with optional SharedDependencies.
 
               Args:
-                  shared: SharedDependencies from game.py (monolith mode).
+                  shared: SharedDependencies from app.py (monolith mode).
                           When provided, uses Direct adapters for cross-wagon data.
                           When None, uses Fake adapters for standalone testing.
               """
@@ -424,7 +424,7 @@ interaction:
           Same interface (implements Port), different implementation.
 
       station_master_responsibilities:
-        game_py:
+        app_py:
           - "Create shared singletons (StateRepository, EventBus)"
           - "Pass shared deps to wagon composition.py"
           - "Include wagon routers in FastAPI app"
@@ -440,12 +440,12 @@ interaction:
         required:
           - "composition.py accepts optional shared dependency parameters"
           - "Direct adapters exist for cross-wagon data access"
-          - "game.py calls composition.py, not duplicates wiring"
+          - "app.py calls composition.py, not duplicates wiring"
 
         forbidden:
-          - "game.py creating use cases that composition.py should own"
+          - "app.py creating use cases that composition.py should own"
           - "HTTP clients calling localhost in production monolith"
-          - "Duplicated wiring logic between game.py and composition.py"
+          - "Duplicated wiring logic between app.py and composition.py"
 
   forbidden_cross_wagon_imports:
     rule: "Code in wagon A MUST NOT import directly from wagon B"

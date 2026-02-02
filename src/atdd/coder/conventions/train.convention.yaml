@@ -8,8 +8,8 @@ rationale: |
   defined in YAML specifications by coordinating wagons through contract-based communication.
 
   TRANSFORMATION (SESSION-12):
-    - OLD: Trains in e2e/ (test-only), custom orchestration in game.py
-    - NEW: Trains in python/trains/ (production), game.py becomes thin Station Master
+    - OLD: Trains in e2e/ (test-only), custom orchestration in app.py
+    - NEW: Trains in python/trains/ (production), app.py becomes thin Station Master
 
   BENEFITS:
     - Single source of truth (YAML defines both production AND tests)
@@ -21,7 +21,7 @@ cross_references:
   composition_hierarchy:
     - file: "refactor.convention.yaml"
       section: "composition_root.hierarchy"
-      note: "Trains add new orchestration layer between game.py and wagon.py"
+      note: "Trains add new orchestration layer between app.py and wagon.py"
 
   boundaries:
     - file: "boundaries.convention.yaml"
@@ -37,14 +37,15 @@ cross_references:
 # ============================================================================
 
 composition_hierarchy:
-  description: "Trains sit between application (game.py) and wagons (wagon.py)"
+  description: "Trains sit between application (app.py) and wagons (wagon.py)"
 
   levels:
     application:
-      file: "python/game.py"
+      file: "python/app.py"
       role: "Station Master - thin router"
       responsibility: "Map user actions → train_ids, invoke TrainRunner"
       size: "< 50 lines of routing logic"
+      note: "app.py is the Station Master entrypoint"
 
     train:
       file: "python/trains/runner.py"
@@ -65,8 +66,8 @@ composition_hierarchy:
 
   dependency_flow:
     rule: "Dependencies flow downward only"
-    chain: "game.py → trains.runner → wagon.py → composition.py → src/"
-    forbidden: "NEVER: wagon imports from trains or game"
+    chain: "app.py → trains.runner → wagon.py → composition.py → src/"
+    forbidden: "NEVER: wagon imports from trains or app"
 
 # ============================================================================
 # TRAIN INFRASTRUCTURE
@@ -138,7 +139,7 @@ wagon_train_mode:
   multi_mode_pattern:
     description: "Wagons support multiple execution modes"
     cli: "Interactive demo (python3 wagon.py)"
-    http: "API endpoints (via game.py)"
+    http: "API endpoints (via app.py)"
     train: "Production orchestration (via TrainRunner)"
 
 # ============================================================================
@@ -170,14 +171,14 @@ cargo_pattern:
     method: "JSON Schema Draft-07 validation"
 
 # ============================================================================
-# STATION MASTER PATTERN (game.py)
+# STATION MASTER PATTERN (app.py)
 # ============================================================================
 
 station_master:
-  description: "game.py becomes thin router that delegates to TrainRunner"
+  description: "app.py becomes thin router that delegates to TrainRunner"
 
   pattern: |
-    # game.py - Station Master
+    # app.py - Station Master
     from trains.runner import TrainRunner
 
     JOURNEY_MAP = {
@@ -198,7 +199,7 @@ station_master:
     - "Translate HTTP ↔ artifacts"
     - "Handle errors"
 
-  anti_pattern: "Business logic in game.py (belongs in trains/wagons)"
+  anti_pattern: "Business logic in app.py (belongs in trains/wagons)"
 
 # ============================================================================
 # TESTING
@@ -278,10 +279,10 @@ observability:
 # ============================================================================
 
 migration:
-  step_1: "Identify user journeys in game.py"
+  step_1: "Identify user journeys in app.py"
   step_2: "Create train YAML (plan/_trains/{train_id}.yaml)"
   step_3: "Add run_train() to participating wagons"
-  step_4: "Refactor game.py to Station Master pattern"
+  step_4: "Refactor app.py to Station Master pattern"
   step_5: "Update tests to use TrainRunner"
 
 # ============================================================================

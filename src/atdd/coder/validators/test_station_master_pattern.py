@@ -4,7 +4,7 @@ Station Master Pattern Validator
 Validates that wagons follow the Station Master pattern for monolith composition:
 1. composition.py accepts optional shared dependency parameters
 2. Direct adapters exist for cross-wagon data access
-3. game.py delegates to composition.py instead of duplicating wiring
+3. app.py delegates to composition.py instead of duplicating wiring
 
 Convention: atdd/coder/conventions/boundaries.convention.yaml::station_master_pattern
 """
@@ -21,6 +21,9 @@ def get_python_dir() -> Path:
     """Get the python directory path in the consumer repo."""
     return find_repo_root() / "python"
 
+def resolve_server_file() -> Path:
+    """Resolve station master entrypoint (app.py)."""
+    return get_python_dir() / "app.py"
 
 def test_composition_accepts_shared_dependencies():
     """
@@ -161,12 +164,12 @@ def test_direct_adapters_exist_for_cross_wagon_clients():
 
 def test_game_py_delegates_to_composition():
     """
-    Validate that game.py delegates wiring to wagon composition.py files
+    Validate that app.py delegates wiring to wagon composition.py files
     instead of duplicating wiring logic.
 
     Convention: boundaries.convention.yaml::station_master_pattern.station_master_responsibilities
 
-    Forbidden patterns in game.py:
+    Forbidden patterns in app.py:
         - Creating use cases that composition.py should own
         - Directly instantiating wagon clients without delegation
 
@@ -174,14 +177,13 @@ def test_game_py_delegates_to_composition():
         - from wagon.composition import wire_api_dependencies
         - wire_api_dependencies(state_repository=..., ...)
     """
-    python_dir = get_python_dir()
-    game_py = python_dir / "game.py"
+    server_file = resolve_server_file()
 
-    if not game_py.exists():
-        print("game.py not found - skipping Station Master delegation check")
+    if not server_file.exists():
+        print("app.py not found - skipping Station Master delegation check")
         return
 
-    source = game_py.read_text()
+    source = server_file.read_text()
 
     # Check for composition imports
     imports_composition = "from play_match.orchestrate_match.composition import wire_api_dependencies" in source
@@ -190,7 +192,7 @@ def test_game_py_delegates_to_composition():
     calls_wire_api = "wire_api_dependencies(" in source
 
     # Check for forbidden patterns (duplicated wiring)
-    # These are patterns that should be in composition.py, not game.py
+    # These are patterns that should be in composition.py, not app.py
     forbidden_patterns = [
         ("PlayMatchUseCase(", "PlayMatchUseCase should be created in composition.py"),
         ("CommitStateClient(mode=", "CommitStateClient mode should be set in composition.py"),
@@ -204,7 +206,7 @@ def test_game_py_delegates_to_composition():
 
     # Report results
     print("\n" + "=" * 70)
-    print("  Station Master Pattern: game.py Delegation")
+    print("  Station Master Pattern: app.py Delegation")
     print("=" * 70)
 
     print(f"\nDelegation to composition.py:")
@@ -212,19 +214,19 @@ def test_game_py_delegates_to_composition():
     print(f"  {'✓' if calls_wire_api else '❌'} Calls wire_api_dependencies()")
 
     if violations:
-        print(f"\n❌ Violations found in game.py:")
+        print("\n❌ Violations found in app.py:")
         for pattern, message in violations:
             print(f"  ❌ {message}")
             print(f"     Found: {pattern}")
 
     # This is a real validation
     assert imports_composition or not calls_wire_api, \
-        "game.py should import wire_api_dependencies from composition.py"
+        "app.py should import wire_api_dependencies from composition.py"
 
     assert len(violations) == 0, \
-        f"game.py has {len(violations)} Station Master pattern violations"
+        f"app.py has {len(violations)} Station Master pattern violations"
 
-    print("\n✓ game.py follows Station Master pattern")
+    print("\n✓ app.py follows Station Master pattern")
 
 
 def main():

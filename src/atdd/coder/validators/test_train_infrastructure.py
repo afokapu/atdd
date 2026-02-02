@@ -11,7 +11,7 @@ Enforces:
 - Wagons implement run_train() for train mode
 - Contract validator is real (not mock)
 - E2E tests use production TrainRunner
-- Station Master pattern in game.py
+- Station Master pattern in app.py
 
 Train First-Class Spec v0.6 additions:
 - SPEC-TRAIN-VAL-0031: Backend runner paths
@@ -45,7 +45,7 @@ from atdd.coach.utils.config import get_train_config
 REPO_ROOT = find_repo_root()
 TRAINS_DIR = REPO_ROOT / "python" / "trains"
 WAGONS_DIR = REPO_ROOT / "python"
-GAME_PY = REPO_ROOT / "python" / "game.py"
+APP_PY = REPO_ROOT / "python" / "app.py"
 E2E_CONFTEST = REPO_ROOT / "e2e" / "conftest.py"
 CONTRACT_VALIDATOR = REPO_ROOT / "e2e" / "shared" / "fixtures" / "contract_validator.py"
 
@@ -108,6 +108,11 @@ def extract_imports_from_file(file_path: Path) -> Set[str]:
             if 'import' in line and not line.strip().startswith('#'):
                 imports.add(line.strip())
     return imports
+
+
+def resolve_server_file() -> Path:
+    """Resolve station master entrypoint (app.py)."""
+    return APP_PY
 
 
 # ============================================================================
@@ -247,45 +252,48 @@ def test_wagons_implement_run_train():
 
 
 # ============================================================================
-# STATION MASTER TESTS (game.py)
+# STATION MASTER TESTS (app.py)
 # ============================================================================
 
 def test_game_py_imports_train_runner():
-    """game.py must import TrainRunner (Station Master pattern)."""
-    assert GAME_PY.exists(), f"game.py not found: {GAME_PY}"
+    """app.py must import TrainRunner (Station Master pattern)."""
+    server_file = resolve_server_file()
+    assert server_file.exists(), f"app.py not found: {server_file}"
 
-    imports = extract_imports_from_file(GAME_PY)
+    imports = extract_imports_from_file(server_file)
 
     has_train_import = any("trains.runner import TrainRunner" in imp for imp in imports)
 
     assert has_train_import, (
-        "game.py must import TrainRunner\n"
+        "app.py must import TrainRunner\n"
         "Expected: from trains.runner import TrainRunner\n"
         "See: atdd/coder/conventions/train.convention.yaml::station_master"
     )
 
 
 def test_game_py_has_journey_map():
-    """game.py must have JOURNEY_MAP routing actions to trains."""
-    with open(GAME_PY, 'r', encoding='utf-8') as f:
+    """app.py must have JOURNEY_MAP routing actions to trains."""
+    server_file = resolve_server_file()
+    with open(server_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
     assert "JOURNEY_MAP" in content, (
-        "game.py must define JOURNEY_MAP dictionary\n"
+        "app.py must define JOURNEY_MAP dictionary\n"
         "Expected: JOURNEY_MAP = {'action': 'train_id', ...}\n"
         "See: atdd/coder/conventions/train.convention.yaml::station_master"
     )
 
 
 def test_game_py_has_train_execution_endpoint():
-    """game.py must have /trains/execute endpoint."""
-    with open(GAME_PY, 'r', encoding='utf-8') as f:
+    """app.py must have /trains/execute endpoint."""
+    server_file = resolve_server_file()
+    with open(server_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
     has_endpoint = '"/trains/execute"' in content or "'/trains/execute'" in content
 
     assert has_endpoint, (
-        "game.py must have /trains/execute endpoint\n"
+        "app.py must have /trains/execute endpoint\n"
         "Expected: @app.post('/trains/execute')\n"
         "See: atdd/coder/conventions/train.convention.yaml::station_master"
     )
@@ -407,7 +415,7 @@ def test_train_convention_documents_key_patterns():
     - composition_hierarchy (with train level)
     - wagon_train_mode (run_train signature)
     - cargo_pattern (artifact flow)
-    - station_master (game.py pattern)
+    - station_master (app.py pattern)
     - testing_pattern (E2E tests)
     """
     with open(TRAIN_CONVENTION, 'r', encoding='utf-8') as f:

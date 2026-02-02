@@ -540,25 +540,25 @@ validation:
       - "Simple error handling has TODO(REFACTOR) marker"
 
     unified_game_server:
-      description: "python/game.py must aggregate all wagon presentation layers"
-      file: "python/game.py"
+      description: "python/app.py must aggregate all wagon presentation layers"
+      file: "python/app.py"
       requirements:
-        - "When new wagon adds FastAPI controller, game.py MUST be updated"
-        - "game.py imports controller's app and includes via app.include_router()"
+        - "When new wagon adds FastAPI controller, app.py MUST be updated"
+        - "app.py imports controller's app and includes via app.include_router()"
         - "All wagon endpoints accessible via unified game server"
-        - "Validator checks: all wagons with presentation are registered in game.py"
+        - "Validator checks: all wagons with presentation are registered in app.py"
 
       rationale: |
-        game.py is the unified entry point for all backend services.
+        app.py is the unified entry point for all backend services.
         Without registration, wagon endpoints are inaccessible to game server/mobile app.
 
       pattern: |
-        # python/game.py
+        # python/app.py
         from burn_timebank.track_remaining.src.presentation.controllers.remaining_controller import app as timebank_app
         app.include_router(timebank_app.router, prefix="/timebank")
 
       anti_pattern: |
-        # ❌ WRONG: Wagon has FastAPI controller but not registered in game.py
+        # ❌ WRONG: Wagon has FastAPI controller but not registered in app.py
         # Result: Endpoints exist but unreachable from unified server
 
   usage: |

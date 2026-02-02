@@ -71,7 +71,7 @@ code:
 # Dev Servers
 dev_servers:
   backend:
-    command: "cd python && python3 game.py"
+    command: "cd python && python3 app.py"
     url: "http://127.0.0.1:8000"
     swagger: "http://127.0.0.1:8000/docs"
   frontend:

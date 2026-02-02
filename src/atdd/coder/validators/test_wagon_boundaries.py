@@ -78,8 +78,8 @@ def find_implementation_files() -> List[Path]:
         # Skip __pycache__
         if '__pycache__' in str(py_file):
             continue
-        # Skip wagon.py, composition.py, and game.py (wagon/app-level orchestration)
-        if py_file.name in ['wagon.py', 'composition.py', 'game.py']:
+        # Skip wagon.py, composition.py, and app entrypoint (wagon/app-level orchestration)
+        if py_file.name in ['wagon.py', 'composition.py', 'app.py']:
             continue
         # Skip shared/ directory (theme/train-level orchestration - can import across wagons)
         if '/shared/' in str(py_file):

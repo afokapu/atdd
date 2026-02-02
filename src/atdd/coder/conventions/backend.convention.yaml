@@ -281,7 +281,7 @@ backend:
 
             direct_adapter:
               pattern: "direct_*_client.py"
-              use_when: "Wagons run in same process (monolith via game.py)"
+              use_when: "Wagons run in same process (monolith via app.py)"
               example: "DirectCommitStateClient reads from shared StateRepository"
               benefits:
                 - "No network latency"
