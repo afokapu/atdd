@@ -1,68 +1,76 @@
 # Artifact Convention
 # Defines naming, versioning, organization, and API mapping rules for artifact-centric contracts
+# Aligned with canonical artifact-naming.convention.yaml v2.1
 
-description: "Artifact-centric contract system uses shared schemas organized by domain"
+description: "Artifact-centric contract system using theme-based hierarchical taxonomy with variant facets"
 
 naming:
-  logical_pattern: "{domain}:{resource}[.{category}]"
-  physical_pattern: "contracts/{domain}/{resource}[/{category}].json"
-  rationale: "Domain-based organization enables REST API mapping and clear ownership. Colon separator denotes hierarchy (domain:resource), dot separator denotes facet (resource.category). Optional category facet supports nested resources like ux:foundations.colors."
+  logical_pattern: "{theme}(:{category})*:{aspect}(.{variant})?"
+  physical_pattern: "contracts/{theme}/{segments}/{aspect}[/{variant}].schema.json"
+  rationale: "Theme-based organization enables clear architectural boundaries. Colon separator denotes hierarchical descent (unlimited depth), dot separator denotes lateral variant (typically 0-1). Each segment becomes a directory level."
 
   examples:
-    - logical: "ux:foundations"
-      physical: "contracts/commons/ux/foundations.json"
+    - logical: "commons:ux:foundations"
+      physical: "contracts/commons/ux/foundations.schema.json"
 
-    - logical: "ux:foundations.colors"
-      physical: "contracts/commons/ux/foundations/colors.json"
+    - logical: "commons:ux:foundations:color"
+      physical: "contracts/commons/ux/foundations/color.schema.json"
 
     - logical: "mechanic:decision.choice"
-      physical: "contracts/decision/choice.json"
+      physical: "contracts/mechanic/decision/choice.schema.json"
 
     - logical: "match:result"
-      physical: "contracts/match/result.json"
+      physical: "contracts/match/result.schema.json"
+
+    - logical: "sensory:gesture.raw"
+      physical: "contracts/sensory/gesture/raw.schema.json"
 
 versioning:
-  location: "$id field"
-  filename_pattern: "{domain}/{resource}[/{category}].json"
-  id_pattern: "{domain}:{resource}[.{category}]:{version}"
-  rationale: "Version tracked in $id field, not filename. Supports monolithic deployment with coordinated releases. Breaking changes require coordinated updates across all consumers. Category facet preserved in ID with dot separator."
+  location: "Separate version field"
+  filename_pattern: "{segments}.schema.json"
+  id_pattern: "{artifact_name}"
+  version_field: "version"
+  rationale: "Version tracked in separate 'version' field, NOT embedded in $id. Allows artifact identity to remain stable across versions. Supports monolithic deployment with coordinated releases."
 
   examples:
-    - artifact: "ux/foundations.json"
-      id_field: "ux:foundations:v1"
+    - artifact: "commons/ux/foundations/color.schema.json"
+      id_field: "commons:ux:foundations:color"
       version_field: "1.0.0"
 
-    - artifact: "ux/foundations/colors.json"
-      id_field: "ux:foundations.colors:v1"
+    - artifact: "mechanic/decision/choice.schema.json"
+      id_field: "mechanic:decision.choice"
       version_field: "1.0.0"
 
-    - artifact: "decision/choice.json"
-      id_field: "mechanic:decision.choice:v1"
-      version_field: "1.0.0"
-
-    - artifact: "match/result.json"
-      id_field: "match:result:v1"
+    - artifact: "match/result.schema.json"
+      id_field: "match:result"
       version_field: "1.2.3"
 
+    - artifact: "sensory/gesture/raw.schema.json"
+      id_field: "sensory:gesture.raw"
+      version_field: "1.0.0"
+
 organization:
-  strategy: "by_domain"
-  directory_structure: "contracts/{domain}/"
-  rationale: "Domain-based directories enable natural mapping to REST API endpoints. Each domain represents a resource collection with multiple artifact types (new, result, updated, config, etc.). Category facets create nested directories when present."
+  strategy: "by_theme"
+  directory_structure: "contracts/{theme}/"
+  rationale: "Theme-based directories enable clear architectural boundaries. Each theme represents a bounded context. Unlimited hierarchical depth supported via colons."
 
   structure:
     root: "contracts/"
-    domains:
-      - "ux/"
-      - "decision/"
+    themes:
+      - "commons/"
       - "match/"
+      - "mechanic/"
+      - "sensory/"
       - "player/"
-      - "session/"
-      - "dilemma/"
-      - "pacing/"
+      - "scenario/"
+      - "partnership/"
+      - "league/"
+      - "audience/"
+      - "monetization/"
 
 api_mapping:
-  description: "Artifact names map to REST API endpoints for external consumption. Category facets add path segments."
-  pattern: "/{domain}s/{id}/{resource}[/{category}]"
+  description: "Artifact names map to REST API endpoints for external consumption. Hierarchy levels add path segments, variants treated as resources."
+  pattern: "/{theme}s/{id}/{segments}[/{variant}]"
 
   methods:
     new: POST
@@ -82,12 +90,12 @@ api_mapping:
     deleted: DELETE
 
   examples:
-    - artifact: "ux:foundations"
-      endpoint: "GET /uxs/{id}/foundations"
+    - artifact: "commons:ux:foundations"
+      endpoint: "GET /commons/{id}/ux/foundations"
       description: "Retrieve UX foundations"
 
-    - artifact: "ux:foundations.colors"
-      endpoint: "GET /uxs/{id}/foundations/colors"
+    - artifact: "commons:ux:foundations:color"
+      endpoint: "GET /commons/{id}/ux/foundations/color"
       description: "Retrieve UX color foundations"
 
     - artifact: "match:result"
@@ -129,15 +137,16 @@ metadata:
   description: "Artifact schemas include x-artifact-metadata for tooling and API generation"
 
   fields:
-    domain: "Resource collection (match, player, session)"
-    resource: "Specific artifact type (result, new, updated)"
+    theme: "Architectural theme (commons, match, mechanic, etc.)"
+    aspect: "Final leaf resource noun"
+    variant: "Optional lateral variation"
     api:
       method: "HTTP method (GET, POST, PUT, DELETE)"
       path: "REST endpoint path"
 
   example:
-    domain: "match"
-    resource: "result"
+    theme: "match"
+    aspect: "result"
     api:
       method: "GET"
       path: "/matches/{id}/result"
@@ -145,66 +154,75 @@ metadata:
 validation:
   required_fields: ["$schema", "$id", "version", "title", "type", "properties"]
   schema_compliance: "JSON Schema Draft-07"
-  id_pattern: "^[a-z]+:[a-z][a-z0-9-]+(?:\\.[a-z0-9-]+)*:v\\d+$"
+  id_pattern: "^[a-z]+(?::[a-z][a-z0-9-]*)+(?:\\.[a-z][a-z0-9-]*)?$"
   version_pattern: "^\\d+\\.\\d+\\.\\d+$"
 
 artifact_urns:
   urn_pattern:
-    format: "contract:{domain}:{resource}[.{category}]"
-    conversion_rule: "Keep colon for hierarchy (domain:resource); append category as a dot facet when present (resource.category)."
+    format: "contract:{artifact_name}"
+    conversion_rule: "URN exactly matches artifact name - preserves colons for hierarchy and dots for variants. Pattern: contract:{theme}(:{category})*:{aspect}(.{variant})?"
 
   examples:
     artifact_to_urn:
-      - artifact_name: "ux:foundations"
-        urn: "contract:ux:foundations"
+      - artifact_name: "commons:ux:foundations"
+        urn: "contract:commons:ux:foundations"
 
-      - artifact_name: "ux:foundations.colors"
-        urn: "contract:ux:foundations.colors"
+      - artifact_name: "commons:ux:foundations:color"
+        urn: "contract:commons:ux:foundations:color"
 
       - artifact_name: "mechanic:decision.choice"
         urn: "contract:mechanic:decision.choice"
 
+      - artifact_name: "sensory:gesture.raw"
+        urn: "contract:sensory:gesture.raw"
+
   bidirectional_linkage:
-    validation: "URN must resolve to a contract in the registry (including optional .category facet)."
+    validation: "URN must resolve to a contract in the registry. All colons and dots preserved."
 
   migration_strategy:
-    refactor_note: "Legacy URNs contract:{domain}.{resource} → contract:{domain}:{resource}; category stays as a dot facet: contract:{domain}:{resource}.{category}"
+    refactor_note: "Legacy URNs contract:{domain}:{resource}[.{category}] migrate to contract:{theme}(:{category})*:{aspect}(.{variant})?. Version suffix removed from $id."
 
 wagon_artifacts:
   produce_example:
     wagon: "maintain-ux"
     produce:
-      - name: "ux:foundations"
-        urn: "contract:ux:foundations"
+      - name: "commons:ux:foundations"
+        urn: "contract:commons:ux:foundations"
         to: "external"
 
-      - name: "ux:foundations.colors"
-        urn: "contract:ux:foundations.colors"
+      - name: "commons:ux:foundations:color"
+        urn: "contract:commons:ux:foundations:color"
         to: "external"
 
   consume_example:
     wagon: "stage-characters"
     consume:
-      - name: "ux:foundations"
-        urn: "contract:ux:foundations"
+      - name: "commons:ux:foundations"
+        urn: "contract:commons:ux:foundations"
         from: "wagon:maintain-ux"
 
 contract_artifacts:
-  id_field: "id: {domain}:{resource}[.{category}]:v{version}"
-  urn_mapping: "URN contract:{domain}:{resource}[.{category}] maps to any version of id {domain}:{resource}[.{category}]:v*"
+  id_field: "id: {artifact_name}"
+  urn_mapping: "URN contract:{artifact_name} maps directly to $id {artifact_name}"
 
   example:
-    - id: "ux:foundations:v1"
+    - id: "commons:ux:foundations"
       version: "1.0.0"
-      path: "ux/foundations.json"
+      path: "commons/ux/foundations.schema.json"
       producer: "wagon:maintain-ux"
-      urn_match: "contract:ux:foundations"
+      urn_match: "contract:commons:ux:foundations"
 
-    - id: "ux:foundations.colors:v1"
+    - id: "commons:ux:foundations:color"
       version: "1.0.0"
-      path: "ux/foundations/colors.json"
+      path: "commons/ux/foundations/color.schema.json"
       producer: "wagon:maintain-ux"
-      urn_match: "contract:ux:foundations.colors"
+      urn_match: "contract:commons:ux:foundations:color"
+
+    - id: "mechanic:decision.choice"
+      version: "1.0.0"
+      path: "mechanic/decision/choice.schema.json"
+      producer: "wagon:resolve-dilemmas"
+      urn_match: "contract:mechanic:decision.choice"
 
 demo_mode:
   description: "Artifacts write to demo/contracts/artifacts/ when mode_demo: true"
@@ -217,24 +235,25 @@ examples:
         produce:
           - name: mechanic:decision.choice
             to: external
-            contract: contracts/artifacts/decision/choice.json
+            contract: contracts/mechanic/decision/choice.schema.json
 
     - step: "Tester agent classifies artifact ownership"
-      result: "producer: true, path: decision/choice.json"
+      result: "producer: true, path: mechanic/decision/choice.schema.json"
 
     - step: "Schema generation creates artifact"
-      output: "contracts/artifacts/decision/choice.json"
+      output: "contracts/mechanic/decision/choice.schema.json"
       content: |
         {
           "$schema": "http://json-schema.org/draft-07/schema#",
-          "$id": "mechanic:decision.choice:v1",
+          "$id": "mechanic:decision.choice",
           "version": "1.0.0",
           "title": "Decision Choice",
           "type": "object",
           "properties": {...},
           "x-artifact-metadata": {
-            "domain": "decision",
-            "resource": "choice",
+            "theme": "mechanic",
+            "aspect": "decision",
+            "variant": "choice",
             "api": {
               "method": "POST",
               "path": "/decisions"
@@ -247,11 +266,11 @@ examples:
         consume:
           - name: mechanic:decision.choice
             from: wagon:resolve-dilemmas
-            contract: contracts/artifacts/decision/choice.json
+            contract: contracts/mechanic/decision/choice.schema.json
 
     - step: "Pack generation references (not embeds) artifact"
       pack_manifest: |
         produce:
           - artifact: mechanic:decision.choice
-            contract: ../artifacts/decision/choice.json
+            contract: ../artifacts/mechanic/decision/choice.schema.json
             owner: true

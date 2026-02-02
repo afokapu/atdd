@@ -177,30 +177,35 @@ artifact_contracts:
   note: "Full artifact contract conventions defined in artifact.convention.yaml"
 
   urn_format:
-    contract_urn: "contract:domain:resource (e.g., contract:ux:foundations, contract:match:result)"
-    telemetry_urn: "telemetry:domain:resource[.category] (e.g., telemetry:ux:foundations, telemetry:ux:foundations.colors)"
+    contract_urn: "contract:{theme}(:{category})*:{aspect}(.{variant})?"
+    telemetry_urn: "telemetry:{theme}(:{category})*:{aspect}(.{variant})?"
+    examples:
+      - "contract:commons:ux:foundations:color"
+      - "contract:mechanic:decision.choice"
+      - "contract:sensory:gesture.raw"
+      - "telemetry:commons:ux:foundations"
 
     telemetry_filesystem:
       description: "Telemetry URN maps to filesystem directory containing signal files"
-      pattern: "telemetry/{domain}/{resource}[/{category}]/{signal-type}.{plane}[.{measure}].json"
-      urn_to_path: "telemetry:{domain}:{resource}[.{category}] → telemetry/{domain}/{resource}[/{category}]/"
+      pattern: "telemetry/{segments}/{signal-type}.{plane}[.{measure}].json"
+      urn_to_path: "telemetry:{theme}:{segments} → telemetry/{theme}/{segments}/"
 
       examples:
         - urn: "telemetry:mechanic:decision.choice"
-          path: "telemetry/decision/choice/"
+          path: "telemetry/mechanic/decision/choice/"
           files:
             - "metric.db.count.json"
             - "metric.be.duration.json"
             - "event.be.json"
 
-        - urn: "telemetry:ux:foundations"
-          path: "telemetry/ux/foundations/"
+        - urn: "telemetry:commons:ux:foundations"
+          path: "telemetry/commons/ux/foundations/"
           files:
             - "metric.ui.render_latency.json"
             - "event.ui.json"
 
-        - urn: "telemetry:ux:foundations.colors"
-          path: "telemetry/ux/foundations/colors/"
+        - urn: "telemetry:commons:ux:foundations:color"
+          path: "telemetry/commons/ux/foundations/color/"
           files:
             - "metric.ui.render_latency.json"
             - "event.ui.json"
@@ -222,18 +227,21 @@ artifact_contracts:
 
   produce_artifacts:
     required_fields:
-      - name: "Artifact name (e.g., ux:foundations)"
-      - contract: "Contract URN or null (e.g., contract:ux:foundations)"
-      - telemetry: "Telemetry URN for observability and analytics or null (e.g., telemetry:ux:foundations)"
+      - name: "Artifact name (e.g., commons:ux:foundations)"
+      - contract: "Contract URN or null (e.g., contract:commons:ux:foundations)"
+      - telemetry: "Telemetry URN for observability and analytics or null (e.g., telemetry:commons:ux:foundations)"
     optional_fields:
       - to: "Visibility (internal|external), defaults to external"
       - urn: "Legacy artifact URN"
       - version: "Version string (e.g., v1)"
 
     example:
-      - name: ux:foundations
-        contract: contract:ux:foundations
-        telemetry: telemetry:ux:foundations
+      - name: commons:ux:foundations
+        contract: contract:commons:ux:foundations
+        telemetry: telemetry:commons:ux:foundations
+      - name: commons:ux:foundations:color
+        contract: contract:commons:ux:foundations:color
+        telemetry: telemetry:commons:ux:foundations:color
       - name: internal:cache
         contract: null
         telemetry: null
@@ -251,10 +259,10 @@ artifact_contracts:
 
     example:
       - name: appendix:mockup
-      - name: match:config
-        from: wagon:setup-match
-        contract: contract:match:config
-        telemetry: telemetry:match:config
+      - name: commons:ux:foundations
+        from: wagon:maintain-ux
+        contract: contract:commons:ux:foundations
+        telemetry: telemetry:commons:ux:foundations
 
   features_format:
     legacy_format:

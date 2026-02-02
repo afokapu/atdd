@@ -207,12 +207,15 @@ def contract_urn_to_path(contract_urn: str) -> Optional[Path]:
     """
     Convert contract URN to expected file path.
 
-    Pattern: contract:{theme}:{domain}.{facet} → contracts/{theme}/{domain}/{facet}.schema.json
+    Pattern: contract:{theme}(:{category})*:{aspect}(.{variant})? → contracts/{segments}.schema.json
+
+    All colons and dots become directory separators. Each segment becomes a path component.
 
     Examples:
-      contract:commons:player.identity → contracts/commons/player/identity.schema.json
+      contract:commons:ux:foundations:color → contracts/commons/ux/foundations/color.schema.json
       contract:mechanic:decision.choice → contracts/mechanic/decision/choice.schema.json
       contract:match:dilemma:current → contracts/match/dilemma/current.schema.json
+      contract:sensory:gesture.raw → contracts/sensory/gesture/raw.schema.json
     """
     if not contract_urn or contract_urn == "null":
         return None
