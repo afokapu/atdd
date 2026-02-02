@@ -10,7 +10,7 @@ Architecture: 4-Layer Clean Architecture (single file)
 Registries:
 - plan/_wagons.yaml from wagon manifests
 - contracts/_artifacts.yaml from contract schemas
-- telemetry/_signals.yaml from telemetry signals
+- telemetry/_telemetry.yaml from telemetry signals
 - atdd/tester/_tests.yaml from test files
 - python/_implementations.yaml from Python files
 - supabase/_functions.yaml from function files
@@ -89,8 +89,8 @@ class RegistryLoader:
             return yaml.safe_load(f) or {"artifacts": []}
 
     def load_telemetry(self) -> Dict[str, Any]:
-        """Load telemetry registry (telemetry/_signals.yaml)."""
-        registry_path = self.telemetry_dir / "_signals.yaml"
+        """Load telemetry registry (telemetry/_telemetry.yaml)."""
+        registry_path = self.telemetry_dir / "_telemetry.yaml"
         if not registry_path.exists():
             return {"signals": []}
 
@@ -776,7 +776,7 @@ class RegistryBuilder:
 
     def update_telemetry_registry(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
-        Update telemetry/_signals.yaml from telemetry signal files.
+        Update telemetry/_telemetry.yaml from telemetry signal files.
 
         Args:
             mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
@@ -791,7 +791,7 @@ class RegistryBuilder:
         print("\n📊 Analyzing telemetry registry from signal files...")
 
         # Load existing registry
-        registry_path = self.telemetry_dir / "_signals.yaml"
+        registry_path = self.telemetry_dir / "_telemetry.yaml"
         existing_signals = {}
         if registry_path.exists():
             with open(registry_path) as f:
@@ -812,7 +812,7 @@ class RegistryBuilder:
         # Scan for telemetry signal files (JSON or YAML)
         json_files = list(self.telemetry_dir.glob("**/*.json"))
         yaml_files = list(self.telemetry_dir.glob("**/*.yaml"))
-        signal_files = [f for f in (json_files + yaml_files) if "_signals" not in f.name]
+        signal_files = [f for f in (json_files + yaml_files) if "_telemetry" not in f.name]
 
         stats["total_files"] = len(signal_files)
 

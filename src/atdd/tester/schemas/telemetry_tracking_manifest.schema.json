@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "telemetry-tracking-manifest-schema",
   "title": "Telemetry Tracking Manifest Schema",
-  "description": "Schema for telemetry/_tracking.yaml manifest file",
+  "description": "Schema for telemetry/_taxonomy.yaml manifest file",
   "type": "object",
   "required": ["version", "planes", "measures", "artifacts"],
   "properties": {

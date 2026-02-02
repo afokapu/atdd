@@ -318,7 +318,7 @@ tracking_structure:
   version: "1.1.0"
 
   manifest:
-    location: "telemetry/_tracking.yaml"
+    location: "telemetry/_taxonomy.yaml"
     format: "YAML"
     purpose: "Central registry of all telemetry signals per artifact"
 

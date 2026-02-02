@@ -12,6 +12,7 @@ manifest:
   - artifacts: "contracts/_artifacts.yaml"
   - contracts: "contracts/_contracts.yaml"
   - telemetry: "telemetry/_telemetry.yaml"
+  - taxonomy: "telemetry/_taxonomy.yaml"
 
 tests:
   - frontend: "web/tests"

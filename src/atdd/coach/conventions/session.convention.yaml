@@ -354,6 +354,7 @@ archetypes:
     id: "telemetry"
     description: "Observability and monitoring artifacts"
     artifacts:
+      - "telemetry/_taxonomy.yaml"
       - "telemetry/_telemetry.yaml"
       - "telemetry/{domain}/*.yaml"
     patterns:

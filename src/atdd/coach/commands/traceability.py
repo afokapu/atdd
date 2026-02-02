@@ -1435,8 +1435,8 @@ class TraceabilityReconciler:
 
         for telemetry in telemetry_files:
             # Skip manifest and pack files (not signal files)
-            if (telemetry.file_path.endswith('_tracking.yaml') or
-                telemetry.file_path.endswith('_signals.yaml') or
+            if (telemetry.file_path.endswith('_taxonomy.yaml') or
+                telemetry.file_path.endswith('_telemetry.yaml') or
                 '.pack.' in telemetry.file_path):
                 continue
 
@@ -1493,9 +1493,9 @@ class TraceabilityReconciler:
 
             telemetry_id = telemetry.telemetry_id
 
-            # Skip manifest files (_tracking.yaml, _signals.yaml)
-            if telemetry.file_path.endswith('_tracking.yaml') or \
-               telemetry.file_path.endswith('_signals.yaml') or \
+            # Skip manifest files (_taxonomy.yaml, _telemetry.yaml)
+            if telemetry.file_path.endswith('_taxonomy.yaml') or \
+               telemetry.file_path.endswith('_telemetry.yaml') or \
                '.pack.' in telemetry.file_path:
                 continue
 
