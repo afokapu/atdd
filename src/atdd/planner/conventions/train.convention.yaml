@@ -257,6 +257,23 @@ registry:
   structure: "theme-category-grouped"
   description: "Trains grouped by theme, then by category (nominal/error/alternate/exception) in _trains.yaml manifest"
 
+  # Two-file pattern: Registry + Per-Train Spec Files
+  two_file_pattern:
+    description: "Each train requires two files: a registry entry and a spec file"
+    files:
+      registry:
+        path: "plan/_trains.yaml"
+        purpose: "Central manifest listing all trains with summary metadata"
+        contains: "train_id, description, path, wagons (summary list)"
+      spec:
+        path: "plan/_trains/{train_id}.yaml"
+        purpose: "Full train specification with complete workflow definition"
+        contains: "train_id, title, themes, participants, sequence, dependencies, test, code, expectations"
+    validation:
+      rule: "Every registry entry MUST have a corresponding spec file"
+      validator: "SPEC-TRAIN-VAL-0003 (test_train_files_exist_for_registry_entries)"
+      enforcement: "Planner phase gate fails if spec file missing"
+
   format: |
     trains:
       0-commons:

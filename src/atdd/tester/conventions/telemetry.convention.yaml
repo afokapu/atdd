@@ -401,18 +401,23 @@ tracking_structure:
     signal_id_examples:
       - "commons:ux:foundations:color.metric.be.count"
       - "match:dilemma:current.metric.be.selection_duration"
-      - "commons:ux:foundations:foundations.metric.be.error_rate"
-    urn: "telemetry:{theme}(:{path})*:{aspect}"
+      - "mechanic:decision.choice.event.be"
+    urn: "telemetry:{theme}(:{path})*:{aspect}(.{variant})?"
     urn_examples:
-      - "telemetry:commons:ux:foundations"
-      - "telemetry:match:dilemma"
+      - "telemetry:mechanic:decision.choice"
+      - "telemetry:juggle:goal.detected"
+      - "telemetry:mechanic:episode.timer"
+      - "telemetry:match:dilemma:current"
     note: |
-      $id in signal file: NO "telemetry:" prefix (e.g., commons:ux:foundations:color.metric.be.count)
-      URN in wagon manifests: WITH "telemetry:" prefix (e.g., telemetry:commons:ux:foundations)
-      artifact_ref: WITH "contract:" prefix (e.g., contract:commons:ux:foundations:color)
+      $id in signal file: NO "telemetry:" prefix (e.g., mechanic:decision.choice.event.be)
+      URN in wagon manifests: WITH "telemetry:" prefix (e.g., telemetry:mechanic:decision.choice)
+      artifact_ref: WITH "contract:" prefix (e.g., contract:mechanic:decision.choice)
 
-      Hierarchy (colons) for path segments, dots for signal facets (type.plane.measure).
-      Mirrors contract structure perfectly.
+      Hierarchy (colons) for path segments, dots for:
+      - Variants in URN (e.g., decision.choice, goal.detected)
+      - Signal facets in $id (type.plane.measure)
+
+      Aligns with artifact-naming.convention.yaml separator semantics.
 
       Examples:
         File: telemetry/commons/ux/foundations/color.metric.be.count.json
@@ -421,19 +426,19 @@ tracking_structure:
         artifact_ref: contract:commons:ux:foundations:color
 
   urn_path_mapping:
-    pattern: "telemetry:{theme}(:{path})*:{aspect} (wagon manifest format)"
+    pattern: "telemetry:{theme}(:{path})*:{aspect}(.{variant})? (wagon manifest format)"
     path_construction:
-      directory: "telemetry/{theme}/{path}/{aspect}/"
-      filename: "{resource}.{type}.{plane}[.{measure}].json"
+      directory: "telemetry/{theme}/{path}/"
+      filename: "{aspect}[.{variant}].{type}.{plane}[.{measure}].json"
     round_trip: "URN ↔ path must be identity transformation"
-    note: "Directory structure mirrors contracts exactly - aspect is subdirectory, resource is filename prefix"
+    note: "Directory structure mirrors contracts. Dot notation allowed for variants in URN."
     comparison:
-      contract_path: "contracts/commons/ux/foundations/color.schema.json"
-      contract_id: "commons:ux:foundations:color"
-      contract_urn: "contract:commons:ux:foundations:color"
-      telemetry_path: "telemetry/commons/ux/foundations/color.metric.be.count.json"
-      telemetry_id: "commons:ux:foundations:color.metric.be.count"
-      telemetry_urn: "telemetry:commons:ux:foundations"
+      contract_path: "contracts/mechanic/decision/choice.schema.json"
+      contract_id: "mechanic:decision.choice"
+      contract_urn: "contract:mechanic:decision.choice"
+      telemetry_path: "telemetry/mechanic/decision/choice.event.be.json"
+      telemetry_id: "mechanic:decision.choice.event.be"
+      telemetry_urn: "telemetry:mechanic:decision.choice"
 
   artifact_naming_grammar:
     pattern: "{theme}:{domain}:{aspect}"

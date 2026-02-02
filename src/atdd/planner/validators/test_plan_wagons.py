@@ -96,6 +96,72 @@ def test_wagon_slugs_match_directory_names(wagon_manifests):
 
 
 @pytest.mark.platform
+def test_wagon_names_follow_verb_object_pattern(wagon_manifests):
+    """
+    SPEC-PLATFORM-WAGONS-0008: Wagon names follow verb-object semantic pattern
+
+    Given: All wagon manifests
+    When: Checking wagon name format
+    Then: Wagon names follow verb-object pattern (e.g., resolve-dilemmas, commit-state)
+          - Format: verb-object (kebab-case, at least 2 hyphen-separated words)
+          - First segment should be a verb (action)
+          - Subsequent segments describe the object/domain
+          Per naming.convention.yaml wagon section
+    """
+    import re
+
+    # Pattern: verb-object with optional additional words (e.g., burn-timebank, juggle-domains)
+    # Requires at least 2 segments separated by hyphens
+    verb_object_pattern = re.compile(r"^[a-z][a-z0-9]*-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$")
+
+    for path, manifest in wagon_manifests:
+        wagon_name = manifest.get("wagon", "")
+        if wagon_name:
+            assert verb_object_pattern.match(wagon_name), \
+                f"Wagon {path}: name '{wagon_name}' doesn't follow verb-object pattern (e.g., resolve-dilemmas)"
+
+
+@pytest.mark.platform
+def test_feature_names_follow_verb_object_pattern(wagon_manifests):
+    """
+    SPEC-PLATFORM-WAGONS-0009: Feature names follow verb-object semantic pattern
+
+    Given: All wagon manifests with features[] entries
+    When: Checking feature name format from URNs
+    Then: Feature names follow verb-object pattern (e.g., capture-choice, pair-fragments)
+          - URN format: feature:{wagon}:{feature-name}
+          - Feature name requires at least 2 hyphen-separated words
+          Per naming.convention.yaml feature section
+    """
+    import re
+
+    # Pattern: verb-object with optional additional words
+    verb_object_pattern = re.compile(r"^[a-z][a-z0-9]*-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$")
+
+    for path, manifest in wagon_manifests:
+        features_list = manifest.get("features", [])
+        wagon_name = manifest.get("wagon", "")
+
+        for feature in features_list:
+            feature_name = None
+
+            # Extract feature name from URN
+            if isinstance(feature, dict) and "urn" in feature:
+                urn = feature["urn"]
+                parts = urn.split(":")
+                if len(parts) >= 3:
+                    feature_name = parts[2]
+            elif isinstance(feature, str) and feature.startswith("feature:"):
+                parts = feature.split(":")
+                if len(parts) >= 3:
+                    feature_name = parts[2]
+
+            if feature_name:
+                assert verb_object_pattern.match(feature_name), \
+                    f"Wagon {wagon_name}: feature '{feature_name}' doesn't follow verb-object pattern (e.g., capture-choice)"
+
+
+@pytest.mark.platform
 def test_produce_artifact_names_follow_convention(wagon_manifests):
     """
     SPEC-PLATFORM-WAGONS-0005: Produce artifact names follow naming convention
@@ -153,9 +219,10 @@ def test_telemetry_urns_match_pattern(wagon_manifests):
 
     Given: Wagon produce items with non-null telemetry URNs
     When: Validating URN format
-    Then: Telemetry URNs match pattern telemetry:{path}:{aspect}
-          Supports multi-level paths (e.g., telemetry:commons:ux:foundations)
-          Uses colons (not dots) for hierarchy
+    Then: Telemetry URNs match pattern telemetry:{path}:{aspect}(.{variant})?
+          - Colons (:) for hierarchical descent (e.g., telemetry:commons:ux:foundations)
+          - Dots (.) for lateral variants (e.g., telemetry:mechanic:decision.choice)
+          Per telemetry.convention.yaml id_vs_urn section
     """
     import re
 

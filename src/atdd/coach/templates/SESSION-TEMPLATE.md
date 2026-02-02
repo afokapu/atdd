@@ -21,6 +21,10 @@ type: "{type}"  # implementation | migration | refactor | analysis | planning | 
 complexity: 3  # 1=Trivial, 2=Low, 3=Medium, 4=High, 5=Very High
 archetypes:
   - "{archetype}"  # db | be | fe | contracts | wmbt | wagon | train | telemetry | migrations
+  # NOTE: If archetypes includes 'train', you MUST create/update BOTH:
+  #   1. plan/_trains.yaml (registry entry with train_id, description, path, wagons)
+  #   2. plan/_trains/{train_id}.yaml (full spec with participants, sequence, etc.)
+  # Validator SPEC-TRAIN-VAL-0003 enforces spec file exists for each registry entry.
 
 # Scope definition
 scope:
@@ -38,7 +42,8 @@ workflow_phases:
   planner:
     status: "TODO"  # TODO | IN_PROGRESS | DONE | SKIPPED | N/A
     artifacts:
-      train: false      # plan/_trains.yaml updated
+      train: false      # plan/_trains.yaml updated (registry entry)
+      train_spec: false # plan/_trains/{train_id}.yaml exists (full spec)
       wagon: false      # plan/{wagon}/_{wagon}.yaml exists
       feature: false    # plan/{wagon}/features/{feature}.yaml exists
       wmbt: false       # WMBTs defined in feature YAML

@@ -1,0 +1,296 @@
+version: "1.0"
+name: "Master Naming Convention"
+description: "Consolidated naming patterns for all ATDD archetypes with regex validation"
+
+# Purpose
+purpose: |
+  Single source of truth for naming patterns across all archetypes.
+  Each archetype has: pattern, regex, examples, and validator reference.
+  For detailed semantics, see archetype-specific conventions.
+
+# Separator Semantics (from artifact-naming.convention.yaml)
+separator_semantics:
+  colon: "Hierarchical descent (unlimited depth)"
+  dot: "Lateral variation (typically 0-1 levels)"
+  hyphen: "Word separator within segments (kebab-case)"
+
+# Naming Patterns by Archetype
+patterns:
+
+  wagon:
+    description: "Bounded context performing specific action on specific object"
+    semantic_pattern: "verb-object"
+    format: "kebab-case"
+    regex: "^[a-z][a-z0-9]*-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$"
+    urn_format: "wagon:{wagon-name}"
+    urn_regex: "^wagon:[a-z][a-z0-9-]+$"
+    examples:
+      valid:
+        - "authenticate-identity"
+        - "resolve-dilemmas"
+        - "commit-state"
+        - "burn-timebank"
+        - "juggle-domains"
+        - "manage-inventory"
+      invalid:
+        - "authentication"      # Missing object (noun only)
+        - "dilemma-resolver"    # Wrong order (object-verb)
+        - "resolving-dilemmas"  # Gerund instead of verb
+        - "ResolveDilemmas"     # PascalCase
+    filesystem:
+      directory: "plan/{wagon_snake_case}/"
+      manifest: "plan/{wagon_snake_case}/_{wagon_snake_case}.yaml"
+      note: "Directory uses snake_case: resolve_dilemmas"
+    validator:
+      file: "src/atdd/planner/validators/test_plan_wagons.py"
+      spec: "SPEC-PLATFORM-WAGONS-0008"
+    convention_ref: "atdd/planner/conventions/wagon.convention.yaml"
+
+  feature:
+    description: "Specific capability within a wagon"
+    semantic_pattern: "verb-object"
+    format: "kebab-case"
+    regex: "^[a-z][a-z0-9]*-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$"
+    urn_format: "feature:{wagon}:{feature-name}"
+    urn_regex: "^feature:[a-z][a-z0-9-]+:[a-z][a-z0-9-]+$"
+    examples:
+      valid:
+        - "capture-choice"
+        - "pair-fragments"
+        - "score-domains"
+        - "sign-commit"
+        - "validate-input"
+      invalid:
+        - "choice-capture"      # Wrong order
+        - "capturing"           # Missing object
+        - "fragment_pairing"    # Snake case
+    filesystem:
+      file: "plan/{wagon}/features/{feature_snake_case}.yaml"
+    validator:
+      file: "src/atdd/planner/validators/test_plan_wagons.py"
+      spec: "SPEC-PLATFORM-WAGONS-0009"
+    convention_ref: "atdd/planner/conventions/feature.convention.yaml"
+
+  contract:
+    description: "Data exchange contract between wagons"
+    semantic_pattern: "theme:hierarchy:aspect(.variant)?"
+    format: "kebab-case segments with colon/dot separators"
+    id_regex: "^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)+(\\.[a-z][a-z0-9-]+)?$"
+    urn_format: "contract:{artifact-name}"
+    urn_regex: "^contract:[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)+(\\.[a-z][a-z0-9-]+)?$"
+    examples:
+      schema_id:
+        - "mechanic:timebank.remaining"
+        - "match:dilemma:current"
+        - "commons:ux:foundations:color"
+        - "sensory:gesture.raw"
+      urn:
+        - "contract:mechanic:timebank.remaining"
+        - "contract:match:dilemma:current"
+        - "contract:commons:ux:foundations:color"
+    id_vs_urn:
+      schema_id: "NO 'contract:' prefix (e.g., mechanic:timebank.remaining)"
+      wagon_urn: "WITH 'contract:' prefix (e.g., contract:mechanic:timebank.remaining)"
+    filesystem:
+      pattern: "contracts/{theme}/{domain}/{aspect}.schema.json"
+      example: "contracts/mechanic/timebank/remaining.schema.json"
+    validator:
+      file: "src/atdd/tester/validators/test_contract_schema_compliance.py"
+      spec: "SPEC-TESTER-VAL-0001"
+    convention_ref: "atdd/tester/conventions/contract.convention.yaml"
+    naming_authority: "atdd/planner/conventions/artifact-naming.convention.yaml"
+
+  telemetry:
+    description: "Observability and analytics tracking signals"
+    semantic_pattern: "theme:hierarchy:aspect(.variant)?"
+    format: "kebab-case segments with colon/dot separators"
+    signal_id_regex: "^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)+\\.(event|metric|trace|log)\\.(ui|ux|be|db|nw|st|tm|sc|au|fn|if)(\\.[a-z][a-z0-9-]+)?$"
+    urn_format: "telemetry:{theme}(:{path})*:{aspect}(.{variant})?"
+    urn_regex: "^telemetry:[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)*(\\.[a-z][a-z0-9-]+)?$"
+    examples:
+      signal_id:
+        - "mechanic:decision.choice.event.be"
+        - "match:dilemma:current.metric.be.selection-duration"
+        - "juggle:goal.detected.event.be"
+      urn:
+        - "telemetry:mechanic:decision.choice"
+        - "telemetry:juggle:goal.detected"
+        - "telemetry:mechanic:episode.timer"
+    id_vs_urn:
+      signal_id: "NO 'telemetry:' prefix, includes .type.plane (e.g., mechanic:decision.choice.event.be)"
+      wagon_urn: "WITH 'telemetry:' prefix, NO type.plane (e.g., telemetry:mechanic:decision.choice)"
+    filesystem:
+      pattern: "telemetry/{theme}/{domain}/{aspect}.{type}.{plane}[.{measure}].json"
+      example: "telemetry/mechanic/decision/choice.event.be.json"
+    validator:
+      file: "src/atdd/tester/validators/test_telemetry_structure.py"
+      spec: "SPEC-TESTER-CONV-0050"
+    convention_ref: "atdd/tester/conventions/telemetry.convention.yaml"
+
+  train:
+    description: "User journey or end-to-end workflow"
+    semantic_pattern: "{NNNN}-{slug}"
+    format: "4-digit hierarchical prefix + kebab-case slug"
+    regex: "^\\d{4}-[a-z][a-z0-9-]+$"
+    numbering:
+      pattern: "[Theme][Category][Variation]-{slug}"
+      theme_digit: "0-9 (commons=0, mechanic=1, scenario=2, match=3, etc.)"
+      category_digit: "0=nominal, 1=error, 2=alternate, 3=exception"
+      variation_digits: "01-99"
+    examples:
+      valid:
+        - "1001-decision-standard"
+        - "3006-episode-match-complete"
+        - "0201-sso-authentication"
+        - "2301-empty-input-file"
+      invalid:
+        - "101-decision"        # Only 3 digits
+        - "1001_decision"       # Underscore
+        - "1001-Decision"       # PascalCase
+    filesystem:
+      registry: "plan/_trains.yaml"
+      spec: "plan/_trains/{train_id}.yaml"
+    validator:
+      file: "src/atdd/planner/validators/test_train_validation.py"
+      spec: "SPEC-TRAIN-VAL-0001"
+    convention_ref: "atdd/planner/conventions/train.convention.yaml"
+
+  acceptance:
+    description: "Acceptance criteria URN for test traceability"
+    semantic_pattern: "acc:{wagon}:{wmbt}-{harness}-{NNN}[-{slug}]"
+    format: "Structured URN with step code, harness, and sequence"
+    regex: "^acc:[a-z][a-z0-9_-]+:([DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-[0-9]{3}(?:-[a-z0-9-]+)?|[A-Z][0-9]{3})$"
+    components:
+      wagon: "Parent wagon (kebab-case)"
+      wmbt_id: "Step code [DLPCEMYRK] + 3-digit sequence (e.g., C004)"
+      harness: "Test harness type (uppercase)"
+      sequence: "Zero-padded 3-digit number (001-999)"
+      slug: "Optional kebab-case descriptor"
+    step_codes:
+      D: "Discovery"
+      L: "Load"
+      P: "Parse"
+      C: "Compute"
+      E: "Emit"
+      M: "Mutate"
+      Y: "Yield"
+      R: "Render"
+      K: "Keep"
+    harness_types:
+      - "UNIT"
+      - "HTTP"
+      - "EVENT"
+      - "WS"
+      - "E2E"
+      - "A11Y"
+      - "VIS"
+      - "METRIC"
+      - "JOB"
+      - "DB"
+      - "SEC"
+      - "LOAD"
+      - "SCRIPT"
+      - "WIDGET"
+      - "GOLDEN"
+      - "BLOC"
+      - "INTEGRATION"
+      - "RLS"
+      - "EDGE"
+      - "REALTIME"
+      - "STORAGE"
+    examples:
+      valid:
+        - "acc:commit-state:M001-INTEGRATION-001"
+        - "acc:pace-dilemmas:P011-VISUAL-001"
+        - "acc:maintain-ux:C004-E2E-019-user-connection"
+        - "acc:resolve-dilemmas:C001-UNIT-001-choice-validation"
+      invalid:
+        - "acc:commit-state:M01-INTEGRATION-001"  # Only 2 digits in WMBT
+        - "acc:commit-state:M001-integration-001"  # Lowercase harness
+        - "acc:commit-state:M001-INTEGRATION-01"   # Only 2 digits in sequence
+    validator:
+      file: "src/atdd/tester/validators/test_contract_schema_compliance.py"
+      spec: "SPEC-TESTER-VAL-0020"
+    convention_ref: "atdd/planner/conventions/acceptance.convention.yaml"
+
+  wmbt:
+    description: "What Must Be True step identifier"
+    semantic_pattern: "wmbt:{wagon}:{step_code}{NNN}"
+    format: "Step code letter + 3-digit sequence"
+    regex: "^wmbt:[a-z][a-z0-9-]+:[DLPCEMYRK][0-9]{3}$"
+    examples:
+      valid:
+        - "wmbt:resolve-dilemmas:C001"
+        - "wmbt:commit-state:M001"
+        - "wmbt:pace-dilemmas:P011"
+      invalid:
+        - "wmbt:resolve-dilemmas:C01"   # Only 2 digits
+        - "wmbt:resolve-dilemmas:X001"  # Invalid step code
+    filesystem:
+      file: "plan/{wagon}/wmbt/{step_code}{NNN}.yaml"
+    validator:
+      file: "src/atdd/planner/validators/test_wmbt_consistency.py"
+      spec: "SPEC-PLANNER-VAL-0030"
+    convention_ref: "atdd/planner/conventions/wmbt.convention.yaml"
+
+  appendix:
+    description: "Supplementary reference data"
+    semantic_pattern: "appendix:{type}"
+    format: "kebab-case type identifier"
+    regex: "^appendix:[a-z][a-z0-9-]+$"
+    examples:
+      valid:
+        - "appendix:theme-catalog"
+        - "appendix:error-codes"
+        - "appendix:locale-mappings"
+      invalid:
+        - "appendix:ThemeCatalog"  # PascalCase
+        - "appendix_theme"         # Underscore separator
+    note: "Currently not strictly enforced - documentation pattern"
+    validator:
+      file: "Not yet implemented"
+      spec: "Pending"
+
+  system:
+    description: "External system or service reference"
+    semantic_pattern: "system:{service-name}"
+    format: "kebab-case service identifier"
+    regex: "^system:[a-z][a-z0-9-]+$"
+    examples:
+      valid:
+        - "system:external"
+        - "system:scenario-library"
+        - "system:filesystem"
+        - "system:posthog"
+      invalid:
+        - "system:External"       # PascalCase
+        - "external-system"       # Missing prefix
+    note: "Used in wagon consume references for external dependencies"
+    validator:
+      file: "Not yet implemented"
+      spec: "Pending"
+
+# Validation Summary
+validation_summary:
+  enforced:
+    - wagon: "SPEC-PLATFORM-WAGONS-0008"
+    - feature: "SPEC-PLATFORM-WAGONS-0009"
+    - contract: "SPEC-PLATFORM-WAGONS-0006"
+    - telemetry: "SPEC-PLATFORM-WAGONS-0007"
+    - train: "SPEC-TRAIN-VAL-0001"
+    - acceptance: "SPEC-TESTER-VAL-0020"
+    - wmbt: "SPEC-PLANNER-VAL-0030"
+  pending:
+    - appendix: "Not yet enforced"
+    - system: "Not yet enforced"
+
+# Cross-References
+references:
+  artifact_naming: "atdd/planner/conventions/artifact-naming.convention.yaml"
+  wagon: "atdd/planner/conventions/wagon.convention.yaml"
+  feature: "atdd/planner/conventions/feature.convention.yaml"
+  contract: "atdd/tester/conventions/contract.convention.yaml"
+  telemetry: "atdd/tester/conventions/telemetry.convention.yaml"
+  train: "atdd/planner/conventions/train.convention.yaml"
+  acceptance: "atdd/planner/conventions/acceptance.convention.yaml"
+  wmbt: "atdd/planner/conventions/wmbt.convention.yaml"
