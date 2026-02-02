@@ -132,6 +132,32 @@
         }
       },
       "additionalProperties": false
+    },
+    "coach": {
+      "type": "object",
+      "description": "Coach agent validation settings",
+      "properties": {
+        "session_gate_command_prefixes": {
+          "type": "array",
+          "description": "Allowed prefixes for gate commands in session files",
+          "items": {"type": "string"},
+          "default": ["atdd", "pytest", "python", "npm", "supabase"],
+          "examples": [["atdd", "pytest", "npm run test"]]
+        },
+        "session_gate_command_exceptions": {
+          "type": "array",
+          "description": "Session files exempt from gate command prefix validation (by filename pattern)",
+          "items": {"type": "string"},
+          "default": [],
+          "examples": [["SESSION-00-*.md", "SESSION-01-legacy.md"]]
+        },
+        "archive_status_warnings": {
+          "type": "boolean",
+          "description": "Warn when COMPLETE sessions not in archive or archived sessions not COMPLETE",
+          "default": true
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": ["version", "release"],

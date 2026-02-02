@@ -21,6 +21,7 @@ from typing import List, Dict, Optional, Set, Tuple, Any
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import load_atdd_config
 
 # ============================================================================
 # Configuration
@@ -496,6 +497,166 @@ def test_session_has_gate_commands(active_session_files: List[Path]):
 
     if missing:
         pytest.fail(f"Missing gate commands:\n" + "\n".join(f"  - {m}" for m in missing))
+
+
+# ============================================================================
+# Gate Command Prefix Validation
+# ============================================================================
+
+# Default allowed command prefixes
+DEFAULT_GATE_COMMAND_PREFIXES = [
+    "atdd",
+    "pytest",
+    "python",
+    "npm",
+    "supabase",
+    "cd",  # Allow cd for directory changes before commands
+]
+
+
+@pytest.fixture
+def coach_config() -> Dict[str, Any]:
+    """Load coach configuration from .atdd/config.yaml."""
+    config = load_atdd_config(REPO_ROOT)
+    return config.get("coach", {})
+
+
+@pytest.fixture
+def gate_command_prefixes(coach_config: Dict[str, Any]) -> List[str]:
+    """Get allowed gate command prefixes from config."""
+    return coach_config.get(
+        "session_gate_command_prefixes",
+        DEFAULT_GATE_COMMAND_PREFIXES
+    )
+
+
+@pytest.fixture
+def gate_command_exceptions(coach_config: Dict[str, Any]) -> List[str]:
+    """Get session files exempt from gate command validation."""
+    return coach_config.get("session_gate_command_exceptions", [])
+
+
+def extract_gate_commands(body: str) -> List[str]:
+    """
+    Extract commands from code blocks in session body.
+
+    Returns list of command strings found in ```bash or ```shell blocks.
+    """
+    import re
+
+    commands = []
+
+    # Match code blocks with bash/shell language hint
+    code_block_pattern = re.compile(
+        r"```(?:bash|shell|sh)?\n(.*?)```",
+        re.DOTALL
+    )
+
+    for match in code_block_pattern.finditer(body):
+        block_content = match.group(1)
+        # Extract individual commands (non-empty lines)
+        for line in block_content.strip().split('\n'):
+            line = line.strip()
+            # Skip comments and empty lines
+            if line and not line.startswith('#'):
+                commands.append(line)
+
+    return commands
+
+
+def command_matches_prefix(command: str, prefixes: List[str]) -> bool:
+    """
+    Check if command starts with an allowed prefix.
+
+    Handles:
+    - Direct prefix match: "pytest tests/"
+    - Path prefix: "./atdd/atdd.py" matches "atdd"
+    - Chained commands: "cd foo && pytest" (each part checked)
+    """
+    import re
+
+    # Split on && and || to check each command part
+    parts = re.split(r'\s*(?:&&|\|\|)\s*', command)
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        # Check direct prefix match
+        matched = False
+        for prefix in prefixes:
+            # Direct match
+            if part.startswith(prefix + " ") or part == prefix:
+                matched = True
+                break
+            # Path match (e.g., ./atdd/atdd.py matches "atdd")
+            if "/" in part:
+                cmd_name = part.split()[0].split("/")[-1]
+                # Remove .py extension
+                if cmd_name.endswith(".py"):
+                    cmd_name = cmd_name[:-3]
+                if cmd_name == prefix:
+                    matched = True
+                    break
+
+        if not matched:
+            return False
+
+    return True
+
+
+def test_session_gate_commands_use_canonical_prefixes(
+    active_session_files: List[Path],
+    gate_command_prefixes: List[str],
+    gate_command_exceptions: List[str]
+):
+    """
+    Test that gate commands use canonical command prefixes.
+
+    Given: Active session files with gate commands
+    When: Checking command prefixes in code blocks
+    Then: All commands start with allowed prefixes from config
+
+    Configurable via .atdd/config.yaml:
+        coach:
+          session_gate_command_prefixes: ["atdd", "pytest", "npm"]
+          session_gate_command_exceptions: ["SESSION-00-*.md"]
+    """
+    import fnmatch
+
+    violations = []
+
+    for f in active_session_files:
+        # Check if file is exempt
+        is_exempt = any(
+            fnmatch.fnmatch(f.name, pattern)
+            for pattern in gate_command_exceptions
+        )
+        if is_exempt:
+            continue
+
+        parsed = parse_session_file(f)
+        body = parsed["body"]
+
+        commands = extract_gate_commands(body)
+
+        for cmd in commands:
+            if not command_matches_prefix(cmd, gate_command_prefixes):
+                # Extract first word for clearer error message
+                first_word = cmd.split()[0] if cmd.split() else cmd
+                violations.append(
+                    f"{f.name}: '{first_word}...' not in allowed prefixes"
+                )
+
+    if violations:
+        pytest.fail(
+            f"Found {len(violations)} gate commands with non-canonical prefixes:\n" +
+            "\n".join(f"  - {v}" for v in violations[:20]) +
+            (f"\n  ... and {len(violations) - 20} more" if len(violations) > 20 else "") +
+            f"\n\nAllowed prefixes: {gate_command_prefixes}\n"
+            "Configure in .atdd/config.yaml: coach.session_gate_command_prefixes"
+        )
 
 
 # ============================================================================
