@@ -599,3 +599,52 @@ def wagon_to_train_mapping(train_files: List[Tuple[Path, Dict]]) -> Dict[str, Li
                 mapping[wagon_slug].append(train_id)
 
     return mapping
+
+
+# ============================================================================
+# LOCALIZATION FIXTURES (Localization Manifest Spec v1)
+# ============================================================================
+
+
+@pytest.fixture(scope="module")
+def locale_manifest_path(atdd_config: Dict[str, Any]) -> Optional[Path]:
+    """
+    Get path to localization manifest file from config.
+
+    Returns:
+        Path to manifest file, or None if localization not configured
+    """
+    manifest_rel = atdd_config.get("localization", {}).get("manifest")
+    if not manifest_rel:
+        return None
+    return REPO_ROOT / manifest_rel
+
+
+@pytest.fixture(scope="module")
+def locale_manifest(locale_manifest_path: Optional[Path]) -> Optional[Dict[str, Any]]:
+    """
+    Load localization manifest from configured path.
+
+    Returns:
+        Manifest dict with reference, locales, namespaces, or None if not configured
+    """
+    if locale_manifest_path is None:
+        return None
+    if not locale_manifest_path.exists():
+        return None
+
+    with open(locale_manifest_path) as f:
+        return json.load(f)
+
+
+@pytest.fixture(scope="module")
+def locales_dir(locale_manifest_path: Optional[Path]) -> Optional[Path]:
+    """
+    Get locales directory (parent of manifest file).
+
+    Returns:
+        Path to locales directory, or None if not configured
+    """
+    if locale_manifest_path is None:
+        return None
+    return locale_manifest_path.parent

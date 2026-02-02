@@ -39,4 +39,6 @@ markers = [
     "tester: marks tests as tester validators",
     "platform: marks tests as platform validators",
     "security: marks tests as security validators",
+    "locale: marks tests as localization validators (Localization Manifest Spec v1)",
+    "coder: marks tests as coder phase validators",
 ]

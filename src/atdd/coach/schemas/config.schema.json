@@ -121,6 +121,17 @@
         }
       },
       "additionalProperties": false
+    },
+    "localization": {
+      "type": "object",
+      "description": "Localization validation settings (Localization Manifest Spec v1)",
+      "properties": {
+        "manifest": {
+          "type": "string",
+          "description": "Path to localization manifest.json relative to repo root (e.g., web/locales/manifest.json)"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": ["version", "release"],

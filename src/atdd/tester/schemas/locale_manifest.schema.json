@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://atdd.dev/schemas/tester/locale_manifest.schema.json",
+  "title": "Locale Manifest",
+  "description": "Schema for localization manifest.json - single source of truth for supported locales and namespaces (Localization Manifest Spec v1)",
+  "type": "object",
+  "required": ["reference", "locales", "namespaces"],
+  "properties": {
+    "reference": {
+      "type": "string",
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+      "description": "Reference locale code (e.g., 'en', 'en-US'). All other locales must match this locale's keys."
+    },
+    "locales": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+      },
+      "uniqueItems": true,
+      "description": "List of supported locale codes. Must include the reference locale."
+    },
+    "namespaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]*$"
+      },
+      "uniqueItems": true,
+      "description": "Required namespaces that must exist for all locales (e.g., 'common', 'ui', 'errors')"
+    },
+    "optional_namespaces": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]*$"
+      },
+      "uniqueItems": true,
+      "description": "Optional namespaces that may not exist for all locales. If present, must match reference keys."
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "reference": "en",
+      "locales": ["en", "es", "fr", "de", "ja"],
+      "namespaces": ["common", "ui", "errors"],
+      "optional_namespaces": ["landing", "marketing"]
+    }
+  ]
+}
