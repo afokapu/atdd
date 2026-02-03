@@ -304,8 +304,9 @@ class RepositoryInventory:
     def scan_telemetry(self) -> Dict[str, Any]:
         """Scan telemetry/ for signal definitions.
 
-        Signal file pattern: {aspect}.{type}.{plane}[.{measure}].json
-        Examples: metric.ui.duration.json, event.be.json
+        Signal file patterns:
+        - Primary: {aspect}.{type}.{plane}[.{measure}].json (e.g., metric.ui.duration.json)
+        - Legacy: *.signal.yaml (backward compatibility)
 
         Excludes: _telemetry.yaml, _taxonomy.yaml, .pack.* files
         Falls back to _telemetry.yaml registry if no signal files found.
@@ -315,9 +316,9 @@ class RepositoryInventory:
         if not telemetry_dir.exists():
             return {"total": 0, "by_theme": {}, "source": "none"}
 
-        # Find JSON signal files (primary) and YAML signal files (legacy)
+        # Find JSON signal files (primary) and YAML signal files (legacy *.signal.yaml)
         json_files = list(telemetry_dir.glob("**/*.json"))
-        yaml_files = list(telemetry_dir.glob("**/*.yaml"))
+        yaml_files = list(telemetry_dir.glob("**/*.yaml"))  # includes *.signal.yaml
 
         # Filter out manifest/registry/pack files
         def is_signal_file(f: Path) -> bool:
