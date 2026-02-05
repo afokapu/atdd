@@ -48,6 +48,7 @@ from atdd.coach.commands.initializer import ProjectInitializer
 from atdd.coach.commands.session import SessionManager
 from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.commands.gate import ATDDGate
+from atdd.coach.commands.urn import URNCommand
 from atdd.coach.utils.repo import find_repo_root
 from atdd.version_check import print_update_notice, print_upgrade_sync_notice
 
@@ -445,6 +446,164 @@ Phase descriptions:
         help="Output as JSON for programmatic use"
     )
 
+    # ----- atdd urn {graph,orphans,broken,validate,resolve,declarations} -----
+    urn_parser = subparsers.add_parser(
+        "urn",
+        help="URN traceability analysis",
+        description="Analyze URN coverage, traceability, and resolution"
+    )
+    urn_subparsers = urn_parser.add_subparsers(
+        dest="urn_command",
+        help="URN commands"
+    )
+
+    # atdd urn graph
+    urn_graph_parser = urn_subparsers.add_parser(
+        "graph",
+        help="Generate URN traceability graph"
+    )
+    urn_graph_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["json", "dot"],
+        default="json",
+        help="Output format (default: json)"
+    )
+    urn_graph_parser.add_argument(
+        "--root",
+        type=str,
+        help="Root URN for subgraph extraction"
+    )
+    urn_graph_parser.add_argument(
+        "--family",
+        type=str,
+        action="append",
+        dest="families",
+        help="Filter by URN families (can be repeated)"
+    )
+    urn_graph_parser.add_argument(
+        "--depth",
+        type=int,
+        default=-1,
+        help="Maximum depth for subgraph (-1 for unlimited)"
+    )
+
+    # atdd urn orphans
+    urn_orphans_parser = urn_subparsers.add_parser(
+        "orphans",
+        help="Find orphaned URNs (declared but not referenced)"
+    )
+    urn_orphans_parser.add_argument(
+        "--family",
+        type=str,
+        action="append",
+        dest="families",
+        help="Filter by URN families (can be repeated)"
+    )
+    urn_orphans_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)"
+    )
+
+    # atdd urn broken
+    urn_broken_parser = urn_subparsers.add_parser(
+        "broken",
+        help="Find broken URN references"
+    )
+    urn_broken_parser.add_argument(
+        "--family",
+        type=str,
+        action="append",
+        dest="families",
+        help="Filter by URN families (can be repeated)"
+    )
+    urn_broken_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)"
+    )
+
+    # atdd urn validate
+    urn_validate_parser = urn_subparsers.add_parser(
+        "validate",
+        help="Validate URN traceability"
+    )
+    urn_validate_parser.add_argument(
+        "--phase",
+        type=str,
+        choices=["warn", "fail"],
+        default="warn",
+        help="Validation phase: warn (errors as warnings) or fail (strict)"
+    )
+    urn_validate_parser.add_argument(
+        "--family",
+        type=str,
+        action="append",
+        dest="families",
+        help="Filter by URN families (can be repeated)"
+    )
+    urn_validate_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)"
+    )
+    urn_validate_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail on warnings too"
+    )
+
+    # atdd urn resolve
+    urn_resolve_parser = urn_subparsers.add_parser(
+        "resolve",
+        help="Resolve a URN to its artifact(s)"
+    )
+    urn_resolve_parser.add_argument(
+        "urn",
+        type=str,
+        help="The URN to resolve"
+    )
+    urn_resolve_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)"
+    )
+
+    # atdd urn declarations
+    urn_declarations_parser = urn_subparsers.add_parser(
+        "declarations",
+        help="List all URN declarations"
+    )
+    urn_declarations_parser.add_argument(
+        "--family",
+        type=str,
+        action="append",
+        dest="families",
+        help="Filter by URN families (can be repeated)"
+    )
+    urn_declarations_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)"
+    )
+
+    # atdd urn families
+    urn_subparsers.add_parser(
+        "families",
+        help="List registered URN families"
+    )
+
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
 
     # Repository root override (not deprecated - still useful)
@@ -595,6 +754,51 @@ Phase descriptions:
     elif args.command == "gate":
         gate = ATDDGate()
         return gate.verify(json=args.json)
+
+    # atdd urn {graph,orphans,broken,validate,resolve,declarations,families}
+    elif args.command == "urn":
+        repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+        cmd = URNCommand(repo_root=repo_path)
+
+        if args.urn_command == "graph":
+            return cmd.graph(
+                format=args.format,
+                root=args.root,
+                families=args.families,
+                max_depth=args.depth
+            )
+        elif args.urn_command == "orphans":
+            return cmd.orphans(
+                families=args.families,
+                format=args.format
+            )
+        elif args.urn_command == "broken":
+            return cmd.broken(
+                families=args.families,
+                format=args.format
+            )
+        elif args.urn_command == "validate":
+            return cmd.validate(
+                phase=args.phase,
+                families=args.families,
+                format=args.format,
+                strict=args.strict
+            )
+        elif args.urn_command == "resolve":
+            return cmd.resolve(
+                urn=args.urn,
+                format=args.format
+            )
+        elif args.urn_command == "declarations":
+            return cmd.declarations(
+                families=args.families,
+                format=args.format
+            )
+        elif args.urn_command == "families":
+            return cmd.list_families()
+        else:
+            urn_parser.print_help()
+            return 0
 
     # ----- Handle deprecated flag-based commands -----
 

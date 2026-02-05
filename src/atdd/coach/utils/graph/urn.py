@@ -128,7 +128,11 @@ class URNBuilder:
         'endpoint': r'^endpoint:[a-z0-9-]+\.(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\.[a-z0-9-/]+$',
         'topic': r'^topic:[a-z0-9-]+$',
         'table': r'^table:[a-z0-9_]+$',
-        'team': r'^team:[a-z0-9-]+$'
+        'team': r'^team:[a-z0-9-]+$',
+
+        # Release management
+        'train': r'^train:[0-9]{4}-[a-z][a-z0-9-]*$',
+        'migration': r'^migration:\d{14}_[a-z][a-z0-9_]*$',
     }
 
     @classmethod
