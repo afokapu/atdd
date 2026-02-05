@@ -89,7 +89,7 @@ structure_patterns:
         contents:
           - "domain/auth/types.ts"    # User, AuthContextValue
           - "domain/errors.ts"        # ApiError, NotFoundError, etc.
-        audit: "No preact, react, or @tanstack imports allowed"
+        audit: "No preact, react, @tanstack, or gsap imports allowed"
 
       application_layer:
         description: "Hooks, context, orchestration"
@@ -109,7 +109,7 @@ structure_patterns:
     - principle: "Domain layer purity"
       description: "Domain layer has no framework imports in both stacks"
       python_enforcement: "No flask, fastapi, django imports"
-      frontend_enforcement: "No preact, react, @tanstack, @maintain-ux imports"
+      frontend_enforcement: "No preact, react, @tanstack, @maintain-ux, gsap imports"
 
     - principle: "Dependency direction"
       description: "Dependencies point inward: integration -> application -> domain"
@@ -170,7 +170,7 @@ layers:
     allowed_imports: []
     forbidden_imports:
       python: ["flask", "fastapi", "django"]
-      frontend: ["preact", "react", "@tanstack", "@maintain-ux"]
+      frontend: ["preact", "react", "@tanstack", "@maintain-ux", "gsap", "@gsap"]
 
     python_contents:
       - "domain/enums/"       # Shared enumerations

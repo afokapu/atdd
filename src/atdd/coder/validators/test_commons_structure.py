@@ -219,16 +219,16 @@ def test_frontend_domain_no_framework_imports():
 
     GIVEN: Files in web/src/commons/domain/
     WHEN: Checking import statements
-    THEN: No preact, react, or @tanstack imports
+    THEN: No preact, react, @tanstack, or gsap imports
 
-    Validates: Domain layer purity (no preact, react, @tanstack)
+    Validates: Domain layer purity (no preact, react, @tanstack, gsap)
     """
     domain_dir = WEB_COMMONS / "domain"
 
     if not domain_dir.exists():
         pytest.skip("web/src/commons/domain does not exist")
 
-    forbidden = ["preact", "react", "@tanstack", "@maintain-ux"]
+    forbidden = ["preact", "react", "@tanstack", "@maintain-ux", "gsap", "@gsap"]
     violations: List[str] = []
 
     for ts_file in domain_dir.rglob("*.ts"):

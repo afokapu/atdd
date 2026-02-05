@@ -78,6 +78,12 @@ technology:
       rationale: "Single codebase delivers high-performance experiences across iOS, Android, and web."
       use_for: "Feature-rich game UI, animation-heavy interfaces, and rapid UI iteration with hot reload."
       avoid_when: "Team already maintains a React-native web stack or needs platform-specific native capabilities not exposed in Flutter."
+      libraries:
+        allowed:
+          - name: "gsap"
+            rationale: "GSAP is presentation-only animation tooling; do not use outside presentation."
+            applies_to: "web/preact stack only (Flutter uses native animation APIs)"
+            forbidden_layers: ["domain", "application", "integration"]
       alternatives:
         - option: "React Native"
           status: "approved"
