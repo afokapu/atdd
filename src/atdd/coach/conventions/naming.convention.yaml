@@ -227,7 +227,7 @@ patterns:
         - "wmbt:resolve-dilemmas:C01"   # Only 2 digits
         - "wmbt:resolve-dilemmas:X001"  # Invalid step code
     filesystem:
-      file: "plan/{wagon}/wmbt/{step_code}{NNN}.yaml"
+      file: "plan/{wagon}/{step_code}{NNN}.yaml"
     validator:
       file: "src/atdd/planner/validators/test_wmbt_consistency.py"
       spec: "SPEC-PLANNER-VAL-0030"

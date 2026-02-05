@@ -559,6 +559,17 @@ Phase descriptions:
         action="store_true",
         help="Fail on warnings too"
     )
+    urn_validate_parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Auto-fix urn:jel:* contract IDs by deriving from file path"
+    )
+    urn_validate_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Show what --fix would change without modifying files"
+    )
 
     # atdd urn resolve
     urn_resolve_parser = urn_subparsers.add_parser(
@@ -782,7 +793,9 @@ Phase descriptions:
                 phase=args.phase,
                 families=args.families,
                 format=args.format,
-                strict=args.strict
+                strict=args.strict,
+                fix=args.fix,
+                dry_run=args.dry_run
             )
         elif args.urn_command == "resolve":
             return cmd.resolve(

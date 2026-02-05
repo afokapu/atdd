@@ -47,6 +47,7 @@ class IssueType(Enum):
     MISSING_EDGE = "missing_edge"  # Required edge not present
     CYCLE = "cycle"  # Circular dependency detected
     INVALID_FORMAT = "invalid_format"  # URN format validation failure
+    JEL_CONTRACT = "jel_contract"  # urn:jel:* contract ID (non-ATDD format)
 
 
 @dataclass
@@ -388,6 +389,63 @@ class EdgeValidator:
                         )
                     )
 
+            # Check that contracts have producing wagons
+            elif node.family == "contract":
+                incoming = graph.get_incoming_edges(urn)
+                producer_edges = [
+                    e for e in incoming
+                    if e.edge_type == EdgeType.PRODUCES
+                ]
+                if not producer_edges:
+                    issues.append(
+                        ValidationIssue(
+                            issue_type=IssueType.MISSING_EDGE,
+                            severity=IssueSeverity.WARNING,
+                            urn=urn,
+                            message="Contract has no producing wagon",
+                            location=node.artifact_path,
+                            suggestion="Add contract to wagon's produce[] section",
+                        )
+                    )
+
+            # Check that telemetry has producing wagons
+            elif node.family == "telemetry":
+                incoming = graph.get_incoming_edges(urn)
+                producer_edges = [
+                    e for e in incoming
+                    if e.edge_type == EdgeType.PRODUCES
+                ]
+                if not producer_edges:
+                    issues.append(
+                        ValidationIssue(
+                            issue_type=IssueType.MISSING_EDGE,
+                            severity=IssueSeverity.WARNING,
+                            urn=urn,
+                            message="Telemetry has no producing wagon",
+                            location=node.artifact_path,
+                            suggestion="Add telemetry to wagon's produce[] section",
+                        )
+                    )
+
+            # Check that trains have wagon references
+            elif node.family == "train":
+                outgoing = graph.get_outgoing_edges(urn)
+                wagon_edges = [
+                    e for e in outgoing
+                    if e.edge_type == EdgeType.PARENT_OF
+                ]
+                if not wagon_edges:
+                    issues.append(
+                        ValidationIssue(
+                            issue_type=IssueType.MISSING_EDGE,
+                            severity=IssueSeverity.WARNING,
+                            urn=urn,
+                            message="Train has no wagon references",
+                            location=node.artifact_path,
+                            suggestion="Add wagons[] to train definition",
+                        )
+                    )
+
         return issues
 
     def validate_all(
@@ -417,6 +475,7 @@ class EdgeValidator:
         result.issues.extend(self.find_broken(families))
         result.issues.extend(self.validate_determinism(families))
         result.issues.extend(self.validate_edges(families))
+        result.issues.extend(self.find_jel_contracts())
 
         # Adjust severity based on phase
         if phase == "warn":
@@ -478,3 +537,136 @@ class EdgeValidator:
                 )
 
         return result
+
+    def find_jel_contracts(self) -> List[ValidationIssue]:
+        """
+        Find contract schemas with urn:jel:* IDs.
+
+        These are non-ATDD contract IDs that should be converted to
+        proper ATDD format derived from the file path.
+
+        Returns:
+            List of JEL contract issues with suggested fixes
+        """
+        import json
+
+        issues = []
+        contracts_dir = self.repo_root / "contracts"
+
+        if not contracts_dir.exists():
+            return issues
+
+        for contract_file in contracts_dir.rglob("*.schema.json"):
+            try:
+                with open(contract_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                schema_id = data.get("$id", "")
+
+                if schema_id.startswith("urn:jel:"):
+                    # Derive correct ID from file path
+                    correct_id = self._derive_contract_id_from_path(contract_file, contracts_dir)
+
+                    issues.append(
+                        ValidationIssue(
+                            issue_type=IssueType.JEL_CONTRACT,
+                            severity=IssueSeverity.WARNING,
+                            urn=f"contract:{schema_id}",
+                            message=f"Non-ATDD contract ID: {schema_id}",
+                            location=contract_file,
+                            context=f"Current $id: {schema_id}",
+                            suggestion=f"Change $id to: {correct_id}",
+                        )
+                    )
+
+            except Exception:
+                continue
+
+        return issues
+
+    def _derive_contract_id_from_path(self, contract_file: Path, contracts_dir: Path) -> str:
+        """
+        Derive the correct contract $id from the file path.
+
+        Example:
+            contracts/mechanic/timebank/remaining.schema.json
+            -> mechanic:timebank:remaining
+        """
+        relative_path = contract_file.relative_to(contracts_dir)
+        # Remove .schema.json extension
+        path_without_ext = str(relative_path).replace(".schema.json", "")
+        # Convert path separators to colons
+        contract_id = path_without_ext.replace("/", ":").replace("\\", ":")
+        return contract_id
+
+    def fix_jel_contracts(self, dry_run: bool = False) -> List[Dict]:
+        """
+        Fix urn:jel:* contract IDs by deriving correct ID from file path.
+
+        Args:
+            dry_run: If True, only report what would be fixed without modifying files
+
+        Returns:
+            List of fix results with old_id, new_id, file_path, and status
+        """
+        import json
+        import shutil
+
+        fixes = []
+        contracts_dir = self.repo_root / "contracts"
+
+        if not contracts_dir.exists():
+            return fixes
+
+        for contract_file in contracts_dir.rglob("*.schema.json"):
+            try:
+                with open(contract_file, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    data = json.loads(content)
+
+                schema_id = data.get("$id", "")
+
+                if not schema_id.startswith("urn:jel:"):
+                    continue
+
+                # Derive correct ID from file path
+                new_id = self._derive_contract_id_from_path(contract_file, contracts_dir)
+
+                fix_result = {
+                    "file_path": str(contract_file),
+                    "old_id": schema_id,
+                    "new_id": new_id,
+                    "status": "pending",
+                }
+
+                if dry_run:
+                    fix_result["status"] = "dry_run"
+                    fixes.append(fix_result)
+                    continue
+
+                # Create backup
+                backup_path = contract_file.with_suffix(".schema.json.bak")
+                shutil.copy2(contract_file, backup_path)
+
+                # Update the $id in the schema
+                data["$id"] = new_id
+
+                # Write back with preserved formatting (2-space indent)
+                with open(contract_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                    f.write("\n")  # Trailing newline
+
+                fix_result["status"] = "fixed"
+                fix_result["backup"] = str(backup_path)
+                fixes.append(fix_result)
+
+            except Exception as e:
+                fixes.append({
+                    "file_path": str(contract_file),
+                    "old_id": schema_id if 'schema_id' in dir() else "unknown",
+                    "new_id": "unknown",
+                    "status": "error",
+                    "error": str(e),
+                })
+
+        return fixes

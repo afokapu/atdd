@@ -168,6 +168,8 @@ class URNCommand:
         families: Optional[List[str]] = None,
         format: str = "text",
         strict: bool = False,
+        fix: bool = False,
+        dry_run: bool = False,
     ) -> int:
         """
         Run full URN traceability validation.
@@ -177,11 +179,17 @@ class URNCommand:
             families: Optional list of families to check
             format: Output format - "text" or "json"
             strict: If True, warnings also cause failure
+            fix: If True, auto-fix urn:jel:* contract IDs
+            dry_run: If True, show what --fix would change without modifying
 
         Returns:
             Exit code (0 for pass, 1 for failure)
         """
         try:
+            # Handle --fix or --dry-run for JEL contracts
+            if fix or dry_run:
+                return self._fix_jel_contracts(dry_run=dry_run, format=format)
+
             result = self.validator.validate_all(families, phase)
 
             if format == "json":
@@ -198,6 +206,50 @@ class URNCommand:
         except Exception as e:
             print(f"Error running validation: {e}", file=sys.stderr)
             return 1
+
+    def _fix_jel_contracts(self, dry_run: bool = False, format: str = "text") -> int:
+        """
+        Fix urn:jel:* contract IDs.
+
+        Args:
+            dry_run: If True, only show what would be fixed
+            format: Output format - "text" or "json"
+
+        Returns:
+            Exit code (0 if fixes applied, 1 if errors)
+        """
+        fixes = self.validator.fix_jel_contracts(dry_run=dry_run)
+
+        if format == "json":
+            print(json.dumps({"fixes": fixes, "dry_run": dry_run}, indent=2))
+        else:
+            if not fixes:
+                print("No urn:jel:* contract IDs found.")
+                return 0
+
+            mode = "Would fix" if dry_run else "Fixed"
+            print(f"{mode} {len(fixes)} contract(s):\n")
+
+            for fix in fixes:
+                status_icon = {
+                    "fixed": "✅",
+                    "dry_run": "🔍",
+                    "error": "❌",
+                    "pending": "⏳",
+                }.get(fix["status"], "  ")
+
+                print(f"{status_icon} {fix['file_path']}")
+                print(f"   Old: {fix['old_id']}")
+                print(f"   New: {fix['new_id']}")
+                if fix.get("backup"):
+                    print(f"   Backup: {fix['backup']}")
+                if fix.get("error"):
+                    print(f"   Error: {fix['error']}")
+                print()
+
+        # Return 0 if all successful, 1 if any errors
+        has_errors = any(f["status"] == "error" for f in fixes)
+        return 1 if has_errors else 0
 
     def resolve(self, urn: str, format: str = "text") -> int:
         """
@@ -359,6 +411,7 @@ class URNCommand:
             IssueType.MISSING_EDGE: "Missing Edges",
             IssueType.CYCLE: "Cycles Detected",
             IssueType.INVALID_FORMAT: "Invalid URN Format",
+            IssueType.JEL_CONTRACT: "JEL Contract IDs (use --fix to remediate)",
         }
 
         for issue_type, issues in by_type.items():

@@ -470,6 +470,10 @@ class ContractResolver(BaseResolver):
 
                 file_id = data.get("$id", "")
 
+                # Skip urn:jel:* IDs (JEL package headers, not ATDD contracts)
+                if file_id.startswith("urn:jel:"):
+                    continue
+
                 # Strategy 1: Exact match
                 if file_id == contract_id:
                     paths.append(contract_file)
@@ -510,6 +514,9 @@ class ContractResolver(BaseResolver):
                     data = json.load(f)
 
                 contract_id = data.get("$id")
+                # Skip urn:jel:* IDs (JEL package headers, not ATDD contracts)
+                if contract_id and contract_id.startswith("urn:jel:"):
+                    continue
                 if contract_id:
                     urn = f"contract:{contract_id}"
                     declarations.append(
@@ -811,7 +818,8 @@ class ComponentResolver(BaseResolver):
     def find_declarations(self) -> List[URNDeclaration]:
         """Find all component URN declarations in code files."""
         declarations = []
-        urn_pattern = re.compile(r"#\s*urn:\s*(component:[^\s]+)")
+        # Support both # and // comment styles, case-insensitive URN:
+        urn_pattern = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*(component:[^\s]+)")
         # Filter out regex patterns that are not actual URNs
         regex_metacharacters = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
 
@@ -844,6 +852,149 @@ class ComponentResolver(BaseResolver):
         return declarations
 
 
+class TableResolver(BaseResolver):
+    """
+    Resolver for table: URNs.
+
+    Resolution: table:{table_name} -> supabase/migrations/**/tables/{table_name}.sql
+    """
+
+    @property
+    def family(self) -> str:
+        return "table"
+
+    def resolve(self, urn: str) -> URNResolution:
+        if not self.can_resolve(urn):
+            return URNResolution(urn=urn, family=self.family, error="Not a table URN")
+
+        error = self._validate_urn_format(urn)
+        if error:
+            return URNResolution(urn=urn, family=self.family, error=error)
+
+        table_name = urn.replace("table:", "")
+        paths = self._find_table_files(table_name)
+
+        return URNResolution(
+            urn=urn,
+            family=self.family,
+            resolved_paths=paths,
+            is_deterministic=len(paths) == 1,
+            error=None if paths else f"Table definition not found: {table_name}",
+        )
+
+    def _find_table_files(self, table_name: str) -> List[Path]:
+        """Find SQL files defining the table."""
+        paths = []
+        supabase_dir = self.repo_root / "supabase"
+        if not supabase_dir.exists():
+            return paths
+
+        # Search in migrations for table definitions
+        for sql_file in supabase_dir.rglob("*.sql"):
+            if table_name in sql_file.stem.lower():
+                paths.append(sql_file)
+                continue
+
+            # Also check file content for CREATE TABLE
+            try:
+                content = sql_file.read_text(encoding="utf-8")
+                if f"create table" in content.lower() and table_name in content.lower():
+                    paths.append(sql_file)
+            except Exception:
+                continue
+
+        return paths
+
+    def find_declarations(self) -> List[URNDeclaration]:
+        """Find all table URN declarations in SQL files."""
+        declarations = []
+        supabase_dir = self.repo_root / "supabase"
+        if not supabase_dir.exists():
+            return declarations
+
+        table_pattern = re.compile(r"create\s+table\s+(?:if\s+not\s+exists\s+)?(\w+)", re.IGNORECASE)
+
+        for sql_file in supabase_dir.rglob("*.sql"):
+            try:
+                content = sql_file.read_text(encoding="utf-8")
+                for match in table_pattern.finditer(content):
+                    table_name = match.group(1)
+                    urn = f"table:{table_name}"
+                    declarations.append(
+                        URNDeclaration(
+                            urn=urn,
+                            family=self.family,
+                            source_path=sql_file,
+                            context="CREATE TABLE statement",
+                        )
+                    )
+            except Exception:
+                continue
+
+        return declarations
+
+
+class MigrationResolver(BaseResolver):
+    """
+    Resolver for migration: URNs.
+
+    Resolution: migration:{timestamp}_{name} -> supabase/migrations/{timestamp}_{name}.sql
+    """
+
+    @property
+    def family(self) -> str:
+        return "migration"
+
+    def resolve(self, urn: str) -> URNResolution:
+        if not self.can_resolve(urn):
+            return URNResolution(urn=urn, family=self.family, error="Not a migration URN")
+
+        error = self._validate_urn_format(urn)
+        if error:
+            return URNResolution(urn=urn, family=self.family, error=error)
+
+        migration_id = urn.replace("migration:", "")
+        migrations_dir = self.repo_root / "supabase" / "migrations"
+        migration_path = migrations_dir / f"{migration_id}.sql"
+
+        paths = []
+        if migration_path.exists():
+            paths.append(migration_path)
+
+        return URNResolution(
+            urn=urn,
+            family=self.family,
+            resolved_paths=paths,
+            is_deterministic=len(paths) == 1,
+            error=None if paths else f"Migration file not found: {migration_path}",
+        )
+
+    def find_declarations(self) -> List[URNDeclaration]:
+        """Find all migration URN declarations in migration files."""
+        declarations = []
+        migrations_dir = self.repo_root / "supabase" / "migrations"
+        if not migrations_dir.exists():
+            return declarations
+
+        migration_pattern = re.compile(r"^(\d{14}_[a-z][a-z0-9_]*)\.sql$")
+
+        for migration_file in migrations_dir.glob("*.sql"):
+            match = migration_pattern.match(migration_file.name)
+            if match:
+                migration_id = match.group(1)
+                urn = f"migration:{migration_id}"
+                declarations.append(
+                    URNDeclaration(
+                        urn=urn,
+                        family=self.family,
+                        source_path=migration_file,
+                        context="migration file",
+                    )
+                )
+
+        return declarations
+
+
 class ResolverRegistry:
     """
     Registry coordinating all URN resolvers.
@@ -867,6 +1018,8 @@ class ResolverRegistry:
             TelemetryResolver(self.repo_root),
             TrainResolver(self.repo_root),
             ComponentResolver(self.repo_root),
+            TableResolver(self.repo_root),
+            MigrationResolver(self.repo_root),
         ]
         for resolver in resolvers:
             self._resolvers[resolver.family] = resolver

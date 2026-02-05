@@ -114,11 +114,11 @@ class URNBuilder:
         'feature': r'^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$',
         'component': r'^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9]+:(frontend|backend|fe|be):(presentation|application|domain|integration|controller|usecase|repository)$',
 
-        # Artifacts
-        'plan': r'^plan:[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)?(\.[a-zA-Z0-9]+\.(frontend|backend|fe|be)\.(presentation|application|domain|integration|controller|usecase|repository))?$',
-        'test': r'^test:[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)?(\.[a-zA-Z0-9]+\.(frontend|backend|fe|be)\.(presentation|application|domain|integration|controller|usecase|repository))?\.[a-z0-9-]+$',
-        'contract': r'^contract:[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)?(\.[a-zA-Z0-9]+\.(frontend|backend|fe|be)\.(presentation|application|domain|integration|controller|usecase|repository))?$',
-        'telemetry': r'^telemetry:[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)?(\.[a-zA-Z0-9]+\.(frontend|backend|fe|be)\.(presentation|application|domain|integration|controller|usecase|repository))?\.[a-z0-9-]+$',
+        # Artifacts (colon hierarchy with optional dot variant)
+        'plan': r'^plan:[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9]+(-[a-z0-9]+)*)*(\.[a-z0-9-]+)?$',
+        'test': r'^test:[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9]+(-[a-z0-9]+)*)*(\.[a-z0-9-]+)?$',
+        'contract': r'^contract:[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)+(\.[a-z][a-z0-9-]+)?$',
+        'telemetry': r'^telemetry:[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)*(\.[a-z][a-z0-9-]+)?$',
 
         # ATDD Specific
         'wmbt': r'^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$',
@@ -520,51 +520,43 @@ class URNBuilder:
 
     @classmethod
     def contract(cls,
-                 wagon_id: str,
-                 feature_id: Optional[str] = None,
-                 component_name: Optional[str] = None,
-                 side: Optional[Literal['frontend', 'backend', 'fe', 'be']] = None,
-                 layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'controller', 'usecase', 'repository']] = None) -> str:
+                 theme: str,
+                 *hierarchy: str,
+                 variant: Optional[str] = None) -> str:
         """
-        Build a contract URN.
+        Build a contract URN with colon hierarchy.
 
         Args:
-            wagon_id: The wagon identifier
-            feature_id: Optional feature identifier
-            component_name: Optional component name
-            side: Optional component side (requires component_name)
-            layer: Optional architectural layer (requires component_name and side)
+            theme: The theme/domain (e.g., "mechanic", "match", "commons")
+            *hierarchy: Additional hierarchy segments (colon-separated)
+            variant: Optional variant suffix (dot-separated)
 
         Returns:
-            URN in format: contract:[wagon][.[feature][.[component].[side].[layer]]]
+            URN in format: contract:{theme}(:{segment})*(.{variant})?
 
         Examples:
-            URNBuilder.contract("user-mgmt")
-            -> "contract:user-mgmt"
+            URNBuilder.contract("mechanic", "timebank", variant="remaining")
+            -> "contract:mechanic:timebank.remaining"
 
-            URNBuilder.contract("user-mgmt", feature_id="auth")
-            -> "contract:user-mgmt.auth"
+            URNBuilder.contract("match", "dilemma", "current")
+            -> "contract:match:dilemma:current"
 
-            URNBuilder.contract("user-mgmt", feature_id="auth",
-                              component_name="UserAPI", side="be", layer="controller")
-            -> "contract:user-mgmt.auth.UserAPI.be.controller"
+            URNBuilder.contract("commons", "ux", "foundations", "color")
+            -> "contract:commons:ux:foundations:color"
         """
-        # Normalize IDs
-        wagon_id = cls._normalize_id(wagon_id)
+        # Normalize all segments
+        theme = cls._normalize_id(theme)
+        segments = [cls._normalize_id(s) for s in hierarchy]
 
-        # Build URN progressively
-        urn = f"contract:{wagon_id}"
+        # Build URN with colon hierarchy
+        urn = f"contract:{theme}"
+        for segment in segments:
+            urn += f":{segment}"
 
-        if feature_id:
-            feature_id = cls._normalize_id(feature_id)
-            urn += f".{feature_id}"
-
-            if component_name:
-                if not side or not layer:
-                    raise ValueError("Component requires both side and layer")
-                urn += f".{component_name}.{side}.{layer}"
-        elif component_name:
-            raise ValueError("Cannot specify component without feature")
+        # Add optional dot variant
+        if variant:
+            variant = cls._normalize_id(variant)
+            urn += f".{variant}"
 
         if not cls.validate_urn(urn, 'contract'):
             raise ValueError(f"Generated invalid contract URN: {urn}")
@@ -573,56 +565,43 @@ class URNBuilder:
 
     @classmethod
     def telemetry(cls,
-                  wagon_id: str,
-                  signal: str,
-                  feature_id: Optional[str] = None,
-                  component_name: Optional[str] = None,
-                  side: Optional[Literal['frontend', 'backend', 'fe', 'be']] = None,
-                  layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'controller', 'usecase', 'repository']] = None) -> str:
+                  theme: str,
+                  *hierarchy: str,
+                  variant: Optional[str] = None) -> str:
         """
-        Build a telemetry URN.
+        Build a telemetry URN with colon hierarchy.
 
         Args:
-            wagon_id: The wagon identifier
-            signal: The signal identifier (e.g., "metric-response-time", "event-click")
-            feature_id: Optional feature identifier
-            component_name: Optional component name
-            side: Optional component side (requires component_name)
-            layer: Optional architectural layer (requires component_name and side)
+            theme: The theme/domain (e.g., "mechanic", "match", "juggle")
+            *hierarchy: Additional hierarchy segments (colon-separated)
+            variant: Optional variant suffix (dot-separated)
 
         Returns:
-            URN in format: telemetry:[wagon][.[feature][.[component].[side].[layer]]].[signal]
+            URN in format: telemetry:{theme}(:{segment})*(.{variant})?
 
         Examples:
-            URNBuilder.telemetry("user-mgmt", "metric-response-time")
-            -> "telemetry:user-mgmt.metric-response-time"
+            URNBuilder.telemetry("mechanic", "decision", variant="choice")
+            -> "telemetry:mechanic:decision.choice"
 
-            URNBuilder.telemetry("user-mgmt", "event-login", feature_id="auth")
-            -> "telemetry:user-mgmt.auth.event-login"
+            URNBuilder.telemetry("juggle", "goal", variant="detected")
+            -> "telemetry:juggle:goal.detected"
 
-            URNBuilder.telemetry("user-mgmt", "event-click", feature_id="auth",
-                               component_name="LoginForm", side="fe", layer="presentation")
-            -> "telemetry:user-mgmt.auth.LoginForm.fe.presentation.event-click"
+            URNBuilder.telemetry("mechanic", "episode", variant="timer")
+            -> "telemetry:mechanic:episode.timer"
         """
-        # Normalize IDs
-        wagon_id = cls._normalize_id(wagon_id)
-        signal = cls._normalize_id(signal)
+        # Normalize all segments
+        theme = cls._normalize_id(theme)
+        segments = [cls._normalize_id(s) for s in hierarchy]
 
-        # Build URN progressively
-        urn = f"telemetry:{wagon_id}"
+        # Build URN with colon hierarchy
+        urn = f"telemetry:{theme}"
+        for segment in segments:
+            urn += f":{segment}"
 
-        if feature_id:
-            feature_id = cls._normalize_id(feature_id)
-            urn += f".{feature_id}"
-
-            if component_name:
-                if not side or not layer:
-                    raise ValueError("Component requires both side and layer")
-                urn += f".{component_name}.{side}.{layer}"
-        elif component_name:
-            raise ValueError("Cannot specify component without feature")
-
-        urn += f".{signal}"
+        # Add optional dot variant
+        if variant:
+            variant = cls._normalize_id(variant)
+            urn += f".{variant}"
 
         if not cls.validate_urn(urn, 'telemetry'):
             raise ValueError(f"Generated invalid telemetry URN: {urn}")

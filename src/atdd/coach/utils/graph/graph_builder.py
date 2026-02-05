@@ -126,11 +126,12 @@ class TraceabilityGraph:
     - Exporting to JSON and DOT formats
     """
 
-    def __init__(self):
+    def __init__(self, allowed_families: Optional[List[str]] = None):
         self._nodes: Dict[str, URNNode] = {}
         self._edges: List[URNEdge] = []
         self._edges_by_source: Dict[str, List[URNEdge]] = {}
         self._edges_by_target: Dict[str, List[URNEdge]] = {}
+        self._allowed_families: Optional[Set[str]] = set(allowed_families) if allowed_families else None
 
     @property
     def nodes(self) -> Dict[str, URNNode]:
@@ -146,16 +147,30 @@ class TraceabilityGraph:
         """Add a node to the graph."""
         self._nodes[node.urn] = node
 
-    def add_edge(self, edge: URNEdge) -> None:
-        """Add an edge to the graph."""
+    def add_edge(self, edge: URNEdge) -> bool:
+        """
+        Add an edge to the graph.
+
+        Returns False if the edge was skipped due to family filtering.
+        """
+        source_family = self._infer_family(edge.source_urn)
+        target_family = self._infer_family(edge.target_urn)
+
+        # Skip edges if families are filtered and source/target not in allowed list
+        if self._allowed_families:
+            if source_family not in self._allowed_families:
+                return False
+            if target_family not in self._allowed_families:
+                return False
+
         # Ensure source and target nodes exist
         if edge.source_urn not in self._nodes:
             self._nodes[edge.source_urn] = URNNode(
-                urn=edge.source_urn, family=self._infer_family(edge.source_urn)
+                urn=edge.source_urn, family=source_family
             )
         if edge.target_urn not in self._nodes:
             self._nodes[edge.target_urn] = URNNode(
-                urn=edge.target_urn, family=self._infer_family(edge.target_urn)
+                urn=edge.target_urn, family=target_family
             )
 
         self._edges.append(edge)
@@ -169,6 +184,8 @@ class TraceabilityGraph:
         if edge.target_urn not in self._edges_by_target:
             self._edges_by_target[edge.target_urn] = []
         self._edges_by_target[edge.target_urn].append(edge)
+
+        return True
 
     def _infer_family(self, urn: str) -> str:
         """Infer family from URN prefix."""
@@ -377,7 +394,7 @@ class GraphBuilder:
         Returns:
             Complete traceability graph
         """
-        graph = TraceabilityGraph()
+        graph = TraceabilityGraph(allowed_families=families)
 
         # 1. Add all declared URNs as nodes
         declarations = self.registry.find_all_declarations(families)
@@ -467,6 +484,54 @@ class GraphBuilder:
                             )
                         )
 
+    def _resolve_contract_ref(self, contract_ref: str) -> Optional[str]:
+        """
+        Resolve a contract reference to a URN.
+
+        Handles:
+        - URN format (contract:theme:domain...) - returned as-is
+        - File path (contracts/...) - reads $id from schema
+        - Schema ID (theme:domain...) - prefixed with contract:
+        """
+        import json
+
+        if not contract_ref:
+            return None
+
+        # Already a contract URN
+        if contract_ref.startswith("contract:"):
+            return contract_ref
+
+        # File path - resolve via $id
+        if contract_ref.startswith("contracts/") or contract_ref.endswith(".schema.json"):
+            contract_path = self.repo_root / contract_ref
+            if contract_path.exists():
+                try:
+                    with open(contract_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    schema_id = data.get("$id")
+                    # Skip urn:jel:* IDs
+                    if schema_id and not schema_id.startswith("urn:jel:"):
+                        return f"contract:{schema_id}"
+                except Exception:
+                    pass
+            return None
+
+        # Schema ID - prefix with contract:
+        return f"contract:{contract_ref}"
+
+    def _resolve_telemetry_ref(self, telemetry_ref: str) -> Optional[str]:
+        """Resolve a telemetry reference to a URN."""
+        if not telemetry_ref:
+            return None
+
+        # Already a telemetry URN
+        if telemetry_ref.startswith("telemetry:"):
+            return telemetry_ref
+
+        # Schema ID - prefix with telemetry:
+        return f"telemetry:{telemetry_ref}"
+
     def _build_produce_consume_edges(self, graph: TraceabilityGraph) -> None:
         """Build produce/consume edges from wagon manifests."""
         import yaml
@@ -494,13 +559,14 @@ class GraphBuilder:
                     telemetry_ref = produce.get("telemetry")
                     produce_urn = produce.get("urn")
 
+                    # Use explicit URN if provided, otherwise resolve contract ref
+                    if produce_urn and produce_urn.startswith("contract:"):
+                        contract_urn = produce_urn
+                    else:
+                        contract_urn = self._resolve_contract_ref(contract_ref)
+
                     # Wagon produces contract
-                    if contract_ref and isinstance(contract_ref, str):
-                        contract_urn = (
-                            contract_ref
-                            if contract_ref.startswith("contract:")
-                            else f"contract:{contract_ref}"
-                        )
+                    if contract_urn:
                         graph.add_edge(
                             URNEdge(
                                 source_urn=wagon_urn,
@@ -513,12 +579,8 @@ class GraphBuilder:
                     if telemetry_ref:
                         refs = telemetry_ref if isinstance(telemetry_ref, list) else [telemetry_ref]
                         for ref in refs:
-                            if ref and isinstance(ref, str):
-                                telemetry_urn = (
-                                    ref
-                                    if ref.startswith("telemetry:")
-                                    else f"telemetry:{ref}"
-                                )
+                            telemetry_urn = self._resolve_telemetry_ref(ref)
+                            if telemetry_urn:
                                 graph.add_edge(
                                     URNEdge(
                                         source_urn=wagon_urn,
@@ -533,12 +595,8 @@ class GraphBuilder:
                     telemetry_ref = consume.get("telemetry")
 
                     # Wagon consumes contract
-                    if contract_ref and isinstance(contract_ref, str):
-                        contract_urn = (
-                            contract_ref
-                            if contract_ref.startswith("contract:")
-                            else f"contract:{contract_ref}"
-                        )
+                    contract_urn = self._resolve_contract_ref(contract_ref)
+                    if contract_urn:
                         graph.add_edge(
                             URNEdge(
                                 source_urn=wagon_urn,
@@ -551,12 +609,8 @@ class GraphBuilder:
                     if telemetry_ref:
                         refs = telemetry_ref if isinstance(telemetry_ref, list) else [telemetry_ref]
                         for ref in refs:
-                            if ref and isinstance(ref, str):
-                                telemetry_urn = (
-                                    ref
-                                    if ref.startswith("telemetry:")
-                                    else f"telemetry:{ref}"
-                                )
+                            telemetry_urn = self._resolve_telemetry_ref(ref)
+                            if telemetry_urn:
                                 graph.add_edge(
                                     URNEdge(
                                         source_urn=wagon_urn,
