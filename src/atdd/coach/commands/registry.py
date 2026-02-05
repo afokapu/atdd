@@ -948,15 +948,50 @@ class RegistryBuilder:
                 wagons.append(wagon_name)
         return wagons
 
+    def _get_theme_key(self, theme_digit: str, theme_name: str) -> str:
+        """Generate theme key like '0-commons' from digit and name."""
+        return f"{theme_digit}-{theme_name}"
+
+    def _get_category_key(self, theme_digit: str, category_digit: str, theme_name: str, category_name: str) -> str:
+        """Generate category key like '00-commons-nominal' from digits and names."""
+        return f"{theme_digit}{category_digit}-{theme_name}-{category_name}"
+
+    def _flatten_nested_trains(self, trains_data: Dict) -> Dict[str, Dict]:
+        """Flatten nested theme-category-grouped structure to dict by train_id."""
+        existing_trains = {}
+        if isinstance(trains_data, dict):
+            for theme_key, categories in trains_data.items():
+                if isinstance(categories, dict):
+                    for category_key, trains_list in categories.items():
+                        if isinstance(trains_list, list):
+                            for train in trains_list:
+                                train_id = train.get("train_id")
+                                if train_id:
+                                    existing_trains[train_id] = train
+        elif isinstance(trains_data, list):
+            # Handle legacy flat list format
+            for train in trains_data:
+                train_id = train.get("train_id")
+                if train_id:
+                    existing_trains[train_id] = train
+        return existing_trains
+
     def build_trains(self, mode: str = "interactive") -> Dict[str, Any]:
         """
         Build trains registry from train manifest files.
         Scans plan/_trains/*.yaml files and builds plan/_trains.yaml.
 
-        Train ID convention: NN-XX-name where:
-        - NN = theme prefix (first 2 digits for grouping)
-        - XX = category within theme
+        Train ID convention: NNXX-name where:
+        - N = theme digit (0-9)
+        - X = category digit (0=nominal, 1=error, 2=alternate, 3=exception)
+        - XX = variation (01-99)
         - name = train slug
+
+        Output format (per train.convention.yaml):
+        trains:
+          {digit}-{theme}:
+            {theme_digit}{category_digit}-{theme}-{category}:
+              - train_id: ...
 
         Train First-Class Spec v0.6 Normalization:
         - Section 1: Normalize file→path (deprecation)
@@ -977,14 +1012,24 @@ class RegistryBuilder:
         trains_dir = self.plan_dir / "_trains"
         registry_path = self.plan_dir / "_trains.yaml"
 
-        # Load existing registry
+        # Theme and category mappings
+        theme_map = {
+            "0": "commons", "1": "mechanic", "2": "scenario", "3": "match",
+            "4": "sensory", "5": "player", "6": "league", "7": "audience",
+            "8": "monetization", "9": "partnership"
+        }
+        category_map = {
+            "0": "nominal", "1": "error", "2": "alternate", "3": "exception"
+        }
+
+        # Load existing registry (handle nested structure)
         existing_trains = {}
         if registry_path.exists():
             with open(registry_path) as f:
                 registry_data = yaml.safe_load(f)
-                existing_trains = {t.get("train_id"): t for t in registry_data.get("trains", [])}
+                trains_data = registry_data.get("trains", {})
+                existing_trains = self._flatten_nested_trains(trains_data)
 
-        trains = []
         stats = {
             "total_manifests": 0,
             "processed": 0,
@@ -999,16 +1044,39 @@ class RegistryBuilder:
         # Check if trains directory exists
         if not trains_dir.exists():
             print(f"  ⚠️  No _trains/ directory found at {trains_dir}")
-            # Still preserve existing drafts
+            # Still preserve existing drafts in nested structure
+            draft_entries = []
             for train_id, train in existing_trains.items():
                 if train.get("draft", False):
-                    trains.append(train)
+                    # Parse grouping from train_id
+                    theme_digit = train_id[0] if train_id and train_id[0].isdigit() else "0"
+                    category_digit = train_id[1] if train_id and len(train_id) > 1 and train_id[1].isdigit() else "0"
+                    train["_theme_digit"] = theme_digit
+                    train["_category_digit"] = category_digit
+                    train["_theme_name"] = theme_map.get(theme_digit, "unknown")
+                    train["_category_name"] = category_map.get(category_digit, "unknown")
+                    draft_entries.append(train)
                     stats["preserved_drafts"] += 1
 
             if stats["preserved_drafts"] > 0:
+                # Build nested structure for drafts
+                nested_drafts = {}
+                for entry in draft_entries:
+                    theme_digit = entry.pop("_theme_digit", "0")
+                    category_digit = entry.pop("_category_digit", "0")
+                    theme_name = entry.pop("_theme_name", "unknown")
+                    category_name = entry.pop("_category_name", "unknown")
+                    theme_key = self._get_theme_key(theme_digit, theme_name)
+                    category_key = self._get_category_key(theme_digit, category_digit, theme_name, category_name)
+                    if theme_key not in nested_drafts:
+                        nested_drafts[theme_key] = {}
+                    if category_key not in nested_drafts[theme_key]:
+                        nested_drafts[theme_key][category_key] = []
+                    nested_drafts[theme_key][category_key].append(entry)
+
                 print(f"\n📋 PREVIEW:")
                 print(f"  • {stats['preserved_drafts']} draft trains will be preserved")
-                output = {"trains": trains}
+                output = {"trains": nested_drafts}
                 return self._confirm_and_apply(mode, "trains", registry_path, output, stats)
 
             stats["has_changes"] = False
@@ -1018,6 +1086,9 @@ class RegistryBuilder:
         manifest_files = list(trains_dir.glob("*.yaml"))
         manifest_files = [f for f in manifest_files if not f.name.startswith("_")]
         stats["total_manifests"] = len(manifest_files)
+
+        # Collect all train entries (flat list first, then group)
+        all_train_entries = []
 
         for manifest_path in sorted(manifest_files):
             try:
@@ -1030,18 +1101,22 @@ class RegistryBuilder:
 
                 train_id = manifest.get("train_id", manifest.get("train", ""))
                 if not train_id:
-                    # Try to infer from filename (e.g., 01-01-setup.yaml -> 01-01-setup)
+                    # Try to infer from filename (e.g., 0001-auth-session.yaml -> 0001-auth-session)
                     train_id = manifest_path.stem
 
-                # Parse theme from train_id (first digit maps to theme name)
-                theme = ""
-                theme_map = {
-                    "0": "commons", "1": "mechanic", "2": "scenario", "3": "match",
-                    "4": "sensory", "5": "player", "6": "league", "7": "audience",
-                    "8": "monetization", "9": "partnership"
-                }
-                if train_id and train_id[0].isdigit():
-                    theme = theme_map.get(train_id[0], "")
+                # Parse theme and category from train_id
+                # Format: NNXX-name where N=theme digit, X=category digit
+                theme_digit = ""
+                category_digit = ""
+                theme_name = ""
+                category_name = ""
+
+                if train_id and len(train_id) >= 2 and train_id[0].isdigit():
+                    theme_digit = train_id[0]
+                    theme_name = theme_map.get(theme_digit, "unknown")
+                    if train_id[1].isdigit():
+                        category_digit = train_id[1]
+                        category_name = category_map.get(category_digit, "unknown")
 
                 # Build train entry
                 rel_manifest = str(manifest_path.relative_to(self.repo_root))
@@ -1084,24 +1159,12 @@ class RegistryBuilder:
 
                 entry = {
                     "train_id": train_id,
-                    "theme": theme,
-                    "title": manifest.get("title", manifest.get("description", "")),
-                    "description": manifest.get("description", ""),
+                    "description": manifest.get("description", manifest.get("title", "")),
+                    "path": f"plan/_trains/{train_id}.yaml",
                     "wagons": wagons,
-                    "status": manifest.get("status", "planned"),
-                    "manifest": rel_manifest
                 }
 
-                # Add path if present
-                if path_value:
-                    entry["path"] = path_value
-
-                # Add primary_wagon if present
-                primary_wagon = manifest.get("primary_wagon")
-                if primary_wagon:
-                    entry["primary_wagon"] = primary_wagon
-
-                # Add normalized test/code if present
+                # Add test/code if present
                 if test_normalized:
                     entry["test"] = test_normalized
                 if code_normalized:
@@ -1112,13 +1175,19 @@ class RegistryBuilder:
                 if expectations:
                     entry["expectations"] = expectations
 
+                # Store grouping metadata (not in final output)
+                entry["_theme_digit"] = theme_digit
+                entry["_category_digit"] = category_digit
+                entry["_theme_name"] = theme_name
+                entry["_category_name"] = category_name
+
                 # Check if updating or new
                 if train_id in existing_trains:
                     stats["updated"] += 1
                     # Check for field changes
                     old = existing_trains[train_id]
                     changed_fields = []
-                    for field in ["title", "description", "wagons", "status", "theme", "path", "test", "code", "expectations"]:
+                    for field in ["description", "wagons", "path", "test", "code", "expectations"]:
                         if old.get(field) != entry.get(field):
                             changed_fields.append(field)
                     if changed_fields:
@@ -1135,7 +1204,7 @@ class RegistryBuilder:
                         "fields": ["all fields (new train)"]
                     })
 
-                trains.append(entry)
+                all_train_entries.append(entry)
                 stats["processed"] += 1
 
             except Exception as e:
@@ -1147,25 +1216,51 @@ class RegistryBuilder:
             is_draft = train.get("draft", False)
             has_no_manifest = not train.get("manifest")
             if is_draft or has_no_manifest:
-                if train_id not in [t.get("train_id") for t in trains]:
-                    trains.append(train)
+                if train_id not in [t.get("train_id") for t in all_train_entries]:
+                    # Parse grouping from train_id for draft trains
+                    theme_digit = train_id[0] if train_id and train_id[0].isdigit() else "0"
+                    category_digit = train_id[1] if train_id and len(train_id) > 1 and train_id[1].isdigit() else "0"
+                    train["_theme_digit"] = theme_digit
+                    train["_category_digit"] = category_digit
+                    train["_theme_name"] = theme_map.get(theme_digit, "unknown")
+                    train["_category_name"] = category_map.get(category_digit, "unknown")
+                    all_train_entries.append(train)
                     stats["preserved_drafts"] += 1
 
         # Sort by train_id
-        trains.sort(key=lambda t: t.get("train_id", ""))
+        all_train_entries.sort(key=lambda t: t.get("train_id", ""))
+
+        # Build nested structure: {theme_key: {category_key: [trains]}}
+        nested_trains = {}
+        for entry in all_train_entries:
+            theme_digit = entry.pop("_theme_digit", "0")
+            category_digit = entry.pop("_category_digit", "0")
+            theme_name = entry.pop("_theme_name", "unknown")
+            category_name = entry.pop("_category_name", "unknown")
+
+            theme_key = self._get_theme_key(theme_digit, theme_name)
+            category_key = self._get_category_key(theme_digit, category_digit, theme_name, category_name)
+
+            if theme_key not in nested_trains:
+                nested_trains[theme_key] = {}
+            if category_key not in nested_trains[theme_key]:
+                nested_trains[theme_key][category_key] = []
+
+            nested_trains[theme_key][category_key].append(entry)
 
         # Show preview
         print(f"\n📋 PREVIEW:")
         print(f"  • {stats['updated']} trains will be updated")
         print(f"  • {stats['new']} new trains will be added")
         print(f"  • {stats['preserved_drafts']} draft trains will be preserved")
+        print(f"  • Grouped into {len(nested_trains)} themes")
         if stats["file_to_path_migrations"] > 0:
             print(f"  ⚠️  {stats['file_to_path_migrations']} file→path migrations (deprecation)")
         if stats["errors"] > 0:
             print(f"  ⚠️  {stats['errors']} errors encountered")
 
         # Use helper for confirm/apply
-        output = {"trains": trains}
+        output = {"trains": nested_trains}
         return self._confirm_and_apply(mode, "trains", registry_path, output, stats)
 
     def build_tester(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
