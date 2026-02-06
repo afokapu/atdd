@@ -196,6 +196,35 @@ format:
     format: "markdown"
     sections: "## headings"
 
+# Frontmatter schema (single source of truth)
+frontmatter_schema:
+  file: "atdd/coach/schemas/session.schema.json"
+  required_keys:
+    - session
+    - title
+    - date
+    - status
+    - branch
+    - type
+    - complexity
+    - archetypes
+    - scope
+    - workflow_phases
+    - progress
+    - artifacts
+  enums:
+    status: ["INIT", "PLANNED", "ACTIVE", "BLOCKED", "COMPLETE", "OBSOLETE"]
+    type: ["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"]
+    complexity: [1, 2, 3, 4, 5]
+    workflow_status: ["TODO", "IN_PROGRESS", "DONE", "SKIPPED", "N/A"]
+  scope_arrays:
+    - scope.in
+    - scope.out
+    - scope.dependencies
+  notes:
+    - "workflow_phases required for all sessions (including refactor/cleanup/tracking)"
+    - "scope.in/out/dependencies must be arrays"
+
 # Session file location and naming
 # Note: atdd-sessions/ is created in the consuming repo via `atdd init`
 filesystem:

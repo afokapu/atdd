@@ -238,6 +238,20 @@ Validation (`atdd validate coach` or `atdd validate`) requires:
 - Version file exists and contains a version
 - Git tag on HEAD matches `{tag_prefix}{version}`
 
+### URN Graph UI
+
+Visualize URN traceability as an interactive graph with search, family filters, and node inspection.
+
+```bash
+pip install atdd[viz]
+atdd urn viz                           # Launch on default port 8502
+atdd urn viz --port 9000               # Custom port
+atdd urn viz --root wagon:my-wagon     # Subgraph from root
+atdd urn viz --family wagon --family feature  # Filter families
+```
+
+Default port is **8502** to avoid conflicts with consumer repo Streamlit apps on 8501.
+
 ### Other Commands
 
 ```bash

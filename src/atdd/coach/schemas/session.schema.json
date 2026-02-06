@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://atdd.dev/schemas/coach/session.schema.json",
+  "title": "Session Frontmatter Schema",
+  "description": "Schema for YAML frontmatter in atdd session files",
+  "type": "object",
+  "required": [
+    "session",
+    "title",
+    "date",
+    "status",
+    "branch",
+    "type",
+    "complexity",
+    "archetypes",
+    "scope",
+    "workflow_phases",
+    "progress",
+    "artifacts"
+  ],
+  "properties": {
+    "session": {
+      "type": "string",
+      "pattern": "^\\d{2}$",
+      "description": "Two-digit session identifier"
+    },
+    "title": {
+      "type": "string",
+      "description": "Session title"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Session date (YYYY-MM-DD)"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["INIT", "PLANNED", "ACTIVE", "BLOCKED", "COMPLETE", "OBSOLETE"],
+      "description": "Session status"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Git branch name"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
+      "description": "Session type"
+    },
+    "complexity": {
+      "description": "Complexity rating (1-5)",
+      "oneOf": [
+        {
+          "type": "integer",
+          "enum": [1, 2, 3, 4, 5]
+        },
+        {
+          "type": "string",
+          "enum": ["1", "2", "3", "4", "5"]
+        }
+      ]
+    },
+    "archetypes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["db", "be", "fe", "contracts", "wmbt", "wagon", "train", "telemetry", "migrations"]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Affected archetypes"
+    },
+    "scope": {
+      "type": "object",
+      "required": ["in", "out", "dependencies"],
+      "properties": {
+        "in": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "out": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": true,
+      "description": "Scope boundaries"
+    },
+    "workflow_phases": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["TODO", "IN_PROGRESS", "DONE", "SKIPPED", "N/A"]
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false,
+      "description": "Workflow phase tracking (Planner → Tester → Coder)"
+    },
+    "progress": {
+      "type": "object",
+      "description": "Progress tracking"
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["created", "modified", "deleted"],
+      "properties": {
+        "created": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "modified": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "deleted": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": true,
+      "description": "Artifacts created or modified"
+    }
+  },
+  "additionalProperties": true
+}

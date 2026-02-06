@@ -446,7 +446,7 @@ Phase descriptions:
         help="Output as JSON for programmatic use"
     )
 
-    # ----- atdd urn {graph,orphans,broken,validate,resolve,declarations} -----
+    # ----- atdd urn {graph,orphans,broken,validate,resolve,declarations,viz} -----
     urn_parser = subparsers.add_parser(
         "urn",
         help="URN traceability analysis",
@@ -615,6 +615,42 @@ Phase descriptions:
         help="List registered URN families"
     )
 
+    # atdd urn viz
+    urn_viz_parser = urn_subparsers.add_parser(
+        "viz",
+        help="Launch interactive URN graph visualizer (requires atdd[viz])"
+    )
+    urn_viz_parser.add_argument(
+        "--port",
+        type=int,
+        default=8502,
+        help="Streamlit server port (default: 8502)"
+    )
+    urn_viz_parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Streamlit server address (default: 127.0.0.1)"
+    )
+    urn_viz_parser.add_argument(
+        "--root",
+        type=str,
+        help="Root URN for subgraph extraction"
+    )
+    urn_viz_parser.add_argument(
+        "--family",
+        type=str,
+        action="append",
+        dest="families",
+        help="Filter by URN families (can be repeated)"
+    )
+    urn_viz_parser.add_argument(
+        "--depth",
+        type=int,
+        default=-1,
+        help="Maximum depth for subgraph (-1 for unlimited)"
+    )
+
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
 
     # Repository root override (not deprecated - still useful)
@@ -766,7 +802,7 @@ Phase descriptions:
         gate = ATDDGate()
         return gate.verify(json=args.json)
 
-    # atdd urn {graph,orphans,broken,validate,resolve,declarations,families}
+    # atdd urn {graph,orphans,broken,validate,resolve,declarations,families,viz}
     elif args.command == "urn":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
         cmd = URNCommand(repo_root=repo_path)
@@ -809,6 +845,14 @@ Phase descriptions:
             )
         elif args.urn_command == "families":
             return cmd.list_families()
+        elif args.urn_command == "viz":
+            return cmd.viz(
+                port=args.port,
+                host=args.host,
+                root=args.root,
+                families=args.families,
+                max_depth=args.depth,
+            )
         else:
             urn_parser.print_help()
             return 0

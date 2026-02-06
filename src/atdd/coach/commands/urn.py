@@ -20,6 +20,8 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -85,6 +87,71 @@ class URNCommand:
         except Exception as e:
             print(f"Error generating graph: {e}", file=sys.stderr)
             return 1
+
+    def viz(
+        self,
+        port: int = 8502,
+        host: str = "127.0.0.1",
+        root: Optional[str] = None,
+        families: Optional[List[str]] = None,
+        max_depth: int = -1,
+    ) -> int:
+        """
+        Launch Streamlit URN graph visualizer.
+
+        Args:
+            port: Server port (default: 8502)
+            host: Server address (default: 127.0.0.1)
+            root: Optional root URN for subgraph
+            families: Optional list of families to include
+            max_depth: Maximum depth for subgraph (-1 for unlimited)
+
+        Returns:
+            Exit code (0 for success)
+        """
+        try:
+            import streamlit  # noqa: F401
+        except ImportError:
+            print(
+                "Error: Streamlit is not installed.\n"
+                "Install the viz extra: pip install atdd[viz]",
+                file=sys.stderr,
+            )
+            return 1
+
+        try:
+            import st_link_analysis  # noqa: F401
+        except ImportError:
+            print(
+                "Error: st-link-analysis is not installed.\n"
+                "Install the viz extra: pip install atdd[viz]",
+                file=sys.stderr,
+            )
+            return 1
+
+        app_path = Path(__file__).parent / "viz_app.py"
+
+        env = os.environ.copy()
+        env["ATDD_VIZ_REPO"] = str(self.repo_root)
+        if root:
+            env["ATDD_VIZ_ROOT"] = root
+        env["ATDD_VIZ_DEPTH"] = str(max_depth)
+        if families:
+            env["ATDD_VIZ_FAMILIES"] = ",".join(families)
+
+        cmd = [
+            sys.executable, "-m", "streamlit", "run",
+            str(app_path),
+            "--server.port", str(port),
+            "--server.address", host,
+            "--server.headless", "true",
+        ]
+
+        print(f"Launching URN graph visualizer on http://{host}:{port}")
+        try:
+            return subprocess.call(cmd, env=env)
+        except KeyboardInterrupt:
+            return 0
 
     def orphans(
         self,
