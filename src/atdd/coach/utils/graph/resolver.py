@@ -16,6 +16,7 @@ Architecture:
 """
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -120,6 +121,27 @@ class BaseResolver(ABC):
     def find_declarations(self) -> List[URNDeclaration]:
         """Find all URN declarations of this family."""
         pass
+
+    # Directories pruned before recursion in os.walk
+    _SKIP_DIRS = {
+        ".git", "__pycache__", "node_modules", ".dart_tool",
+        "build", ".pub-cache", "dist", ".next", ".nuxt", "coverage",
+        ".venv", "venv", "env", ".tox", ".mypy_cache", ".pytest_cache",
+    }
+
+    def _walk_files(self, root: Path, extensions: set[str]):
+        """
+        Walk directory tree yielding files matching extensions.
+
+        Prunes vendored/build directories *before* recursing so os.walk
+        never enters node_modules, .dart_tool, etc.
+        """
+        for dirpath, dirnames, filenames in os.walk(root):
+            # Prune in-place so os.walk skips these subtrees entirely
+            dirnames[:] = [d for d in dirnames if d not in self._SKIP_DIRS]
+            for fname in filenames:
+                if any(fname.endswith(ext) for ext in extensions):
+                    yield Path(dirpath) / fname
 
     def _validate_urn_format(self, urn: str) -> Optional[str]:
         """Validate URN format against PATTERNS. Returns error message or None."""
@@ -815,13 +837,6 @@ class ComponentResolver(BaseResolver):
 
         return paths
 
-    # Directories to skip during source file scanning
-    _SKIP_DIRS = {
-        ".git", "__pycache__", "node_modules", ".dart_tool",
-        "build", ".pub-cache", "dist", ".next", ".nuxt", "coverage",
-        ".venv", "venv", "env", ".tox", ".mypy_cache", ".pytest_cache",
-    }
-
     def find_declarations(self) -> List[URNDeclaration]:
         """Find all component URN declarations in code files."""
         declarations = []
@@ -830,31 +845,27 @@ class ComponentResolver(BaseResolver):
         # Filter out regex patterns that are not actual URNs
         regex_metacharacters = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
 
-        for ext in ["**/*.py", "**/*.dart", "**/*.ts", "**/*.tsx"]:
-            for code_file in self.repo_root.glob(ext):
-                if self._SKIP_DIRS.intersection(code_file.parts):
-                    continue
-
-                try:
-                    content = code_file.read_text(encoding="utf-8")
-                    for line_num, line in enumerate(content.split("\n"), 1):
-                        match = urn_pattern.search(line)
-                        if match:
-                            urn_candidate = match.group(1)
-                            # Skip regex patterns that are not actual URNs
-                            if regex_metacharacters.search(urn_candidate):
-                                continue
-                            declarations.append(
-                                URNDeclaration(
-                                    urn=urn_candidate,
-                                    family=self.family,
-                                    source_path=code_file,
-                                    line_number=line_num,
-                                    context="code comment",
-                                )
+        for code_file in self._walk_files(self.repo_root, {".py", ".dart", ".ts", ".tsx"}):
+            try:
+                content = code_file.read_text(encoding="utf-8")
+                for line_num, line in enumerate(content.split("\n"), 1):
+                    match = urn_pattern.search(line)
+                    if match:
+                        urn_candidate = match.group(1)
+                        # Skip regex patterns that are not actual URNs
+                        if regex_metacharacters.search(urn_candidate):
+                            continue
+                        declarations.append(
+                            URNDeclaration(
+                                urn=urn_candidate,
+                                family=self.family,
+                                source_path=code_file,
+                                line_number=line_num,
+                                context="code comment",
                             )
-                except Exception:
-                    continue
+                        )
+            except Exception:
+                continue
 
         return declarations
 
@@ -1119,20 +1130,22 @@ class TestResolver(BaseResolver):
 
         return declarations
 
-    # Directories to skip during test file scanning
-    _SKIP_DIRS = {
-        ".git", "__pycache__", "node_modules", ".dart_tool",
-        "build", ".pub-cache", "dist", ".next", ".nuxt", "coverage",
-        ".venv", "venv", "env", ".tox", ".mypy_cache", ".pytest_cache",
-    }
+    # Test file name patterns (checked against filename, not glob)
+    _TEST_PATTERNS = [
+        re.compile(r"^test_.*\.py$"),
+        re.compile(r"^.*_test\.py$"),
+        re.compile(r"^.*_test\.dart$"),
+        re.compile(r"^.*\.test\.tsx?$"),
+        re.compile(r"^.*\.spec\.ts$"),
+    ]
 
     def _iter_test_files(self):
-        """Yield test files matching known patterns, skipping vendored dirs."""
-        for glob_pattern in self.TEST_GLOBS:
-            for test_file in self.repo_root.glob(glob_pattern):
-                if self._SKIP_DIRS.intersection(test_file.parts):
-                    continue
-                yield test_file
+        """Yield test files matching known patterns, pruning vendored dirs."""
+        for fpath in self._walk_files(
+            self.repo_root, {".py", ".dart", ".ts", ".tsx"}
+        ):
+            if any(p.match(fpath.name) for p in self._TEST_PATTERNS):
+                yield fpath
 
     @staticmethod
     def _urn_from_path(test_file: Path) -> Optional[str]:
