@@ -265,7 +265,7 @@ def test_train_wagon_references_valid(resolver_registry, graph_builder):
             continue
 
         outgoing = graph.get_outgoing_edges(urn)
-        wagon_edges = [e for e in outgoing if e.edge_type == EdgeType.PARENT_OF]
+        wagon_edges = [e for e in outgoing if e.edge_type == EdgeType.INCLUDES]
 
         for edge in wagon_edges:
             wagon_urn = edge.target_urn

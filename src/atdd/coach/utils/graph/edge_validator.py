@@ -329,7 +329,7 @@ class EdgeValidator:
         - wmbt -> acceptance (contains)
         - wagon -> contract (produces/consumes)
         - wagon -> telemetry (produces/consumes)
-        - train -> wagon (parent_of)
+        - train -> wagon (includes)
 
         Args:
             families: Families to check. If None, checks all.
@@ -432,7 +432,7 @@ class EdgeValidator:
                 outgoing = graph.get_outgoing_edges(urn)
                 wagon_edges = [
                     e for e in outgoing
-                    if e.edge_type == EdgeType.PARENT_OF
+                    if e.edge_type == EdgeType.INCLUDES
                 ]
                 if not wagon_edges:
                     issues.append(

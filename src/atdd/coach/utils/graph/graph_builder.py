@@ -35,7 +35,7 @@ class EdgeType(Enum):
     CONSUMES = "consumes"  # Consumer relationship (wagon consumes contract)
     IMPLEMENTS = "implements"  # Implementation relationship (component implements feature)
     REFERENCES = "references"  # General reference relationship
-    PARENT_OF = "parent_of"  # Train contains wagons
+    INCLUDES = "includes"  # Train includes wagons (many-to-many)
     TESTED_BY = "tested_by"  # Verification relationship (acc/component tested by test)
 
 
@@ -334,6 +334,9 @@ class TraceabilityGraph:
             "telemetry": "#E0F7FA",  # Light cyan
             "train": "#FFEBEE",  # Light red
             "component": "#FFF8E1",  # Light amber
+            "table": "#ECEFF1",  # Light blue-grey
+            "migration": "#EFEBE9",  # Light brown
+            "test": "#FCE4EC",  # Light pink
         }
 
         # Add nodes
@@ -354,7 +357,7 @@ class TraceabilityGraph:
             EdgeType.CONSUMES: 'style=dashed, color="#FF9800"',
             EdgeType.IMPLEMENTS: 'style=dotted, color="#9C27B0"',
             EdgeType.REFERENCES: 'style=dotted, color="#607D8B"',
-            EdgeType.PARENT_OF: 'style=bold, color="#F44336"',
+            EdgeType.INCLUDES: 'style=bold, color="#F44336"',
             EdgeType.TESTED_BY: 'style=dashed, color="#E91E63"',
         }
 
@@ -657,7 +660,7 @@ class GraphBuilder:
                             URNEdge(
                                 source_urn=train_urn,
                                 target_urn=wagon_urn,
-                                edge_type=EdgeType.PARENT_OF,
+                                edge_type=EdgeType.INCLUDES,
                             )
                         )
                     elif isinstance(wagon_ref, dict):
@@ -672,7 +675,7 @@ class GraphBuilder:
                                 URNEdge(
                                     source_urn=train_urn,
                                     target_urn=wagon_urn,
-                                    edge_type=EdgeType.PARENT_OF,
+                                    edge_type=EdgeType.INCLUDES,
                                 )
                             )
 

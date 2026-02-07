@@ -45,14 +45,14 @@ FAMILY_COLORS = {
 }
 
 FAMILY_ICONS = {
-    "wagon": "inventory_2",
+    "wagon": "tram",
     "feature": "star",
     "wmbt": "checklist",
     "acc": "verified",
     "contract": "description",
     "telemetry": "sensors",
     "train": "train",
-    "component": "widgets",
+    "component": "code",
     "table": "table_chart",
     "migration": "swap_horiz",
     "test": "science",
@@ -60,7 +60,7 @@ FAMILY_ICONS = {
 
 EDGE_STYLES_MAP = {
     "contains": "solid",
-    "parent_of": "solid",
+    "includes": "solid",
     "produces": "dashed",
     "consumes": "dashed",
     "implements": "dotted",
