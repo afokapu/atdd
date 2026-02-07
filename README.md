@@ -25,6 +25,23 @@ pip install atdd
 pip install --upgrade atdd
 ```
 
+### Uninstall (Consumer Repos)
+
+If you want to remove ATDD entirely:
+
+1. Uninstall the package:
+   ```bash
+   python -m pip uninstall atdd
+   ```
+2. Manually delete ATDD artifacts in the repo:
+   ```text
+   atdd-sessions/
+   .atdd/
+   Managed blocks in CLAUDE.md, AGENTS.md, etc.
+   ```
+
+Uninstalling ATDD does not remove or revert any repo files.
+
 ### For Development
 
 ```bash
