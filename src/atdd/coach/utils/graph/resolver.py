@@ -815,6 +815,13 @@ class ComponentResolver(BaseResolver):
 
         return paths
 
+    # Directories to skip during source file scanning
+    _SKIP_DIRS = {
+        ".git", "__pycache__", "node_modules", ".dart_tool",
+        "build", ".pub-cache", "dist", ".next", ".nuxt", "coverage",
+        ".venv", "venv", "env", ".tox", ".mypy_cache", ".pytest_cache",
+    }
+
     def find_declarations(self) -> List[URNDeclaration]:
         """Find all component URN declarations in code files."""
         declarations = []
@@ -825,7 +832,7 @@ class ComponentResolver(BaseResolver):
 
         for ext in ["**/*.py", "**/*.dart", "**/*.ts", "**/*.tsx"]:
             for code_file in self.repo_root.glob(ext):
-                if ".git" in str(code_file) or "__pycache__" in str(code_file):
+                if self._SKIP_DIRS.intersection(code_file.parts):
                     continue
 
                 try:
@@ -1112,11 +1119,18 @@ class TestResolver(BaseResolver):
 
         return declarations
 
+    # Directories to skip during test file scanning
+    _SKIP_DIRS = {
+        ".git", "__pycache__", "node_modules", ".dart_tool",
+        "build", ".pub-cache", "dist", ".next", ".nuxt", "coverage",
+        ".venv", "venv", "env", ".tox", ".mypy_cache", ".pytest_cache",
+    }
+
     def _iter_test_files(self):
-        """Yield test files matching known patterns."""
+        """Yield test files matching known patterns, skipping vendored dirs."""
         for glob_pattern in self.TEST_GLOBS:
             for test_file in self.repo_root.glob(glob_pattern):
-                if ".git" in str(test_file) or "__pycache__" in str(test_file):
+                if self._SKIP_DIRS.intersection(test_file.parts):
                     continue
                 yield test_file
 
