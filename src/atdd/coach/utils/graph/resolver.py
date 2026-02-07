@@ -995,6 +995,160 @@ class MigrationResolver(BaseResolver):
         return declarations
 
 
+class TestResolver(BaseResolver):
+    """
+    Resolver for test: URNs.
+
+    Scans test files for URN comments (# URN: test:... or // URN: test:...)
+    and auto-generates test: URNs from file paths when only acc: references exist.
+
+    Resolution: test:{slug} -> test file path
+    """
+
+    # Test file glob patterns by language
+    TEST_GLOBS = [
+        "**/test_*.py",
+        "**/*_test.py",
+        "**/*_test.dart",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+    ]
+
+    # Comment-style URN pattern (# URN: ... or // URN: ...)
+    _URN_COMMENT_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
+    _REGEX_META_RE = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
+
+    @property
+    def family(self) -> str:
+        return "test"
+
+    def resolve(self, urn: str) -> URNResolution:
+        if not self.can_resolve(urn):
+            return URNResolution(urn=urn, family=self.family, error="Not a test URN")
+
+        error = self._validate_urn_format(urn)
+        if error:
+            return URNResolution(urn=urn, family=self.family, error=error)
+
+        # Search test files for this URN declaration
+        paths = []
+        for test_file in self._iter_test_files():
+            try:
+                content = test_file.read_text(encoding="utf-8")
+                for line in content.split("\n"):
+                    match = self._URN_COMMENT_RE.search(line)
+                    if match and match.group(1) == urn:
+                        paths.append(test_file)
+                        break
+            except Exception:
+                continue
+
+        # Also check auto-generated URN from path
+        if not paths:
+            for test_file in self._iter_test_files():
+                auto_urn = self._urn_from_path(test_file)
+                if auto_urn == urn:
+                    paths.append(test_file)
+
+        return URNResolution(
+            urn=urn,
+            family=self.family,
+            resolved_paths=paths,
+            is_deterministic=len(paths) == 1,
+            error=None if paths else f"Test file not found for: {urn}",
+        )
+
+    def find_declarations(self) -> List[URNDeclaration]:
+        """Find all test URN declarations in test files."""
+        declarations = []
+        seen_urns: Dict[str, URNDeclaration] = {}
+
+        for test_file in self._iter_test_files():
+            try:
+                content = test_file.read_text(encoding="utf-8")
+            except Exception:
+                continue
+
+            has_test_urn = False
+            has_acc_ref = False
+            lines = content.split("\n")
+
+            for line_num, line in enumerate(lines, 1):
+                match = self._URN_COMMENT_RE.search(line)
+                if not match:
+                    continue
+                urn_candidate = match.group(1)
+                if self._REGEX_META_RE.search(urn_candidate):
+                    continue
+
+                if urn_candidate.startswith("test:"):
+                    has_test_urn = True
+                    if urn_candidate not in seen_urns:
+                        decl = URNDeclaration(
+                            urn=urn_candidate,
+                            family=self.family,
+                            source_path=test_file,
+                            line_number=line_num,
+                            context="test file",
+                        )
+                        seen_urns[urn_candidate] = decl
+                        declarations.append(decl)
+                elif urn_candidate.startswith("acc:"):
+                    has_acc_ref = True
+
+            # Auto-generate test: URN if file has acc: refs but no explicit test: URN
+            if has_acc_ref and not has_test_urn:
+                auto_urn = self._urn_from_path(test_file)
+                if auto_urn and auto_urn not in seen_urns:
+                    decl = URNDeclaration(
+                        urn=auto_urn,
+                        family=self.family,
+                        source_path=test_file,
+                        context="auto-generated from path",
+                    )
+                    seen_urns[auto_urn] = decl
+                    declarations.append(decl)
+
+        return declarations
+
+    def _iter_test_files(self):
+        """Yield test files matching known patterns."""
+        for glob_pattern in self.TEST_GLOBS:
+            for test_file in self.repo_root.glob(glob_pattern):
+                if ".git" in str(test_file) or "__pycache__" in str(test_file):
+                    continue
+                yield test_file
+
+    @staticmethod
+    def _urn_from_path(test_file: Path) -> Optional[str]:
+        """
+        Auto-generate a test: URN from a test file path.
+
+        Strip test_ prefix, _test/.test/.spec suffix, replace _ with -.
+        """
+        stem = test_file.stem  # e.g. test_user_auth, login_test, auth.test
+
+        # Handle double extensions: auth.test.ts -> stem = "auth.test"
+        if stem.endswith(".test") or stem.endswith(".spec"):
+            stem = stem.rsplit(".", 1)[0]
+
+        # Strip test_ prefix
+        if stem.startswith("test_"):
+            stem = stem[5:]
+        # Strip _test suffix
+        if stem.endswith("_test"):
+            stem = stem[:-5]
+
+        # Normalize: underscores to hyphens, lowercase
+        slug = stem.lower().replace("_", "-")
+        slug = re.sub(r"-+", "-", slug).strip("-")
+
+        if not slug:
+            return None
+        return f"test:{slug}"
+
+
 class ResolverRegistry:
     """
     Registry coordinating all URN resolvers.
@@ -1020,6 +1174,7 @@ class ResolverRegistry:
             ComponentResolver(self.repo_root),
             TableResolver(self.repo_root),
             MigrationResolver(self.repo_root),
+            TestResolver(self.repo_root),
         ]
         for resolver in resolvers:
             self._resolvers[resolver.family] = resolver

@@ -41,6 +41,7 @@ FAMILY_COLORS = {
     "component": "#D4AC0D",
     "table": "#7F8C8D",
     "migration": "#A0522D",
+    "test": "#E91E63",
 }
 
 FAMILY_ICONS = {
@@ -54,6 +55,7 @@ FAMILY_ICONS = {
     "component": "widgets",
     "table": "table_chart",
     "migration": "swap_horiz",
+    "test": "science",
 }
 
 EDGE_STYLES_MAP = {
@@ -63,6 +65,7 @@ EDGE_STYLES_MAP = {
     "consumes": "dashed",
     "implements": "dotted",
     "references": "dotted",
+    "tested_by": "dashed",
 }
 
 FALLBACK_COLOR = "#95A5A6"

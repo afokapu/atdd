@@ -36,6 +36,7 @@ class EdgeType(Enum):
     IMPLEMENTS = "implements"  # Implementation relationship (component implements feature)
     REFERENCES = "references"  # General reference relationship
     PARENT_OF = "parent_of"  # Train contains wagons
+    TESTED_BY = "tested_by"  # Verification relationship (acc/component tested by test)
 
 
 @dataclass
@@ -354,6 +355,7 @@ class TraceabilityGraph:
             EdgeType.IMPLEMENTS: 'style=dotted, color="#9C27B0"',
             EdgeType.REFERENCES: 'style=dotted, color="#607D8B"',
             EdgeType.PARENT_OF: 'style=bold, color="#F44336"',
+            EdgeType.TESTED_BY: 'style=dashed, color="#E91E63"',
         }
 
         # Add edges
@@ -416,6 +418,8 @@ class GraphBuilder:
         self._build_containment_edges(graph)
         self._build_produce_consume_edges(graph)
         self._build_train_edges(graph)
+        self._build_component_edges(graph)
+        self._build_test_edges(graph)
 
         return graph
 
@@ -674,6 +678,79 @@ class GraphBuilder:
 
             except Exception:
                 continue
+
+    def _build_component_edges(self, graph: TraceabilityGraph) -> None:
+        """Build feature -> component (CONTAINS) edges from component URN structure."""
+        for node in list(graph.nodes.values()):
+            if node.family != "component":
+                continue
+
+            # component:{wagon}:{feature}:{name}:{side}:{layer}
+            parts = node.urn.replace("component:", "").split(":")
+            if len(parts) >= 2:
+                wagon_id, feature_id = parts[0], parts[1]
+                feature_urn = f"feature:{wagon_id}:{feature_id}"
+                if feature_urn in graph.nodes:
+                    graph.add_edge(
+                        URNEdge(
+                            source_urn=feature_urn,
+                            target_urn=node.urn,
+                            edge_type=EdgeType.CONTAINS,
+                        )
+                    )
+
+    def _build_test_edges(self, graph: TraceabilityGraph) -> None:
+        """Build acc -> test (TESTED_BY) and component -> test (TESTED_BY) edges."""
+        import re
+
+        urn_comment_re = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
+        regex_meta_re = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
+
+        for node in list(graph.nodes.values()):
+            if node.family != "test":
+                continue
+
+            # Find the test file from artifact_path or source_path metadata
+            test_path = node.artifact_path
+            if not test_path:
+                source_path = node.metadata.get("source_path")
+                if source_path:
+                    test_path = Path(source_path)
+
+            if not test_path or not Path(test_path).exists():
+                continue
+
+            try:
+                content = Path(test_path).read_text(encoding="utf-8")
+            except Exception:
+                continue
+
+            for line in content.split("\n"):
+                match = urn_comment_re.search(line)
+                if not match:
+                    continue
+                ref_urn = match.group(1)
+                if regex_meta_re.search(ref_urn):
+                    continue
+
+                # acc -> test (TESTED_BY): acceptance criterion is tested by this test
+                if ref_urn.startswith("acc:") and ref_urn in graph.nodes:
+                    graph.add_edge(
+                        URNEdge(
+                            source_urn=ref_urn,
+                            target_urn=node.urn,
+                            edge_type=EdgeType.TESTED_BY,
+                        )
+                    )
+                # component -> test (TESTED_BY): component is tested by this test
+                elif ref_urn.startswith("component:") and ref_urn in graph.nodes:
+                    graph.add_edge(
+                        URNEdge(
+                            source_urn=ref_urn,
+                            target_urn=node.urn,
+                            edge_type=EdgeType.TESTED_BY,
+                        )
+                    )
 
     def build_from_root(
         self, root_urn: str, max_depth: int = -1, families: Optional[List[str]] = None
