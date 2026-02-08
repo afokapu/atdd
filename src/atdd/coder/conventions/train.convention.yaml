@@ -49,6 +49,7 @@ composition_hierarchy:
 
     train:
       file: "python/trains/runner.py"
+      alternative: "python/trains/runner/runner.py (V3 feature-based layout)"
       role: "Engine - THE orchestration layer"
       responsibility: "Load YAML, orchestrate wagons, pass artifacts"
       location: "python/trains/"
@@ -79,6 +80,7 @@ train_structure:
   files:
     runner_py:
       file: "python/trains/runner.py"
+      alternative: "python/trains/runner/runner.py (V3 feature-based layout)"
       class: "TrainRunner"
       composition_root: true
       responsibilities:
@@ -96,6 +98,7 @@ train_structure:
 
     models_py:
       file: "python/trains/models.py"
+      alternative: "python/trains/models/models.py (V3 feature-based layout)"
       models:
         - "TrainSpec: Parsed train definition"
         - "TrainStep: Single step in sequence"
@@ -257,7 +260,7 @@ boundary_enforcement:
 
   composition_root_exception:
     rule: "Composition roots may manipulate sys.path"
-    files: ["python/trains/runner.py", "python/{wagon}/wagon.py"]
+    files: ["python/trains/runner.py", "python/trains/runner/runner.py", "python/{wagon}/wagon.py"]
     rationale: "Entrypoints (executed, never imported)"
 
 # ============================================================================

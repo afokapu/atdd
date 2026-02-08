@@ -28,7 +28,7 @@ import ast
 import re
 import yaml
 from pathlib import Path
-from typing import List, Dict, Set, Tuple, Any
+from typing import List, Dict, Optional, Set, Tuple, Any
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
@@ -115,6 +115,24 @@ def resolve_server_file() -> Path:
     return APP_PY
 
 
+def _find_train_file(feature_subdir: str, filename: str) -> Optional[Path]:
+    """Find a train file using resolver-style search order.
+
+    Mirrors ComponentResolver._find_train_infra_files:
+    1. python/trains/{feature_subdir}/ (V3 feature-based)
+    2. python/trains/ (flat fallback)
+    """
+    feature_dir = TRAINS_DIR / feature_subdir.replace("-", "_")
+    if feature_dir.is_dir():
+        candidate = feature_dir / filename
+        if candidate.exists():
+            return candidate
+    flat = TRAINS_DIR / filename
+    if flat.exists():
+        return flat
+    return None
+
+
 # ============================================================================
 # TRAIN INFRASTRUCTURE TESTS
 # ============================================================================
@@ -136,42 +154,54 @@ def test_train_infrastructure_files_exist():
 
     Required files:
     - python/trains/__init__.py
-    - python/trains/runner.py (TrainRunner class)
-    - python/trains/models.py (TrainSpec, TrainResult, Cargo)
+    - python/trains/runner.py OR python/trains/runner/runner.py (TrainRunner class)
+    - python/trains/models.py OR python/trains/models/models.py (TrainSpec, TrainResult, Cargo)
     """
-    required_files = {
-        "__init__.py": "Package initialization",
-        "runner.py": "TrainRunner class",
-        "models.py": "Data models (TrainSpec, TrainResult, Cargo)"
-    }
+    # __init__.py stays at TRAINS_DIR root (package init)
+    init_file = TRAINS_DIR / "__init__.py"
 
     missing_files = []
-    for filename, description in required_files.items():
-        file_path = TRAINS_DIR / filename
-        if not file_path.exists():
-            missing_files.append((filename, description))
+    if not init_file.exists():
+        missing_files.append(("__init__.py", "Package initialization"))
+
+    runner = _find_train_file("runner", "runner.py")
+    if runner is None:
+        missing_files.append((
+            "runner.py",
+            "TrainRunner class (searched: python/trains/runner/runner.py, python/trains/runner.py)"
+        ))
+
+    models = _find_train_file("models", "models.py")
+    if models is None:
+        missing_files.append((
+            "models.py",
+            "Data models (searched: python/trains/models/models.py, python/trains/models.py)"
+        ))
 
     if missing_files:
         pytest.fail(
             f"\nMissing {len(missing_files)} train infrastructure files:\n\n" +
-            "\n".join(f"  python/trains/{name}\n    Purpose: {desc}"
+            "\n".join(f"  {name}\n    Purpose: {desc}"
                      for name, desc in missing_files) +
             "\n\nSee: atdd/coder/conventions/train.convention.yaml::train_structure"
         )
 
 
 def test_train_runner_class_exists():
-    """TrainRunner class must exist in python/trains/runner.py."""
-    runner_file = TRAINS_DIR / "runner.py"
+    """TrainRunner class must exist in python/trains/runner.py or python/trains/runner/runner.py."""
+    runner_file = _find_train_file("runner", "runner.py")
 
-    assert runner_file.exists(), f"runner.py not found: {runner_file}"
+    assert runner_file is not None, (
+        "runner.py not found.\n"
+        "Searched: python/trains/runner/runner.py, python/trains/runner.py"
+    )
 
     with open(runner_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
     # Check for TrainRunner class
     assert "class TrainRunner" in content, (
-        "TrainRunner class not found in python/trains/runner.py\n"
+        f"TrainRunner class not found in {runner_file.relative_to(REPO_ROOT)}\n"
         "Expected: class TrainRunner with execute() method"
     )
 
@@ -187,10 +217,13 @@ def test_train_runner_class_exists():
 
 
 def test_train_models_exist():
-    """Train data models must exist in python/trains/models.py."""
-    models_file = TRAINS_DIR / "models.py"
+    """Train data models must exist in python/trains/models.py or python/trains/models/models.py."""
+    models_file = _find_train_file("models", "models.py")
 
-    assert models_file.exists(), f"models.py not found: {models_file}"
+    assert models_file is not None, (
+        "models.py not found.\n"
+        "Searched: python/trains/models/models.py, python/trains/models.py"
+    )
 
     with open(models_file, 'r', encoding='utf-8') as f:
         content = f.read()
@@ -202,7 +235,7 @@ def test_train_models_exist():
     if missing_models:
         pytest.fail(
             f"\nMissing train models: {', '.join(missing_models)}\n"
-            "Expected in python/trains/models.py:\n"
+            f"Expected in {models_file.relative_to(REPO_ROOT)}:\n"
             "  - TrainSpec: Parsed train definition\n"
             "  - TrainStep: Single step in sequence\n"
             "  - TrainResult: Execution result\n"
@@ -513,7 +546,9 @@ def test_backend_runner_paths():
 
     Given: Train infrastructure
     When: Checking runner file locations
-    Then: Runners exist at python/trains/runner.py or python/trains/<train_id>/runner.py
+    Then: Runners exist at python/trains/runner/runner.py (V3 feature-based)
+          or python/trains/runner.py (flat fallback)
+          or python/trains/<train_id>/runner.py (train-specific)
 
     Section 9: Backend Runner Paths
     """
@@ -523,18 +558,18 @@ def test_backend_runner_paths():
         "python/trains/{train_id}/runner.py"
     ])
 
-    # Check for main runner
-    main_runner = TRAINS_DIR / "runner.py"
-    if not main_runner.exists():
+    # Check for main runner (feature-based or flat)
+    main_runner = _find_train_file("runner", "runner.py")
+    if main_runner is None:
         if should_enforce(TrainSpecPhase.BACKEND_ENFORCEMENT):
             pytest.fail(
-                f"Main TrainRunner not found at {main_runner}\n"
-                "Expected: python/trains/runner.py"
+                "Main TrainRunner not found.\n"
+                "Searched: python/trains/runner/runner.py, python/trains/runner.py"
             )
         else:
             emit_phase_warning(
                 "SPEC-TRAIN-VAL-0031",
-                f"Main TrainRunner not found at {main_runner}",
+                "Main TrainRunner not found at python/trains/runner.py or python/trains/runner/runner.py",
                 TrainSpecPhase.BACKEND_ENFORCEMENT
             )
         return

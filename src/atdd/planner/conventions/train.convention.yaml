@@ -5,7 +5,7 @@ description: "Convention for multi-wagon workflow orchestration with theme-based
 # Production implementation (SESSION-12)
 production_implementation:
   location: "python/trains/"
-  executor: "TrainRunner (python/trains/runner.py)"
+  executor: "TrainRunner (python/trains/runner.py or python/trains/runner/runner.py)"
   pattern: "Trains are production orchestration, not test infrastructure"
   convention: "atdd/coder/conventions/train.convention.yaml"
   note: "See coder train convention for implementation patterns"

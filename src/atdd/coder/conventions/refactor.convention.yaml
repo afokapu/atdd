@@ -36,7 +36,7 @@ refactor_phase:
     hierarchy:
       feature_level: "python/{wagon}/{feature}/composition.py"
       wagon_level: "python/{wagon}/wagon.py"
-      train_level: "python/trains/runner.py (NEW in SESSION-12)"
+      train_level: "python/trains/runner.py or python/trains/runner/runner.py (V3 feature-based)"
       application_level: "main.py or server.py (becomes Station Master)"
 
     refactoring_workflow:

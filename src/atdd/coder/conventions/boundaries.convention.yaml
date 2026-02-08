@@ -281,6 +281,7 @@ interaction:
 
     train_composition:
       file: "python/trains/runner.py"
+      alternative: "python/trains/runner/runner.py (V3 feature-based layout)"
       purpose: "Orchestrate wagons to execute user journeys (SESSION-12)"
       note: "Production orchestration layer - loads train YAML, calls wagon.run_train()"
 
