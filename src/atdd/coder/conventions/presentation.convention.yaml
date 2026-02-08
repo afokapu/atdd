@@ -80,13 +80,13 @@ http_rest_api:
     file_structure:
       controller: "python/{wagon}/{feature}/src/presentation/controllers/{feature}_controller.py"
       response_models: "Pydantic models in same controller file (GREEN) or separate models.py (REFACTOR)"
-      urn_marker: "# urn: component:{wagon}:{feature}.{Feature}Controller.backend.presentation"
+      urn_marker: "# URN: component:{wagon}:{feature}:{Feature}Controller:backend:presentation"
 
     pattern:
       description: "FastAPI app with Pydantic models aligned to contract schemas"
 
       minimal_example: |
-        # urn: component:burn-timebank:track-remaining.RemainingController.backend.presentation
+        # URN: component:burn-timebank:track-remaining:RemainingController:backend:presentation
         # Runtime: python
         # Purpose: HTTP REST endpoint for timebank remaining
 
@@ -366,13 +366,13 @@ http_rest_api:
     file_structure:
       handler: "supabase/functions/{wagon}/{feature}/index.ts"
       types: "supabase/functions/{wagon}/{feature}/types.ts (if needed)"
-      urn_marker: "// urn: component:{wagon}:{feature}.handler.backend.presentation"
+      urn_marker: "// URN: component:{wagon}:{feature}:handler:backend:presentation"
 
     pattern:
       description: "Thin edge function handler calling domain logic"
 
       minimal_example: |
-        // urn: component:authenticate-identity:validate-credentials.handler.backend.presentation
+        // URN: component:authenticate-identity:validate-credentials:handler:backend:presentation
         // Runtime: supabase
         // Purpose: HTTP endpoint for credential validation
 
@@ -516,7 +516,7 @@ validation:
 
   checks:
     fastapi_controller:
-      - "File has URN marker: # urn: component:{wagon}:{feature}.{Name}Controller.backend.presentation"
+      - "File has URN marker: # URN: component:{wagon}:{feature}:{Name}Controller:backend:presentation"
       - "Imports FastAPI and Pydantic"
       - "Defines Pydantic response model with Field(...) descriptors"
       - "Response model has artifact_name field"

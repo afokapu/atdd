@@ -263,9 +263,15 @@ def test_v3_journey_tests_have_train_header():
         if not header["test_urn"]:
             continue
 
-        if header["format"] == "journey" and not header["train"]:
+        if header["format"] == "journey":
             rel = test_file.relative_to(REPO_ROOT)
-            violations.append(f"{rel}: journey test URN but no Train: header")
+            if not header["train"]:
+                violations.append(f"{rel}: journey test URN but no Train: header")
+            elif not re.match(r"^train:\d{4}-[a-z0-9][a-z0-9-]*$", header["train"]):
+                violations.append(
+                    f"{rel}: Train: value '{header['train']}' is not a valid "
+                    f"train URN (expected train:NNNN-kebab-case)"
+                )
 
     if violations:
         pytest.fail(

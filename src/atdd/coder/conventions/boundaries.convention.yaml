@@ -252,7 +252,7 @@ interaction:
 
       pattern: |
         #!/usr/bin/env python3
-        # urn: component:{wagon}:{feature}.composition.backend.infrastructure
+        # URN: component:{wagon}:{feature}:composition:backend:assembly
 
         import sys
         from pathlib import Path
@@ -290,7 +290,7 @@ interaction:
 
       pattern: |
         #!/usr/bin/env python3
-        # urn: component:{wagon}.wagon.infrastructure
+        # URN: component:{wagon}:wagon:entrypoint:backend:assembly
 
         import sys
         from pathlib import Path
@@ -639,7 +639,7 @@ examples:
     path: "python/commit_state/sign_commit/composition.py"
     content: |
       #!/usr/bin/env python3
-      # urn: component:commit-state:sign-commit.composition.backend.infrastructure
+      # URN: component:commit-state:sign-commit:composition:backend:assembly
 
       """Composition root for sign-commit feature."""
 

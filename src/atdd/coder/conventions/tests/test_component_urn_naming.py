@@ -137,6 +137,13 @@ def test_green_convention_examples_updated():
         wagon = example.get("wagon", "")
         feature = example.get("feature", "")
 
+        # Skip note-only examples (composition, entrypoint, train infra)
+        if not wagon and not feature:
+            assert urn.startswith("component:"), f"URN should start with component: {urn}"
+            assert "." not in urn.split("component:")[1], \
+                f"URN should use colons not dots: {urn}"
+            continue
+
         # Should use new format: component:wagon:feature
         expected_prefix = f"component:{wagon}:{feature}"
         assert urn.startswith(expected_prefix), \

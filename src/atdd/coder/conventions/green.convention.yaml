@@ -14,7 +14,7 @@ green_phase:
     parts:
       wagon: "Parent wagon identifier (kebab-case). Use 'trains' for train infrastructure."
       feature: "Parent feature identifier (kebab-case). Use 'wagon' for wagon entrypoints."
-      name: "Component name (PascalCase, camelCase, or dot-separated e.g. decision.mapper)"
+      name: "Component name (PascalCase or camelCase; dots allowed for namespacing e.g. decision.mapper)"
       side: "Component deployment side (frontend|backend|fe|be)"
       layer: "Architectural layer (presentation|application|domain|integration|assembly)"
 
