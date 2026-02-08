@@ -333,6 +333,106 @@ def test_urn_patterns_valid(resolver_registry):
 
 
 @pytest.mark.platform
+def test_feature_chain_completeness(edge_validator):
+    """
+    Features have at least one component child for chain completeness.
+
+    URN:TRACE:010 - Feature→component chain completeness
+
+    Given: Feature URNs exist in the traceability graph
+    When: Validating downward containment edges
+    Then: Each feature has at least one component:{wagon}:{feature}:* child
+    And: No feature chain dead-ends without component implementation
+    """
+    issues = edge_validator.validate_edges()
+
+    feature_no_component = [
+        i for i in issues
+        if i.issue_type == IssueType.MISSING_EDGE
+        and i.urn.startswith("feature:")
+        and "no component children" in i.message
+    ]
+
+    if feature_no_component:
+        message = (
+            f"Found {len(feature_no_component)} feature(s) with no component children:\n"
+            + "\n".join(
+                f"  - {i.urn}: {i.message}"
+                for i in feature_no_component[:10]
+            )
+        )
+        if len(feature_no_component) > 10:
+            message += f"\n  ... and {len(feature_no_component) - 10} more"
+        pytest.skip(message)
+
+
+@pytest.mark.platform
+def test_no_orphaned_components(edge_validator):
+    """
+    Components are referenced by a parent feature or test.
+
+    URN:TRACE:011 - Component orphan detection
+
+    Given: Component URNs exist in the traceability graph
+    When: Checking for incoming edges (CONTAINS from feature, TESTED_BY, etc.)
+    Then: Each component has at least one incoming edge
+    And: No component floats without parent reference
+    """
+    orphans = edge_validator.find_orphans(["component"])
+
+    component_orphans = [
+        i for i in orphans
+        if i.urn.startswith("component:")
+    ]
+
+    if component_orphans:
+        message = (
+            f"Found {len(component_orphans)} orphaned component(s):\n"
+            + "\n".join(
+                f"  - {i.urn}"
+                for i in component_orphans[:10]
+            )
+        )
+        if len(component_orphans) > 10:
+            message += f"\n  ... and {len(component_orphans) - 10} more"
+        pytest.skip(message)
+
+
+@pytest.mark.platform
+def test_component_wagon_ancestry_valid(edge_validator):
+    """
+    Component wagon slugs reference existing wagon nodes.
+
+    URN:TRACE:012 - Component wagon ancestry validation
+
+    Given: Component URNs with wagon slug as first segment (component:{wagon}:{feature}:*)
+    When: Validating wagon ancestry
+    Then: Each component's wagon slug matches an existing wagon:{slug} node
+    And: No component references a non-existent wagon
+    """
+    issues = edge_validator.validate_edges()
+
+    ancestry_issues = [
+        i for i in issues
+        if i.issue_type == IssueType.MISSING_EDGE
+        and i.urn.startswith("component:")
+        and "no matching wagon" in i.message
+    ]
+
+    if ancestry_issues:
+        message = (
+            f"Found {len(ancestry_issues)} component(s) with invalid wagon ancestry:\n"
+            + "\n".join(
+                f"  - {i.urn}: {i.message}"
+                for i in ancestry_issues[:10]
+            )
+        )
+        if len(ancestry_issues) > 10:
+            message += f"\n  ... and {len(ancestry_issues) - 10} more"
+        pytest.skip(message)
+
+
+@pytest.mark.platform
 def test_full_traceability_validation(edge_validator):
     """
     Full traceability validation passes in warn phase.

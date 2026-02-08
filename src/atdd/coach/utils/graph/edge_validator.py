@@ -174,7 +174,7 @@ class EdgeValidator:
         self.graph_builder = GraphBuilder(self.repo_root)
 
         # Families that are expected to have incoming edges (not orphaned)
-        self._non_orphan_families = {"feature", "wmbt", "acc", "contract", "telemetry"}
+        self._non_orphan_families = {"feature", "wmbt", "acc", "contract", "telemetry", "component"}
 
         # Families that are root nodes (allowed to be orphaned)
         self._root_families = {"wagon", "train"}
@@ -330,6 +330,8 @@ class EdgeValidator:
         - wagon -> contract (produces/consumes)
         - wagon -> telemetry (produces/consumes)
         - train -> wagon (includes)
+        - feature -> component (contains) — chain completeness
+        - component wagon slug -> wagon (ancestry validation)
 
         Args:
             families: Families to check. If None, checks all.
@@ -354,6 +356,22 @@ class EdgeValidator:
                             message="Feature has no parent wagon",
                             location=node.artifact_path,
                             suggestion="Add feature reference to wagon manifest",
+                        )
+                    )
+
+                # Check feature has at least one component child
+                component_children = [
+                    c for c in graph.get_children(urn, EdgeType.CONTAINS)
+                    if c.family == "component"
+                ]
+                if not component_children:
+                    issues.append(
+                        ValidationIssue(
+                            issue_type=IssueType.MISSING_EDGE,
+                            severity=IssueSeverity.WARNING,
+                            urn=urn,
+                            message="Feature has no component children — chain dead-ends at feature level",
+                            suggestion="Add at least one component:{wagon}:{feature}:* URN declaration",
                         )
                     )
 
@@ -445,6 +463,24 @@ class EdgeValidator:
                             suggestion="Add wagons[] to train definition",
                         )
                     )
+
+            elif node.family == "component":
+                # Check component's wagon slug has a matching wagon node
+                parts = urn.replace("component:", "").split(":")
+                if len(parts) >= 2:
+                    wagon_slug = parts[0]
+                    expected_wagon = f"wagon:{wagon_slug}"
+                    if expected_wagon not in graph.nodes:
+                        issues.append(
+                            ValidationIssue(
+                                issue_type=IssueType.MISSING_EDGE,
+                                severity=IssueSeverity.WARNING,
+                                urn=urn,
+                                message=f"Component wagon slug '{wagon_slug}' has no matching wagon:{wagon_slug} in graph",
+                                location=node.artifact_path,
+                                suggestion=f"Ensure wagon:{wagon_slug} exists, or use a valid wagon slug",
+                            )
+                        )
 
         return issues
 
