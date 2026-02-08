@@ -8,6 +8,7 @@ Covers:
 - SPEC-V3-004: Journey tests must include Train: header
 - SPEC-V3-005: Reserved slug enforcement (wagon, train, trains)
 - SPEC-V3-006: Tested-By enforcement for production components
+- SPEC-V3-007: Train infrastructure components must use assembly layer
 """
 
 import re
@@ -107,11 +108,23 @@ def test_v3_one_test_urn_per_file():
 
         count = _count_test_urns(content)
         if count == 0:
-            # Skip legacy files without test: URN (migration in progress)
+            rel = test_file.relative_to(REPO_ROOT)
+            violations.append(f"{rel}: missing test: URN (exactly 1 required)")
             continue
         if count > 1:
             rel = test_file.relative_to(REPO_ROOT)
             violations.append(f"{rel}: has {count} test: URNs (must be exactly 1)")
+            continue
+
+        # Validate test URN format (must be acceptance or journey, not legacy)
+        header = TestResolver.parse_test_header(content)
+        if header["test_urn"] and header["format"] == "legacy":
+            rel = test_file.relative_to(REPO_ROOT)
+            violations.append(
+                f"{rel}: legacy test URN format '{header['test_urn']}' — "
+                f"must use V3 acceptance (test:{{wagon}}:{{feature}}:...) "
+                f"or journey (test:train:{{train_id}}:...) format"
+            )
 
     if violations:
         pytest.fail(
@@ -204,12 +217,20 @@ def test_v3_phase_and_layer_values():
 
         rel = test_file.relative_to(REPO_ROOT)
 
-        if header["phase"] and header["phase"] not in TestResolver.VALID_PHASES:
+        if not header["phase"]:
+            violations.append(
+                f"{rel}: missing Phase: header (required)"
+            )
+        elif header["phase"] not in TestResolver.VALID_PHASES:
             violations.append(
                 f"{rel}: Phase '{header['phase']}' not in {TestResolver.VALID_PHASES}"
             )
 
-        if header["layer"] and header["layer"] not in TestResolver.VALID_TEST_LAYERS:
+        if not header["layer"]:
+            violations.append(
+                f"{rel}: missing Layer: header (required)"
+            )
+        elif header["layer"] not in TestResolver.VALID_TEST_LAYERS:
             violations.append(
                 f"{rel}: Layer '{header['layer']}' not in {TestResolver.VALID_TEST_LAYERS}"
             )
@@ -457,4 +478,51 @@ def test_v3_components_have_tested_by():
             f"\nSPEC-V3-006: Tested-By references must resolve to existing tests. "
             f"Found {len(broken_refs)} broken references:\n  "
             + "\n  ".join(broken_refs)
+        )
+
+
+_TRAINS_COMPONENT_RE = re.compile(
+    r"^component:trains:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:"
+    r"(frontend|backend|fe|be):"
+    r"(presentation|application|domain|integration|assembly)$"
+)
+
+
+@pytest.mark.platform
+def test_v3_train_infra_assembly_only():
+    """
+    SPEC-V3-007: Train infrastructure components must use assembly layer.
+
+    Per URN Spec V3 S6.4: component:trains:* rejects non-assembly layers.
+    """
+    violations = []
+
+    for prod_file in _iter_production_files():
+        try:
+            content = prod_file.read_text(encoding="utf-8")
+        except Exception:
+            continue
+
+        for line in content.split("\n"):
+            m = _URN_COMMENT_RE.search(line)
+            if not m:
+                continue
+            urn = m.group(1)
+            if not urn.startswith("component:trains:"):
+                continue
+            # Parse layer from the URN
+            match = _TRAINS_COMPONENT_RE.match(urn)
+            if match and match.group(2) != "assembly":
+                rel = prod_file.relative_to(REPO_ROOT)
+                violations.append(
+                    f"{rel}: {urn} uses layer '{match.group(2)}' "
+                    f"(train infra components must use 'assembly')"
+                )
+            break  # Only check first URN per file
+
+    if violations:
+        pytest.fail(
+            f"\nSPEC-V3-007: Train infra components must be assembly layer. "
+            f"Found {len(violations)} violations:\n  "
+            + "\n  ".join(violations)
         )

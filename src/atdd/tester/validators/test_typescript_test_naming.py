@@ -82,25 +82,30 @@ def test_typescript_test_files_match_acceptance_pattern(typescript_test_files):
     # normalized_id: ac-http-006, ac-db-015, etc.
     # purpose_slug: primitive-endpoint, user-records-persist, etc.
 
-    valid_pattern = re.compile(r'^ac-[a-z]+-\d{3}\.[a-z][a-z0-9-]*\.test\.ts$')
+    # V3 URN-based: {wmbt}-{harness}-{nnn}[-{slug}].test.ts (e.g. c004-unit-001-login.test.ts)
+    v3_pattern = re.compile(r'^[a-z][0-9]{3}-[a-z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?\.test\.ts$')
+    # Legacy: ac-{type}-{nnn}.{purpose}.test.ts
+    legacy_pattern = re.compile(r'^ac-[a-z]+-\d{3}\.[a-z][a-z0-9-]*\.test\.ts$')
     errors = []
 
     for test_file in typescript_test_files:
         filename = test_file.name
 
-        if not valid_pattern.match(filename):
+        if not v3_pattern.match(filename) and not legacy_pattern.match(filename):
             errors.append(
                 f"❌ {test_file.relative_to(Path.cwd())}\n"
-                f"   Pattern mismatch. Expected: ac-{{type}}-{{nnn}}.{{purpose}}.test.ts\n"
-                f"   Example: ac-http-006.primitive-endpoint.test.ts"
+                f"   Pattern mismatch.\n"
+                f"   Expected (V3): {{wmbt}}-{{harness}}-{{nnn}}[-{{slug}}].test.ts\n"
+                f"   Expected (legacy): ac-{{type}}-{{nnn}}.{{purpose}}.test.ts\n"
+                f"   Example: c004-unit-001-login.test.ts"
             )
 
     if errors:
         pytest.fail(
             "\n\n🔴 TypeScript test files don't match expected pattern:\n\n" +
             "\n".join(errors) +
-            "\n\n📘 Pattern: ac-{type}-{nnn}.{purpose}.test.ts\n" +
-            "📘 See: atdd/tester/conventions/red.convention.yaml:254-285"
+            "\n\n📘 V3 pattern: {wmbt}-{harness}-{nnn}[-{slug}].test.ts\n" +
+            "📘 Legacy pattern: ac-{type}-{nnn}.{purpose}.test.ts"
         )
 
 
@@ -202,12 +207,13 @@ def test_typescript_test_files_organized_by_wagon(typescript_test_files):
                 e2e_idx = parts.index('e2e')
                 remaining = parts[e2e_idx + 1:]
 
-                # Should have at least: wagon/file.test.ts
+                # Should have at least: {wagon_or_train_id}/file.test.ts
                 if len(remaining) < 2:
                     errors.append(
                         f"❌ {test_file.relative_to(Path.cwd())}\n"
-                        f"   Not organized by wagon.\n"
-                        f"   Expected: e2e/{{wagon}}/{{file}}.test.ts"
+                        f"   Not organized by wagon or train.\n"
+                        f"   Expected: e2e/{{wagon}}/{{file}}.test.ts\n"
+                        f"   Or (journey): e2e/{{train_id}}/{{file}}.test.ts"
                     )
             except (ValueError, IndexError):
                 errors.append(

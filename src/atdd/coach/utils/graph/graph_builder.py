@@ -705,11 +705,24 @@ class GraphBuilder:
                     )
 
     def _build_test_edges(self, graph: TraceabilityGraph) -> None:
-        """Build acc -> test (TESTED_BY) and component -> test (TESTED_BY) edges."""
+        """Build acc -> test (TESTED_BY) and component -> test (TESTED_BY) edges.
+
+        Scans both legacy ``# URN: acc:...`` and V3 ``# Acceptance: acc:...`` lines.
+        Component→test edges built here are derived (advisory); authoritative
+        edges come from ``_build_tested_by_edges``.
+        """
         import re
 
         urn_comment_re = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
+        acceptance_re = re.compile(r"(?:#|//)\s*[Aa]cceptance:\s*([^\s]+)")
         regex_meta_re = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
+
+        # Collect components that have authoritative Tested-By edges
+        components_with_tested_by: set[str] = set()
+        for edge in graph.edges:
+            if (edge.edge_type == EdgeType.TESTED_BY
+                    and edge.metadata.get("source") == "tested-by-header"):
+                components_with_tested_by.add(edge.source_urn)
 
         for node in list(graph.nodes.values()):
             if node.family != "test":
@@ -731,6 +744,20 @@ class GraphBuilder:
                 continue
 
             for line in content.split("\n"):
+                # V3: # Acceptance: acc:...
+                acc_match = acceptance_re.search(line)
+                if acc_match:
+                    ref_urn = acc_match.group(1)
+                    if ref_urn.startswith("acc:") and ref_urn in graph.nodes:
+                        graph.add_edge(
+                            URNEdge(
+                                source_urn=ref_urn,
+                                target_urn=node.urn,
+                                edge_type=EdgeType.TESTED_BY,
+                            )
+                        )
+                    continue
+
                 match = urn_comment_re.search(line)
                 if not match:
                     continue
@@ -738,7 +765,7 @@ class GraphBuilder:
                 if regex_meta_re.search(ref_urn):
                     continue
 
-                # acc -> test (TESTED_BY): acceptance criterion is tested by this test
+                # acc -> test (TESTED_BY): legacy # URN: acc:...
                 if ref_urn.startswith("acc:") and ref_urn in graph.nodes:
                     graph.add_edge(
                         URNEdge(
@@ -747,13 +774,17 @@ class GraphBuilder:
                             edge_type=EdgeType.TESTED_BY,
                         )
                     )
-                # component -> test (TESTED_BY): component is tested by this test
-                elif ref_urn.startswith("component:") and ref_urn in graph.nodes:
+                # component -> test (TESTED_BY): derived (advisory only)
+                # Skip if component has authoritative Tested-By edges
+                elif (ref_urn.startswith("component:")
+                      and ref_urn in graph.nodes
+                      and ref_urn not in components_with_tested_by):
                     graph.add_edge(
                         URNEdge(
                             source_urn=ref_urn,
                             target_urn=node.urn,
                             edge_type=EdgeType.TESTED_BY,
+                            metadata={"source": "derived"},
                         )
                     )
 

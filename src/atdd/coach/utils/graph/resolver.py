@@ -833,9 +833,6 @@ class ComponentResolver(BaseResolver):
             "application": ["application", "services", "usecases"],
             "domain": ["domain", "models", "entities"],
             "integration": ["integration", "repositories", "adapters"],
-            "controller": ["controller", "controllers"],
-            "usecase": ["usecase", "usecases"],
-            "repository": ["repository", "repositories"],
             "assembly": ["assembly", ""],
         }
 
@@ -1112,7 +1109,7 @@ class TestResolver(BaseResolver):
         if error:
             return URNResolution(urn=urn, family=self.family, error=error)
 
-        # Primary: header scanning only (S8.4)
+        # Header scanning only (S8.4) — no path-based derivation
         paths = []
         for test_file in self._iter_test_files():
             try:
@@ -1124,13 +1121,6 @@ class TestResolver(BaseResolver):
                         break
             except Exception:
                 continue
-
-        # Fallback: auto-generated URN from path (migration mode)
-        if not paths:
-            for test_file in self._iter_test_files():
-                auto_urn = self._urn_from_path(test_file)
-                if auto_urn == urn:
-                    paths.append(test_file)
 
         return URNResolution(
             urn=urn,
@@ -1216,8 +1206,6 @@ class TestResolver(BaseResolver):
             except Exception:
                 continue
 
-            has_test_urn = False
-            has_acc_ref = False
             lines = content.split("\n")
 
             for line_num, line in enumerate(lines, 1):
@@ -1229,7 +1217,6 @@ class TestResolver(BaseResolver):
                     continue
 
                 if urn_candidate.startswith("test:"):
-                    has_test_urn = True
                     if urn_candidate not in seen_urns:
                         # Parse metadata for context
                         header = self.parse_test_header(content)
@@ -1242,21 +1229,6 @@ class TestResolver(BaseResolver):
                         )
                         seen_urns[urn_candidate] = decl
                         declarations.append(decl)
-                elif urn_candidate.startswith("acc:"):
-                    has_acc_ref = True
-
-            # Auto-generate test: URN if file has acc: refs but no explicit test: URN
-            if has_acc_ref and not has_test_urn:
-                auto_urn = self._urn_from_path(test_file)
-                if auto_urn and auto_urn not in seen_urns:
-                    decl = URNDeclaration(
-                        urn=auto_urn,
-                        family=self.family,
-                        source_path=test_file,
-                        context="auto-generated from path",
-                    )
-                    seen_urns[auto_urn] = decl
-                    declarations.append(decl)
 
         return declarations
 
@@ -1276,35 +1248,6 @@ class TestResolver(BaseResolver):
         ):
             if any(p.match(fpath.name) for p in self._TEST_PATTERNS):
                 yield fpath
-
-    @staticmethod
-    def _urn_from_path(test_file: Path) -> Optional[str]:
-        """
-        Auto-generate a test: URN from a test file path (legacy/migration fallback).
-
-        Strip test_ prefix, _test/.test/.spec suffix, replace _ with -.
-        """
-        stem = test_file.stem
-
-        # Handle double extensions: auth.test.ts -> stem = "auth.test"
-        if stem.endswith(".test") or stem.endswith(".spec"):
-            stem = stem.rsplit(".", 1)[0]
-
-        # Strip test_ prefix
-        if stem.startswith("test_"):
-            stem = stem[5:]
-        # Strip _test suffix
-        if stem.endswith("_test"):
-            stem = stem[:-5]
-
-        # Normalize: underscores to hyphens, lowercase
-        slug = stem.lower().replace("_", "-")
-        slug = re.sub(r"-+", "-", slug).strip("-")
-
-        if not slug:
-            return None
-        return f"test:{slug}"
-
 
 class ResolverRegistry:
     """

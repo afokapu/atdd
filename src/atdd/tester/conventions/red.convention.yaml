@@ -528,13 +528,15 @@ typescript_test_patterns:
   test_structure:
     unit_test:
       template: |
-        // URN: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}
-        // Purpose: {purpose}
+        // URN: test:{wagon}:{feature}:{WMBT}-UNIT-{NNN}-{slug}
+        // Acceptance: acc:{wagon}:{WMBT}-UNIT-{NNN}
+        // WMBT: wmbt:{wagon}:{WMBT}
+        // Phase: RED
         // Layer: {domain|application|integration}
         import { describe, test, expect } from 'vitest';
         import { Subject } from '@/{wagon}/{feature}/{layer}/Subject';
 
-        describe('acc:{wagon}:{WMBT}-{HARNESS}-{NNN}', () => {
+        describe('test:{wagon}:{feature}:{WMBT}-UNIT-{NNN}-{slug}', () => {
           test('{purpose}', () => {
             // GIVEN: Setup
             // WHEN: Action
@@ -545,14 +547,16 @@ typescript_test_patterns:
 
     component_test:
       template: |
-        // URN: acc:{wagon}:{WMBT}-WIDGET-{NNN}
-        // Purpose: {purpose}
+        // URN: test:{wagon}:{feature}:{WMBT}-WIDGET-{NNN}-{slug}
+        // Acceptance: acc:{wagon}:{WMBT}-WIDGET-{NNN}
+        // WMBT: wmbt:{wagon}:{WMBT}
+        // Phase: RED
         // Layer: presentation
         import { describe, test, expect } from 'vitest';
         import { render, screen } from '@testing-library/preact';
         import { Component } from '@/{wagon}/{feature}/presentation/components/Component';
 
-        describe('acc:{wagon}:{WMBT}-WIDGET-{NNN}', () => {
+        describe('test:{wagon}:{feature}:{WMBT}-WIDGET-{NNN}-{slug}', () => {
           test('{purpose}', () => {
             render(<Component />);
             expect(screen.getByText('')).toBeTruthy();
@@ -561,13 +565,15 @@ typescript_test_patterns:
 
     integration_test:
       template: |
-        // URN: acc:{wagon}:{WMBT}-HTTP-{NNN}
-        // Purpose: {purpose}
+        // URN: test:{wagon}:{feature}:{WMBT}-HTTP-{NNN}-{slug}
+        // Acceptance: acc:{wagon}:{WMBT}-HTTP-{NNN}
+        // WMBT: wmbt:{wagon}:{WMBT}
+        // Phase: RED
         // Layer: integration
         import { describe, test, expect, vi } from 'vitest';
         import { Repository } from '@/{wagon}/{feature}/integration/repositories/Repository';
 
-        describe('acc:{wagon}:{WMBT}-HTTP-{NNN}', () => {
+        describe('test:{wagon}:{feature}:{WMBT}-HTTP-{NNN}-{slug}', () => {
           test('{purpose}', async () => {
             global.fetch = vi.fn(() =>
               Promise.resolve({

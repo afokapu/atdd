@@ -26,9 +26,9 @@ URN Patterns:
 
 - component:  component:{wagon}:{feature}:{name}:{side}:{layer}
               Example: component:resolve-dilemmas:binary-choice:OptionValidator:backend:domain
-              Pattern: ^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|controller|usecase|repository|assembly)$
+              Pattern: ^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|assembly)$
               Side: frontend | backend | fe | be
-              Layer: presentation | application | domain | integration | controller | usecase | repository | assembly
+              Layer: presentation | application | domain | integration | assembly
 
               Special forms:
               - Feature composition: component:{wagon}:{feature}:composition:{side}:assembly
@@ -117,7 +117,7 @@ class URNBuilder:
         # Identities
         'wagon': r'^wagon:[a-z][a-z0-9-]*$',
         'feature': r'^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$',
-        'component': r'^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|controller|usecase|repository|assembly)$',
+        'component': r'^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|assembly)$',
 
         # Artifacts (colon hierarchy with optional dot variant)
         'plan': r'^plan:[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9]+(-[a-z0-9]+)*)*(\.[a-z0-9-]+)?$',
@@ -436,8 +436,7 @@ class URNBuilder:
 
     # Valid layers for component URNs
     COMPONENT_LAYERS = [
-        'presentation', 'application', 'domain', 'integration',
-        'controller', 'usecase', 'repository', 'assembly',
+        'presentation', 'application', 'domain', 'integration', 'assembly',
     ]
 
     @classmethod
@@ -506,7 +505,7 @@ class URNBuilder:
              feature_id: Optional[str] = None,
              component_name: Optional[str] = None,
              side: Optional[Literal['frontend', 'backend', 'fe', 'be']] = None,
-             layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'controller', 'usecase', 'repository', 'assembly']] = None) -> str:
+             layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'assembly']] = None) -> str:
         """
         Build a plan URN.
 
@@ -650,7 +649,7 @@ class URNBuilder:
              feature_id: Optional[str] = None,
              component_name: Optional[str] = None,
              side: Optional[Literal['frontend', 'backend', 'fe', 'be']] = None,
-             layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'controller', 'usecase', 'repository', 'assembly']] = None) -> str:
+             layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'assembly']] = None) -> str:
         """
         Build a test URN.
 

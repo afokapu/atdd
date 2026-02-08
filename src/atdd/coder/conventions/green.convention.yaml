@@ -63,7 +63,7 @@ green_phase:
 
       examples:
         python: |
-          # urn: component:burn-timebank:track-remaining.TimebankMonitor.backend.domain
+          # URN: component:burn-timebank:track-remaining:TimebankMonitor:backend:domain
           # Runtime: python
           # Purpose: Monitor and emit timebank remaining artifacts
 
@@ -73,14 +73,14 @@ green_phase:
           from typing import Optional
 
         typescript: |
-          // urn: component:authenticate-identity:validate-credentials.CredentialValidator.backend.application
+          // URN: component:authenticate-identity:validate-credentials:CredentialValidator:backend:application
           // Runtime: supabase
           // Purpose: Validate user credentials against stored hash
 
           import { createClient } from '@supabase/supabase-js'
 
         dart: |
-          // urn: component:maintain-ux:provide-foundations.FoundationLoader.frontend.presentation
+          // URN: component:maintain-ux:provide-foundations:FoundationLoader:frontend:presentation
           // Runtime: flutter
           // Purpose: Load and cache UX foundation assets
 
@@ -127,7 +127,7 @@ green_phase:
 
         layer:
           description: "Clean Architecture layer"
-          values: ["domain", "application", "integration", "presentation"]
+          values: ["domain", "application", "integration", "presentation", "assembly"]
           example: "domain"
 
     additional_headers:
@@ -173,7 +173,7 @@ green_phase:
 
     full_example:
       python: |
-        # urn: component:burn-timebank:track-remaining.TimebankMonitor.backend.domain
+        # URN: component:burn-timebank:track-remaining:TimebankMonitor:backend:domain
         # Runtime: python
         # Purpose: Monitor and emit timebank remaining artifacts
 
@@ -192,7 +192,7 @@ green_phase:
             pass
 
       typescript: |
-        // urn: component:authenticate-identity:validate-credentials.CredentialValidator.backend.application
+        // URN: component:authenticate-identity:validate-credentials:CredentialValidator:backend:application
         // Runtime: supabase
         // Purpose: Validate user credentials against stored hash
 
@@ -399,7 +399,7 @@ green_phase:
         python:
           format: |
             #!/usr/bin/env python3
-            # urn: component:{wagon}:{feature}.composition.backend.infrastructure
+            # URN: component:{wagon}:{feature}:composition:backend:assembly
             # Runtime: python
             # Purpose: Dependency injection and application bootstrap
 
@@ -420,7 +420,7 @@ green_phase:
         python:
           format: |
             #!/usr/bin/env python3
-            # urn: component:{wagon}.wagon.infrastructure
+            # URN: component:{wagon}:wagon:entrypoint:backend:assembly
             # Runtime: python
             # Purpose: Wagon-level orchestration and feature integration
 
@@ -449,7 +449,7 @@ green_phase:
 
         example: |
           #!/usr/bin/env python3
-          # urn: component:resolve-dilemmas:capture-decision.composition.backend.infrastructure
+          # URN: component:resolve-dilemmas:capture-decision:composition:backend:assembly
           # Runtime: python
           # Purpose: Dependency injection and application bootstrap
 
@@ -504,7 +504,7 @@ green_phase:
 
       dart:
         format: |
-          // urn: component:{wagon}:{feature}.composition.frontend.infrastructure
+          // URN: component:{wagon}:{feature}:composition:frontend:assembly
           // Runtime: flutter
           // Purpose: Dependency injection and application bootstrap
 
@@ -516,7 +516,7 @@ green_phase:
           library composition;
 
         example: |
-          // urn: component:maintain-ux:provide-foundations.composition.frontend.infrastructure
+          // URN: component:maintain-ux:provide-foundations:composition:frontend:assembly
           // Runtime: flutter
           // Purpose: Dependency injection and application bootstrap
 
@@ -611,7 +611,7 @@ green_phase:
           - "Imports from all layers if needed"
           - "No business logic in composition.py"
           - "Executable with shebang (#!/usr/bin/env python3)"
-          - "Has proper URN header with .infrastructure suffix"
+          - "Has proper URN header with assembly layer"
 
       wagon_composition:
         checks:
@@ -619,7 +619,7 @@ green_phase:
           - "Orchestrates multiple features"
           - "No business logic in wagon.py"
           - "Executable with shebang (#!/usr/bin/env python3)"
-          - "Has proper URN header: component:{wagon}.wagon.infrastructure"
+          - "Has proper URN header: component:{wagon}:wagon:entrypoint:backend:assembly"
           - "Provides CLI for integrated testing"
 
       anti_patterns:

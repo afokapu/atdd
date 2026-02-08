@@ -7,13 +7,13 @@
   "properties": {
     "urn": {
       "type": "string",
-      "pattern": "^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|controller|usecase|repository|assembly)$",
+      "pattern": "^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|assembly)$",
       "description": "Component URN: component:{wagon}:{feature}:{name}:{side}:{layer}"
     },
     "parentFeature": {
       "type": "string",
-      "pattern": "^feature:[a-z0-9]+(-[a-z0-9]+)*\\.[a-z0-9]+(-[a-z0-9]+)*$",
-      "description": "Parent feature URN"
+      "pattern": "^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$",
+      "description": "Parent feature URN in format feature:{wagon}:{feature}"
     },
     "description": {
       "type": "string",
@@ -36,8 +36,8 @@
           },
           "urn": {
             "type": "string",
-            "pattern": "^feature:[a-z0-9-]+\\.[a-z0-9-]+#[a-z]+:[a-z][a-z0-9-]*$",
-            "description": "Reference to feature ioSeed URN (feature:wagon.feature#name:item)"
+            "pattern": "^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*#[a-z]+:[a-z][a-z0-9-]*$",
+            "description": "Reference to feature ioSeed URN (feature:wagon:feature#name:item)"
           }
         }
       }
@@ -51,7 +51,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|controller|usecase|repository|assembly)$"
+        "pattern": "^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|assembly)$"
       },
       "description": "Component dependencies"
     },
