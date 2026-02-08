@@ -14,7 +14,7 @@ The coach orchestrates all ATDD lifecycle operations:
 
 Usage:
     atdd init                                # Initialize ATDD in consumer repo
-    atdd session new my-feature              # Create new session
+    atdd new my-feature                      # Create new session
     atdd session list                        # List all sessions
     atdd session archive 01                  # Archive session
     atdd sync                                # Sync ATDD rules to agent configs
@@ -227,8 +227,8 @@ Examples:
   %(prog)s registry update telemetry      Update telemetry registry only
 
   # Session management
-  %(prog)s session new my-feature         Create SESSION-NN-my-feature.md
-  %(prog)s session new my-feature --type migration
+  %(prog)s new my-feature                 Create SESSION-NN-my-feature.md
+  %(prog)s new my-feature --type migration
   %(prog)s session list                   List all sessions
   %(prog)s session archive 01             Archive SESSION-01-*.md
 
@@ -355,6 +355,25 @@ Phase descriptions:
         "--force", "-f",
         action="store_true",
         help="Overwrite existing files"
+    )
+
+    # ----- atdd new <slug> (shorthand for session new) -----
+    new_parser = subparsers.add_parser(
+        "new",
+        help="Create new session from template",
+        description="Create a new session file with next available number"
+    )
+    new_parser.add_argument(
+        "slug",
+        type=str,
+        help="Session name (kebab-case)"
+    )
+    new_parser.add_argument(
+        "--type", "-t",
+        type=str,
+        default="implementation",
+        choices=["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
+        help="Session type (default: implementation)"
     )
 
     # ----- atdd session {new,list,archive,sync} -----
@@ -771,6 +790,11 @@ Phase descriptions:
     elif args.command == "init":
         initializer = ProjectInitializer()
         return initializer.init(force=args.force)
+
+    # atdd new <slug> (shorthand for session new)
+    elif args.command == "new":
+        manager = SessionManager()
+        return manager.new(slug=args.slug, session_type=args.type)
 
     # atdd session {new,list,archive,sync}
     elif args.command == "session":

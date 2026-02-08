@@ -100,7 +100,7 @@ class ProjectInitializer:
             print("=" * 60)
             print("\nNext steps:")
             print("  1. Create a new session:")
-            print("     atdd session new my-feature")
+            print("     atdd new my-feature")
             print("")
             print("  2. List existing sessions:")
             print("     atdd session list")

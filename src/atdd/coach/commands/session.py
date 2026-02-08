@@ -7,8 +7,8 @@ Manages session files in atdd-sessions/ directory:
 - Archive completed sessions
 
 Usage:
-    atdd session new my-feature                    # Create SESSION-NN-my-feature.md
-    atdd session new my-feature --type migration   # Specify session type
+    atdd new my-feature                            # Create SESSION-NN-my-feature.md
+    atdd new my-feature --type migration            # Specify session type
     atdd session list                              # List all sessions
     atdd session archive 01                        # Archive SESSION-01-*.md
 
@@ -228,7 +228,7 @@ class SessionManager:
 
         if not sessions:
             print("No sessions found.")
-            print("Create one with: atdd session new my-feature")
+            print("Create one with: atdd new my-feature")
             return 0
 
         # Print header

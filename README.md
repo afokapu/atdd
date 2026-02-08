@@ -61,7 +61,7 @@ atdd --help
 ```bash
 atdd init                      # Initialize ATDD in your project
 atdd gate                      # ⚠️ START EVERY SESSION WITH THIS
-atdd session new <task>        # Create a planning session
+atdd new <task>                # Create a planning session
 atdd sync                      # Sync rules to agent config files
 atdd validate                  # Run all validators
 ```
@@ -125,8 +125,8 @@ your-project/
 ### Session Management
 
 ```bash
-atdd session new <slug>                 # Create new session
-atdd session new <slug> --type <type>   # Specify type
+atdd new <slug>                         # Create new session
+atdd new <slug> --type <type>           # Specify type
 atdd session list                       # List all sessions
 atdd session archive <id>               # Archive session
 atdd session sync                       # Sync manifest with files

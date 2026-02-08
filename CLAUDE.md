@@ -213,13 +213,13 @@ sessions:
 
   commands:
     init: "atdd init                    # Initialize atdd-sessions/ and .atdd/"
-    new: "atdd session new my-feature   # Create SESSION-NN-my-feature.md"
+    new: "atdd new my-feature            # Create SESSION-NN-my-feature.md"
     list: "atdd session list            # List all sessions from manifest"
     archive: "atdd session archive 01   # Move session to archive/"
 
   workflow:
     init: "Run 'atdd init' to create atdd-sessions/ directory structure"
-    create: "Run 'atdd session new <slug>' to create new session from template"
+    create: "Run 'atdd new <slug>' to create new session from template"
     fill: "Fill ALL sections - write 'N/A' if not applicable, never omit"
     track: "Update Progress Tracker and Session Log after each work item"
     validate: "atdd validate coach"
