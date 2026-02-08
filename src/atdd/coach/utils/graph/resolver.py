@@ -844,6 +844,7 @@ class ComponentResolver(BaseResolver):
             for layer_dir in layer_dirs.get(layer, []):
                 search_paths = [
                     base_dir / wagon_id.replace("-", "_") / feature_id.replace("-", "_") / layer_dir,
+                    base_dir / wagon_id.replace("-", "_") / feature_id.replace("-", "_") / "src" / layer_dir,
                     base_dir / "features" / feature_id.replace("-", "_") / layer_dir,
                     base_dir / wagon_id.replace("-", "_") / layer_dir,
                 ]
@@ -858,7 +859,7 @@ class ComponentResolver(BaseResolver):
                         continue
 
                     for ext in ["*.py", "*.dart", "*.ts", "*.tsx"]:
-                        for f in search_path.glob(ext):
+                        for f in search_path.rglob(ext):
                             if self._stem_match(component_name, f):
                                 paths.append(f)
 
