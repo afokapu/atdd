@@ -406,6 +406,44 @@ def _parse_component_header(content: str) -> dict:
     return result
 
 
+def _build_train_wagon_index() -> dict:
+    """Build a mapping of train_id -> set of wagon slugs from train plan YAMLs.
+
+    Reads plan/_trains/*.yaml and extracts wagon participants from each train.
+    Returns empty dict if no train plans exist yet.
+    """
+    import yaml
+
+    trains_dir = REPO_ROOT / "plan" / "_trains"
+    if not trains_dir.exists():
+        return {}
+
+    index: Dict[str, set] = {}
+    for train_file in trains_dir.glob("*.yaml"):
+        try:
+            with open(train_file, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            if not data or not isinstance(data, dict):
+                continue
+
+            train_id = data.get("id") or train_file.stem
+            wagons = set()
+            for wagon_ref in data.get("wagons", []):
+                if isinstance(wagon_ref, str):
+                    slug = wagon_ref.replace("wagon:", "") if wagon_ref.startswith("wagon:") else wagon_ref
+                    wagons.add(slug)
+                elif isinstance(wagon_ref, dict):
+                    slug = wagon_ref.get("wagon") or wagon_ref.get("slug")
+                    if slug:
+                        wagons.add(slug.replace("wagon:", "") if slug.startswith("wagon:") else slug)
+            if wagons:
+                index[train_id] = wagons
+        except Exception:
+            continue
+
+    return index
+
+
 def _build_test_urn_index() -> set:
     """Build a set of all test: URNs found in test file headers."""
     test_urns = set()
@@ -430,7 +468,9 @@ def test_v3_components_have_tested_by():
     Per URN Spec V3 S9.5, S10 R8:
     - Every production component with a component: URN must include a Tested-By header
     - Each test: URN in Tested-By must resolve to an actual test file header
-    - During migration: warn-only for missing Tested-By, fail for broken references
+    - Chain alignment: acceptance tests must match component wagon/feature;
+      journey tests must reference a train whose participants include the component wagon
+    - During migration: warn-only for missing Tested-By and chain mismatches, fail for broken references
     """
     warnings = []
     broken_refs = []
@@ -438,6 +478,9 @@ def test_v3_components_have_tested_by():
 
     # Build index of all known test: URNs for reference validation
     known_test_urns = _build_test_urn_index()
+
+    # Build train -> wagons index for journey chain alignment (S9.5)
+    train_wagon_index = _build_train_wagon_index()
 
     for prod_file in _iter_production_files():
         try:
@@ -479,7 +522,21 @@ def test_v3_components_have_tested_by():
             if comp_wagon == "trains":
                 pass  # Reserved wagon 'trains': skip chain validation
             elif test_ref.startswith("test:train:"):
-                pass  # TODO (S9.5): Journey chain validation deferred — no train plan YAMLs yet
+                # Journey chain: component's wagon must be a participant in the train
+                # test:train:{train_id}:{harness}-{seq}-{slug}
+                train_parts = test_ref.split(":")
+                train_id = train_parts[2] if len(train_parts) > 3 else None
+                if train_id and train_wagon_index:
+                    train_wagons = train_wagon_index.get(train_id)
+                    if train_wagons is not None and comp_wagon not in train_wagons:
+                        chain_warnings.append(
+                            f"{rel}: component {header['component_urn']} Tested-By "
+                            f"'{test_ref}' journey chain mismatch — wagon "
+                            f"'{comp_wagon}' not in train '{train_id}' participants"
+                        )
+                elif train_id and not train_wagon_index:
+                    # No train plan YAMLs available — cannot validate
+                    pass
             else:
                 test_parts = test_ref.split(":")
                 test_wagon = test_parts[1] if len(test_parts) > 2 else None
