@@ -268,31 +268,37 @@ def test_typescript_test_filename_matches_urn_acceptance_id(typescript_test_file
 
         acceptance_id = urn_match.group(1)  # e.g., AC-HTTP-006 or W001-HTTP-006[-slug]
 
-        # Normalize acceptance_id to kebab-case
-        expected_normalized_id = acceptance_id.lower()  # ac-http-006
+        # Normalize acceptance_id to kebab-case lowercase
+        expected_normalized_id = acceptance_id.lower()  # ac-http-006 or w001-http-006[-slug]
 
-        # Extract normalized_id from filename (first part before purpose_slug)
+        # Extract stem from filename
+        # Legacy: {normalized_id}.{purpose_slug}.test.ts (dot-separated)
+        # V3:     {wmbt}-{harness}-{nnn}[-{slug}].test.ts (no dot separator)
         filename = test_file.name
-        # Pattern: {normalized_id}.{purpose_slug}.test.ts
-        parts = filename.replace('.test.ts', '').split('.')
+        stem = filename.replace('.test.ts', '')
 
-        if len(parts) >= 1:
-            actual_normalized_id = parts[0]  # ac-http-006
+        # Legacy dot-separated: use first segment
+        # V3 flat: use entire stem
+        if '.' in stem:
+            actual_normalized_id = stem.split('.')[0]
+        else:
+            actual_normalized_id = stem
 
-            if actual_normalized_id != expected_normalized_id:
-                errors.append(
-                    f"❌ {test_file.relative_to(Path.cwd())}\n"
-                    f"   Filename normalized_id doesn't match URN acceptance_id.\n"
-                    f"   URN acceptance_id: {acceptance_id}\n"
-                    f"   Expected normalized: {expected_normalized_id}\n"
-                    f"   Actual in filename: {actual_normalized_id}"
-                )
+        if actual_normalized_id != expected_normalized_id:
+            errors.append(
+                f"❌ {test_file.relative_to(Path.cwd())}\n"
+                f"   Filename normalized_id doesn't match URN acceptance_id.\n"
+                f"   URN acceptance_id: {acceptance_id}\n"
+                f"   Expected normalized: {expected_normalized_id}\n"
+                f"   Actual in filename: {actual_normalized_id}"
+            )
 
     if errors:
         pytest.fail(
             "\n\n🔴 TypeScript test filenames don't match URN acceptance IDs:\n\n" +
             "\n".join(errors) +
-            "\n\n📘 Transformation: AC-HTTP-006 → ac-http-006\n" +
+            "\n\n📘 Legacy: AC-HTTP-006 → ac-http-006.{slug}.test.ts\n" +
+            "📘 V3: W001-HTTP-006 → w001-http-006.test.ts\n" +
             "📘 See: atdd/tester/conventions/red.convention.yaml:255-260"
         )
 
