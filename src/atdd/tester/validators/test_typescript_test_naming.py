@@ -235,10 +235,11 @@ def test_typescript_test_filename_matches_urn_acceptance_id(typescript_test_file
     """
     SPEC-PLATFORM-TS-0005: Test filename normalized_id matches URN acceptance_id
 
-    Given: TypeScript test files with URN comments
+    Given: TypeScript test files with URN comments (legacy or V3)
     When: Comparing filename normalized_id to URN acceptance_id
-    Then: normalized_id matches acceptance_id (converted to kebab-case)
-          Example: ac-http-006 matches AC-HTTP-006
+    Then: normalized_id matches acceptance_id (converted to kebab-case lowercase)
+          Legacy: // urn: acc:wagon.W001.AC-HTTP-006 -> ac-http-006.{slug}.test.ts
+          V3:     // Acceptance: acc:wagon:W001-HTTP-006 -> w001-http-006.test.ts
 
     Convention: atdd/tester/conventions/red.convention.yaml:255-260
     """
