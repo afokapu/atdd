@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://wagons.dev/schemas/tester/test_filename.schema.json",
   "title": "Test Filename Generation Schema",
-  "description": "Schema for test filename generation from acceptance URNs with language-specific conventions",
+  "description": "Schema for test filename generation from acceptance URNs with language-specific conventions. Note: V3 test identity comes from the explicit test: URN header, while filenames are still derived from acceptance URNs.",
   "type": "object",
   "required": ["urn", "language"],
   "properties": {

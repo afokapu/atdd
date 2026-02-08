@@ -24,11 +24,16 @@ URN Patterns:
                        acc:maintain-ux:C004-E2E-019-user-connection
               Pattern: ^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|...)-[0-9]{3}(?:-[a-z0-9-]+)?$
 
-- component:  component:{wagon}:{feature}:{objectCamelCase}:{side}:{layer}
+- component:  component:{wagon}:{feature}:{name}:{side}:{layer}
               Example: component:resolve-dilemmas:binary-choice:OptionValidator:backend:domain
-              Pattern: ^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9]+:(frontend|backend):(presentation|application|domain|integration)$
-              Side: frontend | backend
-              Layer: presentation | application | domain | integration
+              Pattern: ^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|controller|usecase|repository|assembly)$
+              Side: frontend | backend | fe | be
+              Layer: presentation | application | domain | integration | controller | usecase | repository | assembly
+
+              Special forms:
+              - Feature composition: component:{wagon}:{feature}:composition:{side}:assembly
+              - Wagon entrypoint:    component:{wagon}:wagon:{name}:{side}:assembly
+              - Train infra:         component:trains:{feature}:{name}:{side}:assembly
 
 Usage:
     from utils.graph import URNBuilder
@@ -112,11 +117,22 @@ class URNBuilder:
         # Identities
         'wagon': r'^wagon:[a-z][a-z0-9-]*$',
         'feature': r'^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$',
-        'component': r'^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9]+:(frontend|backend|fe|be):(presentation|application|domain|integration|controller|usecase|repository)$',
+        'component': r'^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|controller|usecase|repository|assembly)$',
 
         # Artifacts (colon hierarchy with optional dot variant)
         'plan': r'^plan:[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9]+(-[a-z0-9]+)*)*(\.[a-z0-9-]+)?$',
-        'test': r'^test:[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9]+(-[a-z0-9]+)*)*(\.[a-z0-9-]+)?$',
+        'test': (
+            r'^test:('
+            # V3 acceptance: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+            r'[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z]\d{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-\d{3}-[a-z0-9][a-z0-9-]*'
+            r'|'
+            # V3 journey: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
+            r'train:\d{4}-[a-z0-9][a-z0-9-]*:(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-\d{3}-[a-z0-9][a-z0-9-]*'
+            r'|'
+            # Legacy dot format (migration support)
+            r'[a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)*(?:\.[a-z0-9-]+)?'
+            r')$'
+        ),
         'contract': r'^contract:[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)+(\.[a-z][a-z0-9-]+)?$',
         'telemetry': r'^telemetry:[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)*(\.[a-z][a-z0-9-]+)?$',
 
@@ -131,7 +147,7 @@ class URNBuilder:
         'team': r'^team:[a-z0-9-]+$',
 
         # Release management
-        'train': r'^train:[0-9]{4}-[a-z][a-z0-9-]*$',
+        'train': r'^train:\d{4}-[a-z0-9][a-z0-9-]*$',
         'migration': r'^migration:\d{14}_[a-z][a-z0-9_]*$',
     }
 
@@ -418,29 +434,44 @@ class URNBuilder:
 
         return urn
 
+    # Valid layers for component URNs
+    COMPONENT_LAYERS = [
+        'presentation', 'application', 'domain', 'integration',
+        'controller', 'usecase', 'repository', 'assembly',
+    ]
+
     @classmethod
     def component(cls,
                   wagon_id: str,
                   feature_id: str,
                   component_name: str,
                   side: Literal['frontend', 'backend'],
-                  layer: Literal['presentation', 'application', 'domain', 'integration']) -> str:
+                  layer: Literal['presentation', 'application', 'domain', 'integration', 'assembly']) -> str:
         """
         Build a component URN.
 
+        Supports standard 4-layer components, feature composition (assembly),
+        wagon entrypoints (feature_id='wagon'), and train infra (wagon_id='trains').
+
         Args:
-            wagon_id: The parent wagon identifier
-            feature_id: The parent feature identifier
-            component_name: The component name (PascalCase or camelCase)
+            wagon_id: The parent wagon identifier (use 'trains' for train infra)
+            feature_id: The parent feature identifier (use 'wagon' for wagon entrypoints)
+            component_name: The component name (PascalCase, camelCase, or dot-separated)
             side: Either 'frontend' or 'backend'
-            layer: The architectural layer
+            layer: The architectural layer (including 'assembly')
 
         Returns:
-            URN in format: component:[wagon_id]:[feature_id]:[component_name]:[side]:[layer]
+            URN in format: component:{wagon_id}:{feature_id}:{component_name}:{side}:{layer}
 
-        Example:
+        Examples:
             URNBuilder.component("user-mgmt", "auth", "LoginForm", "frontend", "presentation")
             -> "component:user-mgmt:auth:LoginForm:frontend:presentation"
+
+            URNBuilder.component("navigate-domains", "browse-hierarchy", "composition", "backend", "assembly")
+            -> "component:navigate-domains:browse-hierarchy:composition:backend:assembly"
+
+            URNBuilder.component("trains", "runner", "TrainRunner", "backend", "assembly")
+            -> "component:trains:runner:TrainRunner:backend:assembly"
         """
         # Normalize IDs (but preserve component name case)
         wagon_id = cls._normalize_id(wagon_id)
@@ -451,12 +482,16 @@ class URNBuilder:
             raise ValueError(f"Invalid wagon ID for component: {wagon_id}")
         if not re.match(r'^[a-z][a-z0-9-]*$', feature_id):
             raise ValueError(f"Invalid feature ID for component: {feature_id}")
-        if not re.match(r'^[a-zA-Z0-9]+$', component_name):
-            raise ValueError(f"Invalid component name: {component_name}. Must be alphanumeric.")
+        if not re.match(r'^[a-zA-Z0-9.]+$', component_name):
+            raise ValueError(f"Invalid component name: {component_name}. Must be alphanumeric (dots allowed).")
         if side not in ['frontend', 'backend']:
             raise ValueError(f"Invalid side: {side}. Must be 'frontend' or 'backend'.")
-        if layer not in ['presentation', 'application', 'domain', 'integration']:
-            raise ValueError(f"Invalid layer: {layer}. Must be one of: presentation, application, domain, integration.")
+        if layer not in cls.COMPONENT_LAYERS:
+            raise ValueError(f"Invalid layer: {layer}. Must be one of: {', '.join(cls.COMPONENT_LAYERS)}.")
+
+        # Train infra components must use assembly layer (S6.4)
+        if wagon_id == 'trains' and layer != 'assembly':
+            raise ValueError(f"Train infrastructure components must use 'assembly' layer, got: {layer}")
 
         urn = f"component:{wagon_id}:{feature_id}:{component_name}:{side}:{layer}"
 
@@ -471,7 +506,7 @@ class URNBuilder:
              feature_id: Optional[str] = None,
              component_name: Optional[str] = None,
              side: Optional[Literal['frontend', 'backend', 'fe', 'be']] = None,
-             layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'controller', 'usecase', 'repository']] = None) -> str:
+             layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'controller', 'usecase', 'repository', 'assembly']] = None) -> str:
         """
         Build a plan URN.
 
@@ -615,7 +650,7 @@ class URNBuilder:
              feature_id: Optional[str] = None,
              component_name: Optional[str] = None,
              side: Optional[Literal['frontend', 'backend', 'fe', 'be']] = None,
-             layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'controller', 'usecase', 'repository']] = None) -> str:
+             layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'controller', 'usecase', 'repository', 'assembly']] = None) -> str:
         """
         Build a test URN.
 
@@ -661,6 +696,107 @@ class URNBuilder:
 
         if not cls.validate_urn(urn, 'test'):
             raise ValueError(f"Generated invalid test URN: {urn}")
+
+        return urn
+
+    @classmethod
+    def test_acceptance(cls,
+                        wagon_id: str,
+                        feature_id: str,
+                        wmbt_id: str,
+                        harness: str,
+                        seq: str,
+                        slug: str) -> str:
+        """
+        Build a V3 acceptance test URN.
+
+        Args:
+            wagon_id: Parent wagon identifier
+            feature_id: Parent feature identifier
+            wmbt_id: WMBT step-coded ID (e.g., "M002")
+            harness: Harness code (e.g., "UNIT", "HTTP", "E2E")
+            seq: 3-digit sequence (e.g., "003")
+            slug: Kebab-case description (required)
+
+        Returns:
+            URN in format: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+
+        Example:
+            URNBuilder.test_acceptance("authenticate-identity", "verify-session",
+                                       "M002", "UNIT", "003", "trace-spans-created")
+            -> "test:authenticate-identity:verify-session:M002-UNIT-003-trace-spans-created"
+        """
+        wagon_id = cls._normalize_id(wagon_id)
+        feature_id = cls._normalize_id(feature_id)
+        wmbt_id = cls._normalize_wmbt_id(wmbt_id)
+        harness = harness.upper()
+        slug = cls._normalize_id(slug)
+
+        valid_harnesses = set(cls.HARNESS_CODES.values())
+        if harness not in valid_harnesses:
+            raise ValueError(f"Invalid harness: {harness}. Must be one of: {', '.join(sorted(valid_harnesses))}")
+
+        if isinstance(seq, int):
+            seq = f"{seq:03d}"
+        seq = seq.strip().zfill(3)
+        if not re.match(r'^\d{3}$', seq):
+            raise ValueError(f"Invalid sequence: {seq}. Must be 3 digits.")
+
+        if not slug:
+            raise ValueError("slug is required for test URNs")
+
+        urn = f"test:{wagon_id}:{feature_id}:{wmbt_id}-{harness}-{seq}-{slug}"
+
+        if not cls.validate_urn(urn, 'test'):
+            raise ValueError(f"Generated invalid test acceptance URN: {urn}")
+
+        return urn
+
+    @classmethod
+    def test_journey(cls,
+                     train_id: str,
+                     harness: str,
+                     seq: str,
+                     slug: str) -> str:
+        """
+        Build a V3 journey (E2E) test URN.
+
+        Args:
+            train_id: Train identifier (NNNN-kebab-case)
+            harness: Harness code (typically "E2E" for journey tests)
+            seq: 3-digit sequence (e.g., "001")
+            slug: Kebab-case description (required)
+
+        Returns:
+            URN in format: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
+
+        Example:
+            URNBuilder.test_journey("0025-onboarding", "E2E", "001", "full-login-flow")
+            -> "test:train:0025-onboarding:E2E-001-full-login-flow"
+        """
+        harness = harness.upper()
+        slug = cls._normalize_id(slug)
+
+        if not re.match(r'^\d{4}-[a-z0-9][a-z0-9-]*$', train_id):
+            raise ValueError(f"Invalid train ID: {train_id}. Must match NNNN-kebab-case.")
+
+        valid_harnesses = set(cls.HARNESS_CODES.values())
+        if harness not in valid_harnesses:
+            raise ValueError(f"Invalid harness: {harness}. Must be one of: {', '.join(sorted(valid_harnesses))}")
+
+        if isinstance(seq, int):
+            seq = f"{seq:03d}"
+        seq = seq.strip().zfill(3)
+        if not re.match(r'^\d{3}$', seq):
+            raise ValueError(f"Invalid sequence: {seq}. Must be 3 digits.")
+
+        if not slug:
+            raise ValueError("slug is required for test URNs")
+
+        urn = f"test:train:{train_id}:{harness}-{seq}-{slug}"
+
+        if not cls.validate_urn(urn, 'test'):
+            raise ValueError(f"Generated invalid test journey URN: {urn}")
 
         return urn
 
@@ -726,19 +862,58 @@ class URNBuilder:
 
             return result
         elif urn.startswith('test:'):
-            main_part = urn.replace('test:', '')
+            main_part = urn[5:]  # strip 'test:'
+
+            # V3 journey format: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
+            if main_part.startswith('train:'):
+                train_part = main_part[6:]  # strip 'train:'
+                colon_idx = train_part.find(':')
+                if colon_idx > 0:
+                    train_id = train_part[:colon_idx]
+                    tail = train_part[colon_idx + 1:]
+                    # Parse: {HARNESS}-{NNN}-{slug}
+                    segments = tail.split('-', 2)
+                    return {
+                        'type': 'test',
+                        'format': 'journey',
+                        'train_id': train_id,
+                        'harness': segments[0] if len(segments) > 0 else None,
+                        'sequence': segments[1] if len(segments) > 1 else None,
+                        'slug': segments[2] if len(segments) > 2 else None,
+                    }
+                return {'type': 'test', 'format': 'journey', 'train_id': train_part}
+
+            # V3 acceptance format: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+            colon_parts = main_part.split(':')
+            if len(colon_parts) == 3:
+                wagon_id, feature_id, tail = colon_parts
+                # Parse tail: {WMBT_ID}-{HARNESS}-{NNN}-{slug}
+                # First 3 dash-segments = WMBT_ID, HARNESS, NNN; rest = slug
+                segments = tail.split('-', 3)
+                if len(segments) >= 3 and re.match(r'^[A-Z]\d{3}$', segments[0]):
+                    return {
+                        'type': 'test',
+                        'format': 'acceptance',
+                        'wagon_id': wagon_id,
+                        'feature_id': feature_id,
+                        'wmbt_id': segments[0],
+                        'harness': segments[1],
+                        'sequence': segments[2],
+                        'slug': segments[3] if len(segments) > 3 else None,
+                    }
+
+            # Legacy dot format: test:wagon.feature.tc-name
             parts = main_part.split('.')
-            # Last part is always the test case
             test_case = parts[-1] if parts else None
-            # Rest follows wagon.feature.component.side.layer pattern
             result = {
                 'type': 'test',
+                'format': 'legacy',
                 'wagon_id': parts[0] if len(parts) > 0 else None,
                 'test_case': test_case
             }
             if len(parts) > 2:
                 result['feature_id'] = parts[1]
-            if len(parts) > 5:  # Has component
+            if len(parts) > 5:
                 result['component_name'] = parts[2]
                 result['side'] = parts[3]
                 result['layer'] = parts[4]

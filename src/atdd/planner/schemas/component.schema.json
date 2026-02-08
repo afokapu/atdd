@@ -7,8 +7,8 @@
   "properties": {
     "urn": {
       "type": "string",
-      "pattern": "^component:[a-z0-9]+(-[a-z0-9]+)*\\.[a-z0-9]+(-[a-z0-9]+)*\\.[a-zA-Z0-9]+\\.(frontend|backend)\\.(presentation|application|domain|integration)$",
-      "description": "Component URN: component:{wagon}.{feature}.{objectCamelCase}.{layer}"
+      "pattern": "^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|controller|usecase|repository|assembly)$",
+      "description": "Component URN: component:{wagon}:{feature}:{name}:{side}:{layer}"
     },
     "parentFeature": {
       "type": "string",
@@ -51,7 +51,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^component:[a-z0-9]+(-[a-z0-9]+)*\\.[a-z0-9]+(-[a-z0-9]+)*\\.[a-zA-Z0-9]+\\.(frontend|backend)\\.(presentation|application|domain|integration)$"
+        "pattern": "^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|controller|usecase|repository|assembly)$"
       },
       "description": "Component dependencies"
     },

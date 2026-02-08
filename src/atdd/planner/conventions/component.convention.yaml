@@ -4,16 +4,16 @@ description: "Rules for deriving components from feature details with business c
 
 # URN naming pattern
 urn_naming:
-  pattern: "component:{wagon}:{feature}[.{objectCamelCase}][.{side}][.{layer}]"
-  description: "Stable component URN: hierarchy via colons (kind:wagon:feature), optional facets via dots."
-  utility: "utils.graph.URNBuilder.component(wagon_id, feature_id, component_name?, side?, layer?)"
+  pattern: "component:{wagon}:{feature}:{name}:{side}:{layer}"
+  description: "Stable component URN: all segments colon-separated."
+  utility: "utils.graph.URNBuilder.component(wagon_id, feature_id, component_name, side, layer)"
 
   parts:
-    wagon: "Parent wagon identifier (kebab-case), e.g., resolve-dilemmas"
-    feature: "Parent feature identifier (kebab-case), e.g., choose-option"
-    objectCamelCase: "Logical component name (PascalCase or camelCase), e.g., OptionValidator"
-    side: "Deployment side (frontend|backend)"
-    layer: "Architectural layer (presentation|application|domain|integration)"
+    wagon: "Parent wagon identifier (kebab-case). Use 'trains' for train infrastructure."
+    feature: "Parent feature identifier (kebab-case). Use 'wagon' for wagon entrypoints."
+    name: "Logical component name (PascalCase, camelCase, or dot-separated)"
+    side: "Deployment side (frontend|backend|fe|be)"
+    layer: "Architectural layer (presentation|application|domain|integration|assembly)"
 
   rules:
     hierarchy_separator: ":"
@@ -26,29 +26,35 @@ urn_naming:
     no_file_extensions: "Do not include .py/.dart/etc. Use a 'lang-*' facet if needed."
     case_policy: "IDs are case-sensitive; store exactly as written."
 
-  lint_regex: "^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*\.[A-Z][a-zA-Z0-9]*\.(frontend|backend)\.(presentation|application|domain|integration)$"
+  lint_regex: "^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|assembly)$"
 
   examples:
-    - urn: "component:resolve-dilemmas:choose-option.OptionValidator.backend.domain"
+    - urn: "component:resolve-dilemmas:choose-option:OptionValidator:backend:domain"
       wagon: "resolve-dilemmas"
       feature: "choose-option"
       component: "OptionValidator"
       side: "backend"
       layer: "domain"
 
-    - urn: "component:manage-users:authenticate-user.LoginForm.frontend.presentation"
+    - urn: "component:manage-users:authenticate-user:LoginForm:frontend:presentation"
       wagon: "manage-users"
       feature: "authenticate-user"
       component: "LoginForm"
       side: "frontend"
       layer: "presentation"
 
-    - urn: "component:maintain-ux:assets-catalog.AssetIndexer.backend.integration"
+    - urn: "component:maintain-ux:assets-catalog:AssetIndexer:backend:integration"
       wagon: "maintain-ux"
       feature: "assets-catalog"
       component: "AssetIndexer"
       side: "backend"
       layer: "integration"
+
+    - urn: "component:navigate-domains:browse-hierarchy:composition:backend:assembly"
+      note: "Feature composition (above layers)"
+
+    - urn: "component:trains:runner:TrainRunner:backend:assembly"
+      note: "Train infrastructure component (always assembly layer)"
 
   note: "Side and layer values are defined by component_type_catalog structure below"
 
@@ -629,7 +635,7 @@ validation_rules:
 
   layer_consistency:
     rule: "Component belongs to exactly one layer"
-    check: "URN contains valid layer: presentation|application|domain|integration"
+    check: "URN contains valid layer: presentation|application|domain|integration|assembly"
 
   io_alignment:
     rule: "Component events must subset of feature ioSeeds"

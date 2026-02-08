@@ -96,14 +96,42 @@ runtime_placement:
 
   header_documentation:
     required: true
-    format: |
+    description: "V3 two-tier test headers: acceptance tests and journey (E2E) tests"
+
+    acceptance_test_format: |
+      # URN: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+      # Acceptance: acc:{wagon}:{WMBT_ID}-{HARNESS}-{NNN}[-{slug}]
+      # WMBT: wmbt:{wagon}:{WMBT_ID}
+      # Phase: RED|GREEN|REFACTOR
+      # Layer: presentation|application|domain|integration|assembly
       # Runtime: {python|supabase|dart}
-      # Rationale: {brief explanation based on decision_criteria}
-      # URN: {full acceptance criteria URN}
+      # Purpose: {acceptance criteria purpose}
+
+    journey_test_format: |
+      # URN: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
+      # Train: train:{train_id}
+      # Phase: RED|GREEN|REFACTOR
+      # Layer: assembly
+      # Runtime: {python|supabase|dart}
+      # Purpose: {journey test purpose}
+
+    rules:
+      - "Every test file must include exactly one test: URN (file-level identity)"
+      - "Acceptance tests MUST include Acceptance: and WMBT: lines, MUST omit Train:"
+      - "Journey tests MUST include Train: line, MUST omit Acceptance: and WMBT:"
+      - "Phase MUST be one of RED, GREEN, REFACTOR"
+      - "Layer MUST be one of presentation, application, domain, integration, assembly"
+
+    format: |
+      # URN: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+      # Acceptance: acc:{wagon}:{WMBT_ID}-{HARNESS}-{NNN}[-{slug}]
+      # WMBT: wmbt:{wagon}:{WMBT_ID}
       # Phase: {RED|GREEN|REFACTOR}
+      # Layer: {layer}
+      # Runtime: {python|supabase|dart}
       # Purpose: {acceptance criteria purpose}
       """
-      RED Test for {full acceptance criteria URN}
+      RED Test for test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
       wagon: {wagon-slug} | feature: {feature-slug} | phase: {RED|GREEN|REFACTOR}
       WMBT: {wmbt URN}
       Purpose: {acceptance criteria purpose}

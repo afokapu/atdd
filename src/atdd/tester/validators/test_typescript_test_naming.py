@@ -122,22 +122,32 @@ def test_typescript_test_files_have_urn_comment(typescript_test_files):
         with open(test_file, 'r') as f:
             first_line = f.readline().strip()
 
-        # Check for URN comment pattern
-        urn_pattern = re.compile(r'^// urn: acc:[a-z][a-z0-9-]+\.[A-Z]\d{3}\.AC-[A-Z]+-\d{3}$')
+        # V3 test: URN format
+        v3_test_urn = re.compile(
+            r'^//\s*(?:URN|urn):\s*test:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}-[a-z0-9-]+$'
+        )
+        # V3 journey test: URN format
+        v3_journey_urn = re.compile(
+            r'^//\s*(?:URN|urn):\s*test:train:\d{4}-[a-z0-9][a-z0-9-]*:[A-Z0-9]+-[0-9]{3}-[a-z0-9-]+$'
+        )
+        # Legacy dot-format URN
+        legacy_urn = re.compile(r'^// urn: acc:[a-z][a-z0-9-]+\.[A-Z]\d{3}\.AC-[A-Z]+-\d{3}$')
 
-        if not urn_pattern.match(first_line):
+        if not (v3_test_urn.match(first_line) or v3_journey_urn.match(first_line) or legacy_urn.match(first_line)):
             errors.append(
                 f"❌ {test_file.relative_to(Path.cwd())}\n"
                 f"   Missing or invalid URN comment in first line.\n"
                 f"   Found: {first_line[:80]}\n"
-                f"   Expected: // urn: acc:{{wagon}}.{{wmbt}}.{{acceptance_id}}"
+                f"   Expected (V3): // URN: test:{{wagon}}:{{feature}}:{{WMBT_ID}}-{{HARNESS}}-{{NNN}}-{{slug}}\n"
+                f"   Expected (legacy): // urn: acc:{{wagon}}.{{wmbt}}.{{acceptance_id}}"
             )
 
     if errors:
         pytest.fail(
             "\n\n🔴 TypeScript test files missing URN comments:\n\n" +
             "\n".join(errors) +
-            "\n\n📘 First line must be: // urn: acc:{wagon}.{wmbt}.{acceptance_id}"
+            "\n\n📘 V3 format: // URN: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}\n"
+            "📘 Legacy format: // urn: acc:{wagon}.{wmbt}.{acceptance_id}"
         )
 
 

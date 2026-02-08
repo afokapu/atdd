@@ -288,53 +288,53 @@ Tasks are ordered by dependency. Blocked tasks cannot start until their prerequi
 ### Phase 1: Foundation
 | # | Task | File(s) | Spec Ref | Status |
 |---|------|---------|----------|--------|
-| 1 | Update URN patterns: `train` to `^\d{4}-[a-z0-9-]+$`, `component` to allow `assembly`, `test` to support acceptance + journey formats | `urn.py` | S5, S6, S9.3 | [ ] |
+| 1 | Update URN patterns: `train` to `^\d{4}-[a-z0-9-]+$`, `component` to allow `assembly`, `test` to support acceptance + journey formats | `urn.py` | S5, S6, S9.3 | [x] |
 
 ### Phase 2: Core Resolvers (blocked by Phase 1)
 | # | Task | File(s) | Spec Ref | Status |
 |---|------|---------|----------|--------|
-| 2 | ComponentResolver: add `trains` wagon slug mapping to `python/trains/`, switch to case-insensitive stem match | `resolver.py` | S8.2, S8.3 | [ ] |
-| 3 | TestResolver: parse explicit `# URN: test:...` headers (acceptance + journey), parse `Acceptance:`, `WMBT:`, `Train:`, `Phase:`, `Layer:` metadata lines | `resolver.py` | S8.4, S9.1, S9.2 | [ ] |
+| 2 | ComponentResolver: add `trains` wagon slug mapping to `python/trains/`, switch to case-insensitive stem match | `resolver.py` | S8.2, S8.3 | [x] |
+| 3 | TestResolver: parse explicit `# URN: test:...` headers (acceptance + journey), parse `Acceptance:`, `WMBT:`, `Train:`, `Phase:`, `Layer:` metadata lines | `resolver.py` | S8.4, S9.1, S9.2 | [x] |
 
 ### Phase 3: Graph Builder (blocked by Phase 2)
 | # | Task | File(s) | Spec Ref | Status |
 |---|------|---------|----------|--------|
-| 4 | Parse `# Tested-By:` from component files for authoritative component→test TESTED_BY edges; parse `# Train:` from journey tests for train→test edges | `graph_builder.py` | S9.5 | [ ] |
+| 4 | Parse `# Tested-By:` from component files for authoritative component→test TESTED_BY edges; parse `# Train:` from journey tests for train→test edges | `graph_builder.py` | S9.5 | [x] |
 
 ### Phase 4: Conventions (independent)
 | # | Task | File(s) | Spec Ref | Status |
 |---|------|---------|----------|--------|
-| 5 | Add `assembly` layer, feature composition, wagon entrypoint, train infra examples | `green.convention.yaml` | S6, S11 | [ ] |
-| 6 | Update component URN pattern/regex to colon format with `assembly` | `component.convention.yaml` | S6, S11 | [ ] |
-| 7 | Set train URN to `train:{train_id}`, add linear-only rule | `train.convention.yaml` (planner) | S7, S11 | [ ] |
-| 8 | Update test header template for two-tier format (acceptance + journey) | `red.convention.yaml` | S9.1, S9.2, S11 | [ ] |
-| 9 | Document test identity from `test:` URN, filename from acceptance URN | `filename.convention.yaml` | S9.4, S11 | [ ] |
-| 10 | Require `Train:` header for E2E journey tests | `train.convention.yaml` (tester) | S9.2, S11 | [ ] |
+| 5 | Add `assembly` layer, feature composition, wagon entrypoint, train infra examples | `green.convention.yaml` | S6, S11 | [x] |
+| 6 | Update component URN pattern/regex to colon format with `assembly` | `component.convention.yaml` | S6, S11 | [x] |
+| 7 | Set train URN to `train:{train_id}`, add linear-only rule | `train.convention.yaml` (planner) | S7, S11 | [x] |
+| 8 | Update test header template for two-tier format (acceptance + journey) | `red.convention.yaml` | S9.1, S9.2, S11 | [x] |
+| 9 | Document test identity from `test:` URN, filename from acceptance URN | `filename.convention.yaml` | S9.4, S11 | [x] |
+| 10 | Require `Train:` header for E2E journey tests | `train.convention.yaml` (tester) | S9.2, S11 | [x] |
 
 ### Phase 5: Schemas (independent)
 | # | Task | File(s) | Spec Ref | Status |
 |---|------|---------|----------|--------|
-| 11 | Update URN regex to colon format, allow `assembly` layer | `component.schema.json` | S6, S11 | [ ] |
-| 12 | Align component references with updated URN format | `feature.schema.json` | S6, S11 | [ ] |
-| 13 | Remove `loop`/`route` from sequence items, enforce linear-only | `train.schema.json` | S10 R11, S11 | [ ] |
-| 14 | Clarify acceptance URN source when `test:` header is primary | `test_filename.schema.json` | S9, S11 | [ ] |
+| 11 | Update URN regex to colon format, allow `assembly` layer | `component.schema.json` | S6, S11 | [x] |
+| 12 | Align component references with updated URN format | `feature.schema.json` | S6, S11 | [x] |
+| 13 | Remove `loop`/`route` from sequence items, enforce linear-only | `train.schema.json` | S10 R11, S11 | [x] |
+| 14 | Clarify acceptance URN source when `test:` header is primary | `test_filename.schema.json` | S9, S11 | [x] |
 
 ### Phase 6: Validators
 | # | Task | File(s) | Spec Ref | Blocked By | Status |
 |---|------|---------|----------|------------|--------|
-| 15 | Replace `acc:` header check with `Acceptance:` line format | `test_dual_ac_reference.py` | S9, S11 | — | [ ] |
-| 16 | Accept new header format, extract acc URN from `Acceptance:` line | `test_typescript_test_structure.py`, `test_typescript_test_naming.py`, `test_acceptance_urn_filename_mapping.py` | S9, S11 | — | [ ] |
-| 17 | Enforce one `test:` URN per file, validate acceptance + journey formats, validate mutual exclusion (Acceptance+WMBT vs Train) | new validator | S9.4, S10 R2,3,14 | Phase 1 | [ ] |
-| 18 | Enforce `Tested-By` header in components, verify referenced tests exist, validate chain alignment | new validator | S9.5, S10 R8 | Phase 3 | [ ] |
-| 19 | E2E journey tests must include `Train:` header with valid train URN | new validator | S9.2, S10 R3 | — | [ ] |
-| 20 | Fail on `loop`/`route` in train sequences, enforce sequential step numbering | `test_train_validation.py` | S10 R11 | — | [ ] |
-| 21 | Forbid feature slug `wagon`, wagon slugs `train`/`trains` | new validator | S10 R9,10 | — | [ ] |
-| 22 | Validate `Phase:` in `RED|GREEN|REFACTOR`, `Layer:` in allowed values | new/extended validator | S10 R12,13 | — | [ ] |
+| 15 | Replace `acc:` header check with `Acceptance:` line format | `test_dual_ac_reference.py` | S9, S11 | — | [x] |
+| 16 | Accept new header format, extract acc URN from `Acceptance:` line | `test_typescript_test_structure.py`, `test_typescript_test_naming.py`, `test_acceptance_urn_filename_mapping.py` | S9, S11 | — | [x] |
+| 17 | Enforce one `test:` URN per file, validate acceptance + journey formats, validate mutual exclusion (Acceptance+WMBT vs Train) | `test_urn_spec_v3.py` (SPEC-V3-001, SPEC-V3-002) | S9.4, S10 R2,3,14 | Phase 1 | [x] |
+| 18 | Enforce `Tested-By` header in components, verify referenced tests exist, validate chain alignment | `test_urn_spec_v3.py` (SPEC-V3-006) | S9.5, S10 R8 | Phase 3 | [x] |
+| 19 | E2E journey tests must include `Train:` header with valid train URN | `test_urn_spec_v3.py` (SPEC-V3-004) | S9.2, S10 R3 | — | [x] |
+| 20 | Fail on `loop`/`route` in train sequences, enforce sequential step numbering | `test_train_validation.py` | S10 R11 | — | [x] |
+| 21 | Forbid feature slug `wagon`, wagon slugs `train`/`trains` | `test_urn_spec_v3.py` (SPEC-V3-005) | S10 R9,10 | — | [x] |
+| 22 | Validate `Phase:` in `RED|GREEN|REFACTOR`, `Layer:` in allowed values | `test_urn_spec_v3.py` (SPEC-V3-003) | S10 R12,13 | — | [x] |
 
 ### Phase 7: Commands / Generators
 | # | Task | File(s) | Spec Ref | Blocked By | Status |
 |---|------|---------|----------|------------|--------|
-| 23 | Emit new header block (test: + Acceptance + WMBT + Phase + Layer) for both tiers | `*.tmpl.json` | S9, S11 | — | [ ] |
+| 23 | Emit new header block (test: + Acceptance + WMBT + Phase + Layer) for both tiers | `*.tmpl.json` | S9, S11 | — | [x] |
 | 24 | Insert/repair test headers across all languages (Phase/Layer auto-inserted if missing) | new fixer command | S11 | #17 | [ ] |
 | 25 | Insert `Tested-By` in components using unambiguous discovery; list choices for ambiguous | new fixer command | S9.5, S11 | #18 | [ ] |
 | 26 | Report non-linear trains (loops/routes) with file paths and offending nodes (no mutations) | new audit command | S11 | — | [ ] |

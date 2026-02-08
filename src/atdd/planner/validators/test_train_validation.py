@@ -1179,3 +1179,122 @@ def test_train_status_expectations_conflict(train_files):
                     conflict,
                     TrainSpecPhase.FULL_ENFORCEMENT
                 )
+
+
+@pytest.mark.platform
+def test_trains_are_linear_no_loops_or_routes(trains_registry):
+    """
+    SPEC-TRAIN-VAL-0037: Trains must be strictly linear (no loops or routes).
+
+    Per URN Spec V3 S10 R11: Trains are strictly linear. Sequences contain
+    steps only. No loops, routes, or branching. New journeys that require
+    different paths must create new trains.
+
+    Given: Train spec files with sequences
+    When: Checking for loop or route elements
+    Then: No sequence item should contain a 'loop' or 'route' key
+    """
+    repo_root = find_repo_root()
+    trains_dir = repo_root / "plan" / "_trains"
+
+    if not trains_dir.exists():
+        pytest.skip("No _trains directory")
+
+    violations = []
+
+    for theme, trains in trains_registry.items():
+        if not trains:
+            continue
+        for train in trains:
+            train_id = train.get("train_id", "")
+            train_path = trains_dir / f"{train_id}.yaml"
+            if not train_path.exists():
+                continue
+
+            try:
+                with open(train_path, "r", encoding="utf-8") as f:
+                    spec = yaml.safe_load(f)
+            except Exception:
+                continue
+
+            if not spec or not isinstance(spec, dict):
+                continue
+
+            sequence = spec.get("sequence", [])
+            for idx, item in enumerate(sequence):
+                if "loop" in item:
+                    violations.append(
+                        f"{train_id} step {idx}: contains 'loop' "
+                        f"(name={item['loop'].get('name', '?')})"
+                    )
+                if "route" in item:
+                    violations.append(
+                        f"{train_id} step {idx}: contains 'route' "
+                        f"(name={item['route'].get('name', '?')})"
+                    )
+
+    if violations:
+        pytest.fail(
+            f"\nTrains must be strictly linear (no loops/routes). "
+            f"Found {len(violations)} violations:\n  "
+            + "\n  ".join(violations)
+            + "\n\nNew journeys requiring different paths should create new trains."
+        )
+
+
+@pytest.mark.platform
+def test_train_sequences_have_sequential_step_numbers(trains_registry):
+    """
+    SPEC-TRAIN-VAL-0038: Train step numbers must be sequential with no gaps.
+
+    Given: Train spec files with linear sequences
+    When: Checking step numbering
+    Then: Steps must be numbered 1, 2, 3, ... with no gaps
+    """
+    repo_root = find_repo_root()
+    trains_dir = repo_root / "plan" / "_trains"
+
+    if not trains_dir.exists():
+        pytest.skip("No _trains directory")
+
+    violations = []
+
+    for theme, trains in trains_registry.items():
+        if not trains:
+            continue
+        for train in trains:
+            train_id = train.get("train_id", "")
+            train_path = trains_dir / f"{train_id}.yaml"
+            if not train_path.exists():
+                continue
+
+            try:
+                with open(train_path, "r", encoding="utf-8") as f:
+                    spec = yaml.safe_load(f)
+            except Exception:
+                continue
+
+            if not spec or not isinstance(spec, dict):
+                continue
+
+            sequence = spec.get("sequence", [])
+            step_numbers = [
+                item.get("step") for item in sequence
+                if isinstance(item, dict) and "step" in item
+            ]
+
+            if not step_numbers:
+                continue
+
+            expected = list(range(1, len(step_numbers) + 1))
+            if step_numbers != expected:
+                violations.append(
+                    f"{train_id}: steps={step_numbers}, expected={expected}"
+                )
+
+    if violations:
+        pytest.fail(
+            f"\nTrain step numbering must be sequential (1,2,3,...). "
+            f"Found {len(violations)} violations:\n  "
+            + "\n  ".join(violations)
+        )

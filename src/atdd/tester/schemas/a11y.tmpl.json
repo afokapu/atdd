@@ -12,6 +12,17 @@
     "url",
     "given_setup",
     "axe_ruleset_call",
-    "max_critical"
-  ]
+    "max_critical",
+    "wagon",
+    "feature",
+    "wmbt_id",
+    "nnn",
+    "slug",
+    "layer",
+    "train_id"
+  ],
+  "header_template": {
+    "acceptance": "// URN: test:{wagon}:{feature}:{wmbt_id}-A11Y-{nnn}-{slug}\n// Acceptance: acc:{wagon}:{wmbt_id}-A11Y-{nnn}[-{slug}]\n// WMBT: wmbt:{wagon}:{wmbt_id}\n// Phase: RED\n// Layer: {layer}\n",
+    "journey": "// URN: test:train:{train_id}:A11Y-{nnn}-{slug}\n// Train: train:{train_id}\n// Phase: RED\n// Layer: assembly\n"
+  }
 }

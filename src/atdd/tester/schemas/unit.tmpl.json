@@ -6,6 +6,10 @@
   "framework": "vitest",
   "category": "frontend",
   "template": "\ndescribe('{test_name}', () => {{\n  let component: {component_name};\n  let mockDependencies: any;\n\n  beforeEach(() => {{\n    mockDependencies = {{\n      {mock_setup}\n    }};\n    component = new {component_name}(mockDependencies);\n  }});\n\n  it('{acceptance_name}', async () => {{\n    // Given\n    {given_setup}\n\n    // When\n    {when_action}\n\n    // Then\n    {then_assertions}\n  }});\n}});\n",
+  "header_template": {
+    "acceptance": "// URN: test:{wagon}:{feature}:{wmbt_id}-UNIT-{nnn}-{slug}\n// Acceptance: acc:{wagon}:{wmbt_id}-UNIT-{nnn}[-{slug}]\n// WMBT: wmbt:{wagon}:{wmbt_id}\n// Phase: RED\n// Layer: {layer}\n",
+    "journey": "// URN: test:train:{train_id}:UNIT-{nnn}-{slug}\n// Train: train:{train_id}\n// Phase: RED\n// Layer: assembly\n"
+  },
   "variables": [
     "test_name",
     "component_name",
@@ -13,6 +17,13 @@
     "acceptance_name",
     "given_setup",
     "when_action",
-    "then_assertions"
+    "then_assertions",
+    "wagon",
+    "feature",
+    "wmbt_id",
+    "nnn",
+    "slug",
+    "layer",
+    "train_id"
   ]
 }

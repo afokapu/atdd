@@ -1,0 +1,70 @@
+version: "1.0"
+name: "Journey Test Train Convention"
+description: "Convention for E2E journey tests that validate train workflows"
+
+# Journey Test Requirements
+journey_tests:
+  description: |
+    Journey tests validate end-to-end train workflows. They use a distinct
+    header format from acceptance tests and MUST include a Train: reference.
+
+  urn_format:
+    pattern: "test:train:{train_id}:{HARNESS}-{NNN}-{slug}"
+    description: "Journey test URN links to a train plan"
+    examples:
+      - "test:train:0025-onboarding:E2E-001-full-login-flow"
+      - "test:train:3001-solo-match-complete:E2E-001-match-lifecycle"
+
+  required_header:
+    description: "Every journey test file MUST include this header block"
+    format: |
+      # URN: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
+      # Train: train:{train_id}
+      # Phase: RED|GREEN|REFACTOR
+      # Layer: assembly
+
+    rules:
+      - "Train: header MUST reference a valid train URN"
+      - "Train URN MUST match pattern: train:{NNNN}-{kebab-case}"
+      - "Phase MUST be one of: RED, GREEN, REFACTOR"
+      - "Layer MUST be 'assembly' for journey tests"
+      - "Acceptance: and WMBT: lines MUST NOT appear in journey tests"
+      - "Exactly one test: URN per file"
+
+    examples:
+      python: |
+        # URN: test:train:0025-onboarding:E2E-001-full-login-flow
+        # Train: train:0025-onboarding
+        # Phase: RED
+        # Layer: assembly
+        # Runtime: python
+        # Purpose: Validate complete onboarding journey end-to-end
+
+      typescript: |
+        // URN: test:train:3001-solo-match-complete:E2E-001-match-lifecycle
+        // Train: train:3001-solo-match-complete
+        // Phase: RED
+        // Layer: assembly
+        // Runtime: supabase
+        // Purpose: Validate solo match lifecycle from setup to scoring
+
+  harness:
+    description: "Journey tests typically use E2E harness"
+    recommended: "E2E"
+    allowed: "Any valid harness code, but E2E is standard for journey tests"
+
+  file_locations:
+    python: "e2e/{train_id}/"
+    typescript: "e2e/{train_id}/"
+
+  mutual_exclusion:
+    description: "Journey and acceptance test headers are mutually exclusive"
+    rule: |
+      Journey tests: MUST have Train:, MUST NOT have Acceptance: or WMBT:
+      Acceptance tests: MUST have Acceptance: and WMBT:, MUST NOT have Train:
+
+validation_rules:
+  - "Train: header must reference a valid train URN matching pattern train:\\d{4}-[a-z0-9][a-z0-9-]*"
+  - "Journey test URN must match: test:train:{train_id}:{HARNESS}-{NNN}-{slug}"
+  - "Layer must be 'assembly' for all journey tests"
+  - "No Acceptance: or WMBT: lines allowed in journey test files"

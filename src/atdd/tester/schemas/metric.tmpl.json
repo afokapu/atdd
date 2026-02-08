@@ -14,6 +14,17 @@
     "window_minutes",
     "metric_query",
     "metric_name",
-    "then_assertions"
-  ]
+    "then_assertions",
+    "wagon",
+    "feature",
+    "wmbt_id",
+    "nnn",
+    "slug",
+    "layer",
+    "train_id"
+  ],
+  "header_template": {
+    "acceptance": "// URN: test:{wagon}:{feature}:{wmbt_id}-METRIC-{nnn}-{slug}\n// Acceptance: acc:{wagon}:{wmbt_id}-METRIC-{nnn}[-{slug}]\n// WMBT: wmbt:{wagon}:{wmbt_id}\n// Phase: RED\n// Layer: {layer}\n",
+    "journey": "// URN: test:train:{train_id}:METRIC-{nnn}-{slug}\n// Train: train:{train_id}\n// Phase: RED\n// Layer: assembly\n"
+  }
 }

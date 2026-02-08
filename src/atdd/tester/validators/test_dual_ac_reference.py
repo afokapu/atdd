@@ -39,7 +39,19 @@ def find_test_files() -> list:
 
 
 def extract_ac_from_header(content: str) -> str | None:
-    """Extract AC URN from header comment."""
+    """Extract AC URN from header comment.
+
+    V3: Check both legacy ``# URN: acc:...`` and new ``# Acceptance: acc:...`` lines.
+    """
+    # V3 format: # Acceptance: acc:...
+    match = re.search(
+        r'^#\s*[Aa]cceptance:\s*(acc:[a-z\-]+:[A-Z0-9]+-[A-Z0-9]+-\d{3}(?:-[a-z\-]+)?)',
+        content,
+        re.MULTILINE
+    )
+    if match:
+        return match.group(1)
+    # Legacy format: # URN: acc:...
     match = re.search(
         r'^#\s*URN:\s*(acc:[a-z\-]+:[A-Z0-9]+-[A-Z0-9]+-\d{3}(?:-[a-z\-]+)?)',
         content,
@@ -109,6 +121,13 @@ def test_all_tests_have_dual_ac_references():
                 f'  WMBT: {{wmbt URN}}\n'
                 f'  Purpose: {{acceptance criteria purpose}}\n'
                 f'  """\n'
+                f"\n"
+                f"  V3 header format (preferred):\n"
+                f"  # URN: test:{{wagon}}:{{feature}}:{{WMBT_ID}}-{{HARNESS}}-{{NNN}}-{{slug}}\n"
+                f"  # Acceptance: {ac_from_header}\n"
+                f"  # WMBT: wmbt:{{wagon}}:{{WMBT_ID}}\n"
+                f"  # Phase: RED|GREEN|REFACTOR\n"
+                f"  # Layer: presentation|application|domain|integration|assembly\n"
             )
 
         if ac_from_docstring and not ac_from_header:
@@ -119,12 +138,16 @@ def test_all_tests_have_dual_ac_references():
                 f"    ❌ Header comment: MISSING\n"
                 f"    ✅ Module docstring: {ac_from_docstring}\n"
                 f"\n"
-                f"  ACTION REQUIRED: Add these lines at the top of the file:\n"
-                f"  # Runtime: {{python|supabase|dart}}\n"
-                f"  # Rationale: {{brief explanation}}\n"
+                f"  ACTION REQUIRED: Add V3 header at the top of the file:\n"
+                f"  # URN: test:{{wagon}}:{{feature}}:{{WMBT_ID}}-{{HARNESS}}-{{NNN}}-{{slug}}\n"
+                f"  # Acceptance: {ac_from_docstring}\n"
+                f"  # WMBT: wmbt:{{wagon}}:{{WMBT_ID}}\n"
+                f"  # Phase: RED|GREEN|REFACTOR\n"
+                f"  # Layer: presentation|application|domain|integration|assembly\n"
+                f"\n"
+                f"  Legacy format (also accepted):\n"
                 f"  # URN: {ac_from_docstring}\n"
                 f"  # Phase: {{RED|GREEN|REFACTOR}}\n"
-                f"  # Purpose: {{acceptance criteria purpose}}\n"
             )
 
         # Check for match (allowing slugless to match slugged)
@@ -178,7 +201,7 @@ def test_all_tests_have_dual_ac_references():
             f"  • Mismatched URNs: {mismatched} files\n"
             f"\n"
             f"PER RED CONVENTION v1.0+, test files MUST have AC URN in BOTH:\n"
-            f"  1. Header comment: # URN: acc:...\n"
+            f"  1. Header comment: # Acceptance: acc:... (V3) or # URN: acc:... (legacy)\n"
             f"  2. Module docstring: RED Test for acc:...\n"
             f"  AND both references MUST match exactly.\n"
             f"\n"

@@ -6,12 +6,23 @@
   "framework": "playwright",
   "category": "frontend",
   "template": "\ndescribe('{test_name}', () => {{\n  let page: Page;\n\n  beforeEach(async () => {{\n    page = await browser.newPage();\n  }});\n\n  afterEach(async () => {{\n    await page.close();\n  }});\n\n  it('{acceptance_name}', async () => {{\n    // Given\n    await page.goto('{e2e_url}');\n    {given_setup}\n\n    // When\n    {when_action}\n\n    // Then\n    {then_assertions}\n  }});\n}});\n",
+  "header_template": {
+    "acceptance": "// URN: test:{wagon}:{feature}:{wmbt_id}-E2E-{nnn}-{slug}\n// Acceptance: acc:{wagon}:{wmbt_id}-E2E-{nnn}[-{slug}]\n// WMBT: wmbt:{wagon}:{wmbt_id}\n// Phase: RED\n// Layer: {layer}\n",
+    "journey": "// URN: test:train:{train_id}:E2E-{nnn}-{slug}\n// Train: train:{train_id}\n// Phase: RED\n// Layer: assembly\n"
+  },
   "variables": [
     "test_name",
     "acceptance_name",
     "e2e_url",
     "given_setup",
     "when_action",
-    "then_assertions"
+    "then_assertions",
+    "wagon",
+    "feature",
+    "wmbt_id",
+    "nnn",
+    "slug",
+    "layer",
+    "train_id"
   ]
 }

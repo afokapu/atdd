@@ -193,14 +193,10 @@
     },
     "sequence": {
       "type": "array",
-      "description": "Ordered steps, loops, and routes defining the train workflow",
+      "description": "Ordered linear steps defining the train workflow. Trains are strictly linear: no loops or routes. New journeys require new trains.",
       "minItems": 1,
       "items": {
-        "oneOf": [
-          { "$ref": "#/definitions/step" },
-          { "$ref": "#/definitions/loop" },
-          { "$ref": "#/definitions/route" }
-        ]
+        "$ref": "#/definitions/step"
       }
     }
   },

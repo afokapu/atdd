@@ -7,31 +7,40 @@ green_phase:
   goal: "Make acceptance tests pass with the thinnest vertical slice"
   # URN naming pattern
   urn_naming:
-    pattern: "component:{wagon}:{feature}[.{objectCamelCase}][.{side}][.{layer}][@vN]"
-    description: "Stable component URN: hierarchy via colons (kind:wagon:feature), optional facets via dots."
-    utility: "utils.graph.URNBuilder.component(wagon_id, feature_id, component_name?, side?, layer?, version?)"
+    pattern: "component:{wagon}:{feature}:{name}:{side}:{layer}"
+    description: "Stable component URN: all segments colon-separated."
+    utility: "utils.graph.URNBuilder.component(wagon_id, feature_id, component_name, side, layer)"
 
     parts:
-      wagon: "Parent wagon identifier (kebab-case)"
-      feature: "Parent feature identifier (kebab-case)"
-      objectCamelCase: "Component name in PascalCase or camelCase"
-      side: "Component deployment side (frontend|backend)"
-      layer: "Architectural layer (presentation|application|domain|integration)"
+      wagon: "Parent wagon identifier (kebab-case). Use 'trains' for train infrastructure."
+      feature: "Parent feature identifier (kebab-case). Use 'wagon' for wagon entrypoints."
+      name: "Component name (PascalCase, camelCase, or dot-separated e.g. decision.mapper)"
+      side: "Component deployment side (frontend|backend|fe|be)"
+      layer: "Architectural layer (presentation|application|domain|integration|assembly)"
 
     examples:
-      - urn: "component:resolve-dilemmas:choose-option.OptionValidator.backend.domain"
+      - urn: "component:resolve-dilemmas:choose-option:OptionValidator:backend:domain"
         wagon: "resolve-dilemmas"
         feature: "choose-option"
         component: "OptionValidator"
         side: "backend"
         layer: "domain"
 
-      - urn: "component:manage-users:authenticate-user.LoginForm.frontend.presentation"
+      - urn: "component:manage-users:authenticate-user:LoginForm:frontend:presentation"
         wagon: "manage-users"
         feature: "authenticate-user"
         component: "LoginForm"
         side: "frontend"
         layer: "presentation"
+
+      - urn: "component:navigate-domains:browse-hierarchy:composition:backend:assembly"
+        note: "Feature composition (above layers)"
+
+      - urn: "component:navigate-domains:wagon:entrypoint:backend:assembly"
+        note: "Wagon entrypoint (above features)"
+
+      - urn: "component:trains:runner:TrainRunner:backend:assembly"
+        note: "Train infrastructure component (always assembly layer)"
 
     note: "Side and layer values are defined by component_type_catalog structure below"
 
@@ -41,7 +50,7 @@ green_phase:
 
     component_urn_marker:
       required: true
-      format: "# urn: component:{wagon}:{feature}.{ComponentName}.{side}.{layer}"
+      format: "# URN: component:{wagon}:{feature}:{ComponentName}:{side}:{layer}"
       position: "First non-empty line in file (before imports)"
 
       rationale: |
@@ -81,11 +90,11 @@ green_phase:
         level: "CRITICAL"
         validation:
           - "Every implementation file MUST have component URN marker"
-          - "URN MUST match pattern: component:{wagon}:{feature}.{ComponentName}.{side}.{layer}"
+          - "URN MUST match pattern: component:{wagon}:{feature}:{ComponentName}:{side}:{layer}"
           - "Wagon and feature MUST exist in wagon manifest"
           - "Component name MUST match filename (with casing transformation)"
           - "Side MUST be 'frontend' or 'backend'"
-          - "Layer MUST be one of: domain, application, integration, presentation"
+          - "Layer MUST be one of: domain, application, integration, presentation, assembly"
 
         auto_validation:
           tool: ".claude/utils/coach/manifest/validate_component_urns.py"
@@ -142,13 +151,25 @@ green_phase:
           - "# Purpose: Validate user credentials against stored hash"
           - "# Purpose: Load and cache UX foundation assets"
 
+    tested_by:
+      required: true
+      format: |
+        # Tested-By:
+        # - test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+      description: "Lists test URNs that validate this component (authoritative for component→test edges)"
+      rules:
+        - "Every production component MUST include Tested-By with valid test: URNs"
+        - "Tested-By is authoritative for component→test edges; derived mappings are advisory only"
+        - "For component:trains:*, Tested-By is manual only (no auto-discovery)"
+
     header_order:
-      1: "Component URN marker (# urn: component:...)"
-      2: "Runtime declaration (# Runtime: ...)"
-      3: "Purpose description (# Purpose: ...)"
-      4: "Blank line"
-      5: "Module docstring (optional)"
-      6: "Imports"
+      1: "Component URN marker (# URN: component:...)"
+      2: "Tested-By block (# Tested-By: / # - test:...)"
+      3: "Runtime declaration (# Runtime: ...)"
+      4: "Purpose description (# Purpose: ...)"
+      5: "Blank line"
+      6: "Module docstring (optional)"
+      7: "Imports"
 
     full_example:
       python: |

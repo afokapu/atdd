@@ -13,6 +13,17 @@
     "headers",
     "body",
     "url",
-    "expected_status"
-  ]
+    "expected_status",
+    "wagon",
+    "feature",
+    "wmbt_id",
+    "nnn",
+    "slug",
+    "layer",
+    "train_id"
+  ],
+  "header_template": {
+    "acceptance": "// URN: test:{wagon}:{feature}:{wmbt_id}-SEC-{nnn}-{slug}\n// Acceptance: acc:{wagon}:{wmbt_id}-SEC-{nnn}[-{slug}]\n// WMBT: wmbt:{wagon}:{wmbt_id}\n// Phase: RED\n// Layer: {layer}\n",
+    "journey": "// URN: test:train:{train_id}:SEC-{nnn}-{slug}\n// Train: train:{train_id}\n// Phase: RED\n// Layer: assembly\n"
+  }
 }

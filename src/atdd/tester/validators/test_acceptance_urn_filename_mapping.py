@@ -224,7 +224,17 @@ def test_typescript_files_match_convention():
 
             if not match:
                 content = ts_file.read_text()
-                urn_match = re.search(r'// urn: (acc:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?)', content)
+                # V3: // Acceptance: acc:...
+                urn_match = re.search(
+                    r'//\s*[Aa]cceptance:\s*(acc:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?)',
+                    content
+                )
+                # Legacy: // urn: acc:...
+                if not urn_match:
+                    urn_match = re.search(
+                        r'// urn: (acc:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?)',
+                        content
+                    )
 
                 if urn_match:
                     urn = urn_match.group(1)
@@ -269,10 +279,17 @@ def test_typescript_preact_files_match_convention():
 
             if not match:
                 content = ts_file.read_text()
+                # V3: // Acceptance: acc:...
                 urn_match = re.search(
-                    r'//\s*(?:urn|URN):\s*(acc:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?)',
+                    r'//\s*[Aa]cceptance:\s*(acc:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?)',
                     content
                 )
+                # Legacy: // URN: acc:... or // urn: acc:...
+                if not urn_match:
+                    urn_match = re.search(
+                        r'//\s*(?:urn|URN):\s*(acc:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?)',
+                        content
+                    )
 
                 if urn_match:
                     urn = urn_match.group(1)

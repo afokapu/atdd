@@ -13,6 +13,17 @@
     "given_setup",
     "when_action",
     "snapshot_name",
-    "threshold"
-  ]
+    "threshold",
+    "wagon",
+    "feature",
+    "wmbt_id",
+    "nnn",
+    "slug",
+    "layer",
+    "train_id"
+  ],
+  "header_template": {
+    "acceptance": "// URN: test:{wagon}:{feature}:{wmbt_id}-VIS-{nnn}-{slug}\n// Acceptance: acc:{wagon}:{wmbt_id}-VIS-{nnn}[-{slug}]\n// WMBT: wmbt:{wagon}:{wmbt_id}\n// Phase: RED\n// Layer: {layer}\n",
+    "journey": "// URN: test:train:{train_id}:VIS-{nnn}-{slug}\n// Train: train:{train_id}\n// Phase: RED\n// Layer: assembly\n"
+  }
 }

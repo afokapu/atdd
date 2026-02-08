@@ -794,6 +794,20 @@ class ComponentResolver(BaseResolver):
             error=None if paths else f"Component file not found for: {urn}",
         )
 
+    @staticmethod
+    def _stem_match(component_name: str, file_path: Path) -> bool:
+        """Case-insensitive exact stem match (not substring) for deterministic resolution."""
+        stem = file_path.stem.lower()
+        # Normalize component name: PascalCase -> snake_case, dots -> underscores
+        target = component_name.replace('.', '_')
+        # Insert underscore before uppercase runs: "TrainRunner" -> "Train_Runner"
+        target = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', target)
+        target = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', target)
+        target = target.lower()
+        # Also try direct lowercase (for already-lowercase names)
+        direct = component_name.lower().replace('.', '_').replace('-', '_')
+        return stem == target or stem == direct
+
     def _find_component_files(
         self,
         wagon_id: str,
@@ -805,13 +819,24 @@ class ComponentResolver(BaseResolver):
         """Find component source files matching the URN."""
         paths = []
 
+        # Train infrastructure: component:trains:* resolves in python/trains/
+        if wagon_id == 'trains':
+            return self._find_train_infra_files(feature_id, component_name)
+
         # Map side to directory names
-        side_dirs = {"frontend": ["lib", "src"], "backend": ["python", "src"]}
+        side_dirs = {
+            "frontend": ["lib", "src"], "fe": ["lib", "src"],
+            "backend": ["python", "src"], "be": ["python", "src"],
+        }
         layer_dirs = {
             "presentation": ["presentation", "views", "widgets"],
             "application": ["application", "services", "usecases"],
             "domain": ["domain", "models", "entities"],
             "integration": ["integration", "repositories", "adapters"],
+            "controller": ["controller", "controllers"],
+            "usecase": ["usecase", "usecases"],
+            "repository": ["repository", "repositories"],
+            "assembly": ["assembly", ""],
         }
 
         for side_dir in side_dirs.get(side, []):
@@ -825,6 +850,11 @@ class ComponentResolver(BaseResolver):
                     base_dir / "features" / feature_id.replace("-", "_") / layer_dir,
                     base_dir / wagon_id.replace("-", "_") / layer_dir,
                 ]
+                # For assembly, also check the feature root without layer subdir
+                if layer == "assembly":
+                    search_paths.append(
+                        base_dir / wagon_id.replace("-", "_") / feature_id.replace("-", "_")
+                    )
 
                 for search_path in search_paths:
                     if not search_path.exists():
@@ -832,8 +862,35 @@ class ComponentResolver(BaseResolver):
 
                     for ext in ["*.py", "*.dart", "*.ts", "*.tsx"]:
                         for f in search_path.glob(ext):
-                            if component_name.lower() in f.stem.lower():
+                            if self._stem_match(component_name, f):
                                 paths.append(f)
+
+        return paths
+
+    def _find_train_infra_files(
+        self,
+        feature_id: str,
+        component_name: str,
+    ) -> List[Path]:
+        """Find train infrastructure component files in python/trains/."""
+        paths = []
+        trains_dir = self.repo_root / "python" / "trains"
+        if not trains_dir.exists():
+            return paths
+
+        # Search in python/trains/{feature}/ then python/trains/
+        search_paths = [
+            trains_dir / feature_id.replace("-", "_"),
+            trains_dir,
+        ]
+
+        for search_path in search_paths:
+            if not search_path.exists():
+                continue
+            for ext in ["*.py", "*.dart", "*.ts", "*.tsx"]:
+                for f in search_path.glob(ext):
+                    if self._stem_match(component_name, f):
+                        paths.append(f)
 
         return paths
 
@@ -1017,25 +1074,31 @@ class TestResolver(BaseResolver):
     """
     Resolver for test: URNs.
 
-    Scans test files for URN comments (# URN: test:... or // URN: test:...)
-    and auto-generates test: URNs from file paths when only acc: references exist.
+    V3 behavior:
+    - Primary: Scans test files for explicit ``# URN: test:...`` headers
+    - Parses metadata lines: Acceptance:, WMBT:, Train:, Phase:, Layer:
+    - Fallback (migration): auto-generates test: URNs from paths when no explicit header
 
-    Resolution: test:{slug} -> test file path
+    Resolution: test:{...} -> test file path (header scanning only for V3)
     """
-
-    # Test file glob patterns by language
-    TEST_GLOBS = [
-        "**/test_*.py",
-        "**/*_test.py",
-        "**/*_test.dart",
-        "**/*.test.ts",
-        "**/*.test.tsx",
-        "**/*.spec.ts",
-    ]
 
     # Comment-style URN pattern (# URN: ... or // URN: ...)
     _URN_COMMENT_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
     _REGEX_META_RE = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
+
+    # V3 metadata line patterns (case-insensitive)
+    _ACCEPTANCE_RE = re.compile(r"(?:#|//)\s*[Aa]cceptance:\s*([^\s]+)")
+    _WMBT_RE = re.compile(r"(?:#|//)\s*[Ww][Mm][Bb][Tt]:\s*([^\s]+)")
+    _TRAIN_RE = re.compile(r"(?:#|//)\s*[Tt]rain:\s*([^\s]+)")
+    _PHASE_RE = re.compile(r"(?:#|//)\s*[Pp]hase:\s*(RED|GREEN|REFACTOR)")
+    _LAYER_RE = re.compile(
+        r"(?:#|//)\s*[Ll]ayer:\s*(presentation|application|domain|integration|assembly)"
+    )
+    _TESTED_BY_RE = re.compile(r"(?:#|//)\s*-\s*(test:[^\s]+)")
+
+    # Valid phases and layers for test headers
+    VALID_PHASES = {"RED", "GREEN", "REFACTOR"}
+    VALID_TEST_LAYERS = {"presentation", "application", "domain", "integration", "assembly"}
 
     @property
     def family(self) -> str:
@@ -1049,7 +1112,7 @@ class TestResolver(BaseResolver):
         if error:
             return URNResolution(urn=urn, family=self.family, error=error)
 
-        # Search test files for this URN declaration
+        # Primary: header scanning only (S8.4)
         paths = []
         for test_file in self._iter_test_files():
             try:
@@ -1062,7 +1125,7 @@ class TestResolver(BaseResolver):
             except Exception:
                 continue
 
-        # Also check auto-generated URN from path
+        # Fallback: auto-generated URN from path (migration mode)
         if not paths:
             for test_file in self._iter_test_files():
                 auto_urn = self._urn_from_path(test_file)
@@ -1076,6 +1139,71 @@ class TestResolver(BaseResolver):
             is_deterministic=len(paths) == 1,
             error=None if paths else f"Test file not found for: {urn}",
         )
+
+    @classmethod
+    def parse_test_header(cls, content: str) -> dict:
+        """
+        Parse V3 test header metadata from file content.
+
+        Returns dict with keys: test_urn, acceptance, wmbt, train, phase, layer, format.
+        format is 'acceptance' | 'journey' | 'legacy' | None.
+        """
+        result = {
+            "test_urn": None,
+            "acceptance": None,
+            "wmbt": None,
+            "train": None,
+            "phase": None,
+            "layer": None,
+            "format": None,
+        }
+
+        for line in content.split("\n"):
+            # Test URN
+            m = cls._URN_COMMENT_RE.search(line)
+            if m:
+                candidate = m.group(1)
+                if cls._REGEX_META_RE.search(candidate):
+                    continue
+                if candidate.startswith("test:") and result["test_urn"] is None:
+                    result["test_urn"] = candidate
+                    # Determine format
+                    if candidate.startswith("test:train:"):
+                        result["format"] = "journey"
+                    elif ":" in candidate[5:] and re.match(
+                        r"^test:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z]",
+                        candidate,
+                    ):
+                        result["format"] = "acceptance"
+                    else:
+                        result["format"] = "legacy"
+
+            # Acceptance line
+            m = cls._ACCEPTANCE_RE.search(line)
+            if m:
+                result["acceptance"] = m.group(1)
+
+            # WMBT line
+            m = cls._WMBT_RE.search(line)
+            if m:
+                result["wmbt"] = m.group(1)
+
+            # Train line
+            m = cls._TRAIN_RE.search(line)
+            if m:
+                result["train"] = m.group(1)
+
+            # Phase line
+            m = cls._PHASE_RE.search(line)
+            if m:
+                result["phase"] = m.group(1)
+
+            # Layer line
+            m = cls._LAYER_RE.search(line)
+            if m:
+                result["layer"] = m.group(1)
+
+        return result
 
     def find_declarations(self) -> List[URNDeclaration]:
         """Find all test URN declarations in test files."""
@@ -1103,12 +1231,14 @@ class TestResolver(BaseResolver):
                 if urn_candidate.startswith("test:"):
                     has_test_urn = True
                     if urn_candidate not in seen_urns:
+                        # Parse metadata for context
+                        header = self.parse_test_header(content)
                         decl = URNDeclaration(
                             urn=urn_candidate,
                             family=self.family,
                             source_path=test_file,
                             line_number=line_num,
-                            context="test file",
+                            context=f"test file ({header.get('format', 'unknown')} format)",
                         )
                         seen_urns[urn_candidate] = decl
                         declarations.append(decl)
@@ -1150,11 +1280,11 @@ class TestResolver(BaseResolver):
     @staticmethod
     def _urn_from_path(test_file: Path) -> Optional[str]:
         """
-        Auto-generate a test: URN from a test file path.
+        Auto-generate a test: URN from a test file path (legacy/migration fallback).
 
         Strip test_ prefix, _test/.test/.spec suffix, replace _ with -.
         """
-        stem = test_file.stem  # e.g. test_user_auth, login_test, auth.test
+        stem = test_file.stem
 
         # Handle double extensions: auth.test.ts -> stem = "auth.test"
         if stem.endswith(".test") or stem.endswith(".spec"):

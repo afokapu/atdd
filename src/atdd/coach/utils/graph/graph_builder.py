@@ -423,6 +423,8 @@ class GraphBuilder:
         self._build_train_edges(graph)
         self._build_component_edges(graph)
         self._build_test_edges(graph)
+        self._build_tested_by_edges(graph)
+        self._build_journey_test_edges(graph)
 
         return graph
 
@@ -754,6 +756,98 @@ class GraphBuilder:
                             edge_type=EdgeType.TESTED_BY,
                         )
                     )
+
+    def _build_tested_by_edges(self, graph: TraceabilityGraph) -> None:
+        """
+        Build authoritative component -> test (TESTED_BY) edges from Tested-By headers.
+
+        Scans component files for:
+            # Tested-By:
+            # - test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+            # - test:train:{train_id}:{HARNESS}-{NNN}-{slug}
+
+        These are authoritative — they override any derived mappings (S9.5).
+        """
+        import re
+
+        tested_by_re = re.compile(r"(?:#|//)\s*-\s*(test:[^\s]+)")
+
+        for node in list(graph.nodes.values()):
+            if node.family != "component":
+                continue
+
+            # Find the component source file
+            comp_path = node.artifact_path
+            if not comp_path:
+                source_path = node.metadata.get("source_path")
+                if source_path:
+                    comp_path = Path(source_path)
+
+            if not comp_path or not Path(comp_path).exists():
+                continue
+
+            try:
+                content = Path(comp_path).read_text(encoding="utf-8")
+            except Exception:
+                continue
+
+            # Parse Tested-By test URN references
+            for line in content.split("\n"):
+                match = tested_by_re.search(line)
+                if not match:
+                    continue
+                test_urn = match.group(1)
+
+                # Ensure the test node exists in graph (create if needed)
+                graph.add_edge(
+                    URNEdge(
+                        source_urn=node.urn,
+                        target_urn=test_urn,
+                        edge_type=EdgeType.TESTED_BY,
+                        metadata={"source": "tested-by-header"},
+                    )
+                )
+
+    def _build_journey_test_edges(self, graph: TraceabilityGraph) -> None:
+        """
+        Build train -> test (TESTED_BY) edges from Train: headers in journey tests.
+
+        Scans test files for:
+            # Train: train:{train_id}
+
+        Links the train to the journey test.
+        """
+        from atdd.coach.utils.graph.resolver import TestResolver
+
+        for node in list(graph.nodes.values()):
+            if node.family != "test":
+                continue
+
+            test_path = node.artifact_path
+            if not test_path:
+                source_path = node.metadata.get("source_path")
+                if source_path:
+                    test_path = Path(source_path)
+
+            if not test_path or not Path(test_path).exists():
+                continue
+
+            try:
+                content = Path(test_path).read_text(encoding="utf-8")
+            except Exception:
+                continue
+
+            header = TestResolver.parse_test_header(content)
+            train_ref = header.get("train")
+            if train_ref and train_ref.startswith("train:"):
+                graph.add_edge(
+                    URNEdge(
+                        source_urn=train_ref,
+                        target_urn=node.urn,
+                        edge_type=EdgeType.TESTED_BY,
+                        metadata={"source": "train-header"},
+                    )
+                )
 
     def build_from_root(
         self, root_urn: str, max_depth: int = -1, families: Optional[List[str]] = None

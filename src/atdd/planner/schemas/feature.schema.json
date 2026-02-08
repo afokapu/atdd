@@ -77,6 +77,11 @@
             "integration": {
               "type": "array",
               "items": {"$ref": "#/definitions/componentEntry"}
+            },
+            "assembly": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/componentEntry"},
+              "description": "Assembly layer for composition/orchestration above the 4 layers"
             }
           }
         },
@@ -100,6 +105,11 @@
             "integration": {
               "type": "array",
               "items": {"$ref": "#/definitions/componentEntry"}
+            },
+            "assembly": {
+              "type": "array",
+              "items": {"$ref": "#/definitions/componentEntry"},
+              "description": "Assembly layer for composition/orchestration above the 4 layers"
             }
           }
         }

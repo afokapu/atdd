@@ -8,7 +8,16 @@ import re
 
 
 URN_HEADER_PATTERN = re.compile(
-    r'^//\s*(?:URN|urn):\s*(acc:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?)$'
+    r'^//\s*(?:URN|urn):\s*('
+    # V3 acceptance test URN
+    r'test:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}-[a-z0-9-]+'
+    r'|'
+    # V3 journey test URN
+    r'test:train:\d{4}-[a-z0-9][a-z0-9-]*:[A-Z0-9]+-[0-9]{3}-[a-z0-9-]+'
+    r'|'
+    # Legacy acc URN
+    r'acc:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?'
+    r')$'
 )
 
 
@@ -27,7 +36,8 @@ def test_typescript_test_files_have_urn_header(web_typescript_test_files):
             errors.append(
                 f"❌ {test_file}\n"
                 f"   Missing URN header in first non-empty line.\n"
-                f"   Expected: // URN: acc:{{wagon}}:{{WMBT}}-{{HARNESS}}-{{NNN}}[-slug]"
+                f"   Expected (V3): // URN: test:{{wagon}}:{{feature}}:{{WMBT_ID}}-{{HARNESS}}-{{NNN}}-{{slug}}\n"
+                f"   Expected (legacy): // URN: acc:{{wagon}}:{{WMBT}}-{{HARNESS}}-{{NNN}}[-slug]"
             )
 
     if errors:

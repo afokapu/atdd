@@ -5,10 +5,10 @@
   "description": "{Concise description of contract purpose}",
   "version": "1.0.0",
   "type": "object",
-
-  "required": ["version"],
+  "required": [
+    "version"
+  ],
   "additionalProperties": false,
-
   "properties": {
     "version": {
       "type": "string",
@@ -16,37 +16,28 @@
       "description": "Contract version (semver)"
     }
   },
-
-  "$defs": {
-  },
-
+  "$defs": {},
   "examples": [
-    {
-    }
+    {}
   ],
-
   "x-artifact-metadata": {
     "domain": "{domain}",
     "resource": "{resource}",
     "version": "1.0.0",
     "hash": "<sha256-content-hash>",
-
     "producer": "wagon:{wagon-name}",
     "consumers": [
       "wagon:{consumer-wagon}",
       "external:{external-service}"
     ],
-
     "dependencies": [
       "contract:{domain}:{resource}.{facet}"
     ],
-
     "api": {
       "method": "GET|POST|PUT|DELETE",
       "path": "/{domain}s/{id}/{resource}",
       "auth": "required|optional|none"
     },
-
     "traceability": {
       "wagon_ref": "plan/{wagon}/_<wagon>.yaml",
       "feature_refs": [
@@ -56,7 +47,6 @@
         "acc:{wagon}:{epic-id}.{AC-ID}"
       ]
     },
-
     "testing": {
       "directory": "contracts/{domain}/tests/",
       "schema_tests": [
@@ -64,17 +54,14 @@
         "{schema_name}_validation_test.ts"
       ]
     },
-
     "telemetry_refs": [
       "telemetry:event:{domain}:{resource}:{signal}",
       "telemetry:metric:{domain}:latency:{measure}"
     ],
-
     "governance": {
       "status": "draft|active|deprecated",
       "stability": "experimental|stable|frozen"
     },
-
     "persistence": {
       "strategy": "jsonb",
       "table": "{theme}_{domain}_{aspect}",
@@ -83,13 +70,26 @@
         {
           "name": "idx_{table}_data",
           "type": "gin",
-          "fields": ["data"]
+          "fields": [
+            "data"
+          ]
         }
       ],
       "_comment": "Only for persistent entities. Options: 'none' (events/DTOs), 'jsonb' (recommended for document storage), 'relational' (normalized tables). Remove this entire field if not persisted."
     },
-
-    "extensions": {
-    }
-  }
+    "extensions": {}
+  },
+  "header_template": {
+    "acceptance": "// URN: test:{wagon}:{feature}:{wmbt_id}-CONTRACT-{nnn}-{slug}\n// Acceptance: acc:{wagon}:{wmbt_id}-CONTRACT-{nnn}[-{slug}]\n// WMBT: wmbt:{wagon}:{wmbt_id}\n// Phase: RED\n// Layer: {layer}\n",
+    "journey": "// URN: test:train:{train_id}:CONTRACT-{nnn}-{slug}\n// Train: train:{train_id}\n// Phase: RED\n// Layer: assembly\n"
+  },
+  "variables": [
+    "wagon",
+    "feature",
+    "wmbt_id",
+    "nnn",
+    "slug",
+    "layer",
+    "train_id"
+  ]
 }

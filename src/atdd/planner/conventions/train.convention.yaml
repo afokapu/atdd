@@ -205,9 +205,17 @@ urn_naming:
       category_digit: "0"
       variation: 1
 
+  linearity_rule:
+    description: "Trains are strictly linear: sequences contain steps only. No loops, routes, or branching."
+    rule: "New journeys that require different paths MUST create new trains instead of branching."
+    enforcement:
+      - "loop and route sequence elements are forbidden"
+      - "Sequential step numbering must have no gaps"
+      - "Each step has exactly one from and one to"
+
   theme_orchestrator_urn:
-    pattern: "urn: train:{theme}:{train_id}"
-    description: "Theme-level implementation of specific train workflows"
+    pattern: "# URN: train:{train_id}"
+    description: "Theme orchestrator files use train URN (theme is metadata from plan YAML, not part of URN)"
     location: "python/shared/{theme}.py"
 
     examples:

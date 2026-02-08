@@ -12,6 +12,17 @@
     "acceptance_name",
     "given_setup",
     "ws_message",
-    "then_assertions"
-  ]
+    "then_assertions",
+    "wagon",
+    "feature",
+    "wmbt_id",
+    "nnn",
+    "slug",
+    "layer",
+    "train_id"
+  ],
+  "header_template": {
+    "acceptance": "// URN: test:{wagon}:{feature}:{wmbt_id}-WS-{nnn}-{slug}\n// Acceptance: acc:{wagon}:{wmbt_id}-WS-{nnn}[-{slug}]\n// WMBT: wmbt:{wagon}:{wmbt_id}\n// Phase: RED\n// Layer: {layer}\n",
+    "journey": "// URN: test:train:{train_id}:WS-{nnn}-{slug}\n// Train: train:{train_id}\n// Phase: RED\n// Layer: assembly\n"
+  }
 }

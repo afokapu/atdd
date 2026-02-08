@@ -9,6 +9,11 @@ description: |
   test files, enabling bidirectional mapping between acceptance criteria and
   their test implementations.
 
+  IMPORTANT (V3): Test file IDENTITY comes from the explicit `# URN: test:...`
+  header, not from the filename. The filename is still derived from the
+  acceptance URN for human readability and discoverability, but the authoritative
+  identity is the test: URN in the file header.
+
 rationale: |
   Standardized test filenames derived from acceptance URNs provide:
   1. Traceability: Direct mapping from acceptance criteria to test files
@@ -354,23 +359,37 @@ validation:
     - "File extension must match language requirements"
 
 test_file_header:
-  description: "All test files should include URN comment for traceability"
+  description: |
+    All test files MUST include a test: URN as file-level identity (V3).
+    Acceptance tests also include Acceptance:, WMBT:, Phase:, Layer: lines.
+    Journey tests include Train:, Phase:, Layer: lines instead.
 
   formats:
-    dart: |
-      // urn: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
+    acceptance_python: |
+      # URN: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+      # Acceptance: acc:{wagon}:{WMBT_ID}-{HARNESS}-{NNN}[-{slug}]
+      # WMBT: wmbt:{wagon}:{WMBT_ID}
+      # Phase: RED
+      # Layer: {layer}
 
-    typescript: |
-      // urn: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
+    acceptance_typescript: |
+      // URN: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+      // Acceptance: acc:{wagon}:{WMBT_ID}-{HARNESS}-{NNN}[-{slug}]
+      // WMBT: wmbt:{wagon}:{WMBT_ID}
+      // Phase: RED
+      // Layer: {layer}
 
-    python: |
-      # urn: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
+    journey_python: |
+      # URN: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
+      # Train: train:{train_id}
+      # Phase: RED
+      # Layer: assembly
 
-    go: |
-      // urn: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
-
-    java: |
-      // urn: acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]
+    journey_typescript: |
+      // URN: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
+      // Train: train:{train_id}
+      // Phase: RED
+      // Layer: assembly
 
 directory_structure:
   description: |
