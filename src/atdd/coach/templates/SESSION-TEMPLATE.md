@@ -24,6 +24,7 @@ archetypes:
   # NOTE: If archetypes includes 'train', you MUST create/update BOTH:
   #   1. plan/_trains.yaml (registry entry with train_id, description, path, wagons)
   #   2. plan/_trains/{train_id}.yaml (full spec with participants, sequence, etc.)
+  #   3. E2E journey tests with: # Train: train:{train_id} and test:train:{train_id}:... URN
   # Validator SPEC-TRAIN-VAL-0003 enforces spec file exists for each registry entry.
 
 # Scope definition
@@ -56,6 +57,7 @@ workflow_phases:
     artifacts:
       contracts: false  # contracts/{domain}/{resource}.schema.json exists
       red_tests: false  # Failing tests exist for all WMBTs
+      journey_tests: false  # E2E journey tests exist for train archetype (test:train + Train header)
     gate: "atdd validate tester"
     gate_status: "TODO"
     red_gate: "pytest {test_path} -v (expect FAIL)"

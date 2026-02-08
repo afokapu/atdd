@@ -371,12 +371,15 @@ archetypes:
 
   train:
     id: "train"
-    description: "Production release orchestration"
+    description: "User journey orchestration (linear train specs)"
     artifacts:
       - "plan/_trains.yaml"
+      - "plan/_trains/{train_id}.yaml"
     patterns:
-      - "Train = release with multiple wagons"
-      - "Defines deployment order and dependencies"
+      - "URN: train:{train_id}"
+      - "Linear sequence only (steps, no loops/routes)"
+      - "Themes from train YAML 'themes' field"
+      - "Journey tests require: # Train: train:{train_id} and test:train:{train_id}:... URN"
     validation: "atdd validate planner"
 
   telemetry:
@@ -707,6 +710,8 @@ gate_tests:
     train:
       - command: "atdd validate planner"
         atdd_validator: "atdd/planner/validators/test_train_validation.py"
+      - command: "atdd validate tester"
+        atdd_validator: "atdd/tester/validators/test_train_journey_headers.py"
 
     telemetry:
       - command: "atdd validate tester"

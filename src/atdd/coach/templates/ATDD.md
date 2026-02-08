@@ -304,7 +304,7 @@ sessions:
     contracts: "JSON Schema contracts"
     wmbt: "What Must Be True criteria"
     wagon: "Bounded context module"
-    train: "Release orchestration"
+    train: "Journey orchestration (linear trains)"
     telemetry: "Observability artifacts"
     migrations: "Database schema evolution"
 
