@@ -1072,11 +1072,11 @@ class TestResolver(BaseResolver):
     Resolver for test: URNs.
 
     V3 behavior:
-    - Primary: Scans test files for explicit ``# URN: test:...`` headers
+    - Scans test files for explicit ``# URN: test:...`` headers (S8.4)
     - Parses metadata lines: Acceptance:, WMBT:, Train:, Phase:, Layer:
-    - Fallback (migration): auto-generates test: URNs from paths when no explicit header
+    - No path-based derivation; header scanning only
 
-    Resolution: test:{...} -> test file path (header scanning only for V3)
+    Resolution: test:{...} -> test file path
     """
 
     # Comment-style URN pattern (# URN: ... or // URN: ...)

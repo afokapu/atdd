@@ -434,6 +434,7 @@ def test_v3_components_have_tested_by():
     """
     warnings = []
     broken_refs = []
+    chain_warnings = []
 
     # Build index of all known test: URNs for reference validation
     known_test_urns = _build_test_urn_index()
@@ -461,12 +462,36 @@ def test_v3_components_have_tested_by():
             )
             continue
 
-        # Validate each Tested-By reference exists
+        # Parse component wagon/feature for chain alignment (S9.5)
+        comp_parts = header["component_urn"].split(":")
+        comp_wagon = comp_parts[1] if len(comp_parts) > 2 else None
+        comp_feature = comp_parts[2] if len(comp_parts) > 3 else None
+
+        # Validate each Tested-By reference exists and chain alignment
         for test_ref in header["tested_by"]:
             if test_ref not in known_test_urns:
                 broken_refs.append(
                     f"{rel}: Tested-By reference '{test_ref}' not found in any test file"
                 )
+                continue
+
+            # Chain alignment check (S9.5)
+            if comp_wagon == "trains":
+                pass  # Reserved wagon 'trains': skip chain validation
+            elif test_ref.startswith("test:train:"):
+                pass  # TODO (S9.5): Journey chain validation deferred — no train plan YAMLs yet
+            else:
+                test_parts = test_ref.split(":")
+                test_wagon = test_parts[1] if len(test_parts) > 2 else None
+                test_feature = test_parts[2] if len(test_parts) > 3 else None
+                if comp_wagon and test_wagon and (
+                    test_wagon != comp_wagon or test_feature != comp_feature
+                ):
+                    chain_warnings.append(
+                        f"{rel}: component {header['component_urn']} Tested-By "
+                        f"'{test_ref}' chain mismatch — expected wagon={comp_wagon}, "
+                        f"feature={comp_feature}"
+                    )
 
     # Print warnings (migration: don't fail)
     if warnings:
@@ -477,6 +502,16 @@ def test_v3_components_have_tested_by():
         )
         if len(warnings) > 20:
             print(f"  ... and {len(warnings) - 20} more")
+
+    # Print chain alignment warnings (migration: warn-only per S9.5)
+    if chain_warnings:
+        print(
+            f"\nSPEC-V3-006 CHAIN WARNINGS: {len(chain_warnings)} Tested-By references "
+            f"with wagon/feature chain mismatch (warn-only during migration):\n  "
+            + "\n  ".join(chain_warnings[:20])
+        )
+        if len(chain_warnings) > 20:
+            print(f"  ... and {len(chain_warnings) - 20} more")
 
     # Fail on broken references (these are always errors)
     if broken_refs:

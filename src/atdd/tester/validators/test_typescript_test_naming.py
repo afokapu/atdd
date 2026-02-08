@@ -245,17 +245,28 @@ def test_typescript_test_filename_matches_urn_acceptance_id(typescript_test_file
     errors = []
 
     for test_file in typescript_test_files:
-        # Read URN from first line
+        # Read header block (first 10 lines) for URN extraction
         with open(test_file, 'r') as f:
-            first_line = f.readline().strip()
+            header_lines = [f.readline().strip() for _ in range(10)]
 
-        # Extract acceptance_id from URN (e.g., AC-HTTP-006)
-        urn_match = re.search(r'// urn: acc:[a-z][a-z0-9-]+\.[A-Z]\d{3}\.(AC-[A-Z]+-\d{3})', first_line)
+        # Legacy format (line 1): // urn: acc:{wagon}.{wmbt}.{acceptance_id}
+        urn_match = re.search(r'// urn: acc:[a-z][a-z0-9-]+\.[A-Z]\d{3}\.(AC-[A-Z]+-\d{3})', header_lines[0])
+
+        if not urn_match:
+            # V3 format: // Acceptance: acc:{wagon}:{WMBT_ID}-{HARNESS}-{NNN}[-{slug}]
+            for line in header_lines:
+                v3_match = re.search(
+                    r'//\s*[Aa]cceptance:\s*acc:[a-z][a-z0-9-]*:([A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?)',
+                    line,
+                )
+                if v3_match:
+                    urn_match = v3_match
+                    break
 
         if not urn_match:
             continue  # Skip if URN not found (covered by other test)
 
-        acceptance_id = urn_match.group(1)  # e.g., AC-HTTP-006
+        acceptance_id = urn_match.group(1)  # e.g., AC-HTTP-006 or W001-HTTP-006[-slug]
 
         # Normalize acceptance_id to kebab-case
         expected_normalized_id = acceptance_id.lower()  # ac-http-006
