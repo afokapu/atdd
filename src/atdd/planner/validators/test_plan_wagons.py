@@ -114,9 +114,12 @@ def test_wagon_names_follow_verb_object_pattern(wagon_manifests):
     # Requires at least 2 segments separated by hyphens
     verb_object_pattern = re.compile(r"^[a-z][a-z0-9]*-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$")
 
+    # SPEC-V3-005: Reserved wagon slugs exempt from verb-object naming
+    reserved_wagon_slugs = {"commons", "train", "trains"}
+
     for path, manifest in wagon_manifests:
         wagon_name = manifest.get("wagon", "")
-        if wagon_name:
+        if wagon_name and wagon_name not in reserved_wagon_slugs:
             assert verb_object_pattern.match(wagon_name), \
                 f"Wagon {path}: name '{wagon_name}' doesn't follow verb-object pattern (e.g., resolve-dilemmas)"
 

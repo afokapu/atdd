@@ -426,11 +426,16 @@ class TraceabilityGraph:
 
         dataflow: Dict[str, Dict] = {}
         wagon_feeds: Dict[str, Set[str]] = {}
-        for contract_urn, producer in contract_producer.items():
-            consumers = contract_consumers.get(contract_urn, set())
-            for consumer in consumers:
-                if consumer != producer:
-                    wagon_feeds.setdefault(producer, set()).add(consumer)
+        for produced_urn, producer in contract_producer.items():
+            for consumed_urn, consumers in contract_consumers.items():
+                # Match exact URNs or colon-boundary prefixes so that
+                # contract:a:b matches contract:a:b:c (and vice-versa).
+                if (produced_urn == consumed_urn
+                        or produced_urn.startswith(consumed_urn + ":")
+                        or consumed_urn.startswith(produced_urn + ":")):
+                    for consumer in consumers:
+                        if consumer != producer:
+                            wagon_feeds.setdefault(producer, set()).add(consumer)
 
         # Include all wagons (even those that feed nobody)
         for urn, node in self._nodes.items():

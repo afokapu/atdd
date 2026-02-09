@@ -289,6 +289,7 @@ def test_v3_reserved_slugs():
     Per URN Spec V3 S10 R9,10:
     - Feature slug 'wagon' is reserved for wagon entrypoints
     - Wagon slugs 'train' and 'trains' are reserved for train infrastructure
+    - Wagon slug 'commons' is reserved for shared infrastructure
     These must not be used as actual wagon or feature plan slugs.
     """
     import yaml
@@ -307,7 +308,7 @@ def test_v3_reserved_slugs():
             if not data or not isinstance(data, dict):
                 continue
             wagon_slug = data.get("wagon")
-            if wagon_slug in ("train", "trains"):
+            if wagon_slug in ("train", "trains", "commons"):
                 violations.append(
                     f"{manifest.relative_to(REPO_ROOT)}: wagon slug '{wagon_slug}' is reserved"
                 )
