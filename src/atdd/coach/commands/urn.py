@@ -57,6 +57,7 @@ class URNCommand:
         root: Optional[str] = None,
         families: Optional[List[str]] = None,
         max_depth: int = -1,
+        full: bool = False,
     ) -> int:
         """
         Generate URN traceability graph.
@@ -66,6 +67,7 @@ class URNCommand:
             root: Optional root URN for subgraph
             families: Optional list of families to include
             max_depth: Maximum depth for subgraph (-1 for unlimited)
+            full: If True, output full raw nodes+edges; default is agent-optimized summary
 
         Returns:
             Exit code (0 for success)
@@ -78,8 +80,10 @@ class URNCommand:
 
             if format == "dot":
                 output = graph.to_dot()
-            else:
+            elif full:
                 output = graph.to_json()
+            else:
+                output = json.dumps(graph.to_agent_summary(), indent=2)
 
             print(output)
             return 0

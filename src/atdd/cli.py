@@ -506,6 +506,11 @@ Phase descriptions:
         default=-1,
         help="Maximum depth for subgraph (-1 for unlimited)"
     )
+    urn_graph_parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Output full raw nodes + edges (default: agent-optimized summary)"
+    )
 
     # atdd urn orphans
     urn_orphans_parser = urn_subparsers.add_parser(
@@ -836,7 +841,8 @@ Phase descriptions:
                 format=args.format,
                 root=args.root,
                 families=args.families,
-                max_depth=args.depth
+                max_depth=args.depth,
+                full=args.full,
             )
         elif args.urn_command == "orphans":
             return cmd.orphans(

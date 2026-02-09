@@ -14,6 +14,7 @@ Output formats:
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -279,6 +280,185 @@ class TraceabilityGraph:
                     filtered.add_edge(edge)
 
         return filtered
+
+    def to_agent_summary(self) -> Dict:
+        """
+        Produce a compact, agent-optimized summary of the traceability graph.
+
+        Returns a dict with four sections:
+        - stats: node/edge counts by family and edge type
+        - tree: per-wagon breakdown of features, wmbts, coverage
+        - dataflow: wagon-to-wagon data flow via shared contracts
+        - gaps: orphans, unconsumed contracts, untested components/accs
+        """
+
+        # ── stats ──────────────────────────────────────────────
+        families = Counter(n.family for n in self._nodes.values())
+        edge_types = Counter(e.edge_type.value for e in self._edges)
+
+        stats = {
+            "nodes": len(self._nodes),
+            "edges": len(self._edges),
+            "families": dict(families.most_common()),
+            "edge_types": dict(edge_types.most_common()),
+        }
+
+        # ── pre-compute sets for tested-by look-ups ────────────
+        tested_by_targets: Set[str] = set()
+        for e in self._edges:
+            if e.edge_type == EdgeType.TESTED_BY:
+                tested_by_targets.add(e.source_urn)
+
+        # ── tree: per-wagon breakdown ──────────────────────────
+        tree: Dict[str, Dict] = {}
+
+        for urn, node in self._nodes.items():
+            if node.family != "wagon":
+                continue
+
+            wagon_slug = urn  # key by full URN
+
+            # features under this wagon (via CONTAINS)
+            features = [
+                e.target_urn.split(":", 2)[-1]  # strip "feature:wagon:" prefix
+                for e in self._edges_by_source.get(urn, [])
+                if e.edge_type == EdgeType.CONTAINS
+                and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "feature"
+            ]
+
+            # wmbts under this wagon (via CONTAINS)
+            wmbts = [
+                e.target_urn.split(":", 2)[-1]
+                for e in self._edges_by_source.get(urn, [])
+                if e.edge_type == EdgeType.CONTAINS
+                and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "wmbt"
+            ]
+
+            # components reachable: wagon -> feature -> component (CONTAINS chain)
+            feature_urns = [
+                e.target_urn
+                for e in self._edges_by_source.get(urn, [])
+                if e.edge_type == EdgeType.CONTAINS
+                and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "feature"
+            ]
+            all_components: List[URNNode] = []
+            for f_urn in feature_urns:
+                all_components.extend(
+                    self._nodes[e.target_urn]
+                    for e in self._edges_by_source.get(f_urn, [])
+                    if e.edge_type == EdgeType.CONTAINS
+                    and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "component"
+                )
+
+            planned = len(all_components)
+            implemented = sum(1 for c in all_components if c.artifact_path is not None)
+            tested_components = sum(1 for c in all_components if c.urn in tested_by_targets)
+
+            # accs reachable: wagon -> wmbt -> acc (CONTAINS chain)
+            wmbt_urns = [
+                e.target_urn
+                for e in self._edges_by_source.get(urn, [])
+                if e.edge_type == EdgeType.CONTAINS
+                and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "wmbt"
+            ]
+            all_accs: List[URNNode] = []
+            for w_urn in wmbt_urns:
+                all_accs.extend(
+                    self._nodes[e.target_urn]
+                    for e in self._edges_by_source.get(w_urn, [])
+                    if e.edge_type == EdgeType.CONTAINS
+                    and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "acc"
+                )
+            total_accs = len(all_accs)
+            tested_accs = sum(1 for a in all_accs if a.urn in tested_by_targets)
+
+            # produces / consumes
+            produces = [
+                e.target_urn
+                for e in self._edges_by_source.get(urn, [])
+                if e.edge_type == EdgeType.PRODUCES
+            ]
+            consumes = [
+                e.target_urn
+                for e in self._edges_by_source.get(urn, [])
+                if e.edge_type == EdgeType.CONSUMES
+            ]
+
+            tree[wagon_slug] = {
+                "features": sorted(features),
+                "wmbts": sorted(wmbts),
+                "coverage": {
+                    "components": {"planned": planned, "implemented": implemented, "tested": tested_components},
+                    "accs": {"total": total_accs, "tested": tested_accs},
+                },
+                "produces": sorted(produces),
+                "consumes": sorted(consumes),
+            }
+
+        # ── dataflow: wagon → wagon via shared contracts ───────
+        # contract_urn → producing wagon URN
+        contract_producer: Dict[str, str] = {}
+        # contract_urn → set of consuming wagon URNs
+        contract_consumers: Dict[str, Set[str]] = {}
+
+        for e in self._edges:
+            src_node = self._nodes.get(e.source_urn)
+            if not src_node or src_node.family != "wagon":
+                continue
+            if e.edge_type == EdgeType.PRODUCES:
+                contract_producer[e.target_urn] = e.source_urn
+            elif e.edge_type == EdgeType.CONSUMES:
+                contract_consumers.setdefault(e.target_urn, set()).add(e.source_urn)
+
+        dataflow: Dict[str, Dict] = {}
+        wagon_feeds: Dict[str, Set[str]] = {}
+        for contract_urn, producer in contract_producer.items():
+            consumers = contract_consumers.get(contract_urn, set())
+            for consumer in consumers:
+                if consumer != producer:
+                    wagon_feeds.setdefault(producer, set()).add(consumer)
+
+        # Include all wagons (even those that feed nobody)
+        for urn, node in self._nodes.items():
+            if node.family == "wagon":
+                dataflow[urn] = {"feeds": sorted(wagon_feeds.get(urn, set()))}
+
+        # ── gaps ───────────────────────────────────────────────
+        # Nodes with zero incoming edges (excluding root families)
+        root_families = {"wagon", "train"}
+        all_targets = set()
+        for e in self._edges:
+            all_targets.add(e.target_urn)
+        orphan_count = sum(
+            1 for urn, node in self._nodes.items()
+            if node.family not in root_families and urn not in all_targets
+        )
+
+        # Unconsumed contracts: produced but never consumed
+        produced_contracts = set(contract_producer.keys())
+        consumed_contracts = set(contract_consumers.keys())
+        unconsumed = sorted(produced_contracts - consumed_contracts)
+
+        # Untested components and accs
+        all_component_urns = [u for u, n in self._nodes.items() if n.family == "component"]
+        untested_components = sum(1 for u in all_component_urns if u not in tested_by_targets)
+
+        all_acc_urns = [u for u, n in self._nodes.items() if n.family == "acc"]
+        untested_accs = sum(1 for u in all_acc_urns if u not in tested_by_targets)
+
+        gaps = {
+            "orphan_count": orphan_count,
+            "unconsumed_contracts": unconsumed,
+            "untested_components": untested_components,
+            "untested_accs": untested_accs,
+        }
+
+        return {
+            "stats": stats,
+            "tree": tree,
+            "dataflow": dataflow,
+            "gaps": gaps,
+        }
 
     def to_json(self, indent: int = 2) -> str:
         """
