@@ -4137,7 +4137,7 @@ def validate_train_urns(verbose: bool = False) -> Dict[str, any]:
     Validate train URNs in theme orchestrators.
     
     Checks:
-    - Theme orchestrators in python/shared/ have train URNs
+    - Theme orchestrators in python/trains/orchestrators/ have train URNs
     - URN format: train:{theme}:{train_id}
     - Referenced train specs exist in plan/_trains/
     
@@ -4146,7 +4146,7 @@ def validate_train_urns(verbose: bool = False) -> Dict[str, any]:
     """
     import re
     
-    shared_dir = REPO_ROOT / "python" / "shared"
+    orchestrators_dir = REPO_ROOT / "python" / "trains" / "orchestrators"
     trains_dir = REPO_ROOT / "plan" / "_trains"
     
     results = {
@@ -4157,7 +4157,7 @@ def validate_train_urns(verbose: bool = False) -> Dict[str, any]:
         'valid_urns': []
     }
     
-    if not shared_dir.exists():
+    if not orchestrators_dir.exists():
         return results
     
     # Find all train specs
@@ -4167,7 +4167,7 @@ def validate_train_urns(verbose: bool = False) -> Dict[str, any]:
             train_specs.add(yaml_file.stem)
     
     # Check each theme orchestrator
-    for py_file in shared_dir.glob("*.py"):
+    for py_file in orchestrators_dir.glob("*.py"):
         if py_file.name in ["__init__.py", "conftest.py"]:
             continue
             

@@ -63,7 +63,7 @@ def find_implementation_files() -> List[Path]:
     Excluded from wagon boundary checks:
     - Test files (testing infrastructure)
     - wagon.py, composition.py (wagon-level orchestration)
-    - shared/ directory (theme/train-level orchestration)
+    - trains/orchestrators/ directory (theme/train-level orchestration)
     - contracts/ directory (neutral DTO boundary layer)
     - scripts/ directory (utility scripts and tools)
     """
@@ -81,8 +81,8 @@ def find_implementation_files() -> List[Path]:
         # Skip wagon.py, composition.py, and app entrypoint (wagon/app-level orchestration)
         if py_file.name in ['wagon.py', 'composition.py', 'app.py']:
             continue
-        # Skip shared/ directory (theme/train-level orchestration - can import across wagons)
-        if '/shared/' in str(py_file):
+        # Skip trains/orchestrators/ directory (theme/train-level orchestration - can import across wagons)
+        if '/trains/orchestrators/' in str(py_file):
             continue
         # Skip contracts/ directory (neutral DTO layer)
         if '/contracts/' in str(py_file):

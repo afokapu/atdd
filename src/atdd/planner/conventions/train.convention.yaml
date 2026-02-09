@@ -214,19 +214,19 @@ urn_naming:
       - "Each step has exactly one from and one to"
 
   theme_orchestrator_urn:
-    pattern: "# URN: train:{train_id}"
-    description: "Theme orchestrator files use train URN (theme is metadata from plan YAML, not part of URN)"
-    location: "python/shared/{theme}.py"
+    pattern: "# URN: train:{theme}:{train_id}"
+    description: "Theme orchestrator files use train URN with theme prefix"
+    location: "python/trains/orchestrators/{theme}.py"
 
     examples:
       - urn: "train:mechanic:1001-decision-standard"
-        file: "python/shared/mechanic.py"
+        file: "python/trains/orchestrators/mechanic.py"
         theme: "mechanic"
         train_id: "1001-decision-standard"
         description: "Implements standard decision flow: pace → resolve → commit → juggle"
 
       - urn: "train:match:3001-match-setup-standard"
-        file: "python/shared/match.py"
+        file: "python/trains/orchestrators/match.py"
         theme: "match"
         train_id: "3001-match-setup-standard"
         description: "Implements match setup: supply-fragments → setup-match → play-match"

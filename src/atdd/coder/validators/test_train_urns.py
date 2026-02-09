@@ -5,13 +5,13 @@ Validates conventions from:
 - atdd/planner/conventions/train.convention.yaml
 
 Enforces:
-- Theme orchestrators have train URNs (python/shared/{theme}.py)
+- Theme orchestrators have train URNs (python/trains/orchestrators/{theme}.py)
 - URN format: train:{theme}:{train_id}
 - Train IDs exist in plan/_trains/*.yaml
 - Each train file has corresponding implementation
 
 Rationale:
-Theme orchestrators in python/shared/ implement workflows defined in train specs.
+Theme orchestrators in python/trains/orchestrators/ implement workflows defined in train specs.
 URNs provide bidirectional traceability between implementation and specification.
 """
 
@@ -28,7 +28,7 @@ from atdd.coach.utils.repo import find_repo_root
 # Path constants
 # Consumer repo artifacts
 REPO_ROOT = find_repo_root()
-PYTHON_SHARED_DIR = REPO_ROOT / "python" / "shared"
+ORCHESTRATORS_DIR = REPO_ROOT / "python" / "trains" / "orchestrators"
 TRAINS_DIR = REPO_ROOT / "plan" / "_trains"
 
 # Package resources (conventions, schemas)
@@ -37,17 +37,17 @@ TRAIN_CONVENTION = ATDD_PKG_DIR / "planner" / "conventions" / "train.convention.
 
 
 def find_theme_orchestrators() -> List[Path]:
-    """Find all theme orchestrator files in python/shared/."""
-    if not PYTHON_SHARED_DIR.exists():
+    """Find all theme orchestrator files in python/trains/orchestrators/."""
+    if not ORCHESTRATORS_DIR.exists():
         return []
 
     orchestrators = []
-    for py_file in PYTHON_SHARED_DIR.glob("*.py"):
+    for py_file in ORCHESTRATORS_DIR.glob("*.py"):
         # Skip __init__.py and utility files
         if py_file.name in ["__init__.py", "conftest.py"]:
             continue
         # Skip files in subdirectories
-        if not py_file.parent == PYTHON_SHARED_DIR:
+        if not py_file.parent == ORCHESTRATORS_DIR:
             continue
         orchestrators.append(py_file)
 
@@ -97,11 +97,11 @@ def load_train_spec(train_file: Path) -> Dict:
 
 
 def test_theme_orchestrators_exist():
-    """Theme orchestrators should exist in python/shared/ directory."""
+    """Theme orchestrators should exist in python/trains/orchestrators/ directory."""
     orchestrators = find_theme_orchestrators()
 
     assert len(orchestrators) > 0, (
-        "No theme orchestrators found in python/shared/. "
+        "No theme orchestrators found in python/trains/orchestrators/. "
         "Expected files like mechanic.py, match.py, etc."
     )
 
