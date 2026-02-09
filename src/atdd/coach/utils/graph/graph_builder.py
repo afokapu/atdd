@@ -385,6 +385,7 @@ class TraceabilityGraph:
             ]
 
             tree[wagon_slug] = {
+                "description": node.metadata.get("description", ""),
                 "features": sorted(features),
                 "wmbts": sorted(wmbts),
                 "coverage": {
@@ -393,6 +394,19 @@ class TraceabilityGraph:
                 },
                 "produces": sorted(produces),
                 "consumes": sorted(consumes),
+            }
+
+        # ── tree: train entries ──────────────────────────────
+        for urn, node in self._nodes.items():
+            if node.family != "train":
+                continue
+            tree[urn] = {
+                "description": node.metadata.get("description", ""),
+                "wagons": [
+                    e.target_urn
+                    for e in self._edges_by_source.get(urn, [])
+                    if e.edge_type == EdgeType.INCLUDES
+                ],
             }
 
         # ── dataflow: wagon → wagon via shared contracts ───────
@@ -742,6 +756,12 @@ class GraphBuilder:
 
                 wagon_urn = f"wagon:{wagon_slug}"
 
+                # Store wagon description in node metadata
+                description = data.get("description")
+                wagon_node = graph.get_node(wagon_urn)
+                if wagon_node and description:
+                    wagon_node.metadata["description"] = description
+
                 # Process produce items
                 for produce in data.get("produce", []):
                     contract_ref = produce.get("contract")
@@ -829,6 +849,12 @@ class GraphBuilder:
 
                 train_id = data.get("id") or train_file.stem
                 train_urn = f"train:{train_id}"
+
+                # Store train description in node metadata
+                description = data.get("description")
+                train_node = graph.get_node(train_urn)
+                if train_node and description:
+                    train_node.metadata["description"] = description
 
                 # Train contains wagons
                 for wagon_ref in data.get("wagons", []):
