@@ -8,7 +8,7 @@ Validates and fixes:
 
 Convention:
 - All init/barrel files must have URN header
-- URN format: urn:jel:{wagon}:{component}:{layer}:{sublayer}...
+- URN format: urn:{wagon}:{component}:{layer}:{sublayer}...
 - URN derived from file path structure
 
 Auto-fix Strategy:
@@ -66,13 +66,13 @@ def generate_urn_from_path(file_path: Path, language: str) -> str:
 
     Examples:
     - python/pace_dilemmas/pair_fragments/src/domain/services/__init__.py
-      → urn:jel:pace-dilemmas:pair-fragments:domain:services
+      → urn:pace-dilemmas:pair-fragments:domain:services
 
     - lib/maintain_ux/provide_foundations/index.dart
-      → urn:jel:maintain-ux:provide-foundations
+      → urn:maintain-ux:provide-foundations
 
     - typescript/play_match/initialize_session/src/domain/index.ts
-      → urn:jel:play-match:initialize-session:domain
+      → urn:play-match:initialize-session:domain
     """
     parts = file_path.parts
 
@@ -107,7 +107,7 @@ def generate_urn_from_path(file_path: Path, language: str) -> str:
     if not filtered_components:
         return ""
 
-    urn = "urn:jel:" + ":".join(filtered_components)
+    urn = "urn:" + ":".join(filtered_components)
     return urn
 
 
@@ -124,10 +124,10 @@ def extract_urn_from_file(file_path: Path, language: str) -> Optional[str]:
     for line in lines[:10]:  # Check first 10 lines
         stripped = line.strip()
         if stripped.startswith(comment_prefix):
-            # Match: # urn:jel:... or // urn:jel:...
-            match = re.match(rf'{re.escape(comment_prefix)}\s*urn:jel:(.+)', stripped)
+            # Match: # urn:... or // urn:...
+            match = re.match(rf'{re.escape(comment_prefix)}\s*urn:(.+)', stripped)
             if match:
-                return f"urn:jel:{match.group(1).strip()}"
+                return f"urn:{match.group(1).strip()}"
 
     return None
 
@@ -222,7 +222,7 @@ def fix_python_init_file(file_path: Path) -> bool:
         cleaned_lines = []
         for line in lines:
             # Skip old URN comments
-            if line.strip().startswith("# urn:jel:"):
+            if line.strip().startswith("# urn:"):
                 continue
             cleaned_lines.append(line)
 
@@ -280,7 +280,7 @@ def fix_dart_index_file(file_path: Path) -> bool:
     cleaned_lines = []
     for line in lines:
         # Skip old URN comments
-        if line.strip().startswith("// urn:jel:"):
+        if line.strip().startswith("// urn:"):
             continue
         # Skip old documentation comments at the start
         if not cleaned_lines and line.strip().startswith("///"):
@@ -339,7 +339,7 @@ def fix_ts_index_file(file_path: Path) -> bool:
     cleaned_lines = []
     for line in lines:
         # Skip old URN comments
-        if line.strip().startswith("// urn:jel:"):
+        if line.strip().startswith("// urn:"):
             continue
         cleaned_lines.append(line)
 
@@ -364,7 +364,7 @@ def test_python_init_files_have_urns():
     SPEC-CODER-URN-0001: Python __init__.py files have URN headers.
 
     All __init__.py files must have:
-    - URN comment header (# urn:jel:...)
+    - URN comment header (# urn:...)
     - Package docstring
 
     Auto-fix: Adds missing URN and docstring
@@ -431,7 +431,7 @@ def test_dart_index_files_have_urns():
     SPEC-CODER-URN-0002: Dart index.dart files have URN headers.
 
     All index.dart barrel files must have:
-    - URN comment header (// urn:jel:...)
+    - URN comment header (// urn:...)
     - Module documentation (///)
 
     Auto-fix: Adds missing URN and documentation
@@ -490,7 +490,7 @@ def test_typescript_index_files_have_urns():
     SPEC-CODER-URN-0003: TypeScript index.ts files have URN headers.
 
     All index.ts/tsx barrel files must have:
-    - URN comment header (// urn:jel:...)
+    - URN comment header (// urn:...)
     - Module documentation (/** ... */)
 
     Auto-fix: Adds missing URN and documentation
@@ -558,19 +558,19 @@ def test_urn_generation_logic():
         # (file_path, language, expected_urn)
         ("python/pace_dilemmas/pair_fragments/src/domain/services/__init__.py",
          "python",
-         "urn:jel:pace-dilemmas:pair-fragments:domain:services"),
+         "urn:pace-dilemmas:pair-fragments:domain:services"),
 
         ("python/pace_dilemmas/pair_fragments/src/domain/__init__.py",
          "python",
-         "urn:jel:pace-dilemmas:pair-fragments:domain"),
+         "urn:pace-dilemmas:pair-fragments:domain"),
 
         ("lib/maintain_ux/provide_foundations/index.dart",
          "dart",
-         "urn:jel:maintain-ux:provide-foundations"),
+         "urn:maintain-ux:provide-foundations"),
 
         ("typescript/play_match/initialize_session/src/domain/index.ts",
          "typescript",
-         "urn:jel:play-match:initialize-session:domain"),
+         "urn:play-match:initialize-session:domain"),
     ]
 
     failures = []
