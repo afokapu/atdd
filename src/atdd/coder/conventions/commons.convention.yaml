@@ -249,7 +249,7 @@ stacks:
     path: "python/commons/"
     structure: |
       python/commons/
-      ├── __init__.py                     # urn:commons
+      ├── __init__.py                     # urn:jel:commons
       ├── validation.py                   # Domain: ValidationResult, Result[T]
       ├── domain/
       │   └── enums/                      # Domain: Shared enumerations
