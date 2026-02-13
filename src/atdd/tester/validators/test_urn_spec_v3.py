@@ -90,6 +90,15 @@ def _count_test_urns(content: str) -> int:
     return count
 
 
+def _has_acc_urn_header(content: str) -> Optional[str]:
+    """Return legacy acc: URN if used as primary header, else None."""
+    for line in content.split("\n"):
+        m = _URN_COMMENT_RE.search(line)
+        if m and m.group(1).startswith("acc:"):
+            return m.group(1)
+    return None
+
+
 @pytest.mark.platform
 def test_v3_one_test_urn_per_file():
     """
@@ -109,7 +118,15 @@ def test_v3_one_test_urn_per_file():
         count = _count_test_urns(content)
         if count == 0:
             rel = test_file.relative_to(REPO_ROOT)
-            violations.append(f"{rel}: missing test: URN (exactly 1 required)")
+            acc_urn = _has_acc_urn_header(content)
+            if acc_urn:
+                violations.append(
+                    f"{rel}: uses legacy acc: URN as primary header "
+                    f"(# URN: {acc_urn}) — must use test: URN per V3 spec "
+                    f"(# URN: test:{{wagon}}:{{feature}}:{{WMBT_ID}}-{{HARNESS}}-{{NNN}}-{{slug}})"
+                )
+            else:
+                violations.append(f"{rel}: missing test: URN (exactly 1 required)")
             continue
         if count > 1:
             rel = test_file.relative_to(REPO_ROOT)

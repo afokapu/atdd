@@ -62,6 +62,12 @@ workflow_phases:
     gate_status: "TODO"
     red_gate: "pytest {test_path} -v (expect FAIL)"
     red_gate_status: "TODO"
+    # V3 test file header format (see tester/conventions/filename.convention.yaml):
+    #   # URN: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+    #   # Acceptance: acc:{wagon}:{WMBT_ID}-{HARNESS}-{NNN}[-{slug}]
+    #   # WMBT: wmbt:{wagon}:{WMBT_ID}
+    #   # Phase: RED
+    #   # Layer: {layer}
 
   coder:
     status: "TODO"
