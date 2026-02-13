@@ -7,12 +7,13 @@ Validates and fixes:
 - TypeScript index.ts files: URN comment + module documentation
 
 Convention:
-- All init/barrel files must have URN header
-- URN format: urn:jel:{wagon}:{component}:{layer}:{sublayer}...
+- All init/barrel files must have a component URN header
+- URN format: component:{wagon}:{feature}:{name}:{side}:{layer}
 - URN derived from file path structure
+- Header format: # URN: component:... (Python) or // URN: component:... (Dart/TS)
 
 Auto-fix Strategy:
-- Generate URN from file path
+- Generate component URN from file path
 - Add appropriate language-specific comment
 - Add package/module docstring
 - Preserve existing code (imports/exports)
@@ -24,6 +25,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.graph.urn import URNBuilder
 
 
 # Path constants
@@ -31,6 +33,9 @@ REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 DART_DIR = REPO_ROOT / "lib"
 TS_DIR = REPO_ROOT / "typescript"
+
+# Standard URN comment pattern (matches # URN: ... or // URN: ...)
+_URN_COMMENT_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
 
 
 def find_python_init_files() -> List[Path]:
@@ -62,17 +67,27 @@ def find_ts_index_files() -> List[Path]:
 
 def generate_urn_from_path(file_path: Path, language: str) -> str:
     """
-    Generate URN from file path.
+    Generate a component URN from an init/barrel file path.
+
+    Maps file paths to component:{wagon}:{feature}:{name}:{side}:{layer}:
+
+    - Wagon root (1 seg):     component:{wagon}:wagon:init:{side}:assembly
+    - Feature root (2 seg):   component:{wagon}:{feature}:init:{side}:assembly
+    - Layer init (3 seg):     component:{wagon}:{feature}:init:{side}:{layer}
+    - Sublayer init (4+ seg): component:{wagon}:{feature}:{sublayer}:{side}:{layer}
 
     Examples:
+    - python/pace_dilemmas/__init__.py
+      -> component:pace-dilemmas:wagon:init:backend:assembly
+
     - python/pace_dilemmas/pair_fragments/src/domain/services/__init__.py
-      → urn:jel:pace-dilemmas:pair-fragments:domain:services
+      -> component:pace-dilemmas:pair-fragments:services:backend:domain
 
     - lib/maintain_ux/provide_foundations/index.dart
-      → urn:jel:maintain-ux:provide-foundations
+      -> component:maintain-ux:provide-foundations:init:frontend:assembly
 
     - typescript/play_match/initialize_session/src/domain/index.ts
-      → urn:jel:play-match:initialize-session:domain
+      -> component:play-match:initialize-session:init:frontend:domain
     """
     parts = file_path.parts
 
@@ -89,30 +104,51 @@ def generate_urn_from_path(file_path: Path, language: str) -> str:
     except ValueError:
         return ""
 
+    # Determine side from language
+    side = "backend" if language == "python" else "frontend"
+
     # Extract path components after language root
     path_components = parts[lang_idx + 1:]
 
-    # Remove filename and 'src' directories
-    filtered_components = []
+    # Remove filename and 'src' directories, convert to kebab-case
+    filtered = []
     for comp in path_components:
-        if comp in ["__init__.py", "index.dart", "index.ts", "index.tsx"]:
+        if comp in ("__init__.py", "index.dart", "index.ts", "index.tsx"):
             continue
         if comp == "src":
             continue
-        # Convert underscores to hyphens for kebab-case
-        comp_kebab = comp.replace("_", "-")
-        filtered_components.append(comp_kebab)
+        filtered.append(comp.replace("_", "-"))
 
-    # Build URN
-    if not filtered_components:
+    if not filtered:
         return ""
 
-    urn = "urn:jel:" + ":".join(filtered_components)
+    # Map filtered segments to component URN fields
+    seg_count = len(filtered)
+
+    if seg_count == 1:
+        # Wagon root: component:{wagon}:wagon:init:{side}:assembly
+        wagon, feature, name, layer = filtered[0], "wagon", "init", "assembly"
+    elif seg_count == 2:
+        # Feature root: component:{wagon}:{feature}:init:{side}:assembly
+        wagon, feature, name, layer = filtered[0], filtered[1], "init", "assembly"
+    elif seg_count == 3:
+        # Layer init: component:{wagon}:{feature}:init:{side}:{layer}
+        wagon, feature, name, layer = filtered[0], filtered[1], "init", filtered[2]
+    else:
+        # Sublayer init (4+): component:{wagon}:{feature}:{last}:{side}:{layer_from_seg2}
+        wagon, feature, name, layer = filtered[0], filtered[1], filtered[-1], filtered[2]
+
+    urn = f"component:{wagon}:{feature}:{name}:{side}:{layer}"
+
+    # Validate with URNBuilder before returning
+    if not URNBuilder.validate_urn(urn, "component"):
+        return ""
+
     return urn
 
 
 def extract_urn_from_file(file_path: Path, language: str) -> Optional[str]:
-    """Extract URN from file header."""
+    """Extract component URN from file header. Also detects legacy urn:jel: format."""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
@@ -123,31 +159,33 @@ def extract_urn_from_file(file_path: Path, language: str) -> Optional[str]:
 
     for line in lines[:10]:  # Check first 10 lines
         stripped = line.strip()
-        if stripped.startswith(comment_prefix):
-            # Match: # urn:jel:... or // urn:jel:...
-            match = re.match(rf'{re.escape(comment_prefix)}\s*urn:jel:(.+)', stripped)
-            if match:
-                return f"urn:jel:{match.group(1).strip()}"
+        # Standard format: # URN: component:... or // URN: component:...
+        m = _URN_COMMENT_RE.match(stripped)
+        if m and m.group(1).startswith("component:"):
+            return m.group(1)
+        # Legacy format: # urn:jel:... or // urn:jel:...
+        if stripped.startswith(f"{comment_prefix} urn:jel:"):
+            return stripped[len(comment_prefix) + 1:]
 
     return None
 
 
 def get_package_description(file_path: Path, urn: str) -> str:
-    """Generate appropriate package description from URN."""
-    # Extract last component as package name
+    """Generate appropriate package description from component URN."""
+    # component:{wagon}:{feature}:{name}:{side}:{layer}
     components = urn.split(":")
-    if len(components) < 3:
+    if len(components) != 6:
         return "Package exports."
 
-    last_component = components[-1]
-    package_name = last_component.replace("-", "_")
+    name = components[3]
+    layer = components[5]
 
-    # Check if this is a layer name
     layer_names = {
         "domain": "Domain layer",
         "application": "Application layer",
         "presentation": "Presentation layer",
         "integration": "Integration layer",
+        "assembly": "Package exports",
         "entities": "Entity definitions",
         "services": "Domain services",
         "use-cases": "Use case implementations",
@@ -161,15 +199,18 @@ def get_package_description(file_path: Path, urn: str) -> str:
         "validators": "Validator implementations",
     }
 
-    if last_component in layer_names:
-        return f"{layer_names[last_component]}."
+    # If the init is at layer/feature/wagon root, describe the layer
+    if name == "init":
+        if layer in layer_names:
+            return f"{layer_names[layer]}."
+        return "Package exports."
 
-    # Get parent component for context
-    if len(components) >= 4:
-        parent = components[-2]
-        return f"{last_component.replace('-', ' ').title()} for {parent.replace('-', ' ')} component."
+    # Sublayer: describe using known sublayer names or generic
+    if name in layer_names:
+        return f"{layer_names[name]}."
 
-    return f"{package_name.replace('_', ' ').title()} package."
+    feature = components[2]
+    return f"{name.replace('-', ' ').title()} for {feature.replace('-', ' ')} component."
 
 
 def fix_python_init_file(file_path: Path) -> bool:
@@ -209,7 +250,7 @@ def fix_python_init_file(file_path: Path) -> bool:
 
     # Add URN comment
     if not has_urn:
-        header_parts.append(f"# {expected_urn}")
+        header_parts.append(f"# URN: {expected_urn}")
 
     # Add docstring
     if not has_docstring:
@@ -217,12 +258,11 @@ def fix_python_init_file(file_path: Path) -> bool:
 
     # Combine header with existing content
     if header_parts:
-        # Remove old URN if exists
+        # Remove old URN if exists (both new and legacy formats)
         lines = current_content.split('\n')
         cleaned_lines = []
         for line in lines:
-            # Skip old URN comments
-            if line.strip().startswith("# urn:jel:"):
+            if line.strip().startswith("# URN: component:") or line.strip().startswith("# urn:jel:"):
                 continue
             cleaned_lines.append(line)
 
@@ -273,14 +313,13 @@ def fix_dart_index_file(file_path: Path) -> bool:
     description = get_package_description(file_path, expected_urn)
 
     # Build new header
-    header = f"// {expected_urn}\n/// {description}\n"
+    header = f"// URN: {expected_urn}\n/// {description}\n"
 
-    # Remove old URN if exists
+    # Remove old URN if exists (both new and legacy formats)
     lines = current_content.split('\n')
     cleaned_lines = []
     for line in lines:
-        # Skip old URN comments
-        if line.strip().startswith("// urn:jel:"):
+        if line.strip().startswith("// URN: component:") or line.strip().startswith("// urn:jel:"):
             continue
         # Skip old documentation comments at the start
         if not cleaned_lines and line.strip().startswith("///"):
@@ -332,14 +371,13 @@ def fix_ts_index_file(file_path: Path) -> bool:
     description = get_package_description(file_path, expected_urn)
 
     # Build new header
-    header = f"// {expected_urn}\n/** {description} */\n"
+    header = f"// URN: {expected_urn}\n/** {description} */\n"
 
-    # Remove old URN if exists
+    # Remove old URN if exists (both new and legacy formats)
     lines = current_content.split('\n')
     cleaned_lines = []
     for line in lines:
-        # Skip old URN comments
-        if line.strip().startswith("// urn:jel:"):
+        if line.strip().startswith("// URN: component:") or line.strip().startswith("// urn:jel:"):
             continue
         cleaned_lines.append(line)
 
@@ -364,7 +402,7 @@ def test_python_init_files_have_urns():
     SPEC-CODER-URN-0001: Python __init__.py files have URN headers.
 
     All __init__.py files must have:
-    - URN comment header (# urn:jel:...)
+    - URN comment header (# URN: component:...)
     - Package docstring
 
     Auto-fix: Adds missing URN and docstring
@@ -431,7 +469,7 @@ def test_dart_index_files_have_urns():
     SPEC-CODER-URN-0002: Dart index.dart files have URN headers.
 
     All index.dart barrel files must have:
-    - URN comment header (// urn:jel:...)
+    - URN comment header (// URN: component:...)
     - Module documentation (///)
 
     Auto-fix: Adds missing URN and documentation
@@ -490,7 +528,7 @@ def test_typescript_index_files_have_urns():
     SPEC-CODER-URN-0003: TypeScript index.ts files have URN headers.
 
     All index.ts/tsx barrel files must have:
-    - URN comment header (// urn:jel:...)
+    - URN comment header (// URN: component:...)
     - Module documentation (/** ... */)
 
     Auto-fix: Adds missing URN and documentation
@@ -548,29 +586,37 @@ def test_urn_generation_logic():
     """
     SPEC-CODER-URN-0004: URN generation logic is correct.
 
-    Validate URN generation from various file paths.
+    Validate URN generation from various file paths produces valid component URNs.
 
     Given: Sample file paths
     When: Generating URNs
-    Then: URNs match expected format
+    Then: URNs match expected component format and pass URNBuilder validation
     """
     test_cases = [
         # (file_path, language, expected_urn)
         ("python/pace_dilemmas/pair_fragments/src/domain/services/__init__.py",
          "python",
-         "urn:jel:pace-dilemmas:pair-fragments:domain:services"),
+         "component:pace-dilemmas:pair-fragments:services:backend:domain"),
 
         ("python/pace_dilemmas/pair_fragments/src/domain/__init__.py",
          "python",
-         "urn:jel:pace-dilemmas:pair-fragments:domain"),
+         "component:pace-dilemmas:pair-fragments:init:backend:domain"),
 
         ("lib/maintain_ux/provide_foundations/index.dart",
          "dart",
-         "urn:jel:maintain-ux:provide-foundations"),
+         "component:maintain-ux:provide-foundations:init:frontend:assembly"),
 
         ("typescript/play_match/initialize_session/src/domain/index.ts",
          "typescript",
-         "urn:jel:play-match:initialize-session:domain"),
+         "component:play-match:initialize-session:init:frontend:domain"),
+
+        ("python/pace_dilemmas/__init__.py",
+         "python",
+         "component:pace-dilemmas:wagon:init:backend:assembly"),
+
+        ("python/pace_dilemmas/pair_fragments/__init__.py",
+         "python",
+         "component:pace-dilemmas:pair-fragments:init:backend:assembly"),
     ]
 
     failures = []
@@ -586,6 +632,13 @@ def test_urn_generation_logic():
                 f"Path: {path_str}\n"
                 f"  Expected: {expected}\n"
                 f"  Actual: {actual}"
+            )
+
+        # Validate generated URN passes component pattern
+        if actual and not URNBuilder.validate_urn(actual, "component"):
+            failures.append(
+                f"Path: {path_str}\n"
+                f"  URN failed validation: {actual}"
             )
 
     if failures:
