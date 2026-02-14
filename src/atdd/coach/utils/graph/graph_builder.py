@@ -643,14 +643,14 @@ class GraphBuilder:
             parts = feature_decl.urn.replace("feature:", "").split(":")
             if len(parts) >= 2:
                 wagon_urn = f"wagon:{parts[0]}"
-                if wagon_urn in graph.nodes:
-                    graph.add_edge(
-                        URNEdge(
-                            source_urn=wagon_urn,
-                            target_urn=feature_decl.urn,
-                            edge_type=EdgeType.CONTAINS,
-                        )
+                graph.add_edge(
+                    URNEdge(
+                        source_urn=wagon_urn,
+                        target_urn=feature_decl.urn,
+                        edge_type=EdgeType.CONTAINS,
+                        metadata={"source": "urn-structure"},
                     )
+                )
 
         # Wagon contains WMBTs
         for wmbt_decl in graph.nodes.values():
@@ -661,14 +661,14 @@ class GraphBuilder:
             parts = wmbt_decl.urn.replace("wmbt:", "").split(":")
             if len(parts) >= 2:
                 wagon_urn = f"wagon:{parts[0]}"
-                if wagon_urn in graph.nodes:
-                    graph.add_edge(
-                        URNEdge(
-                            source_urn=wagon_urn,
-                            target_urn=wmbt_decl.urn,
-                            edge_type=EdgeType.CONTAINS,
-                        )
+                graph.add_edge(
+                    URNEdge(
+                        source_urn=wagon_urn,
+                        target_urn=wmbt_decl.urn,
+                        edge_type=EdgeType.CONTAINS,
+                        metadata={"source": "urn-structure"},
                     )
+                )
 
         # WMBT contains acceptances
         for acc_decl in graph.nodes.values():
@@ -683,14 +683,14 @@ class GraphBuilder:
                 if len(facets) >= 1:
                     wmbt_id = facets[0]
                     wmbt_urn = f"wmbt:{wagon_id}:{wmbt_id}"
-                    if wmbt_urn in graph.nodes:
-                        graph.add_edge(
-                            URNEdge(
-                                source_urn=wmbt_urn,
-                                target_urn=acc_decl.urn,
-                                edge_type=EdgeType.CONTAINS,
-                            )
+                    graph.add_edge(
+                        URNEdge(
+                            source_urn=wmbt_urn,
+                            target_urn=acc_decl.urn,
+                            edge_type=EdgeType.CONTAINS,
+                            metadata={"source": "urn-structure"},
                         )
+                    )
 
     def _resolve_contract_ref(self, contract_ref: str) -> Optional[str]:
         """
@@ -906,12 +906,26 @@ class GraphBuilder:
             if len(parts) >= 2:
                 wagon_id, feature_id = parts[0], parts[1]
                 feature_urn = f"feature:{wagon_id}:{feature_id}"
-                if feature_urn in graph.nodes:
+                wagon_urn = f"wagon:{wagon_id}"
+
+                # feature -> component (CONTAINS); add_edge auto-synthesizes missing feature node
+                graph.add_edge(
+                    URNEdge(
+                        source_urn=feature_urn,
+                        target_urn=node.urn,
+                        edge_type=EdgeType.CONTAINS,
+                        metadata={"source": "urn-structure"},
+                    )
+                )
+
+                # wagon -> feature fallback if feature has no wagon parent yet
+                if not graph.get_parents(feature_urn, EdgeType.CONTAINS):
                     graph.add_edge(
                         URNEdge(
-                            source_urn=feature_urn,
-                            target_urn=node.urn,
+                            source_urn=wagon_urn,
+                            target_urn=feature_urn,
                             edge_type=EdgeType.CONTAINS,
+                            metadata={"source": "urn-structure"},
                         )
                     )
 

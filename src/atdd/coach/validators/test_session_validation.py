@@ -1295,6 +1295,52 @@ def test_session_type_has_required_workflow_phases(hybrid_session_files: List[Pa
 # Summary Test
 # ============================================================================
 
+def test_db_sessions_acknowledge_supabase_branching(hybrid_session_files: List[Path]):
+    """
+    Sessions with 'db' or 'migrations' archetypes beyond INIT status should
+    acknowledge Supabase preview branch workflow.
+
+    urn:atdd:validator:SESSION-SUPA-VAL-0001
+
+    Soft check: looks for signals like 'preview branch', 'draft pr',
+    'supabase_branching' in content — indicating the author is aware that
+    `supabase db push --linked` targets a preview branch, not production.
+    """
+    BRANCHING_SIGNALS = [
+        "preview branch", "draft pr", "draft pull request",
+        "supabase_branching", "supabase db push",
+        "preview-branch", "preview_branch",
+    ]
+    DB_ARCHETYPES = {"db", "migrations"}
+
+    issues = []
+    for f in hybrid_session_files:
+        parsed = parse_session_file(f)
+        fm = parsed["frontmatter"]
+        status = str(fm.get("status", "")).upper()
+        archetypes = set(fm.get("archetypes", []) or [])
+
+        if not archetypes & DB_ARCHETYPES:
+            continue
+        if status in ("INIT", "OBSOLETE"):
+            continue
+
+        content_lower = parsed["content"].lower()
+        has_signal = any(sig in content_lower for sig in BRANCHING_SIGNALS)
+        if not has_signal:
+            issues.append(
+                f"  {parsed['name']}: archetypes={archetypes & DB_ARCHETYPES}, "
+                f"status={status} — no Supabase branching acknowledgement found.\n"
+                f"    See rules.supabase_branching in session.convention.yaml"
+            )
+
+    if issues:
+        pytest.skip(
+            f"Supabase branching awareness missing (soft check):\n"
+            + "\n".join(issues)
+        )
+
+
 def test_session_validation_summary(session_files: List[Path]):
     """
     Generate a summary of all session files and their validation status.

@@ -26,6 +26,13 @@ archetypes:
   #   2. plan/_trains/{train_id}.yaml (full spec with participants, sequence, etc.)
   #   3. E2E journey tests with: # Train: train:{train_id} and test:train:{train_id}:... URN
   # Validator SPEC-TRAIN-VAL-0003 enforces spec file exists for each registry entry.
+  # NOTE: If archetypes includes 'db' or 'migrations':
+  #   BEFORE running any `supabase db push --linked`:
+  #   1. Push branch to remote: git push -u origin <branch>
+  #   2. Open a draft PR against main
+  #   3. Wait for Supabase preview branch to be created
+  #   4. Then run migrations — they target the preview, not production
+  #   Exception: Infrastructure repairs targeting production (document in decisions log).
 
 # Scope definition
 scope:

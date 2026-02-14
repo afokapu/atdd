@@ -304,6 +304,8 @@ archetypes:
       - "Views for query optimization"
       - "RLS policies for security"
     validation: "supabase db push --dry-run"
+    preconditions:
+      - "See rules.supabase_branching"
 
   backend:
     id: "be"
@@ -405,6 +407,8 @@ archetypes:
       - "Idempotent when possible"
       - "Rollback plan documented"
     validation: "supabase db push --dry-run"
+    preconditions:
+      - "See rules.supabase_branching"
 
 # Mandatory sections - ALL sessions must have these
 sections:
@@ -639,6 +643,19 @@ rules:
     - "Add warning banner at top of file"
     - "Link to superseding session"
     - "Set status to OBSOLETE"
+
+  supabase_branching:
+    applies_to: ["db", "migrations"]
+    rule: "Sessions with db or migrations archetypes MUST have an open PR before supabase db push --linked"
+    reason: "Supabase creates preview branches on PR open, not Git branch creation"
+    exceptions:
+      - "Infrastructure repairs targeting production (document in decisions log)"
+    workflow:
+      - "Create Git branch"
+      - "Push to remote: git push -u origin <branch>"
+      - "Open draft PR against main"
+      - "Confirm Supabase preview branch created"
+      - "Run supabase db push --linked (targets preview)"
 
 # Gate Tests - Required validation gates per session
 # Each session MUST define gate_tests that reference ATDD validators
