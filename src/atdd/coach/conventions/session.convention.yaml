@@ -184,6 +184,75 @@ workflow:
       required_phases: []
       workflow: "Progress log - no direct implementation"
 
+# =============================================================================
+# GITHUB ISSUE TRACKING (v2 — replaces local session files)
+# =============================================================================
+# Sessions are now GitHub Issues with Project v2 custom fields.
+# Local session files (atdd-sessions/*.md) are historical only.
+# New sessions are created as GitHub Issues via `atdd new`.
+#
+# Three-layer architecture:
+#   Layer 1: Parent issue body — human-readable (context, architecture, decisions, log)
+#   Layer 2: Project custom fields — machine-parseable metadata (queryable, filterable)
+#   Layer 3: Sub-issues — WMBT tracking with automatic progress bar
+#
+# Schema: atdd/coach/schemas/project_fields.schema.json
+# Config: .atdd/config.yaml -> github.project_id, github.project_number, github.repo
+
+github_issue_tracking:
+  schema: "atdd/coach/schemas/project_fields.schema.json"
+  config: ".atdd/config.yaml (github section)"
+
+  labels:
+    parent:
+      - name: "atdd-session"
+        color: "0E8A16"
+        description: "ATDD session parent issue"
+      - name: "archetype:{id}"
+        color: "D4C5F9"
+        description: "Archetype filter (one per archetype)"
+      - name: "atdd:{STATUS}"
+        color: "varies"
+        description: "Current ATDD status (swapped on transitions)"
+      - name: "wagon:{wagon}"
+        color: "C5DEF5"
+        description: "Wagon association"
+    sub_issue:
+      - name: "atdd-wmbt"
+        color: "1D76DB"
+        description: "ATDD WMBT sub-issue"
+
+  issue_types:
+    note: "Org-level feature — requires GitHub org with issue types enabled"
+    parent:
+      implementation: "Feature"
+      migration: "Feature"
+      refactor: "Task"
+      cleanup: "Task"
+      analysis: "Task"
+      planning: "Task"
+      tracking: "Task"
+    sub_issue: "Task (always)"
+
+  cli_commands:
+    init: "atdd init — bootstraps labels, Project v2, custom fields, workflow"
+    new: "atdd new <slug> — creates parent issue + WMBT sub-issues"
+    list: "atdd list — queries Project items (parent issues only)"
+    update: "atdd update <NN> --status <S> — updates Project fields + labels"
+    close_wmbt: "atdd close-wmbt <NN> <WMBT_ID> — closes WMBT sub-issue"
+    archive: "atdd archive <NN> — closes parent + all sub-issues"
+    validate: "atdd validate coach — validates Project fields + sub-issue state"
+
+  hard_dependencies:
+    - "gh CLI must be installed and authenticated"
+    - "GitHub Projects v2 API access (GraphQL)"
+    - "GitHub sub-issues feature (GA since 2025)"
+    - "atdd init must have been run (project_id in .atdd/config.yaml)"
+
+# =============================================================================
+# LOCAL SESSION FILES (legacy — historical sessions only)
+# =============================================================================
+
 # File format
 format:
   type: "hybrid"

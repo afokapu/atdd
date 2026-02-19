@@ -133,6 +133,36 @@
       },
       "additionalProperties": false
     },
+    "github": {
+      "type": "object",
+      "description": "GitHub integration settings for issue-based session tracking",
+      "properties": {
+        "repo": {
+          "type": "string",
+          "description": "GitHub repository in owner/name format",
+          "pattern": "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$",
+          "examples": ["janetbusiness/jel-app", "afokapu/atdd"]
+        },
+        "project_number": {
+          "type": "integer",
+          "description": "GitHub Projects v2 number (visible in URL)",
+          "minimum": 1,
+          "examples": [1]
+        },
+        "project_id": {
+          "type": "string",
+          "description": "GitHub Projects v2 node ID (GraphQL identifier)",
+          "pattern": "^PVT_",
+          "examples": ["PVT_kwHOAIbyOM4BPpKf"]
+        },
+        "field_schema": {
+          "const": "atdd/coach/schemas/project_fields.schema.json",
+          "description": "Reference to the custom field schema definition"
+        }
+      },
+      "required": ["repo", "project_number", "project_id"],
+      "additionalProperties": false
+    },
     "coach": {
       "type": "object",
       "description": "Coach agent validation settings",
