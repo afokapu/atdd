@@ -171,6 +171,20 @@ git:
     format: "conventional commits (feat:, fix:, docs:, refactor:, test:)"
     atomic: "One commit per phase transition when meaningful"
 
+  worktree_scoping:
+    description: "Branch names MUST match the worktree directory they are created in"
+    rule: "Agents MUST validate branch name prefix against worktree dir before creating/switching branches"
+    scopes:
+      fe:
+        allowed: ["fe/*", "fix/fe/*", "feat/fe/*", "feature/fe/*"]
+      be:
+        allowed: ["be/*", "fix/be/*", "feat/be/*", "feature/be/*"]
+      ops:
+        note: "future"
+        allowed: ["ops/*", "fix/ops/*"]
+      main:
+        note: "valid branch name (no worktree scope check)"
+
   workflow:
     branch_strategy: "feature branches from main/mechanic"
     phase_commits:
