@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atdd.dev/schemas/coach/label_taxonomy.schema.json",
+  "title": "ATDD GitHub Label Taxonomy",
+  "description": "Single source of truth for GitHub labels used in ATDD issue tracking. Used by `atdd init` (creates labels) and `atdd new` (applies labels). All labels are idempotent — `atdd init` skips existing, updates color/description if changed.",
+  "type": "object",
+  "required": ["version", "categories"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "categories": {
+      "type": "object",
+      "required": ["session", "wmbt", "phase", "archetype", "wagon"],
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/label_category",
+          "description": "Identifies parent session issues",
+          "properties": {
+            "applies_to": { "const": "parent" },
+            "cardinality": { "const": "exactly_one" },
+            "labels": {
+              "type": "array",
+              "prefixItems": [{
+                "properties": {
+                  "name": { "const": "atdd-session" },
+                  "color": { "const": "0E8A16" },
+                  "description": { "const": "ATDD session parent issue" }
+                }
+              }],
+              "minItems": 1,
+              "maxItems": 1
+            }
+          }
+        },
+        "wmbt": {
+          "$ref": "#/$defs/label_category",
+          "description": "Identifies WMBT sub-issues",
+          "properties": {
+            "applies_to": { "const": "sub_issue" },
+            "cardinality": { "const": "exactly_one" },
+            "labels": {
+              "type": "array",
+              "prefixItems": [{
+                "properties": {
+                  "name": { "const": "atdd-wmbt" },
+                  "color": { "const": "1D76DB" },
+                  "description": { "const": "ATDD WMBT sub-issue" }
+                }
+              }],
+              "minItems": 1,
+              "maxItems": 1
+            }
+          }
+        },
+        "phase": {
+          "$ref": "#/$defs/label_category",
+          "description": "Current ATDD lifecycle phase — swapped on transitions (only one active at a time)",
+          "properties": {
+            "applies_to": { "const": "parent" },
+            "cardinality": { "const": "exactly_one" },
+            "swap_rule": { "const": "Remove previous atdd:* label before applying new one" },
+            "labels": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/label" },
+              "prefixItems": [
+                { "properties": { "name": { "const": "atdd:INIT" },     "color": { "const": "FBCA04" }, "description": { "const": "ATDD phase: INIT" } } },
+                { "properties": { "name": { "const": "atdd:PLANNED" },  "color": { "const": "B60205" }, "description": { "const": "ATDD phase: PLANNED" } } },
+                { "properties": { "name": { "const": "atdd:RED" },      "color": { "const": "D93F0B" }, "description": { "const": "ATDD phase: RED" } } },
+                { "properties": { "name": { "const": "atdd:GREEN" },    "color": { "const": "0E8A16" }, "description": { "const": "ATDD phase: GREEN" } } },
+                { "properties": { "name": { "const": "atdd:REFACTOR" }, "color": { "const": "006B75" }, "description": { "const": "ATDD phase: REFACTOR" } } },
+                { "properties": { "name": { "const": "atdd:COMPLETE" }, "color": { "const": "6F42C1" }, "description": { "const": "ATDD phase: COMPLETE" } } },
+                { "properties": { "name": { "const": "atdd:BLOCKED" },  "color": { "const": "E4E669" }, "description": { "const": "ATDD phase: BLOCKED" } } }
+              ],
+              "minItems": 7,
+              "maxItems": 7
+            }
+          }
+        },
+        "archetype": {
+          "$ref": "#/$defs/label_category",
+          "description": "Infrastructure archetypes affected by the session — multiple allowed",
+          "properties": {
+            "applies_to": { "const": "parent" },
+            "cardinality": { "const": "one_or_more" },
+            "pattern": { "const": "archetype:{id}" },
+            "labels": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/label" },
+              "prefixItems": [
+                { "properties": { "name": { "const": "archetype:db" },         "color": { "const": "D4C5F9" }, "description": { "const": "Supabase PostgreSQL + JSONB" } } },
+                { "properties": { "name": { "const": "archetype:be" },         "color": { "const": "D4C5F9" }, "description": { "const": "Python FastAPI 4-layer" } } },
+                { "properties": { "name": { "const": "archetype:fe" },         "color": { "const": "D4C5F9" }, "description": { "const": "TypeScript/Preact 4-layer" } } },
+                { "properties": { "name": { "const": "archetype:contracts" },  "color": { "const": "D4C5F9" }, "description": { "const": "JSON Schema contracts" } } },
+                { "properties": { "name": { "const": "archetype:wmbt" },       "color": { "const": "D4C5F9" }, "description": { "const": "What Must Be True criteria" } } },
+                { "properties": { "name": { "const": "archetype:wagon" },      "color": { "const": "D4C5F9" }, "description": { "const": "Bounded context module" } } },
+                { "properties": { "name": { "const": "archetype:train" },      "color": { "const": "D4C5F9" }, "description": { "const": "Journey orchestration" } } },
+                { "properties": { "name": { "const": "archetype:telemetry" },  "color": { "const": "D4C5F9" }, "description": { "const": "Observability artifacts" } } },
+                { "properties": { "name": { "const": "archetype:migrations" }, "color": { "const": "D4C5F9" }, "description": { "const": "Database schema evolution" } } }
+              ],
+              "minItems": 9,
+              "maxItems": 9
+            }
+          }
+        },
+        "wagon": {
+          "$ref": "#/$defs/label_category",
+          "description": "Wagon association — dynamically created per wagon, one per session",
+          "properties": {
+            "applies_to": { "const": "parent" },
+            "cardinality": { "const": "exactly_one" },
+            "pattern": { "const": "wagon:{wagon-slug}" },
+            "dynamic": { "const": true },
+            "dynamic_rule": { "const": "`atdd new` creates wagon:{slug} label if it does not exist" },
+            "color": { "const": "C5DEF5" },
+            "description_template": { "const": "Wagon: {wagon-slug}" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "label": {
+      "type": "object",
+      "required": ["name", "color", "description"],
+      "properties": {
+        "name": { "type": "string" },
+        "color": {
+          "type": "string",
+          "pattern": "^[0-9A-Fa-f]{6}$",
+          "description": "6-digit hex color without # prefix"
+        },
+        "description": { "type": "string" }
+      }
+    },
+    "label_category": {
+      "type": "object",
+      "required": ["applies_to", "cardinality"],
+      "properties": {
+        "applies_to": {
+          "type": "string",
+          "enum": ["parent", "sub_issue", "both"],
+          "description": "Which issue type this label category applies to"
+        },
+        "cardinality": {
+          "type": "string",
+          "enum": ["exactly_one", "one_or_more", "zero_or_one"],
+          "description": "How many labels from this category can be on one issue"
+        }
+      }
+    }
+  }
+}
