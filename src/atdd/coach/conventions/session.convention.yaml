@@ -249,6 +249,69 @@ github_issue_tracking:
     - "GitHub sub-issues feature (GA since 2025)"
     - "atdd init must have been run (project_id in .atdd/config.yaml)"
 
+  # ---------------------------------------------------------------------------
+  # WMBT Sub-Issue Template (D002)
+  # ---------------------------------------------------------------------------
+  # Each WMBT becomes a sub-issue of the session parent issue.
+  # The sub-issue body is generated from this template by `atdd new`.
+  # Sub-issues carry NO session-level metadata (train, feature, branch, archetypes)
+  # — that lives on the parent issue's Project custom fields.
+  wmbt_sub_issue_template:
+    file: "atdd/coach/templates/WMBT-SUBISSUE-TEMPLATE.md"
+    title_format: "wmbt:{wagon}:{wmbt_id} — {statement}"
+
+    placeholders:
+      wagon:
+        source: "parent issue wagon slug"
+        example: "coach"
+      wmbt_id:
+        source: "WMBT identifier from plan YAML"
+        pattern: "^[DLPCEMYRK]\\d{3}$"
+        example: "E001"
+      step_name:
+        source: "Derived from wmbt_id first letter via step_codes map"
+        values: ["Define", "Locate", "Prepare", "Compute", "Execute", "Monitor", "Modify", "Resolve", "Conclude"]
+        derivation: "D->Define, L->Locate, P->Prepare, C->Confirm, E->Execute, M->Monitor, Y->Modify, R->Resolve, K->Conclude"
+      statement:
+        source: "WMBT statement from plan YAML"
+        example: "Implement atdd new -> parent issue + WMBT sub-issues"
+      acceptance_criteria:
+        source: "WMBT acceptances from plan YAML, rendered as markdown bullet list"
+        format: "- {acceptance_text}\\n- {acceptance_text}\\n..."
+        fallback: "- (no acceptance criteria defined in plan YAML)"
+      test_file_path:
+        source: "Convention-derived test file path"
+        pattern: "src/atdd/{scope}/validators/tests/test_{wmbt_id}_{slug}.py"
+        example: "src/atdd/coach/commands/tests/test_E001_atdd_new_issues.py"
+
+    sections:
+      - heading: "## wmbt:{wagon}:{wmbt_id}"
+        purpose: "Machine-parseable WMBT URN as H2 heading"
+        required: true
+      - heading: "**Step:** ... | **URN:** ..."
+        purpose: "Step name and URN on a single metadata line"
+        required: true
+      - heading: "### ATDD Cycle"
+        purpose: "Three checkboxes for RED/GREEN/REFACTOR phases"
+        required: true
+        content: |
+          - [ ] RED: failing test written
+          - [ ] GREEN: implementation passes test
+          - [ ] REFACTOR: architecture compliance verified
+      - heading: "### Acceptance Criteria"
+        purpose: "WMBT-specific acceptance criteria from plan YAML"
+        required: true
+      - heading: "### Test File"
+        purpose: "Convention-compliant test file path"
+        required: true
+
+    validation_rules:
+      - "H2 heading must match wmbt:{wagon}:{wmbt_id} pattern"
+      - "ATDD Cycle must have exactly 3 checkboxes (RED, GREEN, REFACTOR)"
+      - "Acceptance Criteria must have at least 1 bullet point"
+      - "Test File must contain a valid file path"
+      - "No session-level metadata (no train, feature, branch, archetypes)"
+
 # =============================================================================
 # LOCAL SESSION FILES (legacy — historical sessions only)
 # =============================================================================
