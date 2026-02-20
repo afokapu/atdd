@@ -1,19 +1,19 @@
 """
 Session management for ATDD sessions.
 
-Manages session files in atdd-sessions/ directory:
-- Create new sessions from template
-- List sessions from manifest
-- Archive completed sessions
+Creates GitHub Issues with Project v2 custom fields and WMBT sub-issues.
+Legacy: also supports local session files in atdd-sessions/.
 
 Usage:
-    atdd new my-feature                            # Create SESSION-NN-my-feature.md
+    atdd new my-feature                            # Create GitHub issue + WMBT sub-issues
     atdd new my-feature --type migration            # Specify session type
     atdd session list                              # List all sessions
     atdd session archive 01                        # Archive SESSION-01-*.md
 
 Convention: src/atdd/coach/conventions/session.convention.yaml
 """
+import json
+import logging
 import re
 import shutil
 from datetime import date
@@ -22,9 +22,24 @@ from typing import Dict, List, Optional, Any
 
 import yaml
 
+logger = logging.getLogger(__name__)
+
+# Step code to step name mapping
+STEP_CODES = {
+    "D": "Define",
+    "L": "Locate",
+    "P": "Prepare",
+    "C": "Confirm",
+    "E": "Execute",
+    "M": "Monitor",
+    "Y": "Modify",
+    "R": "Resolve",
+    "K": "Conclude",
+}
+
 
 class SessionManager:
-    """Manage session files."""
+    """Manage session files and GitHub Issues."""
 
     VALID_TYPES = {
         "implementation",
@@ -48,10 +63,12 @@ class SessionManager:
         self.archive_dir = self.sessions_dir / "archive"
         self.atdd_config_dir = self.target_dir / ".atdd"
         self.manifest_file = self.atdd_config_dir / "manifest.yaml"
+        self.config_file = self.atdd_config_dir / "config.yaml"
 
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
         self.template_source = self.package_root / "templates" / "SESSION-TEMPLATE.md"
+        self.wmbt_template_source = self.package_root / "templates" / "WMBT-SUBISSUE-TEMPLATE.md"
 
     def _check_initialized(self) -> bool:
         """Check if ATDD is initialized."""
@@ -119,9 +136,108 @@ class SessionManager:
         slug = slug.strip("-")
         return slug
 
+    def _load_config(self) -> Dict[str, Any]:
+        """Load .atdd/config.yaml."""
+        if not self.config_file.exists():
+            return {}
+        with open(self.config_file) as f:
+            return yaml.safe_load(f) or {}
+
+    def _has_github_config(self) -> bool:
+        """Check if GitHub integration is configured."""
+        config = self._load_config()
+        github = config.get("github", {})
+        return bool(github.get("repo") and github.get("project_id"))
+
+    def _get_github_client(self):
+        """Get a GitHubClient from config. Returns None if not configured."""
+        from atdd.coach.github import GitHubClient, ProjectConfig, GitHubClientError
+        try:
+            project_config = ProjectConfig.from_config(self.config_file)
+            return GitHubClient(
+                repo=project_config.repo,
+                project_id=project_config.project_id,
+            )
+        except GitHubClientError as e:
+            logger.debug("GitHub client not available: %s", e)
+            return None
+
+    def _render_wmbt_body(
+        self, wagon: str, wmbt_id: str, statement: str,
+        acceptances: List[str], test_file: str,
+    ) -> str:
+        """Render WMBT sub-issue body from template."""
+        if not self.wmbt_template_source.exists():
+            # Inline fallback
+            template = (
+                "## wmbt:{wagon}:{wmbt_id}\n\n"
+                "**Step:** {step_name} | **URN:** `wmbt:{wagon}:{wmbt_id}`\n"
+                "**Statement:** {statement}\n\n"
+                "### ATDD Cycle\n\n"
+                "- [ ] RED: failing test written\n"
+                "- [ ] GREEN: implementation passes test\n"
+                "- [ ] REFACTOR: architecture compliance verified\n\n"
+                "### Acceptance Criteria\n\n"
+                "{acceptance_criteria}\n\n"
+                "### Test File\n\n"
+                "`{test_file_path}`\n"
+            )
+        else:
+            template = self.wmbt_template_source.read_text()
+
+        step_code = wmbt_id[0] if wmbt_id else "E"
+        step_name = STEP_CODES.get(step_code, "Execute")
+
+        if acceptances:
+            acceptance_criteria = "\n".join(f"- {a}" for a in acceptances)
+        else:
+            acceptance_criteria = "- (no acceptance criteria defined in plan YAML)"
+
+        return template.format(
+            wagon=wagon,
+            wmbt_id=wmbt_id,
+            step_name=step_name,
+            statement=statement,
+            acceptance_criteria=acceptance_criteria,
+            test_file_path=test_file,
+        )
+
+    def _discover_wmbts(self, wagon: str) -> List[Dict[str, Any]]:
+        """Discover WMBTs from plan YAML for a wagon."""
+        plan_dir = self.target_dir / "plan"
+        wagon_snake = wagon.replace("-", "_")
+        wagon_dir = plan_dir / wagon_snake
+
+        wmbts = []
+        if not wagon_dir.exists():
+            logger.debug("No plan dir for wagon %s at %s", wagon, wagon_dir)
+            return wmbts
+
+        # Look for feature YAMLs containing wmbt sections
+        for feature_file in sorted(wagon_dir.glob("features/*.yaml")):
+            with open(feature_file) as f:
+                feature_data = yaml.safe_load(f) or {}
+
+            for wmbt in feature_data.get("wmbts", []):
+                wmbt_id = wmbt.get("id", "")
+                wmbts.append({
+                    "id": wmbt_id,
+                    "statement": wmbt.get("statement", wmbt.get("description", "")),
+                    "acceptances": [
+                        a.get("text", a) if isinstance(a, dict) else str(a)
+                        for a in wmbt.get("acceptances", wmbt.get("acceptance_criteria", []))
+                    ],
+                })
+
+        return wmbts
+
     def new(self, slug: str, session_type: str = "implementation") -> int:
         """
-        Create new session from template.
+        Create new session.
+
+        If GitHub integration is configured (.atdd/config.yaml has github section),
+        creates a parent GitHub Issue + WMBT sub-issues with Project v2 fields.
+        Otherwise, falls back to creating a local session file.
 
         Args:
             slug: Session slug (will be converted to kebab-case).
@@ -139,17 +255,196 @@ class SessionManager:
             print(f"Valid types: {', '.join(sorted(self.VALID_TYPES))}")
             return 1
 
-        # Load manifest
-        manifest = self._load_manifest()
-
-        # Get next session number
-        session_num = self._get_next_session_number(manifest)
-
         # Slugify the name
         slug = self._slugify(slug)
         if not slug:
             print("Error: Invalid slug - results in empty string")
             return 1
+
+        # Route to GitHub or local
+        if self._has_github_config():
+            return self._new_github_issue(slug, session_type)
+        else:
+            return self._new_local_file(slug, session_type)
+
+    def _new_github_issue(self, slug: str, session_type: str) -> int:
+        """Create a GitHub Issue with WMBT sub-issues."""
+        from atdd.coach.github import GitHubClient, ProjectConfig, GitHubClientError
+
+        try:
+            config = self._load_config()
+            github_config = config["github"]
+            client = GitHubClient(
+                repo=github_config["repo"],
+                project_id=github_config.get("project_id"),
+            )
+        except (GitHubClientError, KeyError) as e:
+            print(f"Error: GitHub integration failed: {e}")
+            return 1
+
+        today = date.today().isoformat()
+        title_text = slug.replace("-", " ").title()
+        title = f"feat(atdd): {title_text}"
+
+        # Build parent issue body (minimal — details added by user)
+        body = (
+            f"## Session Metadata\n\n"
+            f"| Field | Value |\n"
+            f"|-------|-------|\n"
+            f"| Date | `{today}` |\n"
+            f"| Status | `INIT` |\n"
+            f"| Type | `{session_type}` |\n"
+            f"| Branch | TBD |\n"
+            f"| Archetypes | TBD |\n"
+            f"| Train | TBD |\n"
+            f"| Feature | TBD |\n\n"
+            f"---\n\n"
+            f"## Context\n\n"
+            f"(fill in)\n\n"
+            f"---\n\n"
+            f"## Session Log\n\n"
+            f"### Session 1 ({today})\n\n"
+            f"**Completed:**\n"
+            f"- Session created via `atdd new {slug}`\n"
+        )
+
+        # Determine labels for parent
+        parent_labels = ["atdd-session", f"atdd:INIT"]
+
+        # Create parent issue
+        print(f"Creating parent issue...")
+        parent_number = client.create_issue(
+            title=title,
+            body=body,
+            labels=parent_labels,
+        )
+        print(f"  Created #{parent_number}: {title}")
+
+        # Add to Project v2 and set fields
+        try:
+            item_id = client.add_issue_to_project(parent_number)
+            fields = client.get_project_fields()
+
+            # Set Session Number
+            if "Session Number" in fields:
+                client.set_project_field_number(
+                    item_id, fields["Session Number"]["id"], parent_number
+                )
+
+            # Set ATDD Status = INIT
+            if "ATDD Status" in fields:
+                options = fields["ATDD Status"].get("options", {})
+                if "INIT" in options:
+                    client.set_project_field_select(
+                        item_id, fields["ATDD Status"]["id"], options["INIT"]
+                    )
+
+            # Set Session Type
+            if "Session Type" in fields:
+                options = fields["Session Type"].get("options", {})
+                if session_type in options:
+                    client.set_project_field_select(
+                        item_id, fields["Session Type"]["id"], options[session_type]
+                    )
+
+            # Set ATDD Phase = Planner
+            if "ATDD Phase" in fields:
+                options = fields["ATDD Phase"].get("options", {})
+                if "Planner" in options:
+                    client.set_project_field_select(
+                        item_id, fields["ATDD Phase"]["id"], options["Planner"]
+                    )
+
+            print(f"  Added to Project with custom fields")
+        except GitHubClientError as e:
+            print(f"  Warning: Could not add to Project: {e}")
+
+        # Discover WMBTs from plan YAML
+        wagon = slug  # Default: wagon slug = session slug
+        wmbts = self._discover_wmbts(wagon)
+
+        wmbt_count = 0
+        if wmbts:
+            print(f"Creating {len(wmbts)} WMBT sub-issues...")
+            for wmbt in wmbts:
+                wmbt_id = wmbt["id"]
+                statement = wmbt["statement"]
+                acceptances = wmbt["acceptances"]
+                step_code = wmbt_id[0] if wmbt_id else "E"
+                step_name = STEP_CODES.get(step_code, "Execute")
+
+                sub_title = f"wmbt:{wagon}:{wmbt_id} — {statement}"
+                sub_body = self._render_wmbt_body(
+                    wagon=wagon,
+                    wmbt_id=wmbt_id,
+                    statement=statement,
+                    acceptances=acceptances,
+                    test_file=f"src/atdd/coach/commands/tests/test_{wmbt_id}_{slug}.py",
+                )
+
+                sub_number = client.create_issue(
+                    title=sub_title,
+                    body=sub_body,
+                    labels=["atdd-wmbt"],
+                )
+                print(f"  Created #{sub_number}: wmbt:{wagon}:{wmbt_id}")
+
+                # Link as sub-issue
+                try:
+                    client.add_sub_issue(parent_number, sub_number)
+                except GitHubClientError as e:
+                    print(f"    Warning: Could not link sub-issue: {e}")
+
+                # Add to Project and set WMBT fields
+                try:
+                    sub_item_id = client.add_issue_to_project(sub_number)
+                    if "WMBT ID" in fields:
+                        client.set_project_field_text(
+                            sub_item_id, fields["WMBT ID"]["id"], wmbt_id
+                        )
+                    if "WMBT Step" in fields:
+                        step_options = fields["WMBT Step"].get("options", {})
+                        if step_name in step_options:
+                            client.set_project_field_select(
+                                sub_item_id, fields["WMBT Step"]["id"],
+                                step_options[step_name],
+                            )
+                except GitHubClientError as e:
+                    print(f"    Warning: Could not set Project fields: {e}")
+
+                wmbt_count += 1
+
+        # Update manifest
+        manifest = self._load_manifest()
+        session_entry = {
+            "id": f"{parent_number:02d}" if parent_number < 100 else str(parent_number),
+            "slug": slug,
+            "file": None,
+            "issue_number": parent_number,
+            "type": session_type,
+            "status": "INIT",
+            "created": today,
+            "archived": None,
+        }
+        if "sessions" not in manifest:
+            manifest["sessions"] = []
+        manifest["sessions"].append(session_entry)
+        self._save_manifest(manifest)
+
+        print(f"\nCreated #{parent_number} with {wmbt_count} WMBTs")
+        print(f"  Repo: {github_config['repo']}")
+        print(f"  Type: {session_type}")
+        print(f"  Status: INIT")
+
+        return 0
+
+    def _new_local_file(self, slug: str, session_type: str) -> int:
+        """Create a local session file (legacy path)."""
+        # Load manifest
+        manifest = self._load_manifest()
+
+        # Get next session number
+        session_num = self._get_next_session_number(manifest)
 
         # Generate filename
         filename = f"SESSION-{session_num}-{slug}.md"
