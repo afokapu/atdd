@@ -9,7 +9,13 @@ Creates the following structure:
     │   └── archive/
     └── .atdd/
         ├── manifest.yaml        (machine-readable session tracking)
-        └── config.yaml          (agent sync configuration)
+        └── config.yaml          (agent sync + GitHub integration config)
+
+GitHub infrastructure (if `gh` CLI available):
+    - Labels: atdd-session, atdd-wmbt, atdd:*, archetype:*, wagon:*
+    - Project v2: "ATDD Sessions" with 12 custom fields
+    - Workflow: .github/workflows/atdd-validate.yml
+    - Config: project_id, project_number, repo in .atdd/config.yaml
 
 Usage:
     atdd init                    # Initialize ATDD structure
@@ -17,12 +23,17 @@ Usage:
 
 Convention: src/atdd/coach/conventions/session.convention.yaml
 """
+import json
+import logging
 import shutil
+import subprocess
 from datetime import date
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectInitializer:
@@ -94,21 +105,14 @@ class ProjectInitializer:
             syncer = AgentConfigSync(self.target_dir)
             syncer.sync()
 
+            # Bootstrap GitHub infrastructure
+            github_summary = self._bootstrap_github(force)
+
             # Print next steps
             print("\n" + "=" * 60)
             print("ATDD initialized successfully!")
             print("=" * 60)
-            print("\nNext steps:")
-            print("  1. Create a new session:")
-            print("     atdd new my-feature")
-            print("")
-            print("  2. List existing sessions:")
-            print("     atdd session list")
-            print("")
-            print("  3. Archive completed sessions:")
-            print("     atdd session archive 01")
-            print("")
-            print("Structure created:")
+            print("\nStructure created:")
             print(f"  {self.sessions_dir}/")
             print(f"  {self.sessions_dir}/archive/")
             print(f"  {self.sessions_dir}/SESSION-TEMPLATE.md")
@@ -116,6 +120,8 @@ class ProjectInitializer:
             print(f"  {self.manifest_file}")
             print(f"  {self.config_file}")
             print(f"  CLAUDE.md (with ATDD managed block)")
+            if github_summary:
+                print(f"\n{github_summary}")
 
             return 0
 
@@ -189,3 +195,377 @@ class ProjectInitializer:
     def is_initialized(self) -> bool:
         """Check if ATDD is already initialized in target directory."""
         return self.sessions_dir.exists() and self.manifest_file.exists()
+
+    # -------------------------------------------------------------------------
+    # E007: GitHub infrastructure bootstrap
+    # -------------------------------------------------------------------------
+
+    def _gh_available(self) -> bool:
+        """Check if `gh` CLI is available and authenticated."""
+        try:
+            result = subprocess.run(
+                ["gh", "auth", "status"],
+                capture_output=True, text=True, timeout=10,
+            )
+            return result.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return False
+
+    def _detect_repo(self) -> Optional[str]:
+        """Detect the GitHub repo from git remote."""
+        try:
+            result = subprocess.run(
+                ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.target_dir,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        return None
+
+    def _bootstrap_github(self, force: bool = False) -> Optional[str]:
+        """Bootstrap GitHub infrastructure: labels, Project v2, fields, workflow."""
+        if not self._gh_available():
+            print("\nWarning: gh CLI not available or not authenticated.")
+            print("  GitHub infrastructure not created.")
+            print("  Install: https://cli.github.com")
+            print("  Then run: gh auth login && atdd init --force")
+            return None
+
+        repo = self._detect_repo()
+        if not repo:
+            print("\nWarning: Could not detect GitHub repo.")
+            print("  Run from inside a git repo with a GitHub remote.")
+            return None
+
+        print(f"\nBootstrapping GitHub infrastructure for {repo}...")
+
+        from atdd.coach.github import GitHubClient, GitHubClientError
+
+        # Load label taxonomy from schema
+        schema_path = self.package_root / "schemas" / "label_taxonomy.schema.json"
+        labels_created, labels_existed = self._create_labels(repo, schema_path)
+
+        # Create or find Project v2
+        project_id, project_number, project_created = self._ensure_project(repo)
+
+        # Create custom fields
+        fields_created = 0
+        if project_id:
+            fields_created = self._create_project_fields(project_id)
+
+        # Write workflow file
+        workflow_written = self._write_workflow(repo)
+
+        # Update config with GitHub settings
+        if project_id:
+            self._update_config_github(repo, project_id, project_number)
+
+        # Summary
+        parts = []
+        parts.append(f"{labels_created + labels_existed} labels "
+                      f"({labels_created} created, {labels_existed} existed)")
+        if project_id:
+            verb = "created" if project_created else "found"
+            parts.append(f"Project 'ATDD Sessions' #{project_number} ({verb})")
+        if fields_created:
+            parts.append(f"{fields_created} fields created")
+        if workflow_written:
+            parts.append("workflow written")
+
+        summary = f"GitHub: {', '.join(parts)}"
+        print(f"  {summary}")
+        return summary
+
+    def _create_labels(self, repo: str, schema_path: Path) -> Tuple[int, int]:
+        """Create ATDD labels from taxonomy schema. Returns (created, existed)."""
+        if not schema_path.exists():
+            logger.warning("Label taxonomy schema not found: %s", schema_path)
+            return 0, 0
+
+        with open(schema_path) as f:
+            schema = json.load(f)
+
+        # Extract labels from schema
+        labels = []
+        categories = schema.get("properties", {}).get("categories", {}).get("properties", {})
+        for cat_name, cat_spec in categories.items():
+            cat_props = cat_spec.get("properties", {})
+            label_items = cat_props.get("labels", {}).get("prefixItems", [])
+            for item in label_items:
+                props = item.get("properties", {})
+                name = props.get("name", {}).get("const")
+                color = props.get("color", {}).get("const")
+                desc = props.get("description", {}).get("const", "")
+                if name and color:
+                    labels.append((name, color, desc))
+
+        created = 0
+        existed = 0
+        for name, color, desc in labels:
+            try:
+                subprocess.run(
+                    ["gh", "label", "create", name,
+                     "--repo", repo, "--color", color,
+                     "--description", desc, "--force"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                # --force means it's always "success"; we check if it existed
+                # by trying without --force first, but simpler to just count all
+                created += 1
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                existed += 1
+
+        return created, existed
+
+    def _ensure_project(self, repo: str) -> Tuple[Optional[str], Optional[int], bool]:
+        """Find or create 'ATDD Sessions' Project v2. Returns (id, number, created)."""
+        owner = repo.split("/")[0]
+
+        # Check for existing project
+        try:
+            result = subprocess.run(
+                ["gh", "project", "list", "--owner", owner, "--format", "json"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                data = json.loads(result.stdout)
+                for proj in data.get("projects", []):
+                    if proj.get("title") == "ATDD Sessions":
+                        # Need to get the node ID via GraphQL
+                        proj_number = proj["number"]
+                        node_id = self._get_project_node_id(owner, proj_number)
+                        return node_id, proj_number, False
+        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError):
+            pass
+
+        # Create new project via GraphQL
+        try:
+            # Get owner node ID
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f",
+                 f'query={{ user(login:"{owner}") {{ id }} }}',
+                 "--jq", ".data.user.id"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0:
+                # Try as org
+                result = subprocess.run(
+                    ["gh", "api", "graphql", "-f",
+                     f'query={{ organization(login:"{owner}") {{ id }} }}',
+                     "--jq", ".data.organization.id"],
+                    capture_output=True, text=True, timeout=10,
+                )
+
+            owner_id = result.stdout.strip()
+            if not owner_id:
+                print("  Warning: Could not find owner ID for Project creation")
+                return None, None, False
+
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f",
+                 f'query=mutation {{ createProjectV2(input: {{ ownerId: "{owner_id}", '
+                 f'title: "ATDD Sessions" }}) {{ projectV2 {{ id number }} }} }}'],
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                proj = data["data"]["createProjectV2"]["projectV2"]
+                return proj["id"], proj["number"], True
+        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+            print(f"  Warning: Could not create Project: {e}")
+
+        return None, None, False
+
+    def _get_project_node_id(self, owner: str, project_number: int) -> Optional[str]:
+        """Get Project v2 node ID from owner and number."""
+        try:
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f",
+                 f'query={{ user(login:"{owner}") {{ '
+                 f'projectV2(number:{project_number}) {{ id }} }} }}',
+                 "--jq", ".data.user.projectV2.id"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+            # Try as org
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f",
+                 f'query={{ organization(login:"{owner}") {{ '
+                 f'projectV2(number:{project_number}) {{ id }} }} }}',
+                 "--jq", ".data.organization.projectV2.id"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip() or None
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        return None
+
+    def _create_project_fields(self, project_id: str) -> int:
+        """Create custom fields on a Project v2 from schema. Returns count created."""
+        schema_path = self.package_root / "schemas" / "project_fields.schema.json"
+        if not schema_path.exists():
+            return 0
+
+        with open(schema_path) as f:
+            schema = json.load(f)
+
+        # Get existing fields to skip duplicates
+        try:
+            from atdd.coach.github import GitHubClient
+            client = GitHubClient.__new__(GitHubClient)
+            client.repo = ""
+            client.project_id = project_id
+            # Direct GraphQL call
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f",
+                 f'query={{ node(id: "{project_id}") {{ ... on ProjectV2 {{ '
+                 f'fields(first: 30) {{ nodes {{ '
+                 f'... on ProjectV2Field {{ name }} '
+                 f'... on ProjectV2SingleSelectField {{ name }} '
+                 f'}} }} }} }} }}'],
+                capture_output=True, text=True, timeout=15,
+            )
+            existing_fields = set()
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                for node in data["data"]["node"]["fields"]["nodes"]:
+                    if node.get("name"):
+                        existing_fields.add(node["name"])
+        except Exception:
+            existing_fields = set()
+
+        created = 0
+        defs = schema.get("$defs", {})
+
+        # Process parent and sub-issue fields
+        for scope in ["parent_fields", "sub_issue_fields"]:
+            scope_def = defs.get(scope, {})
+            for field_key, field_spec in scope_def.get("properties", {}).items():
+                field_props = field_spec.get("properties", {})
+                name = field_props.get("name", {}).get("const")
+                data_type = field_props.get("data_type", {}).get("const")
+
+                if not name or not data_type or name in existing_fields:
+                    continue
+
+                if data_type == "SINGLE_SELECT":
+                    options = field_spec.get("properties", {}).get("options", {})
+                    option_items = options.get("prefixItems", [])
+                    options_str = ", ".join(
+                        f'{{name: "{item["properties"]["name"]["const"]}", '
+                        f'description: "{item["properties"]["description"]["const"]}", '
+                        f'color: {item["properties"]["color"]["const"]}}}'
+                        for item in option_items
+                        if "properties" in item
+                    )
+                    mutation = (
+                        f'mutation {{ createProjectV2Field(input: {{ '
+                        f'projectId: "{project_id}", dataType: {data_type}, '
+                        f'name: "{name}", singleSelectOptions: [{options_str}] '
+                        f'}}) {{ projectV2Field {{ ... on ProjectV2SingleSelectField {{ id }} }} }} }}'
+                    )
+                else:
+                    mutation = (
+                        f'mutation {{ createProjectV2Field(input: {{ '
+                        f'projectId: "{project_id}", dataType: {data_type}, '
+                        f'name: "{name}" '
+                        f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id }} }} }} }}'
+                    )
+
+                try:
+                    result = subprocess.run(
+                        ["gh", "api", "graphql", "-f", f"query={mutation}"],
+                        capture_output=True, text=True, timeout=10,
+                    )
+                    if result.returncode == 0:
+                        created += 1
+                except (subprocess.TimeoutExpired, FileNotFoundError):
+                    pass
+
+        return created
+
+    def _write_workflow(self, repo: str) -> bool:
+        """Write .github/workflows/atdd-validate.yml."""
+        workflows_dir = self.target_dir / ".github" / "workflows"
+        workflows_dir.mkdir(parents=True, exist_ok=True)
+        workflow_path = workflows_dir / "atdd-validate.yml"
+
+        workflow = f"""\
+# ATDD Validation Workflow
+# Generated by `atdd init` — safe to overwrite on re-run
+name: ATDD Validate
+
+on:
+  push:
+    branches: [main, "be/*", "fe/*"]
+  pull_request:
+    branches: [main]
+  issues:
+    types: [opened, edited, closed, labeled, unlabeled]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-session') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ATDD toolkit
+        run: pip install atdd
+
+      - name: Run ATDD validators
+        run: atdd validate
+        env:
+          GH_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}
+
+      - name: Post result as issue comment
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = '${{{{ job.status }}}}';
+            const emoji = result === 'success' ? '✅' : '❌';
+            await github.rest.issues.createComment({{
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `${{emoji}} ATDD validation: **${{result}}**`
+            }});
+"""
+        workflow_path.write_text(workflow)
+        print(f"  Wrote: {workflow_path}")
+        return True
+
+    def _update_config_github(
+        self, repo: str, project_id: str, project_number: int
+    ) -> None:
+        """Add GitHub settings to .atdd/config.yaml."""
+        if not self.config_file.exists():
+            return
+
+        with open(self.config_file) as f:
+            config = yaml.safe_load(f) or {}
+
+        config["github"] = {
+            "repo": repo,
+            "project_number": project_number,
+            "project_id": project_id,
+            "field_schema": "atdd/coach/schemas/project_fields.schema.json",
+        }
+
+        with open(self.config_file, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        print(f"  Updated: {self.config_file} (github section)")
