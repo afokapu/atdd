@@ -508,16 +508,70 @@ class SessionManager:
 
         return 0
 
-    def list(self) -> int:
-        """
-        List sessions from manifest.
+    # -------------------------------------------------------------------------
+    # E002: list
+    # -------------------------------------------------------------------------
 
-        Returns:
-            0 on success, 1 on error.
-        """
+    def list(self) -> int:
+        """List sessions. Uses GitHub API if configured, else manifest."""
         if not self._check_initialized():
             return 1
 
+        if self._has_github_config():
+            return self._list_github()
+        return self._list_local()
+
+    def _list_github(self) -> int:
+        """List sessions from GitHub Issues with sub-issue progress."""
+        from atdd.coach.github import GitHubClientError
+
+        try:
+            client = self._get_github_client()
+            issues = client.list_issues_by_label("atdd-session")
+        except (GitHubClientError, Exception) as e:
+            print(f"Error: {e}")
+            return 1
+
+        if not issues:
+            print("No sessions found.")
+            print("Create one with: atdd new my-feature")
+            return 0
+
+        print("\n" + "=" * 80)
+        print("ATDD Sessions")
+        print("=" * 80)
+        print(f"{'#':<6} {'Status':<12} {'Progress':<10} {'Title':<50}")
+        print("-" * 80)
+
+        for issue in sorted(issues, key=lambda x: x["number"]):
+            num = issue["number"]
+            title = issue["title"][:50]
+            labels = [l["name"] for l in issue.get("labels", [])]
+
+            # Extract status from atdd:* label
+            status = "UNKNOWN"
+            for label in labels:
+                if label.startswith("atdd:") and label != "atdd-session":
+                    status = label.split(":")[1]
+                    break
+
+            # Get sub-issue progress
+            try:
+                subs = client.get_sub_issues(num)
+                total = len(subs)
+                closed = sum(1 for s in subs if s.get("state") == "closed")
+                progress = f"{closed}/{total}" if total > 0 else "-"
+            except Exception:
+                progress = "?"
+
+            print(f"#{num:<5} {status:<12} {progress:<10} {title}")
+
+        print("-" * 80)
+        print(f"Total: {len(issues)} sessions")
+        return 0
+
+    def _list_local(self) -> int:
+        """List sessions from manifest (legacy)."""
         manifest = self._load_manifest()
         sessions = manifest.get("sessions", [])
 
@@ -526,61 +580,126 @@ class SessionManager:
             print("Create one with: atdd new my-feature")
             return 0
 
-        # Print header
         print("\n" + "=" * 70)
         print("ATDD Sessions")
         print("=" * 70)
         print(f"{'ID':<4} {'Status':<10} {'Type':<15} {'File':<40}")
         print("-" * 70)
 
-        # Group by status
-        active = []
-        archived = []
+        active = [s for s in sessions if not s.get("archived")]
+        archived = [s for s in sessions if s.get("archived")]
 
-        for session in sessions:
-            if session.get("archived"):
-                archived.append(session)
-            else:
-                active.append(session)
-
-        # Print active sessions
         for session in active:
-            session_id = session.get("id", "??")
+            sid = session.get("id", "??")
             status = session.get("status", "UNKNOWN")
-            session_type = session.get("type", "unknown")
-            filename = session.get("file", "unknown")
-
-            print(f"{session_id:<4} {status:<10} {session_type:<15} {filename:<40}")
+            stype = session.get("type", "unknown")
+            fname = session.get("file") or f"#{session.get('issue_number', '?')}"
+            print(f"{sid:<4} {status:<10} {stype:<15} {fname:<40}")
 
         if archived:
             print("\n--- Archived ---")
             for session in archived:
-                session_id = session.get("id", "??")
+                sid = session.get("id", "??")
                 status = session.get("status", "UNKNOWN")
-                session_type = session.get("type", "unknown")
-                filename = session.get("file", "unknown")
-
-                print(f"{session_id:<4} {status:<10} {session_type:<15} {filename:<40}")
+                stype = session.get("type", "unknown")
+                fname = session.get("file") or f"#{session.get('issue_number', '?')}"
+                print(f"{sid:<4} {status:<10} {stype:<15} {fname:<40}")
 
         print("-" * 70)
         print(f"Total: {len(sessions)} sessions ({len(active)} active, {len(archived)} archived)")
-
         return 0
 
+    # -------------------------------------------------------------------------
+    # E003: archive
+    # -------------------------------------------------------------------------
+
     def archive(self, session_id: str) -> int:
-        """
-        Move session to archive/.
-
-        Args:
-            session_id: Session ID (e.g., "01" or "1").
-
-        Returns:
-            0 on success, 1 on error.
-        """
+        """Archive a session. Closes GitHub issue + sub-issues if configured."""
         if not self._check_initialized():
             return 1
 
-        # Normalize session ID to 2-digit
+        if self._has_github_config():
+            return self._archive_github(session_id)
+        return self._archive_local(session_id)
+
+    def _archive_github(self, session_id: str) -> int:
+        """Close parent issue + all sub-issues on GitHub."""
+        from atdd.coach.github import GitHubClientError
+
+        try:
+            issue_number = int(session_id)
+        except ValueError:
+            print(f"Error: Invalid issue number '{session_id}'")
+            return 1
+
+        try:
+            client = self._get_github_client()
+            issue = client.get_issue(issue_number)
+        except (GitHubClientError, Exception) as e:
+            print(f"Error: {e}")
+            return 1
+
+        if issue.get("state") == "closed":
+            print(f"#{issue_number} is already closed.")
+            return 0
+
+        # Close all open sub-issues
+        try:
+            subs = client.get_sub_issues(issue_number)
+            closed_count = 0
+            for sub in subs:
+                if sub.get("state") == "open":
+                    client.close_issue(sub["number"])
+                    print(f"  Closed sub-issue #{sub['number']}")
+                    closed_count += 1
+        except GitHubClientError as e:
+            print(f"  Warning: Could not close sub-issues: {e}")
+            closed_count = 0
+
+        # Close parent
+        client.close_issue(issue_number)
+        print(f"  Closed parent #{issue_number}")
+
+        # Swap label to atdd:COMPLETE
+        try:
+            # Remove existing phase labels
+            labels = [l["name"] for l in issue.get("labels", [])]
+            phase_labels = [l for l in labels if l.startswith("atdd:") and l != "atdd-session"]
+            if phase_labels:
+                client.remove_label(issue_number, phase_labels)
+            client.add_label(issue_number, ["atdd:COMPLETE"])
+        except GitHubClientError as e:
+            print(f"  Warning: Could not update labels: {e}")
+
+        # Update Project field
+        try:
+            fields = client.get_project_fields()
+            item_id = client.get_project_item_id(issue_number)
+            if item_id and "ATDD Status" in fields:
+                options = fields["ATDD Status"].get("options", {})
+                if "COMPLETE" in options:
+                    client.set_project_field_select(
+                        item_id, fields["ATDD Status"]["id"], options["COMPLETE"]
+                    )
+        except GitHubClientError:
+            pass
+
+        # Update manifest
+        manifest = self._load_manifest()
+        for s in manifest.get("sessions", []):
+            if s.get("issue_number") == issue_number:
+                s["status"] = "COMPLETE"
+                s["archived"] = date.today().isoformat()
+                break
+        self._save_manifest(manifest)
+
+        total_subs = len(subs) if subs else 0
+        print(f"\nArchived #{issue_number}: closed {closed_count} sub-issues, "
+              f"{total_subs} total")
+        return 0
+
+    def _archive_local(self, session_id: str) -> int:
+        """Move local session file to archive/ (legacy)."""
         try:
             session_num = int(session_id)
             session_id_normalized = f"{session_num:02d}"
@@ -588,11 +707,9 @@ class SessionManager:
             print(f"Error: Invalid session ID '{session_id}'")
             return 1
 
-        # Load manifest
         manifest = self._load_manifest()
         sessions = manifest.get("sessions", [])
 
-        # Find session in manifest
         session_entry = None
         session_index = None
         for i, s in enumerate(sessions):
@@ -609,12 +726,13 @@ class SessionManager:
             print(f"Error: Session {session_id_normalized} is already archived")
             return 1
 
-        # Find session file
         filename = session_entry.get("file")
-        session_path = self.sessions_dir / filename
+        if not filename:
+            print(f"Error: No file for session {session_id_normalized} (GitHub issue?)")
+            return 1
 
+        session_path = self.sessions_dir / filename
         if not session_path.exists():
-            # Try to find file by pattern
             pattern = f"SESSION-{session_id_normalized}-*.md"
             matches = list(self.sessions_dir.glob(pattern))
             if matches:
@@ -624,23 +742,210 @@ class SessionManager:
                 print(f"Error: Session file not found: {filename}")
                 return 1
 
-        # Ensure archive directory exists
         self.archive_dir.mkdir(parents=True, exist_ok=True)
-
-        # Move file to archive
         archive_path = self.archive_dir / filename
         shutil.move(str(session_path), str(archive_path))
         print(f"Moved: {session_path} -> {archive_path}")
 
-        # Update manifest
         session_entry["archived"] = date.today().isoformat()
         session_entry["file"] = f"archive/{filename}"
         manifest["sessions"][session_index] = session_entry
-
         self._save_manifest(manifest)
         print(f"Updated: {self.manifest_file}")
-
         print(f"\nSession {session_id_normalized} archived successfully")
+        return 0
+
+    # -------------------------------------------------------------------------
+    # E004: update
+    # -------------------------------------------------------------------------
+
+    VALID_TRANSITIONS = {
+        "INIT": {"PLANNED", "BLOCKED", "OBSOLETE"},
+        "PLANNED": {"RED", "BLOCKED", "OBSOLETE"},
+        "RED": {"GREEN", "BLOCKED", "OBSOLETE"},
+        "GREEN": {"REFACTOR", "BLOCKED", "OBSOLETE"},
+        "REFACTOR": {"COMPLETE", "BLOCKED", "OBSOLETE"},
+        "BLOCKED": {"INIT", "PLANNED", "RED", "GREEN", "REFACTOR", "OBSOLETE"},
+        "COMPLETE": set(),
+        "OBSOLETE": set(),
+    }
+
+    def update(
+        self,
+        session_id: str,
+        status: Optional[str] = None,
+        phase: Optional[str] = None,
+        branch: Optional[str] = None,
+        train: Optional[str] = None,
+        feature_urn: Optional[str] = None,
+        archetypes: Optional[str] = None,
+        complexity: Optional[str] = None,
+    ) -> int:
+        """Update session Project fields and labels."""
+        if not self._has_github_config():
+            print("Error: GitHub integration not configured. Run 'atdd init' first.")
+            return 1
+
+        from atdd.coach.github import GitHubClientError
+
+        try:
+            issue_number = int(session_id)
+        except ValueError:
+            print(f"Error: Invalid issue number '{session_id}'")
+            return 1
+
+        try:
+            client = self._get_github_client()
+            issue = client.get_issue(issue_number)
+            fields = client.get_project_fields()
+            item_id = client.get_project_item_id(issue_number)
+        except (GitHubClientError, Exception) as e:
+            print(f"Error: {e}")
+            return 1
+
+        if not item_id:
+            print(f"Error: #{issue_number} not found in Project")
+            return 1
+
+        updated = []
+
+        # Status transition with validation
+        if status:
+            status = status.upper()
+            current_labels = [l["name"] for l in issue.get("labels", [])]
+            current_status = "UNKNOWN"
+            for label in current_labels:
+                if label.startswith("atdd:") and label != "atdd-session":
+                    current_status = label.split(":")[1]
+                    break
+
+            allowed = self.VALID_TRANSITIONS.get(current_status, set())
+            if status not in allowed and current_status != "UNKNOWN":
+                print(f"Error: Cannot transition from {current_status} to {status}")
+                print(f"  Allowed: {', '.join(sorted(allowed)) or '(terminal state)'}")
+                return 1
+
+            # Swap phase label
+            phase_labels = [l for l in current_labels if l.startswith("atdd:") and l != "atdd-session"]
+            if phase_labels:
+                client.remove_label(issue_number, phase_labels)
+            client.add_label(issue_number, [f"atdd:{status}"])
+
+            # Update Project field
+            if "ATDD Status" in fields:
+                options = fields["ATDD Status"].get("options", {})
+                if status in options:
+                    client.set_project_field_select(
+                        item_id, fields["ATDD Status"]["id"], options[status]
+                    )
+            updated.append(f"status: {status}")
+
+        # Phase (Planner/Tester/Coder)
+        if phase:
+            phase_cap = phase.capitalize()
+            if "ATDD Phase" in fields:
+                options = fields["ATDD Phase"].get("options", {})
+                if phase_cap in options:
+                    client.set_project_field_select(
+                        item_id, fields["ATDD Phase"]["id"], options[phase_cap]
+                    )
+                    updated.append(f"phase: {phase_cap}")
+                else:
+                    print(f"Warning: Unknown phase '{phase_cap}'")
+
+        # Text fields
+        text_updates = {
+            "Branch": branch,
+            "Train": train,
+            "Feature URN": feature_urn,
+            "Archetypes": archetypes,
+        }
+        for field_name, value in text_updates.items():
+            if value and field_name in fields:
+                client.set_project_field_text(item_id, fields[field_name]["id"], value)
+                updated.append(f"{field_name.lower()}: {value}")
+
+        # Complexity
+        if complexity:
+            if "Complexity" in fields:
+                options = fields["Complexity"].get("options", {})
+                if complexity in options:
+                    client.set_project_field_select(
+                        item_id, fields["Complexity"]["id"], options[complexity]
+                    )
+                    updated.append(f"complexity: {complexity}")
+
+        if updated:
+            print(f"Updated #{issue_number}:")
+            for u in updated:
+                print(f"  {u}")
+        else:
+            print("Nothing to update.")
+
+        return 0
+
+    # -------------------------------------------------------------------------
+    # E005: close-wmbt
+    # -------------------------------------------------------------------------
+
+    def close_wmbt(self, session_id: str, wmbt_id: str, force: bool = False) -> int:
+        """Close a WMBT sub-issue by ID."""
+        if not self._has_github_config():
+            print("Error: GitHub integration not configured.")
+            return 1
+
+        from atdd.coach.github import GitHubClientError
+
+        try:
+            issue_number = int(session_id)
+        except ValueError:
+            print(f"Error: Invalid issue number '{session_id}'")
+            return 1
+
+        try:
+            client = self._get_github_client()
+            subs = client.get_sub_issues(issue_number)
+        except (GitHubClientError, Exception) as e:
+            print(f"Error: {e}")
+            return 1
+
+        # Find sub-issue matching WMBT ID
+        wmbt_id_upper = wmbt_id.upper()
+        target = None
+        for sub in subs:
+            title = sub.get("title", "")
+            # Match pattern: wmbt:*:{WMBT_ID}
+            if f":{wmbt_id_upper}" in title.upper():
+                target = sub
+                break
+
+        if not target:
+            print(f"Error: No sub-issue found for WMBT {wmbt_id_upper} in #{issue_number}")
+            available = [s["title"].split(":")[-1].split(" ")[0].strip() for s in subs]
+            if available:
+                print(f"  Available: {', '.join(available)}")
+            return 1
+
+        if target.get("state") == "closed":
+            print(f"WMBT {wmbt_id_upper} (#{target['number']}) is already closed.")
+            return 0
+
+        # Check ATDD cycle checkboxes (warn if not all checked)
+        body = target.get("body", "")
+        unchecked = body.count("- [ ]")
+        if unchecked > 0 and not force:
+            print(f"Warning: {unchecked} unchecked ATDD cycle item(s) in #{target['number']}")
+            print(f"  Use --force to close anyway")
+            return 1
+
+        # Close the sub-issue
+        client.close_issue(target["number"])
+
+        # Calculate progress
+        total = len(subs)
+        closed = sum(1 for s in subs if s.get("state") == "closed") + 1  # +1 for the one we just closed
+        print(f"Closed {target['title']}")
+        print(f"  Progress: {closed}/{total}")
 
         return 0
 

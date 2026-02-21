@@ -430,6 +430,83 @@ Phase descriptions:
         help="Sync manifest with actual session files"
     )
 
+    # atdd session update <session_id> [--status X] [--phase Y] [--branch Z]
+    update_parser = session_subparsers.add_parser(
+        "update",
+        help="Update session Project fields and labels",
+        description="Update ATDD status, phase, branch, and other Project fields"
+    )
+    update_parser.add_argument(
+        "session_id",
+        type=str,
+        help="Issue number (e.g., '11')"
+    )
+    update_parser.add_argument("--status", "-s", type=str, help="ATDD Status (INIT/PLANNED/RED/GREEN/REFACTOR/COMPLETE/BLOCKED)")
+    update_parser.add_argument("--phase", "-p", type=str, help="ATDD Phase (Planner/Tester/Coder)")
+    update_parser.add_argument("--branch", "-b", type=str, help="Git branch name")
+    update_parser.add_argument("--train", type=str, help="Train URN")
+    update_parser.add_argument("--feature-urn", type=str, help="Feature URN")
+    update_parser.add_argument("--archetypes", type=str, help="Archetypes (comma-separated)")
+    update_parser.add_argument("--complexity", type=str, help="Complexity (e.g., 4-High)")
+
+    # atdd session close-wmbt <session_id> <wmbt_id>
+    close_wmbt_parser = session_subparsers.add_parser(
+        "close-wmbt",
+        help="Close a WMBT sub-issue",
+        description="Close a WMBT sub-issue by WMBT ID"
+    )
+    close_wmbt_parser.add_argument(
+        "session_id",
+        type=str,
+        help="Parent issue number (e.g., '11')"
+    )
+    close_wmbt_parser.add_argument(
+        "wmbt_id",
+        type=str,
+        help="WMBT ID (e.g., 'D001', 'E003')"
+    )
+    close_wmbt_parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Close even if ATDD cycle checkboxes are unchecked"
+    )
+
+    # ----- atdd list (top-level shorthand) -----
+    subparsers.add_parser(
+        "list",
+        help="List all sessions (shorthand for session list)"
+    )
+
+    # ----- atdd archive <session_id> (top-level shorthand) -----
+    archive_top_parser = subparsers.add_parser(
+        "archive",
+        help="Archive a session (shorthand for session archive)"
+    )
+    archive_top_parser.add_argument("session_id", type=str, help="Issue number to archive")
+
+    # ----- atdd update <session_id> (top-level shorthand) -----
+    update_top_parser = subparsers.add_parser(
+        "update",
+        help="Update session fields (shorthand for session update)"
+    )
+    update_top_parser.add_argument("session_id", type=str, help="Issue number")
+    update_top_parser.add_argument("--status", "-s", type=str, help="ATDD Status")
+    update_top_parser.add_argument("--phase", "-p", type=str, help="ATDD Phase")
+    update_top_parser.add_argument("--branch", "-b", type=str, help="Git branch")
+    update_top_parser.add_argument("--train", type=str, help="Train URN")
+    update_top_parser.add_argument("--feature-urn", type=str, help="Feature URN")
+    update_top_parser.add_argument("--archetypes", type=str, help="Archetypes")
+    update_top_parser.add_argument("--complexity", type=str, help="Complexity")
+
+    # ----- atdd close-wmbt <session_id> <wmbt_id> (top-level shorthand) -----
+    close_wmbt_top_parser = subparsers.add_parser(
+        "close-wmbt",
+        help="Close a WMBT sub-issue (shorthand for session close-wmbt)"
+    )
+    close_wmbt_top_parser.add_argument("session_id", type=str, help="Parent issue number")
+    close_wmbt_top_parser.add_argument("wmbt_id", type=str, help="WMBT ID")
+    close_wmbt_top_parser.add_argument("--force", "-f", action="store_true", help="Force close")
+
     # ----- atdd sync -----
     sync_parser = subparsers.add_parser(
         "sync",
@@ -801,7 +878,38 @@ Phase descriptions:
         manager = SessionManager()
         return manager.new(slug=args.slug, session_type=args.type)
 
-    # atdd session {new,list,archive,sync}
+    # atdd list (top-level shorthand)
+    elif args.command == "list":
+        manager = SessionManager()
+        return manager.list()
+
+    # atdd archive <session_id> (top-level shorthand)
+    elif args.command == "archive":
+        manager = SessionManager()
+        return manager.archive(session_id=args.session_id)
+
+    # atdd update <session_id> (top-level shorthand)
+    elif args.command == "update":
+        manager = SessionManager()
+        return manager.update(
+            session_id=args.session_id,
+            status=args.status, phase=args.phase,
+            branch=args.branch, train=getattr(args, 'train', None),
+            feature_urn=getattr(args, 'feature_urn', None),
+            archetypes=getattr(args, 'archetypes', None),
+            complexity=getattr(args, 'complexity', None),
+        )
+
+    # atdd close-wmbt <session_id> <wmbt_id> (top-level shorthand)
+    elif args.command == "close-wmbt":
+        manager = SessionManager()
+        return manager.close_wmbt(
+            session_id=args.session_id,
+            wmbt_id=args.wmbt_id,
+            force=args.force,
+        )
+
+    # atdd session {new,list,archive,sync,update,close-wmbt}
     elif args.command == "session":
         manager = SessionManager()
 
@@ -813,6 +921,21 @@ Phase descriptions:
             return manager.archive(session_id=args.session_id)
         elif args.session_command == "sync":
             return manager.sync()
+        elif args.session_command == "update":
+            return manager.update(
+                session_id=args.session_id,
+                status=args.status, phase=args.phase,
+                branch=args.branch, train=getattr(args, 'train', None),
+                feature_urn=getattr(args, 'feature_urn', None),
+                archetypes=getattr(args, 'archetypes', None),
+                complexity=getattr(args, 'complexity', None),
+            )
+        elif args.session_command == "close-wmbt":
+            return manager.close_wmbt(
+                session_id=args.session_id,
+                wmbt_id=args.wmbt_id,
+                force=args.force,
+            )
         else:
             session_parser.print_help()
             return 0

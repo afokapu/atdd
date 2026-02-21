@@ -274,3 +274,52 @@ class GitHubClient:
                         opt["name"]: opt["id"] for opt in node["options"]
                     }
         return fields
+
+    def get_project_item_id(self, issue_number: int) -> Optional[str]:
+        """Get the project item ID for an issue already in the project."""
+        if not self.project_id:
+            return None
+        owner, name = self.repo.split("/")
+        data = self._graphql(
+            f'{{ repository(owner:"{owner}", name:"{name}") {{ '
+            f'issue(number:{issue_number}) {{ '
+            f'projectItems(first: 10) {{ nodes {{ id project {{ id }} }} }} '
+            f'}} }} }}'
+        )
+        for item in data["data"]["repository"]["issue"]["projectItems"]["nodes"]:
+            if item["project"]["id"] == self.project_id:
+                return item["id"]
+        return None
+
+    # -------------------------------------------------------------------------
+    # Issue queries
+    # -------------------------------------------------------------------------
+
+    def list_issues_by_label(self, label: str) -> List[Dict[str, Any]]:
+        """List open issues with a given label."""
+        output = self._run_gh([
+            "issue", "list",
+            "--repo", self.repo,
+            "--label", label,
+            "--state", "open",
+            "--json", "number,title,labels,state",
+            "--limit", "100",
+        ])
+        return json.loads(output) if output else []
+
+    def get_sub_issues(self, issue_number: int) -> List[Dict[str, Any]]:
+        """Get sub-issues of a parent issue."""
+        output = self._run_gh([
+            "api", f"repos/{self.repo}/issues/{issue_number}/sub_issues",
+            "--paginate",
+        ])
+        return json.loads(output) if output else []
+
+    def get_issue(self, issue_number: int) -> Dict[str, Any]:
+        """Get issue details."""
+        output = self._run_gh([
+            "issue", "view", str(issue_number),
+            "--repo", self.repo,
+            "--json", "number,title,state,labels,body",
+        ])
+        return json.loads(output)
