@@ -5,7 +5,7 @@ Creates the following structure:
     consumer-repo/
     ├── CLAUDE.md                (with managed ATDD block)
     ├── atdd-sessions/
-    │   ├── SESSION-TEMPLATE.md  (copied from package)
+    │   ├── ISSUE-TEMPLATE.md  (copied from package)
     │   └── archive/
     └── .atdd/
         ├── manifest.yaml        (machine-readable session tracking)
@@ -21,7 +21,7 @@ Usage:
     atdd init                    # Initialize ATDD structure
     atdd init --force            # Overwrite existing files
 
-Convention: src/atdd/coach/conventions/session.convention.yaml
+Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import json
 import logging
@@ -55,7 +55,7 @@ class ProjectInitializer:
 
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
-        self.template_source = self.package_root / "templates" / "SESSION-TEMPLATE.md"
+        self.template_source = self.package_root / "templates" / "ISSUE-TEMPLATE.md"
 
     def init(self, force: bool = False) -> int:
         """
@@ -86,11 +86,11 @@ class ProjectInitializer:
             self.atdd_config_dir.mkdir(parents=True, exist_ok=True)
             print(f"Created: {self.atdd_config_dir}")
 
-            # Copy SESSION-TEMPLATE.md to atdd-sessions/
-            template_dest = self.sessions_dir / "SESSION-TEMPLATE.md"
+            # Copy ISSUE-TEMPLATE.md to atdd-sessions/
+            template_dest = self.sessions_dir / "ISSUE-TEMPLATE.md"
             if self.template_source.exists():
                 shutil.copy2(self.template_source, template_dest)
-                print(f"Copied: SESSION-TEMPLATE.md -> {template_dest}")
+                print(f"Copied: ISSUE-TEMPLATE.md -> {template_dest}")
             else:
                 print(f"Warning: Template not found at {self.template_source}")
 
@@ -115,7 +115,7 @@ class ProjectInitializer:
             print("\nStructure created:")
             print(f"  {self.sessions_dir}/")
             print(f"  {self.sessions_dir}/archive/")
-            print(f"  {self.sessions_dir}/SESSION-TEMPLATE.md")
+            print(f"  {self.sessions_dir}/ISSUE-TEMPLATE.md")
             print(f"  {self.atdd_config_dir}/")
             print(f"  {self.manifest_file}")
             print(f"  {self.config_file}")

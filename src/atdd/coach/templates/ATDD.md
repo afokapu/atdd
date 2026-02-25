@@ -281,14 +281,14 @@ sessions:
   config_dir: ".atdd/"
   manifest: ".atdd/manifest.yaml"
   # Package resources
-  template: "src/atdd/coach/templates/SESSION-TEMPLATE.md"
-  convention: "src/atdd/coach/conventions/session.convention.yaml"
+  template: "src/atdd/coach/templates/ISSUE-TEMPLATE.md"
+  convention: "src/atdd/coach/conventions/issue.convention.yaml"
 
   commands:
     init: "atdd init                    # Initialize atdd-sessions/ and .atdd/"
     new: "atdd new my-feature            # Create SESSION-NN-my-feature.md"
-    list: "atdd session list            # List all sessions from manifest"
-    archive: "atdd session archive 01   # Move session to archive/"
+    list: "atdd list                     # List all issues"
+    archive: "atdd archive 11           # Archive issue (close parent + sub-issues)"
 
   workflow:
     init: "Run 'atdd init' to create atdd-sessions/ directory structure"
@@ -352,5 +352,5 @@ conventions:
     - "design.convention.yaml: design system hierarchy"
 
   coach:
-    - "session.convention.yaml: Session planning structure & archetypes"
+    - "issue.convention.yaml: Session planning structure & archetypes"
 ---

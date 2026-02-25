@@ -1,6 +1,6 @@
 version: "2.1"
-name: "Session Convention"
-description: "Deterministic template and rules for planning sessions in consumer repos"
+name: "Issue Convention"
+description: "Deterministic template and rules for ATDD issues tracked via GitHub Issues"
 
 # =============================================================================
 # ATDD WORKFLOW SEQUENCE (MANDATORY)
@@ -378,7 +378,7 @@ filesystem:
   config_dir: ".atdd/"
   manifest: ".atdd/manifest.yaml"
   # Package template location (copy to consumer repo via `atdd init`)
-  template: "atdd.coach.templates/SESSION-TEMPLATE.md"
+  template: "atdd.coach.templates/ISSUE-TEMPLATE.md"
   naming:
     pattern: "SESSION-{NN}-{slug}.md"
     examples:

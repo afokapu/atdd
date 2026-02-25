@@ -1,12 +1,12 @@
 """
-Session-manifest alignment validation.
+Issue-manifest alignment validation.
 
-Ensures session files and manifest entries are synchronized:
-1. Every manifest entry has a corresponding session file
-2. Every session file has a manifest entry
-3. Status in session frontmatter matches manifest status
+Ensures issue files and manifest entries are synchronized:
+1. Every manifest entry has a corresponding issue file
+2. Every issue file has a manifest entry
+3. Status in issue frontmatter matches manifest status
 
-Convention: src/atdd/coach/conventions/session.convention.yaml
+Convention: src/atdd/coach/conventions/issue.convention.yaml
 Schema: src/atdd/coach/schemas/manifest.schema.json
 
 Run: atdd validate coach
@@ -56,7 +56,7 @@ def session_files() -> List[Path]:
 
     # Main sessions directory
     for f in SESSIONS_DIR.glob("SESSION-*.md"):
-        if f.name != "SESSION-TEMPLATE.md":
+        if f.name != "ISSUE-TEMPLATE.md":
             files.append(f)
 
     # Archive directory
@@ -184,7 +184,7 @@ def test_session_files_have_manifest_entries(manifest: Optional[Dict], session_f
         pytest.fail(
             f"Found {len(orphaned)} session files without manifest entries:\n" +
             "\n".join(f"  - {o}" for o in orphaned) +
-            "\n\nRun 'atdd session sync' to update manifest."
+            "\n\nRun 'atdd list' to update manifest."
         )
 
 
@@ -232,7 +232,7 @@ def test_manifest_status_matches_session_frontmatter(manifest: Optional[Dict]):
         print(
             f"\n⚠️  Found {len(mismatches)} status mismatches between manifest and files:\n" +
             "\n".join(f"  - {m}" for m in mismatches) +
-            "\n\nRun 'atdd session sync' to reconcile."
+            "\n\nRun 'atdd list' to reconcile."
         )
 
 

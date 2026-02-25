@@ -1,19 +1,16 @@
 """
-Session file validation against session.convention.yaml.
+Issue validation against issue.convention.yaml.
 
-Purpose: Validate session files before implementation starts, after design/planning phase.
-Convention: src/atdd/coach/conventions/session.convention.yaml
-Template: src/atdd/coach/templates/SESSION-TEMPLATE.md
-
-Note: Sessions are created in the consuming repo, not in the ATDD package itself.
-      This validator runs against {consumer_repo}/sessions/ directory.
+Purpose: Validate issue files and GitHub Issues before implementation starts.
+Convention: src/atdd/coach/conventions/issue.convention.yaml
+Template: src/atdd/coach/templates/ISSUE-TEMPLATE.md
 
 Supports two formats:
-1. Hybrid (new): YAML frontmatter + Markdown body
-2. Legacy: Pure Markdown with **Field:** patterns
+1. Hybrid (new): YAML frontmatter + Markdown body (local files)
+2. GitHub Issues: Project v2 custom fields + sub-issues (remote)
 
-E008: Session train enforcement validators (SPEC-SESSION-VAL-0050 to 0051):
-- Session issues must have a non-empty Train field after PLANNED phase
+E008: Train enforcement validators (SPEC-SESSION-VAL-0050 to 0051):
+- Issues must have a non-empty Train field after PLANNED phase
 - Train field must reference a valid train_id from _trains.yaml
 
 Run: atdd validate coach
@@ -33,8 +30,8 @@ from atdd.coach.utils.config import load_atdd_config
 
 # Package paths (relative to this file) - for loading package resources
 ATDD_PKG_ROOT = Path(__file__).parent.parent.parent  # src/atdd
-CONVENTION_FILE = ATDD_PKG_ROOT / "coach" / "conventions" / "session.convention.yaml"
-TEMPLATE_FILE = ATDD_PKG_ROOT / "coach" / "templates" / "SESSION-TEMPLATE.md"
+CONVENTION_FILE = ATDD_PKG_ROOT / "coach" / "conventions" / "issue.convention.yaml"
+TEMPLATE_FILE = ATDD_PKG_ROOT / "coach" / "templates" / "ISSUE-TEMPLATE.md"
 
 # Consumer repo paths (where sessions are created via `atdd init`)
 REPO_ROOT = find_repo_root()
@@ -193,7 +190,7 @@ def session_files() -> List[Path]:
     files = []
     for f in SESSIONS_DIR.glob("SESSION-*.md"):
         # Skip template
-        if f.name == "SESSION-TEMPLATE.md":
+        if f.name == "ISSUE-TEMPLATE.md":
             continue
         files.append(f)
 
@@ -827,7 +824,7 @@ def test_implementation_sessions_have_atdd_phases(session_files: List[Path]):
 # Gate Tests Validation
 # ============================================================================
 
-# Required ATDD validators per archetype (from session.convention.yaml)
+# Required ATDD validators per archetype (from issue.convention.yaml)
 REQUIRED_VALIDATORS_BY_ARCHETYPE = {
     "db": [
         "atdd/tester/validators/test_migration_coverage.py",
@@ -1192,7 +1189,7 @@ def test_workflow_phase_dependencies_respected(hybrid_session_files: List[Path])
     """
     Test that workflow phase dependencies are respected.
 
-    ATDD workflow rules (from session.convention.yaml):
+    ATDD workflow rules (from issue.convention.yaml):
     - WF-001: MUST complete planner phase before tester phase
     - WF-002: MUST complete tester phase before coder phase
     - WF-003: MUST have RED test before writing implementation
@@ -1335,7 +1332,7 @@ def test_db_sessions_acknowledge_supabase_branching(hybrid_session_files: List[P
             issues.append(
                 f"  {parsed['name']}: archetypes={archetypes & DB_ARCHETYPES}, "
                 f"status={status} — no Supabase branching acknowledgement found.\n"
-                f"    See rules.supabase_branching in session.convention.yaml"
+                f"    See rules.supabase_branching in issue.convention.yaml"
             )
 
     if issues:

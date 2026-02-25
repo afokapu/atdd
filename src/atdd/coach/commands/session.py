@@ -1,16 +1,16 @@
 """
-Session management for ATDD sessions.
+Issue management for ATDD tracking via GitHub Issues.
 
 Creates GitHub Issues with Project v2 custom fields and WMBT sub-issues.
-Legacy: also supports local session files in atdd-sessions/.
+Legacy: also supports local issue files in atdd-sessions/.
 
 Usage:
     atdd new my-feature                            # Create GitHub issue + WMBT sub-issues
-    atdd new my-feature --type migration            # Specify session type
-    atdd session list                              # List all sessions
-    atdd session archive 01                        # Archive SESSION-01-*.md
+    atdd new my-feature --type migration            # Specify issue type
+    atdd list                                      # List all issues
+    atdd archive 01                                # Archive issue
 
-Convention: src/atdd/coach/conventions/session.convention.yaml
+Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import json
 import logging
@@ -38,8 +38,8 @@ STEP_CODES = {
 }
 
 
-class SessionManager:
-    """Manage session files and GitHub Issues."""
+class IssueManager:
+    """Manage ATDD issues via GitHub Issues and Projects v2."""
 
     VALID_TYPES = {
         "implementation",
@@ -53,7 +53,7 @@ class SessionManager:
 
     def __init__(self, target_dir: Optional[Path] = None):
         """
-        Initialize the SessionManager.
+        Initialize the IssueManager.
 
         Args:
             target_dir: Target directory containing atdd-sessions/. Defaults to cwd.
@@ -67,7 +67,7 @@ class SessionManager:
 
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
-        self.template_source = self.package_root / "templates" / "SESSION-TEMPLATE.md"
+        self.template_source = self.package_root / "templates" / "ISSUE-TEMPLATE.md"
         self.wmbt_template_source = self.package_root / "templates" / "WMBT-SUBISSUE-TEMPLATE.md"
 
     def _check_initialized(self) -> bool:
@@ -994,7 +994,7 @@ class SessionManager:
 
         # Scan main directory
         for f in self.sessions_dir.glob("SESSION-*.md"):
-            if f.name == "SESSION-TEMPLATE.md":
+            if f.name == "ISSUE-TEMPLATE.md":
                 continue
 
             found_files.add(f.name)
@@ -1052,3 +1052,7 @@ class SessionManager:
         print(f"Manifest synced: {self.manifest_file}")
 
         return 0
+
+
+# Backward compat alias (E009)
+SessionManager = IssueManager

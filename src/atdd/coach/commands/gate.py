@@ -36,18 +36,18 @@ class ATDDGate:
         self.target_dir = target_dir or Path.cwd()
         self.syncer = AgentConfigSync(self.target_dir)
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
-        self.session_convention = self.package_root / "conventions" / "session.convention.yaml"
+        self.issue_convention = self.package_root / "conventions" / "issue.convention.yaml"
 
-    def _load_session_convention(self) -> Optional[str]:
+    def _load_issue_convention(self) -> Optional[str]:
         """
-        Load the session convention content.
+        Load the issue convention content.
 
         Returns:
             File content or None if missing.
         """
-        if not self.session_convention.exists():
+        if not self.issue_convention.exists():
             return None
-        return self.session_convention.read_text()
+        return self.issue_convention.read_text()
 
     def _compute_block_hash(self, content: str) -> Optional[str]:
         """
@@ -119,7 +119,7 @@ class ATDDGate:
             print("Run 'atdd init' to set up ATDD in this repo.")
             return 1
 
-        session_convention = self._load_session_convention()
+        session_convention = self._load_issue_convention()
 
         if json:
             output = {
@@ -153,7 +153,7 @@ class ATDDGate:
         print("=" * 60)
 
         if session_convention is None:
-            print(f"Warning: session convention not found at {self.session_convention}")
+            print(f"Warning: issue convention not found at {self.issue_convention}")
         else:
             print(session_convention.rstrip())
 

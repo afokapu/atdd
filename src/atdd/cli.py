@@ -8,15 +8,17 @@ The coach orchestrates all ATDD lifecycle operations:
 - status: Show platform status
 - registry: Update registries from source files
 - init: Initialize ATDD structure in consumer repos
-- session: Manage session files
+- new/list/update/archive/close-wmbt: Manage GitHub Issues
 - sync: Sync ATDD rules to agent config files
 - gate: Verify agents loaded ATDD rules
 
 Usage:
     atdd init                                # Initialize ATDD in consumer repo
-    atdd new my-feature                      # Create new session
-    atdd session list                        # List all sessions
-    atdd session archive 01                  # Archive session
+    atdd new my-feature                      # Create new issue + WMBT sub-issues
+    atdd list                                # List all issues
+    atdd update 11 --status RED              # Update issue fields
+    atdd archive 11                          # Archive issue
+    atdd close-wmbt 11 D005                  # Close WMBT sub-issue
     atdd sync                                # Sync ATDD rules to agent configs
     atdd sync --verify                       # Check if files are in sync
     atdd sync --agent claude                 # Sync specific agent only
@@ -45,7 +47,7 @@ from atdd.coach.commands.inventory import RepositoryInventory
 from atdd.coach.commands.test_runner import TestRunner
 from atdd.coach.commands.registry import RegistryUpdater
 from atdd.coach.commands.initializer import ProjectInitializer
-from atdd.coach.commands.session import SessionManager
+from atdd.coach.commands.session import IssueManager
 from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.commands.gate import ATDDGate
 from atdd.coach.commands.urn import URNCommand
@@ -202,8 +204,8 @@ def main():
         epilog="""
 Examples:
   # Initialize ATDD in consumer repo
-  %(prog)s init                           Create atdd-sessions/, .atdd/
-  %(prog)s init --force                   Overwrite if exists
+  %(prog)s init                           Bootstrap GitHub infra + .atdd/ config
+  %(prog)s init --force                   Overwrite existing config
 
   # Run validators
   %(prog)s validate                       Run all validators
@@ -226,11 +228,13 @@ Examples:
   %(prog)s registry update contracts      Update contract registry only
   %(prog)s registry update telemetry      Update telemetry registry only
 
-  # Session management
-  %(prog)s new my-feature                 Create SESSION-NN-my-feature.md
+  # Issue management
+  %(prog)s new my-feature                 Create GitHub issue + WMBT sub-issues
   %(prog)s new my-feature --type migration
-  %(prog)s session list                   List all sessions
-  %(prog)s session archive 01             Archive SESSION-01-*.md
+  %(prog)s list                           List all issues
+  %(prog)s update 11 --status RED         Update issue fields
+  %(prog)s archive 11                     Archive issue
+  %(prog)s close-wmbt 11 D005             Close WMBT sub-issue
 
   # Agent config sync
   %(prog)s sync                           Sync ATDD rules to agent configs
@@ -246,7 +250,7 @@ Phase descriptions:
   planner - Validates planning artifacts (wagons, trains, URNs)
   tester  - Validates testing artifacts (contracts, telemetry)
   coder   - Validates implementation (architecture, quality)
-  coach   - Validates coach artifacts (sessions, registries)
+  coach   - Validates coach artifacts (issues, registries)
         """
     )
 
@@ -349,7 +353,7 @@ Phase descriptions:
     init_parser = subparsers.add_parser(
         "init",
         help="Initialize ATDD structure in consumer repo",
-        description="Create atdd-sessions/ and .atdd/ directories with manifest"
+        description="Bootstrap GitHub infrastructure (labels, Project v2, fields) and .atdd/ config"
     )
     init_parser.add_argument(
         "--force", "-f",
@@ -357,23 +361,23 @@ Phase descriptions:
         help="Overwrite existing files"
     )
 
-    # ----- atdd new <slug> (shorthand for session new) -----
+    # ----- atdd new <slug> -----
     new_parser = subparsers.add_parser(
         "new",
-        help="Create new session from template",
-        description="Create a new session file with next available number"
+        help="Create new issue with WMBT sub-issues",
+        description="Create a new GitHub Issue with Project v2 fields and WMBT sub-issues"
     )
     new_parser.add_argument(
         "slug",
         type=str,
-        help="Session name (kebab-case)"
+        help="Issue name (kebab-case)"
     )
     new_parser.add_argument(
         "--type", "-t",
         type=str,
         default="implementation",
         choices=["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
-        help="Session type (default: implementation)"
+        help="Issue type (default: implementation)"
     )
     new_parser.add_argument(
         "--train",
@@ -381,141 +385,43 @@ Phase descriptions:
         help="Train ID to assign (e.g., 0001-auth-session-standard)"
     )
 
-    # ----- atdd session {new,list,archive,sync} -----
-    session_parser = subparsers.add_parser(
-        "session",
-        help="Manage session files",
-        description="Create, list, and archive session files"
-    )
-    session_subparsers = session_parser.add_subparsers(
-        dest="session_command",
-        help="Session commands"
-    )
+    # NOTE: 'session' subcommand removed in E009. Handled in dispatch as deprecation warning.
 
-    # atdd session new <slug>
-    new_parser = session_subparsers.add_parser(
-        "new",
-        help="Create new session from template",
-        description="Create a new session file with next available number"
-    )
-    new_parser.add_argument(
-        "slug",
-        type=str,
-        help="Session name (will be converted to kebab-case)"
-    )
-    new_parser.add_argument(
-        "--type", "-t",
-        type=str,
-        default="implementation",
-        choices=["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
-        help="Session type (default: implementation)"
-    )
-    new_parser.add_argument(
-        "--train",
-        type=str,
-        help="Train ID to assign (e.g., 0001-auth-session-standard)"
-    )
-
-    # atdd session list
-    session_subparsers.add_parser(
-        "list",
-        help="List all sessions from manifest"
-    )
-
-    # atdd session archive <session_id>
-    archive_parser = session_subparsers.add_parser(
-        "archive",
-        help="Move session to archive/",
-        description="Archive a completed session"
-    )
-    archive_parser.add_argument(
-        "session_id",
-        type=str,
-        help="Session ID to archive (e.g., '01' or '1')"
-    )
-
-    # atdd session sync
-    session_subparsers.add_parser(
-        "sync",
-        help="Sync manifest with actual session files"
-    )
-
-    # atdd session update <session_id> [--status X] [--phase Y] [--branch Z]
-    update_parser = session_subparsers.add_parser(
-        "update",
-        help="Update session Project fields and labels",
-        description="Update ATDD status, phase, branch, and other Project fields"
-    )
-    update_parser.add_argument(
-        "session_id",
-        type=str,
-        help="Issue number (e.g., '11')"
-    )
-    update_parser.add_argument("--status", "-s", type=str, help="ATDD Status (INIT/PLANNED/RED/GREEN/REFACTOR/COMPLETE/BLOCKED)")
-    update_parser.add_argument("--phase", "-p", type=str, help="ATDD Phase (Planner/Tester/Coder)")
-    update_parser.add_argument("--branch", "-b", type=str, help="Git branch name")
-    update_parser.add_argument("--train", type=str, help="Train URN")
-    update_parser.add_argument("--feature-urn", type=str, help="Feature URN")
-    update_parser.add_argument("--archetypes", type=str, help="Archetypes (comma-separated)")
-    update_parser.add_argument("--complexity", type=str, help="Complexity (e.g., 4-High)")
-
-    # atdd session close-wmbt <session_id> <wmbt_id>
-    close_wmbt_parser = session_subparsers.add_parser(
-        "close-wmbt",
-        help="Close a WMBT sub-issue",
-        description="Close a WMBT sub-issue by WMBT ID"
-    )
-    close_wmbt_parser.add_argument(
-        "session_id",
-        type=str,
-        help="Parent issue number (e.g., '11')"
-    )
-    close_wmbt_parser.add_argument(
-        "wmbt_id",
-        type=str,
-        help="WMBT ID (e.g., 'D001', 'E003')"
-    )
-    close_wmbt_parser.add_argument(
-        "--force", "-f",
-        action="store_true",
-        help="Close even if ATDD cycle checkboxes are unchecked"
-    )
-
-    # ----- atdd list (top-level shorthand) -----
+    # ----- atdd list -----
     subparsers.add_parser(
         "list",
-        help="List all sessions (shorthand for session list)"
+        help="List all ATDD issues"
     )
 
-    # ----- atdd archive <session_id> (top-level shorthand) -----
+    # ----- atdd archive <issue_number> -----
     archive_top_parser = subparsers.add_parser(
         "archive",
-        help="Archive a session (shorthand for session archive)"
+        help="Archive an issue (close parent + sub-issues)"
     )
     archive_top_parser.add_argument("session_id", type=str, help="Issue number to archive")
 
-    # ----- atdd update <session_id> (top-level shorthand) -----
+    # ----- atdd update <issue_number> -----
     update_top_parser = subparsers.add_parser(
         "update",
-        help="Update session fields (shorthand for session update)"
+        help="Update issue Project fields and labels"
     )
     update_top_parser.add_argument("session_id", type=str, help="Issue number")
-    update_top_parser.add_argument("--status", "-s", type=str, help="ATDD Status")
-    update_top_parser.add_argument("--phase", "-p", type=str, help="ATDD Phase")
-    update_top_parser.add_argument("--branch", "-b", type=str, help="Git branch")
+    update_top_parser.add_argument("--status", "-s", type=str, help="ATDD Status (INIT/PLANNED/RED/GREEN/REFACTOR/COMPLETE/BLOCKED)")
+    update_top_parser.add_argument("--phase", "-p", type=str, help="ATDD Phase (Planner/Tester/Coder)")
+    update_top_parser.add_argument("--branch", "-b", type=str, help="Git branch name")
     update_top_parser.add_argument("--train", type=str, help="Train URN")
     update_top_parser.add_argument("--feature-urn", type=str, help="Feature URN")
-    update_top_parser.add_argument("--archetypes", type=str, help="Archetypes")
-    update_top_parser.add_argument("--complexity", type=str, help="Complexity")
+    update_top_parser.add_argument("--archetypes", type=str, help="Archetypes (comma-separated)")
+    update_top_parser.add_argument("--complexity", type=str, help="Complexity (e.g., 4-High)")
 
-    # ----- atdd close-wmbt <session_id> <wmbt_id> (top-level shorthand) -----
+    # ----- atdd close-wmbt <issue_number> <wmbt_id> -----
     close_wmbt_top_parser = subparsers.add_parser(
         "close-wmbt",
-        help="Close a WMBT sub-issue (shorthand for session close-wmbt)"
+        help="Close a WMBT sub-issue"
     )
     close_wmbt_top_parser.add_argument("session_id", type=str, help="Parent issue number")
-    close_wmbt_top_parser.add_argument("wmbt_id", type=str, help="WMBT ID")
-    close_wmbt_top_parser.add_argument("--force", "-f", action="store_true", help="Force close")
+    close_wmbt_top_parser.add_argument("wmbt_id", type=str, help="WMBT ID (e.g., D001, E003)")
+    close_wmbt_top_parser.add_argument("--force", "-f", action="store_true", help="Close even if ATDD cycle checkboxes are unchecked")
 
     # ----- atdd sync -----
     sync_parser = subparsers.add_parser(
@@ -885,22 +791,22 @@ Phase descriptions:
 
     # atdd new <slug> (shorthand for session new)
     elif args.command == "new":
-        manager = SessionManager()
+        manager = IssueManager()
         return manager.new(slug=args.slug, session_type=args.type, train=getattr(args, 'train', None))
 
     # atdd list (top-level shorthand)
     elif args.command == "list":
-        manager = SessionManager()
+        manager = IssueManager()
         return manager.list()
 
     # atdd archive <session_id> (top-level shorthand)
     elif args.command == "archive":
-        manager = SessionManager()
+        manager = IssueManager()
         return manager.archive(session_id=args.session_id)
 
     # atdd update <session_id> (top-level shorthand)
     elif args.command == "update":
-        manager = SessionManager()
+        manager = IssueManager()
         return manager.update(
             session_id=args.session_id,
             status=args.status, phase=args.phase,
@@ -912,43 +818,12 @@ Phase descriptions:
 
     # atdd close-wmbt <session_id> <wmbt_id> (top-level shorthand)
     elif args.command == "close-wmbt":
-        manager = SessionManager()
+        manager = IssueManager()
         return manager.close_wmbt(
             session_id=args.session_id,
             wmbt_id=args.wmbt_id,
             force=args.force,
         )
-
-    # atdd session {new,list,archive,sync,update,close-wmbt}
-    elif args.command == "session":
-        manager = SessionManager()
-
-        if args.session_command == "new":
-            return manager.new(slug=args.slug, session_type=args.type, train=getattr(args, 'train', None))
-        elif args.session_command == "list":
-            return manager.list()
-        elif args.session_command == "archive":
-            return manager.archive(session_id=args.session_id)
-        elif args.session_command == "sync":
-            return manager.sync()
-        elif args.session_command == "update":
-            return manager.update(
-                session_id=args.session_id,
-                status=args.status, phase=args.phase,
-                branch=args.branch, train=getattr(args, 'train', None),
-                feature_urn=getattr(args, 'feature_urn', None),
-                archetypes=getattr(args, 'archetypes', None),
-                complexity=getattr(args, 'complexity', None),
-            )
-        elif args.session_command == "close-wmbt":
-            return manager.close_wmbt(
-                session_id=args.session_id,
-                wmbt_id=args.wmbt_id,
-                force=args.force,
-            )
-        else:
-            session_parser.print_help()
-            return 0
 
     # atdd sync
     elif args.command == "sync":

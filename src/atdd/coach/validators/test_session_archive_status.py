@@ -1,13 +1,13 @@
 """
-Session archive status validation.
+Issue archive status validation.
 
-Validates archive placement aligns with session status:
-1. COMPLETE sessions should be in archive/ (warning)
-2. Sessions in archive/ should be COMPLETE or OBSOLETE (warning)
+Validates archive placement aligns with issue status:
+1. COMPLETE issues should be in archive/ (warning)
+2. Issues in archive/ should be COMPLETE or OBSOLETE (warning)
 
 These are warnings, not failures, to allow migration flexibility.
 
-Convention: src/atdd/coach/conventions/session.convention.yaml
+Convention: src/atdd/coach/conventions/issue.convention.yaml
 Config: .atdd/config.yaml (coach.archive_status_warnings)
 
 Run: atdd validate coach
@@ -58,7 +58,7 @@ def session_files() -> List[Path]:
 
     return sorted([
         f for f in SESSIONS_DIR.glob("SESSION-*.md")
-        if f.name != "SESSION-TEMPLATE.md"
+        if f.name != "ISSUE-TEMPLATE.md"
     ])
 
 
@@ -126,7 +126,7 @@ def test_complete_sessions_should_be_archived(
         print(
             f"\n⚠️  Found {len(should_archive)} completed sessions not in archive/:\n" +
             "\n".join(f"  - {s}" for s in should_archive) +
-            "\n\nConsider running 'atdd session archive <id>' to move them."
+            "\n\nConsider running 'atdd archive <id>' to move them."
         )
 
 
