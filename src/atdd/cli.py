@@ -375,6 +375,11 @@ Phase descriptions:
         choices=["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
         help="Session type (default: implementation)"
     )
+    new_parser.add_argument(
+        "--train",
+        type=str,
+        help="Train ID to assign (e.g., 0001-auth-session-standard)"
+    )
 
     # ----- atdd session {new,list,archive,sync} -----
     session_parser = subparsers.add_parser(
@@ -404,6 +409,11 @@ Phase descriptions:
         default="implementation",
         choices=["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
         help="Session type (default: implementation)"
+    )
+    new_parser.add_argument(
+        "--train",
+        type=str,
+        help="Train ID to assign (e.g., 0001-auth-session-standard)"
     )
 
     # atdd session list
@@ -876,7 +886,7 @@ Phase descriptions:
     # atdd new <slug> (shorthand for session new)
     elif args.command == "new":
         manager = SessionManager()
-        return manager.new(slug=args.slug, session_type=args.type)
+        return manager.new(slug=args.slug, session_type=args.type, train=getattr(args, 'train', None))
 
     # atdd list (top-level shorthand)
     elif args.command == "list":
@@ -914,7 +924,7 @@ Phase descriptions:
         manager = SessionManager()
 
         if args.session_command == "new":
-            return manager.new(slug=args.slug, session_type=args.type)
+            return manager.new(slug=args.slug, session_type=args.type, train=getattr(args, 'train', None))
         elif args.session_command == "list":
             return manager.list()
         elif args.session_command == "archive":

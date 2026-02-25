@@ -291,6 +291,40 @@ class GitHubClient:
                 return item["id"]
         return None
 
+    def get_project_item_field_values(
+        self, item_id: str
+    ) -> Dict[str, Any]:
+        """Read all field values for a project item.
+
+        Returns:
+            Dict mapping field name to its value (string for text/number,
+            option name for single-select).
+        """
+        if not self.project_id:
+            raise GitHubClientError("No project_id configured")
+
+        data = self._graphql(
+            f'{{ node(id: "{item_id}") {{ '
+            f'... on ProjectV2Item {{ '
+            f'fieldValues(first: 30) {{ nodes {{ '
+            f'... on ProjectV2ItemFieldTextValue {{ text field {{ ... on ProjectV2Field {{ name }} }} }} '
+            f'... on ProjectV2ItemFieldNumberValue {{ number field {{ ... on ProjectV2Field {{ name }} }} }} '
+            f'... on ProjectV2ItemFieldSingleSelectValue {{ name field {{ ... on ProjectV2SingleSelectField {{ name }} }} }} '
+            f'}} }} }} }} }}'
+        )
+        values = {}
+        for node in data["data"]["node"]["fieldValues"]["nodes"]:
+            field_name = node.get("field", {}).get("name")
+            if not field_name:
+                continue
+            if "text" in node:
+                values[field_name] = node["text"]
+            elif "number" in node:
+                values[field_name] = node["number"]
+            elif "name" in node and node["name"]:
+                values[field_name] = node["name"]
+        return values
+
     # -------------------------------------------------------------------------
     # Issue queries
     # -------------------------------------------------------------------------

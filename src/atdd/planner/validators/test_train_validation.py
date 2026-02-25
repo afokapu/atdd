@@ -8,6 +8,7 @@ Validates that trains follow conventions:
 - Dependencies are valid
 - Registry grouping matches numbering
 - Train First-Class Spec v0.6 requirements
+- E008: Train enforcement — orphan wagon detection, empty train warnings
 
 Train First-Class Spec v0.6 validators (SPEC-TRAIN-VAL-0012 to 0021, 0034-0036):
 - Path/file normalization
@@ -15,6 +16,11 @@ Train First-Class Spec v0.6 validators (SPEC-TRAIN-VAL-0012 to 0021, 0034-0036):
 - Wagon participant validation
 - Test/code field typing
 - Expectations and status inference
+
+E008 validators (SPEC-TRAIN-VAL-0039 to 0041):
+- Orphan wagon detection (wagons with WMBTs not in any train)
+- Phantom wagon detection (wagon refs in trains that don't exist)
+- Empty train warnings
 """
 import pytest
 import yaml
@@ -1298,3 +1304,102 @@ def test_train_sequences_have_sequential_step_numbers(trains_registry):
             f"Found {len(violations)} violations:\n  "
             + "\n  ".join(violations)
         )
+
+
+# ============================================================================
+# E008: Train Enforcement — Orphan wagons, phantom references, empty trains
+# ============================================================================
+
+
+@pytest.mark.platform
+def test_wagons_with_wmbts_must_be_in_a_train(
+    wagon_manifests, wagon_to_train_mapping, wmbt_files
+):
+    """
+    SPEC-TRAIN-VAL-0039: Wagons with WMBTs must appear in at least one train
+
+    Given: Wagon manifests and WMBT plan files
+    When: Checking train coverage for wagons that have WMBTs
+    Then: Every wagon with wmbt.total > 0 appears in at least 1 train's participants
+
+    E008 acceptance criteria: `atdd validate planner` fails if orphan wagons with WMBTs are found.
+    """
+    # Count WMBTs per wagon slug (from plan directories)
+    import re
+    wmbt_pattern = re.compile(r"^[DLPCEMYRK]\d{3}\.yaml$")
+    repo_root = find_repo_root()
+    plan_dir = repo_root / "plan"
+
+    wagon_wmbt_counts = {}
+    for path, _ in wmbt_files:
+        # Derive wagon slug from directory name (snake_case -> kebab-case)
+        wagon_slug = path.parent.name.replace("_", "-")
+        wagon_wmbt_counts[wagon_slug] = wagon_wmbt_counts.get(wagon_slug, 0) + 1
+
+    # Find orphan wagons: have WMBTs but not in any train
+    orphans = []
+    for wagon_slug, wmbt_count in sorted(wagon_wmbt_counts.items()):
+        if wmbt_count > 0 and wagon_slug not in wagon_to_train_mapping:
+            orphans.append(f"{wagon_slug} ({wmbt_count} WMBTs, no train)")
+
+    assert not orphans, (
+        f"\nOrphan wagons with WMBTs but no train assignment found.\n"
+        f"Every wagon with WMBTs must appear in at least 1 train's participants.\n"
+        f"Fix: Add wagon:<slug> to the participants list of an appropriate train.\n\n"
+        f"Orphans ({len(orphans)}):\n  " + "\n  ".join(orphans)
+    )
+
+
+@pytest.mark.platform
+def test_empty_trains_generate_warning(trains_registry, train_files):
+    """
+    SPEC-TRAIN-VAL-0040: Trains with empty participants generate warnings
+
+    Given: Train specification files
+    When: Checking participant lists
+    Then: Trains with wagons: [] (empty participants) generate a warning
+    """
+    empty_trains = []
+    for train_path, train_data in train_files:
+        train_id = train_data.get("train_id", train_path.stem)
+        participants = train_data.get("participants", [])
+        if not participants:
+            empty_trains.append(train_id)
+
+    if empty_trains:
+        emit_phase_warning(
+            "SPEC-TRAIN-VAL-0040",
+            f"Trains with empty participants: {', '.join(empty_trains)}",
+            TrainSpecPhase.BACKEND_ENFORCEMENT,
+        )
+
+
+@pytest.mark.platform
+def test_train_wagon_references_exist_in_manifests(
+    train_files, wagon_manifests
+):
+    """
+    SPEC-TRAIN-VAL-0041: Train wagon references must exist in wagon manifests
+
+    Given: Train files with wagon participants
+    When: Cross-referencing against known wagon manifests
+    Then: Every wagon:<slug> participant has a matching wagon manifest
+          (no phantom references)
+    """
+    wagon_names = {manifest.get("wagon", "") for _, manifest in wagon_manifests}
+
+    phantoms = []
+    for train_path, train_data in train_files:
+        train_id = train_data.get("train_id", train_path.stem)
+        participants = train_data.get("participants", [])
+        for participant in participants:
+            if isinstance(participant, str) and participant.startswith("wagon:"):
+                wagon_slug = participant.replace("wagon:", "")
+                if wagon_slug not in wagon_names:
+                    phantoms.append(f"{train_id} -> wagon:{wagon_slug}")
+
+    assert not phantoms, (
+        f"\nPhantom wagon references in trains (wagon does not exist):\n  "
+        + "\n  ".join(phantoms)
+        + f"\n\nFix: Remove invalid wagon references or create the missing wagon manifests."
+    )

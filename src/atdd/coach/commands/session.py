@@ -231,7 +231,7 @@ class SessionManager:
 
         return wmbts
 
-    def new(self, slug: str, session_type: str = "implementation") -> int:
+    def new(self, slug: str, session_type: str = "implementation", train: Optional[str] = None) -> int:
         """
         Create new session.
 
@@ -242,6 +242,7 @@ class SessionManager:
         Args:
             slug: Session slug (will be converted to kebab-case).
             session_type: Type of session (implementation, migration, etc.).
+            train: Optional train ID to assign to the session.
 
         Returns:
             0 on success, 1 on error.
@@ -263,11 +264,11 @@ class SessionManager:
 
         # Route to GitHub or local
         if self._has_github_config():
-            return self._new_github_issue(slug, session_type)
+            return self._new_github_issue(slug, session_type, train=train)
         else:
             return self._new_local_file(slug, session_type)
 
-    def _new_github_issue(self, slug: str, session_type: str) -> int:
+    def _new_github_issue(self, slug: str, session_type: str, train: Optional[str] = None) -> int:
         """Create a GitHub Issue with WMBT sub-issues."""
         from atdd.coach.github import GitHubClient, ProjectConfig, GitHubClientError
 
@@ -287,6 +288,7 @@ class SessionManager:
         title = f"feat(atdd): {title_text}"
 
         # Build parent issue body (minimal — details added by user)
+        train_display = train or "TBD"
         body = (
             f"## Session Metadata\n\n"
             f"| Field | Value |\n"
@@ -296,7 +298,7 @@ class SessionManager:
             f"| Type | `{session_type}` |\n"
             f"| Branch | TBD |\n"
             f"| Archetypes | TBD |\n"
-            f"| Train | TBD |\n"
+            f"| Train | {train_display} |\n"
             f"| Feature | TBD |\n\n"
             f"---\n\n"
             f"## Context\n\n"
@@ -354,6 +356,12 @@ class SessionManager:
                     client.set_project_field_select(
                         item_id, fields["ATDD Phase"]["id"], options["Planner"]
                     )
+
+            # E008: Set Train field if provided
+            if train and "Train" in fields:
+                client.set_project_field_text(
+                    item_id, fields["Train"]["id"], train
+                )
 
             print(f"  Added to Project with custom fields")
         except GitHubClientError as e:
@@ -824,6 +832,22 @@ class SessionManager:
                 print(f"Error: Cannot transition from {current_status} to {status}")
                 print(f"  Allowed: {', '.join(sorted(allowed)) or '(terminal state)'}")
                 return 1
+
+            # E008: Enforce train assignment for transitions past PLANNED
+            post_planned = {"RED", "GREEN", "REFACTOR", "COMPLETE"}
+            if status in post_planned and not train:
+                # Check if Train is already set on the project item
+                try:
+                    field_values = client.get_project_item_field_values(item_id)
+                    current_train = (field_values.get("Train") or "").strip()
+                    if not current_train or current_train.upper() == "TBD":
+                        print(f"Error: Train field required before transitioning to {status}")
+                        print(f"  Current Train: {current_train or '(empty)'}")
+                        print(f"  Fix: atdd update {session_id} --status {status} --train <train_id>")
+                        return 1
+                except GitHubClientError:
+                    # If we can't read fields, allow the transition (fail open)
+                    logger.debug("Could not read Train field, allowing transition")
 
             # Swap phase label
             phase_labels = [l for l in current_labels if l.startswith("atdd:") and l != "atdd-session"]
