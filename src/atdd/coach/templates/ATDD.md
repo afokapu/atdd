@@ -93,6 +93,7 @@ audits:
     validate_planner: "atdd validate planner"
     validate_tester: "atdd validate tester"
     validate_coder: "atdd validate coder"
+    validate_coach: "atdd validate coach"
     quick_check: "atdd validate --quick"
     with_coverage: "atdd validate --coverage"
     with_html: "atdd validate --html"
@@ -273,9 +274,9 @@ agents:
     audits: "src/atdd/coder/validators/*.py"
 
 # Session Planning (Design before implementation)
-# Note: atdd-sessions/ is created in the consuming repo via `atdd init`
+# Note: atdd-sessions/ is historical; new issues are GitHub Issues via `atdd new`
 sessions:
-  # Consumer repo paths (created via `atdd init`)
+  # Consumer repo paths (historical — legacy local session files)
   directory: "atdd-sessions/"
   archive: "atdd-sessions/archive/"
   config_dir: ".atdd/"
@@ -285,13 +286,13 @@ sessions:
   convention: "src/atdd/coach/conventions/issue.convention.yaml"
 
   commands:
-    init: "atdd init                    # Initialize atdd-sessions/ and .atdd/"
+    init: "atdd init                    # Initialize .atdd/ and GitHub infrastructure"
     new: "atdd new my-feature            # Create SESSION-NN-my-feature.md"
     list: "atdd list                     # List all issues"
     archive: "atdd archive 11           # Archive issue (close parent + sub-issues)"
 
   workflow:
-    init: "Run 'atdd init' to create atdd-sessions/ directory structure"
+    init: "Run 'atdd init' to bootstrap .atdd/ config and GitHub infrastructure"
     create: "Run 'atdd new <slug>' to create new session from template"
     fill: "Fill ALL sections - write 'N/A' if not applicable, never omit"
     track: "Update Progress Tracker and Session Log after each work item"

@@ -9,7 +9,7 @@ Creates the following structure:
         └── config.yaml          (agent sync + GitHub integration config)
 
 GitHub infrastructure (requires `gh` CLI):
-    - Labels: atdd-session, atdd-wmbt, atdd:*, archetype:*, wagon:*
+    - Labels: atdd-issue, atdd-wmbt, atdd:*, archetype:*, wagon:*
     - Project v2: "ATDD Sessions" with 11 custom fields
     - Workflow: .github/workflows/atdd-validate.yml
     - Config: project_id, project_number, repo in .atdd/config.yaml
@@ -217,6 +217,9 @@ class ProjectInitializer:
 
         from atdd.coach.github import GitHubClient, GitHubClientError
 
+        # Migrate legacy labels (e.g., atdd-session → atdd-issue)
+        self._migrate_labels(repo)
+
         # Load label taxonomy from schema
         schema_path = self.package_root / "schemas" / "label_taxonomy.schema.json"
         labels_created, labels_existed = self._create_labels(repo, schema_path)
@@ -251,6 +254,26 @@ class ProjectInitializer:
         summary = f"GitHub: {', '.join(parts)}"
         print(f"  {summary}")
         return summary
+
+    # R002: label renames — `gh label edit` renames in-place and propagates to all issues
+    _LABEL_MIGRATION = {"atdd-session": "atdd-issue"}
+
+    def _migrate_labels(self, repo: str) -> None:
+        """Rename legacy labels in-place via `gh label edit`. Idempotent."""
+        for old_name, new_name in self._LABEL_MIGRATION.items():
+            try:
+                result = subprocess.run(
+                    ["gh", "label", "edit", old_name,
+                     "--name", new_name, "--repo", repo],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if result.returncode == 0:
+                    print(f"  Migrated label: {old_name} → {new_name}")
+                else:
+                    # Old label doesn't exist (already migrated or fresh install) — no-op
+                    logger.debug("Label %s not found for migration: %s", old_name, result.stderr.strip())
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                logger.debug("Could not migrate label %s", old_name)
 
     def _create_labels(self, repo: str, schema_path: Path) -> Tuple[int, int]:
         """Create ATDD labels from taxonomy schema. Returns (created, existed)."""
@@ -565,7 +588,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event_name != 'issues' ||
-      contains(github.event.issue.labels.*.name, 'atdd-session') ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
       contains(github.event.issue.labels.*.name, 'atdd-wmbt')
     steps:
       - uses: actions/checkout@v4

@@ -9,11 +9,11 @@
     "version": { "const": "1.0" },
     "categories": {
       "type": "object",
-      "required": ["session", "wmbt", "phase", "archetype", "wagon"],
+      "required": ["issue", "wmbt", "phase", "archetype", "wagon"],
       "properties": {
-        "session": {
+        "issue": {
           "$ref": "#/$defs/label_category",
-          "description": "Identifies parent session issues",
+          "description": "Identifies parent issues",
           "properties": {
             "applies_to": { "const": "parent" },
             "cardinality": { "const": "exactly_one" },
@@ -21,9 +21,9 @@
               "type": "array",
               "prefixItems": [{
                 "properties": {
-                  "name": { "const": "atdd-session" },
+                  "name": { "const": "atdd-issue" },
                   "color": { "const": "0E8A16" },
-                  "description": { "const": "ATDD session parent issue" }
+                  "description": { "const": "ATDD parent issue" }
                 }
               }],
               "minItems": 1,

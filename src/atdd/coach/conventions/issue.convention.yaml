@@ -187,9 +187,9 @@ workflow:
 # =============================================================================
 # GITHUB ISSUE TRACKING (v2 — replaces local session files)
 # =============================================================================
-# Sessions are now GitHub Issues with Project v2 custom fields.
+# Issues are now GitHub Issues with Project v2 custom fields.
 # Local session files (atdd-sessions/*.md) are historical only.
-# New sessions are created as GitHub Issues via `atdd new`.
+# New issues are created as GitHub Issues via `atdd new`.
 #
 # Three-layer architecture:
 #   Layer 1: Parent issue body — human-readable (context, architecture, decisions, log)
@@ -206,10 +206,10 @@ github_issue_tracking:
   labels:
     schema: "atdd/coach/schemas/label_taxonomy.schema.json"
     application_rules:
-      parent: ["atdd-session", "archetype:{id} (one per archetype)", "atdd:{STATUS} (exactly one, swapped)", "wagon:{slug} (exactly one)"]
+      parent: ["atdd-issue", "archetype:{id} (one per archetype)", "atdd:{STATUS} (exactly one, swapped)", "wagon:{slug} (exactly one)"]
       sub_issue: ["atdd-wmbt"]
     static_labels:
-      - { name: "atdd-session",      color: "0E8A16", applies_to: "parent",    description: "ATDD session parent issue" }
+      - { name: "atdd-issue",         color: "0E8A16", applies_to: "parent",    description: "ATDD parent issue" }
       - { name: "atdd-wmbt",         color: "1D76DB", applies_to: "sub_issue", description: "ATDD WMBT sub-issue" }
       - { name: "atdd:INIT",         color: "FBCA04", applies_to: "parent",    description: "ATDD phase: INIT" }
       - { name: "atdd:PLANNED",      color: "B60205", applies_to: "parent",    description: "ATDD phase: PLANNED" }

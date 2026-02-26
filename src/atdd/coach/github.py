@@ -6,7 +6,7 @@ Requires `gh` CLI to be installed and authenticated with `project` scope.
 
 Usage:
     client = GitHubClient(repo="afokapu/atdd")
-    issue_number = client.create_issue(title="...", body="...", labels=["atdd-session"])
+    issue_number = client.create_issue(title="...", body="...", labels=["atdd-issue"])
     client.add_sub_issue(parent_number=11, child_number=12)
 """
 

@@ -96,7 +96,7 @@ def test_existing_issues_have_sub_issues():
     """
     SPEC-COACH-C001-0003: Existing issues have WMBT sub-issues
 
-    Given: Open issues in the GitHub Project (label: atdd-session)
+    Given: Open issues in the GitHub Project (label: atdd-issue)
     When: Querying sub-issues
     Then: At least one issue has sub-issues (WMBTs)
           confirming that atdd new creates the parent+sub-issue structure
@@ -108,7 +108,7 @@ def test_existing_issues_have_sub_issues():
     from atdd.coach.github import GitHubClientError
 
     try:
-        issues = client.list_issues_by_label("atdd-session")
+        issues = client.list_issues_by_label("atdd-issue")
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
 
@@ -148,7 +148,7 @@ def test_sub_issue_progress_is_trackable():
     from atdd.coach.github import GitHubClientError
 
     try:
-        issues = client.list_issues_by_label("atdd-session")
+        issues = client.list_issues_by_label("atdd-issue")
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
 
@@ -185,7 +185,7 @@ def test_archived_issues_have_no_orphaned_sub_issues():
     """
     SPEC-COACH-C001-0005: Archived (closed) issues have no open sub-issues
 
-    Given: Closed issues (label: atdd-session)
+    Given: Closed issues (label: atdd-issue)
     When: Checking sub-issue states
     Then: All sub-issues of closed parent issues are also closed
           (no orphaned open sub-issues)
@@ -201,7 +201,7 @@ def test_archived_issues_have_no_orphaned_sub_issues():
         output = client._run_gh([
             "issue", "list",
             "--repo", client.repo,
-            "--label", "atdd-session",
+            "--label", "atdd-issue",
             "--state", "closed",
             "--json", "number,title",
             "--limit", "20",
@@ -239,7 +239,7 @@ def test_wmbt_sub_issues_have_atdd_wmbt_label():
     """
     SPEC-COACH-C001-0006: WMBT sub-issues carry the atdd-wmbt label
 
-    Given: Sub-issues of parent issues (label: atdd-session)
+    Given: Sub-issues of parent issues (label: atdd-issue)
     When: Checking labels
     Then: Each sub-issue has the atdd-wmbt label
     """
@@ -250,7 +250,7 @@ def test_wmbt_sub_issues_have_atdd_wmbt_label():
     from atdd.coach.github import GitHubClientError
 
     try:
-        issues = client.list_issues_by_label("atdd-session")
+        issues = client.list_issues_by_label("atdd-issue")
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
 

@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event_name != 'issues' ||
-      contains(github.event.issue.labels.*.name, 'atdd-session') ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
       contains(github.event.issue.labels.*.name, 'atdd-wmbt')
     steps:
       - uses: actions/checkout@v4

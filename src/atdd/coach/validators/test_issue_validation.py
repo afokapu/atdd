@@ -83,7 +83,7 @@ def test_issues_have_train_field():
     """
     SPEC-SESSION-VAL-0050: Issues must have a non-empty Train field
 
-    Given: Open issues in the GitHub Project (label: atdd-session)
+    Given: Open issues in the GitHub Project (label: atdd-issue)
     When: Checking the Train custom field value
     Then: Issues past PLANNED phase must have Train != TBD and != blank
           Issues at PLANNED phase get a warning if Train is TBD
@@ -97,7 +97,7 @@ def test_issues_have_train_field():
     from atdd.coach.github import GitHubClientError
 
     try:
-        issues = client.list_issues_by_label("atdd-session")
+        issues = client.list_issues_by_label("atdd-issue")
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
 
@@ -176,7 +176,7 @@ def test_issue_train_references_valid_train_id():
     from atdd.coach.github import GitHubClientError
 
     try:
-        issues = client.list_issues_by_label("atdd-session")
+        issues = client.list_issues_by_label("atdd-issue")
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
 
@@ -250,7 +250,7 @@ def test_issue_body_has_required_sections():
     """
     SPEC-SESSION-VAL-0060: Issue body should contain all structured sections
 
-    Given: Open issues in the GitHub Project (label: atdd-session)
+    Given: Open issues in the GitHub Project (label: atdd-issue)
     When: Checking the issue body for required H2 headings
     Then: All 11 sections from PARENT-ISSUE-TEMPLATE.md should be present
           Pre-E010 issues emit warnings instead of hard failures
@@ -264,7 +264,7 @@ def test_issue_body_has_required_sections():
     from atdd.coach.github import GitHubClientError
 
     try:
-        issues = client.list_issues_by_label("atdd-session")
+        issues = client.list_issues_by_label("atdd-issue")
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
 

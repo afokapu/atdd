@@ -160,7 +160,7 @@ def test_issues_are_in_project():
     """
     SPEC-COACH-C002-0004: Issues are added to the Project
 
-    Given: Open issues with atdd-session label
+    Given: Open issues with atdd-issue label
     When: Checking Project membership
     Then: At least one issue has a Project item ID
           (confirming issues are tracked in the board)
@@ -172,7 +172,7 @@ def test_issues_are_in_project():
     from atdd.coach.github import GitHubClientError
 
     try:
-        issues = client.list_issues_by_label("atdd-session")
+        issues = client.list_issues_by_label("atdd-issue")
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
 
@@ -200,7 +200,7 @@ def test_issues_have_status_field_set():
     """
     SPEC-COACH-C002-0005: Issues in Project have ATDD Status set
 
-    Given: Issues in the Project (label: atdd-session)
+    Given: Issues in the Project (label: atdd-issue)
     When: Reading ATDD Status field value
     Then: At least one issue has a non-empty ATDD Status
           (confirming field values are set, enabling board filtering)
@@ -212,7 +212,7 @@ def test_issues_have_status_field_set():
     from atdd.coach.github import GitHubClientError
 
     try:
-        issues = client.list_issues_by_label("atdd-session")
+        issues = client.list_issues_by_label("atdd-issue")
         fields = client.get_project_fields()
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
@@ -261,7 +261,7 @@ def test_archetype_labels_exist():
     from atdd.coach.github import GitHubClientError
 
     try:
-        issues = client.list_issues_by_label("atdd-session")
+        issues = client.list_issues_by_label("atdd-issue")
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
 
@@ -288,7 +288,7 @@ def test_progress_pill_data_available():
     """
     SPEC-COACH-C002-0007: Sub-issue progress data available for progress pills
 
-    Given: Issues with sub-issues (label: atdd-session)
+    Given: Issues with sub-issues (label: atdd-issue)
     When: Computing progress fraction
     Then: Progress can be expressed as "N/M WMBTs" where M > 0
           (confirming the data backing progress pills on board cards)
@@ -300,7 +300,7 @@ def test_progress_pill_data_available():
     from atdd.coach.github import GitHubClientError
 
     try:
-        issues = client.list_issues_by_label("atdd-session")
+        issues = client.list_issues_by_label("atdd-issue")
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
 

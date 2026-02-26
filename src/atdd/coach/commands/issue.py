@@ -398,7 +398,7 @@ class IssueManager:
         )
 
         # Determine labels for parent
-        parent_labels = ["atdd-session", "atdd:INIT"]
+        parent_labels = ["atdd-issue", "atdd:INIT"]
 
         # Add archetype labels
         if archetypes:
@@ -557,7 +557,7 @@ class IssueManager:
 
         try:
             client = self._get_github_client()
-            issues = client.list_issues_by_label("atdd-session")
+            issues = client.list_issues_by_label("atdd-issue")
         except (GitHubClientError, Exception) as e:
             print(f"Error: {e}")
             return 1
@@ -581,7 +581,7 @@ class IssueManager:
             # Extract status from atdd:* label
             status = "UNKNOWN"
             for label in labels:
-                if label.startswith("atdd:") and label != "atdd-session":
+                if label.startswith("atdd:") and label != "atdd-issue":
                     status = label.split(":")[1]
                     break
 
@@ -652,7 +652,7 @@ class IssueManager:
         # Swap label to atdd:COMPLETE
         try:
             labels = [l["name"] for l in issue.get("labels", [])]
-            phase_labels = [l for l in labels if l.startswith("atdd:") and l != "atdd-session"]
+            phase_labels = [l for l in labels if l.startswith("atdd:") and l != "atdd-issue"]
             if phase_labels:
                 client.remove_label(issue_number, phase_labels)
             client.add_label(issue_number, ["atdd:COMPLETE"])
@@ -745,7 +745,7 @@ class IssueManager:
             current_labels = [l["name"] for l in issue.get("labels", [])]
             current_status = "UNKNOWN"
             for label in current_labels:
-                if label.startswith("atdd:") and label != "atdd-session":
+                if label.startswith("atdd:") and label != "atdd-issue":
                     current_status = label.split(":")[1]
                     break
 
@@ -772,7 +772,7 @@ class IssueManager:
                     logger.debug("Could not read Train field, allowing transition")
 
             # Swap phase label
-            phase_labels = [l for l in current_labels if l.startswith("atdd:") and l != "atdd-session"]
+            phase_labels = [l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"]
             if phase_labels:
                 client.remove_label(issue_number, phase_labels)
             client.add_label(issue_number, [f"atdd:{status}"])
