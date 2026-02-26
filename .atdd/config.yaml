@@ -1,6 +1,6 @@
 version: '1.0'
 release:
-  version_file: VERSION
+  version_file: pyproject.toml
   tag_prefix: v
 sync:
   agents:
