@@ -9,6 +9,15 @@ flowchart LR
     A[Job to be Done] -->|Planner| B[Wagon + Acceptance Criteria]
     B -->|Tester| C[RED Tests]
     C -->|Coder| D[GREEN Code]
+    D -->|Coder| E[REFACTOR]
+    E -.->|feedback| B
+
+    subgraph "ATDD Lifecycle"
+        B
+        C
+        D
+        E
+    end
 ```
 
 ## Installation
@@ -35,7 +44,6 @@ If you want to remove ATDD entirely:
    ```
 2. Manually delete ATDD artifacts in the repo:
    ```text
-   atdd-sessions/
    .atdd/
    Managed blocks in CLAUDE.md, AGENTS.md, etc.
    ```
@@ -45,68 +53,42 @@ Uninstalling ATDD does not remove or revert any repo files.
 ### For Development
 
 ```bash
-# Clone the repo
 git clone https://github.com/afokapu/atdd.git
 cd atdd
-
-# Install in editable mode with dev dependencies
 pip install -e ".[dev]"
-
-# Verify installation
 atdd --help
 ```
 
 ## Quick Start
 
 ```bash
-atdd init                      # Initialize ATDD in your project
-atdd gate                      # ⚠️ START EVERY SESSION WITH THIS
-atdd new <task>                # Create a planning session
+atdd init                      # Initialize ATDD + GitHub infrastructure
+atdd gate                      # START EVERY SESSION WITH THIS
+atdd new <slug>                # Create GitHub issue + WMBT sub-issues
 atdd sync                      # Sync rules to agent config files
 atdd validate                  # Run all validators
 ```
 
-> **⚠️ `atdd gate` is required.** 
-> 🤖 Tell your agent: "Run `atdd gate` and follow ATDD rigorously." 
-> Agents skip instruction files but can't ignore tool ou
-
-
-
-
-
-tput. No gate = no ATDD guarantees.
+> **`atdd gate` is required.**
+> Tell your agent: "Run `atdd gate` and follow ATDD rigorously."
+> Agents skip instruction files but can't ignore tool output. No gate = no guarantees.
 
 ## What It Does
 
 ATDD provides:
 
-1. **Session Management** - Structured planning documents with templates and tracking
+1. **Issue Tracking** - GitHub Issues + Project v2 custom fields as source of truth
 2. **Convention Enforcement** - YAML-based conventions validated via pytest
-3. **ATDD Lifecycle** - Planner → Tester → Coder phase gates
+3. **ATDD Lifecycle** - Planner → Tester → Coder phase gates with state machine transitions
 4. **Agent Config Sync** - Keep ATDD rules in sync across AI agent config files
-
-```mermaid
-flowchart LR
-    A[Job to be Done] -->|Planner| B[Wagon + Acceptance Criteria]
-    B -->|Tester| C[RED Tests]
-    C -->|Coder| D[GREEN Code]
-    D -->|Coder| E[REFACTOR]
-    E -.->|feedback| B
-
-    subgraph "ATDD Lifecycle"
-        B
-        C
-        D
-        E
-    end
-```
+5. **Design System Compliance** - Hierarchy, token, and adoption validators for frontend
 
 ## Commands
 
 ### Project Initialization
 
 ```bash
-atdd init              # Create atdd-sessions/, .atdd/, and CLAUDE.md
+atdd init              # Bootstrap .atdd/, GitHub labels, Project v2 fields, CLAUDE.md
 atdd init --force      # Reinitialize (overwrites existing)
 ```
 
@@ -114,25 +96,39 @@ Creates:
 ```
 your-project/
 ├── CLAUDE.md              # With managed ATDD block
-├── atdd-sessions/
-│   ├── SESSION-TEMPLATE.md
-│   └── archive/
 └── .atdd/
-    ├── manifest.yaml      # Session tracking
-    └── config.yaml        # Agent sync configuration
+    ├── manifest.yaml      # Issue tracking
+    └── config.yaml        # Agent sync + release configuration
 ```
 
-### Session Management
+Also sets up on GitHub:
+- Labels: `atdd-issue`, `atdd-wmbt`, `atdd:RED`, `atdd:GREEN`, `atdd:REFACTOR`, archetype labels
+- Project v2 custom fields: `ATDD:Status`, `ATDD:Train`, `ATDD:Archetypes`, etc.
+
+### Issue Management
+
+Issues are the source of truth, backed by GitHub Issues with Project v2 custom fields.
 
 ```bash
-atdd new <slug>                         # Create new session
-atdd new <slug> --type <type>           # Specify type
-atdd session list                       # List all sessions
-atdd session archive <id>               # Archive session
-atdd session sync                       # Sync manifest with files
+atdd new <slug>                              # Create parent issue + WMBT sub-issues
+atdd new <slug> --archetypes be,contracts    # Specify archetypes
+atdd new <slug> --train <id>                 # Assign to train
+atdd list                                    # List all issues
+atdd update <N> --status <STATUS>            # Update status (swaps labels automatically)
+atdd close-wmbt <N> <WMBT_ID>               # Close a WMBT sub-issue
+atdd archive <N>                             # Close parent + all sub-issues
 ```
 
-Session types: `implementation`, `migration`, `refactor`, `analysis`, `planning`, `cleanup`, `tracking`
+**State machine transitions:**
+```
+INIT → PLANNED → RED → GREEN → REFACTOR → COMPLETE
+         ↕         ↕      ↕        ↕
+       BLOCKED   BLOCKED BLOCKED  BLOCKED → OBSOLETE
+```
+
+**Archetypes:** `db`, `be`, `fe`, `contracts`, `wmbt`, `wagon`, `train`, `telemetry`, `migrations`
+
+Each archetype includes gate tests in the issue template (e.g., `fe` issues get GT-020 for TypeScript architecture and GT-021 for design system compliance).
 
 ### Agent Config Sync
 
@@ -164,76 +160,32 @@ sync:
     # - qwen      # Uncomment to sync QWEN.md
 ```
 
-**Multi-agent setup:** To use multiple agents with consistent rules, enable them all in config and run sync:
-
-```yaml
-sync:
-  agents:
-    - claude
-    - codex
-    - gemini
-    - qwen
-```
-
-```bash
-atdd sync  # Creates/updates CLAUDE.md, AGENTS.md, GEMINI.md, QWEN.md
-```
-
 ### ATDD Gate (Bootstrap Protocol)
 
 Agents often skip instruction files. The gate solves this by injecting rules via mandatory tool output.
 
+```bash
+atdd gate              # Show gate verification info
+atdd gate --json       # Output as JSON
+```
+
 **Protocol:**
+1. Run `atdd gate` first
+2. Agent must confirm: which files were loaded, the reported hash, key constraints
+3. If files are missing/unsynced: run `atdd sync` then `atdd gate` again
 
-1. Run this command first:
-   ```bash
-   atdd gate
-   ```
-
-2. Agent must paste output and confirm:
-   - Which file(s) were loaded
-   - The reported hash
-   - The key constraints
-
-3. If files are missing/unsynced:
-   ```bash
-   atdd sync
-   atdd gate  # Re-verify
-   ```
-
-**Example output:**
-```
-============================================================
-ATDD Gate Verification
-============================================================
-
-Loaded files:
-  - CLAUDE.md (hash: d04f897c6691dc13...)
-
-Key constraints:
-  1. No ad-hoc tests - follow ATDD conventions
-  2. Domain layer NEVER imports from other layers
-  3. Phase transitions require quality gates
-
-------------------------------------------------------------
-Before starting work, confirm you have loaded these rules.
-------------------------------------------------------------
-```
-
-**Why this works:**
-- Gate output is mandatory tool output - agent can't ignore it
-- Proves which ATDD files were actually loaded
-- Forces consistency across all agents
-
-**Rule:** If ATDD rules matter, start with `atdd gate`. No gate = no guarantees.
+**Why this works:** Gate output is mandatory tool output — agent can't ignore it. Proves which ATDD files were actually loaded and forces consistency across all agents.
 
 ### Validation
 
+Four validator phases matching the ATDD lifecycle:
+
 ```bash
-atdd validate              # Run all validators
-atdd validate planner      # Planning validators only
-atdd validate tester       # Testing validators only
-atdd validate coder        # Implementation validators only
+atdd validate              # Run all validators (planner + tester + coder + coach)
+atdd validate planner      # Planning validators (wagons, trains, URNs, WMBTs)
+atdd validate tester       # Testing validators (contracts, telemetry, test naming)
+atdd validate coder        # Implementation validators (architecture, boundaries, design system)
+atdd validate coach        # Coach validators (issues, registries, release versioning)
 atdd validate --quick      # Fast smoke test
 atdd validate --coverage   # With coverage report
 atdd validate --html       # With HTML report
@@ -241,17 +193,15 @@ atdd validate --html       # With HTML report
 
 ### Release Versioning
 
-ATDD enforces release versioning via coach validators. Recommended: keep a single root `VERSION` file as the canonical source (first line like `1.2.3 - short summary`; trailing summary is ignored). Configure the version file and tag prefix in `.atdd/config.yaml`:
+ATDD enforces release versioning via coach validators. Configure the version file and tag prefix in `.atdd/config.yaml`:
 
 ```yaml
 release:
-  version_file: "VERSION"  # recommended single source of truth
+  version_file: "pyproject.toml"   # or package.json, VERSION, etc.
   tag_prefix: "v"
 ```
 
-If you also publish with language-specific manifests (e.g., `pyproject.toml`, `package.json`), keep their version fields in sync with `VERSION`.
-
-Validation (`atdd validate coach` or `atdd validate`) requires:
+Validation (`atdd validate coach`) requires:
 - Version file exists and contains a version
 - Git tag on HEAD matches `{tag_prefix}{version}`
 
@@ -266,8 +216,6 @@ atdd urn viz --port 9000               # Custom port
 atdd urn viz --root wagon:my-wagon     # Subgraph from root
 atdd urn viz --family wagon --family feature  # Filter families
 ```
-
-Default port is **8502** to avoid conflicts with consumer repo Streamlit apps on 8501.
 
 ### Other Commands
 
@@ -285,12 +233,13 @@ atdd --help                    # Full help
 src/atdd/
 ├── cli.py                 # Entry point
 ├── coach/
-│   ├── commands/          # CLI command implementations
-│   ├── conventions/       # Coach conventions (YAML)
+│   ├── commands/          # CLI command implementations (issue.py, initializer.py, sync.py, gate.py)
+│   ├── conventions/       # Coach conventions (issue.convention.yaml)
 │   ├── overlays/          # Agent-specific additions
-│   ├── schemas/           # JSON schemas
-│   ├── templates/         # Session templates, ATDD.md
-│   └── validators/        # Coach validators
+│   ├── schemas/           # JSON schemas (config, project fields, label taxonomy)
+│   ├── templates/         # Issue templates, ATDD.md
+│   ├── utils/             # Graph builder, URN resolver, repo utilities
+│   └── validators/        # Coach validators (issues, registries, release, traceability)
 ├── planner/
 │   ├── conventions/       # Planning conventions
 │   ├── schemas/           # Planning schemas
@@ -300,9 +249,9 @@ src/atdd/
 │   ├── schemas/           # Testing schemas
 │   └── validators/        # Testing validators
 └── coder/
-    ├── conventions/       # Coding conventions
+    ├── conventions/       # Coding conventions (architecture, design system, boundaries)
     ├── schemas/           # Coder schemas
-    └── validators/        # Implementation validators
+    └── validators/        # Implementation validators (architecture, design system compliance)
 ```
 
 ## Development
@@ -318,20 +267,20 @@ pip install -e ".[dev]"
 ### Run Tests
 
 ```bash
-# All tests
-pytest
+# All validators from source
+PYTHONPATH=src python3 -m pytest src/atdd/ -v
 
 # Specific phase
-pytest src/atdd/planner/validators/
+PYTHONPATH=src python3 -m pytest src/atdd/planner/validators/ -v
 
 # With coverage
-pytest --cov=atdd --cov-report=html
+PYTHONPATH=src python3 -m pytest --cov=atdd --cov-report=html
 ```
 
 ### Adding Validators
 
 1. Create `src/atdd/{phase}/validators/test_{name}.py`
-2. Write pytest test functions
+2. Write pytest test functions with `@pytest.mark.{phase}` marker
 3. Run `atdd validate {phase}`
 
 Validators are auto-discovered by pytest.
@@ -344,9 +293,10 @@ Validators are auto-discovered by pytest.
 ## Requirements
 
 - Python 3.10+
-- pyyaml
+- pyyaml, jsonschema
+- `gh` CLI (authenticated, with `project` scope for issue management)
 
-Dev dependencies: pytest, pytest-xdist
+Dev dependencies: pytest, pytest-xdist, pytest-html
 
 ## License
 
