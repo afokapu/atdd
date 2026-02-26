@@ -47,7 +47,7 @@ from atdd.coach.commands.inventory import RepositoryInventory
 from atdd.coach.commands.test_runner import TestRunner
 from atdd.coach.commands.registry import RegistryUpdater
 from atdd.coach.commands.initializer import ProjectInitializer
-from atdd.coach.commands.session import IssueManager
+from atdd.coach.commands.issue import IssueManager
 from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.commands.gate import ATDDGate
 from atdd.coach.commands.urn import URNCommand

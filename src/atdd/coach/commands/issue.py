@@ -766,7 +766,3 @@ class IssueManager:
         print("Sync not needed — GitHub Issues are the source of truth.")
         print("Use `atdd list` to see current issues.")
         return 0
-
-
-# Backward compat alias (E009)
-SessionManager = IssueManager

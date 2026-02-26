@@ -51,7 +51,7 @@ def test_issue_manager_methods_exist():
     When: Checking method availability
     Then: new, list, archive, update, close_wmbt, sync methods exist
     """
-    from atdd.coach.commands.session import IssueManager
+    from atdd.coach.commands.issue import IssueManager
 
     manager = IssueManager()
     required_methods = ["new", "list", "archive", "update", "close_wmbt", "sync"]
