@@ -288,40 +288,34 @@ class IssueManager:
             item_id = client.add_issue_to_project(parent_number)
             fields = client.get_project_fields()
 
-            # Set issue number (Project field: "Session Number")
-            if "Session Number" in fields:
-                client.set_project_field_number(
-                    item_id, fields["Session Number"]["id"], parent_number
-                )
-
-            # Set ATDD Status = INIT
-            if "ATDD Status" in fields:
-                options = fields["ATDD Status"].get("options", {})
+            # Set ATDD: Status = INIT
+            if "ATDD: Status" in fields:
+                options = fields["ATDD: Status"].get("options", {})
                 if "INIT" in options:
                     client.set_project_field_select(
-                        item_id, fields["ATDD Status"]["id"], options["INIT"]
+                        item_id, fields["ATDD: Status"]["id"], options["INIT"]
                     )
 
-            # Set issue type (Project field: "Session Type")
-            if "Session Type" in fields:
-                options = fields["Session Type"].get("options", {})
+            # Set issue type (Project field: "ATDD: Issue Type")
+            if "ATDD: Issue Type" in fields:
+                options = fields["ATDD: Issue Type"].get("options", {})
                 if issue_type in options:
                     client.set_project_field_select(
-                        item_id, fields["Session Type"]["id"], options[issue_type]
+                        item_id, fields["ATDD: Issue Type"]["id"], options[issue_type]
                     )
 
-            # Set ATDD Phase = Planner
-            if "ATDD Phase" in fields:
-                options = fields["ATDD Phase"].get("options", {})
+            # Set ATDD: Phase = Planner
+            if "ATDD: Phase" in fields:
+                options = fields["ATDD: Phase"].get("options", {})
                 if "Planner" in options:
                     client.set_project_field_select(
-                        item_id, fields["ATDD Phase"]["id"], options["Planner"]
+                        item_id, fields["ATDD: Phase"]["id"], options["Planner"]
                     )
 
             # E008: Set Train field if provided
-            if train and "Train" in fields:
+            if train and "ATDD: Train" in fields:
                 client.set_project_field_text(
-                    item_id, fields["Train"]["id"], train
+                    item_id, fields["ATDD: Train"]["id"], train
                 )
 
             print(f"  Added to Project with custom fields")
@@ -367,15 +361,15 @@ class IssueManager:
                 # Add to Project and set WMBT fields
                 try:
                     sub_item_id = client.add_issue_to_project(sub_number)
-                    if "WMBT ID" in fields:
+                    if "ATDD: WMBT ID" in fields:
                         client.set_project_field_text(
-                            sub_item_id, fields["WMBT ID"]["id"], wmbt_id
+                            sub_item_id, fields["ATDD: WMBT ID"]["id"], wmbt_id
                         )
-                    if "WMBT Step" in fields:
-                        step_options = fields["WMBT Step"].get("options", {})
+                    if "ATDD: WMBT Step" in fields:
+                        step_options = fields["ATDD: WMBT Step"].get("options", {})
                         if step_name in step_options:
                             client.set_project_field_select(
-                                sub_item_id, fields["WMBT Step"]["id"],
+                                sub_item_id, fields["ATDD: WMBT Step"]["id"],
                                 step_options[step_name],
                             )
                 except GitHubClientError as e:
@@ -530,11 +524,11 @@ class IssueManager:
         try:
             fields = client.get_project_fields()
             item_id = client.get_project_item_id(issue_number)
-            if item_id and "ATDD Status" in fields:
-                options = fields["ATDD Status"].get("options", {})
+            if item_id and "ATDD: Status" in fields:
+                options = fields["ATDD: Status"].get("options", {})
                 if "COMPLETE" in options:
                     client.set_project_field_select(
-                        item_id, fields["ATDD Status"]["id"], options["COMPLETE"]
+                        item_id, fields["ATDD: Status"]["id"], options["COMPLETE"]
                     )
         except GitHubClientError:
             pass
@@ -628,7 +622,7 @@ class IssueManager:
                 # Check if Train is already set on the project item
                 try:
                     field_values = client.get_project_item_field_values(item_id)
-                    current_train = (field_values.get("Train") or "").strip()
+                    current_train = (field_values.get("ATDD: Train") or "").strip()
                     if not current_train or current_train.upper() == "TBD":
                         print(f"Error: Train field required before transitioning to {status}")
                         print(f"  Current Train: {current_train or '(empty)'}")
@@ -645,22 +639,22 @@ class IssueManager:
             client.add_label(issue_number, [f"atdd:{status}"])
 
             # Update Project field
-            if "ATDD Status" in fields:
-                options = fields["ATDD Status"].get("options", {})
+            if "ATDD: Status" in fields:
+                options = fields["ATDD: Status"].get("options", {})
                 if status in options:
                     client.set_project_field_select(
-                        item_id, fields["ATDD Status"]["id"], options[status]
+                        item_id, fields["ATDD: Status"]["id"], options[status]
                     )
             updated.append(f"status: {status}")
 
         # Phase (Planner/Tester/Coder)
         if phase:
             phase_cap = phase.capitalize()
-            if "ATDD Phase" in fields:
-                options = fields["ATDD Phase"].get("options", {})
+            if "ATDD: Phase" in fields:
+                options = fields["ATDD: Phase"].get("options", {})
                 if phase_cap in options:
                     client.set_project_field_select(
-                        item_id, fields["ATDD Phase"]["id"], options[phase_cap]
+                        item_id, fields["ATDD: Phase"]["id"], options[phase_cap]
                     )
                     updated.append(f"phase: {phase_cap}")
                 else:
@@ -668,23 +662,25 @@ class IssueManager:
 
         # Text fields
         text_updates = {
-            "Branch": branch,
-            "Train": train,
-            "Feature URN": feature_urn,
-            "Archetypes": archetypes,
+            "ATDD: Branch": branch,
+            "ATDD: Train": train,
+            "ATDD: Feature URN": feature_urn,
+            "ATDD: Archetypes": archetypes,
         }
         for field_name, value in text_updates.items():
             if value and field_name in fields:
                 client.set_project_field_text(item_id, fields[field_name]["id"], value)
-                updated.append(f"{field_name.lower()}: {value}")
+                # Display the short name (strip "ATDD: " prefix)
+                display_name = field_name.removeprefix("ATDD: ").lower()
+                updated.append(f"{display_name}: {value}")
 
         # Complexity
         if complexity:
-            if "Complexity" in fields:
-                options = fields["Complexity"].get("options", {})
+            if "ATDD: Complexity" in fields:
+                options = fields["ATDD: Complexity"].get("options", {})
                 if complexity in options:
                     client.set_project_field_select(
-                        item_id, fields["Complexity"]["id"], options[complexity]
+                        item_id, fields["ATDD: Complexity"]["id"], options[complexity]
                     )
                     updated.append(f"complexity: {complexity}")
 

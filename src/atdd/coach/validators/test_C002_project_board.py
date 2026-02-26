@@ -41,15 +41,14 @@ def _get_client():
 # ---------------------------------------------------------------------------
 
 REQUIRED_FIELDS = [
-    "Session Number",
-    "ATDD Status",
-    "ATDD Phase",
-    "Session Type",
-    "Complexity",
-    "Archetypes",
-    "Branch",
-    "Train",
-    "Feature URN",
+    "ATDD: Status",
+    "ATDD: Phase",
+    "ATDD: Issue Type",
+    "ATDD: Complexity",
+    "ATDD: Archetypes",
+    "ATDD: Branch",
+    "ATDD: Train",
+    "ATDD: Feature URN",
 ]
 
 REQUIRED_STATUS_OPTIONS = {"INIT", "PLANNED", "RED", "GREEN", "REFACTOR", "COMPLETE", "BLOCKED"}
@@ -110,10 +109,10 @@ def test_atdd_status_field_has_required_options():
     except GitHubClientError as e:
         pytest.skip(f"Cannot query Project fields: {e}")
 
-    if "ATDD Status" not in fields:
+    if "ATDD: Status" not in fields:
         pytest.skip("ATDD Status field not found")
 
-    options = set(fields["ATDD Status"].get("options", {}).keys())
+    options = set(fields["ATDD: Status"].get("options", {}).keys())
     missing = REQUIRED_STATUS_OPTIONS - options
 
     assert not missing, (
@@ -143,10 +142,10 @@ def test_atdd_phase_field_has_required_options():
     except GitHubClientError as e:
         pytest.skip(f"Cannot query Project fields: {e}")
 
-    if "ATDD Phase" not in fields:
+    if "ATDD: Phase" not in fields:
         pytest.skip("ATDD Phase field not found")
 
-    options = set(fields["ATDD Phase"].get("options", {}).keys())
+    options = set(fields["ATDD: Phase"].get("options", {}).keys())
     missing = REQUIRED_PHASE_OPTIONS - options
 
     assert not missing, (
@@ -221,7 +220,7 @@ def test_issues_have_status_field_set():
     if not issues:
         pytest.skip("No issues found")
 
-    if "ATDD Status" not in fields:
+    if "ATDD: Status" not in fields:
         pytest.skip("ATDD Status field not configured")
 
     has_status = False
@@ -231,7 +230,7 @@ def test_issues_have_status_field_set():
             if not item_id:
                 continue
             values = client.get_project_item_field_values(item_id)
-            status = values.get("ATDD Status", "")
+            status = values.get("ATDD: Status", "")
             if status:
                 has_status = True
                 break

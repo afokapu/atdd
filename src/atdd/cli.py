@@ -406,13 +406,13 @@ Phase descriptions:
         help="Update issue Project fields and labels"
     )
     update_top_parser.add_argument("session_id", type=str, help="Issue number")
-    update_top_parser.add_argument("--status", "-s", type=str, help="ATDD Status (INIT/PLANNED/RED/GREEN/REFACTOR/COMPLETE/BLOCKED)")
-    update_top_parser.add_argument("--phase", "-p", type=str, help="ATDD Phase (Planner/Tester/Coder)")
-    update_top_parser.add_argument("--branch", "-b", type=str, help="Git branch name")
-    update_top_parser.add_argument("--train", type=str, help="Train URN")
-    update_top_parser.add_argument("--feature-urn", type=str, help="Feature URN")
-    update_top_parser.add_argument("--archetypes", type=str, help="Archetypes (comma-separated)")
-    update_top_parser.add_argument("--complexity", type=str, help="Complexity (e.g., 4-High)")
+    update_top_parser.add_argument("--status", "-s", type=str, help="ATDD: Status (INIT/PLANNED/RED/GREEN/REFACTOR/COMPLETE/BLOCKED)")
+    update_top_parser.add_argument("--phase", "-p", type=str, help="ATDD: Phase (Planner/Tester/Coder)")
+    update_top_parser.add_argument("--branch", "-b", type=str, help="ATDD: Branch name")
+    update_top_parser.add_argument("--train", type=str, help="ATDD: Train URN")
+    update_top_parser.add_argument("--feature-urn", type=str, help="ATDD: Feature URN")
+    update_top_parser.add_argument("--archetypes", type=str, help="ATDD: Archetypes (comma-separated)")
+    update_top_parser.add_argument("--complexity", type=str, help="ATDD: Complexity (e.g., 4-High)")
 
     # ----- atdd close-wmbt <issue_number> <wmbt_id> -----
     close_wmbt_top_parser = subparsers.add_parser(

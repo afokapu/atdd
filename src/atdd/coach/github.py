@@ -249,6 +249,26 @@ class GitHubClient:
             f'}}) {{ projectV2Item {{ id }} }} }}'
         )
 
+    def rename_project_field(self, field_id: str, new_name: str) -> None:
+        """Rename a Project v2 field in-place (preserves existing values)."""
+        self._graphql(
+            f'mutation {{ updateProjectV2Field(input: {{ '
+            f'fieldId: "{field_id}", name: "{new_name}" '
+            f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id name }} '
+            f'... on ProjectV2SingleSelectField {{ id name }} }} }} }}'
+        )
+        logger.info("Renamed field %s → %s", field_id, new_name)
+
+    def delete_project_field(self, field_id: str) -> None:
+        """Delete a Project v2 field."""
+        self._graphql(
+            f'mutation {{ deleteProjectV2Field(input: {{ '
+            f'fieldId: "{field_id}" '
+            f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id }} '
+            f'... on ProjectV2SingleSelectField {{ id }} }} }} }}'
+        )
+        logger.info("Deleted field %s", field_id)
+
     def get_project_fields(self) -> Dict[str, Any]:
         """Fetch all project fields with their IDs and option IDs."""
         if not self.project_id:

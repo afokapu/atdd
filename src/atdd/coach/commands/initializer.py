@@ -10,7 +10,7 @@ Creates the following structure:
 
 GitHub infrastructure (requires `gh` CLI):
     - Labels: atdd-session, atdd-wmbt, atdd:*, archetype:*, wagon:*
-    - Project v2: "ATDD Sessions" with 12 custom fields
+    - Project v2: "ATDD Sessions" with 11 custom fields
     - Workflow: .github/workflows/atdd-validate.yml
     - Config: project_id, project_number, repo in .atdd/config.yaml
 
@@ -378,8 +378,81 @@ class ProjectInitializer:
             pass
         return None
 
+    # v1 → v2 field migration map: old_name → new_name (None = delete)
+    _FIELD_MIGRATION: Dict[str, Optional[str]] = {
+        "Session Number": None,              # DELETE — redundant with GitHub issue number
+        "ATDD Status":    "ATDD: Status",
+        "ATDD Phase":     "ATDD: Phase",
+        "Session Type":   "ATDD: Issue Type",
+        "Complexity":     "ATDD: Complexity",
+        "Archetypes":     "ATDD: Archetypes",
+        "Branch":         "ATDD: Branch",
+        "Train":          "ATDD: Train",
+        "Feature URN":    "ATDD: Feature URN",
+        "WMBT ID":        "ATDD: WMBT ID",
+        "WMBT Step":      "ATDD: WMBT Step",
+        "WMBT Phase":     "ATDD: WMBT Phase",
+    }
+
+    def _query_project_field_names_and_ids(self, project_id: str) -> Dict[str, str]:
+        """Query existing project fields. Returns {name: field_id}."""
+        try:
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f",
+                 f'query={{ node(id: "{project_id}") {{ ... on ProjectV2 {{ '
+                 f'fields(first: 30) {{ nodes {{ '
+                 f'... on ProjectV2Field {{ id name }} '
+                 f'... on ProjectV2SingleSelectField {{ id name }} '
+                 f'}} }} }} }} }}'],
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                return {
+                    node["name"]: node["id"]
+                    for node in data["data"]["node"]["fields"]["nodes"]
+                    if node.get("name") and node.get("id")
+                }
+        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError):
+            pass
+        return {}
+
+    def _rename_project_field_raw(self, project_id: str, field_id: str, new_name: str) -> bool:
+        """Rename a project field via GraphQL. Returns True on success."""
+        mutation = (
+            f'mutation {{ updateProjectV2Field(input: {{ '
+            f'fieldId: "{field_id}", name: "{new_name}" '
+            f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id name }} '
+            f'... on ProjectV2SingleSelectField {{ id name }} }} }} }}'
+        )
+        try:
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f", f"query={mutation}"],
+                capture_output=True, text=True, timeout=10,
+            )
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
+
+    def _delete_project_field_raw(self, project_id: str, field_id: str) -> bool:
+        """Delete a project field via GraphQL. Returns True on success."""
+        mutation = (
+            f'mutation {{ deleteProjectV2Field(input: {{ '
+            f'fieldId: "{field_id}" '
+            f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id }} '
+            f'... on ProjectV2SingleSelectField {{ id }} }} }} }}'
+        )
+        try:
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f", f"query={mutation}"],
+                capture_output=True, text=True, timeout=10,
+            )
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
+
     def _create_project_fields(self, project_id: str) -> int:
-        """Create custom fields on a Project v2 from schema. Returns count created."""
+        """Create/migrate custom fields on a Project v2 from schema. Returns count changed."""
         schema_path = self.package_root / "schemas" / "project_fields.schema.json"
         if not schema_path.exists():
             return 0
@@ -387,35 +460,41 @@ class ProjectInitializer:
         with open(schema_path) as f:
             schema = json.load(f)
 
-        # Get existing fields to skip duplicates
-        try:
-            from atdd.coach.github import GitHubClient
-            client = GitHubClient.__new__(GitHubClient)
-            client.repo = ""
-            client.project_id = project_id
-            # Direct GraphQL call
-            result = subprocess.run(
-                ["gh", "api", "graphql", "-f",
-                 f'query={{ node(id: "{project_id}") {{ ... on ProjectV2 {{ '
-                 f'fields(first: 30) {{ nodes {{ '
-                 f'... on ProjectV2Field {{ name }} '
-                 f'... on ProjectV2SingleSelectField {{ name }} '
-                 f'}} }} }} }} }}'],
-                capture_output=True, text=True, timeout=15,
-            )
-            existing_fields = set()
-            if result.returncode == 0:
-                data = json.loads(result.stdout)
-                for node in data["data"]["node"]["fields"]["nodes"]:
-                    if node.get("name"):
-                        existing_fields.add(node["name"])
-        except Exception:
-            existing_fields = set()
+        # ------------------------------------------------------------------
+        # Pass 1: Migrate — rename old-name fields, delete deprecated ones
+        # ------------------------------------------------------------------
+        existing = self._query_project_field_names_and_ids(project_id)
+        migrated = 0
 
+        for old_name, new_name in self._FIELD_MIGRATION.items():
+            if old_name not in existing:
+                continue
+            field_id = existing[old_name]
+
+            if new_name is None:
+                # Delete deprecated field
+                if self._delete_project_field_raw(project_id, field_id):
+                    print(f"    Deleted field: {old_name}")
+                    migrated += 1
+            elif old_name != new_name and new_name not in existing:
+                # Rename (preserves values)
+                if self._rename_project_field_raw(project_id, field_id, new_name):
+                    print(f"    Renamed field: {old_name} -> {new_name}")
+                    migrated += 1
+
+        # ------------------------------------------------------------------
+        # Pass 2: Re-query after migration
+        # ------------------------------------------------------------------
+        if migrated:
+            existing = self._query_project_field_names_and_ids(project_id)
+        existing_names = set(existing.keys())
+
+        # ------------------------------------------------------------------
+        # Pass 3: Create any still-missing fields from schema
+        # ------------------------------------------------------------------
         created = 0
         defs = schema.get("$defs", {})
 
-        # Process parent and sub-issue fields
         for scope in ["parent_fields", "sub_issue_fields"]:
             scope_def = defs.get(scope, {})
             for field_key, field_spec in scope_def.get("properties", {}).items():
@@ -423,7 +502,7 @@ class ProjectInitializer:
                 name = field_props.get("name", {}).get("const")
                 data_type = field_props.get("data_type", {}).get("const")
 
-                if not name or not data_type or name in existing_fields:
+                if not name or not data_type or name in existing_names:
                     continue
 
                 if data_type == "SINGLE_SELECT":
@@ -460,7 +539,7 @@ class ProjectInitializer:
                 except (subprocess.TimeoutExpired, FileNotFoundError):
                     pass
 
-        return created
+        return migrated + created
 
     def _write_workflow(self, repo: str) -> bool:
         """Write .github/workflows/atdd-validate.yml."""

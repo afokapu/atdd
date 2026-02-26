@@ -7,7 +7,7 @@
   "required": ["version", "project", "fields"],
   "properties": {
     "version": {
-      "const": "1.0",
+      "const": "2.0",
       "description": "Schema version"
     },
     "project": {
@@ -37,12 +37,11 @@
   "$defs": {
     "parent_fields": {
       "type": "object",
-      "description": "Custom fields on parent issues (sessions). These are session-level metadata queryable via GraphQL.",
+      "description": "Custom fields on parent issues. These are issue-level metadata queryable via GraphQL.",
       "required": [
-        "session_number",
         "atdd_status",
         "atdd_phase",
-        "session_type",
+        "issue_type",
         "complexity",
         "archetypes",
         "branch",
@@ -50,22 +49,11 @@
         "feature_urn"
       ],
       "properties": {
-        "session_number": {
-          "type": "object",
-          "description": "Issue number used as session identifier",
-          "properties": {
-            "name": { "const": "Session Number" },
-            "data_type": { "const": "NUMBER" },
-            "required": { "const": true },
-            "description": { "const": "GitHub issue number serving as session ID" }
-          },
-          "required": ["name", "data_type"]
-        },
         "atdd_status": {
           "type": "object",
           "description": "Current ATDD lifecycle status",
           "properties": {
-            "name": { "const": "ATDD Status" },
+            "name": { "const": "ATDD: Status" },
             "data_type": { "const": "SINGLE_SELECT" },
             "required": { "const": true },
             "options": {
@@ -90,7 +78,7 @@
           "type": "object",
           "description": "Current agent phase (which agent owns the work)",
           "properties": {
-            "name": { "const": "ATDD Phase" },
+            "name": { "const": "ATDD: Phase" },
             "data_type": { "const": "SINGLE_SELECT" },
             "required": { "const": true },
             "options": {
@@ -107,11 +95,11 @@
           },
           "required": ["name", "data_type", "options"]
         },
-        "session_type": {
+        "issue_type": {
           "type": "object",
-          "description": "Type of session determining required workflow phases",
+          "description": "Type of issue determining required workflow phases",
           "properties": {
-            "name": { "const": "Session Type" },
+            "name": { "const": "ATDD: Issue Type" },
             "data_type": { "const": "SINGLE_SELECT" },
             "required": { "const": true },
             "options": {
@@ -135,7 +123,7 @@
           "type": "object",
           "description": "Complexity rating for effort estimation",
           "properties": {
-            "name": { "const": "Complexity" },
+            "name": { "const": "ATDD: Complexity" },
             "data_type": { "const": "SINGLE_SELECT" },
             "required": { "const": true },
             "options": {
@@ -158,7 +146,7 @@
           "type": "object",
           "description": "Affected infrastructure archetypes (comma-separated)",
           "properties": {
-            "name": { "const": "Archetypes" },
+            "name": { "const": "ATDD: Archetypes" },
             "data_type": { "const": "TEXT" },
             "required": { "const": true },
             "validation": {
@@ -177,9 +165,9 @@
         },
         "branch": {
           "type": "object",
-          "description": "Git branch associated with this session",
+          "description": "Git branch associated with this issue",
           "properties": {
-            "name": { "const": "Branch" },
+            "name": { "const": "ATDD: Branch" },
             "data_type": { "const": "TEXT" },
             "required": { "const": false },
             "description": { "const": "Git branch name. TBD until branch is created." }
@@ -188,9 +176,9 @@
         },
         "train": {
           "type": "object",
-          "description": "Train URN this session belongs to",
+          "description": "Train URN this issue belongs to",
           "properties": {
-            "name": { "const": "Train" },
+            "name": { "const": "ATDD: Train" },
             "data_type": { "const": "TEXT" },
             "required": { "const": false },
             "validation": {
@@ -204,9 +192,9 @@
         },
         "feature_urn": {
           "type": "object",
-          "description": "Feature URN this session implements",
+          "description": "Feature URN this issue implements",
           "properties": {
-            "name": { "const": "Feature URN" },
+            "name": { "const": "ATDD: Feature URN" },
             "data_type": { "const": "TEXT" },
             "required": { "const": false },
             "validation": {
@@ -222,14 +210,14 @@
     },
     "sub_issue_fields": {
       "type": "object",
-      "description": "Custom fields on WMBT sub-issues. Sub-issues inherit session context from parent — no duplication of train, feature, branch, etc.",
+      "description": "Custom fields on WMBT sub-issues. Sub-issues inherit issue context from parent — no duplication of train, feature, branch, etc.",
       "required": ["wmbt_id", "wmbt_step", "wmbt_phase"],
       "properties": {
         "wmbt_id": {
           "type": "object",
           "description": "WMBT identifier (e.g., D001, E003, C002)",
           "properties": {
-            "name": { "const": "WMBT ID" },
+            "name": { "const": "ATDD: WMBT ID" },
             "data_type": { "const": "TEXT" },
             "required": { "const": true },
             "validation": {
@@ -245,7 +233,7 @@
           "type": "object",
           "description": "WMBT lifecycle step category",
           "properties": {
-            "name": { "const": "WMBT Step" },
+            "name": { "const": "ATDD: WMBT Step" },
             "data_type": { "const": "SINGLE_SELECT" },
             "required": { "const": true },
             "options": {
@@ -269,7 +257,7 @@
           "type": "object",
           "description": "Current ATDD phase of this WMBT",
           "properties": {
-            "name": { "const": "WMBT Phase" },
+            "name": { "const": "ATDD: WMBT Phase" },
             "data_type": { "const": "SINGLE_SELECT" },
             "required": { "const": true },
             "options": {

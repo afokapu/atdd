@@ -100,7 +100,7 @@ def test_issues_have_train_field():
         pytest.skip("No issues found")
 
     fields = client.get_project_fields()
-    if "Train" not in fields:
+    if "ATDD: Train" not in fields:
         pytest.skip("Train field not configured in Project")
 
     violations = []
@@ -121,8 +121,8 @@ def test_issues_have_train_field():
         except GitHubClientError:
             continue
 
-        train_value = (values.get("Train") or "").strip()
-        status_value = (values.get("ATDD Status") or "UNKNOWN").strip().upper()
+        train_value = (values.get("ATDD: Train") or "").strip()
+        status_value = (values.get("ATDD: Status") or "UNKNOWN").strip().upper()
 
         is_empty = not train_value or train_value.upper() == "TBD"
 
@@ -183,7 +183,7 @@ def test_issue_train_references_valid_train_id():
         pytest.skip("No trains found in plan/_trains.yaml")
 
     fields = client.get_project_fields()
-    if "Train" not in fields:
+    if "ATDD: Train" not in fields:
         pytest.skip("Train field not configured in Project")
 
     invalid = []
@@ -203,7 +203,7 @@ def test_issue_train_references_valid_train_id():
         except GitHubClientError:
             continue
 
-        train_value = (values.get("Train") or "").strip()
+        train_value = (values.get("ATDD: Train") or "").strip()
 
         # Skip empty/TBD — handled by SPEC-SESSION-VAL-0050
         if not train_value or train_value.upper() == "TBD":
