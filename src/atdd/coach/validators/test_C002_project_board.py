@@ -179,22 +179,23 @@ def test_issues_are_in_project():
     if not issues:
         pytest.skip("No issues found")
 
+    # Verify we can actually query the Project v2 API
+    try:
+        fields = client.get_project_fields()
+    except GitHubClientError as e:
+        pytest.skip(
+            f"Cannot query Project v2 API (needs 'project' scope): {e}. "
+            f"Run locally with `gh auth login`."
+        )
+
     in_project = 0
-    api_errors = 0
     for issue in issues:
         try:
             item_id = client.get_project_item_id(issue["number"])
             if item_id:
                 in_project += 1
         except GitHubClientError:
-            api_errors += 1
             continue
-
-    if api_errors == len(issues) and in_project == 0:
-        pytest.skip(
-            f"Cannot query Project v2 API for any of {len(issues)} issues "
-            f"(needs 'project' scope). Run locally with `gh auth login`."
-        )
 
     assert in_project > 0, (
         f"No issues found in Project board. "
