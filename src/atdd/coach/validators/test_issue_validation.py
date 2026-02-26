@@ -104,7 +104,10 @@ def test_issues_have_train_field():
     if not issues:
         pytest.skip("No issues found")
 
-    fields = client.get_project_fields()
+    try:
+        fields = client.get_project_fields()
+    except GitHubClientError as e:
+        pytest.skip(f"Cannot query Project v2 fields (needs 'project' scope): {e}")
     if "ATDD: Train" not in fields:
         pytest.skip("Train field not configured in Project")
 
