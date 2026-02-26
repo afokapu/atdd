@@ -134,7 +134,7 @@ gate_tests:
     archetype: "all"
     command: "atdd validate coach"
     expected: "PASS"
-    atdd_validator: "src/atdd/coach/validators/test_session_validation.py"
+    atdd_validator: "src/atdd/coach/validators/test_issue_validation.py"
     status: "TODO"
 
   # Archetype-specific gates (add based on declared archetypes)
@@ -308,7 +308,7 @@ Reference: src/atdd/coach/conventions/issue.convention.yaml
 
 | ID | Phase | Archetype | Command | Expected | ATDD Validator | Status |
 |----|-------|-----------|---------|----------|----------------|--------|
-| GT-001 | design | all | `atdd validate coach` | PASS | `src/atdd/coach/validators/test_session_validation.py` | TODO |
+| GT-001 | design | all | `atdd validate coach` | PASS | `src/atdd/coach/validators/test_issue_validation.py` | TODO |
 | GT-010 | implementation | {archetype} | `{command}` | PASS | `{atdd_validator_path}` | TODO |
 | GT-900 | completion | all | `atdd validate` | PASS | `src/atdd/` | TODO |
 

@@ -892,8 +892,8 @@ gate_tests:
         archetype: "all"
         command: "atdd validate coach"
         expected: "PASS"
-        atdd_validator: "atdd/coach/validators/test_session_validation.py"
-        description: "Session structure compliance"
+        atdd_validator: "atdd/coach/validators/test_issue_validation.py"
+        description: "Issue structure compliance"
 
     completion_phase:
       - id: "GT-900"
