@@ -4,14 +4,11 @@ Project initializer for ATDD structure in consumer repos.
 Creates the following structure:
     consumer-repo/
     ├── CLAUDE.md                (with managed ATDD block)
-    ├── atdd-sessions/
-    │   ├── ISSUE-TEMPLATE.md  (copied from package)
-    │   └── archive/
     └── .atdd/
-        ├── manifest.yaml        (machine-readable session tracking)
+        ├── manifest.yaml        (machine-readable issue tracking)
         └── config.yaml          (agent sync + GitHub integration config)
 
-GitHub infrastructure (if `gh` CLI available):
+GitHub infrastructure (requires `gh` CLI):
     - Labels: atdd-session, atdd-wmbt, atdd:*, archetype:*, wagon:*
     - Project v2: "ATDD Sessions" with 12 custom fields
     - Workflow: .github/workflows/atdd-validate.yml
@@ -25,7 +22,6 @@ Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import json
 import logging
-import shutil
 import subprocess
 from datetime import date
 from pathlib import Path
@@ -47,19 +43,16 @@ class ProjectInitializer:
             target_dir: Target directory for initialization. Defaults to cwd.
         """
         self.target_dir = target_dir or Path.cwd()
-        self.sessions_dir = self.target_dir / "atdd-sessions"
-        self.archive_dir = self.sessions_dir / "archive"
         self.atdd_config_dir = self.target_dir / ".atdd"
         self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
-        self.template_source = self.package_root / "templates" / "ISSUE-TEMPLATE.md"
 
     def init(self, force: bool = False) -> int:
         """
-        Create atdd-sessions/ and .atdd/ structure.
+        Bootstrap .atdd/ config and GitHub infrastructure.
 
         Args:
             force: If True, overwrite existing files.
@@ -68,31 +61,15 @@ class ProjectInitializer:
             0 on success, 1 on error.
         """
         # Check if already initialized
-        if self.sessions_dir.exists() and not force:
+        if self.atdd_config_dir.exists() and not force:
             print(f"ATDD already initialized at {self.target_dir}")
             print("Use --force to reinitialize")
             return 1
 
         try:
-            # Create atdd-sessions/ directory
-            self.sessions_dir.mkdir(parents=True, exist_ok=True)
-            print(f"Created: {self.sessions_dir}")
-
-            # Create archive subdirectory
-            self.archive_dir.mkdir(parents=True, exist_ok=True)
-            print(f"Created: {self.archive_dir}")
-
             # Create .atdd/ config directory
             self.atdd_config_dir.mkdir(parents=True, exist_ok=True)
             print(f"Created: {self.atdd_config_dir}")
-
-            # Copy ISSUE-TEMPLATE.md to atdd-sessions/
-            template_dest = self.sessions_dir / "ISSUE-TEMPLATE.md"
-            if self.template_source.exists():
-                shutil.copy2(self.template_source, template_dest)
-                print(f"Copied: ISSUE-TEMPLATE.md -> {template_dest}")
-            else:
-                print(f"Warning: Template not found at {self.template_source}")
 
             # Create manifest.yaml
             self._create_manifest(force)
@@ -113,9 +90,6 @@ class ProjectInitializer:
             print("ATDD initialized successfully!")
             print("=" * 60)
             print("\nStructure created:")
-            print(f"  {self.sessions_dir}/")
-            print(f"  {self.sessions_dir}/archive/")
-            print(f"  {self.sessions_dir}/ISSUE-TEMPLATE.md")
             print(f"  {self.atdd_config_dir}/")
             print(f"  {self.manifest_file}")
             print(f"  {self.config_file}")
@@ -144,8 +118,7 @@ class ProjectInitializer:
             return
 
         manifest = {
-            "version": "1.0",
-            "sessions_dir": "atdd-sessions",
+            "version": "2.0",
             "created": date.today().isoformat(),
             "sessions": [],
         }
@@ -194,7 +167,7 @@ class ProjectInitializer:
 
     def is_initialized(self) -> bool:
         """Check if ATDD is already initialized in target directory."""
-        return self.sessions_dir.exists() and self.manifest_file.exists()
+        return self.atdd_config_dir.exists() and self.manifest_file.exists()
 
     # -------------------------------------------------------------------------
     # E007: GitHub infrastructure bootstrap

@@ -792,23 +792,23 @@ Phase descriptions:
     # atdd new <slug> (shorthand for session new)
     elif args.command == "new":
         manager = IssueManager()
-        return manager.new(slug=args.slug, session_type=args.type, train=getattr(args, 'train', None))
+        return manager.new(slug=args.slug, issue_type=args.type, train=getattr(args, 'train', None))
 
     # atdd list (top-level shorthand)
     elif args.command == "list":
         manager = IssueManager()
         return manager.list()
 
-    # atdd archive <session_id> (top-level shorthand)
+    # atdd archive <issue_id> (top-level shorthand)
     elif args.command == "archive":
         manager = IssueManager()
-        return manager.archive(session_id=args.session_id)
+        return manager.archive(issue_id=args.session_id)
 
-    # atdd update <session_id> (top-level shorthand)
+    # atdd update <issue_id> (top-level shorthand)
     elif args.command == "update":
         manager = IssueManager()
         return manager.update(
-            session_id=args.session_id,
+            issue_id=args.session_id,
             status=args.status, phase=args.phase,
             branch=args.branch, train=getattr(args, 'train', None),
             feature_urn=getattr(args, 'feature_urn', None),
@@ -816,11 +816,11 @@ Phase descriptions:
             complexity=getattr(args, 'complexity', None),
         )
 
-    # atdd close-wmbt <session_id> <wmbt_id> (top-level shorthand)
+    # atdd close-wmbt <issue_id> <wmbt_id> (top-level shorthand)
     elif args.command == "close-wmbt":
         manager = IssueManager()
         return manager.close_wmbt(
-            session_id=args.session_id,
+            issue_id=args.session_id,
             wmbt_id=args.wmbt_id,
             force=args.force,
         )

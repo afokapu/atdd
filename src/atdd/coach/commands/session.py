@@ -2,20 +2,21 @@
 Issue management for ATDD tracking via GitHub Issues.
 
 Creates GitHub Issues with Project v2 custom fields and WMBT sub-issues.
-Legacy: also supports local issue files in atdd-sessions/.
+Requires `gh` CLI authenticated with `project` scope.
 
 Usage:
     atdd new my-feature                            # Create GitHub issue + WMBT sub-issues
     atdd new my-feature --type migration            # Specify issue type
     atdd list                                      # List all issues
-    atdd archive 01                                # Archive issue
+    atdd archive 11                                # Archive issue
+    atdd update 11 --status RED                    # Update issue fields
+    atdd close-wmbt 11 D005                        # Close WMBT sub-issue
 
 Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import json
 import logging
 import re
-import shutil
 from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -56,29 +57,25 @@ class IssueManager:
         Initialize the IssueManager.
 
         Args:
-            target_dir: Target directory containing atdd-sessions/. Defaults to cwd.
+            target_dir: Target directory containing .atdd/ config. Defaults to cwd.
         """
         self.target_dir = target_dir or Path.cwd()
-        self.sessions_dir = self.target_dir / "atdd-sessions"
-        self.archive_dir = self.sessions_dir / "archive"
         self.atdd_config_dir = self.target_dir / ".atdd"
         self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
-        self.template_source = self.package_root / "templates" / "ISSUE-TEMPLATE.md"
         self.wmbt_template_source = self.package_root / "templates" / "WMBT-SUBISSUE-TEMPLATE.md"
 
     def _check_initialized(self) -> bool:
-        """Check if ATDD is initialized."""
-        if not self.sessions_dir.exists():
-            print(f"Error: ATDD not initialized. Run 'atdd init' first.")
-            print(f"Expected: {self.sessions_dir}")
+        """Check if ATDD is initialized with GitHub integration."""
+        if not self.config_file.exists():
+            print("Error: ATDD not initialized. Run 'atdd init' first.")
+            print(f"Expected: {self.config_file}")
             return False
-        if not self.manifest_file.exists():
-            print(f"Error: Manifest not found. Run 'atdd init' first.")
-            print(f"Expected: {self.manifest_file}")
+        if not self._has_github_config():
+            print("Error: GitHub integration not configured. Run 'atdd init' first.")
             return False
         return True
 
@@ -91,36 +88,6 @@ class IssueManager:
         """Save the manifest.yaml file."""
         with open(self.manifest_file, "w") as f:
             yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
-
-    def _get_next_session_number(self, manifest: Dict[str, Any]) -> str:
-        """Get the next available session number."""
-        sessions = manifest.get("sessions", [])
-        if not sessions:
-            return "01"
-
-        # Find the highest session number
-        max_num = 0
-        for session in sessions:
-            session_id = session.get("id", "00")
-            try:
-                num = int(session_id)
-                if num > max_num:
-                    max_num = num
-            except ValueError:
-                continue
-
-        # Also check for session files not in manifest
-        for f in self.sessions_dir.glob("SESSION-*.md"):
-            match = re.match(r"SESSION-(\d+)-", f.name)
-            if match:
-                try:
-                    num = int(match.group(1))
-                    if num > max_num:
-                        max_num = num
-                except ValueError:
-                    continue
-
-        return f"{max_num + 1:02d}"
 
     def _slugify(self, text: str) -> str:
         """Convert text to kebab-case slug."""
@@ -231,18 +198,16 @@ class IssueManager:
 
         return wmbts
 
-    def new(self, slug: str, session_type: str = "implementation", train: Optional[str] = None) -> int:
+    def new(self, slug: str, issue_type: str = "implementation", train: Optional[str] = None) -> int:
         """
-        Create new session.
+        Create new issue.
 
-        If GitHub integration is configured (.atdd/config.yaml has github section),
-        creates a parent GitHub Issue + WMBT sub-issues with Project v2 fields.
-        Otherwise, falls back to creating a local session file.
+        Creates a parent GitHub Issue + WMBT sub-issues with Project v2 fields.
 
         Args:
-            slug: Session slug (will be converted to kebab-case).
-            session_type: Type of session (implementation, migration, etc.).
-            train: Optional train ID to assign to the session.
+            slug: Issue slug (will be converted to kebab-case).
+            issue_type: Type of issue (implementation, migration, etc.).
+            train: Optional train ID to assign to the issue.
 
         Returns:
             0 on success, 1 on error.
@@ -250,9 +215,9 @@ class IssueManager:
         if not self._check_initialized():
             return 1
 
-        # Validate session type
-        if session_type not in self.VALID_TYPES:
-            print(f"Error: Invalid session type '{session_type}'")
+        # Validate issue type
+        if issue_type not in self.VALID_TYPES:
+            print(f"Error: Invalid issue type '{issue_type}'")
             print(f"Valid types: {', '.join(sorted(self.VALID_TYPES))}")
             return 1
 
@@ -262,13 +227,9 @@ class IssueManager:
             print("Error: Invalid slug - results in empty string")
             return 1
 
-        # Route to GitHub or local
-        if self._has_github_config():
-            return self._new_github_issue(slug, session_type, train=train)
-        else:
-            return self._new_local_file(slug, session_type)
+        return self._new_github_issue(slug, issue_type, train=train)
 
-    def _new_github_issue(self, slug: str, session_type: str, train: Optional[str] = None) -> int:
+    def _new_github_issue(self, slug: str, issue_type: str, train: Optional[str] = None) -> int:
         """Create a GitHub Issue with WMBT sub-issues."""
         from atdd.coach.github import GitHubClient, ProjectConfig, GitHubClientError
 
@@ -295,7 +256,7 @@ class IssueManager:
             f"|-------|-------|\n"
             f"| Date | `{today}` |\n"
             f"| Status | `INIT` |\n"
-            f"| Type | `{session_type}` |\n"
+            f"| Type | `{issue_type}` |\n"
             f"| Branch | TBD |\n"
             f"| Archetypes | TBD |\n"
             f"| Train | {train_display} |\n"
@@ -344,9 +305,9 @@ class IssueManager:
             # Set Session Type
             if "Session Type" in fields:
                 options = fields["Session Type"].get("options", {})
-                if session_type in options:
+                if issue_type in options:
                     client.set_project_field_select(
-                        item_id, fields["Session Type"]["id"], options[session_type]
+                        item_id, fields["Session Type"]["id"], options[issue_type]
                     )
 
             # Set ATDD Phase = Planner
@@ -368,7 +329,7 @@ class IssueManager:
             print(f"  Warning: Could not add to Project: {e}")
 
         # Discover WMBTs from plan YAML
-        wagon = slug  # Default: wagon slug = session slug
+        wagon = slug  # Default: wagon slug = issue slug
         wmbts = self._discover_wmbts(wagon)
 
         wmbt_count = 0
@@ -424,95 +385,25 @@ class IssueManager:
 
         # Update manifest
         manifest = self._load_manifest()
-        session_entry = {
+        issue_entry = {
             "id": f"{parent_number:02d}" if parent_number < 100 else str(parent_number),
             "slug": slug,
             "file": None,
             "issue_number": parent_number,
-            "type": session_type,
+            "type": issue_type,
             "status": "INIT",
             "created": today,
             "archived": None,
         }
         if "sessions" not in manifest:
             manifest["sessions"] = []
-        manifest["sessions"].append(session_entry)
+        manifest["sessions"].append(issue_entry)
         self._save_manifest(manifest)
 
         print(f"\nCreated #{parent_number} with {wmbt_count} WMBTs")
         print(f"  Repo: {github_config['repo']}")
-        print(f"  Type: {session_type}")
+        print(f"  Type: {issue_type}")
         print(f"  Status: INIT")
-
-        return 0
-
-    def _new_local_file(self, slug: str, session_type: str) -> int:
-        """Create a local session file (legacy path)."""
-        # Load manifest
-        manifest = self._load_manifest()
-
-        # Get next session number
-        session_num = self._get_next_session_number(manifest)
-
-        # Generate filename
-        filename = f"SESSION-{session_num}-{slug}.md"
-        session_path = self.sessions_dir / filename
-
-        if session_path.exists():
-            print(f"Error: Session already exists: {session_path}")
-            return 1
-
-        # Read template
-        if not self.template_source.exists():
-            print(f"Error: Template not found: {self.template_source}")
-            return 1
-
-        template_content = self.template_source.read_text()
-
-        # Replace placeholders in template
-        today = date.today().isoformat()
-        title = slug.replace("-", " ").title()
-
-        # Replace frontmatter placeholders
-        content = template_content
-        content = re.sub(r'session:\s*"\{NN\}"', f'session: "{session_num}"', content)
-        content = re.sub(r'title:\s*"\{Title\}"', f'title: "{title}"', content)
-        content = re.sub(r'date:\s*"\{YYYY-MM-DD\}"', f'date: "{today}"', content)
-        content = re.sub(r'type:\s*"\{type\}"', f'type: "{session_type}"', content)
-
-        # Replace markdown header
-        content = re.sub(
-            r"# SESSION-\{NN\}: \{Title\}",
-            f"# SESSION-{session_num}: {title}",
-            content,
-        )
-
-        # Write session file
-        session_path.write_text(content)
-        print(f"Created: {session_path}")
-
-        # Update manifest
-        session_entry = {
-            "id": session_num,
-            "slug": slug,
-            "file": filename,
-            "type": session_type,
-            "status": "INIT",
-            "created": today,
-            "archived": None,
-        }
-
-        if "sessions" not in manifest:
-            manifest["sessions"] = []
-        manifest["sessions"].append(session_entry)
-
-        self._save_manifest(manifest)
-        print(f"Updated: {self.manifest_file}")
-
-        print(f"\nSession created: {filename}")
-        print(f"  Type: {session_type}")
-        print(f"  Status: INIT")
-        print(f"\nNext: Edit {session_path} and update status to PLANNED")
 
         return 0
 
@@ -521,16 +412,14 @@ class IssueManager:
     # -------------------------------------------------------------------------
 
     def list(self) -> int:
-        """List sessions. Uses GitHub API if configured, else manifest."""
+        """List issues from GitHub."""
         if not self._check_initialized():
             return 1
 
-        if self._has_github_config():
-            return self._list_github()
-        return self._list_local()
+        return self._list_github()
 
     def _list_github(self) -> int:
-        """List sessions from GitHub Issues with sub-issue progress."""
+        """List issues from GitHub with sub-issue progress."""
         from atdd.coach.github import GitHubClientError
 
         try:
@@ -541,12 +430,12 @@ class IssueManager:
             return 1
 
         if not issues:
-            print("No sessions found.")
+            print("No issues found.")
             print("Create one with: atdd new my-feature")
             return 0
 
         print("\n" + "=" * 80)
-        print("ATDD Sessions")
+        print("ATDD Issues")
         print("=" * 80)
         print(f"{'#':<6} {'Status':<12} {'Progress':<10} {'Title':<50}")
         print("-" * 80)
@@ -575,69 +464,28 @@ class IssueManager:
             print(f"#{num:<5} {status:<12} {progress:<10} {title}")
 
         print("-" * 80)
-        print(f"Total: {len(issues)} sessions")
-        return 0
-
-    def _list_local(self) -> int:
-        """List sessions from manifest (legacy)."""
-        manifest = self._load_manifest()
-        sessions = manifest.get("sessions", [])
-
-        if not sessions:
-            print("No sessions found.")
-            print("Create one with: atdd new my-feature")
-            return 0
-
-        print("\n" + "=" * 70)
-        print("ATDD Sessions")
-        print("=" * 70)
-        print(f"{'ID':<4} {'Status':<10} {'Type':<15} {'File':<40}")
-        print("-" * 70)
-
-        active = [s for s in sessions if not s.get("archived")]
-        archived = [s for s in sessions if s.get("archived")]
-
-        for session in active:
-            sid = session.get("id", "??")
-            status = session.get("status", "UNKNOWN")
-            stype = session.get("type", "unknown")
-            fname = session.get("file") or f"#{session.get('issue_number', '?')}"
-            print(f"{sid:<4} {status:<10} {stype:<15} {fname:<40}")
-
-        if archived:
-            print("\n--- Archived ---")
-            for session in archived:
-                sid = session.get("id", "??")
-                status = session.get("status", "UNKNOWN")
-                stype = session.get("type", "unknown")
-                fname = session.get("file") or f"#{session.get('issue_number', '?')}"
-                print(f"{sid:<4} {status:<10} {stype:<15} {fname:<40}")
-
-        print("-" * 70)
-        print(f"Total: {len(sessions)} sessions ({len(active)} active, {len(archived)} archived)")
+        print(f"Total: {len(issues)} issues")
         return 0
 
     # -------------------------------------------------------------------------
     # E003: archive
     # -------------------------------------------------------------------------
 
-    def archive(self, session_id: str) -> int:
-        """Archive a session. Closes GitHub issue + sub-issues if configured."""
+    def archive(self, issue_id: str) -> int:
+        """Archive an issue. Closes parent + all sub-issues on GitHub."""
         if not self._check_initialized():
             return 1
 
-        if self._has_github_config():
-            return self._archive_github(session_id)
-        return self._archive_local(session_id)
+        return self._archive_github(issue_id)
 
-    def _archive_github(self, session_id: str) -> int:
+    def _archive_github(self, issue_id: str) -> int:
         """Close parent issue + all sub-issues on GitHub."""
         from atdd.coach.github import GitHubClientError
 
         try:
-            issue_number = int(session_id)
+            issue_number = int(issue_id)
         except ValueError:
-            print(f"Error: Invalid issue number '{session_id}'")
+            print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
@@ -670,7 +518,6 @@ class IssueManager:
 
         # Swap label to atdd:COMPLETE
         try:
-            # Remove existing phase labels
             labels = [l["name"] for l in issue.get("labels", [])]
             phase_labels = [l for l in labels if l.startswith("atdd:") and l != "atdd-session"]
             if phase_labels:
@@ -706,63 +553,6 @@ class IssueManager:
               f"{total_subs} total")
         return 0
 
-    def _archive_local(self, session_id: str) -> int:
-        """Move local session file to archive/ (legacy)."""
-        try:
-            session_num = int(session_id)
-            session_id_normalized = f"{session_num:02d}"
-        except ValueError:
-            print(f"Error: Invalid session ID '{session_id}'")
-            return 1
-
-        manifest = self._load_manifest()
-        sessions = manifest.get("sessions", [])
-
-        session_entry = None
-        session_index = None
-        for i, s in enumerate(sessions):
-            if s.get("id") == session_id_normalized:
-                session_entry = s
-                session_index = i
-                break
-
-        if session_entry is None:
-            print(f"Error: Session {session_id_normalized} not found in manifest")
-            return 1
-
-        if session_entry.get("archived"):
-            print(f"Error: Session {session_id_normalized} is already archived")
-            return 1
-
-        filename = session_entry.get("file")
-        if not filename:
-            print(f"Error: No file for session {session_id_normalized} (GitHub issue?)")
-            return 1
-
-        session_path = self.sessions_dir / filename
-        if not session_path.exists():
-            pattern = f"SESSION-{session_id_normalized}-*.md"
-            matches = list(self.sessions_dir.glob(pattern))
-            if matches:
-                session_path = matches[0]
-                filename = session_path.name
-            else:
-                print(f"Error: Session file not found: {filename}")
-                return 1
-
-        self.archive_dir.mkdir(parents=True, exist_ok=True)
-        archive_path = self.archive_dir / filename
-        shutil.move(str(session_path), str(archive_path))
-        print(f"Moved: {session_path} -> {archive_path}")
-
-        session_entry["archived"] = date.today().isoformat()
-        session_entry["file"] = f"archive/{filename}"
-        manifest["sessions"][session_index] = session_entry
-        self._save_manifest(manifest)
-        print(f"Updated: {self.manifest_file}")
-        print(f"\nSession {session_id_normalized} archived successfully")
-        return 0
-
     # -------------------------------------------------------------------------
     # E004: update
     # -------------------------------------------------------------------------
@@ -780,7 +570,7 @@ class IssueManager:
 
     def update(
         self,
-        session_id: str,
+        issue_id: str,
         status: Optional[str] = None,
         phase: Optional[str] = None,
         branch: Optional[str] = None,
@@ -789,17 +579,16 @@ class IssueManager:
         archetypes: Optional[str] = None,
         complexity: Optional[str] = None,
     ) -> int:
-        """Update session Project fields and labels."""
-        if not self._has_github_config():
-            print("Error: GitHub integration not configured. Run 'atdd init' first.")
+        """Update issue Project fields and labels."""
+        if not self._check_initialized():
             return 1
 
         from atdd.coach.github import GitHubClientError
 
         try:
-            issue_number = int(session_id)
+            issue_number = int(issue_id)
         except ValueError:
-            print(f"Error: Invalid issue number '{session_id}'")
+            print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
@@ -843,7 +632,7 @@ class IssueManager:
                     if not current_train or current_train.upper() == "TBD":
                         print(f"Error: Train field required before transitioning to {status}")
                         print(f"  Current Train: {current_train or '(empty)'}")
-                        print(f"  Fix: atdd update {session_id} --status {status} --train <train_id>")
+                        print(f"  Fix: atdd update {issue_id} --status {status} --train <train_id>")
                         return 1
                 except GitHubClientError:
                     # If we can't read fields, allow the transition (fail open)
@@ -912,18 +701,17 @@ class IssueManager:
     # E005: close-wmbt
     # -------------------------------------------------------------------------
 
-    def close_wmbt(self, session_id: str, wmbt_id: str, force: bool = False) -> int:
+    def close_wmbt(self, issue_id: str, wmbt_id: str, force: bool = False) -> int:
         """Close a WMBT sub-issue by ID."""
-        if not self._has_github_config():
-            print("Error: GitHub integration not configured.")
+        if not self._check_initialized():
             return 1
 
         from atdd.coach.github import GitHubClientError
 
         try:
-            issue_number = int(session_id)
+            issue_number = int(issue_id)
         except ValueError:
-            print(f"Error: Invalid issue number '{session_id}'")
+            print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
@@ -974,83 +762,9 @@ class IssueManager:
         return 0
 
     def sync(self) -> int:
-        """
-        Sync manifest with actual session files.
-
-        Scans atdd-sessions/ and updates manifest to match actual files.
-
-        Returns:
-            0 on success, 1 on error.
-        """
-        if not self._check_initialized():
-            return 1
-
-        manifest = self._load_manifest()
-        existing_sessions = {s.get("file"): s for s in manifest.get("sessions", [])}
-
-        # Scan for session files
-        found_files = set()
-        new_sessions = []
-
-        # Scan main directory
-        for f in self.sessions_dir.glob("SESSION-*.md"):
-            if f.name == "ISSUE-TEMPLATE.md":
-                continue
-
-            found_files.add(f.name)
-
-            if f.name not in existing_sessions:
-                # Parse filename to extract info
-                match = re.match(r"SESSION-(\d+)-(.+)\.md", f.name)
-                if match:
-                    session_id = match.group(1)
-                    slug = match.group(2)
-
-                    new_sessions.append({
-                        "id": session_id,
-                        "slug": slug,
-                        "file": f.name,
-                        "type": "unknown",
-                        "status": "UNKNOWN",
-                        "created": date.today().isoformat(),
-                        "archived": None,
-                    })
-
-        # Scan archive directory
-        if self.archive_dir.exists():
-            for f in self.archive_dir.glob("SESSION-*.md"):
-                archive_path = f"archive/{f.name}"
-                found_files.add(archive_path)
-
-                if archive_path not in existing_sessions:
-                    match = re.match(r"SESSION-(\d+)-(.+)\.md", f.name)
-                    if match:
-                        session_id = match.group(1)
-                        slug = match.group(2)
-
-                        new_sessions.append({
-                            "id": session_id,
-                            "slug": slug,
-                            "file": archive_path,
-                            "type": "unknown",
-                            "status": "UNKNOWN",
-                            "created": date.today().isoformat(),
-                            "archived": date.today().isoformat(),
-                        })
-
-        # Add new sessions to manifest
-        if new_sessions:
-            manifest["sessions"] = manifest.get("sessions", []) + new_sessions
-            print(f"Added {len(new_sessions)} new session(s) to manifest")
-
-        # Report missing files
-        for filename, session in existing_sessions.items():
-            if filename not in found_files and f"archive/{filename}" not in found_files:
-                print(f"Warning: Session file not found: {filename}")
-
-        self._save_manifest(manifest)
-        print(f"Manifest synced: {self.manifest_file}")
-
+        """Sync is a no-op in GitHub-only mode. Issues are the source of truth."""
+        print("Sync not needed — GitHub Issues are the source of truth.")
+        print("Use `atdd list` to see current issues.")
         return 0
 
 
