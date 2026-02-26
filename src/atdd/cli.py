@@ -384,6 +384,11 @@ Phase descriptions:
         type=str,
         help="Train ID to assign (e.g., 0001-auth-session-standard)"
     )
+    new_parser.add_argument(
+        "--archetypes", "-a",
+        type=str,
+        help="Comma-separated archetypes (e.g., be,contracts,wmbt)"
+    )
 
     # NOTE: 'session' subcommand removed in E009; replaced by top-level issue commands.
 
@@ -792,7 +797,12 @@ Phase descriptions:
     # atdd new <slug>
     elif args.command == "new":
         manager = IssueManager()
-        return manager.new(slug=args.slug, issue_type=args.type, train=getattr(args, 'train', None))
+        return manager.new(
+            slug=args.slug,
+            issue_type=args.type,
+            train=getattr(args, 'train', None),
+            archetypes=getattr(args, 'archetypes', None),
+        )
 
     # atdd list (top-level shorthand)
     elif args.command == "list":

@@ -8,8 +8,13 @@ E008: Train enforcement validators (SPEC-SESSION-VAL-0050 to 0051):
 - Issues must have a non-empty Train field after PLANNED phase
 - Train field must reference a valid train_id from _trains.yaml
 
+E010: Body section validator (SPEC-SESSION-VAL-0060):
+- Issues should have all 11 structured sections from PARENT-ISSUE-TEMPLATE.md
+- Soft check (warning) for pre-E010 issues
+
 Run: atdd validate coach
 """
+import warnings as w
 import pytest
 from pathlib import Path
 import yaml
@@ -219,3 +224,69 @@ def test_issue_train_references_valid_train_id():
         f"Valid train IDs: {', '.join(sorted(list(valid_train_ids)[:10]))}...\n\n"
         f"Invalid references ({len(invalid)}):\n  " + "\n  ".join(invalid)
     )
+
+
+# ============================================================================
+# E010: Body Section Validation (GitHub Issues)
+# ============================================================================
+
+REQUIRED_BODY_SECTIONS = [
+    "## Issue Metadata",
+    "## Scope",
+    "## Context",
+    "## Architecture",
+    "## Phases",
+    "## Validation",
+    "## Decisions",
+    "## Activity Log",
+    "## Artifacts",
+    "## Release Gate",
+    "## Notes",
+]
+
+
+@pytest.mark.platform
+def test_issue_body_has_required_sections():
+    """
+    SPEC-SESSION-VAL-0060: Issue body should contain all structured sections
+
+    Given: Open issues in the GitHub Project (label: atdd-session)
+    When: Checking the issue body for required H2 headings
+    Then: All 11 sections from PARENT-ISSUE-TEMPLATE.md should be present
+          Pre-E010 issues emit warnings instead of hard failures
+
+    E010 acceptance criteria: `atdd validate coach` warns if issue body is missing sections.
+    """
+    client = _get_github_client_if_configured()
+    if client is None:
+        pytest.skip("GitHub integration not configured (no .atdd/config.yaml)")
+
+    from atdd.coach.github import GitHubClientError
+
+    try:
+        issues = client.list_issues_by_label("atdd-session")
+    except GitHubClientError as e:
+        pytest.skip(f"Cannot query GitHub: {e}")
+
+    if not issues:
+        pytest.skip("No issues found")
+
+    incomplete = []
+
+    for issue in issues:
+        num = issue["number"]
+        body = issue.get("body", "") or ""
+        missing = [s for s in REQUIRED_BODY_SECTIONS if s not in body]
+        if missing:
+            incomplete.append(
+                f"#{num}: missing {len(missing)} section(s): {', '.join(missing)}"
+            )
+
+    if incomplete:
+        w.warn(
+            f"Issues with incomplete body sections ({len(incomplete)}):\n  "
+            + "\n  ".join(incomplete)
+            + "\n\nHint: Re-create with `atdd new` (E010+) for full-structure body.",
+            category=UserWarning,
+            stacklevel=1,
+        )

@@ -38,6 +38,39 @@ STEP_CODES = {
     "K": "Conclude",
 }
 
+# Archetype-specific gate test rows for the Validation table.
+# Each entry: (gate_id, phase, command, validator_path)
+ARCHETYPE_GATES = {
+    "be": [
+        ("GT-010", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_python_architecture.py"),
+        ("GT-011", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_import_boundaries.py"),
+    ],
+    "fe": [
+        ("GT-020", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_typescript_architecture.py"),
+    ],
+    "contracts": [
+        ("GT-030", "tester", "atdd validate tester", "src/atdd/tester/validators/test_contract_schema_compliance.py"),
+    ],
+    "wmbt": [
+        ("GT-040", "planner", "atdd validate planner", "src/atdd/planner/validators/test_wmbt_consistency.py"),
+    ],
+    "wagon": [
+        ("GT-050", "planner", "atdd validate planner", "src/atdd/planner/validators/test_wagon_urn_chain.py"),
+    ],
+    "train": [
+        ("GT-060", "planner", "atdd validate planner", "src/atdd/planner/validators/test_train_validation.py"),
+    ],
+    "db": [
+        ("GT-070", "implementation", "supabase db push --dry-run", "supabase/migrations/"),
+    ],
+    "migrations": [
+        ("GT-071", "implementation", "supabase db push --dry-run", "supabase/migrations/"),
+    ],
+    "telemetry": [
+        ("GT-080", "tester", "atdd validate tester", "src/atdd/tester/validators/test_telemetry_validation.py"),
+    ],
+}
+
 
 class IssueManager:
     """Manage ATDD issues via GitHub Issues and Projects v2."""
@@ -67,6 +100,7 @@ class IssueManager:
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
         self.wmbt_template_source = self.package_root / "templates" / "WMBT-SUBISSUE-TEMPLATE.md"
+        self.parent_template_source = self.package_root / "templates" / "PARENT-ISSUE-TEMPLATE.md"
 
     def _check_initialized(self) -> bool:
         """Check if ATDD is initialized with GitHub integration."""
@@ -169,6 +203,100 @@ class IssueManager:
             test_file_path=test_file,
         )
 
+    def _build_gate_test_rows(self, archetypes_list: List[str]) -> str:
+        """Build archetype-specific gate test table rows."""
+        rows = []
+        for arch in archetypes_list:
+            for gate_id, phase, command, validator in ARCHETYPE_GATES.get(arch, []):
+                rows.append(
+                    f"| {gate_id} | {phase} | `{command}` | PASS | `{validator}` | TODO |"
+                )
+        if rows:
+            return "\n".join(rows) + "\n"
+        return ""
+
+    def _render_parent_body(
+        self,
+        slug: str,
+        issue_type: str,
+        today: str,
+        train_display: str,
+        archetypes_display: str,
+    ) -> str:
+        """Render parent issue body from template.
+
+        Falls back to inline minimal body if the template file is missing.
+        """
+        archetypes_list = [
+            a.strip() for a in archetypes_display.split(",") if a.strip() and a.strip() != "TBD"
+        ]
+
+        # Conditional Data Model section
+        has_db = any(a in ("db", "migrations") for a in archetypes_list)
+        if has_db:
+            data_model_section = (
+                "### Data Model\n\n"
+                "```sql\n"
+                "-- Table/view definitions\n"
+                "CREATE TABLE IF NOT EXISTS public.example (\n"
+                "  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n"
+                "  data JSONB NOT NULL,\n"
+                "  created_at TIMESTAMPTZ DEFAULT NOW(),\n"
+                "  updated_at TIMESTAMPTZ DEFAULT NOW()\n"
+                ");\n"
+                "```"
+            )
+        else:
+            data_model_section = ""
+
+        gate_tests_rows = self._build_gate_test_rows(archetypes_list)
+
+        if not self.parent_template_source.exists():
+            return self._render_parent_body_inline(
+                slug, issue_type, today, train_display, archetypes_display,
+            )
+
+        template = self.parent_template_source.read_text()
+        return template.format(
+            today=today,
+            slug=slug,
+            issue_type=issue_type,
+            train_display=train_display,
+            archetypes_display=archetypes_display,
+            data_model_section=data_model_section,
+            gate_tests_rows=gate_tests_rows,
+        )
+
+    def _render_parent_body_inline(
+        self,
+        slug: str,
+        issue_type: str,
+        today: str,
+        train_display: str,
+        archetypes_display: str,
+    ) -> str:
+        """Inline fallback body when template file is missing."""
+        return (
+            f"## Issue Metadata\n\n"
+            f"| Field | Value |\n"
+            f"|-------|-------|\n"
+            f"| Date | `{today}` |\n"
+            f"| Status | `INIT` |\n"
+            f"| Type | `{issue_type}` |\n"
+            f"| Branch | TBD |\n"
+            f"| Archetypes | {archetypes_display} |\n"
+            f"| Train | {train_display} |\n"
+            f"| Feature | TBD |\n\n"
+            f"---\n\n"
+            f"## Context\n\n"
+            f"(fill in)\n\n"
+            f"---\n\n"
+            f"## Activity Log\n\n"
+            f"### Entry 1 ({today})\n\n"
+            f"**Completed:**\n"
+            f"- Issue created via `atdd new {slug}`\n"
+        )
+
     def _discover_wmbts(self, wagon: str) -> List[Dict[str, Any]]:
         """Discover WMBTs from plan YAML for a wagon."""
         plan_dir = self.target_dir / "plan"
@@ -198,7 +326,13 @@ class IssueManager:
 
         return wmbts
 
-    def new(self, slug: str, issue_type: str = "implementation", train: Optional[str] = None) -> int:
+    def new(
+        self,
+        slug: str,
+        issue_type: str = "implementation",
+        train: Optional[str] = None,
+        archetypes: Optional[str] = None,
+    ) -> int:
         """
         Create new issue.
 
@@ -208,6 +342,7 @@ class IssueManager:
             slug: Issue slug (will be converted to kebab-case).
             issue_type: Type of issue (implementation, migration, etc.).
             train: Optional train ID to assign to the issue.
+            archetypes: Optional comma-separated archetype IDs (e.g., "be,contracts,wmbt").
 
         Returns:
             0 on success, 1 on error.
@@ -227,9 +362,15 @@ class IssueManager:
             print("Error: Invalid slug - results in empty string")
             return 1
 
-        return self._new_github_issue(slug, issue_type, train=train)
+        return self._new_github_issue(slug, issue_type, train=train, archetypes=archetypes)
 
-    def _new_github_issue(self, slug: str, issue_type: str, train: Optional[str] = None) -> int:
+    def _new_github_issue(
+        self,
+        slug: str,
+        issue_type: str,
+        train: Optional[str] = None,
+        archetypes: Optional[str] = None,
+    ) -> int:
         """Create a GitHub Issue with WMBT sub-issues."""
         from atdd.coach.github import GitHubClient, ProjectConfig, GitHubClientError
 
@@ -248,31 +389,23 @@ class IssueManager:
         title_text = slug.replace("-", " ").title()
         title = f"feat(atdd): {title_text}"
 
-        # Build parent issue body (minimal — details added by user)
         train_display = train or "TBD"
-        body = (
-            f"## Issue Metadata\n\n"
-            f"| Field | Value |\n"
-            f"|-------|-------|\n"
-            f"| Date | `{today}` |\n"
-            f"| Status | `INIT` |\n"
-            f"| Type | `{issue_type}` |\n"
-            f"| Branch | TBD |\n"
-            f"| Archetypes | TBD |\n"
-            f"| Train | {train_display} |\n"
-            f"| Feature | TBD |\n\n"
-            f"---\n\n"
-            f"## Context\n\n"
-            f"(fill in)\n\n"
-            f"---\n\n"
-            f"## Activity Log\n\n"
-            f"### Entry 1 ({today})\n\n"
-            f"**Completed:**\n"
-            f"- Issue created via `atdd new {slug}`\n"
+        archetypes_display = archetypes if archetypes else "TBD"
+
+        # Render full-structure body from template
+        body = self._render_parent_body(
+            slug, issue_type, today, train_display, archetypes_display,
         )
 
         # Determine labels for parent
-        parent_labels = ["atdd-session", f"atdd:INIT"]
+        parent_labels = ["atdd-session", "atdd:INIT"]
+
+        # Add archetype labels
+        if archetypes:
+            for arch in archetypes.split(","):
+                arch = arch.strip()
+                if arch:
+                    parent_labels.append(f"archetype:{arch}")
 
         # Create parent issue
         print(f"Creating parent issue...")
@@ -316,6 +449,12 @@ class IssueManager:
             if train and "ATDD: Train" in fields:
                 client.set_project_field_text(
                     item_id, fields["ATDD: Train"]["id"], train
+                )
+
+            # E010: Set Archetypes field if provided
+            if archetypes and "ATDD: Archetypes" in fields:
+                client.set_project_field_text(
+                    item_id, fields["ATDD: Archetypes"]["id"], archetypes
                 )
 
             print(f"  Added to Project with custom fields")

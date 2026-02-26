@@ -324,6 +324,69 @@ github_issue_tracking:
       - "Test File must contain a valid file path"
       - "No session-level metadata (no train, feature, branch, archetypes)"
 
+  # ---------------------------------------------------------------------------
+  # Parent Issue Template (E010)
+  # ---------------------------------------------------------------------------
+  # The parent issue body is generated from a Markdown template by `atdd new`.
+  # The template produces 11 structured sections matching the `sections:` spec.
+  parent_issue_template:
+    file: "atdd/coach/templates/PARENT-ISSUE-TEMPLATE.md"
+    title_format: "feat(atdd): {Title}"
+
+    placeholders:
+      today:
+        source: "date.today().isoformat()"
+        example: "2026-02-26"
+      slug:
+        source: "CLI argument (kebab-case)"
+        example: "issue-tracking-migration"
+      issue_type:
+        source: "CLI --type argument"
+        values: ["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"]
+      train_display:
+        source: "CLI --train argument or 'TBD'"
+        example: "0001-auth-session-standard"
+      archetypes_display:
+        source: "CLI --archetypes argument or 'TBD'"
+        example: "be, contracts, wmbt"
+      data_model_section:
+        source: "Conditional: rendered when archetypes include 'db' or 'migrations'"
+        condition: "archetypes includes db or migrations"
+      gate_tests_rows:
+        source: "Derived from ARCHETYPE_GATES constant per declared archetype"
+        format: "Markdown table rows (| ID | phase | command | expected | validator | status |)"
+
+    sections:
+      - heading: "## Issue Metadata"
+        maps_to: "sections.header"
+      - heading: "## Scope"
+        maps_to: "sections.scope"
+      - heading: "## Context"
+        maps_to: "sections.context"
+      - heading: "## Architecture"
+        maps_to: "sections.architecture"
+        conditional_subsections:
+          - heading: "### Data Model"
+            condition: "archetypes includes db or migrations"
+      - heading: "## Phases"
+        maps_to: "sections.phases"
+      - heading: "## Validation"
+        maps_to: "sections.validation"
+      - heading: "## Decisions"
+        maps_to: "sections.decisions"
+      - heading: "## Activity Log"
+        maps_to: "sections.session_log"
+      - heading: "## Artifacts"
+        maps_to: "sections.artifacts"
+      - heading: "## Release Gate"
+        maps_to: "(new — release checklist)"
+      - heading: "## Notes"
+        maps_to: "(new — free-form)"
+
+    validation:
+      validator: "src/atdd/coach/validators/test_issue_validation.py::test_issue_body_has_required_sections"
+      mode: "soft (warnings for pre-E010 issues)"
+
 # =============================================================================
 # LOCAL SESSION FILES (legacy — historical sessions only)
 # =============================================================================
