@@ -551,6 +551,8 @@ def get_active_wagon_slugs() -> List[str]:
                     slugs.append(wagon_entry["slug"])
 
     # Also discover from directories
+    if not PLAN_DIR.exists():
+        return slugs
     for wagon_dir in PLAN_DIR.iterdir():
         if wagon_dir.is_dir() and not wagon_dir.name.startswith("_"):
             # Convert dirname back to slug: maintain_ux → maintain-ux

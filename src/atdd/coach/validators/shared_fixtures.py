@@ -390,61 +390,66 @@ def get_consume_names(manifest: Dict[str, Any]) -> List[str]:
     return [item.get("name", "") for item in manifest.get("consume", [])]
 
 
-# HTML Report Customization
-def pytest_html_report_title(report):
-    """Customize HTML report title."""
-    report.title = "Platform Validation Test Report"
+# HTML Report Customization (only when pytest-html is installed)
+try:
+    import pytest_html as _pytest_html_check  # noqa: F401
+    _HAS_PYTEST_HTML = True
+except ImportError:
+    _HAS_PYTEST_HTML = False
 
 
 def pytest_configure(config):
     """Add custom metadata to HTML report."""
-    config._metadata = {
-        "Project": "Wagons Platform",
-        "Test Suite": "Platform Validation",
-        "Environment": "Development",
-        "Python": "3.11",
-        "Pytest": "8.4.2",
-    }
+    if hasattr(config, '_metadata'):
+        config._metadata = {
+            "Project": "Wagons Platform",
+            "Test Suite": "Platform Validation",
+            "Environment": "Development",
+            "Python": "3.11",
+            "Pytest": "8.4.2",
+        }
 
 
-def pytest_html_results_table_header(cells):
-    """Customize HTML report table headers."""
-    cells.insert(2, '<th>Category</th>')
-    cells.insert(1, '<th class="sortable time" data-column-type="time">Duration</th>')
+if _HAS_PYTEST_HTML:
+    def pytest_html_report_title(report):
+        """Customize HTML report title."""
+        report.title = "Platform Validation Test Report"
 
+    def pytest_html_results_table_header(cells):
+        """Customize HTML report table headers."""
+        cells.insert(2, '<th>Category</th>')
+        cells.insert(1, '<th class="sortable time" data-column-type="time">Duration</th>')
 
-def pytest_html_results_table_row(report, cells):
-    """Customize HTML report table rows."""
-    # Add category based on test module
-    category = "Unknown"
-    if hasattr(report, 'nodeid'):
-        if 'wagons' in report.nodeid:
-            category = '📋 Schema'
-        elif 'cross_refs' in report.nodeid:
-            category = '🔗 References'
-        elif 'urn_resolution' in report.nodeid:
-            category = '🗺️ URN Resolution'
-        elif 'uniqueness' in report.nodeid:
-            category = '🎯 Uniqueness'
-        elif 'contracts_structure' in report.nodeid:
-            category = '📄 Contracts'
-        elif 'telemetry_structure' in report.nodeid:
-            category = '📊 Telemetry'
-    
-    cells.insert(2, f'<td>{category}</td>')
-    cells.insert(1, f'<td class="col-duration">{getattr(report, "duration", 0):.2f}s</td>')
+    def pytest_html_results_table_row(report, cells):
+        """Customize HTML report table rows."""
+        category = "Unknown"
+        if hasattr(report, 'nodeid'):
+            if 'wagons' in report.nodeid:
+                category = '📋 Schema'
+            elif 'cross_refs' in report.nodeid:
+                category = '🔗 References'
+            elif 'urn_resolution' in report.nodeid:
+                category = '🗺️ URN Resolution'
+            elif 'uniqueness' in report.nodeid:
+                category = '🎯 Uniqueness'
+            elif 'contracts_structure' in report.nodeid:
+                category = '📄 Contracts'
+            elif 'telemetry_structure' in report.nodeid:
+                category = '📊 Telemetry'
 
+        cells.insert(2, f'<td>{category}</td>')
+        cells.insert(1, f'<td class="col-duration">{getattr(report, "duration", 0):.2f}s</td>')
 
-def pytest_html_results_summary(prefix, summary, postfix):
-    """Add custom summary to HTML report."""
-    prefix.extend([
-        '<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); '
-        'padding: 20px; border-radius: 8px; color: white; margin: 20px 0;">'
-        '<h2 style="margin: 0 0 10px 0;">🚀 Platform Validation Suite</h2>'
-        '<p style="margin: 0; opacity: 0.9;">E2E validation of repository data '
-        'against platform schemas and conventions.</p>'
-        '</div>'
-    ])
+    def pytest_html_results_summary(prefix, summary, postfix):
+        """Add custom summary to HTML report."""
+        prefix.extend([
+            '<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); '
+            'padding: 20px; border-radius: 8px; color: white; margin: 20px 0;">'
+            '<h2 style="margin: 0 0 10px 0;">🚀 Platform Validation Suite</h2>'
+            '<p style="margin: 0; opacity: 0.9;">E2E validation of repository data '
+            'against platform schemas and conventions.</p>'
+            '</div>'
+        ])
 
 
 # ============================================================================
