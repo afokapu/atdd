@@ -15,7 +15,7 @@ Usage:
     atdd sync --agent claude     # Sync specific agent only
     atdd sync --verify           # Check if files are in sync (for CI)
 
-Convention: src/atdd/coach/conventions/session.convention.yaml
+Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import re
 from pathlib import Path

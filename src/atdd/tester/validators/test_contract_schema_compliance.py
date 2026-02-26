@@ -5,12 +5,25 @@ Validates that all contract schemas follow the meta-schema and conventions:
 - atdd/tester/conventions/contract.convention.yaml
 - atdd/planner/conventions/interface.convention.yaml
 - atdd/tester/schemas/contract.schema.json (meta-schema)
+
+Preconditions:
+- contracts/ directory must exist (consumer repo, created by tester phase)
+- jsonschema package must be installed
+
+Convention: src/atdd/tester/conventions/contract.convention.yaml
+Fix: Create contracts/ via planner phase, then run `atdd validate tester`
 """
 import pytest
 import json
 import re
 from pathlib import Path
-from jsonschema import validate, ValidationError, Draft7Validator
+
+try:
+    from jsonschema import validate, ValidationError, Draft7Validator
+except ImportError:
+    pytestmark = pytest.mark.skip(
+        reason="jsonschema not installed. Fix: pip install jsonschema"
+    )
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root

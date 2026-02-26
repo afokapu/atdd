@@ -3,10 +3,23 @@ Platform tests: Wagon manifest schema validation.
 
 Validates that all wagon manifests in plan/ conform to wagon.schema.json.
 Tests are parametrized to run once per wagon manifest for surgical diagnostics.
+
+Preconditions:
+- plan/ directory must exist (consumer repo, created by planner phase)
+- jsonschema package must be installed
+
+Convention: src/atdd/planner/conventions/wagon.convention.yaml
+Fix: Run `atdd validate planner` after creating plan/ artifacts
 """
 import pytest
-import jsonschema
 from pathlib import Path
+
+try:
+    import jsonschema
+except ImportError:
+    pytestmark = pytest.mark.skip(
+        reason="jsonschema not installed. Fix: pip install jsonschema"
+    )
 
 
 @pytest.mark.platform

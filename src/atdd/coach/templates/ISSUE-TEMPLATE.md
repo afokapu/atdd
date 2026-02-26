@@ -45,7 +45,7 @@ scope:
     - "{SESSION-XX or external requirement}"
 
 # ATDD Workflow Phase Tracking (MANDATORY)
-# Sequence: Planner → Tester → Coder (see session.convention.yaml:workflow)
+# Sequence: Planner → Tester → Coder (see issue.convention.yaml:workflow)
 workflow_phases:
   planner:
     status: "TODO"  # TODO | IN_PROGRESS | DONE | SKIPPED | N/A
@@ -126,7 +126,7 @@ progress:
       gate: "atdd validate coder"
 
 # Gate Tests - Required validation gates with ATDD validators
-# See: src/atdd/coach/conventions/session.convention.yaml for required gates per archetype
+# See: src/atdd/coach/conventions/issue.convention.yaml for required gates per archetype
 gate_tests:
   # Universal gates (required for all sessions)
   - id: "GT-001"
@@ -134,7 +134,7 @@ gate_tests:
     archetype: "all"
     command: "atdd validate coach"
     expected: "PASS"
-    atdd_validator: "src/atdd/coach/validators/test_session_validation.py"
+    atdd_validator: "src/atdd/coach/validators/test_issue_validation.py"
     status: "TODO"
 
   # Archetype-specific gates (add based on declared archetypes)
@@ -303,12 +303,12 @@ CREATE TABLE IF NOT EXISTS public.{table_name} (
 <!--
 Gate tests enforce conventions via ATDD validators.
 Each declared archetype MUST have corresponding gate tests.
-Reference: src/atdd/coach/conventions/session.convention.yaml
+Reference: src/atdd/coach/conventions/issue.convention.yaml
 -->
 
 | ID | Phase | Archetype | Command | Expected | ATDD Validator | Status |
 |----|-------|-----------|---------|----------|----------------|--------|
-| GT-001 | design | all | `atdd validate coach` | PASS | `src/atdd/coach/validators/test_session_validation.py` | TODO |
+| GT-001 | design | all | `atdd validate coach` | PASS | `src/atdd/coach/validators/test_issue_validation.py` | TODO |
 | GT-010 | implementation | {archetype} | `{command}` | PASS | `{atdd_validator_path}` | TODO |
 | GT-900 | completion | all | `atdd validate` | PASS | `src/atdd/` | TODO |
 

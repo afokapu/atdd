@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atdd.dev/schemas/coach/project_fields.schema.json",
+  "title": "ATDD GitHub Project v2 Custom Fields",
+  "description": "Schema defining the custom fields on the GitHub Projects v2 board used for ATDD issue tracking. Single source of truth for `atdd init` (creates fields) and `atdd validate coach` (validates field values).",
+  "type": "object",
+  "required": ["version", "project", "fields"],
+  "properties": {
+    "version": {
+      "const": "2.0",
+      "description": "Schema version"
+    },
+    "project": {
+      "type": "object",
+      "description": "GitHub Project v2 metadata",
+      "required": ["title"],
+      "properties": {
+        "title": {
+          "const": "ATDD Sessions",
+          "description": "Project board name created by `atdd init`"
+        }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "required": ["parent", "sub_issue"],
+      "properties": {
+        "parent": {
+          "$ref": "#/$defs/parent_fields"
+        },
+        "sub_issue": {
+          "$ref": "#/$defs/sub_issue_fields"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "parent_fields": {
+      "type": "object",
+      "description": "Custom fields on parent issues. These are issue-level metadata queryable via GraphQL.",
+      "required": [
+        "atdd_status",
+        "atdd_phase",
+        "issue_type",
+        "complexity",
+        "archetypes",
+        "branch",
+        "train",
+        "feature_urn"
+      ],
+      "properties": {
+        "atdd_status": {
+          "type": "object",
+          "description": "Current ATDD lifecycle status",
+          "properties": {
+            "name": { "const": "ATDD: Status" },
+            "data_type": { "const": "SINGLE_SELECT" },
+            "required": { "const": true },
+            "options": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/select_option" },
+              "prefixItems": [
+                { "properties": { "name": { "const": "INIT" }, "color": { "const": "YELLOW" }, "description": { "const": "Session initialized" } } },
+                { "properties": { "name": { "const": "PLANNED" }, "color": { "const": "ORANGE" }, "description": { "const": "Planning complete" } } },
+                { "properties": { "name": { "const": "RED" }, "color": { "const": "RED" }, "description": { "const": "Writing failing tests" } } },
+                { "properties": { "name": { "const": "GREEN" }, "color": { "const": "GREEN" }, "description": { "const": "Making tests pass" } } },
+                { "properties": { "name": { "const": "REFACTOR" }, "color": { "const": "BLUE" }, "description": { "const": "Refactoring code" } } },
+                { "properties": { "name": { "const": "COMPLETE" }, "color": { "const": "PURPLE" }, "description": { "const": "Session complete" } } },
+                { "properties": { "name": { "const": "BLOCKED" }, "color": { "const": "GRAY" }, "description": { "const": "Session blocked" } } }
+              ],
+              "minItems": 7,
+              "maxItems": 7
+            }
+          },
+          "required": ["name", "data_type", "options"]
+        },
+        "atdd_phase": {
+          "type": "object",
+          "description": "Current agent phase (which agent owns the work)",
+          "properties": {
+            "name": { "const": "ATDD: Phase" },
+            "data_type": { "const": "SINGLE_SELECT" },
+            "required": { "const": true },
+            "options": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/select_option" },
+              "prefixItems": [
+                { "properties": { "name": { "const": "Planner" }, "color": { "const": "BLUE" }, "description": { "const": "Planning phase" } } },
+                { "properties": { "name": { "const": "Tester" }, "color": { "const": "RED" }, "description": { "const": "Testing phase" } } },
+                { "properties": { "name": { "const": "Coder" }, "color": { "const": "GREEN" }, "description": { "const": "Coding phase" } } }
+              ],
+              "minItems": 3,
+              "maxItems": 3
+            }
+          },
+          "required": ["name", "data_type", "options"]
+        },
+        "issue_type": {
+          "type": "object",
+          "description": "Type of issue determining required workflow phases",
+          "properties": {
+            "name": { "const": "ATDD: Issue Type" },
+            "data_type": { "const": "SINGLE_SELECT" },
+            "required": { "const": true },
+            "options": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/select_option" },
+              "prefixItems": [
+                { "properties": { "name": { "const": "implementation" }, "color": { "const": "GREEN" }, "description": { "const": "New feature implementation" } } },
+                { "properties": { "name": { "const": "migration" }, "color": { "const": "BLUE" }, "description": { "const": "Migration work" } } },
+                { "properties": { "name": { "const": "refactor" }, "color": { "const": "PURPLE" }, "description": { "const": "Code refactoring" } } },
+                { "properties": { "name": { "const": "analysis" }, "color": { "const": "YELLOW" }, "description": { "const": "Analysis work" } } },
+                { "properties": { "name": { "const": "planning" }, "color": { "const": "ORANGE" }, "description": { "const": "Planning work" } } },
+                { "properties": { "name": { "const": "cleanup" }, "color": { "const": "GRAY" }, "description": { "const": "Cleanup work" } } }
+              ],
+              "minItems": 6,
+              "maxItems": 6
+            }
+          },
+          "required": ["name", "data_type", "options"]
+        },
+        "complexity": {
+          "type": "object",
+          "description": "Complexity rating for effort estimation",
+          "properties": {
+            "name": { "const": "ATDD: Complexity" },
+            "data_type": { "const": "SINGLE_SELECT" },
+            "required": { "const": true },
+            "options": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/select_option" },
+              "prefixItems": [
+                { "properties": { "name": { "const": "1-Trivial" }, "color": { "const": "GRAY" }, "description": { "const": "Trivial complexity" } } },
+                { "properties": { "name": { "const": "2-Low" }, "color": { "const": "GREEN" }, "description": { "const": "Low complexity" } } },
+                { "properties": { "name": { "const": "3-Medium" }, "color": { "const": "YELLOW" }, "description": { "const": "Medium complexity" } } },
+                { "properties": { "name": { "const": "4-High" }, "color": { "const": "ORANGE" }, "description": { "const": "High complexity" } } },
+                { "properties": { "name": { "const": "5-Very High" }, "color": { "const": "RED" }, "description": { "const": "Very high complexity" } } }
+              ],
+              "minItems": 5,
+              "maxItems": 5
+            }
+          },
+          "required": ["name", "data_type", "options"]
+        },
+        "archetypes": {
+          "type": "object",
+          "description": "Affected infrastructure archetypes (comma-separated)",
+          "properties": {
+            "name": { "const": "ATDD: Archetypes" },
+            "data_type": { "const": "TEXT" },
+            "required": { "const": true },
+            "validation": {
+              "type": "object",
+              "properties": {
+                "pattern": { "const": "^[a-z]+(,\\s*[a-z]+)*$" },
+                "allowed_values": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "const": ["db", "be", "fe", "contracts", "wmbt", "wagon", "train", "telemetry", "migrations"]
+                }
+              }
+            }
+          },
+          "required": ["name", "data_type"]
+        },
+        "branch": {
+          "type": "object",
+          "description": "Git branch associated with this issue",
+          "properties": {
+            "name": { "const": "ATDD: Branch" },
+            "data_type": { "const": "TEXT" },
+            "required": { "const": false },
+            "description": { "const": "Git branch name. TBD until branch is created." }
+          },
+          "required": ["name", "data_type"]
+        },
+        "train": {
+          "type": "object",
+          "description": "Train URN this issue belongs to",
+          "properties": {
+            "name": { "const": "ATDD: Train" },
+            "data_type": { "const": "TEXT" },
+            "required": { "const": false },
+            "validation": {
+              "type": "object",
+              "properties": {
+                "pattern": { "const": "^(TBD|train:\\d{4}-[a-z][a-z0-9-]+)$" }
+              }
+            }
+          },
+          "required": ["name", "data_type"]
+        },
+        "feature_urn": {
+          "type": "object",
+          "description": "Feature URN this issue implements",
+          "properties": {
+            "name": { "const": "ATDD: Feature URN" },
+            "data_type": { "const": "TEXT" },
+            "required": { "const": false },
+            "validation": {
+              "type": "object",
+              "properties": {
+                "pattern": { "const": "^(TBD|feature:[a-z][a-z0-9-]+:[a-z][a-z0-9-]+)$" }
+              }
+            }
+          },
+          "required": ["name", "data_type"]
+        }
+      }
+    },
+    "sub_issue_fields": {
+      "type": "object",
+      "description": "Custom fields on WMBT sub-issues. Sub-issues inherit issue context from parent — no duplication of train, feature, branch, etc.",
+      "required": ["wmbt_id", "wmbt_step", "wmbt_phase"],
+      "properties": {
+        "wmbt_id": {
+          "type": "object",
+          "description": "WMBT identifier (e.g., D001, E003, C002)",
+          "properties": {
+            "name": { "const": "ATDD: WMBT ID" },
+            "data_type": { "const": "TEXT" },
+            "required": { "const": true },
+            "validation": {
+              "type": "object",
+              "properties": {
+                "pattern": { "const": "^[DLPCEMYRK]\\d{3}$" }
+              }
+            }
+          },
+          "required": ["name", "data_type"]
+        },
+        "wmbt_step": {
+          "type": "object",
+          "description": "WMBT lifecycle step category",
+          "properties": {
+            "name": { "const": "ATDD: WMBT Step" },
+            "data_type": { "const": "SINGLE_SELECT" },
+            "required": { "const": true },
+            "options": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/select_option" },
+              "prefixItems": [
+                { "properties": { "name": { "const": "Define" }, "color": { "const": "BLUE" }, "description": { "const": "Define step" } } },
+                { "properties": { "name": { "const": "Locate" }, "color": { "const": "PURPLE" }, "description": { "const": "Locate step" } } },
+                { "properties": { "name": { "const": "Prepare" }, "color": { "const": "YELLOW" }, "description": { "const": "Prepare step" } } },
+                { "properties": { "name": { "const": "Execute" }, "color": { "const": "GREEN" }, "description": { "const": "Execute step" } } },
+                { "properties": { "name": { "const": "Confirm" }, "color": { "const": "ORANGE" }, "description": { "const": "Confirm step" } } },
+                { "properties": { "name": { "const": "Conclude" }, "color": { "const": "GRAY" }, "description": { "const": "Conclude step" } } }
+              ],
+              "minItems": 6,
+              "maxItems": 6
+            }
+          },
+          "required": ["name", "data_type", "options"]
+        },
+        "wmbt_phase": {
+          "type": "object",
+          "description": "Current ATDD phase of this WMBT",
+          "properties": {
+            "name": { "const": "ATDD: WMBT Phase" },
+            "data_type": { "const": "SINGLE_SELECT" },
+            "required": { "const": true },
+            "options": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/select_option" },
+              "prefixItems": [
+                { "properties": { "name": { "const": "RED" }, "color": { "const": "RED" }, "description": { "const": "Failing test written" } } },
+                { "properties": { "name": { "const": "GREEN" }, "color": { "const": "GREEN" }, "description": { "const": "Implementation passes" } } },
+                { "properties": { "name": { "const": "REFACTOR" }, "color": { "const": "BLUE" }, "description": { "const": "Refactoring complete" } } },
+                { "properties": { "name": { "const": "DONE" }, "color": { "const": "PURPLE" }, "description": { "const": "WMBT complete" } } }
+              ],
+              "minItems": 4,
+              "maxItems": 4
+            }
+          },
+          "required": ["name", "data_type", "options"]
+        }
+      }
+    },
+    "select_option": {
+      "type": "object",
+      "description": "A single-select field option for GitHub Projects v2",
+      "required": ["name", "description", "color"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name of the option"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description (required by GitHub API)"
+        },
+        "color": {
+          "type": "string",
+          "enum": ["GRAY", "BLUE", "GREEN", "YELLOW", "ORANGE", "RED", "PINK", "PURPLE"],
+          "description": "GitHub Projects v2 color enum"
+        }
+      }
+    },
+    "github_data_type": {
+      "type": "string",
+      "enum": ["TEXT", "NUMBER", "DATE", "SINGLE_SELECT", "ITERATION"],
+      "description": "GitHub Projects v2 supported field data types"
+    }
+  }
+}

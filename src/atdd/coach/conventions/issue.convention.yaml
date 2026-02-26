@@ -1,6 +1,6 @@
 version: "2.1"
-name: "Session Convention"
-description: "Deterministic template and rules for planning sessions in consumer repos"
+name: "Issue Convention"
+description: "Deterministic template and rules for ATDD issues tracked via GitHub Issues"
 
 # =============================================================================
 # ATDD WORKFLOW SEQUENCE (MANDATORY)
@@ -184,6 +184,213 @@ workflow:
       required_phases: []
       workflow: "Progress log - no direct implementation"
 
+# =============================================================================
+# GITHUB ISSUE TRACKING (v2 — replaces local session files)
+# =============================================================================
+# Issues are now GitHub Issues with Project v2 custom fields.
+# Local session files (atdd-sessions/*.md) are historical only.
+# New issues are created as GitHub Issues via `atdd new`.
+#
+# Three-layer architecture:
+#   Layer 1: Parent issue body — human-readable (context, architecture, decisions, log)
+#   Layer 2: Project custom fields — machine-parseable metadata (queryable, filterable)
+#   Layer 3: Sub-issues — WMBT tracking with automatic progress bar
+#
+# Schema: atdd/coach/schemas/project_fields.schema.json
+# Config: .atdd/config.yaml -> github.project_id, github.project_number, github.repo
+
+github_issue_tracking:
+  schema: "atdd/coach/schemas/project_fields.schema.json"
+  config: ".atdd/config.yaml (github section)"
+
+  labels:
+    schema: "atdd/coach/schemas/label_taxonomy.schema.json"
+    application_rules:
+      parent: ["atdd-issue", "archetype:{id} (one per archetype)", "atdd:{STATUS} (exactly one, swapped)", "wagon:{slug} (exactly one)"]
+      sub_issue: ["atdd-wmbt"]
+    static_labels:
+      - { name: "atdd-issue",         color: "0E8A16", applies_to: "parent",    description: "ATDD parent issue" }
+      - { name: "atdd-wmbt",         color: "1D76DB", applies_to: "sub_issue", description: "ATDD WMBT sub-issue" }
+      - { name: "atdd:INIT",         color: "FBCA04", applies_to: "parent",    description: "ATDD phase: INIT" }
+      - { name: "atdd:PLANNED",      color: "B60205", applies_to: "parent",    description: "ATDD phase: PLANNED" }
+      - { name: "atdd:RED",          color: "D93F0B", applies_to: "parent",    description: "ATDD phase: RED" }
+      - { name: "atdd:GREEN",        color: "0E8A16", applies_to: "parent",    description: "ATDD phase: GREEN" }
+      - { name: "atdd:REFACTOR",     color: "006B75", applies_to: "parent",    description: "ATDD phase: REFACTOR" }
+      - { name: "atdd:COMPLETE",     color: "6F42C1", applies_to: "parent",    description: "ATDD phase: COMPLETE" }
+      - { name: "atdd:BLOCKED",      color: "E4E669", applies_to: "parent",    description: "ATDD phase: BLOCKED" }
+      - { name: "archetype:db",      color: "D4C5F9", applies_to: "parent",    description: "Supabase PostgreSQL + JSONB" }
+      - { name: "archetype:be",      color: "D4C5F9", applies_to: "parent",    description: "Python FastAPI 4-layer" }
+      - { name: "archetype:fe",      color: "D4C5F9", applies_to: "parent",    description: "TypeScript/Preact 4-layer" }
+      - { name: "archetype:contracts", color: "D4C5F9", applies_to: "parent",  description: "JSON Schema contracts" }
+      - { name: "archetype:wmbt",    color: "D4C5F9", applies_to: "parent",    description: "What Must Be True criteria" }
+      - { name: "archetype:wagon",   color: "D4C5F9", applies_to: "parent",    description: "Bounded context module" }
+      - { name: "archetype:train",   color: "D4C5F9", applies_to: "parent",    description: "Journey orchestration" }
+      - { name: "archetype:telemetry", color: "D4C5F9", applies_to: "parent",  description: "Observability artifacts" }
+      - { name: "archetype:migrations", color: "D4C5F9", applies_to: "parent", description: "Database schema evolution" }
+    dynamic_labels:
+      wagon:
+        pattern: "wagon:{slug}"
+        color: "C5DEF5"
+        applies_to: "parent"
+        rule: "`atdd new` creates wagon:{slug} if it does not exist"
+
+  issue_types:
+    note: "Org-level feature — requires GitHub org with issue types enabled"
+    parent:
+      implementation: "Feature"
+      migration: "Feature"
+      refactor: "Task"
+      cleanup: "Task"
+      analysis: "Task"
+      planning: "Task"
+      tracking: "Task"
+    sub_issue: "Task (always)"
+
+  cli_commands:
+    init: "atdd init — bootstraps labels, Project v2, custom fields, workflow"
+    new: "atdd new <slug> — creates parent issue + WMBT sub-issues"
+    list: "atdd list — queries Project items (parent issues only)"
+    update: "atdd update <NN> --status <S> — updates Project fields + labels"
+    close_wmbt: "atdd close-wmbt <NN> <WMBT_ID> — closes WMBT sub-issue"
+    archive: "atdd archive <NN> — closes parent + all sub-issues"
+    validate: "atdd validate coach — validates Project fields + sub-issue state"
+
+  hard_dependencies:
+    - "gh CLI must be installed and authenticated"
+    - "GitHub Projects v2 API access (GraphQL)"
+    - "GitHub sub-issues feature (GA since 2025)"
+    - "atdd init must have been run (project_id in .atdd/config.yaml)"
+
+  # ---------------------------------------------------------------------------
+  # WMBT Sub-Issue Template (D002)
+  # ---------------------------------------------------------------------------
+  # Each WMBT becomes a sub-issue of the session parent issue.
+  # The sub-issue body is generated from this template by `atdd new`.
+  # Sub-issues carry NO session-level metadata (train, feature, branch, archetypes)
+  # — that lives on the parent issue's Project custom fields.
+  wmbt_sub_issue_template:
+    file: "atdd/coach/templates/WMBT-SUBISSUE-TEMPLATE.md"
+    title_format: "wmbt:{wagon}:{wmbt_id} — {statement}"
+
+    placeholders:
+      wagon:
+        source: "parent issue wagon slug"
+        example: "coach"
+      wmbt_id:
+        source: "WMBT identifier from plan YAML"
+        pattern: "^[DLPCEMYRK]\\d{3}$"
+        example: "E001"
+      step_name:
+        source: "Derived from wmbt_id first letter via step_codes map"
+        values: ["Define", "Locate", "Prepare", "Compute", "Execute", "Monitor", "Modify", "Resolve", "Conclude"]
+        derivation: "D->Define, L->Locate, P->Prepare, C->Confirm, E->Execute, M->Monitor, Y->Modify, R->Resolve, K->Conclude"
+      statement:
+        source: "WMBT statement from plan YAML"
+        example: "Implement atdd new -> parent issue + WMBT sub-issues"
+      acceptance_criteria:
+        source: "WMBT acceptances from plan YAML, rendered as markdown bullet list"
+        format: "- {acceptance_text}\\n- {acceptance_text}\\n..."
+        fallback: "- (no acceptance criteria defined in plan YAML)"
+      test_file_path:
+        source: "Convention-derived test file path"
+        pattern: "src/atdd/{scope}/validators/tests/test_{wmbt_id}_{slug}.py"
+        example: "src/atdd/coach/commands/tests/test_E001_atdd_new_issues.py"
+
+    sections:
+      - heading: "## wmbt:{wagon}:{wmbt_id}"
+        purpose: "Machine-parseable WMBT URN as H2 heading"
+        required: true
+      - heading: "**Step:** ... | **URN:** ..."
+        purpose: "Step name and URN on a single metadata line"
+        required: true
+      - heading: "### ATDD Cycle"
+        purpose: "Three checkboxes for RED/GREEN/REFACTOR phases"
+        required: true
+        content: |
+          - [ ] RED: failing test written
+          - [ ] GREEN: implementation passes test
+          - [ ] REFACTOR: architecture compliance verified
+      - heading: "### Acceptance Criteria"
+        purpose: "WMBT-specific acceptance criteria from plan YAML"
+        required: true
+      - heading: "### Test File"
+        purpose: "Convention-compliant test file path"
+        required: true
+
+    validation_rules:
+      - "H2 heading must match wmbt:{wagon}:{wmbt_id} pattern"
+      - "ATDD Cycle must have exactly 3 checkboxes (RED, GREEN, REFACTOR)"
+      - "Acceptance Criteria must have at least 1 bullet point"
+      - "Test File must contain a valid file path"
+      - "No session-level metadata (no train, feature, branch, archetypes)"
+
+  # ---------------------------------------------------------------------------
+  # Parent Issue Template (E010)
+  # ---------------------------------------------------------------------------
+  # The parent issue body is generated from a Markdown template by `atdd new`.
+  # The template produces 11 structured sections matching the `sections:` spec.
+  parent_issue_template:
+    file: "atdd/coach/templates/PARENT-ISSUE-TEMPLATE.md"
+    title_format: "feat(atdd): {Title}"
+
+    placeholders:
+      today:
+        source: "date.today().isoformat()"
+        example: "2026-02-26"
+      slug:
+        source: "CLI argument (kebab-case)"
+        example: "issue-tracking-migration"
+      issue_type:
+        source: "CLI --type argument"
+        values: ["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"]
+      train_display:
+        source: "CLI --train argument or 'TBD'"
+        example: "0001-auth-session-standard"
+      archetypes_display:
+        source: "CLI --archetypes argument or 'TBD'"
+        example: "be, contracts, wmbt"
+      data_model_section:
+        source: "Conditional: rendered when archetypes include 'db' or 'migrations'"
+        condition: "archetypes includes db or migrations"
+      gate_tests_rows:
+        source: "Derived from ARCHETYPE_GATES constant per declared archetype"
+        format: "Markdown table rows (| ID | phase | command | expected | validator | status |)"
+
+    sections:
+      - heading: "## Issue Metadata"
+        maps_to: "sections.header"
+      - heading: "## Scope"
+        maps_to: "sections.scope"
+      - heading: "## Context"
+        maps_to: "sections.context"
+      - heading: "## Architecture"
+        maps_to: "sections.architecture"
+        conditional_subsections:
+          - heading: "### Data Model"
+            condition: "archetypes includes db or migrations"
+      - heading: "## Phases"
+        maps_to: "sections.phases"
+      - heading: "## Validation"
+        maps_to: "sections.validation"
+      - heading: "## Decisions"
+        maps_to: "sections.decisions"
+      - heading: "## Activity Log"
+        maps_to: "sections.session_log"
+      - heading: "## Artifacts"
+        maps_to: "sections.artifacts"
+      - heading: "## Release Gate"
+        maps_to: "(new — release checklist)"
+      - heading: "## Notes"
+        maps_to: "(new — free-form)"
+
+    validation:
+      validator: "src/atdd/coach/validators/test_issue_validation.py::test_issue_body_has_required_sections"
+      mode: "soft (warnings for pre-E010 issues)"
+
+# =============================================================================
+# LOCAL SESSION FILES (legacy — historical sessions only)
+# =============================================================================
+
 # File format
 format:
   type: "hybrid"
@@ -234,7 +441,7 @@ filesystem:
   config_dir: ".atdd/"
   manifest: ".atdd/manifest.yaml"
   # Package template location (copy to consumer repo via `atdd init`)
-  template: "atdd.coach.templates/SESSION-TEMPLATE.md"
+  template: "atdd.coach.templates/ISSUE-TEMPLATE.md"
   naming:
     pattern: "SESSION-{NN}-{slug}.md"
     examples:
@@ -748,8 +955,8 @@ gate_tests:
         archetype: "all"
         command: "atdd validate coach"
         expected: "PASS"
-        atdd_validator: "atdd/coach/validators/test_session_validation.py"
-        description: "Session structure compliance"
+        atdd_validator: "atdd/coach/validators/test_issue_validation.py"
+        description: "Issue structure compliance"
 
     completion_phase:
       - id: "GT-900"

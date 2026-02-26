@@ -93,6 +93,7 @@ audits:
     validate_planner: "atdd validate planner"
     validate_tester: "atdd validate tester"
     validate_coder: "atdd validate coder"
+    validate_coach: "atdd validate coach"
     quick_check: "atdd validate --quick"
     with_coverage: "atdd validate --coverage"
     with_html: "atdd validate --html"
@@ -100,16 +101,11 @@ audits:
     status: "atdd status"
 
   workflow:
-    before_init: "Run planner validators to check plan structure"
-    after_init: "Validate wagon URNs, cross-refs, uniqueness"
-    before_planned: "Run tester validators to check test prerequisites"
-    after_planned: "Validate test naming, contracts, coverage"
-    before_red: "Validate layer structure expectations"
-    after_red: "Validate tests are RED and properly structured"
-    before_green: "Run coder validators for architecture readiness"
-    after_green: "Validate layer dependencies, boundaries"
-    after_refactor: "Validate architecture compliance, quality metrics"
-    continuous: "CI runs 'atdd validate' on every commit"
+    after_planner: "atdd validate planner   # Before transitioning to RED"
+    after_tester: "atdd validate tester     # Before transitioning to GREEN"
+    after_coder: "atdd validate coder       # Before transitioning to REFACTOR"
+    after_coach: "atdd validate coach       # Train + body section enforcement"
+    full_suite: "atdd validate              # All phases (CI runs this)"
 
   audit_scope:
     planner: "src/atdd/planner/validators/*.py (wagons, trains, URNs, cross-refs, WMBT)"
@@ -272,30 +268,25 @@ agents:
     schemas: "src/atdd/coder/schemas/*.json"
     audits: "src/atdd/coder/validators/*.py"
 
-# Session Planning (Design before implementation)
-# Note: atdd-sessions/ is created in the consuming repo via `atdd init`
-sessions:
-  # Consumer repo paths (created via `atdd init`)
-  directory: "atdd-sessions/"
-  archive: "atdd-sessions/archive/"
+# Issue Tracking (GitHub Issues + Project v2)
+# Source of truth: GitHub Issues with Project v2 custom fields
+# Legacy local session files (atdd-sessions/) are historical only
+issues:
+  source_of_truth: "GitHub Issues + Project v2 custom fields"
   config_dir: ".atdd/"
   manifest: ".atdd/manifest.yaml"
-  # Package resources
-  template: "src/atdd/coach/templates/SESSION-TEMPLATE.md"
-  convention: "src/atdd/coach/conventions/session.convention.yaml"
+  convention: "src/atdd/coach/conventions/issue.convention.yaml"
+  template: "src/atdd/coach/templates/PARENT-ISSUE-TEMPLATE.md"
 
   commands:
-    init: "atdd init                    # Initialize atdd-sessions/ and .atdd/"
-    new: "atdd new my-feature            # Create SESSION-NN-my-feature.md"
-    list: "atdd session list            # List all sessions from manifest"
-    archive: "atdd session archive 01   # Move session to archive/"
-
-  workflow:
-    init: "Run 'atdd init' to create atdd-sessions/ directory structure"
-    create: "Run 'atdd new <slug>' to create new session from template"
-    fill: "Fill ALL sections - write 'N/A' if not applicable, never omit"
-    track: "Update Progress Tracker and Session Log after each work item"
-    validate: "atdd validate coach"
+    init: "atdd init                              # Bootstrap .atdd/ + GitHub infrastructure"
+    new: "atdd new <slug>                          # Create parent issue + WMBT sub-issues"
+    new_with_opts: "atdd new <slug> --archetypes be,contracts --train <id>"
+    list: "atdd list                               # List all issues (from GitHub)"
+    update: "atdd update <N> --status <STATUS>     # Update Project fields + swap labels"
+    close_wmbt: "atdd close-wmbt <N> <WMBT_ID>     # Close a WMBT sub-issue"
+    archive: "atdd archive <N>                     # Close parent + all sub-issues"
+    validate: "atdd validate coach                 # Validate Project fields + sub-issue state"
 
   archetypes:
     db: "Supabase PostgreSQL + JSONB"
@@ -312,6 +303,22 @@ sessions:
     RED: "Write failing tests from acceptances"
     GREEN: "Implement minimal code to pass tests"
     REFACTOR: "Clean architecture, 4-layer compliance"
+
+# State Machine (issue lifecycle transitions)
+state_machine:
+  transitions:
+    INIT: [PLANNED, BLOCKED, OBSOLETE]
+    PLANNED: [RED, BLOCKED, OBSOLETE]
+    RED: [GREEN, BLOCKED, OBSOLETE]
+    GREEN: [REFACTOR, BLOCKED, OBSOLETE]
+    REFACTOR: [COMPLETE, BLOCKED, OBSOLETE]
+    BLOCKED: [INIT, PLANNED, RED, GREEN, REFACTOR, OBSOLETE]
+    COMPLETE: []
+    OBSOLETE: []
+  command: "atdd update <N> --status <STATUS>"
+  rules:
+    - "Train field required past PLANNED (enforced by CLI + validator)"
+    - "Labels swapped automatically (atdd:RED → atdd:GREEN)"
 
 # Quality Gates (Detailed in action files)
 validations:
@@ -352,5 +359,5 @@ conventions:
     - "design.convention.yaml: design system hierarchy"
 
   coach:
-    - "session.convention.yaml: Session planning structure & archetypes"
+    - "issue.convention.yaml: Session planning structure & archetypes"
 ---

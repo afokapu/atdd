@@ -3,12 +3,25 @@ Platform tests: Telemetry directory structure validation.
 
 Validates that telemetry/ follows the signal naming convention.
 Tests ensure telemetry signal files match pattern: {signal-type}.{plane}[.{measure}].json
+
+Preconditions:
+- telemetry/ directory must exist (consumer repo, created by tester phase)
+- jsonschema package must be installed
+
+Convention: src/atdd/tester/conventions/telemetry.convention.yaml
+Fix: Create telemetry/ via planner phase, then run `atdd validate tester`
 """
 import pytest
 from pathlib import Path
 import re
 import json
-from jsonschema import validate, ValidationError
+
+try:
+    from jsonschema import validate, ValidationError
+except ImportError:
+    pytestmark = pytest.mark.skip(
+        reason="jsonschema not installed. Fix: pip install jsonschema"
+    )
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root

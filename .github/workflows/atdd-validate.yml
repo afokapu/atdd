@@ -1,0 +1,50 @@
+# ATDD Validation Workflow (toolkit repo)
+# This workflow is for the atdd toolkit repo itself.
+# Consumer repos get a generated version via `atdd init`.
+name: ATDD Validate
+
+on:
+  push:
+    branches: [main, "be/*", "fe/*"]
+  pull_request:
+    branches: [main]
+  issues:
+    types: [opened, edited, closed, labeled, unlabeled]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip3 install pytest jsonschema pyyaml
+
+      - name: Run ATDD validators (from local src/)
+        run: PYTHONPATH=src python3 -m pytest src/atdd/coach/validators/ -v --tb=short
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post result as issue comment
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = '${{ job.status }}';
+            const emoji = result === 'success' ? '✅' : '❌';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `${emoji} ATDD validation: **${result}**`
+            });
