@@ -9,3 +9,11 @@ sessions:
   status: COMPLETE
   created: '2026-02-26'
   archived: '2026-02-26'
+- id: '33'
+  slug: design-system-compliance-gate
+  file: null
+  issue_number: 33
+  type: implementation
+  status: INIT
+  created: '2026-02-26'
+  archived: null

@@ -47,6 +47,7 @@ ARCHETYPE_GATES = {
     ],
     "fe": [
         ("GT-020", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_typescript_architecture.py"),
+        ("GT-021", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_design_system_compliance.py"),
     ],
     "contracts": [
         ("GT-030", "tester", "atdd validate tester", "src/atdd/tester/validators/test_contract_schema_compliance.py"),

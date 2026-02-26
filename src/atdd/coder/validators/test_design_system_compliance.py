@@ -12,6 +12,7 @@ Design System: web/src/maintain-ux/
 
 import pytest
 import re
+import warnings
 from pathlib import Path
 from typing import List, Set, Dict, Tuple
 
@@ -413,3 +414,332 @@ def test_design_system_uses_foundations():
             (f"\n\n... and {len(violations) - 10} more" if len(violations) > 10 else "") +
             "\n\nDesign system should use its own foundations for consistency."
         )
+
+
+def _get_maintain_ux_files(subdir: str) -> List[Path]:
+    """Find all TS/TSX files under a maintain-ux subdirectory."""
+    base = MAINTAIN_UX / subdir
+    if not base.exists():
+        return []
+    files = []
+    for ext in ("*.ts", "*.tsx"):
+        for f in base.rglob(ext):
+            if ".test." not in f.name and "/tests/" not in str(f):
+                files.append(f)
+    return files
+
+
+@pytest.mark.coder
+def test_design_system_hierarchy_imports():
+    """
+    SPEC-CODER-DESIGN-005: Design system layers must respect hierarchy.
+
+    Implements VC-DS-03 through VC-DS-06 from design.convention.yaml.
+
+    GIVEN: Files inside maintain-ux/{primitives,components,templates}
+    WHEN: Analyzing their import paths
+    THEN: No layer imports from a higher layer, and no maintain-ux file imports
+          from feature wagons
+
+    Hierarchy: tokens ← primitives ← components ← templates
+    """
+    primitives_files = _get_maintain_ux_files("primitives")
+    components_files = _get_maintain_ux_files("components")
+    all_ds_files = []
+    if MAINTAIN_UX.exists():
+        for ext in ("*.ts", "*.tsx"):
+            for f in MAINTAIN_UX.rglob(ext):
+                if ".test." not in f.name and "/tests/" not in str(f):
+                    all_ds_files.append(f)
+
+    if not primitives_files and not components_files and not all_ds_files:
+        pytest.skip("No design system files found in maintain-ux/")
+
+    violations = []
+
+    # VC-DS-03: Primitives must not import from components or templates
+    for f in primitives_files:
+        imports = extract_imports(f)
+        for imp in imports:
+            if "../components/" in imp or "../components" == imp:
+                rel = f.relative_to(REPO_ROOT)
+                violations.append(
+                    f"{rel}\n"
+                    f"  Forbidden: primitives → components (import '{imp}')\n"
+                    f"  Fix: Primitives can only import from tokens"
+                )
+            if "../templates/" in imp or "../templates" == imp:
+                rel = f.relative_to(REPO_ROOT)
+                violations.append(
+                    f"{rel}\n"
+                    f"  Forbidden: primitives → templates (import '{imp}')\n"
+                    f"  Fix: Primitives can only import from tokens"
+                )
+
+    # VC-DS-04: Components must not import from templates
+    for f in components_files:
+        imports = extract_imports(f)
+        for imp in imports:
+            if "../templates/" in imp or "../templates" == imp:
+                rel = f.relative_to(REPO_ROOT)
+                violations.append(
+                    f"{rel}\n"
+                    f"  Forbidden: components → templates (import '{imp}')\n"
+                    f"  Fix: Components can import from tokens and primitives only"
+                )
+
+    # VC-DS-05 / VC-DS-06: No maintain-ux file imports from outside maintain-ux wagon paths
+    for f in all_ds_files:
+        imports = extract_imports(f)
+        for imp in imports:
+            # Skip relative imports within maintain-ux, node_modules, and bare specifiers
+            if imp.startswith(".") or imp.startswith("@/maintain-ux"):
+                continue
+            if imp.startswith("preact") or imp.startswith("@preact"):
+                continue
+            # Flag imports that reach into other wagons
+            if imp.startswith("@/") or imp.startswith("../"):
+                # Reaching outside maintain-ux into a feature wagon
+                rel = f.relative_to(REPO_ROOT)
+                violations.append(
+                    f"{rel}\n"
+                    f"  Forbidden: design system → wagon (import '{imp}')\n"
+                    f"  Fix: Design system must be wagon-agnostic"
+                )
+
+    if violations:
+        pytest.fail(
+            f"\n\nFound {len(violations)} hierarchy violations in design system:\n\n" +
+            "\n\n".join(violations[:15]) +
+            (f"\n\n... and {len(violations) - 15} more" if len(violations) > 15 else "") +
+            "\n\nDesign system layers must follow: tokens ← primitives ← components ← templates"
+        )
+
+
+@pytest.mark.coder
+def test_no_hardcoded_tokens_in_wagons():
+    """
+    SPEC-CODER-DESIGN-006: Wagon UI files must not use hardcoded spacing, radii, or durations.
+
+    Extends DESIGN-002 (colors) to cover spacing, border-radius, and animation tokens.
+
+    GIVEN: TSX files in web/src/ outside maintain-ux/
+    WHEN: Scanning for inline pixel values, hardcoded radii, hardcoded durations
+    THEN: No more than 20 violations (threshold for gradual migration)
+
+    Rationale: All visual tokens must come from design system foundations
+    """
+    files = get_all_ui_files()
+    if not files:
+        pytest.skip("No frontend UI files found")
+
+    all_violations = []
+
+    # Patterns to detect hardcoded tokens (not colors — DESIGN-002 covers those)
+    patterns = [
+        # Inline pixel values in style objects: padding: "16px", margin: "24px", gap: "8px"
+        (r'''(?:padding|margin|gap|top|bottom|left|right|width|height)\s*:\s*["'](\d+)px["']''',
+         "Hardcoded pixel value in style string"),
+        # Numeric px in template literals: `${16}px`
+        (r"""\$\{\s*(\d+)\s*\}px""",
+         "Hardcoded pixel value in template literal"),
+        # Hardcoded border-radius as string: borderRadius: "8px"
+        (r'''borderRadius\s*:\s*["'](\d+)px["']''',
+         "Hardcoded border-radius string"),
+        # Hardcoded border-radius as number: borderRadius: 8
+        (r"""borderRadius\s*:\s*(\d+)\s*[,}\n]""",
+         "Hardcoded border-radius number"),
+        # Hardcoded transition durations: transition: "250ms", animationDuration: "300ms"
+        (r'''(?:transition|animation(?:Duration)?)\s*:\s*["'][^"']*?(\d{2,})ms''',
+         "Hardcoded duration"),
+        # Raw numeric spacing in style props: padding: 16, margin: 24
+        (r"""(?:padding|margin|gap)\s*:\s*(\d+)\s*[,}\n]""",
+         "Hardcoded numeric spacing"),
+    ]
+
+    for f in files:
+        try:
+            content = f.read_text(encoding='utf-8')
+        except Exception:
+            continue
+
+        lines = content.split('\n')
+        file_violations = []
+
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            # Skip imports and comments
+            if stripped.startswith('import') or stripped.startswith('//') or stripped.startswith('/*'):
+                continue
+            # Skip lines referencing design tokens
+            if 'spacing.' in line or 'radii.' in line or 'motion.' in line or 'tokens.' in line:
+                continue
+
+            for pattern, description in patterns:
+                for match in re.finditer(pattern, line):
+                    value = int(match.group(1))
+                    # Exclude values ≤ 4 (borders: 1px, 2px), 0 values
+                    if value <= 4:
+                        continue
+                    file_violations.append((i, f"{description}: {match.group(0).strip()}"))
+
+        if file_violations:
+            rel_path = f.relative_to(REPO_ROOT)
+            for line_num, issue in file_violations[:3]:  # Max 3 per file
+                all_violations.append(
+                    f"{rel_path}:{line_num}\n"
+                    f"  {issue}\n"
+                    f"  Fix: Use tokens from @/maintain-ux/foundations"
+                )
+
+    if len(all_violations) > 20:
+        pytest.fail(
+            f"\n\nFound {len(all_violations)} hardcoded token values (>20 threshold):\n\n" +
+            "\n\n".join(all_violations[:10]) +
+            (f"\n\n... and {len(all_violations) - 10} more" if len(all_violations) > 10 else "") +
+            "\n\nUse spacing/radii/motion tokens from @/maintain-ux/foundations."
+        )
+
+
+@pytest.mark.coder
+def test_no_orphaned_ui_elements():
+    """
+    SPEC-CODER-DESIGN-007: All TSX files must use at least one design system import.
+
+    Unlike DESIGN-001 which only checks presentation/ layer, this validates ALL TSX files
+    in web/src/ (pages, containers, layouts, any layer) are connected to the design system.
+
+    GIVEN: Any .tsx file in web/src/ outside maintain-ux/ and test files
+    WHEN: Checking its imports for any maintain-ux path
+    THEN: File has at least one import from maintain-ux
+
+    Rationale: Complete DS bypass means unthemed, inconsistent UI
+    """
+    files = get_all_ui_files()
+    if not files:
+        pytest.skip("No frontend UI files found")
+
+    orphaned = []
+
+    for f in files:
+        try:
+            content = f.read_text(encoding='utf-8')
+        except Exception:
+            continue
+
+        # Only check files that actually render JSX
+        if not re.search(r'return\s*\(?\s*<', content):
+            continue
+
+        imports = extract_imports(f)
+
+        has_ds_import = any(
+            'maintain-ux' in imp or '@maintain-ux' in imp
+            for imp in imports
+        )
+
+        if not has_ds_import:
+            rel_path = f.relative_to(REPO_ROOT)
+            orphaned.append(
+                f"{rel_path}\n"
+                f"  Issue: TSX component with zero design system imports\n"
+                f"  Fix: Import primitives/components from @/maintain-ux/"
+            )
+
+    if orphaned:
+        pytest.fail(
+            f"\n\nFound {len(orphaned)} orphaned UI elements (no design system imports):\n\n" +
+            "\n\n".join(orphaned[:15]) +
+            (f"\n\n... and {len(orphaned) - 15} more" if len(orphaned) > 15 else "") +
+            "\n\nAll TSX files should use at least one design system import for consistency."
+        )
+
+
+@pytest.mark.coder
+def test_design_system_metrics():
+    """
+    SPEC-CODER-DESIGN-008: Report design system adoption metrics.
+
+    Reports 4 metrics from design.convention.yaml as informational warnings (never fails).
+
+    Metrics:
+      METRIC-DS-01: Coverage — wagons with DS imports / total wagons with TSX (target ≥ 80%)
+      METRIC-DS-02: Reuse rate — avg times each DS export is imported (target ≥ 3)
+      METRIC-DS-03: Hardcoded density — files with hardcoded values / total UI files (target < 5%)
+      METRIC-DS-04: Hierarchy compliance — valid DS imports / total DS imports (target 100%)
+
+    Rationale: Track design system health over time without blocking CI
+    """
+    ui_files = get_all_ui_files()
+    if not ui_files:
+        pytest.skip("No frontend UI files found")
+
+    # --- METRIC-DS-01: Coverage ---
+    # Group files by wagon (first directory under web/src/)
+    wagons_with_tsx: Dict[str, bool] = {}
+    for f in ui_files:
+        try:
+            rel = f.relative_to(WEB_SRC)
+        except ValueError:
+            continue
+        wagon = rel.parts[0] if rel.parts else "root"
+        imports = extract_imports(f)
+        has_ds = any('maintain-ux' in imp or '@maintain-ux' in imp for imp in imports)
+        if wagon not in wagons_with_tsx:
+            wagons_with_tsx[wagon] = False
+        if has_ds:
+            wagons_with_tsx[wagon] = True
+
+    total_wagons = len(wagons_with_tsx)
+    ds_wagons = sum(1 for v in wagons_with_tsx.values() if v)
+    coverage_pct = (ds_wagons / total_wagons * 100) if total_wagons > 0 else 0.0
+    coverage_met = coverage_pct >= 80.0
+
+    # --- METRIC-DS-02: Reuse rate ---
+    exports = get_design_system_exports()
+    all_exports = exports.get('primitives', set()) | exports.get('components', set()) | exports.get('foundations', set())
+    usage_counts: Dict[str, int] = {name: 0 for name in all_exports}
+    for f in ui_files:
+        imported_names = extract_imported_names(f)
+        for name, path in imported_names:
+            if ('maintain-ux' in path or '@maintain-ux' in path) and name in usage_counts:
+                usage_counts[name] += 1
+    avg_reuse = (sum(usage_counts.values()) / len(usage_counts)) if usage_counts else 0.0
+    reuse_met = avg_reuse >= 3.0
+
+    # --- METRIC-DS-03: Hardcoded density ---
+    files_with_hardcoded = 0
+    for f in ui_files:
+        color_violations = extract_raw_color_values(f)
+        if color_violations:
+            files_with_hardcoded += 1
+    total_ui = len(ui_files)
+    density_pct = (files_with_hardcoded / total_ui * 100) if total_ui > 0 else 0.0
+    density_met = density_pct < 5.0
+
+    # --- METRIC-DS-04: Hierarchy compliance ---
+    total_ds_imports = 0
+    valid_ds_imports = 0
+    for f in ui_files:
+        imports = extract_imports(f)
+        for imp in imports:
+            if 'maintain-ux' in imp or '@maintain-ux' in imp:
+                total_ds_imports += 1
+                if any(ds in imp for ds in DESIGN_SYSTEM_IMPORTS):
+                    valid_ds_imports += 1
+    hierarchy_pct = (valid_ds_imports / total_ds_imports * 100) if total_ds_imports > 0 else 100.0
+    hierarchy_met = hierarchy_pct == 100.0
+
+    # Emit all metrics as warnings (informational, never blocking)
+    report = (
+        f"\n--- Design System Metrics ---\n"
+        f"METRIC-DS-01 Coverage:    {coverage_pct:5.1f}% ({ds_wagons}/{total_wagons} wagons)"
+        f"  {'PASS' if coverage_met else 'BELOW TARGET'} (target ≥ 80%)\n"
+        f"METRIC-DS-02 Reuse rate:  {avg_reuse:5.1f}x avg"
+        f"  {'PASS' if reuse_met else 'BELOW TARGET'} (target ≥ 3)\n"
+        f"METRIC-DS-03 Hardcoded:   {density_pct:5.1f}% ({files_with_hardcoded}/{total_ui} files)"
+        f"  {'PASS' if density_met else 'ABOVE TARGET'} (target < 5%)\n"
+        f"METRIC-DS-04 Hierarchy:   {hierarchy_pct:5.1f}% ({valid_ds_imports}/{total_ds_imports} imports)"
+        f"  {'PASS' if hierarchy_met else 'BELOW TARGET'} (target 100%)\n"
+    )
+    warnings.warn(report, stacklevel=1)
