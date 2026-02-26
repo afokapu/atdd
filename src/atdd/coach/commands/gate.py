@@ -119,13 +119,13 @@ class ATDDGate:
             print("Run 'atdd init' to set up ATDD in this repo.")
             return 1
 
-        session_convention = self._load_issue_convention()
+        issue_convention = self._load_issue_convention()
 
         if json:
             output = {
                 "files": files,
                 "constraints": self.KEY_CONSTRAINTS,
-                "session_convention": session_convention,
+                "issue_convention": issue_convention,
             }
             print(json_module.dumps(output, indent=2))
             return 0
@@ -149,13 +149,13 @@ class ATDDGate:
             print(f"  {i}. {constraint}")
 
         print("\n" + "=" * 60)
-        print("Session Convention")
+        print("Issue Convention")
         print("=" * 60)
 
-        if session_convention is None:
+        if issue_convention is None:
             print(f"Warning: issue convention not found at {self.issue_convention}")
         else:
-            print(session_convention.rstrip())
+            print(issue_convention.rstrip())
 
         print("\n" + "-" * 60)
         print("Before starting work, confirm you have loaded these rules.")

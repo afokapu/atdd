@@ -385,7 +385,7 @@ Phase descriptions:
         help="Train ID to assign (e.g., 0001-auth-session-standard)"
     )
 
-    # NOTE: 'session' subcommand removed in E009. Handled in dispatch as deprecation warning.
+    # NOTE: 'session' subcommand removed in E009; replaced by top-level issue commands.
 
     # ----- atdd list -----
     subparsers.add_parser(
@@ -789,7 +789,7 @@ Phase descriptions:
         initializer = ProjectInitializer()
         return initializer.init(force=args.force)
 
-    # atdd new <slug> (shorthand for session new)
+    # atdd new <slug>
     elif args.command == "new":
         manager = IssueManager()
         return manager.new(slug=args.slug, issue_type=args.type, train=getattr(args, 'train', None))

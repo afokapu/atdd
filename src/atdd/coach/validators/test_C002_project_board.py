@@ -3,7 +3,7 @@ C002: Project board confirmation — filterable by status, phase, archetype.
 
 Validates that the GitHub Project v2 board has:
 1. All required custom fields (ATDD Status, Phase, Train, etc.)
-2. Session issues are added to the Project with field values
+2. Issues are added to the Project with field values
 3. Fields support filtering (single-select fields have expected options)
 4. Progress pills visible via sub-issue counts
 
@@ -68,7 +68,7 @@ def test_project_has_required_custom_fields():
 
     Given: The ATDD Project v2
     When: Querying project fields via GraphQL
-    Then: All required fields exist (Session Number, ATDD Status, Phase, etc.)
+    Then: All required fields exist (incl. ATDD Status, Phase, Train, etc.)
     """
     client = _get_client()
     if client is None:
@@ -157,13 +157,13 @@ def test_atdd_phase_field_has_required_options():
 
 
 @pytest.mark.platform
-def test_session_issues_are_in_project():
+def test_issues_are_in_project():
     """
-    SPEC-COACH-C002-0004: Session issues are added to the Project
+    SPEC-COACH-C002-0004: Issues are added to the Project
 
-    Given: Open session issues with atdd-session label
+    Given: Open issues with atdd-session label
     When: Checking Project membership
-    Then: At least one session issue has a Project item ID
+    Then: At least one issue has a Project item ID
           (confirming issues are tracked in the board)
     """
     client = _get_client()
@@ -178,7 +178,7 @@ def test_session_issues_are_in_project():
         pytest.skip(f"Cannot query GitHub: {e}")
 
     if not issues:
-        pytest.skip("No session issues found")
+        pytest.skip("No issues found")
 
     in_project = 0
     for issue in issues:
@@ -190,18 +190,18 @@ def test_session_issues_are_in_project():
             continue
 
     assert in_project > 0, (
-        f"No session issues found in Project board. "
+        f"No issues found in Project board. "
         f"Checked {len(issues)} issues — none have a Project item ID.\n"
         f"Fix: Run `atdd init` to set up the Project, then `atdd new` to create issues."
     )
 
 
 @pytest.mark.platform
-def test_session_issues_have_status_field_set():
+def test_issues_have_status_field_set():
     """
-    SPEC-COACH-C002-0005: Session issues in Project have ATDD Status set
+    SPEC-COACH-C002-0005: Issues in Project have ATDD Status set
 
-    Given: Session issues in the Project
+    Given: Issues in the Project (label: atdd-session)
     When: Reading ATDD Status field value
     Then: At least one issue has a non-empty ATDD Status
           (confirming field values are set, enabling board filtering)
@@ -219,7 +219,7 @@ def test_session_issues_have_status_field_set():
         pytest.skip(f"Cannot query GitHub: {e}")
 
     if not issues:
-        pytest.skip("No session issues found")
+        pytest.skip("No issues found")
 
     if "ATDD Status" not in fields:
         pytest.skip("ATDD Status field not configured")
@@ -239,7 +239,7 @@ def test_session_issues_have_status_field_set():
             continue
 
     assert has_status, (
-        "No session issue has ATDD Status set in Project fields.\n"
+        "No issue has ATDD Status set in Project fields.\n"
         "Board filtering by status requires this field to be populated.\n"
         "Fix: Run `atdd update <number> --status INIT` to set the field."
     )
@@ -267,9 +267,9 @@ def test_archetype_labels_exist():
         pytest.skip(f"Cannot query GitHub: {e}")
 
     if not issues:
-        pytest.skip("No session issues found")
+        pytest.skip("No issues found")
 
-    # Check if any session issue has archetype labels
+    # Check if any issue has archetype labels
     has_archetype = False
     for issue in issues:
         labels = [l["name"] for l in issue.get("labels", [])]
@@ -278,7 +278,7 @@ def test_archetype_labels_exist():
             break
 
     assert has_archetype, (
-        "No session issue has archetype:* labels.\n"
+        "No issue has archetype:* labels.\n"
         "Board filtering by archetype requires these labels.\n"
         "Fix: Add archetype labels via `atdd init` or manually."
     )
@@ -289,7 +289,7 @@ def test_progress_pill_data_available():
     """
     SPEC-COACH-C002-0007: Sub-issue progress data available for progress pills
 
-    Given: Session issues with sub-issues
+    Given: Issues with sub-issues (label: atdd-session)
     When: Computing progress fraction
     Then: Progress can be expressed as "N/M WMBTs" where M > 0
           (confirming the data backing progress pills on board cards)
@@ -306,7 +306,7 @@ def test_progress_pill_data_available():
         pytest.skip(f"Cannot query GitHub: {e}")
 
     if not issues:
-        pytest.skip("No session issues found")
+        pytest.skip("No issues found")
 
     progress_available = False
     for issue in issues:
@@ -323,6 +323,6 @@ def test_progress_pill_data_available():
             continue
 
     assert progress_available, (
-        "No session issue has sub-issues for progress pill display.\n"
+        "No issue has sub-issues for progress pill display.\n"
         "The Project board shows progress as N/M WMBTs on each card."
     )

@@ -92,13 +92,13 @@ def test_github_client_methods_exist():
 
 
 @pytest.mark.platform
-def test_existing_session_issues_have_sub_issues():
+def test_existing_issues_have_sub_issues():
     """
-    SPEC-COACH-C001-0003: Existing session issues have WMBT sub-issues
+    SPEC-COACH-C001-0003: Existing issues have WMBT sub-issues
 
-    Given: Open session issues in the GitHub Project
+    Given: Open issues in the GitHub Project (label: atdd-session)
     When: Querying sub-issues
-    Then: At least one session issue has sub-issues (WMBTs)
+    Then: At least one issue has sub-issues (WMBTs)
           confirming that atdd new creates the parent+sub-issue structure
     """
     client = _get_client()
@@ -113,7 +113,7 @@ def test_existing_session_issues_have_sub_issues():
         pytest.skip(f"Cannot query GitHub: {e}")
 
     if not issues:
-        pytest.skip("No session issues found")
+        pytest.skip("No issues found")
 
     has_subs = False
     for issue in issues:
@@ -126,7 +126,7 @@ def test_existing_session_issues_have_sub_issues():
             continue
 
     assert has_subs, (
-        "No session issue has sub-issues. "
+        "No issue has sub-issues. "
         "The atdd new command should create parent issues with WMBT sub-issues."
     )
 
@@ -136,7 +136,7 @@ def test_sub_issue_progress_is_trackable():
     """
     SPEC-COACH-C001-0004: Sub-issue progress is trackable (closed/total)
 
-    Given: A session issue with sub-issues
+    Given: An issue with sub-issues
     When: Counting open vs closed sub-issues
     Then: Progress is computable as closed/total
           and both counts are non-negative integers
@@ -153,7 +153,7 @@ def test_sub_issue_progress_is_trackable():
         pytest.skip(f"Cannot query GitHub: {e}")
 
     if not issues:
-        pytest.skip("No session issues found")
+        pytest.skip("No issues found")
 
     for issue in issues:
         try:
@@ -177,15 +177,15 @@ def test_sub_issue_progress_is_trackable():
         # Found a valid issue with trackable progress
         return
 
-    pytest.skip("No session issue with sub-issues found")
+    pytest.skip("No issue with sub-issues found")
 
 
 @pytest.mark.platform
 def test_archived_issues_have_no_orphaned_sub_issues():
     """
-    SPEC-COACH-C001-0005: Archived (closed) session issues have no open sub-issues
+    SPEC-COACH-C001-0005: Archived (closed) issues have no open sub-issues
 
-    Given: Closed session issues
+    Given: Closed issues (label: atdd-session)
     When: Checking sub-issue states
     Then: All sub-issues of closed parent issues are also closed
           (no orphaned open sub-issues)
@@ -197,7 +197,7 @@ def test_archived_issues_have_no_orphaned_sub_issues():
     from atdd.coach.github import GitHubClientError
 
     try:
-        # Get closed session issues
+        # Get closed issues
         output = client._run_gh([
             "issue", "list",
             "--repo", client.repo,
@@ -212,7 +212,7 @@ def test_archived_issues_have_no_orphaned_sub_issues():
         pytest.skip(f"Cannot query GitHub: {e}")
 
     if not closed_issues:
-        pytest.skip("No closed session issues found")
+        pytest.skip("No closed issues found")
 
     orphans = []
     for issue in closed_issues:
@@ -228,7 +228,7 @@ def test_archived_issues_have_no_orphaned_sub_issues():
             continue
 
     assert not orphans, (
-        f"\nClosed session issues with orphaned open sub-issues:\n  "
+        f"\nClosed issues with orphaned open sub-issues:\n  "
         + "\n  ".join(orphans)
         + "\n\nFix: Run `atdd archive <number>` to close all sub-issues."
     )
@@ -239,7 +239,7 @@ def test_wmbt_sub_issues_have_atdd_wmbt_label():
     """
     SPEC-COACH-C001-0006: WMBT sub-issues carry the atdd-wmbt label
 
-    Given: Sub-issues of session parent issues
+    Given: Sub-issues of parent issues (label: atdd-session)
     When: Checking labels
     Then: Each sub-issue has the atdd-wmbt label
     """
@@ -255,7 +255,7 @@ def test_wmbt_sub_issues_have_atdd_wmbt_label():
         pytest.skip(f"Cannot query GitHub: {e}")
 
     if not issues:
-        pytest.skip("No session issues found")
+        pytest.skip("No issues found")
 
     # Check first issue that has sub-issues
     for issue in issues:
@@ -281,4 +281,4 @@ def test_wmbt_sub_issues_have_atdd_wmbt_label():
         # Found and validated — pass
         return
 
-    pytest.skip("No session issue with sub-issues found")
+    pytest.skip("No issue with sub-issues found")

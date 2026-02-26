@@ -251,7 +251,7 @@ class IssueManager:
         # Build parent issue body (minimal — details added by user)
         train_display = train or "TBD"
         body = (
-            f"## Session Metadata\n\n"
+            f"## Issue Metadata\n\n"
             f"| Field | Value |\n"
             f"|-------|-------|\n"
             f"| Date | `{today}` |\n"
@@ -265,10 +265,10 @@ class IssueManager:
             f"## Context\n\n"
             f"(fill in)\n\n"
             f"---\n\n"
-            f"## Session Log\n\n"
-            f"### Session 1 ({today})\n\n"
+            f"## Activity Log\n\n"
+            f"### Entry 1 ({today})\n\n"
             f"**Completed:**\n"
-            f"- Session created via `atdd new {slug}`\n"
+            f"- Issue created via `atdd new {slug}`\n"
         )
 
         # Determine labels for parent
@@ -288,7 +288,7 @@ class IssueManager:
             item_id = client.add_issue_to_project(parent_number)
             fields = client.get_project_fields()
 
-            # Set Session Number
+            # Set issue number (Project field: "Session Number")
             if "Session Number" in fields:
                 client.set_project_field_number(
                     item_id, fields["Session Number"]["id"], parent_number
@@ -302,7 +302,7 @@ class IssueManager:
                         item_id, fields["ATDD Status"]["id"], options["INIT"]
                     )
 
-            # Set Session Type
+            # Set issue type (Project field: "Session Type")
             if "Session Type" in fields:
                 options = fields["Session Type"].get("options", {})
                 if issue_type in options:

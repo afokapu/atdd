@@ -24,7 +24,7 @@ REPO_ROOT = find_repo_root()
 
 
 # ============================================================================
-# E008: Session Train Enforcement (GitHub Issues)
+# E008: Issue Train Enforcement (GitHub Issues)
 # ============================================================================
 
 
@@ -74,16 +74,16 @@ _POST_PLANNED_STATUSES = {"RED", "GREEN", "REFACTOR", "COMPLETE"}
 
 
 @pytest.mark.platform
-def test_session_issues_have_train_field():
+def test_issues_have_train_field():
     """
-    SPEC-SESSION-VAL-0050: Session issues must have a non-empty Train field
+    SPEC-SESSION-VAL-0050: Issues must have a non-empty Train field
 
-    Given: Open session issues in the GitHub Project
+    Given: Open issues in the GitHub Project (label: atdd-session)
     When: Checking the Train custom field value
-    Then: Sessions past PLANNED phase must have Train != TBD and != blank
-          Sessions at PLANNED phase get a warning if Train is TBD
+    Then: Issues past PLANNED phase must have Train != TBD and != blank
+          Issues at PLANNED phase get a warning if Train is TBD
 
-    E008 acceptance criteria: `atdd validate coach` fails if session issue has no train assignment.
+    E008 acceptance criteria: `atdd validate coach` fails if issue has no train assignment.
     """
     client = _get_github_client_if_configured()
     if client is None:
@@ -97,7 +97,7 @@ def test_session_issues_have_train_field():
         pytest.skip(f"Cannot query GitHub: {e}")
 
     if not issues:
-        pytest.skip("No session issues found")
+        pytest.skip("No issues found")
 
     fields = client.get_project_fields()
     if "Train" not in fields:
@@ -140,25 +140,25 @@ def test_session_issues_have_train_field():
     if warnings_list:
         import warnings as w
         w.warn(
-            f"Session train assignment warnings ({len(warnings_list)}):\n  "
+            f"Issue train assignment warnings ({len(warnings_list)}):\n  "
             + "\n  ".join(warnings_list),
             category=UserWarning,
             stacklevel=1,
         )
 
     assert not violations, (
-        f"\nSession issues past PLANNED must have a valid Train field (not TBD, not blank).\n"
+        f"\nIssues past PLANNED must have a valid Train field (not TBD, not blank).\n"
         f"Fix: Run `atdd update <issue_number> --train <train_id>`\n\n"
         f"Violations ({len(violations)}):\n  " + "\n  ".join(violations)
     )
 
 
 @pytest.mark.platform
-def test_session_train_references_valid_train_id():
+def test_issue_train_references_valid_train_id():
     """
-    SPEC-SESSION-VAL-0051: Session Train field must reference a valid train_id
+    SPEC-SESSION-VAL-0051: Issue Train field must reference a valid train_id
 
-    Given: Session issues with a non-empty Train field
+    Given: Issues with a non-empty Train field
     When: Cross-referencing against plan/_trains.yaml
     Then: The Train value matches a known train_id
 
@@ -176,7 +176,7 @@ def test_session_train_references_valid_train_id():
         pytest.skip(f"Cannot query GitHub: {e}")
 
     if not issues:
-        pytest.skip("No session issues found")
+        pytest.skip("No issues found")
 
     valid_train_ids = _load_valid_train_ids()
     if not valid_train_ids:
@@ -215,7 +215,7 @@ def test_session_train_references_valid_train_id():
             )
 
     assert not invalid, (
-        f"\nSession Train field values must reference valid train IDs from plan/_trains.yaml.\n"
+        f"\nIssue Train field values must reference valid train IDs from plan/_trains.yaml.\n"
         f"Valid train IDs: {', '.join(sorted(list(valid_train_ids)[:10]))}...\n\n"
         f"Invalid references ({len(invalid)}):\n  " + "\n  ".join(invalid)
     )
