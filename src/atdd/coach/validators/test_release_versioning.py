@@ -162,9 +162,42 @@ def _git_tags_on_head(repo_root: Path) -> list[str]:
     return tags
 
 
+def _tag_reachable_from_head(repo_root: Path, tag: str) -> bool:
+    """Check if a tag is an ancestor of HEAD (handles merge commits).
+
+    After a GitHub merge-commit, HEAD is a new SHA but the tagged
+    version-bump commit is a direct parent.  ``git merge-base --is-ancestor``
+    returns 0 when the tag's commit is reachable from HEAD.
+    """
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", tag, "HEAD"],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def _commits_since_tag(repo_root: Path, tag: str) -> int:
+    """Count commits between a tag and HEAD (0 = tag IS HEAD)."""
+    result = subprocess.run(
+        ["git", "rev-list", "--count", f"{tag}..HEAD"],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return -1
+    return int(result.stdout.strip())
+
+
 def test_release_version_file_and_tag_on_head():
     """
     SPEC-RELEASE-0001: Version file exists and tag on HEAD matches version.
+
+    The tag must either point directly at HEAD or be reachable within
+    a short distance (≤ 3 commits) to accommodate merge commits created
+    by GitHub pull request merges.
     """
     config = _load_config()
     version_file, tag_prefix = _get_release_config(config)
@@ -176,15 +209,31 @@ def test_release_version_file_and_tag_on_head():
     version = _read_version_from_file(version_path)
     expected_tag = f"{tag_prefix}{version}"
 
+    # Fast path: tag directly on HEAD
     tags = _git_tags_on_head(REPO_ROOT)
-    if not tags:
+    if expected_tag in tags:
+        return
+
+    # Merge-commit path: tag is a recent ancestor of HEAD
+    # (e.g., GitHub merge commit sits on top of the tagged version-bump)
+    if _tag_reachable_from_head(REPO_ROOT, expected_tag):
+        distance = _commits_since_tag(REPO_ROOT, expected_tag)
+        if 0 < distance <= 3:
+            return
+        if distance > 3:
+            pytest.fail(
+                f"Tag '{expected_tag}' exists but is {distance} commits behind HEAD. "
+                f"Expected tag on HEAD or within 3 commits (merge tolerance). "
+                f"Re-tag HEAD: git tag -f {expected_tag} && git push origin -f {expected_tag}"
+            )
+
+    if not tags and not _tag_reachable_from_head(REPO_ROOT, expected_tag):
         pytest.fail(
             "No git tag found on HEAD. "
             f"Create tag: git tag {expected_tag}"
         )
 
-    if expected_tag not in tags:
-        found = ", ".join(tags) if tags else "none"
-        pytest.fail(
-            f"Expected tag '{expected_tag}' on HEAD, found: {found}"
-        )
+    found = ", ".join(tags) if tags else "none"
+    pytest.fail(
+        f"Expected tag '{expected_tag}' on HEAD, found: {found}"
+    )
