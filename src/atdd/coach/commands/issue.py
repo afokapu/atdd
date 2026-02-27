@@ -785,6 +785,109 @@ class IssueManager:
 
         return all_passed, messages
 
+    @staticmethod
+    def _parse_artifacts(body: str) -> Dict[str, List[str]]:
+        """Parse Artifacts section from issue body markdown.
+
+        Returns dict with keys: created, modified, deleted — each a list of paths.
+        Skips template placeholders like '(none yet)'.
+        """
+        artifacts: Dict[str, List[str]] = {"created": [], "modified": [], "deleted": []}
+
+        # Find ## Artifacts section
+        section_match = re.search(
+            r"## Artifacts\s*\n(.*?)(?=\n## |\Z)",
+            body,
+            re.DOTALL,
+        )
+        if not section_match:
+            return artifacts
+
+        section = section_match.group(1)
+
+        # Parse each subsection
+        current_key = None
+        for line in section.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("### Created"):
+                current_key = "created"
+            elif stripped.startswith("### Modified"):
+                current_key = "modified"
+            elif stripped.startswith("### Deleted"):
+                current_key = "deleted"
+            elif stripped.startswith("- ") and current_key:
+                path = stripped[2:].strip().strip("`")
+                # Skip placeholders
+                if path.startswith("(") or not path:
+                    continue
+                # Strip trailing descriptions after ' — ' or ' - '
+                for sep in (" — ", " - ", " ("):
+                    if sep in path:
+                        path = path[:path.index(sep)].strip()
+                artifacts[current_key].append(path)
+
+        return artifacts
+
+    def _verify_artifacts(
+        self, artifacts: Dict[str, List[str]], force: bool = False,
+    ) -> Tuple[bool, List[str]]:
+        """Verify artifact claims against git state.
+
+        - Created: file must exist in HEAD
+        - Modified: file must have changes vs main
+        - Deleted: file must NOT exist in HEAD
+        """
+        messages = []
+        all_valid = True
+
+        total = sum(len(v) for v in artifacts.values())
+        if total == 0:
+            return True, ["  No artifacts declared"]
+
+        for path in artifacts["created"]:
+            if force:
+                messages.append(f"  Created:  {path} — SKIPPED (--force)")
+                continue
+            result = subprocess.run(
+                ["git", "ls-tree", "HEAD", "--", path],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            )
+            if result.stdout.strip():
+                messages.append(f"  Created:  {path} — EXISTS")
+            else:
+                messages.append(f"  Created:  {path} — MISSING")
+                all_valid = False
+
+        for path in artifacts["modified"]:
+            if force:
+                messages.append(f"  Modified: {path} — SKIPPED (--force)")
+                continue
+            result = subprocess.run(
+                ["git", "diff", "main...HEAD", "--", path],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            )
+            if result.stdout.strip():
+                messages.append(f"  Modified: {path} — CHANGED")
+            else:
+                messages.append(f"  Modified: {path} — NO CHANGES vs main")
+                all_valid = False
+
+        for path in artifacts["deleted"]:
+            if force:
+                messages.append(f"  Deleted:  {path} — SKIPPED (--force)")
+                continue
+            result = subprocess.run(
+                ["git", "ls-tree", "HEAD", "--", path],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            )
+            if not result.stdout.strip():
+                messages.append(f"  Deleted:  {path} — CONFIRMED GONE")
+            else:
+                messages.append(f"  Deleted:  {path} — STILL EXISTS")
+                all_valid = False
+
+        return all_valid, messages
+
     # -------------------------------------------------------------------------
     # E004: update
     # -------------------------------------------------------------------------
@@ -897,6 +1000,34 @@ class IssueManager:
                         print()  # blank line after gate results
                 elif not force:
                     print(f"\n  Warning: No gate tests found in issue body")
+
+                # Artifact verification
+                artifacts = self._parse_artifacts(issue_body)
+                artifact_count = sum(len(v) for v in artifacts.values())
+
+                if artifact_count > 0:
+                    if force:
+                        print(f"  Bypassing artifact verification (--force)")
+                    else:
+                        print(f"Verifying {artifact_count} artifacts for #{issue_number}:")
+
+                    artifacts_valid, artifact_messages = self._verify_artifacts(
+                        artifacts, force=force,
+                    )
+
+                    for msg in artifact_messages:
+                        print(msg)
+
+                    if not artifacts_valid:
+                        print(f"\nError: Artifact verification failed — cannot transition to COMPLETE")
+                        print(f"  Fix: Update ## Artifacts section with correct paths")
+                        print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+                        return 1
+
+                    if not force:
+                        print()
+                elif not force:
+                    print(f"  Warning: No artifacts declared in issue body")
 
             # Swap phase label
             phase_labels = [l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"]
