@@ -418,6 +418,7 @@ Phase descriptions:
     update_top_parser.add_argument("--feature-urn", type=str, help="ATDD: Feature URN")
     update_top_parser.add_argument("--archetypes", type=str, help="ATDD: Archetypes (comma-separated)")
     update_top_parser.add_argument("--complexity", type=str, help="ATDD: Complexity (e.g., 4-High)")
+    update_top_parser.add_argument("--force", "-f", action="store_true", help="Bypass gate/body checks on COMPLETE (train still enforced)")
 
     # ----- atdd close-wmbt <issue_number> <wmbt_id> -----
     close_wmbt_top_parser = subparsers.add_parser(
@@ -824,6 +825,7 @@ Phase descriptions:
             feature_urn=getattr(args, 'feature_urn', None),
             archetypes=getattr(args, 'archetypes', None),
             complexity=getattr(args, 'complexity', None),
+            force=getattr(args, 'force', False),
         )
 
     # atdd close-wmbt <issue_id> <wmbt_id> (top-level shorthand)

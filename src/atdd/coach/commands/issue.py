@@ -17,9 +17,10 @@ Convention: src/atdd/coach/conventions/issue.convention.yaml
 import json
 import logging
 import re
+import subprocess
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 import yaml
 
@@ -688,6 +689,103 @@ class IssueManager:
         return 0
 
     # -------------------------------------------------------------------------
+    # Gate verification helpers (used by update → COMPLETE)
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_gate_tests(body: str) -> List[Dict[str, str]]:
+        """Parse gate test table rows from issue body markdown.
+
+        Expected table format (under ## Validation → ### Gate Tests):
+        | ID | Phase | Command | Expected | ATDD Validator | Status |
+
+        Returns list of dicts with keys: id, phase, command, expected, validator, status
+        """
+        gates = []
+        # Find the Gate Tests table — look for header row with ID|Phase|Command
+        in_table = False
+        for line in body.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                if in_table:
+                    break  # End of table
+                continue
+
+            cells = [c.strip() for c in stripped.split("|")[1:-1]]  # strip empty first/last
+            if len(cells) < 6:
+                continue
+
+            # Skip header and separator rows
+            if cells[0] in ("ID", "") or cells[0].startswith("-"):
+                if cells[0] == "ID":
+                    in_table = True
+                continue
+
+            if not in_table:
+                continue
+
+            # Extract command — strip backticks
+            command = cells[2].strip("`").strip()
+            if not command:
+                continue
+
+            gates.append({
+                "id": cells[0].strip(),
+                "phase": cells[1].strip(),
+                "command": command,
+                "expected": cells[3].strip(),
+                "validator": cells[4].strip("`").strip(),
+                "status": cells[5].strip(),
+            })
+
+        return gates
+
+    def _run_gate_tests(
+        self, gates: List[Dict[str, str]], force: bool = False,
+    ) -> Tuple[bool, List[str]]:
+        """Run gate test commands and return (all_passed, messages).
+
+        Each gate command is executed via subprocess. Exit code 0 = PASS.
+        If force=True, logs warnings but does not block.
+        """
+        messages = []
+        all_passed = True
+
+        for gate in gates:
+            gate_id = gate["id"]
+            command = gate["command"]
+
+            if force:
+                messages.append(f"  {gate_id}: SKIPPED (--force) — {command}")
+                continue
+
+            print(f"  Running {gate_id}: {command} ...", end=" ", flush=True)
+
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=str(self.target_dir),
+                timeout=300,  # 5 min max per gate
+            )
+
+            if result.returncode == 0:
+                print("PASS")
+                messages.append(f"  {gate_id}: PASS — {command}")
+            else:
+                print("FAIL")
+                all_passed = False
+                stderr_snippet = result.stderr.strip().splitlines()[-3:] if result.stderr else []
+                messages.append(
+                    f"  {gate_id}: FAIL (exit {result.returncode}) — {command}"
+                )
+                for line in stderr_snippet:
+                    messages.append(f"    {line}")
+
+        return all_passed, messages
+
+    # -------------------------------------------------------------------------
     # E004: update
     # -------------------------------------------------------------------------
 
@@ -712,6 +810,7 @@ class IssueManager:
         feature_urn: Optional[str] = None,
         archetypes: Optional[str] = None,
         complexity: Optional[str] = None,
+        force: bool = False,
     ) -> int:
         """Update issue Project fields and labels."""
         if not self._check_initialized():
@@ -771,6 +870,33 @@ class IssueManager:
                 except GitHubClientError:
                     # If we can't read fields, allow the transition (fail open)
                     logger.debug("Could not read Train field, allowing transition")
+
+            # Gate verification: run gate commands before allowing COMPLETE
+            if status == "COMPLETE":
+                issue_body = issue.get("body", "") or ""
+                gates = self._parse_gate_tests(issue_body)
+
+                if gates:
+                    if force:
+                        print(f"\n  Bypassing {len(gates)} gate tests (--force)")
+                    else:
+                        print(f"\nRunning {len(gates)} gate tests for #{issue_number}:")
+
+                    all_passed, gate_messages = self._run_gate_tests(gates, force=force)
+
+                    for msg in gate_messages:
+                        print(msg)
+
+                    if not all_passed:
+                        print(f"\nError: Gate tests failed — cannot transition to COMPLETE")
+                        print(f"  Fix: Resolve failing gates, then retry")
+                        print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+                        return 1
+
+                    if not force:
+                        print()  # blank line after gate results
+                elif not force:
+                    print(f"\n  Warning: No gate tests found in issue body")
 
             # Swap phase label
             phase_labels = [l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"]
