@@ -170,22 +170,13 @@ class IssueManager:
     ) -> str:
         """Render WMBT sub-issue body from template."""
         if not self.wmbt_template_source.exists():
-            # Inline fallback
-            template = (
-                "## wmbt:{wagon}:{wmbt_id}\n\n"
-                "**Step:** {step_name} | **URN:** `wmbt:{wagon}:{wmbt_id}`\n"
-                "**Statement:** {statement}\n\n"
-                "### ATDD Cycle\n\n"
-                "- [ ] RED: failing test written\n"
-                "- [ ] GREEN: implementation passes test\n"
-                "- [ ] REFACTOR: architecture compliance verified\n\n"
-                "### Acceptance Criteria\n\n"
-                "{acceptance_criteria}\n\n"
-                "### Test File\n\n"
-                "`{test_file_path}`\n"
+            raise FileNotFoundError(
+                f"WMBT sub-issue template not found: {self.wmbt_template_source}\n"
+                f"This file is shipped with the atdd package. "
+                f"Reinstall: pip install --force-reinstall atdd"
             )
-        else:
-            template = self.wmbt_template_source.read_text()
+
+        template = self.wmbt_template_source.read_text()
 
         step_code = wmbt_id[0] if wmbt_id else "E"
         step_name = STEP_CODES.get(step_code, "Execute")
@@ -253,8 +244,10 @@ class IssueManager:
         gate_tests_rows = self._build_gate_test_rows(archetypes_list)
 
         if not self.parent_template_source.exists():
-            return self._render_parent_body_inline(
-                slug, issue_type, today, train_display, archetypes_display,
+            raise FileNotFoundError(
+                f"Parent issue template not found: {self.parent_template_source}\n"
+                f"This file is shipped with the atdd package. "
+                f"Reinstall: pip install --force-reinstall atdd"
             )
 
         template = self.parent_template_source.read_text()
@@ -266,36 +259,6 @@ class IssueManager:
             archetypes_display=archetypes_display,
             data_model_section=data_model_section,
             gate_tests_rows=gate_tests_rows,
-        )
-
-    def _render_parent_body_inline(
-        self,
-        slug: str,
-        issue_type: str,
-        today: str,
-        train_display: str,
-        archetypes_display: str,
-    ) -> str:
-        """Inline fallback body when template file is missing."""
-        return (
-            f"## Issue Metadata\n\n"
-            f"| Field | Value |\n"
-            f"|-------|-------|\n"
-            f"| Date | `{today}` |\n"
-            f"| Status | `INIT` |\n"
-            f"| Type | `{issue_type}` |\n"
-            f"| Branch | TBD |\n"
-            f"| Archetypes | {archetypes_display} |\n"
-            f"| Train | {train_display} |\n"
-            f"| Feature | TBD |\n\n"
-            f"---\n\n"
-            f"## Context\n\n"
-            f"(fill in)\n\n"
-            f"---\n\n"
-            f"## Activity Log\n\n"
-            f"### Entry 1 ({today})\n\n"
-            f"**Completed:**\n"
-            f"- Issue created via `atdd new {slug}`\n"
         )
 
     def _discover_wmbts(self, wagon: str) -> List[Dict[str, Any]]:
