@@ -99,7 +99,8 @@ class ATDDCoach:
         verbose: bool = False,
         coverage: bool = False,
         html: bool = False,
-        quick: bool = False
+        quick: bool = False,
+        split: bool = True,
     ) -> int:
         """Run ATDD validators."""
         if quick:
@@ -110,7 +111,8 @@ class ATDDCoach:
             verbose=verbose,
             coverage=coverage,
             html_report=html,
-            parallel=True
+            parallel=True,
+            split=split,
         )
 
     def update_registries(
@@ -290,6 +292,12 @@ Phase descriptions:
         "--html",
         action="store_true",
         help="Generate HTML report"
+    )
+    validate_parser.add_argument(
+        "--no-split",
+        action="store_true",
+        dest="no_split",
+        help="Run all tests in one pass (default: two-stage split)"
     )
 
     # ----- atdd inventory -----
@@ -760,7 +768,8 @@ Phase descriptions:
             verbose=args.verbose,
             coverage=args.coverage,
             html=args.html,
-            quick=args.quick
+            quick=args.quick,
+            split=not args.no_split,
         )
 
     # atdd inventory

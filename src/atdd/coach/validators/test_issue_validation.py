@@ -20,6 +20,7 @@ from pathlib import Path
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.github import GitHubClientError
 
 # ============================================================================
 # Configuration
@@ -31,21 +32,6 @@ REPO_ROOT = find_repo_root()
 # ============================================================================
 # E008: Issue Train Enforcement (GitHub Issues)
 # ============================================================================
-
-
-def _get_github_client_if_configured():
-    """Try to get a GitHubClient. Returns client or None."""
-    try:
-        from atdd.coach.github import GitHubClient, ProjectConfig, GitHubClientError
-        config_file = REPO_ROOT / ".atdd" / "config.yaml"
-        project_config = ProjectConfig.from_config(config_file)
-        client = GitHubClient(
-            repo=project_config.repo,
-            project_id=project_config.project_id,
-        )
-        return client
-    except Exception:
-        return None
 
 
 def _load_valid_train_ids():
@@ -79,7 +65,7 @@ _POST_PLANNED_STATUSES = {"RED", "GREEN", "REFACTOR", "COMPLETE"}
 
 
 @pytest.mark.platform
-def test_issues_have_train_field():
+def test_issues_have_train_field(github_client, github_issues, github_project_fields):
     """
     SPEC-SESSION-VAL-0050: Issues must have a non-empty Train field
 
@@ -90,42 +76,24 @@ def test_issues_have_train_field():
 
     E008 acceptance criteria: `atdd validate coach` fails if issue has no train assignment.
     """
-    client = _get_github_client_if_configured()
-    if client is None:
-        pytest.skip("GitHub integration not configured (no .atdd/config.yaml)")
-
-    from atdd.coach.github import GitHubClientError
-
-    try:
-        issues = client.list_issues_by_label("atdd-issue")
-    except GitHubClientError as e:
-        pytest.skip(f"Cannot query GitHub: {e}")
-
-    if not issues:
-        pytest.skip("No issues found")
-
-    try:
-        fields = client.get_project_fields()
-    except GitHubClientError as e:
-        pytest.skip(f"Cannot query Project v2 fields (needs 'project' scope): {e}")
-    if "ATDD: Train" not in fields:
+    if "ATDD: Train" not in github_project_fields:
         pytest.skip("Train field not configured in Project")
 
     violations = []
     warnings_list = []
 
-    for issue in issues:
+    for issue in github_issues:
         num = issue["number"]
 
         try:
-            item_id = client.get_project_item_id(num)
+            item_id = github_client.get_project_item_id(num)
         except GitHubClientError:
             continue
         if not item_id:
             continue
 
         try:
-            values = client.get_project_item_field_values(item_id)
+            values = github_client.get_project_item_field_values(item_id)
         except GitHubClientError:
             continue
 
@@ -146,7 +114,6 @@ def test_issues_have_train_field():
             )
 
     if warnings_list:
-        import warnings as w
         w.warn(
             f"Issue train assignment warnings ({len(warnings_list)}):\n  "
             + "\n  ".join(warnings_list),
@@ -162,7 +129,7 @@ def test_issues_have_train_field():
 
 
 @pytest.mark.platform
-def test_issue_train_references_valid_train_id():
+def test_issue_train_references_valid_train_id(github_client, github_issues, github_project_fields):
     """
     SPEC-SESSION-VAL-0051: Issue Train field must reference a valid train_id
 
@@ -172,42 +139,27 @@ def test_issue_train_references_valid_train_id():
 
     E008 acceptance criteria: Train value must reference a valid train_id from _trains.yaml.
     """
-    client = _get_github_client_if_configured()
-    if client is None:
-        pytest.skip("GitHub integration not configured (no .atdd/config.yaml)")
-
-    from atdd.coach.github import GitHubClientError
-
-    try:
-        issues = client.list_issues_by_label("atdd-issue")
-    except GitHubClientError as e:
-        pytest.skip(f"Cannot query GitHub: {e}")
-
-    if not issues:
-        pytest.skip("No issues found")
-
     valid_train_ids = _load_valid_train_ids()
     if not valid_train_ids:
         pytest.skip("No trains found in plan/_trains.yaml")
 
-    fields = client.get_project_fields()
-    if "ATDD: Train" not in fields:
+    if "ATDD: Train" not in github_project_fields:
         pytest.skip("Train field not configured in Project")
 
     invalid = []
 
-    for issue in issues:
+    for issue in github_issues:
         num = issue["number"]
 
         try:
-            item_id = client.get_project_item_id(num)
+            item_id = github_client.get_project_item_id(num)
         except GitHubClientError:
             continue
         if not item_id:
             continue
 
         try:
-            values = client.get_project_item_field_values(item_id)
+            values = github_client.get_project_item_field_values(item_id)
         except GitHubClientError:
             continue
 
@@ -249,7 +201,7 @@ REQUIRED_BODY_SECTIONS = [
 
 
 @pytest.mark.platform
-def test_issue_body_has_required_sections():
+def test_issue_body_has_required_sections(github_issues):
     """
     SPEC-SESSION-VAL-0060: Issue body should contain all structured sections
 
@@ -260,23 +212,9 @@ def test_issue_body_has_required_sections():
 
     E010 acceptance criteria: `atdd validate coach` warns if issue body is missing sections.
     """
-    client = _get_github_client_if_configured()
-    if client is None:
-        pytest.skip("GitHub integration not configured (no .atdd/config.yaml)")
-
-    from atdd.coach.github import GitHubClientError
-
-    try:
-        issues = client.list_issues_by_label("atdd-issue")
-    except GitHubClientError as e:
-        pytest.skip(f"Cannot query GitHub: {e}")
-
-    if not issues:
-        pytest.skip("No issues found")
-
     incomplete = []
 
-    for issue in issues:
+    for issue in github_issues:
         num = issue["number"]
         body = issue.get("body", "") or ""
         missing = [s for s in REQUIRED_BODY_SECTIONS if s not in body]
