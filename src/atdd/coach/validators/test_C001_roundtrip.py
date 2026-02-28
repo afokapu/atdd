@@ -14,27 +14,10 @@ These tests run against the LIVE GitHub API and require:
 
 Run: atdd validate coach
 """
+import json
 import pytest
-from pathlib import Path
 
-from atdd.coach.utils.repo import find_repo_root
-
-
-REPO_ROOT = find_repo_root()
-
-
-def _get_client():
-    """Get GitHubClient if configured, else None."""
-    try:
-        from atdd.coach.github import GitHubClient, ProjectConfig, GitHubClientError
-        config_file = REPO_ROOT / ".atdd" / "config.yaml"
-        project_config = ProjectConfig.from_config(config_file)
-        return GitHubClient(
-            repo=project_config.repo,
-            project_id=project_config.project_id,
-        )
-    except Exception:
-        return None
+from atdd.coach.github import GitHubClientError
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +75,7 @@ def test_github_client_methods_exist():
 
 
 @pytest.mark.platform
-def test_existing_issues_have_sub_issues():
+def test_existing_issues_have_sub_issues(github_client, github_issues):
     """
     SPEC-COACH-C001-0003: Existing issues have WMBT sub-issues
 
@@ -101,24 +84,10 @@ def test_existing_issues_have_sub_issues():
     Then: At least one issue has sub-issues (WMBTs)
           confirming that atdd new creates the parent+sub-issue structure
     """
-    client = _get_client()
-    if client is None:
-        pytest.skip("GitHub integration not configured")
-
-    from atdd.coach.github import GitHubClientError
-
-    try:
-        issues = client.list_issues_by_label("atdd-issue")
-    except GitHubClientError as e:
-        pytest.skip(f"Cannot query GitHub: {e}")
-
-    if not issues:
-        pytest.skip("No issues found")
-
     has_subs = False
-    for issue in issues:
+    for issue in github_issues:
         try:
-            subs = client.get_sub_issues(issue["number"])
+            subs = github_client.get_sub_issues(issue["number"])
             if subs:
                 has_subs = True
                 break
@@ -132,7 +101,7 @@ def test_existing_issues_have_sub_issues():
 
 
 @pytest.mark.platform
-def test_sub_issue_progress_is_trackable():
+def test_sub_issue_progress_is_trackable(github_client, github_issues):
     """
     SPEC-COACH-C001-0004: Sub-issue progress is trackable (closed/total)
 
@@ -141,23 +110,9 @@ def test_sub_issue_progress_is_trackable():
     Then: Progress is computable as closed/total
           and both counts are non-negative integers
     """
-    client = _get_client()
-    if client is None:
-        pytest.skip("GitHub integration not configured")
-
-    from atdd.coach.github import GitHubClientError
-
-    try:
-        issues = client.list_issues_by_label("atdd-issue")
-    except GitHubClientError as e:
-        pytest.skip(f"Cannot query GitHub: {e}")
-
-    if not issues:
-        pytest.skip("No issues found")
-
-    for issue in issues:
+    for issue in github_issues:
         try:
-            subs = client.get_sub_issues(issue["number"])
+            subs = github_client.get_sub_issues(issue["number"])
         except GitHubClientError:
             continue
 
@@ -181,7 +136,7 @@ def test_sub_issue_progress_is_trackable():
 
 
 @pytest.mark.platform
-def test_archived_issues_have_no_orphaned_sub_issues():
+def test_archived_issues_have_no_orphaned_sub_issues(github_client):
     """
     SPEC-COACH-C001-0005: Archived (closed) issues have no open sub-issues
 
@@ -190,23 +145,16 @@ def test_archived_issues_have_no_orphaned_sub_issues():
     Then: All sub-issues of closed parent issues are also closed
           (no orphaned open sub-issues)
     """
-    client = _get_client()
-    if client is None:
-        pytest.skip("GitHub integration not configured")
-
-    from atdd.coach.github import GitHubClientError
-
     try:
-        # Get closed issues
-        output = client._run_gh([
+        # Get closed issues (separate query, not cached — closed issues are rare)
+        output = github_client._run_gh([
             "issue", "list",
-            "--repo", client.repo,
+            "--repo", github_client.repo,
             "--label", "atdd-issue",
             "--state", "closed",
             "--json", "number,title",
             "--limit", "20",
         ])
-        import json
         closed_issues = json.loads(output) if output else []
     except GitHubClientError as e:
         pytest.skip(f"Cannot query GitHub: {e}")
@@ -217,7 +165,7 @@ def test_archived_issues_have_no_orphaned_sub_issues():
     orphans = []
     for issue in closed_issues:
         try:
-            subs = client.get_sub_issues(issue["number"])
+            subs = github_client.get_sub_issues(issue["number"])
             open_subs = [s for s in subs if s.get("state") == "open"]
             if open_subs:
                 sub_nums = ", ".join(f"#{s['number']}" for s in open_subs)
@@ -235,7 +183,7 @@ def test_archived_issues_have_no_orphaned_sub_issues():
 
 
 @pytest.mark.platform
-def test_wmbt_sub_issues_have_atdd_wmbt_label():
+def test_wmbt_sub_issues_have_atdd_wmbt_label(github_client, github_issues):
     """
     SPEC-COACH-C001-0006: WMBT sub-issues carry the atdd-wmbt label
 
@@ -243,24 +191,10 @@ def test_wmbt_sub_issues_have_atdd_wmbt_label():
     When: Checking labels
     Then: Each sub-issue has the atdd-wmbt label
     """
-    client = _get_client()
-    if client is None:
-        pytest.skip("GitHub integration not configured")
-
-    from atdd.coach.github import GitHubClientError
-
-    try:
-        issues = client.list_issues_by_label("atdd-issue")
-    except GitHubClientError as e:
-        pytest.skip(f"Cannot query GitHub: {e}")
-
-    if not issues:
-        pytest.skip("No issues found")
-
     # Check first issue that has sub-issues
-    for issue in issues:
+    for issue in github_issues:
         try:
-            subs = client.get_sub_issues(issue["number"])
+            subs = github_client.get_sub_issues(issue["number"])
         except GitHubClientError:
             continue
 

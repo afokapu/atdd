@@ -22,42 +22,12 @@ from atdd.coach.utils.repo import find_repo_root
 REPO_ROOT = find_repo_root()
 
 
-def _get_github_client_if_configured():
-    """Try to get a GitHubClient. Returns client or None."""
-    try:
-        from atdd.coach.github import GitHubClient, ProjectConfig
-
-        config_file = REPO_ROOT / ".atdd" / "config.yaml"
-        project_config = ProjectConfig.from_config(config_file)
-        return GitHubClient(
-            repo=project_config.repo,
-            project_id=project_config.project_id,
-        )
-    except Exception:
-        return None
-
-
-def _get_complete_issues(client):
-    """Return open+closed issues with atdd:COMPLETE label."""
-    from atdd.coach.github import GitHubClientError
-
-    try:
-        issues = client.list_issues_by_label("atdd:COMPLETE")
-    except GitHubClientError as e:
-        pytest.skip(f"Cannot query GitHub: {e}")
-
-    if not issues:
-        pytest.skip("No COMPLETE issues found")
-
-    return issues
-
-
 # ---------------------------------------------------------------------------
 # SPEC-GATE-0001: Gate test commands must PASS for COMPLETE issues
 # ---------------------------------------------------------------------------
 
 @pytest.mark.platform
-def test_complete_issues_gate_tests_pass():
+def test_complete_issues_gate_tests_pass(github_complete_issues):
     """
     SPEC-GATE-0001: All gate test commands in COMPLETE issues must PASS.
 
@@ -65,16 +35,11 @@ def test_complete_issues_gate_tests_pass():
     When: Parsing the Gate Tests table from the issue body
     Then: Every gate command exits 0 when run from the repo root
     """
-    client = _get_github_client_if_configured()
-    if client is None:
-        pytest.skip("GitHub integration not configured")
-
-    issues = _get_complete_issues(client)
     manager = IssueManager(target_dir=REPO_ROOT)
 
     failures = []
 
-    for issue in issues:
+    for issue in github_complete_issues:
         num = issue["number"]
         body = issue.get("body", "") or ""
         gates = manager._parse_gate_tests(body)
@@ -110,7 +75,7 @@ def test_complete_issues_gate_tests_pass():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.platform
-def test_complete_issues_artifacts_valid():
+def test_complete_issues_artifacts_valid(github_complete_issues):
     """
     SPEC-GATE-0002: Artifact claims in COMPLETE issues must match git state.
 
@@ -118,16 +83,11 @@ def test_complete_issues_artifacts_valid():
     When: Parsing the Artifacts section and checking against git
     Then: Created files exist, Modified files have changes vs main, Deleted files are gone
     """
-    client = _get_github_client_if_configured()
-    if client is None:
-        pytest.skip("GitHub integration not configured")
-
-    issues = _get_complete_issues(client)
     manager = IssueManager(target_dir=REPO_ROOT)
 
     failures = []
 
-    for issue in issues:
+    for issue in github_complete_issues:
         num = issue["number"]
         body = issue.get("body", "") or ""
         artifacts = manager._parse_artifacts(body)
@@ -155,7 +115,7 @@ def test_complete_issues_artifacts_valid():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.platform
-def test_complete_issues_release_gate():
+def test_complete_issues_release_gate(github_complete_issues):
     """
     SPEC-GATE-0003: COMPLETE issues must have version bumped and tag on HEAD.
 
@@ -166,11 +126,6 @@ def test_complete_issues_release_gate():
     Note: This validates the overall release state, not per-issue.
     If any COMPLETE issue exists, the release gate must be satisfied.
     """
-    client = _get_github_client_if_configured()
-    if client is None:
-        pytest.skip("GitHub integration not configured")
-
-    issues = _get_complete_issues(client)
     manager = IssueManager(target_dir=REPO_ROOT)
 
     # Release gate is a repo-level check, not per-issue.
