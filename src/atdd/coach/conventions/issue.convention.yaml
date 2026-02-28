@@ -958,7 +958,31 @@ gate_tests:
         atdd_validator: "atdd/coach/validators/test_issue_validation.py"
         description: "Issue structure compliance"
 
+      - id: "GT-002"
+        phase: "design"
+        archetype: "all"
+        command: "atdd registry update --check"
+        expected: "PASS"
+        atdd_validator: "atdd/coach/commands/registry.py"
+        description: "Registry sync check (no drift)"
+
     completion_phase:
+      - id: "GT-800"
+        phase: "completion"
+        archetype: "all"
+        command: "atdd urn validate"
+        expected: "PASS"
+        atdd_validator: "atdd/coach/validators/test_urn_traceability.py"
+        description: "URN traceability graph integrity"
+
+      - id: "GT-850"
+        phase: "completion"
+        archetype: "all"
+        command: "atdd registry update --check"
+        expected: "PASS"
+        atdd_validator: "atdd/coach/commands/registry.py"
+        description: "Registry sync check (no drift at completion)"
+
       - id: "GT-900"
         phase: "completion"
         archetype: "all"
