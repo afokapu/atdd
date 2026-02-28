@@ -100,7 +100,7 @@ class ATDDCoach:
         coverage: bool = False,
         html: bool = False,
         quick: bool = False,
-        split: bool = False,
+        split: bool = True,
     ) -> int:
         """Run ATDD validators."""
         if quick:
@@ -294,9 +294,10 @@ Phase descriptions:
         help="Generate HTML report"
     )
     validate_parser.add_argument(
-        "--split",
+        "--no-split",
         action="store_true",
-        help="Two-stage run: fast (file parsing) then slow (GitHub API)"
+        dest="no_split",
+        help="Run all tests in one pass (default: two-stage split)"
     )
 
     # ----- atdd inventory -----
@@ -768,7 +769,7 @@ Phase descriptions:
             coverage=args.coverage,
             html=args.html,
             quick=args.quick,
-            split=args.split,
+            split=not args.no_split,
         )
 
     # atdd inventory

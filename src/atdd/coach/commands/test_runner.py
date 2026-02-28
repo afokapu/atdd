@@ -122,7 +122,7 @@ class TestRunner:
         html_report: bool = False,
         markers: Optional[List[str]] = None,
         parallel: bool = True,
-        split: bool = False,
+        split: bool = True,
     ) -> int:
         """
         Run ATDD validators with specified options.
@@ -134,7 +134,9 @@ class TestRunner:
             html_report: Generate HTML report
             markers: Additional pytest markers to filter
             parallel: Run validators in parallel (uses pytest-xdist if available)
-            split: Run in two stages: fast (not platform) then slow (platform)
+            split: Two-stage run (default True): fast tests parallel, then
+                   API-bound platform tests sequential with shared fixtures.
+                   Use --no-split to run everything in one pass.
 
         Returns:
             Exit code from pytest (non-zero if any stage fails)
