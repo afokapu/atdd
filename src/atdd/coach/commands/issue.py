@@ -888,6 +888,180 @@ class IssueManager:
 
         return all_valid, messages
 
+    @staticmethod
+    def _parse_issue_type(body: str) -> Optional[str]:
+        """Extract issue type from ## Issue Metadata table.
+
+        Looks for ``| Type | `{type}` |`` in the metadata table.
+        """
+        match = re.search(r"\|\s*Type\s*\|\s*`?(\w+)`?\s*\|", body)
+        return match.group(1).lower().strip() if match else None
+
+    # Types that require a train assignment
+    TRAIN_REQUIRED_TYPES = {"implementation", "migration", "refactor"}
+
+    def _verify_release_gate(
+        self, force: bool = False,
+    ) -> Tuple[bool, List[str]]:
+        """Verify release gate: version bumped + tag on HEAD or ancestor.
+
+        Reuses the same logic as test_release_versioning.py but returns
+        (passed, messages) instead of raising pytest assertions.
+        """
+        messages = []
+
+        if force:
+            messages.append("  Release gate: SKIPPED (--force)")
+            return True, messages
+
+        # Load config
+        config_path = self.target_dir / ".atdd" / "config.yaml"
+        if not config_path.exists():
+            messages.append("  Release gate: SKIPPED (no .atdd/config.yaml)")
+            return True, messages
+
+        with open(config_path) as f:
+            config = yaml.safe_load(f) or {}
+
+        release = config.get("release")
+        if not isinstance(release, dict):
+            messages.append("  Release gate: SKIPPED (no release config)")
+            return True, messages
+
+        version_file = release.get("version_file")
+        if not version_file:
+            messages.append("  Release gate: SKIPPED (no version_file configured)")
+            return True, messages
+
+        tag_prefix = release.get("tag_prefix", "v") or ""
+
+        # Resolve version file path
+        version_path = Path(version_file)
+        if not version_path.is_absolute():
+            version_path = (self.target_dir / version_path).resolve()
+
+        if not version_path.exists():
+            messages.append(f"  Version file: {version_file} — MISSING")
+            return False, messages
+
+        # Read version
+        version = self._read_version_from_file(version_path)
+        if not version:
+            messages.append(f"  Version file: {version_file} — could not parse version")
+            return False, messages
+
+        expected_tag = f"{tag_prefix}{version}"
+
+        # Check version changed vs main
+        diff_result = subprocess.run(
+            ["git", "diff", "main", "--", str(version_path)],
+            capture_output=True, text=True, cwd=str(self.target_dir),
+        )
+        if not diff_result.stdout.strip():
+            messages.append(f"  Version file: {version_file} — NOT CHANGED vs main")
+            return False, messages
+
+        messages.append(f"  Version file: {version_file} = {version} — CHANGED vs main")
+
+        # Check tag on HEAD (fast path)
+        tag_result = subprocess.run(
+            ["git", "tag", "--points-at", "HEAD"],
+            capture_output=True, text=True, cwd=str(self.target_dir),
+        )
+        tags = [t.strip() for t in tag_result.stdout.splitlines() if t.strip()]
+
+        if expected_tag in tags:
+            messages.append(f"  Tag: {expected_tag} — ON HEAD")
+            return True, messages
+
+        # Merge-commit tolerance: tag is a recent ancestor
+        ancestor_result = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", expected_tag, "HEAD"],
+            capture_output=True, text=True, cwd=str(self.target_dir),
+        )
+        if ancestor_result.returncode == 0:
+            count_result = subprocess.run(
+                ["git", "rev-list", "--count", f"{expected_tag}..HEAD"],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            )
+            distance = int(count_result.stdout.strip()) if count_result.returncode == 0 else -1
+            if 0 < distance <= 3:
+                messages.append(f"  Tag: {expected_tag} — {distance} commit(s) behind HEAD (merge tolerance)")
+                return True, messages
+
+        messages.append(f"  Tag: {expected_tag} — NOT FOUND (create: git tag {expected_tag})")
+        return False, messages
+
+    @staticmethod
+    def _read_version_from_file(path: Path) -> Optional[str]:
+        """Read version string from a version file (pyproject.toml, package.json, plain)."""
+        if path.name == "pyproject.toml":
+            text = path.read_text()
+            # Lightweight regex parsing (no toml dependency needed in CLI)
+            for line in text.splitlines():
+                stripped = line.strip()
+                match = re.match(r'version\s*=\s*["\']([^"\']+)["\']', stripped)
+                if match:
+                    return match.group(1).strip()
+        elif path.name == "package.json":
+            import json
+            data = json.loads(path.read_text())
+            return str(data.get("version", "")).strip() or None
+        else:
+            # Plain text: first semver-like string
+            pattern = re.compile(r"\bv?(\d+\.\d+(?:\.\d+)?)\b")
+            for line in path.read_text().splitlines():
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                m = pattern.search(stripped)
+                if m:
+                    return m.group(1)
+        return None
+
+    def _validate_train_against_trains_yaml(
+        self, train_value: str,
+    ) -> Tuple[bool, List[str]]:
+        """Cross-reference train value against _trains.yaml.
+
+        Returns (valid, messages). If _trains.yaml doesn't exist, passes (no constraint).
+        """
+        messages = []
+        plan_dir = self.target_dir / "plan"
+        trains_file = plan_dir / "_trains.yaml"
+
+        valid_ids: set = set()
+
+        if trains_file.exists():
+            with open(trains_file) as f:
+                data = yaml.safe_load(f) or {}
+            for _theme, categories in data.get("trains", {}).items():
+                if isinstance(categories, dict):
+                    for _cat, trains_list in categories.items():
+                        if isinstance(trains_list, list):
+                            for t in trains_list:
+                                tid = t.get("train_id", "")
+                                if tid:
+                                    valid_ids.add(tid)
+
+        trains_dir = plan_dir / "_trains"
+        if trains_dir.exists():
+            for f in trains_dir.glob("*.yaml"):
+                valid_ids.add(f.stem)
+
+        if not valid_ids:
+            # No trains defined — skip cross-ref
+            return True, []
+
+        if train_value in valid_ids:
+            messages.append(f"  Train: {train_value} — VALID (in _trains.yaml)")
+            return True, messages
+
+        messages.append(
+            f"  Train: {train_value} — NOT FOUND in _trains.yaml"
+        )
+        return False, messages
+
     # -------------------------------------------------------------------------
     # E004: update
     # -------------------------------------------------------------------------
@@ -959,14 +1133,21 @@ class IssueManager:
                 return 1
 
             # E008: Enforce train assignment for transitions past PLANNED
+            # Train is only required for implementation/migration/refactor types.
+            # Other types (cleanup, analysis, planning, tracking) are train-optional.
+            issue_body = issue.get("body", "") or ""
+            issue_type = self._parse_issue_type(issue_body)
+
             post_planned = {"RED", "GREEN", "REFACTOR", "COMPLETE"}
-            if status in post_planned and not train:
+            train_required = issue_type in self.TRAIN_REQUIRED_TYPES if issue_type else True
+
+            if status in post_planned and train_required and not train:
                 # Check if Train is already set on the project item
                 try:
                     field_values = client.get_project_item_field_values(item_id)
                     current_train = (field_values.get("ATDD: Train") or "").strip()
                     if not current_train or current_train.upper() == "TBD":
-                        print(f"Error: Train field required before transitioning to {status}")
+                        print(f"Error: Train field required for {issue_type or 'unknown'} type before transitioning to {status}")
                         print(f"  Current Train: {current_train or '(empty)'}")
                         print(f"  Fix: atdd update {issue_id} --status {status} --train <train_id>")
                         return 1
@@ -974,9 +1155,19 @@ class IssueManager:
                     # If we can't read fields, allow the transition (fail open)
                     logger.debug("Could not read Train field, allowing transition")
 
+            # Train cross-reference: validate --train value against _trains.yaml
+            # This check applies regardless of --force (identity enforcement)
+            if train:
+                train_valid, train_messages = self._validate_train_against_trains_yaml(train)
+                for msg in train_messages:
+                    print(msg)
+                if not train_valid:
+                    print(f"\nError: Train '{train}' not found in _trains.yaml")
+                    print(f"  Fix: Use a valid train_id or add the train to plan/_trains.yaml")
+                    return 1
+
             # Gate verification: run gate commands before allowing COMPLETE
             if status == "COMPLETE":
-                issue_body = issue.get("body", "") or ""
                 gates = self._parse_gate_tests(issue_body)
 
                 if gates:
@@ -1028,6 +1219,26 @@ class IssueManager:
                         print()
                 elif not force:
                     print(f"  Warning: No artifacts declared in issue body")
+
+                # Release gate verification
+                if force:
+                    print(f"  Bypassing release gate (--force)")
+                else:
+                    print(f"Verifying release gate for #{issue_number}:")
+
+                release_valid, release_messages = self._verify_release_gate(force=force)
+
+                for msg in release_messages:
+                    print(msg)
+
+                if not release_valid:
+                    print(f"\nError: Release gate failed — cannot transition to COMPLETE")
+                    print(f"  Fix: Bump version, commit, and create tag")
+                    print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+                    return 1
+
+                if not force:
+                    print()
 
             # Swap phase label
             phase_labels = [l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"]
