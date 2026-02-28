@@ -222,7 +222,7 @@ sessions:
   config_dir: ".atdd/"
   manifest: ".atdd/manifest.yaml"
   # Package resources
-  template: "src/atdd/coach/templates/ISSUE-TEMPLATE.md"
+  template: "src/atdd/coach/templates/ATDD-ISSUE-TEMPLATE.md"
   convention: "src/atdd/coach/conventions/issue.convention.yaml"
 
   commands:

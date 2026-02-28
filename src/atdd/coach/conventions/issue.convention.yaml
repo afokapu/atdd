@@ -441,7 +441,7 @@ filesystem:
   config_dir: ".atdd/"
   manifest: ".atdd/manifest.yaml"
   # Package template location (copy to consumer repo via `atdd init`)
-  template: "atdd.coach.templates/ISSUE-TEMPLATE.md"
+  template: "atdd.coach.templates/ATDD-ISSUE-TEMPLATE.md"
   naming:
     pattern: "SESSION-{NN}-{slug}.md"
     examples:
