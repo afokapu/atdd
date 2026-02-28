@@ -345,18 +345,91 @@ class GitHubClient:
                 values[field_name] = node["name"]
         return values
 
+    def get_all_project_items(self) -> Dict[int, Dict[str, Any]]:
+        """Fetch all project items with field values in a single GraphQL query.
+
+        Returns dict mapping issue_number -> {
+            "item_id": str,
+            "fields": {field_name: value, ...}
+        }
+
+        This eliminates the N+1 pattern of calling get_project_item_id() +
+        get_project_item_field_values() per issue.
+        """
+        if not self.project_id:
+            raise GitHubClientError("No project_id configured")
+
+        items: Dict[int, Dict[str, Any]] = {}
+        cursor = None
+
+        while True:
+            after = f', after: "{cursor}"' if cursor else ""
+            data = self._graphql(
+                f'{{ node(id: "{self.project_id}") {{ '
+                f'... on ProjectV2 {{ items(first: 100{after}) {{ '
+                f'pageInfo {{ hasNextPage endCursor }} '
+                f'nodes {{ '
+                f'id '
+                f'content {{ ... on Issue {{ number }} }} '
+                f'fieldValues(first: 30) {{ nodes {{ '
+                f'... on ProjectV2ItemFieldTextValue {{ text field {{ ... on ProjectV2Field {{ name }} }} }} '
+                f'... on ProjectV2ItemFieldNumberValue {{ number field {{ ... on ProjectV2Field {{ name }} }} }} '
+                f'... on ProjectV2ItemFieldSingleSelectValue {{ name field {{ ... on ProjectV2SingleSelectField {{ name }} }} }} '
+                f'}} }} '
+                f'}} '
+                f'}} }} }} }}'
+            )
+
+            project = data["data"]["node"]
+            for node in project["items"]["nodes"]:
+                content = node.get("content") or {}
+                issue_num = content.get("number")
+                if not issue_num:
+                    continue
+
+                fields = {}
+                for fv in node["fieldValues"]["nodes"]:
+                    field_name = fv.get("field", {}).get("name")
+                    if not field_name:
+                        continue
+                    if "text" in fv:
+                        fields[field_name] = fv["text"]
+                    elif "number" in fv:
+                        fields[field_name] = fv["number"]
+                    elif "name" in fv and fv["name"]:
+                        fields[field_name] = fv["name"]
+
+                items[issue_num] = {
+                    "item_id": node["id"],
+                    "fields": fields,
+                }
+
+            page_info = project["items"]["pageInfo"]
+            if page_info["hasNextPage"]:
+                cursor = page_info["endCursor"]
+            else:
+                break
+
+        logger.debug("Fetched %d project items in batch", len(items))
+        return items
+
     # -------------------------------------------------------------------------
     # Issue queries
     # -------------------------------------------------------------------------
 
-    def list_issues_by_label(self, label: str) -> List[Dict[str, Any]]:
+    def list_issues_by_label(
+        self, label: str, include_body: bool = True,
+    ) -> List[Dict[str, Any]]:
         """List open issues with a given label."""
+        fields = "number,title,labels,state"
+        if include_body:
+            fields += ",body"
         output = self._run_gh([
             "issue", "list",
             "--repo", self.repo,
             "--label", label,
             "--state", "open",
-            "--json", "number,title,labels,state",
+            "--json", fields,
             "--limit", "100",
         ])
         return json.loads(output) if output else []
