@@ -105,7 +105,7 @@ def test_atdd_phase_field_has_required_options(github_project_fields):
 
 
 @pytest.mark.platform
-def test_issues_are_in_project(github_client, github_issues, github_project_fields):
+def test_issues_are_in_project(github_issues, github_project_items):
     """
     SPEC-COACH-C002-0004: Issues are added to the Project
 
@@ -114,14 +114,10 @@ def test_issues_are_in_project(github_client, github_issues, github_project_fiel
     Then: At least one issue has a Project item ID
           (confirming issues are tracked in the board)
     """
-    in_project = 0
-    for issue in github_issues:
-        try:
-            item_id = github_client.get_project_item_id(issue["number"])
-            if item_id:
-                in_project += 1
-        except GitHubClientError:
-            continue
+    in_project = sum(
+        1 for issue in github_issues
+        if issue["number"] in github_project_items
+    )
 
     assert in_project > 0, (
         f"No issues found in Project board. "
@@ -131,7 +127,7 @@ def test_issues_are_in_project(github_client, github_issues, github_project_fiel
 
 
 @pytest.mark.platform
-def test_issues_have_status_field_set(github_client, github_issues, github_project_fields):
+def test_issues_have_status_field_set(github_issues, github_project_fields, github_project_items):
     """
     SPEC-COACH-C002-0005: Issues in Project have ATDD Status set
 
@@ -143,19 +139,11 @@ def test_issues_have_status_field_set(github_client, github_issues, github_proje
     if "ATDD: Status" not in github_project_fields:
         pytest.skip("ATDD Status field not configured")
 
-    has_status = False
-    for issue in github_issues:
-        try:
-            item_id = github_client.get_project_item_id(issue["number"])
-            if not item_id:
-                continue
-            values = github_client.get_project_item_field_values(item_id)
-            status = values.get("ATDD: Status", "")
-            if status:
-                has_status = True
-                break
-        except GitHubClientError:
-            continue
+    has_status = any(
+        github_project_items[num]["fields"].get("ATDD: Status")
+        for num in (i["number"] for i in github_issues)
+        if num in github_project_items
+    )
 
     assert has_status, (
         "No issue has ATDD Status set in Project fields.\n"
@@ -174,13 +162,11 @@ def test_archetype_labels_exist(github_issues):
     Then: At least one archetype:* label exists (e.g., archetype:be)
           enabling archetype-based filtering on the Project board
     """
-    # Check if any issue has archetype labels
-    has_archetype = False
-    for issue in github_issues:
-        labels = [l["name"] for l in issue.get("labels", [])]
-        if any(l.startswith("archetype:") for l in labels):
-            has_archetype = True
-            break
+    has_archetype = any(
+        any(l.startswith("archetype:") for l in
+            [la["name"] for la in issue.get("labels", [])])
+        for issue in github_issues
+    )
 
     assert has_archetype, (
         "No issue has archetype:* labels.\n"
@@ -205,8 +191,6 @@ def test_progress_pill_data_available(github_client, github_issues):
             subs = github_client.get_sub_issues(issue["number"])
             if subs:
                 total = len(subs)
-                closed = sum(1 for s in subs if s.get("state") == "closed")
-                # Progress pill would show: "closed/total WMBTs"
                 assert total > 0
                 progress_available = True
                 break
