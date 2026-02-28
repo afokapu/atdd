@@ -17,9 +17,10 @@ Convention: src/atdd/coach/conventions/issue.convention.yaml
 import json
 import logging
 import re
+import subprocess
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 import yaml
 
@@ -688,6 +689,380 @@ class IssueManager:
         return 0
 
     # -------------------------------------------------------------------------
+    # Gate verification helpers (used by update → COMPLETE)
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_gate_tests(body: str) -> List[Dict[str, str]]:
+        """Parse gate test table rows from issue body markdown.
+
+        Expected table format (under ## Validation → ### Gate Tests):
+        | ID | Phase | Command | Expected | ATDD Validator | Status |
+
+        Returns list of dicts with keys: id, phase, command, expected, validator, status
+        """
+        gates = []
+        # Find the Gate Tests table — look for header row with ID|Phase|Command
+        in_table = False
+        for line in body.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                if in_table:
+                    break  # End of table
+                continue
+
+            cells = [c.strip() for c in stripped.split("|")[1:-1]]  # strip empty first/last
+            if len(cells) < 6:
+                continue
+
+            # Skip header and separator rows
+            if cells[0] in ("ID", "") or cells[0].startswith("-"):
+                if cells[0] == "ID":
+                    in_table = True
+                continue
+
+            if not in_table:
+                continue
+
+            # Extract command — strip backticks
+            command = cells[2].strip("`").strip()
+            if not command:
+                continue
+
+            gates.append({
+                "id": cells[0].strip(),
+                "phase": cells[1].strip(),
+                "command": command,
+                "expected": cells[3].strip(),
+                "validator": cells[4].strip("`").strip(),
+                "status": cells[5].strip(),
+            })
+
+        return gates
+
+    def _run_gate_tests(
+        self, gates: List[Dict[str, str]], force: bool = False,
+    ) -> Tuple[bool, List[str]]:
+        """Run gate test commands and return (all_passed, messages).
+
+        Each gate command is executed via subprocess. Exit code 0 = PASS.
+        If force=True, logs warnings but does not block.
+        """
+        messages = []
+        all_passed = True
+
+        for gate in gates:
+            gate_id = gate["id"]
+            command = gate["command"]
+
+            if force:
+                messages.append(f"  {gate_id}: SKIPPED (--force) — {command}")
+                continue
+
+            print(f"  Running {gate_id}: {command} ...", end=" ", flush=True)
+
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=str(self.target_dir),
+                timeout=300,  # 5 min max per gate
+            )
+
+            if result.returncode == 0:
+                print("PASS")
+                messages.append(f"  {gate_id}: PASS — {command}")
+            else:
+                print("FAIL")
+                all_passed = False
+                stderr_snippet = result.stderr.strip().splitlines()[-3:] if result.stderr else []
+                messages.append(
+                    f"  {gate_id}: FAIL (exit {result.returncode}) — {command}"
+                )
+                for line in stderr_snippet:
+                    messages.append(f"    {line}")
+
+        return all_passed, messages
+
+    @staticmethod
+    def _parse_artifacts(body: str) -> Dict[str, List[str]]:
+        """Parse Artifacts section from issue body markdown.
+
+        Returns dict with keys: created, modified, deleted — each a list of paths.
+        Skips template placeholders like '(none yet)'.
+        """
+        artifacts: Dict[str, List[str]] = {"created": [], "modified": [], "deleted": []}
+
+        # Find ## Artifacts section
+        section_match = re.search(
+            r"## Artifacts\s*\n(.*?)(?=\n## |\Z)",
+            body,
+            re.DOTALL,
+        )
+        if not section_match:
+            return artifacts
+
+        section = section_match.group(1)
+
+        # Parse each subsection
+        current_key = None
+        for line in section.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("### Created"):
+                current_key = "created"
+            elif stripped.startswith("### Modified"):
+                current_key = "modified"
+            elif stripped.startswith("### Deleted"):
+                current_key = "deleted"
+            elif stripped.startswith("- ") and current_key:
+                path = stripped[2:].strip().strip("`")
+                # Skip placeholders
+                if path.startswith("(") or not path:
+                    continue
+                # Strip trailing descriptions after ' — ' or ' - '
+                for sep in (" — ", " - ", " ("):
+                    if sep in path:
+                        path = path[:path.index(sep)].strip()
+                artifacts[current_key].append(path)
+
+        return artifacts
+
+    def _verify_artifacts(
+        self, artifacts: Dict[str, List[str]], force: bool = False,
+    ) -> Tuple[bool, List[str]]:
+        """Verify artifact claims against git state.
+
+        - Created: file must exist in HEAD
+        - Modified: file must have changes vs main
+        - Deleted: file must NOT exist in HEAD
+        """
+        messages = []
+        all_valid = True
+
+        total = sum(len(v) for v in artifacts.values())
+        if total == 0:
+            return True, ["  No artifacts declared"]
+
+        for path in artifacts["created"]:
+            if force:
+                messages.append(f"  Created:  {path} — SKIPPED (--force)")
+                continue
+            result = subprocess.run(
+                ["git", "ls-tree", "HEAD", "--", path],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            )
+            if result.stdout.strip():
+                messages.append(f"  Created:  {path} — EXISTS")
+            else:
+                messages.append(f"  Created:  {path} — MISSING")
+                all_valid = False
+
+        for path in artifacts["modified"]:
+            if force:
+                messages.append(f"  Modified: {path} — SKIPPED (--force)")
+                continue
+            result = subprocess.run(
+                ["git", "diff", "main...HEAD", "--", path],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            )
+            if result.stdout.strip():
+                messages.append(f"  Modified: {path} — CHANGED")
+            else:
+                messages.append(f"  Modified: {path} — NO CHANGES vs main")
+                all_valid = False
+
+        for path in artifacts["deleted"]:
+            if force:
+                messages.append(f"  Deleted:  {path} — SKIPPED (--force)")
+                continue
+            result = subprocess.run(
+                ["git", "ls-tree", "HEAD", "--", path],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            )
+            if not result.stdout.strip():
+                messages.append(f"  Deleted:  {path} — CONFIRMED GONE")
+            else:
+                messages.append(f"  Deleted:  {path} — STILL EXISTS")
+                all_valid = False
+
+        return all_valid, messages
+
+    @staticmethod
+    def _parse_issue_type(body: str) -> Optional[str]:
+        """Extract issue type from ## Issue Metadata table.
+
+        Looks for ``| Type | `{type}` |`` in the metadata table.
+        """
+        match = re.search(r"\|\s*Type\s*\|\s*`?(\w+)`?\s*\|", body)
+        return match.group(1).lower().strip() if match else None
+
+    # Types that require a train assignment
+    TRAIN_REQUIRED_TYPES = {"implementation", "migration", "refactor"}
+
+    def _verify_release_gate(
+        self, force: bool = False,
+    ) -> Tuple[bool, List[str]]:
+        """Verify release gate: version bumped + tag on HEAD or ancestor.
+
+        Reuses the same logic as test_release_versioning.py but returns
+        (passed, messages) instead of raising pytest assertions.
+        """
+        messages = []
+
+        if force:
+            messages.append("  Release gate: SKIPPED (--force)")
+            return True, messages
+
+        # Load config
+        config_path = self.target_dir / ".atdd" / "config.yaml"
+        if not config_path.exists():
+            messages.append("  Release gate: SKIPPED (no .atdd/config.yaml)")
+            return True, messages
+
+        with open(config_path) as f:
+            config = yaml.safe_load(f) or {}
+
+        release = config.get("release")
+        if not isinstance(release, dict):
+            messages.append("  Release gate: SKIPPED (no release config)")
+            return True, messages
+
+        version_file = release.get("version_file")
+        if not version_file:
+            messages.append("  Release gate: SKIPPED (no version_file configured)")
+            return True, messages
+
+        tag_prefix = release.get("tag_prefix", "v") or ""
+
+        # Resolve version file path
+        version_path = Path(version_file)
+        if not version_path.is_absolute():
+            version_path = (self.target_dir / version_path).resolve()
+
+        if not version_path.exists():
+            messages.append(f"  Version file: {version_file} — MISSING")
+            return False, messages
+
+        # Read version
+        version = self._read_version_from_file(version_path)
+        if not version:
+            messages.append(f"  Version file: {version_file} — could not parse version")
+            return False, messages
+
+        expected_tag = f"{tag_prefix}{version}"
+
+        # Check version changed vs main
+        diff_result = subprocess.run(
+            ["git", "diff", "main", "--", str(version_path)],
+            capture_output=True, text=True, cwd=str(self.target_dir),
+        )
+        if not diff_result.stdout.strip():
+            messages.append(f"  Version file: {version_file} — NOT CHANGED vs main")
+            return False, messages
+
+        messages.append(f"  Version file: {version_file} = {version} — CHANGED vs main")
+
+        # Check tag on HEAD (fast path)
+        tag_result = subprocess.run(
+            ["git", "tag", "--points-at", "HEAD"],
+            capture_output=True, text=True, cwd=str(self.target_dir),
+        )
+        tags = [t.strip() for t in tag_result.stdout.splitlines() if t.strip()]
+
+        if expected_tag in tags:
+            messages.append(f"  Tag: {expected_tag} — ON HEAD")
+            return True, messages
+
+        # Merge-commit tolerance: tag is a recent ancestor
+        ancestor_result = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", expected_tag, "HEAD"],
+            capture_output=True, text=True, cwd=str(self.target_dir),
+        )
+        if ancestor_result.returncode == 0:
+            count_result = subprocess.run(
+                ["git", "rev-list", "--count", f"{expected_tag}..HEAD"],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            )
+            distance = int(count_result.stdout.strip()) if count_result.returncode == 0 else -1
+            if 0 < distance <= 3:
+                messages.append(f"  Tag: {expected_tag} — {distance} commit(s) behind HEAD (merge tolerance)")
+                return True, messages
+
+        messages.append(f"  Tag: {expected_tag} — NOT FOUND (create: git tag {expected_tag})")
+        return False, messages
+
+    @staticmethod
+    def _read_version_from_file(path: Path) -> Optional[str]:
+        """Read version string from a version file (pyproject.toml, package.json, plain)."""
+        if path.name == "pyproject.toml":
+            text = path.read_text()
+            # Lightweight regex parsing (no toml dependency needed in CLI)
+            for line in text.splitlines():
+                stripped = line.strip()
+                match = re.match(r'version\s*=\s*["\']([^"\']+)["\']', stripped)
+                if match:
+                    return match.group(1).strip()
+        elif path.name == "package.json":
+            import json
+            data = json.loads(path.read_text())
+            return str(data.get("version", "")).strip() or None
+        else:
+            # Plain text: first semver-like string
+            pattern = re.compile(r"\bv?(\d+\.\d+(?:\.\d+)?)\b")
+            for line in path.read_text().splitlines():
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                m = pattern.search(stripped)
+                if m:
+                    return m.group(1)
+        return None
+
+    def _validate_train_against_trains_yaml(
+        self, train_value: str,
+    ) -> Tuple[bool, List[str]]:
+        """Cross-reference train value against _trains.yaml.
+
+        Returns (valid, messages). If _trains.yaml doesn't exist, passes (no constraint).
+        """
+        messages = []
+        plan_dir = self.target_dir / "plan"
+        trains_file = plan_dir / "_trains.yaml"
+
+        valid_ids: set = set()
+
+        if trains_file.exists():
+            with open(trains_file) as f:
+                data = yaml.safe_load(f) or {}
+            for _theme, categories in data.get("trains", {}).items():
+                if isinstance(categories, dict):
+                    for _cat, trains_list in categories.items():
+                        if isinstance(trains_list, list):
+                            for t in trains_list:
+                                tid = t.get("train_id", "")
+                                if tid:
+                                    valid_ids.add(tid)
+
+        trains_dir = plan_dir / "_trains"
+        if trains_dir.exists():
+            for f in trains_dir.glob("*.yaml"):
+                valid_ids.add(f.stem)
+
+        if not valid_ids:
+            # No trains defined — skip cross-ref
+            return True, []
+
+        if train_value in valid_ids:
+            messages.append(f"  Train: {train_value} — VALID (in _trains.yaml)")
+            return True, messages
+
+        messages.append(
+            f"  Train: {train_value} — NOT FOUND in _trains.yaml"
+        )
+        return False, messages
+
+    # -------------------------------------------------------------------------
     # E004: update
     # -------------------------------------------------------------------------
 
@@ -712,6 +1087,7 @@ class IssueManager:
         feature_urn: Optional[str] = None,
         archetypes: Optional[str] = None,
         complexity: Optional[str] = None,
+        force: bool = False,
     ) -> int:
         """Update issue Project fields and labels."""
         if not self._check_initialized():
@@ -757,20 +1133,112 @@ class IssueManager:
                 return 1
 
             # E008: Enforce train assignment for transitions past PLANNED
+            # Train is only required for implementation/migration/refactor types.
+            # Other types (cleanup, analysis, planning, tracking) are train-optional.
+            issue_body = issue.get("body", "") or ""
+            issue_type = self._parse_issue_type(issue_body)
+
             post_planned = {"RED", "GREEN", "REFACTOR", "COMPLETE"}
-            if status in post_planned and not train:
+            train_required = issue_type in self.TRAIN_REQUIRED_TYPES if issue_type else True
+
+            if status in post_planned and train_required and not train:
                 # Check if Train is already set on the project item
                 try:
                     field_values = client.get_project_item_field_values(item_id)
                     current_train = (field_values.get("ATDD: Train") or "").strip()
                     if not current_train or current_train.upper() == "TBD":
-                        print(f"Error: Train field required before transitioning to {status}")
+                        print(f"Error: Train field required for {issue_type or 'unknown'} type before transitioning to {status}")
                         print(f"  Current Train: {current_train or '(empty)'}")
                         print(f"  Fix: atdd update {issue_id} --status {status} --train <train_id>")
                         return 1
                 except GitHubClientError:
                     # If we can't read fields, allow the transition (fail open)
                     logger.debug("Could not read Train field, allowing transition")
+
+            # Train cross-reference: validate --train value against _trains.yaml
+            # This check applies regardless of --force (identity enforcement)
+            if train:
+                train_valid, train_messages = self._validate_train_against_trains_yaml(train)
+                for msg in train_messages:
+                    print(msg)
+                if not train_valid:
+                    print(f"\nError: Train '{train}' not found in _trains.yaml")
+                    print(f"  Fix: Use a valid train_id or add the train to plan/_trains.yaml")
+                    return 1
+
+            # Gate verification: run gate commands before allowing COMPLETE
+            if status == "COMPLETE":
+                gates = self._parse_gate_tests(issue_body)
+
+                if gates:
+                    if force:
+                        print(f"\n  Bypassing {len(gates)} gate tests (--force)")
+                    else:
+                        print(f"\nRunning {len(gates)} gate tests for #{issue_number}:")
+
+                    all_passed, gate_messages = self._run_gate_tests(gates, force=force)
+
+                    for msg in gate_messages:
+                        print(msg)
+
+                    if not all_passed:
+                        print(f"\nError: Gate tests failed — cannot transition to COMPLETE")
+                        print(f"  Fix: Resolve failing gates, then retry")
+                        print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+                        return 1
+
+                    if not force:
+                        print()  # blank line after gate results
+                elif not force:
+                    print(f"\n  Warning: No gate tests found in issue body")
+
+                # Artifact verification
+                artifacts = self._parse_artifacts(issue_body)
+                artifact_count = sum(len(v) for v in artifacts.values())
+
+                if artifact_count > 0:
+                    if force:
+                        print(f"  Bypassing artifact verification (--force)")
+                    else:
+                        print(f"Verifying {artifact_count} artifacts for #{issue_number}:")
+
+                    artifacts_valid, artifact_messages = self._verify_artifacts(
+                        artifacts, force=force,
+                    )
+
+                    for msg in artifact_messages:
+                        print(msg)
+
+                    if not artifacts_valid:
+                        print(f"\nError: Artifact verification failed — cannot transition to COMPLETE")
+                        print(f"  Fix: Update ## Artifacts section with correct paths")
+                        print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+                        return 1
+
+                    if not force:
+                        print()
+                elif not force:
+                    print(f"  Warning: No artifacts declared in issue body")
+
+                # Release gate verification
+                if force:
+                    print(f"  Bypassing release gate (--force)")
+                else:
+                    print(f"Verifying release gate for #{issue_number}:")
+
+                release_valid, release_messages = self._verify_release_gate(force=force)
+
+                for msg in release_messages:
+                    print(msg)
+
+                if not release_valid:
+                    print(f"\nError: Release gate failed — cannot transition to COMPLETE")
+                    print(f"  Fix: Bump version, commit, and create tag")
+                    print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+                    return 1
+
+                if not force:
+                    print()
 
             # Swap phase label
             phase_labels = [l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"]

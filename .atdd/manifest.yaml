@@ -17,3 +17,19 @@ sessions:
   status: INIT
   created: '2026-02-26'
   archived: null
+- id: '39'
+  slug: fix-template-fallback
+  file: null
+  issue_number: 39
+  type: cleanup
+  status: INIT
+  created: '2026-02-27'
+  archived: null
+- id: '40'
+  slug: enforce-gate-completion
+  file: null
+  issue_number: 40
+  type: implementation
+  status: INIT
+  created: '2026-02-27'
+  archived: null
