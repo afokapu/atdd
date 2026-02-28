@@ -16,11 +16,9 @@ Run: atdd validate coach
 """
 import warnings as w
 import pytest
-from pathlib import Path
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root
-from atdd.coach.github import GitHubClientError
 
 # ============================================================================
 # Configuration
@@ -65,7 +63,7 @@ _POST_PLANNED_STATUSES = {"RED", "GREEN", "REFACTOR", "COMPLETE"}
 
 
 @pytest.mark.platform
-def test_issues_have_train_field(github_client, github_issues, github_project_fields):
+def test_issues_have_train_field(github_issues, github_project_fields, github_project_items):
     """
     SPEC-SESSION-VAL-0050: Issues must have a non-empty Train field
 
@@ -84,19 +82,11 @@ def test_issues_have_train_field(github_client, github_issues, github_project_fi
 
     for issue in github_issues:
         num = issue["number"]
-
-        try:
-            item_id = github_client.get_project_item_id(num)
-        except GitHubClientError:
-            continue
-        if not item_id:
+        item = github_project_items.get(num)
+        if not item:
             continue
 
-        try:
-            values = github_client.get_project_item_field_values(item_id)
-        except GitHubClientError:
-            continue
-
+        values = item["fields"]
         train_value = (values.get("ATDD: Train") or "").strip()
         status_value = (values.get("ATDD: Status") or "UNKNOWN").strip().upper()
 
@@ -129,7 +119,7 @@ def test_issues_have_train_field(github_client, github_issues, github_project_fi
 
 
 @pytest.mark.platform
-def test_issue_train_references_valid_train_id(github_client, github_issues, github_project_fields):
+def test_issue_train_references_valid_train_id(github_issues, github_project_fields, github_project_items):
     """
     SPEC-SESSION-VAL-0051: Issue Train field must reference a valid train_id
 
@@ -150,20 +140,11 @@ def test_issue_train_references_valid_train_id(github_client, github_issues, git
 
     for issue in github_issues:
         num = issue["number"]
-
-        try:
-            item_id = github_client.get_project_item_id(num)
-        except GitHubClientError:
-            continue
-        if not item_id:
+        item = github_project_items.get(num)
+        if not item:
             continue
 
-        try:
-            values = github_client.get_project_item_field_values(item_id)
-        except GitHubClientError:
-            continue
-
-        train_value = (values.get("ATDD: Train") or "").strip()
+        train_value = (item["fields"].get("ATDD: Train") or "").strip()
 
         # Skip empty/TBD — handled by SPEC-SESSION-VAL-0050
         if not train_value or train_value.upper() == "TBD":

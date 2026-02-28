@@ -3,6 +3,10 @@ Shared fixtures for coach validators.
 
 Session-scoped fixtures that fetch GitHub data once and share across all
 platform tests, eliminating redundant API calls.
+
+Key optimization: ``github_project_items`` fetches ALL project items with
+their field values in a single GraphQL query, replacing the N+1 pattern
+of get_project_item_id + get_project_item_field_values per issue.
 """
 import pytest
 
@@ -39,7 +43,10 @@ def github_client():
 
 @pytest.fixture(scope="session")
 def github_issues(github_client):
-    """All open issues with atdd-issue label (fetched once per session)."""
+    """All open issues with atdd-issue label (fetched once per session).
+
+    Includes body field for validators that need issue content.
+    """
     from atdd.coach.github import GitHubClientError
 
     try:
@@ -78,3 +85,19 @@ def github_project_fields(github_client):
         return github_client.get_project_fields()
     except GitHubClientError as e:
         pytest.skip(f"Cannot query Project v2 fields (needs 'project' scope): {e}")
+
+
+@pytest.fixture(scope="session")
+def github_project_items(github_client):
+    """All project items with field values (fetched once per session).
+
+    Returns dict mapping issue_number -> {"item_id": str, "fields": {...}}.
+    Single GraphQL query replaces N calls to get_project_item_id +
+    get_project_item_field_values.
+    """
+    from atdd.coach.github import GitHubClientError
+
+    try:
+        return github_client.get_all_project_items()
+    except GitHubClientError as e:
+        pytest.skip(f"Cannot query project items: {e}")
