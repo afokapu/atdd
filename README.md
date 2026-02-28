@@ -115,6 +115,8 @@ atdd new <slug> --archetypes be,contracts    # Specify archetypes
 atdd new <slug> --train <id>                 # Assign to train
 atdd list                                    # List all issues
 atdd update <N> --status <STATUS>            # Update status (swaps labels automatically)
+atdd update <N> --status COMPLETE --train <id>  # COMPLETE runs gate tests, artifact + release verification
+atdd update <N> --status COMPLETE --force   # Bypass gate/artifact/release checks (train still enforced)
 atdd close-wmbt <N> <WMBT_ID>               # Close a WMBT sub-issue
 atdd archive <N>                             # Close parent + all sub-issues
 ```
@@ -181,15 +183,18 @@ atdd gate --json       # Output as JSON
 Four validator phases matching the ATDD lifecycle:
 
 ```bash
-atdd validate              # Run all validators (planner + tester + coder + coach)
+atdd validate              # Run all validators (two-stage: fast then platform)
 atdd validate planner      # Planning validators (wagons, trains, URNs, WMBTs)
 atdd validate tester       # Testing validators (contracts, telemetry, test naming)
 atdd validate coder        # Implementation validators (architecture, boundaries, design system)
-atdd validate coach        # Coach validators (issues, registries, release versioning)
+atdd validate coach        # Coach validators (issues, registries, release, gate completion)
 atdd validate --quick      # Fast smoke test
+atdd validate --no-split   # Single-pass execution (skip two-stage split)
 atdd validate --coverage   # With coverage report
 atdd validate --html       # With HTML report
 ```
+
+By default, `atdd validate` runs in two stages: fast file-parsing tests in parallel, then API-bound platform tests sequentially with shared session fixtures.
 
 ### Release Versioning
 
