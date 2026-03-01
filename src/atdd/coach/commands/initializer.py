@@ -631,11 +631,13 @@ jobs:
         return True
 
     def _set_branch_protection(self, repo: str) -> bool:
-        """Configure branch protection on main: require up-to-date branches.
+        """Configure branch protection on main.
 
         Uses GitHub REST API to set branch protection rules:
         - Require branches to be up to date before merging
+        - Require 'validate' status check to pass (atdd-validate workflow)
         - Require PR reviews (no direct push to main)
+        - Enforce for admins (no bypasses)
 
         Returns True if protection was set successfully.
         """
@@ -643,7 +645,7 @@ jobs:
             protection = json.dumps({
                 "required_status_checks": {
                     "strict": True,
-                    "contexts": [],
+                    "contexts": ["validate"],
                 },
                 "enforce_admins": True,
                 "required_pull_request_reviews": {
@@ -660,7 +662,7 @@ jobs:
                 capture_output=True, text=True, timeout=15,
             )
             if result.returncode == 0:
-                print("  Branch protection: main (require up-to-date, require PR, enforce admins)")
+                print("  Branch protection: main (require validate check, require PR, enforce admins)")
                 return True
             else:
                 stderr = result.stderr.strip()
