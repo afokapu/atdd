@@ -208,13 +208,18 @@ git:
     format: "conventional commits (feat:, fix:, docs:, refactor:, test:)"
     atomic: "One commit per phase transition when meaningful"
 
-  worktree_scoping:
-    rule: "Each branch prefix corresponds to its own worktree"
+  branching:
+    rule: "Every new branch MUST be created as a git worktree"
+    procedure:
+      - "Pick prefix from allowed list"
+      - "Create worktree: git worktree add ../<prefix>/<slug> -b <prefix>/<slug>"
+      - "Work inside the worktree directory"
+      - "Clean up after merge: git worktree remove ../<prefix>/<slug>"
     prefixes: ["feat/", "fix/", "refactor/", "chore/", "docs/", "devops/"]
-    example: "feat/traceability-gates lives in the feat/ worktree"
+    example: "git worktree add ../feat/traceability-gates -b feat/traceability-gates"
 
   workflow:
-    branch_strategy: "feature branches from main/mechanic"
+    branch_strategy: "worktree per branch from main"
     phase_commits:
       - "PLANNED: commit wagon + acceptance criteria"
       - "RED: commit failing tests"
