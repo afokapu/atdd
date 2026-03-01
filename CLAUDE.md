@@ -494,9 +494,13 @@ git:
     format: "conventional commits (feat:, fix:, docs:, refactor:, test:)"
     atomic: "One commit per phase transition when meaningful"
 
+  worktree_scoping:
+    rule: "Each branch prefix corresponds to its own worktree"
+    prefixes: ["feat/", "fix/", "refactor/", "chore/", "docs/", "devops/"]
+    example: "feat/traceability-gates lives in the feat/ worktree"
+
   workflow:
     branch_strategy: "feature branches from main/mechanic"
-    branch_prefixes: ["feat/", "fix/", "refactor/", "chore/", "docs/", "devops/"]
     phase_commits:
       - "PLANNED: commit wagon + acceptance criteria"
       - "RED: commit failing tests"
