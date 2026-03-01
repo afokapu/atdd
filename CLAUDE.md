@@ -520,16 +520,15 @@ git:
       - "REFACTOR: commit clean architecture"
 
 # Release Gate (MANDATORY - session completion)
-# Every session MUST end with version bump + tag
+# Every session MUST end with version bump
 release:
   mandatory: true
 
   rules:
     - "Version file is required (configured in .atdd/config.yaml)"
-    - "Tag must match version exactly: v{version}"
-    - "Tag must be on HEAD"
-    - "No tag without version bump"
-    - "No version bump without tag"
+    - "Version bump MUST be included in the PR (not pushed separately)"
+    - "CI auto-creates v{version} tag after merge to main"
+    - "NEVER manually create or push tags — CI handles tagging"
     - "Every repo MUST have versioning"
 
   change_class:
@@ -539,12 +538,18 @@ release:
 
   workflow:
     - "Determine change class"
-    - "Bump version in version file"
+    - "Bump version in version file (e.g. pyproject.toml)"
     - "Commit: 'Bump version to {version}'"
-    - "Create tag: git tag v{version}"
-    - "Push with tags: git push origin {branch} --tags"
-    - "Record in Session Log: 'Released: v{version}'"
+    - "Include version bump commit in the PR"
+    - "After PR merges → CI validate passes → CI creates+pushes v{version} tag"
+    - "Tag triggers publish.yml (PyPI release)"
 
+  # How it works:
+  # 1. atdd-validate.yml `tag-release` job runs on push to main
+  # 2. Reads version from version_file in .atdd/config.yaml
+  # 3. Creates v{version} tag if it doesn't exist (idempotent)
+  # 4. Tag push triggers publish.yml for PyPI release
+  #
   # Config (required in .atdd/config.yaml):
   # release:
   #   version_file: "pyproject.toml"  # or package.json, VERSION, etc.
