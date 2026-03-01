@@ -235,6 +235,9 @@ class ProjectInitializer:
         # Write workflow file
         workflow_written = self._write_workflow(repo)
 
+        # Configure branch protection on main
+        protection_set = self._set_branch_protection(repo)
+
         # Update config with GitHub settings
         if project_id:
             self._update_config_github(repo, project_id, project_number)
@@ -250,6 +253,8 @@ class ProjectInitializer:
             parts.append(f"{fields_created} fields created")
         if workflow_written:
             parts.append("workflow written")
+        if protection_set:
+            parts.append("branch protection configured")
 
         summary = f"GitHub: {', '.join(parts)}"
         print(f"  {summary}")
@@ -624,6 +629,49 @@ jobs:
         workflow_path.write_text(workflow)
         print(f"  Wrote: {workflow_path}")
         return True
+
+    def _set_branch_protection(self, repo: str) -> bool:
+        """Configure branch protection on main: require up-to-date branches.
+
+        Uses GitHub REST API to set branch protection rules:
+        - Require branches to be up to date before merging
+        - Require PR reviews (no direct push to main)
+
+        Returns True if protection was set successfully.
+        """
+        try:
+            protection = json.dumps({
+                "required_status_checks": {
+                    "strict": True,
+                    "contexts": [],
+                },
+                "enforce_admins": False,
+                "required_pull_request_reviews": {
+                    "required_approving_review_count": 0,
+                },
+                "restrictions": None,
+            })
+            result = subprocess.run(
+                ["gh", "api",
+                 f"repos/{repo}/branches/main/protection",
+                 "--method", "PUT",
+                 "--input", "-"],
+                input=protection,
+                capture_output=True, text=True, timeout=15,
+            )
+            if result.returncode == 0:
+                print("  Branch protection: main (require up-to-date, require PR)")
+                return True
+            else:
+                stderr = result.stderr.strip()
+                if "Not Found" in stderr or "403" in stderr:
+                    print("  Branch protection: SKIPPED (requires admin access or GitHub Pro)")
+                else:
+                    print(f"  Branch protection: FAILED ({stderr[:80]})")
+                return False
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            print("  Branch protection: SKIPPED (timeout or gh not available)")
+            return False
 
     def _update_config_github(
         self, repo: str, project_id: str, project_number: int

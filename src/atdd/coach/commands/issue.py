@@ -900,6 +900,30 @@ class IssueManager:
     # Types that require a train assignment
     TRAIN_REQUIRED_TYPES = {"implementation", "migration", "refactor"}
 
+    def _check_rebased_on_main(self) -> Tuple[bool, str]:
+        """Check that current branch is rebased on origin/main.
+
+        Returns:
+            (passed, message) — passed is True if origin/main is an ancestor of HEAD.
+        """
+        # Fetch latest main
+        fetch = subprocess.run(
+            ["git", "fetch", "origin", "main"],
+            capture_output=True, text=True, cwd=str(self.target_dir), timeout=30,
+        )
+        if fetch.returncode != 0:
+            return True, "  Rebase check: SKIPPED (could not fetch origin/main)"
+
+        # Check if origin/main is ancestor of HEAD
+        result = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", "origin/main", "HEAD"],
+            capture_output=True, text=True, cwd=str(self.target_dir), timeout=10,
+        )
+        if result.returncode == 0:
+            return True, "  Rebase check: PASS (branch includes origin/main)"
+        else:
+            return False, "  Rebase check: FAIL (branch is behind origin/main)"
+
     def _verify_release_gate(
         self, force: bool = False,
     ) -> Tuple[bool, List[str]]:
@@ -1168,6 +1192,19 @@ class IssueManager:
 
             # Gate verification: run gate commands before allowing COMPLETE
             if status == "COMPLETE":
+                # Rebase check: branch must not be behind main
+                if not force:
+                    rebase_ok, rebase_msg = self._check_rebased_on_main()
+                    if rebase_msg:
+                        print(rebase_msg)
+                    if not rebase_ok:
+                        print(f"\nError: Branch is behind main — cannot transition to COMPLETE")
+                        print(f"  Fix: git fetch origin main && git rebase origin/main")
+                        print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+                        return 1
+                else:
+                    print(f"  Bypassing rebase check (--force)")
+
                 gates = self._parse_gate_tests(issue_body)
 
                 if gates:
