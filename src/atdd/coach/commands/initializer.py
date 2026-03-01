@@ -146,10 +146,18 @@ class ProjectInitializer:
         except ImportError:
             toolkit_version = "0.0.0"
 
+        # Auto-detect version file
+        if (self.target_dir / "pyproject.toml").exists():
+            version_file = "pyproject.toml"
+        elif (self.target_dir / "package.json").exists():
+            version_file = "package.json"
+        else:
+            version_file = "VERSION"
+
         config = {
             "version": "1.0",
             "release": {
-                "version_file": "VERSION",
+                "version_file": version_file,
                 "tag_prefix": "v",
             },
             "sync": {
@@ -630,6 +638,39 @@ jobs:
               issue_number: context.issue.number,
               body: `${{emoji}} ATDD validation: **${{result}}**`
             }});
+
+  tag-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version and create tag
+        run: |
+          VERSION=$(python3 -c "
+          import re, json, pathlib
+          cfg = pathlib.Path('.atdd/config.yaml').read_text()
+          m = re.search(r'version_file:\s*(\S+)', cfg)
+          vf = m.group(1) if m else 'VERSION'
+          text = pathlib.Path(vf).read_text()
+          if vf.endswith('.toml'):
+              import tomllib; print(tomllib.loads(text)['project']['version'])
+          elif vf.endswith('.json'):
+              print(json.loads(text)['version'])
+          else:
+              print(text.strip())
+          ")
+          TAG="v${{VERSION}}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "Created and pushed tag $TAG"
+          fi
 """
         workflow_path.write_text(workflow)
         print(f"  Wrote: {workflow_path}")
