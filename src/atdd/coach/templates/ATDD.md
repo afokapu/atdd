@@ -210,6 +210,7 @@ git:
 
   workflow:
     branch_strategy: "feature branches from main/mechanic"
+    branch_prefixes: ["feat/", "fix/", "refactor/", "chore/", "docs/", "devops/"]
     phase_commits:
       - "PLANNED: commit wagon + acceptance criteria"
       - "RED: commit failing tests"
