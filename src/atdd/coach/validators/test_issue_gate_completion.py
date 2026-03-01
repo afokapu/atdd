@@ -35,6 +35,10 @@ def test_complete_issues_gate_tests_pass(github_complete_issues):
     When: Parsing the Gate Tests table from the issue body
     Then: Every gate command exits 0 when run from the repo root
     """
+    import shutil
+    if shutil.which("atdd") is None:
+        pytest.skip("atdd CLI not in PATH (install with: pip install atdd)")
+
     manager = IssueManager(target_dir=REPO_ROOT)
 
     failures = []
@@ -126,6 +130,12 @@ def test_complete_issues_release_gate(github_complete_issues):
     Note: This validates the overall release state, not per-issue.
     If any COMPLETE issue exists, the release gate must be satisfied.
     """
+    import os
+    base_ref = os.environ.get("GITHUB_BASE_REF", "")
+    github_ref = os.environ.get("GITHUB_REF", "")
+    if base_ref or (github_ref and github_ref != "refs/heads/main"):
+        pytest.skip("Release gate skipped on PR branches (tag created post-merge)")
+
     manager = IssueManager(target_dir=REPO_ROOT)
 
     # Release gate is a repo-level check, not per-issue.

@@ -238,6 +238,9 @@ class ProjectInitializer:
         # Configure branch protection on main
         protection_set = self._set_branch_protection(repo)
 
+        # Enable auto-merge
+        auto_merge_set = self._enable_auto_merge(repo)
+
         # Update config with GitHub settings
         if project_id:
             self._update_config_github(repo, project_id, project_number)
@@ -255,6 +258,8 @@ class ProjectInitializer:
             parts.append("workflow written")
         if protection_set:
             parts.append("branch protection configured")
+        if auto_merge_set:
+            parts.append("auto-merge enabled")
 
         summary = f"GitHub: {', '.join(parts)}"
         print(f"  {summary}")
@@ -629,6 +634,23 @@ jobs:
         workflow_path.write_text(workflow)
         print(f"  Wrote: {workflow_path}")
         return True
+
+    def _enable_auto_merge(self, repo: str) -> bool:
+        """Enable auto-merge on the repository so PRs merge once CI passes."""
+        try:
+            result = subprocess.run(
+                ["gh", "api", f"repos/{repo}",
+                 "--method", "PATCH", "-f", "allow_auto_merge=true"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                print("  Auto-merge: enabled")
+                return True
+            else:
+                print("  Auto-merge: SKIPPED (may require admin access)")
+                return False
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
 
     def _set_branch_protection(self, repo: str) -> bool:
         """Configure branch protection on main.
