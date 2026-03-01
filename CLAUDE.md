@@ -495,14 +495,21 @@ git:
     atomic: "One commit per phase transition when meaningful"
 
   branching:
-    rule: "Every new branch MUST be created as a git worktree"
+    rule: "Every new branch MUST be created as a git worktree (flat sibling of main)"
+    layout: |
+      project/
+      ├── main/                      # primary checkout
+      ├── feat-traceability-gates/   # branch: feat/traceability-gates
+      ├── fix-typo/                  # branch: fix/typo
+      └── ...
     procedure:
       - "Pick prefix from allowed list"
-      - "Create worktree: git worktree add ../<prefix>/<slug> -b <prefix>/<slug>"
+      - "New branch: git worktree add ../<prefix>-<slug> -b <prefix>/<slug>"
+      - "Existing remote: git worktree add ../<prefix>-<slug> origin/<prefix>/<slug>"
       - "Work inside the worktree directory"
-      - "Clean up after merge: git worktree remove ../<prefix>/<slug>"
+      - "Clean up after merge: git worktree remove ../<prefix>-<slug>"
     prefixes: ["feat/", "fix/", "refactor/", "chore/", "docs/", "devops/"]
-    example: "git worktree add ../feat/traceability-gates -b feat/traceability-gates"
+    example: "git worktree add ../feat-traceability-gates -b feat/traceability-gates"
 
   workflow:
     branch_strategy: "worktree per branch from main"

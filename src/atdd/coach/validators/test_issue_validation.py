@@ -285,6 +285,6 @@ def test_issue_branch_follows_worktree_convention(github_issues):
         f"\nBranch field must use a worktree prefix "
         f"({', '.join(ALLOWED_BRANCH_PREFIXES)}).\n"
         f"Each branch = a git worktree. "
-        f"Example: git worktree add ../feat/my-feature -b feat/my-feature\n\n"
+        f"Example: git worktree add ../feat-my-feature -b feat/my-feature\n\n"
         f"Violations ({len(violations)}):\n  " + "\n  ".join(violations)
     )
