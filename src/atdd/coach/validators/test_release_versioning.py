@@ -199,6 +199,12 @@ def test_release_version_file_and_tag_on_head():
     a short distance (≤ 3 commits) to accommodate merge commits created
     by GitHub pull request merges.
     """
+    import os
+    base_ref = os.environ.get("GITHUB_BASE_REF", "")
+    github_ref = os.environ.get("GITHUB_REF", "")
+    if base_ref or (github_ref and github_ref != "refs/heads/main"):
+        pytest.skip("Tag check skipped on PR branches (tag created post-merge)")
+
     config = _load_config()
     version_file, tag_prefix = _get_release_config(config)
 
