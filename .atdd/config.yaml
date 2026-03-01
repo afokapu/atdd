@@ -6,7 +6,7 @@ sync:
   agents:
   - claude
 toolkit:
-  last_version: 0.9.4
+  last_version: 1.2.2
 github:
   repo: afokapu/atdd
   project_number: 1

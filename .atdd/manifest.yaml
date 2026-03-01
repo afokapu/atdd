@@ -49,3 +49,11 @@ sessions:
   status: INIT
   created: '2026-02-28'
   archived: null
+- id: '46'
+  slug: traceability-gates
+  file: null
+  issue_number: 46
+  type: implementation
+  status: INIT
+  created: '2026-02-28'
+  archived: null

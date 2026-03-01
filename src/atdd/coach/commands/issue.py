@@ -1268,6 +1268,17 @@ class IssueManager:
                 else:
                     print(f"Warning: Unknown phase '{phase_cap}'")
 
+        # Validate branch prefix (every branch = a worktree)
+        if branch:
+            allowed = ("feat/", "fix/", "refactor/", "chore/", "docs/", "devops/")
+            if not any(branch.startswith(p) for p in allowed):
+                print(
+                    f"Error: Branch '{branch}' must start with an allowed prefix: "
+                    f"{', '.join(allowed)}\n"
+                    f"Each branch is a git worktree. Example: feat/my-feature"
+                )
+                return 1
+
         # Text fields
         text_updates = {
             "ATDD: Branch": branch,
