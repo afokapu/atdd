@@ -645,7 +645,7 @@ jobs:
                     "strict": True,
                     "contexts": [],
                 },
-                "enforce_admins": False,
+                "enforce_admins": True,
                 "required_pull_request_reviews": {
                     "required_approving_review_count": 0,
                 },
@@ -660,7 +660,7 @@ jobs:
                 capture_output=True, text=True, timeout=15,
             )
             if result.returncode == 0:
-                print("  Branch protection: main (require up-to-date, require PR)")
+                print("  Branch protection: main (require up-to-date, require PR, enforce admins)")
                 return True
             else:
                 stderr = result.stderr.strip()
