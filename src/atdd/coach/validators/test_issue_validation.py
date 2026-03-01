@@ -12,8 +12,13 @@ E010: Body section validator (SPEC-SESSION-VAL-0060):
 - Issues should have all 11 structured sections from PARENT-ISSUE-TEMPLATE.md
 - Soft check (warning) for pre-E010 issues
 
+E011: Branch naming validator (SPEC-SESSION-VAL-0070):
+- Issues past PLANNED must have a Branch field matching an allowed prefix
+- Branch = worktree (every branch is created as a git worktree)
+
 Run: atdd validate coach
 """
+import re
 import warnings as w
 import pytest
 import yaml
@@ -212,3 +217,74 @@ def test_issue_body_has_required_sections(github_issues):
             category=UserWarning,
             stacklevel=1,
         )
+
+
+# ============================================================================
+# E011: Branch Naming Validation (GitHub Issues)
+# ============================================================================
+
+ALLOWED_BRANCH_PREFIXES = ("feat/", "fix/", "refactor/", "chore/", "docs/", "devops/")
+
+# Active statuses where branch must be set (excludes terminal COMPLETE/OBSOLETE)
+_ACTIVE_IMPL_STATUSES = {"RED", "GREEN", "REFACTOR"}
+
+_BRANCH_RE = re.compile(r"\| Branch \| (.+?) \|")
+
+
+@pytest.mark.platform
+def test_issue_branch_follows_worktree_convention(github_issues):
+    """
+    SPEC-SESSION-VAL-0070: Branch field must use an allowed worktree prefix
+
+    Given: Open issues in the GitHub Project (label: atdd-issue)
+    When: Checking the Branch field in Issue Metadata table
+    Then: Issues past PLANNED must have Branch matching {prefix}/{slug}
+          Issues at INIT/PLANNED with TBD get a warning
+
+    Every branch is a git worktree. Allowed prefixes: feat/, fix/, refactor/,
+    chore/, docs/, devops/
+    """
+    violations = []
+    warnings_list = []
+
+    for issue in github_issues:
+        num = issue["number"]
+        body = issue.get("body", "") or ""
+
+        match = _BRANCH_RE.search(body)
+        if not match:
+            continue
+
+        branch = match.group(1).strip().strip("`")
+        # Strip HTML comment hint from template
+        if "<!--" in branch:
+            branch = branch[:branch.index("<!--")].strip()
+
+        labels = [l["name"] for l in issue.get("labels", [])]
+        status = "UNKNOWN"
+        for l in labels:
+            if l.startswith("atdd:"):
+                status = l.split(":")[1].upper()
+
+        is_tbd = not branch or branch.upper() == "TBD"
+
+        if is_tbd and status in _ACTIVE_IMPL_STATUSES:
+            violations.append(
+                f"#{num} (status={status}): Branch is TBD — "
+                f"must be set before implementation"
+            )
+        elif is_tbd:
+            continue  # TBD at INIT/PLANNED is fine
+        elif not any(branch.startswith(p) for p in ALLOWED_BRANCH_PREFIXES):
+            violations.append(
+                f"#{num}: Branch='{branch}' does not start with an allowed "
+                f"prefix: {', '.join(ALLOWED_BRANCH_PREFIXES)}"
+            )
+
+    assert not violations, (
+        f"\nBranch field must use a worktree prefix "
+        f"({', '.join(ALLOWED_BRANCH_PREFIXES)}).\n"
+        f"Each branch = a git worktree. "
+        f"Example: git worktree add ../feat/my-feature -b feat/my-feature\n\n"
+        f"Violations ({len(violations)}):\n  " + "\n  ".join(violations)
+    )

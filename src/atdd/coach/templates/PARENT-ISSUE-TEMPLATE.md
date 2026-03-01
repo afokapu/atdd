@@ -5,7 +5,7 @@
 | Date | `{today}` |
 | Status | `INIT` |
 | Type | `{issue_type}` |
-| Branch | TBD |
+| Branch | TBD <!-- fmt: {prefix}/{slug} e.g. feat/my-feature --> |
 | Archetypes | {archetypes_display} |
 | Train | {train_display} |
 | Feature | TBD |
