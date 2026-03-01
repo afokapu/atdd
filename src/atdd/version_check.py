@@ -182,11 +182,11 @@ def check_upgrade_sync_needed() -> Optional[str]:
     if last_version is None:
         # First run or old config without toolkit.last_version
         # Treat as needing sync
-        return f"ATDD upgraded to {__version__}. Run: atdd sync"
+        return f"ATDD upgraded to {__version__}. Run: atdd sync && atdd init --force"
 
     # Compare versions
     if _is_newer(__version__, last_version):
-        return f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync"
+        return f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync && atdd init --force"
 
     return None
 
