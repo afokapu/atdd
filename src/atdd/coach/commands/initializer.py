@@ -577,7 +577,7 @@ name: ATDD Validate
 
 on:
   push:
-    branches: [main, "feat/*", "fix/*", "refactor/*"]
+    branches: [main, "feat/*", "fix/*", "refactor/*", "chore/*", "docs/*"]
   pull_request:
     branches: [main]
   issues:
