@@ -116,6 +116,9 @@ class AgentConfigSync:
 
         print(f"\nSync complete: {synced_count} updated, {unchanged_count} unchanged")
 
+        # Apply branch protection if upgrading
+        self._apply_branch_protection_on_upgrade()
+
         # Update toolkit.last_version to mark sync complete
         from atdd.version_check import update_toolkit_version
         if update_toolkit_version(self.config_file):
@@ -241,6 +244,34 @@ class AgentConfigSync:
                 print(f"  - {agent}.md (found)")
 
         return 0
+
+    def _apply_branch_protection_on_upgrade(self) -> None:
+        """Apply branch protection if toolkit was upgraded.
+
+        Detects upgrade by comparing installed version vs toolkit.last_version
+        in .atdd/config.yaml. If upgraded, applies branch protection rules
+        so consumer repos inherit the latest GitHub infrastructure.
+        """
+        from atdd import __version__
+        from atdd.version_check import _is_newer, _get_last_toolkit_version
+
+        config = self._load_config()
+        last_version = _get_last_toolkit_version(config)
+
+        # Only apply on upgrade (not first run or same version)
+        if last_version is None or not _is_newer(__version__, last_version):
+            return
+
+        # Need repo from config
+        github_config = config.get("github", {})
+        repo = github_config.get("repo")
+        if not repo:
+            return
+
+        print("\nApplying GitHub infrastructure updates...")
+        from atdd.coach.commands.initializer import ProjectInitializer
+        initializer = ProjectInitializer(self.target_dir)
+        initializer._set_branch_protection(repo)
 
     # --- Private helpers ---
 
