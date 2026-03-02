@@ -22,6 +22,7 @@ Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import json
 import logging
+import shutil
 import subprocess
 from datetime import date
 from pathlib import Path
@@ -50,16 +51,154 @@ class ProjectInitializer:
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
 
-    def init(self, force: bool = False) -> int:
+    def _has_linked_worktrees(self) -> list:
+        """Return paths of linked worktrees (excludes the main checkout)."""
+        try:
+            result = subprocess.run(
+                ["git", "worktree", "list", "--porcelain"],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.target_dir,
+            )
+            if result.returncode != 0:
+                return []
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return []
+
+        # Porcelain format: blocks separated by blank lines, first block is main checkout
+        worktrees = []
+        blocks = result.stdout.strip().split("\n\n")
+        for i, block in enumerate(blocks):
+            if i == 0:
+                continue  # Skip main checkout (first entry)
+            for line in block.splitlines():
+                if line.startswith("worktree "):
+                    worktrees.append(line[len("worktree "):])
+                    break
+        return worktrees
+
+    def _migrate_to_worktree_layout(self) -> Path:
+        """
+        Move all repo contents into a main/ subdirectory.
+
+        Returns:
+            Path to the new repo root (main/).
+
+        Raises:
+            RuntimeError: If migration fails (with rollback).
+        """
+        main_dir = self.target_dir / "main"
+
+        if main_dir.exists():
+            raise RuntimeError(
+                f"Directory already exists: {main_dir}\n"
+                "Cannot migrate — 'main/' would conflict."
+            )
+
+        main_dir.mkdir()
+        moved_items = []
+
+        try:
+            for item in sorted(self.target_dir.iterdir()):
+                if item.name == "main":
+                    continue
+                dest = main_dir / item.name
+                shutil.move(str(item), str(dest))
+                moved_items.append((dest, item))
+        except Exception as e:
+            # Rollback: move items back
+            for dest, original in reversed(moved_items):
+                try:
+                    shutil.move(str(dest), str(original))
+                except Exception:
+                    pass
+            try:
+                main_dir.rmdir()
+            except Exception:
+                pass
+            raise RuntimeError(f"Migration failed (rolled back): {e}") from e
+
+        return main_dir
+
+    def _update_target_dir(self, new_root: Path) -> None:
+        """Repoint all paths to the new repo root after migration."""
+        self.target_dir = new_root
+        self.atdd_config_dir = new_root / ".atdd"
+        self.manifest_file = self.atdd_config_dir / "manifest.yaml"
+        self.config_file = self.atdd_config_dir / "config.yaml"
+
+    def init(self, force: bool = False, worktree_layout: bool = False) -> int:
         """
         Bootstrap .atdd/ config and GitHub infrastructure.
 
         Args:
             force: If True, overwrite existing files.
+            worktree_layout: If True, migrate repo to flat-sibling worktree layout.
 
         Returns:
             0 on success, 1 on error.
         """
+        from atdd.coach.utils.repo import detect_worktree_layout, find_repo_root
+
+        layout = detect_worktree_layout(self.target_dir)
+
+        if worktree_layout:
+            if layout == "worktree-ready":
+                print("Already in worktree-ready layout (repo root is main/).")
+            elif layout == "worktree":
+                print("Error: You are inside a linked worktree.")
+                print("Run this command from the main checkout instead.")
+                return 1
+            elif layout == "no-git":
+                print("Error: No git repository found.")
+                print("Initialize git first: git init")
+                return 1
+            elif layout == "flat":
+                # Safety: must be at repo root, not a subdirectory
+                try:
+                    repo_root = find_repo_root(self.target_dir)
+                    if repo_root.resolve() != self.target_dir.resolve():
+                        print("Error: Not at repository root.")
+                        print(f"Run from: {repo_root}")
+                        return 1
+                except RuntimeError:
+                    pass
+
+                # Safety: no linked worktrees (their .git files would break)
+                linked = self._has_linked_worktrees()
+                if linked:
+                    print("Error: Existing linked worktrees would break after migration.")
+                    print("Remove them first:")
+                    for wt in linked:
+                        print(f"  git worktree remove {wt}")
+                    return 1
+
+                # Confirm before migrating
+                items = [i.name for i in self.target_dir.iterdir()]
+                print(f"This will move all {len(items)} items into {self.target_dir / 'main'}:")
+                for name in sorted(items)[:10]:
+                    print(f"  {name}")
+                if len(items) > 10:
+                    print(f"  ... and {len(items) - 10} more")
+                if not force:
+                    answer = input("\nProceed? [y/N] ").strip().lower()
+                    if answer not in ("y", "yes"):
+                        print("Aborted.")
+                        return 1
+
+                # Migrate
+                try:
+                    new_root = self._migrate_to_worktree_layout()
+                    self._update_target_dir(new_root)
+                    print(f"Migrated to worktree layout: {new_root}")
+                    print(f"\n  ** After init completes, run: cd main **\n")
+                except RuntimeError as e:
+                    print(f"Error: {e}")
+                    return 1
+        else:
+            if layout == "flat":
+                print("Advisory: Repo uses flat layout (not worktree-ready).")
+                print("  Run: atdd init --worktree-layout\n")
+
         # Check if already initialized
         if self.atdd_config_dir.exists() and not force:
             print(f"ATDD already initialized at {self.target_dir}")

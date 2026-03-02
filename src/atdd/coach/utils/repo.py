@@ -75,6 +75,32 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
     return start.resolve() if start else Path.cwd().resolve()
 
 
+def detect_worktree_layout(start: Optional[Path] = None) -> str:
+    """
+    Detect the worktree layout of a repository.
+
+    Returns:
+        "worktree-ready" - .git is a dir and parent dir is named "main"
+        "worktree"       - .git is a file (linked worktree)
+        "flat"           - .git is a dir but parent dir is not "main"
+        "no-git"         - no .git found
+    """
+    root = start or Path.cwd()
+    root = root.resolve()
+
+    git_path = root / ".git"
+
+    if git_path.is_file():
+        return "worktree"
+
+    if git_path.is_dir():
+        if root.name == "main":
+            return "worktree-ready"
+        return "flat"
+
+    return "no-git"
+
+
 def require_repo_root(start: Optional[Path] = None) -> Path:
     """
     Find repo root, raising RuntimeError if no markers found.

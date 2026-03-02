@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from atdd.coach.commands.sync import AgentConfigSync
+from atdd.coach.utils.repo import detect_worktree_layout
 
 
 class ATDDGate:
@@ -120,13 +121,17 @@ class ATDDGate:
             return 1
 
         issue_convention = self._load_issue_convention()
+        layout = detect_worktree_layout(self.target_dir)
 
         if json:
             output = {
                 "files": files,
                 "constraints": self.KEY_CONSTRAINTS,
                 "issue_convention": issue_convention,
+                "worktree_layout": layout,
             }
+            if layout == "flat":
+                output["worktree_advisory"] = "Run: atdd init --worktree-layout"
             print(json_module.dumps(output, indent=2))
             return 0
 
@@ -143,6 +148,10 @@ class ATDDGate:
                 print(f"  - {info['file']} (no managed block)")
             else:
                 print(f"  - {info['file']} (missing)")
+
+        if layout == "flat":
+            print("\n  Advisory: Repo uses flat layout (not worktree-ready).")
+            print("  Run: atdd init --worktree-layout")
 
         print("\nKey constraints:")
         for i, constraint in enumerate(self.KEY_CONSTRAINTS, 1):
