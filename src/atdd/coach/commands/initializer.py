@@ -122,7 +122,17 @@ class ProjectInitializer:
             folders.remove(main_entry)
             folders.insert(0, main_entry)
 
-        workspace = {"folders": folders, "settings": {}}
+        workspace = {
+            "folders": folders,
+            "settings": {
+                "workbench.colorCustomizations": {
+                    "titleBar.activeBackground": "#FFC107",
+                    "titleBar.activeForeground": "#000000",
+                    "statusBar.background": "#FFC107",
+                    "statusBar.foreground": "#000000",
+                },
+            },
+        }
 
         workspace_path.write_text(
             json.dumps(workspace, indent=2) + "\n"
