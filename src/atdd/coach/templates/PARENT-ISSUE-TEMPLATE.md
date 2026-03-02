@@ -151,9 +151,9 @@
 
 - [ ] Determine change class: PATCH / MINOR / MAJOR
 - [ ] Bump version in version file
-- [ ] Commit: "Bump version to {{version}}"
-- [ ] Create tag: `git tag v{{version}}`
-- [ ] Push with tags: `git push origin {{branch}} --tags`
+- [ ] Commit: "Bump version to {{version}}" (last commit in PR branch)
+- [ ] Merge PR (version bump included in the PR)
+- [ ] After merge: `git tag v{{version}}` on merge commit, then `git push origin --tags`
 - [ ] Record tag in Activity Log: "Released: v{{version}}"
 
 ---

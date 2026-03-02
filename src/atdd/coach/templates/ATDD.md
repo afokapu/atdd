@@ -254,10 +254,10 @@ release:
   workflow:
     - "Determine change class"
     - "Bump version in version file"
-    - "Commit: 'Bump version to {version}'"
-    - "Create tag: git tag v{version}"
-    - "Push with tags: git push origin {branch} --tags"
-    - "Record in Session Log: 'Released: v{version}'"
+    - "Commit: 'Bump version to {version}' (last commit in PR branch)"
+    - "Push branch and merge PR (version bump is part of the PR)"
+    - "After merge: git tag v{version} on the merge commit, then git push origin --tags"
+    - "Record in Activity Log: 'Released: v{version}'"
 
   # Config (required in .atdd/config.yaml):
   # release:
