@@ -610,7 +610,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install ATDD toolkit
-        run: pip3 install atdd pytest jsonschema pytest-html
+        run: pip3 install atdd
 
       - name: Run ATDD validators
         run: atdd validate

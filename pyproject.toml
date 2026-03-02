@@ -9,10 +9,10 @@ description = "ATDD Platform - Acceptance Test Driven Development toolkit"
 requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "MIT"}
-dependencies = ["pyyaml"]
+dependencies = ["pyyaml", "pytest>=7.0", "pytest-xdist", "jsonschema", "pytest-html"]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-xdist"]
+dev = []
 viz = ["streamlit", "st-link-analysis"]
 
 [project.scripts]
