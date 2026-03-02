@@ -105,6 +105,38 @@ Also sets up on GitHub:
 - Labels: `atdd-issue`, `atdd-wmbt`, `atdd:RED`, `atdd:GREEN`, `atdd:REFACTOR`, archetype labels
 - Project v2 custom fields: `ATDD:Status`, `ATDD:Train`, `ATDD:Archetypes`, etc.
 
+### Worktree Layout
+
+Migrate your repo to a flat-sibling worktree layout where each branch lives alongside `main/`:
+
+```bash
+atdd init --worktree-layout         # Migrate repo into main/ subdirectory
+atdd init --worktree-layout --force # Non-interactive
+```
+
+Resulting structure:
+```
+your-project/
+├── your-project.code-workspace   # VS Code multi-root workspace (auto-generated)
+├── main/                         # Primary checkout
+├── feat-some-feature/            # git worktree: feat/some-feature
+└── fix-login-bug/                # git worktree: fix/login-bug
+```
+
+Creating and removing worktrees:
+```bash
+cd main
+git worktree add ../feat-my-feature -b feat/my-feature   # New branch
+git worktree remove ../feat-my-feature                    # After merge
+```
+
+After adding or removing worktrees, run `atdd sync` to refresh the workspace file:
+```bash
+atdd sync   # Regenerates .code-workspace with current worktrees
+```
+
+Open the `.code-workspace` file in VS Code ("Open Workspace from File") for multi-root, branch-aware editing — each folder shows its active branch in the status bar.
+
 ### Issue Management
 
 Issues are the source of truth, backed by GitHub Issues with Project v2 custom fields.
