@@ -75,6 +75,40 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
     return start.resolve() if start else Path.cwd().resolve()
 
 
+@lru_cache(maxsize=1)
+def is_consumer_project(start: Optional[Path] = None) -> bool:
+    """
+    Detect whether the current repo is a consumer project (not the atdd package itself).
+
+    Detection: checks pyproject.toml for name = "atdd" (definitive),
+    falls back to checking if src/atdd/planner/validators/ exists.
+
+    Returns:
+        True if this is a consumer project, False if this is the atdd package repo.
+    """
+    root = find_repo_root(start)
+
+    # Definitive check: pyproject.toml with name = "atdd"
+    pyproject = root / "pyproject.toml"
+    if pyproject.is_file():
+        try:
+            content = pyproject.read_text()
+            for line in content.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("name") and "=" in stripped:
+                    value = stripped.split("=", 1)[1].strip().strip('"').strip("'")
+                    if value == "atdd":
+                        return False
+        except OSError:
+            pass
+
+    # Fallback: if src/atdd/planner/validators/ exists, it's the atdd package
+    if (root / "src" / "atdd" / "planner" / "validators").is_dir():
+        return False
+
+    return True
+
+
 def detect_worktree_layout(start: Optional[Path] = None) -> str:
     """
     Detect the worktree layout of a repository.

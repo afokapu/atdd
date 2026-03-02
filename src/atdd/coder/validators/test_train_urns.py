@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import List, Dict, Set, Tuple
 
 import atdd
-from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.repo import find_repo_root, is_consumer_project
 
 
 # Path constants
@@ -98,6 +98,9 @@ def load_train_spec(train_file: Path) -> Dict:
 
 def test_theme_orchestrators_exist():
     """Theme orchestrators should exist in python/trains/orchestrators/ directory."""
+    if not ORCHESTRATORS_DIR.exists() and not is_consumer_project():
+        pytest.skip("python/trains/orchestrators/ not expected in atdd package repo")
+
     orchestrators = find_theme_orchestrators()
 
     assert len(orchestrators) > 0, (

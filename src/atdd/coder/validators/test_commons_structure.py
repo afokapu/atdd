@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import List
 
 import atdd
-from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.repo import find_repo_root, is_consumer_project
 
 
 # Consumer repo artifacts
@@ -48,6 +48,9 @@ def test_commons_exists_in_both_stacks():
 
     Validates: Consistent naming across stacks
     """
+    if not PYTHON_COMMONS.exists() and not WEB_COMMONS.exists() and not is_consumer_project():
+        pytest.skip("python/commons/ and web/src/commons/ not expected in atdd package repo")
+
     missing = []
 
     if not PYTHON_COMMONS.exists():

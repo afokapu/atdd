@@ -28,7 +28,7 @@ from typing import List, Tuple, Set
 import ast
 
 import atdd
-from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.repo import find_repo_root, is_consumer_project
 
 # Path constants
 # Consumer repo artifacts
@@ -491,6 +491,9 @@ def test_package_hierarchy_exists():
     When: Checking for __init__.py files
     Then: All required __init__.py files exist
     """
+    if not PYTHON_DIR.exists() and not is_consumer_project():
+        pytest.skip("python/ not expected in atdd package repo")
+
     missing = check_package_hierarchy()
 
     if missing:
@@ -517,6 +520,9 @@ def test_pytest_pythonpath_configured():
     When: Checking [tool.pytest.ini_options]
     Then: pythonpath = ["."] is configured
     """
+    if not PYTHON_DIR.exists() and not is_consumer_project():
+        pytest.skip("python/ not expected in atdd package repo")
+
     is_configured, message = check_pytest_pythonpath()
 
     if not is_configured:
