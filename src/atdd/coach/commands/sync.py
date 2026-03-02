@@ -116,6 +116,13 @@ class AgentConfigSync:
 
         print(f"\nSync complete: {synced_count} updated, {unchanged_count} unchanged")
 
+        # Refresh VS Code workspace file if in worktree layout
+        from atdd.coach.utils.repo import detect_worktree_layout
+        if detect_worktree_layout(self.target_dir) == "worktree-ready":
+            from atdd.coach.commands.initializer import ProjectInitializer
+            initializer = ProjectInitializer(self.target_dir)
+            initializer._write_workspace()
+
         # Apply branch protection if upgrading
         self._apply_branch_protection_on_upgrade()
 
