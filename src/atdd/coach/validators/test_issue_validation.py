@@ -25,6 +25,8 @@ import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
+pytestmark = [pytest.mark.platform, pytest.mark.github_api]
+
 # ============================================================================
 # Configuration
 # ============================================================================
@@ -67,7 +69,6 @@ def _load_valid_train_ids():
 _POST_PLANNED_STATUSES = {"RED", "GREEN", "REFACTOR", "COMPLETE"}
 
 
-@pytest.mark.platform
 def test_issues_have_train_field(github_issues, github_project_fields, github_project_items):
     """
     SPEC-SESSION-VAL-0050: Issues must have a non-empty Train field
@@ -123,7 +124,6 @@ def test_issues_have_train_field(github_issues, github_project_fields, github_pr
     )
 
 
-@pytest.mark.platform
 def test_issue_train_references_valid_train_id(github_issues, github_project_fields, github_project_items):
     """
     SPEC-SESSION-VAL-0051: Issue Train field must reference a valid train_id
@@ -186,7 +186,6 @@ REQUIRED_BODY_SECTIONS = [
 ]
 
 
-@pytest.mark.platform
 def test_issue_body_has_required_sections(github_issues):
     """
     SPEC-SESSION-VAL-0060: Issue body should contain all structured sections
@@ -231,7 +230,6 @@ _ACTIVE_IMPL_STATUSES = {"RED", "GREEN", "REFACTOR"}
 _BRANCH_RE = re.compile(r"\| Branch \| (.+?) \|")
 
 
-@pytest.mark.platform
 def test_issue_branch_follows_worktree_convention(github_issues):
     """
     SPEC-SESSION-VAL-0070: Branch field must use an allowed worktree prefix

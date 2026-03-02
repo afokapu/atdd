@@ -19,13 +19,14 @@ import pytest
 
 from atdd.coach.github import GitHubClientError
 
+pytestmark = [pytest.mark.platform, pytest.mark.github_api]
+
 
 # ---------------------------------------------------------------------------
 # C001 validators: confirm round-trip plumbing
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.platform
 def test_issue_manager_methods_exist():
     """
     SPEC-COACH-C001-0001: IssueManager exposes all lifecycle methods
@@ -45,7 +46,6 @@ def test_issue_manager_methods_exist():
     )
 
 
-@pytest.mark.platform
 def test_github_client_methods_exist():
     """
     SPEC-COACH-C001-0002: GitHubClient exposes all required API methods
@@ -74,8 +74,7 @@ def test_github_client_methods_exist():
     )
 
 
-@pytest.mark.platform
-def test_existing_issues_have_sub_issues(github_client, github_issues):
+def test_existing_issues_have_sub_issues(github_sub_issues):
     """
     SPEC-COACH-C001-0003: Existing issues have WMBT sub-issues
 
@@ -84,15 +83,7 @@ def test_existing_issues_have_sub_issues(github_client, github_issues):
     Then: At least one issue has sub-issues (WMBTs)
           confirming that atdd new creates the parent+sub-issue structure
     """
-    has_subs = False
-    for issue in github_issues:
-        try:
-            subs = github_client.get_sub_issues(issue["number"])
-            if subs:
-                has_subs = True
-                break
-        except GitHubClientError:
-            continue
+    has_subs = any(subs for subs in github_sub_issues.values())
 
     if not has_subs:
         pytest.skip(
@@ -101,8 +92,7 @@ def test_existing_issues_have_sub_issues(github_client, github_issues):
         )
 
 
-@pytest.mark.platform
-def test_sub_issue_progress_is_trackable(github_client, github_issues):
+def test_sub_issue_progress_is_trackable(github_sub_issues):
     """
     SPEC-COACH-C001-0004: Sub-issue progress is trackable (closed/total)
 
@@ -111,12 +101,7 @@ def test_sub_issue_progress_is_trackable(github_client, github_issues):
     Then: Progress is computable as closed/total
           and both counts are non-negative integers
     """
-    for issue in github_issues:
-        try:
-            subs = github_client.get_sub_issues(issue["number"])
-        except GitHubClientError:
-            continue
-
+    for num, subs in github_sub_issues.items():
         if not subs:
             continue
 
@@ -124,11 +109,11 @@ def test_sub_issue_progress_is_trackable(github_client, github_issues):
         closed = sum(1 for s in subs if s.get("state") == "closed")
         open_count = sum(1 for s in subs if s.get("state") == "open")
 
-        assert total > 0, f"#{issue['number']}: total sub-issues should be > 0"
-        assert closed >= 0, f"#{issue['number']}: closed count should be >= 0"
-        assert open_count >= 0, f"#{issue['number']}: open count should be >= 0"
+        assert total > 0, f"#{num}: total sub-issues should be > 0"
+        assert closed >= 0, f"#{num}: closed count should be >= 0"
+        assert open_count >= 0, f"#{num}: open count should be >= 0"
         assert closed + open_count == total, (
-            f"#{issue['number']}: closed ({closed}) + open ({open_count}) != total ({total})"
+            f"#{num}: closed ({closed}) + open ({open_count}) != total ({total})"
         )
         # Found a valid issue with trackable progress
         return
@@ -136,7 +121,6 @@ def test_sub_issue_progress_is_trackable(github_client, github_issues):
     pytest.skip("No issue with sub-issues found")
 
 
-@pytest.mark.platform
 def test_archived_issues_have_no_orphaned_sub_issues(github_client):
     """
     SPEC-COACH-C001-0005: Archived (closed) issues have no open sub-issues
@@ -183,8 +167,7 @@ def test_archived_issues_have_no_orphaned_sub_issues(github_client):
     )
 
 
-@pytest.mark.platform
-def test_wmbt_sub_issues_have_atdd_wmbt_label(github_client, github_issues):
+def test_wmbt_sub_issues_have_atdd_wmbt_label(github_sub_issues):
     """
     SPEC-COACH-C001-0006: WMBT sub-issues carry the atdd-wmbt label
 
@@ -192,13 +175,7 @@ def test_wmbt_sub_issues_have_atdd_wmbt_label(github_client, github_issues):
     When: Checking labels
     Then: Each sub-issue has the atdd-wmbt label
     """
-    # Check first issue that has sub-issues
-    for issue in github_issues:
-        try:
-            subs = github_client.get_sub_issues(issue["number"])
-        except GitHubClientError:
-            continue
-
+    for num, subs in github_sub_issues.items():
         if not subs:
             continue
 
@@ -210,7 +187,7 @@ def test_wmbt_sub_issues_have_atdd_wmbt_label(github_client, github_issues):
 
         if unlabeled:
             assert False, (
-                f"\nWMBT sub-issues of #{issue['number']} missing atdd-wmbt label:\n  "
+                f"\nWMBT sub-issues of #{num} missing atdd-wmbt label:\n  "
                 + "\n  ".join(unlabeled)
             )
         # Found and validated — pass

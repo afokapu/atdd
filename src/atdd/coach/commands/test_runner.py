@@ -168,27 +168,27 @@ class TestRunner:
     ) -> int:
         """Run validators in two stages: fast then slow.
 
-        Stage 1: Pure-computation tests (not platform) — parallel
-        Stage 2: API-bound platform tests — sequential (shared session fixtures)
+        Stage 1: All tests except github_api — parallel
+        Stage 2: github_api tests (live GitHub API) — sequential (shared session fixtures)
         """
-        # Stage 1: fast tests (not platform), parallel
-        fast_markers = list(markers or []) + ["not platform"]
+        # Stage 1: all tests except github_api, parallel
+        fast_markers = list(markers or []) + ["not github_api"]
         fast_cmd = self._build_pytest_cmd(
             validator_dirs, verbose=verbose, coverage=coverage,
             html_report=False, markers=fast_markers, parallel=parallel,
         )
 
-        print("\n[1/2] Fast validators (file parsing, no API):")
+        print("\n[1/2] Fast validators (file parsing + local platform, no API):")
         fast_rc = self._run_pytest(fast_cmd)
 
-        # Stage 2: platform tests (API-bound), sequential to share session fixtures
-        slow_markers = list(markers or []) + ["platform"]
+        # Stage 2: github_api tests, sequential to share session fixtures
+        slow_markers = list(markers or []) + ["github_api"]
         slow_cmd = self._build_pytest_cmd(
             validator_dirs, verbose=verbose, coverage=False,
             html_report=html_report, markers=slow_markers, parallel=False,
         )
 
-        print("\n[2/2] Platform validators (GitHub API):")
+        print("\n[2/2] GitHub API validators (live API):")
         slow_rc = self._run_pytest(slow_cmd)
 
         # Fail if either stage failed

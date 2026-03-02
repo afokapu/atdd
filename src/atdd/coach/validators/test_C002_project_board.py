@@ -15,7 +15,7 @@ Run: atdd validate coach
 """
 import pytest
 
-from atdd.coach.github import GitHubClientError
+pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +42,6 @@ REQUIRED_PHASE_OPTIONS = {"Planner", "Tester", "Coder"}
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.platform
 def test_project_has_required_custom_fields(github_project_fields):
     """
     SPEC-COACH-C002-0001: Project v2 has all required custom fields
@@ -60,7 +59,6 @@ def test_project_has_required_custom_fields(github_project_fields):
     )
 
 
-@pytest.mark.platform
 def test_atdd_status_field_has_required_options(github_project_fields):
     """
     SPEC-COACH-C002-0002: ATDD Status field has all lifecycle options
@@ -82,7 +80,6 @@ def test_atdd_status_field_has_required_options(github_project_fields):
     )
 
 
-@pytest.mark.platform
 def test_atdd_phase_field_has_required_options(github_project_fields):
     """
     SPEC-COACH-C002-0003: ATDD Phase field has Planner/Tester/Coder options
@@ -104,7 +101,6 @@ def test_atdd_phase_field_has_required_options(github_project_fields):
     )
 
 
-@pytest.mark.platform
 def test_issues_are_in_project(github_issues, github_project_items):
     """
     SPEC-COACH-C002-0004: Issues are added to the Project
@@ -126,7 +122,6 @@ def test_issues_are_in_project(github_issues, github_project_items):
     )
 
 
-@pytest.mark.platform
 def test_issues_have_status_field_set(github_issues, github_project_fields, github_project_items):
     """
     SPEC-COACH-C002-0005: Issues in Project have ATDD Status set
@@ -152,7 +147,6 @@ def test_issues_have_status_field_set(github_issues, github_project_fields, gith
     )
 
 
-@pytest.mark.platform
 def test_archetype_labels_exist(github_issues):
     """
     SPEC-COACH-C002-0006: Archetype labels exist for board filtering
@@ -175,8 +169,7 @@ def test_archetype_labels_exist(github_issues):
         )
 
 
-@pytest.mark.platform
-def test_progress_pill_data_available(github_client, github_issues):
+def test_progress_pill_data_available(github_sub_issues):
     """
     SPEC-COACH-C002-0007: Sub-issue progress data available for progress pills
 
@@ -185,17 +178,7 @@ def test_progress_pill_data_available(github_client, github_issues):
     Then: Progress can be expressed as "N/M WMBTs" where M > 0
           (confirming the data backing progress pills on board cards)
     """
-    progress_available = False
-    for issue in github_issues:
-        try:
-            subs = github_client.get_sub_issues(issue["number"])
-            if subs:
-                total = len(subs)
-                assert total > 0
-                progress_available = True
-                break
-        except (GitHubClientError, AssertionError):
-            continue
+    progress_available = any(subs for subs in github_sub_issues.values())
 
     if not progress_available:
         pytest.skip(

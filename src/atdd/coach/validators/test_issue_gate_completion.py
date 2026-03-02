@@ -19,6 +19,8 @@ import pytest
 from atdd.coach.commands.issue import IssueManager
 from atdd.coach.utils.repo import find_repo_root
 
+pytestmark = [pytest.mark.platform, pytest.mark.github_api]
+
 REPO_ROOT = find_repo_root()
 
 
@@ -26,7 +28,6 @@ REPO_ROOT = find_repo_root()
 # SPEC-GATE-0001: Gate test commands must PASS for COMPLETE issues
 # ---------------------------------------------------------------------------
 
-@pytest.mark.platform
 def test_complete_issues_gate_tests_pass(github_complete_issues):
     """
     SPEC-GATE-0001: All gate test commands in COMPLETE issues must PASS.
@@ -78,7 +79,6 @@ def test_complete_issues_gate_tests_pass(github_complete_issues):
 # SPEC-GATE-0002: Artifact claims must be valid for COMPLETE issues
 # ---------------------------------------------------------------------------
 
-@pytest.mark.platform
 def test_complete_issues_artifacts_valid(github_complete_issues):
     """
     SPEC-GATE-0002: Artifact claims in COMPLETE issues must match git state.
@@ -118,7 +118,6 @@ def test_complete_issues_artifacts_valid(github_complete_issues):
 # SPEC-GATE-0003: Release gate must be satisfied for COMPLETE issues
 # ---------------------------------------------------------------------------
 
-@pytest.mark.platform
 def test_complete_issues_release_gate(github_complete_issues):
     """
     SPEC-GATE-0003: COMPLETE issues must have version bumped and tag on HEAD.

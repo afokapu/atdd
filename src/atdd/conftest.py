@@ -21,6 +21,7 @@ def pytest_configure(config):
 
     # Legacy/component markers
     config.addinivalue_line("markers", "platform: Platform validation tests")
+    config.addinivalue_line("markers", "github_api: Tests requiring live GitHub API access")
     config.addinivalue_line("markers", "backend: Backend Python tests")
     config.addinivalue_line("markers", "frontend: Frontend Preact/TypeScript tests")
     config.addinivalue_line("markers", "agents: Agent behavior tests")

@@ -101,3 +101,22 @@ def github_project_items(github_client):
         return github_client.get_all_project_items()
     except GitHubClientError as e:
         pytest.skip(f"Cannot query project items: {e}")
+
+
+@pytest.fixture(scope="session")
+def github_sub_issues(github_client, github_issues):
+    """Sub-issues for all open parent issues (fetched once per session).
+
+    Returns dict mapping issue_number -> list[dict] of sub-issues.
+    Replaces N+1 calls to get_sub_issues() in individual tests.
+    """
+    from atdd.coach.github import GitHubClientError
+
+    result = {}
+    for issue in github_issues:
+        num = issue["number"]
+        try:
+            result[num] = github_client.get_sub_issues(num)
+        except GitHubClientError:
+            result[num] = []
+    return result
