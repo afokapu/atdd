@@ -368,6 +368,11 @@ Phase descriptions:
         action="store_true",
         help="Overwrite existing files"
     )
+    init_parser.add_argument(
+        "--worktree-layout",
+        action="store_true",
+        help="Migrate repo to flat-sibling worktree layout (moves contents into main/)"
+    )
 
     # ----- atdd new <slug> -----
     new_parser = subparsers.add_parser(
@@ -802,7 +807,7 @@ Phase descriptions:
     # atdd init
     elif args.command == "init":
         initializer = ProjectInitializer()
-        return initializer.init(force=args.force)
+        return initializer.init(force=args.force, worktree_layout=args.worktree_layout)
 
     # atdd new <slug>
     elif args.command == "new":
