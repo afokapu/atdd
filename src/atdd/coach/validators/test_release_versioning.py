@@ -202,8 +202,11 @@ def test_release_version_file_and_tag_on_head():
     import os
     base_ref = os.environ.get("GITHUB_BASE_REF", "")
     github_ref = os.environ.get("GITHUB_REF", "")
+    is_ci = os.environ.get("CI", "").lower() == "true"
     if base_ref or (github_ref and github_ref != "refs/heads/main"):
         pytest.skip("Tag check skipped on PR branches (tag created post-merge)")
+    if is_ci and github_ref == "refs/heads/main":
+        pytest.skip("Tag check skipped on main push in CI (tag-release job handles tagging)")
 
     config = _load_config()
     version_file, tag_prefix = _get_release_config(config)
