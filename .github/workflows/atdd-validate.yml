@@ -64,24 +64,24 @@ jobs:
 
       - name: Read version and create tag
         run: |
-          VERSION=$(python3 -c "
-          import yaml
-          cfg = yaml.safe_load(open('.atdd/config.yaml'))
-          vf = cfg['release']['version_file']
-          prefix = cfg['release'].get('tag_prefix', 'v')
-          if vf.endswith('.toml'):
-              import re
+          pip3 install pyyaml -q
+          TAG=$(python3 - <<'PYEOF'
+          import yaml, re, json
+          cfg = yaml.safe_load(open(".atdd/config.yaml"))
+          vf = cfg["release"]["version_file"]
+          prefix = cfg["release"].get("tag_prefix", "v")
+          if vf.endswith(".toml"):
               text = open(vf).read()
-              m = re.search(r'^version\s*=\s*[\"'\'']([^\"'\'']+)[\"'\'']', text, re.M)
-              ver = m.group(1) if m else ''
-          elif vf.endswith('.json'):
-              import json
-              ver = json.load(open(vf)).get('version', '')
+              m = re.search(r'^version\s*=\s*["\x27]([^"\x27]+)["\x27]', text, re.M)
+              ver = m.group(1) if m else ""
+          elif vf.endswith(".json"):
+              ver = json.load(open(vf)).get("version", "")
           else:
               ver = open(vf).read().strip().split()[0]
-          print(f'{prefix}{ver}')
-          ")
-          echo "TAG=$VERSION" >> "$GITHUB_ENV"
+          print(f"{prefix}{ver}")
+          PYEOF
+          )
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Create and push tag (idempotent)
         run: |
