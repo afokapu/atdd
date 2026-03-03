@@ -8,7 +8,7 @@ The coach orchestrates all ATDD lifecycle operations:
 - status: Show platform status
 - registry: Update registries from source files
 - init: Initialize ATDD structure in consumer repos
-- new/list/update/archive/close-wmbt: Manage GitHub Issues
+- new/list/update/archive/close-wmbt/branch: Manage GitHub Issues
 - sync: Sync ATDD rules to agent config files
 - gate: Verify agents loaded ATDD rules
 
@@ -237,6 +237,8 @@ Examples:
   %(prog)s update 11 --status RED         Update issue fields
   %(prog)s archive 11                     Archive issue
   %(prog)s close-wmbt 11 D005             Close WMBT sub-issue
+  %(prog)s branch 69                      Create worktree from issue #69
+  %(prog)s branch 69 --prefix fix         Override branch prefix
 
   # Agent config sync
   %(prog)s sync                           Sync ATDD rules to agent configs
@@ -432,6 +434,19 @@ Phase descriptions:
     update_top_parser.add_argument("--archetypes", type=str, help="ATDD: Archetypes (comma-separated)")
     update_top_parser.add_argument("--complexity", type=str, help="ATDD: Complexity (e.g., 4-High)")
     update_top_parser.add_argument("--force", "-f", action="store_true", help="Bypass gate/body checks on COMPLETE (train still enforced)")
+
+    # ----- atdd branch <issue_number> -----
+    branch_parser = subparsers.add_parser(
+        "branch",
+        help="Create worktree branch from issue metadata",
+        description="Create a git worktree with the correct prefix/slug naming derived from issue metadata"
+    )
+    branch_parser.add_argument("issue_number", type=int, help="Issue number")
+    branch_parser.add_argument(
+        "--prefix",
+        type=str,
+        help="Override branch prefix (feat, fix, refactor, chore, docs, devops)"
+    )
 
     # ----- atdd close-wmbt <issue_number> <wmbt_id> -----
     close_wmbt_top_parser = subparsers.add_parser(
@@ -840,6 +855,15 @@ Phase descriptions:
             archetypes=getattr(args, 'archetypes', None),
             complexity=getattr(args, 'complexity', None),
             force=getattr(args, 'force', False),
+        )
+
+    # atdd branch <issue_number>
+    elif args.command == "branch":
+        from atdd.coach.commands.branch import BranchManager
+        manager = BranchManager()
+        return manager.branch(
+            issue_number=args.issue_number,
+            prefix=getattr(args, 'prefix', None),
         )
 
     # atdd close-wmbt <issue_id> <wmbt_id> (top-level shorthand)

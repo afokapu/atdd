@@ -32,6 +32,74 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+# Known branch prefixes for slug → branch name mapping
+_BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
+
+
+def slug_to_branch_name(slug: str) -> str:
+    """Convert worktree directory slug to branch-style name.
+
+    Maps the first hyphen after a known prefix back to '/':
+        feat-some-feature → feat/some-feature
+        fix-typo          → fix/typo
+        main              → main  (no prefix match)
+    """
+    for prefix in _BRANCH_PREFIXES:
+        if slug.startswith(prefix + "-"):
+            return prefix + "/" + slug[len(prefix) + 1:]
+    return slug
+
+
+def write_workspace(target_dir: Path) -> None:
+    """Write a VS Code .code-workspace file in the parent directory.
+
+    Scans sibling directories for git worktrees and generates a multi-root
+    workspace so VS Code shows branch info per folder.
+
+    Args:
+        target_dir: The main checkout directory (e.g. .../project/main).
+    """
+    parent = target_dir.parent
+    workspace_name = parent.name
+    workspace_path = parent / f"{workspace_name}.code-workspace"
+
+    folders = []
+    for child in sorted(parent.iterdir()):
+        if not child.is_dir():
+            continue
+        if child.name.startswith("."):
+            continue
+        git_marker = child / ".git"
+        if not (git_marker.is_file() or git_marker.is_dir()):
+            continue
+        folders.append({
+            "path": child.name,
+            "name": slug_to_branch_name(child.name),
+        })
+
+    # Ensure main is listed first
+    main_entry = next((f for f in folders if f["path"] == "main"), None)
+    if main_entry:
+        folders.remove(main_entry)
+        folders.insert(0, main_entry)
+
+    workspace = {
+        "folders": folders,
+        "settings": {
+            "workbench.colorCustomizations": {
+                "titleBar.activeBackground": "#FFC107",
+                "titleBar.activeForeground": "#000000",
+                "statusBar.background": "#FFC107",
+                "statusBar.foreground": "#000000",
+            },
+        },
+    }
+
+    workspace_path.write_text(
+        json.dumps(workspace, indent=2) + "\n"
+    )
+    print(f"Wrote: {workspace_path}")
+
 
 class ProjectInitializer:
     """Initialize ATDD structure in consumer repo."""
@@ -76,68 +144,9 @@ class ProjectInitializer:
                     break
         return worktrees
 
-    # Known branch prefixes for slug → branch name mapping
-    _BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
-
-    def _slug_to_branch_name(self, slug: str) -> str:
-        """Convert worktree directory slug to branch-style name.
-
-        Maps the first hyphen after a known prefix back to '/':
-            feat-some-feature → feat/some-feature
-            fix-typo          → fix/typo
-            main              → main  (no prefix match)
-        """
-        for prefix in self._BRANCH_PREFIXES:
-            if slug.startswith(prefix + "-"):
-                return prefix + "/" + slug[len(prefix) + 1:]
-        return slug
-
     def _write_workspace(self) -> None:
-        """Write a VS Code .code-workspace file in the parent directory.
-
-        Scans sibling directories for git worktrees and generates a multi-root
-        workspace so VS Code shows branch info per folder.
-        """
-        parent = self.target_dir.parent
-        workspace_name = parent.name
-        workspace_path = parent / f"{workspace_name}.code-workspace"
-
-        folders = []
-        for child in sorted(parent.iterdir()):
-            if not child.is_dir():
-                continue
-            if child.name.startswith("."):
-                continue
-            git_marker = child / ".git"
-            if not (git_marker.is_file() or git_marker.is_dir()):
-                continue
-            folders.append({
-                "path": child.name,
-                "name": self._slug_to_branch_name(child.name),
-            })
-
-        # Ensure main is listed first
-        main_entry = next((f for f in folders if f["path"] == "main"), None)
-        if main_entry:
-            folders.remove(main_entry)
-            folders.insert(0, main_entry)
-
-        workspace = {
-            "folders": folders,
-            "settings": {
-                "workbench.colorCustomizations": {
-                    "titleBar.activeBackground": "#FFC107",
-                    "titleBar.activeForeground": "#000000",
-                    "statusBar.background": "#FFC107",
-                    "statusBar.foreground": "#000000",
-                },
-            },
-        }
-
-        workspace_path.write_text(
-            json.dumps(workspace, indent=2) + "\n"
-        )
-        print(f"Wrote: {workspace_path}")
+        """Write a VS Code .code-workspace file (delegates to module-level)."""
+        write_workspace(self.target_dir)
 
     def _migrate_to_worktree_layout(self) -> Path:
         """

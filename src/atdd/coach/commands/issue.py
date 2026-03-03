@@ -26,6 +26,21 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+# Issue type → conventional commit / branch prefix mapping.
+# Used by `atdd new` (title prefix) and `atdd branch` (worktree prefix).
+TYPE_TO_PREFIX = {
+    "implementation": "feat",
+    "migration": "feat",
+    "refactor": "refactor",
+    "analysis": "chore",
+    "planning": "chore",
+    "cleanup": "chore",
+    "tracking": "chore",
+}
+
+# Allowed branch prefixes (derived from TYPE_TO_PREFIX values + fix, docs, devops).
+ALLOWED_BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
+
 # Step code to step name mapping
 STEP_CODES = {
     "D": "Define",
@@ -389,7 +404,8 @@ class IssueManager:
 
         today = date.today().isoformat()
         title_text = slug.replace("-", " ").title()
-        title = f"feat(atdd): {title_text}"
+        prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+        title = f"{prefix}(atdd): {title_text}"
 
         train_display = train or "TBD"
         archetypes_display = archetypes if archetypes else "TBD"
@@ -1307,7 +1323,7 @@ class IssueManager:
 
         # Validate branch prefix (every branch = a worktree)
         if branch:
-            allowed = ("feat/", "fix/", "refactor/", "chore/", "docs/", "devops/")
+            allowed = tuple(f"{p}/" for p in ALLOWED_BRANCH_PREFIXES)
             if not any(branch.startswith(p) for p in allowed):
                 print(
                     f"Error: Branch '{branch}' must start with an allowed prefix: "
