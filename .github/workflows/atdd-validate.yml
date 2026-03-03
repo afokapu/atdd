@@ -48,3 +48,47 @@ jobs:
               issue_number: context.issue.number,
               body: `${emoji} ATDD validation: **${result}**`
             });
+
+  tag-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read version and create tag
+        run: |
+          VERSION=$(python3 -c "
+          import yaml
+          cfg = yaml.safe_load(open('.atdd/config.yaml'))
+          vf = cfg['release']['version_file']
+          prefix = cfg['release'].get('tag_prefix', 'v')
+          if vf.endswith('.toml'):
+              import re
+              text = open(vf).read()
+              m = re.search(r'^version\s*=\s*[\"'\'']([^\"'\'']+)[\"'\'']', text, re.M)
+              ver = m.group(1) if m else ''
+          elif vf.endswith('.json'):
+              import json
+              ver = json.load(open(vf)).get('version', '')
+          else:
+              ver = open(vf).read().strip().split()[0]
+          print(f'{prefix}{ver}')
+          ")
+          echo "TAG=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Create and push tag (idempotent)
+        run: |
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "Created and pushed tag $TAG"
+          fi
