@@ -80,7 +80,7 @@ def test_issues_have_train_field(github_issues, github_project_fields, github_pr
 
     E008 acceptance criteria: `atdd validate coach` fails if issue has no train assignment.
     """
-    if "ATDD: Train" not in github_project_fields:
+    if "ATDD Train" not in github_project_fields:
         pytest.skip("Train field not configured in Project")
 
     violations = []
@@ -93,8 +93,8 @@ def test_issues_have_train_field(github_issues, github_project_fields, github_pr
             continue
 
         values = item["fields"]
-        train_value = (values.get("ATDD: Train") or "").strip()
-        status_value = (values.get("ATDD: Status") or "UNKNOWN").strip().upper()
+        train_value = (values.get("ATDD Train") or "").strip()
+        status_value = (values.get("ATDD Status") or "UNKNOWN").strip().upper()
 
         is_empty = not train_value or train_value.upper() == "TBD"
 
@@ -138,7 +138,7 @@ def test_issue_train_references_valid_train_id(github_issues, github_project_fie
     if not valid_train_ids:
         pytest.skip("No trains found in plan/_trains.yaml")
 
-    if "ATDD: Train" not in github_project_fields:
+    if "ATDD Train" not in github_project_fields:
         pytest.skip("Train field not configured in Project")
 
     invalid = []
@@ -149,7 +149,7 @@ def test_issue_train_references_valid_train_id(github_issues, github_project_fie
         if not item:
             continue
 
-        train_value = (item["fields"].get("ATDD: Train") or "").strip()
+        train_value = (item["fields"].get("ATDD Train") or "").strip()
 
         # Skip empty/TBD — handled by SPEC-SESSION-VAL-0050
         if not train_value or train_value.upper() == "TBD":

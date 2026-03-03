@@ -23,14 +23,14 @@ pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 # ---------------------------------------------------------------------------
 
 REQUIRED_FIELDS = [
-    "ATDD: Status",
-    "ATDD: Phase",
-    "ATDD: Issue Type",
-    "ATDD: Complexity",
-    "ATDD: Archetypes",
-    "ATDD: Branch",
-    "ATDD: Train",
-    "ATDD: Feature URN",
+    "ATDD Status",
+    "ATDD Phase",
+    "ATDD Issue Type",
+    "ATDD Complexity",
+    "ATDD Archetypes",
+    "ATDD Branch",
+    "ATDD Train",
+    "ATDD Feature URN",
 ]
 
 REQUIRED_STATUS_OPTIONS = {"INIT", "PLANNED", "RED", "GREEN", "REFACTOR", "COMPLETE", "BLOCKED"}
@@ -67,10 +67,10 @@ def test_atdd_status_field_has_required_options(github_project_fields):
     When: Checking available options
     Then: All lifecycle statuses are present (INIT through COMPLETE + BLOCKED)
     """
-    if "ATDD: Status" not in github_project_fields:
+    if "ATDD Status" not in github_project_fields:
         pytest.skip("ATDD Status field not found")
 
-    options = set(github_project_fields["ATDD: Status"].get("options", {}).keys())
+    options = set(github_project_fields["ATDD Status"].get("options", {}).keys())
     missing = REQUIRED_STATUS_OPTIONS - options
 
     assert not missing, (
@@ -88,10 +88,10 @@ def test_atdd_phase_field_has_required_options(github_project_fields):
     When: Checking available options
     Then: Planner, Tester, Coder are present
     """
-    if "ATDD: Phase" not in github_project_fields:
+    if "ATDD Phase" not in github_project_fields:
         pytest.skip("ATDD Phase field not found")
 
-    options = set(github_project_fields["ATDD: Phase"].get("options", {}).keys())
+    options = set(github_project_fields["ATDD Phase"].get("options", {}).keys())
     missing = REQUIRED_PHASE_OPTIONS - options
 
     assert not missing, (
@@ -131,11 +131,11 @@ def test_issues_have_status_field_set(github_issues, github_project_fields, gith
     Then: At least one issue has a non-empty ATDD Status
           (confirming field values are set, enabling board filtering)
     """
-    if "ATDD: Status" not in github_project_fields:
+    if "ATDD Status" not in github_project_fields:
         pytest.skip("ATDD Status field not configured")
 
     has_status = any(
-        github_project_items[num]["fields"].get("ATDD: Status")
+        github_project_items[num]["fields"].get("ATDD Status")
         for num in (i["number"] for i in github_issues)
         if num in github_project_items
     )

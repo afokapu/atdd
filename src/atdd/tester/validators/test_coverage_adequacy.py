@@ -8,8 +8,8 @@ Validates:
 - Coverage percentage meets threshold
 
 Architecture:
-- Entities: Domain models (ACDefinition, TestCase, CoverageReport)
-- Use Cases: Business logic (ACFinder, TestFinder, CoverageAnalyzer)
+- Entities: Domain models (ACDefinition, CoverageCase, CoverageReport)
+- Use Cases: Business logic (ACFinder, CoverageFinder, CoverageAnalyzer)
 - Adapters: Infrastructure (YAMLReader, TestFileReader, ReportFormatter)
 - Tests: Orchestration layer (pytest test functions)
 
@@ -76,7 +76,7 @@ class ACDefinition:
 
 
 @dataclass
-class TestCase:
+class CoverageCase:
     """
     Test case entity.
 
@@ -169,7 +169,7 @@ class ACFinder:
         return acs
 
 
-class TestFinder:
+class CoverageFinder:
     """
     Use case: Find all test cases in the repository.
 
@@ -180,7 +180,7 @@ class TestFinder:
         self.python_dir = python_dir
         self.lib_dir = lib_dir
 
-    def find_python_tests(self) -> List[TestCase]:
+    def find_python_tests(self) -> List[CoverageCase]:
         """Find all Python test cases."""
         if not self.python_dir.exists():
             return []
@@ -203,7 +203,7 @@ class TestFinder:
                 # Extract AC reference from test name or docstring
                 ac_ref = self._extract_ac_reference(content, test_name, rel_path)
 
-                test = TestCase(
+                test = CoverageCase(
                     name=test_name,
                     file_path=rel_path,
                     ac_reference=ac_ref
@@ -212,7 +212,7 @@ class TestFinder:
 
         return tests
 
-    def find_dart_tests(self) -> List[TestCase]:
+    def find_dart_tests(self) -> List[CoverageCase]:
         """Find all Dart test cases."""
         if not TEST_DIR.exists():
             return []
@@ -235,7 +235,7 @@ class TestFinder:
 
                 rel_path = str(test_file.relative_to(REPO_ROOT))
 
-                test = TestCase(
+                test = CoverageCase(
                     name=test_name,
                     file_path=rel_path,
                     ac_reference=ac_ref
@@ -259,7 +259,7 @@ class TestFinder:
 
         return None
 
-    def find_typescript_tests(self) -> List[TestCase]:
+    def find_typescript_tests(self) -> List[CoverageCase]:
         """Find all TypeScript test cases per conventions.
 
         Scans (aligns with Python structure):
@@ -300,7 +300,7 @@ class TestFinder:
 
         return tests
 
-    def _scan_ts_directory(self, directory: Path) -> List[TestCase]:
+    def _scan_ts_directory(self, directory: Path) -> List[CoverageCase]:
         """Scan a directory for TypeScript test files."""
         tests = []
 
@@ -322,7 +322,7 @@ class TestFinder:
 
                     rel_path = str(test_file.relative_to(REPO_ROOT))
 
-                    test = TestCase(
+                    test = CoverageCase(
                         name=test_name,
                         file_path=rel_path,
                         ac_reference=ac_ref
@@ -395,13 +395,13 @@ class CoverageAnalyzer:
     Maps tests to ACs and generates coverage reports.
     """
 
-    def __init__(self, acs: List[ACDefinition], tests: List[TestCase]):
+    def __init__(self, acs: List[ACDefinition], tests: List[CoverageCase]):
         self.acs = acs
         self.tests = tests
         self._ac_map = {ac.urn: ac for ac in acs}
         self._test_map = self._build_test_map()
 
-    def _build_test_map(self) -> Dict[str, List[TestCase]]:
+    def _build_test_map(self) -> Dict[str, List[CoverageCase]]:
         """Build map of AC URN to test cases."""
         test_map = defaultdict(list)
 
@@ -475,7 +475,7 @@ class CoverageAnalyzer:
 
         return dict(category_counts)
 
-    def find_orphaned_tests(self) -> List[TestCase]:
+    def find_orphaned_tests(self) -> List[CoverageCase]:
         """Find tests that reference non-existent ACs."""
         orphaned = []
 
@@ -624,7 +624,7 @@ class ReportFormatter:
         return "\n".join(lines)
 
     @staticmethod
-    def format_orphaned_report(orphaned: List[TestCase]) -> str:
+    def format_orphaned_report(orphaned: List[CoverageCase]) -> str:
         """Format orphaned tests report."""
         lines = []
 
@@ -665,13 +665,13 @@ def test_all_acceptance_criteria_have_tests():
     Then: Every AC has at least one test
 
     Architecture: Uses clean architecture layers
-    - Entities: ACDefinition, TestCase
-    - Use Cases: ACFinder, TestFinder, CoverageAnalyzer
+    - Entities: ACDefinition, CoverageCase
+    - Use Cases: ACFinder, CoverageFinder, CoverageAnalyzer
     - Adapters: ReportFormatter
     """
     # Layer 2: Use Cases
     ac_finder = ACFinder(PLAN_DIR)
-    test_finder = TestFinder(PYTHON_DIR, LIB_DIR)
+    test_finder = CoverageFinder(PYTHON_DIR, LIB_DIR)
 
     # Find all ACs and tests (Python, Dart, and TypeScript)
     acs = ac_finder.find_all()
@@ -716,12 +716,12 @@ def test_coverage_meets_threshold():
 
     Architecture: Uses clean architecture layers
     - Entities: CoverageReport
-    - Use Cases: ACFinder, TestFinder, CoverageAnalyzer
+    - Use Cases: ACFinder, CoverageFinder, CoverageAnalyzer
     - Adapters: ReportFormatter
     """
     # Layer 2: Use Cases
     ac_finder = ACFinder(PLAN_DIR)
-    test_finder = TestFinder(PYTHON_DIR, LIB_DIR)
+    test_finder = CoverageFinder(PYTHON_DIR, LIB_DIR)
 
     # Find all ACs and tests
     acs = ac_finder.find_all()
@@ -765,13 +765,13 @@ def test_no_orphaned_tests():
     Then: All tests reference an existing AC
 
     Architecture: Uses clean architecture layers
-    - Entities: TestCase
-    - Use Cases: ACFinder, TestFinder, CoverageAnalyzer
+    - Entities: CoverageCase
+    - Use Cases: ACFinder, CoverageFinder, CoverageAnalyzer
     - Adapters: ReportFormatter
     """
     # Layer 2: Use Cases
     ac_finder = ACFinder(PLAN_DIR)
-    test_finder = TestFinder(PYTHON_DIR, LIB_DIR)
+    test_finder = CoverageFinder(PYTHON_DIR, LIB_DIR)
 
     # Find all ACs and tests
     acs = ac_finder.find_all()
