@@ -126,6 +126,7 @@
 - Issue created via `atdd new {slug}`
 
 **Next:**
+- Create branch: `atdd branch <N>` (this issue's number)
 - Fill Context, Scope, and Architecture sections
 - Define phases and gate tests
 
