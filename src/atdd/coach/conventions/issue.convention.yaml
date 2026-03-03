@@ -253,6 +253,7 @@ github_issue_tracking:
     update: "atdd update <NN> --status <S> — updates Project fields + labels"
     close_wmbt: "atdd close-wmbt <NN> <WMBT_ID> — closes WMBT sub-issue"
     archive: "atdd archive <NN> — closes parent + all sub-issues"
+    branch: "atdd branch <NN> — creates worktree branch from issue metadata"
     validate: "atdd validate coach — validates Project fields + sub-issue state"
 
   hard_dependencies:
@@ -331,7 +332,7 @@ github_issue_tracking:
   # The template produces 11 structured sections matching the `sections:` spec.
   parent_issue_template:
     file: "atdd/coach/templates/PARENT-ISSUE-TEMPLATE.md"
-    title_format: "feat(atdd): {Title}"
+    title_format: "{prefix}(atdd): {Title}  # prefix derived from TYPE_TO_PREFIX[issue_type]"
 
     placeholders:
       today:
