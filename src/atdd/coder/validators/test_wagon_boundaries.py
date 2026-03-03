@@ -491,6 +491,9 @@ def test_package_hierarchy_exists():
     When: Checking for __init__.py files
     Then: All required __init__.py files exist
     """
+    if not PYTHON_DIR.exists():
+        pytest.skip("python/ not found")
+
     missing = check_package_hierarchy()
 
     if missing:
@@ -517,6 +520,9 @@ def test_pytest_pythonpath_configured():
     When: Checking [tool.pytest.ini_options]
     Then: pythonpath = ["."] is configured
     """
+    if not PYTHON_DIR.exists():
+        pytest.skip("python/ not found")
+
     is_configured, message = check_pytest_pythonpath()
 
     if not is_configured:

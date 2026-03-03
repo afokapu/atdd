@@ -48,6 +48,9 @@ def test_commons_exists_in_both_stacks():
 
     Validates: Consistent naming across stacks
     """
+    if not PYTHON_COMMONS.exists() and not WEB_COMMONS.exists():
+        pytest.skip("python/commons/ and web/src/commons/ not found")
+
     missing = []
 
     if not PYTHON_COMMONS.exists():

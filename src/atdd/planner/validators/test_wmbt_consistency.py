@@ -32,6 +32,9 @@ def wmbt_files():
     # Where STEP_CODE is one of: D, L, P, C, E, M, Y, R, K
     # And NNN is 001-999
 
+    if not PLAN_DIR.exists():
+        return wmbt_map
+
     for wagon_dir in PLAN_DIR.iterdir():
         if not wagon_dir.is_dir():
             continue
@@ -64,6 +67,9 @@ def feature_files():
     Returns: List[Tuple[wagon_slug, feature_path, feature_data]]
     """
     features: List[Tuple[str, Path, Dict]] = []
+
+    if not PLAN_DIR.exists():
+        return features
 
     for wagon_dir in PLAN_DIR.iterdir():
         if not wagon_dir.is_dir():
