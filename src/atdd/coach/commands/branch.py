@@ -2,7 +2,7 @@
 Branch (worktree) creation from ATDD issue metadata.
 
 Creates a git worktree with the correct prefix/slug naming derived from
-the issue manifest. Updates the GitHub "ATDD: Branch" field and refreshes
+the issue manifest. Updates the GitHub "ATDD Branch" field and refreshes
 the VS Code workspace file.
 
 Usage:
@@ -146,7 +146,7 @@ class BranchManager:
 
         print(f"  Worktree: {worktree_path}")
 
-        # Update GitHub "ATDD: Branch" field
+        # Update GitHub "ATDD Branch" field
         try:
             proj = ProjectConfig.from_config(self.config_file)
             client = GitHubClient(
@@ -156,11 +156,11 @@ class BranchManager:
             item_id = client.get_project_item_id(issue_number)
             if item_id:
                 fields = client.get_project_fields()
-                if "ATDD: Branch" in fields:
+                if "ATDD Branch" in fields:
                     client.set_project_field_text(
-                        item_id, fields["ATDD: Branch"]["id"], branch_name,
+                        item_id, fields["ATDD Branch"]["id"], branch_name,
                     )
-                    print(f"  Updated ATDD: Branch → {branch_name}")
+                    print(f"  Updated ATDD Branch → {branch_name}")
             else:
                 print("  Warning: Issue not found in Project; Branch field not updated.")
         except GitHubClientError as e:

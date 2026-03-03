@@ -625,19 +625,18 @@ class ProjectInitializer:
         return None
 
     # v1 → v2 field migration map: old_name → new_name (None = delete)
+    # NOTE: GitHub Project v2 field names cannot contain colons.
     _FIELD_MIGRATION: Dict[str, Optional[str]] = {
         "Session Number": None,              # DELETE — redundant with GitHub issue number
-        "ATDD Status":    "ATDD: Status",
-        "ATDD Phase":     "ATDD: Phase",
-        "Session Type":   "ATDD: Issue Type",
-        "Complexity":     "ATDD: Complexity",
-        "Archetypes":     "ATDD: Archetypes",
-        "Branch":         "ATDD: Branch",
-        "Train":          "ATDD: Train",
-        "Feature URN":    "ATDD: Feature URN",
-        "WMBT ID":        "ATDD: WMBT ID",
-        "WMBT Step":      "ATDD: WMBT Step",
-        "WMBT Phase":     "ATDD: WMBT Phase",
+        "Session Type":   "ATDD Issue Type",
+        "Complexity":     "ATDD Complexity",
+        "Archetypes":     "ATDD Archetypes",
+        "Branch":         "ATDD Branch",
+        "Train":          "ATDD Train",
+        "Feature URN":    "ATDD Feature URN",
+        "WMBT ID":        "ATDD WMBT ID",
+        "WMBT Step":      "ATDD WMBT Step",
+        "WMBT Phase":     "ATDD WMBT Phase",
     }
 
     def _query_project_field_names_and_ids(self, project_id: str) -> Dict[str, str]:

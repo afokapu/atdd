@@ -1072,6 +1072,8 @@ class TestResolver(BaseResolver):
     """
     Resolver for test: URNs.
 
+    NOTE: __test__ = False prevents pytest from collecting this as a test class.
+
     V3 behavior:
     - Scans test files for explicit ``# URN: test:...`` headers (S8.4)
     - Parses metadata lines: Acceptance:, WMBT:, Train:, Phase:, Layer:
@@ -1079,6 +1081,8 @@ class TestResolver(BaseResolver):
 
     Resolution: test:{...} -> test file path
     """
+
+    __test__ = False  # Prevent pytest collection
 
     # Comment-style URN pattern (# URN: ... or // URN: ...)
     _URN_COMMENT_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
