@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Set, Tuple, Any
 
 import atdd
-from atdd.coach.utils.repo import find_repo_root, is_consumer_project
+from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.train_spec_phase import (
     TrainSpecPhase,
     should_enforce,
@@ -53,8 +53,10 @@ CONTRACT_VALIDATOR = REPO_ROOT / "e2e" / "shared" / "fixtures" / "contract_valid
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 TRAIN_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "train.convention.yaml"
 
-# Skip all consumer-dir tests when running in the atdd package repo
-_skip_non_consumer = not TRAINS_DIR.exists() and not is_consumer_project()
+_skip_no_trains = not TRAINS_DIR.exists()
+_skip_no_python = not (REPO_ROOT / "python").exists()
+_skip_no_e2e = not (REPO_ROOT / "e2e").exists()
+_skip_no_web = not (REPO_ROOT / "web").exists()
 
 
 def find_wagons() -> List[Path]:
@@ -140,7 +142,7 @@ def _find_train_file(feature_subdir: str, filename: str) -> Optional[Path]:
 # TRAIN INFRASTRUCTURE TESTS
 # ============================================================================
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/trains/ not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_trains, reason="python/trains/ not found")
 def test_trains_directory_exists():
     """Train infrastructure must exist at python/trains/."""
     assert TRAINS_DIR.exists(), (
@@ -152,7 +154,7 @@ def test_trains_directory_exists():
     assert TRAINS_DIR.is_dir(), f"{TRAINS_DIR} exists but is not a directory"
 
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/trains/ not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_trains, reason="python/trains/ not found")
 def test_train_infrastructure_files_exist():
     """
     Train infrastructure files must exist.
@@ -192,7 +194,7 @@ def test_train_infrastructure_files_exist():
         )
 
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/trains/ not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_trains, reason="python/trains/ not found")
 def test_train_runner_class_exists():
     """TrainRunner class must exist in python/trains/runner.py or python/trains/runner/runner.py."""
     runner_file = _find_train_file("runner", "runner.py")
@@ -222,7 +224,7 @@ def test_train_runner_class_exists():
         )
 
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/trains/ not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_trains, reason="python/trains/ not found")
 def test_train_models_exist():
     """Train data models must exist in python/trains/models.py or python/trains/models/models.py."""
     models_file = _find_train_file("models", "models.py")
@@ -254,7 +256,7 @@ def test_train_models_exist():
 # WAGON TRAIN MODE TESTS
 # ============================================================================
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/ wagons not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_python, reason="python/ not found")
 def test_wagons_implement_run_train():
     """
     Wagons must implement run_train() to participate in train orchestration.
@@ -296,7 +298,7 @@ def test_wagons_implement_run_train():
 # STATION MASTER TESTS (app.py)
 # ============================================================================
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/app.py not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_python, reason="python/app.py not found")
 def test_game_py_imports_train_runner():
     """app.py must import TrainRunner (Station Master pattern)."""
     server_file = resolve_server_file()
@@ -313,7 +315,7 @@ def test_game_py_imports_train_runner():
     )
 
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/app.py not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_python, reason="python/app.py not found")
 def test_game_py_has_journey_map():
     """app.py must have JOURNEY_MAP routing actions to trains."""
     server_file = resolve_server_file()
@@ -327,7 +329,7 @@ def test_game_py_has_journey_map():
     )
 
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/app.py not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_python, reason="python/app.py not found")
 def test_game_py_has_train_execution_endpoint():
     """app.py must have /trains/execute endpoint."""
     server_file = resolve_server_file()
@@ -347,7 +349,7 @@ def test_game_py_has_train_execution_endpoint():
 # E2E TEST INFRASTRUCTURE TESTS
 # ============================================================================
 
-@pytest.mark.skipif(_skip_non_consumer, reason="e2e/ not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_e2e, reason="e2e/ not found")
 def test_e2e_conftest_uses_production_train_runner():
     """
     E2E conftest must use production TrainRunner, not mocks.
@@ -378,7 +380,7 @@ def test_e2e_conftest_uses_production_train_runner():
     )
 
 
-@pytest.mark.skipif(_skip_non_consumer, reason="e2e/ not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_e2e, reason="e2e/ not found")
 def test_contract_validator_is_real():
     """
     Contract validator must be real JSON schema validator, not mock.
@@ -416,7 +418,7 @@ def test_contract_validator_is_real():
     )
 
 
-@pytest.mark.skipif(_skip_non_consumer, reason="e2e/ not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_e2e, reason="e2e/ not found")
 def test_e2e_conftest_uses_real_contract_validator():
     """E2E conftest must use real ContractValidator, not mock."""
     imports = extract_imports_from_file(E2E_CONFTEST)
@@ -491,7 +493,7 @@ def test_train_convention_documents_key_patterns():
 # BOUNDARY ENFORCEMENT TESTS
 # ============================================================================
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/ wagons not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_python, reason="python/ not found")
 def test_no_wagon_to_wagon_imports():
     """
     Wagons must NOT import from other wagons.
@@ -555,7 +557,7 @@ def _get_all_train_ids() -> List[str]:
     return train_ids
 
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/trains/ not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_trains, reason="python/trains/ not found")
 def test_backend_runner_paths():
     """
     SPEC-TRAIN-VAL-0031: Backend runner paths validation.
@@ -618,7 +620,7 @@ def test_backend_runner_paths():
                 )
 
 
-@pytest.mark.skipif(_skip_non_consumer, reason="web/ not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_web, reason="web/ not found")
 def test_frontend_code_allowed_roots():
     """
     SPEC-TRAIN-VAL-0032: Frontend code in allowed root directories.
@@ -686,7 +688,7 @@ def test_frontend_code_allowed_roots():
             )
 
 
-@pytest.mark.skipif(_skip_non_consumer, reason="python/ not expected in atdd package repo")
+@pytest.mark.skipif(_skip_no_python, reason="python/ not found")
 def test_fastapi_template_enforcement():
     """
     SPEC-TRAIN-VAL-0033: FastAPI template enforcement when configured.

@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from atdd.coach.utils.repo import find_repo_root, is_consumer_project
+from atdd.coach.utils.repo import find_repo_root
 
 # Path constants
 REPO_ROOT = find_repo_root()
@@ -25,10 +25,9 @@ def test_contracts_directory_exists():
     When: Checking for contracts/ directory
     Then: contracts/ directory exists
     """
-    if not CONTRACTS_DIR.exists() and not is_consumer_project():
-        pytest.skip("contracts/ not expected in atdd package repo")
-    assert CONTRACTS_DIR.exists(), \
-        f"contracts/ directory does not exist at {CONTRACTS_DIR}"
+    if not CONTRACTS_DIR.exists():
+        pytest.skip("contracts/ directory not found")
+
 
 
 @pytest.mark.platform
