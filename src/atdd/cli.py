@@ -200,6 +200,10 @@ class ATDDCoach:
 
 def main():
     """Main CLI entry point."""
+    from importlib.metadata import version as pkg_version
+
+    atdd_version = pkg_version("atdd")
+
     parser = argparse.ArgumentParser(
         description="ATDD Platform - Coach orchestrates all ATDD operations",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -258,8 +262,20 @@ Phase descriptions:
         """
     )
 
+    parser.add_argument(
+        "--version", "-V",
+        action="version",
+        version=f"atdd {atdd_version}",
+    )
+
     # Subparsers for commands
     subparsers = parser.add_subparsers(dest="command", help="Commands")
+
+    # ----- atdd version -----
+    subparsers.add_parser(
+        "version",
+        help="Print installed version and exit",
+    )
 
     # ----- atdd validate [phase] -----
     validate_parser = subparsers.add_parser(
@@ -779,8 +795,13 @@ Phase descriptions:
 
     # ----- Handle modern subcommands -----
 
+    # atdd version
+    if args.command == "version":
+        print(f"atdd {atdd_version}")
+        return 0
+
     # atdd validate [phase]
-    if args.command == "validate":
+    elif args.command == "validate":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
         coach = ATDDCoach(repo_root=repo_path)
         return coach.run_validators(
