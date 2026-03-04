@@ -473,6 +473,39 @@ Phase descriptions:
     close_wmbt_top_parser.add_argument("wmbt_id", type=str, help="WMBT ID (e.g., D001, E003)")
     close_wmbt_top_parser.add_argument("--force", "-f", action="store_true", help="Close even if ATDD cycle checkboxes are unchecked")
 
+    # ----- atdd issue {open} -----
+    issue_parser = subparsers.add_parser(
+        "issue",
+        help="GitHub issue commands",
+        description="Subcommands for GitHub issue operations"
+    )
+    issue_subparsers = issue_parser.add_subparsers(
+        dest="issue_command",
+        help="Issue commands"
+    )
+
+    # atdd issue open
+    open_parser = issue_subparsers.add_parser(
+        "open",
+        help="List open GitHub issues"
+    )
+    open_parser.add_argument(
+        "--label", "-l",
+        type=str,
+        help="Filter by label"
+    )
+    open_parser.add_argument(
+        "--limit", "-n",
+        type=int,
+        default=30,
+        help="Maximum number of issues (default: 30)"
+    )
+    open_parser.add_argument(
+        "--assignee",
+        type=str,
+        help="Filter by assignee login"
+    )
+
     # ----- atdd color [value] -----
     color_parser = subparsers.add_parser(
         "color",
@@ -909,6 +942,19 @@ Phase descriptions:
             wmbt_id=args.wmbt_id,
             force=args.force,
         )
+
+    # atdd issue {open}
+    elif args.command == "issue":
+        if getattr(args, 'issue_command', None) == "open":
+            manager = IssueManager()
+            return manager.open_issues(
+                label=getattr(args, 'label', None),
+                limit=getattr(args, 'limit', 30),
+                assignee=getattr(args, 'assignee', None),
+            )
+        else:
+            issue_parser.print_help()
+            return 0
 
     # atdd color [value]
     elif args.command == "color":
