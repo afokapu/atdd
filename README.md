@@ -242,6 +242,23 @@ Validation (`atdd validate coach`) requires:
 - Version file exists and contains a version
 - Git tag on HEAD matches `{tag_prefix}{version}`
 
+### CI Release Workflow
+
+`atdd init` generates two GitHub Actions workflows:
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `atdd-validate.yml` | push, PR, issues | Run ATDD validators |
+| `publish.yml` | `workflow_run` (after validate succeeds on main) | Tag + publish |
+
+**Release flow:**
+1. Agent bumps version on PR branch (feat/ → MINOR, fix/ → PATCH)
+2. PR merges to main
+3. `atdd-validate.yml` runs validators
+4. `publish.yml` triggers automatically: reads version → creates git tag → publishes
+
+**Consumer repos** get tag creation out of the box. To add platform-specific publishing (PyPI, npm, Docker), extend the generated `publish.yml` with your own publish steps. See the [atdd toolkit's publish.yml](.github/workflows/publish.yml) as a PyPI example.
+
 ### URN Graph UI
 
 Visualize URN traceability as an interactive graph with search, family filters, and node inspection.
