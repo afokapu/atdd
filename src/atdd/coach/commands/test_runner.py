@@ -123,6 +123,7 @@ class TestRunner:
         markers: Optional[List[str]] = None,
         parallel: bool = True,
         split: bool = True,
+        local: bool = False,
     ) -> int:
         """
         Run ATDD validators with specified options.
@@ -137,10 +138,21 @@ class TestRunner:
             split: Two-stage run (default True): fast tests parallel, then
                    API-bound platform tests sequential with shared fixtures.
                    Use --no-split to run everything in one pass.
+            local: Explicitly allow running locally (default: GH Actions only)
 
         Returns:
             Exit code from pytest (non-zero if any stage fails)
         """
+        import os
+        if not os.environ.get("GITHUB_ACTIONS") and not local:
+            print(
+                "\033[33m⚠️  atdd validate is designed for GitHub Actions CI.\033[0m\n"
+                "  Skipping locally. Use --local to run anyway:\n"
+                "    atdd validate --local\n"
+                "    atdd validate planner --local"
+            )
+            return 0
+
         validator_dirs = self._get_validator_dirs(phase)
         if validator_dirs is None:
             return 1
@@ -211,7 +223,8 @@ class TestRunner:
             phase="all",
             verbose=False,
             parallel=False,
-            html_report=False
+            html_report=False,
+            local=True,
         )
 
     def full_suite(self) -> int:
@@ -222,7 +235,8 @@ class TestRunner:
             verbose=True,
             coverage=True,
             html_report=True,
-            parallel=True
+            parallel=True,
+            local=True,
         )
 
 

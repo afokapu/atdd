@@ -101,6 +101,7 @@ class ATDDCoach:
         html: bool = False,
         quick: bool = False,
         split: bool = True,
+        local: bool = False,
     ) -> int:
         """Run ATDD validators."""
         if quick:
@@ -113,6 +114,7 @@ class ATDDCoach:
             html_report=html,
             parallel=True,
             split=split,
+            local=local,
         )
 
     def update_registries(
@@ -316,6 +318,11 @@ Phase descriptions:
         action="store_true",
         dest="no_split",
         help="Run all tests in one pass (default: two-stage split)"
+    )
+    validate_parser.add_argument(
+        "--local",
+        action="store_true",
+        help="Run validators locally (default: GH Actions only)"
     )
 
     # ----- atdd inventory -----
@@ -825,6 +832,7 @@ Phase descriptions:
             html=args.html,
             quick=args.quick,
             split=not args.no_split,
+            local=args.local,
         )
 
     # atdd inventory

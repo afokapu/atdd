@@ -930,10 +930,50 @@ class ProjectInitializer:
         return migrated + created
 
     def _write_workflow(self, repo: str) -> bool:
-        """Write .github/workflows/atdd-validate.yml."""
+        """Write .github/workflows/atdd-validate.yml with parallel phase jobs."""
         workflows_dir = self.target_dir / ".github" / "workflows"
         workflows_dir.mkdir(parents=True, exist_ok=True)
         workflow_path = workflows_dir / "atdd-validate.yml"
+
+        # Build per-phase job YAML blocks
+        phases = ["planner", "tester", "coder", "coach"]
+        phase_condition = (
+            "github.event_name != 'issues' || "
+            "contains(github.event.issue.labels.*.name, 'atdd-issue') || "
+            "contains(github.event.issue.labels.*.name, 'atdd-wmbt')"
+        )
+
+        phase_jobs = ""
+        for phase in phases:
+            phase_jobs += f"""
+  validate-{phase}:
+    runs-on: ubuntu-latest
+    if: >-
+      {phase_condition}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{{{ runner.os }}}}-pip-atdd
+
+      - name: Install ATDD toolkit
+        run: pip3 install atdd
+
+      - name: Run {phase} validators
+        run: atdd validate {phase}
+        env:
+          GH_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}
+"""
+
+        needs_list = ", ".join(f"validate-{p}" for p in phases)
 
         workflow = f"""\
 # ATDD Validation Workflow
@@ -948,42 +988,31 @@ on:
   issues:
     types: [opened, edited, closed, labeled, unlabeled]
 
-jobs:
-  validate:
+jobs:{phase_jobs}
+  validate-summary:
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name != 'issues' ||
-      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
-      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    needs: [{needs_list}]
+    if: always() && github.event_name == 'issues'
+    permissions:
+      issues: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install ATDD toolkit
-        run: pip3 install atdd
-
-      - name: Run ATDD validators
-        run: atdd validate
-        env:
-          GH_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}
-
-      - name: Post result as issue comment
-        if: github.event_name == 'issues'
-        uses: actions/github-script@v7
+      - uses: actions/github-script@v7
         with:
           script: |
-            const result = '${{{{ job.status }}}}';
-            const emoji = result === 'success' ? '✅' : '❌';
+            const needs = ${{{{ toJSON(needs) }}}};
+            const failed = Object.entries(needs)
+              .filter(([, v]) => v.result !== 'success')
+              .map(([k]) => k);
+            const emoji = failed.length === 0 ? '✅' : '❌';
+            const status = failed.length === 0 ? 'success' : 'failure';
+            const detail = failed.length > 0
+              ? '\\nFailed: ' + failed.join(', ')
+              : '';
             await github.rest.issues.createComment({{
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `${{emoji}} ATDD validation: **${{result}}**`
+              body: `${{emoji}} ATDD validation: **${{status}}**${{detail}}`
             }});
 """
         workflow_path.write_text(workflow)
@@ -1094,7 +1123,7 @@ jobs:
 
         Uses GitHub REST API to set branch protection rules:
         - Require branches to be up to date before merging
-        - Require 'validate' status check to pass (atdd-validate workflow)
+        - Require parallel validate phase checks to pass (atdd-validate workflow)
         - Require PR reviews (no direct push to main)
         - Enforce for admins (no bypasses)
 
@@ -1104,7 +1133,12 @@ jobs:
             protection = json.dumps({
                 "required_status_checks": {
                     "strict": True,
-                    "contexts": ["validate"],
+                    "contexts": [
+                        "validate-planner",
+                        "validate-tester",
+                        "validate-coder",
+                        "validate-coach",
+                    ],
                 },
                 "enforce_admins": True,
                 "required_pull_request_reviews": {

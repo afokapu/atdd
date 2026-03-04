@@ -12,10 +12,8 @@ on:
     types: [opened, edited, closed, labeled, unlabeled]
 
 jobs:
-  validate:
+  validate-planner:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
     if: >-
       github.event_name != 'issues' ||
       contains(github.event.issue.labels.*.name, 'atdd-issue') ||
@@ -29,10 +27,99 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
       - name: Install dependencies
         run: pip3 install pytest jsonschema pyyaml
 
-      - name: Run ATDD validators (from local src/)
+      - name: Run planner validators
+        run: PYTHONPATH=src python3 -m pytest src/atdd/planner/validators/ -v --tb=short
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  validate-tester:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install dependencies
+        run: pip3 install pytest jsonschema pyyaml
+
+      - name: Run tester validators
+        run: PYTHONPATH=src python3 -m pytest src/atdd/tester/validators/ -v --tb=short
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  validate-coder:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install dependencies
+        run: pip3 install pytest jsonschema pyyaml
+
+      - name: Run coder validators
+        run: PYTHONPATH=src python3 -m pytest src/atdd/coder/validators/ -v --tb=short
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  validate-coach:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install dependencies
+        run: pip3 install pytest jsonschema pyyaml
+
+      - name: Run coach validators
         run: PYTHONPATH=src python3 -m pytest src/atdd/coach/validators/ -v --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -87,7 +174,7 @@ jobs:
 
   post-comment:
     runs-on: ubuntu-latest
-    needs: validate
+    needs: [validate-planner, validate-tester, validate-coder, validate-coach]
     if: always() && github.event_name == 'issues'
     permissions:
       issues: write
@@ -95,11 +182,18 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const result = '${{ needs.validate.result }}';
-            const emoji = result === 'success' ? '✅' : '❌';
+            const needs = ${{ toJSON(needs) }};
+            const failed = Object.entries(needs)
+              .filter(([, v]) => v.result !== 'success')
+              .map(([k]) => k);
+            const emoji = failed.length === 0 ? '✅' : '❌';
+            const status = failed.length === 0 ? 'success' : 'failure';
+            const detail = failed.length > 0
+              ? '\nFailed: ' + failed.join(', ')
+              : '';
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `${emoji} ATDD validation: **${result}**`
+              body: `${emoji} ATDD validation: **${status}**${detail}`
             });
