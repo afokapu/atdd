@@ -175,6 +175,17 @@
       },
       "additionalProperties": false
     },
+    "path_filters": {
+      "type": "object",
+      "description": "Custom path → phase mappings for path-scoped validation",
+      "properties": {
+        "planner": { "type": "array", "items": { "type": "string" } },
+        "tester": { "type": "array", "items": { "type": "string" } },
+        "coder": { "type": "array", "items": { "type": "string" } },
+        "coach": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
     "coach": {
       "type": "object",
       "description": "Coach agent validation settings",

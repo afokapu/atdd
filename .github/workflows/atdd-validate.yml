@@ -172,19 +172,36 @@ jobs:
               print(f"Version bumped: {main_version} → {pr_version}")
           PYEOF
 
-  post-comment:
-    runs-on: ubuntu-latest
+  validate-gate:
     needs: [validate-planner, validate-tester, validate-coder, validate-coach]
-    if: always() && github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    if: always()
     permissions:
       issues: write
     steps:
-      - uses: actions/github-script@v7
+      - name: Check results
+        run: |
+          for result in "planner:${{ needs.validate-planner.result }}" \
+                        "tester:${{ needs.validate-tester.result }}" \
+                        "coder:${{ needs.validate-coder.result }}" \
+                        "coach:${{ needs.validate-coach.result }}"; do
+            phase="${result%%:*}"
+            status="${result##*:}"
+            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
+              echo "::error::$phase failed ($status)"
+              exit 1
+            fi
+          done
+          echo "All phases passed or were skipped"
+
+      - name: Post comment
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
         with:
           script: |
             const needs = ${{ toJSON(needs) }};
             const failed = Object.entries(needs)
-              .filter(([, v]) => v.result !== 'success')
+              .filter(([, v]) => v.result !== 'success' && v.result !== 'skipped')
               .map(([k]) => k);
             const emoji = failed.length === 0 ? '✅' : '❌';
             const status = failed.length === 0 ? 'success' : 'failure';
