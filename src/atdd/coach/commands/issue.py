@@ -619,6 +619,63 @@ class IssueManager:
         return 0
 
     # -------------------------------------------------------------------------
+    # E010: open_issues (all open issues, not just ATDD-labeled)
+    # -------------------------------------------------------------------------
+
+    def open_issues(
+        self,
+        label: Optional[str] = None,
+        limit: int = 30,
+        assignee: Optional[str] = None,
+    ) -> int:
+        """List open GitHub issues (all, not just ATDD-labeled).
+
+        Args:
+            label: Optional label filter.
+            limit: Max issues to return (default 30).
+            assignee: Optional assignee login filter.
+
+        Returns:
+            0 on success, 1 on error.
+        """
+        if not self._check_initialized():
+            return 1
+
+        from atdd.coach.github import GitHubClientError
+
+        try:
+            client = self._get_github_client()
+            issues = client.list_open_issues(
+                label=label, limit=limit, assignee=assignee,
+            )
+        except (GitHubClientError, Exception) as e:
+            print(f"Error: {e}")
+            return 1
+
+        if not issues:
+            print("No open issues found.")
+            return 0
+
+        print("\n" + "=" * 80)
+        print("Open Issues")
+        print("=" * 80)
+        print(f"{'#':<7} {'Title':<42} {'Labels':<16} {'Created':<12}")
+        print("-" * 80)
+
+        for issue in sorted(issues, key=lambda x: x["number"]):
+            num = issue["number"]
+            title = issue["title"][:41]
+            label_names = [l["name"] for l in issue.get("labels", [])]
+            labels_str = ",".join(label_names)[:15] if label_names else "-"
+            created = issue.get("createdAt", "")[:10]
+
+            print(f"#{num:<6} {title:<42} {labels_str:<16} {created}")
+
+        print("-" * 80)
+        print(f"Total: {len(issues)} open issue{'s' if len(issues) != 1 else ''}")
+        return 0
+
+    # -------------------------------------------------------------------------
     # E003: archive
     # -------------------------------------------------------------------------
 
