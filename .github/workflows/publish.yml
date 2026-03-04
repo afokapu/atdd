@@ -16,7 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
     permissions:
       contents: write
       id-token: write           # required for PyPI Trusted Publishing
@@ -72,3 +73,5 @@ jobs:
       - name: Publish to PyPI
         if: env.CREATED == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
