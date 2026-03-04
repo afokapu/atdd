@@ -52,76 +52,34 @@ jobs:
             });
 
   # ---------------------------------------------------------------------------
-  # Auto-release: bump version, tag, publish after merge to main
+  # Tag + publish after merge to main
   # ---------------------------------------------------------------------------
-  # Reads the conventional commit prefix from the merge commit title to
-  # determine the bump type (feat → MINOR, everything else → PATCH).
-  # Serialized via concurrency group to handle parallel PR merges safely.
-  auto-release:
+  # Version bump is done by the agent on the PR branch BEFORE merging.
+  # CI just reads the version from pyproject.toml, tags, and publishes.
+  # "Require branches to be up to date" in branch protection serializes merges.
+  tag-release:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: validate
-    concurrency:
-      group: auto-release
-      cancel-in-progress: false
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Pull latest main (serialization safety)
-        run: git pull origin main --rebase
-
-      - name: Determine bump type from commit title
-        run: |
-          TITLE=$(git log -1 --format='%s')
-          echo "Commit title: $TITLE"
-
-          # Extract prefix from conventional commit or PR merge title
-          # Handles: "feat: ...", "feat(scope): ...", "Merge pull request ... from user/feat/..."
-          if echo "$TITLE" | grep -qiE '^feat(\(|:)'; then
-            BUMP=minor
-          elif echo "$TITLE" | grep -qiE '^(fix|refactor|chore|docs|devops|test|ci|perf|style|build)(\(|:)'; then
-            BUMP=patch
-          elif echo "$TITLE" | grep -qiE 'from .*/feat/'; then
-            BUMP=minor
-          elif echo "$TITLE" | grep -qiE 'from .*/(fix|refactor|chore|docs|devops)/'; then
-            BUMP=patch
-          else
-            echo "No conventional commit prefix found, skipping release"
-            echo "SKIP=true" >> "$GITHUB_ENV"
-            BUMP=none
-          fi
-
-          echo "BUMP=$BUMP" >> "$GITHUB_ENV"
-          echo "Bump type: $BUMP"
-
-      - name: Bump version, tag, and push
-        if: env.SKIP != 'true'
+      - name: Read version and create tag
         run: |
           pip3 install pyyaml -q
-
-          python3 - <<'PYEOF'
-          import yaml, re, json, os, sys
-
-          bump = os.environ["BUMP"]
+          TAG=$(python3 - <<'PYEOF'
+          import yaml, re, json
           cfg = yaml.safe_load(open(".atdd/config.yaml"))
           vf = cfg["release"]["version_file"]
           prefix = cfg["release"].get("tag_prefix", "v")
-
-          # Read current version
           if vf.endswith(".toml"):
               text = open(vf).read()
               m = re.search(r'^version\s*=\s*["\x27]([^"\x27]+)["\x27]', text, re.M)
@@ -130,60 +88,25 @@ jobs:
               ver = json.load(open(vf)).get("version", "")
           else:
               ver = open(vf).read().strip().split()[0]
-
-          if not ver:
-              print("ERROR: Could not read version")
-              sys.exit(1)
-
-          # Parse semver
-          parts = ver.split(".")
-          major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
-
-          # Bump
-          if bump == "major":
-              major += 1; minor = 0; patch = 0
-          elif bump == "minor":
-              minor += 1; patch = 0
-          else:
-              patch += 1
-
-          new_ver = f"{major}.{minor}.{patch}"
-          tag = f"{prefix}{new_ver}"
-          print(f"Bumping {ver} → {new_ver} ({bump})")
-
-          # Write new version
-          if vf.endswith(".toml"):
-              new_text = re.sub(
-                  r'^(version\s*=\s*["\x27])[^"\x27]+(["\x27])',
-                  rf'\g<1>{new_ver}\2',
-                  text,
-                  count=1,
-                  flags=re.M,
-              )
-              open(vf, "w").write(new_text)
-          elif vf.endswith(".json"):
-              data = json.load(open(vf))
-              data["version"] = new_ver
-              json.dump(data, open(vf, "w"), indent=2)
-          else:
-              open(vf, "w").write(new_ver + "\n")
-
-          # Export for shell steps
-          with open(os.environ["GITHUB_ENV"], "a") as f:
-              f.write(f"NEW_VERSION={new_ver}\n")
-              f.write(f"TAG={tag}\n")
+          print(f"{prefix}{ver}")
           PYEOF
+          )
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
-      - name: Commit, tag, and push
-        if: env.SKIP != 'true'
+      - name: Create and push tag (idempotent)
         run: |
-          git add -A
-          git commit -m "Bump version to $NEW_VERSION"
-          git tag "$TAG"
-          git push origin main --tags
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+            echo "CREATED=false" >> "$GITHUB_ENV"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "Created and pushed tag $TAG"
+            echo "CREATED=true" >> "$GITHUB_ENV"
+          fi
 
       - name: Trigger publish workflow
-        if: env.SKIP != 'true'
+        if: env.CREATED == 'true'
         run: gh workflow run publish.yml --ref "$TAG"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

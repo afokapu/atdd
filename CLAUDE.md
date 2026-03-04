@@ -519,34 +519,37 @@ git:
       - "GREEN: commit passing implementation"
       - "REFACTOR: commit clean architecture"
 
-# Release Gate (automated via CI)
-# CI auto-release bumps version, tags, and publishes after merge to main.
-# Bump type derived from conventional commit prefix in merge commit title.
+# Release Gate (agent bumps version, CI tags + publishes)
+# Agent bumps the version on the PR branch before merging.
+# CI reads the version after merge to main, tags, and triggers publish.
+# "Require branches to be up to date" in branch protection serializes merges,
+# preventing version conflicts when multiple PRs merge in parallel.
 release:
   automated: true
 
   change_class:
     PATCH: "fix/, refactor/, chore/, docs/, devops/ branches"
     MINOR: "feat/ branches"
-    MAJOR: "manual only — break glass for breaking changes"
+    MAJOR: "breaking API/CLI/schema/convention change or behavior removal"
 
-  ci_workflow:
-    trigger: "push to main (after validate passes)"
-    steps:
-      - "Read merge commit title prefix (feat: → MINOR, fix: → PATCH, etc.)"
-      - "Pull latest main (concurrency-safe rebase)"
+  agent_workflow:
+    before_merge:
+      - "Rebase PR branch on latest main: git pull origin main --rebase"
+      - "Read current version from version file (pyproject.toml)"
+      - "Determine bump from branch prefix: feat/ → MINOR, fix/refactor/chore/docs/devops → PATCH"
       - "Bump version in version file"
       - "Commit: 'Bump version to {version}'"
-      - "Tag: v{version}"
-      - "Push commit + tag"
-      - "Trigger publish workflow → PyPI"
-    concurrency: "serialized via concurrency group (parallel PR merges safe)"
+      - "Push to PR branch"
+    after_merge:
+      - "CI reads version from version file"
+      - "CI creates tag: v{version}"
+      - "CI triggers publish workflow → PyPI"
 
-  agent_rules:
-    - "DO NOT manually bump versions in PRs"
-    - "DO NOT manually create tags"
-    - "Use correct branch prefix (feat/, fix/, etc.) — CI derives bump from it"
-    - "For MAJOR bumps: manually bump version in PR, CI will skip auto-bump if tag exists"
+  rules:
+    - "Version bump MUST be the last commit on the PR branch before merge"
+    - "Branch protection 'Require up to date' serializes merges (no version conflicts)"
+    - "DO NOT manually create tags — CI handles tagging after merge"
+    - "For MAJOR bumps: same workflow, just bump the major digit"
 
   # Config (required in .atdd/config.yaml):
   # release:

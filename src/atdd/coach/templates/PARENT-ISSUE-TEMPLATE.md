@@ -150,11 +150,12 @@
 
 ## Release Gate
 
-CI auto-release handles version bump, tag, and publish after merge to main.
-The bump type is derived from the PR branch prefix: `feat/` → MINOR, `fix/` → PATCH.
+Before merge: rebase on main, bump version based on branch prefix, commit, push.
+After merge: CI tags and publishes to PyPI automatically.
 
-- [ ] Verify PR branch uses correct conventional prefix (`feat/`, `fix/`, `refactor/`, etc.)
-- [ ] Merge PR → CI bumps version, tags, publishes to PyPI
+- [ ] Rebase on main: `git pull origin main --rebase`
+- [ ] Bump version (feat/ → MINOR, fix/ → PATCH): edit version file, commit "Bump version to X.Y.Z"
+- [ ] Merge PR → CI creates tag + publishes
 
 ---
 
