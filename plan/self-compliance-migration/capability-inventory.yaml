@@ -1,0 +1,337 @@
+# Capability Inventory — ATDD Toolkit Self-Compliance Migration
+# Issue: #103
+# Date: 2026-03-04
+# Purpose: Exhaustive before/after checklist proving no capability was lost or regressed.
+# Gate: E001 characterization tests verify each capability marked "baseline_locked".
+#
+# Status values:
+#   not_started       — capability exists, not yet baselined
+#   baseline_locked   — characterization test confirms current behavior (C001/E001)
+#   migrated          — plan/contract/URN artifacts created, tests still green (K001)
+
+baseline:
+  date: "2026-03-04"
+  total_tests_collected: 453
+  pytest_command: "python3 -m pytest src/atdd --co -q"
+  atdd_validate_command: "atdd validate"
+
+# =============================================================================
+# COACH WAGON
+# =============================================================================
+coach:
+  tests: { files: 12, functions: 73 }
+  status: not_started
+
+  cli_commands:
+    - id: validate
+      entry: "src/atdd/cli.py::ATDDCoach.run_validators"
+      impl: "src/atdd/coach/commands/test_runner.py::TestRunner"
+      options: ["phase", "--quick", "--verbose", "--coverage", "--html", "--no-split"]
+      status: not_started
+
+    - id: inventory
+      entry: "src/atdd/cli.py::ATDDCoach.run_inventory"
+      impl: "src/atdd/coach/commands/inventory.py::RepositoryInventory"
+      options: ["--format {yaml,json}"]
+      status: not_started
+
+    - id: status
+      entry: "src/atdd/cli.py::ATDDCoach.show_status"
+      impl: "src/atdd/cli.py"  # inline
+      options: []
+      status: not_started
+
+    - id: registry-update
+      entry: "src/atdd/cli.py::ATDDCoach.update_registries"
+      impl: "src/atdd/coach/commands/registry.py::RegistryUpdater"
+      options: ["type", "--yes/--apply", "--check"]
+      status: not_started
+
+    - id: init
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/initializer.py::ProjectInitializer"
+      options: ["--force", "--worktree-layout"]
+      status: not_started
+
+    - id: new
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/issue.py::IssueManager.new"
+      options: ["slug", "--type", "--train", "--archetypes"]
+      status: not_started
+
+    - id: list
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/issue.py::IssueManager.list"
+      options: []
+      status: not_started
+
+    - id: update
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/issue.py::IssueManager.update"
+      options: ["session_id", "--status", "--phase", "--branch", "--train", "--feature-urn", "--archetypes", "--complexity", "--force"]
+      status: not_started
+
+    - id: archive
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/issue.py::IssueManager.archive"
+      options: ["session_id"]
+      status: not_started
+
+    - id: close-wmbt
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/issue.py::IssueManager.close_wmbt"
+      options: ["session_id", "wmbt_id", "--force"]
+      status: not_started
+
+    - id: branch
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/branch.py::BranchManager"
+      options: ["issue_number", "--prefix"]
+      status: not_started
+
+    - id: color
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/color.py::ColorManager"
+      options: ["value"]
+      status: not_started
+
+    - id: sync
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/sync.py::AgentConfigSync"
+      options: ["--verify", "--agent", "--status"]
+      status: not_started
+
+    - id: gate
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/gate.py::ATDDGate"
+      options: ["--json"]
+      status: not_started
+
+    - id: version
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/cli.py"  # inline
+      options: []
+      status: not_started
+
+    - id: urn-graph
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/urn.py::URNCommand.graph"
+      options: ["--format", "--root", "--family", "--depth", "--full"]
+      status: not_started
+
+    - id: urn-orphans
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/urn.py::URNCommand.orphans"
+      options: ["--family", "--format"]
+      status: not_started
+
+    - id: urn-broken
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/urn.py::URNCommand.broken"
+      options: ["--family", "--format"]
+      status: not_started
+
+    - id: urn-validate
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/urn.py::URNCommand.validate"
+      options: ["--phase", "--family", "--format", "--strict", "--fix", "--dry-run"]
+      status: not_started
+
+    - id: urn-resolve
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/urn.py::URNCommand.resolve"
+      options: ["urn", "--format"]
+      status: not_started
+
+    - id: urn-declarations
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/urn.py::URNCommand.declarations"
+      options: ["--family", "--format"]
+      status: not_started
+
+    - id: urn-families
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/urn.py::URNCommand.list_families"
+      options: []
+      status: not_started
+
+    - id: urn-viz
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/urn.py::URNCommand.viz"
+      options: ["--port", "--host", "--root", "--family", "--depth"]
+      status: not_started
+
+  command_modules:
+    - src/atdd/coach/commands/add_persistence_metadata.py
+    - src/atdd/coach/commands/analyze_migrations.py
+    - src/atdd/coach/commands/branch.py
+    - src/atdd/coach/commands/color.py
+    - src/atdd/coach/commands/consumers.py
+    - src/atdd/coach/commands/gate.py
+    - src/atdd/coach/commands/infer_governance_status.py
+    - src/atdd/coach/commands/initializer.py
+    - src/atdd/coach/commands/interface.py
+    - src/atdd/coach/commands/inventory.py
+    - src/atdd/coach/commands/issue.py
+    - src/atdd/coach/commands/migration.py
+    - src/atdd/coach/commands/registry.py
+    - src/atdd/coach/commands/sync.py
+    - src/atdd/coach/commands/test_interface.py
+    - src/atdd/coach/commands/test_runner.py
+    - src/atdd/coach/commands/traceability.py
+    - src/atdd/coach/commands/urn.py
+    - src/atdd/coach/commands/viz_app.py
+
+  validators:
+    - src/atdd/coach/validators/test_C001_roundtrip.py            # [github_api] issue lifecycle
+    - src/atdd/coach/validators/test_C002_project_board.py        # [github_api] project v2 board
+    - src/atdd/coach/validators/test_enrich_wagon_registry.py     # wagon registry enrichment
+    - src/atdd/coach/validators/test_issue_gate_completion.py     # COMPLETE gate enforcement
+    - src/atdd/coach/validators/test_issue_validation.py          # issue field validation
+    - src/atdd/coach/validators/test_registry.py                  # unified registry system
+    - src/atdd/coach/validators/test_release_versioning.py        # version file + tag
+    - src/atdd/coach/validators/test_traceability.py              # contract & telemetry traceability
+    - src/atdd/coach/validators/test_train_registry.py            # train registry gaps
+    - src/atdd/coach/validators/test_update_feature_paths.py      # feature path update
+    - src/atdd/coach/validators/test_urn_traceability.py          # URN graph integrity
+    - src/atdd/coach/validators/test_validate_contract_consumers.py  # contract consumer validation
+
+  utilities:
+    - src/atdd/coach/utils/repo.py              # repo root detection
+    - src/atdd/coach/utils/config.py            # .atdd/config.yaml loader
+    - src/atdd/coach/utils/train_spec_phase.py  # train spec rollout phase
+    - src/atdd/coach/utils/locale_phase.py      # locale phase management
+    - src/atdd/coach/utils/coverage_phase.py    # coverage phase management
+    - src/atdd/coach/utils/graph/urn.py         # URN parsing
+    - src/atdd/coach/utils/graph/resolver.py    # URN resolution
+    - src/atdd/coach/utils/graph/graph_builder.py  # graph construction
+    - src/atdd/coach/utils/graph/edge_validator.py  # edge validation
+
+# =============================================================================
+# PLANNER WAGON
+# =============================================================================
+planner:
+  tests: { files: 10, functions: 87 }
+  status: not_started
+
+  validators:
+    - src/atdd/planner/validators/test_draft_wagon_registry.py   # 9 tests — wagon manifest structure
+    - src/atdd/planner/validators/test_hierarchy_coverage.py     # 7 tests — parent→child completeness
+    - src/atdd/planner/validators/test_plan_cross_refs.py        # 5 tests — cross-reference resolution
+    - src/atdd/planner/validators/test_plan_uniqueness.py        # 7 tests — no duplicate IDs
+    - src/atdd/planner/validators/test_plan_urn_resolution.py    # 7 tests — URN→file resolution
+    - src/atdd/planner/validators/test_plan_wagons.py            # 9 tests — wagon file organization
+    - src/atdd/planner/validators/test_train_validation.py       # 29 tests — train first-class spec v0.6
+    - src/atdd/planner/validators/test_wagon_urn_chain.py        # 2 tests — train→wagon→feature URN chain
+    - src/atdd/planner/validators/test_wmbt_consistency.py       # 5 tests — WMBT structure
+    - src/atdd/planner/validators/test_wmbt_vocabulary.py        # 7 tests — WMBT terminology
+
+# =============================================================================
+# TESTER WAGON
+# =============================================================================
+tester:
+  tests: { files: 26, functions: 140 }
+  status: not_started
+
+  validators:
+    - src/atdd/tester/validators/test_acceptance_urn_filename_mapping.py  # 13 tests — AC→filename mapping
+    - src/atdd/tester/validators/test_acceptance_urn_separator.py        # 3 tests — URN separator format
+    - src/atdd/tester/validators/test_artifact_naming_category.py        # 14 tests — artifact naming
+    - src/atdd/tester/validators/test_contract_schema_compliance.py      # 9 tests — JSON Schema compliance
+    - src/atdd/tester/validators/test_contract_security.py               # 4 tests — sensitive field masking
+    - src/atdd/tester/validators/test_contracts_structure.py             # 6 tests — contracts/ layout
+    - src/atdd/tester/validators/test_coverage_adequacy.py               # 3 tests — coverage thresholds
+    - src/atdd/tester/validators/test_dual_ac_reference.py               # 3 tests — dual AC references
+    - src/atdd/tester/validators/test_fixture_validity.py                # 3 tests — fixture setup/teardown
+    - src/atdd/tester/validators/test_hierarchy_coverage.py              # 7 tests — feature→test coverage
+    - src/atdd/tester/validators/test_isolation.py                       # 4 tests — test isolation
+    - src/atdd/tester/validators/test_locale_coverage.py                 # 7 tests — i18n coverage
+    - src/atdd/tester/validators/test_migration_coverage.py              # 2 tests — migration test coverage
+    - src/atdd/tester/validators/test_migration_criteria.py              # 11 tests — migration acceptance
+    - src/atdd/tester/validators/test_migration_generation.py            # 3 tests — migration structure
+    - src/atdd/tester/validators/test_python_test_naming.py              # 5 tests — Python test naming
+    - src/atdd/tester/validators/test_red_layer_validation.py            # 3 tests — RED layer structure
+    - src/atdd/tester/validators/test_red_python_layer_structure.py      # 2 tests — Python test layout
+    - src/atdd/tester/validators/test_red_supabase_layer_structure.py    # 2 tests — Supabase test layout
+    - src/atdd/tester/validators/test_telemetry_structure.py             # 12 tests — telemetry signals
+    - src/atdd/tester/validators/test_train_backend_e2e.py               # 4 tests — backend e2e
+    - src/atdd/tester/validators/test_train_frontend_e2e.py              # 3 tests — frontend e2e
+    - src/atdd/tester/validators/test_train_frontend_python.py           # 2 tests — frontend_python
+    - src/atdd/tester/validators/test_typescript_test_naming.py          # 6 tests — TS test naming
+    - src/atdd/tester/validators/test_typescript_test_structure.py       # 3 tests — TS test structure
+    - src/atdd/tester/validators/test_urn_spec_v3.py                     # 7 tests — URN spec v3
+
+# =============================================================================
+# CODER WAGON
+# =============================================================================
+coder:
+  tests: { files: 24, functions: 153 }
+  status: not_started
+
+  validators:
+    - src/atdd/coder/validators/test_commons_structure.py            # 12 tests — shared code org
+    - src/atdd/coder/validators/test_complexity.py                   # 4 tests — nesting/size limits
+    - src/atdd/coder/validators/test_cross_language_consistency.py   # 4 tests — Python/TS consistency
+    - src/atdd/coder/validators/test_design_system_compliance.py     # 8 tests — design tokens
+    - src/atdd/coder/validators/test_dto_testing_patterns.py         # DTO testing patterns
+    - src/atdd/coder/validators/test_green_cross_stack_layers.py     # 3 tests — cross-stack layers
+    - src/atdd/coder/validators/test_green_layer_dependencies.py     # 4 tests — layer deps
+    - src/atdd/coder/validators/test_green_python_layer_structure.py # 2 tests — Python layers
+    - src/atdd/coder/validators/test_green_supabase_layer_structure.py # 2 tests — Supabase layers
+    - src/atdd/coder/validators/test_gsap_layer_usage.py             # 2 tests — GSAP in presentation
+    - src/atdd/coder/validators/test_hierarchy_coverage.py           # 3 tests — implementation coverage
+    - src/atdd/coder/validators/test_i18n_runtime.py                 # 2 tests — locale switching
+    - src/atdd/coder/validators/test_import_boundaries.py            # 4 tests — wagon isolation
+    - src/atdd/coder/validators/test_init_file_urns.py               # 4 tests — __init__.py URNs
+    - src/atdd/coder/validators/test_preact_layer_boundaries.py      # 4 tests — Preact layers
+    - src/atdd/coder/validators/test_presentation_convention.py      # presentation layer convention
+    - src/atdd/coder/validators/test_python_architecture.py          # 4 tests — 4-layer compliance
+    - src/atdd/coder/validators/test_quality_metrics.py              # 4 tests — cyclomatic complexity
+    - src/atdd/coder/validators/test_station_master_pattern.py       # 3 tests — station master
+    - src/atdd/coder/validators/test_train_infrastructure.py         # 17 tests — train patterns
+    - src/atdd/coder/validators/test_train_urns.py                   # 6 tests — train URN refs
+    - src/atdd/coder/validators/test_typescript_architecture.py      # 4 tests — TS 4-layer
+    - src/atdd/coder/validators/test_usecase_structure.py            # 4 tests — use case pattern
+    - src/atdd/coder/validators/test_wagon_boundaries.py             # 6 tests — wagon boundaries
+
+# =============================================================================
+# CROSS-CUTTING ASSETS
+# =============================================================================
+conventions:
+  count: 42
+  locations:
+    - src/atdd/coach/conventions/     # 2 files
+    - src/atdd/planner/conventions/   # 12 files
+    - src/atdd/tester/conventions/    # 11 files
+    - src/atdd/coder/conventions/     # 17 files
+
+schemas:
+  count: 39
+  locations:
+    - src/atdd/coach/schemas/         # 5 files
+    - src/atdd/planner/schemas/       # 7 files
+    - src/atdd/tester/schemas/        # 26 files
+    - src/atdd/coder/schemas/         # 1 file
+
+templates:
+  count: 4
+  location: src/atdd/coach/templates/
+  files:
+    - ATDD-ISSUE-TEMPLATE.md
+    - ATDD.md
+    - PARENT-ISSUE-TEMPLATE.md
+    - WMBT-SUBISSUE-TEMPLATE.md
+
+# =============================================================================
+# TOTALS
+# =============================================================================
+totals:
+  cli_commands: 16             # top-level commands
+  urn_subcommands: 8           # atdd urn {graph,orphans,...}
+  command_modules: 19          # src/atdd/coach/commands/*.py
+  validator_files: 72          # test_*.py across all wagons
+  test_functions: 453          # total collected by pytest
+  utility_modules: 9           # src/atdd/coach/utils/**/*.py
+  conventions: 42              # *.convention.yaml + *.recipe.yaml + *.protocol.yaml
+  schemas: 39                  # *.schema.json + *.tmpl.json
+  templates: 4                 # *.md in coach/templates/
