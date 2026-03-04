@@ -22,6 +22,7 @@ Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import json
 import logging
+import os
 import shutil
 import subprocess
 from datetime import date
@@ -307,6 +308,9 @@ class ProjectInitializer:
             # Create config.yaml
             self._create_config(force)
 
+            # Install git hooks (pre-commit worktree enforcement)
+            self._install_hooks(force)
+
             # Sync agent config files
             from atdd.coach.commands.sync import AgentConfigSync
             syncer = AgentConfigSync(self.target_dir)
@@ -394,6 +398,46 @@ class ProjectInitializer:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
         print(f"Created: {self.config_file}")
+
+    def _install_hooks(self, force: bool = False) -> None:
+        """Install git hooks from package templates into .atdd/hooks/.
+
+        Copies the pre-commit template, makes it executable, and sets
+        ``git config core.hooksPath`` to the absolute path so that all
+        worktrees sharing this repository inherit the hook automatically.
+
+        Args:
+            force: If True, overwrite an existing hook.
+        """
+        hooks_dir = self.atdd_config_dir / "hooks"
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+
+        template_dir = self.package_root / "templates" / "hooks"
+        hook_src = template_dir / "pre-commit"
+        hook_dst = hooks_dir / "pre-commit"
+
+        if not hook_src.exists():
+            logger.warning("Hook template not found: %s", hook_src)
+            return
+
+        if hook_dst.exists() and not force:
+            print(f"Hook already exists: {hook_dst}")
+        else:
+            shutil.copy2(hook_src, hook_dst)
+            os.chmod(hook_dst, hook_dst.stat().st_mode | 0o111)
+            print(f"Installed: {hook_dst}")
+
+        # Point git to the hooks directory (absolute path survives worktrees)
+        abs_hooks = str(hooks_dir.resolve())
+        try:
+            subprocess.run(
+                ["git", "config", "core.hooksPath", abs_hooks],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.target_dir,
+            )
+            print(f"Set git core.hooksPath → {abs_hooks}")
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            logger.warning("Could not set core.hooksPath: %s", exc)
 
     def is_initialized(self) -> bool:
         """Check if ATDD is already initialized in target directory."""

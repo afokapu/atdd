@@ -1,0 +1,57 @@
+#!/bin/sh
+# ATDD pre-commit hook — blocks code commits on main/master.
+# Installed by `atdd init`. Override with ATDD_ALLOW_MAIN_COMMIT=1.
+# Standard bypass: git commit --no-verify
+
+set -e
+
+# --- Resolve current branch ---
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+
+# Allow: detached HEAD (CI), any non-main branch
+case "$BRANCH" in
+    main|master) ;;
+    *) exit 0 ;;
+esac
+
+# Allow: explicit env bypass (CI version bumps, emergencies)
+if [ "${ATDD_ALLOW_MAIN_COMMIT:-0}" = "1" ]; then
+    exit 0
+fi
+
+# --- Protected path prefixes (code/test directories) ---
+PROTECTED="src/ tests/ packages/ web/ supabase/ python/ e2e/"
+
+# Check staged files against protected paths
+BLOCKED_FILES=""
+for file in $(git diff --cached --name-only --diff-filter=ACMR); do
+    for prefix in $PROTECTED; do
+        case "$file" in
+            "$prefix"*)
+                BLOCKED_FILES="$BLOCKED_FILES  $file
+"
+                break
+                ;;
+        esac
+    done
+done
+
+if [ -z "$BLOCKED_FILES" ]; then
+    exit 0
+fi
+
+# --- Block with actionable error ---
+cat >&2 <<EOF
+
+ATDD: Direct code commits to $BRANCH are not allowed.
+
+Blocked files:
+$BLOCKED_FILES
+Create a worktree branch first:
+  atdd branch <issue-number>
+
+Or bypass for emergencies:
+  ATDD_ALLOW_MAIN_COMMIT=1 git commit ...
+
+EOF
+exit 1

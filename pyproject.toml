@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atdd"
-version = "1.8.0"
+version = "1.9.0"
 description = "ATDD Platform - Acceptance Test Driven Development toolkit"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -23,6 +23,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "atdd.coach.templates" = ["*.md"]
+"atdd.coach.templates.hooks" = ["pre-commit"]
 "atdd.coach.schemas" = ["*.json"]
 "atdd.coach.conventions" = ["*.yaml"]
 "atdd.coach.overlays" = ["*.md"]

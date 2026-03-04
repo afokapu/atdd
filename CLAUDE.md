@@ -519,42 +519,37 @@ git:
       - "GREEN: commit passing implementation"
       - "REFACTOR: commit clean architecture"
 
-# Release Gate (agent bumps version, CI tags + publishes)
-# Agent bumps the version on the PR branch before merging.
-# CI reads the version after merge to main, tags, and triggers publish.
-# "Require branches to be up to date" in branch protection serializes merges,
-# preventing version conflicts when multiple PRs merge in parallel.
+# Release Gate (MANDATORY - session completion)
+# Every session MUST end with version bump + tag
 release:
-  automated: true
-
-  change_class:
-    PATCH: "fix/, refactor/, chore/, docs/, devops/ branches"
-    MINOR: "feat/ branches"
-    MAJOR: "breaking API/CLI/schema/convention change or behavior removal"
-
-  agent_workflow:
-    before_merge:
-      - "Rebase PR branch on latest main: git pull origin main --rebase"
-      - "Read current version from version file (pyproject.toml)"
-      - "Determine bump from branch prefix: feat/ → MINOR, fix/refactor/chore/docs/devops → PATCH"
-      - "Bump version in version file"
-      - "Commit: 'Bump version to {version}'"
-      - "Push to PR branch"
-    after_merge:
-      - "CI reads version from version file"
-      - "CI creates tag: v{version}"
-      - "CI triggers publish workflow → PyPI"
+  mandatory: true
 
   rules:
-    - "Version bump MUST be the last commit on the PR branch before merge"
-    - "Branch protection 'Require up to date' serializes merges (no version conflicts)"
-    - "DO NOT manually create tags — CI handles tagging after merge"
-    - "For MAJOR bumps: same workflow, just bump the major digit"
+    - "Version file is required (configured in .atdd/config.yaml)"
+    - "Tag must match version exactly: v{version}"
+    - "Tag must be on HEAD"
+    - "No tag without version bump"
+    - "No version bump without tag"
+    - "Every repo MUST have versioning"
+
+  change_class:
+    PATCH: "bug fixes, docs, refactors, internal changes"
+    MINOR: "new feature, new validator, new command, new convention (non-breaking)"
+    MAJOR: "breaking API/CLI/schema/convention change or behavior removal"
+
+  workflow:
+    - "Determine change class"
+    - "Bump version in version file"
+    - "Commit: 'Bump version to {version}' (last commit in PR branch)"
+    - "Push branch and merge PR (version bump is part of the PR)"
+    - "After merge: git tag v{version} on the merge commit, then git push origin --tags"
+    - "Record in Activity Log: 'Released: v{version}'"
 
   # Config (required in .atdd/config.yaml):
   # release:
   #   version_file: "pyproject.toml"  # or package.json, VERSION, etc.
   #   tag_prefix: "v"
+  # Validator: atdd validate coach enforces version file + tag on HEAD
 
 # Agent Coordination (Detailed in action files)
 agents:

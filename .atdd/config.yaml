@@ -1,16 +1,14 @@
 version: '1.0'
 release:
-  version_file: pyproject.toml
+  version_file: VERSION
   tag_prefix: v
 sync:
   agents:
   - claude
 toolkit:
-  last_version: 1.5.0
+  last_version: 1.6.3
 github:
   repo: afokapu/atdd
   project_number: 1
   project_id: PVT_kwHOAIbyOM4BPpKf
   field_schema: atdd/coach/schemas/project_fields.schema.json
-workspace:
-  color: '#FFC107'
