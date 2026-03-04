@@ -422,8 +422,14 @@ class ProjectInitializer:
         """
         Create or update .atdd/config.yaml.
 
+        When force=True and config already exists, deep-merges defaults into
+        the existing config — preserving user-set values (workspace.color,
+        github.*, customised release/sync settings) while filling in any
+        missing default keys and always updating toolkit.last_version.
+
         Args:
-            force: If True, overwrite existing config.
+            force: If True, merge defaults into existing config instead of
+                   skipping.
         """
         if self.config_file.exists() and not force:
             print(f"Config already exists: {self.config_file}")
@@ -436,24 +442,43 @@ class ProjectInitializer:
         except ImportError:
             toolkit_version = "0.0.0"
 
-        config = {
+        defaults = {
             "version": "1.0",
             "release": {
                 "version_file": "VERSION",
                 "tag_prefix": "v",
             },
             "sync": {
-                "agents": ["claude"],  # Default: only Claude
+                "agents": ["claude"],
             },
             "toolkit": {
-                "last_version": toolkit_version,  # Track installed version
+                "last_version": toolkit_version,
             },
         }
 
-        with open(self.config_file, "w") as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        # Merge: preserve existing user values, fill in missing defaults
+        existing = {}
+        is_update = self.config_file.exists()
+        if is_update:
+            with open(self.config_file) as f:
+                existing = yaml.safe_load(f) or {}
 
-        print(f"Created: {self.config_file}")
+        for key, value in defaults.items():
+            if key not in existing:
+                existing[key] = value
+            elif isinstance(value, dict) and isinstance(existing[key], dict):
+                for sub_key, sub_value in value.items():
+                    if sub_key not in existing[key]:
+                        existing[key][sub_key] = sub_value
+
+        # Always update toolkit version to current
+        existing.setdefault("toolkit", {})["last_version"] = toolkit_version
+
+        with open(self.config_file, "w") as f:
+            yaml.dump(existing, f, default_flow_style=False, sort_keys=False)
+
+        action = "Updated" if is_update else "Created"
+        print(f"{action}: {self.config_file}")
 
     def _install_hooks(self, force: bool = False) -> None:
         """Install git hooks from package templates into .atdd/hooks/.
