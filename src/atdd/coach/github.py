@@ -511,6 +511,36 @@ class GitHubClient:
         ])
         return json.loads(output) if output else []
 
+    def list_open_issues(
+        self,
+        label: Optional[str] = None,
+        limit: int = 30,
+        assignee: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """List open issues with optional filters.
+
+        Args:
+            label: Filter by label name.
+            limit: Maximum number of issues to return.
+            assignee: Filter by assignee login.
+
+        Returns:
+            List of issue dicts with number, title, labels, createdAt.
+        """
+        args = [
+            "issue", "list",
+            "--repo", self.repo,
+            "--state", "open",
+            "--json", "number,title,labels,createdAt",
+            "--limit", str(limit),
+        ]
+        if label:
+            args += ["--label", label]
+        if assignee:
+            args += ["--assignee", assignee]
+        output = self._run_gh(args)
+        return json.loads(output) if output else []
+
     def get_issue(self, issue_number: int) -> Dict[str, Any]:
         """Get issue details."""
         output = self._run_gh([
