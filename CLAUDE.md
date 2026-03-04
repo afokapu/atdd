@@ -519,37 +519,39 @@ git:
       - "GREEN: commit passing implementation"
       - "REFACTOR: commit clean architecture"
 
-# Release Gate (MANDATORY - session completion)
-# Every session MUST end with version bump + tag
+# Release Gate (automated via CI)
+# CI auto-release bumps version, tags, and publishes after merge to main.
+# Bump type derived from conventional commit prefix in merge commit title.
 release:
-  mandatory: true
-
-  rules:
-    - "Version file is required (configured in .atdd/config.yaml)"
-    - "Tag must match version exactly: v{version}"
-    - "Tag must be on HEAD"
-    - "No tag without version bump"
-    - "No version bump without tag"
-    - "Every repo MUST have versioning"
+  automated: true
 
   change_class:
-    PATCH: "bug fixes, docs, refactors, internal changes"
-    MINOR: "new feature, new validator, new command, new convention (non-breaking)"
-    MAJOR: "breaking API/CLI/schema/convention change or behavior removal"
+    PATCH: "fix/, refactor/, chore/, docs/, devops/ branches"
+    MINOR: "feat/ branches"
+    MAJOR: "manual only — break glass for breaking changes"
 
-  workflow:
-    - "Determine change class"
-    - "Bump version in version file"
-    - "Commit: 'Bump version to {version}'"
-    - "Create tag: git tag v{version}"
-    - "Push with tags: git push origin {branch} --tags"
-    - "Record in Session Log: 'Released: v{version}'"
+  ci_workflow:
+    trigger: "push to main (after validate passes)"
+    steps:
+      - "Read merge commit title prefix (feat: → MINOR, fix: → PATCH, etc.)"
+      - "Pull latest main (concurrency-safe rebase)"
+      - "Bump version in version file"
+      - "Commit: 'Bump version to {version}'"
+      - "Tag: v{version}"
+      - "Push commit + tag"
+      - "Trigger publish workflow → PyPI"
+    concurrency: "serialized via concurrency group (parallel PR merges safe)"
+
+  agent_rules:
+    - "DO NOT manually bump versions in PRs"
+    - "DO NOT manually create tags"
+    - "Use correct branch prefix (feat/, fix/, etc.) — CI derives bump from it"
+    - "For MAJOR bumps: manually bump version in PR, CI will skip auto-bump if tag exists"
 
   # Config (required in .atdd/config.yaml):
   # release:
   #   version_file: "pyproject.toml"  # or package.json, VERSION, etc.
   #   tag_prefix: "v"
-  # Validator: atdd validate coach enforces version file + tag on HEAD
 
 # Agent Coordination (Detailed in action files)
 agents:

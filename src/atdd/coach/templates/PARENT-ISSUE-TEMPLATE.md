@@ -150,12 +150,11 @@
 
 ## Release Gate
 
-- [ ] Determine change class: PATCH / MINOR / MAJOR
-- [ ] Bump version in version file
-- [ ] Commit: "Bump version to {{version}}" (last commit in PR branch)
-- [ ] Merge PR (version bump included in the PR)
-- [ ] After merge: `git tag v{{version}}` on merge commit, then `git push origin --tags`
-- [ ] Record tag in Activity Log: "Released: v{{version}}"
+CI auto-release handles version bump, tag, and publish after merge to main.
+The bump type is derived from the PR branch prefix: `feat/` → MINOR, `fix/` → PATCH.
+
+- [ ] Verify PR branch uses correct conventional prefix (`feat/`, `fix/`, `refactor/`, etc.)
+- [ ] Merge PR → CI bumps version, tags, publishes to PyPI
 
 ---
 
