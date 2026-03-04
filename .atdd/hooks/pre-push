@@ -1,0 +1,68 @@
+#!/bin/sh
+# ATDD pre-push hook — blocks pushing code changes to main/master on remote.
+# Installed by `atdd init`. Override with ATDD_ALLOW_MAIN_PUSH=1.
+# Standard bypass: git push --no-verify
+
+set -e
+
+REMOTE="$1"
+URL="$2"
+
+# Allow: explicit env bypass (CI, emergencies)
+if [ "${ATDD_ALLOW_MAIN_PUSH:-0}" = "1" ]; then
+    exit 0
+fi
+
+# --- Protected path prefixes (code/test directories) ---
+PROTECTED="src/ tests/ packages/ web/ supabase/ python/ e2e/"
+
+# Read each ref being pushed (stdin: local_ref local_sha remote_ref remote_sha)
+while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
+    # Only guard pushes targeting main or master
+    case "$REMOTE_REF" in
+        refs/heads/main|refs/heads/master) ;;
+        *) continue ;;
+    esac
+
+    # New branch (remote_sha is zero) — compare against remote HEAD
+    ZERO="0000000000000000000000000000000000000000"
+    if [ "$REMOTE_SHA" = "$ZERO" ]; then
+        RANGE="$LOCAL_SHA"
+    else
+        RANGE="$REMOTE_SHA..$LOCAL_SHA"
+    fi
+
+    # Check changed files in the push range against protected paths
+    BLOCKED_FILES=""
+    for file in $(git diff --name-only --diff-filter=ACMR "$RANGE" 2>/dev/null); do
+        for prefix in $PROTECTED; do
+            case "$file" in
+                "$prefix"*)
+                    BLOCKED_FILES="$BLOCKED_FILES  $file
+"
+                    break
+                    ;;
+            esac
+        done
+    done
+
+    if [ -n "$BLOCKED_FILES" ]; then
+        BRANCH=$(echo "$REMOTE_REF" | sed 's|refs/heads/||')
+        cat >&2 <<EOF
+
+ATDD: Direct push of code changes to $BRANCH is not allowed.
+
+Blocked files:
+$BLOCKED_FILES
+Use a worktree branch and open a PR instead:
+  atdd branch <issue-number>
+
+Or bypass for emergencies:
+  ATDD_ALLOW_MAIN_PUSH=1 git push ...
+
+EOF
+        exit 1
+    fi
+done
+
+exit 0
