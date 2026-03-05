@@ -232,3 +232,73 @@ def print_upgrade_sync_notice() -> None:
             print(f"\n⚠️  {notice}\n", file=sys.stderr)
     except Exception:
         pass  # Never fail the main command
+
+
+# --- Version gate (git hook enforcement) ---
+
+def is_outdated() -> Tuple[bool, str, str]:
+    """Check if installed atdd is outdated vs PyPI (no cache).
+
+    Returns:
+        Tuple of (outdated, current_version, latest_version).
+        If PyPI is unreachable, returns (False, current, "").
+    """
+    current = __version__
+    if current == "0.0.0":
+        return False, current, ""
+
+    latest = _fetch_latest_version()
+    if latest is None:
+        return False, current, ""
+
+    return _is_newer(latest, current), current, latest
+
+
+def auto_upgrade() -> bool:
+    """Run pip install --upgrade atdd. Returns True on success."""
+    import subprocess as _sp
+
+    try:
+        result = _sp.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", "atdd"],
+            capture_output=True, text=True, timeout=120,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _gate_main() -> None:
+    """CLI entry point for version-gate hook.
+
+    Exit 0 = allow, exit 1 = block (outdated, upgraded, retry needed).
+    """
+    outdated, current, latest = is_outdated()
+
+    if not outdated:
+        if not latest:
+            print(f"WARNING: Could not reach PyPI — skipping version gate (atdd {current})",
+                  file=sys.stderr)
+        else:
+            print(f"atdd {current} is up to date")
+        return  # exit 0
+
+    print(f"atdd {current} is outdated (latest: {latest}). Upgrading...")
+    if auto_upgrade():
+        print(f"Upgraded atdd to {latest}. Please retry your git operation.")
+    else:
+        print(f"Auto-upgrade failed. Run manually: pip install --upgrade atdd")
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gate", action="store_true", help="Version gate check")
+    args = parser.parse_args()
+
+    if args.gate:
+        _gate_main()
+    else:
+        print_update_notice()

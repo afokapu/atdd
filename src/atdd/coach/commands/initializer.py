@@ -483,30 +483,37 @@ class ProjectInitializer:
     def _install_hooks(self, force: bool = False) -> None:
         """Install git hooks from package templates into .atdd/hooks/.
 
-        Copies the pre-commit template, makes it executable, and sets
-        ``git config core.hooksPath`` to the absolute path so that all
-        worktrees sharing this repository inherit the hook automatically.
+        Copies all hook templates (pre-commit, pre-push, pre-merge-commit,
+        etc.), makes them executable, and sets ``git config core.hooksPath``
+        to the absolute path so that all worktrees sharing this repository
+        inherit the hooks automatically.
 
         Args:
-            force: If True, overwrite an existing hook.
+            force: If True, overwrite existing hooks.
         """
         hooks_dir = self.atdd_config_dir / "hooks"
         hooks_dir.mkdir(parents=True, exist_ok=True)
 
         template_dir = self.package_root / "templates" / "hooks"
-        hook_src = template_dir / "pre-commit"
-        hook_dst = hooks_dir / "pre-commit"
-
-        if not hook_src.exists():
-            logger.warning("Hook template not found: %s", hook_src)
+        if not template_dir.exists():
+            logger.warning("Hook template directory not found: %s", template_dir)
             return
 
-        if hook_dst.exists() and not force:
-            print(f"Hook already exists: {hook_dst}")
-        else:
-            shutil.copy2(hook_src, hook_dst)
-            os.chmod(hook_dst, hook_dst.stat().st_mode | 0o111)
-            print(f"Installed: {hook_dst}")
+        installed = 0
+        for hook_src in sorted(template_dir.iterdir()):
+            if hook_src.name.startswith(("__", ".")) or hook_src.is_dir():
+                continue
+            hook_dst = hooks_dir / hook_src.name
+            if hook_dst.exists() and not force:
+                print(f"Hook exists (skip): {hook_dst}")
+            else:
+                shutil.copy2(hook_src, hook_dst)
+                os.chmod(hook_dst, hook_dst.stat().st_mode | 0o111)
+                print(f"Installed: {hook_dst}")
+                installed += 1
+
+        if installed == 0 and not force:
+            print("All hooks already installed.")
 
         # Point git to the hooks directory (absolute path survives worktrees)
         abs_hooks = str(hooks_dir.resolve())

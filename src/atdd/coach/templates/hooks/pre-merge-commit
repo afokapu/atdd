@@ -1,0 +1,14 @@
+#!/bin/sh
+# ATDD pre-merge-commit hook — version gate.
+# Installed by `atdd init`. Skip with ATDD_SKIP_VERSION_GATE=1.
+# Standard bypass: git merge --no-verify
+
+set -e
+
+# --- Version gate ---
+if [ "${ATDD_SKIP_VERSION_GATE:-0}" != "1" ]; then
+    python3 -c "from atdd.version_check import _gate_main; _gate_main()" 2>&1
+    if [ $? -ne 0 ]; then exit 1; fi
+fi
+
+exit 0
