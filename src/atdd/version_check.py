@@ -6,8 +6,8 @@ Two types of version checks:
 2. Repo sync check - notifies when installed version is newer than repo's last_version
 
 Cache location: ~/.atdd/version_cache.json
-Disable PyPI check: Set ATDD_NO_UPDATE_CHECK=1
-Disable sync reminder: Set ATDD_NO_UPGRADE_NOTICE=1
+Disable PyPI check: CI=true ATDD_NO_UPDATE_CHECK=1 (CI only)
+Disable sync reminder: CI=true ATDD_NO_UPGRADE_NOTICE=1 (CI only)
 """
 import json
 import os
@@ -80,8 +80,8 @@ def check_for_updates() -> Optional[str]:
     Returns:
         Message to display if update available, None otherwise.
     """
-    # Respect disable flag
-    if os.environ.get("ATDD_NO_UPDATE_CHECK", "").lower() in ("1", "true", "yes"):
+    # Respect disable flag (CI only)
+    if os.environ.get("CI") == "true" and os.environ.get("ATDD_NO_UPDATE_CHECK", "").lower() in ("1", "true", "yes"):
         return None
 
     # Skip if running in development (version 0.0.0)
@@ -165,8 +165,8 @@ def check_upgrade_sync_needed() -> Optional[str]:
     Returns:
         Message to display if sync needed, None otherwise.
     """
-    # Respect disable flag
-    if os.environ.get("ATDD_NO_UPGRADE_NOTICE", "").lower() in ("1", "true", "yes"):
+    # Respect disable flag (CI only)
+    if os.environ.get("CI") == "true" and os.environ.get("ATDD_NO_UPGRADE_NOTICE", "").lower() in ("1", "true", "yes"):
         return None
 
     # Skip if running in development

@@ -1,7 +1,6 @@
 #!/bin/sh
 # ATDD pre-commit hook — blocks code commits on main/master.
-# Installed by `atdd init`. Override with ATDD_ALLOW_MAIN_COMMIT=1.
-# Standard bypass: git commit --no-verify
+# Installed by `atdd init`. Bypasses require CI=true.
 
 set -e
 
@@ -14,8 +13,8 @@ case "$BRANCH" in
     *) exit 0 ;;
 esac
 
-# Allow: explicit env bypass (CI version bumps, emergencies)
-if [ "${ATDD_ALLOW_MAIN_COMMIT:-0}" = "1" ]; then
+# Allow: CI-only env bypass
+if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_COMMIT:-0}" = "1" ]; then
     exit 0
 fi
 
@@ -50,8 +49,8 @@ $BLOCKED_FILES
 Create a worktree branch first:
   atdd branch <issue-number>
 
-Or bypass for emergencies:
-  ATDD_ALLOW_MAIN_COMMIT=1 git commit ...
+CI bypass (requires CI=true):
+  CI=true ATDD_ALLOW_MAIN_COMMIT=1 git commit ...
 
 EOF
 exit 1
