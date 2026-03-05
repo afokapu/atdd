@@ -487,8 +487,8 @@ Phase descriptions:
         description=(
             "Enter an existing issue (by number) or create a new one (by slug).\n\n"
             "  atdd issue 126              Enter issue #126 (state-driven)\n"
-            "  atdd issue my-feature       Create new issue (future)\n"
-            "  atdd issue 126 --status RED Transition status (future)\n"
+            "  atdd issue my-feature       Create new issue and enter at INIT\n"
+            "  atdd issue 126 --status RED Transition status\n"
             "  atdd issue open             List open issues\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -502,13 +502,18 @@ Phase descriptions:
     issue_parser.add_argument(
         "--status", "-s",
         type=str,
-        help="Transition issue to this status (future)"
+        help="Transition issue to this status"
     )
     issue_parser.add_argument(
         "--close-wmbt",
         type=str,
         dest="close_wmbt",
-        help="Close a WMBT sub-issue by ID (future)"
+        help="Close a WMBT sub-issue by ID"
+    )
+    issue_parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Bypass gate/body checks (train still enforced)"
     )
     issue_parser.add_argument(
         "--label", "-l",
@@ -525,6 +530,23 @@ Phase descriptions:
         "--assignee",
         type=str,
         help="Filter by assignee (for 'open' target)"
+    )
+    issue_parser.add_argument(
+        "--type", "-t",
+        type=str,
+        default="implementation",
+        choices=["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
+        help="Issue type for creation (default: implementation)"
+    )
+    issue_parser.add_argument(
+        "--train",
+        type=str,
+        help="Train ID to assign on creation"
+    )
+    issue_parser.add_argument(
+        "--archetypes", "-a",
+        type=str,
+        help="Comma-separated archetypes on creation (e.g., be,contracts,wmbt)"
     )
 
     # ----- atdd color [value] -----
@@ -985,13 +1007,35 @@ Phase descriptions:
         try:
             issue_number = int(target)
         except ValueError:
-            # Slug mode — future Phase 3
-            print(f"Error: `atdd issue <slug>` not yet implemented. Use `atdd new {target}` for now.")
-            return 1
+            # Slug mode — create new issue and enter at INIT
+            from atdd.coach.commands.issue_lifecycle import IssueLifecycle
+            lifecycle = IssueLifecycle()
+            return lifecycle.create(
+                slug=target,
+                issue_type=getattr(args, 'type', 'implementation'),
+                train=getattr(args, 'train', None),
+                archetypes=getattr(args, 'archetypes', None),
+            )
 
-        # Enter existing issue
+        # Mutations or enter
         from atdd.coach.commands.issue_lifecycle import IssueLifecycle
         lifecycle = IssueLifecycle()
+
+        if getattr(args, 'status', None):
+            return lifecycle.transition(
+                issue_number,
+                args.status,
+                force=getattr(args, 'force', False),
+            )
+
+        if getattr(args, 'close_wmbt', None):
+            return lifecycle.close_wmbt(
+                issue_number,
+                args.close_wmbt,
+                force=getattr(args, 'force', False),
+            )
+
+        # Default: enter existing issue
         return lifecycle.enter(issue_number)
 
     # atdd color [value]

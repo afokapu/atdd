@@ -3,9 +3,9 @@ Unified issue lifecycle command for ATDD.
 
 Single orchestrator for the entire issue lifecycle:
 - `atdd issue <N>` — enter an existing issue (state-driven behavior)
-- `atdd issue <slug>` — create a new issue (future: Phase 3)
-- `atdd issue <N> --status <STATUS>` — transition status (future: Phase 2)
-- `atdd issue <N> --close-wmbt <ID>` — close WMBT (future: Phase 2)
+- `atdd issue <slug>` — create a new issue and enter at INIT
+- `atdd issue <N> --status <STATUS>` — transition status
+- `atdd issue <N> --close-wmbt <ID>` — close WMBT sub-issue
 
 State-driven behavior for `atdd issue <N>`:
     INIT              → print context only (no branch)
@@ -297,6 +297,121 @@ class IssueLifecycle:
             print("  This issue is BLOCKED. Resolve blockers, then transition back.")
         print("=" * 70)
         print()
+
+    def transition(self, issue_number: int, status: str, force: bool = False) -> int:
+        """Transition an issue to a new status, then re-enter to show updated state.
+
+        Delegates to IssueManager.update() for state machine validation, train
+        enforcement, COMPLETE gates, label swapping, and Project field updates.
+        If status is COMPLETE, also calls IssueManager.archive() to auto-close
+        WMBTs and the parent issue.
+
+        Args:
+            issue_number: GitHub issue number.
+            status: Target status (e.g., PLANNED, RED, GREEN, REFACTOR, COMPLETE).
+            force: Bypass gate/body checks (train still enforced).
+
+        Returns:
+            0 on success, 1 on failure.
+        """
+        from atdd.coach.commands.issue import IssueManager
+
+        manager = IssueManager(self.target_dir)
+        issue_id = str(issue_number)
+
+        rc = manager.update(
+            issue_id=issue_id,
+            status=status,
+            force=force,
+        )
+        if rc != 0:
+            return rc
+
+        # COMPLETE auto-archives: close WMBTs + parent issue
+        if status.upper() == "COMPLETE":
+            arc_rc = manager.archive(issue_id=issue_id)
+            if arc_rc != 0:
+                print(f"Warning: Archive step returned {arc_rc} after COMPLETE transition.")
+
+        # Re-enter to show updated state
+        return self.enter(issue_number)
+
+    def close_wmbt(self, issue_number: int, wmbt_id: str, force: bool = False) -> int:
+        """Close a WMBT sub-issue, then re-enter to show updated state.
+
+        Delegates to IssueManager.close_wmbt() for the actual close logic.
+
+        Args:
+            issue_number: GitHub issue number (parent).
+            wmbt_id: WMBT identifier (e.g., E001, D003).
+            force: Close even if ATDD cycle checkboxes are unchecked.
+
+        Returns:
+            0 on success, 1 on failure.
+        """
+        from atdd.coach.commands.issue import IssueManager
+
+        manager = IssueManager(self.target_dir)
+        issue_id = str(issue_number)
+
+        rc = manager.close_wmbt(
+            issue_id=issue_id,
+            wmbt_id=wmbt_id,
+            force=force,
+        )
+        if rc != 0:
+            return rc
+
+        # Re-enter to show updated state
+        return self.enter(issue_number)
+
+    def create(self, slug: str, issue_type: str = "implementation",
+               train: Optional[str] = None, archetypes: Optional[str] = None) -> int:
+        """Create a new issue and enter it at INIT.
+
+        Delegates to IssueManager.new() for creation (slugify, template rendering,
+        WMBT sub-issues, Project v2 fields, manifest update), then reads manifest
+        to discover the created issue number and enters it.
+
+        Args:
+            slug: Issue name in kebab-case.
+            issue_type: Issue type (implementation, migration, refactor, etc.).
+            train: Optional train ID to assign.
+            archetypes: Optional comma-separated archetypes.
+
+        Returns:
+            0 on success, 1 on failure.
+        """
+        import yaml
+        from atdd.coach.commands.issue import IssueManager
+
+        manager = IssueManager(self.target_dir)
+        rc = manager.new(slug=slug, issue_type=issue_type, train=train, archetypes=archetypes)
+        if rc != 0:
+            return rc
+
+        # Read manifest to find the created issue number by slug
+        manifest_path = self.atdd_config_dir / "manifest.yaml"
+        if not manifest_path.exists():
+            print("Error: manifest.yaml not found after creation.")
+            return 1
+
+        manifest = yaml.safe_load(manifest_path.read_text()) or {}
+        sessions = manifest.get("sessions", [])
+
+        # Find the entry matching our slug (last match in case of duplicates)
+        issue_number = None
+        for entry in reversed(sessions):
+            if entry.get("slug") == slug:
+                issue_number = entry.get("issue_number")
+                break
+
+        if not issue_number:
+            print(f"Error: Could not find issue number for slug '{slug}' in manifest.")
+            return 1
+
+        # Enter the newly created issue at INIT
+        return self.enter(issue_number)
 
     def enter(self, issue_number: int) -> int:
         """Enter an existing issue with state-driven behavior.
