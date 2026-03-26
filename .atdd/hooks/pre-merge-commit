@@ -1,0 +1,24 @@
+#!/bin/sh
+# ATDD pre-merge-commit hook — version gate.
+# Installed by `atdd init`. Bypasses require CI=true.
+
+set -e
+
+# --- Version gate (CI can skip with ATDD_SKIP_VERSION_GATE=1) ---
+if [ "${CI:-}" = "true" ] && [ "${ATDD_SKIP_VERSION_GATE:-0}" = "1" ]; then
+    : # CI bypass
+else
+    python3 -c "
+try:
+    from atdd.version_check import _gate_main
+    _gate_main()
+except ImportError:
+    import sys
+    print('ATDD: version gate requires a newer atdd package.', file=sys.stderr)
+    print('  Run: pip install --upgrade atdd', file=sys.stderr)
+    sys.exit(1)
+" 2>&1
+    if [ $? -ne 0 ]; then exit 1; fi
+fi
+
+exit 0
