@@ -10,17 +10,18 @@
 #   migrated          — plan/contract/URN artifacts created, tests still green (K001)
 
 baseline:
-  date: "2026-03-04"
+  date: "2026-03-27"
   total_tests_collected: 453
+  characterization_tests_added: 12
   pytest_command: "python3 -m pytest src/atdd --co -q"
-  atdd_validate_command: "atdd validate"
+  atdd_validate_command: "atdd validate --local"
 
 # =============================================================================
 # COACH WAGON
 # =============================================================================
 coach:
   tests: { files: 12, functions: 73 }
-  status: not_started
+  status: baseline_locked
 
   cli_commands:
     - id: validate
@@ -33,13 +34,13 @@ coach:
       entry: "src/atdd/cli.py::ATDDCoach.run_inventory"
       impl: "src/atdd/coach/commands/inventory.py::RepositoryInventory"
       options: ["--format {yaml,json}"]
-      status: not_started
+      status: baseline_locked  # E001-020..022
 
     - id: status
       entry: "src/atdd/cli.py::ATDDCoach.show_status"
       impl: "src/atdd/cli.py"  # inline
       options: []
-      status: not_started
+      status: baseline_locked  # E001-030..031
 
     - id: registry-update
       entry: "src/atdd/cli.py::ATDDCoach.update_registries"
@@ -53,35 +54,46 @@ coach:
       options: ["--force", "--worktree-layout"]
       status: not_started
 
+    - id: issue
+      entry: "src/atdd/cli.py"
+      impl: "src/atdd/coach/commands/issue_lifecycle.py::IssueLifecycle"
+      options: ["target", "--status", "--close-wmbt", "--archetypes", "--train", "--type"]
+      status: not_started
+      note: "Unified command replacing new/update/archive/close-wmbt (added in 1.14.0)"
+
     - id: new
       entry: "src/atdd/cli.py"
-      impl: "src/atdd/coach/commands/issue.py::IssueManager.new"
+      impl: "src/atdd/coach/commands/issue_lifecycle.py"
       options: ["slug", "--type", "--train", "--archetypes"]
       status: not_started
+      note: "[DEPRECATED] alias for `atdd issue <slug>`"
 
     - id: list
       entry: "src/atdd/cli.py"
-      impl: "src/atdd/coach/commands/issue.py::IssueManager.list"
+      impl: "src/atdd/coach/commands/issue_lifecycle.py"
       options: []
       status: not_started
 
     - id: update
       entry: "src/atdd/cli.py"
-      impl: "src/atdd/coach/commands/issue.py::IssueManager.update"
-      options: ["session_id", "--status", "--phase", "--branch", "--train", "--feature-urn", "--archetypes", "--complexity", "--force"]
+      impl: "src/atdd/coach/commands/issue_lifecycle.py"
+      options: ["session_id", "--status"]
       status: not_started
+      note: "[DEPRECATED] alias for `atdd issue <N> --status <S>`"
 
     - id: archive
       entry: "src/atdd/cli.py"
-      impl: "src/atdd/coach/commands/issue.py::IssueManager.archive"
+      impl: "src/atdd/coach/commands/issue_lifecycle.py"
       options: ["session_id"]
       status: not_started
+      note: "[DEPRECATED] alias for `atdd issue <N> --status COMPLETE`"
 
     - id: close-wmbt
       entry: "src/atdd/cli.py"
-      impl: "src/atdd/coach/commands/issue.py::IssueManager.close_wmbt"
-      options: ["session_id", "wmbt_id", "--force"]
+      impl: "src/atdd/coach/commands/issue_lifecycle.py"
+      options: ["session_id", "wmbt_id"]
       status: not_started
+      note: "[DEPRECATED] alias for `atdd issue <N> --close-wmbt <ID>`"
 
     - id: branch
       entry: "src/atdd/cli.py"
@@ -105,13 +117,13 @@ coach:
       entry: "src/atdd/cli.py"
       impl: "src/atdd/coach/commands/gate.py::ATDDGate"
       options: ["--json"]
-      status: not_started
+      status: baseline_locked  # E001-010..012
 
     - id: version
       entry: "src/atdd/cli.py"
       impl: "src/atdd/cli.py"  # inline
       options: []
-      status: not_started
+      status: baseline_locked  # E001-001..002
 
     - id: urn-graph
       entry: "src/atdd/cli.py"
@@ -153,7 +165,7 @@ coach:
       entry: "src/atdd/cli.py"
       impl: "src/atdd/coach/commands/urn.py::URNCommand.list_families"
       options: []
-      status: not_started
+      status: baseline_locked  # E001-040
 
     - id: urn-viz
       entry: "src/atdd/cli.py"
@@ -173,6 +185,7 @@ coach:
     - src/atdd/coach/commands/interface.py
     - src/atdd/coach/commands/inventory.py
     - src/atdd/coach/commands/issue.py
+    - src/atdd/coach/commands/issue_lifecycle.py
     - src/atdd/coach/commands/migration.py
     - src/atdd/coach/commands/registry.py
     - src/atdd/coach/commands/sync.py
@@ -326,9 +339,9 @@ templates:
 # TOTALS
 # =============================================================================
 totals:
-  cli_commands: 16             # top-level commands
+  cli_commands: 17             # top-level commands (+ issue unified)
   urn_subcommands: 8           # atdd urn {graph,orphans,...}
-  command_modules: 19          # src/atdd/coach/commands/*.py
+  command_modules: 20          # src/atdd/coach/commands/*.py (+ issue_lifecycle)
   validator_files: 72          # test_*.py across all wagons
   test_functions: 453          # total collected by pytest
   utility_modules: 9           # src/atdd/coach/utils/**/*.py
