@@ -1,0 +1,24 @@
+wagon: verify-contracts
+urn: "wagon:verify-contracts"
+name: "Verify Contracts"
+description: "Defines how to verify the system — contracts, RED tests, and telemetry artifacts"
+theme: commons
+
+subject: "agent:tester"
+context: "in-red-phase, plan-artifacts-available"
+action: "generates failing tests and contract schemas from acceptance criteria"
+goal: "lock expected behavior before implementation begins"
+outcome: "RED tests, JSON Schema contracts, and telemetry signal definitions"
+
+produce:
+  - name: commons:contract:schema
+    contract: null
+    telemetry: null
+    to: external
+
+consume:
+  - name: commons:plan:manifest
+    from: wagon:define-plans
+
+wmbt:
+  total: 0

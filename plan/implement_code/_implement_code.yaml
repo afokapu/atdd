@@ -1,0 +1,26 @@
+wagon: implement-code
+urn: "wagon:implement-code"
+name: "Implement Code"
+description: "Implements code that makes RED tests GREEN, then refactors to clean 4-layer architecture"
+theme: commons
+
+subject: "agent:coder"
+context: "in-green-phase, red-tests-available"
+action: "writes minimal code to pass tests then refactors to 4-layer architecture"
+goal: "deliver working, well-architected implementation"
+outcome: "GREEN tests passing with domain-application-integration-presentation layers"
+
+produce:
+  - name: commons:code:implementation
+    contract: null
+    telemetry: null
+    to: external
+
+consume:
+  - name: commons:plan:manifest
+    from: wagon:define-plans
+  - name: commons:contract:schema
+    from: wagon:verify-contracts
+
+wmbt:
+  total: 0

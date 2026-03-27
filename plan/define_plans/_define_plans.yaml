@@ -1,0 +1,22 @@
+wagon: define-plans
+urn: "wagon:define-plans"
+name: "Define Plans"
+description: "Defines what must be built — wagons, features, acceptance criteria, and trains"
+theme: commons
+
+subject: "agent:planner"
+context: "in-design-phase, no-implementation-yet"
+action: "creates plan artifacts from requirements"
+goal: "establish traceable specifications before any code is written"
+outcome: "wagon manifests, feature YAMLs, WMBTs, and train definitions"
+
+produce:
+  - name: commons:plan:manifest
+    contract: null
+    telemetry: null
+    to: external
+
+consume: []
+
+wmbt:
+  total: 0

@@ -1,0 +1,28 @@
+wagon: govern-lifecycle
+urn: "wagon:govern-lifecycle"
+name: "Govern Lifecycle"
+description: "Orchestrates ATDD lifecycle, manages GitHub issues, validates phase transitions, maintains registries"
+theme: commons
+
+subject: "agent:coach"
+context: "in-atdd-lifecycle, phases-require-gates"
+action: "validates compliance and orchestrates phase transitions"
+goal: "ensure all agents follow ATDD conventions and quality gates"
+outcome: "audit-passing repository with traceable plan-test-code graph"
+
+produce:
+  - name: commons:compliance:audit
+    contract: null
+    telemetry: null
+    to: external
+
+consume:
+  - name: commons:plan:manifest
+    from: wagon:define-plans
+  - name: commons:contract:schema
+    from: wagon:verify-contracts
+  - name: commons:code:implementation
+    from: wagon:implement-code
+
+wmbt:
+  total: 0
