@@ -1,0 +1,34 @@
+urn: "feature:self-compliance-migration:bootstrap-compliance"
+wagon: "wagon:self-compliance-migration"
+description: "Bootstrap ATDD plan artifacts, characterization tests, contracts, and URN traceability for the toolkit itself"
+sizing:
+  wmbts: 8
+  footprint_score: 12
+  footprint_size: "L"
+wmbts:
+  - "wmbt:self-compliance-migration:C001"
+  - "wmbt:self-compliance-migration:D001"
+  - "wmbt:self-compliance-migration:D002"
+  - "wmbt:self-compliance-migration:E001"
+  - "wmbt:self-compliance-migration:E002"
+  - "wmbt:self-compliance-migration:P001"
+  - "wmbt:self-compliance-migration:R001"
+  - "wmbt:self-compliance-migration:K001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI commands — migration uses existing atdd commands"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No new use cases — migration creates plan artifacts only"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain entities — existing validators cover all logic"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "No new persistence — artifacts are YAML/JSON files on disk"
