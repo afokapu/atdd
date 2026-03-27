@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:compliance:inventory",
+  "title": "CommonsComplianceInventory",
+  "description": "Repository inventory output — catalogs all ATDD artifacts",
+  "version": "1.0.0",
+  "type": "object",
+  "x-artifact-metadata": {
+    "domain": "commons",
+    "resource": "compliance",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:govern-lifecycle",
+    "consumers": [],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/cli/inventory",
+          "description": "Return repository inventory as JSON",
+          "responses": {
+            "200": { "description": "Inventory data", "schema": "$ref: #" }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/govern_lifecycle/_govern_lifecycle.yaml",
+      "feature_refs": ["feature:self-compliance-migration:bootstrap-compliance"]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  },
+  "properties": {
+    "inventory": {
+      "type": "object",
+      "description": "Top-level inventory wrapper",
+      "properties": {
+        "generated_at": { "type": "string", "format": "date-time" },
+        "repository": { "type": "string" },
+        "platform": {
+          "type": "object",
+          "properties": { "total": { "type": "integer" } },
+          "required": ["total"]
+        },
+        "trains": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "by_theme": { "type": "object" },
+            "train_ids": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["total"]
+        },
+        "wagons": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "active": { "type": "integer" },
+            "draft": { "type": "integer" }
+          },
+          "required": ["total"]
+        },
+        "tests": {
+          "type": "object",
+          "properties": {
+            "total_files": { "type": "integer" },
+            "total_cases": { "type": "integer" }
+          },
+          "required": ["total_files"]
+        },
+        "implementations": {
+          "type": "object",
+          "properties": { "total": { "type": "integer" } },
+          "required": ["total"]
+        }
+      },
+      "required": ["generated_at", "repository", "trains", "wagons", "tests", "implementations"]
+    }
+  },
+  "required": ["inventory"],
+  "additionalProperties": false
+}

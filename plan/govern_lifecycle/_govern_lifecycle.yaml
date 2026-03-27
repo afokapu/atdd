@@ -11,8 +11,12 @@ goal: "ensure all agents follow ATDD conventions and quality gates"
 outcome: "audit-passing repository with traceable plan-test-code graph"
 
 produce:
-  - name: commons:compliance:audit
-    contract: null
+  - name: commons:compliance:gate
+    contract: "contract:commons:compliance:gate"
+    telemetry: null
+    to: external
+  - name: commons:compliance:inventory
+    contract: "contract:commons:compliance:inventory"
     telemetry: null
     to: external
 
