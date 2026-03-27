@@ -1,0 +1,8 @@
+urn: "wmbt:self-compliance-migration:E001"
+step: "execute"
+direction: "maximize"
+dimension: "quantity"
+object_of_control: "cli-characterization-test-coverage"
+context_clarifier: "when CLI entrypoint behavior must be locked against regression"
+lens: "functional.sustainability"
+statement: "maximize quantity of cli-characterization-test-coverage when CLI entrypoint behavior must be locked against regression"

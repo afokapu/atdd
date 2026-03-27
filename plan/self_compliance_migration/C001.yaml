@@ -1,0 +1,8 @@
+urn: "wmbt:self-compliance-migration:C001"
+step: "confirm"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "baseline-test-integrity"
+context_clarifier: "when existing 453 tests must all pass before migration begins"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of baseline-test-integrity when existing 453 tests must all pass before migration begins"

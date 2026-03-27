@@ -1,0 +1,30 @@
+wagon: self-compliance-migration
+urn: "wagon:self-compliance-migration"
+name: "Self Compliance Migration"
+description: "Bootstrap ATDD plan artifacts, contracts, and URN traceability for the toolkit itself"
+theme: commons
+
+subject: "toolkit:self"
+context: "in-migration, no-plan-artifacts-exist"
+action: "creates plan, contract, and traceability artifacts for existing code"
+goal: "prove the toolkit can validate itself under its own conventions"
+outcome: "full URN chain from plan to test to code for all four agent wagons"
+
+produce:
+  - name: commons:compliance:inventory
+    contract: null
+    telemetry: null
+    to: internal
+
+consume: []
+
+wmbt:
+  total: 8
+  C001: "Confirm all existing tests pass (baseline lock)"
+  D001: "Define wagon manifests for coach, planner, tester, coder"
+  D002: "Define feature YAMLs with WMBTs for each wagon"
+  E001: "Write characterization tests locking CLI and validator entrypoint behavior"
+  E002: "Define JSON Schema contracts for machine-readable CLI outputs and validator envelopes"
+  P001: "Define validate lifecycle train"
+  R001: "Wire URN traceability across plan, test, code"
+  K001: "Both atdd validate and local pytest pass on the toolkit itself"

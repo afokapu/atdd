@@ -1,0 +1,8 @@
+urn: "wmbt:self-compliance-migration:D001"
+step: "define"
+direction: "maximize"
+dimension: "quantity"
+object_of_control: "wagon-manifest-coverage"
+context_clarifier: "when all four agent modules need plan artifacts"
+lens: "functional.effectiveness"
+statement: "maximize quantity of wagon-manifest-coverage when all four agent modules need plan artifacts"

@@ -1,0 +1,8 @@
+urn: "wmbt:self-compliance-migration:K001"
+step: "conclude"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "dual-gate-compliance"
+context_clarifier: "when both atdd validate and local pytest must pass on the toolkit"
+lens: "functional.sustainability"
+statement: "maximize likelihood of dual-gate-compliance when both atdd validate and local pytest must pass on the toolkit"

@@ -1,0 +1,21 @@
+train_id: "0001-self-compliance-validate"
+title: "Self Compliance Validate"
+description: "Validate lifecycle train for the ATDD toolkit self-compliance migration"
+themes:
+  - commons
+primary_wagon: self-compliance-migration
+participants:
+  - "wagon:self-compliance-migration"
+  - "system:atdd-cli"
+sequence:
+  - step: 1
+    intent: "Lock baseline test counts and validate existing suite"
+    from: "system:atdd-cli"
+    to: "wagon:self-compliance-migration"
+    artifact: "commons:compliance:inventory"
+  - step: 2
+    intent: "Write characterization tests for CLI entrypoints"
+    from: "wagon:self-compliance-migration"
+    to: "system:atdd-cli"
+    artifact: "commons:compliance:inventory"
+status: planned

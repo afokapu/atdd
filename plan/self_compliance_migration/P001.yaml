@@ -1,0 +1,8 @@
+urn: "wmbt:self-compliance-migration:P001"
+step: "prepare"
+direction: "minimize"
+dimension: "effort"
+object_of_control: "train-definition-gaps"
+context_clarifier: "when validate lifecycle needs a train definition"
+lens: "functional.effectiveness"
+statement: "minimize effort of train-definition-gaps when validate lifecycle needs a train definition"

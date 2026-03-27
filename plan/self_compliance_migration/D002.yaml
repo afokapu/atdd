@@ -1,0 +1,8 @@
+urn: "wmbt:self-compliance-migration:D002"
+step: "define"
+direction: "maximize"
+dimension: "quantity"
+object_of_control: "feature-wmbt-coverage"
+context_clarifier: "when each wagon needs feature YAMLs with acceptance criteria"
+lens: "functional.effectiveness"
+statement: "maximize quantity of feature-wmbt-coverage when each wagon needs feature YAMLs with acceptance criteria"

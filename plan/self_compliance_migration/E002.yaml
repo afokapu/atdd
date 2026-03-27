@@ -1,0 +1,8 @@
+urn: "wmbt:self-compliance-migration:E002"
+step: "execute"
+direction: "maximize"
+dimension: "quantity"
+object_of_control: "contract-schema-coverage"
+context_clarifier: "when machine-readable CLI outputs need JSON Schema contracts"
+lens: "functional.effectiveness"
+statement: "maximize quantity of contract-schema-coverage when machine-readable CLI outputs need JSON Schema contracts"

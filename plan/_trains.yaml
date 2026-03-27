@@ -1,0 +1,8 @@
+trains:
+  0-commons:
+    00-commons-nominal:
+      - train_id: "0001-self-compliance-validate"
+        title: "Self Compliance Validate"
+        path: "plan/_trains/0001-self-compliance-validate.yaml"
+        wagons:
+          - self-compliance-migration

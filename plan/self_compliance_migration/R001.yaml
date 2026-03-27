@@ -1,0 +1,8 @@
+urn: "wmbt:self-compliance-migration:R001"
+step: "resolve"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "urn-traceability-orphans"
+context_clarifier: "when plan-test-code references must form a connected graph"
+lens: "functional.effectiveness"
+statement: "minimize quantity of urn-traceability-orphans when plan-test-code references must form a connected graph"
