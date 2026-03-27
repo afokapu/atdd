@@ -1,21 +1,35 @@
 train_id: "0001-self-compliance-validate"
 title: "Self Compliance Validate"
-description: "Validate lifecycle train for the ATDD toolkit self-compliance migration"
+description: "Validate lifecycle train: planner defines plans, tester verifies contracts, coder implements, coach governs"
 themes:
   - commons
-primary_wagon: self-compliance-migration
+primary_wagon: govern-lifecycle
 participants:
+  - "wagon:define-plans"
+  - "wagon:verify-contracts"
+  - "wagon:implement-code"
+  - "wagon:govern-lifecycle"
   - "wagon:self-compliance-migration"
   - "system:atdd-cli"
 sequence:
   - step: 1
-    intent: "Lock baseline test counts and validate existing suite"
-    from: "system:atdd-cli"
+    intent: "Define wagon manifests, features, and acceptance criteria"
+    from: "wagon:define-plans"
     to: "wagon:self-compliance-migration"
-    artifact: "commons:compliance:inventory"
+    artifact: "commons:plan:manifest"
   - step: 2
-    intent: "Write characterization tests for CLI entrypoints"
-    from: "wagon:self-compliance-migration"
+    intent: "Generate contract schemas and RED tests from acceptance criteria"
+    from: "wagon:verify-contracts"
+    to: "wagon:self-compliance-migration"
+    artifact: "commons:contract:schema"
+  - step: 3
+    intent: "Implement code to make RED tests GREEN"
+    from: "wagon:implement-code"
+    to: "wagon:self-compliance-migration"
+    artifact: "commons:code:implementation"
+  - step: 4
+    intent: "Validate compliance across all phases and produce audit report"
+    from: "wagon:govern-lifecycle"
     to: "system:atdd-cli"
-    artifact: "commons:compliance:inventory"
+    artifact: "commons:compliance:gate"
 status: planned

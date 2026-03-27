@@ -5,4 +5,8 @@ trains:
         title: "Self Compliance Validate"
         path: "plan/_trains/0001-self-compliance-validate.yaml"
         wagons:
+          - define-plans
+          - verify-contracts
+          - implement-code
+          - govern-lifecycle
           - self-compliance-migration
