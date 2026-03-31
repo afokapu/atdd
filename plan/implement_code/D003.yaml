@@ -1,0 +1,56 @@
+urn: "wmbt:implement-code:D003"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "n-plus-one-query-detection"
+context_clarifier: "when loop bodies contain database client calls"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of n-plus-one-query-detection when loop bodies contain database client calls"
+acceptances:
+  - identity:
+      urn: "acc:implement-code:D003-UNIT-001-detects-loop-db-calls"
+      id: "AC-UNIT-001"
+      purpose: "AST analysis detects DB client calls inside for/while/async for loops"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Python source files in python/ and src/ directories"
+    when:
+      abstract: "Running atdd validate coder (test_query_count.py)"
+    then:
+      abstract:
+        - "All DB client calls inside loop bodies are flagged as N+1 risks"
+        - "Violations report file path, line number, function name, and call pattern"
+    signal:
+      metric: "n_plus_one_violations"
+      threshold: 0
+    metadata:
+      author: "atdd:implement-code"
+      created: "2026-03-31"
+
+  - identity:
+      urn: "acc:implement-code:D003-UNIT-002-no-false-positives"
+      id: "AC-UNIT-002"
+      purpose: "No false positives on existing clean codebase"
+      phase: "SMOKE"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Current codebase with no known N+1 query patterns"
+    when:
+      abstract: "Running atdd validate coder (test_query_count.py)"
+    then:
+      abstract:
+        - "Zero violations reported"
+        - "Test files are excluded from scanning"
+    signal:
+      metric: "false_positive_count"
+      threshold: 0
+    metadata:
+      author: "atdd:implement-code"
+      created: "2026-03-31"

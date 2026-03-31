@@ -10,6 +10,9 @@ action: "writes minimal code to pass tests then refactors to 4-layer architectur
 goal: "deliver working, well-architected implementation"
 outcome: "GREEN tests passing with domain-application-integration-presentation layers"
 
+features:
+  - urn: "feature:implement-code:n-plus-one-detection"
+
 produce:
   - name: commons:code:implementation
     contract: null
@@ -23,4 +26,5 @@ consume:
     from: wagon:verify-contracts
 
 wmbt:
-  total: 0
+  total: 1
+  D003: "Detect N+1 query patterns via AST analysis of loop bodies"
