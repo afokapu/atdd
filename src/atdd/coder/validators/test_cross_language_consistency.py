@@ -22,7 +22,8 @@ from atdd.coach.utils.repo import find_repo_root
 
 # Path constants
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+_python_dir = REPO_ROOT / "python"
+PYTHON_DIR = _python_dir if _python_dir.exists() else REPO_ROOT / "src"
 LIB_DIR = REPO_ROOT / "lib"
 SUPABASE_DIR = REPO_ROOT / "supabase"
 CONTRACTS_DIR = REPO_ROOT / "contracts"
@@ -245,26 +246,29 @@ def test_entity_classes_exist_across_languages():
         # Normalize name (PascalCase)
         normalized = ''.join(word.capitalize() for word in entity_name.split('_'))
 
-        # Check Python
-        has_python = normalized in python_classes or entity_name in python_classes
+        # Check Python (exact or substring match for CLI contracts like ATDDGate)
+        has_python = (
+            normalized in python_classes or entity_name in python_classes or
+            any(normalized in cls for cls in python_classes)
+        )
         # Check Dart
-        has_dart = normalized in dart_classes or entity_name in dart_classes
+        has_dart = (
+            normalized in dart_classes or entity_name in dart_classes or
+            any(normalized in cls for cls in dart_classes)
+        )
 
-        if not has_python and not has_dart:
+        # Only report missing for languages that exist in the repo
+        missing_langs = []
+        if python_classes and not has_python:
+            missing_langs.append("Python")
+        if dart_classes and not has_dart:
+            missing_langs.append("Dart")
+
+        if missing_langs:
             missing_implementations.append(
                 f"Contract entity: {entity_name}\\n"
                 f"  Fields: {', '.join(list(fields)[:5])}\\n"
-                f"  Missing in: Python AND Dart"
-            )
-        elif not has_python:
-            missing_implementations.append(
-                f"Contract entity: {entity_name}\\n"
-                f"  Missing in: Python"
-            )
-        elif not has_dart:
-            missing_implementations.append(
-                f"Contract entity: {entity_name}\\n"
-                f"  Missing in: Dart"
+                f"  Missing in: {' AND '.join(missing_langs)}"
             )
 
     if missing_implementations:
@@ -415,7 +419,9 @@ def test_api_contracts_honored_across_languages():
             normalized in python_classes or
             entity_name in python_classes or
             normalized in dart_classes or
-            entity_name in dart_classes
+            entity_name in dart_classes or
+            any(normalized in cls for cls in python_classes) or
+            any(normalized in cls for cls in dart_classes)
         )
 
         if not has_any_impl:
