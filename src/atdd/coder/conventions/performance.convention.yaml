@@ -1,0 +1,93 @@
+schema_version: "1.0.0"
+convention_id: "coder.performance"
+name: "Performance Convention"
+description: |
+  Static analysis rules for detecting common performance anti-patterns
+  in application code, starting with N+1 query detection.
+
+rationale: |
+  N+1 query patterns are a common cause of performance degradation.
+  They occur when code executes one query per item in a loop instead
+  of batching. Static AST analysis catches these at development time.
+
+cross_references:
+  architectural_rules:
+    - file: "backend.convention.yaml"
+      section: "integration.repositories"
+      note: "Repository pattern should expose batch methods to avoid N+1"
+    - file: "boundaries.convention.yaml"
+      section: "namespacing"
+      note: "Qualified imports help trace which calls are DB-bound"
+
+performance:
+  rules:
+    - id: "PERF-001"
+      name: "No DB calls inside loops"
+      severity: "error"
+      description: |
+        Database client calls (repository methods, direct DB calls, HTTP-to-DB proxies)
+        MUST NOT appear inside for/while/async for loop bodies or comprehensions.
+      detection: "static-ast"
+      threshold: 0
+      suppression: "# noqa: N+1"
+      patterns:
+        repository_methods:
+          - "execute"
+          - "executemany"
+          - "fetch"
+          - "fetchone"
+          - "fetchall"
+          - "fetchrow"
+          - "fetchval"
+          - "find"
+          - "find_one"
+          - "find_many"
+          - "insert"
+          - "insert_one"
+          - "insert_many"
+          - "update_one"
+          - "update_many"
+          - "delete_one"
+          - "delete_many"
+          - "upsert"
+          - "save"
+          - "aggregate"
+        supabase_chain_starters:
+          - "table"
+          - "from_"
+          - "rpc"
+        direct_db:
+          - "cursor"
+          - "mogrify"
+        http_as_db_proxy:
+          modules: ["requests", "httpx", "aiohttp"]
+          methods: ["get", "post", "put", "patch", "delete"]
+      fix: "Refactor to batch queries outside the loop using bulk/batch repository methods"
+      examples:
+        bad: |
+          for item in items:
+              result = self.repo.find_one(item.id)  # N+1!
+        good: |
+          results = self.repo.find_many([item.id for item in items])  # O(1)
+          for item, result in zip(items, results):
+              ...
+
+  validators:
+    - location: "atdd/coder/validators/test_query_count.py"
+      test: "test_no_db_calls_inside_loops"
+      spec_id: "SPEC-CODER-PERF-0001"
+      marker: "coder"
+
+  excluded_paths:
+    - "test/"
+    - "tests/"
+    - "__pycache__/"
+    - "migrations/"
+
+  future_rules:
+    - id: "PERF-002"
+      name: "No synchronous I/O in async functions"
+      status: "planned"
+    - id: "PERF-003"
+      name: "No unbounded result sets"
+      status: "planned"
