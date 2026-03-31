@@ -53,6 +53,7 @@ from atdd.coach.commands.issue import IssueManager
 from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.commands.gate import ATDDGate
 from atdd.coach.commands.urn import URNCommand
+from atdd.coach.commands.upgrader import Upgrader
 from atdd.coach.utils.repo import find_repo_root
 from atdd.version_check import print_update_notice, print_upgrade_sync_notice
 
@@ -600,6 +601,18 @@ Phase descriptions:
         help="Output as JSON for programmatic use"
     )
 
+    # ----- atdd upgrade -----
+    upgrade_parser = subparsers.add_parser(
+        "upgrade",
+        help="Show what changed and run sync + init --force",
+        description="Upgrade ATDD infrastructure after pip install --upgrade atdd"
+    )
+    upgrade_parser.add_argument(
+        "--yes", "-y",
+        action="store_true",
+        help="Skip confirmation prompts"
+    )
+
     # ----- atdd urn {graph,orphans,broken,validate,resolve,declarations,viz} -----
     urn_parser = subparsers.add_parser(
         "urn",
@@ -1080,6 +1093,10 @@ Phase descriptions:
         gate = ATDDGate()
         return gate.verify(json=args.json)
 
+    elif args.command == "upgrade":
+        upgrader = Upgrader()
+        return upgrader.run(yes=args.yes)
+
     # atdd urn {graph,orphans,broken,validate,resolve,declarations,families,viz}
     elif args.command == "urn":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
@@ -1184,7 +1201,9 @@ Phase descriptions:
 def cli() -> int:
     """CLI entry point with version and upgrade checks."""
     # Check if repo needs sync after ATDD upgrade (at startup)
-    print_upgrade_sync_notice()
+    # Skip if running 'atdd upgrade' — it handles its own messaging
+    if not (len(sys.argv) > 1 and sys.argv[1] == "upgrade"):
+        print_upgrade_sync_notice()
 
     try:
         result = main()

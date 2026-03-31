@@ -22,6 +22,18 @@ import yaml
 
 from atdd import __version__
 
+# Version-specific upgrade notes shown to consumers after upgrade.
+# Key = version, value = short human-readable note.
+# Only versions with notable changes need entries.
+UPGRADE_NOTES: dict = {
+    "1.15.0": "SMOKE phase added between GREEN and REFACTOR",
+    "1.16.0": "Self-compliance: toolkit validates itself. New: find_python_dir(), substring class matching",
+    "1.16.1": "New: init.skip_workflows config flag prevents workflow overwrite",
+    "1.16.2": "Fixed: contract path-to-URN conversion, WMBT acceptances, 14 Phase 2 warnings resolved",
+    "1.16.3": "Fixed: kebab-case contract $id now normalizes correctly to PascalCase",
+    "1.16.4": "New: publish workflow auto-generates GitHub Release notes. Run atdd init --force to update consumer workflow",
+}
+
 # Check once per day (86400 seconds)
 CHECK_INTERVAL = 86400
 CACHE_DIR = Path.home() / ".atdd"
@@ -186,9 +198,29 @@ def check_upgrade_sync_needed() -> Optional[str]:
 
     # Compare versions
     if _is_newer(__version__, last_version):
-        return f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync && atdd init --force"
+        notes = get_upgrade_notes(last_version, __version__)
+        msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync && atdd init --force"
+        if notes:
+            msg += "\n" + "\n".join(f"  → {v}: {note}" for v, note in notes)
+        return msg
 
     return None
+
+
+def get_upgrade_notes(from_version: str, to_version: str) -> list:
+    """Get upgrade notes for versions between from_version and to_version.
+
+    Returns:
+        List of (version, note) tuples for versions in range.
+    """
+    from_tuple = _parse_version(from_version)
+    to_tuple = _parse_version(to_version)
+    notes = []
+    for version, note in sorted(UPGRADE_NOTES.items(), key=lambda x: _parse_version(x[0])):
+        v_tuple = _parse_version(version)
+        if from_tuple < v_tuple <= to_tuple:
+            notes.append((version, note))
+    return notes
 
 
 def update_toolkit_version(config_path: Optional[Path] = None) -> bool:
