@@ -1,0 +1,57 @@
+urn: "wmbt:implement-code:D004"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "intra-layer-code-duplication"
+context_clarifier: "when structurally identical fragments exist across files in the same layer"
+lens: "functional.sustainability"
+statement: "minimize quantity of intra-layer-code-duplication when structurally identical fragments exist across files in the same layer"
+acceptances:
+  - identity:
+      urn: "acc:implement-code:D004-UNIT-001-detect-duplicates"
+      id: "AC-UNIT-001"
+      purpose: "AST subtree hashing detects duplicate fragments across files in the same layer"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Python source files in python/ grouped by architectural layer"
+    when:
+      abstract: "Running atdd validate coder (test_duplication_detector.py)"
+    then:
+      abstract:
+        - "Structurally identical fragments (>=5 statements) across different files flagged"
+        - "Variable names and literals normalized (renamed copies still caught)"
+        - "Only intra-layer comparisons (cross-layer duplication ignored)"
+    signal:
+      metric: "duplicate_fragment_count"
+      threshold: 0
+    metadata:
+      author: "atdd:implement-code"
+      created: "2026-03-31"
+
+  - identity:
+      urn: "acc:implement-code:D004-UNIT-002-convention-compliance"
+      id: "AC-UNIT-002"
+      purpose: "duplication.convention.yaml exists with required configuration"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Convention file at src/atdd/coder/conventions/duplication.convention.yaml"
+    when:
+      abstract: "Loading and parsing the convention YAML"
+    then:
+      abstract:
+        - "Convention defines intra_layer_duplication rule"
+        - "Rule specifies min_fragment_statements, layers, exclusions"
+    signal:
+      metric: "convention_fields_present"
+      threshold: 3
+    metadata:
+      author: "atdd:implement-code"
+      created: "2026-03-31"

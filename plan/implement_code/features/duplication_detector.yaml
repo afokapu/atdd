@@ -1,0 +1,27 @@
+urn: "feature:implement-code:duplication-detector"
+wagon: "wagon:implement-code"
+description: "Intra-layer code duplication detection via AST subtree hashing"
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:implement-code:D004"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No CLI changes — plugs into existing atdd validate coder"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "Self-contained validator, no orchestration needed"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Pure AST analysis, no domain entities"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "No persistence — reads source files directly"

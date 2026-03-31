@@ -13,6 +13,7 @@ outcome: "GREEN tests passing with domain-application-integration-presentation l
 features:
   - urn: "feature:implement-code:n-plus-one-detection"
   - urn: "feature:implement-code:dead-code-validator"
+  - urn: "feature:implement-code:duplication-detector"
 
 produce:
   - name: commons:code:implementation
@@ -27,9 +28,10 @@ consume:
     from: wagon:verify-contracts
 
 wmbt:
-  total: 5
+  total: 6
   D001: "minimize unreachable Python definitions via AST analysis"
   D002: "minimize false-positive dead-code reports for roots and re-exports"
   D003: "Detect N+1 query patterns via AST analysis of loop bodies"
+  D004: "minimize intra-layer code duplication via AST subtree hashing"
   E001: "maximize import-graph reachability analysis effectiveness"
   C001: "maximize convention compliance via dead-code.convention.yaml"

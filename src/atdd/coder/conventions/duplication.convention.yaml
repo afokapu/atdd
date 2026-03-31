@@ -1,0 +1,44 @@
+version: "1.0"
+convention_id: "coder.duplication"
+name: "Intra-Layer Code Duplication Convention"
+description: |
+  Detects copy-paste duplication within the same architectural layer using
+  AST subtree hashing.  Only flags structurally identical fragments that
+  exceed a minimum size threshold, within files classified to the same layer.
+
+duplication:
+  rules:
+    # ------------------------------------------------------------------
+    # SPEC-CODER-DUP-0001: Intra-layer structural duplication
+    # ------------------------------------------------------------------
+    intra_layer_duplication:
+      id: "SPEC-CODER-DUP-0001"
+      description: "No structurally identical code fragments within the same architectural layer"
+      severity: warning
+      language: python
+      detection: ast
+
+      # Minimum number of AST statements in a fragment to consider
+      min_fragment_statements: 5
+
+      # Similarity threshold (1.0 = exact structural match only)
+      similarity_threshold: 1.0
+
+      # Layers to check (must match determine_layer_from_path output)
+      layers:
+        - domain
+        - application
+        - presentation
+        - integration
+
+      # Directories to scan
+      scan_dirs:
+        - "python/"
+
+      exclusions:
+        - "**/tests/**"
+        - "**/test_*.py"
+        - "**/conftest.py"
+        - "**/__init__.py"
+        - "**/__pycache__/**"
+        - "**/migrations/**"
