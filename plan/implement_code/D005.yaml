@@ -1,0 +1,33 @@
+urn: "wmbt:implement-code:D005"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "intra-layer-typescript-duplication"
+context_clarifier: "when structurally identical TypeScript fragments exist across files in the same layer"
+lens: "functional.sustainability"
+statement: "minimize quantity of intra-layer-typescript-duplication when structurally identical TypeScript fragments exist across files in the same layer"
+acceptances:
+  - identity:
+      urn: "acc:implement-code:D005-UNIT-001-detect-ts-duplicates"
+      id: "AC-UNIT-001"
+      purpose: "Regex-based structural normalization detects duplicate TypeScript fragments across files in the same layer"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "frontend"
+    given:
+      abstract:
+        - "TypeScript files in web/src/ grouped by architectural layer"
+    when:
+      abstract: "Running atdd validate coder (test_duplication_detector_typescript.py)"
+    then:
+      abstract:
+        - "Structurally identical fragments (>=7 normalized lines) across different files flagged"
+        - "Identifiers and literals normalized (renamed copies still caught)"
+        - "Only intra-layer comparisons (cross-layer duplication ignored)"
+    signal:
+      metric: "ts_duplicate_fragment_count"
+      threshold: 0
+    metadata:
+      author: "atdd:implement-code"
+      created: "2026-04-01"

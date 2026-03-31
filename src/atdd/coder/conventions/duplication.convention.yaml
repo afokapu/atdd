@@ -2,9 +2,10 @@ version: "1.0"
 convention_id: "coder.duplication"
 name: "Intra-Layer Code Duplication Convention"
 description: |
-  Detects copy-paste duplication within the same architectural layer using
-  AST subtree hashing.  Only flags structurally identical fragments that
-  exceed a minimum size threshold, within files classified to the same layer.
+  Detects copy-paste duplication within the same architectural layer.
+  Python: AST subtree hashing.  TypeScript: regex-based structural normalization.
+  Only flags structurally identical fragments that exceed a minimum size threshold,
+  within files classified to the same layer.
 
 duplication:
   rules:
@@ -45,3 +46,36 @@ duplication:
         - "**/migrations/**"
         - "**/validators/**"
         - "**/templates/**"
+
+    # ------------------------------------------------------------------
+    # SPEC-CODER-DUP-0002: TypeScript intra-layer structural duplication
+    # ------------------------------------------------------------------
+    intra_layer_duplication_typescript:
+      id: "SPEC-CODER-DUP-0002"
+      description: "No structurally identical TypeScript fragments within the same architectural layer"
+      severity: warning
+      language: typescript
+      detection: regex
+
+      # Minimum number of non-trivial normalized lines in a fragment
+      min_fragment_lines: 7
+
+      # Layers to check
+      layers:
+        - domain
+        - application
+        - presentation
+        - integration
+
+      # Directories to scan
+      scan_dirs:
+        - "web/src/"
+
+      exclusions:
+        - "**/*.test.ts"
+        - "**/*.test.tsx"
+        - "**/*.spec.ts"
+        - "**/*.spec.tsx"
+        - "**/*.d.ts"
+        - "**/node_modules/**"
+        - "**/index.ts"
