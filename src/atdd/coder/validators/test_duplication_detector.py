@@ -301,7 +301,7 @@ def test_no_intra_layer_duplication():
     the same architectural layer.  Variable names and literals are normalized
     so renamed copies are still caught.
 
-    Given: Python files in python/ grouped by architectural layer
+    Given: Python files in configured scan_dirs grouped by architectural layer
     When: Extracting statement fragments and comparing hashes within each layer
     Then: No duplicate fragments found across different files
 
@@ -311,10 +311,13 @@ def test_no_intra_layer_duplication():
     rule = convention.get("rules", {}).get("intra_layer_duplication", {})
     min_stmts = rule.get("min_fragment_statements", 5)
     exclusions = rule.get("exclusions", [])
+    scan_dirs = rule.get("scan_dirs", ["python/"])
 
-    files = _collect_python_files(PYTHON_DIR, exclusions)
+    files: List[Path] = []
+    for rel_dir in scan_dirs:
+        files.extend(_collect_python_files(REPO_ROOT / rel_dir, exclusions))
     if not files:
-        pytest.skip("No Python files found in python/ to validate")
+        pytest.skip("No Python files found in scan_dirs to validate")
 
     # Group files by layer
     files_by_layer: Dict[str, List[Path]] = {}

@@ -31,9 +31,10 @@ duplication:
         - presentation
         - integration
 
-      # Directories to scan
+      # Directories to scan (relative to repo root)
       scan_dirs:
         - "python/"
+        - "src/atdd/"
 
       exclusions:
         - "**/tests/**"
@@ -42,3 +43,5 @@ duplication:
         - "**/__init__.py"
         - "**/__pycache__/**"
         - "**/migrations/**"
+        - "**/validators/**"
+        - "**/templates/**"
