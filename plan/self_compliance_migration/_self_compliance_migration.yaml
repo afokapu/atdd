@@ -12,7 +12,7 @@ outcome: "full URN chain from plan to test to code for all four agent wagons"
 
 produce:
   - name: commons:compliance:inventory
-    contract: "contract:commons:compliance:inventory"
+    contract: null
     telemetry: null
     to: internal
 
