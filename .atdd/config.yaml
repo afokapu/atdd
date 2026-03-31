@@ -5,8 +5,10 @@ release:
 sync:
   agents:
   - claude
+init:
+  skip_workflows: true
 toolkit:
-  last_version: 1.15.0
+  last_version: 1.16.0
 github:
   repo: afokapu/atdd
   project_number: 1

@@ -47,6 +47,18 @@
       },
       "additionalProperties": false
     },
+    "init": {
+      "type": "object",
+      "description": "Settings for atdd init behavior",
+      "properties": {
+        "skip_workflows": {
+          "type": "boolean",
+          "description": "Skip generating CI workflow files during atdd init. Use for repos that maintain their own workflows (e.g., the atdd toolkit itself).",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
     "toolkit": {
       "type": "object",
       "description": "ATDD toolkit metadata",

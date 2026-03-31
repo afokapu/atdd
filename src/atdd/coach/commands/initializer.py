@@ -594,9 +594,22 @@ class ProjectInitializer:
         if project_id:
             fields_created = self._create_project_fields(project_id)
 
-        # Write workflow files
-        workflow_written = self._write_workflow(repo)
-        publish_written = self._write_publish_workflow()
+        # Write workflow files (skip if config says so)
+        skip_workflows = False
+        if self.config_file.exists():
+            try:
+                cfg = yaml.safe_load(self.config_file.read_text()) or {}
+                skip_workflows = cfg.get("init", {}).get("skip_workflows", False)
+            except (yaml.YAMLError, OSError):
+                pass
+
+        if skip_workflows:
+            print("Workflows: skipped (init.skip_workflows=true in config)")
+            workflow_written = False
+            publish_written = False
+        else:
+            workflow_written = self._write_workflow(repo)
+            publish_written = self._write_publish_workflow()
 
         # Configure branch protection on main
         protection_set = self._set_branch_protection(repo)
