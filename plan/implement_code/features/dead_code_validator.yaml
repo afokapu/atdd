@@ -1,0 +1,30 @@
+urn: "feature:implement-code:dead-code-validator"
+wagon: "wagon:implement-code"
+description: "AST-based dead code validator that cross-references exports/imports to find unreachable Python definitions"
+sizing:
+  wmbts: 4
+  footprint_score: 4
+  footprint_size: "S"
+wmbts:
+  - "wmbt:implement-code:D001"
+  - "wmbt:implement-code:D002"
+  - "wmbt:implement-code:E001"
+  - "wmbt:implement-code:C001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI commands — plugs into existing atdd validate coder"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No new use cases — validator is a pytest test module"
+    domain:
+      - type: "entities"
+        count: 1
+        rationale: "Import graph builder + reachability checker (self-contained in validator)"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "No persistence — reads Python source files directly via AST"

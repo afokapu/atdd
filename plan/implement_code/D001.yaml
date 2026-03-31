@@ -1,0 +1,32 @@
+urn: "wmbt:implement-code:D001"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "unreachable-python-definitions"
+context_clarifier: "when AST analysis reveals unused functions, classes, and variables"
+lens: "functional.effectiveness"
+statement: "minimize quantity of unreachable-python-definitions when AST analysis reveals unused functions, classes, and variables"
+acceptances:
+  - identity:
+      urn: "acc:implement-code:D001-UNIT-001-dead-code-detected"
+      id: "AC-UNIT-001"
+      purpose: "Validator detects unreachable definitions in Python source files"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Python source files in python/ with some definitions not imported by any other file or root"
+    when:
+      abstract: "Running dead code validator via atdd validate coder"
+    then:
+      abstract:
+        - "Unreachable function, class, and variable definitions are reported"
+        - "Each violation includes file path and line number"
+    signal:
+      metric: "dead_code_violation_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-03-31"

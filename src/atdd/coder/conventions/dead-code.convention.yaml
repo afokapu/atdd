@@ -1,0 +1,122 @@
+schema_version: "1.0.0"
+convention_id: "coder.dead-code"
+name: "Dead Code Convention"
+description: |
+  Defines rules for detecting unreachable code via AST import/definition
+  cross-referencing. Ensures all production code is reachable from at least
+  one graph root (test file, CLI entry point, or composition root).
+
+rationale: |
+  Dead code confuses developers, increases maintenance burden, and bloats
+  the codebase. ATDD validates that required code exists but doesn't validate
+  that existing code is used. This convention closes that gap.
+
+cross_references:
+  architectural_rules:
+    - file: "boundaries.convention.yaml"
+      rule: "Wagon isolation via qualified imports"
+    - file: "backend.convention.yaml"
+      rule: "4-layer architecture enforcement"
+
+graph_roots:
+  description: |
+    Files that serve as entry points for reachability analysis.
+    All definitions reachable from a root are considered "alive".
+
+  python:
+    by_name:
+      - "composition.py"
+      - "wagon.py"
+      - "conftest.py"
+      - "__init__.py"
+    by_pattern:
+      - "test_*.py"
+      - "*_test.py"
+    by_path:
+      - "*/test/**/*.py"
+      - "*/tests/**/*.py"
+    by_config:
+      - source: "pyproject.toml"
+        section: "[project.scripts]"
+        description: "CLI entry points registered in pyproject.toml"
+
+reexport_handling:
+  description: |
+    __init__.py files commonly re-export symbols for public API surfaces.
+    These re-exports are graph edges, not terminal usage.
+
+  rules:
+    - "__init__.py re-exports (from .module import Symbol) create edges in the import graph"
+    - "A re-exported symbol is 'used' if the re-export itself is consumed by any other file"
+    - "Re-export chains are followed transitively (A.__init__ re-exports from B, B.__init__ re-exports from C)"
+
+exclusions:
+  description: "Patterns excluded from dead code analysis to avoid false positives"
+
+  rules:
+    - category: "dynamic_imports"
+      description: "importlib.import_module() and __import__() cannot be statically resolved"
+    - category: "type_checking"
+      description: "Imports inside TYPE_CHECKING blocks are for type annotations only"
+    - category: "dunder_methods"
+      description: "__init__, __str__, __repr__, etc. are called by the runtime, not by imports"
+    - category: "decorated_entry_points"
+      description: "Functions decorated with @click.command, @app.route, etc. are entry points"
+
+enforcement:
+  phase: "GREEN"
+  agents:
+    - "coder: Implements code that must be reachable from graph roots"
+
+  validation_checklist:
+    before_implementation:
+      - "Verify all new files are importable from at least one root"
+      - "Verify composition.py wires all new components"
+    after_implementation:
+      - "Run atdd validate coder to check for dead code"
+
+  automated_checks:
+    dead_code_validator:
+      command: "python3 -m pytest src/atdd/coder/validators/test_dead_code_python.py -v"
+      expected: "All tests pass with 0 unreachable definitions"
+
+analysis_approach:
+  level: "file"
+  description: |
+    File-level reachability via BFS from graph roots through the import graph.
+    A file is reachable if any root file transitively imports it.
+    All definitions in unreachable files are reported as dead code.
+
+  algorithm:
+    - "Parse all .py files via AST to extract import relationships"
+    - "Identify root files (tests, composition.py, wagon.py, conftest.py, CLI entry points)"
+    - "Build file-level directed graph (file → set of files it imports)"
+    - "BFS/DFS from all roots"
+    - "Report files not visited as unreachable"
+
+examples:
+  reachable:
+    description: "Function imported by a test is alive"
+    content: |
+      # python/my_wagon/feature/src/domain/calculator.py
+      def add(a, b):  # ✅ Reachable via test import
+          return a + b
+
+      # python/my_wagon/feature/test/test_d001.py  (root)
+      from my_wagon.feature.src.domain.calculator import add
+
+  unreachable:
+    description: "Function in file not imported by anything"
+    content: |
+      # python/my_wagon/feature/src/domain/orphan.py
+      def unused_helper():  # ❌ No file imports this module
+          pass
+
+  reexport:
+    description: "Re-exported symbol is alive if consumed"
+    content: |
+      # python/my_wagon/feature/src/domain/__init__.py
+      from .calculator import add  # Edge: __init__ → calculator
+
+      # python/my_wagon/feature/src/application/use_case.py
+      from my_wagon.feature.src.domain import add  # Consumes re-export → add is alive

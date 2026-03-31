@@ -1,0 +1,33 @@
+urn: "wmbt:implement-code:D002"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "false-positive-dead-code-reports"
+context_clarifier: "when __init__.py re-exports and composition roots are legitimate entry points"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of false-positive-dead-code-reports when __init__.py re-exports and composition roots are legitimate entry points"
+acceptances:
+  - identity:
+      urn: "acc:implement-code:D002-UNIT-001-roots-excluded"
+      id: "AC-UNIT-001"
+      purpose: "Composition roots, wagon.py, conftest.py, and CLI entry points are never flagged as dead code"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Python files including composition.py, wagon.py, conftest.py, and CLI entry points from pyproject.toml"
+    when:
+      abstract: "Running dead code validator"
+    then:
+      abstract:
+        - "Root files are excluded from dead code analysis"
+        - "__init__.py re-exports are treated as graph edges, not terminal usage"
+        - "Symbols reachable via re-export chains are not flagged"
+    signal:
+      metric: "false_positive_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-03-31"

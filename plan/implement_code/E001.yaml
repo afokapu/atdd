@@ -1,0 +1,32 @@
+urn: "wmbt:implement-code:E001"
+step: "execute"
+direction: "maximize"
+dimension: "effort"
+object_of_control: "import-graph-reachability-analysis"
+context_clarifier: "when cross-referencing definitions against consumers across the Python codebase"
+lens: "functional.efficiency"
+statement: "maximize effort of import-graph-reachability-analysis when cross-referencing definitions against consumers across the Python codebase"
+acceptances:
+  - identity:
+      urn: "acc:implement-code:E001-UNIT-001-reachability-graph"
+      id: "AC-UNIT-001"
+      purpose: "Import graph is built and traversed from roots to identify reachable files"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "All Python files in python/ directory with import relationships"
+    when:
+      abstract: "Building file-level import graph and performing BFS from root files"
+    then:
+      abstract:
+        - "Every .py file is classified as reachable or unreachable"
+        - "Unreachable files and their definitions are reported as dead code"
+    signal:
+      metric: "graph_coverage_percentage"
+      threshold: 100
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-03-31"

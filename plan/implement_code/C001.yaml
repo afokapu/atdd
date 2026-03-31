@@ -1,0 +1,31 @@
+urn: "wmbt:implement-code:C001"
+step: "confirm"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "convention-compliance"
+context_clarifier: "when dead-code rules are codified in convention YAML"
+lens: "functional.sustainability"
+statement: "maximize likelihood of convention-compliance when dead-code rules are codified in convention YAML"
+acceptances:
+  - identity:
+      urn: "acc:implement-code:C001-UNIT-001-convention-exists"
+      id: "AC-UNIT-001"
+      purpose: "dead-code.convention.yaml exists and defines graph roots, re-export handling, and exclusions"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD coder conventions directory at src/atdd/coder/conventions/"
+    when:
+      abstract: "Checking for dead-code.convention.yaml"
+    then:
+      abstract:
+        - "Convention file exists with required sections: graph_roots, reexport_handling, exclusions, enforcement"
+    signal:
+      metric: "convention_file_exists"
+      threshold: 1
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-03-31"
