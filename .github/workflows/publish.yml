@@ -75,3 +75,9 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+
+      - name: Create GitHub Release
+        if: env.CREATED == 'true'
+        run: gh release create "$TAG" --generate-notes --title "$TAG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

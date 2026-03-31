@@ -1183,11 +1183,19 @@ jobs:
         run: |
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists, skipping"
+            echo "CREATED=false" >> "$GITHUB_ENV"
           else
             git tag "$TAG"
             git push origin "$TAG"
             echo "Created and pushed tag $TAG"
+            echo "CREATED=true" >> "$GITHUB_ENV"
           fi
+
+      - name: Create GitHub Release
+        if: env.CREATED == 'true'
+        run: gh release create "$TAG" --generate-notes --title "$TAG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # -------------------------------------------------------------------------
   # TODO: Add platform-specific publish steps below.
