@@ -243,7 +243,7 @@ def test_entity_classes_exist_across_languages():
 
     for entity_name, fields in contract_entities.items():
         # Normalize name (PascalCase)
-        normalized = ''.join(word.capitalize() for word in entity_name.split('_'))
+        normalized = ''.join(word.capitalize() for word in re.split(r'[-_]', entity_name))
 
         # Check Python (exact or substring match for CLI contracts like ATDDGate)
         has_python = (
@@ -412,7 +412,7 @@ def test_api_contracts_honored_across_languages():
     unimplemented = []
 
     for entity_name, fields in contract_entities.items():
-        normalized = ''.join(word.capitalize() for word in entity_name.split('_'))
+        normalized = ''.join(word.capitalize() for word in re.split(r'[-_]', entity_name))
 
         has_any_impl = (
             normalized in python_classes or
