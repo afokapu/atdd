@@ -6,3 +6,27 @@ object_of_control: "contract-schema-coverage"
 context_clarifier: "when machine-readable CLI outputs need JSON Schema contracts"
 lens: "functional.effectiveness"
 statement: "maximize quantity of contract-schema-coverage when machine-readable CLI outputs need JSON Schema contracts"
+acceptances:
+  - identity:
+      urn: "acc:self-compliance-migration:E002-UNIT-001-contracts-pass-schema"
+      id: "AC-UNIT-001"
+      purpose: "2 JSON Schema contracts pass tester validation"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Contracts at contracts/commons/compliance/gate.schema.json and inventory.schema.json"
+    when:
+      abstract: "Running atdd validate tester"
+    then:
+      abstract:
+        - "Contract schema compliance passes"
+        - "Contract structure validation passes"
+    signal:
+      metric: "contract_count"
+      threshold: 2
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-03-31"

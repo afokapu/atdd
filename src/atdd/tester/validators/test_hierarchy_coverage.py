@@ -22,7 +22,7 @@ import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Any, Optional
 
-from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.repo import find_repo_root, find_python_dir
 from atdd.coach.utils.coverage_phase import (
     CoveragePhase,
     should_enforce,
@@ -35,7 +35,7 @@ REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 TELEMETRY_DIR = REPO_ROOT / "telemetry"
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = find_python_dir(REPO_ROOT)
 SUPABASE_DIR = REPO_ROOT / "supabase"
 TEST_DIR = REPO_ROOT / "test"
 E2E_DIR = REPO_ROOT / "e2e"
@@ -235,17 +235,14 @@ def test_all_contracts_referenced(wagon_manifests, coverage_exceptions):
 
         # Build contract URN from path
         relative_path = contract_file.relative_to(CONTRACTS_DIR)
-        # contracts/domain/resource.json -> contract:domain:resource
+        # contracts/commons/compliance/gate.schema.json -> contract:commons:compliance:gate
         parts = list(relative_path.parts)
         if len(parts) >= 2:
-            domain = parts[0]
-            resource = parts[-1].replace(".json", "")
-            # Handle nested paths (category)
-            if len(parts) > 2:
-                category = "/".join(parts[1:-1])
-                resource = f"{category}/{resource}"
-
-            contract_urn = f"contract:{domain}:{resource}"
+            # Strip .schema.json or .json from filename
+            resource = parts[-1].replace(".schema.json", "").replace(".json", "")
+            # Join all path segments with : (URN separator)
+            urn_segments = list(parts[:-1]) + [resource]
+            contract_urn = "contract:" + ":".join(urn_segments)
 
             # Skip allowed exceptions
             if contract_urn in allowed_contracts:
@@ -317,10 +314,13 @@ def test_all_contract_refs_exist(wagon_manifests):
                     resource = ":".join(parts[2:])  # Handle nested resources
 
                     # Try to find the contract file
-                    contract_path = CONTRACTS_DIR / domain / f"{resource}.json"
-                    contract_path_nested = CONTRACTS_DIR / domain / resource / "index.json"
+                    # Resource may use : for nesting (compliance:gate -> compliance/gate)
+                    resource_path = resource.replace(":", "/")
+                    contract_path = CONTRACTS_DIR / domain / f"{resource_path}.json"
+                    contract_schema_path = CONTRACTS_DIR / domain / f"{resource_path}.schema.json"
+                    contract_path_nested = CONTRACTS_DIR / domain / resource_path / "index.json"
 
-                    if not contract_path.exists() and not contract_path_nested.exists():
+                    if not contract_path.exists() and not contract_schema_path.exists() and not contract_path_nested.exists():
                         violations.append(
                             f"{wagon_slug}: {ref_type} contract '{contract_ref}' - file not found"
                         )

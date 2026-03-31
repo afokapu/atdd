@@ -75,6 +75,23 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
     return start.resolve() if start else Path.cwd().resolve()
 
 
+def find_python_dir(repo_root: Optional[Path] = None) -> Path:
+    """
+    Find the Python source directory in a repo.
+
+    Consumer repos use python/, the toolkit uses src/.
+    Returns the first that exists, or python/ as default.
+    """
+    root = repo_root or find_repo_root()
+    python_dir = root / "python"
+    if python_dir.exists():
+        return python_dir
+    src_dir = root / "src"
+    if src_dir.exists():
+        return src_dir
+    return python_dir  # default for consumer repos (may not exist yet)
+
+
 def detect_worktree_layout(start: Optional[Path] = None) -> str:
     """
     Detect the worktree layout of a repository.

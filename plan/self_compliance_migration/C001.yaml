@@ -6,3 +6,27 @@ object_of_control: "baseline-test-integrity"
 context_clarifier: "when existing 453 tests must all pass before migration begins"
 lens: "functional.effectiveness"
 statement: "maximize likelihood of baseline-test-integrity when existing 453 tests must all pass before migration begins"
+acceptances:
+  - identity:
+      urn: "acc:self-compliance-migration:C001-UNIT-001-baseline-passes"
+      id: "AC-UNIT-001"
+      purpose: "All 453 existing tests pass without failure"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD toolkit repository with 453 existing tests"
+    when:
+      abstract: "Running python3 -m pytest src/atdd --co -q"
+    then:
+      abstract:
+        - "453 tests collected"
+        - "All tests pass (0 failures)"
+    signal:
+      metric: "test_count"
+      threshold: 453
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-03-31"

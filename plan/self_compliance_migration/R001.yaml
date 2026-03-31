@@ -6,3 +6,27 @@ object_of_control: "urn-traceability-orphans"
 context_clarifier: "when plan-test-code references must form a connected graph"
 lens: "functional.effectiveness"
 statement: "minimize quantity of urn-traceability-orphans when plan-test-code references must form a connected graph"
+acceptances:
+  - identity:
+      urn: "acc:self-compliance-migration:R001-UNIT-001-urn-validate-passes"
+      id: "AC-UNIT-001"
+      purpose: "atdd urn validate passes with no errors"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Plan artifacts, contracts, and wagon manifests with URN references"
+    when:
+      abstract: "Running atdd urn validate"
+    then:
+      abstract:
+        - "No broken URN references"
+        - "No orphaned contracts"
+    signal:
+      metric: "urn_errors"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-03-31"

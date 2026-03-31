@@ -6,3 +6,26 @@ object_of_control: "feature-wmbt-coverage"
 context_clarifier: "when each wagon needs feature YAMLs with acceptance criteria"
 lens: "functional.effectiveness"
 statement: "maximize quantity of feature-wmbt-coverage when each wagon needs feature YAMLs with acceptance criteria"
+acceptances:
+  - identity:
+      urn: "acc:self-compliance-migration:D002-UNIT-001-feature-refs-wmbts"
+      id: "AC-UNIT-001"
+      purpose: "Feature YAML references all 8 WMBTs"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Feature YAML at plan/self_compliance_migration/features/bootstrap_compliance.yaml"
+    when:
+      abstract: "Checking wmbts[] array in feature file"
+    then:
+      abstract:
+        - "8 WMBT references present (C001 through K001)"
+    signal:
+      metric: "wmbt_ref_count"
+      threshold: 8
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-03-31"

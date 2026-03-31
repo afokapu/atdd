@@ -17,13 +17,12 @@ import json
 from pathlib import Path
 from typing import Dict, List, Set
 
-from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.repo import find_repo_root, find_python_dir
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
-_python_dir = REPO_ROOT / "python"
-PYTHON_DIR = _python_dir if _python_dir.exists() else REPO_ROOT / "src"
+PYTHON_DIR = find_python_dir(REPO_ROOT)
 LIB_DIR = REPO_ROOT / "lib"
 SUPABASE_DIR = REPO_ROOT / "supabase"
 CONTRACTS_DIR = REPO_ROOT / "contracts"

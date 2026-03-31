@@ -6,3 +6,26 @@ object_of_control: "cli-characterization-test-coverage"
 context_clarifier: "when CLI entrypoint behavior must be locked against regression"
 lens: "functional.sustainability"
 statement: "maximize quantity of cli-characterization-test-coverage when CLI entrypoint behavior must be locked against regression"
+acceptances:
+  - identity:
+      urn: "acc:self-compliance-migration:E001-UNIT-001-characterization-tests-pass"
+      id: "AC-UNIT-001"
+      purpose: "12 CLI characterization tests pass"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Characterization tests at src/atdd/coach/commands/tests/test_E001_cli_characterization.py"
+    when:
+      abstract: "Running pytest on characterization test file"
+    then:
+      abstract:
+        - "12 tests pass covering version, gate --json, inventory --format json, status, urn families, --help"
+    signal:
+      metric: "characterization_test_count"
+      threshold: 12
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-03-31"

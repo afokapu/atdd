@@ -6,3 +6,27 @@ object_of_control: "dual-gate-compliance"
 context_clarifier: "when both atdd validate and local pytest must pass on the toolkit"
 lens: "functional.sustainability"
 statement: "maximize likelihood of dual-gate-compliance when both atdd validate and local pytest must pass on the toolkit"
+acceptances:
+  - identity:
+      urn: "acc:self-compliance-migration:K001-UNIT-001-dual-gate-passes"
+      id: "AC-UNIT-001"
+      purpose: "Both validation gates pass with zero failures"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Toolkit repo with all self-compliance artifacts in place"
+    when:
+      abstract: "Running atdd validate --local and python3 -m pytest src/atdd"
+    then:
+      abstract:
+        - "atdd validate --local passes"
+        - "python3 -m pytest src/atdd passes (excluding release tag check)"
+    signal:
+      metric: "gate_failures"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-03-31"

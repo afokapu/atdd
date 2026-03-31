@@ -7,6 +7,10 @@ sync:
   - claude
 init:
   skip_workflows: true
+coverage:
+  exceptions:
+    features_without_implementation:
+      - "feature:self-compliance-migration:bootstrap-compliance"
 toolkit:
   last_version: 1.16.0
 github:

@@ -17,7 +17,7 @@ import pytest
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Any
 
-from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.repo import find_repo_root, find_python_dir
 from atdd.coach.utils.coverage_phase import (
     CoveragePhase,
     should_enforce,
@@ -28,7 +28,7 @@ from atdd.coach.utils.coverage_phase import (
 # Path constants
 REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = find_python_dir(REPO_ROOT)
 SUPABASE_DIR = REPO_ROOT / "supabase"
 WEB_DIR = REPO_ROOT / "web"
 

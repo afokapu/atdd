@@ -4,6 +4,16 @@ CLI characterization tests for ATDD toolkit self-compliance migration.
 SPEC: wmbt:self-compliance-migration:E001
 ID: SPEC-SELF-COMPLIANCE-E001
 
+Acceptance URNs covered by this test file:
+  acc:self-compliance-migration:C001-UNIT-001-baseline-passes
+  acc:self-compliance-migration:D001-UNIT-001-wagon-manifests-exist
+  acc:self-compliance-migration:D002-UNIT-001-feature-refs-wmbts
+  acc:self-compliance-migration:E001-UNIT-001-characterization-tests-pass
+  acc:self-compliance-migration:E002-UNIT-001-contracts-pass-schema
+  acc:self-compliance-migration:P001-UNIT-001-train-validates
+  acc:self-compliance-migration:R001-UNIT-001-urn-validate-passes
+  acc:self-compliance-migration:K001-UNIT-001-dual-gate-passes
+
 Purpose:
   Lock current CLI entrypoint behavior as a regression safety net.
   These tests verify machine-readable outputs and structural invariants

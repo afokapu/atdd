@@ -10,6 +10,9 @@ action: "creates plan, contract, and traceability artifacts for existing code"
 goal: "prove the toolkit can validate itself under its own conventions"
 outcome: "full URN chain from plan to test to code for all four agent wagons"
 
+features:
+  - urn: "feature:self-compliance-migration:bootstrap-compliance"
+
 produce:
   - name: commons:compliance:inventory
     contract: null
