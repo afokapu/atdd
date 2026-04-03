@@ -216,7 +216,7 @@ def get_upgrade_notes(from_version: str, to_version: str) -> list:
     from_tuple = _parse_version(from_version)
     to_tuple = _parse_version(to_version)
     notes = []
-    for version, note in sorted(UPGRADE_NOTES.items(), key=lambda x: _parse_version(x[0])):
+    for version, note in sorted(UPGRADE_NOTES.items(), key=lambda x: _parse_version(x[0]), reverse=True):
         v_tuple = _parse_version(version)
         if from_tuple < v_tuple <= to_tuple:
             notes.append((version, note))

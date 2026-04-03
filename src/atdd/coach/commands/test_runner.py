@@ -203,6 +203,12 @@ class TestRunner:
         print("\n[2/2] GitHub API validators (live API):")
         slow_rc = self._run_pytest(slow_cmd)
 
+        # Exit code 5 = "no tests collected" — expected when a phase has no
+        # github_api-marked tests (planner, tester, coder currently have none).
+        if slow_rc == 5:
+            print("  No github_api tests collected for this phase — OK")
+            slow_rc = 0
+
         # Fail if either stage failed
         if fast_rc != 0:
             return fast_rc
