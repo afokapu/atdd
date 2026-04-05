@@ -16,6 +16,12 @@ E011: Branch naming validator (SPEC-SESSION-VAL-0070):
 - Issues past PLANNED must have a Branch field matching an allowed prefix
 - Branch = worktree (every branch is created as a git worktree)
 
+E012: Manifest consistency validator (SPEC-SESSION-VAL-0080):
+- Every open GitHub issue with atdd-issue label must have a corresponding
+  entry in .atdd/manifest.yaml
+- Detects issues created directly via `gh issue create` or the GitHub UI
+  instead of through `atdd issue <slug>`
+
 Run: atdd validate coach
 """
 import re
@@ -286,3 +292,57 @@ def test_issue_branch_follows_worktree_convention(github_issues):
         f"Example: git worktree add ../feat-my-feature -b feat/my-feature\n\n"
         f"Violations ({len(violations)}):\n  " + "\n  ".join(violations)
     )
+
+
+# ============================================================================
+# E012: Manifest Consistency Validation (GitHub Issues vs .atdd/manifest.yaml)
+# ============================================================================
+
+
+def _load_manifest_issue_numbers():
+    """Load issue numbers registered in .atdd/manifest.yaml."""
+    manifest_file = REPO_ROOT / ".atdd" / "manifest.yaml"
+    if not manifest_file.exists():
+        return set()
+    with open(manifest_file) as f:
+        data = yaml.safe_load(f) or {}
+    return {
+        entry["issue_number"]
+        for entry in data.get("sessions", [])
+        if "issue_number" in entry
+    }
+
+
+def test_github_issues_registered_in_manifest(github_issues):
+    """
+    SPEC-SESSION-VAL-0080: GitHub issues must have manifest entries
+
+    Given: Open issues on GitHub with the atdd-issue label
+    When: Cross-referencing against .atdd/manifest.yaml sessions
+    Then: Every issue number must appear in the manifest
+
+    E012 acceptance criteria: `atdd validate coach` warns when an issue
+    exists on GitHub but was not created through `atdd issue <slug>`.
+    This catches direct `gh issue create` or GitHub UI usage that bypasses
+    manifest registration, WMBT sub-issue generation, and Project v2 setup.
+    """
+    manifest_numbers = _load_manifest_issue_numbers()
+
+    unregistered = []
+    for issue in github_issues:
+        num = issue["number"]
+        if num not in manifest_numbers:
+            title = issue.get("title", "(no title)")
+            unregistered.append(f"#{num}: {title}")
+
+    if unregistered:
+        w.warn(
+            f"Issues on GitHub missing from .atdd/manifest.yaml "
+            f"({len(unregistered)}):\n  "
+            + "\n  ".join(unregistered)
+            + "\n\nThese issues were likely created outside `atdd issue <slug>`."
+            + "\nFix: Re-create via `atdd issue <slug>` or register manually"
+            + " in .atdd/manifest.yaml.",
+            category=UserWarning,
+            stacklevel=1,
+        )

@@ -611,6 +611,16 @@ issues:
     close_wmbt: "atdd issue <N> --close-wmbt <ID>  # Close a WMBT sub-issue"
     validate: "atdd validate coach                 # Validate Project fields + sub-issue state"
 
+  # MANDATORY: All issue and PR operations MUST go through the atdd CLI.
+  # NEVER use `gh issue create`, `gh pr create`, or the GitHub web UI directly.
+  # Reason: Direct creation bypasses manifest registration, WMBT sub-issue
+  # generation, Project v2 field setup, and worktree metadata.
+  # The coach validator (`atdd validate coach`) will flag issues that exist
+  # on GitHub but are missing from .atdd/manifest.yaml.
+  prohibited_commands:
+    - "gh issue create    → use: atdd issue <slug>"
+    - "gh pr create       → use: atdd branch <N> (creates worktree + PR-ready branch)"
+
   archetypes:
     db: "Supabase PostgreSQL + JSONB"
     be: "Python FastAPI 4-layer"
