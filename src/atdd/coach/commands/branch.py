@@ -33,6 +33,57 @@ class BranchManager:
         self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
+    def _create_draft_pr(
+        self,
+        branch_name: str,
+        issue_number: int,
+        slug: str,
+        issue_type: str,
+        worktree_path: Path,
+    ) -> None:
+        """Create a draft PR linked to the issue, if none exists yet."""
+        # Check for existing PR on this branch
+        check = subprocess.run(
+            ["gh", "pr", "list", "--head", branch_name, "--json", "number",
+             "--jq", ".[0].number"],
+            capture_output=True, text=True, timeout=10,
+            cwd=worktree_path,
+        )
+        if check.returncode == 0 and check.stdout.strip():
+            pr_num = check.stdout.strip()
+            print(f"  PR: #{pr_num} already exists")
+            return
+
+        # Fetch issue title for the PR title
+        prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+        pr_title = f"{prefix}: {slug.replace('-', ' ')} (#{issue_number})"
+        try:
+            proj = ProjectConfig.from_config(self.config_file)
+            client = GitHubClient(repo=proj.repo, project_id=proj.project_id)
+            issue_data = client.get_issue(issue_number)
+            gh_title = issue_data.get("title", "")
+            if gh_title:
+                pr_title = f"{gh_title} (#{issue_number})"
+        except Exception:
+            pass  # Fall back to slug-based title
+
+        pr_body = f"Closes #{issue_number}\n\n---\nDraft PR created by `atdd branch`."
+
+        result = subprocess.run(
+            ["gh", "pr", "create", "--draft",
+             "--title", pr_title,
+             "--body", pr_body,
+             "--head", branch_name,
+             "--base", "main"],
+            capture_output=True, text=True, timeout=15,
+            cwd=worktree_path,
+        )
+        if result.returncode == 0:
+            pr_url = result.stdout.strip()
+            print(f"  Draft PR: {pr_url}")
+        else:
+            print(f"  Warning: Could not create draft PR: {result.stderr.strip()}")
+
     def _load_manifest(self):
         if not self.manifest_file.exists():
             return {}
@@ -145,6 +196,27 @@ class BranchManager:
             return 1
 
         print(f"  Worktree: {worktree_path}")
+
+        # Push branch to remote (required for draft PR)
+        if not remote_exists:
+            push_result = subprocess.run(
+                ["git", "push", "-u", "origin", branch_name],
+                capture_output=True, text=True, timeout=30,
+                cwd=worktree_path,
+            )
+            if push_result.returncode != 0:
+                print(f"  Warning: Could not push branch: {push_result.stderr.strip()}")
+            else:
+                print(f"  Pushed: origin/{branch_name}")
+
+        # Create draft PR if none exists
+        self._create_draft_pr(
+            branch_name=branch_name,
+            issue_number=issue_number,
+            slug=slug,
+            issue_type=issue_type,
+            worktree_path=worktree_path,
+        )
 
         # Update GitHub "ATDD Branch" field
         try:
