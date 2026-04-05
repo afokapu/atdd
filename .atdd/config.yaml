@@ -10,9 +10,9 @@ init:
 coverage:
   exceptions:
     features_without_implementation:
-      - "feature:self-compliance-migration:bootstrap-compliance"
+    - feature:self-compliance-migration:bootstrap-compliance
 toolkit:
-  last_version: 1.16.0
+  last_version: 1.25.2
 github:
   repo: afokapu/atdd
   project_number: 1

@@ -621,6 +621,7 @@ issues:
     train: "Journey orchestration (linear trains)"
     telemetry: "Observability artifacts"
     migrations: "Database schema evolution"
+    coach: "ATDD orchestration, conventions, hooks, validators, CLI"
 
   atdd_phases:
     RED: "Write failing tests from acceptances"

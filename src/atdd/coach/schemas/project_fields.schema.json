@@ -157,7 +157,7 @@
                 "allowed_values": {
                   "type": "array",
                   "items": { "type": "string" },
-                  "const": ["db", "be", "fe", "contracts", "wmbt", "wagon", "train", "telemetry", "migrations"]
+                  "const": ["db", "be", "fe", "contracts", "wmbt", "wagon", "train", "telemetry", "migrations", "coach"]
                 }
               }
             }

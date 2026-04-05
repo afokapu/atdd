@@ -95,10 +95,11 @@
                 { "properties": { "name": { "const": "archetype:wagon" },      "color": { "const": "D4C5F9" }, "description": { "const": "Bounded context module" } } },
                 { "properties": { "name": { "const": "archetype:train" },      "color": { "const": "D4C5F9" }, "description": { "const": "Journey orchestration" } } },
                 { "properties": { "name": { "const": "archetype:telemetry" },  "color": { "const": "D4C5F9" }, "description": { "const": "Observability artifacts" } } },
-                { "properties": { "name": { "const": "archetype:migrations" }, "color": { "const": "D4C5F9" }, "description": { "const": "Database schema evolution" } } }
+                { "properties": { "name": { "const": "archetype:migrations" }, "color": { "const": "D4C5F9" }, "description": { "const": "Database schema evolution" } } },
+                { "properties": { "name": { "const": "archetype:coach" },      "color": { "const": "D4C5F9" }, "description": { "const": "ATDD orchestration and CLI" } } }
               ],
-              "minItems": 9,
-              "maxItems": 9
+              "minItems": 10,
+              "maxItems": 10
             }
           }
         },

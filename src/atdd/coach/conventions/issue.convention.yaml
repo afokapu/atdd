@@ -228,6 +228,7 @@ github_issue_tracking:
       - { name: "archetype:train",   color: "D4C5F9", applies_to: "parent",    description: "Journey orchestration" }
       - { name: "archetype:telemetry", color: "D4C5F9", applies_to: "parent",  description: "Observability artifacts" }
       - { name: "archetype:migrations", color: "D4C5F9", applies_to: "parent", description: "Database schema evolution" }
+      - { name: "archetype:coach", color: "D4C5F9", applies_to: "parent",      description: "ATDD orchestration and CLI" }
     dynamic_labels:
       wagon:
         pattern: "wagon:{slug}"
@@ -626,6 +627,20 @@ archetypes:
     preconditions:
       - "See rules.supabase_branching"
 
+  coach:
+    id: "coach"
+    description: "ATDD orchestration, conventions, hooks, validators, and CLI behavior"
+    artifacts:
+      - "src/atdd/**"
+      - ".atdd/**"
+      - ".github/workflows/atdd-*.yml"
+    patterns:
+      - "Issue lifecycle: commands, validators, templates"
+      - "Hooks: pre-push, pre-commit, worktree enforcement"
+      - "Conventions: YAML specs that govern agent behavior"
+      - "Schemas: JSON Schema for labels, projects, sessions"
+    validation: "atdd validate coach"
+
 # Mandatory sections - ALL sessions must have these
 sections:
   header:
@@ -891,7 +906,7 @@ gate_tests:
       description: "Which phase this gate applies to"
     archetype:
       type: "string"
-      values: ["db", "be", "fe", "contracts", "wmbt", "wagon", "train", "telemetry", "migrations", "all"]
+      values: ["db", "be", "fe", "contracts", "wmbt", "wagon", "train", "telemetry", "migrations", "coach", "all"]
       description: "Which archetype this gate validates (or 'all')"
     command:
       type: "string"
@@ -955,6 +970,12 @@ gate_tests:
         atdd_validator: "manual"
       - command: "atdd validate tester"
         atdd_validator: "atdd/tester/validators/test_migration_coverage.py"
+
+    coach:
+      - command: "atdd validate coach"
+        atdd_validator: "atdd/coach/validators/test_issue_validation.py"
+      - command: "atdd validate coach"
+        atdd_validator: "atdd/coach/validators/test_registry.py"
 
   # Universal gates (all sessions)
   universal:

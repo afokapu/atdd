@@ -86,6 +86,10 @@ ARCHETYPE_GATES = {
     "telemetry": [
         ("GT-080", "tester", "atdd validate tester", "src/atdd/tester/validators/test_telemetry_validation.py"),
     ],
+    "coach": [
+        ("GT-090", "implementation", "atdd validate coach", "src/atdd/coach/validators/test_issue_validation.py"),
+        ("GT-091", "implementation", "atdd validate coach", "src/atdd/coach/validators/test_registry.py"),
+    ],
 }
 
 

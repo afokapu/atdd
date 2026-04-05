@@ -20,7 +20,7 @@ branch: "{branch-name}"
 type: "{type}"  # implementation | migration | refactor | analysis | planning | cleanup | tracking
 complexity: 3  # 1=Trivial, 2=Low, 3=Medium, 4=High, 5=Very High
 archetypes:
-  - "{archetype}"  # db | be | fe | contracts | wmbt | wagon | train | telemetry | migrations
+  - "{archetype}"  # db | be | fe | contracts | wmbt | wagon | train | telemetry | migrations | coach
   # NOTE: If archetypes includes 'train', you MUST create/update BOTH:
   #   1. plan/_trains.yaml (registry entry with train_id, description, path, wagons)
   #   2. plan/_trains/{train_id}.yaml (full spec with participants, sequence, etc.)
