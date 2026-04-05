@@ -1,5 +1,5 @@
 #!/bin/sh
-# ATDD pre-commit hook — blocks all commits on main/master.
+# ATDD pre-commit hook — blocks commits on main/master and unregistered branches.
 # Installed by `atdd init`. Bypasses require CI=true.
 
 set -e
@@ -7,19 +7,19 @@ set -e
 # --- Resolve current branch ---
 BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
 
-# Allow: detached HEAD (CI), any non-main branch
-case "$BRANCH" in
-    main|master) ;;
-    *) exit 0 ;;
-esac
-
-# Allow: CI-only env bypass
-if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_COMMIT:-0}" = "1" ]; then
+# Allow: detached HEAD (CI)
+if [ -z "$BRANCH" ]; then
     exit 0
 fi
 
 # --- Block all direct commits on main/master ---
-cat >&2 <<EOF
+case "$BRANCH" in
+    main|master)
+        # Allow: CI-only env bypass
+        if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_COMMIT:-0}" = "1" ]; then
+            exit 0
+        fi
+        cat >&2 <<EOF
 
 ATDD: All direct commits to $BRANCH are blocked.
 
@@ -31,4 +31,43 @@ CI bypass (requires CI=true):
   CI=true ATDD_ALLOW_MAIN_COMMIT=1 git commit ...
 
 EOF
-exit 1
+        exit 1
+        ;;
+esac
+
+# --- Verify branch is registered in manifest ---
+# Skip if bypass is set (e.g. bootstrap commits before atdd init)
+if [ "${ATDD_SKIP_MANIFEST_CHECK:-0}" = "1" ]; then
+    exit 0
+fi
+
+# Extract slug from branch name (strip prefix: feat/my-slug → my-slug)
+SLUG=$(echo "$BRANCH" | sed 's|^[^/]*/||')
+
+# Find manifest file (walk up to repo root)
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+MANIFEST="$REPO_ROOT/.atdd/manifest.yaml"
+
+if [ -f "$MANIFEST" ]; then
+    # Check if slug appears in manifest sessions
+    if ! grep -q "slug:.*$SLUG" "$MANIFEST" 2>/dev/null; then
+        cat >&2 <<EOF
+
+ATDD: Branch '$BRANCH' is not registered in .atdd/manifest.yaml.
+
+Every branch must be created through the ATDD workflow:
+  1. atdd issue <slug>    # Create issue first
+  2. atdd branch <N>      # Create branch from issue
+
+This ensures issues use the standard template, are tracked in
+the manifest, and have Project v2 fields set up correctly.
+
+Bypass (bootstrap only):
+  ATDD_SKIP_MANIFEST_CHECK=1 git commit ...
+
+EOF
+        exit 1
+    fi
+fi
+
+exit 0
