@@ -1,5 +1,5 @@
 #!/bin/sh
-# ATDD pre-merge-commit hook — version gate.
+# ATDD pre-merge-commit hook — version gate + main-merge protection.
 # Installed by `atdd init`. Bypasses require CI=true.
 
 set -e
@@ -21,4 +21,29 @@ except ImportError:
     if [ $? -ne 0 ]; then exit 1; fi
 fi
 
-exit 0
+# --- Block merges into main/master ---
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+
+case "$BRANCH" in
+    main|master) ;;
+    *) exit 0 ;;
+esac
+
+# Allow: CI-only env bypass
+if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_MERGE:-0}" = "1" ]; then
+    exit 0
+fi
+
+cat >&2 <<EOF
+
+ATDD: Direct merges into $BRANCH are blocked.
+
+Use a PR workflow instead of merging locally.
+Work in a worktree branch:
+  atdd branch <issue-number>
+
+CI bypass (requires CI=true):
+  CI=true ATDD_ALLOW_MAIN_MERGE=1 git merge ...
+
+EOF
+exit 1

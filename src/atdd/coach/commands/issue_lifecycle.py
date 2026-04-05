@@ -456,23 +456,28 @@ class IssueLifecycle:
             # Check if already in correct worktree
             if self._is_in_worktree(slug, prefix):
                 worktree_path = self.target_dir
+                self._run_gate(worktree_path)
+                self._print_context(issue, status, sub_issues, slug, prefix, worktree_path)
+                return 0
+
+            # Not in correct worktree — find or create, then hard handoff
+            existing = self._find_worktree_for_issue(slug, prefix)
+            if existing:
+                worktree_path = existing
             else:
-                # Check if worktree exists
-                existing = self._find_worktree_for_issue(slug, prefix)
-                if existing:
-                    worktree_path = existing
-                    print(f"Worktree exists: {worktree_path}")
-                    print(f"  cd {worktree_path}")
-                else:
-                    # Create branch
-                    worktree_path = self._create_branch(issue_number, slug, prefix)
-                    if not worktree_path:
-                        print("Error: Failed to create worktree branch.")
-                        return 1
+                worktree_path = self._create_branch(issue_number, slug, prefix)
+                if not worktree_path:
+                    print("Error: Failed to create worktree branch.")
+                    return 1
 
-            # Run gate
-            self._run_gate(worktree_path)
+            # Hard handoff — stop here, do not run gate or print full context
+            print()
+            print(f"ATDD: Issue #{issue_number} requires worktree: {prefix}/{slug}")
+            print(f"  cd {worktree_path}")
+            print(f"  atdd issue {issue_number}")
+            print()
+            return 0
 
-        # Print context
+        # Print context (INIT, UNKNOWN, etc.)
         self._print_context(issue, status, sub_issues, slug, prefix, worktree_path)
         return 0

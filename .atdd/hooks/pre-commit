@@ -1,5 +1,5 @@
 #!/bin/sh
-# ATDD pre-commit hook — blocks code commits on main/master.
+# ATDD pre-commit hook — blocks all commits on main/master.
 # Installed by `atdd init`. Bypasses require CI=true.
 
 set -e
@@ -18,35 +18,13 @@ if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_COMMIT:-0}" = "1" ]; then
     exit 0
 fi
 
-# --- Protected path prefixes (code/test directories) ---
-PROTECTED="src/ tests/ packages/ web/ supabase/ python/ e2e/"
-
-# Check staged files against protected paths
-BLOCKED_FILES=""
-for file in $(git diff --cached --name-only --diff-filter=ACMR); do
-    for prefix in $PROTECTED; do
-        case "$file" in
-            "$prefix"*)
-                BLOCKED_FILES="$BLOCKED_FILES  $file
-"
-                break
-                ;;
-        esac
-    done
-done
-
-if [ -z "$BLOCKED_FILES" ]; then
-    exit 0
-fi
-
-# --- Block with actionable error ---
+# --- Block all direct commits on main/master ---
 cat >&2 <<EOF
 
-ATDD: Direct code commits to $BRANCH are not allowed.
+ATDD: All direct commits to $BRANCH are blocked.
 
-Blocked files:
-$BLOCKED_FILES
-Create a worktree branch first:
+Every change must go through a worktree branch.
+Create one first:
   atdd branch <issue-number>
 
 CI bypass (requires CI=true):
