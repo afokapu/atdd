@@ -400,7 +400,7 @@ audits:
   workflow:
     after_planner: "atdd validate planner   # Before transitioning to RED"
     after_tester: "atdd validate tester     # Before transitioning to GREEN"
-    after_coder: "atdd validate coder       # Before transitioning to REFACTOR"
+    after_coder: "atdd validate coder       # Before transitioning to SMOKE"
     after_coach: "atdd validate coach       # Train + body section enforcement"
     full_suite: "atdd validate              # All phases (CI runs this)"
 

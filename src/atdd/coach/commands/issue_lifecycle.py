@@ -286,6 +286,9 @@ class IssueLifecycle:
             print("  Next: Implement to make tests pass (GREEN), then transition:")
             print(f"         atdd issue {number} --status GREEN")
         elif status == "GREEN":
+            print("  Next: Run tester SMOKE verification, then transition:")
+            print(f"         atdd issue {number} --status SMOKE")
+        elif status == "SMOKE":
             print("  Next: Refactor to clean architecture, then transition:")
             print(f"         atdd issue {number} --status REFACTOR")
         elif status == "REFACTOR":

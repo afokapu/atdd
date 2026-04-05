@@ -158,7 +158,7 @@ workflow:
   session_type_workflows:
     implementation:
       required_phases: ["planner", "tester", "coder"]
-      workflow: "Full ATDD cycle: Plan → Test (RED) → Code (GREEN) → Refactor"
+      workflow: "Full ATDD cycle: Plan → Test (RED) → Code (GREEN) → Test (SMOKE) → Refactor"
 
     migration:
       required_phases: ["planner", "tester", "coder"]
