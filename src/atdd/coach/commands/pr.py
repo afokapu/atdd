@@ -383,4 +383,9 @@ class PRManager:
                     print(f"  You can retry manually:")
                     print(f"  gh pr merge {pr_url} --auto --{merge_strategy}")
 
+        # Worktree cleanup reminder
+        worktree_dir = self.target_dir.name
+        print(f"\n  After merge, clean up:")
+        print(f"    git worktree remove ../{worktree_dir}")
+
         return 0
