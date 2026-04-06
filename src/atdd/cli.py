@@ -488,6 +488,8 @@ Phase descriptions:
             "  atdd pr 69                Create PR for issue #69\n"
             "  atdd pr 69 --draft        Create as draft PR\n"
             "  atdd pr 69 --base develop Override base branch\n"
+            "  atdd pr 69 --auto         Create PR and enable auto-merge\n"
+            "  atdd pr 69 --auto --merge-strategy rebase\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -502,6 +504,18 @@ Phase descriptions:
         type=str,
         default="main",
         help="Base branch for the PR (default: main)"
+    )
+    pr_parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Enable auto-merge after PR creation (requires repo setting)"
+    )
+    pr_parser.add_argument(
+        "--merge-strategy",
+        type=str,
+        choices=["squash", "merge", "rebase"],
+        default="squash",
+        help="Merge strategy for auto-merge (default: squash)"
     )
 
     # ----- atdd close-wmbt <issue_number> <wmbt_id> -----
@@ -1087,6 +1101,8 @@ Phase descriptions:
             issue_number=args.issue_number,
             draft=getattr(args, 'draft', False),
             base=getattr(args, 'base', 'main'),
+            auto_merge=getattr(args, 'auto', False),
+            merge_strategy=getattr(args, 'merge_strategy', 'squash'),
         )
 
     # atdd close-wmbt <issue_id> <wmbt_id> — DEPRECATED, delegates to atdd issue <N> --close-wmbt <ID>

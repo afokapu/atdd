@@ -11,6 +11,8 @@ Usage:
     atdd pr 69                              # Create PR for issue #69
     atdd pr 69 --draft                      # Create as draft PR
     atdd pr 69 --base develop               # Override base branch
+    atdd pr 69 --auto                       # Create PR and enable auto-merge
+    atdd pr 69 --auto --merge-strategy rebase
 
 Convention: CLAUDE.md git.commits, issues.prohibited_commands
 """
@@ -211,11 +213,55 @@ class PRManager:
 
         return "\n".join(lines)
 
+    def _check_auto_merge_enabled(self) -> bool:
+        """Check if the repository has auto-merge enabled."""
+        try:
+            result = subprocess.run(
+                ["gh", "api", "repos/{owner}/{repo}",
+                 "--jq", ".allow_auto_merge"],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.target_dir,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip().lower() == "true"
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        return False
+
+    def _enable_auto_merge(self, pr_url: str, strategy: str) -> bool:
+        """Enable auto-merge on a PR via gh CLI.
+
+        Args:
+            pr_url: The PR URL returned by gh pr create.
+            strategy: One of 'squash', 'merge', 'rebase'.
+
+        Returns:
+            True if auto-merge was enabled successfully.
+        """
+        cmd = ["gh", "pr", "merge", pr_url, "--auto", f"--{strategy}"]
+        logger.info("Enabling auto-merge: %s", " ".join(cmd))
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True, text=True, timeout=15,
+                cwd=self.target_dir,
+            )
+            if result.returncode == 0:
+                return True
+            logger.error("gh pr merge --auto failed: %s", result.stderr.strip())
+            return False
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            logger.error("Failed to enable auto-merge: %s", exc)
+            return False
+
     def pr(
         self,
         issue_number: int,
         draft: bool = False,
         base: str = "main",
+        auto_merge: bool = False,
+        merge_strategy: str = "squash",
     ) -> int:
         """Create a PR linked to the given issue number.
 
@@ -223,6 +269,8 @@ class PRManager:
             issue_number: GitHub issue number.
             draft: If True, create as a draft PR.
             base: Base branch for the PR (default: main).
+            auto_merge: If True, enable auto-merge after PR creation.
+            merge_strategy: Merge strategy for auto-merge (squash, merge, rebase).
 
         Returns:
             0 on success, 1 on error.
@@ -317,5 +365,22 @@ class PRManager:
         print(f"  Closes: #{issue_number}")
         if sub_issues:
             print(f"  WMBT sub-issues: {len(sub_issues)}")
+
+        # 9. Enable auto-merge if requested
+        if auto_merge:
+            if draft:
+                print("Warning: Auto-merge cannot be enabled on draft PRs.")
+                print("  Convert to ready-for-review first, then run:")
+                print(f"  gh pr merge {pr_url} --auto --{merge_strategy}")
+            elif not self._check_auto_merge_enabled():
+                print("Warning: Auto-merge is not enabled for this repository.")
+                print("  Enable it in Settings → General → Allow auto-merge.")
+            else:
+                if self._enable_auto_merge(pr_url, merge_strategy):
+                    print(f"  Auto-merge: enabled ({merge_strategy})")
+                else:
+                    print(f"Warning: Failed to enable auto-merge.")
+                    print(f"  You can retry manually:")
+                    print(f"  gh pr merge {pr_url} --auto --{merge_strategy}")
 
         return 0
