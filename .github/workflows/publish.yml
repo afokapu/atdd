@@ -74,8 +74,27 @@ jobs:
         with:
           skip-existing: true
 
+      - name: Verify PyPI publication
+        run: |
+          VERSION="${TAG#v}"
+          echo "Waiting for atdd==$VERSION to appear on PyPI..."
+          for i in 1 2 3 4 5 6; do
+            if pip install --dry-run --no-deps "atdd==$VERSION" --index-url https://pypi.org/simple/ 2>&1 | grep -q "Would install"; then
+              echo "Verified: atdd==$VERSION is available on PyPI"
+              exit 0
+            fi
+            echo "Attempt $i: not yet available, waiting 10s..."
+            sleep 10
+          done
+          echo "::warning::atdd==$VERSION not found on PyPI after 60s — may still be propagating"
+
       - name: Create GitHub Release
         if: env.CREATED == 'true'
-        run: gh release create "$TAG" --generate-notes --title "$TAG"
+        run: |
+          # Build descriptive title from the squash-merge commit message
+          COMMIT_SUBJECT=$(git log -1 --format='%s')
+          # Strip trailing (#NNN) PR ref for cleaner title, keep it in body
+          TITLE="$TAG — $COMMIT_SUBJECT"
+          gh release create "$TAG" --generate-notes --title "$TITLE"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
