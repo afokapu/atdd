@@ -257,11 +257,15 @@ def update_toolkit_version(config_path: Optional[Path] = None) -> bool:
 
 
 def print_upgrade_sync_notice() -> None:
-    """Print upgrade sync notice to stderr if needed."""
+    """Print upgrade sync notice to stderr if needed, then auto-update last_version."""
     try:
         notice = check_upgrade_sync_needed()
         if notice:
             print(f"\n⚠️  {notice}\n", file=sys.stderr)
+            # Auto-update toolkit.last_version so the warning only shows once.
+            # The user still needs to run `atdd sync` for full config migration,
+            # but the nag stops repeating on every command.
+            update_toolkit_version()
     except Exception:
         pass  # Never fail the main command
 
