@@ -32,42 +32,7 @@ from atdd.coach.commands.branch_protection import (
 pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="module")
-def repo_name():
-    """Load github.repo from .atdd/config.yaml."""
-    from atdd.coach.utils.repo import find_repo_root
-
-    config_path = find_repo_root() / ".atdd" / "config.yaml"
-    if not config_path.exists():
-        pytest.skip("No .atdd/config.yaml (run atdd init)")
-
-    import yaml
-
-    with open(config_path) as f:
-        config = yaml.safe_load(f) or {}
-
-    repo = config.get("github", {}).get("repo")
-    if not repo:
-        pytest.skip("github.repo not configured in .atdd/config.yaml")
-    return repo
-
-
-@pytest.fixture(scope="module")
-def protection_result(repo_name):
-    """Verify branch protection once per module (avoids redundant API calls)."""
-    status, details = verify_branch_protection(repo_name)
-    if status == ProtectionStatus.DEGRADED:
-        pytest.skip(
-            f"Cannot verify branch protection (degraded mode): "
-            f"{'; '.join(details)}"
-        )
-    return status, details
-
+# Fixtures: repo_name and protection_result are in conftest.py (session-scoped, prefetched)
 
 # ---------------------------------------------------------------------------
 # C003 validators
