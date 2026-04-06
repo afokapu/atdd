@@ -131,20 +131,24 @@ class RatchetBaseline:
         """
         baseline = self.get(validator_id)
 
-        # -- No baseline entry: unconditional mode --
+        # -- No baseline entry: auto-seed mode --
         if baseline is None:
             if current_count == 0:
                 return
-            msg = (
-                f"\n\nSPEC-CODER-RATCHET-0001 FAIL: {validator_id}\n\n"
-                f"  No baseline entry — unconditional mode.\n"
-                f"  Current: {current_count} violations (expected 0)\n\n"
-                f"  Either fix all violations or add an initial baseline:\n"
-                f"    atdd baseline update\n"
+            # Auto-seed the baseline with the current count so the validator
+            # passes on first run and ratchets from here.
+            data = self.load()
+            data[validator_id] = current_count
+            self.save(data)
+            warnings.warn(
+                f"\nSPEC-CODER-RATCHET-0002: Auto-seeded baseline for {validator_id}\n\n"
+                f"  Baseline set to: {current_count} violations\n"
+                f"  File: {self._path}\n\n"
+                f"  Commit this file to lock in the baseline.\n"
+                f"  Future runs will fail if violations increase above {current_count}.\n",
+                stacklevel=2,
             )
-            if violations:
-                msg += _format_violations(violations)
-            pytest.fail(msg)
+            return
 
         # -- Clean --
         if current_count == 0:
