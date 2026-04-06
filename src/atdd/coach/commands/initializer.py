@@ -433,7 +433,7 @@ class ProjectInitializer:
             for sub in sub_dirs:
                 src_dir = package_root / role / sub
                 if not src_dir.is_dir():
-                    logger.debug("Skipping missing source: %s", src_dir)
+                    logger.debug("Skipping missing source: %s", src_dir, extra={"path": str(src_dir)})
                     continue
 
                 dest_dir = schemas_dir / role / sub
