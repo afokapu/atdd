@@ -182,5 +182,5 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          gh issue comment "$ISSUE" --repo "$REPO" --body \
-            "ATDD lifecycle complete. Merged via PR #${PR_NUMBER} (${PR_TITLE}) at ${TIMESTAMP}."
+          BODY=$(printf 'ATDD lifecycle complete. Merged via PR #%s (%s) at %s.' "$PR_NUMBER" "$PR_TITLE" "$TIMESTAMP")
+          gh issue comment "$ISSUE" --repo "$REPO" --body "$BODY"
