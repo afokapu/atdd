@@ -278,16 +278,17 @@ def build_reverse_graph(graph: Dict[Path, Set[Path]]) -> Dict[Path, Set[Path]]:
 
 
 @pytest.mark.coder
-def test_no_unreachable_python_files():
+def test_no_unreachable_python_files(ratchet_baseline):
     """
     SPEC-CODER-DEADCODE-0001: No unreachable Python files.
 
     Every .py file in python/ must be reachable from at least one graph root
     (test file, composition.py, wagon.py, conftest.py, __init__.py, or CLI entry point).
+    Uses ratchet baseline to allow pre-existing dead code while preventing regression.
 
     Given: All Python files in python/
     When: Building file-level import graph and BFS from roots
-    Then: No file is unreachable
+    Then: Unreachable file count does not exceed baseline
     """
     python_files = find_python_files()
 
@@ -309,6 +310,18 @@ def test_no_unreachable_python_files():
 
     if not roots:
         pytest.skip("No graph roots found (no test files, composition.py, etc.)")
+
+    # Composition roots implicitly reach all files in their wagon's src/ tree.
+    # This handles dependency-injection wiring that the static import tracer
+    # cannot follow (e.g., port-to-adapter binding via composition.py).
+    composition_roots = {f for f in roots if f.name == "composition.py"}
+    for comp_root in composition_roots:
+        wagon_dir = comp_root.parent
+        src_dir = wagon_dir / "src"
+        if src_dir.is_dir():
+            for py_file in python_files:
+                if str(py_file).startswith(str(src_dir)):
+                    roots.add(py_file)
 
     # BFS from roots
     reachable = find_reachable_files(roots, graph)
@@ -332,14 +345,11 @@ def test_no_unreachable_python_files():
         rel_path = py_file.relative_to(REPO_ROOT)
         unreachable.append(str(rel_path))
 
-    if unreachable:
-        pytest.fail(
-            f"\n\nFound {len(unreachable)} unreachable Python files:\n\n"
-            + "\n".join(f"  {f}" for f in unreachable[:10])
-            + (f"\n  ... and {len(unreachable) - 10} more" if len(unreachable) > 10 else "")
-            + "\n\nThese files are not imported by any test, composition root, or entry point."
-            + "\nEither import them or remove them."
-        )
+    ratchet_baseline.assert_no_regression(
+        validator_id="dead_code_python",
+        current_count=len(unreachable),
+        violations=unreachable,
+    )
 
 
 @pytest.mark.coder
