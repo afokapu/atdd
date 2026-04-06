@@ -38,7 +38,7 @@ class PRManager:
 
     def _load_manifest(self) -> dict:
         if not self.manifest_file.exists():
-            logger.warning("Manifest not found: %s", self.manifest_file)
+            logger.warning("Manifest not found: %s", self.manifest_file, extra={"path": str(self.manifest_file)})
             return {}
         with open(self.manifest_file) as f:
             return yaml.safe_load(f) or {}
@@ -68,18 +68,18 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.error("gh issue view failed: %s", result.stderr.strip())
+                logger.error("gh issue view failed: %s", result.stderr.strip(), extra={"stderr": result.stderr.strip()})
                 return None
             return json.loads(result.stdout)
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.error("Failed to fetch issue #%d: %s", issue_number, exc)
+            logger.error("Failed to fetch issue #%d: %s", issue_number, exc, extra={"issue": issue_number, "error": str(exc)})
             return None
 
     def _fetch_sub_issues(self, issue_number: int) -> list:
         """Fetch WMBT sub-issues for a parent issue."""
         repo = self._get_repo()
         if not repo:
-            logger.warning("No repo configured; cannot fetch sub-issues")
+            logger.warning("No repo configured; cannot fetch sub-issues", extra={"config": str(self.config_file)})
             return []
         try:
             result = subprocess.run(
@@ -89,11 +89,11 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.debug("Sub-issues API failed: %s", result.stderr.strip())
+                logger.debug("Sub-issues API failed: %s", result.stderr.strip(), extra={"stderr": result.stderr.strip()})
                 return []
             return json.loads(result.stdout) if result.stdout.strip() else []
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.debug("Failed to fetch sub-issues: %s", exc)
+            logger.debug("Failed to fetch sub-issues: %s", exc, extra={"error": str(exc)})
             return []
 
     def _detect_branch(self) -> Optional[str]:
@@ -227,7 +227,7 @@ class PRManager:
         Returns:
             0 on success, 1 on error.
         """
-        logger.info("Creating PR for issue #%d", issue_number)
+        logger.info("Creating PR for issue #%d", issue_number, extra={"issue": issue_number})
 
         # 1. Detect current branch
         branch = self._detect_branch()
@@ -241,7 +241,7 @@ class PRManager:
             print("Switch to a feature branch first: atdd branch <N>")
             return 1
 
-        logger.info("Branch: %s", branch)
+        logger.info("Branch: %s", branch, extra={"branch": branch})
 
         # 2. Check for existing PR
         existing = self._existing_pr_for_branch(branch)
@@ -258,23 +258,23 @@ class PRManager:
             return 1
 
         issue_title = issue_data.get("title", f"Issue #{issue_number}")
-        logger.info("Issue title: %s", issue_title)
+        logger.info("Issue title: %s", issue_title, extra={"title": issue_title})
 
         # 4. Look up manifest for type/slug metadata
         manifest_entry = self._find_issue_in_manifest(issue_number)
         issue_type = (manifest_entry or {}).get("type", "implementation")
-        logger.info("Issue type: %s (from manifest: %s)", issue_type, manifest_entry is not None)
+        logger.info("Issue type: %s (from manifest: %s)", issue_type, manifest_entry is not None, extra={"type": issue_type, "from_manifest": manifest_entry is not None})
 
         # 5. Fetch WMBT sub-issues
         sub_issues = self._fetch_sub_issues(issue_number)
-        logger.info("WMBT sub-issues found: %d", len(sub_issues))
+        logger.info("WMBT sub-issues found: %d", len(sub_issues), extra={"count": len(sub_issues)})
 
         # 6. Build PR title and body
         pr_title = self._build_pr_title(issue_title, issue_type, issue_number)
         pr_body = self._build_pr_body(issue_number, issue_data, sub_issues, manifest_entry)
 
-        logger.info("PR title: %s", pr_title)
-        logger.debug("PR body:\n%s", pr_body)
+        logger.info("PR title: %s", pr_title, extra={"pr_title": pr_title})
+        logger.debug("PR body:\n%s", pr_body, extra={"pr_body_length": len(pr_body)})
 
         # 7. Ensure branch is pushed to remote
         push_result = subprocess.run(
@@ -299,7 +299,7 @@ class PRManager:
         if draft:
             cmd.append("--draft")
 
-        logger.info("Running: %s", " ".join(cmd))
+        logger.info("Running: %s", " ".join(cmd), extra={"cmd": " ".join(cmd)})
 
         result = subprocess.run(
             cmd,
