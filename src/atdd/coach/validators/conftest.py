@@ -4,12 +4,12 @@ Shared fixtures for coach validators.
 Session-scoped fixtures that fetch GitHub data once and share across all
 platform tests, eliminating redundant API calls.
 
-Performance optimization: ``_github_prefetch`` runs all API calls in
-parallel via ``concurrent.futures.ThreadPoolExecutor``, reducing total
-GitHub API wait time from ~5s (sequential) to ~1s (parallel).
+Performance optimization: ``_github_prefetch`` uses ``GitHubClient.prefetch_validator_data()``
+which batches API calls into 3 parallel groups (issues, project data, sub-issues),
+reducing 7 sequential HTTP round-trips to 3 concurrent ones.
 """
 import pytest
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.validators.shared_fixtures import *  # noqa: F401,F403
@@ -44,36 +44,34 @@ def github_client():
 
 @pytest.fixture(scope="session")
 def _github_prefetch(github_client):
-    """Prefetch ALL GitHub data in parallel (single session fixture).
+    """Prefetch ALL GitHub data via batched API calls.
 
-    Runs 6 API calls concurrently via ThreadPoolExecutor, reducing total
-    setup time from ~5s to ~1s. Individual fixtures below read from this
-    cache instead of making their own API calls.
+    Uses GitHubClient.prefetch_validator_data() for issues, project fields,
+    project items, and sub-issues (3 parallel groups instead of 7 sequential).
+    Branch protection is fetched in parallel alongside the batch.
     """
     results = {}
 
-    def _fetch(key, fn):
+    def _fetch_batch():
         try:
-            results[key] = fn()
+            results.update(github_client.prefetch_validator_data())
         except Exception as e:
-            results[key] = e
+            for key in ("issues", "complete_issues", "project_fields",
+                        "project_items", "sub_issues", "closed_sub_issues"):
+                results.setdefault(key, e)
 
     def _fetch_branch_protection():
-        from atdd.coach.commands.branch_protection import verify_branch_protection
-        return verify_branch_protection(github_client.repo)
+        try:
+            from atdd.coach.commands.branch_protection import verify_branch_protection
+            results["branch_protection"] = verify_branch_protection(github_client.repo)
+        except Exception as e:
+            results["branch_protection"] = e
 
-    with ThreadPoolExecutor(max_workers=7) as pool:
-        futures = [
-            pool.submit(_fetch, "issues", lambda: github_client.list_issues_by_label("atdd-issue")),
-            pool.submit(_fetch, "complete_issues", lambda: github_client.list_issues_by_label("atdd:COMPLETE")),
-            pool.submit(_fetch, "project_fields", lambda: github_client.get_project_fields()),
-            pool.submit(_fetch, "project_items", lambda: github_client.get_all_project_items()),
-            pool.submit(_fetch, "sub_issues", lambda: github_client.get_all_sub_issues("atdd-issue", "OPEN")),
-            pool.submit(_fetch, "closed_sub_issues", lambda: github_client.get_all_sub_issues("atdd-issue", "CLOSED")),
-            pool.submit(_fetch, "branch_protection", _fetch_branch_protection),
-        ]
-        for f in as_completed(futures):
-            f.result()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        f1 = pool.submit(_fetch_batch)
+        f2 = pool.submit(_fetch_branch_protection)
+        f1.result()
+        f2.result()
 
     return results
 

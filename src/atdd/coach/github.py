@@ -484,6 +484,116 @@ class GitHubClient:
         return items
 
     # -------------------------------------------------------------------------
+    # Batch prefetch (validator optimization)
+    # -------------------------------------------------------------------------
+
+    def prefetch_validator_data(self) -> Dict[str, Any]:
+        """Fetch all data needed by coach validators in minimal API calls.
+
+        Combines multiple GraphQL queries into two batched requests (one for
+        project data, one for sub-issues which needs a preview header), plus
+        one REST call for issues. Replaces 7 sequential calls with 3 parallel.
+
+        Returns dict with keys:
+            issues, complete_issues, project_fields, project_items,
+            sub_issues, closed_sub_issues
+        """
+        from concurrent.futures import ThreadPoolExecutor
+
+        results: Dict[str, Any] = {}
+
+        def _fetch_issues():
+            """Fetch both open atdd-issue and complete issues via REST."""
+            results["issues"] = self.list_issues_by_label("atdd-issue")
+            results["complete_issues"] = self.list_issues_by_label("atdd:COMPLETE")
+
+        def _fetch_project_data():
+            """Fetch project fields + all items in one GraphQL call."""
+            owner, name = self.repo.split("/")
+            query = """
+            {
+              node(id: "%s") {
+                ... on ProjectV2 {
+                  fields(first: 30) {
+                    nodes {
+                      ... on ProjectV2Field { id name dataType }
+                      ... on ProjectV2SingleSelectField { id name dataType options { id name } }
+                    }
+                  }
+                  items(first: 100) {
+                    pageInfo { hasNextPage endCursor }
+                    nodes {
+                      id
+                      content { ... on Issue { number } }
+                      fieldValues(first: 30) {
+                        nodes {
+                          ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
+                          ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } }
+                          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2SingleSelectField { name } } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """ % self.project_id
+            data = self._graphql(query)
+            project = data.get("data", {}).get("node", {})
+
+            # Parse fields (match get_project_fields() format: data_type, options as {name: id})
+            fields_raw = project.get("fields", {}).get("nodes", [])
+            fields = {}
+            for f in fields_raw:
+                name = f.get("name")
+                if name:
+                    entry = {"id": f["id"], "data_type": f.get("dataType")}
+                    if "options" in f:
+                        entry["options"] = {
+                            opt["name"]: opt["id"] for opt in f["options"]
+                        }
+                    fields[name] = entry
+            results["project_fields"] = fields
+
+            # Parse items
+            items = {}
+            for item in project.get("items", {}).get("nodes", []):
+                content = item.get("content") or {}
+                number = content.get("number")
+                if number is None:
+                    continue
+                field_vals = {}
+                for fv in item.get("fieldValues", {}).get("nodes", []):
+                    field_info = fv.get("field") or {}
+                    fname = field_info.get("name")
+                    if not fname:
+                        continue
+                    if "text" in fv:
+                        field_vals[fname] = fv["text"]
+                    elif "number" in fv:
+                        field_vals[fname] = fv["number"]
+                    elif "name" in fv and fv["name"] != fname:
+                        field_vals[fname] = fv["name"]
+                items[number] = {"item_id": item["id"], "fields": field_vals}
+            results["project_items"] = items
+
+        def _fetch_sub_issues():
+            """Fetch open + closed sub-issues in two GraphQL calls (needs preview header)."""
+            results["sub_issues"] = self.get_all_sub_issues("atdd-issue", "OPEN")
+            results["closed_sub_issues"] = self.get_all_sub_issues("atdd-issue", "CLOSED")
+
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [
+                pool.submit(_fetch_issues),
+                pool.submit(_fetch_project_data),
+                pool.submit(_fetch_sub_issues),
+            ]
+            for f in futures:
+                f.result()
+
+        return results
+
+    # -------------------------------------------------------------------------
     # Issue queries
     # -------------------------------------------------------------------------
 
