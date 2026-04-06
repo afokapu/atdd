@@ -98,11 +98,55 @@ def _dead_code_python(repo_root: Path) -> Tuple[int, Sequence]:
     return len(unreachable), unreachable
 
 
+def _maintainability_index(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_quality_metrics import (
+        find_python_files,
+        calculate_maintainability_index,
+        MIN_MAINTAINABILITY_INDEX,
+        REPO_ROOT,
+    )
+    violations = []
+    for py_file in find_python_files():
+        try:
+            with open(py_file, 'r') as f:
+                if len(f.readlines()) < 10:
+                    continue
+        except Exception:
+            continue
+        index = calculate_maintainability_index(py_file)
+        if index < MIN_MAINTAINABILITY_INDEX:
+            violations.append(f"{py_file.relative_to(REPO_ROOT)} MI={index:.1f}")
+    return len(violations), violations
+
+
+def _code_comments(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_quality_metrics import (
+        find_python_files,
+        calculate_comment_ratio,
+        MIN_COMMENT_RATIO,
+        REPO_ROOT,
+    )
+    violations = []
+    for py_file in find_python_files():
+        try:
+            with open(py_file, 'r') as f:
+                if len(f.readlines()) < 20:
+                    continue
+        except Exception:
+            continue
+        ratio = calculate_comment_ratio(py_file)
+        if ratio < MIN_COMMENT_RATIO:
+            violations.append(f"{py_file.relative_to(REPO_ROOT)} {ratio*100:.1f}%")
+    return len(violations), violations
+
+
 VALIDATORS: Dict[str, ValidatorFn] = {
     "composition_completeness_python": _composition_python,
     "composition_completeness_typescript": _composition_typescript,
     "composition_completeness_supabase": _composition_supabase,
     "dead_code_python": _dead_code_python,
+    "maintainability_index": _maintainability_index,
+    "code_comments": _code_comments,
 }
 
 

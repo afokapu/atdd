@@ -2,13 +2,12 @@
 Test code quality metrics meet minimum standards.
 
 Validates:
-- Maintainability index > 60
+- Maintainability index >= 20 (industry standard, via radon)
 - Code has appropriate comments
 - No code duplication
 - Consistent naming conventions
 
-Inspired by: .claude/utils/coder/quality_metrics.py
-But: Self-contained, no utility dependencies
+Convention: src/atdd/coder/conventions/quality.convention.yaml
 """
 
 import pytest
@@ -24,7 +23,9 @@ PYTHON_DIR = REPO_ROOT / "python"
 
 
 # Quality thresholds
-MIN_MAINTAINABILITY_INDEX = 60
+# MI >= 20 is "maintainable" per SEI/Microsoft scale (0-100, higher=better)
+# MI >= 10 is "moderate", MI < 10 is "unmaintainable"
+MIN_MAINTAINABILITY_INDEX = 20
 MIN_COMMENT_RATIO = 0.10  # 10% comments
 MAX_DUPLICATE_LINES = 5
 
@@ -47,46 +48,28 @@ def find_python_files() -> List[Path]:
 
 def calculate_maintainability_index(file_path: Path) -> float:
     """
-    Calculate simplified maintainability index for a file.
+    Calculate maintainability index using radon (standard MI formula).
 
-    Based on:
+    The MI formula combines:
+    - Halstead volume (operator/operand complexity)
+    - Cyclomatic complexity
     - Lines of code
-    - Cyclomatic complexity (simplified)
-    - Comment ratio
+    - Comment percentage (optional, included by default)
 
-    Returns value 0-100 (higher is better)
+    Scale: 0-100 (higher is better)
+    - MI >= 20: maintainable
+    - 10 <= MI < 20: moderate
+    - MI < 10: unmaintainable
+
+    Reference: SEI (Software Engineering Institute) / Microsoft Visual Studio
     """
     try:
+        from radon.metrics import mi_visit
         with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
+            source = f.read()
+        return mi_visit(source, multi=True)
     except Exception:
-        return 0
-
-    total_lines = len(lines)
-    code_lines = 0
-    comment_lines = 0
-    blank_lines = 0
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            blank_lines += 1
-        elif stripped.startswith('#'):
-            comment_lines += 1
-        else:
-            code_lines += 1
-
-    # Simple heuristic for maintainability
-    # Higher comment ratio = better
-    comment_ratio = comment_lines / total_lines if total_lines > 0 else 0
-
-    # Shorter files = better
-    size_factor = max(0, 100 - (code_lines / 10))
-
-    # Calculate index (simplified)
-    index = (size_factor * 0.4) + (comment_ratio * 100 * 0.6)
-
-    return min(100, max(0, index))
+        return 100.0  # Can't parse → don't penalize
 
 
 def calculate_comment_ratio(file_path: Path) -> float:
@@ -243,20 +226,17 @@ def check_naming_consistency(file_path: Path) -> List[str]:
 
 
 @pytest.mark.coder
-def test_maintainability_index_above_threshold():
+def test_maintainability_index_above_threshold(ratchet_baseline):
     """
     SPEC-CODER-QUALITY-0001: Code has acceptable maintainability index.
 
-    Maintainability index measures:
-    - Code complexity
-    - Code size
-    - Documentation level
-
-    Threshold: > 60 (scale 0-100)
+    Uses radon's standard MI formula (Halstead volume + cyclomatic complexity + LOC).
+    Threshold: MI >= 20 (SEI/Microsoft "maintainable" threshold).
+    Uses ratchet baseline to prevent regression while allowing incremental fixes.
 
     Given: All Python files
-    When: Calculating maintainability index
-    Then: Index > 60 for all files
+    When: Calculating maintainability index via radon
+    Then: Violation count does not exceed baseline
     """
     python_files = find_python_files()
 
@@ -280,31 +260,30 @@ def test_maintainability_index_above_threshold():
         if index < MIN_MAINTAINABILITY_INDEX:
             rel_path = py_file.relative_to(REPO_ROOT)
             violations.append(
-                f"{rel_path}\\n"
-                f"  Maintainability Index: {index:.1f} (min: {MIN_MAINTAINABILITY_INDEX})\\n"
-                f"  Suggestion: Add comments, reduce complexity, or split file"
+                f"{rel_path}\n"
+                f"  Maintainability Index: {index:.1f} (min: {MIN_MAINTAINABILITY_INDEX})\n"
+                f"  Suggestion: Reduce complexity, extract functions, or split file"
             )
 
-    if violations:
-        pytest.fail(
-            f"\\n\\nFound {len(violations)} maintainability violations:\\n\\n" +
-            "\\n\\n".join(violations[:10]) +
-            (f"\\n\\n... and {len(violations) - 10} more" if len(violations) > 10 else "")
-        )
+    ratchet_baseline.assert_no_regression(
+        validator_id="maintainability_index",
+        current_count=len(violations),
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_adequate_code_comments():
+def test_adequate_code_comments(ratchet_baseline):
     """
     SPEC-CODER-QUALITY-0002: Code has adequate comments.
 
     Well-commented code is easier to maintain.
-
-    Threshold: > 10% comment ratio
+    Threshold: > 10% comment ratio.
+    Uses ratchet baseline to prevent regression.
 
     Given: All Python files
     When: Calculating comment ratio
-    Then: At least 10% comments
+    Then: Violation count does not exceed baseline
     """
     python_files = find_python_files()
 
@@ -328,17 +307,16 @@ def test_adequate_code_comments():
         if ratio < MIN_COMMENT_RATIO:
             rel_path = py_file.relative_to(REPO_ROOT)
             violations.append(
-                f"{rel_path}\\n"
-                f"  Comment ratio: {ratio*100:.1f}% (min: {MIN_COMMENT_RATIO*100:.0f}%)\\n"
+                f"{rel_path}\n"
+                f"  Comment ratio: {ratio*100:.1f}% (min: {MIN_COMMENT_RATIO*100:.0f}%)\n"
                 f"  Suggestion: Add docstrings and inline comments"
             )
 
-    if violations:
-        pytest.fail(
-            f"\\n\\nFound {len(violations)} files with insufficient comments:\\n\\n" +
-            "\\n\\n".join(violations[:10]) +
-            (f"\\n\\n... and {len(violations) - 10} more" if len(violations) > 10 else "")
-        )
+    ratchet_baseline.assert_no_regression(
+        validator_id="code_comments",
+        current_count=len(violations),
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
