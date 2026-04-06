@@ -1,0 +1,186 @@
+# Post-Merge Lifecycle: complete the ATDD issue lifecycle after PR merge.
+# Closes WMBT sub-issues, swaps labels to atdd:COMPLETE, updates Project v2.
+name: Post-Merge Lifecycle
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  post-merge-lifecycle:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Extract linked issue number
+        id: extract
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Extract issue number from "Closes #N" in PR body
+          ISSUE=$(echo "$PR_BODY" | grep -oiP '(?:closes|fixes|resolves)\s+#\K\d+' | head -1)
+          if [ -z "$ISSUE" ]; then
+            echo "::notice::No linked issue found in PR #${PR_NUMBER} body. Skipping."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "issue=$ISSUE" >> "$GITHUB_OUTPUT"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "Linked issue: #$ISSUE"
+
+      - name: Close WMBT sub-issues
+        if: steps.extract.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ steps.extract.outputs.issue }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Fetching sub-issues for #${ISSUE}..."
+          SUB_ISSUES=$(gh api "repos/${REPO}/issues/${ISSUE}/sub_issues" \
+            --paginate --jq '.[] | select(.state == "open") | .number' 2>/dev/null || true)
+
+          if [ -z "$SUB_ISSUES" ]; then
+            echo "No open sub-issues found."
+          else
+            for SUB in $SUB_ISSUES; do
+              echo "Closing sub-issue #${SUB}..."
+              gh issue close "$SUB" --repo "$REPO" \
+                --comment "Closed by merge of PR #${{ github.event.pull_request.number }}."
+            done
+            echo "Closed $(echo "$SUB_ISSUES" | wc -w | tr -d ' ') sub-issue(s)."
+          fi
+
+      - name: Swap labels to atdd:COMPLETE
+        if: steps.extract.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ steps.extract.outputs.issue }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Get current labels on the issue
+          LABELS=$(gh issue view "$ISSUE" --repo "$REPO" --json labels --jq '.labels[].name')
+
+          # Remove any atdd phase labels
+          for PHASE in INIT PLANNED RED GREEN SMOKE REFACTOR BLOCKED; do
+            if echo "$LABELS" | grep -qx "atdd:${PHASE}"; then
+              echo "Removing label atdd:${PHASE}..."
+              gh issue edit "$ISSUE" --repo "$REPO" --remove-label "atdd:${PHASE}"
+            fi
+          done
+
+          # Add atdd:COMPLETE
+          echo "Adding label atdd:COMPLETE..."
+          gh issue edit "$ISSUE" --repo "$REPO" --add-label "atdd:COMPLETE"
+
+      - name: Update Project v2 ATDD Status
+        if: steps.extract.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ steps.extract.outputs.issue }}
+          REPO: ${{ github.repository }}
+          PROJECT_ID: PVT_kwHOAIbyOM4BPpKf
+        run: |
+          OWNER="${REPO%%/*}"
+          NAME="${REPO##*/}"
+
+          # Get issue node ID
+          ISSUE_NODE_ID=$(gh api graphql -f query='
+            query($owner: String!, $name: String!, $number: Int!) {
+              repository(owner: $owner, name: $name) {
+                issue(number: $number) { id }
+              }
+            }' -f owner="$OWNER" -f name="$NAME" -F number="$ISSUE" \
+            --jq '.data.repository.issue.id' 2>/dev/null) || true
+
+          if [ -z "$ISSUE_NODE_ID" ]; then
+            echo "::warning::Could not fetch issue node ID. Skipping project update."
+            exit 0
+          fi
+
+          # Find the project item ID for this issue
+          ITEM_ID=$(gh api graphql -f query='
+            query($nodeId: ID!) {
+              node(id: $nodeId) {
+                ... on Issue {
+                  projectItems(first: 10) {
+                    nodes { id project { id } }
+                  }
+                }
+              }
+            }' -f nodeId="$ISSUE_NODE_ID" \
+            --jq ".data.node.projectItems.nodes[] | select(.project.id == \"${PROJECT_ID}\") | .id" 2>/dev/null) || true
+
+          if [ -z "$ITEM_ID" ]; then
+            echo "::notice::Issue #${ISSUE} not in project. Skipping project field update."
+            exit 0
+          fi
+
+          # Get the "ATDD Status" field ID and COMPLETE option ID
+          FIELD_DATA=$(gh api graphql -f query='
+            query($projectId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  fields(first: 30) {
+                    nodes {
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                        options { id name }
+                      }
+                    }
+                  }
+                }
+              }
+            }' -f projectId="$PROJECT_ID" 2>/dev/null) || true
+
+          if [ -z "$FIELD_DATA" ]; then
+            echo "::warning::Could not fetch project fields. Skipping project update."
+            exit 0
+          fi
+
+          FIELD_ID=$(echo "$FIELD_DATA" | jq -r '
+            .data.node.fields.nodes[]
+            | select(.name == "ATDD Status")
+            | .id' 2>/dev/null) || true
+          OPTION_ID=$(echo "$FIELD_DATA" | jq -r '
+            .data.node.fields.nodes[]
+            | select(.name == "ATDD Status")
+            | .options[]
+            | select(.name == "COMPLETE")
+            | .id' 2>/dev/null) || true
+
+          if [ -z "$FIELD_ID" ] || [ -z "$OPTION_ID" ]; then
+            echo "::warning::ATDD Status field or COMPLETE option not found. Skipping."
+            exit 0
+          fi
+
+          # Update the field
+          gh api graphql -f query='
+            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+              updateProjectV2ItemFieldValue(input: {
+                projectId: $projectId
+                itemId: $itemId
+                fieldId: $fieldId
+                value: { singleSelectOptionId: $optionId }
+              }) { projectV2Item { id } }
+            }' -f projectId="$PROJECT_ID" -f itemId="$ITEM_ID" \
+               -f fieldId="$FIELD_ID" -f optionId="$OPTION_ID"
+
+          echo "Updated ATDD Status to COMPLETE for issue #${ISSUE}."
+
+      - name: Add closing comment
+        if: steps.extract.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ steps.extract.outputs.issue }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          gh issue comment "$ISSUE" --repo "$REPO" --body \
+            "ATDD lifecycle complete. Merged via PR #${PR_NUMBER} (${PR_TITLE}) at ${TIMESTAMP}."
