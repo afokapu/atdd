@@ -33,6 +33,7 @@ where = ["src"]
 "atdd.tester.schemas" = ["*.json"]
 "atdd.coder.conventions" = ["*.yaml"]
 "atdd.coder.schemas" = ["*.json"]
+"atdd" = ["coder/validators/fixtures/**"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

@@ -54,9 +54,55 @@ def _composition_typescript(repo_root: Path) -> Tuple[int, Sequence]:
     return len(violations), violations
 
 
+def _composition_supabase(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_composition_completeness import (
+        analyze_typescript_repo,
+    )
+    violations = analyze_typescript_repo(repo_root, stack="supabase")
+    return len(violations), violations
+
+
+def _dead_code_python(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_dead_code_python import (
+        find_python_files,
+        build_file_import_graph,
+        find_reachable_files,
+        find_cli_entry_points,
+        resolve_module_to_file,
+        is_root_file,
+        build_reverse_graph,
+    )
+    python_files = find_python_files()
+    if not python_files:
+        return 0, []
+    graph = build_file_import_graph(python_files)
+    roots = {f for f in python_files if is_root_file(f)}
+    cli_modules = find_cli_entry_points()
+    all_files_set = set(python_files)
+    for module in cli_modules:
+        roots.update(resolve_module_to_file(module, all_files_set))
+    # Composition roots mark wagon src/ as reachable
+    for f in list(roots):
+        if f.name == "composition.py":
+            src_dir = f.parent / "src"
+            if src_dir.is_dir():
+                roots.update(pf for pf in python_files if str(pf).startswith(str(src_dir)))
+    reachable = find_reachable_files(roots, graph)
+    reverse_reachable = find_reachable_files(roots, build_reverse_graph(graph))
+    all_reachable = reachable | reverse_reachable
+    unreachable = [
+        str(f.relative_to(repo_root))
+        for f in python_files
+        if f not in all_reachable and f.name != "__init__.py"
+    ]
+    return len(unreachable), unreachable
+
+
 VALIDATORS: Dict[str, ValidatorFn] = {
     "composition_completeness_python": _composition_python,
     "composition_completeness_typescript": _composition_typescript,
+    "composition_completeness_supabase": _composition_supabase,
+    "dead_code_python": _dead_code_python,
 }
 
 
