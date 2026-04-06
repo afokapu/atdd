@@ -75,26 +75,42 @@ jobs:
           skip-existing: true
 
       - name: Verify PyPI publication
+        id: pypi_verify
         run: |
           VERSION="${TAG#v}"
           echo "Waiting for atdd==$VERSION to appear on PyPI..."
           for i in 1 2 3 4 5 6; do
             if pip install --dry-run --no-deps "atdd==$VERSION" --index-url https://pypi.org/simple/ 2>&1 | grep -q "Would install"; then
               echo "Verified: atdd==$VERSION is available on PyPI"
+              echo "pypi_status=published" >> "$GITHUB_OUTPUT"
+              echo "pypi_version=$VERSION" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             echo "Attempt $i: not yet available, waiting 10s..."
             sleep 10
           done
           echo "::warning::atdd==$VERSION not found on PyPI after 60s — may still be propagating"
+          echo "pypi_status=pending" >> "$GITHUB_OUTPUT"
+          echo "pypi_version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         if: env.CREATED == 'true'
         run: |
-          # Build descriptive title from the squash-merge commit message
           COMMIT_SUBJECT=$(git log -1 --format='%s')
-          # Strip trailing (#NNN) PR ref for cleaner title, keep it in body
           TITLE="$TAG — $COMMIT_SUBJECT"
-          gh release create "$TAG" --generate-notes --title "$TITLE"
+          PYPI_LINE=""
+          if [ "$PYPI_STATUS" = "published" ]; then
+            PYPI_LINE="Published to PyPI: atdd==$PYPI_VERSION"
+          else
+            PYPI_LINE="PyPI publication pending (may still be propagating)"
+          fi
+          gh release create "$TAG" --generate-notes --title "$TITLE" \
+            --notes-start-tag "$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo '')" \
+            || gh release create "$TAG" --title "$TITLE" --notes "$PYPI_LINE"
+          # Append PyPI status to existing release body
+          EXISTING_BODY=$(gh release view "$TAG" --json body --jq '.body' 2>/dev/null || echo "")
+          gh release edit "$TAG" --notes "$(printf '%s\n\n---\n%s' "$EXISTING_BODY" "$PYPI_LINE")"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYPI_STATUS: ${{ steps.pypi_verify.outputs.pypi_status }}
+          PYPI_VERSION: ${{ steps.pypi_verify.outputs.pypi_version }}

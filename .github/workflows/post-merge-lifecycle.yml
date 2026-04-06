@@ -172,6 +172,19 @@ jobs:
 
           echo "Updated ATDD Status to COMPLETE for issue #${ISSUE}."
 
+      - name: Read version from pyproject.toml
+        if: steps.extract.outputs.found == 'true'
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          VERSION=$(gh api "repos/${REPO}/contents/pyproject.toml" --jq '.content' \
+            | base64 -d \
+            | grep -oP '(?<=version = ")[^"]+' \
+            | head -1) || VERSION="unknown"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Add closing comment
         if: steps.extract.outputs.found == 'true'
         env:
@@ -180,7 +193,8 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          BODY=$(printf 'ATDD lifecycle complete. Merged via PR #%s (%s) at %s.' "$PR_NUMBER" "$PR_TITLE" "$TIMESTAMP")
+          BODY=$(printf 'ATDD lifecycle complete. Merged via PR #%s (%s) at %s.\nPublishing to PyPI: atdd==%s' "$PR_NUMBER" "$PR_TITLE" "$TIMESTAMP" "$VERSION")
           gh issue comment "$ISSUE" --repo "$REPO" --body "$BODY"
