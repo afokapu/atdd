@@ -9,7 +9,7 @@ The coach orchestrates all ATDD lifecycle operations:
 - registry: Update registries from source files
 - init: Initialize ATDD structure in consumer repos
 - issue: Unified issue lifecycle (create, enter, transition, close-wmbt)
-- list/branch: Issue shortcuts
+- list/branch/pr: Issue shortcuts
 - sync: Sync ATDD rules to agent config files
 - gate: Verify agents loaded ATDD rules
 
@@ -249,6 +249,11 @@ Examples:
   %(prog)s branch 69                      Create worktree from issue #69
   %(prog)s branch 69 --prefix fix         Override branch prefix
 
+  # Create PR from issue
+  %(prog)s pr 69                          Create PR for issue #69
+  %(prog)s pr 69 --draft                  Create as draft PR
+  %(prog)s pr 69 --base develop           Override base branch
+
   # Agent config sync
   %(prog)s sync                           Sync ATDD rules to agent configs
   %(prog)s sync --verify                  Check if files are in sync (CI)
@@ -472,6 +477,31 @@ Phase descriptions:
         "--prefix",
         type=str,
         help="Override branch prefix (feat, fix, refactor, chore, docs, devops)"
+    )
+
+    # ----- atdd pr <issue_number> -----
+    pr_parser = subparsers.add_parser(
+        "pr",
+        help="Create PR linked to an ATDD issue",
+        description=(
+            "Create a GitHub pull request with closing keywords for automatic issue closure.\n\n"
+            "  atdd pr 69                Create PR for issue #69\n"
+            "  atdd pr 69 --draft        Create as draft PR\n"
+            "  atdd pr 69 --base develop Override base branch\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    pr_parser.add_argument("issue_number", type=int, help="Issue number to link")
+    pr_parser.add_argument(
+        "--draft",
+        action="store_true",
+        help="Create as a draft PR"
+    )
+    pr_parser.add_argument(
+        "--base",
+        type=str,
+        default="main",
+        help="Base branch for the PR (default: main)"
     )
 
     # ----- atdd close-wmbt <issue_number> <wmbt_id> -----
@@ -1008,6 +1038,16 @@ Phase descriptions:
         return manager.branch(
             issue_number=args.issue_number,
             prefix=getattr(args, 'prefix', None),
+        )
+
+    # atdd pr <issue_number>
+    elif args.command == "pr":
+        from atdd.coach.commands.pr import PRManager
+        manager = PRManager()
+        return manager.pr(
+            issue_number=args.issue_number,
+            draft=getattr(args, 'draft', False),
+            base=getattr(args, 'base', 'main'),
         )
 
     # atdd close-wmbt <issue_id> <wmbt_id> — DEPRECATED, delegates to atdd issue <N> --close-wmbt <ID>
