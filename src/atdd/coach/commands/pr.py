@@ -18,6 +18,7 @@ Convention: CLAUDE.md git.commits, issues.prohibited_commands
 """
 import json
 import logging
+import re
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -144,14 +145,13 @@ class PRManager:
         prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
 
         # If the issue title already has a conventional prefix, use it as-is
-        conventional_prefixes = ("feat:", "fix:", "refactor:", "chore:", "docs:", "devops:")
+        # Matches both "feat:" and "feat(scope):" patterns
         title_lower = issue_title.lower().strip()
-        for cp in conventional_prefixes:
-            if title_lower.startswith(cp):
-                # Already conventional — append issue ref if missing
-                if f"#{issue_number}" not in issue_title:
-                    return f"{issue_title} (#{issue_number})"
-                return issue_title
+        if re.match(r'(feat|fix|refactor|chore|docs|devops)(\([^)]*\))?:', title_lower):
+            # Already conventional — append issue ref if missing
+            if f"#{issue_number}" not in issue_title:
+                return f"{issue_title} (#{issue_number})"
+            return issue_title
 
         # Strip leading type labels like "feat(atdd):" if present via labels
         clean_title = issue_title.strip()
