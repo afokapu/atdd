@@ -239,7 +239,7 @@ class PRManager:
             True if auto-merge was enabled successfully.
         """
         cmd = ["gh", "pr", "merge", pr_url, "--auto", f"--{strategy}"]
-        logger.info("Enabling auto-merge: %s", " ".join(cmd))
+        logger.info("Enabling auto-merge: %s", " ".join(cmd), extra={"cmd": " ".join(cmd), "strategy": strategy})
 
         try:
             result = subprocess.run(
@@ -249,10 +249,10 @@ class PRManager:
             )
             if result.returncode == 0:
                 return True
-            logger.error("gh pr merge --auto failed: %s", result.stderr.strip())
+            logger.error("gh pr merge --auto failed: %s", result.stderr.strip(), extra={"stderr": result.stderr.strip()})
             return False
         except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-            logger.error("Failed to enable auto-merge: %s", exc)
+            logger.error("Failed to enable auto-merge: %s", exc, extra={"error": str(exc)})
             return False
 
     def pr(
