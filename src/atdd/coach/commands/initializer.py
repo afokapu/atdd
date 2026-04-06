@@ -396,6 +396,99 @@ class ProjectInitializer:
             print(f"Error: {e}")
             return 1
 
+    def export_schemas(self) -> int:
+        """
+        Export convention YAML and schema JSON files to .atdd/schemas/.
+
+        Copies files from the installed atdd package into the consumer repo
+        so agents can reference conventions and schemas without the package
+        being importable in their runtime.
+
+        Target layout:
+            .atdd/schemas/
+            ├── .version                           # installed atdd version
+            ├── planner/conventions/*.convention.yaml
+            ├── planner/schemas/*.json
+            ├── tester/conventions/*.convention.yaml
+            ├── tester/schemas/*.json
+            ├── coder/conventions/*.convention.yaml
+            ├── coder/schemas/*.json
+            ├── coach/conventions/*.convention.yaml
+            └── coach/schemas/*.json
+
+        Returns:
+            0 on success, 1 on error.
+        """
+        from atdd import __version__
+
+        package_root = Path(__file__).parent.parent.parent  # src/atdd
+        schemas_dir = self.atdd_config_dir / "schemas"
+
+        # Roles and their sub-directories to export
+        roles = ["planner", "tester", "coder", "coach"]
+        sub_dirs = ["conventions", "schemas"]
+
+        copied = 0
+        for role in roles:
+            for sub in sub_dirs:
+                src_dir = package_root / role / sub
+                if not src_dir.is_dir():
+                    logger.debug("Skipping missing source: %s", src_dir)
+                    continue
+
+                dest_dir = schemas_dir / role / sub
+                dest_dir.mkdir(parents=True, exist_ok=True)
+
+                for src_file in sorted(src_dir.iterdir()):
+                    if not src_file.is_file():
+                        continue
+                    # Convention YAML or schema/template JSON
+                    if src_file.suffix not in (".yaml", ".json"):
+                        continue
+                    dest_file = dest_dir / src_file.name
+                    shutil.copy2(str(src_file), str(dest_file))
+                    copied += 1
+
+        # Write version stamp
+        version_file = schemas_dir / ".version"
+        version_file.write_text(__version__ + "\n")
+
+        print(f"Exported {copied} convention/schema files to {schemas_dir}")
+        print(f"Version stamp: {__version__}")
+        return 0
+
+    @staticmethod
+    def check_schema_version(target_dir: Optional[Path] = None) -> int:
+        """
+        Compare .atdd/schemas/.version against installed atdd version.
+
+        Args:
+            target_dir: Consumer repo root. Defaults to cwd.
+
+        Returns:
+            0 if versions match, 1 if mismatch or missing.
+        """
+        from atdd import __version__
+
+        target = target_dir or Path.cwd()
+        version_file = target / ".atdd" / "schemas" / ".version"
+
+        if not version_file.exists():
+            print("No exported schemas found (.atdd/schemas/.version missing).")
+            print("Run: atdd init --export-schemas")
+            return 1
+
+        exported_version = version_file.read_text().strip()
+        if exported_version == __version__:
+            print(f"Schemas in sync: {exported_version}")
+            return 0
+        else:
+            print(f"Schema version mismatch:")
+            print(f"  exported: {exported_version}")
+            print(f"  installed: {__version__}")
+            print("Run: atdd init --export-schemas   (or atdd sync)")
+            return 1
+
     def _create_manifest(self, force: bool = False) -> None:
         """
         Create or update .atdd/manifest.yaml.

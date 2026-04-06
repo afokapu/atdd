@@ -123,6 +123,13 @@ class AgentConfigSync:
             initializer = ProjectInitializer(self.target_dir)
             initializer._write_workspace()
 
+        # Refresh exported schemas if .atdd/schemas/ exists
+        schemas_dir = self.atdd_config_dir / "schemas"
+        if schemas_dir.is_dir():
+            from atdd.coach.commands.initializer import ProjectInitializer
+            schema_initializer = ProjectInitializer(self.target_dir)
+            schema_initializer.export_schemas()
+
         # Apply branch protection if upgrading
         self._apply_branch_protection_on_upgrade()
 

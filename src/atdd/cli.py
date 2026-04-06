@@ -411,6 +411,24 @@ Phase descriptions:
         action="store_true",
         help="Migrate repo to flat-sibling worktree layout (moves contents into main/)"
     )
+    init_parser.add_argument(
+        "--export-schemas",
+        action="store_true",
+        dest="export_schemas",
+        help="Export convention YAML and schema JSON files to .atdd/schemas/"
+    )
+
+    # ----- atdd schemas --check -----
+    schemas_parser = subparsers.add_parser(
+        "schemas",
+        help="Manage exported convention/schema files",
+        description="Check or refresh exported convention and schema files in .atdd/schemas/"
+    )
+    schemas_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Compare .atdd/schemas/.version against installed atdd version"
+    )
 
     # ----- atdd new <slug> -----
     new_parser = subparsers.add_parser(
@@ -1041,6 +1059,8 @@ Phase descriptions:
     # atdd init
     elif args.command == "init":
         initializer = ProjectInitializer()
+        if args.export_schemas:
+            return initializer.export_schemas()
         return initializer.init(force=args.force, worktree_layout=args.worktree_layout)
 
     # atdd new <slug> — DEPRECATED, delegates to atdd issue <slug>
@@ -1182,6 +1202,14 @@ Phase descriptions:
         from atdd.coach.commands.color import ColorManager
         manager = ColorManager()
         return manager.color(value=args.value)
+
+    # atdd schemas
+    elif args.command == "schemas":
+        if args.check:
+            return ProjectInitializer.check_schema_version()
+        # Default: export (same as atdd init --export-schemas)
+        initializer = ProjectInitializer()
+        return initializer.export_schemas()
 
     # atdd sync
     elif args.command == "sync":
