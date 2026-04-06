@@ -142,13 +142,39 @@ def find_web_implementations(wagon_slug: str, feature_slug: str) -> List[Path]:
     return implementations
 
 
+def _is_manifest_slug(feature_slug: str) -> bool:
+    """
+    Return True if the feature slug refers to a manifest file, not a real feature.
+
+    Manifest files like ``_features.yaml`` produce slugs such as ``-features``
+    or ``_features`` after stem extraction and hyphen normalisation.
+    """
+    return feature_slug in ("-features", "_features", "")
+
+
 def has_implementation(wagon_slug: str, feature_slug: str) -> bool:
     """
     Check if a feature has any implementation.
+
+    Tries the original hyphenated slug first, then falls back to the
+    underscore-normalised form so that ``commit-state`` matches the
+    ``commit_state/`` directory on disk.
     """
+    # Try with the original slug (hyphenated)
     python_impls = find_python_implementations(wagon_slug, feature_slug)
     ts_impls = find_typescript_implementations(wagon_slug, feature_slug)
     web_impls = find_web_implementations(wagon_slug, feature_slug)
+
+    if python_impls or ts_impls or web_impls:
+        return True
+
+    # Fallback: normalise hyphens to underscores for directory lookup
+    norm_wagon = wagon_slug.replace("-", "_")
+    norm_feature = feature_slug.replace("-", "_")
+    if norm_wagon != wagon_slug or norm_feature != feature_slug:
+        python_impls = find_python_implementations(norm_wagon, norm_feature)
+        ts_impls = find_typescript_implementations(norm_wagon, norm_feature)
+        web_impls = find_web_implementations(norm_wagon, norm_feature)
 
     return len(python_impls) > 0 or len(ts_impls) > 0 or len(web_impls) > 0
 
@@ -199,13 +225,15 @@ def find_tests_for_implementation(impl_path: Path) -> List[Path]:
 
 
 @pytest.mark.coder
-def test_all_features_have_implementations(feature_files, coverage_exceptions):
+def test_all_features_have_implementations(feature_files, coverage_exceptions, ratchet_baseline):
     """
     COVERAGE-CODE-4.1: Every feature has implementation code.
 
     Given: Feature files in plan/*/features/
     When: Searching for corresponding implementation files
     Then: Every feature has at least one implementation in python/, supabase/, or web/
+
+    Uses ratchet baseline so planned-but-unimplemented features don't block CI.
     """
     allowed_features = set(coverage_exceptions.get("features_without_implementation", []))
     violations = []
@@ -217,6 +245,11 @@ def test_all_features_have_implementations(feature_files, coverage_exceptions):
 
         # Get feature slug
         feature_slug = path.stem.replace("_", "-")
+
+        # Skip manifest files (_features.yaml) that are not real features
+        if _is_manifest_slug(feature_slug):
+            continue
+
         feature_urn = feature_data.get("urn", f"feature:{wagon_slug}:{feature_slug}")
 
         # Skip draft features
@@ -234,21 +267,11 @@ def test_all_features_have_implementations(feature_files, coverage_exceptions):
                 f"{feature_urn}: no implementation found in python/, supabase/, or web/"
             )
 
-    if violations:
-        if should_enforce(CoveragePhase.FULL_ENFORCEMENT):
-            pytest.fail(
-                f"COVERAGE-CODE-4.1: Features without implementations:\n  " +
-                "\n  ".join(violations[:20]) +
-                (f"\n  ... and {len(violations) - 20} more" if len(violations) > 20 else "") +
-                "\n\nImplement feature or add to coverage.exceptions.features_without_implementation"
-            )
-        else:
-            for violation in violations[:10]:
-                emit_coverage_warning(
-                    "COVERAGE-CODE-4.1",
-                    violation,
-                    CoveragePhase.FULL_ENFORCEMENT
-                )
+    ratchet_baseline.assert_no_regression(
+        validator_id="hierarchy_coverage_features",
+        current_count=len(violations),
+        violations=violations,
+    )
 
 
 # ============================================================================
