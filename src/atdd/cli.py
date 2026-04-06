@@ -346,6 +346,11 @@ Phase descriptions:
         default="yaml",
         help="Output format (default: yaml)"
     )
+    inventory_parser.add_argument(
+        "--trace",
+        action="store_true",
+        help="Print URN traceability matrix with coverage and orphan detection"
+    )
 
     # ----- atdd status -----
     subparsers.add_parser(
@@ -1005,6 +1010,10 @@ Phase descriptions:
     # atdd inventory
     elif args.command == "inventory":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+        if getattr(args, 'trace', False):
+            from atdd.coach.commands.inventory import TraceabilityReport
+            report = TraceabilityReport(repo_root=repo_path)
+            return report.generate()
         coach = ATDDCoach(repo_root=repo_path)
         return coach.run_inventory(format=args.format)
 

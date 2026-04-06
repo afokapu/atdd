@@ -704,6 +704,206 @@ class RepositoryInventory:
         return self.inventory
 
 
+class TraceabilityReport:
+    """
+    URN Traceability Matrix Report.
+
+    Builds the URN graph via GraphBuilder and produces:
+    - Phase 1: Per-wagon coverage summary table
+    - Phase 2: Orphan detection warnings
+    """
+
+    def __init__(self, repo_root: Path = None):
+        self.repo_root = repo_root or Path.cwd()
+
+    def generate(self) -> int:
+        """Build graph and print traceability matrix. Returns exit code."""
+        from atdd.coach.utils.graph.graph_builder import GraphBuilder, EdgeType
+
+        print("Building URN traceability graph...", flush=True)
+        builder = GraphBuilder(self.repo_root)
+        graph = builder.build()
+
+        summary = graph.to_agent_summary()
+        tree = summary.get("tree", {})
+        gaps = summary.get("gaps", {})
+
+        # ── Phase 1: Coverage summary table ────────────────────
+        # Collect wagon rows
+        rows: list[dict] = []
+        for urn, info in sorted(tree.items()):
+            node = graph.get_node(urn)
+            if not node or node.family != "wagon":
+                continue
+
+            wagon_label = urn.replace("wagon:", "")
+            wmbt_count = len(info.get("wmbts", []))
+            produces = info.get("produces", [])
+            consumes = info.get("consumes", [])
+
+            # Count tests linked to this wagon's WMBTs/accs via TESTED_BY
+            wmbt_urns = [
+                e.target_urn
+                for e in graph.get_outgoing_edges(urn)
+                if e.edge_type == EdgeType.CONTAINS
+                and graph.get_node(e.target_urn)
+                and graph.get_node(e.target_urn).family == "wmbt"
+            ]
+            test_urns: set[str] = set()
+            wmbts_with_tests: set[str] = set()
+            for w_urn in wmbt_urns:
+                for e in graph.get_incoming_edges(w_urn):
+                    if e.edge_type == EdgeType.TESTED_BY:
+                        test_urns.add(e.target_urn)
+                        wmbts_with_tests.add(w_urn)
+                # Also check accs under this WMBT
+                acc_urns = [
+                    e.target_urn
+                    for e in graph.get_outgoing_edges(w_urn)
+                    if e.edge_type == EdgeType.CONTAINS
+                    and graph.get_node(e.target_urn)
+                    and graph.get_node(e.target_urn).family == "acc"
+                ]
+                for a_urn in acc_urns:
+                    for e in graph.get_incoming_edges(a_urn):
+                        if e.edge_type == EdgeType.TESTED_BY:
+                            test_urns.add(e.target_urn)
+                            wmbts_with_tests.add(w_urn)
+
+            # Count contracts produced by this wagon
+            contract_count = len([u for u in produces if u.startswith("contract:")])
+
+            # Count telemetry signals produced by this wagon
+            signal_count = len([u for u in produces if u.startswith("telemetry:")])
+
+            coverage_pct = (
+                int(round(100 * len(wmbts_with_tests) / wmbt_count))
+                if wmbt_count > 0
+                else 0
+            )
+
+            rows.append({
+                "wagon": wagon_label,
+                "wmbts": wmbt_count,
+                "tests": len(test_urns),
+                "contracts": contract_count,
+                "signals": signal_count,
+                "coverage": coverage_pct,
+            })
+
+        # Print table
+        if not rows:
+            print("\nNo wagons found in the traceability graph.")
+            return 0
+
+        # Column widths
+        w_wagon = max(len("Wagon"), max(len(r["wagon"]) for r in rows))
+        w_wmbt = max(len("WMBTs"), 5)
+        w_test = max(len("Tests"), 5)
+        w_cont = max(len("Contracts"), 9)
+        w_sig = max(len("Signals"), 7)
+        w_cov = max(len("Coverage"), 8)
+
+        header = (
+            f"{'Wagon':<{w_wagon}}  "
+            f"{'WMBTs':>{w_wmbt}}  "
+            f"{'Tests':>{w_test}}  "
+            f"{'Contracts':>{w_cont}}  "
+            f"{'Signals':>{w_sig}}  "
+            f"{'Coverage':>{w_cov}}"
+        )
+        total_width = len(header)
+
+        print()
+        print("TRACEABILITY MATRIX")
+        print("=" * total_width)
+        print(header)
+        print("-" * total_width)
+
+        for r in rows:
+            cov_str = f"{r['coverage']}%"
+            print(
+                f"{r['wagon']:<{w_wagon}}  "
+                f"{r['wmbts']:>{w_wmbt}}  "
+                f"{r['tests']:>{w_test}}  "
+                f"{r['contracts']:>{w_cont}}  "
+                f"{r['signals']:>{w_sig}}  "
+                f"{cov_str:>{w_cov}}"
+            )
+
+        print("-" * total_width)
+
+        # Totals row
+        total_wmbts = sum(r["wmbts"] for r in rows)
+        total_tests = sum(r["tests"] for r in rows)
+        total_contracts = sum(r["contracts"] for r in rows)
+        total_signals = sum(r["signals"] for r in rows)
+        avg_coverage = (
+            int(round(sum(r["coverage"] for r in rows) / len(rows)))
+            if rows
+            else 0
+        )
+        avg_str = f"{avg_coverage}%"
+        print(
+            f"{'TOTAL':<{w_wagon}}  "
+            f"{total_wmbts:>{w_wmbt}}  "
+            f"{total_tests:>{w_test}}  "
+            f"{total_contracts:>{w_cont}}  "
+            f"{total_signals:>{w_sig}}  "
+            f"{avg_str:>{w_cov}}"
+        )
+        print("=" * total_width)
+
+        # ── Phase 2: Orphan detection ──────────────────────────
+        orphan_warnings: list[str] = []
+
+        # WMBTs with no test edges (TESTED_BY where source is a wmbt/acc)
+        all_tested_by_sources: set[str] = set()
+        for e in graph.edges:
+            if e.edge_type == EdgeType.TESTED_BY:
+                all_tested_by_sources.add(e.source_urn)
+
+        for urn, node in graph.nodes.items():
+            if node.family == "wmbt" and urn not in all_tested_by_sources:
+                # Check if any acc under this WMBT is tested
+                acc_urns = [
+                    e.target_urn
+                    for e in graph.get_outgoing_edges(urn)
+                    if e.edge_type == EdgeType.CONTAINS
+                    and graph.get_node(e.target_urn)
+                    and graph.get_node(e.target_urn).family == "acc"
+                ]
+                acc_tested = any(a in all_tested_by_sources for a in acc_urns)
+                if not acc_tested:
+                    orphan_warnings.append(f"  WMBT without tests: {urn}")
+
+        # Contracts with no consumer edges
+        produced_contracts: set[str] = set()
+        consumed_contracts: set[str] = set()
+        for e in graph.edges:
+            if e.edge_type == EdgeType.PRODUCES:
+                tgt = graph.get_node(e.target_urn)
+                if tgt and tgt.family == "contract":
+                    produced_contracts.add(e.target_urn)
+            if e.edge_type == EdgeType.CONSUMES:
+                tgt = graph.get_node(e.target_urn)
+                if tgt and tgt.family == "contract":
+                    consumed_contracts.add(e.target_urn)
+
+        for c_urn in sorted(produced_contracts - consumed_contracts):
+            orphan_warnings.append(f"  Contract without consumers: {c_urn}")
+
+        if orphan_warnings:
+            print(f"\nWARNINGS ({len(orphan_warnings)} orphans detected):")
+            for w in orphan_warnings:
+                print(w)
+        else:
+            print("\nNo orphans detected.")
+
+        print()
+        return 0
+
+
 def main():
     """Generate and print inventory."""
     inventory = RepositoryInventory()
