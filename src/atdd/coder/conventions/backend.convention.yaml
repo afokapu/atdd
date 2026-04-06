@@ -118,6 +118,14 @@ backend:
             python: "protocols.py, *_port.py"
             typescript: "*-port.ts, *-interface.ts"
             dart: "*_port.dart"
+          allowed_layers: [domain, application]
+          forbidden_layers: [integration, presentation]
+          preferred_layer: domain
+          rationale: |
+            Hexagonal Architecture (Ports & Adapters) places ports at the domain boundary.
+            Onion Architecture historically placed them in application, but modern consensus
+            (Alistair Cockburn, Vaughn Vernon) treats ports as domain contracts that adapters
+            implement. Both domain/ports/ and application/ports/ are valid; domain/ is preferred.
           examples:
             - "Repository interfaces"
             - "External service interfaces"

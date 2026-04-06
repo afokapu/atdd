@@ -114,16 +114,24 @@ def infer_layer_from_import(import_path: str) -> str:
 
     # Check if it's a relative import - can't determine layer reliably
     if import_path.startswith('.'):
-        # Exception: relative imports to 'ports' are application layer
-        if 'ports' in import_lower or '_port' in import_lower:
+        # Relative imports with explicit layer path segments
+        if '.domain.' in import_lower or '/domain/' in import_lower:
+            return 'domain'
+        if '.application.' in import_lower or '/application/' in import_lower:
             return 'application'
         return 'unknown'
 
     # Check for layer indicators in import path (order matters - more specific first)
 
-    # Ports are in application layer (interfaces), not integration
+    # Ports can live in domain or application (Hexagonal Architecture)
+    # Resolve from actual path segment, not keyword alone
     if 'ports' in import_lower or '_port' in import_lower:
-        return 'application'
+        if '.domain.' in import_lower or '/domain/' in import_lower:
+            return 'domain'
+        if '.application.' in import_lower or '/application/' in import_lower:
+            return 'application'
+        # Default: treat as domain (preferred per convention)
+        return 'domain'
 
     # Domain layer
     if '.domain.' in import_lower or '/domain/' in import_lower:
@@ -502,7 +510,7 @@ def test_python_component_naming_follows_conventions():
         'monitors': ['domain', 'application', 'integration'],  # Domain: business state, Integration: infra
         'services': ['domain', 'application'],  # Domain services (logic) and Application services (orchestration)
         'handlers': ['application', 'domain'],  # Application: CQRS, Domain: domain event handlers
-        'ports': ['application', 'integration'],  # Application defines ports, Integration can have internal ports
+        'ports': ['domain', 'application'],  # Hexagonal: domain defines ports, application also valid (Onion style)
         'engines': ['integration', 'domain'],  # Integration: external, Domain: pure computation
         'formatters': ['integration', 'domain'],  # Integration: output, Domain: value formatting
     }

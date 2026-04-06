@@ -348,13 +348,15 @@ def test_imports_follow_layer_boundaries():
         # Determine this module's layer
         if '/domain/' in module_path:
             current_layer = 'domain'
+            # Domain files can import from domain (including domain/ports/)
             allowed_layers = ['domain']
         elif '/application/' in module_path:
             current_layer = 'application'
             allowed_layers = ['domain', 'application']
         elif '/integration/' in module_path or '/infrastructure/' in module_path:
             current_layer = 'integration'
-            allowed_layers = ['domain', 'integration', 'infrastructure']
+            # Integration implements ports (from domain or application) and uses domain types
+            allowed_layers = ['domain', 'application', 'integration', 'infrastructure']
         elif '/presentation/' in module_path:
             current_layer = 'presentation'
             allowed_layers = ['domain', 'application', 'presentation']

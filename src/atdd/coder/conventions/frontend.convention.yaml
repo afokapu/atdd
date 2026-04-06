@@ -160,6 +160,9 @@ frontend:
           suffix:
             dart: "*_port.dart"
             typescript: "*-port.ts, *-interface.ts"
+          allowed_layers: [domain, application]
+          forbidden_layers: [integration, presentation]
+          preferred_layer: domain
           examples:
             - "Repository interfaces"
             - "API client interfaces"
@@ -409,7 +412,7 @@ frontend:
       layer_mapping:
         presentation: ["pages", "components", "hooks", "styles"]
         application: ["use-cases", "hooks", "ports", "context"]
-        domain: ["entities", "value-objects", "services", "types", "constants"]
+        domain: ["entities", "value-objects", "services", "types", "constants", "ports"]
         integration: ["api", "repositories", "mappers", "adapters", "stores"]
       import_restrictions:
         domain:
