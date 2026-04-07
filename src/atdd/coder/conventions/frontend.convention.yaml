@@ -536,6 +536,34 @@ frontend:
       Backend rule: application → domain only (use ports for integration)
       Frontend rule: application → domain, integration (pragmatic for hooks)
 
+  http_access:
+    description: "All HTTP calls must go through a centralized HttpClient"
+    spec_id: "SPEC-CODER-CONTRACT-0001"
+    rule:
+      id: "no_raw_fetch"
+      description: >
+        Raw fetch() calls are forbidden in frontend TypeScript code.
+        All HTTP access must use HttpClient so that contracts, interceptors,
+        auth headers, and telemetry are applied uniformly.
+      pattern: 'fetch\s*\('
+      file_extensions: [".ts", ".tsx"]
+      scan_directory: "web/src"
+      exclude:
+        - "*.test.ts"
+        - "*.test.tsx"
+        - "*.spec.ts"
+        - "*.spec.tsx"
+        - "**/__tests__/**"
+      whitelist_config: "contract_driven_http.whitelist"
+      whitelist_example:
+        - "**/HttpClient.ts"
+        - "**/fetch-wrapper.ts"
+      suggestion: "Use HttpClient instead of raw fetch()"
+    rationale: >
+      A centralized HTTP client ensures consistent error handling,
+      authentication, request/response logging, retry logic, and
+      contract validation across the entire frontend codebase.
+
   ci_enforcement:
     checks:
       - name: "arch_import_rules"

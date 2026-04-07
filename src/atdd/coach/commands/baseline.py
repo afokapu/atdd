@@ -140,10 +140,18 @@ def _code_comments(repo_root: Path) -> Tuple[int, Sequence]:
     return len(violations), violations
 
 
+def _contract_driven_http(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_contract_driven_http import (
+        analyze_contract_driven_http,
+    )
+    return analyze_contract_driven_http(repo_root)
+
+
 VALIDATORS: Dict[str, ValidatorFn] = {
     "composition_completeness_python": _composition_python,
     "composition_completeness_typescript": _composition_typescript,
     "composition_completeness_supabase": _composition_supabase,
+    "contract_driven_http": _contract_driven_http,
     "dead_code_python": _dead_code_python,
     "maintainability_index": _maintainability_index,
     "code_comments": _code_comments,
