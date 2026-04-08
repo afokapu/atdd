@@ -600,11 +600,19 @@ class GraphBuilder:
         """
         graph = TraceabilityGraph(allowed_families=families)
 
-        # 1. Add all declared URNs as nodes
-        declarations = self.registry.find_all_declarations(families)
+        # Phase 2: Single-walk multi-resolver dispatch (reads each code file once)
+        declarations, content_cache = self.registry.find_all_declarations_single_pass(
+            families
+        )
+
+        # Phase 1: resolve() cache — each unique URN resolved once
+        resolve_cache: Dict[str, URNResolution] = {}
+
         for family, decls in declarations.items():
             for decl in decls:
-                resolution = self.registry.resolve(decl.urn)
+                if decl.urn not in resolve_cache:
+                    resolve_cache[decl.urn] = self.registry.resolve(decl.urn)
+                resolution = resolve_cache[decl.urn]
                 artifact_path = (
                     resolution.resolved_paths[0] if resolution.resolved_paths else None
                 )
@@ -621,9 +629,10 @@ class GraphBuilder:
         self._build_produce_consume_edges(graph)
         self._build_train_edges(graph)
         self._build_component_edges(graph)
-        self._build_test_edges(graph)
-        self._build_tested_by_edges(graph)
-        self._build_journey_test_edges(graph)
+        # Phase 3: pass content cache to edge builders that read files
+        self._build_test_edges(graph, content_cache)
+        self._build_tested_by_edges(graph, content_cache)
+        self._build_journey_test_edges(graph, content_cache)
 
         return graph
 
@@ -929,7 +938,11 @@ class GraphBuilder:
                         )
                     )
 
-    def _build_test_edges(self, graph: TraceabilityGraph) -> None:
+    def _build_test_edges(
+        self,
+        graph: TraceabilityGraph,
+        content_cache: Optional[Dict[str, str]] = None,
+    ) -> None:
         """Build acc -> test (TESTED_BY) and component -> test (TESTED_BY) edges.
 
         Scans both legacy ``# URN: acc:...`` and V3 ``# Acceptance: acc:...`` lines.
@@ -963,10 +976,13 @@ class GraphBuilder:
             if not test_path or not Path(test_path).exists():
                 continue
 
-            try:
-                content = Path(test_path).read_text(encoding="utf-8")
-            except Exception:
-                continue
+            cache_key = str(test_path)
+            content = content_cache.get(cache_key) if content_cache else None
+            if content is None:
+                try:
+                    content = Path(test_path).read_text(encoding="utf-8")
+                except Exception:
+                    continue
 
             for line in content.split("\n"):
                 # V3: # Acceptance: acc:...
@@ -1013,7 +1029,11 @@ class GraphBuilder:
                         )
                     )
 
-    def _build_tested_by_edges(self, graph: TraceabilityGraph) -> None:
+    def _build_tested_by_edges(
+        self,
+        graph: TraceabilityGraph,
+        content_cache: Optional[Dict[str, str]] = None,
+    ) -> None:
         """
         Build authoritative component -> test (TESTED_BY) edges from Tested-By headers.
 
@@ -1042,10 +1062,13 @@ class GraphBuilder:
             if not comp_path or not Path(comp_path).exists():
                 continue
 
-            try:
-                content = Path(comp_path).read_text(encoding="utf-8")
-            except Exception:
-                continue
+            cache_key = str(comp_path)
+            content = content_cache.get(cache_key) if content_cache else None
+            if content is None:
+                try:
+                    content = Path(comp_path).read_text(encoding="utf-8")
+                except Exception:
+                    continue
 
             # Parse Tested-By test URN references
             for line in content.split("\n"):
@@ -1064,7 +1087,11 @@ class GraphBuilder:
                     )
                 )
 
-    def _build_journey_test_edges(self, graph: TraceabilityGraph) -> None:
+    def _build_journey_test_edges(
+        self,
+        graph: TraceabilityGraph,
+        content_cache: Optional[Dict[str, str]] = None,
+    ) -> None:
         """
         Build train -> test (TESTED_BY) edges from Train: headers in journey tests.
 
@@ -1088,10 +1115,13 @@ class GraphBuilder:
             if not test_path or not Path(test_path).exists():
                 continue
 
-            try:
-                content = Path(test_path).read_text(encoding="utf-8")
-            except Exception:
-                continue
+            cache_key = str(test_path)
+            content = content_cache.get(cache_key) if content_cache else None
+            if content is None:
+                try:
+                    content = Path(test_path).read_text(encoding="utf-8")
+                except Exception:
+                    continue
 
             header = TestResolver.parse_test_header(content)
             train_ref = header.get("train")

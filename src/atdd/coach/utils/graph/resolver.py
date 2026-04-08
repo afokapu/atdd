@@ -1346,6 +1346,123 @@ class ResolverRegistry:
 
         return result
 
+    def find_all_declarations_single_pass(
+        self, families: Optional[List[str]] = None
+    ) -> Tuple[Dict[str, List[URNDeclaration]], Dict[str, str]]:
+        """
+        Find all URN declarations with a single file-tree walk for code files.
+
+        Instead of component and test resolvers each walking the full tree,
+        walks once and dispatches URN matches to both families in one pass.
+        Non-code resolvers (wagon, feature, wmbt, acc, contract, telemetry,
+        train, table, migration) delegate to their own find_declarations().
+
+        Returns:
+            Tuple of (declarations_dict, content_cache).
+            content_cache maps str(file_path) -> file content for files
+            that contained URN declarations (used by edge builders).
+        """
+        target_families = set(families) if families else set(self._resolvers.keys())
+        result: Dict[str, List[URNDeclaration]] = {}
+        content_cache: Dict[str, str] = {}
+
+        # Families whose find_declarations() walk the full code tree
+        code_scan_families = {"component", "test"}
+
+        # Non-code families: delegate to existing find_declarations()
+        for family in target_families - code_scan_families:
+            resolver = self._resolvers.get(family)
+            if resolver:
+                result[family] = resolver.find_declarations()
+
+        scan_component = "component" in target_families
+        scan_test = "test" in target_families
+
+        if not scan_component and not scan_test:
+            return result, content_cache
+
+        # Patterns (same as individual resolvers use)
+        component_urn_re = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*(component:[^\s]+)")
+        test_urn_re = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
+        regex_meta_re = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
+        test_file_patterns = TestResolver._TEST_PATTERNS
+
+        component_decls: List[URNDeclaration] = []
+        test_decls: List[URNDeclaration] = []
+        seen_test_urns: Dict[str, URNDeclaration] = {}
+
+        skip_dirs = BaseResolver._SKIP_DIRS
+        extensions = {".py", ".dart", ".ts", ".tsx"}
+
+        for dirpath, dirnames, filenames in os.walk(self.repo_root):
+            dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+            for fname in filenames:
+                if not any(fname.endswith(ext) for ext in extensions):
+                    continue
+
+                fpath = Path(dirpath) / fname
+                try:
+                    content = fpath.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+
+                has_decl = False
+                lines = content.split("\n")
+
+                # Component URN scan
+                if scan_component:
+                    for line_num, line in enumerate(lines, 1):
+                        match = component_urn_re.search(line)
+                        if match:
+                            urn_candidate = match.group(1)
+                            if regex_meta_re.search(urn_candidate):
+                                continue
+                            component_decls.append(
+                                URNDeclaration(
+                                    urn=urn_candidate,
+                                    family="component",
+                                    source_path=fpath,
+                                    line_number=line_num,
+                                    context="code comment",
+                                )
+                            )
+                            has_decl = True
+
+                # Test URN scan (only for test-named files)
+                is_test_file = any(p.match(fname) for p in test_file_patterns)
+                if scan_test and is_test_file:
+                    for line_num, line in enumerate(lines, 1):
+                        match = test_urn_re.search(line)
+                        if not match:
+                            continue
+                        urn_candidate = match.group(1)
+                        if regex_meta_re.search(urn_candidate):
+                            continue
+                        if urn_candidate.startswith("test:"):
+                            if urn_candidate not in seen_test_urns:
+                                header = TestResolver.parse_test_header(content)
+                                decl = URNDeclaration(
+                                    urn=urn_candidate,
+                                    family="test",
+                                    source_path=fpath,
+                                    line_number=line_num,
+                                    context=f"test file ({header.get('format', 'unknown')} format)",
+                                )
+                                seen_test_urns[urn_candidate] = decl
+                                test_decls.append(decl)
+                                has_decl = True
+
+                # Cache content of files with URN declarations
+                if has_decl:
+                    content_cache[str(fpath)] = content
+
+        if scan_component:
+            result["component"] = component_decls
+        if scan_test:
+            result["test"] = test_decls
+
+        return result, content_cache
+
     @property
     def families(self) -> List[str]:
         """Return list of registered family names."""
