@@ -26,6 +26,9 @@ coverage.xml
 *.swp
 *.swo
 
+# ATDD cache
+.atdd/cache/
+
 # OS
 .DS_Store
 Thumbs.db

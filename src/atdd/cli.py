@@ -39,6 +39,7 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 import warnings
 from pathlib import Path
@@ -347,6 +348,12 @@ Phase descriptions:
         action="store_true",
         dest="verify_baseline",
         help="Verify validation baseline freshness (<10s, no test execution)"
+    )
+    validate_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        dest="no_cache",
+        help="Bypass graph disk cache and force a full rebuild"
     )
 
     # ----- atdd inventory -----
@@ -1040,6 +1047,10 @@ Phase descriptions:
                 phase=args.phase,
                 repo_root=repo_path,
             )
+
+        # Propagate --no-cache to GraphBuilder via env var
+        if getattr(args, 'no_cache', False):
+            os.environ["ATDD_NO_CACHE"] = "1"
 
         coach = ATDDCoach(repo_root=repo_path)
         skip_api = getattr(args, 'skip_api', False)

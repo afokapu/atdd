@@ -355,6 +355,9 @@ class ProjectInitializer:
             self.atdd_config_dir.mkdir(parents=True, exist_ok=True)
             print(f"Created: {self.atdd_config_dir}")
 
+            # Ensure .atdd/cache/ is gitignored
+            self._ensure_gitignore_entry(".atdd/cache/")
+
             # Create manifest.yaml
             self._create_manifest(force)
 
@@ -395,6 +398,21 @@ class ProjectInitializer:
         except OSError as e:
             print(f"Error: {e}")
             return 1
+
+    def _ensure_gitignore_entry(self, entry: str) -> None:
+        """Append *entry* to the repo .gitignore if not already present."""
+        gitignore = self.target_dir / ".gitignore"
+        if gitignore.is_file():
+            content = gitignore.read_text()
+            if entry in content:
+                return
+            if not content.endswith("\n"):
+                content += "\n"
+        else:
+            content = ""
+        content += f"{entry}\n"
+        gitignore.write_text(content)
+        print(f"Added '{entry}' to .gitignore")
 
     def export_schemas(self) -> int:
         """

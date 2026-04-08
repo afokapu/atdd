@@ -13,7 +13,12 @@ Output formats:
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
+import os
+import pickle
+import time
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -587,10 +592,111 @@ class GraphBuilder:
     3. Build edges based on containment and dependency patterns
     """
 
-    def __init__(self, repo_root: Optional[Path] = None):
+    _CACHE_DIR = ".atdd/cache"
+    _CACHE_FILE = "graph.pickle"
+
+    _logger = logging.getLogger(__name__)
+
+    def __init__(self, repo_root: Optional[Path] = None, *, use_cache: bool = True):
         self.repo_root = repo_root or find_repo_root()
         self.registry = ResolverRegistry(self.repo_root)
         self.plan_dir = self.repo_root / "plan"
+        self.use_cache = use_cache and not os.environ.get("ATDD_NO_CACHE")
+
+    # ------------------------------------------------------------------
+    # Disk cache helpers
+    # ------------------------------------------------------------------
+
+    def _cache_path(self) -> Path:
+        return self.repo_root / self._CACHE_DIR / self._CACHE_FILE
+
+    def _compute_cache_key(self) -> str:
+        """Hash sorted mtimes of all graph-input files + atdd version."""
+        import atdd
+
+        entries: list[str] = []
+
+        # 1. plan/**/*.yaml
+        plan_dir = self.repo_root / "plan"
+        if plan_dir.is_dir():
+            for p in sorted(plan_dir.rglob("*.yaml")):
+                entries.append(f"{p.relative_to(self.repo_root)}:{p.stat().st_mtime_ns}")
+
+        # 2. contracts/**/*.json
+        contracts_dir = self.repo_root / "contracts"
+        if contracts_dir.is_dir():
+            for p in sorted(contracts_dir.rglob("*.json")):
+                entries.append(f"{p.relative_to(self.repo_root)}:{p.stat().st_mtime_ns}")
+
+        # 3. telemetry/**/*.yaml
+        telemetry_dir = self.repo_root / "telemetry"
+        if telemetry_dir.is_dir():
+            for p in sorted(telemetry_dir.rglob("*.yaml")):
+                entries.append(f"{p.relative_to(self.repo_root)}:{p.stat().st_mtime_ns}")
+
+        # 4. Code files with URN headers (.py, .ts, .tsx, .dart)
+        skip_dirs = {
+            ".git", "__pycache__", "node_modules", ".dart_tool",
+            "build", ".pub-cache", "dist", ".next", ".nuxt", "coverage",
+            ".venv", "venv", "env", ".tox", ".mypy_cache", ".pytest_cache",
+        }
+        extensions = {".py", ".dart", ".ts", ".tsx"}
+        urn_prefix = b"# URN:" if True else b""  # scan for URN header lines
+        for dirpath, dirnames, filenames in os.walk(self.repo_root):
+            dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+            for fname in sorted(filenames):
+                if not any(fname.endswith(ext) for ext in extensions):
+                    continue
+                fpath = Path(dirpath) / fname
+                try:
+                    head = fpath.read_bytes()[:512]
+                except OSError:
+                    continue
+                if b"URN:" not in head:
+                    continue
+                entries.append(
+                    f"{fpath.relative_to(self.repo_root)}:{fpath.stat().st_mtime_ns}"
+                )
+
+        # 5. atdd toolkit version
+        entries.append(f"__version__:{atdd.__version__}")
+
+        digest = hashlib.sha256("\n".join(entries).encode()).hexdigest()
+        return digest
+
+    def _load_cached_graph(
+        self, cache_key: str
+    ) -> Optional[TraceabilityGraph]:
+        """Load graph from disk cache if key matches. Returns None on miss."""
+        cp = self._cache_path()
+        if not cp.is_file():
+            return None
+        try:
+            with cp.open("rb") as f:
+                data = pickle.load(f)
+            if data.get("cache_key") == cache_key:
+                self._logger.info("graph cache HIT — loading from %s", cp)
+                return data["graph"]
+            self._logger.info("graph cache STALE — key mismatch")
+        except Exception as exc:
+            self._logger.warning("graph cache CORRUPT — rebuilding (%s)", exc)
+        return None
+
+    def _save_cached_graph(
+        self, graph: TraceabilityGraph, cache_key: str
+    ) -> None:
+        """Persist graph + cache_key to disk."""
+        cp = self._cache_path()
+        cp.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cp.with_suffix(".tmp")
+        try:
+            with tmp.open("wb") as f:
+                pickle.dump({"cache_key": cache_key, "graph": graph}, f, protocol=5)
+            tmp.replace(cp)
+            self._logger.info("graph cache WRITTEN — %s", cp)
+        except Exception as exc:
+            self._logger.warning("graph cache write failed: %s", exc)
+            tmp.unlink(missing_ok=True)
 
     def build(self, families: Optional[List[str]] = None) -> TraceabilityGraph:
         """
@@ -602,6 +708,17 @@ class GraphBuilder:
         Returns:
             Complete traceability graph
         """
+        # Disk cache: check before expensive build
+        cache_key: Optional[str] = None
+        if self.use_cache and families is None:
+            t0 = time.monotonic()
+            cache_key = self._compute_cache_key()
+            cached = self._load_cached_graph(cache_key)
+            if cached is not None:
+                elapsed = time.monotonic() - t0
+                self._logger.info("graph loaded from cache in %.2fs", elapsed)
+                return cached
+
         graph = TraceabilityGraph(allowed_families=families)
 
         # Phase 2: Single-walk multi-resolver dispatch (reads each code file once)
@@ -645,6 +762,10 @@ class GraphBuilder:
         self._build_tested_by_edges(graph, content_cache)
         self._build_journey_test_edges(graph, content_cache)
         self._build_jel_contract_nodes(graph)
+
+        # Disk cache: persist for next run
+        if cache_key is not None:
+            self._save_cached_graph(graph, cache_key)
 
         return graph
 
