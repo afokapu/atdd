@@ -36,7 +36,9 @@ class TrainSpecPhase(IntEnum):
 
 
 # Current rollout phase - update this to advance through phases
-CURRENT_PHASE = TrainSpecPhase.WARNINGS_ONLY
+# Graduated from WARNINGS_ONLY per issue #220: enforcement is now the default.
+# Individual validators can still opt into WARNINGS_ONLY during rollout.
+CURRENT_PHASE = TrainSpecPhase.FULL_ENFORCEMENT
 
 
 def should_enforce(validator_phase: TrainSpecPhase) -> bool:

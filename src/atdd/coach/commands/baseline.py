@@ -2,9 +2,11 @@
 Baseline CLI Command
 ====================
 Provides ``atdd baseline update`` and ``atdd baseline show`` for managing
-ratchet baselines used by coder validators.
+ratchet baselines used by coder and tester validators.
 
-Baseline file: ``.atdd/baselines/coder.yaml`` in the TARGET repo.
+Baseline files:
+- ``.atdd/baselines/coder.yaml`` — coder validators
+- ``.atdd/baselines/tester.yaml`` — tester validators
 
 Usage::
 
@@ -22,6 +24,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coder.baselines.ratchet import RatchetBaseline, default_baseline_path
+from atdd.tester.validators.conftest import tester_baseline_path
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +162,65 @@ VALIDATORS: Dict[str, ValidatorFn] = {
 
 
 # ---------------------------------------------------------------------------
+# Tester validator registry
+# ---------------------------------------------------------------------------
+
+
+def _smoke_coverage_gaps(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.tester.validators.test_smoke_coverage import (
+        CoverageAnalyzer,
+    )
+    e2e_dir = repo_root / "e2e"
+    analyzer = CoverageAnalyzer(e2e_dir)
+    trains, gaps, _, _ = analyzer.analyze()
+    violations = [
+        f"{g.train_id}: {len(g.contract_tests)} contract test(s), 0 smoke tests"
+        for g in gaps
+    ]
+    return len(violations), violations
+
+
+def _train_e2e_existence(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.tester.validators.test_train_e2e_existence import (
+        E2EExistenceAnalyzer,
+    )
+    e2e_dir = repo_root / "e2e"
+    trains_file = repo_root / "plan" / "_trains.yaml"
+    analyzer = E2EExistenceAnalyzer(e2e_dir, trains_file)
+    statuses = analyzer.analyze()
+    violations = [
+        f"{s.train_id}: no E2E tests in e2e/{s.train_id}/"
+        for s in statuses
+        if not s.has_tests
+    ]
+    return len(violations), violations
+
+
+def _train_completeness(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.tester.validators.test_train_completeness import (
+        CompletenessAnalyzer,
+    )
+    e2e_dir = repo_root / "e2e"
+    trains_file = repo_root / "plan" / "_trains.yaml"
+    analyzer = CompletenessAnalyzer(e2e_dir, trains_file)
+    statuses = analyzer.analyze()
+    incomplete = [s for s in statuses if not s.complete]
+    violations = [
+        f"{s.train_id}: {s.status_label} "
+        f"(e2e={s.e2e_count}, contract={s.contract_count}, smoke={s.smoke_count})"
+        for s in incomplete
+    ]
+    return len(violations), violations
+
+
+TESTER_VALIDATORS: Dict[str, ValidatorFn] = {
+    "smoke_coverage_gaps": _smoke_coverage_gaps,
+    "train_e2e_existence": _train_e2e_existence,
+    "train_completeness": _train_completeness,
+}
+
+
+# ---------------------------------------------------------------------------
 # Command
 # ---------------------------------------------------------------------------
 
@@ -170,10 +232,41 @@ class BaselineCommand:
         self.baseline = RatchetBaseline(
             default_baseline_path(self.repo_root),
         )
+        self.tester_baseline = RatchetBaseline(
+            tester_baseline_path(self.repo_root),
+        )
 
     # ---------------------------------------------------------------
     # atdd baseline update
     # ---------------------------------------------------------------
+
+    def _run_validators(
+        self,
+        validators: Dict[str, ValidatorFn],
+        label: str,
+        verbose: bool = False,
+    ) -> Tuple[Dict[str, int], List[str]]:
+        """Run a set of validators and return results + errors."""
+        results: Dict[str, int] = {}
+        errors: List[str] = []
+
+        print(f"  [{label}]")
+        for vid, fn in sorted(validators.items()):
+            try:
+                count, violations = fn(self.repo_root)
+                results[vid] = count
+                symbol = "✓" if count == 0 else f"▸ {count}"
+                print(f"    {vid}: {symbol}")
+                if verbose and violations:
+                    for v in violations[:5]:
+                        print(f"        {v}")
+                    if len(violations) > 5:
+                        print(f"        ... and {len(violations) - 5} more")
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"    {vid}: ERROR — {exc}")
+                print(f"    {vid}: ERROR — {exc}")
+
+        return results, errors
 
     def update(
         self,
@@ -181,26 +274,16 @@ class BaselineCommand:
         verbose: bool = False,
     ) -> int:
         """Run all registered validators and write current counts."""
-        results: Dict[str, int] = {}
-        errors: List[str] = []
-
         print(f"Scanning {self.repo_root} ...\n")
 
-        for vid, fn in sorted(VALIDATORS.items()):
-            try:
-                count, violations = fn(self.repo_root)
-                results[vid] = count
-                symbol = "✓" if count == 0 else f"▸ {count}"
-                print(f"  {vid}: {symbol}")
-                if verbose and violations:
-                    for v in violations[:5]:
-                        print(f"      {v}")
-                    if len(violations) > 5:
-                        print(f"      ... and {len(violations) - 5} more")
-            except Exception as exc:  # noqa: BLE001
-                errors.append(f"  {vid}: ERROR — {exc}")
-                print(f"  {vid}: ERROR — {exc}")
+        coder_results, coder_errors = self._run_validators(
+            VALIDATORS, "coder", verbose,
+        )
+        tester_results, tester_errors = self._run_validators(
+            TESTER_VALIDATORS, "tester", verbose,
+        )
 
+        errors = coder_errors + tester_errors
         print()
 
         if errors:
@@ -211,44 +294,48 @@ class BaselineCommand:
 
         if dry_run:
             print("Dry-run — would write:\n")
-            for vid, count in sorted(results.items()):
+            for vid, count in sorted(coder_results.items()):
                 print(f"  {vid}: {count}")
-            print(f"\nTo: {self.baseline.path}")
+            print(f"  To: {self.baseline.path}\n")
+            for vid, count in sorted(tester_results.items()):
+                print(f"  {vid}: {count}")
+            print(f"  To: {self.tester_baseline.path}")
             return 0
 
-        self.baseline.update(results)
-        print(f"Baseline written to {self.baseline.path}")
+        self.baseline.update(coder_results)
+        print(f"Coder baseline written to {self.baseline.path}")
+        self.tester_baseline.update(tester_results)
+        print(f"Tester baseline written to {self.tester_baseline.path}")
         return 0
 
     # ---------------------------------------------------------------
     # atdd baseline show
     # ---------------------------------------------------------------
 
-    def show(self, verbose: bool = False) -> int:
-        """Display baseline vs current violation counts."""
-        if not self.baseline.exists:
-            print(
-                f"No baseline file found at {self.baseline.path}\n\n"
-                f"Run `atdd baseline update` to create one."
-            )
-            return 0
-
-        results: Dict[str, int] = {}
+    def _show_scope(
+        self,
+        baseline: RatchetBaseline,
+        validators: Dict[str, ValidatorFn],
+        label: str,
+    ) -> List[str]:
+        """Show baseline vs current for one scope. Returns errors."""
         errors: List[str] = []
+        results: Dict[str, int] = {}
 
-        print(f"Scanning {self.repo_root} ...\n")
-
-        for vid, fn in sorted(VALIDATORS.items()):
+        for vid, fn in sorted(validators.items()):
             try:
                 count, _ = fn(self.repo_root)
                 results[vid] = count
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"  {vid}: ERROR — {exc}")
 
-        rows = self.baseline.show(results)
+        if not baseline.exists and not results:
+            return errors
 
-        # Header
+        rows = baseline.show(results)
+
         fmt = "{:<45} {:>10} {:>10} {:>8}  {}"
+        print(f"\n[{label}] {baseline.path}")
         print(fmt.format("Validator", "Baseline", "Current", "Delta", "Status"))
         print("-" * 90)
 
@@ -263,6 +350,24 @@ class BaselineCommand:
                     row["status"],
                 )
             )
+
+        return errors
+
+    def show(self, verbose: bool = False) -> int:
+        """Display baseline vs current violation counts."""
+        if not self.baseline.exists and not self.tester_baseline.exists:
+            print(
+                f"No baseline files found.\n\n"
+                f"Run `atdd baseline update` to create them."
+            )
+            return 0
+
+        print(f"Scanning {self.repo_root} ...")
+
+        errors = self._show_scope(self.baseline, VALIDATORS, "coder")
+        errors += self._show_scope(
+            self.tester_baseline, TESTER_VALIDATORS, "tester",
+        )
 
         if errors:
             print(f"\nErrors ({len(errors)}):")
