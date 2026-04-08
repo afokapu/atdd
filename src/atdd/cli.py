@@ -105,10 +105,13 @@ class ATDDCoach:
         quick: bool = False,
         split: bool = True,
         local: bool = False,
+        skip_api: bool = False,
     ) -> int:
         """Run ATDD validators."""
         if quick:
             return self.validator_runner.quick_check()
+
+        markers = ["not github_api"] if skip_api else None
 
         return self.validator_runner.run_tests(
             phase=phase,
@@ -118,6 +121,7 @@ class ATDDCoach:
             parallel=True,
             split=split,
             local=local,
+            markers=markers,
         )
 
     def update_registries(
@@ -331,6 +335,18 @@ Phase descriptions:
         "--local",
         action="store_true",
         help="Run validators locally (default: GH Actions only)"
+    )
+    validate_parser.add_argument(
+        "--skip-api",
+        action="store_true",
+        dest="skip_api",
+        help="Skip github_api tests (for offline development)"
+    )
+    validate_parser.add_argument(
+        "--verify-baseline",
+        action="store_true",
+        dest="verify_baseline",
+        help="Verify validation baseline freshness (<10s, no test execution)"
     )
 
     # ----- atdd inventory -----
@@ -1014,16 +1030,42 @@ Phase descriptions:
     # atdd validate [phase]
     elif args.command == "validate":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+
+        # --verify-baseline: fast path, no test execution
+        if getattr(args, 'verify_baseline', False):
+            from atdd.coach.commands.validation_baseline import (
+                verify_validation_baseline,
+            )
+            return verify_validation_baseline(
+                phase=args.phase,
+                repo_root=repo_path,
+            )
+
         coach = ATDDCoach(repo_root=repo_path)
-        return coach.run_validators(
+        skip_api = getattr(args, 'skip_api', False)
+        rc = coach.run_validators(
             phase=args.phase,
             verbose=args.verbose,
             coverage=args.coverage,
             html=args.html,
             quick=args.quick,
-            split=not args.no_split,
+            split=not args.no_split and not skip_api,
             local=args.local,
+            skip_api=skip_api,
         )
+
+        # Write baseline on success
+        if rc == 0:
+            from atdd.coach.commands.validation_baseline import (
+                write_validation_baseline,
+            )
+            write_validation_baseline(
+                phase=args.phase,
+                skipped_api=skip_api,
+                repo_root=repo_path,
+            )
+
+        return rc
 
     # atdd inventory
     elif args.command == "inventory":
