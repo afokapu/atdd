@@ -257,14 +257,24 @@ def update_toolkit_version(config_path: Optional[Path] = None) -> bool:
 
 
 def print_upgrade_sync_notice() -> None:
-    """Print upgrade sync notice to stderr if needed, then auto-update last_version."""
+    """Auto-sync agent configs on toolkit upgrade, then update last_version."""
     try:
         notice = check_upgrade_sync_needed()
         if notice:
-            print(f"\n⚠️  {notice}\n", file=sys.stderr)
-            # Auto-update toolkit.last_version so the warning only shows once.
-            # The user still needs to run `atdd sync` for full config migration,
-            # but the nag stops repeating on every command.
+            print(f"\n⚠️  {notice}", file=sys.stderr)
+            # Auto-sync agent configs (CLAUDE.md, GEMINI.md, etc.)
+            try:
+                from atdd.coach.commands.sync import AgentConfigSync
+                syncer = AgentConfigSync()
+                result = syncer.sync()
+                if result == 0:
+                    print("  ✓ Agent configs synced automatically.", file=sys.stderr)
+                else:
+                    print("  ⚠ Auto-sync had issues. Run `atdd sync` manually.", file=sys.stderr)
+            except Exception:
+                print("  Run `atdd sync` to update agent configs.", file=sys.stderr)
+            print(file=sys.stderr)
+            # Update toolkit.last_version so sync only runs once per upgrade.
             update_toolkit_version()
     except Exception:
         pass  # Never fail the main command
