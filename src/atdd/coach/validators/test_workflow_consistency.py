@@ -12,11 +12,13 @@ from pathlib import Path
 
 import yaml
 
+import atdd
 from atdd.coach.utils.repo import find_repo_root
 
 REPO_ROOT = find_repo_root()
-ISSUE_CONVENTION = REPO_ROOT / "src" / "atdd" / "coach" / "conventions" / "issue.convention.yaml"
-ATDD_TEMPLATE = REPO_ROOT / "src" / "atdd" / "coach" / "templates" / "ATDD.md"
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+ISSUE_CONVENTION = ATDD_PKG_DIR / "coach" / "conventions" / "issue.convention.yaml"
+ATDD_TEMPLATE = ATDD_PKG_DIR / "coach" / "templates" / "ATDD.md"
 CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
 
 
