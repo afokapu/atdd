@@ -11,6 +11,12 @@ readme = "README.md"
 license = {text = "MIT"}
 dependencies = ["pyyaml", "pytest>=7.0", "pytest-xdist", "jsonschema", "pytest-html", "radon>=5.0"]
 
+[project.urls]
+Homepage = "https://github.com/afokapu/atdd"
+Repository = "https://github.com/afokapu/atdd"
+Issues = "https://github.com/afokapu/atdd/issues"
+Changelog = "https://github.com/afokapu/atdd/releases"
+
 [project.optional-dependencies]
 dev = []
 viz = ["streamlit", "st-link-analysis"]
