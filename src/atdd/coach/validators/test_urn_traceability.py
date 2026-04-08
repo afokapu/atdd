@@ -32,21 +32,21 @@ from atdd.coach.utils.graph.edge_validator import (
 REPO_ROOT = find_repo_root()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def resolver_registry():
-    """Provide resolver registry for tests."""
+    """Provide resolver registry for tests (session-scoped — built once, reused)."""
     return ResolverRegistry(REPO_ROOT)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def graph_builder():
-    """Provide graph builder for tests."""
+    """Provide graph builder for tests (session-scoped — build() is expensive ~100s)."""
     return GraphBuilder(REPO_ROOT)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def edge_validator():
-    """Provide edge validator for tests."""
+    """Provide edge validator for tests (session-scoped — uses graph internally)."""
     return EdgeValidator(REPO_ROOT)
 
 
