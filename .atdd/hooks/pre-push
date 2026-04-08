@@ -62,4 +62,26 @@ EOF
     exit 1
 done
 
+# --- Uncommitted delta warning (advisory only — never blocks) ---
+UNCOMMITTED=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
+UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+TOTAL=$((UNCOMMITTED + UNTRACKED))
+MAX_UNCOMMITTED=${ATDD_MAX_UNCOMMITTED:-10}
+
+if [ "$TOTAL" -gt "$MAX_UNCOMMITTED" ]; then
+    cat >&2 <<WARN
+
+ATDD WARNING: $TOTAL uncommitted/untracked files detected.
+
+Consider committing your work in smaller increments.
+Large uncommitted deltas risk losing work if a hook blocks.
+
+  git add -p    # Stage incrementally
+  git commit    # Commit frequently
+
+Override: ATDD_MAX_UNCOMMITTED=999 git push
+
+WARN
+fi
+
 exit 0

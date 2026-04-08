@@ -241,6 +241,15 @@ git:
       - "GREEN: commit passing implementation"
       - "REFACTOR: commit clean architecture"
 
+  micro_commit_hooks:
+    purpose: "Advisory warnings to encourage smaller commits (all exit 0, never block)"
+    pre_push: "Warns when >10 uncommitted/untracked files (override: ATDD_MAX_UNCOMMITTED)"
+    pre_commit: "Warns when >20 staged files (override: ATDD_MAX_STAGED)"
+    claude_code:
+      template: "src/atdd/coach/templates/hooks/claude-pre-tool-use.sh"
+      install: "cp src/atdd/coach/templates/hooks/claude-pre-tool-use.sh .claude/hooks/pre_tool_use.sh"
+      behavior: "Reminds agent to commit when >5 files modified since last commit"
+
 # Release Gate (MANDATORY - session completion)
 # Every session MUST end with version bump + tag
 release:

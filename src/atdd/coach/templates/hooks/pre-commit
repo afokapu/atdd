@@ -78,4 +78,13 @@ EOF
     fi
 fi
 
+# --- Staged file count warning (advisory only — never blocks) ---
+STAGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
+MAX_STAGED=${ATDD_MAX_STAGED:-20}
+
+if [ "$STAGED" -gt "$MAX_STAGED" ]; then
+    echo "ATDD WARNING: $STAGED files staged. Consider splitting into smaller commits." >&2
+    echo "Override: ATDD_MAX_STAGED=999 git commit" >&2
+fi
+
 exit 0
