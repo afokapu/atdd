@@ -21,11 +21,19 @@ case "$BRANCH" in
         fi
         cat >&2 <<EOF
 
-ATDD: All direct commits to $BRANCH are blocked.
+ATDD: Commit blocked — you are on $BRANCH.
 
-Every change must go through a worktree branch.
-Create one first:
+NEVER edit files directly on $BRANCH.
+Always create a worktree branch FIRST, before making any changes:
+
   atdd branch <issue-number>
+
+If you already have uncommitted changes, recover them:
+
+  git stash
+  atdd branch <issue-number>
+  cd ../<worktree-dir>
+  git stash pop
 
 CI bypass (requires CI=true):
   CI=true ATDD_ALLOW_MAIN_COMMIT=1 git commit ...
