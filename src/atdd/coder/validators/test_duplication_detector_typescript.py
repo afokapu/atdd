@@ -269,29 +269,17 @@ def _rel_path(file_path: Path) -> Path:
 # Tests
 # ===========================================================================
 
-@pytest.mark.coder
-def test_no_intra_layer_duplication_typescript():
-    """
-    SPEC-CODER-DUP-0002: No structurally identical TypeScript fragments within same layer.
-
-    Regex-based structural normalization detects copy-paste code across
-    different files in the same architectural layer under web/src/.
-    Identifiers and literals are normalized so renamed copies are caught.
-
-    Given: TypeScript files in web/src/ grouped by architectural layer
-    When: Extracting normalized line fragments and comparing hashes within each layer
-    Then: No duplicate fragments found across different files
-
-    Convention: atdd/coder/conventions/duplication.convention.yaml
-    """
+def scan_typescript_duplications(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for intra-layer TypeScript duplications. Used by ratchet baseline."""
     convention = load_duplication_convention()
     ts_rule = convention.get("rules", {}).get("intra_layer_duplication_typescript", {})
     min_lines = ts_rule.get("min_fragment_lines", 7)
     exclusions = ts_rule.get("exclusions", [])
 
-    ts_files = _collect_ts_files(WEB_SRC, exclusions)
+    web_src = repo_root / "web" / "src"
+    ts_files = _collect_ts_files(web_src, exclusions)
     if not ts_files:
-        pytest.skip("No TypeScript files found in web/src/ to validate")
+        return 0, []
 
     files_by_layer: Dict[str, List[Path]] = {}
     for f in ts_files:
@@ -301,25 +289,45 @@ def test_no_intra_layer_duplication_typescript():
         files_by_layer.setdefault(layer, []).append(f)
 
     violations = find_intra_layer_duplicates_ts(files_by_layer, min_lines)
-
-    if violations:
-        lines = []
-        for v in violations[:10]:
-            rel_a = _rel_path(v["file_a"])
-            rel_b = _rel_path(v["file_b"])
-            lines.append(
-                f"[{v['layer']}] {rel_a}:{v['line_a']} ↔ {rel_b}:{v['line_b']} "
-                f"({v['lines']} identical normalized lines)"
-            )
-
-        pytest.fail(
-            f"\n\nFound {len(violations)} intra-layer TypeScript duplication(s):\n\n"
-            + "\n".join(lines)
-            + (
-                f"\n\n... and {len(violations) - 10} more"
-                if len(violations) > 10
-                else ""
-            )
-            + "\n\nExtract shared logic into a common module within the layer."
-            + "\nSee: atdd/coder/conventions/duplication.convention.yaml"
+    violation_strs = []
+    for v in violations:
+        try:
+            rel_a = v["file_a"].relative_to(repo_root)
+        except ValueError:
+            rel_a = v["file_a"]
+        try:
+            rel_b = v["file_b"].relative_to(repo_root)
+        except ValueError:
+            rel_b = v["file_b"]
+        violation_strs.append(
+            f"[{v['layer']}] {rel_a}:{v['line_a']} ↔ {rel_b}:{v['line_b']} "
+            f"({v['lines']} identical normalized lines)"
         )
+    return len(violations), violation_strs
+
+
+@pytest.mark.coder
+def test_no_intra_layer_duplication_typescript(ratchet_baseline):
+    """
+    SPEC-CODER-DUP-0002: No structurally identical TypeScript fragments within same layer.
+
+    Regex-based structural normalization detects copy-paste code across
+    different files in the same architectural layer under web/src/.
+    Identifiers and literals are normalized so renamed copies are caught.
+
+    Given: TypeScript files in web/src/ grouped by architectural layer
+    When: Extracting normalized line fragments and comparing hashes within each layer
+    Then: Violation count does not exceed baseline (ratchet pattern)
+
+    Convention: atdd/coder/conventions/duplication.convention.yaml
+    """
+    ts_files = _collect_ts_files(WEB_SRC)
+    if not ts_files:
+        pytest.skip("No TypeScript files found in web/src/ to validate")
+
+    count, violations = scan_typescript_duplications(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="duplication_detector_typescript",
+        current_count=count,
+        violations=violations,
+    )

@@ -129,94 +129,84 @@ def _scan_files_for_gsap(directory: Path) -> List[Tuple[Path, str]]:
     return violations
 
 
-@pytest.mark.coder
-def test_gsap_only_in_presentation_layer():
-    """
-    SPEC-CODER-GSAP-0001: GSAP imports allowed only in presentation layer.
-
-    GIVEN: All TypeScript files in web/src/
-    WHEN: Checking for GSAP imports
-    THEN: GSAP imports only appear in presentation layer paths
-
-    Detection patterns:
-      - ESM: import ... from "gsap", "gsap/*", "@gsap/*"
-      - Dynamic: import("gsap"), import("gsap/*")
-      - CJS: require("gsap"), require("gsap/*")
-      - Type-only: import type ... from "gsap"
-
-    Allowed paths:
-      - web/src/{wagon}/{feature}/presentation/**
-
-    Forbidden paths:
-      - web/src/{wagon}/{feature}/domain/**
-      - web/src/{wagon}/{feature}/application/**
-      - web/src/{wagon}/{feature}/integration/**
-      - web/src/commons/**
-
-    Validates: GSAP is UI-only and constrained to presentation code
-    """
-    if not WEB_SRC.exists():
-        pytest.skip("web/src does not exist")
-
-    violations = _scan_files_for_gsap(WEB_SRC)
-
-    if violations:
-        violation_details = []
-        for file_path, matched_import in violations:
-            rel_path = file_path.relative_to(REPO_ROOT)
-            violation_details.append(f"  - {rel_path}\n    Import: {matched_import}")
-
-        pytest.fail(
-            f"\n\nGSAP imports found outside presentation layer:\n\n"
-            + "\n\n".join(violation_details[:10])
-            + (f"\n\n... and {len(violations) - 10} more" if len(violations) > 10 else "")
-            + "\n\n"
-            + "GSAP is presentation-only. Move animation code to:\n"
-            + "  web/src/{wagon}/{feature}/presentation/\n"
-            + "\n"
-            + "See: technology.convention.yaml (frontend.presentation.libraries)"
-        )
+def scan_gsap_layer_usage(repo_root: Path):
+    """Scan for GSAP imports outside presentation layer. Used by ratchet baseline."""
+    web_src = repo_root / "web" / "src"
+    if not web_src.exists():
+        return 0, []
+    violations = _scan_files_for_gsap(web_src)
+    strs = []
+    for file_path, matched_import in violations:
+        try:
+            rel = file_path.relative_to(repo_root)
+        except ValueError:
+            rel = file_path
+        strs.append(f"{rel}: {matched_import}")
+    return len(violations), strs
 
 
-@pytest.mark.coder
-def test_gsap_not_in_commons():
-    """
-    SPEC-CODER-GSAP-0002: GSAP imports forbidden in commons.
-
-    GIVEN: All TypeScript files in web/src/commons/
-    WHEN: Checking for GSAP imports
-    THEN: No GSAP imports found (commons has no presentation layer)
-
-    Validates: Domain purity in commons module
-    """
-    commons_dir = WEB_SRC / "commons"
-
+def scan_gsap_commons(repo_root: Path):
+    """Scan for GSAP imports in commons. Used by ratchet baseline."""
+    commons_dir = repo_root / "web" / "src" / "commons"
     if not commons_dir.exists():
-        pytest.skip("web/src/commons does not exist")
-
-    violations: List[Tuple[Path, str]] = []
-
+        return 0, []
+    violations = []
     for ext in ["*.ts", "*.tsx"]:
         for ts_file in commons_dir.rglob(ext):
             try:
                 content = ts_file.read_text()
             except Exception:
                 continue
-
             gsap_import = _find_gsap_import(content)
             if gsap_import:
-                violations.append((ts_file, gsap_import))
+                try:
+                    rel = ts_file.relative_to(repo_root)
+                except ValueError:
+                    rel = ts_file
+                violations.append(f"{rel}: {gsap_import}")
+    return len(violations), violations
 
-    if violations:
-        violation_details = []
-        for file_path, matched_import in violations:
-            rel_path = file_path.relative_to(REPO_ROOT)
-            violation_details.append(f"  - {rel_path}\n    Import: {matched_import}")
 
-        pytest.fail(
-            f"\n\nGSAP imports found in commons (forbidden):\n\n"
-            + "\n".join(violation_details)
-            + "\n\n"
-            + "Commons has no presentation layer. GSAP is forbidden.\n"
-            + "Move animation code to wagon presentation layers."
-        )
+@pytest.mark.coder
+def test_gsap_only_in_presentation_layer(ratchet_baseline):
+    """
+    SPEC-CODER-GSAP-0001: GSAP imports allowed only in presentation layer.
+
+    GIVEN: All TypeScript files in web/src/
+    WHEN: Checking for GSAP imports
+    THEN: Violation count does not exceed baseline (ratchet pattern)
+
+    Validates: GSAP is UI-only and constrained to presentation code
+    """
+    if not WEB_SRC.exists():
+        pytest.skip("web/src does not exist")
+
+    count, violations = scan_gsap_layer_usage(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="gsap_layer_usage",
+        current_count=count,
+        violations=violations,
+    )
+
+
+@pytest.mark.coder
+def test_gsap_not_in_commons(ratchet_baseline):
+    """
+    SPEC-CODER-GSAP-0002: GSAP imports forbidden in commons.
+
+    GIVEN: All TypeScript files in web/src/commons/
+    WHEN: Checking for GSAP imports
+    THEN: Violation count does not exceed baseline (ratchet pattern)
+
+    Validates: Domain purity in commons module
+    """
+    commons_dir = WEB_SRC / "commons"
+    if not commons_dir.exists():
+        pytest.skip("web/src/commons does not exist")
+
+    count, violations = scan_gsap_commons(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="gsap_commons",
+        current_count=count,
+        violations=violations,
+    )

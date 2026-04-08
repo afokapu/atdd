@@ -229,8 +229,98 @@ def count_function_parameters(function_body: str) -> int:
     return len(param_list)
 
 
+def scan_cyclomatic_complexity(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for cyclomatic complexity violations. Used by ratchet baseline."""
+    python_dir = repo_root / "python"
+    if not python_dir.exists():
+        return 0, []
+    files = []
+    for py_file in python_dir.rglob("*.py"):
+        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
+            continue
+        if '__pycache__' in str(py_file) or py_file.name == '__init__.py':
+            continue
+        files.append(py_file)
+    violations = []
+    for py_file in files:
+        for func_name, line_num, func_body in extract_functions(py_file):
+            if count_function_lines(func_body) < 3:
+                continue
+            complexity = calculate_cyclomatic_complexity(func_body)
+            if complexity > MAX_CYCLOMATIC_COMPLEXITY:
+                rel_path = py_file.relative_to(repo_root)
+                violations.append(f"{rel_path}:{line_num} {func_name} complexity={complexity}")
+    return len(violations), violations
+
+
+def scan_nesting_depth(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for nesting depth violations. Used by ratchet baseline."""
+    python_dir = repo_root / "python"
+    if not python_dir.exists():
+        return 0, []
+    files = []
+    for py_file in python_dir.rglob("*.py"):
+        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
+            continue
+        if '__pycache__' in str(py_file) or py_file.name == '__init__.py':
+            continue
+        files.append(py_file)
+    violations = []
+    for py_file in files:
+        for func_name, line_num, func_body in extract_functions(py_file):
+            depth = calculate_nesting_depth(func_body)
+            if depth > MAX_NESTING_DEPTH:
+                rel_path = py_file.relative_to(repo_root)
+                violations.append(f"{rel_path}:{line_num} {func_name} depth={depth}")
+    return len(violations), violations
+
+
+def scan_function_length(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for function length violations. Used by ratchet baseline."""
+    python_dir = repo_root / "python"
+    if not python_dir.exists():
+        return 0, []
+    files = []
+    for py_file in python_dir.rglob("*.py"):
+        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
+            continue
+        if '__pycache__' in str(py_file) or py_file.name == '__init__.py':
+            continue
+        files.append(py_file)
+    violations = []
+    for py_file in files:
+        for func_name, line_num, func_body in extract_functions(py_file):
+            lines = count_function_lines(func_body)
+            if lines > MAX_FUNCTION_LINES:
+                rel_path = py_file.relative_to(repo_root)
+                violations.append(f"{rel_path}:{line_num} {func_name} lines={lines}")
+    return len(violations), violations
+
+
+def scan_function_params(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for function parameter count violations. Used by ratchet baseline."""
+    python_dir = repo_root / "python"
+    if not python_dir.exists():
+        return 0, []
+    files = []
+    for py_file in python_dir.rglob("*.py"):
+        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
+            continue
+        if '__pycache__' in str(py_file) or py_file.name == '__init__.py':
+            continue
+        files.append(py_file)
+    violations = []
+    for py_file in files:
+        for func_name, line_num, func_body in extract_functions(py_file):
+            param_count = count_function_parameters(func_body)
+            if param_count > MAX_FUNCTION_PARAMS:
+                rel_path = py_file.relative_to(repo_root)
+                violations.append(f"{rel_path}:{line_num} {func_name} params={param_count}")
+    return len(violations), violations
+
+
 @pytest.mark.coder
-def test_cyclomatic_complexity_under_threshold():
+def test_cyclomatic_complexity_under_threshold(ratchet_baseline):
     """
     SPEC-CODER-COMPLEXITY-0001: Functions have acceptable cyclomatic complexity.
 
@@ -244,44 +334,22 @@ def test_cyclomatic_complexity_under_threshold():
 
     Given: All Python functions
     When: Calculating cyclomatic complexity
-    Then: Complexity < 10 for all functions
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_files = find_python_files()
-
     if not python_files:
         pytest.skip("No Python files found")
 
-    violations = []
-
-    for py_file in python_files:
-        functions = extract_functions(py_file)
-
-        for func_name, line_num, func_body in functions:
-            # Skip very small functions (< 3 lines)
-            if count_function_lines(func_body) < 3:
-                continue
-
-            complexity = calculate_cyclomatic_complexity(func_body)
-
-            if complexity > MAX_CYCLOMATIC_COMPLEXITY:
-                rel_path = py_file.relative_to(REPO_ROOT)
-                violations.append(
-                    f"{rel_path}:{line_num}\\n"
-                    f"  Function: {func_name}\\n"
-                    f"  Complexity: {complexity} (max: {MAX_CYCLOMATIC_COMPLEXITY})\\n"
-                    f"  Suggestion: Break into smaller functions"
-                )
-
-    if violations:
-        pytest.fail(
-            f"\\n\\nFound {len(violations)} complexity violations:\\n\\n" +
-            "\\n\\n".join(violations[:10]) +
-            (f"\\n\\n... and {len(violations) - 10} more" if len(violations) > 10 else "")
-        )
+    count, violations = scan_cyclomatic_complexity(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="cyclomatic_complexity",
+        current_count=count,
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_nesting_depth_under_threshold():
+def test_nesting_depth_under_threshold(ratchet_baseline):
     """
     SPEC-CODER-COMPLEXITY-0002: Functions have acceptable nesting depth.
 
@@ -294,40 +362,22 @@ def test_nesting_depth_under_threshold():
 
     Given: All Python functions
     When: Calculating nesting depth
-    Then: Depth < 4 for all functions
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_files = find_python_files()
-
     if not python_files:
         pytest.skip("No Python files found")
 
-    violations = []
-
-    for py_file in python_files:
-        functions = extract_functions(py_file)
-
-        for func_name, line_num, func_body in functions:
-            depth = calculate_nesting_depth(func_body)
-
-            if depth > MAX_NESTING_DEPTH:
-                rel_path = py_file.relative_to(REPO_ROOT)
-                violations.append(
-                    f"{rel_path}:{line_num}\\n"
-                    f"  Function: {func_name}\\n"
-                    f"  Nesting depth: {depth} (max: {MAX_NESTING_DEPTH})\\n"
-                    f"  Suggestion: Extract nested logic into separate functions"
-                )
-
-    if violations:
-        pytest.fail(
-            f"\\n\\nFound {len(violations)} nesting depth violations:\\n\\n" +
-            "\\n\\n".join(violations[:10]) +
-            (f"\\n\\n... and {len(violations) - 10} more" if len(violations) > 10 else "")
-        )
+    count, violations = scan_nesting_depth(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="nesting_depth",
+        current_count=count,
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_function_length_under_threshold():
+def test_function_length_under_threshold(ratchet_baseline):
     """
     SPEC-CODER-COMPLEXITY-0003: Functions are not too long.
 
@@ -340,40 +390,22 @@ def test_function_length_under_threshold():
 
     Given: All Python functions
     When: Counting lines of code
-    Then: Length < 50 for all functions
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_files = find_python_files()
-
     if not python_files:
         pytest.skip("No Python files found")
 
-    violations = []
-
-    for py_file in python_files:
-        functions = extract_functions(py_file)
-
-        for func_name, line_num, func_body in functions:
-            lines = count_function_lines(func_body)
-
-            if lines > MAX_FUNCTION_LINES:
-                rel_path = py_file.relative_to(REPO_ROOT)
-                violations.append(
-                    f"{rel_path}:{line_num}\\n"
-                    f"  Function: {func_name}\\n"
-                    f"  Lines: {lines} (max: {MAX_FUNCTION_LINES})\\n"
-                    f"  Suggestion: Break into smaller functions"
-                )
-
-    if violations:
-        pytest.fail(
-            f"\\n\\nFound {len(violations)} function length violations:\\n\\n" +
-            "\\n\\n".join(violations[:10]) +
-            (f"\\n\\n... and {len(violations) - 10} more" if len(violations) > 10 else "")
-        )
+    count, violations = scan_function_length(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="function_length",
+        current_count=count,
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_function_parameter_count_under_threshold():
+def test_function_parameter_count_under_threshold(ratchet_baseline):
     """
     SPEC-CODER-COMPLEXITY-0004: Functions don't have too many parameters.
 
@@ -386,33 +418,15 @@ def test_function_parameter_count_under_threshold():
 
     Given: All Python functions
     When: Counting parameters
-    Then: Parameters < 6 for all functions
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_files = find_python_files()
-
     if not python_files:
         pytest.skip("No Python files found")
 
-    violations = []
-
-    for py_file in python_files:
-        functions = extract_functions(py_file)
-
-        for func_name, line_num, func_body in functions:
-            param_count = count_function_parameters(func_body)
-
-            if param_count > MAX_FUNCTION_PARAMS:
-                rel_path = py_file.relative_to(REPO_ROOT)
-                violations.append(
-                    f"{rel_path}:{line_num}\\n"
-                    f"  Function: {func_name}\\n"
-                    f"  Parameters: {param_count} (max: {MAX_FUNCTION_PARAMS})\\n"
-                    f"  Suggestion: Use parameter objects or reduce responsibilities"
-                )
-
-    if violations:
-        pytest.fail(
-            f"\\n\\nFound {len(violations)} parameter count violations:\\n\\n" +
-            "\\n\\n".join(violations[:10]) +
-            (f"\\n\\n... and {len(violations) - 10} more" if len(violations) > 10 else "")
-        )
+    count, violations = scan_function_params(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="function_parameter_count",
+        current_count=count,
+        violations=violations,
+    )

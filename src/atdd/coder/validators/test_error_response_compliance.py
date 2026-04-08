@@ -235,14 +235,56 @@ def test_error_response_convention_exists():
 # ============================================================================
 
 
+def scan_bare_string_errors(repo_root: Path):
+    """Scan for bare string HTTPException details. Used by ratchet baseline."""
+    python_dir = repo_root / "python"
+    if not python_dir.exists():
+        return 0, []
+    py_files = list(python_dir.rglob("*.py"))
+    violations = []
+    for py_file in py_files:
+        if "__pycache__" in str(py_file):
+            continue
+        content = py_file.read_text(encoding="utf-8", errors="replace")
+        if "HTTPException" not in content:
+            continue
+        for match in BARE_STRING_DETAIL_RE.finditer(content):
+            line_num = content[: match.start()].count("\n") + 1
+            violations.append(
+                f"{py_file.relative_to(repo_root)}:{line_num}: bare string detail in HTTPException"
+            )
+    return len(violations), violations
+
+
+def scan_error_code_format(repo_root: Path):
+    """Scan for non-UPPER_SNAKE_CASE error codes. Used by ratchet baseline."""
+    python_dir = repo_root / "python"
+    if not python_dir.exists():
+        return 0, []
+    py_files = list(python_dir.rglob("*.py"))
+    violations = []
+    for py_file in py_files:
+        if "__pycache__" in str(py_file):
+            continue
+        content = py_file.read_text(encoding="utf-8", errors="replace")
+        for match in ERROR_CODE_VALUE_RE.finditer(content):
+            error_code = match.group(1)
+            if not UPPER_SNAKE_CASE_RE.match(error_code):
+                line_num = content[: match.start()].count("\n") + 1
+                violations.append(
+                    f"{py_file.relative_to(repo_root)}:{line_num}: error_code '{error_code}' not UPPER_SNAKE_CASE"
+                )
+    return len(violations), violations
+
+
 @pytest.mark.coder
-def test_python_endpoints_use_structured_error_responses():
+def test_python_endpoints_use_structured_error_responses(ratchet_baseline):
     """
     SPEC-CODER-ERRORRESPONSE-0004: Python endpoints use structured error responses.
 
     GIVEN: Python source files in the consumer repo
     WHEN: Scanning for HTTPException usage
-    THEN: No bare string detail= arguments found
+    THEN: Violation count does not exceed baseline (ratchet pattern)
 
     Validates: acc:verify-contracts:E001-UNIT-001, E001-UNIT-002
     """
@@ -253,38 +295,12 @@ def test_python_endpoints_use_structured_error_responses():
     if not py_files:
         pytest.skip("No Python files found in python/")
 
-    violations = []
-    files_with_httpexception = 0
-
-    for py_file in py_files:
-        if "__pycache__" in str(py_file):
-            continue
-
-        content = py_file.read_text(encoding="utf-8", errors="replace")
-        if "HTTPException" not in content:
-            continue
-
-        files_with_httpexception += 1
-
-        for match in BARE_STRING_DETAIL_RE.finditer(content):
-            line_num = content[: match.start()].count("\n") + 1
-            violations.append(
-                f"{py_file.relative_to(REPO_ROOT)}:{line_num}: "
-                f"bare string detail in HTTPException — use structured "
-                f"error response {{status_code, error_code, message}}"
-            )
-
-    if files_with_httpexception == 0:
-        pytest.skip("No files with HTTPException found in python/")
-
-    if violations:
-        pytest.fail(
-            f"\n\nBare string error responses detected "
-            f"(convention ERR-03):\n"
-            + "\n".join(f"  - {v}" for v in violations)
-            + f"\n\n  Contract: contracts/commons/error/response.schema.json"
-            + f"\n  Convention: error-response.convention.yaml"
-        )
+    count, violations = scan_bare_string_errors(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="error_response_bare_string",
+        current_count=count,
+        violations=violations,
+    )
 
 
 # ============================================================================
@@ -293,13 +309,13 @@ def test_python_endpoints_use_structured_error_responses():
 
 
 @pytest.mark.coder
-def test_error_codes_follow_enum_convention():
+def test_error_codes_follow_enum_convention(ratchet_baseline):
     """
     SPEC-CODER-ERRORRESPONSE-0005: Error codes follow UPPER_SNAKE_CASE convention.
 
     GIVEN: Python source files in the consumer repo
     WHEN: Scanning for error_code values
-    THEN: All error codes match ^[A-Z][A-Z0-9_]+$ pattern
+    THEN: Violation count does not exceed baseline (ratchet pattern)
 
     Validates: acc:verify-contracts:E001-UNIT-001 (error code format)
     """
@@ -310,32 +326,9 @@ def test_error_codes_follow_enum_convention():
     if not py_files:
         pytest.skip("No Python files found in python/")
 
-    violations = []
-    error_codes_found = 0
-
-    for py_file in py_files:
-        if "__pycache__" in str(py_file):
-            continue
-
-        content = py_file.read_text(encoding="utf-8", errors="replace")
-
-        for match in ERROR_CODE_VALUE_RE.finditer(content):
-            error_code = match.group(1)
-            error_codes_found += 1
-
-            if not UPPER_SNAKE_CASE_RE.match(error_code):
-                line_num = content[: match.start()].count("\n") + 1
-                violations.append(
-                    f"{py_file.relative_to(REPO_ROOT)}:{line_num}: "
-                    f"error_code '{error_code}' is not UPPER_SNAKE_CASE "
-                    f"(expected pattern: ^[A-Z][A-Z0-9_]+$)"
-                )
-
-    if error_codes_found == 0:
-        pytest.skip("No error_code values found in python/")
-
-    if violations:
-        pytest.fail(
-            f"\n\nError code format violations (convention ERR-02):\n"
-            + "\n".join(f"  - {v}" for v in violations)
-        )
+    count, violations = scan_error_code_format(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="error_code_format",
+        current_count=count,
+        violations=violations,
+    )

@@ -14,7 +14,7 @@ import pytest
 import re
 import warnings
 from pathlib import Path
-from typing import List, Set, Dict, Tuple
+from typing import Dict, List, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
 
@@ -234,63 +234,56 @@ def extract_raw_color_values(file_path: Path) -> List[Tuple[int, str]]:
     return violations
 
 
+def scan_ds_presentation_primitives(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for presentation files missing DS imports. Used by ratchet baseline."""
+    web_src = repo_root / "web" / "src"
+    if not web_src.exists():
+        return 0, []
+    violations = []
+    for f in get_presentation_files():
+        imports = extract_imports(f)
+        has_jsx = f.suffix == '.tsx'
+        has_design_system_import = any(
+            any(ds in imp for ds in DESIGN_SYSTEM_IMPORTS) for imp in imports
+        )
+        if has_jsx and not has_design_system_import:
+            try:
+                content = f.read_text(encoding='utf-8')
+                if re.search(r'return\s*\(?\s*<', content):
+                    rel_path = f.relative_to(repo_root)
+                    violations.append(f"{rel_path}: presentation component without DS imports")
+            except Exception:
+                pass
+    return len(violations), violations
+
+
 @pytest.mark.coder
-def test_presentation_uses_design_system_primitives():
+def test_presentation_uses_design_system_primitives(ratchet_baseline):
     """
     SPEC-CODER-DESIGN-001: Presentation layer must use design system primitives.
 
     GIVEN: TypeScript file in presentation layer
     WHEN: Analyzing imports for UI elements
-    THEN: Uses primitives from @/maintain-ux/primitives or @/maintain-ux/components
+    THEN: Violation count does not exceed baseline (ratchet pattern)
 
     Rationale: Consistent UI through reusable design system components
     """
-    violations = []
-
-    for f in get_presentation_files():
-        imports = extract_imports(f)
-
-        # Check if file uses preact/h but doesn't import from design system
-        has_jsx = f.suffix == '.tsx'
-        has_design_system_import = any(
-            any(ds in imp for ds in DESIGN_SYSTEM_IMPORTS)
-            for imp in imports
-        )
-
-        # If it's a .tsx file with no design system imports, flag it
-        # (Allow commons imports for utilities)
-        if has_jsx and not has_design_system_import:
-            # Check if it has any actual JSX
-            try:
-                content = f.read_text(encoding='utf-8')
-                # Look for JSX return statements
-                if re.search(r'return\s*\(?\s*<', content):
-                    rel_path = f.relative_to(REPO_ROOT)
-                    violations.append(
-                        f"{rel_path}\n"
-                        f"  Issue: Presentation component with JSX but no design system imports\n"
-                        f"  Fix: Import primitives from @/maintain-ux/primitives or @/maintain-ux/components"
-                    )
-            except Exception:
-                pass
-
-    if violations:
-        pytest.fail(
-            f"\n\nFound {len(violations)} presentation files without design system imports:\n\n" +
-            "\n\n".join(violations[:10]) +
-            (f"\n\n... and {len(violations) - 10} more" if len(violations) > 10 else "") +
-            "\n\nPresentation layer should use design system primitives for consistency."
-        )
+    count, violations = scan_ds_presentation_primitives(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="ds_presentation_primitives",
+        current_count=count,
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_ui_files_use_design_tokens_for_colors():
+def test_ui_files_use_design_tokens_for_colors(ratchet_baseline):
     """
     SPEC-CODER-DESIGN-002: UI files should use design tokens for colors.
 
     GIVEN: TypeScript/TSX file with styling
     WHEN: Analyzing for color values
-    THEN: Colors come from design tokens, not raw hex/rgb values
+    THEN: Violation count does not exceed baseline (ratchet pattern)
 
     Rationale: Consistent theming through centralized color definitions
     """
@@ -308,17 +301,15 @@ def test_ui_files_use_design_tokens_for_colors():
                 )
 
     # Allow some violations during migration (warning, not failure)
-    if len(all_violations) > 20:
-        pytest.fail(
-            f"\n\nFound {len(all_violations)} raw color values (>20 threshold):\n\n" +
-            "\n\n".join(all_violations[:10]) +
-            (f"\n\n... and {len(all_violations) - 10} more" if len(all_violations) > 10 else "") +
-            "\n\nUse colors from @/maintain-ux/foundations for consistency."
-        )
+    ratchet_baseline.assert_no_regression(
+        validator_id="ds_color_tokens",
+        current_count=len(all_violations),
+        violations=all_violations,
+    )
 
 
 @pytest.mark.coder
-def test_no_orphaned_design_system_exports():
+def test_no_orphaned_design_system_exports(ratchet_baseline):
     """
     SPEC-CODER-DESIGN-003: Design system exports should be used.
 
@@ -341,38 +332,22 @@ def test_no_orphaned_design_system_exports():
     false_positives = {'type', 'h', 'Fragment'}
     orphaned = orphaned - false_positives
 
-    if orphaned:
-        # Group by category
-        orphaned_primitives = orphaned & exports['primitives']
-        orphaned_components = orphaned & exports['components']
-
-        message = f"\n\nFound {len(orphaned)} orphaned design system exports:\n"
-
-        if orphaned_primitives:
-            message += f"\n  Primitives ({len(orphaned_primitives)}):\n"
-            message += "".join(f"    - {name}\n" for name in sorted(orphaned_primitives))
-
-        if orphaned_components:
-            message += f"\n  Components ({len(orphaned_components)}):\n"
-            message += "".join(f"    - {name}\n" for name in sorted(orphaned_components))
-
-        message += "\nConsider removing unused exports to keep design system lean."
-
-        # Warn but don't fail if under threshold
-        if len(orphaned) > 5:
-            pytest.fail(message)
-        else:
-            pytest.skip(f"Minor: {len(orphaned)} orphaned exports (under threshold)")
+    violations = sorted(orphaned)
+    ratchet_baseline.assert_no_regression(
+        validator_id="ds_orphaned_exports",
+        current_count=len(orphaned),
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_design_system_uses_foundations():
+def test_design_system_uses_foundations(ratchet_baseline):
     """
     SPEC-CODER-DESIGN-004: Design system primitives should use foundations.
 
     GIVEN: Primitive or component in maintain-ux
     WHEN: Checking for spacing/color values
-    THEN: Uses tokens from foundations (spacing, colors)
+    THEN: Violation count does not exceed baseline (ratchet pattern)
 
     Rationale: Design system itself must be consistent
     """
@@ -383,37 +358,24 @@ def test_design_system_uses_foundations():
             continue
 
         for f in category_dir.rglob("*.tsx"):
-            # Skip index files
             if f.name == "index.ts":
                 continue
-
             try:
                 content = f.read_text(encoding='utf-8')
             except Exception:
                 continue
-
-            # Check if it imports from foundations
             imports = extract_imports(f)
             uses_foundations = any('../foundations' in imp or './foundations' in imp for imp in imports)
-
-            # Check for raw pixel values in styles (allow small values like 2px, 3px for borders)
             raw_pixels = re.findall(r":\s*['\"]?(\d{2,}px)['\"]?", content)
-
             if raw_pixels and not uses_foundations:
                 rel_path = f.relative_to(REPO_ROOT)
-                violations.append(
-                    f"{rel_path}\n"
-                    f"  Raw pixel values: {', '.join(raw_pixels[:5])}\n"
-                    f"  Fix: Import spacing from ../foundations"
-                )
+                violations.append(f"{rel_path}: raw pixel values {', '.join(raw_pixels[:5])}")
 
-    if violations:
-        pytest.fail(
-            f"\n\nFound {len(violations)} design system files with raw values:\n\n" +
-            "\n\n".join(violations[:10]) +
-            (f"\n\n... and {len(violations) - 10} more" if len(violations) > 10 else "") +
-            "\n\nDesign system should use its own foundations for consistency."
-        )
+    ratchet_baseline.assert_no_regression(
+        validator_id="ds_foundations_usage",
+        current_count=len(violations),
+        violations=violations,
+    )
 
 
 def _get_maintain_ux_files(subdir: str) -> List[Path]:
@@ -430,7 +392,7 @@ def _get_maintain_ux_files(subdir: str) -> List[Path]:
 
 
 @pytest.mark.coder
-def test_design_system_hierarchy_imports():
+def test_design_system_hierarchy_imports(ratchet_baseline):
     """
     SPEC-CODER-DESIGN-005: Design system layers must respect hierarchy.
 
@@ -438,8 +400,7 @@ def test_design_system_hierarchy_imports():
 
     GIVEN: Files inside maintain-ux/{primitives,components,templates}
     WHEN: Analyzing their import paths
-    THEN: No layer imports from a higher layer, and no maintain-ux file imports
-          from feature wagons
+    THEN: Violation count does not exceed baseline (ratchet pattern)
 
     Hierarchy: tokens ← primitives ← components ← templates
     """
@@ -507,17 +468,15 @@ def test_design_system_hierarchy_imports():
                     f"  Fix: Design system must be wagon-agnostic"
                 )
 
-    if violations:
-        pytest.fail(
-            f"\n\nFound {len(violations)} hierarchy violations in design system:\n\n" +
-            "\n\n".join(violations[:15]) +
-            (f"\n\n... and {len(violations) - 15} more" if len(violations) > 15 else "") +
-            "\n\nDesign system layers must follow: tokens ← primitives ← components ← templates"
-        )
+    ratchet_baseline.assert_no_regression(
+        validator_id="ds_hierarchy_imports",
+        current_count=len(violations),
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_no_hardcoded_tokens_in_wagons():
+def test_no_hardcoded_tokens_in_wagons(ratchet_baseline):
     """
     SPEC-CODER-DESIGN-006: Wagon UI files must not use hardcoded spacing, radii, or durations.
 
@@ -525,7 +484,7 @@ def test_no_hardcoded_tokens_in_wagons():
 
     GIVEN: TSX files in web/src/ outside maintain-ux/
     WHEN: Scanning for inline pixel values, hardcoded radii, hardcoded durations
-    THEN: No more than 20 violations (threshold for gradual migration)
+    THEN: Violation count does not exceed baseline (ratchet pattern)
 
     Rationale: All visual tokens must come from design system foundations
     """
@@ -592,17 +551,15 @@ def test_no_hardcoded_tokens_in_wagons():
                     f"  Fix: Use tokens from @/maintain-ux/foundations"
                 )
 
-    if len(all_violations) > 20:
-        pytest.fail(
-            f"\n\nFound {len(all_violations)} hardcoded token values (>20 threshold):\n\n" +
-            "\n\n".join(all_violations[:10]) +
-            (f"\n\n... and {len(all_violations) - 10} more" if len(all_violations) > 10 else "") +
-            "\n\nUse spacing/radii/motion tokens from @/maintain-ux/foundations."
-        )
+    ratchet_baseline.assert_no_regression(
+        validator_id="ds_hardcoded_tokens",
+        current_count=len(all_violations),
+        violations=all_violations,
+    )
 
 
 @pytest.mark.coder
-def test_no_orphaned_ui_elements():
+def test_no_orphaned_ui_elements(ratchet_baseline):
     """
     SPEC-CODER-DESIGN-007: All TSX files must use at least one design system import.
 
@@ -611,7 +568,7 @@ def test_no_orphaned_ui_elements():
 
     GIVEN: Any .tsx file in web/src/ outside maintain-ux/ and test files
     WHEN: Checking its imports for any maintain-ux path
-    THEN: File has at least one import from maintain-ux
+    THEN: Violation count does not exceed baseline (ratchet pattern)
 
     Rationale: Complete DS bypass means unthemed, inconsistent UI
     """
@@ -646,13 +603,15 @@ def test_no_orphaned_ui_elements():
                 f"  Fix: Import primitives/components from @/maintain-ux/"
             )
 
-    if orphaned:
-        pytest.fail(
-            f"\n\nFound {len(orphaned)} orphaned UI elements (no design system imports):\n\n" +
-            "\n\n".join(orphaned[:15]) +
-            (f"\n\n... and {len(orphaned) - 15} more" if len(orphaned) > 15 else "") +
-            "\n\nAll TSX files should use at least one design system import for consistency."
-        )
+    violations = []
+    for f_path in orphaned:
+        violations.append(str(f_path))
+
+    ratchet_baseline.assert_no_regression(
+        validator_id="ds_orphaned_ui",
+        current_count=len(orphaned),
+        violations=violations,
+    )
 
 
 @pytest.mark.coder

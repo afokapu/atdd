@@ -225,16 +225,98 @@ def find_contract_entities() -> Dict[str, Set[str]]:
     return entities
 
 
+def scan_entity_cross_language(repo_root: Path):
+    """Scan for missing entity implementations. Used by ratchet baseline."""
+    python_classes = extract_python_classes()
+    dart_classes = extract_dart_classes()
+    contract_entities = find_contract_entities()
+    if (not python_classes and not dart_classes) or not contract_entities:
+        return 0, []
+    violations = []
+    for entity_name, fields in contract_entities.items():
+        normalized = ''.join(word.capitalize() for word in re.split(r'[-_]', entity_name))
+        has_python = (normalized in python_classes or entity_name in python_classes or
+                      any(normalized in cls for cls in python_classes))
+        has_dart = (normalized in dart_classes or entity_name in dart_classes or
+                    any(normalized in cls for cls in dart_classes))
+        missing = []
+        if python_classes and not has_python:
+            missing.append("Python")
+        if dart_classes and not has_dart:
+            missing.append("Dart")
+        if missing:
+            violations.append(f"{entity_name} missing in {', '.join(missing)}")
+    return len(violations), violations
+
+
+def scan_enum_cross_language(repo_root: Path):
+    """Scan for enum mismatches across languages. Used by ratchet baseline."""
+    python_enums = extract_python_enums()
+    dart_enums = extract_dart_enums()
+    if not python_enums and not dart_enums:
+        return 0, []
+    violations = []
+    for enum_name in set(python_enums.keys()) & set(dart_enums.keys()):
+        py_lower = {v.lower() for v in python_enums[enum_name]}
+        dart_lower = {v.lower() for v in dart_enums[enum_name]}
+        if py_lower != dart_lower:
+            violations.append(f"{enum_name}: Python={py_lower - dart_lower} Dart={dart_lower - py_lower}")
+    return len(violations), violations
+
+
+def scan_naming_cross_language(repo_root: Path):
+    """Scan for naming inconsistencies across languages. Used by ratchet baseline."""
+    python_classes = extract_python_classes()
+    dart_classes = extract_dart_classes()
+    if not python_classes or not dart_classes:
+        return 0, []
+    python_suffixes = {}
+    dart_suffixes = {}
+    for name in python_classes:
+        for suffix in ['Entity', 'Model', 'DTO', 'Service', 'Repository']:
+            if name.endswith(suffix):
+                python_suffixes.setdefault(suffix, set()).add(name[:-len(suffix)])
+    for name in dart_classes:
+        for suffix in ['Entity', 'Model', 'DTO', 'Service', 'Repository']:
+            if name.endswith(suffix):
+                dart_suffixes.setdefault(suffix, set()).add(name[:-len(suffix)])
+    violations = []
+    for suffix in set(python_suffixes.keys()) | set(dart_suffixes.keys()):
+        python_bases = python_suffixes.get(suffix, set())
+        for base in python_bases:
+            for dart_suffix in dart_suffixes:
+                if suffix != dart_suffix and base in dart_suffixes[dart_suffix]:
+                    violations.append(f"{base}: Python={suffix} Dart={dart_suffix}")
+    return len(violations), violations
+
+
+def scan_api_contracts_cross_language(repo_root: Path):
+    """Scan for unimplemented contracts. Used by ratchet baseline."""
+    contract_entities = find_contract_entities()
+    python_classes = extract_python_classes()
+    dart_classes = extract_dart_classes()
+    if not contract_entities:
+        return 0, []
+    violations = []
+    for entity_name, fields in contract_entities.items():
+        normalized = ''.join(word.capitalize() for word in re.split(r'[-_]', entity_name))
+        has_any = (normalized in python_classes or entity_name in python_classes or
+                   normalized in dart_classes or entity_name in dart_classes or
+                   any(normalized in cls for cls in python_classes) or
+                   any(normalized in cls for cls in dart_classes))
+        if not has_any:
+            violations.append(f"{entity_name}: no implementations found")
+    return len(violations), violations
+
+
 @pytest.mark.coder
-def test_entity_classes_exist_across_languages():
+def test_entity_classes_exist_across_languages(ratchet_baseline):
     """
     SPEC-CODER-CONSISTENCY-0001: Core entities exist in all languages.
 
-    For polyglot codebases, core domain entities should exist in all languages.
-
     Given: Entity classes in Python, Dart, contracts
     When: Comparing entity names
-    Then: Core entities exist across languages
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_classes = extract_python_classes()
     dart_classes = extract_dart_classes()
@@ -242,60 +324,25 @@ def test_entity_classes_exist_across_languages():
 
     if not python_classes and not dart_classes:
         pytest.skip("No classes found")
-
     if not contract_entities:
         pytest.skip("No contract entities found")
 
-    # Check if contract entities have implementations
-    missing_implementations = []
-
-    for entity_name, fields in contract_entities.items():
-        # Normalize name (PascalCase)
-        normalized = ''.join(word.capitalize() for word in re.split(r'[-_]', entity_name))
-
-        # Check Python (exact or substring match for CLI contracts like ATDDGate)
-        has_python = (
-            normalized in python_classes or entity_name in python_classes or
-            any(normalized in cls for cls in python_classes)
-        )
-        # Check Dart
-        has_dart = (
-            normalized in dart_classes or entity_name in dart_classes or
-            any(normalized in cls for cls in dart_classes)
-        )
-
-        # Only report missing for languages that exist in the repo
-        missing_langs = []
-        if python_classes and not has_python:
-            missing_langs.append("Python")
-        if dart_classes and not has_dart:
-            missing_langs.append("Dart")
-
-        if missing_langs:
-            missing_implementations.append(
-                f"Contract entity: {entity_name}\\n"
-                f"  Fields: {', '.join(list(fields)[:5])}\\n"
-                f"  Missing in: {' AND '.join(missing_langs)}"
-            )
-
-    if missing_implementations:
-        pytest.fail(
-            f"\\n\\nFound {len(missing_implementations)} contract entities without implementations:\\n\\n" +
-            "\\n\\n".join(missing_implementations[:10]) +
-            (f"\\n\\n... and {len(missing_implementations) - 10} more" if len(missing_implementations) > 10 else "")
-        )
+    count, violations = scan_entity_cross_language(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="entity_cross_language",
+        current_count=count,
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_enums_match_across_languages():
+def test_enums_match_across_languages(ratchet_baseline):
     """
     SPEC-CODER-CONSISTENCY-0002: Enums match across languages.
 
-    Enums should have same values in all languages.
-
     Given: Enum definitions in Python and Dart
     When: Comparing enum values
-    Then: Enums with same name have same values
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_enums = extract_python_enums()
     dart_enums = extract_dart_enums()
@@ -303,44 +350,22 @@ def test_enums_match_across_languages():
     if not python_enums and not dart_enums:
         pytest.skip("No enums found")
 
-    mismatches = []
-
-    # Find enums with same name
-    for enum_name in set(python_enums.keys()) & set(dart_enums.keys()):
-        python_values = python_enums[enum_name]
-        dart_values = dart_enums[enum_name]
-
-        # Compare (case-insensitive)
-        python_lower = {v.lower() for v in python_values}
-        dart_lower = {v.lower() for v in dart_values}
-
-        if python_lower != dart_lower:
-            only_python = python_lower - dart_lower
-            only_dart = dart_lower - python_lower
-
-            mismatches.append(
-                f"Enum: {enum_name}\\n"
-                f"  Only in Python: {', '.join(only_python) if only_python else 'none'}\\n"
-                f"  Only in Dart: {', '.join(only_dart) if only_dart else 'none'}"
-            )
-
-    if mismatches:
-        pytest.fail(
-            f"\\n\\nFound {len(mismatches)} enum mismatches:\\n\\n" +
-            "\\n\\n".join(mismatches)
-        )
+    count, violations = scan_enum_cross_language(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="enum_cross_language",
+        current_count=count,
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_naming_conventions_consistent():
+def test_naming_conventions_consistent(ratchet_baseline):
     """
     SPEC-CODER-CONSISTENCY-0003: Naming conventions are consistent.
 
-    Similar concepts should use similar names across languages.
-
     Given: Class names in all languages
     When: Comparing patterns
-    Then: Consistent naming (e.g., XxxEntity vs Xxx)
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_classes = extract_python_classes()
     dart_classes = extract_dart_classes()
@@ -348,99 +373,31 @@ def test_naming_conventions_consistent():
     if not python_classes or not dart_classes:
         pytest.skip("Need classes in multiple languages")
 
-    # Check for common suffixes
-    python_suffixes = {}
-    dart_suffixes = {}
-
-    for name in python_classes.keys():
-        for suffix in ['Entity', 'Model', 'DTO', 'Service', 'Repository']:
-            if name.endswith(suffix):
-                base = name[:-len(suffix)]
-                python_suffixes.setdefault(suffix, set()).add(base)
-
-    for name in dart_classes.keys():
-        for suffix in ['Entity', 'Model', 'DTO', 'Service', 'Repository']:
-            if name.endswith(suffix):
-                base = name[:-len(suffix)]
-                dart_suffixes.setdefault(suffix, set()).add(base)
-
-    # Find inconsistencies
-    inconsistencies = []
-
-    for suffix in set(python_suffixes.keys()) | set(dart_suffixes.keys()):
-        python_bases = python_suffixes.get(suffix, set())
-        dart_bases = dart_suffixes.get(suffix, set())
-
-        # Find classes that use different suffixes
-        common_bases = python_bases & dart_bases
-
-        for base in common_bases:
-            # If same base exists with this suffix in both, good
-            pass
-
-        # Check if base exists with different suffix
-        for base in python_bases:
-            # Check if Dart has same base with different suffix
-            for dart_suffix in dart_suffixes.keys():
-                if suffix != dart_suffix and base in dart_suffixes[dart_suffix]:
-                    inconsistencies.append(
-                        f"Base class: {base}\\n"
-                        f"  Python uses: {suffix}\\n"
-                        f"  Dart uses: {dart_suffix}"
-                    )
-
-    if inconsistencies:
-        pytest.fail(
-            f"\\n\\nFound {len(inconsistencies)} naming inconsistencies:\\n\\n" +
-            "\\n\\n".join(inconsistencies[:10]) +
-            (f"\\n\\n... and {len(inconsistencies) - 10} more" if len(inconsistencies) > 10 else "")
-        )
+    count, violations = scan_naming_cross_language(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="naming_cross_language",
+        current_count=count,
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_api_contracts_honored_across_languages():
+def test_api_contracts_honored_across_languages(ratchet_baseline):
     """
     SPEC-CODER-CONSISTENCY-0004: API contracts honored in all implementations.
 
-    Contract schemas define API structure.
-    All language implementations should follow them.
-
     Given: Contract schemas
     When: Checking for matching entities
-    Then: Each language has entity matching contract
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     contract_entities = find_contract_entities()
-    python_classes = extract_python_classes()
-    dart_classes = extract_dart_classes()
 
     if not contract_entities:
         pytest.skip("No contracts found")
 
-    # For each contract, check if at least one language implements it
-    unimplemented = []
-
-    for entity_name, fields in contract_entities.items():
-        normalized = ''.join(word.capitalize() for word in re.split(r'[-_]', entity_name))
-
-        has_any_impl = (
-            normalized in python_classes or
-            entity_name in python_classes or
-            normalized in dart_classes or
-            entity_name in dart_classes or
-            any(normalized in cls for cls in python_classes) or
-            any(normalized in cls for cls in dart_classes)
-        )
-
-        if not has_any_impl:
-            unimplemented.append(
-                f"Contract: {entity_name}\\n"
-                f"  Fields: {', '.join(list(fields)[:5])}\\n"
-                f"  No implementations found"
-            )
-
-    if unimplemented:
-        pytest.fail(
-            f"\\n\\nFound {len(unimplemented)} unimplemented contracts:\\n\\n" +
-            "\\n\\n".join(unimplemented[:10]) +
-            (f"\\n\\n... and {len(unimplemented) - 10} more" if len(unimplemented) > 10 else "")
-        )
+    count, violations = scan_api_contracts_cross_language(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="api_contracts_cross_language",
+        current_count=count,
+        violations=violations,
+    )

@@ -150,7 +150,305 @@ def _contract_driven_http(repo_root: Path) -> Tuple[int, Sequence]:
     return analyze_contract_driven_http(repo_root)
 
 
+def _duplication_detector(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_duplication_detector import scan_python_duplications
+    return scan_python_duplications(repo_root)
+
+
+def _duplication_detector_typescript(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_duplication_detector_typescript import scan_typescript_duplications
+    return scan_typescript_duplications(repo_root)
+
+
+def _cyclomatic_complexity(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_complexity import scan_cyclomatic_complexity
+    return scan_cyclomatic_complexity(repo_root)
+
+
+def _nesting_depth(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_complexity import scan_nesting_depth
+    return scan_nesting_depth(repo_root)
+
+
+def _function_length(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_complexity import scan_function_length
+    return scan_function_length(repo_root)
+
+
+def _function_parameter_count(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_complexity import scan_function_params
+    return scan_function_params(repo_root)
+
+
+def _code_duplication(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_quality_metrics import (
+        find_python_files,
+        find_duplicate_code_blocks,
+        REPO_ROOT,
+    )
+    python_files = find_python_files()
+    if not python_files:
+        return 0, []
+    duplicates = find_duplicate_code_blocks(python_files[:50])
+    violations = [
+        f"{f1.relative_to(REPO_ROOT)} ↔ {f2.relative_to(REPO_ROOT)} ({len(b)} lines)"
+        for f1, f2, b in duplicates
+    ]
+    return len(duplicates), violations
+
+
+def _naming_conventions(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_quality_metrics import (
+        find_python_files,
+        check_naming_consistency,
+        REPO_ROOT,
+    )
+    violations = []
+    for py_file in find_python_files():
+        for v in check_naming_consistency(py_file):
+            violations.append(f"{py_file.relative_to(REPO_ROOT)}: {v}")
+    return len(violations), violations
+
+
+def _print_in_production(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_structured_logging import scan_print_in_production
+    return scan_print_in_production(repo_root)
+
+
+def _structured_logging_format(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_structured_logging import scan_structured_logging
+    return scan_structured_logging(repo_root)
+
+
+def _sql_concatenation(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_security_patterns import scan_sql_concatenation
+    return scan_sql_concatenation(repo_root)
+
+
+def _missing_auth_dependency(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_security_patterns import scan_missing_auth
+    return scan_missing_auth(repo_root)
+
+
+def _hardcoded_secrets(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_security_patterns import scan_hardcoded_secrets
+    return scan_hardcoded_secrets(repo_root)
+
+
+def _ds_presentation_primitives(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_design_system_compliance import scan_ds_presentation_primitives
+    return scan_ds_presentation_primitives(repo_root)
+
+
+def _ds_color_tokens(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_design_system_compliance import (
+        get_all_ui_files, extract_raw_color_values,
+    )
+    violations = []
+    for f in get_all_ui_files():
+        for line_num, issue in extract_raw_color_values(f)[:3]:
+            try:
+                rel = f.relative_to(repo_root)
+            except ValueError:
+                rel = f
+            violations.append(f"{rel}:{line_num} {issue}")
+    return len(violations), violations
+
+
+def _ds_orphaned_exports(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_design_system_compliance import (
+        get_design_system_exports, find_design_system_usage,
+    )
+    exports = get_design_system_exports()
+    used = find_design_system_usage()
+    all_exports = exports.get('primitives', set()) | exports.get('components', set())
+    orphaned = all_exports - used - {'type', 'h', 'Fragment'}
+    return len(orphaned), sorted(orphaned)
+
+
+def _ds_foundations_usage(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_design_system_compliance import (
+        extract_imports, PRIMITIVES_DIR, COMPONENTS_DIR,
+    )
+    import re as _re
+    violations = []
+    for category_dir in [PRIMITIVES_DIR, COMPONENTS_DIR]:
+        if not category_dir.exists():
+            continue
+        for f in category_dir.rglob("*.tsx"):
+            if f.name == "index.ts":
+                continue
+            try:
+                content = f.read_text(encoding='utf-8')
+            except Exception:
+                continue
+            imports = extract_imports(f)
+            uses_foundations = any('../foundations' in imp or './foundations' in imp for imp in imports)
+            raw_pixels = _re.findall(r":\s*['\"]?(\d{2,}px)['\"]?", content)
+            if raw_pixels and not uses_foundations:
+                try:
+                    rel = f.relative_to(repo_root)
+                except ValueError:
+                    rel = f
+                violations.append(f"{rel}: raw pixel values {', '.join(raw_pixels[:5])}")
+    return len(violations), violations
+
+
+def _ds_hierarchy_imports(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_design_system_compliance import (
+        extract_imports, MAINTAIN_UX, _get_maintain_ux_files,
+    )
+    violations = []
+    for f in _get_maintain_ux_files("primitives"):
+        for imp in extract_imports(f):
+            if "../components/" in imp or "../components" == imp or "../templates/" in imp or "../templates" == imp:
+                try:
+                    rel = f.relative_to(repo_root)
+                except ValueError:
+                    rel = f
+                violations.append(f"{rel}: forbidden import '{imp}'")
+    for f in _get_maintain_ux_files("components"):
+        for imp in extract_imports(f):
+            if "../templates/" in imp or "../templates" == imp:
+                try:
+                    rel = f.relative_to(repo_root)
+                except ValueError:
+                    rel = f
+                violations.append(f"{rel}: forbidden import '{imp}'")
+    if MAINTAIN_UX.exists():
+        for ext in ("*.ts", "*.tsx"):
+            for f in MAINTAIN_UX.rglob(ext):
+                if ".test." in f.name or "/tests/" in str(f):
+                    continue
+                for imp in extract_imports(f):
+                    if imp.startswith(".") or imp.startswith("@/maintain-ux"):
+                        continue
+                    if imp.startswith("preact") or imp.startswith("@preact"):
+                        continue
+                    if imp.startswith("@/") or imp.startswith("../"):
+                        try:
+                            rel = f.relative_to(repo_root)
+                        except ValueError:
+                            rel = f
+                        violations.append(f"{rel}: forbidden import '{imp}'")
+    return len(violations), violations
+
+
+def _ds_hardcoded_tokens(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_design_system_compliance import get_all_ui_files
+    import re as _re
+    patterns = [
+        (r'''(?:padding|margin|gap|top|bottom|left|right|width|height)\s*:\s*["'](\d+)px["']''', "Hardcoded pixel"),
+        (r"""\$\{\s*(\d+)\s*\}px""", "Hardcoded pixel template"),
+        (r'''borderRadius\s*:\s*["'](\d+)px["']''', "Hardcoded radius string"),
+        (r"""borderRadius\s*:\s*(\d+)\s*[,}\n]""", "Hardcoded radius number"),
+        (r'''(?:transition|animation(?:Duration)?)\s*:\s*["'][^"']*?(\d{2,})ms''', "Hardcoded duration"),
+        (r"""(?:padding|margin|gap)\s*:\s*(\d+)\s*[,}\n]""", "Hardcoded spacing"),
+    ]
+    violations = []
+    for f in get_all_ui_files():
+        try:
+            content = f.read_text(encoding='utf-8')
+        except Exception:
+            continue
+        for i, line in enumerate(content.split('\n'), 1):
+            stripped = line.strip()
+            if stripped.startswith('import') or stripped.startswith('//') or stripped.startswith('/*'):
+                continue
+            if 'spacing.' in line or 'radii.' in line or 'motion.' in line or 'tokens.' in line:
+                continue
+            for pattern, desc in patterns:
+                for match in _re.finditer(pattern, line):
+                    if int(match.group(1)) <= 4:
+                        continue
+                    try:
+                        rel = f.relative_to(repo_root)
+                    except ValueError:
+                        rel = f
+                    violations.append(f"{rel}:{i} {desc}")
+    return len(violations), violations
+
+
+def _ds_orphaned_ui(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_design_system_compliance import (
+        get_all_ui_files, extract_imports,
+    )
+    import re as _re
+    violations = []
+    for f in get_all_ui_files():
+        try:
+            content = f.read_text(encoding='utf-8')
+        except Exception:
+            continue
+        if not _re.search(r'return\s*\(?\s*<', content):
+            continue
+        imports = extract_imports(f)
+        if not any('maintain-ux' in imp or '@maintain-ux' in imp for imp in imports):
+            try:
+                rel = f.relative_to(repo_root)
+            except ValueError:
+                rel = f
+            violations.append(str(rel))
+    return len(violations), violations
+
+
+def _error_response_bare_string(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_error_response_compliance import scan_bare_string_errors
+    return scan_bare_string_errors(repo_root)
+
+
+def _error_code_format(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_error_response_compliance import scan_error_code_format
+    return scan_error_code_format(repo_root)
+
+
+def _query_count(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_query_count import scan_query_count
+    return scan_query_count(repo_root)
+
+
+def _gsap_layer_usage(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_gsap_layer_usage import scan_gsap_layer_usage
+    return scan_gsap_layer_usage(repo_root)
+
+
+def _gsap_commons(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_gsap_layer_usage import scan_gsap_commons
+    return scan_gsap_commons(repo_root)
+
+
+def _i18n_config_manifest(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_i18n_runtime import scan_i18n_config
+    return scan_i18n_config(repo_root)
+
+
+def _i18n_language_switcher(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_i18n_runtime import scan_language_switcher
+    return scan_language_switcher(repo_root)
+
+
+def _entity_cross_language(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_cross_language_consistency import scan_entity_cross_language
+    return scan_entity_cross_language(repo_root)
+
+
+def _enum_cross_language(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_cross_language_consistency import scan_enum_cross_language
+    return scan_enum_cross_language(repo_root)
+
+
+def _naming_cross_language(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_cross_language_consistency import scan_naming_cross_language
+    return scan_naming_cross_language(repo_root)
+
+
+def _api_contracts_cross_language(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_cross_language_consistency import scan_api_contracts_cross_language
+    return scan_api_contracts_cross_language(repo_root)
+
+
 VALIDATORS: Dict[str, ValidatorFn] = {
+    # --- Existing ---
     "composition_completeness_python": _composition_python,
     "composition_completeness_typescript": _composition_typescript,
     "composition_completeness_supabase": _composition_supabase,
@@ -158,6 +456,38 @@ VALIDATORS: Dict[str, ValidatorFn] = {
     "dead_code_python": _dead_code_python,
     "maintainability_index": _maintainability_index,
     "code_comments": _code_comments,
+    # --- Category A: quality/style (ratcheted in #250) ---
+    "duplication_detector": _duplication_detector,
+    "duplication_detector_typescript": _duplication_detector_typescript,
+    "cyclomatic_complexity": _cyclomatic_complexity,
+    "nesting_depth": _nesting_depth,
+    "function_length": _function_length,
+    "function_parameter_count": _function_parameter_count,
+    "code_duplication": _code_duplication,
+    "naming_conventions": _naming_conventions,
+    "print_in_production": _print_in_production,
+    "structured_logging_format": _structured_logging_format,
+    "sql_concatenation": _sql_concatenation,
+    "missing_auth_dependency": _missing_auth_dependency,
+    "hardcoded_secrets": _hardcoded_secrets,
+    "ds_presentation_primitives": _ds_presentation_primitives,
+    "ds_color_tokens": _ds_color_tokens,
+    "ds_orphaned_exports": _ds_orphaned_exports,
+    "ds_foundations_usage": _ds_foundations_usage,
+    "ds_hierarchy_imports": _ds_hierarchy_imports,
+    "ds_hardcoded_tokens": _ds_hardcoded_tokens,
+    "ds_orphaned_ui": _ds_orphaned_ui,
+    "error_response_bare_string": _error_response_bare_string,
+    "error_code_format": _error_code_format,
+    "query_count": _query_count,
+    "gsap_layer_usage": _gsap_layer_usage,
+    "gsap_commons": _gsap_commons,
+    "i18n_config_manifest": _i18n_config_manifest,
+    "i18n_language_switcher": _i18n_language_switcher,
+    "entity_cross_language": _entity_cross_language,
+    "enum_cross_language": _enum_cross_language,
+    "naming_cross_language": _naming_cross_language,
+    "api_contracts_cross_language": _api_contracts_cross_language,
 }
 
 

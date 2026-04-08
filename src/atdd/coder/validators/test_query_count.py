@@ -192,8 +192,34 @@ def detect_n_plus_one(file_path: Path) -> List[Dict]:
     return violations
 
 
+def scan_query_count(repo_root: Path):
+    """Scan for N+1 query patterns. Used by ratchet baseline."""
+    python_dir = find_python_dir(repo_root)
+    if not python_dir.exists():
+        return 0, []
+    files = []
+    for py_file in python_dir.rglob("*.py"):
+        path_str = str(py_file)
+        if '/test/' in path_str or '/tests/' in path_str:
+            continue
+        if py_file.name.startswith('test_') or '__pycache__' in path_str:
+            continue
+        if py_file.name == '__init__.py' or '/migrations/' in path_str:
+            continue
+        files.append(py_file)
+    all_violations = []
+    for py_file in files:
+        violations = detect_n_plus_one(py_file)
+        for v in violations:
+            rel_path = v['file'].relative_to(repo_root)
+            all_violations.append(
+                f"{rel_path}:{v['line']} {v['function']} {v['call']} in {v['loop_type']}"
+            )
+    return len(all_violations), all_violations
+
+
 @pytest.mark.coder
-def test_no_db_calls_inside_loops():
+def test_no_db_calls_inside_loops(ratchet_baseline):
     """
     SPEC-CODER-PERF-0001: No database client calls inside loop bodies.
 
@@ -201,38 +227,17 @@ def test_no_db_calls_inside_loops():
     in a collection, instead of batching. This causes O(N) queries where
     O(1) would suffice.
 
-    Threshold: 0 (any DB call inside a loop body is flagged)
-
     Given: Python source files in python/ or src/
     When: AST analysis finds DB client calls inside for/while/async for loop bodies
-    Then: Report violations with file, line, function, and call pattern
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_files = find_python_files()
-
     if not python_files:
         pytest.skip("No Python source files found")
 
-    all_violations = []
-
-    for py_file in python_files:
-        violations = detect_n_plus_one(py_file)
-        all_violations.extend(violations)
-
-    if all_violations:
-        details = []
-        for v in all_violations[:10]:
-            rel_path = v['file'].relative_to(REPO_ROOT)
-            details.append(
-                f"{rel_path}:{v['line']}\\n"
-                f"  Function: {v['function']}\\n"
-                f"  Loop: {v['loop_type']} at line {v['loop_line']}\\n"
-                f"  DB call: {v['call']}\\n"
-                f"  Fix: Batch the query outside the loop, or add '# noqa: N+1' to suppress"
-            )
-
-        pytest.fail(
-            f"\\n\\nFound {len(all_violations)} N+1 query risk(s):\\n\\n" +
-            "\\n\\n".join(details) +
-            (f"\\n\\n... and {len(all_violations) - 10} more"
-             if len(all_violations) > 10 else "")
-        )
+    count, violations = scan_query_count(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="query_count",
+        current_count=count,
+        violations=violations,
+    )

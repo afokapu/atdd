@@ -132,8 +132,44 @@ def _rel_path(file_path: Path) -> Path:
         return file_path.relative_to(ATDD_PKG_DIR.parent)
 
 
+def scan_print_in_production(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for print() calls in production code. Used by ratchet baseline."""
+    python_dir = repo_root / "python"
+    python_files = _collect_files(python_dir)
+    violations = []
+    for py_file in python_files:
+        prints = detect_print_calls(py_file)
+        for lineno, col in prints:
+            try:
+                rel = py_file.relative_to(repo_root)
+            except ValueError:
+                rel = py_file
+            violations.append(f"{rel}:{lineno}:{col} — print() call")
+    return len(violations), violations
+
+
+def scan_structured_logging(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for bare log calls. Used by ratchet baseline."""
+    python_dir = repo_root / "python"
+    atdd_dir = Path(atdd.__file__).resolve().parent
+    python_files = _collect_files(python_dir, atdd_dir)
+    violations = []
+    for py_file in python_files:
+        bare_logs = detect_bare_log_calls(py_file)
+        for lineno, col, method in bare_logs:
+            try:
+                rel = py_file.relative_to(repo_root)
+            except ValueError:
+                try:
+                    rel = py_file.relative_to(atdd_dir.parent)
+                except ValueError:
+                    rel = py_file
+            violations.append(f"{rel}:{lineno}:{col} — logger.{method}() without extra=")
+    return len(violations), violations
+
+
 @pytest.mark.coder
-def test_no_print_in_production_code():
+def test_no_print_in_production_code(ratchet_baseline):
     """
     SPEC-CODER-LOG-0001: No print() in non-test production Python code.
 
@@ -146,38 +182,24 @@ def test_no_print_in_production_code():
 
     Given: Python files in python/ (excluding tests)
     When: Checking for print() calls via AST analysis
-    Then: No print() calls found
+    Then: Violation count does not exceed baseline (ratchet pattern)
 
     Convention: atdd/coder/conventions/logging.convention.yaml (LOG-001)
     """
     python_files = _collect_files(PYTHON_DIR)
-
     if not python_files:
         pytest.skip("No Python files found in python/ to validate")
 
-    violations = []
-    for py_file in python_files:
-        prints = detect_print_calls(py_file)
-        for lineno, col in prints:
-            rel = _rel_path(py_file)
-            violations.append(f"{rel}:{lineno}:{col} — print() call")
-
-    if violations:
-        pytest.fail(
-            f"\n\nFound {len(violations)} print() violations in production code:\n\n"
-            + "\n".join(violations[:20])
-            + (
-                f"\n\n... and {len(violations) - 20} more"
-                if len(violations) > 20
-                else ""
-            )
-            + "\n\nUse logging module instead of print()."
-            + "\nSee: atdd/coder/conventions/logging.convention.yaml (LOG-001)"
-        )
+    count, violations = scan_print_in_production(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="print_in_production",
+        current_count=count,
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_structured_logging_format():
+def test_structured_logging_format(ratchet_baseline):
     """
     SPEC-CODER-LOG-0002: Logger calls must include extra= context dict.
 
@@ -192,33 +214,17 @@ def test_structured_logging_format():
 
     Given: Python files in python/ and src/atdd/ (excluding tests)
     When: Checking logger calls via AST analysis
-    Then: All logger calls include extra= keyword argument
+    Then: Violation count does not exceed baseline (ratchet pattern)
 
     Convention: atdd/coder/conventions/logging.convention.yaml (LOG-002)
     """
     python_files = _collect_files(PYTHON_DIR, ATDD_PKG_DIR)
-
     if not python_files:
         pytest.skip("No Python files found to validate")
 
-    violations = []
-    for py_file in python_files:
-        bare_logs = detect_bare_log_calls(py_file)
-        for lineno, col, method in bare_logs:
-            rel = _rel_path(py_file)
-            violations.append(
-                f"{rel}:{lineno}:{col} — logger.{method}() without extra="
-            )
-
-    if violations:
-        pytest.fail(
-            f"\n\nFound {len(violations)} unstructured log call violations:\n\n"
-            + "\n".join(violations[:20])
-            + (
-                f"\n\n... and {len(violations) - 20} more"
-                if len(violations) > 20
-                else ""
-            )
-            + "\n\nUse: logger.info('message', extra={'key': 'value'})"
-            + "\nSee: atdd/coder/conventions/logging.convention.yaml (LOG-002)"
-        )
+    count, violations = scan_structured_logging(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="structured_logging_format",
+        current_count=count,
+        violations=violations,
+    )

@@ -292,8 +292,47 @@ def test_duplication_convention_exists():
     )
 
 
+def scan_python_duplications(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for intra-layer Python duplications. Used by ratchet baseline."""
+    convention = load_duplication_convention()
+    rule = convention.get("rules", {}).get("intra_layer_duplication", {})
+    min_stmts = rule.get("min_fragment_statements", 5)
+    exclusions = rule.get("exclusions", [])
+    scan_dirs = rule.get("scan_dirs", ["python/"])
+
+    files: List[Path] = []
+    for rel_dir in scan_dirs:
+        files.extend(_collect_python_files(repo_root / rel_dir, exclusions))
+    if not files:
+        return 0, []
+
+    files_by_layer: Dict[str, List[Path]] = {}
+    for f in files:
+        layer = determine_layer_from_path(f)
+        if layer == "unknown":
+            continue
+        files_by_layer.setdefault(layer, []).append(f)
+
+    violations = find_intra_layer_duplicates(files_by_layer, min_stmts)
+    violation_strs = []
+    for v in violations:
+        try:
+            rel_a = v["file_a"].relative_to(repo_root)
+        except ValueError:
+            rel_a = v["file_a"]
+        try:
+            rel_b = v["file_b"].relative_to(repo_root)
+        except ValueError:
+            rel_b = v["file_b"]
+        violation_strs.append(
+            f"[{v['layer']}] {rel_a}:{v['line_a']} ↔ {rel_b}:{v['line_b']} "
+            f"({v['statements']} identical statements)"
+        )
+    return len(violations), violation_strs
+
+
 @pytest.mark.coder
-def test_no_intra_layer_duplication():
+def test_no_intra_layer_duplication(ratchet_baseline):
     """
     SPEC-CODER-DUP-0001: No structurally identical fragments within same layer.
 
@@ -303,50 +342,22 @@ def test_no_intra_layer_duplication():
 
     Given: Python files in configured scan_dirs grouped by architectural layer
     When: Extracting statement fragments and comparing hashes within each layer
-    Then: No duplicate fragments found across different files
+    Then: Violation count does not exceed baseline (ratchet pattern)
 
     Convention: atdd/coder/conventions/duplication.convention.yaml (DUP-0001)
     """
-    convention = load_duplication_convention()
-    rule = convention.get("rules", {}).get("intra_layer_duplication", {})
-    min_stmts = rule.get("min_fragment_statements", 5)
-    exclusions = rule.get("exclusions", [])
-    scan_dirs = rule.get("scan_dirs", ["python/"])
+    count, violations = scan_python_duplications(REPO_ROOT)
+    if count == 0 and not violations:
+        # Check if there were any files to scan
+        convention = load_duplication_convention()
+        rule = convention.get("rules", {}).get("intra_layer_duplication", {})
+        scan_dirs = rule.get("scan_dirs", ["python/"])
+        has_files = any((REPO_ROOT / d).exists() for d in scan_dirs)
+        if not has_files:
+            pytest.skip("No Python files found in scan_dirs to validate")
 
-    files: List[Path] = []
-    for rel_dir in scan_dirs:
-        files.extend(_collect_python_files(REPO_ROOT / rel_dir, exclusions))
-    if not files:
-        pytest.skip("No Python files found in scan_dirs to validate")
-
-    # Group files by layer
-    files_by_layer: Dict[str, List[Path]] = {}
-    for f in files:
-        layer = determine_layer_from_path(f)
-        if layer == "unknown":
-            continue
-        files_by_layer.setdefault(layer, []).append(f)
-
-    violations = find_intra_layer_duplicates(files_by_layer, min_stmts)
-
-    if violations:
-        lines = []
-        for v in violations[:10]:
-            rel_a = _rel_path(v["file_a"])
-            rel_b = _rel_path(v["file_b"])
-            lines.append(
-                f"[{v['layer']}] {rel_a}:{v['line_a']} ↔ {rel_b}:{v['line_b']} "
-                f"({v['statements']} identical statements)"
-            )
-
-        pytest.fail(
-            f"\n\nFound {len(violations)} intra-layer duplication(s):\n\n"
-            + "\n".join(lines)
-            + (
-                f"\n\n... and {len(violations) - 10} more"
-                if len(violations) > 10
-                else ""
-            )
-            + "\n\nExtract shared logic into a common module within the layer."
-            + "\nSee: atdd/coder/conventions/duplication.convention.yaml (DUP-0001)"
-        )
+    ratchet_baseline.assert_no_regression(
+        validator_id="duplication_detector",
+        current_count=count,
+        violations=violations,
+    )

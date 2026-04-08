@@ -296,82 +296,51 @@ def _format_violations(violations: List[Dict], base_dir: Path) -> str:
 # Tests
 # ===========================================================================
 
-@pytest.mark.coder
-def test_no_raw_sql_concatenation():
-    """
-    SPEC-CODER-SEC-0001: No raw SQL string concatenation in execute calls.
+def _violation_strs(violations: List[Dict], base_dir: Path) -> List[str]:
+    """Convert violation dicts to string list for ratchet baseline."""
+    result = []
+    for v in violations:
+        try:
+            rel = v["file"].relative_to(base_dir)
+        except ValueError:
+            rel = v["file"]
+        result.append(f"{rel}:{v['line']} {v['detail']}")
+    return result
 
-    SQL injection via f-strings or string concatenation is a critical
-    vulnerability.  Parameterized queries must be used instead.
 
-    Given: Python files in python/
-    When:  Parsing AST for SQL keywords in dynamic strings passed to sink methods
-    Then:  No violations found
-    """
+def scan_sql_concatenation(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for SQL concatenation violations. Used by ratchet baseline."""
     convention = load_security_convention()
     rule = convention.get("rules", {}).get("sql_injection", {})
     sql_keywords = rule.get("sql_keywords", ["SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE"])
     sink_methods = rule.get("sink_methods", ["execute", "executemany", "raw", "execute_sql"])
     exclusions = rule.get("exclusions", [])
-
-    files = find_python_files(PYTHON_DIR, exclusions)
-    if not files:
-        pytest.skip("No Python files found in python/")
-
+    python_dir = repo_root / "python"
+    files = find_python_files(python_dir, exclusions)
     violations: List[Dict] = []
     for f in files:
         violations.extend(check_sql_concatenation(f, sql_keywords, sink_methods))
-
-    if violations:
-        pytest.fail(_format_violations(violations, REPO_ROOT))
+    return len(violations), _violation_strs(violations, repo_root)
 
 
-@pytest.mark.coder
-def test_fastapi_routes_have_auth_dependency():
-    """
-    SPEC-CODER-SEC-0002: FastAPI routes must have auth dependency injection.
-
-    Every route handler decorated with @router.get/post/etc must include
-    a Depends(auth_function) parameter to enforce authentication.
-
-    Given: Python files in python/ with FastAPI route decorators
-    When:  Checking function parameters for Depends(auth_fn)
-    Then:  All route functions include auth dependency
-    """
+def scan_missing_auth(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for missing auth dependency violations. Used by ratchet baseline."""
     convention = load_security_convention()
     rule = convention.get("rules", {}).get("missing_auth", {})
     route_decorators = rule.get("route_decorators", ["get", "post", "put", "delete", "patch", "options", "head"])
     router_objects = rule.get("router_objects", ["app", "router"])
     auth_deps = rule.get("auth_dependencies", ["get_current_user", "require_auth", "verify_token"])
     exclusions = rule.get("exclusions", [])
-
-    files = find_python_files(PYTHON_DIR, exclusions)
-    if not files:
-        pytest.skip("No Python files found in python/")
-
+    python_dir = repo_root / "python"
+    files = find_python_files(python_dir, exclusions)
     violations: List[Dict] = []
     for f in files:
         violations.extend(check_missing_auth(f, route_decorators, router_objects, auth_deps))
-
-    if not violations:
-        # No route-decorated functions found counts as pass (not skip)
-        return
-
-    pytest.fail(_format_violations(violations, REPO_ROOT))
+    return len(violations), _violation_strs(violations, repo_root)
 
 
-@pytest.mark.coder
-def test_no_hardcoded_secrets():
-    """
-    SPEC-CODER-SEC-0003: No hardcoded secrets in Python source files.
-
-    AWS access keys, private key headers, password assignments, API key
-    literals, and bearer tokens must never appear in source code.
-
-    Given: Python files in python/
-    When:  Scanning with regex patterns for secret-like strings
-    Then:  No matches found
-    """
+def scan_hardcoded_secrets(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for hardcoded secrets. Used by ratchet baseline."""
     convention = load_security_convention()
     rule = convention.get("rules", {}).get("hardcoded_secrets", {})
     patterns = rule.get("patterns", [
@@ -382,14 +351,81 @@ def test_no_hardcoded_secrets():
         {"name": "generic_token", "regex": r'(token|auth_token|access_token)\s*=\s*["\'][a-zA-Z0-9_\-]{20,}["\']'},
     ])
     exclusions = rule.get("exclusions", [])
-
-    files = find_python_files(PYTHON_DIR, exclusions)
-    if not files:
-        pytest.skip("No Python files found in python/")
-
+    python_dir = repo_root / "python"
+    files = find_python_files(python_dir, exclusions)
     violations: List[Dict] = []
     for f in files:
         violations.extend(check_hardcoded_secrets(f, patterns))
+    return len(violations), _violation_strs(violations, repo_root)
 
-    if violations:
-        pytest.fail(_format_violations(violations, REPO_ROOT))
+
+@pytest.mark.coder
+def test_no_raw_sql_concatenation(ratchet_baseline):
+    """
+    SPEC-CODER-SEC-0001: No raw SQL string concatenation in execute calls.
+
+    SQL injection via f-strings or string concatenation is a critical
+    vulnerability.  Parameterized queries must be used instead.
+
+    Given: Python files in python/
+    When:  Parsing AST for SQL keywords in dynamic strings passed to sink methods
+    Then:  Violation count does not exceed baseline (ratchet pattern)
+    """
+    files = find_python_files(PYTHON_DIR)
+    if not files:
+        pytest.skip("No Python files found in python/")
+
+    count, violations = scan_sql_concatenation(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="sql_concatenation",
+        current_count=count,
+        violations=violations,
+    )
+
+
+@pytest.mark.coder
+def test_fastapi_routes_have_auth_dependency(ratchet_baseline):
+    """
+    SPEC-CODER-SEC-0002: FastAPI routes must have auth dependency injection.
+
+    Every route handler decorated with @router.get/post/etc must include
+    a Depends(auth_function) parameter to enforce authentication.
+
+    Given: Python files in python/ with FastAPI route decorators
+    When:  Checking function parameters for Depends(auth_fn)
+    Then:  Violation count does not exceed baseline (ratchet pattern)
+    """
+    files = find_python_files(PYTHON_DIR)
+    if not files:
+        pytest.skip("No Python files found in python/")
+
+    count, violations = scan_missing_auth(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="missing_auth_dependency",
+        current_count=count,
+        violations=violations,
+    )
+
+
+@pytest.mark.coder
+def test_no_hardcoded_secrets(ratchet_baseline):
+    """
+    SPEC-CODER-SEC-0003: No hardcoded secrets in Python source files.
+
+    AWS access keys, private key headers, password assignments, API key
+    literals, and bearer tokens must never appear in source code.
+
+    Given: Python files in python/
+    When:  Scanning with regex patterns for secret-like strings
+    Then:  Violation count does not exceed baseline (ratchet pattern)
+    """
+    files = find_python_files(PYTHON_DIR)
+    if not files:
+        pytest.skip("No Python files found in python/")
+
+    count, violations = scan_hardcoded_secrets(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="hardcoded_secrets",
+        current_count=count,
+        violations=violations,
+    )

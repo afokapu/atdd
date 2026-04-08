@@ -320,7 +320,7 @@ def test_adequate_code_comments(ratchet_baseline):
 
 
 @pytest.mark.coder
-def test_no_significant_code_duplication():
+def test_no_significant_code_duplication(ratchet_baseline):
     """
     SPEC-CODER-QUALITY-0003: No significant code duplication.
 
@@ -330,7 +330,7 @@ def test_no_significant_code_duplication():
 
     Given: All Python files
     When: Checking for duplicate code blocks
-    Then: No significant duplication found
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_files = find_python_files()
 
@@ -341,26 +341,21 @@ def test_no_significant_code_duplication():
     sample_files = python_files[:50]
 
     duplicates = find_duplicate_code_blocks(sample_files)
-
-    if duplicates:
-        violations = []
-        for file1, file2, block in duplicates[:10]:
-            violations.append(
-                f"{file1.relative_to(REPO_ROOT)} ↔ {file2.relative_to(REPO_ROOT)}\\n"
-                f"  Duplicate block ({len(block)} lines):\\n" +
-                "\\n".join(f"    {line[:60]}" for line in block[:3])
-            )
-
-        pytest.fail(
-            f"\\n\\nFound {len(duplicates)} code duplication instances:\\n\\n" +
-            "\\n\\n".join(violations) +
-            (f"\\n\\n... and {len(duplicates) - 10} more" if len(duplicates) > 10 else "") +
-            "\\n\\nConsider extracting duplicate code into shared functions."
+    violations = []
+    for file1, file2, block in duplicates:
+        violations.append(
+            f"{file1.relative_to(REPO_ROOT)} ↔ {file2.relative_to(REPO_ROOT)} ({len(block)} lines)"
         )
+
+    ratchet_baseline.assert_no_regression(
+        validator_id="code_duplication",
+        current_count=len(duplicates),
+        violations=violations,
+    )
 
 
 @pytest.mark.coder
-def test_consistent_naming_conventions():
+def test_consistent_naming_conventions(ratchet_baseline):
     """
     SPEC-CODER-QUALITY-0004: Code follows consistent naming conventions.
 
@@ -372,7 +367,7 @@ def test_consistent_naming_conventions():
 
     Given: All Python files
     When: Checking naming patterns
-    Then: Consistent naming conventions
+    Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_files = find_python_files()
 
@@ -383,17 +378,13 @@ def test_consistent_naming_conventions():
 
     for py_file in python_files:
         violations = check_naming_consistency(py_file)
-
         if violations:
             rel_path = py_file.relative_to(REPO_ROOT)
-            all_violations.append(
-                f"{rel_path}\\n" +
-                "\\n".join(f"  - {v}" for v in violations[:5])
-            )
+            for v in violations:
+                all_violations.append(f"{rel_path}: {v}")
 
-    if all_violations:
-        pytest.fail(
-            f"\\n\\nFound {len(all_violations)} files with naming violations:\\n\\n" +
-            "\\n\\n".join(all_violations[:10]) +
-            (f"\\n\\n... and {len(all_violations) - 10} more" if len(all_violations) > 10 else "")
-        )
+    ratchet_baseline.assert_no_regression(
+        validator_id="naming_conventions",
+        current_count=len(all_violations),
+        violations=all_violations,
+    )
