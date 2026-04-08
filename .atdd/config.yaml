@@ -12,7 +12,7 @@ coverage:
     features_without_implementation:
     - feature:self-compliance-migration:bootstrap-compliance
 toolkit:
-  last_version: 1.37.0
+  last_version: 1.40.0
 github:
   repo: afokapu/atdd
   project_number: 1
