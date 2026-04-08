@@ -49,7 +49,8 @@ class URNCommand:
         self.repo_root = repo_root or find_repo_root()
         self.registry = ResolverRegistry(self.repo_root)
         self.graph_builder = GraphBuilder(self.repo_root)
-        self.validator = EdgeValidator(self.repo_root)
+        self._built_graph = self.graph_builder.build()
+        self.validator = EdgeValidator(self._built_graph)
 
     def graph(
         self,

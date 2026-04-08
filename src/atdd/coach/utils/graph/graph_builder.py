@@ -199,6 +199,10 @@ class TraceabilityGraph:
         """Get a node by URN."""
         return self._nodes.get(urn)
 
+    def nodes_by_family(self, family: str) -> List[URNNode]:
+        """Return all nodes belonging to a given family."""
+        return [n for n in self._nodes.values() if n.family == family]
+
     def get_outgoing_edges(self, urn: str) -> List[URNEdge]:
         """Get all edges originating from a node."""
         return self._edges_by_source.get(urn, [])
@@ -620,7 +624,14 @@ class GraphBuilder:
                     urn=decl.urn,
                     family=family,
                     artifact_path=artifact_path,
-                    metadata={"source_path": str(decl.source_path)},
+                    metadata={
+                        "source_path": str(decl.source_path),
+                        "is_broken": resolution.is_broken,
+                        "resolution_error": resolution.error,
+                        "is_deterministic": resolution.is_deterministic,
+                        "is_resolved": resolution.is_resolved,
+                        "resolved_paths": [str(p) for p in resolution.resolved_paths],
+                    },
                 )
                 graph.add_node(node)
 
@@ -633,6 +644,7 @@ class GraphBuilder:
         self._build_test_edges(graph, content_cache)
         self._build_tested_by_edges(graph, content_cache)
         self._build_journey_test_edges(graph, content_cache)
+        self._build_jel_contract_nodes(graph)
 
         return graph
 
@@ -1134,6 +1146,49 @@ class GraphBuilder:
                         metadata={"source": "train-header"},
                     )
                 )
+
+    def _build_jel_contract_nodes(self, graph: TraceabilityGraph) -> None:
+        """
+        Discover contract schemas with urn:jel:* $id and add them as nodes.
+
+        These nodes carry ``is_jel`` metadata so that EdgeValidator can detect
+        non-ATDD contract IDs without any file I/O of its own.
+        """
+        import json
+
+        contracts_dir = self.repo_root / "contracts"
+        if not contracts_dir.exists():
+            return
+
+        for contract_file in contracts_dir.rglob("*.schema.json"):
+            try:
+                with open(contract_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                schema_id = data.get("$id", "")
+                if not schema_id.startswith("urn:jel:"):
+                    continue
+
+                # Derive correct ATDD-style ID from file path
+                relative_path = contract_file.relative_to(contracts_dir)
+                path_without_ext = str(relative_path).replace(".schema.json", "")
+                correct_id = path_without_ext.replace("/", ":").replace("\\", ":")
+
+                synthetic_urn = f"contract:{schema_id}"
+                node = URNNode(
+                    urn=synthetic_urn,
+                    family="contract",
+                    artifact_path=contract_file,
+                    metadata={
+                        "is_jel": True,
+                        "schema_id": schema_id,
+                        "correct_id": correct_id,
+                    },
+                )
+                graph.add_node(node)
+
+            except Exception:
+                continue
 
     def build_from_root(
         self, root_urn: str, max_depth: int = -1, families: Optional[List[str]] = None

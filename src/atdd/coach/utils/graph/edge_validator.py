@@ -3,6 +3,9 @@ Edge Validator
 ==============
 Validates URN traceability graph for orphans, broken references, and completeness.
 
+Pure graph consumer — receives a pre-built ``TraceabilityGraph`` and performs
+all validation via node/edge queries.  Zero file I/O.
+
 Detects:
 - Orphaned URNs: Declared but not referenced (no incoming edges)
 - Broken URNs: Referenced but not resolvable (target doesn't exist)
@@ -20,10 +23,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set
 from enum import Enum
 
-from atdd.coach.utils.repo import find_repo_root
-from atdd.coach.utils.graph.resolver import ResolverRegistry, URNResolution
 from atdd.coach.utils.graph.graph_builder import (
-    GraphBuilder,
     TraceabilityGraph,
     EdgeType,
     URNNode,
@@ -168,10 +168,8 @@ class EdgeValidator:
     4. Edge completeness: Required edges per spec Section 8
     """
 
-    def __init__(self, repo_root: Optional[Path] = None):
-        self.repo_root = repo_root or find_repo_root()
-        self.registry = ResolverRegistry(self.repo_root)
-        self.graph_builder = GraphBuilder(self.repo_root)
+    def __init__(self, graph: TraceabilityGraph):
+        self.graph = graph
 
         # Families that are expected to have incoming edges (not orphaned)
         self._non_orphan_families = {"feature", "wmbt", "acc", "contract", "telemetry", "component"}
@@ -195,21 +193,15 @@ class EdgeValidator:
             List of orphan issues
         """
         issues = []
-        graph = self.graph_builder.build(families)
+        target_families = set(families) if families else self._non_orphan_families
 
-        target_families = families or list(self._non_orphan_families)
-
-        for urn, node in graph.nodes.items():
-            # Skip root families - they're allowed to be orphaned
+        for urn, node in self.graph.nodes.items():
             if node.family in self._root_families:
                 continue
-
-            # Skip if not in target families
             if node.family not in target_families:
                 continue
 
-            # Check for incoming edges
-            incoming = graph.get_incoming_edges(urn)
+            incoming = self.graph.get_incoming_edges(urn)
             if not incoming:
                 issues.append(
                     ValidationIssue(
@@ -244,7 +236,8 @@ class EdgeValidator:
         Find broken URN references (referenced but not resolvable).
 
         Broken URNs are referenced in the graph but don't resolve to
-        any filesystem artifact.
+        any filesystem artifact.  Uses resolution metadata stored on
+        each node by GraphBuilder.
 
         Args:
             families: Families to check. If None, checks all.
@@ -253,24 +246,23 @@ class EdgeValidator:
             List of broken reference issues
         """
         issues = []
-        graph = self.graph_builder.build(families)
+        target_families = set(families) if families else None
 
-        for urn, node in graph.nodes.items():
-            if families and node.family not in families:
+        for urn, node in self.graph.nodes.items():
+            if target_families and node.family not in target_families:
                 continue
 
-            resolution = self.registry.resolve(urn)
-
-            if resolution.is_broken:
+            if node.metadata.get("is_broken"):
+                error = node.metadata.get("resolution_error") or "not resolvable"
                 issues.append(
                     ValidationIssue(
                         issue_type=IssueType.BROKEN,
                         severity=IssueSeverity.ERROR,
                         urn=urn,
-                        message=f"Broken URN: {resolution.error or 'not resolvable'}",
+                        message=f"Broken URN: {error}",
                         location=None,
                         context=f"Family: {node.family}",
-                        suggestion=f"Create the missing artifact or fix the URN",
+                        suggestion="Create the missing artifact or fix the URN",
                     )
                 )
 
@@ -283,7 +275,8 @@ class EdgeValidator:
         Validate that URNs resolve deterministically (to exactly one artifact).
 
         Non-deterministic URNs are ambiguous and may cause issues in
-        resolution and traceability.
+        resolution and traceability.  Uses resolution metadata stored
+        on each node by GraphBuilder.
 
         Args:
             families: Families to check. If None, checks all.
@@ -292,28 +285,33 @@ class EdgeValidator:
             List of non-determinism issues
         """
         issues = []
-        declarations = self.registry.find_all_declarations(families)
+        target_families = set(families) if families else None
 
-        for family, decls in declarations.items():
-            for decl in decls:
-                resolution = self.registry.resolve(decl.urn)
+        for urn, node in self.graph.nodes.items():
+            if target_families and node.family not in target_families:
+                continue
 
-                if not resolution.is_deterministic and resolution.is_resolved:
-                    paths_str = ", ".join(str(p) for p in resolution.resolved_paths[:3])
-                    if len(resolution.resolved_paths) > 3:
-                        paths_str += f" (+{len(resolution.resolved_paths) - 3} more)"
+            is_deterministic = node.metadata.get("is_deterministic", True)
+            is_resolved = node.metadata.get("is_resolved", False)
+            resolved_paths = node.metadata.get("resolved_paths", [])
 
-                    issues.append(
-                        ValidationIssue(
-                            issue_type=IssueType.NON_DETERMINISTIC,
-                            severity=IssueSeverity.WARNING,
-                            urn=decl.urn,
-                            message=f"URN resolves to {len(resolution.resolved_paths)} artifacts",
-                            location=decl.source_path,
-                            context=f"Resolved to: {paths_str}",
-                            suggestion="Ensure URN uniquely identifies one artifact",
-                        )
+            if not is_deterministic and is_resolved:
+                paths_str = ", ".join(str(p) for p in resolved_paths[:3])
+                if len(resolved_paths) > 3:
+                    paths_str += f" (+{len(resolved_paths) - 3} more)"
+
+                source_path = node.metadata.get("source_path")
+                issues.append(
+                    ValidationIssue(
+                        issue_type=IssueType.NON_DETERMINISTIC,
+                        severity=IssueSeverity.WARNING,
+                        urn=urn,
+                        message=f"URN resolves to {len(resolved_paths)} artifacts",
+                        location=Path(source_path) if source_path else None,
+                        context=f"Resolved to: {paths_str}",
+                        suggestion="Ensure URN uniquely identifies one artifact",
                     )
+                )
 
         return issues
 
@@ -340,12 +338,11 @@ class EdgeValidator:
             List of missing edge issues
         """
         issues = []
-        graph = self.graph_builder.build(families)
 
         # Check that features have parent wagons
-        for urn, node in graph.nodes.items():
+        for urn, node in self.graph.nodes.items():
             if node.family == "feature":
-                parents = graph.get_parents(urn, EdgeType.CONTAINS)
+                parents = self.graph.get_parents(urn, EdgeType.CONTAINS)
                 wagon_parents = [p for p in parents if p.family == "wagon"]
                 if not wagon_parents:
                     issues.append(
@@ -361,7 +358,7 @@ class EdgeValidator:
 
                 # Check feature has at least one component child
                 component_children = [
-                    c for c in graph.get_children(urn, EdgeType.CONTAINS)
+                    c for c in self.graph.get_children(urn, EdgeType.CONTAINS)
                     if c.family == "component"
                 ]
                 if not component_children:
@@ -377,7 +374,7 @@ class EdgeValidator:
 
             # Check that WMBTs have parent wagons
             elif node.family == "wmbt":
-                parents = graph.get_parents(urn, EdgeType.CONTAINS)
+                parents = self.graph.get_parents(urn, EdgeType.CONTAINS)
                 wagon_parents = [p for p in parents if p.family == "wagon"]
                 if not wagon_parents:
                     issues.append(
@@ -393,7 +390,7 @@ class EdgeValidator:
 
             # Check that acceptances have parent WMBTs
             elif node.family == "acc":
-                parents = graph.get_parents(urn, EdgeType.CONTAINS)
+                parents = self.graph.get_parents(urn, EdgeType.CONTAINS)
                 wmbt_parents = [p for p in parents if p.family == "wmbt"]
                 if not wmbt_parents:
                     issues.append(
@@ -409,7 +406,7 @@ class EdgeValidator:
 
             # Check that contracts have producing wagons
             elif node.family == "contract":
-                incoming = graph.get_incoming_edges(urn)
+                incoming = self.graph.get_incoming_edges(urn)
                 producer_edges = [
                     e for e in incoming
                     if e.edge_type == EdgeType.PRODUCES
@@ -428,7 +425,7 @@ class EdgeValidator:
 
             # Check that telemetry has producing wagons
             elif node.family == "telemetry":
-                incoming = graph.get_incoming_edges(urn)
+                incoming = self.graph.get_incoming_edges(urn)
                 producer_edges = [
                     e for e in incoming
                     if e.edge_type == EdgeType.PRODUCES
@@ -447,7 +444,7 @@ class EdgeValidator:
 
             # Check that trains have wagon references
             elif node.family == "train":
-                outgoing = graph.get_outgoing_edges(urn)
+                outgoing = self.graph.get_outgoing_edges(urn)
                 wagon_edges = [
                     e for e in outgoing
                     if e.edge_type == EdgeType.INCLUDES
@@ -470,7 +467,7 @@ class EdgeValidator:
                 if len(parts) >= 2:
                     wagon_slug = parts[0]
                     expected_wagon = f"wagon:{wagon_slug}"
-                    if expected_wagon not in graph.nodes:
+                    if not self.graph.get_node(expected_wagon):
                         issues.append(
                             ValidationIssue(
                                 issue_type=IssueType.MISSING_EDGE,
@@ -500,11 +497,16 @@ class EdgeValidator:
             Aggregated validation result
         """
         result = ValidationResult()
-        result.families_checked = families or list(self.registry.families)
 
-        # Count checked URNs
-        declarations = self.registry.find_all_declarations(families)
-        result.checked_urns = sum(len(decls) for decls in declarations.values())
+        # Derive families and URN count from the graph itself
+        all_families: Set[str] = set()
+        urn_count = 0
+        for node in self.graph.nodes.values():
+            all_families.add(node.family)
+            if families is None or node.family in families:
+                urn_count += 1
+        result.families_checked = families or sorted(all_families)
+        result.checked_urns = urn_count
 
         # Run all checks
         result.issues.extend(self.find_orphans(families))
@@ -532,42 +534,44 @@ class EdgeValidator:
         result = ValidationResult()
         result.families_checked = ["contract"]
 
-        # Find all contracts
-        contract_decls = self.registry.find_all_declarations(["contract"])
-        result.checked_urns = len(contract_decls.get("contract", []))
+        contract_nodes = self.graph.nodes_by_family("contract")
+        result.checked_urns = len(contract_nodes)
 
-        # Check each contract
-        for decl in contract_decls.get("contract", []):
-            resolution = self.registry.resolve(decl.urn)
+        for node in contract_nodes:
+            # Skip synthetic JEL nodes — handled by find_jel_contracts
+            if node.metadata.get("is_jel"):
+                continue
 
-            # Check if broken
-            if resolution.is_broken:
+            # Check if broken (from resolution metadata)
+            if node.metadata.get("is_broken"):
+                error = node.metadata.get("resolution_error") or "not resolvable"
+                source_path = node.metadata.get("source_path")
                 result.issues.append(
                     ValidationIssue(
                         issue_type=IssueType.BROKEN,
                         severity=IssueSeverity.ERROR,
-                        urn=decl.urn,
-                        message=f"Contract URN broken: {resolution.error}",
-                        location=decl.source_path,
+                        urn=node.urn,
+                        message=f"Contract URN broken: {error}",
+                        location=Path(source_path) if source_path else None,
                     )
                 )
                 continue
 
             # Check for producer reference
-            graph = self.graph_builder.build(["wagon", "contract"])
-            incoming = graph.get_incoming_edges(decl.urn)
+            incoming = self.graph.get_incoming_edges(node.urn)
             producer_edges = [
                 e for e in incoming if e.edge_type == EdgeType.PRODUCES
             ]
 
             if not producer_edges:
+                source_path = node.metadata.get("source_path")
                 result.issues.append(
                     ValidationIssue(
                         issue_type=IssueType.ORPHAN,
                         severity=IssueSeverity.WARNING,
-                        urn=decl.urn,
+                        urn=node.urn,
                         message="Contract has no producing wagon",
-                        location=decl.source_path,
+                        location=Path(source_path) if source_path else None,
                         suggestion="Add contract to wagon's produce[] section",
                     )
                 )
@@ -578,66 +582,41 @@ class EdgeValidator:
         """
         Find contract schemas with urn:jel:* IDs.
 
-        These are non-ATDD contract IDs that should be converted to
-        proper ATDD format derived from the file path.
+        Queries the graph for contract nodes tagged ``is_jel`` by
+        GraphBuilder (zero file I/O).
 
         Returns:
             List of JEL contract issues with suggested fixes
         """
-        import json
-
         issues = []
-        contracts_dir = self.repo_root / "contracts"
 
-        if not contracts_dir.exists():
-            return issues
-
-        for contract_file in contracts_dir.rglob("*.schema.json"):
-            try:
-                with open(contract_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                schema_id = data.get("$id", "")
-
-                if schema_id.startswith("urn:jel:"):
-                    # Derive correct ID from file path
-                    correct_id = self._derive_contract_id_from_path(contract_file, contracts_dir)
-
-                    issues.append(
-                        ValidationIssue(
-                            issue_type=IssueType.JEL_CONTRACT,
-                            severity=IssueSeverity.WARNING,
-                            urn=f"contract:{schema_id}",
-                            message=f"Non-ATDD contract ID: {schema_id}",
-                            location=contract_file,
-                            context=f"Current $id: {schema_id}",
-                            suggestion=f"Change $id to: {correct_id}",
-                        )
-                    )
-
-            except Exception:
+        for node in self.graph.nodes_by_family("contract"):
+            if not node.metadata.get("is_jel"):
                 continue
 
+            schema_id = node.metadata.get("schema_id", "")
+            correct_id = node.metadata.get("correct_id", "")
+
+            issues.append(
+                ValidationIssue(
+                    issue_type=IssueType.JEL_CONTRACT,
+                    severity=IssueSeverity.WARNING,
+                    urn=node.urn,
+                    message=f"Non-ATDD contract ID: {schema_id}",
+                    location=node.artifact_path,
+                    context=f"Current $id: {schema_id}",
+                    suggestion=f"Change $id to: {correct_id}",
+                )
+            )
+
         return issues
-
-    def _derive_contract_id_from_path(self, contract_file: Path, contracts_dir: Path) -> str:
-        """
-        Derive the correct contract $id from the file path.
-
-        Example:
-            contracts/mechanic/timebank/remaining.schema.json
-            -> mechanic:timebank:remaining
-        """
-        relative_path = contract_file.relative_to(contracts_dir)
-        # Remove .schema.json extension
-        path_without_ext = str(relative_path).replace(".schema.json", "")
-        # Convert path separators to colons
-        contract_id = path_without_ext.replace("/", ":").replace("\\", ":")
-        return contract_id
 
     def fix_jel_contracts(self, dry_run: bool = False) -> List[Dict]:
         """
         Fix urn:jel:* contract IDs by deriving correct ID from file path.
+
+        Uses graph metadata to identify JEL contracts, then performs
+        targeted file writes (the only method that touches the filesystem).
 
         Args:
             dry_run: If True, only report what would be fixed without modifying files
@@ -649,36 +628,35 @@ class EdgeValidator:
         import shutil
 
         fixes = []
-        contracts_dir = self.repo_root / "contracts"
 
-        if not contracts_dir.exists():
-            return fixes
+        for node in self.graph.nodes_by_family("contract"):
+            if not node.metadata.get("is_jel"):
+                continue
 
-        for contract_file in contracts_dir.rglob("*.schema.json"):
+            contract_file = node.artifact_path
+            schema_id = node.metadata.get("schema_id", "")
+            new_id = node.metadata.get("correct_id", "")
+
+            if not contract_file or not Path(contract_file).exists():
+                continue
+
+            contract_file = Path(contract_file)
+
+            fix_result = {
+                "file_path": str(contract_file),
+                "old_id": schema_id,
+                "new_id": new_id,
+                "status": "pending",
+            }
+
+            if dry_run:
+                fix_result["status"] = "dry_run"
+                fixes.append(fix_result)
+                continue
+
             try:
                 with open(contract_file, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    data = json.loads(content)
-
-                schema_id = data.get("$id", "")
-
-                if not schema_id.startswith("urn:jel:"):
-                    continue
-
-                # Derive correct ID from file path
-                new_id = self._derive_contract_id_from_path(contract_file, contracts_dir)
-
-                fix_result = {
-                    "file_path": str(contract_file),
-                    "old_id": schema_id,
-                    "new_id": new_id,
-                    "status": "pending",
-                }
-
-                if dry_run:
-                    fix_result["status"] = "dry_run"
-                    fixes.append(fix_result)
-                    continue
+                    data = json.load(f)
 
                 # Create backup
                 backup_path = contract_file.with_suffix(".schema.json.bak")
@@ -699,8 +677,8 @@ class EdgeValidator:
             except Exception as e:
                 fixes.append({
                     "file_path": str(contract_file),
-                    "old_id": schema_id if 'schema_id' in dir() else "unknown",
-                    "new_id": "unknown",
+                    "old_id": schema_id,
+                    "new_id": new_id,
                     "status": "error",
                     "error": str(e),
                 })

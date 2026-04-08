@@ -15,16 +15,13 @@ Phase 2 (fail): Reports issues as errors, fails CI
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
-from typing import List, Optional
 
 from atdd.coach.utils.repo import find_repo_root
-from atdd.coach.utils.graph.resolver import ResolverRegistry, URNResolution
+from atdd.coach.utils.graph.resolver import ResolverRegistry
 from atdd.coach.utils.graph.graph_builder import GraphBuilder, EdgeType
 from atdd.coach.utils.graph.edge_validator import (
     EdgeValidator,
     ValidationResult,
-    IssueSeverity,
     IssueType,
 )
 
@@ -45,9 +42,15 @@ def graph_builder():
 
 
 @pytest.fixture(scope="session")
-def edge_validator():
-    """Provide edge validator for tests (session-scoped — uses graph internally)."""
-    return EdgeValidator(REPO_ROOT)
+def built_graph(graph_builder):
+    """Build graph once per session — shared by graph-dependent tests and EdgeValidator."""
+    return graph_builder.build()
+
+
+@pytest.fixture(scope="session")
+def edge_validator(built_graph):
+    """Provide edge validator for tests (session-scoped — pure graph consumer, <3s)."""
+    return EdgeValidator(built_graph)
 
 
 @pytest.mark.platform
@@ -77,7 +80,7 @@ def test_no_orphaned_contracts(edge_validator):
 
 
 @pytest.mark.platform
-def test_no_broken_contract_urns(resolver_registry, graph_builder):
+def test_no_broken_contract_urns(resolver_registry, built_graph):
     """
     All contract: URNs in produce[] resolve to files.
 
@@ -87,7 +90,7 @@ def test_no_broken_contract_urns(resolver_registry, graph_builder):
     When: Resolving each contract URN
     Then: Each URN resolves to an existing contract schema file
     """
-    graph = graph_builder.build(["wagon", "contract"])
+    graph = built_graph
     broken_contracts = []
 
     for urn, node in graph.nodes.items():
@@ -175,7 +178,7 @@ def test_traceability_edges_complete(edge_validator):
 
 
 @pytest.mark.platform
-def test_wagon_produces_contracts(graph_builder):
+def test_wagon_produces_contracts(built_graph):
     """
     Wagons that produce contracts have valid produce[] declarations.
 
@@ -185,7 +188,7 @@ def test_wagon_produces_contracts(graph_builder):
     When: Building traceability graph
     Then: Each produce item with contract reference creates a produces edge
     """
-    graph = graph_builder.build(["wagon", "contract"])
+    graph = built_graph
 
     wagons_with_contracts = []
     for urn, node in graph.nodes.items():
@@ -209,7 +212,7 @@ def test_wagon_produces_contracts(graph_builder):
 
 
 @pytest.mark.platform
-def test_no_broken_telemetry_urns(resolver_registry, graph_builder):
+def test_no_broken_telemetry_urns(resolver_registry, built_graph):
     """
     All telemetry: URNs in produce[] resolve to files.
 
@@ -219,7 +222,7 @@ def test_no_broken_telemetry_urns(resolver_registry, graph_builder):
     When: Resolving each telemetry URN
     Then: Each URN resolves to an existing telemetry definition file
     """
-    graph = graph_builder.build(["wagon", "telemetry"])
+    graph = built_graph
     broken_telemetry = []
 
     for urn, node in graph.nodes.items():
@@ -247,7 +250,7 @@ def test_no_broken_telemetry_urns(resolver_registry, graph_builder):
 
 
 @pytest.mark.platform
-def test_train_wagon_references_valid(resolver_registry, graph_builder):
+def test_train_wagon_references_valid(resolver_registry, built_graph):
     """
     Train files reference valid wagons.
 
@@ -257,7 +260,7 @@ def test_train_wagon_references_valid(resolver_registry, graph_builder):
     When: Resolving wagon URNs from train.wagons[]
     Then: Each wagon URN resolves to an existing wagon manifest
     """
-    graph = graph_builder.build(["train", "wagon"])
+    graph = built_graph
     broken_refs = []
 
     for urn, node in graph.nodes.items():
