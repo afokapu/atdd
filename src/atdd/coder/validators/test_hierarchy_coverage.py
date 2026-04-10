@@ -23,6 +23,7 @@ from atdd.coach.utils.coverage_phase import (
     should_enforce,
     emit_coverage_warning
 )
+from atdd.coach.utils.manifest import is_manifest_slug
 
 
 # Path constants
@@ -142,16 +143,6 @@ def find_web_implementations(wagon_slug: str, feature_slug: str) -> List[Path]:
     return implementations
 
 
-def _is_manifest_slug(feature_slug: str) -> bool:
-    """
-    Return True if the feature slug refers to a manifest file, not a real feature.
-
-    Manifest files like ``_features.yaml`` produce slugs such as ``-features``
-    or ``_features`` after stem extraction and hyphen normalisation.
-    """
-    return feature_slug in ("-features", "_features", "")
-
-
 def has_implementation(wagon_slug: str, feature_slug: str) -> bool:
     """
     Check if a feature has any implementation.
@@ -247,7 +238,7 @@ def test_all_features_have_implementations(feature_files, coverage_exceptions, r
         feature_slug = path.stem.replace("_", "-")
 
         # Skip manifest files (_features.yaml) that are not real features
-        if _is_manifest_slug(feature_slug):
+        if is_manifest_slug(feature_slug):
             continue
 
         feature_urn = feature_data.get("urn", f"feature:{wagon_slug}:{feature_slug}")

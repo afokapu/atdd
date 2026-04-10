@@ -26,27 +26,12 @@ from atdd.coach.utils.coverage_phase import (
     should_enforce,
     emit_coverage_warning
 )
+from atdd.coach.utils.manifest import is_manifest_slug
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
-
-
-def _is_manifest_slug(feature_slug: str) -> bool:
-    """
-    Return True if the feature slug refers to a manifest file, not a real feature.
-
-    Manifest files like ``_features.yaml`` produce slugs such as ``-features``
-    or ``_features`` after stem extraction and hyphen normalisation. The
-    ``_features.yaml`` path is declared by the ATDD convention as the wagon
-    feature manifest (see ``coach/templates/ATDD.md``) and must not be treated
-    as a feature definition by coverage validators.
-
-    Mirrors ``atdd.coder.validators.test_hierarchy_coverage._is_manifest_slug``
-    so the planner and coder validators stay consistent.
-    """
-    return feature_slug in ("-features", "_features", "")
 
 
 # ============================================================================
@@ -196,9 +181,8 @@ def test_all_features_in_wagon_manifest(feature_files, wagon_manifests, coverage
         feature_slug = feature_filename.replace("_", "-")
 
         # Skip manifest files (_features.yaml) that are not real features.
-        # See atdd/coder/validators/test_hierarchy_coverage.py for the
-        # equivalent skip on the coder side. Issue #252.
-        if _is_manifest_slug(feature_slug):
+        # Issue #252.
+        if is_manifest_slug(feature_slug):
             continue
 
         # Also check for URN in feature data
