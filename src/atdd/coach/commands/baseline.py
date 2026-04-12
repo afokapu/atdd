@@ -543,6 +543,13 @@ def _train_e2e_existence(repo_root: Path) -> Tuple[int, Sequence]:
     return len(violations), violations
 
 
+def _train_route_smoke_coverage(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.tester.validators.test_train_route_smoke_coverage import (
+        scan_train_route_smoke_coverage,
+    )
+    return scan_train_route_smoke_coverage(repo_root)
+
+
 def _train_completeness(repo_root: Path) -> Tuple[int, Sequence]:
     from atdd.tester.validators.test_train_completeness import (
         CompletenessAnalyzer,
@@ -563,6 +570,7 @@ def _train_completeness(repo_root: Path) -> Tuple[int, Sequence]:
 TESTER_VALIDATORS: Dict[str, ValidatorFn] = {
     "smoke_coverage_gaps": _smoke_coverage_gaps,
     "train_e2e_existence": _train_e2e_existence,
+    "train_route_smoke_coverage": _train_route_smoke_coverage,
     "train_completeness": _train_completeness,
 }
 
