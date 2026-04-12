@@ -21,7 +21,7 @@ import logging
 import re
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 import yaml
 
@@ -129,6 +129,196 @@ class PRManager:
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
         return None
+
+    # ------------------------------------------------------------------
+    # PR → Issue resolution (4-strategy cascade)
+    # ------------------------------------------------------------------
+
+    # Regex for closing keywords in PR body
+    _CLOSING_RE = re.compile(
+        r"(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)",
+        re.IGNORECASE,
+    )
+    # Regex for issue ref in PR title, e.g. "(#123)" or "#123"
+    _TITLE_ISSUE_RE = re.compile(r"#(\d+)")
+
+    # ATDD phase labels on issues
+    _PHASE_LABELS = frozenset({
+        "atdd:INIT", "atdd:PLANNED", "atdd:RED", "atdd:GREEN",
+        "atdd:SMOKE", "atdd:REFACTOR", "atdd:COMPLETE", "atdd:OBSOLETE",
+        "atdd:BLOCKED",
+    })
+
+    def _extract_phase_label(self, issue_data: dict) -> Optional[str]:
+        """Extract the ATDD phase from issue labels (e.g. 'RED' from 'atdd:RED')."""
+        for lbl in issue_data.get("labels", []):
+            name = lbl.get("name", lbl) if isinstance(lbl, dict) else str(lbl)
+            if name in self._PHASE_LABELS:
+                return name.split(":")[1]
+        return None
+
+    def _fetch_pr(self, pr_number: int) -> Optional[dict]:
+        """Fetch PR details from GitHub via gh CLI."""
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "view", str(pr_number),
+                 "--json", "number,title,body,headRefName,state,"
+                           "closingIssuesReferences,mergedAt"],
+                capture_output=True, text=True, timeout=15,
+                cwd=self.target_dir,
+            )
+            if result.returncode != 0:
+                logger.debug("gh pr view %d failed: %s", pr_number, result.stderr.strip())
+                return None
+            return json.loads(result.stdout)
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
+            logger.debug("Failed to fetch PR #%d: %s", pr_number, exc)
+            return None
+
+    def _resolve_via_api(self, pr_data: dict) -> Optional[int]:
+        """Strategy 1: GitHub closingIssuesReferences (most authoritative)."""
+        refs = pr_data.get("closingIssuesReferences", [])
+        if refs:
+            return refs[0].get("number")
+        return None
+
+    def _resolve_via_body(self, pr_data: dict) -> Optional[int]:
+        """Strategy 2: PR body regex (Closes/Fixes/Resolves #N)."""
+        body = pr_data.get("body") or ""
+        match = self._CLOSING_RE.search(body)
+        if match:
+            return int(match.group(1))
+        return None
+
+    def _resolve_via_manifest(self, pr_data: dict) -> Optional[int]:
+        """Strategy 3: Branch name → manifest slug → issue_number."""
+        branch = pr_data.get("headRefName") or ""
+        if not branch:
+            return None
+        # Branch format: prefix/slug → extract slug part
+        slug = branch.split("/", 1)[-1] if "/" in branch else branch
+        manifest = self._load_manifest()
+        for entry in manifest.get("sessions", []):
+            if entry.get("slug") == slug:
+                return entry.get("issue_number")
+        return None
+
+    def _resolve_via_title(self, pr_data: dict) -> Optional[int]:
+        """Strategy 4: PR title regex #N (weakest signal, fallback only)."""
+        title = pr_data.get("title") or ""
+        match = self._TITLE_ISSUE_RE.search(title)
+        if match:
+            return int(match.group(1))
+        return None
+
+    def resolve_linked_issue(self, pr_number: int) -> Optional[dict]:
+        """Resolve a PR to its linked ATDD issue via 4-strategy cascade.
+
+        Strategies (in priority order):
+            1. GitHub API ``closingIssuesReferences`` — most authoritative
+            2. PR body regex (``Closes #N``, ``Fixes #N``, ``Resolves #N``)
+            3. Branch name → manifest slug → ``issue_number``
+            4. PR title regex ``#N`` — weakest signal
+
+        Returns:
+            dict with ``issue_number``, ``phase_label``, ``strategy``,
+            ``pr_data``, ``issue_data``; or None if no linkage found.
+        """
+        pr_data = self._fetch_pr(pr_number)
+        if not pr_data:
+            logger.warning("Could not fetch PR #%d", pr_number, extra={"pr": pr_number})
+            return None
+
+        strategies = [
+            ("api", self._resolve_via_api),
+            ("body", self._resolve_via_body),
+            ("manifest", self._resolve_via_manifest),
+            ("title", self._resolve_via_title),
+        ]
+
+        for strategy_name, strategy_fn in strategies:
+            issue_number = strategy_fn(pr_data)
+            if issue_number is not None:
+                issue_data = self._fetch_issue(issue_number)
+                if issue_data is None:
+                    logger.debug(
+                        "Strategy '%s' resolved PR #%d → issue #%d but issue fetch failed",
+                        strategy_name, pr_number, issue_number,
+                    )
+                    continue
+                phase_label = self._extract_phase_label(issue_data)
+                logger.info(
+                    "PR #%d → issue #%d (strategy=%s, phase=%s)",
+                    pr_number, issue_number, strategy_name, phase_label,
+                    extra={
+                        "pr": pr_number,
+                        "issue": issue_number,
+                        "strategy": strategy_name,
+                        "phase": phase_label,
+                    },
+                )
+                return {
+                    "issue_number": issue_number,
+                    "phase_label": phase_label,
+                    "strategy": strategy_name,
+                    "pr_data": pr_data,
+                    "issue_data": issue_data,
+                }
+
+        logger.info("PR #%d: no linked issue found", pr_number, extra={"pr": pr_number})
+        return None
+
+    def fetch_open_prs(self) -> List[dict]:
+        """Fetch all open PRs for the repo."""
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "list", "--state", "open",
+                 "--json", "number,title,body,headRefName,state,"
+                           "closingIssuesReferences"],
+                capture_output=True, text=True, timeout=30,
+                cwd=self.target_dir,
+            )
+            if result.returncode != 0:
+                logger.debug("gh pr list failed: %s", result.stderr.strip())
+                return []
+            return json.loads(result.stdout) or []
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
+            logger.debug("Failed to list open PRs: %s", exc)
+            return []
+
+    def fetch_recently_merged_prs(self, limit: int = 20) -> List[dict]:
+        """Fetch recently merged PRs for the repo."""
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "list", "--state", "merged", "--limit", str(limit),
+                 "--json", "number,title,body,headRefName,state,"
+                           "closingIssuesReferences,mergedAt"],
+                capture_output=True, text=True, timeout=30,
+                cwd=self.target_dir,
+            )
+            if result.returncode != 0:
+                logger.debug("gh pr list --merged failed: %s", result.stderr.strip())
+                return []
+            return json.loads(result.stdout) or []
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
+            logger.debug("Failed to list merged PRs: %s", exc)
+            return []
+
+    def fetch_pr_changed_files(self, pr_number: int) -> List[str]:
+        """Fetch the list of files changed in a PR."""
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "view", str(pr_number),
+                 "--json", "files", "--jq", ".files[].path"],
+                capture_output=True, text=True, timeout=15,
+                cwd=self.target_dir,
+            )
+            if result.returncode != 0:
+                return []
+            return [f for f in result.stdout.strip().splitlines() if f]
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            logger.debug("Failed to fetch PR #%d files: %s", pr_number, exc)
+            return []
 
     def _build_pr_title(
         self,

@@ -27,6 +27,11 @@ from atdd.coder.baselines.ratchet import RatchetBaseline, default_baseline_path
 from atdd.tester.validators.conftest import tester_baseline_path
 
 
+def coach_baseline_path(repo_root: Path) -> Path:
+    """Return the canonical coach baseline file path."""
+    return repo_root / ".atdd" / "baselines" / "coach.yaml"
+
+
 # ---------------------------------------------------------------------------
 # Validator registry
 # ---------------------------------------------------------------------------
@@ -563,6 +568,27 @@ TESTER_VALIDATORS: Dict[str, ValidatorFn] = {
 
 
 # ---------------------------------------------------------------------------
+# Coach validator registry (github_api — requires live API access)
+# ---------------------------------------------------------------------------
+
+
+def _pr_phase_alignment(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coach.validators.test_pr_phase_alignment import scan_pr_phase_alignment
+    return scan_pr_phase_alignment(repo_root)
+
+
+def _issue_advancement(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coach.validators.test_issue_advancement import scan_issue_advancement
+    return scan_issue_advancement(repo_root)
+
+
+COACH_VALIDATORS: Dict[str, ValidatorFn] = {
+    "pr_phase_alignment": _pr_phase_alignment,
+    "issue_advancement": _issue_advancement,
+}
+
+
+# ---------------------------------------------------------------------------
 # Command
 # ---------------------------------------------------------------------------
 
@@ -576,6 +602,9 @@ class BaselineCommand:
         )
         self.tester_baseline = RatchetBaseline(
             tester_baseline_path(self.repo_root),
+        )
+        self.coach_baseline = RatchetBaseline(
+            coach_baseline_path(self.repo_root),
         )
 
     # ---------------------------------------------------------------
@@ -624,8 +653,11 @@ class BaselineCommand:
         tester_results, tester_errors = self._run_validators(
             TESTER_VALIDATORS, "tester", verbose,
         )
+        coach_results, coach_errors = self._run_validators(
+            COACH_VALIDATORS, "coach", verbose,
+        )
 
-        errors = coder_errors + tester_errors
+        errors = coder_errors + tester_errors + coach_errors
         print()
 
         if errors:
@@ -641,13 +673,18 @@ class BaselineCommand:
             print(f"  To: {self.baseline.path}\n")
             for vid, count in sorted(tester_results.items()):
                 print(f"  {vid}: {count}")
-            print(f"  To: {self.tester_baseline.path}")
+            print(f"  To: {self.tester_baseline.path}\n")
+            for vid, count in sorted(coach_results.items()):
+                print(f"  {vid}: {count}")
+            print(f"  To: {self.coach_baseline.path}")
             return 0
 
         self.baseline.update(coder_results)
         print(f"Coder baseline written to {self.baseline.path}")
         self.tester_baseline.update(tester_results)
         print(f"Tester baseline written to {self.tester_baseline.path}")
+        self.coach_baseline.update(coach_results)
+        print(f"Coach baseline written to {self.coach_baseline.path}")
         return 0
 
     # ---------------------------------------------------------------
@@ -697,7 +734,7 @@ class BaselineCommand:
 
     def show(self, verbose: bool = False) -> int:
         """Display baseline vs current violation counts."""
-        if not self.baseline.exists and not self.tester_baseline.exists:
+        if not self.baseline.exists and not self.tester_baseline.exists and not self.coach_baseline.exists:
             print(
                 f"No baseline files found.\n\n"
                 f"Run `atdd baseline update` to create them."
@@ -709,6 +746,9 @@ class BaselineCommand:
         errors = self._show_scope(self.baseline, VALIDATORS, "coder")
         errors += self._show_scope(
             self.tester_baseline, TESTER_VALIDATORS, "tester",
+        )
+        errors += self._show_scope(
+            self.coach_baseline, COACH_VALIDATORS, "coach",
         )
 
         if errors:
