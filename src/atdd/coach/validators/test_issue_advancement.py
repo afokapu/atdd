@@ -23,8 +23,6 @@ from atdd.coder.baselines.ratchet import RatchetBaseline
 
 pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
-logger = logging.getLogger(__name__)
-
 REPO_ROOT = find_repo_root()
 
 # Baseline path for coach validators
@@ -79,7 +77,7 @@ def scan_issue_advancement(repo_root: Path) -> Tuple[int, Sequence]:
                 f"advancement after merge. "
                 f"Fix: atdd issue {issue_number} --status <next-phase>"
             )
-            logger.warning(
+            logging.getLogger(__name__).warning(
                 "SPEC-COACH-PRGATE-0003: PR #%d merged but issue #%d "
                 "still at %s",
                 pr_number, issue_number, phase,

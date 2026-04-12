@@ -28,8 +28,6 @@ from atdd.coder.baselines.ratchet import RatchetBaseline
 
 pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
-logger = logging.getLogger(__name__)
-
 REPO_ROOT = find_repo_root()
 
 # Baseline path for coach validators
@@ -114,7 +112,7 @@ def scan_pr_phase_alignment(repo_root: Path) -> Tuple[int, Sequence]:
                 + (f" ... +{len(classified['code']) - 3} more"
                    if len(classified["code"]) > 3 else "")
             )
-            logger.warning(
+            logging.getLogger(__name__).warning(
                 "SPEC-COACH-PRGATE-0002: PR #%d has code changes but "
                 "issue #%d is at %s",
                 pr_number, resolution["issue_number"], phase,
