@@ -472,6 +472,11 @@ def _comment_ratio_typescript(repo_root: Path) -> Tuple[int, Sequence]:
     return scan_comment_ratio_ts(repo_root)
 
 
+def _wagon_boundaries_typescript(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_wagon_boundaries_typescript import scan_wagon_boundaries_typescript
+    return scan_wagon_boundaries_typescript(repo_root)
+
+
 def _entity_cross_language(repo_root: Path) -> Tuple[int, Sequence]:
     from atdd.coder.validators.test_cross_language_consistency import scan_entity_cross_language
     return scan_entity_cross_language(repo_root)
@@ -500,6 +505,7 @@ VALIDATORS: Dict[str, ValidatorFn] = {
     "contract_driven_http": _contract_driven_http,
     "dead_code_python": _dead_code_python,
     "dead_code_typescript": _dead_code_typescript,
+    "wagon_boundaries_typescript": _wagon_boundaries_typescript,
     "maintainability_index": _maintainability_index,
     "code_comments": _code_comments,
     # --- Category A: quality/style (ratcheted in #250) ---
