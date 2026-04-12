@@ -447,6 +447,31 @@ def _i18n_language_switcher(repo_root: Path) -> Tuple[int, Sequence]:
     return scan_language_switcher(repo_root)
 
 
+def _cyclomatic_complexity_typescript(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_complexity_typescript import scan_cyclomatic_complexity_ts
+    return scan_cyclomatic_complexity_ts(repo_root)
+
+
+def _nesting_depth_typescript(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_complexity_typescript import scan_nesting_depth_ts
+    return scan_nesting_depth_ts(repo_root)
+
+
+def _function_length_typescript(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_complexity_typescript import scan_function_length_ts
+    return scan_function_length_ts(repo_root)
+
+
+def _maintainability_index_typescript(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_quality_metrics_typescript import scan_maintainability_index_ts
+    return scan_maintainability_index_ts(repo_root)
+
+
+def _comment_ratio_typescript(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_quality_metrics_typescript import scan_comment_ratio_ts
+    return scan_comment_ratio_ts(repo_root)
+
+
 def _entity_cross_language(repo_root: Path) -> Tuple[int, Sequence]:
     from atdd.coder.validators.test_cross_language_consistency import scan_entity_cross_language
     return scan_entity_cross_language(repo_root)
@@ -511,6 +536,12 @@ VALIDATORS: Dict[str, ValidatorFn] = {
     "enum_cross_language": _enum_cross_language,
     "naming_cross_language": _naming_cross_language,
     "api_contracts_cross_language": _api_contracts_cross_language,
+    # --- Phase 6: TS complexity & quality (BE parity, #261) ---
+    "cyclomatic_complexity_typescript": _cyclomatic_complexity_typescript,
+    "nesting_depth_typescript": _nesting_depth_typescript,
+    "function_length_typescript": _function_length_typescript,
+    "maintainability_index_typescript": _maintainability_index_typescript,
+    "comment_ratio_typescript": _comment_ratio_typescript,
 }
 
 
