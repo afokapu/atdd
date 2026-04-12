@@ -564,6 +564,32 @@ frontend:
       authentication, request/response logging, retry logic, and
       contract validation across the entire frontend codebase.
 
+  train_composition:
+    description: "Frontend routes map to trains. Trains compose wagon presentations."
+    composition_root: "FrontendTrainRunner"
+    route_pattern: "<TrainView trainId={id} /> — not direct page components"
+    wagon_registration: "Each wagon's trains.ts exports presentation components per train"
+    template_resolution: "Train YAML declares template; runner resolves from the project's design system"
+    auth_gating: "Train YAML declares auth_required; runner checks before composing"
+    permanent_exceptions:
+      criteria: "Auto-detected — pages with zero wagon imports and zero application hooks"
+      detection: >
+        Validator scans file imports. Zero wagon dependencies = no train possible
+        = permanent exception. No manual allowlist entry needed.
+    enforcement:
+      page_elimination:
+        spec_id: "SPEC-CODER-PAGE-0001"
+        rule: "Any file in scan_dirs not in allowlist and not a permanent exception is a hard failure"
+        config: ".atdd/config.yaml → page_elimination"
+      god_hook_elimination:
+        spec_id: "SPEC-CODER-PAGE-0003"
+        rule: "Hook files exceeding max_lines (default 200) not in allowlist are a hard failure"
+        config: ".atdd/config.yaml → god_hook_elimination"
+      route_train_compliance:
+        spec_id: "SPEC-CODER-PAGE-0004"
+        rule: "New routes must use TrainView, not direct page component imports"
+        config: ".atdd/config.yaml → route_train_compliance"
+
   ci_enforcement:
     checks:
       - name: "arch_import_rules"
