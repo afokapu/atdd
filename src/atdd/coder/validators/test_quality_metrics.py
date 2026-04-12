@@ -225,6 +225,38 @@ def check_naming_consistency(file_path: Path) -> List[str]:
     return violations
 
 
+FILE_LINE_REPORT_THRESHOLD = 500
+
+
+def scan_file_line_count(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for files exceeding the line-count report threshold. Used by ratchet baseline.
+
+    There is no hard limit — the ratchet baseline prevents growth.  Files over
+    FILE_LINE_REPORT_THRESHOLD (500) are tracked so that their line count
+    cannot increase without an explicit baseline update.
+    """
+    python_dir = repo_root / "python"
+    if not python_dir.exists():
+        return 0, []
+    files = []
+    for py_file in python_dir.rglob("*.py"):
+        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
+            continue
+        if '__pycache__' in str(py_file):
+            continue
+        files.append(py_file)
+    violations = []
+    for py_file in files:
+        try:
+            line_count = len(py_file.read_text(encoding='utf-8').splitlines())
+        except Exception:
+            continue
+        if line_count > FILE_LINE_REPORT_THRESHOLD:
+            rel_path = py_file.relative_to(repo_root)
+            violations.append(f"{rel_path} lines={line_count}")
+    return len(violations), violations
+
+
 @pytest.mark.coder
 def test_maintainability_index_above_threshold(ratchet_baseline):
     """
@@ -387,4 +419,33 @@ def test_consistent_naming_conventions(ratchet_baseline):
         validator_id="naming_conventions",
         current_count=len(all_violations),
         violations=all_violations,
+    )
+
+
+@pytest.mark.coder
+def test_file_line_count(ratchet_baseline):
+    """
+    SPEC-CODER-FILELINES-0001: File line count tracked via ratchet.
+
+    No hard limit on file length — comments, imports, type annotations, and
+    constants inflate line count without adding complexity.  A hard limit
+    creates false positives and encourages artificial splitting.
+
+    The ratchet baseline prevents *growth*: a 600-line file is baselined,
+    but growing it to 700 without an explicit baseline update will fail.
+    Files under FILE_LINE_REPORT_THRESHOLD (500 lines) are not tracked.
+
+    Given: All Python source files
+    When: Counting total lines per file
+    Then: Violation count does not exceed baseline (ratchet pattern)
+    """
+    python_files = find_python_files()
+    if not python_files:
+        pytest.skip("No Python files found")
+
+    count, violations = scan_file_line_count(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="file_line_count",
+        current_count=count,
+        violations=violations,
     )

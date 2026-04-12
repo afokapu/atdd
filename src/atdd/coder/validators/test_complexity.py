@@ -11,6 +11,7 @@ Inspired by: .claude/utils/coder/complexity.py
 But: Self-contained, no utility dependencies
 """
 
+import ast
 import pytest
 import re
 from pathlib import Path
@@ -29,6 +30,7 @@ MAX_CYCLOMATIC_COMPLEXITY = 10
 MAX_NESTING_DEPTH = 4
 MAX_FUNCTION_LINES = 50
 MAX_FUNCTION_PARAMS = 6
+MAX_COGNITIVE_COMPLEXITY = 15
 
 
 def find_python_files() -> List[Path]:
@@ -229,6 +231,170 @@ def count_function_parameters(function_body: str) -> int:
     return len(param_list)
 
 
+def calculate_cognitive_complexity(source: str) -> List[Tuple[str, int, int]]:
+    """
+    Calculate cognitive complexity for each function using the SonarQube
+    algorithm (G. Ann Campbell, 2016).
+
+    Structural increment (+1):
+        if, elif, else, for, while, except, with, and, or
+
+    Nesting increment (+N, where N = current nesting depth):
+        Applied to if, for, while, except, with when nested inside
+        another control-flow structure.  NOT applied to elif/else
+        (they continue the chain) or boolean operators.
+
+    Each function is analysed independently — nested function bodies
+    do not contribute to the enclosing function's score.
+
+    Returns:
+        List of (function_name, line_number, complexity) tuples.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+
+    results: List[Tuple[str, int, int]] = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            cc = _function_cognitive_complexity(node)
+            results.append((node.name, node.lineno, cc))
+
+    return results
+
+
+def _function_cognitive_complexity(func_node: ast.AST) -> int:
+    """Compute cognitive complexity for a single function AST node."""
+    state = {"complexity": 0}
+
+    # -- expression walker: finds BoolOp sequences -------------------------
+    def _walk_expr(expr: ast.AST) -> None:
+        if isinstance(expr, ast.BoolOp):
+            # One BoolOp node = one sequence of the same operator → +1
+            state["complexity"] += 1
+        for child in ast.iter_child_nodes(expr):
+            _walk_expr(child)
+
+    # -- statement walker ---------------------------------------------------
+    def _walk_stmts(stmts, nesting: int) -> None:
+        for stmt in stmts:
+            _walk(stmt, nesting)
+
+    def _handle_if_chain(node: ast.If, nesting: int) -> None:
+        """Handle an if / elif / else chain."""
+        # First 'if': +1 + nesting
+        state["complexity"] += 1 + nesting
+        _walk_expr(node.test)
+        _walk_stmts(node.body, nesting + 1)
+
+        orelse = node.orelse
+        while orelse:
+            if len(orelse) == 1 and isinstance(orelse[0], ast.If):
+                # elif: +1, NO nesting penalty
+                elif_node = orelse[0]
+                state["complexity"] += 1
+                _walk_expr(elif_node.test)
+                _walk_stmts(elif_node.body, nesting + 1)
+                orelse = elif_node.orelse
+            else:
+                # else: +1, NO nesting penalty
+                state["complexity"] += 1
+                _walk_stmts(orelse, nesting + 1)
+                orelse = None
+
+    def _walk(node: ast.AST, nesting: int) -> None:
+        # Nested function/class — skip (analysed independently)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            return
+
+        if isinstance(node, ast.If):
+            _handle_if_chain(node, nesting)
+            return
+
+        if isinstance(node, (ast.For, ast.AsyncFor)):
+            state["complexity"] += 1 + nesting
+            _walk_expr(node.iter)
+            _walk_stmts(node.body, nesting + 1)
+            if node.orelse:
+                state["complexity"] += 1
+                _walk_stmts(node.orelse, nesting + 1)
+            return
+
+        if isinstance(node, ast.While):
+            state["complexity"] += 1 + nesting
+            _walk_expr(node.test)
+            _walk_stmts(node.body, nesting + 1)
+            if node.orelse:
+                state["complexity"] += 1
+                _walk_stmts(node.orelse, nesting + 1)
+            return
+
+        if isinstance(node, ast.Try):
+            _walk_stmts(node.body, nesting)
+            for handler in node.handlers:
+                state["complexity"] += 1 + nesting
+                _walk_stmts(handler.body, nesting + 1)
+            if node.orelse:
+                _walk_stmts(node.orelse, nesting)
+            if node.finalbody:
+                _walk_stmts(node.finalbody, nesting)
+            return
+
+        # Python 3.11+ try/except*
+        if hasattr(ast, "TryStar") and isinstance(node, ast.TryStar):
+            _walk_stmts(node.body, nesting)
+            for handler in node.handlers:
+                state["complexity"] += 1 + nesting
+                _walk_stmts(handler.body, nesting + 1)
+            if node.orelse:
+                _walk_stmts(node.orelse, nesting)
+            if node.finalbody:
+                _walk_stmts(node.finalbody, nesting)
+            return
+
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            state["complexity"] += 1 + nesting
+            _walk_stmts(node.body, nesting + 1)
+            return
+
+        # Generic: recurse into child statements and expressions
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.stmt):
+                _walk(child, nesting)
+            elif isinstance(child, ast.expr):
+                _walk_expr(child)
+
+    _walk_stmts(func_node.body, 0)
+    return state["complexity"]
+
+
+def scan_cognitive_complexity(repo_root: Path) -> Tuple[int, List[str]]:
+    """Scan for cognitive complexity violations. Used by ratchet baseline."""
+    python_dir = repo_root / "python"
+    if not python_dir.exists():
+        return 0, []
+    files = []
+    for py_file in python_dir.rglob("*.py"):
+        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
+            continue
+        if '__pycache__' in str(py_file) or py_file.name == '__init__.py':
+            continue
+        files.append(py_file)
+    violations = []
+    for py_file in files:
+        try:
+            source = py_file.read_text(encoding='utf-8')
+        except Exception:
+            continue
+        for func_name, line_num, cc in calculate_cognitive_complexity(source):
+            if cc > MAX_COGNITIVE_COMPLEXITY:
+                rel_path = py_file.relative_to(repo_root)
+                violations.append(f"{rel_path}:{line_num} {func_name} cognitive_complexity={cc}")
+    return len(violations), violations
+
+
 def scan_cyclomatic_complexity(repo_root: Path) -> Tuple[int, List[str]]:
     """Scan for cyclomatic complexity violations. Used by ratchet baseline."""
     python_dir = repo_root / "python"
@@ -427,6 +593,41 @@ def test_function_parameter_count_under_threshold(ratchet_baseline):
     count, violations = scan_function_params(REPO_ROOT)
     ratchet_baseline.assert_no_regression(
         validator_id="function_parameter_count",
+        current_count=count,
+        violations=violations,
+    )
+
+
+@pytest.mark.coder
+def test_cognitive_complexity_under_threshold(ratchet_baseline):
+    """
+    SPEC-CODER-COGNITIVE-0001: Functions have acceptable cognitive complexity.
+
+    Cognitive complexity (SonarQube / G. Ann Campbell algorithm) measures how
+    difficult code is to *understand*, penalising deeply nested structures.
+    Unlike cyclomatic complexity, it distinguishes flat if/elif chains
+    (low complexity) from deeply nested if(if(if)) structures (high complexity).
+
+    Algorithm:
+        +1 structural increment for if, elif, else, for, while, except,
+        with, and, or.
+        +N nesting increment (N = current nesting depth) for if, for,
+        while, except, with when nested inside another control-flow
+        structure.  elif/else continue the chain without nesting penalty.
+
+    Threshold: <= 15 per function (SonarQube default)
+
+    Given: All Python source functions
+    When: Calculating cognitive complexity via AST
+    Then: Violation count does not exceed baseline (ratchet pattern)
+    """
+    python_files = find_python_files()
+    if not python_files:
+        pytest.skip("No Python files found")
+
+    count, violations = scan_cognitive_complexity(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="cognitive_complexity",
         current_count=count,
         violations=violations,
     )

@@ -180,6 +180,16 @@ def _function_parameter_count(repo_root: Path) -> Tuple[int, Sequence]:
     return scan_function_params(repo_root)
 
 
+def _cognitive_complexity(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_complexity import scan_cognitive_complexity
+    return scan_cognitive_complexity(repo_root)
+
+
+def _file_line_count(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_quality_metrics import scan_file_line_count
+    return scan_file_line_count(repo_root)
+
+
 def _code_duplication(repo_root: Path) -> Tuple[int, Sequence]:
     from atdd.coder.validators.test_quality_metrics import (
         find_python_files,
@@ -463,6 +473,8 @@ VALIDATORS: Dict[str, ValidatorFn] = {
     "nesting_depth": _nesting_depth,
     "function_length": _function_length,
     "function_parameter_count": _function_parameter_count,
+    "cognitive_complexity": _cognitive_complexity,
+    "file_line_count": _file_line_count,
     "code_duplication": _code_duplication,
     "naming_conventions": _naming_conventions,
     "print_in_production": _print_in_production,
