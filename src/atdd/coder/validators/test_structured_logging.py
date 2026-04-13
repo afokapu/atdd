@@ -32,8 +32,56 @@ REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 
 # Package resources (conventions, schemas)
-ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
-LOGGING_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "logging.convention.yaml"
+# PKG_DIR always resolves to the installed atdd package (used for loading
+# bundled resources like conventions/schemas, regardless of install mode).
+PKG_DIR = Path(atdd.__file__).resolve().parent
+LOGGING_CONVENTION = PKG_DIR / "coder" / "conventions" / "logging.convention.yaml"
+
+
+# Path components that indicate a pip-installed/vendored location rather
+# than the atdd source tree. Even when a consumer repo has its .venv inside
+# the repo root, atdd.__file__ under any of these must not be dogfood-scanned.
+_VENDORED_PATH_MARKERS = frozenset(
+    {
+        "site-packages",
+        ".venv",
+        "venv",
+        ".tox",
+        "__pypackages__",
+        "node_modules",
+    }
+)
+
+
+def _atdd_source_dir_or_none() -> Path | None:
+    """
+    Return the atdd package directory only when running inside the atdd
+    source repo (editable/source install: ``atdd.__file__`` lives under
+    ``REPO_ROOT`` and NOT inside a vendored/virtualenv directory).
+
+    When atdd is pip-installed into a consumer repo — even into a ``.venv``
+    that happens to sit inside the consumer's repo root — ``atdd.__file__``
+    points inside site-packages and MUST NOT be scanned as "toolkit
+    dogfooding", or it would raise spurious LOG violations against vendored
+    code.
+    """
+    try:
+        pkg_dir = Path(atdd.__file__).resolve().parent
+    except (AttributeError, TypeError):
+        return None
+    try:
+        pkg_dir.relative_to(REPO_ROOT.resolve())
+    except ValueError:
+        return None
+    if any(part in _VENDORED_PATH_MARKERS for part in pkg_dir.parts):
+        return None
+    return pkg_dir
+
+
+# ATDD_PKG_DIR is ONLY set when running inside the atdd source repo.
+# In consumer repos with pip-installed atdd it is None, and dogfooding scans
+# are skipped.
+ATDD_PKG_DIR = _atdd_source_dir_or_none()
 
 # Logger method names that require extra= for structured context
 LOG_METHODS = {"debug", "info", "warning", "error", "critical", "exception", "log"}
@@ -129,7 +177,9 @@ def _rel_path(file_path: Path) -> Path:
     try:
         return file_path.relative_to(REPO_ROOT)
     except ValueError:
-        return file_path.relative_to(ATDD_PKG_DIR.parent)
+        if ATDD_PKG_DIR is not None:
+            return file_path.relative_to(ATDD_PKG_DIR.parent)
+        return file_path
 
 
 def scan_print_in_production(repo_root: Path) -> Tuple[int, List[str]]:
@@ -149,10 +199,19 @@ def scan_print_in_production(repo_root: Path) -> Tuple[int, List[str]]:
 
 
 def scan_structured_logging(repo_root: Path) -> Tuple[int, List[str]]:
-    """Scan for bare log calls. Used by ratchet baseline."""
+    """Scan for bare log calls. Used by ratchet baseline.
+
+    Scans consumer product code in ``repo_root/python/``. When running inside
+    the atdd source repo, also scans ``src/atdd/`` as toolkit dogfooding;
+    when atdd is pip-installed in a consumer repo this dogfooding scan is
+    skipped (ATDD_PKG_DIR is None) so vendored site-packages code is not
+    flagged.
+    """
     python_dir = repo_root / "python"
-    atdd_dir = Path(atdd.__file__).resolve().parent
-    python_files = _collect_files(python_dir, atdd_dir)
+    scan_dirs = [python_dir]
+    if ATDD_PKG_DIR is not None:
+        scan_dirs.append(ATDD_PKG_DIR)
+    python_files = _collect_files(*scan_dirs)
     violations = []
     for py_file in python_files:
         bare_logs = detect_bare_log_calls(py_file)
@@ -160,9 +219,12 @@ def scan_structured_logging(repo_root: Path) -> Tuple[int, List[str]]:
             try:
                 rel = py_file.relative_to(repo_root)
             except ValueError:
-                try:
-                    rel = py_file.relative_to(atdd_dir.parent)
-                except ValueError:
+                if ATDD_PKG_DIR is not None:
+                    try:
+                        rel = py_file.relative_to(ATDD_PKG_DIR.parent)
+                    except ValueError:
+                        rel = py_file
+                else:
                     rel = py_file
             violations.append(f"{rel}:{lineno}:{col} — logger.{method}() without extra=")
     return len(violations), violations
@@ -218,7 +280,10 @@ def test_structured_logging_format(ratchet_baseline):
 
     Convention: atdd/coder/conventions/logging.convention.yaml (LOG-002)
     """
-    python_files = _collect_files(PYTHON_DIR, ATDD_PKG_DIR)
+    scan_dirs = [PYTHON_DIR]
+    if ATDD_PKG_DIR is not None:
+        scan_dirs.append(ATDD_PKG_DIR)
+    python_files = _collect_files(*scan_dirs)
     if not python_files:
         pytest.skip("No Python files found to validate")
 
