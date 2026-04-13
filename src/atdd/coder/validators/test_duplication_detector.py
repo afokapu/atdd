@@ -14,7 +14,6 @@ statement blocks, group by layer, report collisions across different files.
 
 import ast
 import hashlib
-import os
 import fnmatch
 import yaml
 import pytest
@@ -23,6 +22,7 @@ from typing import Dict, List, Optional, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coder.utils.python_file_walker import walk_consumer_python_files
 
 
 # ---------------------------------------------------------------------------
@@ -33,13 +33,6 @@ PYTHON_DIR = REPO_ROOT / "python"
 
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 DUPLICATION_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "duplication.convention.yaml"
-
-_SKIP_DIRS = {
-    ".git", "__pycache__", "node_modules", ".dart_tool",
-    "build", ".pub-cache", "dist", ".next", ".nuxt", "coverage",
-    ".venv", "venv", "env", ".tox", ".mypy_cache", ".pytest_cache",
-}
-
 
 # ---------------------------------------------------------------------------
 # Convention loader
@@ -103,20 +96,20 @@ def _collect_python_files(
     base_dir: Path,
     exclusions: Optional[List[str]] = None,
 ) -> List[Path]:
-    """Walk base_dir for *.py files, honouring skip-dirs and exclusions."""
+    """Walk base_dir for *.py files, honouring project exclusions.
+
+    Vendored/virtualenv/build directory skipping is handled by the shared
+    :func:`walk_consumer_python_files` walker; the per-file exclusion globs
+    from the duplication convention are applied on top.
+    """
     if not base_dir.exists():
         return []
     exclusions = exclusions or []
     files: List[Path] = []
-    for dirpath, dirnames, filenames in os.walk(base_dir):
-        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
-        for fname in filenames:
-            if not fname.endswith(".py"):
-                continue
-            full = Path(dirpath) / fname
-            if _matches_exclusion(full, exclusions, base_dir):
-                continue
-            files.append(full)
+    for full in walk_consumer_python_files(base_dir):
+        if _matches_exclusion(full, exclusions, base_dir):
+            continue
+        files.append(full)
     return files
 
 

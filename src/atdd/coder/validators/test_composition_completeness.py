@@ -25,6 +25,7 @@ import pytest
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coder.utils.python_file_walker import walk_consumer_python_files
 
 
 REPO_ROOT = find_repo_root()
@@ -237,8 +238,9 @@ def collect_python_files(repo_root: Path) -> List[Path]:
     if not python_root.exists():
         return []
     return sorted(
-        path for path in python_root.rglob("*.py")
-        if path.is_file() and not graph_file_excluded(path)
+        path
+        for path in walk_consumer_python_files(python_root)
+        if not graph_file_excluded(path)
     )
 
 
