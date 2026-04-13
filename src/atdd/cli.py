@@ -604,6 +604,12 @@ Phase descriptions:
         help="Close a WMBT sub-issue by ID"
     )
     issue_parser.add_argument(
+        "--check",
+        action="store_true",
+        dest="check",
+        help="Run template compliance check and print structured feedback"
+    )
+    issue_parser.add_argument(
         "--force", "-f",
         action="store_true",
         help="Bypass gate/body checks (train still enforced)"
@@ -1394,6 +1400,9 @@ Phase descriptions:
         # Mutations or enter
         from atdd.coach.commands.issue_lifecycle import IssueLifecycle
         lifecycle = IssueLifecycle()
+
+        if getattr(args, 'check', False):
+            return lifecycle.check(issue_number)
 
         if getattr(args, 'status', None):
             return lifecycle.transition(

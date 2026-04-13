@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 _BRANCH_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "BLOCKED"}
 _TERMINAL_STATUSES = {"COMPLETE", "OBSOLETE"}
 
+# Statuses from PLANNED onward require a template-compliant issue body.
+_COMPLIANCE_REQUIRED_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"}
+
 
 class IssueLifecycle:
     """Unified issue lifecycle orchestrator."""
@@ -301,6 +304,53 @@ class IssueLifecycle:
         print("=" * 70)
         print()
 
+    def check(self, issue_number: int) -> int:
+        """Run template compliance check against an issue body.
+
+        Returns 0 if compliant, 1 if missing sections or placeholders remain.
+
+        SPEC-COACH-ORCH-0010: structured section-by-section feedback.
+        """
+        from atdd.coach.commands.issue_template import check_issue_compliance
+
+        issue = self._fetch_issue(issue_number)
+        if not issue:
+            print(f"❌ could not fetch issue #{issue_number}")
+            return 1
+        report = check_issue_compliance(
+            issue_number=issue_number,
+            body=issue.get("body") or "",
+        )
+        print(report.format())
+        return 0 if report.compliant else 1
+
+    def _compliance_gate(self, issue_number: int, target_status: str) -> int:
+        """Block transitions to PLANNED+ on non-compliant issue bodies.
+
+        SPEC-COACH-ORCH-0011: PLANNED and beyond require all template
+        sections + no leftover placeholders.
+        """
+        if target_status.upper() not in _COMPLIANCE_REQUIRED_STATUSES:
+            return 0
+        from atdd.coach.commands.issue_template import check_issue_compliance
+
+        issue = self._fetch_issue(issue_number)
+        if not issue:
+            print(f"❌ could not fetch issue #{issue_number} for compliance check")
+            return 1
+        report = check_issue_compliance(
+            issue_number=issue_number,
+            body=issue.get("body") or "",
+        )
+        if report.compliant:
+            return 0
+        print(report.format())
+        print(
+            f"\nTransition to {target_status.upper()} blocked by template "
+            f"compliance gate. Re-run with --force to override."
+        )
+        return 1
+
     def transition(self, issue_number: int, status: str, force: bool = False) -> int:
         """Transition an issue to a new status, then re-enter to show updated state.
 
@@ -318,6 +368,13 @@ class IssueLifecycle:
             0 on success, 1 on failure.
         """
         from atdd.coach.commands.issue import IssueManager
+
+        # Template compliance gate — PLANNED and beyond require a fully
+        # populated issue body (SPEC-COACH-ORCH-0011). --force overrides.
+        if not force:
+            gate_rc = self._compliance_gate(issue_number, status)
+            if gate_rc != 0:
+                return gate_rc
 
         manager = IssueManager(self.target_dir)
         issue_id = str(issue_number)
