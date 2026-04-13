@@ -262,56 +262,19 @@ git:
     prefixes: ["feat/", "fix/", "refactor/", "chore/", "docs/", "devops/"]
     example: "git worktree add ../feat-traceability-gates -b feat/traceability-gates"
 
-  # ─── PARALLEL WORK VIA WORKTREE + CMUX (WHEN RELEVANT) ────────────────
-  # When multiple independent issues can be worked in parallel, agents
-  # SHOULD use cmux (primary) or tmux (fallback) to launch separate
-  # Claude/agent instances — one per worktree/branch/issue.
-  #
-  # This is NOT sub-agent delegation. Each cmux workspace runs a full
-  # independent agent session with its own context, working in its own
-  # worktree. The orchestrating agent monitors progress and handles
-  # rebases/conflicts when branches merge.
-  #
-  # When to parallelize:
-  #   - Multiple issues with NO dependency between them
-  #   - Issues touching different files/validators/conventions
-  #   - Batch of small fixes that each need their own PR
-  #
-  # When NOT to parallelize:
-  #   - Issues that depend on each other (merge A before starting B)
-  #   - Issues touching the same files (will conflict)
-  #   - Complex design work that needs human review between steps
-  #
-  # Pattern:
-  #   1. Create worktrees:  git worktree add ../issue-NNN-slug -b prefix/slug main
-  #   2. Open workspaces:   cmux /path/to/worktree  (one per issue)
-  #   3. Launch agents:     cmux send --workspace "workspace:N" 'claude ...'
-  #   4. Monitor progress:  cmux read-screen --workspace "workspace:N" --lines 5
-  #   5. After merge:       Rebase remaining branches if needed
-  #   6. Clean up:          git worktree remove ../issue-NNN-slug
-  #                         cmux close-workspace --workspace "workspace:N"
+  # ─── PARALLEL WORK VIA WORKTREE + CMUX ────────────────────────────────
+  # Machine-readable rules for parallel agent sessions (waves, babysitter,
+  # prompt approval policy, violation patterns, merge cascade, telemetry)
+  # live in the orchestration convention file. A human-facing overview of
+  # when/why to parallelize is retained under git.branching above.
   # ───────────────────────────────────────────────────────────────────────
   parallelization:
-    rule: "Use cmux (preferred) or tmux to parallelize independent issues across worktrees"
-    orchestration_tool: "cmux"
-    fallback: "tmux"
-    pattern: "One worktree + one cmux workspace + one agent instance per issue"
-    when:
-      - "Multiple independent issues with no shared files"
-      - "Batch of small fixes needing separate PRs"
-      - "Issues touching different areas of the codebase"
-    when_not:
-      - "Issues with dependencies (merge first, then start next)"
-      - "Issues modifying the same files (will conflict on merge)"
-      - "Complex design requiring human review between steps"
-    anti_pattern: "Do NOT use sub-agents for parallel branch work — use separate agent sessions via cmux"
-    commands:
-      create_worktree: "git worktree add ../issue-NNN-slug -b prefix/slug main"
-      open_workspace: "cmux /path/to/worktree"
-      launch_agent: 'cmux send --workspace "workspace:N" ''claude --dangerously-skip-permissions "prompt"'''
-      monitor: 'cmux read-screen --workspace "workspace:N" --lines 5'
-      cleanup_worktree: "git worktree remove ../issue-NNN-slug"
-      cleanup_workspace: 'cmux close-workspace --workspace "workspace:N"'
+    see: "src/atdd/coach/conventions/orchestration.convention.yaml"
+    cli:
+      - "atdd orchestrate <issue-numbers...>"
+      - "atdd babysit [--interval 60]"
+      - "atdd merge-cascade <pr-numbers...>"
+      - "atdd session-template <issue-number>"
 
   workflow:
     branch_strategy: "worktree per branch from main"
