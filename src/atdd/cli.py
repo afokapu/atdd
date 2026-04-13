@@ -691,6 +691,168 @@ Phase descriptions:
         help="Output as JSON for programmatic use"
     )
 
+    # ----- atdd session-template <issue-number> -----
+    session_template_parser = subparsers.add_parser(
+        "session-template",
+        help="Generate a parallel-agent launch script from an issue body",
+        description=(
+            "Read a GitHub issue body and render a self-contained launch "
+            "script (SESSION-LAUNCH-TEMPLATE.md) for a parallel agent session."
+        ),
+    )
+    session_template_parser.add_argument(
+        "issue_number",
+        type=int,
+        help="Issue number to render the launch script for",
+    )
+    session_template_parser.add_argument(
+        "--output", "-o",
+        type=str,
+        default=None,
+        help="Write the rendered script to this path (default: stdout)",
+    )
+    session_template_parser.add_argument(
+        "--worktree-path",
+        type=str,
+        default="",
+        dest="worktree_path",
+        help="Worktree path to embed in the launch script (default: derived from branch)",
+    )
+
+    # ----- atdd orchestrate <issue-numbers...> -----
+    orchestrate_parser = subparsers.add_parser(
+        "orchestrate",
+        help="Launch parallel agent sessions for a set of issues",
+        description=(
+            "Compute dependency waves, create worktrees, generate launch "
+            "scripts, and launch multiplexer sessions for a list of issues."
+        ),
+    )
+    orchestrate_parser.add_argument(
+        "issue_numbers",
+        type=int,
+        nargs="+",
+        help="Issue numbers to orchestrate",
+    )
+    orchestrate_parser.add_argument(
+        "--autonomous",
+        action="store_true",
+        help="Allow sessions to proceed past REFACTOR without user confirmation",
+    )
+    orchestrate_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume a previous orchestrate run from state file",
+    )
+    orchestrate_parser.add_argument(
+        "--multiplexer",
+        type=str,
+        choices=["cmux", "tmux"],
+        default=None,
+        help="Force multiplexer backend (default: auto-detect)",
+    )
+    orchestrate_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Print waves and planned worktrees without creating anything",
+    )
+    orchestrate_parser.add_argument(
+        "--state-file",
+        type=str,
+        default=".atdd/orchestrate-state.json",
+        dest="state_file",
+        help="Path to the orchestrate state file (default: .atdd/orchestrate-state.json)",
+    )
+
+    # ----- atdd babysit -----
+    babysit_parser = subparsers.add_parser(
+        "babysit",
+        help="Monitor parallel agent sessions and auto-approve known-safe prompts",
+        description=(
+            "Periodically read multiplexer screens, auto-approve known-safe "
+            "tool prompts, escalate unknowns, and detect policy violations."
+        ),
+    )
+    babysit_parser.add_argument(
+        "--interval",
+        type=int,
+        default=60,
+        help="Screen read interval in seconds (default: 60)",
+    )
+    babysit_parser.add_argument(
+        "--workspaces",
+        type=str,
+        default=None,
+        help="Comma-separated workspace refs (default: all known)",
+    )
+    babysit_parser.add_argument(
+        "--stale-warn",
+        type=int,
+        default=15,
+        dest="stale_warn",
+        help="Warn after this many minutes of no screen change (default: 15)",
+    )
+    babysit_parser.add_argument(
+        "--stale-escalate",
+        type=int,
+        default=30,
+        dest="stale_escalate",
+        help="Escalate after this many minutes of no screen change (default: 30)",
+    )
+    babysit_parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Run one screen-read cycle and exit (useful for tests/cron)",
+    )
+    babysit_parser.add_argument(
+        "--multiplexer",
+        type=str,
+        choices=["cmux", "tmux"],
+        default=None,
+        help="Force multiplexer backend (default: auto-detect)",
+    )
+
+    # ----- atdd merge-cascade <pr-numbers...> -----
+    merge_cascade_parser = subparsers.add_parser(
+        "merge-cascade",
+        help="Wave-ordered PR merge with CI gating and update-branch loops",
+        description=(
+            "For each PR in order, update-branch, wait for required CI checks, "
+            "merge. Halt on conflict with a report of the offending PR."
+        ),
+    )
+    merge_cascade_parser.add_argument(
+        "pr_numbers",
+        type=int,
+        nargs="+",
+        help="PR numbers to merge in wave order",
+    )
+    merge_cascade_parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Auto-merge without per-PR prompts",
+    )
+    merge_cascade_parser.add_argument(
+        "--poll-interval",
+        type=int,
+        default=30,
+        dest="poll_interval",
+        help="CI poll interval in seconds (default: 30)",
+    )
+    merge_cascade_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=1800,
+        help="Per-PR timeout in seconds (default: 1800)",
+    )
+    merge_cascade_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Print the merge plan without executing",
+    )
+
     # ----- atdd upgrade -----
     upgrade_parser = subparsers.add_parser(
         "upgrade",
@@ -1272,6 +1434,57 @@ Phase descriptions:
         if args.verify:
             return syncer.verify()
         return syncer.sync(agents=[args.agent] if args.agent else None)
+
+    # atdd session-template <issue-number>
+    elif args.command == "session-template":
+        from atdd.coach.commands.session_template import run as run_session_template
+        out = Path(args.output) if getattr(args, "output", None) else None
+        return run_session_template(
+            issue_number=args.issue_number,
+            output=out,
+            worktree_path=getattr(args, "worktree_path", "") or "",
+        )
+
+    # atdd orchestrate <issue-numbers...>
+    elif args.command == "orchestrate":
+        from atdd.coach.commands.orchestrate import run as run_orchestrate
+        return run_orchestrate(
+            issue_numbers=args.issue_numbers,
+            autonomous=getattr(args, "autonomous", False),
+            resume=getattr(args, "resume", False),
+            multiplexer=getattr(args, "multiplexer", None),
+            dry_run=getattr(args, "dry_run", False),
+            state_file=getattr(args, "state_file", ".atdd/orchestrate-state.json"),
+        )
+
+    # atdd babysit
+    elif args.command == "babysit":
+        from atdd.coach.commands.babysit import run as run_babysit
+        workspaces_arg = getattr(args, "workspaces", None)
+        workspaces = (
+            [w.strip() for w in workspaces_arg.split(",") if w.strip()]
+            if workspaces_arg
+            else None
+        )
+        return run_babysit(
+            interval=args.interval,
+            workspaces=workspaces,
+            stale_warn=args.stale_warn,
+            stale_escalate=args.stale_escalate,
+            once=getattr(args, "once", False),
+            multiplexer=getattr(args, "multiplexer", None),
+        )
+
+    # atdd merge-cascade <pr-numbers...>
+    elif args.command == "merge-cascade":
+        from atdd.coach.commands.merge_cascade import run as run_merge_cascade
+        return run_merge_cascade(
+            pr_numbers=args.pr_numbers,
+            auto=getattr(args, "auto", False),
+            poll_interval=args.poll_interval,
+            timeout=args.timeout,
+            dry_run=getattr(args, "dry_run", False),
+        )
 
     # atdd gate
     elif args.command == "gate":

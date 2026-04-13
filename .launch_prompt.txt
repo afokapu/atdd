@@ -1,0 +1,69 @@
+You are implementing atdd issue #257 (parallel agent orchestration as first-class ATDD capability) in the worktree at /Users/afokapu/Documents/GitHub/atdd/feat-parallel-orchestration on branch feat/parallel-orchestration.
+
+CRITICAL CONTEXT
+================
+
+1. Read CLAUDE.md FIRST. Run `atdd gate` to load the bootstrap protocol.
+2. Read the full issue body: `gh issue view 257 --json body --jq '.body'`
+3. The issue has 6 phases. Implement them in order. Stop at REFACTOR for user review (do NOT proceed past REFACTOR autonomously).
+
+PHASES (from issue body)
+========================
+
+- Phase 1: Multiplexer Abstraction + Convention
+  - src/atdd/coach/utils/multiplexer.py (cmux/tmux backends, auto-detect)
+  - src/atdd/coach/conventions/orchestration.convention.yaml
+
+- Phase 2: Session Template Generator
+  - src/atdd/coach/commands/session_template.py
+  - src/atdd/coach/templates/SESSION-LAUNCH-TEMPLATE.md
+  - register in commands/__init__.py
+
+- Phase 3: Orchestrate Command
+  - src/atdd/coach/commands/orchestrate.py
+  - register in commands/__init__.py
+
+- Phase 4: Babysit Command
+  - src/atdd/coach/commands/babysit.py
+  - register in commands/__init__.py
+
+- Phase 5: Merge Cascade Command
+  - src/atdd/coach/commands/merge_cascade.py
+  - register in commands/__init__.py
+
+- Phase 6: CLI Template Compliance Check
+  - extend src/atdd/coach/commands/issue_lifecycle.py with --check flag
+  - REUSES load_required_sections() and check_body_sections() from src/atdd/coach/validators/test_issue_validation.py
+  - These already exist on the feat/e010-template-source branch (PR #271 — may already be merged by the time you read this; check origin/main)
+
+DECISIONS (from issue body, do not re-litigate)
+================================================
+
+- cmux preferred, tmux fallback
+- Babysitter interval default: 60s
+- Known-safe prompts: literal match on Read, Grep, Glob, Edit, git status/diff/log
+- Stop-before-REFACTOR: yes, unless --autonomous flag
+- Wave computation: topological sort on dependency DAG from issue body's ### Dependencies section
+- Template compliance: parse PARENT-ISSUE-TEMPLATE.md at runtime (already done by E010 — reuse)
+- Two-phase commit for orchestrate: create all worktrees first, then launch sessions, with --resume support
+- Telemetry: append to .atdd/orchestration-log.jsonl
+
+WORKFLOW RULES
+==============
+
+- Follow micro-commit discipline (CLAUDE.md): commit after every completed sub-task, never accumulate >5 modified files
+- Use ATDD lifecycle: write failing tests first (RED), make them pass (GREEN), verify against real infra (SMOKE), refactor (stop here for review)
+- All tests must follow conventions in src/atdd/tester/conventions/
+- For each new command, write tests in src/atdd/coach/commands/tests/test_<command>.py
+- For each new validator, write tests in src/atdd/coach/validators/tests/
+- Run `atdd validate coach` after each phase
+
+WHEN TO ESCALATE
+================
+
+- If any architectural decision is ambiguous or missing from the issue body — stop and document in a comment on the issue
+- If a phase requires data not in scope — stop and document
+- If a test fails and the fix isn't obvious — stop and document
+- After REFACTOR phase completes — stop for user review
+
+START NOW: read CLAUDE.md, run `atdd gate`, then read issue #257 in full, then begin Phase 1.

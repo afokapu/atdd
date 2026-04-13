@@ -513,6 +513,35 @@ git:
     format: "conventional commits (feat:, fix:, docs:, refactor:, test:)"
     atomic: "One commit per phase transition when meaningful"
 
+  # ─── MICRO-COMMIT DISCIPLINE (MANDATORY FOR ALL AGENTS) ───────────────
+  # Agents MUST commit frequently to avoid losing work.
+  # Large uncommitted deltas are the #1 cause of lost agent work
+  # (incident: 64 files edited on main, all lost when pre-commit hook blocked).
+  #
+  # Rules:
+  #   1. Commit after EVERY completed sub-task (file created, test written, bug fixed).
+  #   2. Never accumulate more than 5 modified files without committing.
+  #   3. If you realize you are on main: STOP editing immediately.
+  #      Recovery: git stash → atdd branch <N> → cd worktree → git stash pop
+  #   4. Prefer many small commits over one large commit — they are easier to
+  #      review, revert, and bisect.
+  #   5. A commit message can be short ("add CameoRepository") — frequency
+  #      matters more than message polish during active development.
+  #
+  # Anti-patterns (NEVER do these):
+  #   - Edit 10+ files then commit once at the end
+  #   - Defer commits until "everything works"
+  #   - Batch unrelated changes in one commit
+  # ───────────────────────────────────────────────────────────────────────
+  commit_discipline:
+    rule: "Commit after every completed sub-task. Never accumulate >5 modified files."
+    frequency: "After each file creation, test addition, or bug fix"
+    on_main_detection: "STOP immediately. git stash → atdd branch <N> → cd worktree → git stash pop"
+    anti_patterns:
+      - "Editing 10+ files before committing"
+      - "Deferring commits until everything works"
+      - "Batching unrelated changes in one commit"
+
   branching:
     rule: "Every new branch MUST be created as a git worktree (flat sibling of main)"
     layout: |
@@ -530,6 +559,57 @@ git:
     prefixes: ["feat/", "fix/", "refactor/", "chore/", "docs/", "devops/"]
     example: "git worktree add ../feat-traceability-gates -b feat/traceability-gates"
 
+  # ─── PARALLEL WORK VIA WORKTREE + CMUX (WHEN RELEVANT) ────────────────
+  # When multiple independent issues can be worked in parallel, agents
+  # SHOULD use cmux (primary) or tmux (fallback) to launch separate
+  # Claude/agent instances — one per worktree/branch/issue.
+  #
+  # This is NOT sub-agent delegation. Each cmux workspace runs a full
+  # independent agent session with its own context, working in its own
+  # worktree. The orchestrating agent monitors progress and handles
+  # rebases/conflicts when branches merge.
+  #
+  # When to parallelize:
+  #   - Multiple issues with NO dependency between them
+  #   - Issues touching different files/validators/conventions
+  #   - Batch of small fixes that each need their own PR
+  #
+  # When NOT to parallelize:
+  #   - Issues that depend on each other (merge A before starting B)
+  #   - Issues touching the same files (will conflict)
+  #   - Complex design work that needs human review between steps
+  #
+  # Pattern:
+  #   1. Create worktrees:  git worktree add ../issue-NNN-slug -b prefix/slug main
+  #   2. Open workspaces:   cmux /path/to/worktree  (one per issue)
+  #   3. Launch agents:     cmux send --workspace "workspace:N" 'claude ...'
+  #   4. Monitor progress:  cmux read-screen --workspace "workspace:N" --lines 5
+  #   5. After merge:       Rebase remaining branches if needed
+  #   6. Clean up:          git worktree remove ../issue-NNN-slug
+  #                         cmux close-workspace --workspace "workspace:N"
+  # ───────────────────────────────────────────────────────────────────────
+  parallelization:
+    rule: "Use cmux (preferred) or tmux to parallelize independent issues across worktrees"
+    orchestration_tool: "cmux"
+    fallback: "tmux"
+    pattern: "One worktree + one cmux workspace + one agent instance per issue"
+    when:
+      - "Multiple independent issues with no shared files"
+      - "Batch of small fixes needing separate PRs"
+      - "Issues touching different areas of the codebase"
+    when_not:
+      - "Issues with dependencies (merge first, then start next)"
+      - "Issues modifying the same files (will conflict on merge)"
+      - "Complex design requiring human review between steps"
+    anti_pattern: "Do NOT use sub-agents for parallel branch work — use separate agent sessions via cmux"
+    commands:
+      create_worktree: "git worktree add ../issue-NNN-slug -b prefix/slug main"
+      open_workspace: "cmux /path/to/worktree"
+      launch_agent: 'cmux send --workspace "workspace:N" ''claude --dangerously-skip-permissions "prompt"'''
+      monitor: 'cmux read-screen --workspace "workspace:N" --lines 5'
+      cleanup_worktree: "git worktree remove ../issue-NNN-slug"
+      cleanup_workspace: 'cmux close-workspace --workspace "workspace:N"'
+
   workflow:
     branch_strategy: "worktree per branch from main"
     phase_commits:
@@ -537,6 +617,15 @@ git:
       - "RED: commit failing tests"
       - "GREEN: commit passing implementation"
       - "REFACTOR: commit clean architecture"
+
+  micro_commit_hooks:
+    purpose: "Advisory warnings to encourage smaller commits (all exit 0, never block)"
+    pre_push: "Warns when >10 uncommitted/untracked files (override: ATDD_MAX_UNCOMMITTED)"
+    pre_commit: "Warns when >20 staged files (override: ATDD_MAX_STAGED)"
+    claude_code:
+      template: "src/atdd/coach/templates/hooks/claude-pre-tool-use.sh"
+      install: "cp src/atdd/coach/templates/hooks/claude-pre-tool-use.sh .claude/hooks/pre_tool_use.sh"
+      behavior: "Reminds agent to commit when >5 files modified since last commit"
 
 # Release Gate (MANDATORY - session completion)
 # Every session MUST end with version bump + tag
