@@ -1,0 +1,120 @@
+version: "1.0"
+name: "Orchestration Convention"
+description: "Rules for parallel ATDD agent sessions launched via atdd orchestrate"
+
+# =============================================================================
+# Core principle: one issue → one worktree → one multiplexer workspace → one
+# independent agent session. No sub-agent delegation, no shared workspaces.
+# =============================================================================
+
+rules:
+  worktree_per_issue:
+    rule: "Every orchestrated issue MUST have its own git worktree"
+    anti_pattern: "Reusing a worktree across issues causes merge conflicts"
+    enforced_by: "atdd orchestrate (two-phase commit: create all worktrees before launch)"
+
+  one_agent_per_workspace:
+    rule: "Exactly one agent session per multiplexer workspace"
+    anti_pattern: "Sub-agent delegation shares context and cannot be monitored independently"
+    enforced_by: "atdd orchestrate launches one claude process per workspace"
+
+  wave_ordering:
+    rule: "Issues are grouped into waves via topological sort on their dependency DAG"
+    dependency_source: "Issue body → ## Scope → ### Dependencies section (first #NNN per line wins)"
+    fallback: "Closes/Fixes/Resolves #NNN references in body"
+    algorithm: "topological sort; wave N contains issues whose deps all resolve to waves < N"
+
+  dependency_wait:
+    rule: "A session in wave N MUST block until all wave N-1 PRs are merged"
+    mechanism: "Launch script includes a grep-based merge-check loop"
+    anti_pattern: "Polling gh pr list without merge-detection guard causes premature starts"
+
+  babysitter_required:
+    rule: "Every orchestrate run must have a babysitter (atdd babysit) monitoring the workspaces"
+    reason: "--dangerously-skip-permissions is ignored in cmux; prompts must be approved externally"
+    interval_default_seconds: 60
+    stale_warn_minutes: 15
+    stale_escalate_minutes: 30
+
+  micro_commit:
+    rule: "Orchestrated sessions inherit micro-commit discipline (see CLAUDE.md)"
+    max_unstaged_files: 5
+    frequency: "Commit after every completed sub-task"
+
+  stop_before_refactor:
+    rule: "Sessions stop before REFACTOR phase unless --autonomous flag is set"
+    reason: "REFACTOR decisions need human review; autonomous mode must be opted in per orchestrate invocation"
+    override: "atdd orchestrate --autonomous"
+
+# =============================================================================
+# Prompt approval policy (babysit)
+# =============================================================================
+
+prompt_approval:
+  approach: "Literal string match on tool name — no regex"
+  known_safe:
+    - "Read"
+    - "Grep"
+    - "Glob"
+    - "Edit"
+    - "git status"
+    - "git diff"
+    - "git log"
+  always_escalate:
+    - "Write"
+    - "Bash"          # command must be inspected; never auto-approve
+    - "rm"
+    - "git push --force"
+  rationale: "Conservative list. Any mutation beyond Edit requires human judgement."
+
+# =============================================================================
+# Policy violation patterns the babysitter watches for
+# =============================================================================
+
+violations:
+  atdd_hand_edit:
+    pattern: "Edit tool targeting .atdd/ paths"
+    action: "escalate — .atdd/ files are managed by atdd CLI, not hand-edited"
+  smoke_skip:
+    pattern: "Transition from GREEN directly to REFACTOR without SMOKE"
+    action: "escalate — SMOKE verification against real infra is mandatory"
+  hallucinated_state:
+    pattern: "Agent claims phase complete while grep gates still fail"
+    action: "escalate — agent is confused; require manual reset"
+
+# =============================================================================
+# Merge cascade policy
+# =============================================================================
+
+merge_cascade:
+  poll_interval_seconds: 30
+  per_pr_timeout_seconds: 1800  # 30 minutes
+  loop: "for each PR in wave order: update-branch → wait CI → merge"
+  on_conflict: "halt and report which PR needs manual resolution"
+  ci_check_command: "gh pr checks <pr> --required"
+
+# =============================================================================
+# Telemetry
+# =============================================================================
+
+telemetry:
+  log_file: ".atdd/orchestration-log.jsonl"
+  format: "JSON Lines, append-only, one line per event"
+  event_types:
+    - "screen_read"
+    - "auto_approve"
+    - "escalate"
+    - "violation"
+    - "session_launch"
+    - "session_stale"
+    - "session_complete"
+
+# =============================================================================
+# Multiplexer preference
+# =============================================================================
+
+multiplexer:
+  preferred: "cmux"
+  fallback: "tmux"
+  detection: "cmux --version first, then tmux -V"
+  rationale: "cmux workspace model matches ATDD's one-session-per-worktree pattern"
