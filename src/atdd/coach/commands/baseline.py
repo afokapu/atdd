@@ -155,6 +155,11 @@ def _contract_driven_http(repo_root: Path) -> Tuple[int, Sequence]:
     return analyze_contract_driven_http(repo_root)
 
 
+def _dead_code_typescript(repo_root: Path) -> Tuple[int, Sequence]:
+    from atdd.coder.validators.test_dead_code_typescript import scan_dead_code_typescript
+    return scan_dead_code_typescript(repo_root)
+
+
 def _duplication_detector(repo_root: Path) -> Tuple[int, Sequence]:
     from atdd.coder.validators.test_duplication_detector import scan_python_duplications
     return scan_python_duplications(repo_root)
@@ -469,6 +474,7 @@ VALIDATORS: Dict[str, ValidatorFn] = {
     "composition_completeness_supabase": _composition_supabase,
     "contract_driven_http": _contract_driven_http,
     "dead_code_python": _dead_code_python,
+    "dead_code_typescript": _dead_code_typescript,
     "maintainability_index": _maintainability_index,
     "code_comments": _code_comments,
     # --- Category A: quality/style (ratcheted in #250) ---
