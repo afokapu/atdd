@@ -177,19 +177,40 @@ def test_issue_train_references_valid_train_id(github_issues, github_project_fie
 # E010: Body Section Validation (GitHub Issues)
 # ============================================================================
 
-REQUIRED_BODY_SECTIONS = [
-    "## Issue Metadata",
-    "## Scope",
-    "## Context",
-    "## Architecture",
-    "## Phases",
-    "## Validation",
-    "## Decisions",
-    "## Activity Log",
-    "## Artifacts",
-    "## Release Gate",
-    "## Notes",
-]
+PARENT_ISSUE_TEMPLATE = (
+    REPO_ROOT / "src/atdd/coach/templates/PARENT-ISSUE-TEMPLATE.md"
+)
+
+
+def load_required_sections():
+    """
+    Parse PARENT-ISSUE-TEMPLATE.md to derive the list of required H2 sections.
+
+    This is the single source of truth — updating the template file
+    automatically updates what both the E010 validator and the CLI
+    `atdd issue <N> --check` enforce.
+
+    Returns: list of required H2 headings (e.g. ["## Issue Metadata", ...])
+    """
+    if not PARENT_ISSUE_TEMPLATE.exists():
+        return []
+    sections = []
+    for line in PARENT_ISSUE_TEMPLATE.read_text().splitlines():
+        if line.startswith("## ") and not line.startswith("### "):
+            sections.append(line.strip())
+    return sections
+
+
+def check_body_sections(body):
+    """
+    Reusable compliance check — callable from CLI (`atdd issue <N> --check`)
+    and from the E010 validator.
+
+    Returns: list of missing section headings (empty list = compliant).
+    """
+    required = load_required_sections()
+    body = body or ""
+    return [s for s in required if s not in body]
 
 
 def test_issue_body_has_required_sections(github_issues):
@@ -198,17 +219,22 @@ def test_issue_body_has_required_sections(github_issues):
 
     Given: Open issues in the GitHub Project (label: atdd-issue)
     When: Checking the issue body for required H2 headings
-    Then: All 11 sections from PARENT-ISSUE-TEMPLATE.md should be present
+    Then: All sections derived from PARENT-ISSUE-TEMPLATE.md should be present
           Pre-E010 issues emit warnings instead of hard failures
 
     E010 acceptance criteria: `atdd validate coach` warns if issue body is missing sections.
-    """
-    incomplete = []
 
+    Template is the single source of truth — parsed at runtime from
+    src/atdd/coach/templates/PARENT-ISSUE-TEMPLATE.md. Updating the
+    template automatically updates this validator.
+    """
+    if not load_required_sections():
+        pytest.skip("PARENT-ISSUE-TEMPLATE.md not found")
+
+    incomplete = []
     for issue in github_issues:
         num = issue["number"]
-        body = issue.get("body", "") or ""
-        missing = [s for s in REQUIRED_BODY_SECTIONS if s not in body]
+        missing = check_body_sections(issue.get("body", ""))
         if missing:
             incomplete.append(
                 f"#{num}: missing {len(missing)} section(s): {', '.join(missing)}"
