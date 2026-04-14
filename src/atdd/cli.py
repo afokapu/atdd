@@ -862,13 +862,22 @@ Phase descriptions:
     # ----- atdd upgrade -----
     upgrade_parser = subparsers.add_parser(
         "upgrade",
-        help="Show what changed and run sync + init --force",
-        description="Upgrade ATDD infrastructure after pip install --upgrade atdd"
+        help="Check PyPI, pip-upgrade if needed, then sync + init --force",
+        description=(
+            "Query PyPI for a newer atdd release and run "
+            "pip install --upgrade if available; otherwise sync the consumer repo "
+            "with the installed version."
+        ),
     )
     upgrade_parser.add_argument(
         "--yes", "-y",
         action="store_true",
         help="Skip confirmation prompts"
+    )
+    upgrade_parser.add_argument(
+        "--no-pypi",
+        action="store_true",
+        help="Skip the live PyPI check (use local stamp only)",
     )
 
     # ----- atdd baseline {update,show} -----
@@ -1502,7 +1511,10 @@ Phase descriptions:
 
     elif args.command == "upgrade":
         upgrader = Upgrader()
-        return upgrader.run(yes=args.yes)
+        return upgrader.run(
+            yes=args.yes,
+            no_pypi=getattr(args, "no_pypi", False),
+        )
 
     # atdd baseline {update,show}
     elif args.command == "baseline":
