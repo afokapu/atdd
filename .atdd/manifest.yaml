@@ -17,3 +17,11 @@ sessions:
   status: INIT
   created: '2026-04-14'
   archived: null
+- id: '282'
+  slug: fix-issue-transition-side-effects
+  file: null
+  issue_number: 282
+  type: refactor
+  status: INIT
+  created: '2026-04-14'
+  archived: null
