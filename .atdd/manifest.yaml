@@ -1,11 +1,19 @@
 version: '2.0'
 created: '2026-03-31'
 sessions:
-  - id: '270'
-    slug: enforce-train-composition
-    file: null
-    issue_number: 270
-    type: implementation
-    status: INIT
-    created: '2026-04-14'
-    archived: null
+- id: '270'
+  slug: enforce-train-composition
+  file: null
+  issue_number: 270
+  type: implementation
+  status: INIT
+  created: '2026-04-14'
+  archived: null
+- id: '280'
+  slug: enforce-orchestrate-ready-lifecycle
+  file: null
+  issue_number: 280
+  type: implementation
+  status: INIT
+  created: '2026-04-14'
+  archived: null
