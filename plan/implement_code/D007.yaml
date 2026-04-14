@@ -1,0 +1,33 @@
+urn: "wmbt:implement-code:D007"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "unverified-wagon-trains-ts-export-contracts"
+context_clarifier: "when a wagon's trains.ts must expose presentation registration symbols required by the frontend train runner"
+lens: "functional.effectiveness"
+statement: "minimize quantity of unverified-wagon-trains-ts-export-contracts when a wagon's trains.ts must expose presentation registration symbols required by the frontend train runner"
+acceptances:
+  - identity:
+      urn: "acc:implement-code:D007-UNIT-001-wagon-trains-export-shape"
+      id: "AC-UNIT-001"
+      purpose: "Validator detects wagon trains.ts files missing required export symbols"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Wagon directories matching wagon_trains_export_shape.wagon_glob"
+        - "A list of required_exports declared in .atdd/config.yaml"
+    when:
+      abstract: "Running atdd validate coder with wagon_trains_export_shape configured"
+    then:
+      abstract:
+        - "Any wagon missing trains.ts, or exporting only a subset of required_exports, produces a hard failure with SPEC-CODER-TRAIN-0002 error block"
+        - "Absent configuration key produces a clean pytest skip with no failure"
+    signal:
+      metric: "wagon_trains_export_violation_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-04-14"
