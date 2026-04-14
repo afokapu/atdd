@@ -154,3 +154,62 @@ def require_repo_root(start: Optional[Path] = None) -> Path:
         f"No ATDD project markers found searching from {start_path}. "
         "Expected one of: .atdd/manifest.yaml, plan/ + contracts/, or .git/"
     )
+
+
+# Path parts that indicate a pip-installed / vendored location. Even if the
+# consumer's `.venv` sits inside their repo root, `atdd.__file__` under any of
+# these is a consumer install, NOT the atdd source repo.
+_VENDORED_PATH_MARKERS = frozenset(
+    {
+        "site-packages",
+        ".venv",
+        "venv",
+        ".tox",
+        "__pypackages__",
+        "node_modules",
+    }
+)
+
+
+def is_atdd_source_repo() -> bool:
+    """
+    Return True only when running inside the atdd source repo
+    (editable / source checkout), False in any consumer install.
+
+    Dogfood tests — tests that assert behavior against fixtures shipped
+    inside `src/atdd/**/validators/fixtures/` — must call this and
+    `pytest.skip(...)` when it returns False. Otherwise those tests leak
+    into consumer `atdd validate coder` runs and fail with assertion
+    errors against toolkit fixture data (see #272, #276).
+    """
+    try:
+        import atdd  # local import to avoid cycles at module import time
+
+        pkg_dir = Path(atdd.__file__).resolve().parent
+    except (ImportError, AttributeError, TypeError):
+        return False
+
+    if any(part in _VENDORED_PATH_MARKERS for part in pkg_dir.parts):
+        return False
+
+    try:
+        repo_root = find_repo_root().resolve()
+    except RuntimeError:
+        return False
+
+    try:
+        pkg_dir.relative_to(repo_root)
+    except ValueError:
+        return False
+
+    # Source repo always has a top-level pyproject.toml whose [project].name
+    # is "atdd" — the strongest signal that we are actually in the toolkit
+    # checkout and not in a consumer repo that happens to vendor atdd.
+    pyproject = repo_root / "pyproject.toml"
+    if not pyproject.is_file():
+        return False
+    try:
+        text = pyproject.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return 'name = "atdd"' in text

@@ -24,7 +24,7 @@ import atdd
 import pytest
 import yaml
 
-from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.repo import find_repo_root, is_atdd_source_repo
 from atdd.coder.utils.python_file_walker import walk_consumer_python_files
 
 
@@ -698,6 +698,8 @@ def test_composition_completeness_python_fixture_passes_for_complete_and_partial
     When: Analyzing composition completeness
     Then: No violations are reported
     """
+    if not is_atdd_source_repo():
+        pytest.skip("fixture-based dogfood test — runs only inside the atdd source repo (#276)")
     violations = analyze_python_repo(FIXTURE_ROOT / "python_pass")
     assert_no_violations(violations)
 
@@ -711,6 +713,8 @@ def test_composition_completeness_python_fixture_detects_missing_setter_call():
     When: Analyzing composition completeness
     Then: The composition root is reported as missing presentation reachability
     """
+    if not is_atdd_source_repo():
+        pytest.skip("fixture-based dogfood test — runs only inside the atdd source repo (#276)")
     violations = analyze_python_repo(FIXTURE_ROOT / "python_fail_setter")
     assert len(violations) == 1, "expected one composition root violation"
     violation = violations[0]
@@ -728,6 +732,8 @@ def test_composition_completeness_typescript_fixture_detects_cameo_and_import_ty
     When: Analyzing composition completeness
     Then: Application layer violations are reported for both unwired hooks
     """
+    if not is_atdd_source_repo():
+        pytest.skip("fixture-based dogfood test — runs only inside the atdd source repo (#276)")
     violations = analyze_typescript_repo(FIXTURE_ROOT / "typescript_repo")
     violation_map = {(item.feature, item.file): item for item in violations}
 
@@ -750,6 +756,8 @@ def test_composition_completeness_typescript_fixture_accepts_barrels_and_partial
     When: Analyzing composition completeness
     Then: Barrel-consumed hooks pass and partial-feature integration is skipped
     """
+    if not is_atdd_source_repo():
+        pytest.skip("fixture-based dogfood test — runs only inside the atdd source repo (#276)")
     violations = analyze_typescript_repo(FIXTURE_ROOT / "typescript_repo")
     violated_files = {item.file for item in violations}
 
