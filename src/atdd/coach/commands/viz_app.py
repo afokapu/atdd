@@ -25,7 +25,7 @@ _src_root = str(Path(__file__).resolve().parents[3])
 if _src_root not in sys.path:
     sys.path.insert(0, _src_root)
 
-from atdd.coach.utils.graph.graph_builder import GraphBuilder
+from atdd.coach.utils.graph.graph_builder import EdgeType, GraphBuilder
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -66,6 +66,31 @@ EDGE_STYLES_MAP = {
     "implements": "dotted",
     "references": "dotted",
     "tested_by": "dashed",
+    # #287: ordered wagon→wagon handoff inside a train's sequence[].
+    # Rendered as a solid directed arrow in Journey mode; suppressed
+    # from Structural mode via edge_type_exclude.
+    "train_step": "solid",
+}
+
+# #287: edge types that Structural mode hides by default. Journey mode
+# clears this filter so TRAIN_STEP handoffs are visible.
+STRUCTURAL_MODE_EDGE_EXCLUDE: frozenset[EdgeType] = frozenset({EdgeType.TRAIN_STEP})
+
+# Category → color for TRAIN_STEP edge labels in Journey mode.
+# Matches the train_id naming convention {theme}{category}{variation}:
+# 0=nominal, 1=error, 2=alternate, 3=exception.
+TRAIN_CATEGORY_COLORS = {
+    "nominal":   "#27AE60",
+    "error":     "#E74C3C",
+    "alternate": "#E67E22",
+    "exception": "#8E44AD",
+}
+
+TRAIN_CATEGORY_BADGES = {
+    "nominal":   "🟢",
+    "error":     "🔴",
+    "alternate": "🟡",
+    "exception": "🟣",
 }
 
 FALLBACK_COLOR = "#95A5A6"
@@ -87,12 +112,33 @@ def load_graph(
     root_urn: str | None,
     max_depth: int,
     families: tuple[str, ...] | None,
+    exclude_edge_types: tuple[str, ...] = (),
 ) -> dict:
+    """
+    Build and serialize the URN traceability graph.
+
+    Args:
+        repo_root: Absolute path to the repo root.
+        root_urn: Optional URN to root a subgraph at.
+        max_depth: Traversal depth (-1 = unlimited).
+        families: Optional tuple of families to include.
+        exclude_edge_types: Tuple of edge-type string values to drop from
+            the subgraph (e.g. ``("train_step",)`` for Structural mode).
+            Applied only when ``root_urn`` is set — a full-graph build
+            always returns every edge. The argument is a tuple of strings
+            (not a set of EdgeType) so Streamlit's cache can hash it.
+    """
     builder = GraphBuilder(Path(repo_root))
     family_list = list(families) if families else None
 
+    exclude: set[EdgeType] | None = None
+    if exclude_edge_types:
+        exclude = {EdgeType(v) for v in exclude_edge_types}
+
     if root_urn:
-        graph = builder.build_from_root(root_urn, max_depth, family_list)
+        graph = builder.build_from_root(
+            root_urn, max_depth, family_list, edge_type_exclude=exclude
+        )
     else:
         graph = builder.build(family_list)
 
@@ -201,26 +247,106 @@ def main():
     with st.sidebar:
         st.header("Controls")
 
-        root_urn = st.text_input(
-            "Root URN (subgraph)",
-            value=env_root_urn or "",
-            placeholder="e.g. wagon:my-wagon",
+        # #287: view mode toggle. Structural is today's behavior and stays
+        # the default — journey mode is opt-in.
+        mode = st.radio(
+            "View mode",
+            options=["Structural", "Journey"],
+            index=0,
+            horizontal=True,
+            help=(
+                "Structural: full URN graph minus per-train handoffs. "
+                "Journey: one chosen train rendered as an ordered pipeline."
+            ),
         )
-        root_urn = root_urn.strip() or None
 
-        depth = st.number_input(
-            "Depth (-1 = unlimited)",
-            min_value=-1,
-            value=env_depth,
-            step=1,
-        )
+        if mode == "Journey":
+            # Discover trains from the full graph (no root, no exclude) so
+            # the dropdown is populated even before a selection is made.
+            _journey_discovery = load_graph(
+                repo_root,
+                None,
+                env_depth,
+                tuple(env_families) if env_families else None,
+                (),
+            )
+            train_nodes = [
+                n for n in _journey_discovery.get("nodes", [])
+                if n.get("family") == "train"
+            ]
 
-        # Load graph to discover available families
+            if not train_nodes:
+                st.warning(
+                    "Journey mode needs at least one `train:*` node in the graph. "
+                    "No trains were discovered — falling back to Structural."
+                )
+                mode = "Structural"
+                selected_train_urn = None
+            else:
+                # Build dropdown entries as "{badge} {train_id} — {title}"
+                # so the user can scan by scenario category (🟢 🔴 🟡 🟣).
+                def _train_entry_label(node: dict) -> str:
+                    urn = node["urn"]
+                    train_id = urn.split(":", 1)[1] if ":" in urn else urn
+                    category_digit = train_id[1] if len(train_id) > 1 else "0"
+                    category = {
+                        "0": "nominal",
+                        "1": "error",
+                        "2": "alternate",
+                        "3": "exception",
+                    }.get(category_digit, "nominal")
+                    badge = TRAIN_CATEGORY_BADGES.get(category, "⚪")
+                    title = (node.get("label") or "").strip() or train_id
+                    return f"{badge} {train_id} — {title}"
+
+                train_options = sorted(train_nodes, key=lambda n: n["urn"])
+                labels = [_train_entry_label(n) for n in train_options]
+                urn_by_label = {lbl: tn["urn"] for lbl, tn in zip(labels, train_options)}
+
+                selected_label = st.selectbox(
+                    "Train",
+                    options=labels,
+                    index=0,
+                    help="Choose a train to render its wagon pipeline.",
+                )
+                selected_train_urn = urn_by_label[selected_label]
+
+            root_urn = selected_train_urn
+            depth = -1
+            st.caption(
+                f"Journey mode — rooted at `{selected_train_urn}` (depth = unlimited)."
+                if selected_train_urn
+                else "Journey mode — waiting for a train selection."
+            )
+        else:
+            selected_train_urn = None
+            root_urn = st.text_input(
+                "Root URN (subgraph)",
+                value=env_root_urn or "",
+                placeholder="e.g. wagon:my-wagon",
+            )
+            root_urn = root_urn.strip() or None
+
+            depth = st.number_input(
+                "Depth (-1 = unlimited)",
+                min_value=-1,
+                value=env_depth,
+                step=1,
+            )
+
+        # Load the graph. Structural mode hides TRAIN_STEP via the exclude
+        # tuple; Journey mode passes no exclude so handoffs are rendered.
+        if mode == "Structural":
+            exclude_edges = tuple(et.value for et in STRUCTURAL_MODE_EDGE_EXCLUDE)
+        else:
+            exclude_edges = ()
+
         graph_data = load_graph(
             repo_root,
             root_urn,
             depth,
             tuple(env_families) if env_families else None,
+            exclude_edges,
         )
 
         available_families = sorted(
