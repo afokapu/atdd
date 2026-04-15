@@ -339,6 +339,130 @@ class IssueManager:
             f"- Issue created via `atdd new {slug}`\n"
         )
 
+    def _discover_wmbts_from_feature(
+        self,
+        wagon: str,
+        feature_urn: str,
+    ) -> List[Dict[str, Any]]:
+        """Discover WMBTs by following a feature URN to its WMBT YAML files.
+
+        Unlike :meth:`_discover_wmbts`, which expects inline WMBT dicts under
+        ``wmbts:`` in the feature YAML, this resolver walks the
+        ``wagon:<id>:<WMBT>`` URN list most features actually contain and
+        loads each WMBT YAML from ``plan/<wagon_snake>/<WMBT>.yaml``.
+        """
+        plan_dir = self.target_dir / "plan"
+        wagon_snake = wagon.replace("-", "_")
+        wagon_dir = plan_dir / wagon_snake
+
+        feature_slug = feature_urn.split(":")[-1]
+        feature_file = wagon_dir / "features" / f"{feature_slug.replace('-', '_')}.yaml"
+
+        if not feature_file.exists():
+            return []
+
+        with open(feature_file) as f:
+            feature_data = yaml.safe_load(f) or {}
+
+        wmbts: List[Dict[str, Any]] = []
+        for urn in feature_data.get("wmbts", []):
+            if not isinstance(urn, str) or not urn.startswith("wmbt:"):
+                continue
+            parts = urn.split(":")
+            if len(parts) != 3:
+                continue
+            wmbt_id = parts[2]
+            wmbt_path = wagon_dir / f"{wmbt_id}.yaml"
+            if not wmbt_path.exists():
+                continue
+            with open(wmbt_path) as f:
+                wmbt_data = yaml.safe_load(f) or {}
+            statement = wmbt_data.get("statement", "")
+            acceptances = []
+            for a in wmbt_data.get("acceptances", []):
+                identity = a.get("identity", {}) if isinstance(a, dict) else {}
+                acceptances.append(identity.get("purpose") or identity.get("urn") or "")
+            wmbts.append({"id": wmbt_id, "statement": statement, "acceptances": acceptances})
+
+        return wmbts
+
+    def sync_wmbts(self, issue_number: int) -> int:
+        """Backfill GitHub WMBT sub-issues for a parent issue from plan YAMLs.
+
+        Idempotent: sub-issues whose titles already contain ``wmbt:<wagon>:<id>``
+        are left alone. Missing ones are created and linked to the parent.
+
+        Manifest requirement: the session entry for ``issue_number`` must have
+        ``wagon`` and ``feature`` fields so the backfill can resolve the feature
+        YAML and its WMBT URN list. This is intentional — sync is only safe
+        for issues whose plan artifacts are known.
+
+        Returns the number of sub-issues created, or 1 on a hard error.
+        """
+        manifest = self._load_manifest() if self.manifest_file.exists() else {}
+        sessions = manifest.get("sessions") or []
+        entry = next(
+            (s for s in sessions if s.get("issue_number") == issue_number),
+            None,
+        )
+        if entry is None:
+            print(f"Error: Issue #{issue_number} not found in manifest.")
+            return 1
+
+        wagon = entry.get("wagon")
+        feature_urn = entry.get("feature")
+        if not wagon or not feature_urn:
+            print(
+                f"Error: Issue #{issue_number} session entry missing 'wagon' or "
+                f"'feature' fields. sync_wmbts needs both to resolve plan artifacts."
+            )
+            return 1
+
+        wmbts = self._discover_wmbts_from_feature(wagon, feature_urn)
+        if not wmbts:
+            print(
+                f"No WMBTs discovered for feature {feature_urn}. "
+                f"Check plan/{wagon.replace('-', '_')}/features/."
+            )
+            return 0
+
+        client = self._get_github_client()
+        existing_subs = client.list_sub_issues(issue_number)
+        existing_ids = set()
+        for sub in existing_subs:
+            title = sub.get("title", "")
+            if f":{wagon}:" not in title:
+                continue
+            for wmbt in wmbts:
+                if f":{wmbt['id']}" in title:
+                    existing_ids.add(wmbt["id"])
+
+        created = 0
+        for wmbt in wmbts:
+            if wmbt["id"] in existing_ids:
+                continue
+            sub_title = f"wmbt:{wagon}:{wmbt['id']} — {wmbt['statement']}"
+            sub_body = self._render_wmbt_body(
+                wagon=wagon,
+                wmbt_id=wmbt["id"],
+                statement=wmbt["statement"],
+                acceptances=wmbt["acceptances"],
+                test_file=f"src/atdd/coach/commands/tests/test_{wmbt['id']}_{entry.get('slug', wagon)}.py",
+            )
+            sub_number = client.create_issue(
+                title=sub_title,
+                body=sub_body,
+                labels=["atdd-wmbt"],
+            )
+            client.add_sub_issue(issue_number, sub_number)
+            created += 1
+
+        if created:
+            print(f"sync_wmbts: created {created} sub-issue(s) for #{issue_number}")
+        else:
+            print(f"sync_wmbts: #{issue_number} already has all WMBT sub-issues")
+        return created
+
     def _discover_wmbts(self, wagon: str) -> List[Dict[str, Any]]:
         """Discover WMBTs from plan YAML for a wagon."""
         plan_dir = self.target_dir / "plan"
