@@ -144,6 +144,26 @@ class IssueManager:
         with open(self.manifest_file, "w") as f:
             yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
 
+    def _update_manifest_status(self, issue_number: int, status: str) -> None:
+        """Mirror a successful GitHub status transition into the local manifest.
+
+        Matches the session entry by issue_number and rewrites its ``status`` field.
+        A missing manifest or a manifest without a matching session is a no-op —
+        transitions for unregistered issues are valid (e.g. issues created outside
+        the atdd CLI) and must not crash the lifecycle.
+        """
+        if not self.manifest_file.exists():
+            return
+        manifest = self._load_manifest()
+        sessions = manifest.get("sessions") or []
+        mutated = False
+        for entry in sessions:
+            if entry.get("issue_number") == issue_number:
+                entry["status"] = status
+                mutated = True
+        if mutated:
+            self._save_manifest(manifest)
+
     def _slugify(self, text: str) -> str:
         """Convert text to kebab-case slug."""
         # Convert to lowercase
@@ -1369,6 +1389,9 @@ class IssueManager:
                     client.set_project_field_select(
                         item_id, fields["ATDD Status"]["id"], options[status]
                     )
+            # R001: mirror the transition into the local manifest so readers of
+            # .atdd/manifest.yaml do not diverge from GitHub state.
+            self._update_manifest_status(issue_number, status)
             updated.append(f"status: {status}")
 
         # Phase (Planner/Tester/Coder)

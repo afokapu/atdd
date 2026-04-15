@@ -393,8 +393,31 @@ class IssueLifecycle:
             if arc_rc != 0:
                 print(f"Warning: Archive step returned {arc_rc} after COMPLETE transition.")
 
-        # Re-enter to show updated state
-        return self.enter(issue_number)
+        # R002: re-enter in display-only mode so the post-transition path does
+        # not attempt to create a worktree branch (and therefore cannot fail on
+        # the branch-creation layout check). The transition itself already
+        # landed — all the re-enter step needs to do is print updated state.
+        return self._reenter_display_only(issue_number)
+
+    def _reenter_display_only(self, issue_number: int) -> int:
+        """Print the current state of an issue without touching worktrees.
+
+        Used as the tail step of transition() so a successful GitHub update is
+        never masked by a misleading ``Repository layout is 'worktree', expected
+        'worktree-ready'`` error coming from the branch-creation path.
+        """
+        issue = self._fetch_issue(issue_number)
+        if not issue:
+            print(f"Error: Could not fetch issue #{issue_number}")
+            return 1
+
+        labels = issue.get("labels", [])
+        status = self._get_status_from_labels(labels)
+        slug, prefix = self._get_slug_and_prefix(issue)
+        sub_issues = self._fetch_sub_issues(issue_number, slug)
+
+        self._print_context(issue, status, sub_issues, slug, prefix, None)
+        return 0
 
     def close_wmbt(self, issue_number: int, wmbt_id: str, force: bool = False) -> int:
         """Close a WMBT sub-issue, then re-enter to show updated state.
