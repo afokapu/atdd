@@ -33,3 +33,11 @@ sessions:
   status: INIT
   created: '2026-04-15'
   archived: null
+- id: '287'
+  slug: train-step-journey-mode
+  file: null
+  issue_number: 287
+  type: implementation
+  status: INIT
+  created: '2026-04-15'
+  archived: null
