@@ -42,6 +42,7 @@ class EdgeType(Enum):
     IMPLEMENTS = "implements"  # Implementation relationship (component implements feature)
     REFERENCES = "references"  # General reference relationship
     INCLUDES = "includes"  # Train includes wagons (many-to-many)
+    TRAIN_STEP = "train_step"  # Ordered wagon→wagon handoff inside a train's sequence[] (#287)
     TESTED_BY = "tested_by"  # Verification relationship (acc/component tested by test)
 
 
@@ -230,13 +231,25 @@ class TraceabilityGraph:
             edges = [e for e in edges if e.edge_type == edge_type]
         return [self._nodes[e.source_urn] for e in edges if e.source_urn in self._nodes]
 
-    def get_subgraph(self, root_urn: str, max_depth: int = -1) -> "TraceabilityGraph":
+    def get_subgraph(
+        self,
+        root_urn: str,
+        max_depth: int = -1,
+        edge_type_exclude: Optional[Set[EdgeType]] = None,
+    ) -> "TraceabilityGraph":
         """
         Extract a subgraph starting from a root node.
 
         Args:
             root_urn: Starting node URN
             max_depth: Maximum traversal depth (-1 for unlimited)
+            edge_type_exclude: Optional set of EdgeType values to skip during
+                traversal. Edges of these types are neither copied into the
+                subgraph nor followed to their targets. Structural consumers
+                pass ``{EdgeType.TRAIN_STEP}`` to prevent wagon-rooted
+                subgraphs from leaking cross-train wagons via shared
+                handoffs (#287). Defaults to None (existing behavior:
+                traverse every edge).
 
         Returns:
             New graph containing only reachable nodes and edges
@@ -244,6 +257,7 @@ class TraceabilityGraph:
         subgraph = TraceabilityGraph()
         visited: Set[str] = set()
         queue: List[Tuple[str, int]] = [(root_urn, 0)]
+        excluded = edge_type_exclude or set()
 
         while queue:
             urn, depth = queue.pop(0)
@@ -259,6 +273,8 @@ class TraceabilityGraph:
                 subgraph.add_node(node)
 
             for edge in self.get_outgoing_edges(urn):
+                if edge.edge_type in excluded:
+                    continue
                 subgraph.add_edge(edge)
                 if edge.target_urn not in visited:
                     queue.append((edge.target_urn, depth + 1))
@@ -1057,6 +1073,57 @@ class GraphBuilder:
                             edge_type=EdgeType.INCLUDES,
                         )
                     )
+
+                # TRAIN_STEP edges (#287): one directed wagon→wagon edge per
+                # handoff in the train's sequence[]. A "handoff" is a
+                # sequence[] entry where `from != to` and both are `wagon:*`
+                # URNs. Internal-phase steps (from == to) are skipped — they
+                # don't advance the pipeline and would clutter journey mode.
+                # Non-wagon participants (user:*, system:*) on either side
+                # are ignored — TRAIN_STEP is strictly wagon-to-wagon.
+                #
+                # Category is derived from train_id[1] per the naming
+                # convention `{theme}{category}{variation}-slug`:
+                #   0 = nominal, 1 = error, 2 = alternate, 3 = exception.
+                _TRAIN_CATEGORY_BY_DIGIT = {
+                    "0": "nominal",
+                    "1": "error",
+                    "2": "alternate",
+                    "3": "exception",
+                }
+                category = "nominal"
+                if isinstance(train_id, str) and len(train_id) > 1:
+                    category = _TRAIN_CATEGORY_BY_DIGIT.get(train_id[1], "nominal")
+
+                sequence = data.get("sequence") or []
+                if isinstance(sequence, list):
+                    ordered_steps = sorted(
+                        (s for s in sequence if isinstance(s, dict)),
+                        key=lambda s: s.get("step", 0),
+                    )
+                    for item in ordered_steps:
+                        frm = item.get("from") or ""
+                        to = item.get("to") or ""
+                        if not isinstance(frm, str) or not isinstance(to, str):
+                            continue
+                        if not frm.startswith("wagon:") or not to.startswith("wagon:"):
+                            continue
+                        if frm == to:
+                            continue  # internal-phase step
+                        graph.add_edge(
+                            URNEdge(
+                                source_urn=frm,
+                                target_urn=to,
+                                edge_type=EdgeType.TRAIN_STEP,
+                                metadata={
+                                    "train": train_urn,
+                                    "step": item.get("step", 0),
+                                    "intent": item.get("intent", ""),
+                                    "category": category,
+                                    "source": "train-sequence",
+                                },
+                            )
+                        )
 
             except Exception:
                 continue
