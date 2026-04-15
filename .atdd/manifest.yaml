@@ -25,3 +25,11 @@ sessions:
   status: INIT
   created: '2026-04-14'
   archived: null
+- id: '285'
+  slug: fix-train-graph-participants
+  file: null
+  issue_number: 285
+  type: implementation
+  status: INIT
+  created: '2026-04-15'
+  archived: null
