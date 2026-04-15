@@ -1403,7 +1403,11 @@ class GraphBuilder:
                 continue
 
     def build_from_root(
-        self, root_urn: str, max_depth: int = -1, families: Optional[List[str]] = None
+        self,
+        root_urn: str,
+        max_depth: int = -1,
+        families: Optional[List[str]] = None,
+        edge_type_exclude: Optional[Set[EdgeType]] = None,
     ) -> TraceabilityGraph:
         """
         Build a subgraph starting from a specific URN.
@@ -1412,9 +1416,16 @@ class GraphBuilder:
             root_urn: Starting URN for the subgraph
             max_depth: Maximum traversal depth (-1 for unlimited)
             families: Optional list of families to include
+            edge_type_exclude: Optional set of edge types to skip during
+                traversal. Pipes through to ``TraceabilityGraph.get_subgraph``.
+                Structural viz consumers pass ``{EdgeType.TRAIN_STEP}`` to
+                hide journey handoffs from the default wagon/feature view
+                (#287).
 
         Returns:
             Subgraph rooted at the specified URN
         """
         full_graph = self.build(families)
-        return full_graph.get_subgraph(root_urn, max_depth)
+        return full_graph.get_subgraph(
+            root_urn, max_depth, edge_type_exclude=edge_type_exclude
+        )
