@@ -1003,36 +1003,60 @@ class GraphBuilder:
                 if train_node and description:
                     train_node.metadata["description"] = description
 
-                # Train contains wagons
-                for wagon_ref in data.get("wagons", []):
+                # Train contains wagons.
+                #
+                # Issue #285: train.schema.json requires `participants` (a list
+                # of wagon:* / user:* / system:* URNs) with
+                # additionalProperties:false. The legacy `wagons` field is kept
+                # as a deprecated read-only fallback so pre-1.56 plan/ trees
+                # keep building correct graphs without migration.
+                #
+                # Rules:
+                #   - Merge `participants` + `wagons` into one stream.
+                #   - Filter to wagon-like entries (wagon:* URNs or plain slugs
+                #     from the legacy `wagons` field). user:* / system:* are
+                #     dropped here — they need a different edge type and are
+                #     tracked as a follow-up to #285.
+                #   - Dedupe target wagon URNs so mixed-field YAMLs emit
+                #     exactly one INCLUDES edge per wagon.
+                wagon_targets: list[str] = []
+                seen_targets: set[str] = set()
+
+                def _emit_wagon_target(slug: str) -> None:
+                    urn = slug if slug.startswith("wagon:") else f"wagon:{slug}"
+                    if urn in seen_targets:
+                        return
+                    seen_targets.add(urn)
+                    wagon_targets.append(urn)
+
+                for participant in data.get("participants", []) or []:
+                    if isinstance(participant, str):
+                        if participant.startswith("wagon:"):
+                            _emit_wagon_target(participant)
+                        # user:* / system:* participants are intentionally
+                        # ignored here — they are not INCLUDES targets.
+                        continue
+                    if isinstance(participant, dict):
+                        wagon_slug = participant.get("wagon") or participant.get("slug")
+                        if wagon_slug and isinstance(wagon_slug, str):
+                            _emit_wagon_target(wagon_slug)
+
+                for wagon_ref in data.get("wagons", []) or []:
                     if isinstance(wagon_ref, str):
-                        wagon_urn = (
-                            wagon_ref
-                            if wagon_ref.startswith("wagon:")
-                            else f"wagon:{wagon_ref}"
-                        )
-                        graph.add_edge(
-                            URNEdge(
-                                source_urn=train_urn,
-                                target_urn=wagon_urn,
-                                edge_type=EdgeType.INCLUDES,
-                            )
-                        )
+                        _emit_wagon_target(wagon_ref)
                     elif isinstance(wagon_ref, dict):
                         wagon_slug = wagon_ref.get("wagon") or wagon_ref.get("slug")
-                        if wagon_slug:
-                            wagon_urn = (
-                                wagon_slug
-                                if wagon_slug.startswith("wagon:")
-                                else f"wagon:{wagon_slug}"
-                            )
-                            graph.add_edge(
-                                URNEdge(
-                                    source_urn=train_urn,
-                                    target_urn=wagon_urn,
-                                    edge_type=EdgeType.INCLUDES,
-                                )
-                            )
+                        if wagon_slug and isinstance(wagon_slug, str):
+                            _emit_wagon_target(wagon_slug)
+
+                for wagon_urn in wagon_targets:
+                    graph.add_edge(
+                        URNEdge(
+                            source_urn=train_urn,
+                            target_urn=wagon_urn,
+                            edge_type=EdgeType.INCLUDES,
+                        )
+                    )
 
             except Exception:
                 continue
