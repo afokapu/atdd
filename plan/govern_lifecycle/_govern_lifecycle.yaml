@@ -28,5 +28,10 @@ consume:
   - name: commons:code:implementation
     from: wagon:implement-code
 
+features:
+  - urn: "feature:govern-lifecycle:fix-issue-transition-side-effects"
+
 wmbt:
-  total: 0
+  total: 2
+  R001: "minimize stale local manifest status after a successful GitHub transition"
+  R002: "minimize misleading layout errors during post-transition re-enter"

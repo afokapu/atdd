@@ -1,0 +1,34 @@
+urn: "wmbt:govern-lifecycle:R001"
+step: "resolve"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "stale-local-manifest-status-after-github-transition"
+context_clarifier: "when atdd issue <N> --status <X> updates GitHub labels and Project fields but leaves the local manifest session entry pointing at the previous status"
+lens: "functional.effectiveness"
+statement: "minimize quantity of stale-local-manifest-status-after-github-transition when atdd issue <N> --status <X> updates GitHub labels and Project fields but leaves the local manifest session entry pointing at the previous status"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:R001-UNIT-001-manifest-status-sync"
+      id: "AC-UNIT-001"
+      purpose: "Every successful GitHub status transition is mirrored in the local manifest session entry"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A manifest session entry for issue number N with status <initial>"
+        - "A successful atdd issue N --status <target> invocation"
+    when:
+      abstract: "The transition path finishes with exit code 0"
+    then:
+      abstract:
+        - "The session entry for N has status == <target>"
+        - "No other session entries are mutated"
+        - "The on-disk manifest is rewritten atomically"
+    signal:
+      metric: "manifest_status_drift_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-04-14"
