@@ -610,6 +610,18 @@ Phase descriptions:
         help="Run template compliance check and print structured feedback"
     )
     issue_parser.add_argument(
+        "--sync-wmbts",
+        action="store_true",
+        dest="sync_wmbts",
+        help="Backfill missing GitHub WMBT sub-issues from plan YAMLs (idempotent)"
+    )
+    issue_parser.add_argument(
+        "--orchestrate",
+        action="store_true",
+        dest="orchestrate",
+        help="Walk the dep graph from this issue and launch atdd orchestrate on the computed wave"
+    )
+    issue_parser.add_argument(
         "--force", "-f",
         action="store_true",
         help="Bypass gate/body checks (train still enforced)"
@@ -1412,6 +1424,16 @@ Phase descriptions:
 
         if getattr(args, 'check', False):
             return lifecycle.check(issue_number)
+
+        if getattr(args, 'sync_wmbts', False):
+            from atdd.coach.commands.issue import IssueManager
+            manager = IssueManager()
+            rc = manager.sync_wmbts(issue_number)
+            return 0 if rc >= 0 else 1
+
+        if getattr(args, 'orchestrate', False):
+            from atdd.coach.commands.orchestrate_wave_walk import orchestrate_from_issue
+            return orchestrate_from_issue(issue_number)
 
         if getattr(args, 'status', None):
             return lifecycle.transition(

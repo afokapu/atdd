@@ -1,0 +1,33 @@
+urn: "wmbt:govern-lifecycle:D003"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "undetected-template-drift-across-open-issues"
+context_clarifier: "when open issues on GitHub drift from the PARENT-ISSUE-TEMPLATE shape (missing metadata table, missing Dependencies heading, unfilled placeholders) and nothing runs a compliance check across the backlog"
+lens: "functional.effectiveness"
+statement: "minimize quantity of undetected-template-drift-across-open-issues when open issues on GitHub drift from the PARENT-ISSUE-TEMPLATE shape and nothing runs a compliance check across the backlog"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D003-UNIT-001-coach-validator-walks-open-issues"
+      id: "AC-UNIT-001"
+      purpose: "atdd validate coach fails when any open issue is template-non-compliant"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A repository with at least one open parent issue missing the Issue Metadata table or Dependencies heading"
+    when:
+      abstract: "atdd validate coach runs"
+    then:
+      abstract:
+        - "The validator reports the non-compliant issue number and missing sections"
+        - "The overall coach validation exits non-zero"
+        - "Compliant issues pass without noise"
+    signal:
+      metric: "open_issue_template_drift_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-04-14"

@@ -1,0 +1,35 @@
+urn: "wmbt:govern-lifecycle:D004"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "missed-parallelization-opportunities-at-issue-creation-time"
+context_clarifier: "when orchestrate requires a human to manually enumerate an issue set instead of walking the dep graph from a single entry point"
+lens: "functional.efficiency"
+statement: "minimize quantity of missed-parallelization-opportunities-at-issue-creation-time when orchestrate requires a human to manually enumerate an issue set instead of walking the dep graph from a single entry point"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D004-UNIT-001-orchestrate-from-single-issue"
+      id: "AC-UNIT-001"
+      purpose: "atdd issue <N> --orchestrate walks the recursive Dependencies graph and hands the computed wave to orchestrate"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An open issue N whose body contains a Dependencies section listing zero or more #NNN refs"
+        - "Each referenced issue has its own Dependencies section (possibly empty)"
+    when:
+      abstract: "atdd issue N --orchestrate is invoked"
+    then:
+      abstract:
+        - "The dep graph is walked starting at N, collecting the transitive closure"
+        - "The resulting issue set is passed to atdd orchestrate as the wave"
+        - "A cycle in the dep graph is detected and reported without crashing"
+        - "Issues that are already COMPLETE are excluded from the wave"
+    signal:
+      metric: "orchestrate_wave_computation_error_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-04-14"

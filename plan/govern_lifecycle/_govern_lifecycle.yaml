@@ -30,8 +30,13 @@ consume:
 
 features:
   - urn: "feature:govern-lifecycle:fix-issue-transition-side-effects"
+  - urn: "feature:govern-lifecycle:enforce-orchestrate-ready-lifecycle"
 
 wmbt:
-  total: 2
+  total: 6
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
+  D001: "minimize issues created without orchestrate-ready template body"
+  D002: "minimize parent issues without GitHub WMBT sub-issues when plan artifacts exist"
+  D003: "minimize undetected template drift across open issues"
+  D004: "minimize missed parallelization opportunities at issue creation time"
