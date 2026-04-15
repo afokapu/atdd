@@ -15,6 +15,7 @@ features:
   - urn: "feature:implement-code:dead-code-validator"
   - urn: "feature:implement-code:duplication-detector"
   - urn: "feature:implement-code:duplication-detector-typescript"
+  - urn: "feature:implement-code:enforce-train-composition"
 
 produce:
   - name: commons:code:implementation
@@ -29,7 +30,7 @@ consume:
     from: wagon:verify-contracts
 
 wmbt:
-  total: 7
+  total: 10
   D001: "minimize unreachable Python definitions via AST analysis"
   D002: "minimize false-positive dead-code reports for roots and re-exports"
   D003: "Detect N+1 query patterns via AST analysis of loop bodies"
@@ -37,3 +38,6 @@ wmbt:
   E001: "maximize import-graph reachability analysis effectiveness"
   D005: "minimize intra-layer TypeScript duplication via regex-based structural normalization"
   C001: "maximize convention compliance via dead-code.convention.yaml"
+  D006: "minimize undetected frontend composition root drift via source scan"
+  D007: "minimize unverified wagon trains.ts export contracts via source scan"
+  D008: "minimize unstructured train YAML render metadata via JSON Schema"

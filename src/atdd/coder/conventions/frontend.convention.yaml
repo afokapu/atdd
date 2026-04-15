@@ -589,6 +589,36 @@ frontend:
         spec_id: "SPEC-CODER-PAGE-0004"
         rule: "New routes must use TrainView, not direct page component imports"
         config: ".atdd/config.yaml → route_train_compliance"
+      frontend_composition_root:
+        spec_id: "SPEC-CODER-TRAIN-0001"
+        rule: "The configured composition root file must exist, declare the configured class, and implement every required method"
+        config: ".atdd/config.yaml → frontend_composition_root"
+        example_config:
+          enabled: true
+          path: "web/src/application/FrontendTrainRunner.ts"
+          class_name: "FrontendTrainRunner"
+          required_methods:
+            - "registerWagon"
+            - "runTrain"
+            - "resolveTemplate"
+      wagon_trains_export_shape:
+        spec_id: "SPEC-CODER-TRAIN-0002"
+        rule: "Each wagon directory matching wagon_glob must expose a trains.ts that exports every name in required_exports"
+        config: ".atdd/config.yaml → wagon_trains_export_shape"
+        example_config:
+          enabled: true
+          wagon_glob: "web/src/wagons/*"
+          required_exports:
+            - "runTrainStep"
+            - "HomeTrainView"
+      train_yaml_render_metadata:
+        spec_id: "SPEC-CODER-TRAIN-0003"
+        rule: "Every train YAML matching trains_glob must conform to the JSON Schema at schema_path (declares optional template and auth_required)"
+        config: ".atdd/config.yaml → train_yaml_render_metadata"
+        example_config:
+          enabled: true
+          schema_path: "contracts/train-render-metadata.schema.json"
+          trains_glob: "plan/_trains/**/*.yaml"
 
   ci_enforcement:
     checks:
