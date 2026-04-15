@@ -298,6 +298,11 @@ class IssueManager:
                 slug, issue_type, today, train_display, archetypes_display,
             )
 
+        # D001: seed Branch to `{prefix}/{slug}` based on issue_type so orchestrate
+        # can resolve the branch without a post-hoc body amendment.
+        prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+        branch_display = f"`{prefix}/{slug}`"
+
         template = self.parent_template_source.read_text()
         return template.format(
             today=today,
@@ -307,6 +312,7 @@ class IssueManager:
             archetypes_display=archetypes_display,
             data_model_section=data_model_section,
             gate_tests_rows=gate_tests_rows,
+            branch_display=branch_display,
         )
 
     def _render_parent_body_inline(
