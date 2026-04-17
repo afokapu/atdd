@@ -829,3 +829,55 @@ handoff:
     - green_tests: "All tests passing"
     - implementation: "Code satisfying tests"
     - coverage: ">= 80%"
+
+# =============================================================================
+# Mock Discipline — test doubles for production client classes
+# =============================================================================
+# Origin: #304 — fix(atdd): Github Client Mock Drift. IssueManager.sync_wmbts
+# called `client.list_sub_issues(...)`, a method that does not exist on the
+# real GitHubClient. Hand-rolled stubs invented the same name; every test
+# passed; production crashed with AttributeError.
+#
+# Rule: test doubles for any production client class MUST use a spec-enforced
+# construction so method-name drift is caught at mock construction / first
+# call, not at runtime in production.
+mock_discipline:
+  rule: "Test doubles for production client classes MUST be built with `create_autospec(cls, instance=True)` or subclass the real class. Hand-rolled stub classes are prohibited."
+
+  rationale: |
+    `unittest.mock.create_autospec(cls, instance=True)` raises AttributeError
+    at first call for any attribute not present on the real class.
+    Subclassing the real class inherits the real method signatures.
+    Plain stub classes silently accept any method name the caller
+    invents — exactly the silent-drift pattern that caused #304.
+
+  allowed_patterns:
+    - pattern: "create_autospec(ClientClass, instance=True)"
+      why: "idiomatic Python; fails at first unknown-attribute call"
+    - pattern: "class MyTestDouble(ClientClass): ..."
+      why: "explicit subclass inherits real signatures"
+
+  prohibited_patterns:
+    - pattern: "class FakeClientClass: ..."
+      why: "plain class — accepts any method name, hides drift"
+    - pattern: "class _StubClientClass: ..."
+      why: "plain class — same hazard as above"
+
+  scope:
+    production_clients:
+      - urn: "pkg:atdd.coach.github.GitHubClient"
+        validator: "src/atdd/coach/validators/test_github_client_mock_spec.py"
+        applies_to: "src/atdd/coach/commands/tests/**/*.py"
+
+  validator_contract:
+    command: "atdd validate coach"
+    fail_condition: "Any class declaration in scope whose name contains the
+      protected client's name (case-insensitive) without explicitly
+      subclassing the real class."
+    fix_flag: "atdd validate coach --fix"
+    fix_behavior: "Opt-in only; default run is read-only. See #304 Decision #5."
+
+  enforcement:
+    phase: "REFACTOR"
+    gate: "atdd validate coach"
+    hook: "pre-commit-advisory (warns on new hand-rolled stubs)"

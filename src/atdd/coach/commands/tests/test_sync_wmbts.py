@@ -6,55 +6,63 @@ WMBT covered:
 
 These tests exercise IssueManager.sync_wmbts() against a pure file-system
 fixture: a temp repo with a manifest session, a feature YAML, and WMBT
-YAMLs. A fake GitHub client captures calls so the tests never touch the
-network.
+YAMLs. The GitHub client double is built via
+``unittest.mock.create_autospec(GitHubClient, instance=True)`` so any
+method-name drift between the caller and the real class surface is caught
+at call time — this file previously used a hand-rolled stub and was part
+of the #304 root cause.
 
 Run: PYTHONPATH=src python3 -m pytest -q src/atdd/coach/commands/tests/test_sync_wmbts.py -v
 """
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
+from unittest.mock import create_autospec
 
 import pytest
 import yaml
 
+from atdd.coach.github import GitHubClient
+
 pytestmark = [pytest.mark.platform]
 
 
-class _FakeGithubClient:
-    """Minimal fake of atdd.coach.github.GitHubClient for sync_wmbts tests."""
+def _make_fake_client(
+    parent_number: int,
+    existing_sub_titles: Optional[List[str]] = None,
+):
+    """Build a spec-enforced ``GitHubClient`` double for sync_wmbts tests.
 
-    def __init__(
-        self,
-        parent_number: int,
-        existing_sub_titles: Optional[List[str]] = None,
-    ):
-        self.parent_number = parent_number
-        self.existing_sub_titles = list(existing_sub_titles or [])
-        self.created_issues: List[Dict[str, Any]] = []
-        self.sub_issue_links: List[tuple] = []
-        self._next_number = 9000
+    Returns an autospec mock. Sub-issue titles are wired onto
+    ``get_sub_issues.return_value``; ``create_issue`` receives a
+    side-effecting counter so the caller can observe distinct numbers per
+    creation; ``add_sub_issue`` is a plain recorder.
+    """
+    titles = list(existing_sub_titles or [])
+    client = create_autospec(GitHubClient, instance=True)
+    client.get_sub_issues.return_value = [
+        {"number": 8000 + i, "title": title}
+        for i, title in enumerate(titles)
+    ]
 
-    def list_sub_issues(self, parent_number: int) -> List[Dict[str, Any]]:
-        assert parent_number == self.parent_number
-        return [
-            {"number": 8000 + i, "title": title}
-            for i, title in enumerate(self.existing_sub_titles)
-        ]
+    state = {"next_number": 9000}
 
-    def create_issue(
-        self,
-        title: str,
-        body: str,
-        labels: Optional[List[str]] = None,
-    ) -> int:
-        self._next_number += 1
-        self.created_issues.append(
-            {"number": self._next_number, "title": title, "body": body, "labels": list(labels or [])}
-        )
-        return self._next_number
+    def _create_issue(title, body, labels=None):
+        state["next_number"] += 1
+        return state["next_number"]
 
-    def add_sub_issue(self, parent_number: int, sub_number: int) -> None:
-        self.sub_issue_links.append((parent_number, sub_number))
+    client.create_issue.side_effect = _create_issue
+    client.add_sub_issue.return_value = None
+    return client
+
+
+def _created_titles(client) -> List[str]:
+    """Return the titles passed through ``create_issue`` on the autospec."""
+    return [call.kwargs.get("title") or call.args[0] for call in client.create_issue.call_args_list]
+
+
+def _sub_issue_parents(client) -> List[int]:
+    """Return the parent-number arg each ``add_sub_issue`` call received."""
+    return [call.args[0] for call in client.add_sub_issue.call_args_list]
 
 
 def _write_atdd_config(atdd_dir: Path) -> None:
@@ -166,21 +174,21 @@ def test_d002_sync_wmbts_creates_missing_subissues(tmp_path, monkeypatch):
     from atdd.coach.commands.issue import IssueManager
 
     _build_fixture_repo(tmp_path)
-    fake_client = _FakeGithubClient(parent_number=270, existing_sub_titles=[])
+    client = _make_fake_client(parent_number=270, existing_sub_titles=[])
 
     manager = IssueManager(target_dir=tmp_path)
-    monkeypatch.setattr(manager, "_get_github_client", lambda: fake_client)
+    monkeypatch.setattr(manager, "_get_github_client", lambda: client)
 
     created = manager.sync_wmbts(270)
 
     assert created == 3
-    assert len(fake_client.created_issues) == 3
-    created_titles = {issue["title"] for issue in fake_client.created_issues}
-    assert any("D006" in t for t in created_titles)
-    assert any("D007" in t for t in created_titles)
-    assert any("D008" in t for t in created_titles)
-    assert len(fake_client.sub_issue_links) == 3
-    for parent, _sub in fake_client.sub_issue_links:
+    assert client.create_issue.call_count == 3
+    titles = _created_titles(client)
+    assert any("D006" in t for t in titles)
+    assert any("D007" in t for t in titles)
+    assert any("D008" in t for t in titles)
+    assert client.add_sub_issue.call_count == 3
+    for parent in _sub_issue_parents(client):
         assert parent == 270
 
 
@@ -196,16 +204,16 @@ def test_d002_sync_wmbts_is_idempotent_when_all_subissues_exist(tmp_path, monkey
         "wmbt:implement-code:D007 — minimize wagon export drift",
         "wmbt:implement-code:D008 — minimize train yaml drift",
     ]
-    fake_client = _FakeGithubClient(parent_number=270, existing_sub_titles=existing)
+    client = _make_fake_client(parent_number=270, existing_sub_titles=existing)
 
     manager = IssueManager(target_dir=tmp_path)
-    monkeypatch.setattr(manager, "_get_github_client", lambda: fake_client)
+    monkeypatch.setattr(manager, "_get_github_client", lambda: client)
 
     created = manager.sync_wmbts(270)
 
     assert created == 0
-    assert fake_client.created_issues == []
-    assert fake_client.sub_issue_links == []
+    client.create_issue.assert_not_called()
+    client.add_sub_issue.assert_not_called()
 
 
 def test_d002_sync_wmbts_creates_only_missing_when_some_exist(tmp_path, monkeypatch):
@@ -218,18 +226,18 @@ def test_d002_sync_wmbts_creates_only_missing_when_some_exist(tmp_path, monkeypa
     existing = [
         "wmbt:implement-code:D006 — minimize composition root drift",
     ]
-    fake_client = _FakeGithubClient(parent_number=270, existing_sub_titles=existing)
+    client = _make_fake_client(parent_number=270, existing_sub_titles=existing)
 
     manager = IssueManager(target_dir=tmp_path)
-    monkeypatch.setattr(manager, "_get_github_client", lambda: fake_client)
+    monkeypatch.setattr(manager, "_get_github_client", lambda: client)
 
     created = manager.sync_wmbts(270)
 
     assert created == 2
-    created_titles = {issue["title"] for issue in fake_client.created_issues}
-    assert not any("D006" in t for t in created_titles)
-    assert any("D007" in t for t in created_titles)
-    assert any("D008" in t for t in created_titles)
+    titles = _created_titles(client)
+    assert not any("D006" in t for t in titles)
+    assert any("D007" in t for t in titles)
+    assert any("D008" in t for t in titles)
 
 
 def test_d002_sync_wmbts_errors_when_issue_not_in_manifest(tmp_path, monkeypatch):
@@ -239,12 +247,12 @@ def test_d002_sync_wmbts_errors_when_issue_not_in_manifest(tmp_path, monkeypatch
     from atdd.coach.commands.issue import IssueManager
 
     _build_fixture_repo(tmp_path)
-    fake_client = _FakeGithubClient(parent_number=9999)
+    client = _make_fake_client(parent_number=9999)
 
     manager = IssueManager(target_dir=tmp_path)
-    monkeypatch.setattr(manager, "_get_github_client", lambda: fake_client)
+    monkeypatch.setattr(manager, "_get_github_client", lambda: client)
 
     rc = manager.sync_wmbts(9999)
 
     assert rc == -1 or rc == 1
-    assert fake_client.created_issues == []
+    client.create_issue.assert_not_called()

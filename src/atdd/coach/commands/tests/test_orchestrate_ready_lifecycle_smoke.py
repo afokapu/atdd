@@ -15,9 +15,12 @@ Run: PYTHONPATH=src python3 -m pytest -q src/atdd/coach/commands/tests/test_orch
 """
 from pathlib import Path
 from typing import Dict, List
+from unittest.mock import create_autospec
 
 import pytest
 import yaml
+
+from atdd.coach.github import GitHubClient
 
 pytestmark = [pytest.mark.platform]
 
@@ -129,23 +132,28 @@ def test_smoke_dep_walker_chains_through_rendered_bodies(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-class _FakeGithubClient:
-    def __init__(self, parent_number: int):
-        self.parent_number = parent_number
-        self.created_issues: List[Dict] = []
-        self.sub_issue_links: List[tuple] = []
-        self._n = 9000
+def _make_fake_github_client(parent_number: int):
+    """Build a spec-enforced ``GitHubClient`` double via ``create_autospec``.
 
-    def list_sub_issues(self, parent_number: int):
-        return []
+    Tests that previously referenced ``fake.created_issues`` now read the
+    autospec's ``create_issue.call_args_list``; ``fake.sub_issue_links``
+    becomes ``add_sub_issue.call_args_list``. Using autospec guards against
+    the exact mock-drift failure mode that originated #304 — any method
+    name not on the real ``GitHubClient`` raises ``AttributeError`` at
+    call time.
+    """
+    client = create_autospec(GitHubClient, instance=True)
+    client.get_sub_issues.return_value = []
 
-    def create_issue(self, title, body, labels=None):
-        self._n += 1
-        self.created_issues.append({"number": self._n, "title": title})
-        return self._n
+    state = {"n": 9000}
 
-    def add_sub_issue(self, parent_number, sub_number):
-        self.sub_issue_links.append((parent_number, sub_number))
+    def _create_issue(title, body, labels=None):
+        state["n"] += 1
+        return state["n"]
+
+    client.create_issue.side_effect = _create_issue
+    client.add_sub_issue.return_value = None
+    return client
 
 
 def test_smoke_sync_wmbts_creates_subissues_from_full_plan_fixture(tmp_path, monkeypatch):
@@ -209,16 +217,21 @@ def test_smoke_sync_wmbts_creates_subissues_from_full_plan_fixture(tmp_path, mon
     from atdd.coach.commands.issue import IssueManager
 
     manager = IssueManager(target_dir=tmp_path)
-    fake = _FakeGithubClient(parent_number=500)
+    fake = _make_fake_github_client(parent_number=500)
     monkeypatch.setattr(manager, "_get_github_client", lambda: fake)
 
     created = manager.sync_wmbts(500)
 
     assert created == 3
-    created_titles = {issue["title"] for issue in fake.created_issues}
+    created_titles = {
+        call.kwargs.get("title") or call.args[0]
+        for call in fake.create_issue.call_args_list
+    }
     assert all(
         any(f":{wid}" in title for title in created_titles)
         for wid in ("D001", "D002", "D003")
     )
-    assert len(fake.sub_issue_links) == 3
-    assert all(parent == 500 for parent, _ in fake.sub_issue_links)
+    assert fake.add_sub_issue.call_count == 3
+    assert all(
+        call.args[0] == 500 for call in fake.add_sub_issue.call_args_list
+    )
