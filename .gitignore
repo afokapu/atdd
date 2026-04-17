@@ -26,8 +26,10 @@ coverage.xml
 *.swp
 *.swo
 
-# ATDD cache
+# ATDD cache + agent-local state
 .atdd/cache/
+.atdd/orchestration-log.jsonl
+.scratch/
 
 # OS
 .DS_Store

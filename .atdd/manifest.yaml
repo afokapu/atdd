@@ -38,6 +38,22 @@ sessions:
   file: null
   issue_number: 287
   type: implementation
-  status: INIT
+  status: GREEN
   created: '2026-04-15'
+  archived: null
+- id: '296'
+  slug: enforce-issue-label-compliance
+  file: null
+  issue_number: 296
+  type: implementation
+  status: INIT
+  created: '2026-04-17'
+  archived: null
+- id: '304'
+  slug: fix-github-client-mock-drift
+  file: null
+  issue_number: 304
+  type: implementation
+  status: INIT
+  created: '2026-04-17'
   archived: null
