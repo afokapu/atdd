@@ -1,0 +1,36 @@
+urn: "wmbt:govern-lifecycle:C001"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "invalid-custom-theme-names-accepted-into-config"
+context_clarifier: "when a consumer declares themes in .atdd/config.yaml and the validator must confirm kebab-case shape, single digit keys in range 0-9, non-empty names, and no disallowed characters before the config is loaded"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of invalid-custom-theme-names-accepted-into-config when a consumer declares themes in .atdd/config.yaml and the validator must confirm kebab-case shape, single digit keys, and non-empty names"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C001-UNIT-001-custom-theme-validator"
+      id: "AC-UNIT-001"
+      purpose: "A dedicated validator enforces kebab-case pattern, digit-key range, and name constraints on the themes block"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "coach/validators/test_custom_theme_validation.py exists and runs as part of atdd validate coach"
+        - "Fixtures cover valid overrides, non-kebab-case names, multi-digit keys, empty names, and collision cases"
+    when:
+      abstract: "atdd validate coach runs against each fixture"
+    then:
+      abstract:
+        - "Valid themes pass with no errors"
+        - "Names violating ^[a-z][a-z0-9-]*$ are rejected with a pinpointed message"
+        - "Non-digit or multi-digit keys are rejected with a pinpointed message"
+        - "Empty name strings are rejected"
+        - "The validator exit code is non-zero on any violation"
+    signal:
+      metric: "invalid_theme_names_accepted_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-04-17"
