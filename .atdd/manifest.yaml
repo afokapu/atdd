@@ -41,7 +41,7 @@ sessions:
   file: null
   issue_number: 287
   type: implementation
-  status: GREEN
+  status: REFACTOR
   created: '2026-04-15'
   archived: null
 - id: '296'
