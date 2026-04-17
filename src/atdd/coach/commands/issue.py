@@ -433,7 +433,7 @@ class IssueManager:
             return 0
 
         client = self._get_github_client()
-        existing_subs = client.list_sub_issues(issue_number)
+        existing_subs = client.get_sub_issues(issue_number)
         existing_ids = set()
         for sub in existing_subs:
             title = sub.get("title", "")

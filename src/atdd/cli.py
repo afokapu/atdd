@@ -355,6 +355,15 @@ Phase descriptions:
         dest="no_cache",
         help="Bypass graph disk cache and force a full rebuild"
     )
+    validate_parser.add_argument(
+        "--fix",
+        action="store_true",
+        help=(
+            "Attempt programmatic fixes for selected coach validators "
+            "(currently: hand-rolled GitHubClient stubs → autospec). "
+            "Scope: coach only."
+        ),
+    )
 
     # ----- atdd inventory -----
     inventory_parser = subparsers.add_parser(
@@ -1226,6 +1235,21 @@ Phase descriptions:
     # atdd validate [phase]
     elif args.command == "validate":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+
+        # --fix: opt-in programmatic fixes for supported coach validators.
+        # Currently narrowed to the GitHubClient stub autofixer (#304).
+        # Runs before normal validation so the re-run exits clean.
+        if getattr(args, 'fix', False):
+            if args.phase not in ("coach", "all"):
+                print(
+                    "Error: --fix is only supported with phase 'coach' (or "
+                    "'all'). Re-run with: atdd validate coach --fix"
+                )
+                return 1
+            from atdd.coach.commands.autofix import run_github_client_stub_autofix
+            fix_rc = run_github_client_stub_autofix(repo_root=repo_path)
+            if fix_rc != 0:
+                return fix_rc
 
         # --verify-baseline: fast path, no test execution
         if getattr(args, 'verify_baseline', False):
