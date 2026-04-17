@@ -1,0 +1,35 @@
+urn: "wmbt:govern-lifecycle:L001"
+step: "locate"
+direction: "minimize"
+dimension: "effort"
+object_of_control: "manual-theme-discovery-during-atdd-init"
+context_clarifier: "when atdd init runs in a consumer repo that already contains plan/**/*.yaml files with theme: entries and the operator would otherwise have to inspect those files by hand to decide how to populate .atdd/config.yaml themes block"
+lens: "functional.efficiency"
+statement: "minimize effort of manual-theme-discovery-during-atdd-init when atdd init runs in a consumer repo that already contains plan/**/*.yaml files with theme: entries"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:L001-UNIT-001-scanner-surfaces-existing-themes"
+      id: "AC-UNIT-001"
+      purpose: "theme_scanner walks the plan tree and repo metadata to surface existing and candidate themes before any prompt runs"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A consumer repo with plan/**/*.yaml files declaring theme: qualification, theme: security, theme: operations"
+        - "Top-level directories and pyproject.toml / package.json keywords that hint at domain tokens"
+    when:
+      abstract: "scan_existing_themes(repo_root) is invoked"
+    then:
+      abstract:
+        - "The scanner returns distinct theme values found under plan/ as the primary detected list"
+        - "Low-confidence candidate tokens from repo metadata are reported separately and never escape into the primary list"
+        - "The force-fit heuristic flags at least one wagon whose slug tokens do not overlap with its assigned theme's synonym set (e.g. authenticate-users tagged commons)"
+        - "Output is consumable by both the interactive prompt and the --themes custom non-interactive flow"
+    signal:
+      metric: "blind_prompt_count_when_plan_has_themes"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-04-17"
