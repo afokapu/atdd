@@ -57,7 +57,7 @@ sessions:
   file: null
   issue_number: 304
   type: implementation
-  status: SMOKE
+  status: REFACTOR
   created: '2026-04-17'
   archived: null
   wagon: govern-lifecycle
