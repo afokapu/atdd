@@ -56,8 +56,9 @@ def _github_prefetch(github_client):
         try:
             results.update(github_client.prefetch_validator_data())
         except Exception as e:
-            for key in ("issues", "complete_issues", "project_fields",
-                        "project_items", "sub_issues", "closed_sub_issues"):
+            for key in ("issues", "complete_issues", "all_open_issues",
+                        "project_fields", "project_items", "sub_issues",
+                        "closed_sub_issues"):
                 results.setdefault(key, e)
 
     def _fetch_branch_protection():
@@ -95,6 +96,22 @@ def github_complete_issues(_github_prefetch):
         pytest.skip(f"Cannot query GitHub: {data}")
     if not data:
         pytest.skip("No COMPLETE issues found")
+    return data
+
+
+@pytest.fixture(scope="session")
+def all_open_issues_unfiltered(_github_prefetch):
+    """All open repo issues, unfiltered by label (from prefetch cache).
+
+    Counterpart to ``github_issues`` (which filters by ``atdd-issue``).
+    Required by #296 D005 — the inverse-filter validator needs to see
+    unlabeled issues that the default prefetch drops.
+    """
+    data = _github_prefetch.get("all_open_issues")
+    if isinstance(data, Exception):
+        pytest.skip(f"Cannot query GitHub: {data}")
+    if data is None:
+        pytest.skip("No open issues in prefetch cache")
     return data
 
 
