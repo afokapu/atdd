@@ -1426,7 +1426,6 @@ Phase descriptions:
             return lifecycle.check(issue_number)
 
         if getattr(args, 'sync_wmbts', False):
-            from atdd.coach.commands.issue import IssueManager
             manager = IssueManager()
             rc = manager.sync_wmbts(issue_number)
             return 0 if rc >= 0 else 1
