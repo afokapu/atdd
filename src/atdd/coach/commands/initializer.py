@@ -37,6 +37,38 @@ logger = logging.getLogger(__name__)
 _BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
 
 
+# Domain-agnostic prompt copy for `atdd init` theme declaration (#291,
+# Decision #7). Lists the 10 built-in names and the three mode choices
+# without referencing any product category.
+THEMES_PROMPT_COPY = """\
+ATDD ships with 10 built-in theme names mapped to digits 0-9:
+
+  0: commons        5: player
+  1: mechanic       6: league
+  2: scenario       7: audience
+  3: match          8: monetization
+  4: sensory        9: partnership
+
+These defaults may not match your domain. You can declare custom theme
+names in `.atdd/config.yaml` under the `themes:` key.
+
+Choose one:
+  - defaults  Keep the 10 built-in names. No `themes:` block is written.
+  - custom    Declare your own digit-to-name mapping now. Existing
+              `plan/**/*.yaml` is scanned first so detected themes are
+              pre-populated; low-confidence candidates from top-level
+              directories and package keywords are shown as suggestions.
+  - skip      Same as defaults, plus a reminder of where to configure
+              themes later (`.atdd/config.yaml` → `themes:`).
+
+Define themes now? [defaults / custom / skip]
+"""
+
+
+# Modes accepted by the non-interactive `--themes` flag.
+_THEME_MODES = frozenset({"defaults", "custom", "skip"})
+
+
 def slug_to_branch_name(slug: str) -> str:
     """Convert worktree directory slug to branch-style name.
 
@@ -193,6 +225,64 @@ class ProjectInitializer:
                     worktrees.append(line[len("worktree "):])
                     break
         return worktrees
+
+    def _prompt_themes(
+        self,
+        mode: str,
+        *,
+        repo_root: Optional[Path] = None,
+    ) -> Optional[Dict[str, str]]:
+        """
+        Resolve the themes block to write under `.atdd/config.yaml → themes:`.
+
+        Implements Decision #7 of #291 non-interactively. Interactive
+        prompting can be layered on top of this method by the CLI
+        wrapper; unit tests drive the non-interactive path directly.
+
+        Args:
+            mode: One of "defaults", "custom", or "skip".
+            repo_root: Repo root to scan for pre-existing themes.
+                Defaults to ``self.target_dir``.
+
+        Returns:
+            None  — caller writes no `themes:` block
+                    (`defaults` / `skip` / empty `custom` scan).
+            dict  — caller writes `themes: <dict>`.
+
+        Raises:
+            ValueError: If ``mode`` is not one of the accepted values.
+        """
+        if mode not in _THEME_MODES:
+            raise ValueError(
+                f"Unknown themes mode {mode!r}. "
+                f"Expected one of: {sorted(_THEME_MODES)}."
+            )
+
+        if mode in ("defaults", "skip"):
+            return None
+
+        # mode == "custom"
+        from atdd.coach.utils.theme_scanner import scan_existing_themes
+
+        scan_root = Path(repo_root) if repo_root is not None else self.target_dir
+        result = scan_existing_themes(scan_root)
+
+        if not result.detected:
+            # Blind-prompt path: no detections to seed. Non-interactive
+            # callers receive None (caller may fall back to defaults
+            # behavior or write an empty `themes: {}` block).
+            return None
+
+        # Assign detected themes to digits starting at 1 so digit 0
+        # (commons) is never overridden implicitly — W-THEME-001.
+        mapping: Dict[str, str] = {}
+        digit = 1
+        for theme in result.detected:
+            if digit > 9:
+                break
+            mapping[str(digit)] = theme
+            digit += 1
+        return mapping
 
     def _prompt_workspace_color(self) -> None:
         """Prompt user to pick a workspace color if unset or default yellow."""
@@ -1484,3 +1574,9 @@ jobs:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
         print(f"  Updated: {self.config_file} (github section)")
+
+
+# Public alias: the class is named ProjectInitializer internally, but
+# external callers (tests, `atdd init` CLI) import it as `Initializer`
+# so the type name matches the command surface.
+Initializer = ProjectInitializer
