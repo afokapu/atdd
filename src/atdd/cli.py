@@ -59,6 +59,25 @@ from atdd.coach.utils.repo import find_repo_root
 from atdd.version_check import print_update_notice, print_upgrade_sync_notice
 
 
+def _print_sync_labels_delta(
+    issue_number: int,
+    delta: dict,
+    dry_run: bool,
+) -> None:
+    """Print the add/remove delta produced by ``IssueManager.sync_labels``."""
+    to_add = delta.get("to_add", [])
+    to_remove = delta.get("to_remove", [])
+    verb = "would" if dry_run else "did"
+    if not to_add and not to_remove:
+        print(f"#{issue_number}: labels already match body metadata (no-op)")
+        return
+    print(f"#{issue_number}: sync-labels {'dry-run' if dry_run else 'applied'}")
+    if to_add:
+        print(f"  {verb} add:    {', '.join(to_add)}")
+    if to_remove:
+        print(f"  {verb} remove: {', '.join(to_remove)}")
+
+
 def _deprecation_warning(old: str, new: str) -> None:
     """Emit a deprecation warning for legacy flags."""
     print(f"\033[33m⚠️  Deprecated: '{old}' will be removed. Use '{new}' instead.\033[0m")
@@ -588,10 +607,12 @@ Phase descriptions:
         help="Unified issue lifecycle command",
         description=(
             "Enter an existing issue (by number) or create a new one (by slug).\n\n"
-            "  atdd issue 126              Enter issue #126 (state-driven)\n"
-            "  atdd issue my-feature       Create new issue and enter at INIT\n"
-            "  atdd issue 126 --status RED Transition status\n"
-            "  atdd issue open             List open issues\n"
+            "  atdd issue 126                     Enter issue #126 (state-driven)\n"
+            "  atdd issue my-feature              Create new issue and enter at INIT\n"
+            "  atdd issue 126 --status RED        Transition status\n"
+            "  atdd issue open                    List open issues\n"
+            "  atdd issue sync-labels 126         Re-derive labels from body metadata\n"
+            "  atdd issue sync-labels --all       Re-derive labels across every atdd-issue\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -599,7 +620,13 @@ Phase descriptions:
         "target",
         type=str,
         nargs="?",
-        help="Issue number (integer) to enter, slug (string) to create, or 'open' to list"
+        help="Issue number (int), slug (str), 'open' (list), or 'sync-labels'"
+    )
+    issue_parser.add_argument(
+        "number",
+        type=str,
+        nargs="?",
+        help="Issue number when target is 'sync-labels'"
     )
     issue_parser.add_argument(
         "--status", "-s",
@@ -662,6 +689,18 @@ Phase descriptions:
         "--train",
         type=str,
         help="Train ID to assign on creation"
+    )
+    issue_parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="all_issues",
+        help="Apply sync-labels to every atdd-issue (and atdd-wmbt) in the repo"
+    )
+    issue_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Report sync-labels delta without mutating GitHub"
     )
     issue_parser.add_argument(
         "--archetypes", "-a",
@@ -1427,6 +1466,44 @@ Phase descriptions:
                 limit=getattr(args, 'limit', 30),
                 assignee=getattr(args, 'assignee', None),
             )
+
+        # atdd issue sync-labels [<N>|--all] [--dry-run]
+        if target == "sync-labels":
+            manager = IssueManager()
+            dry_run = getattr(args, 'dry_run', False)
+            apply_all = getattr(args, 'all_issues', False)
+            number_str = getattr(args, 'number', None)
+            if apply_all:
+                results = manager.sync_labels_all(dry_run=dry_run)
+                drifted = [
+                    (num, delta) for num, delta in results
+                    if delta["to_add"] or delta["to_remove"]
+                ]
+                for num, delta in drifted:
+                    _print_sync_labels_delta(num, delta, dry_run=dry_run)
+                if not drifted:
+                    print(
+                        f"sync-labels: every open atdd-issue already matches "
+                        f"body metadata ({len(results)} checked)"
+                    )
+                else:
+                    suffix = " (dry-run)" if dry_run else ""
+                    print(
+                        f"sync-labels: {len(drifted)}/{len(results)} "
+                        f"issue(s) drifted{suffix}"
+                    )
+                return 0
+            if not number_str:
+                print("Error: atdd issue sync-labels requires an issue number or --all")
+                return 1
+            try:
+                issue_number = int(number_str)
+            except ValueError:
+                print(f"Error: invalid issue number '{number_str}'")
+                return 1
+            delta = manager.sync_labels(issue_number, dry_run=dry_run)
+            _print_sync_labels_delta(issue_number, delta, dry_run=dry_run)
+            return 0
 
         # Detect mode: integer → enter, string → create (future)
         try:

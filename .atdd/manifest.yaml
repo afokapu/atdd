@@ -49,9 +49,12 @@ sessions:
   file: null
   issue_number: 296
   type: implementation
-  status: INIT
+  status: REFACTOR
   created: '2026-04-17'
   archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:enforce-issue-label-compliance
+  train: 0001-self-compliance-validate
 - id: '304'
   slug: fix-github-client-mock-drift
   file: null

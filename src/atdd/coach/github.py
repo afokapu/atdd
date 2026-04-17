@@ -503,9 +503,10 @@ class GitHubClient:
         results: Dict[str, Any] = {}
 
         def _fetch_issues():
-            """Fetch both open atdd-issue and complete issues via REST."""
+            """Fetch open atdd-issue, complete, and unfiltered-open issues via REST."""
             results["issues"] = self.list_issues_by_label("atdd-issue")
             results["complete_issues"] = self.list_issues_by_label("atdd:COMPLETE")
+            results["all_open_issues"] = self.list_all_open_issues()
 
         def _fetch_project_data():
             """Fetch project fields + all items in one GraphQL call."""
@@ -596,6 +597,28 @@ class GitHubClient:
     # -------------------------------------------------------------------------
     # Issue queries
     # -------------------------------------------------------------------------
+
+    def list_all_open_issues(
+        self, include_body: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """List *all* open issues, unfiltered by label.
+
+        Used by the label-compliance validator (#296 D005) which asserts
+        every open issue carries ``atdd-issue``. The regular
+        ``list_issues_by_label`` path pre-filters and therefore cannot see
+        unlabeled drift.
+        """
+        fields = "number,title,labels,state"
+        if include_body:
+            fields += ",body"
+        output = self._run_gh([
+            "issue", "list",
+            "--repo", self.repo,
+            "--state", "open",
+            "--json", fields,
+            "--limit", "500",
+        ])
+        return json.loads(output) if output else []
 
     def list_issues_by_label(
         self, label: str, include_body: bool = True,

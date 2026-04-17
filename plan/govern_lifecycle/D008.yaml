@@ -1,0 +1,33 @@
+urn: "wmbt:govern-lifecycle:D008"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "pushed-commits-referencing-unlabeled-issues"
+context_clarifier: "when an outgoing commit references #NNN but the target issue lacks atdd compliance labels so the unlabeled-drift root cause reappears at push time with no pre-push enforcement"
+lens: "functional.effectiveness"
+statement: "minimize quantity of pushed-commits-referencing-unlabeled-issues when an outgoing commit references #NNN but the target issue lacks atdd compliance labels so the unlabeled-drift root cause reappears at push time with no pre-push enforcement"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D008-UNIT-001-pre-push-hook-blocks-unlabeled-reference"
+      id: "AC-UNIT-001"
+      purpose: "Pre-push hook fails fast when an outgoing commit references an issue that lacks the atdd-issue label"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An outgoing commit whose message contains a #NNN reference to an open issue lacking atdd-issue"
+    when:
+      abstract: "git push runs the claude-pre-tool-use.sh / pre-push hook"
+    then:
+      abstract:
+        - "The hook exits with non-zero status"
+        - "The hook prints the offending issue number and a sync-labels remediation hint"
+        - "The push is blocked until labels are backfilled"
+    signal:
+      metric: "unlabeled_issue_push_attempts"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-04-17"
