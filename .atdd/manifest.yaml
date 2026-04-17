@@ -44,6 +44,16 @@ sessions:
   status: REFACTOR
   created: '2026-04-15'
   archived: null
+- id: '291'
+  slug: custom-themes
+  file: null
+  issue_number: 291
+  type: implementation
+  status: INIT
+  created: '2026-04-17'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:custom-themes
 - id: '296'
   slug: enforce-issue-label-compliance
   file: null
