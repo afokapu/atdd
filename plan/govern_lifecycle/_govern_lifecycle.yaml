@@ -31,12 +31,17 @@ consume:
 features:
   - urn: "feature:govern-lifecycle:fix-issue-transition-side-effects"
   - urn: "feature:govern-lifecycle:enforce-orchestrate-ready-lifecycle"
+  - urn: "feature:govern-lifecycle:enforce-issue-label-compliance"
 
 wmbt:
-  total: 6
+  total: 10
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   D001: "minimize issues created without orchestrate-ready template body"
   D002: "minimize parent issues without GitHub WMBT sub-issues when plan artifacts exist"
   D003: "minimize undetected template drift across open issues"
   D004: "minimize missed parallelization opportunities at issue creation time"
+  D005: "minimize unlabeled open issues invisible to coach validators"
+  D006: "minimize atdd-issues missing required label set (phase/archetype/wagon)"
+  D007: "minimize label drift between issue body metadata and GitHub labels"
+  D008: "minimize pushed commits referencing unlabeled issues"

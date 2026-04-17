@@ -1,0 +1,30 @@
+urn: "feature:govern-lifecycle:enforce-issue-label-compliance"
+wagon: "wagon:govern-lifecycle"
+description: "Closes the inverse-filter gap by asserting every open repo issue carries atdd-issue, enforcing the required phase/archetype/wagon label triplet, and providing atdd issue sync-labels for supervised drift repair"
+sizing:
+  wmbts: 4
+  footprint_score: 9
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:D005"
+  - "wmbt:govern-lifecycle:D006"
+  - "wmbt:govern-lifecycle:D007"
+  - "wmbt:govern-lifecycle:D008"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "One new CLI subcommand: atdd issue sync-labels [<N>|--all] with --dry-run"
+    application:
+      - type: "use_cases"
+        count: 4
+        rationale: "sync_labels derivation+apply; all_open_issues_unfiltered fixture; test_unlabeled_open_issues validator; test_required_label_set validator"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts — label taxonomy and issue metadata already exist"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses existing GitHub client (gh issue view/edit) and label_taxonomy.schema.json"
