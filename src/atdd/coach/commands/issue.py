@@ -484,34 +484,46 @@ class IssueManager:
 
         Source of truth is the ``## Issue Metadata`` table:
         - ``Status`` → ``atdd:<STATUS>`` (phase label)
-        - ``Archetypes`` → one ``archetype:<id>`` per comma-separated entry
-        - ``Wagon`` → one ``wagon:<slug>`` (accepts bare slug or ``wagon:slug``)
+        - ``Archetypes`` → one ``archetype:<id>`` per comma-separated entry,
+          backticks tolerated on each entry (e.g., ```coach`, `planner``)
+        - ``Wagon`` → one ``wagon:<slug>`` per ``wagon:X`` token found in
+          the row; descriptive trailers are tolerated
+          (e.g., ``wagon:a (primary), wagon:b (secondary) — note``).
 
         ``atdd-issue`` is always included because any issue with the
         PARENT template is by definition a parent issue.
         """
+        import re
         from atdd.coach.commands.session_template import parse_metadata
 
         meta = parse_metadata(body or "")
         expected: List[str] = ["atdd-issue"]
 
-        status = (meta.get("Status") or "").strip().upper()
+        status = (meta.get("Status") or "").strip().strip("`").upper()
         if status and status != "TBD":
             expected.append(f"atdd:{status}")
 
         archetypes_raw = (meta.get("Archetypes") or "").strip()
         if archetypes_raw and archetypes_raw.upper() != "TBD":
             for part in archetypes_raw.split(","):
-                name = part.strip()
+                name = part.strip().strip("`").strip()
                 if name and name.upper() != "TBD":
                     expected.append(f"archetype:{name}")
 
         wagon_raw = (meta.get("Wagon") or "").strip()
         if wagon_raw and wagon_raw.upper() != "TBD":
-            # Accept ``wagon:govern-lifecycle`` or bare ``govern-lifecycle``.
-            slug = wagon_raw.removeprefix("wagon:").strip()
-            if slug:
-                expected.append(f"wagon:{slug}")
+            # Accept multiple ``wagon:X`` tokens in the row (cross-wagon
+            # issues are first-class per Decision #5). Tolerate backticks
+            # and descriptive trailers. Fall back to bare slug if the row
+            # contains no ``wagon:`` prefix.
+            matches = re.findall(r"wagon:([a-z][a-z0-9-]*)", wagon_raw)
+            if matches:
+                for slug in matches:
+                    expected.append(f"wagon:{slug}")
+            else:
+                slug = wagon_raw.strip("`").strip()
+                if re.fullmatch(r"[a-z][a-z0-9-]*", slug):
+                    expected.append(f"wagon:{slug}")
 
         return expected
 
