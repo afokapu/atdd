@@ -134,7 +134,7 @@ patterns:
     regex: "^\\d{4}-[a-z][a-z0-9-]+$"
     numbering:
       pattern: "[Theme][Category][Variation]-{slug}"
-      theme_digit: "0-9 (commons=0, mechanic=1, scenario=2, match=3, etc.)"
+      theme_digit: "0-9 — resolved via `get_theme_map(config)` (atdd.coach.utils.theme_map). Built-in defaults: commons=0, mechanic=1, scenario=2, match=3, sensory=4, player=5, league=6, audience=7, monetization=8, partnership=9. Consumer repos may override via `themes:` in `.atdd/config.yaml`. Overriding digit 0 emits warning W-THEME-001 (non-blocking)."
       category_digit: "0=nominal, 1=error, 2=alternate, 3=exception"
       variation_digits: "01-99"
     examples:
