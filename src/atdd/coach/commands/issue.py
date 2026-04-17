@@ -20,7 +20,7 @@ import re
 import subprocess
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Set, Tuple
 
 import yaml
 
@@ -468,6 +468,116 @@ class IssueManager:
         else:
             print(f"sync_wmbts: #{issue_number} already has all WMBT sub-issues")
         return created
+
+    # -------------------------------------------------------------------------
+    # sync_labels — derive label set from body metadata, apply delta
+    # -------------------------------------------------------------------------
+
+    # Phase labels the schema declares as ``exactly_one`` and swap-on-transition.
+    _PHASE_LABELS = (
+        "atdd:INIT", "atdd:PLANNED", "atdd:RED", "atdd:GREEN",
+        "atdd:SMOKE", "atdd:REFACTOR", "atdd:COMPLETE", "atdd:BLOCKED",
+    )
+
+    def _derive_expected_labels(self, body: str) -> List[str]:
+        """Compute the label set implied by the Issue Metadata table.
+
+        Source of truth is the ``## Issue Metadata`` table:
+        - ``Status`` → ``atdd:<STATUS>`` (phase label)
+        - ``Archetypes`` → one ``archetype:<id>`` per comma-separated entry
+        - ``Wagon`` → one ``wagon:<slug>`` (accepts bare slug or ``wagon:slug``)
+
+        ``atdd-issue`` is always included because any issue with the
+        PARENT template is by definition a parent issue.
+        """
+        from atdd.coach.commands.session_template import parse_metadata
+
+        meta = parse_metadata(body or "")
+        expected: List[str] = ["atdd-issue"]
+
+        status = (meta.get("Status") or "").strip().upper()
+        if status and status != "TBD":
+            expected.append(f"atdd:{status}")
+
+        archetypes_raw = (meta.get("Archetypes") or "").strip()
+        if archetypes_raw and archetypes_raw.upper() != "TBD":
+            for part in archetypes_raw.split(","):
+                name = part.strip()
+                if name and name.upper() != "TBD":
+                    expected.append(f"archetype:{name}")
+
+        wagon_raw = (meta.get("Wagon") or "").strip()
+        if wagon_raw and wagon_raw.upper() != "TBD":
+            # Accept ``wagon:govern-lifecycle`` or bare ``govern-lifecycle``.
+            slug = wagon_raw.removeprefix("wagon:").strip()
+            if slug:
+                expected.append(f"wagon:{slug}")
+
+        return expected
+
+    def _labels_in_scope_for_sync(self, label: str) -> bool:
+        """Only these label families are managed by ``sync_labels``.
+
+        Non-ATDD labels (e.g., ``bug``, ``good-first-issue``) are left
+        alone — sync_labels is idempotent on its own surface and never
+        removes labels outside the scheme.
+        """
+        if label == "atdd-issue":
+            return True
+        if label.startswith("atdd:"):
+            return True
+        if label.startswith("archetype:"):
+            return True
+        if label.startswith("wagon:"):
+            return True
+        return False
+
+    def sync_labels(
+        self, issue_number: int, dry_run: bool = False,
+    ) -> Dict[str, List[str]]:
+        """Read the issue body on GitHub, derive the expected label set
+        from the Issue Metadata table, and apply the delta.
+
+        Returns a dict with ``to_add`` and ``to_remove`` lists so callers
+        (CLI, tests) can report the delta.
+
+        In dry-run mode the lists are computed but no ``add_label`` /
+        ``remove_label`` calls are issued.
+
+        Only labels inside the ATDD scheme (``atdd-issue``, ``atdd:*``,
+        ``archetype:*``, ``wagon:*``) are compared — unrelated labels on
+        the issue are left untouched.
+        """
+        client = self._get_github_client()
+        issue = client.get_issue(issue_number)
+
+        body = issue.get("body") or ""
+        current_raw = issue.get("labels") or []
+        current_labels: Set[str] = set()
+        for entry in current_raw:
+            if isinstance(entry, dict):
+                name = entry.get("name")
+                if name:
+                    current_labels.add(name)
+            elif isinstance(entry, str):
+                current_labels.add(entry)
+
+        expected = set(self._derive_expected_labels(body))
+
+        in_scope_current = {lbl for lbl in current_labels if self._labels_in_scope_for_sync(lbl)}
+
+        to_add = sorted(expected - current_labels)
+        to_remove = sorted(in_scope_current - expected)
+
+        if dry_run:
+            return {"to_add": to_add, "to_remove": to_remove}
+
+        if to_add:
+            client.add_label(issue_number, to_add)
+        if to_remove:
+            client.remove_label(issue_number, to_remove)
+
+        return {"to_add": to_add, "to_remove": to_remove}
 
     def _discover_wmbts(self, wagon: str) -> List[Dict[str, Any]]:
         """Discover WMBTs from plan YAML for a wagon."""
