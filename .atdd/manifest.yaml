@@ -17,6 +17,9 @@ sessions:
   status: INIT
   created: '2026-04-14'
   archived: null
+  wagon: govern-lifecycle
+  feature: 'feature:govern-lifecycle:enforce-orchestrate-ready-lifecycle'
+  train: '0001-self-compliance-validate'
 - id: '282'
   slug: fix-issue-transition-side-effects
   file: null
@@ -54,7 +57,7 @@ sessions:
   file: null
   issue_number: 304
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-04-17'
   archived: null
   wagon: govern-lifecycle
