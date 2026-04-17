@@ -33,6 +33,12 @@ import pytest
 
 _REQUIRED_LABEL = "atdd-issue"
 
+# WMBT sub-issues carry ``atdd-wmbt`` instead of ``atdd-issue`` — they are
+# first-class ATDD-tracked but a different shape (required_label_set does
+# not apply to them). Either label satisfies the "is-ATDD-tracked" check.
+_WMBT_LABEL = "atdd-wmbt"
+_ATDD_TRACKED_LABELS = frozenset({_REQUIRED_LABEL, _WMBT_LABEL})
+
 
 def _labels_of(issue: Dict) -> List[str]:
     """Return label names from a GitHub issue dict.
@@ -53,7 +59,11 @@ def _labels_of(issue: Dict) -> List[str]:
 
 
 def _find_unlabeled_open_issues(issues: List[Dict]) -> List[str]:
-    """Return one drift message per open issue missing ``atdd-issue``.
+    """Return one drift message per open issue not tracked by ATDD.
+
+    An issue is "tracked" when it carries either ``atdd-issue`` (parent
+    issue) or ``atdd-wmbt`` (WMBT sub-issue). Any other open issue — no
+    labels, or labels unrelated to ATDD — is drift.
 
     Caller must pass **unfiltered** open issues (i.e., do NOT pre-filter
     by the ``atdd-issue`` label — that's the bug this validator exists
@@ -64,7 +74,7 @@ def _find_unlabeled_open_issues(issues: List[Dict]) -> List[str]:
         if str(issue.get("state", "open")).lower() != "open":
             continue
         labels = _labels_of(issue)
-        if _REQUIRED_LABEL in labels:
+        if any(lbl in _ATDD_TRACKED_LABELS for lbl in labels):
             continue
         number = issue.get("number", "<unknown>")
         title = issue.get("title", "")
@@ -130,6 +140,20 @@ def test_find_unlabeled_ignores_properly_labeled_issue():
         "title": "compliant",
         "state": "open",
         "labels": [{"name": _REQUIRED_LABEL}, {"name": "atdd:INIT"}],
+    }]
+    assert _find_unlabeled_open_issues(issues) == []
+
+
+def test_find_unlabeled_ignores_wmbt_sub_issues():
+    """WMBT sub-issues carry ``atdd-wmbt`` instead of ``atdd-issue`` —
+    they are first-class ATDD-tracked and must not be flagged by the
+    inverse-filter validator.
+    """
+    issues = [{
+        "number": 312,
+        "title": "wmbt:govern-lifecycle:D005 — ...",
+        "state": "open",
+        "labels": [{"name": _WMBT_LABEL}],
     }]
     assert _find_unlabeled_open_issues(issues) == []
 
