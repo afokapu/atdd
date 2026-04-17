@@ -28,13 +28,30 @@ from typing import List, Optional
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.graph.resolver import ResolverRegistry
-from atdd.coach.utils.graph.graph_builder import GraphBuilder, TraceabilityGraph
+from atdd.coach.utils.graph.graph_builder import (
+    EdgeType,
+    GraphBuilder,
+    TraceabilityGraph,
+)
 from atdd.coach.utils.graph.edge_validator import (
     EdgeValidator,
     ValidationResult,
     IssueSeverity,
     IssueType,
 )
+
+
+def _default_edge_type_exclude(root_urn: Optional[str]) -> Optional[set]:
+    """
+    Return the default ``edge_type_exclude`` for a subgraph rooted at ``root_urn``.
+
+    Train roots opt into journey semantics (TRAIN_STEP visible). Every other
+    root family is treated as structural and hides TRAIN_STEP so wagon/feature
+    subgraphs don't leak cross-train wagons via shared handoffs (#287).
+    """
+    if root_urn and root_urn.startswith("train:"):
+        return None
+    return {EdgeType.TRAIN_STEP}
 
 
 class URNCommand:
@@ -75,7 +92,12 @@ class URNCommand:
         """
         try:
             if root:
-                graph = self.graph_builder.build_from_root(root, max_depth, families)
+                graph = self.graph_builder.build_from_root(
+                    root,
+                    max_depth,
+                    families,
+                    edge_type_exclude=_default_edge_type_exclude(root),
+                )
             else:
                 graph = self.graph_builder.build(families)
 
