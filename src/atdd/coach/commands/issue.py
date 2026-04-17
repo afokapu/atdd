@@ -579,6 +579,39 @@ class IssueManager:
 
         return {"to_add": to_add, "to_remove": to_remove}
 
+    def sync_labels_all(self, dry_run: bool = False) -> int:
+        """Apply sync_labels to every open ``atdd-issue`` in the repo.
+
+        Sub-issues (``atdd-wmbt``) are out of scope — their label surface
+        is ``atdd-wmbt`` only and is maintained by ``sync_wmbts``.
+
+        Returns 0 on success so the CLI can exit cleanly.
+        """
+        client = self._get_github_client()
+        issues = client.list_issues_by_label("atdd-issue", include_body=False)
+        drift_count = 0
+        for issue in issues:
+            number = issue.get("number")
+            if not number:
+                continue
+            delta = self.sync_labels(int(number), dry_run=dry_run)
+            if delta["to_add"] or delta["to_remove"]:
+                drift_count += 1
+                verb = "would" if dry_run else "did"
+                to_add = delta["to_add"]
+                to_remove = delta["to_remove"]
+                print(f"#{number}: sync-labels {'dry-run' if dry_run else 'applied'}")
+                if to_add:
+                    print(f"  {verb} add:    {', '.join(to_add)}")
+                if to_remove:
+                    print(f"  {verb} remove: {', '.join(to_remove)}")
+        if drift_count == 0:
+            print(f"sync-labels: every open atdd-issue already matches body metadata ({len(issues)} checked)")
+        else:
+            suffix = " (dry-run)" if dry_run else ""
+            print(f"sync-labels: {drift_count}/{len(issues)} issue(s) drifted{suffix}")
+        return 0
+
     def _discover_wmbts(self, wagon: str) -> List[Dict[str, Any]]:
         """Discover WMBTs from plan YAML for a wagon."""
         plan_dir = self.target_dir / "plan"
