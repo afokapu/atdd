@@ -54,6 +54,9 @@ sessions:
   file: null
   issue_number: 304
   type: implementation
-  status: INIT
+  status: RED
   created: '2026-04-17'
   archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:fix-github-client-mock-drift
+  train: 0001-self-compliance-validate
