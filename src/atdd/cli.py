@@ -1474,7 +1474,25 @@ Phase descriptions:
             apply_all = getattr(args, 'all_issues', False)
             number_str = getattr(args, 'number', None)
             if apply_all:
-                return manager.sync_labels_all(dry_run=dry_run)
+                results = manager.sync_labels_all(dry_run=dry_run)
+                drifted = [
+                    (num, delta) for num, delta in results
+                    if delta["to_add"] or delta["to_remove"]
+                ]
+                for num, delta in drifted:
+                    _print_sync_labels_delta(num, delta, dry_run=dry_run)
+                if not drifted:
+                    print(
+                        f"sync-labels: every open atdd-issue already matches "
+                        f"body metadata ({len(results)} checked)"
+                    )
+                else:
+                    suffix = " (dry-run)" if dry_run else ""
+                    print(
+                        f"sync-labels: {len(drifted)}/{len(results)} "
+                        f"issue(s) drifted{suffix}"
+                    )
+                return 0
             if not number_str:
                 print("Error: atdd issue sync-labels requires an issue number or --all")
                 return 1
