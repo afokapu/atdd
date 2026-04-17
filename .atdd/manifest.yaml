@@ -49,7 +49,7 @@ sessions:
   file: null
   issue_number: 296
   type: implementation
-  status: GREEN
+  status: SMOKE
   created: '2026-04-17'
   archived: null
   wagon: govern-lifecycle
