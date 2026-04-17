@@ -61,7 +61,7 @@ def _find_unlabeled_open_issues(issues: List[Dict]) -> List[str]:
     """
     messages: List[str] = []
     for issue in issues:
-        if issue.get("state", "open") != "open":
+        if str(issue.get("state", "open")).lower() != "open":
             continue
         labels = _labels_of(issue)
         if _REQUIRED_LABEL in labels:
