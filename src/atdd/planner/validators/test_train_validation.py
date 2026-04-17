@@ -468,24 +468,14 @@ def test_train_artifacts_exist_in_wagons(trains_registry, wagon_manifests):
 @pytest.mark.platform
 def test_registry_themes_are_valid(trains_registry):
     """
-    SPEC-TRAIN-VAL-0010: Registry theme keys match schema enum
+    SPEC-TRAIN-VAL-0010: Registry theme keys match the effective theme map
 
     Given: Train registry organized by themes
     When: Checking theme keys
-    Then: All theme keys are valid according to train.schema.json
+    Then: All theme keys are valid — either a built-in default or an
+          override declared under `themes:` in `.atdd/config.yaml` (#291).
     """
-    valid_themes = {
-        "commons",
-        "mechanic",
-        "scenario",
-        "match",
-        "sensory",
-        "player",
-        "league",
-        "audience",
-        "monetization",
-        "partnership",
-    }
+    valid_themes = set(_merged_theme_map().values())
 
     invalid_themes = []
     for theme in trains_registry.keys():
