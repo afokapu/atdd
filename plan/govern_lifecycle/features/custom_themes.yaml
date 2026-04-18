@@ -1,0 +1,33 @@
+urn: "feature:govern-lifecycle:custom-themes"
+wagon: "wagon:govern-lifecycle"
+description: "Support custom themes via .atdd/config.yaml: merge defaults with overrides, relax schemas, scan existing themes, and validate custom names"
+sizing:
+  wmbts: 7
+  footprint_score: 9
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:D009"
+  - "wmbt:govern-lifecycle:D010"
+  - "wmbt:govern-lifecycle:L001"
+  - "wmbt:govern-lifecycle:P001"
+  - "wmbt:govern-lifecycle:C001"
+  - "wmbt:govern-lifecycle:E001"
+  - "wmbt:govern-lifecycle:M001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 2
+        rationale: "atdd init theme prompt extension and atdd sync ATDD-block theme renderer"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "merge default theme_map with overrides (get_theme_map); scan plan tree and repo metadata for existing themes; validate custom theme name shape and digit collisions"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "theme_map as a first-class value object wrapping digit→name mapping with default merging semantics"
+    integration:
+      - type: "mappers"
+        count: 1
+        rationale: "config-to-theme-map mapper reading .atdd/config.yaml themes block"

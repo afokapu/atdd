@@ -21,6 +21,9 @@ from datetime import datetime
 from collections import defaultdict
 from typing import Dict, List, Any
 
+from atdd.coach.utils.config import load_atdd_config
+from atdd.coach.utils.theme_map import get_theme_map
+
 
 class RepositoryInventory:
     """Generate comprehensive repository inventory."""
@@ -132,6 +135,10 @@ class RepositoryInventory:
         missing_code_frontend = []
         missing_code_frontend_python = []
 
+        # Single source of truth for theme mapping (#291): merge
+        # built-in defaults with overrides from .atdd/config.yaml.
+        theme_map = get_theme_map(load_atdd_config(self.repo_root))
+
         for train in all_trains:
             train_id = train.get("train_id", "unknown")
             train_ids.append(train_id)
@@ -139,11 +146,6 @@ class RepositoryInventory:
             # Extract theme from train_id (first digit maps to theme)
             if train_id and len(train_id) > 0 and train_id[0].isdigit():
                 theme_digit = train_id[0]
-                theme_map = {
-                    "0": "commons", "1": "mechanic", "2": "scenario", "3": "match",
-                    "4": "sensory", "5": "player", "6": "league", "7": "audience",
-                    "8": "monetization", "9": "partnership"
-                }
                 theme = theme_map.get(theme_digit, "unknown")
                 by_theme[theme] += 1
 

@@ -29,11 +29,18 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple, Any, Optional
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import load_atdd_config
+from atdd.coach.utils.theme_map import get_theme_map
 from atdd.coach.utils.train_spec_phase import (
     TrainSpecPhase,
     should_enforce,
     emit_phase_warning
 )
+
+
+def _merged_theme_map() -> Dict[str, str]:
+    """Merged digit→theme map for the repo under test (#291)."""
+    return get_theme_map(load_atdd_config(find_repo_root()))
 
 
 @pytest.mark.platform
@@ -72,18 +79,7 @@ def test_train_theme_matches_first_digit(trains_registry):
     When: Checking train_id first digit
     Then: First digit maps to correct theme category
     """
-    theme_map = {
-        "0": "commons",
-        "1": "mechanic",
-        "2": "scenario",
-        "3": "match",
-        "4": "sensory",
-        "5": "player",
-        "6": "league",
-        "7": "audience",
-        "8": "monetization",
-        "9": "partnership",
-    }
+    theme_map = _merged_theme_map()
 
     mismatches = []
     for theme, trains in trains_registry.items():
@@ -472,24 +468,14 @@ def test_train_artifacts_exist_in_wagons(trains_registry, wagon_manifests):
 @pytest.mark.platform
 def test_registry_themes_are_valid(trains_registry):
     """
-    SPEC-TRAIN-VAL-0010: Registry theme keys match schema enum
+    SPEC-TRAIN-VAL-0010: Registry theme keys match the effective theme map
 
     Given: Train registry organized by themes
     When: Checking theme keys
-    Then: All theme keys are valid according to train.schema.json
+    Then: All theme keys are valid — either a built-in default or an
+          override declared under `themes:` in `.atdd/config.yaml` (#291).
     """
-    valid_themes = {
-        "commons",
-        "mechanic",
-        "scenario",
-        "match",
-        "sensory",
-        "player",
-        "league",
-        "audience",
-        "monetization",
-        "partnership",
-    }
+    valid_themes = set(_merged_theme_map().values())
 
     invalid_themes = []
     for theme in trains_registry.keys():
@@ -730,11 +716,10 @@ def test_train_theme_derived_from_group_key(trains_registry_with_groups):
         else:
             derived_theme = theme_key
 
-        # Verify derived theme is valid
-        valid_themes = {
-            "commons", "mechanic", "scenario", "match", "sensory",
-            "player", "league", "audience", "monetization", "partnership"
-        }
+        # Verify derived theme is valid — use merged theme map so
+        # consumer repos that override defaults in .atdd/config.yaml
+        # pass validation (#291).
+        valid_themes = set(_merged_theme_map().values())
 
         assert derived_theme in valid_themes, \
             f"Invalid derived theme '{derived_theme}' from group key '{theme_key}'"

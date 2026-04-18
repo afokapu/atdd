@@ -25,6 +25,9 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
+from atdd.coach.utils.config import load_atdd_config
+from atdd.coach.utils.theme_map import get_theme_map
+
 # Import URNBuilder for URN generation (following conventions)
 try:
     from atdd.coach.utils.graph.urn import URNBuilder
@@ -1012,12 +1015,9 @@ class RegistryBuilder:
         trains_dir = self.plan_dir / "_trains"
         registry_path = self.plan_dir / "_trains.yaml"
 
-        # Theme and category mappings
-        theme_map = {
-            "0": "commons", "1": "mechanic", "2": "scenario", "3": "match",
-            "4": "sensory", "5": "player", "6": "league", "7": "audience",
-            "8": "monetization", "9": "partnership"
-        }
+        # Theme and category mappings — merge built-in defaults with
+        # consumer overrides from .atdd/config.yaml (#291).
+        theme_map = get_theme_map(load_atdd_config(self.repo_root))
         category_map = {
             "0": "nominal", "1": "error", "2": "alternate", "3": "exception"
         }

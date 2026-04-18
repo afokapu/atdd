@@ -23,6 +23,8 @@ from typing import Dict, List, Optional, Tuple
 
 import yaml
 
+from atdd.coach.utils.theme_map import DEFAULT_THEME_MAP, get_theme_map
+
 
 class AgentConfigSync:
     """Sync managed ATDD blocks to agent config files."""
@@ -394,10 +396,45 @@ class AgentConfigSync:
             parts.append(f"# Agent-specific: {agent}")
             parts.append(overlay.strip())
 
+        theme_section = self._render_theme_map_section()
+        if theme_section:
+            parts.append("")
+            parts.append(theme_section)
+
         parts.append("")
         parts.append(self.BLOCK_END)
 
         return "\n".join(parts)
+
+    def _render_theme_map_section(self) -> str:
+        """
+        Render the `# Theme map` section when consumers override defaults.
+
+        Empty string when the repo uses only the built-in 10 themes —
+        this keeps CLAUDE.md from churning on repos that have not opted
+        in to custom themes. When overrides are present, the section
+        lists the effective merged digit→name mapping so agents reading
+        the rendered ATDD block see the real theme taxonomy for the
+        repo they are working in.
+
+        Reference: issue #291 Phase 4 deliverable.
+        """
+        config = self._load_config()
+        merged = get_theme_map(config)
+
+        # Nothing to render if no overrides exist.
+        if merged == DEFAULT_THEME_MAP:
+            return ""
+
+        lines: List[str] = ["# Theme map (merged from .atdd/config.yaml)"]
+        for digit in sorted(merged.keys()):
+            name = merged[digit]
+            default = DEFAULT_THEME_MAP.get(digit)
+            if default is not None and name != default:
+                lines.append(f"#   {digit}: {name}  (override; default was {default})")
+            else:
+                lines.append(f"#   {digit}: {name}")
+        return "\n".join(lines)
 
     def _read_target(self, agent: str) -> str:
         """

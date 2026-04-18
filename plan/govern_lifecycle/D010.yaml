@@ -1,0 +1,34 @@
+urn: "wmbt:govern-lifecycle:D010"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "duplicated-hardcoded-theme-map-dicts-across-modules"
+context_clarifier: "when theme_map dicts are hardcoded in inventory.py, registry.py (2 locations), and test_train_validation.py (2 locations: theme_map at L75 and valid_themes set at L734-737) creating drift risk and blocking any config-driven override"
+lens: "functional.sustainability"
+statement: "minimize quantity of duplicated-hardcoded-theme-map-dicts-across-modules when theme_map dicts are hardcoded in inventory.py, registry.py, and test_train_validation.py blocking any config-driven override"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D010-UNIT-001-single-source-theme-map-helper"
+      id: "AC-UNIT-001"
+      purpose: "A single get_theme_map(config) helper replaces every hardcoded theme_map dict in the codebase"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "coach/utils/theme_map.py exposes get_theme_map(config) returning merged defaults + overrides"
+        - "All prior hardcoded theme_map dicts have been replaced with calls to the helper"
+    when:
+      abstract: "A grep for hardcoded theme_map dict literals runs across src/atdd"
+    then:
+      abstract:
+        - "No theme_map dict literal appears outside coach/utils/theme_map.py"
+        - "inventory.py, registry.py, and test_train_validation.py import and call get_theme_map"
+        - "The helper is the single source of truth for the digit-to-theme mapping"
+    signal:
+      metric: "hardcoded_theme_map_literal_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-04-17"

@@ -175,6 +175,20 @@
       "required": ["repo", "project_number", "project_id"],
       "additionalProperties": false
     },
+    "themes": {
+      "type": "object",
+      "description": "Optional digit (0-9) → custom theme-name mapping merged with the 10 built-in defaults. Values are resolved at runtime via `get_theme_map(config)` (atdd.coach.utils.theme_map). Overriding digit 0 emits warning W-THEME-001 (non-blocking).",
+      "propertyNames": {
+        "pattern": "^[0-9]$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "examples": [
+        {"1": "qualification", "2": "security", "3": "operations"}
+      ]
+    },
     "workspace": {
       "type": "object",
       "description": "Workspace appearance settings",

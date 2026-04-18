@@ -69,10 +69,10 @@ naming_pattern:
 
   components:
     theme:
-      definition: "Top-level architectural theme grouping related artifacts"
-      format: "lowercase, no separators"
+      definition: "Top-level architectural theme grouping related artifacts. Kebab-case. Built-in defaults (commons, mechanic, scenario, match, sensory, player, league, audience, monetization, partnership) may be overridden via the `themes:` block in `.atdd/config.yaml`. Runtime validation resolves the effective digit-to-name map via `get_theme_map(config)` (atdd.coach.utils.theme_map); JSON Schema enforces kebab-case shape only. See issue #291 / Decision #2."
+      format: "kebab-case (^[a-z][a-z0-9-]*$)"
       multiplicity: "Required, exactly 1"
-      examples: ["commons", "match", "mechanic", "sensory", "player", "partnership", "scenario"]
+      examples: ["commons", "match", "mechanic", "sensory", "player", "partnership", "scenario", "qualification", "security", "operations"]
 
     category:
       definition: "Hierarchical path segments navigating down the resource tree"
