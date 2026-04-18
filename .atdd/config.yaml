@@ -2,6 +2,11 @@ version: '1.0'
 release:
   version_file: pyproject.toml
   tag_prefix: v
+code:
+  python: python
+  supabase: supabase/functions
+  web: web/src
+  toolkit: src/atdd
 sync:
   agents:
   - claude

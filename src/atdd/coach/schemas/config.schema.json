@@ -71,6 +71,14 @@
       "required": ["last_version"],
       "additionalProperties": false
     },
+    "code": {
+      "type": "object",
+      "description": "Implementation-root map consumed by hierarchy coverage resolvers. Keys are stack names (python, supabase, web, toolkit, plus consumer-defined), values are paths relative to the repo root. See src/atdd/coach/conventions/code-roots.convention.yaml.",
+      "additionalProperties": {
+        "type": "string",
+        "description": "Path to implementation root (relative to repo root)"
+      }
+    },
     "coverage": {
       "type": "object",
       "description": "Hierarchy coverage validation settings (ATDD Hierarchy Coverage Spec v0.1)",
@@ -174,20 +182,6 @@
       },
       "required": ["repo", "project_number", "project_id"],
       "additionalProperties": false
-    },
-    "themes": {
-      "type": "object",
-      "description": "Optional digit (0-9) → custom theme-name mapping merged with the 10 built-in defaults. Values are resolved at runtime via `get_theme_map(config)` (atdd.coach.utils.theme_map). Overriding digit 0 emits warning W-THEME-001 (non-blocking).",
-      "propertyNames": {
-        "pattern": "^[0-9]$"
-      },
-      "additionalProperties": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9-]*$"
-      },
-      "examples": [
-        {"1": "qualification", "2": "security", "3": "operations"}
-      ]
     },
     "workspace": {
       "type": "object",
