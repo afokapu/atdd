@@ -76,3 +76,14 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:fix-github-client-mock-drift
   train: 0001-self-compliance-validate
+- id: '327'
+  slug: config-driven-code-roots
+  file: null
+  issue_number: 327
+  type: implementation
+  status: REFACTOR
+  created: '2026-04-17'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:config-driven-code-roots
+  train: 0001-self-compliance-validate

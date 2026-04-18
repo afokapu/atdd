@@ -71,6 +71,14 @@
       "required": ["last_version"],
       "additionalProperties": false
     },
+    "code": {
+      "type": "object",
+      "description": "Implementation-root map consumed by hierarchy coverage resolvers. Keys are stack names (python, supabase, web, toolkit, plus consumer-defined), values are paths relative to the repo root. See src/atdd/coach/conventions/code-roots.convention.yaml.",
+      "additionalProperties": {
+        "type": "string",
+        "description": "Path to implementation root (relative to repo root)"
+      }
+    },
     "coverage": {
       "type": "object",
       "description": "Hierarchy coverage validation settings (ATDD Hierarchy Coverage Spec v0.1)",

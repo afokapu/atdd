@@ -1,0 +1,34 @@
+urn: "wmbt:govern-lifecycle:R003"
+step: "resolve"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "stale-hierarchy-coverage-features-ratchet-baseline"
+context_clarifier: "when the hierarchy_coverage_features baseline in .atdd/baselines/coder.yaml carries tactical +1 bumps accreted from PRs #316 and #317 that exist only because the validator cannot see toolkit-self implementations"
+lens: "functional.effectiveness"
+statement: "minimize quantity of stale-hierarchy-coverage-features-ratchet-baseline when the hierarchy_coverage_features baseline in .atdd/baselines/coder.yaml carries tactical +1 bumps accreted because the validator cannot see toolkit-self implementations"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:R003-UNIT-001-baseline-drops-after-toolkit-seeded"
+      id: "AC-UNIT-001"
+      purpose: "hierarchy_coverage_features baseline falls to ≤2 once code.toolkit is seeded in .atdd/config.yaml"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A config with code.toolkit: src/atdd"
+        - "The refactored test_hierarchy_coverage.py using config-driven resolvers"
+    when:
+      abstract: "test_all_features_have_implementations runs against this repo"
+    then:
+      abstract:
+        - "The violation count is ≤2 (down from 10)"
+        - "The baseline in .atdd/baselines/coder.yaml reflects the new post-refactor count"
+        - "atdd validate coder --local passes with no regression vs pre-refactor main"
+    signal:
+      metric: "stale_baseline_bump_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-04-17"
