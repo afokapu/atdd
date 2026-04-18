@@ -33,9 +33,6 @@ from atdd.coach.utils.coverage_phase import (
 from atdd.coach.utils.manifest import is_manifest_slug
 
 
-logger = logging.getLogger(__name__)
-
-
 # Path constants — repo-derived only. Implementation-root constants
 # (PYTHON_DIR/SUPABASE_DIR/WEB_DIR) are deliberately absent; resolvers
 # take roots as arguments so consumers can declare their own layout.
@@ -207,7 +204,7 @@ def _iter_resolvers(code_roots: Dict[str, Path]):
     for stack, rel in code_roots.items():
         resolver = _RESOLVERS.get(stack)
         if resolver is None:
-            logger.debug("No resolver for stack %r; skipping", stack)
+            logging.getLogger(__name__).debug("No resolver for stack %r; skipping", stack)
             continue
         abs_root = rel if rel.is_absolute() else (REPO_ROOT / rel)
         yield stack, resolver, abs_root
