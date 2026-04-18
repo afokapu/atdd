@@ -9,6 +9,48 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 
+DEFAULT_CODE_ROOTS: Dict[str, str] = {
+    "python": "python",
+    "supabase": "supabase/functions",
+    "web": "web/src",
+}
+
+
+def get_code_roots(config: Optional[Dict[str, Any]]) -> Dict[str, Path]:
+    """
+    Resolve the declared implementation-root map from an ATDD config dict.
+
+    Merges the built-in defaults (``python``, ``supabase``, ``web``) with
+    any overrides under the optional ``code:`` key. Unknown stack names
+    (e.g. ``rust``, ``go``) are preserved verbatim so consumers can declare
+    future stacks before resolvers exist — the validator is responsible for
+    skipping keys it has no resolver for (Decision #2).
+
+    The ``toolkit`` key is intentionally NOT in the defaults (Decision #1):
+    consumer repos that vendor or fork the atdd toolkit would otherwise
+    index the vendored copy as their own implementation. Toolkit roots
+    must be opted into by setting ``code.toolkit`` explicitly.
+
+    Args:
+        config: Parsed ``.atdd/config.yaml`` dict. None / missing / malformed
+                ``code`` blocks fall back to defaults.
+
+    Returns:
+        Dict[str, Path] mapping stack-name → Path (relative to repo root).
+    """
+    if not isinstance(config, dict):
+        overrides: Dict[str, Any] = {}
+    else:
+        overrides = config.get("code") or {}
+        if not isinstance(overrides, dict):
+            overrides = {}
+
+    merged: Dict[str, Path] = {k: Path(v) for k, v in DEFAULT_CODE_ROOTS.items()}
+    for key, value in overrides.items():
+        merged[key] = Path(value)
+    return merged
+
+
 def load_atdd_config(repo_root: Path) -> Dict[str, Any]:
     """
     Load .atdd/config.yaml configuration file.
