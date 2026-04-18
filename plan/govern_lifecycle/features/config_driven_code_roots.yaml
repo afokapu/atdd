@@ -1,0 +1,30 @@
+urn: "feature:govern-lifecycle:config-driven-code-roots"
+wagon: "wagon:govern-lifecycle"
+description: "Refactors coder hierarchy-coverage validator to resolve implementation roots from .atdd/config.yaml code: block, seeds toolkit root, drops stale baseline"
+sizing:
+  wmbts: 4
+  footprint_score: 5
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:D011"
+  - "wmbt:govern-lifecycle:D012"
+  - "wmbt:govern-lifecycle:D013"
+  - "wmbt:govern-lifecycle:R003"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — config is read by existing validators and helpers"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "get_code_roots(config) helper and find_toolkit_implementations resolver compose the new config-driven resolution pathway"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts — code roots are pure configuration data, not a modeled entity"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses existing config loader; no new persistence or external clients"
