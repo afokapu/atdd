@@ -1,5 +1,5 @@
 """
-Multiplexer abstraction — unified interface over cmux (preferred) and tmux.
+Multiplexer abstraction — unified interface over cmux (preferred), zellij, and tmux.
 
 Used by `atdd orchestrate` to launch parallel agent sessions, and by
 `atdd babysit` to read screens and send input.
@@ -15,11 +15,12 @@ Operations (unified):
     list_workspaces()                      -> list[str]
     close(workspace_ref)                   -> None
 
-Auto-detection:
-    get_multiplexer()  # cmux if `cmux --version` succeeds, else tmux, else None.
+Auto-detection precedence:
+    get_multiplexer()  # cmux > zellij > tmux > None.
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from abc import ABC, abstractmethod
@@ -31,7 +32,7 @@ class MultiplexerError(RuntimeError):
 
 
 class MultiplexerBackend(ABC):
-    """Abstract backend contract for cmux/tmux."""
+    """Abstract backend contract for cmux/zellij/tmux."""
 
     name: str = "abstract"
 
@@ -149,9 +150,89 @@ class TmuxBackend(MultiplexerBackend):
         _run(["tmux", "kill-session", "-t", workspace_ref], capture=False)
 
 
+class ZellijBackend(MultiplexerBackend):
+    """zellij backend — session-based workspace abstraction.
+
+    workspace_ref is a zellij session name. Sessions are created detached via
+    `zellij attach --create-background`, so the orchestrator does not need a TTY.
+    Action commands (read_screen/send/send_key) target a specific session via
+    the ZELLIJ_SESSION_NAME environment variable, since `zellij action` does
+    not accept a `--session` flag.
+    """
+
+    name = "zellij"
+
+    def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> str:
+        session = name or f"atdd-{abs(hash(cwd)) % 10000}"
+        _run([
+            "zellij", "attach", "--create-background", session,
+            "options", "--default-cwd", cwd,
+        ], capture=False)
+        if command:
+            self.send(session, command)
+            self.send_key(session, "Enter")
+        return session
+
+    def read_screen(self, workspace_ref: str, lines: int = 50) -> str:
+        cmd = ["zellij", "action", "dump-screen", "--full"]
+        env = {**os.environ, "ZELLIJ_SESSION_NAME": workspace_ref}
+        try:
+            result = subprocess.run(
+                cmd, check=True, capture_output=True, text=True, env=env,
+            )
+        except FileNotFoundError as exc:
+            raise MultiplexerError("binary not found: zellij") from exc
+        except subprocess.CalledProcessError as exc:
+            raise MultiplexerError(
+                f"{' '.join(cmd)} failed (exit {exc.returncode}): "
+                f"{(exc.stderr or '').strip()}"
+            ) from exc
+        out = result.stdout or ""
+        if lines and lines > 0:
+            tail = out.splitlines()[-lines:]
+            return "\n".join(tail) + ("\n" if out.endswith("\n") else "")
+        return out
+
+    def send(self, workspace_ref: str, text: str) -> None:
+        cmd = ["zellij", "action", "write-chars", text]
+        env = {**os.environ, "ZELLIJ_SESSION_NAME": workspace_ref}
+        try:
+            subprocess.run(cmd, check=True, env=env)
+        except FileNotFoundError as exc:
+            raise MultiplexerError("binary not found: zellij") from exc
+        except subprocess.CalledProcessError as exc:
+            raise MultiplexerError(
+                f"{' '.join(cmd)} failed (exit {exc.returncode})"
+            ) from exc
+
+    def send_key(self, workspace_ref: str, key: str) -> None:
+        cmd = ["zellij", "action", "send-keys", key]
+        env = {**os.environ, "ZELLIJ_SESSION_NAME": workspace_ref}
+        try:
+            subprocess.run(cmd, check=True, env=env)
+        except FileNotFoundError as exc:
+            raise MultiplexerError("binary not found: zellij") from exc
+        except subprocess.CalledProcessError as exc:
+            raise MultiplexerError(
+                f"{' '.join(cmd)} failed (exit {exc.returncode})"
+            ) from exc
+
+    def list_workspaces(self) -> list[str]:
+        result = _run(["zellij", "list-sessions", "-s", "-n"])
+        return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+
+    def close(self, workspace_ref: str) -> None:
+        _run(["zellij", "delete-session", "--force", workspace_ref], capture=False)
+
+
 def detect_multiplexer() -> Optional[str]:
-    """Return 'cmux', 'tmux', or None based on which binary is on PATH and runnable."""
-    for binary in ("cmux", "tmux"):
+    """Return 'cmux', 'zellij', 'tmux', or None based on which binary is on PATH and runnable.
+
+    Precedence (cmux > zellij > tmux) reflects backend fitness:
+    cmux's workspace model is the design target; zellij has native detached
+    sessions and per-session targeting; tmux is the ubiquitous fallback.
+    """
+    for binary in ("cmux", "zellij", "tmux"):
         if shutil.which(binary) is None:
             continue
         try:
@@ -173,8 +254,10 @@ def get_multiplexer(preferred: Optional[str] = None) -> MultiplexerBackend:
     choice = preferred or detect_multiplexer()
     if choice == "cmux":
         return CmuxBackend()
+    if choice == "zellij":
+        return ZellijBackend()
     if choice == "tmux":
         return TmuxBackend()
     raise MultiplexerError(
-        "No multiplexer available — install cmux (preferred) or tmux."
+        "No multiplexer available — install cmux (preferred), zellij, or tmux."
     )
