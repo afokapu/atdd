@@ -87,3 +87,11 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:config-driven-code-roots
   train: 0001-self-compliance-validate
+- id: '336'
+  slug: zellij-multiplexer-backend
+  file: null
+  issue_number: 336
+  type: implementation
+  status: INIT
+  created: '2026-04-25'
+  archived: null

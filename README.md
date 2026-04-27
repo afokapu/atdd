@@ -287,6 +287,30 @@ atdd urn viz --root wagon:my-wagon     # Subgraph from root
 atdd urn viz --family wagon --family feature  # Filter families
 ```
 
+### Parallel Orchestration
+
+Run multiple agent sessions in parallel — one per issue, each in its own
+worktree and multiplexer workspace — with a babysitter that auto-approves
+known-safe prompts and escalates the rest.
+
+```bash
+atdd orchestrate <issue-numbers...>          # Launch wave-ordered sessions
+atdd orchestrate --multiplexer zellij <N>    # Force a specific backend
+atdd babysit                                  # Watch sessions, auto-approve safe prompts
+atdd merge-cascade <pr-numbers...>            # Wave-ordered merge with CI gating
+```
+
+**Supported multiplexers** (auto-detected; precedence cmux > zellij > tmux):
+
+| Backend | Workspace model | Detached creation |
+|---------|-----------------|-------------------|
+| cmux    | Native workspaces (preferred — matches ATDD model) | `cmux new-workspace` |
+| zellij  | Sessions targeted via `ZELLIJ_SESSION_NAME`         | `zellij attach --create-background` |
+| tmux    | Sessions                                            | `tmux new-session -d` |
+
+Override detection with `--multiplexer cmux|zellij|tmux` on `orchestrate` or
+`babysit`. See `src/atdd/coach/conventions/orchestration.convention.yaml`.
+
 ### Other Commands
 
 ```bash
@@ -365,6 +389,7 @@ Validators are auto-discovered by pytest.
 - Python 3.10+
 - pyyaml, jsonschema
 - `gh` CLI (authenticated, with `project` scope for issue management)
+- One of `cmux`, `zellij`, or `tmux` — only required for `atdd orchestrate` / `atdd babysit`
 
 Dev dependencies: pytest, pytest-xdist, pytest-html
 

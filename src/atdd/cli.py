@@ -813,7 +813,7 @@ Phase descriptions:
     orchestrate_parser.add_argument(
         "--multiplexer",
         type=str,
-        choices=["cmux", "tmux"],
+        choices=["cmux", "zellij", "tmux"],
         default=None,
         help="Force multiplexer backend (default: auto-detect)",
     )
@@ -874,7 +874,7 @@ Phase descriptions:
     babysit_parser.add_argument(
         "--multiplexer",
         type=str,
-        choices=["cmux", "tmux"],
+        choices=["cmux", "zellij", "tmux"],
         default=None,
         help="Force multiplexer backend (default: auto-detect)",
     )

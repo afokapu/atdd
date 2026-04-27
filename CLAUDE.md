@@ -365,6 +365,7 @@ code:
   - python: "python"
   - packages: "packages"
   - migrations: "supabase/migrations"
+  - toolkit: "src/atdd"           # toolkit-self root, opt-in per repo (see code-roots.convention.yaml)
 
 # Dev Servers
 dev_servers:

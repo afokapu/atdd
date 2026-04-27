@@ -1,7 +1,7 @@
 """
 Unit tests for the multiplexer abstraction.
 
-SPEC-COACH-ORCH-0003: auto-detect cmux (preferred) or tmux (fallback).
+SPEC-COACH-ORCH-0003: auto-detect cmux (preferred), zellij, or tmux (fallback).
 
 Run: PYTHONPATH=src python3 -m pytest -q src/atdd/coach/commands/tests/test_multiplexer.py -v
 """
@@ -16,6 +16,7 @@ from atdd.coach.utils.multiplexer import (
     CmuxBackend,
     MultiplexerError,
     TmuxBackend,
+    ZellijBackend,
     detect_multiplexer,
     get_multiplexer,
 )
@@ -38,7 +39,16 @@ def test_detect_prefers_cmux_when_available():
         assert detect_multiplexer() == "cmux"
 
 
-def test_detect_falls_back_to_tmux_when_cmux_missing():
+def test_detect_prefers_zellij_over_tmux_when_cmux_missing():
+    def which(binary):
+        return None if binary == "cmux" else f"/bin/{binary}"
+
+    with patch("atdd.coach.utils.multiplexer.shutil.which", side_effect=which), \
+         patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=_fake_run_success):
+        assert detect_multiplexer() == "zellij"
+
+
+def test_detect_falls_back_to_tmux_when_cmux_and_zellij_missing():
     def which(binary):
         return "/bin/tmux" if binary == "tmux" else None
 
@@ -62,6 +72,12 @@ def test_get_multiplexer_with_tmux_preferred():
     backend = get_multiplexer(preferred="tmux")
     assert isinstance(backend, TmuxBackend)
     assert backend.name == "tmux"
+
+
+def test_get_multiplexer_with_zellij_preferred():
+    backend = get_multiplexer(preferred="zellij")
+    assert isinstance(backend, ZellijBackend)
+    assert backend.name == "zellij"
 
 
 def test_get_multiplexer_raises_when_none_detected():
@@ -204,3 +220,132 @@ def test_tmux_close_uses_kill_session():
 
     assert captured["cmd"][:2] == ["tmux", "kill-session"]
     assert "sess1" in captured["cmd"]
+
+
+# ---------------------------------------------------------------------------
+# ZellijBackend operations
+# ---------------------------------------------------------------------------
+
+
+def test_zellij_new_workspace_uses_attach_create_background():
+    backend = ZellijBackend()
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return _make_result()
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        ref = backend.new_workspace("/tmp/wt", "claude", name="sess1")
+
+    assert ref == "sess1"
+    # First call creates the detached session with cwd
+    assert calls[0][:4] == ["zellij", "attach", "--create-background", "sess1"]
+    assert "options" in calls[0]
+    assert "--default-cwd" in calls[0]
+    assert "/tmp/wt" in calls[0]
+    # Subsequent calls send the command + Enter via action subcommands
+    assert calls[1][:3] == ["zellij", "action", "write-chars"]
+    assert "claude" in calls[1]
+    assert calls[2][:3] == ["zellij", "action", "send-keys"]
+    assert "Enter" in calls[2]
+
+
+def test_zellij_new_workspace_skips_send_when_command_empty():
+    backend = ZellijBackend()
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return _make_result()
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        backend.new_workspace("/tmp/wt", "", name="sess1")
+
+    assert len(calls) == 1
+    assert calls[0][:4] == ["zellij", "attach", "--create-background", "sess1"]
+
+
+def test_zellij_read_screen_uses_dump_screen_full_with_session_env():
+    backend = ZellijBackend()
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = kwargs.get("env", {})
+        return _make_result(stdout="line1\nline2\nline3\nline4\n")
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        out = backend.read_screen("sess1", lines=2)
+
+    assert captured["cmd"][:3] == ["zellij", "action", "dump-screen"]
+    assert "--full" in captured["cmd"]
+    assert captured["env"].get("ZELLIJ_SESSION_NAME") == "sess1"
+    # lines=2 should return only the last two non-empty lines
+    assert out.splitlines()[-2:] == ["line3", "line4"]
+
+
+def test_zellij_send_uses_write_chars_with_session_env():
+    backend = ZellijBackend()
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = kwargs.get("env", {})
+        return _make_result()
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        backend.send("sess1", "hello world")
+
+    assert captured["cmd"][:3] == ["zellij", "action", "write-chars"]
+    assert "hello world" in captured["cmd"]
+    assert captured["env"].get("ZELLIJ_SESSION_NAME") == "sess1"
+
+
+def test_zellij_send_key_uses_send_keys_with_session_env():
+    backend = ZellijBackend()
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = kwargs.get("env", {})
+        return _make_result()
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        backend.send_key("sess1", "Enter")
+
+    assert captured["cmd"][:3] == ["zellij", "action", "send-keys"]
+    assert "Enter" in captured["cmd"]
+    assert captured["env"].get("ZELLIJ_SESSION_NAME") == "sess1"
+
+
+def test_zellij_list_workspaces_parses_short_session_names():
+    backend = ZellijBackend()
+    with patch(
+        "atdd.coach.utils.multiplexer.subprocess.run",
+        return_value=_make_result(stdout="sess1\nsess2\n\n"),
+    ):
+        assert backend.list_workspaces() == ["sess1", "sess2"]
+
+
+def test_zellij_close_uses_delete_session_force():
+    backend = ZellijBackend()
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return _make_result()
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        backend.close("sess1")
+
+    assert captured["cmd"][:2] == ["zellij", "delete-session"]
+    assert "--force" in captured["cmd"]
+    assert "sess1" in captured["cmd"]
+
+
+def test_zellij_missing_binary_raises_multiplexer_error():
+    backend = ZellijBackend()
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=FileNotFoundError):
+        with pytest.raises(MultiplexerError, match="binary not found"):
+            backend.read_screen("sess1")
