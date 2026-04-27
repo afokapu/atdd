@@ -115,6 +115,12 @@ telemetry:
 
 multiplexer:
   preferred: "cmux"
-  fallback: "tmux"
-  detection: "cmux --version first, then tmux -V"
-  rationale: "cmux workspace model matches ATDD's one-session-per-worktree pattern"
+  alternates: ["zellij", "tmux"]
+  detection: "cmux --version first, then zellij --version, then tmux -V"
+  rationale: |
+    cmux workspace model matches ATDD's one-session-per-worktree pattern.
+    zellij is preferred over tmux as a fallback because it supports detached
+    session creation (`zellij attach --create-background`) and per-session
+    targeting (via the ZELLIJ_SESSION_NAME env var), both of which align
+    with the headless orchestration model. tmux remains as the ubiquitous
+    last-resort fallback.
