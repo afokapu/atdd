@@ -108,7 +108,9 @@ your-project/
 ├── CLAUDE.md              # With managed ATDD block
 └── .atdd/
     ├── manifest.yaml      # Issue tracking
-    └── config.yaml        # Agent sync + release configuration
+    ├── config.yaml        # Agent sync + release + code roots + themes
+    ├── baselines/         # Ratchet baselines per validator phase
+    └── hooks/             # Advisory pre-commit / pre-push hooks
 ```
 
 Also sets up on GitHub:
@@ -227,15 +229,38 @@ Supported agents:
 | gemini | GEMINI.md |
 | qwen | QWEN.md |
 
-Configure which agents to sync in `.atdd/config.yaml`:
+Configure which agents to sync in `.atdd/config.yaml`. Full schema:
+
 ```yaml
 version: "1.0"
+
 sync:
   agents:
     - claude      # Enabled by default
     # - codex     # Uncomment to sync AGENTS.md
     # - gemini    # Uncomment to sync GEMINI.md
     # - qwen      # Uncomment to sync QWEN.md
+
+init:
+  skip_workflows: false   # Set true to skip generating .github/workflows on atdd init
+
+release:
+  version_file: "pyproject.toml"   # or package.json, VERSION, etc.
+  tag_prefix: "v"
+
+# Stack roots (drives validators that need to know where each archetype lives)
+code:
+  python: "src"
+  supabase: "supabase/functions"
+  frontend: "web/src"
+  toolkit: "src/atdd"   # only for the atdd toolkit-self repo
+
+# Optional theme overrides for atdd urn viz / status output
+themes:
+  default: "auto"
+  # custom:
+  #   primary: "#0ea5e9"
+  #   accent: "#22c55e"
 ```
 
 ### ATDD Gate (Bootstrap Protocol)
@@ -453,6 +478,13 @@ Validators are auto-discovered by pytest.
 - pyyaml, jsonschema
 - `gh` CLI (authenticated, with `project` scope for issue management)
 - One of `cmux`, `zellij`, or `tmux` — only required for `atdd orchestrate` / `atdd babysit`
+
+**Optional environment variables:**
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `ATDD_MAX_UNCOMMITTED` | 10 | Threshold for the pre-push micro-commit warning |
+| `ATDD_MAX_STAGED` | 20 | Threshold for the pre-commit micro-commit warning |
 
 Dev dependencies: pytest, pytest-xdist, pytest-html
 
