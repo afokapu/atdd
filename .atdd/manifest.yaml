@@ -95,3 +95,11 @@ sessions:
   status: INIT
   created: '2026-04-25'
   archived: null
+- id: '338'
+  slug: refresh-readme-drift
+  file: null
+  issue_number: 338
+  type: implementation
+  status: INIT
+  created: '2026-04-27'
+  archived: null
