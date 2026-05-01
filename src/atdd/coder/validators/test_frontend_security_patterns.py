@@ -10,6 +10,11 @@ Conventions from:
 Rationale: Direct DOM manipulation via innerHTML is the most common
 XSS vector in frontend code.  Safe alternatives exist (textContent,
 React's JSX escaping, DOMPurify).
+
+Structured violations (issue #340): emits ``Violation(rule_id="SECURITY-XSS-001", ...)``
+records via ``RatchetBaseline.assert_no_regression(violations=...)`` so that
+risk-scoring, suppression-audit, and self-fix tooling can route off the rule_id.
+The ID grammar is governed by ``src/atdd/coach/specs/rule-id.spec.md``.
 """
 
 import fnmatch
@@ -22,6 +27,7 @@ from typing import Dict, List, Optional
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.validators._violation import Violation
 
 
 # ---------------------------------------------------------------------------
@@ -98,18 +104,33 @@ def find_frontend_files(
 # ---------------------------------------------------------------------------
 # XSS pattern detector  (regex)
 # ---------------------------------------------------------------------------
+# SPEC-COACH-RULEID-0001: rule_id matching the grammar <DOMAIN>-<TOPIC>-<NNN>.
+# Severity 5 = security/blocking per SPEC-COACH-RULEID-0003.
+XSS_RULE_ID = "SECURITY-XSS-001"
+XSS_RULE_SEVERITY = 5
+
+
 def check_xss_patterns(
     file_path: Path,
     patterns: List[str],
-) -> List[Dict]:
-    """Line-by-line regex scan for XSS-prone DOM patterns."""
+    base_dir: Path,
+) -> List[Violation]:
+    """Line-by-line regex scan for XSS-prone DOM patterns.
+
+    Returns structured ``Violation`` records (issue #340).
+    """
     try:
         lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return []
 
+    try:
+        rel_path = file_path.relative_to(base_dir)
+    except ValueError:
+        rel_path = file_path
+
     compiled = [(p, re.compile(p)) for p in patterns]
-    violations: List[Dict] = []
+    violations: List[Violation] = []
     for lineno, line in enumerate(lines, start=1):
         stripped = line.strip()
         # Skip comments
@@ -118,28 +139,23 @@ def check_xss_patterns(
         for pattern_str, regex in compiled:
             if regex.search(line):
                 snippet = stripped[:80] + ("..." if len(stripped) > 80 else "")
-                violations.append({
-                    "file": file_path,
-                    "line": lineno,
-                    "detail": f"XSS pattern '{pattern_str}' found: {snippet}",
-                })
+                violations.append(Violation(
+                    rule_id=XSS_RULE_ID,
+                    severity=XSS_RULE_SEVERITY,
+                    location=f"{rel_path}:{lineno}",
+                    detail=f"XSS pattern '{pattern_str}' found: {snippet}",
+                ))
     return violations
 
 
 # ---------------------------------------------------------------------------
 # Violation formatter
 # ---------------------------------------------------------------------------
-def _format_violations(violations: List[Dict], base_dir: Path) -> str:
-    """Format violations for pytest.fail() output."""
-    lines = []
-    for v in violations[:10]:
-        try:
-            rel = v["file"].relative_to(base_dir)
-        except ValueError:
-            rel = v["file"]
-        lines.append(f"{rel}:{v['line']}\n  {v['detail']}")
+def _format_violations(violations: List[Violation]) -> str:
+    """Format Violation records for pytest.fail() output."""
+    lines = [str(v) for v in violations[:10]]
     header = f"\n\nFound {len(violations)} security violation(s):\n\n"
-    body = "\n\n".join(lines)
+    body = "\n".join(lines)
     tail = ""
     if len(violations) > 10:
         tail = f"\n\n... and {len(violations) - 10} more"
@@ -151,9 +167,9 @@ def _format_violations(violations: List[Dict], base_dir: Path) -> str:
 # ===========================================================================
 
 @pytest.mark.coder
-def test_no_xss_prone_patterns():
+def test_no_xss_prone_patterns(ratchet_baseline):
     """
-    SPEC-CODER-SEC-0004: No innerHTML or dangerouslySetInnerHTML in frontend code.
+    SECURITY-XSS-001: No innerHTML or dangerouslySetInnerHTML in frontend code.
 
     Direct DOM manipulation via innerHTML is the most common XSS vector.
     Use textContent, framework-safe APIs, or DOMPurify instead.
@@ -161,6 +177,9 @@ def test_no_xss_prone_patterns():
     Given: TypeScript/JSX files in web/ or frontend/
     When:  Scanning for innerHTML and dangerouslySetInnerHTML patterns
     Then:  No XSS-prone DOM manipulation found
+
+    Issue #340: emits structured Violation records through the ratchet so
+    that risk-scoring and self-fix tooling can route off rule_id.
     """
     convention = load_security_convention()
     rule = convention.get("rules", {}).get("xss_patterns", {})
@@ -172,9 +191,12 @@ def test_no_xss_prone_patterns():
     if not files:
         pytest.skip("No frontend files found in web/ or frontend/")
 
-    violations: List[Dict] = []
+    violations: List[Violation] = []
     for f in files:
-        violations.extend(check_xss_patterns(f, patterns))
+        violations.extend(check_xss_patterns(f, patterns, REPO_ROOT))
 
-    if violations:
-        pytest.fail(_format_violations(violations, REPO_ROOT))
+    ratchet_baseline.assert_no_regression(
+        validator_id="frontend_security_patterns",
+        current_count=len(violations),
+        violations=violations,
+    )

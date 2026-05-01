@@ -44,9 +44,69 @@ green_phase:
 
     note: "Side and layer values are defined by component_type_catalog structure below"
 
+    # ---------------------------------------------------------------------
+    # Structured rules (issue #340 — see src/atdd/coach/specs/rule-id.spec.md)
+    # ---------------------------------------------------------------------
+    rules:
+      - id: GREEN-URN-001
+        severity: 3
+        description: "Component URN marker is the first non-empty line of every implementation file"
+        recipe: adapter
+        introduced_in: "1.61.2"
+
+      - id: GREEN-URN-002
+        severity: 3
+        description: "Component URN matches pattern component:{wagon}:{feature}:{name}:{side}:{layer}"
+        recipe: adapter
+        introduced_in: "1.61.2"
+
+      - id: GREEN-URN-003
+        severity: 3
+        description: "Wagon and feature segments of the URN exist in the wagon manifest"
+        introduced_in: "1.61.2"
+
+      - id: GREEN-URN-004
+        severity: 2
+        description: "Component name segment matches the filename (with PascalCase/camelCase casing)"
+        introduced_in: "1.61.2"
+
+      - id: GREEN-URN-005
+        severity: 3
+        description: "Side segment is one of: frontend, backend"
+        introduced_in: "1.61.2"
+
+      - id: GREEN-URN-006
+        severity: 3
+        description: "Layer segment is one of: domain, application, integration, presentation, assembly"
+        introduced_in: "1.61.2"
+
   # File Header Requirements (Traceability)
   file_header_requirements:
     description: "All implementation files MUST include traceability markers in file header"
+
+    # ---------------------------------------------------------------------
+    # Structured rules (issue #340 — see src/atdd/coach/specs/rule-id.spec.md)
+    # ---------------------------------------------------------------------
+    rules:
+      - id: GREEN-HEADER-001
+        severity: 2
+        description: "Runtime declaration (# Runtime: <python|supabase|flutter>) is present"
+        introduced_in: "1.61.2"
+
+      - id: GREEN-HEADER-002
+        severity: 2
+        description: "Purpose description (# Purpose: ...) is present and ≤80 chars"
+        introduced_in: "1.61.2"
+
+      - id: GREEN-HEADER-003
+        severity: 2
+        description: "Tested-By block lists at least one valid test URN"
+        introduced_in: "1.61.2"
+
+      - id: GREEN-HEADER-004
+        severity: 2
+        description: "Header order: URN → Tested-By → Runtime → Purpose → blank → docstring → imports"
+        introduced_in: "1.61.2"
 
     component_urn_marker:
       required: true
