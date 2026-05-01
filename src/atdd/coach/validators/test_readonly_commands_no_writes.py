@@ -114,6 +114,13 @@ def fixture_repo(tmp_path: Path) -> Path:
         )
     )
 
+    # `atdd init` writes this entry in real consumer repos
+    # (initializer.py:_ensure_gitignore_entry). Mirror it here so the
+    # graph cache that some read-only verbs build (urn families, etc.)
+    # does not show up as a git-status diff in the fixture. The cache
+    # itself is not the regression under test.
+    (repo / ".gitignore").write_text(".atdd/cache/\n")
+
     _git(repo, "add", "-A").check_returncode()
     _git(repo, "commit", "-q", "-m", "fixture").check_returncode()
 
