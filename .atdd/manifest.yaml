@@ -135,6 +135,9 @@ sessions:
   status: INIT
   created: '2026-05-01'
   archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:orchestrate-pane-mode
+  train: 0001-self-compliance-validate
 - id: '344'
   slug: atdd-issue-must-commit-manifest-update
   file: null
