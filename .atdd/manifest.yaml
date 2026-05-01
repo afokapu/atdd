@@ -103,3 +103,35 @@ sessions:
   status: INIT
   created: '2026-04-27'
   archived: null
+- id: '340'
+  slug: structured-violations
+  file: null
+  issue_number: 340
+  type: implementation
+  status: INIT
+  created: '2026-05-01'
+  archived: null
+- id: '341'
+  slug: atdd-validate-quick-pytest-resolution
+  file: null
+  issue_number: 341
+  type: implementation
+  status: INIT
+  created: '2026-05-01'
+  archived: null
+- id: '342'
+  slug: atdd-cli-mutates-config-on-read
+  file: null
+  issue_number: 342
+  type: implementation
+  status: INIT
+  created: '2026-05-01'
+  archived: null
+- id: '343'
+  slug: orchestrate-in-pane-mode
+  file: null
+  issue_number: 343
+  type: implementation
+  status: INIT
+  created: '2026-05-01'
+  archived: null
