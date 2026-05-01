@@ -4,7 +4,7 @@ direction: "minimize"
 dimension: "quantity"
 object_of_control: "convention-rules-whose-letter-hides-their-intent"
 context_clarifier: "when src/atdd/coach/conventions/orchestration.convention.yaml rule one_agent_per_workspace says 'exactly one agent per multiplexer workspace' but the underlying intent is 'one isolated agent context per session unit' regardless of whether the unit is a workspace or a surface"
-lens: "structural.coherence"
+lens: "functional.adaptability"
 statement: "minimize quantity of convention-rules-whose-letter-hides-their-intent when the orchestration convention's rule is read alongside pane mode"
 acceptances:
   - identity:

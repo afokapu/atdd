@@ -4,7 +4,7 @@ direction: "minimize"
 dimension: "quantity"
 object_of_control: "cmux-pane-and-surface-primitives-unreachable-from-multiplexer-abstraction"
 context_clarifier: "when CmuxMultiplexer is the active backend and cmux exposes new-pane, new-surface, surface.read_text, surface.send_text, surface.send_key, close-surface RPCs that the abstraction does not dispatch to"
-lens: "functional.completeness"
+lens: "functional.adaptability"
 statement: "minimize quantity of cmux-pane-and-surface-primitives-unreachable-from-multiplexer-abstraction when CmuxMultiplexer is the active backend"
 acceptances:
   - identity:

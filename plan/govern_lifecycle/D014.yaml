@@ -4,7 +4,7 @@ direction: "minimize"
 dimension: "quantity"
 object_of_control: "multiplexer-abstractions-bound-to-workspace-only-spawn-unit"
 context_clarifier: "when src/atdd/coach/utils/multiplexer.py declares only new_workspace as the creation primitive, hard-coding one-workspace-per-issue topology into both the abstraction and orchestrate's consumer"
-lens: "functional.completeness"
+lens: "functional.adaptability"
 statement: "minimize quantity of multiplexer-abstractions-bound-to-workspace-only-spawn-unit when src/atdd/coach/utils/multiplexer.py declares only new_workspace as the creation primitive"
 acceptances:
   - identity:
