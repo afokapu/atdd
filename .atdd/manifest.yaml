@@ -132,7 +132,7 @@ sessions:
   file: null
   issue_number: 343
   type: implementation
-  status: INIT
+  status: PLANNED
   created: '2026-05-01'
   archived: null
   wagon: govern-lifecycle
