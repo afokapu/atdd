@@ -144,6 +144,43 @@ class IssueManager:
         with open(self.manifest_file, "w") as f:
             yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
 
+    def _commit_manifest_change(self, verb: str, message: str) -> None:
+        """Atomically commit the local manifest after a CLI-driven write.
+
+        Convention: src/atdd/coach/conventions/issue.convention.yaml
+                    (manifest_write_discipline)
+
+        No-ops when ``self.target_dir`` is not a git working tree (e.g. unit
+        tests that supply a bare ``tmp_path`` without ``git init``). Surfaces
+        ``ManifestCommitError`` as a printed warning so the verb's primary
+        work (GitHub mutation, status transition) is not lost: CI's coach
+        validator catches any drift the user fails to resolve.
+        """
+        if not (self.target_dir / ".git").exists():
+            return
+        if not self.manifest_file.exists():
+            return
+        from atdd.coach.utils.git import (
+            ManifestCommitError,
+            git_commit_manifest_update,
+        )
+        try:
+            sha = git_commit_manifest_update(
+                path=self.manifest_file,
+                message=message,
+                verb=verb,
+                repo_root=self.target_dir,
+            )
+        except ManifestCommitError as exc:
+            print(f"  Warning: manifest not committed — {exc}")
+            print(
+                "    Run `git add .atdd/manifest.yaml && git commit` once "
+                "you have addressed the cause."
+            )
+            return
+        if sha:
+            print(f"  Committed manifest update ({sha[:8]})")
+
     def _update_manifest_status(self, issue_number: int, status: str) -> None:
         """Mirror a successful GitHub status transition into the local manifest.
 
@@ -163,6 +200,12 @@ class IssueManager:
                 mutated = True
         if mutated:
             self._save_manifest(manifest)
+            self._commit_manifest_change(
+                verb="atdd update --status",
+                message=(
+                    f"chore(coach): mirror issue #{issue_number} status → {status} in manifest"
+                ),
+            )
 
     def _slugify(self, text: str) -> str:
         """Convert text to kebab-case slug."""
@@ -850,6 +893,10 @@ class IssueManager:
             manifest["sessions"] = []
         manifest["sessions"].append(issue_entry)
         self._save_manifest(manifest)
+        self._commit_manifest_change(
+            verb="atdd issue",
+            message=f"chore(coach): register issue #{parent_number} in manifest",
+        )
 
         print(f"\nCreated #{parent_number} with {wmbt_count} WMBTs")
         print(f"  Repo: {github_config['repo']}")
@@ -1055,6 +1102,10 @@ class IssueManager:
                 s["archived"] = date.today().isoformat()
                 break
         self._save_manifest(manifest)
+        self._commit_manifest_change(
+            verb="atdd archive",
+            message=f"chore(coach): archive issue #{issue_number} in manifest",
+        )
 
         total_subs = len(subs) if subs else 0
         print(f"\nArchived #{issue_number}: closed {closed_count} sub-issues, "

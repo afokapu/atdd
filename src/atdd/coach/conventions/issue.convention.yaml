@@ -1053,6 +1053,42 @@ gate_tests:
           atdd_validator: "atdd/coder/validators/"
           description: "Architecture conventions met"
 
+# =============================================================================
+# MANIFEST-WRITE DISCIPLINE (Issue #344)
+# =============================================================================
+# Any CLI verb that mutates `.atdd/manifest.yaml` MUST commit the write
+# atomically with the verb. Otherwise a worktree branched from main HEAD
+# cannot see issues registered after that HEAD — `--sync-wmbts` and any
+# other manifest-reading flow break in the worktree.
+#
+# Single entry point: `atdd.coach.utils.git.git_commit_manifest_update`.
+# Helper invariants:
+#   1. Stages only the manifest path (no surprise bundling).
+#   2. Refuses on `main` unless `allow_main=True` is passed (respects
+#      CLAUDE.md `git.commit_discipline.on_main_detection`).
+#   3. Refuses if any other staged changes already exist in the index.
+#   4. Returns the new commit's SHA, or None for a clean-tree no-op.
+#
+# Verbs covered (audit lives at src/atdd/coach/specs/manifest-write-audit.md):
+#   - `atdd issue <slug>`        → register a new session entry
+#   - `atdd update --status <S>` → mirror status into the session entry
+#   - `atdd archive <N>`         → mark COMPLETE + set archived date
+#
+# Auto-pushing the commit to origin is OUT OF SCOPE — the user retains
+# the deliberate `git push`. See issue #344 Decisions for rationale.
+manifest_write_discipline:
+  rule: |
+    Every IssueManager method that calls self._save_manifest(...) MUST
+    also call self._commit_manifest_change(verb, message) so the write
+    is committed atomically with the verb.
+  helper: "src/atdd/coach/utils/git.py :: git_commit_manifest_update"
+  validator: "src/atdd/coach/validators/test_manifest_write_discipline.py"
+  audit: "src/atdd/coach/specs/manifest-write-audit.md"
+  decisions:
+    push_to_origin: "no — local commit only; push remains a user action"
+    on_main: "refuse unless allow_main=True; print recovery hint"
+    granularity: "one commit per verb invocation (no batching, no amend)"
+
 # Validation
 validation:
   command: "atdd validate coach"
@@ -1065,3 +1101,4 @@ validation:
     - "Session log has at least one entry"
     - "Gate tests defined for all declared archetypes"
     - "Gate tests reference valid ATDD validators"
+    - "Every manifest-write call site funnels through git_commit_manifest_update"
