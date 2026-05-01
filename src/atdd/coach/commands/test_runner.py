@@ -67,7 +67,10 @@ class TestRunner:
         parallel: bool = True,
     ) -> list:
         """Build a pytest command list."""
-        cmd = ["pytest"] + validator_dirs
+        # Module-form invocation so atdd's own interpreter resolves pytest.
+        # Bare 'pytest' argv0 fails when atdd is installed in an isolated
+        # venv (e.g. pipx) whose bin/ is not on the consumer's PATH (#341).
+        cmd = [sys.executable, "-m", "pytest"] + validator_dirs
 
         if verbose:
             cmd.append("-v")
