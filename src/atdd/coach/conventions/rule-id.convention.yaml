@@ -1,0 +1,236 @@
+schema_version: "1.0.0"
+convention_id: "coach.rule-id"
+name: "Rule-ID Convention"
+description: "Machine-readable schema, DOMAIN registry, and migration playbook for the rule-ID grammar defined in src/atdd/coach/specs/rule-id.spec.md."
+
+# =============================================================================
+# Source-of-truth pointer
+# =============================================================================
+spec:
+  human_readable: "src/atdd/coach/specs/rule-id.spec.md"
+  ids:
+    - "SPEC-COACH-RULEID-0001"   # grammar
+    - "SPEC-COACH-RULEID-0002"   # DOMAIN registry is closed
+    - "SPEC-COACH-RULEID-0003"   # severity scale 1..5
+    - "SPEC-COACH-RULEID-0004"   # stability + superseded_by
+    - "SPEC-COACH-RULEID-0005"   # recipe linkage
+    - "SPEC-COACH-RULEID-0006"   # per-rule YAML shape
+
+# =============================================================================
+# Grammar (machine-readable mirror of SPEC-COACH-RULEID-0001)
+# =============================================================================
+grammar:
+  pattern: "^[A-Z][A-Z0-9]*(-[A-Z0-9]+){2,4}$"
+  description: |
+    <DOMAIN>-<TOPIC>-<NNN> where TOPIC may be 1-3 hyphenated segments
+    and NNN is exactly 3 zero-padded digits.
+  separator: "-"
+  numeric_suffix:
+    digits: 3
+    zero_padded: true
+
+# =============================================================================
+# DOMAIN registry (closed set — SPEC-COACH-RULEID-0002)
+# =============================================================================
+# Adding a value here is a SPEC edit. The rule-id-uniqueness validator
+# reads this list as the authoritative DOMAIN set.
+domains:
+  # ATDD lifecycle phases
+  - GREEN
+  - RED
+  - SMOKE
+  - REFACTOR
+  # Agent areas
+  - COACH
+  - PLANNER
+  - TESTER
+  # Convention areas (mirror of file names in src/atdd/coder/conventions/)
+  - BOUNDARIES
+  - DESIGN
+  - SECURITY
+  - LOGGING
+  - DTO
+  - ERROR
+  - PRESENTATION
+  - DUPLICATION
+  - DEAD-CODE
+  - COMPLEXITY
+
+# =============================================================================
+# Severity scale (machine-readable mirror of SPEC-COACH-RULEID-0003)
+# =============================================================================
+severity_scale:
+  type: integer
+  minimum: 1
+  maximum: 5
+  levels:
+    1: { name: "advisory",        examples: ["style nits", "ordering preferences"] }
+    2: { name: "maintainability", examples: ["naming", "file-header completeness"] }
+    3: { name: "architectural",   examples: ["URN markers", "layer boundaries"] }
+    4: { name: "correctness",     examples: ["error handling", "DTO validation"] }
+    5: { name: "security",        examples: ["XSS", "unsafe deserialization"] }
+
+# =============================================================================
+# Per-rule YAML shape (SPEC-COACH-RULEID-0006)
+# =============================================================================
+rule_schema:
+  required: [id, severity, description]
+  optional: [recipe, introduced_in, superseded_by]
+  fields:
+    id:
+      type: string
+      pattern: "^[A-Z][A-Z0-9]*(-[A-Z0-9]+){2,4}$"
+      description: "Stable rule ID matching the grammar."
+    severity:
+      type: integer
+      minimum: 1
+      maximum: 5
+    description:
+      type: string
+      description: "One-line human-readable rule statement."
+    recipe:
+      type: string
+      description: "Name of a peer *.recipe.yaml file (without the .recipe.yaml suffix)."
+    introduced_in:
+      type: string
+      description: "Toolkit version that first published this rule."
+    superseded_by:
+      type: string
+      description: "Newer rule ID that replaces this one (deprecation window)."
+
+# =============================================================================
+# Migration playbook
+# =============================================================================
+# Step-by-step retrofit guide for the ~15 conventions that don't yet declare
+# `rules:` blocks. Worked example: green.convention.yaml (this issue).
+migration:
+  worked_example:
+    convention: "src/atdd/coder/conventions/green.convention.yaml"
+    validator: "src/atdd/coder/validators/test_frontend_security_patterns.py"
+    summary: |
+      green.convention.yaml is the proof migration for issue #340. It declares
+      rule IDs under `green_phase.urn_naming.rules` and
+      `green_phase.file_header_requirements.rules`. The frontend security
+      validator emits `Violation` records keyed off those IDs.
+
+  steps:
+    - step: 1
+      name: "Pick the DOMAIN"
+      action: |
+        Choose the DOMAIN value from `domains:` above that matches your
+        convention's area. If none fits, this is a SPEC edit — open a separate
+        issue to extend SPEC-COACH-RULEID-0002 first.
+
+    - step: 2
+      name: "Inventory existing rules in the convention"
+      action: |
+        Read the convention text and list every distinct testable expectation.
+        One rule = one row in the eventual `rules:` array. Don't merge two
+        expectations under one ID; don't split one expectation across two IDs.
+
+    - step: 3
+      name: "Assign sequential IDs"
+      action: |
+        For DOMAIN=GREEN, TOPIC=URN, the first three rules become
+        GREEN-URN-001, GREEN-URN-002, GREEN-URN-003. Skip numbers freely if
+        you anticipate future related rules; gaps are fine. NEVER reuse a
+        number that was previously published — see SPEC-COACH-RULEID-0004.
+
+    - step: 4
+      name: "Assign severities"
+      action: |
+        Use the severity scale above. When in doubt, prefer the lower
+        severity — escalation is cheap, demotion churns the risk score.
+
+    - step: 5
+      name: "Place the `rules:` array next to the rule text"
+      action: |
+        Hang `rules:` off the smallest concept block that contains all the
+        rule's text. For example, urn_naming.rules (not green_phase.rules).
+        This keeps IDs greppable from the rule statement.
+
+    - step: 6
+      name: "Migrate the validator to emit Violations"
+      action: |
+        Replace `pytest.fail(prose)` with a list of `Violation` records:
+
+          from atdd.coach.validators._violation import Violation
+
+          violations.append(Violation(
+              rule_id="GREEN-URN-001",
+              severity=3,
+              location=f"{rel_path}:{lineno}",
+              detail="missing URN marker",
+              fix_hint_ref="recipe:adapter#step-1",  # if a recipe exists
+          ))
+
+        Then pass the list through to the ratchet:
+
+          ratchet_baseline.assert_no_regression(
+              validator_id="...",
+              current_count=len(violations),
+              violations=violations,
+          )
+
+    - step: 7
+      name: "Run the coach uniqueness validator"
+      action: |
+        `pytest src/atdd/coach/validators/test_rule_id_uniqueness.py -v`
+        confirms the new IDs match the grammar and don't collide with any
+        existing ID across all conventions.
+
+    - step: 8
+      name: "Opt the convention into strict validation"
+      action: |
+        Add the migrated convention path under `migration.completed:` below.
+
+        This is the gate that flips the convention from "exempt" to "strict":
+        `test_rule_id_uniqueness.py::test_rule_id_grammar_and_required_fields`
+        only enforces grammar/severity/description on files listed under
+        `completed:`. Files NOT in the list are skipped.
+
+        Uniqueness and superseded_by checks (the other two coach tests) run
+        on every file unconditionally — but only consider IDs that already
+        match the new grammar. Legacy IDs (LOG-001, COVERAGE-CODE-4.1, etc.)
+        are ignored until their convention migrates.
+
+        This staged opt-in means a single PR can migrate one convention
+        without forcing all 15+ to migrate at once.
+
+    - step: 9
+      name: "Bump version and document"
+      action: |
+        Bump `introduced_in:` on every new rule entry to the toolkit version
+        that ships the migration. This lets downstream consumers tell which
+        toolkit version first published the ID.
+
+  baseline_compatibility:
+    rule: |
+      The structured-violation persistence path (.atdd/baselines/<phase>.violations.yaml)
+      is ADDITIVE. The integer-count baseline (<phase>.yaml) keeps working
+      unchanged for non-migrated validators. Do NOT delete the integer baseline
+      until every validator has migrated.
+    why: |
+      Forcing a flag-day migration of all 113 validators at once would block
+      issue #340 indefinitely. Additive persistence lets validators migrate
+      independently.
+
+  deprecation:
+    rule: |
+      To replace a published rule ID, keep the old entry with
+      `superseded_by: <new-id>` for one toolkit release, then remove it in
+      the next release. Coach validation warns on `superseded_by` so the
+      window is visible.
+    example: |
+      rules:
+        - id: GREEN-URN-001
+          severity: 3
+          superseded_by: GREEN-URN-LAYER-002
+          description: "Component URN required as first non-empty line"
+        - id: GREEN-URN-LAYER-002
+          severity: 3
+          description: "Component URN required, with layer segment, as first non-empty line"
+
+  completed:
+    # Add migrated convention paths here as they land.
+    - "src/atdd/coder/conventions/green.convention.yaml"
