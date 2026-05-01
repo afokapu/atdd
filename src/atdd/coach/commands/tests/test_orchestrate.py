@@ -158,3 +158,155 @@ def test_build_plan_skips_unfetchable():
     ):
         plan = build_plan([42])
     assert plan == {}
+
+
+# ---------------------------------------------------------------------------
+# --multiplexer-mode pane (wmbt:govern-lifecycle:D016)
+# ---------------------------------------------------------------------------
+
+
+class _FakeBackend:
+    """Records calls; returns predictable refs for new_workspace/new_surface."""
+
+    def __init__(self):
+        self.workspace_calls: list[dict] = []
+        self.surface_calls: list[dict] = []
+        self._wcounter = 0
+        self._scounter = 0
+
+    def new_workspace(self, cwd, command, name=None):
+        self._wcounter += 1
+        self.workspace_calls.append({"cwd": cwd, "command": command, "name": name})
+        return f"workspace:{self._wcounter}"
+
+    def new_surface(self, workspace_ref=None, pane_ref=None, cwd=None, command=None, name=None):
+        self._scounter += 1
+        self.surface_calls.append({
+            "workspace_ref": workspace_ref,
+            "pane_ref": pane_ref,
+            "cwd": cwd,
+            "command": command,
+            "name": name,
+        })
+        return f"surface:{self._scounter}"
+
+
+def _wire_run_orchestrate(tmp_path, backend, plan: dict[int, PlannedIssue]):
+    """Patch orchestrate's collaborators so run() exercises the dispatch logic only."""
+    from atdd.coach.commands import orchestrate as orch
+
+    def fake_build_plan(issue_numbers):
+        return {n: plan[n] for n in issue_numbers if n in plan}
+
+    def fake_create_worktree(branch, path):
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+    fake_build_context = lambda *a, **kw: type(
+        "Ctx", (), {"branch": kw.get("branch", "feat/x"), "stop_condition": ""}
+    )()
+    fake_render = lambda ctx: "launch script body"
+
+    return patch.multiple(
+        orch,
+        build_plan=fake_build_plan,
+        _create_worktree=fake_create_worktree,
+        get_multiplexer=lambda preferred=None: backend,
+        build_context=lambda **kw: type("Ctx", (), {"stop_condition": "", "branch": "feat/x"})(),
+        render=lambda ctx: "launch script body",
+    )
+
+
+def test_orchestrate_pane_mode_calls_new_surface_not_new_workspace(tmp_path: Path):
+    """D016-AC-UNIT-001: pane mode dispatches to new_surface; new_workspace is NOT called.
+
+    State file records the surface ref per issue.
+    """
+    from atdd.coach.commands.orchestrate import run as run_orchestrate
+
+    plan = {
+        1: PlannedIssue(number=1, title="A", branch="feat/a", body="", dependencies=[]),
+        2: PlannedIssue(number=2, title="B", branch="feat/b", body="", dependencies=[]),
+    }
+    backend = _FakeBackend()
+    state_file = tmp_path / "state.json"
+
+    with _wire_run_orchestrate(tmp_path, backend, plan):
+        rc = run_orchestrate(
+            issue_numbers=[1, 2],
+            multiplexer_mode="pane",
+            state_file=str(state_file),
+        )
+
+    assert rc == 0
+    assert len(backend.surface_calls) == 2
+    assert backend.workspace_calls == []
+
+    saved = json.loads(state_file.read_text())
+    assert saved["1"]["mode"] == "pane"
+    assert saved["1"]["ref"].startswith("surface:")
+    assert saved["2"]["ref"].startswith("surface:")
+
+
+def test_orchestrate_default_mode_is_workspace_backwards_compatible(tmp_path: Path):
+    """D016-AC-UNIT-001: default invocation (no flag) preserves the existing workspace mode."""
+    from atdd.coach.commands.orchestrate import run as run_orchestrate
+
+    plan = {1: PlannedIssue(number=1, title="A", branch="feat/a", body="", dependencies=[])}
+    backend = _FakeBackend()
+    state_file = tmp_path / "state.json"
+
+    with _wire_run_orchestrate(tmp_path, backend, plan):
+        rc = run_orchestrate(
+            issue_numbers=[1],
+            state_file=str(state_file),
+        )
+
+    assert rc == 0
+    assert len(backend.workspace_calls) == 1
+    assert backend.surface_calls == []
+
+
+def test_orchestrate_resume_pane_mode_skips_already_launched(tmp_path: Path):
+    """D016-AC-UNIT-002: --resume in pane mode reuses existing surface refs without recreating them."""
+    from atdd.coach.commands.orchestrate import run as run_orchestrate
+
+    plan = {
+        1: PlannedIssue(number=1, title="A", branch="feat/a", body="", dependencies=[]),
+        2: PlannedIssue(number=2, title="B", branch="feat/b", body="", dependencies=[]),
+    }
+    backend = _FakeBackend()
+    state_file = tmp_path / "state.json"
+
+    # Pre-existing state from a prior pane-mode run
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    state_file.write_text(json.dumps({
+        "1": {
+            "worktree_created": True,
+            "worktree_path": str(tmp_path / "feat-a"),
+            "launched": True,
+            "ref": "surface:777",
+            "mode": "pane",
+        },
+        "2": {
+            "worktree_created": True,
+            "worktree_path": str(tmp_path / "feat-b"),
+        },
+    }))
+
+    with _wire_run_orchestrate(tmp_path, backend, plan):
+        rc = run_orchestrate(
+            issue_numbers=[1, 2],
+            multiplexer_mode="pane",
+            resume=True,
+            state_file=str(state_file),
+        )
+
+    assert rc == 0
+    # Issue 1 is already launched in pane mode → should NOT call new_surface again.
+    # Only issue 2 needs a fresh surface.
+    assert len(backend.surface_calls) == 1
+    assert len(backend.workspace_calls) == 0
+
+    saved = json.loads(state_file.read_text())
+    assert saved["1"]["ref"] == "surface:777"  # untouched
+    assert saved["2"]["ref"].startswith("surface:")
