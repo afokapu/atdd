@@ -15,6 +15,10 @@ SPEC-CODER-RATCHET-0002: Baseline file must exist for ratcheted validators.
 SPEC-CODER-RATCHET-0003: `atdd baseline update` writes current counts atomically.
 SPEC-CODER-RATCHET-0004: Improvement below baseline produces PASS with advisory.
 SPEC-CODER-RATCHET-0005: Validator at 0 violations needs no baseline entry.
+SPEC-CODER-RATCHET-0006: Structured `Violation` records are persisted additively
+    to a sibling ``coder.violations.yaml`` when emitted, without disturbing the
+    integer-count baseline contract above. See issue #340 and
+    src/atdd/coach/specs/rule-id.spec.md.
 """
 
 from __future__ import annotations
@@ -34,6 +38,21 @@ def default_baseline_path(repo_root: Path) -> Path:
     return repo_root / ".atdd" / "baselines" / "coder.yaml"
 
 
+def default_structured_path(baseline_path: Path) -> Path:
+    """Return the sibling structured-violations path for *baseline_path*.
+
+    SPEC-CODER-RATCHET-0006: lives next to the integer baseline so that
+    consumers that only care about counts ignore it, and consumers that
+    want rule_id/severity routing can read it without a separate config.
+    """
+    return baseline_path.with_suffix(".violations.yaml")
+
+
+def _looks_like_violation(obj: Any) -> bool:
+    """True when *obj* is a `Violation` (duck-typed by ``to_dict`` + rule_id)."""
+    return hasattr(obj, "to_dict") and hasattr(obj, "rule_id") and hasattr(obj, "severity")
+
+
 class RatchetBaseline:
     """
     Load, compare, and enforce ratchet baselines for coder validators.
@@ -49,13 +68,22 @@ class RatchetBaseline:
             )
     """
 
-    def __init__(self, baseline_path: Path) -> None:
+    def __init__(
+        self,
+        baseline_path: Path,
+        structured_path: Optional[Path] = None,
+    ) -> None:
         self._path = baseline_path
+        self._structured_path = structured_path or default_structured_path(baseline_path)
         self._data: Optional[Dict[str, int]] = None
 
     @property
     def path(self) -> Path:
         return self._path
+
+    @property
+    def structured_path(self) -> Path:
+        return self._structured_path
 
     @property
     def exists(self) -> bool:
@@ -127,8 +155,20 @@ class RatchetBaseline:
         - current == baseline → pass silently.
         - current == 0 → pass (clean).
 
-        SPEC-CODER-RATCHET-0001, SPEC-CODER-RATCHET-0004, SPEC-CODER-RATCHET-0005.
+        When *violations* contains structured ``Violation`` records (duck-typed
+        by ``to_dict`` + ``rule_id`` + ``severity``), the records are persisted
+        additively to ``coder.violations.yaml`` under *validator_id*. Opaque
+        items (dicts, strings) are left untouched — back-compat with the
+        ~30 callers that pre-date issue #340.
+
+        SPEC-CODER-RATCHET-0001, SPEC-CODER-RATCHET-0004, SPEC-CODER-RATCHET-0005,
+        SPEC-CODER-RATCHET-0006.
         """
+        # Persist structured violations *before* the assertion so that a
+        # regression failure still records what was found. Empty list clears
+        # the prior entry so the file always reflects current state.
+        self._record_structured(validator_id, violations)
+
         baseline = self.get(validator_id)
 
         # -- No baseline entry: auto-seed mode --
@@ -197,6 +237,85 @@ class RatchetBaseline:
             else:
                 merged[vid] = count
         self.save(merged)
+
+    # ------------------------------------------------------------------
+    # Structured violations (SPEC-CODER-RATCHET-0006)
+    # ------------------------------------------------------------------
+
+    def load_structured(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Read the structured violations file. Empty dict if missing.
+
+        Returns a mapping ``validator_id -> [violation_dict, ...]``.
+        """
+        if not self._structured_path.is_file():
+            return {}
+        with open(self._structured_path) as fh:
+            raw = yaml.safe_load(fh) or {}
+        if not isinstance(raw, dict):
+            return {}
+        return {str(k): list(v) for k, v in raw.items() if isinstance(v, list)}
+
+    def _record_structured(
+        self,
+        validator_id: str,
+        violations: Sequence[Any],
+    ) -> None:
+        """Persist *violations* under *validator_id* if any are structured.
+
+        - When the sequence contains zero structured Violations, this is a no-op
+          (preserves back-compat for opaque-list callers).
+        - When the sequence contains at least one structured Violation, the
+          *entire* entry for *validator_id* is replaced atomically.
+        - When the resulting list for *validator_id* is empty, the key is
+          removed (file is deleted if it becomes empty).
+        """
+        structured = [v for v in violations if _looks_like_violation(v)]
+        if not structured and not violations:
+            # Empty list with no opaque items — caller is structured-aware
+            # and reporting clean state. Clear any prior entry.
+            self._write_structured_entry(validator_id, [])
+            return
+        if not structured:
+            # Opaque-only list (legacy caller) — leave file alone.
+            return
+        records = [v.to_dict() for v in structured]
+        self._write_structured_entry(validator_id, records)
+
+    def _write_structured_entry(
+        self,
+        validator_id: str,
+        records: List[Dict[str, Any]],
+    ) -> None:
+        """Read-merge-write the structured file for one validator entry."""
+        data = self.load_structured()
+        if records:
+            data[validator_id] = records
+        else:
+            data.pop(validator_id, None)
+
+        if not data:
+            # File would be empty — remove it instead of leaving an empty doc.
+            if self._structured_path.is_file():
+                self._structured_path.unlink()
+            return
+
+        self._structured_path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(
+            dir=self._structured_path.parent,
+            suffix=".violations.yaml.tmp",
+        )
+        try:
+            with os.fdopen(fd, "w") as fh:
+                yaml.safe_dump(
+                    {k: data[k] for k in sorted(data)},
+                    fh,
+                    default_flow_style=False,
+                    sort_keys=False,  # preserve insertion order within entries
+                )
+            os.replace(tmp, self._structured_path)
+        except BaseException:
+            os.unlink(tmp)
+            raise
 
     def show(self, results: Dict[str, int]) -> List[Dict[str, Any]]:
         """Return comparison rows: validator, baseline, current, delta, status."""
