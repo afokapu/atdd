@@ -171,9 +171,18 @@ def run(
     autonomous: bool = False,
     resume: bool = False,
     multiplexer: Optional[str] = None,
+    multiplexer_mode: str = "workspace",
     dry_run: bool = False,
     state_file: str = ".atdd/orchestrate-state.json",
 ) -> int:
+    if multiplexer_mode not in ("workspace", "pane"):
+        print(
+            f"❌ unknown --multiplexer-mode '{multiplexer_mode}' "
+            f"(expected 'workspace' or 'pane')",
+            file=sys.stderr,
+        )
+        return 5
+
     state_path = Path(state_file)
     state = load_state(state_path) if resume else {}
 
@@ -224,6 +233,7 @@ def run(
     for num, issue in plan.items():
         key = str(num)
         if resume and state.get(key, {}).get("launched"):
+            issue.workspace_ref = state[key].get("ref") or state[key].get("workspace_ref", "")
             continue
         context = build_context(
             issue_number=num,
@@ -247,18 +257,31 @@ def run(
             f"\"$(cat {script_path})\""
         )
         try:
-            ref = backend.new_workspace(
-                cwd=issue.worktree_path,
-                command=launch_cmd,
-                name=f"issue-{num}",
-            )
-        except MultiplexerError as exc:
+            if multiplexer_mode == "pane":
+                ref = backend.new_surface(
+                    cwd=issue.worktree_path,
+                    command=launch_cmd,
+                    name=f"issue-{num}",
+                )
+            else:
+                ref = backend.new_workspace(
+                    cwd=issue.worktree_path,
+                    command=launch_cmd,
+                    name=f"issue-{num}",
+                )
+        except (MultiplexerError, NotImplementedError) as exc:
             print(f"⚠️  failed to launch session for #{num}: {exc}", file=sys.stderr)
             state[key]["launched"] = False
             save_state(state_path, state)
             continue
         issue.workspace_ref = ref
-        state[key].update({"launched": True, "workspace_ref": ref})
+        state[key].update({
+            "launched": True,
+            "ref": ref,
+            "mode": multiplexer_mode,
+            # Back-compat: keep workspace_ref populated when mode=workspace
+            **({"workspace_ref": ref} if multiplexer_mode == "workspace" else {}),
+        })
         save_state(state_path, state)
         print(f"✓ launched #{num} in {ref}")
 

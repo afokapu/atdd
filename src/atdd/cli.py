@@ -818,6 +818,19 @@ Phase descriptions:
         help="Force multiplexer backend (default: auto-detect)",
     )
     orchestrate_parser.add_argument(
+        "--multiplexer-mode",
+        type=str,
+        choices=["workspace", "pane"],
+        default="workspace",
+        dest="multiplexer_mode",
+        help=(
+            "Session unit per issue: 'workspace' spawns a new cmux workspace per issue "
+            "(default, back-compat); 'pane' creates a new surface inside the current "
+            "workspace (cmux only — mirrors the project/main + project/feat-* worktree "
+            "sibling layout)"
+        ),
+    )
+    orchestrate_parser.add_argument(
         "--dry-run",
         action="store_true",
         dest="dry_run",
@@ -1593,6 +1606,7 @@ Phase descriptions:
             autonomous=getattr(args, "autonomous", False),
             resume=getattr(args, "resume", False),
             multiplexer=getattr(args, "multiplexer", None),
+            multiplexer_mode=getattr(args, "multiplexer_mode", "workspace"),
             dry_run=getattr(args, "dry_run", False),
             state_file=getattr(args, "state_file", ".atdd/orchestrate-state.json"),
         )
