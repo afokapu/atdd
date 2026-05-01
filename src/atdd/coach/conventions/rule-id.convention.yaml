@@ -180,10 +180,29 @@ migration:
         existing ID across all conventions.
 
     - step: 8
-      name: "Commit and update the worked-example list"
+      name: "Opt the convention into strict validation"
       action: |
-        Add the migrated convention path under `migration.completed:` below
-        so future migrators have more worked examples to read.
+        Add the migrated convention path under `migration.completed:` below.
+
+        This is the gate that flips the convention from "exempt" to "strict":
+        `test_rule_id_uniqueness.py::test_rule_id_grammar_and_required_fields`
+        only enforces grammar/severity/description on files listed under
+        `completed:`. Files NOT in the list are skipped.
+
+        Uniqueness and superseded_by checks (the other two coach tests) run
+        on every file unconditionally — but only consider IDs that already
+        match the new grammar. Legacy IDs (LOG-001, COVERAGE-CODE-4.1, etc.)
+        are ignored until their convention migrates.
+
+        This staged opt-in means a single PR can migrate one convention
+        without forcing all 15+ to migrate at once.
+
+    - step: 9
+      name: "Bump version and document"
+      action: |
+        Bump `introduced_in:` on every new rule entry to the toolkit version
+        that ships the migration. This lets downstream consumers tell which
+        toolkit version first published the ID.
 
   baseline_compatibility:
     rule: |
