@@ -1,0 +1,33 @@
+urn: "wmbt:govern-lifecycle:D014"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "multiplexer-abstractions-bound-to-workspace-only-spawn-unit"
+context_clarifier: "when src/atdd/coach/utils/multiplexer.py declares only new_workspace as the creation primitive, hard-coding one-workspace-per-issue topology into both the abstraction and orchestrate's consumer"
+lens: "functional.completeness"
+statement: "minimize quantity of multiplexer-abstractions-bound-to-workspace-only-spawn-unit when src/atdd/coach/utils/multiplexer.py declares only new_workspace as the creation primitive"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D014-UNIT-001-multiplexer-new-surface-contract"
+      id: "AC-UNIT-001"
+      purpose: "Multiplexer abstract base exposes new_surface alongside new_workspace, with ref-prefix dispatch"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Multiplexer abstract base class is loaded"
+    when:
+      abstract: "A caller imports Multiplexer and inspects its public methods"
+    then:
+      abstract:
+        - "new_surface is declared on the abstract base"
+        - "new_workspace remains declared and unchanged in signature"
+        - "read_screen, send, send_key, close accept either workspace_ref or surface_ref"
+    signal:
+      metric: "missing_abstract_method_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-01"

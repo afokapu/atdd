@@ -1,0 +1,58 @@
+urn: "wmbt:govern-lifecycle:D015"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "cmux-pane-and-surface-primitives-unreachable-from-multiplexer-abstraction"
+context_clarifier: "when CmuxMultiplexer is the active backend and cmux exposes new-pane, new-surface, surface.read_text, surface.send_text, surface.send_key, close-surface RPCs that the abstraction does not dispatch to"
+lens: "functional.completeness"
+statement: "minimize quantity of cmux-pane-and-surface-primitives-unreachable-from-multiplexer-abstraction when CmuxMultiplexer is the active backend"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D015-UNIT-001-cmux-backend-surface-dispatch"
+      id: "AC-UNIT-001"
+      purpose: "CmuxMultiplexer dispatches ref-prefix workspace:* and surface:* to the corresponding cmux RPCs"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "CmuxMultiplexer instance with mocked subprocess.run"
+        - "A surface_ref shaped like surface:NN"
+    when:
+      abstract: "read_screen(surface_ref) and send(surface_ref, text) and close(surface_ref) are called"
+    then:
+      abstract:
+        - "read_screen issues 'cmux rpc surface.read_text' with the surface id"
+        - "send issues 'cmux rpc surface.send_text' with the surface id and text"
+        - "close issues 'cmux close-surface' with the surface id"
+        - "workspace_ref shaped like workspace:NN routes to the workspace-level cmux subcommands as before"
+    signal:
+      metric: "wrong_rpc_dispatched_count"
+      threshold: 0
+  - identity:
+      urn: "acc:govern-lifecycle:D015-UNIT-002-new-surface-creates-pane-then-surface"
+      id: "AC-UNIT-002"
+      purpose: "new_surface(pane_ref=None, ...) creates a pane via cmux new-pane and then a surface inside it via cmux new-surface; cwd and command are seeded via surface.send_text"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "CmuxMultiplexer instance with mocked subprocess.run"
+        - "A workspace_ref but no pane_ref"
+    when:
+      abstract: "new_surface(workspace_ref=W, pane_ref=None, cwd='/x', command='echo y') is called"
+    then:
+      abstract:
+        - "cmux new-pane is invoked with the workspace ref"
+        - "cmux new-surface is invoked with the freshly-created pane ref"
+        - "cmux rpc surface.send_text is invoked with text 'cd /x && echo y\\n' (cwd and command seeded together)"
+        - "The returned ref has the surface:* prefix"
+    signal:
+      metric: "missing_rpc_call_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-01"
