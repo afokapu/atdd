@@ -1,0 +1,54 @@
+urn: "wmbt:govern-lifecycle:D016"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "orchestrate-invocations-that-cannot-opt-into-pane-mode"
+context_clarifier: "when atdd orchestrate is invoked and the user wants surfaces in the current workspace instead of new workspaces but the CLI offers no flag to express that intent"
+lens: "functional.effectiveness"
+statement: "minimize quantity of orchestrate-invocations-that-cannot-opt-into-pane-mode when atdd orchestrate is invoked"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D016-UNIT-001-orchestrate-multiplexer-mode-flag"
+      id: "AC-UNIT-001"
+      purpose: "atdd orchestrate accepts --multiplexer-mode {workspace,pane} (default workspace), and dispatches per mode"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Orchestrate is parametrized with --multiplexer-mode pane and a list of issue numbers"
+    when:
+      abstract: "Orchestrate runs the wave-launch step"
+    then:
+      abstract:
+        - "backend.new_surface is called once per issue"
+        - "backend.new_workspace is NOT called"
+        - "The orchestrate state file records the surface ref per issue"
+        - "Default invocation (no flag) preserves the existing workspace mode"
+    signal:
+      metric: "wrong_backend_method_call_count"
+      threshold: 0
+  - identity:
+      urn: "acc:govern-lifecycle:D016-UNIT-002-resume-respects-mode"
+      id: "AC-UNIT-002"
+      purpose: "atdd orchestrate --multiplexer-mode pane --resume re-attaches to existing surface refs without recreating them"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An orchestrate state file from a prior pane-mode run"
+    when:
+      abstract: "Orchestrate is invoked with --multiplexer-mode pane --resume"
+    then:
+      abstract:
+        - "Existing surface refs in state are reused"
+        - "No new surfaces are created for already-launched issues"
+    signal:
+      metric: "duplicate_spawn_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-01"

@@ -13,10 +13,32 @@ rules:
     anti_pattern: "Reusing a worktree across issues causes merge conflicts"
     enforced_by: "atdd orchestrate (two-phase commit: create all worktrees before launch)"
 
+  one_agent_per_session_unit:
+    rule: "Exactly one agent session per multiplexer session unit (workspace OR surface)"
+    anti_pattern: "Sub-agent delegation that shares context within one agent's session"
+    enforced_by: "atdd orchestrate launches one claude process per session unit, regardless of mode"
+    sub_rules:
+      workspace:
+        applies_when: "atdd orchestrate --multiplexer-mode workspace (default)"
+        rule: "One agent session per multiplexer workspace"
+        layout: "Each issue spawns a new cmux workspace via cmux new-workspace"
+        recommended_for: "Repos that want full isolation between concurrent issues, including independent scrollback per workspace"
+      pane:
+        applies_when: "atdd orchestrate --multiplexer-mode pane (cmux only)"
+        rule: "One agent session per multiplexer surface inside a shared workspace"
+        layout: "Each issue spawns a surface inside the current cmux workspace via cmux new-pane + cmux new-surface"
+        recommended_for: "Repos that follow CLAUDE.md git.branching.layout (project/main + project/feat-* siblings); mirrors the worktree-sibling layout in cmux"
+        babysit_caveat: |
+          Pane mode shares WorkspaceState across surfaces in one workspace. Babysit reads
+          at workspace scope; auto-approvals and escalations fire on the focused surface's
+          screen, not per-surface. Surface-isolated state is a follow-on if shared state
+          becomes too noisy.
+
   one_agent_per_workspace:
-    rule: "Exactly one agent session per multiplexer workspace"
-    anti_pattern: "Sub-agent delegation shares context and cannot be monitored independently"
-    enforced_by: "atdd orchestrate launches one claude process per workspace"
+    deprecated: true
+    renamed_to: "one_agent_per_session_unit"
+    see: "one_agent_per_session_unit"
+    note: "Generalized to cover pane mode (cmux surfaces). Anti-pattern unchanged."
 
   wave_ordering:
     rule: "Issues are grouped into waves via topological sort on their dependency DAG"
@@ -35,6 +57,11 @@ rules:
     interval_default_seconds: 60
     stale_warn_minutes: 15
     stale_escalate_minutes: 30
+    pane_mode_caveat: |
+      In pane mode, multiple surfaces share a single workspace and therefore a single
+      WorkspaceState entry. Babysit observes the focused surface; cross-surface
+      auto-approval bookkeeping is shared, not isolated. Per-surface isolated state is
+      out of scope for #343 — file a follow-on if shared state causes drift in practice.
 
   micro_commit:
     rule: "Orchestrated sessions inherit micro-commit discipline (see CLAUDE.md)"

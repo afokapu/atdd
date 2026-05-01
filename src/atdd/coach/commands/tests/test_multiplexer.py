@@ -349,3 +349,184 @@ def test_zellij_missing_binary_raises_multiplexer_error():
     with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=FileNotFoundError):
         with pytest.raises(MultiplexerError, match="binary not found"):
             backend.read_screen("sess1")
+
+
+# ---------------------------------------------------------------------------
+# Surface (pane mode) — abstract contract + cmux dispatch
+# wmbt:govern-lifecycle:D014, D015
+# ---------------------------------------------------------------------------
+
+
+def test_new_surface_contract_declared_on_abstract_base():
+    """D014-AC-UNIT-001: new_surface is declared on the abstract base alongside new_workspace."""
+    from atdd.coach.utils.multiplexer import MultiplexerBackend
+
+    assert hasattr(MultiplexerBackend, "new_surface")
+    assert hasattr(MultiplexerBackend, "new_workspace")
+    # new_workspace signature unchanged: (cwd, command, name=None)
+    import inspect
+    ws_params = inspect.signature(MultiplexerBackend.new_workspace).parameters
+    assert "cwd" in ws_params
+    assert "command" in ws_params
+    assert "name" in ws_params
+
+
+def test_zellij_new_surface_raises_not_implemented():
+    """D014-AC-UNIT-001: backends without pane semantics raise NotImplementedError."""
+    backend = ZellijBackend()
+    with pytest.raises(NotImplementedError):
+        backend.new_surface(cwd="/tmp/wt", command="echo hi")
+
+
+def test_tmux_new_surface_raises_not_implemented():
+    """D014-AC-UNIT-001: tmux backend raises NotImplementedError for new_surface."""
+    backend = TmuxBackend()
+    with pytest.raises(NotImplementedError):
+        backend.new_surface(cwd="/tmp/wt", command="echo hi")
+
+
+def test_cmux_new_surface_creates_pane_then_surface_then_seeds():
+    """D015-AC-UNIT-002: pane_ref=None → cmux new-pane → cmux new-surface → seed cwd+command via surface.send_text.
+
+    Returned ref has the surface:* prefix.
+    """
+    backend = CmuxBackend()
+    calls: list[list[str]] = []
+    outputs = iter(["pane:42\n", "surface:99\n", ""])
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        try:
+            stdout = next(outputs)
+        except StopIteration:
+            stdout = ""
+        return _make_result(stdout=stdout)
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        ref = backend.new_surface(
+            workspace_ref="workspace:17",
+            pane_ref=None,
+            cwd="/x",
+            command="echo y",
+            name="issue-340",
+        )
+
+    assert ref == "surface:99"
+    # Call 0 — cmux new-pane with the workspace ref
+    assert calls[0][:2] == ["cmux", "new-pane"]
+    assert "workspace:17" in calls[0]
+    # Call 1 — cmux new-surface with the freshly-created pane ref
+    assert calls[1][:2] == ["cmux", "new-surface"]
+    assert "pane:42" in calls[1]
+    # Call 2 — cmux rpc surface.send_text seeding cwd + command together
+    assert calls[2][:3] == ["cmux", "rpc", "surface.send_text"]
+    seeded = next(arg for arg in calls[2] if "echo y" in arg)
+    assert seeded == "cd /x && echo y\n"
+    assert "surface:99" in calls[2]
+
+
+def test_cmux_new_surface_with_existing_pane_skips_new_pane():
+    """When a caller passes pane_ref, the backend skips cmux new-pane."""
+    backend = CmuxBackend()
+    calls: list[list[str]] = []
+    outputs = iter(["surface:100\n", ""])
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        try:
+            stdout = next(outputs)
+        except StopIteration:
+            stdout = ""
+        return _make_result(stdout=stdout)
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        ref = backend.new_surface(
+            workspace_ref="workspace:17",
+            pane_ref="pane:23",
+            cwd="/y",
+            command="claude",
+        )
+
+    assert ref == "surface:100"
+    assert calls[0][:2] == ["cmux", "new-surface"]
+    assert "pane:23" in calls[0]
+    # No cmux new-pane call
+    assert all(c[:2] != ["cmux", "new-pane"] for c in calls)
+
+
+def test_cmux_read_screen_dispatches_by_ref_prefix():
+    """D015-AC-UNIT-001: workspace:* → cmux read-screen --workspace; surface:* → cmux rpc surface.read_text."""
+    backend = CmuxBackend()
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return _make_result(stdout="line1\nline2\n")
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        backend.read_screen("workspace:5", lines=10)
+        backend.read_screen("surface:31", lines=10)
+
+    assert calls[0][:2] == ["cmux", "read-screen"]
+    assert "--workspace" in calls[0]
+    assert "workspace:5" in calls[0]
+
+    assert calls[1][:3] == ["cmux", "rpc", "surface.read_text"]
+    assert "surface:31" in calls[1]
+
+
+def test_cmux_send_dispatches_by_ref_prefix():
+    """D015-AC-UNIT-001: workspace:* → cmux send --workspace; surface:* → cmux rpc surface.send_text."""
+    backend = CmuxBackend()
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return _make_result()
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        backend.send("workspace:5", "hello")
+        backend.send("surface:31", "hi")
+
+    assert calls[0][:3] == ["cmux", "send", "--workspace"]
+    assert "hello" in calls[0]
+    assert calls[1][:3] == ["cmux", "rpc", "surface.send_text"]
+    assert "surface:31" in calls[1]
+    assert "hi" in calls[1]
+
+
+def test_cmux_send_key_dispatches_by_ref_prefix():
+    """workspace:* → cmux send-key --workspace; surface:* → cmux rpc surface.send_key."""
+    backend = CmuxBackend()
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return _make_result()
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        backend.send_key("workspace:5", "Enter")
+        backend.send_key("surface:31", "Enter")
+
+    assert calls[0][:3] == ["cmux", "send-key", "--workspace"]
+    assert calls[1][:3] == ["cmux", "rpc", "surface.send_key"]
+    assert "surface:31" in calls[1]
+
+
+def test_cmux_close_dispatches_by_ref_prefix():
+    """D015-AC-UNIT-001: workspace:* → cmux close-workspace; surface:* → cmux close-surface."""
+    backend = CmuxBackend()
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return _make_result()
+
+    with patch("atdd.coach.utils.multiplexer.subprocess.run", side_effect=fake_run):
+        backend.close("workspace:5")
+        backend.close("surface:31")
+
+    assert calls[0][:2] == ["cmux", "close-workspace"]
+    assert "workspace:5" in calls[0]
+    assert calls[1][:2] == ["cmux", "close-surface"]
+    assert "surface:31" in calls[1]

@@ -7,13 +7,18 @@ Used by `atdd orchestrate` to launch parallel agent sessions, and by
 Convention: src/atdd/coach/conventions/orchestration.convention.yaml
 SPEC IDs: SPEC-COACH-ORCH-0003
 
-Operations (unified):
-    new_workspace(cwd, command, name=None) -> workspace_ref
-    read_screen(workspace_ref, lines=50)   -> str
-    send(workspace_ref, text)              -> None
-    send_key(workspace_ref, key)           -> None
-    list_workspaces()                      -> list[str]
-    close(workspace_ref)                   -> None
+Refs come in two flavours and are dispatched by string prefix:
+    workspace:NN  → top-level cmux workspace
+    surface:NN    → terminal tab inside a pane inside a workspace
+
+Operations (unified — all ref-consumers accept either workspace or surface refs):
+    new_workspace(cwd, command, name=None)                          -> MultiplexerRef
+    new_surface(workspace_ref?, pane_ref?, cwd?, command?, name?)   -> MultiplexerRef
+    read_screen(ref, lines=50)                                      -> str
+    send(ref, text)                                                 -> None
+    send_key(ref, key)                                              -> None
+    list_workspaces()                                               -> list[str]
+    close(ref)                                                      -> None
 
 Auto-detection precedence:
     get_multiplexer()  # cmux > zellij > tmux > None.
@@ -27,6 +32,10 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 
+# Type alias — opaque ref string with prefix `workspace:` or `surface:`.
+MultiplexerRef = str
+
+
 class MultiplexerError(RuntimeError):
     """Raised when a multiplexer operation fails."""
 
@@ -37,28 +46,44 @@ class MultiplexerBackend(ABC):
     name: str = "abstract"
 
     @abstractmethod
-    def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> str:
+    def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> MultiplexerRef:
         """Create a workspace and return an opaque reference."""
 
-    @abstractmethod
-    def read_screen(self, workspace_ref: str, lines: int = 50) -> str:
-        """Capture the last `lines` lines of the workspace screen."""
+    def new_surface(
+        self,
+        workspace_ref: Optional[MultiplexerRef] = None,
+        pane_ref: Optional[MultiplexerRef] = None,
+        cwd: Optional[str] = None,
+        command: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> MultiplexerRef:
+        """Create a surface (terminal tab) inside a pane and return its ref.
+
+        Backends without pane semantics raise NotImplementedError.
+        """
+        raise NotImplementedError(
+            f"{self.name} backend does not support pane/surface creation"
+        )
 
     @abstractmethod
-    def send(self, workspace_ref: str, text: str) -> None:
-        """Send literal text to the workspace."""
+    def read_screen(self, ref: MultiplexerRef, lines: int = 50) -> str:
+        """Capture the last `lines` lines of the workspace or surface screen."""
 
     @abstractmethod
-    def send_key(self, workspace_ref: str, key: str) -> None:
-        """Send a key press (e.g. 'Enter', 'C-c') to the workspace."""
+    def send(self, ref: MultiplexerRef, text: str) -> None:
+        """Send literal text to the workspace or surface."""
+
+    @abstractmethod
+    def send_key(self, ref: MultiplexerRef, key: str) -> None:
+        """Send a key press (e.g. 'Enter', 'C-c') to the workspace or surface."""
 
     @abstractmethod
     def list_workspaces(self) -> list[str]:
         """List all known workspace references."""
 
     @abstractmethod
-    def close(self, workspace_ref: str) -> None:
-        """Close/kill the workspace."""
+    def close(self, ref: MultiplexerRef) -> None:
+        """Close/kill the workspace or surface."""
 
 
 def _run(cmd: list[str], capture: bool = True) -> subprocess.CompletedProcess:
@@ -78,41 +103,119 @@ def _run(cmd: list[str], capture: bool = True) -> subprocess.CompletedProcess:
         ) from exc
 
 
+def _is_surface_ref(ref: str) -> bool:
+    return ref.startswith("surface:")
+
+
+def _last_nonempty_line(stdout: str) -> str:
+    for line in reversed((stdout or "").splitlines()):
+        s = line.strip()
+        if s:
+            return s
+    return ""
+
+
 class CmuxBackend(MultiplexerBackend):
-    """cmux backend — workspace-based abstraction."""
+    """cmux backend — workspace + pane/surface dispatch.
+
+    Ref prefix dispatch table:
+        workspace:NN  → cmux <verb> --workspace NN
+        surface:NN    → cmux rpc surface.<verb>  (cmux close-surface for close)
+    """
 
     name = "cmux"
 
-    def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> str:
+    def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> MultiplexerRef:
         cmd = ["cmux", "new-workspace", "--cwd", cwd, "--command", command]
         if name:
             cmd.extend(["--name", name])
         result = _run(cmd)
-        ref = (result.stdout or "").strip().splitlines()[-1] if result.stdout else ""
+        ref = _last_nonempty_line(result.stdout or "")
         if not ref:
             ref = name or cwd
         return ref
 
-    def read_screen(self, workspace_ref: str, lines: int = 50) -> str:
+    def new_surface(
+        self,
+        workspace_ref: Optional[MultiplexerRef] = None,
+        pane_ref: Optional[MultiplexerRef] = None,
+        cwd: Optional[str] = None,
+        command: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> MultiplexerRef:
+        if pane_ref is None:
+            new_pane_cmd = ["cmux", "new-pane"]
+            if workspace_ref:
+                new_pane_cmd.extend(["--workspace", workspace_ref])
+            pane_result = _run(new_pane_cmd)
+            pane_ref = _last_nonempty_line(pane_result.stdout or "")
+            if not pane_ref:
+                raise MultiplexerError("cmux new-pane returned no pane ref")
+
+        new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
+        if name:
+            new_surface_cmd.extend(["--name", name])
+        surface_result = _run(new_surface_cmd)
+        surface_ref = _last_nonempty_line(surface_result.stdout or "")
+        if not surface_ref:
+            raise MultiplexerError("cmux new-surface returned no surface ref")
+
+        if cwd or command:
+            seed_parts = []
+            if cwd:
+                seed_parts.append(f"cd {cwd}")
+            if command:
+                seed_parts.append(command)
+            seed_text = " && ".join(seed_parts) + "\n"
+            _run(
+                ["cmux", "rpc", "surface.send_text", "--surface", surface_ref, seed_text],
+                capture=False,
+            )
+
+        return surface_ref
+
+    def read_screen(self, ref: MultiplexerRef, lines: int = 50) -> str:
+        if _is_surface_ref(ref):
+            result = _run(["cmux", "rpc", "surface.read_text", "--surface", ref])
+            out = result.stdout or ""
+            if lines and lines > 0:
+                tail = out.splitlines()[-lines:]
+                return "\n".join(tail) + ("\n" if out.endswith("\n") else "")
+            return out
         result = _run([
             "cmux", "read-screen",
-            "--workspace", workspace_ref,
+            "--workspace", ref,
             "--lines", str(lines),
         ])
         return result.stdout or ""
 
-    def send(self, workspace_ref: str, text: str) -> None:
-        _run(["cmux", "send", "--workspace", workspace_ref, text], capture=False)
+    def send(self, ref: MultiplexerRef, text: str) -> None:
+        if _is_surface_ref(ref):
+            _run(
+                ["cmux", "rpc", "surface.send_text", "--surface", ref, text],
+                capture=False,
+            )
+            return
+        _run(["cmux", "send", "--workspace", ref, text], capture=False)
 
-    def send_key(self, workspace_ref: str, key: str) -> None:
-        _run(["cmux", "send-key", "--workspace", workspace_ref, key], capture=False)
+    def send_key(self, ref: MultiplexerRef, key: str) -> None:
+        if _is_surface_ref(ref):
+            _run(
+                ["cmux", "rpc", "surface.send_key", "--surface", ref, key],
+                capture=False,
+            )
+            return
+        _run(["cmux", "send-key", "--workspace", ref, key], capture=False)
 
     def list_workspaces(self) -> list[str]:
         result = _run(["cmux", "list-workspaces"])
         return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
 
-    def close(self, workspace_ref: str) -> None:
-        _run(["cmux", "close-workspace", "--workspace", workspace_ref], capture=False)
+    def close(self, ref: MultiplexerRef) -> None:
+        if _is_surface_ref(ref):
+            _run(["cmux", "close-surface", "--surface", ref], capture=False)
+            return
+        _run(["cmux", "close-workspace", "--workspace", ref], capture=False)
 
 
 class TmuxBackend(MultiplexerBackend):

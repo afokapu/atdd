@@ -1,0 +1,30 @@
+urn: "feature:govern-lifecycle:orchestrate-pane-mode"
+wagon: "wagon:govern-lifecycle"
+description: "Adds pane-mode multiplexer backend so atdd orchestrate can spawn surfaces inside the current cmux workspace instead of new workspaces, mirroring the project/main + project/feat-* worktree-sibling layout in cmux."
+sizing:
+  wmbts: 4
+  footprint_score: 5
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:D014"
+  - "wmbt:govern-lifecycle:D015"
+  - "wmbt:govern-lifecycle:D016"
+  - "wmbt:govern-lifecycle:D017"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "One new CLI flag on atdd orchestrate: --multiplexer-mode {workspace,pane}"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "Multiplexer.new_surface ref-aware dispatch use case; orchestrate per-issue mode-dispatch use case"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Surface is already a cmux concept; the multiplexer abstraction grows, no new domain entity"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "CmuxMultiplexer backend grows ref-prefix dispatch table for read/send/send_key/close"

@@ -1,0 +1,54 @@
+urn: "wmbt:govern-lifecycle:D017"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "convention-rules-whose-letter-hides-their-intent"
+context_clarifier: "when src/atdd/coach/conventions/orchestration.convention.yaml rule one_agent_per_workspace says 'exactly one agent per multiplexer workspace' but the underlying intent is 'one isolated agent context per session unit' regardless of whether the unit is a workspace or a surface"
+lens: "functional.adaptability"
+statement: "minimize quantity of convention-rules-whose-letter-hides-their-intent when the orchestration convention's rule is read alongside pane mode"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D017-UNIT-001-convention-amended-to-session-unit"
+      id: "AC-UNIT-001"
+      purpose: "Convention rule renamed to one_agent_per_session_unit with workspace-mode and pane-mode sub-rules; sub-agent delegation remains the anti-pattern"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "orchestration.convention.yaml is parsed"
+    when:
+      abstract: "Rule keys are inspected"
+    then:
+      abstract:
+        - "Key 'one_agent_per_session_unit' exists"
+        - "Two sub-rules exist: workspace mode (one agent per workspace) and pane mode (one agent per surface)"
+        - "Anti-pattern remains: sub-agent delegation that shares context within one agent's session"
+        - "Old key 'one_agent_per_workspace' is removed (or marked deprecated with a pointer to the new key)"
+    signal:
+      metric: "convention_rule_drift_count"
+      threshold: 0
+  - identity:
+      urn: "acc:govern-lifecycle:D017-UNIT-002-babysit-shared-state-documented"
+      id: "AC-UNIT-002"
+      purpose: "Convention documents that pane mode shares WorkspaceState across surfaces; surface-isolated state is a follow-on"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "orchestration.convention.yaml is parsed"
+    when:
+      abstract: "babysit-related sections are inspected"
+    then:
+      abstract:
+        - "A note documents shared WorkspaceState in pane mode"
+        - "A pointer to the surface-isolated-state follow-on issue is present (or marked TBD if the follow-on is not yet filed)"
+    signal:
+      metric: "missing_caveat_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-01"
