@@ -279,8 +279,6 @@ def run(
             "launched": True,
             "ref": ref,
             "mode": multiplexer_mode,
-            # Back-compat: keep workspace_ref populated when mode=workspace
-            **({"workspace_ref": ref} if multiplexer_mode == "workspace" else {}),
         })
         save_state(state_path, state)
         print(f"✓ launched #{num} in {ref}")
