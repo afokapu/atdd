@@ -135,3 +135,11 @@ sessions:
   status: INIT
   created: '2026-05-01'
   archived: null
+- id: '344'
+  slug: atdd-issue-must-commit-manifest-update
+  file: null
+  issue_number: 344
+  type: implementation
+  status: INIT
+  created: '2026-05-01'
+  archived: null
