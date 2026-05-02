@@ -930,6 +930,29 @@ Phase descriptions:
         help="Print the merge plan without executing",
     )
 
+    # ----- atdd auto-phase <pr-number> -----
+    auto_phase_parser = subparsers.add_parser(
+        "auto-phase",
+        help="Auto-transition the parent atdd-issue's phase when its PR merges",
+        description=(
+            "Resolve a PR's parent atdd-issue, read its current phase label, "
+            "and run `atdd issue <N> --status <NEXT>` to advance one step "
+            "(RED→GREEN, GREEN→SMOKE, SMOKE→REFACTOR, REFACTOR→COMPLETE). "
+            "Driven by .github/workflows/atdd-auto-phase.yml on PR merge."
+        ),
+    )
+    auto_phase_parser.add_argument(
+        "pr_number",
+        type=int,
+        help="PR number whose merge triggered the transition",
+    )
+    auto_phase_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Report the planned transition without executing it",
+    )
+
     # ----- atdd upgrade -----
     upgrade_parser = subparsers.add_parser(
         "upgrade",
@@ -1635,6 +1658,14 @@ Phase descriptions:
             auto=getattr(args, "auto", False),
             poll_interval=args.poll_interval,
             timeout=args.timeout,
+            dry_run=getattr(args, "dry_run", False),
+        )
+
+    # atdd auto-phase <pr-number>
+    elif args.command == "auto-phase":
+        from atdd.coach.commands.auto_phase import run as run_auto_phase
+        return run_auto_phase(
+            pr_number=args.pr_number,
             dry_run=getattr(args, "dry_run", False),
         )
 
