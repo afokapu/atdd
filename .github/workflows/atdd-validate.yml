@@ -33,7 +33,7 @@ jobs:
           key: ${{ runner.os }}-pip-atdd-toolkit
 
       - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml
+        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
 
       - name: Run planner validators
         run: PYTHONPATH=src python3 -m pytest src/atdd/planner/validators/ -v --tb=short
@@ -61,7 +61,7 @@ jobs:
           key: ${{ runner.os }}-pip-atdd-toolkit
 
       - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml
+        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
 
       - name: Run tester validators
         run: PYTHONPATH=src python3 -m pytest src/atdd/tester/validators/ -v --tb=short
@@ -89,7 +89,7 @@ jobs:
           key: ${{ runner.os }}-pip-atdd-toolkit
 
       - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml
+        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
 
       - name: Run coder validators
         run: PYTHONPATH=src python3 -m pytest src/atdd/coder/validators/ -v --tb=short
@@ -117,7 +117,7 @@ jobs:
           key: ${{ runner.os }}-pip-atdd-toolkit
 
       - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml
+        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
 
       - name: Run coach validators
         run: PYTHONPATH=src python3 -m pytest src/atdd/coach/validators/ -v --tb=short
