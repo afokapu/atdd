@@ -58,7 +58,7 @@ def test_classify_auto_approves_git_status():
     screen = "Bash(git status)\n" + _PROMPT_MARKER
     decision = classify_prompt(screen)
     assert decision.action == "auto_approve"
-    assert decision.reason.startswith("COACH-BABYSIT-")
+    assert decision.rule_id.startswith("COACH-BABYSIT-")
 
 
 def test_classify_escalates_write():

@@ -200,7 +200,7 @@ def test_classify_bash_decision_carries_rule_id():
     """Auto-approved commands must surface the matching rule's ID for telemetry."""
     decision = _classify_bash_command("git status --short")
     assert decision.action == "auto_approve"
-    assert decision.reason.startswith("COACH-BABYSIT-")
+    assert decision.rule_id.startswith("COACH-BABYSIT-")
     assert decision.matched, "matched should carry the rule description"
 
 
@@ -254,7 +254,7 @@ def test_classify_bash_synthetic_overlap_denies(monkeypatch):
 
     decision = babysit._classify_bash_command("anything goes")
     assert decision.action == "escalate"
-    assert decision.reason == "COACH-BABYSIT-050"
+    assert decision.rule_id == "COACH-BABYSIT-050"
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +272,7 @@ def test_classify_prompt_auto_approves_safe_bash_command():
     screen = "Bash(git status --short)\n" + _PROMPT_MARKER
     decision = classify_prompt(screen)
     assert decision.action == "auto_approve"
-    assert decision.reason.startswith("COACH-BABYSIT-")
+    assert decision.rule_id.startswith("COACH-BABYSIT-")
 
 
 def test_classify_prompt_escalates_network_bash_command():

@@ -129,10 +129,21 @@ class WorkspaceState:
 
 @dataclass
 class BabysitDecision:
-    """Result of analyzing a screen capture."""
+    """Result of analyzing a screen capture.
+
+    Attributes:
+        action: One of "auto_approve", "escalate", "violation", "idle".
+        matched: Human-readable label of what fired the decision (rule
+            description, literal token, or violation kind).
+        reason: Free-text explanation of *why* the decision was made.
+        rule_id: Stable rule ID when a structured classifier rule fired
+            (e.g. COACH-BABYSIT-010); empty for legacy literal-match paths.
+    """
+
     action: str  # "auto_approve" | "escalate" | "violation" | "idle"
     matched: str = ""
     reason: str = ""
+    rule_id: str = ""
 
 
 def _contains_prompt_marker(screen: str) -> bool:
@@ -189,6 +200,7 @@ def _classify_bash_command(cmd: str) -> BabysitDecision:
                 action="escalate",
                 matched=p.description,
                 reason=p.rule_id,
+                rule_id=p.rule_id,
             )
     for p in _ALLOW_PATTERNS:
         if p.regex.match(cmd):
@@ -196,6 +208,7 @@ def _classify_bash_command(cmd: str) -> BabysitDecision:
                 action="auto_approve",
                 matched=p.description,
                 reason=p.rule_id,
+                rule_id=p.rule_id,
             )
     return BabysitDecision(
         action="escalate",
@@ -362,15 +375,14 @@ def process_workspace(
                 path=log_path,
             )
             return BabysitDecision(action="escalate", reason=f"send error: {exc}")
-        log_event(
-            {
-                "event": "auto_approve",
-                "workspace": state.ref,
-                "matched": decision.matched,
-                "pattern": decision.reason,
-            },
-            path=log_path,
-        )
+        approve_event: dict = {
+            "event": "auto_approve",
+            "workspace": state.ref,
+            "matched": decision.matched,
+        }
+        if decision.rule_id:
+            approve_event["pattern"] = decision.rule_id
+        log_event(approve_event, path=log_path)
     elif decision.action == "escalate":
         log_event(
             {
