@@ -4,7 +4,7 @@ direction: "minimize"
 dimension: "quantity"
 object_of_control: "presentation-components-whose-render-body-is-statically-empty"
 context_clarifier: "when a TSX component under web/src/**/presentation/** has a body whose every reachable return resolves to null/undefined/empty fragment/empty element so the component ships and renders nothing while the full ATDD validator suite stays green (jel-app AuthGateShell incident, #318)"
-lens: "functional.correctness"
+lens: "functional.adaptability"
 statement: "minimize quantity of presentation-components-whose-render-body-is-statically-empty when a TSX component under web/src/**/presentation/** ships with a stub return that all current path/import-based validators ignore"
 acceptances:
   - identity:
