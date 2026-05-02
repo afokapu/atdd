@@ -13,12 +13,16 @@ SPEC IDs: SPEC-COACH-ORCH-0006, SPEC-COACH-ORCH-0007
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import time
 from dataclasses import dataclass
 from typing import Optional
 
+from atdd.coach.commands.merge_cascade_pyproject import (
+    resolve_pyproject_version_conflict,
+)
 from atdd.coach.commands.merge_cascade_topology import (
     MergeCascadeCycleError,
     compute_merge_order,
@@ -45,6 +49,87 @@ def _run_gh(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
     )
+
+
+_CONFLICT_FILE_RE = re.compile(r"(?:merge\s+)?conflict\s+in\s+(\S+)", re.IGNORECASE)
+
+
+def classify_conflict(stderr: str) -> str:
+    """Classify a conflict ``stderr`` blob.
+
+    Returns:
+        ``"pyproject_only"`` if every conflicting file is ``pyproject.toml``,
+        ``"other"`` if any non-pyproject file is involved,
+        ``"unknown"`` if no conflict markers are present at all.
+    """
+    files = [m.group(1) for m in _CONFLICT_FILE_RE.finditer(stderr or "")]
+    if not files:
+        return "unknown"
+    return "pyproject_only" if all(f == "pyproject.toml" for f in files) else "other"
+
+
+def attempt_pyproject_resolve(pr: int) -> bool:
+    """Locally resolve a pyproject.toml version conflict on ``pr`` and push.
+
+    Steps: fetch PR branch → checkout → merge target → resolve via
+    :func:`resolve_pyproject_version_conflict` → commit → push.
+
+    Returns ``True`` on success, ``False`` if the resolver could not produce
+    a clean output or any git operation failed.
+    """
+    import os
+    import tempfile
+
+    try:
+        view = _run_gh(["pr", "view", str(pr), "--json", "headRefName,baseRefName"])
+    except subprocess.CalledProcessError:
+        return False
+    try:
+        meta = json.loads(view.stdout or "{}")
+    except json.JSONDecodeError:
+        return False
+    head = meta.get("headRefName")
+    base = meta.get("baseRefName") or "main"
+    if not head:
+        return False
+
+    def _git(*args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", *args], check=True, capture_output=True, text=True
+        )
+
+    try:
+        _git("fetch", "origin", head, base)
+        _git("checkout", head)
+        _git("pull", "--ff-only", "origin", head)
+        merge = subprocess.run(
+            ["git", "merge", "--no-edit", f"origin/{base}"],
+            capture_output=True,
+            text=True,
+        )
+        if merge.returncode != 0:
+            pyproject_path = "pyproject.toml"
+            if not os.path.exists(pyproject_path):
+                _git("merge", "--abort")
+                return False
+            with open(pyproject_path, "r", encoding="utf-8") as fh:
+                content = fh.read()
+            resolved = resolve_pyproject_version_conflict(content)
+            if resolved is None:
+                _git("merge", "--abort")
+                return False
+            with open(pyproject_path, "w", encoding="utf-8") as fh:
+                fh.write(resolved)
+            _git("add", pyproject_path)
+            _git("commit", "--no-edit")
+        _git("push", "origin", head)
+        return True
+    except subprocess.CalledProcessError:
+        try:
+            subprocess.run(["git", "merge", "--abort"], capture_output=True)
+        except Exception:
+            pass
+        return False
 
 
 def fetch_pr_files(pr: int) -> set[str]:
@@ -168,8 +253,13 @@ def cascade(
         print(f"▶ PR #{pr}: update-branch")
         ub = update_branch(pr)
         if ub.status != "merged":
-            results.append(ub)
-            raise MergeHalt(ub)
+            if classify_conflict(ub.detail) == "pyproject_only":
+                print(f"▶ PR #{pr}: pyproject conflict — auto-resolving")
+                if attempt_pyproject_resolve(pr):
+                    ub = update_branch(pr)
+            if ub.status != "merged":
+                results.append(ub)
+                raise MergeHalt(ub)
 
         print(f"▶ PR #{pr}: waiting for CI")
         ci = wait_for_ci(pr, poll_interval=poll_interval, timeout=timeout)
