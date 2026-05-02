@@ -16,6 +16,9 @@ coverage:
   exceptions:
     features_without_implementation:
     - feature:self-compliance-migration:bootstrap-compliance
+no_stub_presentation:
+  scan_dirs: []
+  allowlist: []
 toolkit:
   last_version: 1.61.2
 github:

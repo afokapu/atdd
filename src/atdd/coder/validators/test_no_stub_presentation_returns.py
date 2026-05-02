@@ -103,11 +103,14 @@ def _is_presentation_path(path: Path) -> bool:
     return "/presentation/" in str(path).replace("\\", "/")
 
 
-def _collect_tsx_files(scan_dirs: List[str]) -> List[Path]:
-    """Walk scan_dirs and collect TSX files inside presentation/ segments."""
+def _collect_tsx_files(scan_dirs: List[str], repo_root: Path = REPO_ROOT) -> List[Path]:
+    """Walk scan_dirs (resolved relative to *repo_root*) and collect TSX files
+    inside ``presentation/`` segments. The *repo_root* parameter is used by
+    SMOKE tests that scan tmp trees instead of the real repo.
+    """
     out: List[Path] = []
     for scan_dir in scan_dirs:
-        base = REPO_ROOT / scan_dir
+        base = repo_root / scan_dir
         if not base.exists():
             continue
         for dirpath, dirnames, filenames in os.walk(base):
@@ -443,16 +446,16 @@ def detect_stub_returns(file_path: Path) -> List[Violation]:
 
 
 # ---------------------------------------------------------------------------
-# Scan helper for ratchet baseline registry (filled in GREEN)
+# Scan helpers
 # ---------------------------------------------------------------------------
-def scan_stub_presentation_returns(repo_root: Path) -> Tuple[int, List[Violation]]:
-    """Aggregate stub-return violations across configured scan_dirs."""
-    cfg = _load_config()
-    scan_dirs = cfg.get("scan_dirs", []) or []
-    if not scan_dirs:
-        return 0, []
-    allowlist = _load_allowlist(cfg)
-    files = _collect_tsx_files(scan_dirs)
+def _scan_paths(
+    scan_dirs: List[str],
+    allowlist: Dict[str, str],
+    repo_root: Path,
+) -> Tuple[int, List[Violation]]:
+    """Scan helper that takes config explicitly. Used by both production scans
+    and SMOKE tests (which pass tmp roots and synthetic allowlists)."""
+    files = _collect_tsx_files(scan_dirs, repo_root=repo_root)
     violations: List[Violation] = []
     for f in files:
         try:
@@ -463,6 +466,16 @@ def scan_stub_presentation_returns(repo_root: Path) -> Tuple[int, List[Violation
             continue
         violations.extend(detect_stub_returns(f))
     return len(violations), violations
+
+
+def scan_stub_presentation_returns(repo_root: Path) -> Tuple[int, List[Violation]]:
+    """Aggregate stub-return violations across configured scan_dirs."""
+    cfg = _load_config()
+    scan_dirs = cfg.get("scan_dirs", []) or []
+    if not scan_dirs:
+        return 0, []
+    allowlist = _load_allowlist(cfg)
+    return _scan_paths(scan_dirs, allowlist, repo_root)
 
 
 # ===========================================================================
@@ -607,6 +620,86 @@ def test_no_stub_presentation_returns(ratchet_baseline):
         validator_id="no_stub_presentation_returns",
         current_count=count,
         violations=violations,
+    )
+
+
+@pytest.mark.coder
+def test_smoke_jel_app_repro_emits_arrow_literal_violation(tmp_path):
+    """
+    GT-030 SMOKE: the jel-app incident (#318) reproduces.
+
+    Given: a tmp tree mirroring web/src/auth/presentation/AuthGateShell.tsx
+           with the verbatim incident body
+    When:  scan runs with no allowlist
+    Then:  PRESENTATION-NOSTUB-001 is emitted at the expected location
+    """
+    pres_dir = tmp_path / "web" / "src" / "auth" / "presentation"
+    pres_dir.mkdir(parents=True)
+    target = pres_dir / "AuthGateShell.tsx"
+    target.write_text("export const AuthGateShell = () => null;\n", encoding="utf-8")
+
+    count, violations = _scan_paths(["web/src"], allowlist={}, repo_root=tmp_path)
+
+    assert count == 1, f"Expected 1 violation, got {count}: {violations}"
+    v = violations[0]
+    assert v.rule_id == RULE_ARROW_LITERAL
+    assert v.severity == STUB_RULE_SEVERITY
+    assert v.location.endswith("AuthGateShell.tsx:1")
+
+
+@pytest.mark.coder
+def test_smoke_allowlist_round_trip_clears_violations(tmp_path):
+    """
+    GT-031 SMOKE: an allowlist entry with a migration ref clears the violation.
+
+    Given: same tmp jel-app tree as GT-030
+    When:  the file path is in the allowlist
+    Then:  zero violations
+    """
+    pres_dir = tmp_path / "web" / "src" / "auth" / "presentation"
+    pres_dir.mkdir(parents=True)
+    target = pres_dir / "AuthGateShell.tsx"
+    target.write_text("export const AuthGateShell = () => null;\n", encoding="utf-8")
+    rel = str(target.relative_to(tmp_path))
+
+    count, violations = _scan_paths(
+        ["web/src"],
+        allowlist={rel: "owner/repo#999"},
+        repo_root=tmp_path,
+    )
+    assert count == 0, f"Allowlist did not clear violation: {violations}"
+
+
+@pytest.mark.coder
+def test_smoke_fixture_tree_is_excluded_from_scans(tmp_path):
+    """
+    SMOKE: the validator's own fixtures must never be scanned, even if a
+    consumer accidentally points scan_dirs at the toolkit tree.
+
+    Given: tmp tree containing fixtures/ and a stub TSX inside it
+    When:  scan runs
+    Then:  zero violations (path filter rejects /fixtures/)
+    """
+    fixt = tmp_path / "src" / "toolkit" / "fixtures" / "presentation"
+    fixt.mkdir(parents=True)
+    (fixt / "stub.tsx").write_text("export const X = () => null;\n", encoding="utf-8")
+
+    count, violations = _scan_paths(["src"], allowlist={}, repo_root=tmp_path)
+    assert count == 0, f"Fixture tree leaked into scan: {violations}"
+
+
+@pytest.mark.coder
+def test_smoke_atdd_self_scan_is_clean():
+    """
+    SMOKE: scanning the ATDD repo's own configured scan_dirs (per
+    .atdd/config.yaml) yields zero violations. The toolkit has no production
+    TSX, so an empty scan_dirs list keeps this a no-op pass; if a future
+    contributor adds TSX, this test catches a regression at SMOKE time.
+    """
+    count, violations = scan_stub_presentation_returns(REPO_ROOT)
+    assert count == 0, (
+        f"Unexpected stub-presentation violations in ATDD self-scan:\n"
+        + "\n".join(f"  {v}" for v in violations)
     )
 
 
