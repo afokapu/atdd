@@ -240,8 +240,8 @@ def test_custom_mode_output_validates_against_config_schema(tmp_path):
     jsonschema = pytest.importorskip("jsonschema")
     import json
 
+    import atdd
     from atdd.coach.commands.initializer import Initializer
-    from atdd.coach.utils.repo import find_repo_root
 
     # Seed scanner input so custom mode has something to return.
     plan_dir = tmp_path / "plan" / "secure_ops"
@@ -264,9 +264,10 @@ def test_custom_mode_output_validates_against_config_schema(tmp_path):
     themes = initializer._prompt_themes("custom", repo_root=tmp_path)
     assert isinstance(themes, dict) and themes, "custom mode yielded no mapping"
 
-    schema_path = (
-        find_repo_root() / "src" / "atdd" / "coach" / "schemas" / "config.schema.json"
-    )
+    # Anchor to the installed atdd package; find_repo_root() points at the
+    # consumer repo, which has no src/atdd/ tree.
+    pkg_dir = Path(atdd.__file__).resolve().parent
+    schema_path = pkg_dir / "coach" / "schemas" / "config.schema.json"
     with open(schema_path) as f:
         schema = json.load(f)
     validator = jsonschema.Draft7Validator(schema)
