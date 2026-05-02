@@ -4,6 +4,7 @@
 # Layer: assembly
 # Runtime: python
 # Smoke: true
+# Assertion: behavioral
 # Purpose: Verify atdd validate runs against real filesystem and produces real output
 """
 Smoke test for train:0001-self-compliance-validate

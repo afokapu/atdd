@@ -1096,11 +1096,15 @@ class TestResolver(BaseResolver):
     _LAYER_RE = re.compile(
         r"(?:#|//)\s*[Ll]ayer:\s*(presentation|application|domain|integration|assembly)"
     )
+    _ASSERTION_RE = re.compile(
+        r"(?:#|//)\s*[Aa]ssertion:\s*(structural|behavioral)"
+    )
     _TESTED_BY_RE = re.compile(r"(?:#|//)\s*-\s*(test:[^\s]+)")
 
     # Valid phases and layers for test headers
     VALID_PHASES = {"RED", "GREEN", "SMOKE", "REFACTOR"}
     VALID_TEST_LAYERS = {"presentation", "application", "domain", "integration", "assembly"}
+    VALID_ASSERTIONS = {"structural", "behavioral"}
 
     @property
     def family(self) -> str:
@@ -1140,8 +1144,9 @@ class TestResolver(BaseResolver):
         """
         Parse V3 test header metadata from file content.
 
-        Returns dict with keys: test_urn, acceptance, wmbt, train, phase, layer, format.
+        Returns dict with keys: test_urn, acceptance, wmbt, train, phase, layer, assertion, format.
         format is 'acceptance' | 'journey' | 'legacy' | None.
+        assertion is 'structural' | 'behavioral' | None (None when undeclared — legacy tests).
         """
         result = {
             "test_urn": None,
@@ -1150,6 +1155,7 @@ class TestResolver(BaseResolver):
             "train": None,
             "phase": None,
             "layer": None,
+            "assertion": None,
             "format": None,
         }
 
@@ -1197,6 +1203,11 @@ class TestResolver(BaseResolver):
             m = cls._LAYER_RE.search(line)
             if m:
                 result["layer"] = m.group(1)
+
+            # Assertion line (structural | behavioral)
+            m = cls._ASSERTION_RE.search(line)
+            if m:
+                result["assertion"] = m.group(1)
 
         return result
 
