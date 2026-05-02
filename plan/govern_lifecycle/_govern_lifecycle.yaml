@@ -35,9 +35,10 @@ features:
   - urn: "feature:govern-lifecycle:custom-themes"
   - urn: "feature:govern-lifecycle:config-driven-code-roots"
   - urn: "feature:govern-lifecycle:orchestrate-pane-mode"
+  - urn: "feature:govern-lifecycle:detect-stub-presentation-returns"
 
 wmbt:
-  total: 25
+  total: 26
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -58,6 +59,7 @@ wmbt:
   D015: "minimize cmux pane and surface primitives left unreachable from the multiplexer abstraction"
   D016: "minimize orchestrate invocations that cannot opt into pane mode without forking"
   D017: "minimize convention rules whose letter (workspace) hides their intent (one isolated agent context)"
+  D018: "minimize presentation components whose render body is statically empty (jel-app AuthGateShell incident, #318)"
   L001: "minimize manual theme discovery during atdd init"
   P001: "minimize blind theme prompts that force game-domain defaults on non-game repos"
   C001: "minimize invalid custom theme names accepted into config"

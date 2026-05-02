@@ -636,64 +636,62 @@ frontend:
       - "dart import lints + custom scripts (melos/workspaces)"
     failure_policy: "block_on_violation"
 
-# ---------------------------------------------------------------------------
-# Stub-body presentation detection
-# ---------------------------------------------------------------------------
-# Top-level rule family — kept outside the `frontend:` block so the validator
-# can read it via a flat key, mirroring `logging.convention.yaml` precedent.
-no_stub_presentation:
-  description: >
-    Presentation components must render visible content or be explicitly
-    allowlisted with a migration reference. The validator inspects the AST
-    of every functional component under presentation/ paths in scan_dirs and
-    flags trivial stub-body returns. See issue #318 (jel-app AuthGateShell
-    blank-render incident) for the motivating failure.
-  config: ".atdd/config.yaml → no_stub_presentation"
-  config_keys:
-    scan_dirs: "List of TSX scan roots. Empty list / unset → validator skips."
-    allowlist:
-      - path: "Relative file path tracked as an explicit exemption."
-        migration: "owner/repo#NNN reference to the issue that will de-stub it."
-  rationale: >
-    Path-based and import-based validators cannot see a presentation
-    component's render body. The jel-app incident shipped
-    `export const AuthGateShell = () => null;` to production with a fully
-    green ATDD suite. This validator is the static-AST half of the framing
-    established by parent issue #318; #356 owns the runtime/behavioral half.
-  rules:
-    - id: PRESENTATION-NOSTUB-001
-      severity: 4
-      description: >
-        Arrow function with a bare null/undefined expression body
-        (`() => null`, `() => undefined`).
-    - id: PRESENTATION-NOSTUB-002
-      severity: 4
-      description: >
-        Function or function-expression block whose only return is a null
-        literal, undefined, or a bare `return;`.
-    - id: PRESENTATION-NOSTUB-003
-      severity: 4
-      description: >
-        Empty fragment return (`<></>` or `<Fragment></Fragment>`) with zero
-        children and zero attributes.
-    - id: PRESENTATION-NOSTUB-004
-      severity: 4
-      description: >
-        Self-closing or empty element with zero children, zero static
-        attributes, and zero spread expressions (e.g. `<div />`).
-    - id: PRESENTATION-NOSTUB-005
-      severity: 4
-      description: >
-        Conditional whose every branch resolves to a stub literal
-        (e.g. `flag ? null : null`).
-    - id: PRESENTATION-NOSTUB-010
-      severity: 2
-      description: >
-        Allowlist entry must include a `migration:` field referencing the
-        issue that will eliminate the exemption.
-    - id: PRESENTATION-NOSTUB-020
-      severity: 4
-      description: >
-        Negative rule. A guarded null return paired with a sibling JSX
-        return path (e.g. `if (loading) return null; return <Foo/>;`) is
-        NOT a stub and MUST NOT be flagged.
+  # -------------------------------------------------------------------------
+  # Stub-body presentation detection (rule family PRESENTATION-NOSTUB-NNN)
+  # -------------------------------------------------------------------------
+  no_stub_presentation:
+    description: >
+      Presentation components must render visible content or be explicitly
+      allowlisted with a migration reference. The validator inspects the AST
+      of every functional component under presentation/ paths in scan_dirs and
+      flags trivial stub-body returns. See issue #318 (jel-app AuthGateShell
+      blank-render incident) for the motivating failure.
+    config: ".atdd/config.yaml → no_stub_presentation"
+    config_keys:
+      scan_dirs: "List of TSX scan roots. Empty list / unset → validator skips."
+      allowlist:
+        - path: "Relative file path tracked as an explicit exemption."
+          migration: "owner/repo#NNN reference to the issue that will de-stub it."
+    rationale: >
+      Path-based and import-based validators cannot see a presentation
+      component's render body. The jel-app incident shipped
+      `export const AuthGateShell = () => null;` to production with a fully
+      green ATDD suite. This validator is the static-AST half of the framing
+      established by parent issue #318; #356 owns the runtime/behavioral half.
+    rules:
+      - id: PRESENTATION-NOSTUB-001
+        severity: 4
+        description: >
+          Arrow function with a bare null/undefined expression body
+          (`() => null`, `() => undefined`).
+      - id: PRESENTATION-NOSTUB-002
+        severity: 4
+        description: >
+          Function or function-expression block whose only return is a null
+          literal, undefined, or a bare `return;`.
+      - id: PRESENTATION-NOSTUB-003
+        severity: 4
+        description: >
+          Empty fragment return (`<></>` or `<Fragment></Fragment>`) with zero
+          children and zero attributes.
+      - id: PRESENTATION-NOSTUB-004
+        severity: 4
+        description: >
+          Self-closing or empty element with zero children, zero static
+          attributes, and zero spread expressions (e.g. `<div />`).
+      - id: PRESENTATION-NOSTUB-005
+        severity: 4
+        description: >
+          Conditional whose every branch resolves to a stub literal
+          (e.g. `flag ? null : null`).
+      - id: PRESENTATION-NOSTUB-010
+        severity: 2
+        description: >
+          Allowlist entry must include a `migration:` field referencing the
+          issue that will eliminate the exemption.
+      - id: PRESENTATION-NOSTUB-020
+        severity: 4
+        description: >
+          Negative rule. A guarded null return paired with a sibling JSX
+          return path (e.g. `if (loading) return null; return <Foo/>;`) is
+          NOT a stub and MUST NOT be flagged.

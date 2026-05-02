@@ -715,7 +715,8 @@ def test_no_stub_presentation_rules_declared_in_convention():
     with open(FRONTEND_CONVENTION, "r", encoding="utf-8") as fh:
         convention = yaml.safe_load(fh)
 
-    block = (convention.get("no_stub_presentation") or {})
+    frontend_block = convention.get("frontend") or {}
+    block = frontend_block.get("no_stub_presentation") or {}
     rules_by_id = {r.get("id"): r for r in block.get("rules", []) or []}
 
     expected_severity = {
