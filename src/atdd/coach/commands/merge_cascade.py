@@ -19,6 +19,11 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
+from atdd.coach.commands.merge_cascade_topology import (
+    MergeCascadeCycleError,
+    compute_merge_order,
+)
+
 
 @dataclass
 class MergeResult:
@@ -40,6 +45,38 @@ def _run_gh(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
     )
+
+
+def fetch_pr_files(pr: int) -> set[str]:
+    """Return the set of file paths changed by ``pr``. Empty set on any error."""
+    try:
+        result = _run_gh(["pr", "view", str(pr), "--json", "files"])
+    except subprocess.CalledProcessError:
+        return set()
+    try:
+        data = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        return set()
+    return {entry["path"] for entry in data.get("files") or [] if entry.get("path")}
+
+
+def _print_dry_run_plan(order: list[int], files_by_pr: dict[int, set[str]]) -> None:
+    """Print the planned merge sequence with conflict-resolution hints."""
+    print(f"Planned sequence (topological, {len(order)} PR(s)):")
+    merged_files: set[str] = set()
+    for wave_index, pr in enumerate(order):
+        files = files_by_pr.get(pr, set())
+        overlap = sorted(files & merged_files)
+        if wave_index == 0 or not overlap:
+            hint = "no deps" if wave_index == 0 else "independent"
+            print(f"  Wave {wave_index}: #{pr} ({hint})")
+        else:
+            print(
+                f"  Wave {wave_index}: #{pr} "
+                f"(rebase on prior; resolve: {', '.join(overlap)})"
+            )
+        merged_files.update(files)
+    print("No cycles detected.")
 
 
 def update_branch(pr: int) -> MergeResult:
@@ -158,6 +195,13 @@ def cascade(
     return results
 
 
+def _resolve_order(pr_numbers: list[int]) -> tuple[list[int], dict[int, set[str]]]:
+    """Compute topological merge order. Caller handles MergeCascadeCycleError."""
+    files_by_pr = {pr: fetch_pr_files(pr) for pr in pr_numbers}
+    order = compute_merge_order(pr_numbers, lambda pr: files_by_pr[pr])
+    return order, files_by_pr
+
+
 def run(
     pr_numbers: list[int],
     auto: bool = False,
@@ -165,14 +209,23 @@ def run(
     timeout: int = 1800,
     dry_run: bool = False,
 ) -> int:
+    try:
+        order, files_by_pr = _resolve_order(pr_numbers)
+    except MergeCascadeCycleError as cyc:
+        path_str = " → ".join(f"#{n}" for n in cyc.cycle_path)
+        print(
+            f"\n❌ cycle detected in merge cascade: {path_str}",
+            file=sys.stderr,
+        )
+        return 1
+
     if dry_run:
-        print(f"Merge plan ({len(pr_numbers)} PR(s)):")
-        for i, pr in enumerate(pr_numbers):
-            print(f"  {i+1:>2}. #{pr}")
+        _print_dry_run_plan(order, files_by_pr)
         return 0
+
     try:
         results = cascade(
-            pr_numbers,
+            order,
             poll_interval=poll_interval,
             timeout=timeout,
             auto=auto,
@@ -181,5 +234,5 @@ def run(
         r = halt.result
         print(f"\n❌ halted on PR #{r.pr} ({r.status}): {r.detail}", file=sys.stderr)
         return 1
-    print(f"\n✓ merged {len(results)} PR(s) in order")
+    print(f"\n✓ merged {len(results)} PR(s) in topological order")
     return 0
