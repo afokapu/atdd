@@ -1,0 +1,150 @@
+schema_version: "1.0.0"
+convention_id: "coach.source-layout"
+name: "Toolkit Source Layout Convention"
+description: |
+  Declares the two anti-patterns where toolkit code assumes either the
+  toolkit-self repo layout (src/atdd/) or that atdd is pip-installed.
+  Both shapes must work in three layouts: toolkit-self repo (PYTHONPATH=src),
+  editable install (pip install -e), and wheel install (pip install atdd).
+
+rationale: |
+  Three real incidents shipped in two days (2026-05-01..02):
+    - #341: subprocess.run(['pytest', ...]) bare argv0 broke on PYTHONPATH=src
+    - #352: pkg_version("atdd") in cli.py raised PackageNotFoundError from source
+    - #367: find_repo_root() + 'src/atdd' in three coach validators raised
+            FileNotFoundError in pip-installed consumers
+  Each took 30+ minutes to root-cause. The pattern is silent until exercised
+  in the alternate execution mode (CI). This convention promotes the pattern
+  from "category of past bugs" to "automated guard against future occurrences."
+
+scan_scope:
+  COACH-PKG-LAYOUT-001:
+    include:
+      - "src/atdd/"
+    note: "Toolkit dogfooding. Tests, fixtures, conftest.py, and __init__.py are excluded."
+  COACH-PKG-LAYOUT-002:
+    include:
+      - "src/atdd/"
+    note: "Toolkit dogfooding. The canonical try/except wrapper in src/atdd/__init__.py is exempt."
+  exclude:
+    - "*/tests/"
+    - "*/test/"
+    - "__pycache__/"
+    - "__init__.py"
+    - "test_*.py"
+    - "*_test.py"
+    - "conftest.py"
+    - "*/fixtures/*"
+
+rules:
+  - id: "COACH-PKG-LAYOUT-001"
+    name: "no-toolkit-self-layout-assumption"
+    description: |
+      Toolkit code must not call find_repo_root() and concatenate 'src/atdd/'
+      to descend into toolkit-internal assets. The pattern works in
+      toolkit-self repos but raises FileNotFoundError in any pip-installed
+      consumer (where the toolkit lives at <site-packages>/atdd/, not
+      <repo>/src/atdd/).
+    severity: 4
+    detection: |
+      AST — ast.BinOp(op=Div) chain whose leftmost operand is a Call to
+      find_repo_root (optionally wrapped in 'or' / Path()) and whose
+      right-side string-literal segments include 'src' followed by 'atdd'
+      (or a single segment containing 'src/atdd').
+    rationale: |
+      Real incident (#367): three coach validators
+      (test_config_themes, test_init_themes_prompt, test_rule_id_uniqueness)
+      shipped with this pattern; pip-installed consumers raised FileNotFoundError
+      on import. The validator was gated, but the pattern is the recurring shape.
+    canonical_recipe:
+      bad: |
+        from atdd.coach.utils.repo import find_repo_root
+        REPO_ROOT = find_repo_root()
+        SCHEMA = REPO_ROOT / "src" / "atdd" / "coach" / "schemas" / "config.schema.json"
+      good: |
+        from pathlib import Path
+        import atdd
+        ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+        SCHEMA = ATDD_PKG_DIR / "coach" / "schemas" / "config.schema.json"
+    valid_examples:
+      - 'find_repo_root() / "plan" / "_trains.yaml"  # consumer-repo path, not src/atdd/'
+      - 'Path(atdd.__file__).resolve().parent / "coach" / "schemas"  # package-relative'
+    invalid_examples:
+      - 'find_repo_root() / "src" / "atdd" / "coach" / "schemas"'
+      - '(repo_root or find_repo_root()) / "src/atdd/coach/conventions"'
+    exemptions:
+      - "Test files (test_*.py, *_test.py, */tests/, */test/)"
+      - "Fixture directories (*/fixtures/*) — intentional violations for validator testing"
+      - "Inline suppression: # atdd:suppress(COACH-PKG-LAYOUT-001) on the offending line"
+    incident_refs:
+      - "#341"
+      - "#367"
+
+  - id: "COACH-PKG-LAYOUT-002"
+    name: "no-bare-version-detection"
+    description: |
+      Toolkit code must not call version("atdd") / pkg_version("atdd") /
+      importlib.metadata.version("atdd") outside the canonical try/except
+      PackageNotFoundError wrapper in src/atdd/__init__.py. The bare call
+      raises PackageNotFoundError when atdd runs from source without a wheel
+      installed (CI's exact setup).
+    severity: 4
+    detection: |
+      AST — ast.Call where the callee resolves to a name in {version,
+      pkg_version} (or attribute access ending in version) and the first
+      argument is the string literal "atdd", evaluated outside any
+      enclosing try-block whose handlers catch PackageNotFoundError or
+      Exception.
+    rationale: |
+      Real incident (#352): cli.py:234 called pkg_version("atdd") at import
+      time. Stderr was empty because the exception fired before any code
+      reached print, leaving rc=1 with silent CI failures.
+    canonical_recipe:
+      bad: |
+        from importlib.metadata import version
+        APP_VERSION = version("atdd")  # raises PackageNotFoundError from source
+      good: |
+        from atdd import __version__
+        APP_VERSION = __version__
+      package_init_only: |
+        # src/atdd/__init__.py — the *one* legitimate try/except wrapper
+        from importlib.metadata import PackageNotFoundError, version
+        try:
+            __version__ = version("atdd")
+        except PackageNotFoundError:
+            __version__ = "0.0.0"
+    valid_examples:
+      - 'from atdd import __version__'
+      - 'version("pytest")  # version of a different package'
+      - |
+        try:
+            return version("atdd")
+        except PackageNotFoundError:
+            return "0.0.0"
+    invalid_examples:
+      - 'version("atdd")'
+      - 'pkg_version("atdd")'
+      - 'importlib.metadata.version("atdd")'
+    exemptions:
+      - "src/atdd/__init__.py — the canonical try/except wrapper"
+      - "Test files (test_*.py, *_test.py, */tests/, */test/)"
+      - "Fixture directories (*/fixtures/*)"
+      - "Inline suppression: # atdd:suppress(COACH-PKG-LAYOUT-002) on the offending line"
+    incident_refs:
+      - "#352"
+
+enforcement:
+  validator: "src/atdd/coach/validators/test_toolkit_source_layout_assumptions.py"
+  specs:
+    - id: "SPEC-COACH-PKG-LAYOUT-0001"
+      description: "Pattern A detector finds every seeded violation and skips clean shapes"
+      validates: "COACH-PKG-LAYOUT-001"
+    - id: "SPEC-COACH-PKG-LAYOUT-0002"
+      description: "Pattern B detector finds every seeded violation and skips clean shapes"
+      validates: "COACH-PKG-LAYOUT-002"
+    - id: "SPEC-COACH-PKG-LAYOUT-0003"
+      description: "Zero layout violations across atdd's own source (toolkit dogfooding)"
+      validates: "COACH-PKG-LAYOUT-001"
+    - id: "SPEC-COACH-PKG-LAYOUT-0004"
+      description: "Convention declares both rules with stable IDs and severity 4"
+      validates: "COACH-PKG-LAYOUT-001"
