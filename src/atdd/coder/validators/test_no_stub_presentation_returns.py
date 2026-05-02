@@ -36,6 +36,7 @@ import atdd
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.validators._violation import Violation
+from atdd.coder.validators._ast_tsx import parse_tsx, TSXParserUnavailable
 
 
 # ---------------------------------------------------------------------------
@@ -144,16 +145,301 @@ def _load_allowlist(cfg: Dict) -> Dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Detection (RED-phase placeholder — implemented in GREEN)
+# AST detection — Decision #2: tree-sitter-typescript, not regex.
 # ---------------------------------------------------------------------------
+# Stub classification tags returned by `_classify_stub_expr`.
+_TAG_LITERAL = "literal"            # null | undefined | bare return
+_TAG_UNCONDITIONAL = "unconditional"  # ternary / parens that resolves to all-stub
+_TAG_EMPTY_FRAGMENT = "empty_fragment"
+_TAG_EMPTY_ELEMENT = "empty_element"
+
+# Map classification tag → rule_id when the body is an arrow expression-body.
+_ARROW_TAG_TO_RULE = {
+    _TAG_LITERAL: RULE_ARROW_LITERAL,
+    _TAG_UNCONDITIONAL: RULE_UNCONDITIONAL_STUB,
+    _TAG_EMPTY_FRAGMENT: RULE_EMPTY_FRAGMENT,
+    _TAG_EMPTY_ELEMENT: RULE_EMPTY_ELEMENT,
+}
+
+# Map classification tag → rule_id when the body is a function block with a
+# single stub return statement.
+_BLOCK_TAG_TO_RULE = {
+    _TAG_LITERAL: RULE_FN_RETURN_LITERAL,
+    _TAG_UNCONDITIONAL: RULE_UNCONDITIONAL_STUB,
+    _TAG_EMPTY_FRAGMENT: RULE_EMPTY_FRAGMENT,
+    _TAG_EMPTY_ELEMENT: RULE_EMPTY_ELEMENT,
+}
+
+# Function-shaped node types that *terminate* return-statement collection.
+# We must NOT descend into nested function scopes, otherwise a `return null`
+# inside a closure would falsely flag the outer component.
+_NESTED_FUNCTION_TYPES = {
+    "function_declaration",
+    "function_expression",
+    "arrow_function",
+    "method_definition",
+    "generator_function",
+    "generator_function_declaration",
+}
+
+
+def _node_text(node, source: bytes) -> str:
+    return source[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+
+
+def _strip_parens(node):
+    """Return the innermost expression, peeling parenthesized_expression layers."""
+    while node is not None and node.type == "parenthesized_expression":
+        inner = next(
+            (c for c in node.children if c.type not in ("(", ")")),
+            None,
+        )
+        if inner is None:
+            return node
+        node = inner
+    return node
+
+
+def _classify_stub_expr(node, source: bytes) -> Optional[str]:
+    """Return one of the ``_TAG_*`` constants if *node* is statically a stub.
+
+    Recursive over ternary and parenthesized expressions: a ternary is a stub
+    only if both branches are stubs. ``None`` means "not statically a stub".
+    """
+    if node is None:
+        return _TAG_LITERAL  # bare ``return;`` collapses here
+    node = _strip_parens(node)
+    if node is None:
+        return None
+
+    t = node.type
+    if t == "null":
+        return _TAG_LITERAL
+    if t == "undefined":
+        return _TAG_LITERAL
+    if t == "identifier":
+        if _node_text(node, source) == "undefined":
+            return _TAG_LITERAL
+        return None
+
+    if t == "ternary_expression":
+        consequence = node.child_by_field_name("consequence")
+        alternative = node.child_by_field_name("alternative")
+        c_tag = _classify_stub_expr(consequence, source)
+        a_tag = _classify_stub_expr(alternative, source)
+        if c_tag is not None and a_tag is not None:
+            return _TAG_UNCONDITIONAL
+        return None
+
+    if t == "jsx_self_closing_element":
+        # Self-closing always has zero children. Stub iff it carries no
+        # attribute-shaped children (jsx_attribute) and no spread expressions
+        # (jsx_expression directly inside the tag).
+        for c in node.children:
+            if c.type in ("jsx_attribute", "jsx_expression"):
+                return None
+        return _TAG_EMPTY_ELEMENT
+
+    if t == "jsx_element":
+        opening = node.child_by_field_name("open_tag")
+        opening_is_fragment = True
+        opening_attrs = 0
+        if opening is not None:
+            for c in opening.children:
+                if c.type in ("jsx_attribute", "jsx_expression"):
+                    opening_attrs += 1
+                if c.type in (
+                    "identifier",
+                    "nested_identifier",
+                    "member_expression",
+                    "jsx_namespace_name",
+                    "type_identifier",
+                ):
+                    opening_is_fragment = False
+
+        meaningful_children = []
+        for c in node.children:
+            if c.type in ("jsx_opening_element", "jsx_closing_element"):
+                continue
+            if c.type == "jsx_text":
+                if _node_text(c, source).strip():
+                    meaningful_children.append(c)
+                continue
+            meaningful_children.append(c)
+
+        if meaningful_children or opening_attrs > 0:
+            return None
+        return _TAG_EMPTY_FRAGMENT if opening_is_fragment else _TAG_EMPTY_ELEMENT
+
+    return None
+
+
+def _collect_returns_in_block(block_node):
+    """Yield every ``return_statement`` reachable inside *block_node*, refusing
+    to descend into nested function scopes (closures keep their own returns).
+    """
+    stack = [block_node]
+    while stack:
+        n = stack.pop()
+        for child in n.children:
+            if child.type == "return_statement":
+                yield child
+                continue
+            if child.type in _NESTED_FUNCTION_TYPES:
+                # New function scope — its returns don't belong to the outer one.
+                continue
+            stack.append(child)
+
+
+def _return_value(return_stmt):
+    """Return the value expression of a ``return_statement`` (or None for bare ``return;``)."""
+    for c in return_stmt.children:
+        if c.type in ("return", ";"):
+            continue
+        return c
+    return None
+
+
+def _classify_block_returns(block_node, source: bytes) -> Optional[str]:
+    """Classify a function block's returns. ``None`` means "not a stub"."""
+    returns = list(_collect_returns_in_block(block_node))
+    if not returns:
+        # No return at all → implicit undefined fall-through. We treat this as
+        # NOT a stub: the function may have side-effects (rare for components,
+        # but flagging would be too aggressive).
+        return None
+
+    tags: List[str] = []
+    for r in returns:
+        val = _return_value(r)
+        tag = _classify_stub_expr(val, source)
+        if tag is None:
+            return None  # at least one real return → not a stub
+        tags.append(tag)
+
+    # Pick the most specific tag: unconditional > empty_fragment > empty_element > literal.
+    for preferred in (_TAG_UNCONDITIONAL, _TAG_EMPTY_FRAGMENT, _TAG_EMPTY_ELEMENT, _TAG_LITERAL):
+        if preferred in tags:
+            return preferred
+    return None
+
+
+def _is_component_name(name: str) -> bool:
+    """Component identifiers are PascalCase. Lowercase identifiers are usually
+    helpers, hooks (``useFoo``), or non-component utilities — out of scope.
+    """
+    return bool(name) and name[0].isupper()
+
+
+def _iter_top_level_declarations(root):
+    """Yield ``(name_node, function_like_node)`` pairs for module-level
+    functional components — arrow assignments, function expressions, and
+    function declarations. Class components are deferred (Decision #7 limits
+    first-cut scope to functional TSX components).
+    """
+    for stmt in root.children:
+        node = stmt
+        if node.type == "export_statement":
+            node = node.child_by_field_name("declaration") or node
+
+        if node is None:
+            continue
+
+        if node.type == "lexical_declaration":
+            for declarator in node.children:
+                if declarator.type != "variable_declarator":
+                    continue
+                name_node = declarator.child_by_field_name("name")
+                value = declarator.child_by_field_name("value")
+                if name_node is None or value is None:
+                    continue
+                if value.type not in ("arrow_function", "function_expression"):
+                    continue
+                yield name_node, value
+        elif node.type == "function_declaration":
+            name_node = node.child_by_field_name("name")
+            if name_node is not None:
+                yield name_node, node
+
+
+def _line_of(node, source: bytes) -> int:
+    """1-based line number for a tree-sitter node (start point row is 0-based)."""
+    return node.start_point[0] + 1
+
+
+def _check_function_like(func_node, source: bytes) -> Optional[str]:
+    """Classify a function-shaped node body. Returns the body classification tag."""
+    if func_node.type == "arrow_function":
+        body = func_node.child_by_field_name("body")
+        if body is None:
+            return None
+        if body.type == "statement_block":
+            return _classify_block_returns(body, source)
+        return _classify_stub_expr(body, source)
+
+    body = func_node.child_by_field_name("body")
+    if body is None or body.type != "statement_block":
+        return None
+    return _classify_block_returns(body, source)
+
+
 def detect_stub_returns(file_path: Path) -> List[Violation]:
     """Return ``Violation`` records for every stub-return component in *file_path*.
 
-    RED-phase placeholder: real AST detection lives in GREEN. Returning an
-    empty list here makes the fixture-violation tests fail until the AST
-    walker is implemented.
+    Detection follows Decision #2 (tree-sitter AST). When tree-sitter is
+    unavailable in the environment, returns an empty list — the validator
+    is a no-op rather than a hard import failure for unconfigured consumers.
     """
-    return []
+    try:
+        source = file_path.read_bytes()
+    except OSError:
+        return []
+
+    tree = parse_tsx(source)
+    if tree is None:
+        return []  # parser unavailable; degrade gracefully
+
+    try:
+        rel = file_path.relative_to(REPO_ROOT)
+    except ValueError:
+        rel = file_path
+
+    violations: List[Violation] = []
+    for name_node, func_node in _iter_top_level_declarations(tree.root_node):
+        name = _node_text(name_node, source)
+        if not _is_component_name(name):
+            continue
+
+        # Arrow expression body needs the arrow-specific rule mapping; everything
+        # else (function body) uses the block mapping.
+        is_arrow_expr_body = (
+            func_node.type == "arrow_function"
+            and func_node.child_by_field_name("body") is not None
+            and func_node.child_by_field_name("body").type != "statement_block"
+        )
+
+        if is_arrow_expr_body:
+            body = func_node.child_by_field_name("body")
+            tag = _classify_stub_expr(body, source)
+            if tag is None:
+                continue
+            rule_id = _ARROW_TAG_TO_RULE[tag]
+            line = _line_of(func_node, source)
+        else:
+            tag = _check_function_like(func_node, source)
+            if tag is None:
+                continue
+            rule_id = _BLOCK_TAG_TO_RULE[tag]
+            line = _line_of(func_node, source)
+
+        violations.append(Violation(
+            rule_id=rule_id,
+            severity=STUB_RULE_SEVERITY,
+            location=f"{rel}:{line}",
+            detail=f"stub presentation return in component '{name}' ({tag})",
+        ))
+
+    return violations
 
 
 # ---------------------------------------------------------------------------
