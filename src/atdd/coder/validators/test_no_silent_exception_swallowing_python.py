@@ -118,19 +118,23 @@ def _is_logger_call(node: ast.AST) -> bool:
     return False
 
 
-def _walk_handler_body(handler: ast.ExceptHandler):
-    """Walk handler body but stop at nested function/class definitions.
+_NESTED_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
 
-    A handler that only *defines* a function which logs does NOT count
-    as observably reacting to the exception in the handler itself.
+
+def _walk_handler_body(handler: ast.ExceptHandler):
+    """Iterate AST nodes inside the handler body, skipping nested scopes.
+
+    A handler that only *defines* a function/class/lambda which would log
+    does not observably react in the handler itself, so we never descend
+    into nested scopes.
     """
-    for node in handler.body:
-        for child in ast.walk(node):
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)) and child is not node:
-                # Skip nested scopes when collected from `ast.walk(node)` — the
-                # outer iteration over `handler.body` still visits the def itself.
-                continue
-            yield child
+    stack: List[ast.AST] = list(handler.body)
+    while stack:
+        node = stack.pop()
+        yield node
+        if isinstance(node, _NESTED_SCOPES):
+            continue
+        stack.extend(ast.iter_child_nodes(node))
 
 
 def _handler_has_log_call(handler: ast.ExceptHandler) -> bool:
@@ -138,21 +142,16 @@ def _handler_has_log_call(handler: ast.ExceptHandler) -> bool:
 
 
 def _handler_has_raise(handler: ast.ExceptHandler) -> bool:
-    """True if the handler unconditionally re-raises or raises a new exception.
+    """True if a ``raise`` appears at any depth (excluding nested scopes).
 
     Conservative: a ``raise`` anywhere in the handler body counts. Branches
-    that bypass the raise are caught by the explicit-return check.
+    that bypass the raise are still flagged via the explicit-return check.
     """
     return any(isinstance(n, ast.Raise) for n in _walk_handler_body(handler))
 
 
 def _handler_explicit_returns(handler: ast.ExceptHandler) -> List[ast.Return]:
-    """All ``return`` statements in the handler body (excluding nested defs)."""
-    returns: List[ast.Return] = []
-    for n in _walk_handler_body(handler):
-        if isinstance(n, ast.Return):
-            returns.append(n)
-    return returns
+    return [n for n in _walk_handler_body(handler) if isinstance(n, ast.Return)]
 
 
 def _handler_body_is_only_pass(handler: ast.ExceptHandler) -> bool:
