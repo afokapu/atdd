@@ -21,6 +21,68 @@ architecture:
       utils: ["valid", "red"]
       deterministic: true
 
+# =============================================================================
+# Assertion Classification (Deterministic)
+# =============================================================================
+# Origin: #356 — Behavioral Test Assertion Validator. RED phase tests that only
+# inspect source code (file existence, import paths, regex on source strings)
+# pass even when the feature is functionally broken. In a real incident, 63/63
+# R283 structural tests passed while the match page rendered blank — 8 features
+# had been removed during ratchet trim.
+#
+# Rule: every test file SHOULD declare an `Assertion:` field in its URN header
+# with one of two values — `structural` or `behavioral`. Validators consume
+# this declaration to assert that presentation-layer components have at least
+# one behavioral test (a test that actually executes the component and checks
+# observable state). Absent declarations are treated as legacy/unclassified
+# during the migration window.
+assertion_classification:
+  rule: "Test headers SHOULD declare `Assertion: structural | behavioral`."
+
+  values:
+    structural:
+      description: "Inspects source code without executing the component."
+      typical_checks:
+        - "File existence on disk"
+        - "Regex over source strings (e.g. `assert 'import Score' in src`)"
+        - "Import path resolution"
+        - "AST shape inspection without running code"
+      strength: "Cheap, deterministic, fast — good for naming/layout invariants."
+      weakness: "Can pass while the rendered feature is blank or broken."
+      examples:
+        python: "assert Path('foo.tsx').exists()"
+        typescript: "expect(source).toContain('import Score')"
+
+    behavioral:
+      description: "Executes the component (render, route, action) and checks observable state."
+      typical_checks:
+        - "render(<Component/>); assert visible text"
+        - "route navigation reaches expected page"
+        - "button click triggers expected action / state change"
+        - "function call returns expected value with real (non-mocked) collaborators"
+      strength: "Catches feature-removing edits — the test fails when the rendered output is wrong."
+      weakness: "More expensive; needs render harness and may need fixtures."
+      examples:
+        python: "result = run_pipeline(input); assert result.value == expected"
+        typescript: "const r = render(<MatchPage match={fixture}/>); expect(r.getByText('Score: 42')).toBeTruthy()"
+
+  legacy_unclassified:
+    description: "Tests written before this convention may omit `Assertion:`. Validators MUST treat undeclared as legacy and warn (not fail) during the migration window."
+    promotion: "Once a layer is fully migrated, validators may promote to hard-fail per Decision #1 of #356."
+
+  enforcement:
+    presentation_layer:
+      validator: "src/atdd/tester/validators/test_presentation_has_behavioral_test.py"
+      rule: "A presentation-layer component MUST have at least one test declaring `Assertion: behavioral`."
+      mode: "warn-only initially (per #356 Decision #1)"
+      rationale: "Past incident #318: 63/63 R283 structural tests passed while the match page rendered blank — 8 features removed during ratchet trim went undetected."
+
+    other_layers:
+      domain: "Recommended: behavioral (run pure logic, assert outcome). Structural acceptable for invariants like type signatures."
+      application: "Recommended: behavioral (orchestrate use case, assert observable result)."
+      integration: "Mixed: structural for boundary contracts, behavioral for end-to-end pipelines."
+      assembly: "Behavioral expected — assembly tests verify the wired-up system."
+
 # Harness Classification (Deterministic)
 harness_classification:
   frontend:
@@ -105,6 +167,7 @@ runtime_placement:
       # Phase: RED|GREEN|SMOKE|REFACTOR
       # Layer: presentation|application|domain|integration|assembly
       # Runtime: {python|supabase|dart}
+      # Assertion: structural|behavioral
       # Purpose: {acceptance criteria purpose}
 
     journey_test_format: |
@@ -113,6 +176,7 @@ runtime_placement:
       # Phase: RED|GREEN|SMOKE|REFACTOR
       # Layer: assembly
       # Runtime: {python|supabase|dart}
+      # Assertion: structural|behavioral
       # Purpose: {journey test purpose}
 
     rules:
@@ -121,6 +185,7 @@ runtime_placement:
       - "Journey tests MUST include Train: line, MUST omit Acceptance: and WMBT:"
       - "Phase MUST be one of RED, GREEN, SMOKE, REFACTOR"
       - "Layer MUST be one of presentation, application, domain, integration, assembly"
+      - "Assertion (when declared) MUST be one of structural, behavioral; absent value means legacy/unclassified"
 
     format: |
       # URN: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
