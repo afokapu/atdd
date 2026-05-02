@@ -82,11 +82,11 @@ def attempt_pyproject_resolve(pr: int) -> bool:
 
     try:
         view = _run_gh(["pr", "view", str(pr), "--json", "headRefName,baseRefName"])
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         return False
     try:
         meta = json.loads(view.stdout or "{}")
-    except json.JSONDecodeError:
+    except json.JSONDecodeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         return False
     head = meta.get("headRefName")
     base = meta.get("baseRefName") or "main"
@@ -124,23 +124,32 @@ def attempt_pyproject_resolve(pr: int) -> bool:
             _git("commit", "--no-edit")
         _git("push", "origin", head)
         return True
-    except subprocess.CalledProcessError:
-        try:
-            subprocess.run(["git", "merge", "--abort"], capture_output=True)
-        except Exception:
-            pass
+    except subprocess.CalledProcessError as exc:
+        print(
+            f"⚠ pyproject auto-resolve failed for PR #{pr}: "
+            f"{exc.cmd!r} → {(exc.stderr or '').strip()}",
+            file=sys.stderr,
+        )
+        # Best-effort cleanup; failure here means there was no merge in progress.
+        subprocess.run(
+            ["git", "merge", "--abort"], capture_output=True, check=False
+        )
         return False
 
 
 def fetch_pr_files(pr: int) -> set[str]:
-    """Return the set of file paths changed by ``pr``. Empty set on any error."""
+    """Return the set of file paths changed by ``pr``. Empty set on any error.
+
+    A 404 / network failure here yields an empty set, so the topology engine
+    treats the PR as having no overlap (it falls to PR-number tie-break).
+    """
     try:
         result = _run_gh(["pr", "view", str(pr), "--json", "files"])
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         return set()
     try:
         data = json.loads(result.stdout or "{}")
-    except json.JSONDecodeError:
+    except json.JSONDecodeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         return set()
     return {entry["path"] for entry in data.get("files") or [] if entry.get("path")}
 
