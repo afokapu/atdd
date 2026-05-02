@@ -143,11 +143,6 @@ silent_exception_swallowing_python:
     \ (1 return statement(s))"
 - rule_id: COACH-SILENT-SWALLOW-001
   severity: 4
-  location: src/atdd/coach/commands/registry.py:34
-  detail: "silent swallow (ImportError) \u2014 no log, no raise; returns from handler\
-    \ (2 return statement(s))"
-- rule_id: COACH-SILENT-SWALLOW-001
-  severity: 4
   location: src/atdd/coach/commands/urn.py:114
   detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
     \ (1 return statement(s))"
