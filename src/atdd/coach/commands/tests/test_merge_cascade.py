@@ -16,9 +16,12 @@ from atdd.coach.commands.merge_cascade import (
     MergeResult,
     cascade,
     fetch_ci_status,
+    fetch_pr_files,
+    run,
     update_branch,
     wait_for_ci,
 )
+from atdd.coach.commands.merge_cascade_topology import MergeCascadeCycleError
 
 pytestmark = [pytest.mark.platform]
 
@@ -175,6 +178,140 @@ def test_cascade_halts_on_conflict():
             cascade([1, 2, 3], poll_interval=0, timeout=1, auto=True)
     assert exc_info.value.result.pr == 2
     assert exc_info.value.result.status == "conflict"
+
+
+# ---------------------------------------------------------------------------
+# fetch_pr_files
+# ---------------------------------------------------------------------------
+
+
+def test_fetch_pr_files_parses_gh_json():
+    json_out = '{"files":[{"path":"pyproject.toml"},{"path":"src/foo.py"}]}'
+    with patch(
+        "atdd.coach.commands.merge_cascade._run_gh",
+        return_value=_gh_ok(json_out),
+    ):
+        files = fetch_pr_files(123)
+    assert files == {"pyproject.toml", "src/foo.py"}
+
+
+def test_fetch_pr_files_returns_empty_on_error():
+    with patch(
+        "atdd.coach.commands.merge_cascade._run_gh",
+        side_effect=_gh_fail("not found"),
+    ):
+        files = fetch_pr_files(123)
+    assert files == set()
+
+
+# ---------------------------------------------------------------------------
+# run() — dry-run path
+# ---------------------------------------------------------------------------
+
+
+def test_run_dry_run_prints_topological_order(capsys):
+    """Dry-run should print PRs in topological order, not input order."""
+    diffs = {
+        350: {"pyproject.toml"},
+        351: {"pyproject.toml"},
+        352: {"pyproject.toml"},
+        353: {"pyproject.toml"},
+    }
+    with patch(
+        "atdd.coach.commands.merge_cascade.fetch_pr_files",
+        side_effect=lambda pr: diffs[pr],
+    ):
+        rc = run([353, 351, 350, 352], dry_run=True)
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Topo order is 350, 351, 352, 353 — find them in that sequence
+    pos = [out.index(f"#{pr}") for pr in (350, 351, 352, 353)]
+    assert pos == sorted(pos), f"PRs not in ascending topo order: {out}"
+
+
+def test_run_dry_run_includes_rebase_hints_for_overlap(capsys):
+    diffs = {
+        300: {"pyproject.toml"},
+        301: {"pyproject.toml"},
+    }
+    with patch(
+        "atdd.coach.commands.merge_cascade.fetch_pr_files",
+        side_effect=lambda pr: diffs[pr],
+    ):
+        run([300, 301], dry_run=True)
+    out = capsys.readouterr().out
+    assert "rebase" in out.lower()
+    assert "pyproject.toml" in out
+
+
+def test_run_dry_run_no_hint_when_disjoint(capsys):
+    diffs = {
+        300: {"a.py"},
+        301: {"b.py"},
+    }
+    with patch(
+        "atdd.coach.commands.merge_cascade.fetch_pr_files",
+        side_effect=lambda pr: diffs[pr],
+    ):
+        run([300, 301], dry_run=True)
+    out = capsys.readouterr().out
+    assert "no deps" in out.lower() or "independent" in out.lower()
+
+
+# ---------------------------------------------------------------------------
+# run() — cycle detection
+# ---------------------------------------------------------------------------
+
+
+def test_run_dry_run_reports_cycle_and_exits_nonzero(capsys):
+    """When the helper raises MergeCascadeCycleError, run() exits 1."""
+    def boom(pr_numbers, fetch_diff, extra_deps=None):
+        raise MergeCascadeCycleError([1, 2, 1])
+
+    with patch(
+        "atdd.coach.commands.merge_cascade.compute_merge_order",
+        side_effect=boom,
+    ), patch(
+        "atdd.coach.commands.merge_cascade.fetch_pr_files",
+        return_value=set(),
+    ):
+        rc = run([1, 2], dry_run=True)
+    assert rc == 1
+    captured = capsys.readouterr()
+    err = captured.err + captured.out
+    assert "cycle" in err.lower()
+    assert "#1" in err and "#2" in err
+
+
+def test_run_live_path_uses_topo_order_too(capsys):
+    """Live (non-dry-run) cascade also runs PRs through compute_merge_order."""
+    diffs = {
+        300: {"pyproject.toml"},
+        301: {"pyproject.toml"},
+    }
+    seen: list[int] = []
+
+    def fake_update(pr):
+        seen.append(pr)
+        return MergeResult(pr=pr, status="merged")
+
+    with patch(
+        "atdd.coach.commands.merge_cascade.fetch_pr_files",
+        side_effect=lambda pr: diffs[pr],
+    ), patch(
+        "atdd.coach.commands.merge_cascade.update_branch",
+        side_effect=fake_update,
+    ), patch(
+        "atdd.coach.commands.merge_cascade.wait_for_ci",
+        return_value=MergeResult(pr=0, status="merged"),
+    ), patch(
+        "atdd.coach.commands.merge_cascade.merge_pr",
+        return_value=MergeResult(pr=0, status="merged"),
+    ):
+        rc = run([301, 300], auto=True)
+    assert rc == 0
+    # Even though input was [301, 300], topo order [300, 301] should run
+    assert seen == [300, 301]
 
 
 def test_cascade_halts_on_ci_fail():
