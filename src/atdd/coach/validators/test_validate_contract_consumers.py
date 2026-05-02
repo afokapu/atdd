@@ -178,13 +178,13 @@ def test_detect_consumer_mismatches(tmp_path):
     mismatch = manifest_to_contract[0]
     assert mismatch["manifest"] == str(feature_manifest.relative_to(tmp_path))
     assert mismatch["contract"] == "contract:match:dilemma.paired"
-    assert "dilemma/paired.schema.json" in mismatch["contract_file"]
+    assert "dilemma/paired.schema.json" in mismatch["contract_file"].replace("\\", "/")
 
     # Check contract→manifest mismatch (contract lists wagon:nonexistent-wagon but no manifest declares it)
     contract_to_manifest = report["contract_to_manifest"]
     assert len(contract_to_manifest) == 1, "Should find 1 contract→manifest mismatch"
     mismatch = contract_to_manifest[0]
-    assert "ux/foundations/color.schema.json" in mismatch["contract_file"]
+    assert "ux/foundations/color.schema.json" in mismatch["contract_file"].replace("\\", "/")
     assert mismatch["consumer"] == "wagon:nonexistent-wagon"
 
     # Verify no changes were made (validation only)

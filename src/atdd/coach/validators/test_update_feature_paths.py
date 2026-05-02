@@ -88,12 +88,13 @@ def test_update_feature_implementation_paths(tmp_path):
     expected_python_path = "python/test_wagon/test_feature/"
     expected_lib_path = "lib/test_wagon/test_feature/"
 
-    assert expected_python_path in updated_data["paths"], f"Should contain {expected_python_path}"
-    assert expected_lib_path in updated_data["paths"], f"Should contain {expected_lib_path}"
+    normalized_paths = [p.replace("\\", "/") for p in updated_data["paths"]]
+    assert expected_python_path in normalized_paths, f"Should contain {expected_python_path}"
+    assert expected_lib_path in normalized_paths, f"Should contain {expected_lib_path}"
 
     # Should NOT contain paths that don't exist
-    assert "supabase/functions/test_wagon/test_feature/" not in updated_data["paths"]
-    assert "packages/test_wagon/test_feature/" not in updated_data["paths"]
+    assert "supabase/functions/test_wagon/test_feature/" not in normalized_paths
+    assert "packages/test_wagon/test_feature/" not in normalized_paths
 
     # Other fields should remain unchanged
     assert updated_data["feature"] == "test-feature"

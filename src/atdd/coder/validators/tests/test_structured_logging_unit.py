@@ -113,7 +113,7 @@ def test_consumer_mode_skips_vendored_site_packages(
         f"Expected exactly 1 violation (consumer python/ only); "
         f"got {count}: {violations}"
     )
-    assert any("python/app.py" in v for v in violations), violations
+    assert any("python/app.py" in v.replace("\\", "/") for v in violations), violations
     assert not any("site-packages" in v for v in violations), (
         f"Vendored site-packages must not be scanned: {violations}"
     )
