@@ -509,6 +509,32 @@ status:
     COMPLETE: []  # Terminal state
     OBSOLETE: []  # Terminal state
 
+  # Issue #355: phase advance fires automatically on PR merge.
+  # The .github/workflows/atdd-auto-phase.yml workflow runs
+  # `atdd auto-phase <PR>` on `pull_request: closed` with
+  # `merged == true`, which dispatches `atdd issue <N> --status <NEXT>`
+  # so manifest discipline (#344) and label-swap rules apply uniformly.
+  auto_transition_on_merge:
+    enabled: true
+    workflow: ".github/workflows/atdd-auto-phase.yml"
+    cli: "atdd auto-phase <pr-number>"
+    rule: "Single-step advance per state machine on PR merge"
+    transitions:
+      RED: GREEN
+      GREEN: SMOKE
+      SMOKE: REFACTOR
+      REFACTOR: COMPLETE
+    no_op_phases:
+      # Pre-implementation phases require manual transition; merging while
+      # in these states is unusual and an operator should review.
+      - INIT
+      - PLANNED
+      - BLOCKED
+      # Terminal phases — never re-advance from a re-merged PR.
+      - COMPLETE
+      - OBSOLETE
+    validator: "src/atdd/coach/validators/test_auto_phase_workflow_exists.py"
+
 # Infrastructure archetypes - what can be changed
 archetypes:
   database:
