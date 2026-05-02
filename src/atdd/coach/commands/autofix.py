@@ -158,7 +158,9 @@ def run_github_client_stub_autofix(
     unless a write error escalates; callers use the message output to
     decide whether to commit.
     """
-    root = (repo_root or find_repo_root()) / "src" / "atdd" / "coach" / "commands" / "tests"
+    # autofix targets toolkit-self test sources only; falls through silently
+    # when run from a pip-installed consumer (root.exists() check below).
+    root = (repo_root or find_repo_root()) / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(COACH-PKG-LAYOUT-001)
     if not root.exists():
         print(f"autofix: tests root not found: {root}")
         return 0
