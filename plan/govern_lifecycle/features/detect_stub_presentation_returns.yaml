@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:detect-stub-presentation-returns"
+wagon: "wagon:govern-lifecycle"
+description: "AST-based detector for stub presentation returns (TSX components that return JSX literals without behavior). Closes the static-AST half of the structural-vs-behavioral incident series; #356 ships the runtime-render half."
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:D018"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "Coach-validator only; no CLI surface."
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "Stub-detection use case wrapping the AST walker."
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts; reuses Violation record from #340."
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "Tree-sitter wrapper for TSX AST traversal."
