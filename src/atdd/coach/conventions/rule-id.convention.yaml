@@ -234,3 +234,4 @@ migration:
   completed:
     # Add migrated convention paths here as they land.
     - "src/atdd/coder/conventions/green.convention.yaml"
+    - "src/atdd/coach/conventions/orchestration.convention.yaml"

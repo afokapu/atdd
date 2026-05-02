@@ -53,11 +53,12 @@ def test_classify_auto_approves_edit_tool():
 
 
 def test_classify_auto_approves_git_status():
+    # As of #366, Bash commands are pattern-classified instead of always
+    # escalated. `git status` matches the read-only-git allow rule.
     screen = "Bash(git status)\n" + _PROMPT_MARKER
-    # Bash is always-escalate even though git status is known-safe
     decision = classify_prompt(screen)
-    assert decision.action == "escalate"
-    assert decision.matched == "Bash"
+    assert decision.action == "auto_approve"
+    assert decision.rule_id.startswith("COACH-BABYSIT-")
 
 
 def test_classify_escalates_write():
@@ -68,6 +69,8 @@ def test_classify_escalates_write():
 
 
 def test_classify_escalates_bash():
+    # `rm` is still in ALWAYS_ESCALATE_PROMPTS as a literal screen-text token,
+    # so `Bash(rm -rf /)` escalates before reaching the pattern classifier.
     screen = "Bash(rm -rf /)\n" + _PROMPT_MARKER
     decision = classify_prompt(screen)
     assert decision.action == "escalate"

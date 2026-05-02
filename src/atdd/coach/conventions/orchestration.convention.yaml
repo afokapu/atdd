@@ -63,6 +63,11 @@ rules:
       auto-approval bookkeeping is shared, not isolated. Per-surface isolated state is
       out of scope for #343 — file a follow-on if shared state causes drift in practice.
 
+      Bash pattern auto-approvals (see ``babysit.bash_auto_approve_patterns``) follow
+      the same focused-surface rule: the classifier matches against the focused
+      surface's screen capture, not per-surface state machines. This is consistent
+      with the existing pane-mode caveat; per-surface classifier state is a follow-on.
+
   micro_commit:
     rule: "Orchestrated sessions inherit micro-commit discipline (see CLAUDE.md)"
     max_unstaged_files: 5
@@ -89,10 +94,78 @@ prompt_approval:
     - "git log"
   always_escalate:
     - "Write"
-    - "Bash"          # command must be inspected; never auto-approve
     - "rm"
     - "git push --force"
-  rationale: "Conservative list. Any mutation beyond Edit requires human judgement."
+  rationale: |
+    Conservative literal-string list for non-Bash tools. Bash classification is
+    handled by ``babysit.bash_auto_approve_patterns`` and ``bash_deny_patterns``
+    below; the literal ``"Bash"`` entry was removed from ``always_escalate`` when
+    COACH-BABYSIT-* rules shipped (issue #366). Any mutation beyond Edit (for
+    non-Bash tools) still requires human judgement.
+
+# =============================================================================
+# Babysit pattern-based Bash classifier (issue #366)
+# =============================================================================
+# Bash commands are extracted from the babysit screen capture and matched
+# against deny patterns first, then allow patterns. Unmatched commands escalate.
+# Each rule declares a stable rule_id under DOMAIN=COACH, TOPIC=BABYSIT per the
+# rule-ID grammar (SPEC-COACH-RULEID-0001).
+
+babysit:
+  bash_auto_approve_patterns:
+    description: |
+      Regex patterns (anchored at the start of the command) for Bash invocations
+      the babysitter auto-approves. Seeded from concrete log evidence in
+      ``.atdd/orchestration-log.jsonl`` for May 2026 sessions: every routine
+      diagnostic that escalated as ``matched=Bash`` is covered here.
+
+      Numeric suffix range: 010-049. Reserve 050+ for deny rules.
+    rules:
+      - id: COACH-BABYSIT-010
+        severity: 2
+        description: "Read-only git diagnostics"
+        regex: '^git (status|log|diff|show|branch|remote|fetch|rev-parse|reflog|stash list)\b'
+      - id: COACH-BABYSIT-011
+        severity: 2
+        description: "Test runner invocations"
+        regex: '^pytest\b'
+      - id: COACH-BABYSIT-012
+        severity: 2
+        description: "Read-only file inspection"
+        regex: '^(ls|cat|head|tail|grep|find|wc)\b'
+      - id: COACH-BABYSIT-013
+        severity: 1
+        description: "Stdout-only output"
+        regex: '^echo\b'
+      - id: COACH-BABYSIT-014
+        severity: 1
+        description: "Print working directory"
+        regex: '^pwd\s*$'
+
+  bash_deny_patterns:
+    description: |
+      Regex patterns that always escalate, even if a permissive allow pattern
+      would also match. Deny is checked *before* allow so the safety boundary
+      cannot be widened by accident.
+
+      Numeric suffix range: 050+.
+    rules:
+      - id: COACH-BABYSIT-050
+        severity: 5
+        description: "Network egress — escalate even if otherwise safe"
+        regex: '^(curl|wget)\b'
+      - id: COACH-BABYSIT-051
+        severity: 4
+        description: "Mutates Python environment"
+        regex: '^pip (install|uninstall)\b'
+      - id: COACH-BABYSIT-052
+        severity: 5
+        description: "Destructive file ops — always escalate"
+        regex: '^(rm|mv)\b'
+      - id: COACH-BABYSIT-053
+        severity: 4
+        description: "Destructive or remote-mutating git ops"
+        regex: '^git (push|reset --hard|clean -f|branch -D|checkout --)\b'
 
 # =============================================================================
 # Policy violation patterns the babysitter watches for
