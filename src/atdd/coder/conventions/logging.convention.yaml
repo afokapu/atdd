@@ -21,12 +21,19 @@ scan_scope:
       - "python/"
       - "src/atdd/"
     note: "Structured logging check applies to both consumer code and the ATDD toolkit itself (dogfooding)."
+  COACH-SILENT-SWALLOW-001:
+    include:
+      - "python/"
+      - "src/atdd/"
+      - "web/src/"
+    note: "Silent swallow detection applies to consumer code, toolkit dogfooding, and frontend. Test files are excluded — they legitimately suppress exceptions for assertion patterns."
   exclude:
     - "*/tests/"
     - "*/test/"
     - "__pycache__/"
     - "__init__.py"
     - "test_*.py"
+    - "*/fixtures/*"
 
 rules:
   - id: "LOG-001"
@@ -53,6 +60,65 @@ rules:
       - 'logger.info("User %s created", username)'
       - 'logger.debug("Processing request")'
 
+  - id: "COACH-SILENT-SWALLOW-001"
+    name: "no-silent-exception-swallowing"
+    description: "Exception handlers must log, re-raise, or otherwise observably react — never silently return a success value"
+    severity: 4
+    detection: |
+      AST (Python) / regex (TS) — try/except (or try/catch) where the handler body has:
+        * NO logging call (logger.X / log.X / logging.X)
+        * NO raise statement (re-raise or raise from)
+        * AND returns a non-None, non-error value (or falls through to a success path)
+    rationale: |
+      Real incident: seek_opponent_use_case.py caught match_creator errors and returned a
+      broken match_id without logging. Three backend bugs were masked for weeks. Catches
+      that suppress exceptions and return success values turn loud failures into invisible
+      data corruption. The fix is to require an observable reaction (log + re-raise, or
+      log + structured fallback).
+    valid_examples:
+      - |
+        try:
+            match = match_creator.create(player_id)
+            return match.id
+        except Exception as e:
+            logger.warning("match_creator failed", extra={"player_id": player_id, "error": str(e)})
+            raise
+      - |
+        try:
+            return remote_lookup(key)
+        except RemoteError as e:
+            logger.warning("remote lookup failed, using fallback", extra={"key": key, "error": str(e)})
+            return cached_value
+      - |
+        try {
+          return await remoteLookup(key);
+        } catch (e) {
+          logger.warn("remote lookup failed, using fallback", { key, error: e });
+          return cachedValue;
+        }
+    invalid_examples:
+      - |
+        try:
+            return match_creator.create(player_id).id
+        except Exception:
+            return ""
+      - |
+        try:
+            return parse(payload)
+        except Exception:
+            pass
+        return None
+      - |
+        try {
+          return parse(payload);
+        } catch (e) {
+          return defaultValue;
+        }
+    exemptions:
+      - "Test files (test_*.py, *.test.ts, *.spec.ts, */tests/, */test/) — assertion patterns legitimately suppress exceptions"
+      - "Fixture directories (*/fixtures/*) — intentional violations for validator testing"
+      - "Inline suppression: # atdd:suppress(COACH-SILENT-SWALLOW-001) on the except line"
+
 enforcement:
   validator: "src/atdd/coder/validators/test_structured_logging.py"
   specs:
@@ -62,6 +128,14 @@ enforcement:
     - id: "SPEC-CODER-LOG-0002"
       description: "Logger calls include extra= context"
       validates: "LOG-002"
+    - id: "SPEC-CODER-SILENT-SWALLOW-0001"
+      description: "Python: no try/except handlers that swallow without logging or re-raising"
+      validates: "COACH-SILENT-SWALLOW-001"
+      validator: "src/atdd/coder/validators/test_no_silent_exception_swallowing_python.py"
+    - id: "SPEC-CODER-SILENT-SWALLOW-0002"
+      description: "TypeScript: no try/catch handlers that swallow without logging or re-throwing"
+      validates: "COACH-SILENT-SWALLOW-001"
+      validator: "src/atdd/coder/validators/test_no_silent_exception_swallowing_typescript.py"
 
 deferred:
   phase_2:
