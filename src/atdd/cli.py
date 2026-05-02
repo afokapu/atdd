@@ -1582,7 +1582,7 @@ Phase descriptions:
                 args.close_wmbt,
                 force=getattr(args, 'force', False),
             )
-
+  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         # Default: enter existing issue
         return lifecycle.enter(issue_number)
 

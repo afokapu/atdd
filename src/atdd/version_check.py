@@ -45,7 +45,7 @@ def _parse_version(version: str) -> Tuple[int, ...]:
     """Parse version string into tuple for comparison."""
     try:
         return tuple(int(x) for x in version.split(".")[:3])
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         return (0, 0, 0)
 
 
@@ -60,7 +60,7 @@ def _load_cache() -> dict:
         if CACHE_FILE.exists():
             with open(CACHE_FILE) as f:
                 return json.load(f)
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         pass
     return {}
 
@@ -71,7 +71,7 @@ def _save_cache(data: dict) -> None:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         with open(CACHE_FILE, "w") as f:
             json.dump(data, f)
-    except OSError:
+    except OSError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         pass  # Silently fail if we can't write cache
 
 
@@ -81,7 +81,7 @@ def _fetch_latest_version() -> Optional[str]:
         with urlopen(PYPI_URL, timeout=2) as response:
             data = json.loads(response.read().decode())
             return data.get("info", {}).get("version")
-    except (URLError, json.JSONDecodeError, OSError, TimeoutError):
+    except (URLError, json.JSONDecodeError, OSError, TimeoutError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         return None
 
 
@@ -158,7 +158,7 @@ def _load_repo_config() -> Tuple[Optional[dict], Optional[Path]]:
     try:
         with open(config_path) as f:
             return yaml.safe_load(f) or {}, config_path
-    except (yaml.YAMLError, OSError):
+    except (yaml.YAMLError, OSError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         return None, None
 
 
@@ -252,7 +252,7 @@ def update_toolkit_version(config_path: Optional[Path] = None) -> bool:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
         return True
-    except (yaml.YAMLError, OSError):
+    except (yaml.YAMLError, OSError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
         return False
 
 
