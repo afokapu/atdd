@@ -24,7 +24,7 @@ Run: atdd validate coach
 
 import logging
 from pathlib import Path
-from typing import Any, List, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 import pytest
 
@@ -92,14 +92,100 @@ def _classify_changed_files(files: List[str]) -> dict:
     return result
 
 
+def _format_code_files(code_files: List[str], phase: str, pr_number: int, issue_number: int) -> str:
+    sample = code_files[:3]
+    suffix = (
+        f" ... +{len(code_files) - 3} more"
+        if len(code_files) > 3
+        else ""
+    )
+    return (
+        f"PR #{pr_number} → issue #{issue_number} (phase={phase}): "
+        f"{len(code_files)} code file(s) changed — expected plan/contract "
+        f"artifacts only at {phase}. Files: {', '.join(sample)}{suffix}"
+    )
+
+
+def evaluate_phase_violations(
+    pr_number: int,
+    issue_number: int,
+    phase: Optional[str],
+    classified: dict,
+) -> List[Any]:
+    """Pure evaluator: classify PR/phase mismatch into ratchet items.
+
+    Returns a mixed list:
+      - ``str`` for INIT/PLANNED with code (legacy warn semantics, ratcheted
+        opaquely under the existing ``pr_phase_alignment`` validator_id).
+      - ``Violation(rule_id="COACH-PRGATE-0003", severity=4)`` for GREEN with
+        code (issue #293; structured persistence per #340).
+
+    No GitHub access — fully testable from synthetic ``classified`` dicts.
+    """
+    if phase is None:
+        return []
+    if not classified.get("code"):
+        return []
+
+    items: List[Any] = []
+    code_files = classified["code"]
+
+    if phase in _EARLY_PHASES:
+        items.append(_format_code_files(code_files, phase, pr_number, issue_number))
+        logging.getLogger(__name__).warning(
+            "SPEC-COACH-PRGATE-0002: PR #%d has code changes but issue #%d is at %s",
+            pr_number, issue_number, phase,
+            extra={
+                "pr": pr_number,
+                "issue": issue_number,
+                "phase": phase,
+                "code_files": len(code_files),
+            },
+        )
+    elif phase in _FAILING_PHASES:
+        sample = code_files[:3]
+        suffix = (
+            f" ... +{len(code_files) - 3} more"
+            if len(code_files) > 3
+            else ""
+        )
+        detail = (
+            f"PR #{pr_number} → issue #{issue_number} (phase={phase}): "
+            f"{len(code_files)} code file(s) merging without SMOKE — "
+            f"transition issue to atdd:SMOKE first. Files: "
+            f"{', '.join(sample)}{suffix}"
+        )
+        items.append(Violation(
+            rule_id=RULE_ID_PRGATE_GREEN,
+            severity=SEVERITY_PRGATE_GREEN,
+            location=f"PR#{pr_number}:0",
+            detail=detail,
+        ))
+        logging.getLogger(__name__).error(
+            "%s: PR #%d (issue #%d at %s) has %d code file(s); SMOKE required",
+            RULE_ID_PRGATE_GREEN, pr_number, issue_number, phase, len(code_files),
+            extra={
+                "pr": pr_number,
+                "issue": issue_number,
+                "phase": phase,
+                "code_files": len(code_files),
+                "rule_id": RULE_ID_PRGATE_GREEN,
+            },
+        )
+
+    return items
+
+
 def scan_pr_phase_alignment(repo_root: Path) -> Tuple[int, Sequence]:
     """Scan open PRs for phase alignment violations.
 
-    Returns (violation_count, violation_messages) for ratchet baseline.
+    Returns (violation_count, mixed_items) for ratchet baseline. Mixed items
+    contain opaque strings (INIT/PLANNED legacy warns) and structured
+    ``Violation`` records (GREEN, COACH-PRGATE-0003 per #293).
     """
     mgr = PRManager(target_dir=repo_root)
     open_prs = mgr.fetch_open_prs()
-    violations: List[str] = []
+    items: List[Any] = []
 
     for pr in open_prs:
         pr_number = pr["number"]
@@ -108,7 +194,9 @@ def scan_pr_phase_alignment(repo_root: Path) -> Tuple[int, Sequence]:
             continue
 
         phase = resolution["phase_label"]
-        if phase is None or phase not in _EARLY_PHASES:
+        if phase is None:
+            continue
+        if phase not in _EARLY_PHASES and phase not in _FAILING_PHASES:
             continue
 
         changed_files = mgr.fetch_pr_changed_files(pr_number)
@@ -116,30 +204,14 @@ def scan_pr_phase_alignment(repo_root: Path) -> Tuple[int, Sequence]:
             continue
 
         classified = _classify_changed_files(changed_files)
+        items.extend(evaluate_phase_violations(
+            pr_number=pr_number,
+            issue_number=resolution["issue_number"],
+            phase=phase,
+            classified=classified,
+        ))
 
-        if classified["code"]:
-            code_sample = classified["code"][:3]
-            violations.append(
-                f"PR #{pr_number} → issue #{resolution['issue_number']} "
-                f"(phase={phase}): {len(classified['code'])} code file(s) "
-                f"changed — expected plan/contract artifacts only at {phase}. "
-                f"Files: {', '.join(code_sample)}"
-                + (f" ... +{len(classified['code']) - 3} more"
-                   if len(classified["code"]) > 3 else "")
-            )
-            logging.getLogger(__name__).warning(
-                "SPEC-COACH-PRGATE-0002: PR #%d has code changes but "
-                "issue #%d is at %s",
-                pr_number, resolution["issue_number"], phase,
-                extra={
-                    "pr": pr_number,
-                    "issue": resolution["issue_number"],
-                    "phase": phase,
-                    "code_files": len(classified["code"]),
-                },
-            )
-
-    return len(violations), violations
+    return len(items), items
 
 
 # ---------------------------------------------------------------------------
