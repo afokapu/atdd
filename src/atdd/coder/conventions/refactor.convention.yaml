@@ -533,3 +533,32 @@ refactor_phase:
       - "Boundary tests passing"
       - "Refactor log committed"
       - "Ready for next feature"
+
+  # ---------------------------------------------------------------------------
+  # Layer-aware ratchet rules (issue #358 — replaces idea-issue #319)
+  # ---------------------------------------------------------------------------
+  # The ratchet rewards mechanical reduction (line counts, duplication scores)
+  # without semantic verification. Presentation files are uniquely sensitive
+  # because lines often correspond to user-visible features. Past incident:
+  # 8 match features removed during ratchet trimming; structural validators
+  # green; loss caught only by manual smoke testing hours later.
+  ratchet_smoke_gate:
+    rules:
+      - id: COACH-RATCHET-PRES-001
+        severity: 3  # Decision #5 in issue #358 — advisory + gate, not blocking.
+        title: "Presentation-layer reduction >20% requires recorded smoke evidence"
+        applies_to: "*/presentation/*.{tsx,ts,py}"
+        threshold: 0.20  # Decision #1 — 20% reduction, configurable here.
+        validator: "src/atdd/coder/validators/test_presentation_ratchet_requires_smoke.py"
+        evidence:
+          location: ".atdd/smoke-evidence/<issue>.yaml"
+          gitignored: true  # Decision #3 — local/CI evidence, not git history.
+        triggers:
+          - "Single-PR presentation file shrinks more than 20% relative to base"
+          - "Presentation file deleted entirely (treated as 100% reduction, Decision #4)"
+        gate: "Blocks SMOKE→REFACTOR transition until smoke evidence is recorded"
+        record_command: "atdd validate coder --smoke-required <issue>"
+        rationale: |
+          Ratchet improvements (a "good thing" by metric) become a vector for
+          regressions when they touch presentation. Without a layer-aware gate,
+          structural validators report green even when behavior was removed.

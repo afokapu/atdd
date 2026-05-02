@@ -381,6 +381,17 @@ Phase descriptions:
             "Scope: coach only."
         ),
     )
+    validate_parser.add_argument(
+        "--smoke-required",
+        metavar="ISSUE",
+        type=int,
+        default=None,
+        help=(
+            "Record smoke evidence for ISSUE (.atdd/smoke-evidence/<N>.yaml) "
+            "and exit. Unblocks SMOKE→REFACTOR for COACH-RATCHET-PRES-001 "
+            "(presentation-layer ratchet improvements over 20%%). Issue #358."
+        ),
+    )
 
     # ----- atdd inventory -----
     inventory_parser = subparsers.add_parser(
@@ -1308,6 +1319,35 @@ Phase descriptions:
     # atdd validate [phase]
     elif args.command == "validate":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+
+        # --smoke-required: record smoke evidence for an issue (#358).
+        # Resolves COACH-RATCHET-PRES-001 by writing the gate-unblocking file.
+        smoke_required = getattr(args, 'smoke_required', None)
+        if smoke_required is not None:
+            if args.phase not in ("coder", "all"):
+                print(
+                    "Error: --smoke-required is only supported with phase "
+                    "'coder' (or 'all'). Re-run: atdd validate coder "
+                    f"--smoke-required {smoke_required}"
+                )
+                return 1
+            from atdd.coach.utils.repo import find_repo_root
+            from atdd.coder.validators.presentation_ratchet import (
+                record_smoke_evidence,
+            )
+            root = repo_path or find_repo_root()
+            recorded_by = os.environ.get("USER", "unknown")
+            target = record_smoke_evidence(
+                root,
+                smoke_required,
+                recorded_by=recorded_by,
+                note="recorded via `atdd validate coder --smoke-required`",
+            )
+            print(f"Smoke evidence recorded: {target.relative_to(root)}")
+            print(
+                f"  COACH-RATCHET-PRES-001 unblocked for issue #{smoke_required}."
+            )
+            return 0
 
         # --fix: opt-in programmatic fixes for supported coach validators.
         # Currently narrowed to the GitHubClient stub autofixer (#304).
