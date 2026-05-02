@@ -257,25 +257,25 @@ def update_toolkit_version(config_path: Optional[Path] = None) -> bool:
 
 
 def print_upgrade_sync_notice() -> None:
-    """Auto-sync agent configs on toolkit upgrade, then update last_version."""
+    """Print a warning when the installed toolkit version is ahead of the repo.
+
+    Read-only: the upgrade banner is printed to stderr, but no files are
+    written. Users (or agents) must opt in to the sync explicitly by running
+    ``atdd sync`` (which is the canonical writer of ``toolkit.last_version``
+    and the agent config files).
+
+    Issue #342: the previous implementation also auto-ran
+    ``AgentConfigSync().sync()`` and ``update_toolkit_version()`` here,
+    which mutated ``.atdd/config.yaml`` and the agent configs on every CLI
+    invocation — including ``atdd --help``. That violated the contract that
+    read-only commands leave the working tree clean. The warning is the
+    useful part; the write was the bug.
+    """
     try:
         notice = check_upgrade_sync_needed()
         if notice:
             print(f"\n⚠️  {notice}", file=sys.stderr)
-            # Auto-sync agent configs (CLAUDE.md, GEMINI.md, etc.)
-            try:
-                from atdd.coach.commands.sync import AgentConfigSync
-                syncer = AgentConfigSync()
-                result = syncer.sync()
-                if result == 0:
-                    print("  ✓ Agent configs synced automatically.", file=sys.stderr)
-                else:
-                    print("  ⚠ Auto-sync had issues. Run `atdd sync` manually.", file=sys.stderr)
-            except Exception:
-                print("  Run `atdd sync` to update agent configs.", file=sys.stderr)
             print(file=sys.stderr)
-            # Update toolkit.last_version so sync only runs once per upgrade.
-            update_toolkit_version()
     except Exception:
         pass  # Never fail the main command
 

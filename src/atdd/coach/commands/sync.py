@@ -73,6 +73,14 @@ class AgentConfigSync:
         if not agents:
             print("No agents configured for sync.")
             print("Add agents to .atdd/config.yaml or use --agent flag.")
+            # Still stamp toolkit.last_version: `atdd sync` is the canonical
+            # verb that clears the upgrade banner (issue #342). Skipping the
+            # stamp when no agents are configured would leave the warning
+            # firing on every invocation forever.
+            from atdd.version_check import update_toolkit_version
+            if update_toolkit_version(self.config_file):
+                from atdd import __version__
+                print(f"Updated toolkit.last_version to {__version__}")
             return 0
 
         # Validate agent names
