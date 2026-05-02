@@ -229,9 +229,7 @@ class ATDDCoach:
 
 def main():
     """Main CLI entry point."""
-    from importlib.metadata import version as pkg_version
-
-    atdd_version = pkg_version("atdd")
+    from atdd import __version__ as atdd_version
 
     parser = argparse.ArgumentParser(
         description="ATDD Platform - Coach orchestrates all ATDD operations",

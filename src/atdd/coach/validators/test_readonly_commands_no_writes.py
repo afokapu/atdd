@@ -187,13 +187,10 @@ def test_atdd_sync_upgrade_writes_last_version(fixture_repo: Path) -> None:
     )
 
     cmd = [sys.executable, "-m", "atdd", "sync"]
-    proc = _run(cmd, cwd=fixture_repo)
+    _run(cmd, cwd=fixture_repo)
 
     after = config_path.read_text()
     assert "0.0.1" not in after, (
         "atdd sync should bump toolkit.last_version off 0.0.1, but config "
-        f"still contains it:\n{after}\n"
-        f"--- subprocess stdout ---\n{proc.stdout}\n"
-        f"--- subprocess stderr ---\n{proc.stderr}\n"
-        f"--- returncode={proc.returncode} ---"
+        f"still contains it:\n{after}"
     )
