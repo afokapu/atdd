@@ -1,0 +1,609 @@
+silent_exception_swallowing_python:
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/cli.py:1522
+  detail: "silent swallow (ValueError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/cli.py:1512
+  detail: "silent swallow (ValueError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/version_check.py:48
+  detail: "silent swallow ((ValueError, AttributeError)) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/version_check.py:63
+  detail: "silent swallow ((json.JSONDecodeError, OSError): pass) \u2014 no log, no\
+    \ raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/version_check.py:74
+  detail: "silent swallow (OSError: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/version_check.py:84
+  detail: "silent swallow ((URLError, json.JSONDecodeError, OSError, TimeoutError))\
+    \ \u2014 no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/version_check.py:141
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/version_check.py:161
+  detail: "silent swallow ((yaml.YAMLError, OSError)) \u2014 no log, no raise; returns\
+    \ from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/version_check.py:255
+  detail: "silent swallow ((yaml.YAMLError, OSError)) \u2014 no log, no raise; returns\
+    \ from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/version_check.py:279
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/version_check.py:313
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coder/utils/python_file_walker.py:104
+  detail: "silent swallow ((FileNotFoundError, OSError)) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/tester/validators/coverage_gap_report.py:116
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/tester/validators/fix_dual_ac_references.py:90
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/tester/validators/fix_dual_ac_references.py:122
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/utils/theme_scanner.py:110
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/utils/theme_scanner.py:199
+  detail: "silent swallow (OSError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/utils/theme_scanner.py:224
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/utils/config.py:88
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/utils/repo.py:189
+  detail: "silent swallow ((ImportError, AttributeError, TypeError)) \u2014 no log,\
+    \ no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/utils/repo.py:197
+  detail: "silent swallow (RuntimeError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/utils/repo.py:202
+  detail: "silent swallow (ValueError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/utils/repo.py:213
+  detail: "silent swallow (OSError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/add_persistence_metadata.py:85
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/session_template.py:138
+  detail: "silent swallow ((FileNotFoundError, subprocess.CalledProcessError)) \u2014\
+    \ no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/session_template.py:142
+  detail: "silent swallow (json.JSONDecodeError) \u2014 no log, no raise; returns\
+    \ from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/color.py:85
+  detail: "silent swallow ((EOFError, KeyboardInterrupt)) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/color.py:152
+  detail: "silent swallow ((json.JSONDecodeError, OSError)) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/infer_governance_status.py:98
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/registry.py:34
+  detail: "silent swallow (ImportError) \u2014 no log, no raise; returns from handler\
+    \ (2 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/urn.py:114
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/urn.py:141
+  detail: "silent swallow (ImportError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/urn.py:151
+  detail: "silent swallow (ImportError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/urn.py:180
+  detail: "silent swallow (KeyboardInterrupt) \u2014 no log, no raise; returns from\
+    \ handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/urn.py:217
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/urn.py:255
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/urn.py:300
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/urn.py:387
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/urn.py:449
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/interface.py:203
+  detail: "silent swallow (bare except: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/babysit.py:161
+  detail: "silent swallow (MultiplexerError) \u2014 no log, no raise; returns from\
+    \ handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/babysit.py:258
+  detail: "silent swallow (MultiplexerError) \u2014 no log, no raise; returns from\
+    \ handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/babysit.py:220
+  detail: "silent swallow (MultiplexerError) \u2014 no log, no raise; returns from\
+    \ handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/babysit.py:265
+  detail: "silent swallow (MultiplexerError) \u2014 no log, no raise; returns from\
+    \ handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/babysit.py:287
+  detail: "silent swallow (KeyboardInterrupt) \u2014 no log, no raise; returns from\
+    \ handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/consumers.py:216
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/consumers.py:267
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/consumers.py:278
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/consumers.py:308
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/consumers.py:334
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/consumers.py:356
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/branch.py:67
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/orchestrate.py:107
+  detail: "silent swallow (json.JSONDecodeError) \u2014 no log, no raise; returns\
+    \ from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/orchestrate.py:135
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/orchestrate.py:196
+  detail: "silent swallow (ValueError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/orchestrate.py:220
+  detail: "silent swallow (subprocess.CalledProcessError) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/orchestrate.py:229
+  detail: "silent swallow (MultiplexerError) \u2014 no log, no raise; returns from\
+    \ handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/branch_protection.py:81
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError)) \u2014\
+    \ no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/branch_protection.py:102
+  detail: "silent swallow (json.JSONDecodeError) \u2014 no log, no raise; returns\
+    \ from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/branch_protection.py:225
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError)) \u2014\
+    \ no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:129
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:153
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:214
+  detail: "silent swallow ((FileNotFoundError, subprocess.TimeoutExpired)) \u2014\
+    \ no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:296
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:485
+  detail: "silent swallow (PermissionError) \u2014 no log, no raise; returns from\
+    \ handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:488
+  detail: "silent swallow (OSError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:747
+  detail: "silent swallow ((FileNotFoundError, subprocess.TimeoutExpired)) \u2014\
+    \ no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:760
+  detail: "silent swallow ((FileNotFoundError, subprocess.TimeoutExpired): pass) \u2014\
+    \ no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:925
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError):\
+    \ pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:988
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError): pass) \u2014\
+    \ no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:1026
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError,\
+    \ KeyError): pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:1044
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError)) \u2014\
+    \ no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:1061
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError)) \u2014\
+    \ no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:1541
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError)) \u2014\
+    \ no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:804
+  detail: "silent swallow ((yaml.YAMLError, OSError): pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:1183
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:349
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:1149
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError): pass) \u2014\
+    \ no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:151
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:345
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:397
+  detail: "silent swallow (RuntimeError: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/initializer.py:429
+  detail: "silent swallow (RuntimeError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/pr.py:114
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError): pass) \u2014\
+    \ no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/pr.py:129
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError): pass) \u2014\
+    \ no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/pr.py:417
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError): pass) \u2014\
+    \ no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue_lifecycle.py:61
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError, ValueError))\
+    \ \u2014 no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue_lifecycle.py:87
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError, ValueError))\
+    \ \u2014 no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue_lifecycle.py:231
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue_lifecycle.py:247
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError)) \u2014\
+    \ no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/traceability.py:587
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/traceability.py:665
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/traceability.py:842
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/traceability.py:1062
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/traceability.py:1196
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/traceability.py:3311
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/traceability.py:3752
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/traceability.py:3796
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:174
+  detail: "silent swallow (ManifestCommitError) \u2014 no log, no raise; returns from\
+    \ handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:744
+  detail: "silent swallow ((GitHubClientError, KeyError)) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:926
+  detail: "silent swallow ((GitHubClientError, Exception)) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:998
+  detail: "silent swallow ((GitHubClientError, Exception)) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:1042
+  detail: "silent swallow (ValueError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:1049
+  detail: "silent swallow ((GitHubClientError, Exception)) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:1094
+  detail: "silent swallow (GitHubClientError: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:1549
+  detail: "silent swallow (ValueError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:1558
+  detail: "silent swallow ((GitHubClientError, Exception)) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:1793
+  detail: "silent swallow (ValueError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/issue.py:1800
+  detail: "silent swallow ((GitHubClientError, Exception)) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/migration.py:93
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/orchestrate_wave_walk.py:97
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError, ValueError))\
+    \ \u2014 no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/orchestrate_wave_walk.py:121
+  detail: "silent swallow ((subprocess.TimeoutExpired, FileNotFoundError, ValueError))\
+    \ \u2014 no log, no raise; returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/orchestrate_wave_walk.py:144
+  detail: "silent swallow (FileNotFoundError) \u2014 no log, no raise; returns from\
+    \ handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/autofix.py:70
+  detail: "silent swallow (OSError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/autofix.py:75
+  detail: "silent swallow (SyntaxError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/merge_cascade.py:49
+  detail: "silent swallow (subprocess.CalledProcessError) \u2014 no log, no raise;\
+    \ returns from handler (2 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/merge_cascade.py:66
+  detail: "silent swallow (subprocess.CalledProcessError) \u2014 no log, no raise;\
+    \ returns from handler (2 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/merge_cascade.py:73
+  detail: "silent swallow (json.JSONDecodeError) \u2014 no log, no raise; returns\
+    \ from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/merge_cascade.py:114
+  detail: "silent swallow (subprocess.CalledProcessError) \u2014 no log, no raise;\
+    \ returns from handler (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/merge_cascade.py:180
+  detail: "silent swallow (MergeHalt) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/inventory.py:388
+  detail: "silent swallow (Exception) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/commands/inventory.py:401
+  detail: "silent swallow (bare except) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/validators/shared_fixtures.py:234
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/validators/shared_fixtures.py:507
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/validators/shared_fixtures.py:538
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/utils/graph/urn.py:1024
+  detail: "silent swallow (ValueError) \u2014 no log, no raise; returns from handler\
+    \ (1 return statement(s))"
+- rule_id: COACH-SILENT-SWALLOW-001
+  severity: 4
+  location: src/atdd/coach/utils/graph/graph_builder.py:882
+  detail: "silent swallow (Exception: pass) \u2014 no log, no raise"
