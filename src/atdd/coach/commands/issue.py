@@ -1348,6 +1348,63 @@ class IssueManager:
         else:
             return False, "  Rebase check: FAIL (branch is behind origin/main)"
 
+    def _check_smoke_evidence_gate(
+        self,
+        issue_number: int,
+    ) -> Tuple[bool, List[str]]:
+        """COACH-RATCHET-PRES-001: gate SMOKE→REFACTOR on smoke evidence.
+
+        When the branch reduces a ``*/presentation/*.{tsx,ts,py}`` file by
+        more than 20% relative to ``origin/main``, the transition requires
+        ``.atdd/smoke-evidence/<N>.yaml`` to exist. Issue #358.
+
+        Returns:
+            (passed, messages) — passed True when no presentation reduction
+            is detected OR the evidence file exists.
+        """
+        # Lazy import keeps issue.py free of coder-side imports at module load.
+        from atdd.coder.validators.presentation_ratchet import (
+            collect_repo_reductions,
+            has_smoke_evidence,
+        )
+
+        messages: List[str] = []
+        try:
+            reductions = collect_repo_reductions(
+                self.target_dir,
+                base_ref="origin/main",
+                head_ref="HEAD",
+            )
+        except subprocess.CalledProcessError:
+            messages.append("  Smoke gate: SKIPPED (origin/main unreachable)")
+            return True, messages
+        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage
+            messages.append(f"  Smoke gate: SKIPPED ({exc})")
+            return True, messages
+
+        if not reductions:
+            messages.append("  Smoke gate: PASS (no presentation reductions >20%)")
+            return True, messages
+
+        if has_smoke_evidence(self.target_dir, issue_number):
+            messages.append(
+                f"  Smoke gate: PASS ({len(reductions)} presentation reduction(s); "
+                f"evidence at .atdd/smoke-evidence/{issue_number}.yaml)"
+            )
+            return True, messages
+
+        messages.append(
+            f"  Smoke gate: FAIL ({len(reductions)} presentation reduction(s) >20%)"
+        )
+        for r in reductions[:5]:
+            pct = round(r.reduction_ratio * 100)
+            messages.append(
+                f"    - {r.path}: {r.before_lines} → {r.after_lines} lines ({pct}%)"
+            )
+        if len(reductions) > 5:
+            messages.append(f"    ... and {len(reductions) - 5} more")
+        return False, messages
+
     def _verify_release_gate(
         self, force: bool = False,
     ) -> Tuple[bool, List[str]]:
@@ -1613,6 +1670,20 @@ class IssueManager:
                 if not train_valid:
                     print(f"\nError: Train '{train}' not found in _trains.yaml")
                     print(f"  Fix: Use a valid train_id or add the train to plan/_trains.yaml")
+                    return 1
+
+            # COACH-RATCHET-PRES-001 (issue #358): SMOKE→REFACTOR requires
+            # smoke evidence when the PR includes a presentation-layer
+            # ratchet improvement >20%. The detector runs git diff against
+            # origin/main; absence of evidence blocks the transition.
+            if status == "REFACTOR" and not force:
+                gate_ok, gate_messages = self._check_smoke_evidence_gate(issue_number)
+                for msg in gate_messages:
+                    print(msg)
+                if not gate_ok:
+                    print(f"\nError: Presentation-layer ratchet detected — smoke evidence required")
+                    print(f"  Fix: atdd validate coder --smoke-required {issue_number}")
+                    print(f"  Bypass: atdd update {issue_id} --status REFACTOR --force")
                     return 1
 
             # Gate verification: run gate commands before allowing COMPLETE

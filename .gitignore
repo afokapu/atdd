@@ -31,6 +31,10 @@ coverage.xml
 .atdd/orchestration-log.jsonl
 .scratch/
 
+# Presentation ratchet smoke evidence — local/CI artifact, not git history.
+# See COACH-RATCHET-PRES-001 (refactor.convention.yaml) and issue #358.
+.atdd/smoke-evidence/
+
 # OS
 .DS_Store
 Thumbs.db
