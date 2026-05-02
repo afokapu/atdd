@@ -1157,6 +1157,9 @@ class ProjectInitializer:
         "tester": ["contracts/**", "telemetry/**"],
         "coder": ["web/**", "python/**", "packages/**", "supabase/**", "src/**"],
         "coach": [".atdd/**", ".github/**"],
+        # SMOKE phase (issue #293): trigger when web/ or e2e/ change so the
+        # opt-in Playwright job runs against the current branch's deploy preview.
+        "smoke": ["web/**", "e2e/**"],
     }
 
     def _write_workflow(self, repo: str) -> bool:
@@ -1171,6 +1174,10 @@ class ProjectInitializer:
         workflow_path = workflows_dir / "atdd-validate.yml"
 
         phases = ["planner", "tester", "coder", "coach"]
+        # SMOKE phase (issue #293) participates in the gate but ships its own
+        # job shape (Playwright + opt-in via SMOKE_BASE_URL), so it is fanned
+        # in via validate-gate.needs but not generated through phase_jobs.
+        gate_phases = phases + ["smoke"]
 
         # Merge default path filters with config overrides
         filters = dict(self.DEFAULT_PATH_FILTERS)
@@ -1185,7 +1192,7 @@ class ProjectInitializer:
 
         # Build dorny/paths-filter filter config (plain YAML, no f-string interpolation)
         filter_lines = []
-        for phase in phases:
+        for phase in gate_phases:
             paths = filters.get(phase, [])
             filter_lines.append(f"            {phase}:")
             for p in paths:
@@ -1203,6 +1210,7 @@ class ProjectInitializer:
             "      tester: ${{ steps.filter.outputs.tester }}\n"
             "      coder: ${{ steps.filter.outputs.coder }}\n"
             "      coach: ${{ steps.filter.outputs.coach }}\n"
+            "      smoke: ${{ steps.filter.outputs.smoke }}\n"
             "    steps:\n"
             "      - uses: actions/checkout@v4\n"
             "      - uses: dorny/paths-filter@v3\n"
@@ -1252,13 +1260,62 @@ class ProjectInitializer:
           GH_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}
 """
 
-        needs_list = ", ".join(f"validate-{p}" for p in phases)
+        needs_list = ", ".join(f"validate-{p}" for p in gate_phases)
+
+        # SMOKE phase job (issue #293): opt-in via SMOKE_BASE_URL repo secret.
+        # When unset, the job exits success after a no-op step and the gate
+        # fan-in accepts it. When set, Playwright runs e2e/**/*smoke*.spec.ts
+        # against that base URL and the gate fails on any failure.
+        smoke_job = (
+            "\n"
+            "  validate-smoke:\n"
+            "    needs: [detect-changes]\n"
+            "    runs-on: ubuntu-latest\n"
+            "    if: >-\n"
+            "      always() && (\n"
+            f"        (github.event_name == 'issues' && ({label_condition})) ||\n"
+            "        (github.event_name != 'issues' && needs.detect-changes.outputs.smoke == 'true')\n"
+            "      )\n"
+            "    env:\n"
+            "      SMOKE_BASE_URL: ${{ secrets.SMOKE_BASE_URL }}\n"
+            "    steps:\n"
+            "      - name: Skip when SMOKE_BASE_URL is unset\n"
+            "        if: env.SMOKE_BASE_URL == ''\n"
+            "        run: |\n"
+            '          echo "SMOKE_BASE_URL not configured — skipping Playwright smoke run."\n'
+            '          echo "(Set the SMOKE_BASE_URL repo secret to enable runtime smoke verification.)"\n'
+            "\n"
+            "      - uses: actions/checkout@v4\n"
+            "        if: env.SMOKE_BASE_URL != ''\n"
+            "        with:\n"
+            "          fetch-depth: 0\n"
+            "\n"
+            "      - uses: actions/setup-node@v4\n"
+            "        if: env.SMOKE_BASE_URL != ''\n"
+            "        with:\n"
+            '          node-version: "20"\n'
+            "\n"
+            "      - name: Install Playwright\n"
+            "        if: env.SMOKE_BASE_URL != ''\n"
+            "        run: |\n"
+            "          if [ -f package.json ]; then\n"
+            "            npm ci\n"
+            "          else\n"
+            "            npm init -y\n"
+            "            npm install --save-dev @playwright/test\n"
+            "          fi\n"
+            "          npx playwright install --with-deps chromium\n"
+            "\n"
+            "      - name: Run e2e smoke specs\n"
+            "        if: env.SMOKE_BASE_URL != ''\n"
+            '        run: npx playwright test "e2e/**/*smoke*.spec.ts"\n'
+        )
 
         # Build validate-gate job as plain string (complex ${{ }} expressions)
         gate_job = (
             "\n"
             "  validate-gate:\n"
-            "    needs: [validate-planner, validate-tester, validate-coder, validate-coach]\n"
+            "    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-smoke]\n"
             "    runs-on: ubuntu-latest\n"
             "    if: always()\n"
             "    permissions:\n"
@@ -1269,7 +1326,8 @@ class ProjectInitializer:
             '          for result in "planner:${{ needs.validate-planner.result }}" \\\n'
             '                        "tester:${{ needs.validate-tester.result }}" \\\n'
             '                        "coder:${{ needs.validate-coder.result }}" \\\n'
-            '                        "coach:${{ needs.validate-coach.result }}"; do\n'
+            '                        "coach:${{ needs.validate-coach.result }}" \\\n'
+            '                        "smoke:${{ needs.validate-smoke.result }}"; do\n'
             '            phase="${result%%:*}"\n'
             '            status="${result##*:}"\n'
             '            if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then\n'
@@ -1367,7 +1425,7 @@ class ProjectInitializer:
             "  issues:\n"
             "    types: [opened, edited, closed, labeled, unlabeled]\n"
             "\n"
-            f"jobs:{detect_changes_job}{phase_jobs}{gate_job}{baseline_sync_job}"
+            f"jobs:{detect_changes_job}{phase_jobs}{smoke_job}{gate_job}{baseline_sync_job}"
         )
 
         workflow_path.write_text(workflow)
