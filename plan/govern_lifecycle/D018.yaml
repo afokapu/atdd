@@ -1,0 +1,113 @@
+urn: "wmbt:govern-lifecycle:D018"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "presentation-components-whose-render-body-is-statically-empty"
+context_clarifier: "when a TSX component under web/src/**/presentation/** has a body whose every reachable return resolves to null/undefined/empty fragment/empty element so the component ships and renders nothing while the full ATDD validator suite stays green (jel-app AuthGateShell incident, #318)"
+lens: "functional.adaptability"
+statement: "minimize quantity of presentation-components-whose-render-body-is-statically-empty when a TSX component under web/src/**/presentation/** ships with a stub return that all current path/import-based validators ignore"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D018-UNIT-001-stub-fixtures-emit-rule-ids"
+      id: "AC-UNIT-001"
+      purpose: "Each seeded stub fixture under fixtures/stub_presentation/ emits exactly one Violation with the canonical rule_id and severity=4"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "TSX fixtures arrow_null, fn_return_null, empty_fragment, empty_div, ternary_both_null"
+        - "verbatim jel_app_repro/AuthGateShell.tsx (parent #318 incident shape)"
+    when:
+      abstract: "detect_stub_returns runs against each fixture path"
+    then:
+      abstract:
+        - "arrow_null.tsx → PRESENTATION-NOSTUB-001"
+        - "fn_return_null.tsx → PRESENTATION-NOSTUB-002"
+        - "empty_fragment.tsx → PRESENTATION-NOSTUB-003"
+        - "empty_div.tsx → PRESENTATION-NOSTUB-004"
+        - "ternary_both_null.tsx → PRESENTATION-NOSTUB-005"
+        - "Every Violation has severity=4"
+        - "jel_app_repro/AuthGateShell.tsx emits PRESENTATION-NOSTUB-001"
+    signal:
+      metric: "stub_fixture_classification_drift"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-02"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D018-UNIT-002-clean-fixtures-pass"
+      id: "AC-UNIT-002"
+      purpose: "Legitimate components (guarded null + sibling JSX, passthrough children) emit zero Violations (PRESENTATION-NOSTUB-020 negative rule)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "conditional_null_ok.tsx (if-loading guard with sibling JSX return)"
+        - "passthrough_children_ok.tsx (return <div>{children}</div>)"
+    when:
+      abstract: "detect_stub_returns runs against each clean fixture"
+    then:
+      abstract:
+        - "Zero Violations emitted from each clean fixture"
+    signal:
+      metric: "stub_false_positive_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-02"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D018-SMOKE-001-jel-app-repro-and-allowlist-round-trip"
+      id: "AC-SMOKE-001"
+      purpose: "End-to-end scan reproduces #318 and clears via allowlist with migration ref"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "tmp tree mirroring web/src/auth/presentation/AuthGateShell.tsx with `() => null` body"
+    when:
+      abstract: "scan_stub_presentation_returns runs first with empty allowlist, then with the path mapped to a migration ref"
+    then:
+      abstract:
+        - "First run: PRESENTATION-NOSTUB-001 emitted at AuthGateShell.tsx:1, severity=4"
+        - "Second run (allowlisted with migration:): zero Violations"
+    signal:
+      metric: "allowlist_round_trip_violation_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-02"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D018-UNIT-003-convention-rules-declared"
+      id: "AC-UNIT-003"
+      purpose: "frontend.convention.yaml declares no_stub_presentation rule family with conformant rule-ids and severities"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coder/conventions/frontend.convention.yaml is parsed"
+        - "src/atdd/coach/conventions/rule-id.convention.yaml registry includes DOMAIN=PRESENTATION"
+    when:
+      abstract: "rules under no_stub_presentation are inspected"
+    then:
+      abstract:
+        - "PRESENTATION-NOSTUB-001..005 declared with severity=4"
+        - "PRESENTATION-NOSTUB-010 declared with severity=2"
+        - "PRESENTATION-NOSTUB-020 declared as the negative rule"
+        - "Every rule-id passes test_rule_id_uniqueness grammar + uniqueness checks"
+    signal:
+      metric: "convention_drift_count"
+      threshold: 0
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-02"
