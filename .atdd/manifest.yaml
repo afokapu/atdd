@@ -54,6 +54,16 @@ sessions:
   archived: null
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:custom-themes
+- id: '295'
+  slug: fix-windows-path-compat
+  file: null
+  issue_number: 295
+  type: refactor
+  status: INIT
+  created: '2026-04-17'
+  archived: null
+  wagon: govern-lifecycle
+  train: 0001-self-compliance-validate
 - id: '296'
   slug: enforce-issue-label-compliance
   file: null
