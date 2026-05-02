@@ -124,6 +124,51 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # SMOKE phase: opt-in via SMOKE_BASE_URL repo secret (issue #293).
+  # When unset, the job ends with `success` via the early-skip step and the
+  # validate-gate fan-in accepts it. When set, Playwright runs the e2e smoke
+  # specs against that URL and the gate fails on any failure.
+  # The toolkit-self repo has no web/ — secret stays unset; job is a no-op.
+  validate-smoke:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    env:
+      SMOKE_BASE_URL: ${{ secrets.SMOKE_BASE_URL }}
+    steps:
+      - name: Skip when SMOKE_BASE_URL is unset
+        if: env.SMOKE_BASE_URL == ''
+        run: |
+          echo "SMOKE_BASE_URL not configured — skipping Playwright smoke run."
+          echo "(Set the SMOKE_BASE_URL repo secret to enable runtime smoke verification.)"
+
+      - uses: actions/checkout@v4
+        if: env.SMOKE_BASE_URL != ''
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        if: env.SMOKE_BASE_URL != ''
+        with:
+          node-version: "20"
+
+      - name: Install Playwright
+        if: env.SMOKE_BASE_URL != ''
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+          else
+            npm init -y
+            npm install --save-dev @playwright/test
+          fi
+          npx playwright install --with-deps chromium
+
+      - name: Run e2e smoke specs
+        if: env.SMOKE_BASE_URL != ''
+        run: npx playwright test "e2e/**/*smoke*.spec.ts"
+
   version-bump:
     name: Version bump check
     runs-on: ubuntu-latest
@@ -173,7 +218,7 @@ jobs:
           PYEOF
 
   validate-gate:
-    needs: [validate-planner, validate-tester, validate-coder, validate-coach]
+    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-smoke]
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -184,7 +229,8 @@ jobs:
           for result in "planner:${{ needs.validate-planner.result }}" \
                         "tester:${{ needs.validate-tester.result }}" \
                         "coder:${{ needs.validate-coder.result }}" \
-                        "coach:${{ needs.validate-coach.result }}"; do
+                        "coach:${{ needs.validate-coach.result }}" \
+                        "smoke:${{ needs.validate-smoke.result }}"; do
             phase="${result%%:*}"
             status="${result##*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
