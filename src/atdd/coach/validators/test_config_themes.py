@@ -31,13 +31,14 @@ from pathlib import Path
 
 import pytest
 
-from atdd.coach.utils.repo import find_repo_root
+import atdd
 
 
-REPO_ROOT = find_repo_root()
-CONFIG_SCHEMA_PATH = (
-    REPO_ROOT / "src" / "atdd" / "coach" / "schemas" / "config.schema.json"
-)
+# Anchor schema lookup to the installed atdd package, not the consumer repo
+# root. find_repo_root() returns the *consumer* repo (no src/atdd/ inside),
+# which broke validate-coach in any pip-installed scenario.
+ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+CONFIG_SCHEMA_PATH = ATDD_PKG_DIR / "coach" / "schemas" / "config.schema.json"
 
 
 @pytest.fixture(scope="module")

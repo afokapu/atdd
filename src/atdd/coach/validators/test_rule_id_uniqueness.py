@@ -120,9 +120,17 @@ def load_migrated_files() -> List[Path]:
     repo_root = find_repo_root()
     resolved: List[Path] = []
     for rel in completed:
-        # Try repo root first (editable install / checkout), then package dir.
+        # Migration paths are written as `src/atdd/<rest>`. Resolve against:
+        #   1. consumer / toolkit-self repo root (editable install / checkout)
+        #   2. installed package dir, stripping the `src/atdd/` prefix so paths
+        #      land at e.g. `<site-packages>/atdd/<rest>` for pip installs
+        #   3. legacy two-up-from-pkg fallback for older repo layouts
+        pkg_relative = (
+            rel[len("src/atdd/"):] if rel.startswith("src/atdd/") else rel
+        )
         candidates = [
             repo_root / rel,
+            ATDD_PKG_DIR / pkg_relative,
             ATDD_PKG_DIR.parent.parent / rel,
         ]
         for cand in candidates:
