@@ -139,3 +139,13 @@ steps:
     architecture:
       layers: [integration, application]
       sequence: [application.use_case, domain.validate, integration.persist, integration.archive]
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: PLANNER-STEPS-SEQUENCE-001
+    severity: 2
+    description: "Steps are ordered, numbered, and each declares pre-conditions and outputs"
+    introduced_in: "1.67.0"
