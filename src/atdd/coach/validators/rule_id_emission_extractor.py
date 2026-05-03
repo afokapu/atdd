@@ -88,6 +88,7 @@ def extract_emissions(file_path: Path) -> Iterable[Emission]:
         _logger.debug(
             "rule_id_emission_extractor: skipping unreadable file %s: %s",
             file_path, exc,
+            extra={"file": str(file_path), "error_type": type(exc).__name__},
         )
         return
 

@@ -25,6 +25,7 @@ literals are not picked up by this validator's own scan.
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import List, Tuple
@@ -38,6 +39,9 @@ from atdd.coach.validators.rule_id_emission_extractor import (
     extract_emissions,
     iter_scan_files,
 )
+
+
+_logger = logging.getLogger(__name__)
 
 
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
@@ -150,5 +154,15 @@ def test_rule_id_registry_coherence():
     if os.environ.get("ATDD_STRICT_COHERENCE") == "1":
         pytest.fail(msg.replace("[WARN]", "[ERROR]"))
     else:
-        # Plain-text WARN — visible in pytest -v output but does not fail.
-        print("\n" + msg)
+        # Permissive-mode WARN — surfaces drift without failing the gate.
+        _logger.warning(
+            "rule_id_registry_coherence drift: %d unregistered emission(s)",
+            len(drift),
+            extra={"drift_count": len(drift), "validator": "rule_id_registry_coherence"},
+        )
+        for fp, ln, rid in sorted(drift):
+            _logger.warning(
+                "rule_id_registry_coherence: %s:%d %s not in any convention rules: block",
+                fp, ln, rid,
+                extra={"file": str(fp), "line": ln, "rule_id": rid},
+            )
