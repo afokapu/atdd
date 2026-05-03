@@ -225,7 +225,10 @@ def load_registered_trains(trains_file: Path) -> Dict[str, List[str]]:
     try:
         data = yaml.safe_load(trains_file.read_text(encoding="utf-8")) or {}
     except (yaml.YAMLError, OSError) as exc:
-        logger.warning("Failed to load trains file %s: %s", trains_file, exc)
+        logger.warning(
+            "Failed to load trains file",
+            extra={"path": str(trains_file), "error": str(exc)},
+        )
         return {}
 
     out: Dict[str, List[str]] = {}
@@ -247,7 +250,10 @@ def load_registered_wagons(wagons_file: Path) -> Set[str]:
     try:
         data = yaml.safe_load(wagons_file.read_text(encoding="utf-8")) or {}
     except (yaml.YAMLError, OSError) as exc:
-        logger.warning("Failed to load wagons file %s: %s", wagons_file, exc)
+        logger.warning(
+            "Failed to load wagons file",
+            extra={"path": str(wagons_file), "error": str(exc)},
+        )
         return set()
 
     out: Set[str] = set()
@@ -273,7 +279,10 @@ def analyze_router_file(
     try:
         content = router_path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
-        logger.warning("Failed to read router %s: %s", router_path, exc)
+        logger.warning(
+            "Failed to read router file",
+            extra={"path": str(router_path), "error": str(exc)},
+        )
         return []
 
     if repo_root is not None:
