@@ -3,6 +3,20 @@ convention_id: "coder.train"
 name: "Train Composition Root Convention"
 description: "Production orchestration layer for executing user journeys across wagons"
 
+# Structured rules (issue #389 Phase 3a) — top-level placement so the registry
+# walker discovers them; existing `composition_hierarchy:`, `train_structure:`,
+# `cargo_pattern:`, `boundary_enforcement:` blocks are preserved verbatim.
+rules:
+  - id: COACH-TRAIN-COMPOSITION-001
+    severity: 3
+    description: "Train is a production composition root in python/trains/, not test infrastructure"
+  - id: COACH-TRAIN-COMPOSITION-002
+    severity: 3
+    description: "Wagons communicate via cargo (contract artifacts) — never via direct cross-wagon imports"
+  - id: COACH-TRAIN-COMPOSITION-003
+    severity: 3
+    description: "Train YAML is the single source of truth for orchestration; production and tests both consume it via TrainRunner"
+
 rationale: |
   Trains are PRODUCTION orchestration, not test infrastructure. They execute user journeys
   defined in YAML specifications by coordinating wagons through contract-based communication.
