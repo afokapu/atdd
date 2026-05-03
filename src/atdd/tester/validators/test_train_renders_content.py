@@ -130,12 +130,48 @@ class TrainRenderAnalyzer:
     def classify(self, result: TrainRenderHarnessResult) -> List[Violation]:
         """Return the list of Violations a single harness result triggers.
 
-        RED-phase stub: raises NotImplementedError. GREEN delivers the
-        classifier (empty / stub / error / clean → list[Violation]).
+        Severity scale (mirrors smoke.convention.yaml > behavioral_render):
+          empty → severity 4 (correctness)
+          stub  → severity 4 (correctness)
+          error → severity 3 (architectural — harness contract broken)
         """
-        raise NotImplementedError(
-            "TrainRenderAnalyzer.classify is delivered in GREEN — see issue #335 Phase 2."
-        )
+        location = f"plan/_trains/{result.train_id}.yaml:1"
+
+        if result.error:
+            return [
+                Violation(
+                    rule_id=RULE_HARNESS_ERROR,
+                    severity=3,
+                    location=location,
+                    detail=f"harness failed for train '{result.train_id}': {result.error}",
+                )
+            ]
+
+        if result.stub_detected:
+            reason = result.stub_reason or "rendered DOM matched stub heuristic"
+            return [
+                Violation(
+                    rule_id=RULE_STUB_RENDER,
+                    severity=4,
+                    location=location,
+                    detail=f"train '{result.train_id}' rendered a stub: {reason}",
+                )
+            ]
+
+        if result.text_length == 0 and not result.matched_expectations:
+            return [
+                Violation(
+                    rule_id=RULE_EMPTY_RENDER,
+                    severity=4,
+                    location=location,
+                    detail=(
+                        f"train '{result.train_id}' mounted but produced an empty DOM "
+                        "(textLength=0, no expected_content match)"
+                    ),
+                )
+            ]
+
+        return []
 
 
 # ============================================================================
@@ -161,13 +197,86 @@ class HarnessInvoker:
     def invoke(self, train_id: str) -> TrainRenderHarnessResult:
         """Run the harness for a single train and return the parsed result.
 
-        RED-phase stub. GREEN implements ``subprocess.run`` against
-        ``.atdd/harness/mount-train.mjs --train <train_id>`` with the
-        timeout and JSON parse described above.
+        Spawns ``node .atdd/harness/mount-train.mjs --train <train_id>``
+        from the consumer repo root, captures stdout, parses one JSON
+        record. Failures (missing harness, timeout, parse error, non-zero
+        exit) all map to a ``TrainRenderHarnessResult`` with ``error`` set
+        — never silently swallowed (per #357).
         """
-        raise NotImplementedError(
-            "HarnessInvoker.invoke is delivered in GREEN — see issue #335 Phase 2."
-        )
+        import shutil
+        import subprocess
+
+        entrypoint = self.repo_root / ".atdd" / "harness" / "mount-train.mjs"
+        if not entrypoint.exists():
+            return TrainRenderHarnessResult(
+                train_id=train_id,
+                text_length=0,
+                matched_expectations=[],
+                stub_detected=False,
+                error=f"harness entrypoint not installed: {entrypoint}",
+            )
+
+        node_bin = shutil.which("node")
+        if not node_bin:
+            return TrainRenderHarnessResult(
+                train_id=train_id,
+                text_length=0,
+                matched_expectations=[],
+                stub_detected=False,
+                error="node binary not found on PATH",
+            )
+
+        try:
+            completed = subprocess.run(
+                [node_bin, str(entrypoint), "--train", train_id],
+                cwd=str(self.repo_root),
+                capture_output=True,
+                text=True,
+                timeout=self.DEFAULT_TIMEOUT_SECONDS,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return TrainRenderHarnessResult(
+                train_id=train_id,
+                text_length=0,
+                matched_expectations=[],
+                stub_detected=False,
+                error=f"harness exceeded {self.DEFAULT_TIMEOUT_SECONDS}s timeout",
+            )
+
+        if completed.returncode != 0:
+            return TrainRenderHarnessResult(
+                train_id=train_id,
+                text_length=0,
+                matched_expectations=[],
+                stub_detected=False,
+                error=(
+                    f"harness exited {completed.returncode}: "
+                    f"{(completed.stderr or completed.stdout).strip()[:500]}"
+                ),
+            )
+
+        stdout = (completed.stdout or "").strip()
+        if not stdout:
+            return TrainRenderHarnessResult(
+                train_id=train_id,
+                text_length=0,
+                matched_expectations=[],
+                stub_detected=False,
+                error="harness produced empty stdout",
+            )
+
+        try:
+            payload = json.loads(stdout.splitlines()[-1])
+            return TrainRenderHarnessResult.from_dict(payload)
+        except (json.JSONDecodeError, KeyError, ValueError) as exc:
+            return TrainRenderHarnessResult(
+                train_id=train_id,
+                text_length=0,
+                matched_expectations=[],
+                stub_detected=False,
+                error=f"harness stdout did not match schema: {exc}",
+            )
 
 
 # ============================================================================
@@ -270,8 +379,42 @@ def test_repo_train_renders_content(ratchet_baseline):
     if not cfg.get("enabled", False):
         pytest.skip("train_renders_content.enabled is false; opt in via .atdd/config.yaml")
 
-    # GREEN delivers the orchestration: discover trains via PlanTrainDiscovery,
-    # fan out HarnessInvoker, classify with TrainRenderAnalyzer, then ratchet.
-    raise NotImplementedError(
-        "Repo audit orchestration is delivered in GREEN — see issue #335 Phase 2."
+    from atdd.tester.validators.test_smoke_coverage import PlanTrainDiscovery
+
+    trains_file = REPO_ROOT / "plan" / "_trains.yaml"
+    train_ids = PlanTrainDiscovery(trains_file).discover()
+    if not train_ids:
+        pytest.skip(f"no trains found in {trains_file.relative_to(REPO_ROOT)}")
+
+    invoker = HarnessInvoker(REPO_ROOT)
+    analyzer = TrainRenderAnalyzer(REPO_ROOT)
+
+    statuses: List[TrainRenderStatus] = []
+    for tid in train_ids:
+        result = invoker.invoke(tid)
+        statuses.append(
+            TrainRenderStatus(
+                train_id=tid,
+                harness_result=result,
+                violations=analyzer.classify(result),
+            )
+        )
+
+    violations = [v for s in statuses for v in s.violations]
+    summary = [
+        f"{s.train_id}: {v.rule_id} — {v.detail}"
+        for s in statuses
+        for v in s.violations
+    ]
+    if summary:
+        print(
+            f"\n  {len(summary)} train render violation(s):\n"
+            + "".join(f"    - {line}\n" for line in summary)
+            + "  See: src/atdd/tester/conventions/smoke.convention.yaml > behavioral_render"
+        )
+
+    ratchet_baseline.assert_no_regression(
+        validator_id="train_renders_content",
+        current_count=len(violations),
+        violations=violations,
     )
