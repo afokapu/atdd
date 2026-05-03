@@ -18,8 +18,10 @@ ATDD validator was green because none read the rendered body.
 Convention: ``src/atdd/coder/conventions/frontend.convention.yaml``
             (rule family ``no_stub_presentation``)
 
-Structured violations: emits ``Violation(rule_id="PRESENTATION-NOSTUB-NNN", ...)``
-records via ``RatchetBaseline.assert_no_regression(violations=...)``.
+Structured violations: emits ``Violation`` records keyed off
+``PRESENTATION-NOSTUB-001``..``005``/``010``/``020`` rule_ids declared in
+``src/atdd/coder/conventions/frontend.convention.yaml::no_stub_presentation``.
+Records flow through ``RatchetBaseline.assert_no_regression(violations=...)``.
 The rule-id grammar is governed by ``src/atdd/coach/specs/rule-id.spec.md``.
 """
 
@@ -706,8 +708,8 @@ def test_smoke_atdd_self_scan_is_clean():
 @pytest.mark.coder
 def test_no_stub_presentation_rules_declared_in_convention():
     """
-    PRESENTATION-NOSTUB-NNN convention contract: each rule is declared with
-    the expected severity in frontend.convention.yaml::no_stub_presentation.
+    PRESENTATION-NOSTUB family convention contract: each rule is declared
+    with the expected severity in frontend.convention.yaml::no_stub_presentation.
     """
     if not FRONTEND_CONVENTION.exists():
         pytest.fail(f"Missing convention: {FRONTEND_CONVENTION}")
