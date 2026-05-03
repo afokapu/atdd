@@ -855,6 +855,7 @@ class ProjectInitializer:
             workflow_written = self._write_workflow(repo)
             infra_written = self._write_infra_workflow()
             publish_written = self._write_publish_workflow()
+            self._write_auto_phase_workflow()
 
         # Configure branch protection on main
         protection_set = self._set_branch_protection(repo)
@@ -1623,6 +1624,31 @@ jobs:
 """
         publish_path.write_text(publish)
         print(f"  Wrote: {publish_path}")
+        return True
+
+    def _write_auto_phase_workflow(self) -> bool:
+        """Copy .github/workflows/atdd-auto-phase.yml from the package template.
+
+        Required by issue #355 / test_auto_phase_workflow_exists.py: the
+        coach validator hard-fails if this file is missing from the consumer
+        repo. The template is shipped under
+        ``src/atdd/coach/templates/workflows/atdd-auto-phase.yml`` so it
+        installs with the package.
+        """
+        template = self.package_root / "templates" / "workflows" / "atdd-auto-phase.yml"
+        if not template.is_file():
+            logger.warning(
+                "Auto-phase workflow template missing: %s", template,
+                extra={"path": str(template)},
+            )
+            return False
+
+        workflows_dir = self.target_dir / ".github" / "workflows"
+        workflows_dir.mkdir(parents=True, exist_ok=True)
+        dest = workflows_dir / "atdd-auto-phase.yml"
+
+        shutil.copy2(template, dest)
+        print(f"  Wrote: {dest}")
         return True
 
     def _enable_auto_merge(self, repo: str) -> bool:
