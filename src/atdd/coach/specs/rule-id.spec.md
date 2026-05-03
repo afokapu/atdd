@@ -97,8 +97,8 @@ After that:
    downstream consumers see the migration window and can switch.
 4. Removing the deprecated entry is a separate release.
 
-This mirrors the docstring-SPEC pattern in `src/atdd/coder/baselines/ratchet.py`
-(`SPEC-CODER-RATCHET-0001..0005`): the SPEC names are themselves stable IDs.
+SPEC names are themselves stable IDs (e.g. `SPEC-COACH-RULEID-0001..0006`),
+so `superseded_by` migrations don't break inbound references.
 
 ---
 

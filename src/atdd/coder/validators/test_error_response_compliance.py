@@ -31,6 +31,7 @@ import atdd
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -296,7 +297,7 @@ def scan_error_code_format(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 
 @pytest.mark.coder
-def test_python_endpoints_use_structured_error_responses(ratchet_baseline):
+def test_python_endpoints_use_structured_error_responses():
     """
     SPEC-CODER-ERRORRESPONSE-0004: Python endpoints use structured error responses.
 
@@ -314,9 +315,8 @@ def test_python_endpoints_use_structured_error_responses(ratchet_baseline):
         pytest.skip("No Python files found in python/")
 
     count, violations = scan_bare_string_errors(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="error_response_bare_string",
-        current_count=count,
         violations=violations,
     )
 
@@ -327,7 +327,7 @@ def test_python_endpoints_use_structured_error_responses(ratchet_baseline):
 
 
 @pytest.mark.coder
-def test_error_codes_follow_enum_convention(ratchet_baseline):
+def test_error_codes_follow_enum_convention():
     """
     SPEC-CODER-ERRORRESPONSE-0005: Error codes follow UPPER_SNAKE_CASE convention.
 
@@ -345,8 +345,7 @@ def test_error_codes_follow_enum_convention(ratchet_baseline):
         pytest.skip("No Python files found in python/")
 
     count, violations = scan_error_code_format(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="error_code_format",
-        current_count=count,
         violations=violations,
     )

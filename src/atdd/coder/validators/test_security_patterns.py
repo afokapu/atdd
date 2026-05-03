@@ -32,6 +32,7 @@ import atdd
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -386,7 +387,7 @@ def scan_hardcoded_secrets(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 
 @pytest.mark.coder
-def test_no_raw_sql_concatenation(ratchet_baseline):
+def test_no_raw_sql_concatenation():
     """
     SPEC-CODER-SEC-0001: No raw SQL string concatenation in execute calls.
 
@@ -402,15 +403,14 @@ def test_no_raw_sql_concatenation(ratchet_baseline):
         pytest.skip("No Python files found in python/")
 
     count, violations = scan_sql_concatenation(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="sql_concatenation",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_fastapi_routes_have_auth_dependency(ratchet_baseline):
+def test_fastapi_routes_have_auth_dependency():
     """
     SPEC-CODER-SEC-0002: FastAPI routes must have auth dependency injection.
 
@@ -426,15 +426,14 @@ def test_fastapi_routes_have_auth_dependency(ratchet_baseline):
         pytest.skip("No Python files found in python/")
 
     count, violations = scan_missing_auth(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="missing_auth_dependency",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_no_hardcoded_secrets(ratchet_baseline):
+def test_no_hardcoded_secrets():
     """
     SPEC-CODER-SEC-0003: No hardcoded secrets in Python source files.
 
@@ -450,8 +449,7 @@ def test_no_hardcoded_secrets(ratchet_baseline):
         pytest.skip("No Python files found in python/")
 
     count, violations = scan_hardcoded_secrets(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="hardcoded_secrets",
-        current_count=count,
         violations=violations,
     )

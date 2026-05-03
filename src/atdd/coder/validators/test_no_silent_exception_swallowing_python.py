@@ -14,7 +14,7 @@ Convention: ``src/atdd/coder/conventions/logging.convention.yaml``
             (rule ``COACH-SILENT-SWALLOW-001``)
 
 Structured violations: emits ``Violation(rule_id="COACH-SILENT-SWALLOW-001", ...)``
-records via ``RatchetBaseline.assert_no_regression(violations=...)``.
+records that flow through ``assert_disposition_satisfied(...)``.
 The rule-id grammar is governed by ``src/atdd/coach/specs/rule-id.spec.md``.
 """
 

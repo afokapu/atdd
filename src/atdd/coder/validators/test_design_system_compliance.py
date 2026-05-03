@@ -23,6 +23,7 @@ from typing import Dict, List, Set, Tuple
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -289,7 +290,7 @@ def scan_ds_presentation_primitives(repo_root: Path) -> Tuple[int, List[Violatio
 
 
 @pytest.mark.coder
-def test_presentation_uses_design_system_primitives(ratchet_baseline):
+def test_presentation_uses_design_system_primitives():
     """
     SPEC-CODER-DESIGN-001: Presentation layer must use design system primitives.
 
@@ -300,15 +301,14 @@ def test_presentation_uses_design_system_primitives(ratchet_baseline):
     Rationale: Consistent UI through reusable design system components
     """
     count, violations = scan_ds_presentation_primitives(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="ds_presentation_primitives",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_ui_files_use_design_tokens_for_colors(ratchet_baseline):
+def test_ui_files_use_design_tokens_for_colors():
     """
     SPEC-CODER-DESIGN-002: UI files should use design tokens for colors.
 
@@ -332,15 +332,14 @@ def test_ui_files_use_design_tokens_for_colors(ratchet_baseline):
                 ))
 
     # Allow some violations during migration (warning, not failure)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="ds_color_tokens",
-        current_count=len(all_violations),
         violations=all_violations,
     )
 
 
 @pytest.mark.coder
-def test_no_orphaned_design_system_exports(ratchet_baseline):
+def test_no_orphaned_design_system_exports():
     """
     SPEC-CODER-DESIGN-003: Design system exports should be used.
 
@@ -367,15 +366,14 @@ def test_no_orphaned_design_system_exports(ratchet_baseline):
         _v(_RULE_ORPHAN_EXPORT, location=f"web/src/maintain-ux/{name}:0", detail=f"orphaned export: {name}")
         for name in sorted(orphaned)
     ]
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="ds_orphaned_exports",
-        current_count=len(orphaned),
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_design_system_uses_foundations(ratchet_baseline):
+def test_design_system_uses_foundations():
     """
     SPEC-CODER-DESIGN-004: Design system primitives should use foundations.
 
@@ -409,9 +407,8 @@ def test_design_system_uses_foundations(ratchet_baseline):
                     detail=f"{rel_path}: raw pixel values {', '.join(raw_pixels[:5])}",
                 ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="ds_foundations_usage",
-        current_count=len(violations),
         violations=violations,
     )
 
@@ -430,7 +427,7 @@ def _get_maintain_ux_files(subdir: str) -> List[Path]:
 
 
 @pytest.mark.coder
-def test_design_system_hierarchy_imports(ratchet_baseline):
+def test_design_system_hierarchy_imports():
     """
     SPEC-CODER-DESIGN-005: Design system layers must respect hierarchy.
 
@@ -506,15 +503,14 @@ def test_design_system_hierarchy_imports(ratchet_baseline):
                     detail=f"design system → wagon (import '{imp}')",
                 ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="ds_hierarchy_imports",
-        current_count=len(violations),
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_no_hardcoded_tokens_in_wagons(ratchet_baseline):
+def test_no_hardcoded_tokens_in_wagons():
     """
     SPEC-CODER-DESIGN-006: Wagon UI files must not use hardcoded spacing, radii, or durations.
 
@@ -589,15 +585,14 @@ def test_no_hardcoded_tokens_in_wagons(ratchet_baseline):
                     detail=issue,
                 ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="ds_hardcoded_tokens",
-        current_count=len(all_violations),
         violations=all_violations,
     )
 
 
 @pytest.mark.coder
-def test_no_orphaned_ui_elements(ratchet_baseline):
+def test_no_orphaned_ui_elements():
     """
     SPEC-CODER-DESIGN-007: All TSX files must use at least one design system import.
 
@@ -641,9 +636,8 @@ def test_no_orphaned_ui_elements(ratchet_baseline):
                 detail=f"{rel_path}: TSX component with zero design system imports",
             ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="ds_orphaned_ui",
-        current_count=len(violations),
         violations=violations,
     )
 

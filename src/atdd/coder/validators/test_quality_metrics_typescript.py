@@ -26,6 +26,7 @@ from typing import List, Tuple
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -316,7 +317,7 @@ def scan_comment_ratio_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
 # Pytest tests
 # ---------------------------------------------------------------------------
 @pytest.mark.coder
-def test_maintainability_index_typescript(ratchet_baseline):
+def test_maintainability_index_typescript():
     """
     SPEC-CODER-QUALITY-TS-0001: TS code has acceptable maintainability index.
 
@@ -334,15 +335,14 @@ def test_maintainability_index_typescript(ratchet_baseline):
         pytest.skip("No TypeScript files found under web/src")
 
     count, violations = scan_maintainability_index_ts(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="maintainability_index_typescript",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_comment_ratio_typescript(ratchet_baseline):
+def test_comment_ratio_typescript():
     """
     SPEC-CODER-QUALITY-TS-0002: TS code has adequate comments.
 
@@ -359,8 +359,7 @@ def test_comment_ratio_typescript(ratchet_baseline):
         pytest.skip("No TypeScript files found under web/src")
 
     count, violations = scan_comment_ratio_ts(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="comment_ratio_typescript",
-        current_count=count,
         violations=violations,
     )

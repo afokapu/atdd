@@ -229,11 +229,12 @@ migration:
               fix_hint_ref="recipe:adapter#step-1",  # if a recipe exists
           ))
 
-        Then pass the list through to the ratchet:
+        Then pass the list through the disposition gate:
 
-          ratchet_baseline.assert_no_regression(
+          from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+
+          assert_disposition_satisfied(
               validator_id="...",
-              current_count=len(violations),
               violations=violations,
           )
 
@@ -269,16 +270,17 @@ migration:
         that ships the migration. This lets downstream consumers tell which
         toolkit version first published the ID.
 
-  baseline_compatibility:
+  disposition_compatibility:
     rule: |
-      The structured-violation persistence path (.atdd/baselines/<phase>.violations.yaml)
-      is ADDITIVE. The integer-count baseline (<phase>.yaml) keeps working
-      unchanged for non-migrated validators. Do NOT delete the integer baseline
-      until every validator has migrated.
+      As of issue #395, ratchet baselines are gone. Pass/fail is decided
+      per-rule via ``disposition: {strict | suppress-and-clean | advisory}``
+      declared in the rule body. Pre-existing violations carry inline
+      ``# atdd:suppress(<rule_id>) [UNTIL=<YYYY-MM-DD>]`` markers; new
+      violations of strict / suppress-and-clean rules fail CI.
     why: |
-      Forcing a flag-day migration of all 113 validators at once would block
-      issue #340 indefinitely. Additive persistence lets validators migrate
-      independently.
+      Count-based ratchets were opaque (no rule_id), masked feature
+      removal as improvement, and lacked deadlines. Per-rule disposition
+      makes CI behavior auditable per site and bounds debt with markers.
 
   deprecation:
     rule: |

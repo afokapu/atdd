@@ -28,6 +28,7 @@ from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
 import atdd
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -353,7 +354,7 @@ def scan_dead_code_typescript(repo_root: Path) -> Tuple[int, List[str]]:
 
 
 @pytest.mark.coder
-def test_no_unreachable_typescript_files(ratchet_baseline):
+def test_no_unreachable_typescript_files():
     """
     SPEC-CODER-DEADCODE-TS-0001: No unreachable TypeScript files.
 
@@ -408,9 +409,8 @@ def test_no_unreachable_typescript_files(ratchet_baseline):
             fix_hint_ref=_RULE_DEAD_CODE_TS.fix_hint_ref,
         ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="dead_code_typescript",
-        current_count=len(violations),
         violations=violations,
     )
 

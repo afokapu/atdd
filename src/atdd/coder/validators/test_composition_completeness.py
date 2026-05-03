@@ -35,6 +35,7 @@ from atdd.coach.utils.repo import find_repo_root, is_atdd_source_repo
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coder.utils.python_file_walker import walk_consumer_python_files
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -781,7 +782,7 @@ def test_composition_completeness_typescript_fixture_accepts_barrels_and_partial
 
 
 @pytest.mark.coder
-def test_composition_completeness_python_live_repo(ratchet_baseline):
+def test_composition_completeness_python_live_repo():
     """
     SPEC-CODER-COMP-0004: Real Python consumer repos have complete composition wiring.
 
@@ -793,15 +794,14 @@ def test_composition_completeness_python_live_repo(ratchet_baseline):
         pytest.skip("No Python feature tree found in python/ to validate")
 
     violations = analyze_python_repo(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="composition_completeness_python",
-        current_count=len(violations),
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_composition_completeness_typescript_live_repo(ratchet_baseline):
+def test_composition_completeness_typescript_live_repo():
     """
     SPEC-CODER-COMP-0001: Real web consumer repos have complete TypeScript composition wiring.
 
@@ -813,15 +813,14 @@ def test_composition_completeness_typescript_live_repo(ratchet_baseline):
         pytest.skip("No web/src feature tree found to validate")
 
     violations = analyze_typescript_repo(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="composition_completeness_typescript",
-        current_count=len(violations),
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_composition_completeness_supabase_live_repo(ratchet_baseline):
+def test_composition_completeness_supabase_live_repo():
     """
     SPEC-CODER-COMP-0002: Real Supabase consumer repos have complete composition wiring.
 
@@ -833,8 +832,7 @@ def test_composition_completeness_supabase_live_repo(ratchet_baseline):
         pytest.skip("No supabase/functions feature tree found to validate")
 
     violations = analyze_typescript_repo(REPO_ROOT, stack="supabase")
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="composition_completeness_supabase",
-        current_count=len(violations),
         violations=violations,
     )

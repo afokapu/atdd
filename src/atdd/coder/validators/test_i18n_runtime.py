@@ -19,6 +19,7 @@ from atdd.coach.utils.locale_phase import (
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -128,7 +129,7 @@ def scan_language_switcher(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 @pytest.mark.locale
 @pytest.mark.coder
-def test_i18n_config_uses_manifest(ratchet_baseline, locale_manifest, locale_manifest_path):
+def test_i18n_config_uses_manifest(locale_manifest, locale_manifest_path):
     """
     LOCALE-CODE-2.1: i18nConfig.ts imports from manifest (not hardcoded arrays)
 
@@ -140,16 +141,15 @@ def test_i18n_config_uses_manifest(ratchet_baseline, locale_manifest, locale_man
         pytest.skip("Localization not configured")
 
     count, violations = scan_i18n_config(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="i18n_config_manifest",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.locale
 @pytest.mark.coder
-def test_language_switcher_uses_shared_locales(ratchet_baseline, locale_manifest, locale_manifest_path):
+def test_language_switcher_uses_shared_locales(locale_manifest, locale_manifest_path):
     """
     LOCALE-CODE-2.2: LanguageSwitcher uses shared SUPPORTED_LOCALES
 
@@ -161,8 +161,7 @@ def test_language_switcher_uses_shared_locales(ratchet_baseline, locale_manifest
         pytest.skip("Localization not configured")
 
     count, violations = scan_language_switcher(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="i18n_language_switcher",
-        current_count=count,
         violations=violations,
     )

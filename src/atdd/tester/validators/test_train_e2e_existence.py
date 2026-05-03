@@ -24,6 +24,7 @@ from typing import List
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.tester.validators.test_smoke_coverage import PlanTrainDiscovery
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 REPO_ROOT = find_repo_root()
@@ -88,7 +89,7 @@ class E2EExistenceAnalyzer:
 
 
 @pytest.mark.tester
-def test_train_e2e_existence(ratchet_baseline):
+def test_train_e2e_existence():
     """Every registered train must have at least one E2E test file.
 
     Convention: train.convention.yaml > e2e > existence
@@ -116,8 +117,7 @@ def test_train_e2e_existence(ratchet_baseline):
             + "  See: src/atdd/tester/conventions/train.convention.yaml"
         )
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="train_e2e_existence",
-        current_count=len(violations),
         violations=violations,
     )

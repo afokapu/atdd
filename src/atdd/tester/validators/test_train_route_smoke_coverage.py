@@ -29,6 +29,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import List
 
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.tester.validators.test_smoke_coverage import (
     PlanTrainDiscovery,
@@ -156,7 +157,7 @@ def scan_train_route_smoke_coverage(repo_root: Path):
 
 
 @pytest.mark.tester
-def test_train_route_smoke_coverage(ratchet_baseline):
+def test_train_route_smoke_coverage():
     """Every registered train must have at least one smoke test file.
 
     Convention: smoke.convention.yaml > coverage > train_routes
@@ -184,9 +185,8 @@ def test_train_route_smoke_coverage(ratchet_baseline):
             + "  See: src/atdd/tester/conventions/smoke.convention.yaml"
         )
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="train_route_smoke_coverage",
-        current_count=len(violations),
         violations=violations,
     )
 

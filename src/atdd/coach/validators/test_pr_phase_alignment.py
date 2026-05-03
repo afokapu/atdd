@@ -29,16 +29,13 @@ from typing import Any, List, Optional, Sequence, Tuple
 import pytest
 
 from atdd.coach.commands.pr import PRManager
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.validators._violation import Violation
-from atdd.coder.baselines.ratchet import RatchetBaseline
 
 pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
 REPO_ROOT = find_repo_root()
-
-# Baseline path for coach validators
-COACH_BASELINE_PATH = REPO_ROOT / ".atdd" / "baselines" / "coach.yaml"
 
 # File path patterns that indicate code changes (not just planner artifacts)
 _CODE_PATH_PREFIXES = (
@@ -226,18 +223,19 @@ def test_pr_phase_alignment():
 
     Given: Open PRs with linked ATDD issues
     When: Checking PR changed files vs issue phase label
-    Then: PRs with code changes for INIT/PLANNED issues are warned (string),
-          PRs with code changes for GREEN issues fail with structured Violation.
-
-    Ratchet baseline: violations must not exceed recorded baseline (Category A).
+    Then: GREEN-phase PRs with code changes emit a structured Violation that
+          fails per COACH-PRGATE-0003's disposition. INIT/PLANNED warnings
+          remain opaque strings (default-strict, but the scanner emits them
+          only when accepted as advisory warnings).
     """
-    baseline = RatchetBaseline(COACH_BASELINE_PATH)
-    count, violations = scan_pr_phase_alignment(REPO_ROOT)
-
-    baseline.assert_no_regression(
+    _count, violations = scan_pr_phase_alignment(REPO_ROOT)
+    # Filter out the legacy opaque-string warnings — the disposition gate
+    # treats unknown opaque entries as strict, but INIT/PLANNED warnings are
+    # informational by design (preserved from SPEC-COACH-PRGATE-0002).
+    structured_only = [v for v in violations if hasattr(v, "rule_id")]
+    assert_disposition_satisfied(
         validator_id="pr_phase_alignment",
-        current_count=count,
-        violations=violations,
+        violations=structured_only,
     )
 
 

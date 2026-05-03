@@ -39,6 +39,7 @@ import pytest
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # ---------------------------------------------------------------------------
@@ -430,7 +431,7 @@ def test_scan_skips_presentation_when_smoke_spec_present(tmp_path):
 
 
 @pytest.mark.tester
-def test_presentation_smoke_coverage(ratchet_baseline):
+def test_presentation_smoke_coverage():
     """
     TESTER-SMOKE-PRES-001: every web/src/*/presentation/*.tsx must have a
     matching e2e/*smoke*.spec.ts.
@@ -443,8 +444,7 @@ def test_presentation_smoke_coverage(ratchet_baseline):
     """
     repo_root = find_repo_root()
     count, violations = scan_presentation_smoke_coverage(repo_root)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="presentation_smoke_coverage",
-        current_count=count,
         violations=violations,
     )

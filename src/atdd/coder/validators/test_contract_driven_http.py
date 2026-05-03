@@ -24,6 +24,7 @@ from typing import Dict, List, Sequence, Tuple
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -182,7 +183,7 @@ def _format_violations(violations: List[Dict], base_dir: Path) -> str:
 # ===========================================================================
 
 @pytest.mark.coder
-def test_no_raw_fetch_calls(ratchet_baseline):
+def test_no_raw_fetch_calls():
     """
     SPEC-CODER-CONTRACT-0001: No raw fetch() calls in frontend TypeScript code.
 
@@ -213,9 +214,8 @@ def test_no_raw_fetch_calls(ratchet_baseline):
         for v in violations
     ]
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="contract_driven_http",
-        current_count=len(violations),
         violations=structured,
     )
 

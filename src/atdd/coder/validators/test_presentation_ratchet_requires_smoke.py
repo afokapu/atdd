@@ -15,7 +15,7 @@ silently removed during ratchet trimming).
 
 Structured violations (issue #340): emits ``Violation(
     rule_id="COACH-RATCHET-PRES-001", severity=3, ...)`` records via
-``RatchetBaseline.assert_no_regression(violations=...)``.
+``assert_disposition_satisfied(...)``.
 
 Severity rationale (per issue body, decision #5): 3 = advisory + gate, not
 stop-the-world. Past incident took hours to find, not weeks.
@@ -30,6 +30,7 @@ from typing import List
 import pytest
 import yaml
 
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.validators._violation import Violation
 from atdd.coder.validators.presentation_ratchet import (
     PRESENTATION_GLOBS,
@@ -283,7 +284,7 @@ def test_collect_repo_reductions_ignores_non_presentation(tmp_path):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.coder
-def test_presentation_ratchet_requires_smoke(ratchet_baseline):
+def test_presentation_ratchet_requires_smoke():
     """
     COACH-RATCHET-PRES-001: Presentation-layer reductions >20% require smoke.
 
@@ -320,9 +321,8 @@ def test_presentation_ratchet_requires_smoke(ratchet_baseline):
         has_evidence=has_evidence,
     )
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="presentation_ratchet_requires_smoke",
-        current_count=len(violations),
         violations=violations,
     )
 

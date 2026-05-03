@@ -55,6 +55,7 @@ import pytest
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 REPO_ROOT = find_repo_root()
@@ -366,7 +367,7 @@ def test_violation_records_use_canonical_rule_ids():
 
 
 @pytest.mark.tester
-def test_repo_train_renders_content(ratchet_baseline):
+def test_repo_train_renders_content():
     """Mount every registered train and assert non-empty, non-stub DOM.
 
     Opt-in via ``.atdd/config.yaml → train_renders_content.enabled``
@@ -413,8 +414,7 @@ def test_repo_train_renders_content(ratchet_baseline):
             + "  See: src/atdd/tester/conventions/smoke.convention.yaml > behavioral_render"
         )
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="train_renders_content",
-        current_count=len(violations),
         violations=violations,
     )

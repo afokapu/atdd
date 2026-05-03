@@ -33,6 +33,7 @@ import atdd
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -323,7 +324,7 @@ def scan_typescript_duplications(repo_root: Path) -> Tuple[int, List[str]]:
 
 
 @pytest.mark.coder
-def test_no_intra_layer_duplication_typescript(ratchet_baseline):
+def test_no_intra_layer_duplication_typescript():
     """
     SPEC-CODER-DUP-0002: No structurally identical TypeScript fragments within same layer.
 
@@ -342,8 +343,7 @@ def test_no_intra_layer_duplication_typescript(ratchet_baseline):
         pytest.skip("No TypeScript files found in web/src/ to validate")
 
     count, violations = scan_typescript_duplications(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="duplication_detector_typescript",
-        current_count=count,
         violations=violations,
     )

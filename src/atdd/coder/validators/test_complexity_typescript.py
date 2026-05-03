@@ -21,6 +21,7 @@ from typing import List, Tuple
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -457,7 +458,7 @@ def scan_function_length_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
 # Pytest tests
 # ---------------------------------------------------------------------------
 @pytest.mark.coder
-def test_cyclomatic_complexity_typescript(ratchet_baseline):
+def test_cyclomatic_complexity_typescript():
     """
     SPEC-CODER-COMPLEXITY-TS-0001: TS functions have acceptable cyclomatic complexity.
 
@@ -475,15 +476,14 @@ def test_cyclomatic_complexity_typescript(ratchet_baseline):
         pytest.skip("No TypeScript files found under web/src")
 
     count, violations = scan_cyclomatic_complexity_ts(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="cyclomatic_complexity_typescript",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_nesting_depth_typescript(ratchet_baseline):
+def test_nesting_depth_typescript():
     """
     SPEC-CODER-COMPLEXITY-TS-0002: TS functions have acceptable nesting depth.
 
@@ -501,15 +501,14 @@ def test_nesting_depth_typescript(ratchet_baseline):
         pytest.skip("No TypeScript files found under web/src")
 
     count, violations = scan_nesting_depth_ts(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="nesting_depth_typescript",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_function_length_typescript(ratchet_baseline):
+def test_function_length_typescript():
     """
     SPEC-CODER-COMPLEXITY-TS-0003: TS functions are not too long.
 
@@ -527,8 +526,7 @@ def test_function_length_typescript(ratchet_baseline):
         pytest.skip("No TypeScript files found under web/src")
 
     count, violations = scan_function_length_ts(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="function_length_typescript",
-        current_count=count,
         violations=violations,
     )
