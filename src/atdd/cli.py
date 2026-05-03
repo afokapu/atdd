@@ -392,6 +392,17 @@ Phase descriptions:
             "(presentation-layer ratchet improvements over 20%%). Issue #358."
         ),
     )
+    validate_parser.add_argument(
+        "--strict-coherence",
+        action="store_true",
+        dest="strict_coherence",
+        help=(
+            "Fail (exit 1) when the rule-id registry coherence validator "
+            "finds emissions whose rule_id is not declared in any "
+            "convention rules: block. Default is permissive (drift logs "
+            "as WARN, exit 0). Active when phase=coach or all. Issue #387."
+        ),
+    )
 
     # ----- atdd inventory -----
     inventory_parser = subparsers.add_parser(
@@ -1469,6 +1480,18 @@ Phase descriptions:
         # Propagate --no-cache to GraphBuilder via env var
         if getattr(args, 'no_cache', False):
             os.environ["ATDD_NO_CACHE"] = "1"
+
+        # --strict-coherence: opt the rule-id registry coherence validator
+        # into failure mode (default is permissive WARN). Issue #387.
+        if getattr(args, 'strict_coherence', False):
+            if args.phase not in ("coach", "all"):
+                print(
+                    "Error: --strict-coherence is only supported with phase "
+                    "'coach' (or 'all'). Re-run: atdd validate coach "
+                    "--strict-coherence"
+                )
+                return 1
+            os.environ["ATDD_STRICT_COHERENCE"] = "1"
 
         coach = ATDDCoach(repo_root=repo_path)
         skip_api = getattr(args, 'skip_api', False)
