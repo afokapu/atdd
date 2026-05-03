@@ -562,3 +562,42 @@ refactor_phase:
           Ratchet improvements (a "good thing" by metric) become a vector for
           regressions when they touch presentation. Without a layer-aware gate,
           structural validators report green even when behavior was removed.
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+# Top-level `rules:` array — registry-walkable. Used by ratchet validators
+# emitting Violation records during REFACTOR-phase complexity / quality scans.
+rules:
+  - id: COMPLEXITY-CYCLOMATIC-001
+    severity: 3
+    description: "Cyclomatic complexity per function below threshold (default <10)"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-NESTING-001
+    severity: 3
+    description: "Function nesting depth below threshold (default <4)"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-LENGTH-001
+    severity: 2
+    description: "Function length below threshold (default <50 LOC)"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-PARAMS-001
+    severity: 2
+    description: "Function parameter count below threshold (default <6)"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-COGNITIVE-001
+    severity: 3
+    description: "Cognitive complexity per function below threshold (default <=15)"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-CYCLOMATIC-TS-001
+    severity: 3
+    description: "TypeScript cyclomatic complexity per function below threshold"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-NESTING-TS-001
+    severity: 3
+    description: "TypeScript function nesting depth below threshold"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-LENGTH-TS-001
+    severity: 2
+    description: "TypeScript function length below threshold"
+    introduced_in: "1.67.0"

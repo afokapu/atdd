@@ -9,6 +9,11 @@ Validates:
 
 Inspired by: .claude/utils/coder/complexity.py
 But: Self-contained, no utility dependencies
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``COMPLEXITY-*-001`` rule_ids declared in
+``src/atdd/coder/conventions/refactor.convention.yaml``. Records flow through
+``RatchetBaseline.assert_no_regression(violations=...)``.
 """
 
 import ast
@@ -18,6 +23,16 @@ from pathlib import Path
 from typing import List, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift.
+_RULE_CYCLO = bind_rule("COMPLEXITY-CYCLOMATIC-001")
+_RULE_NEST = bind_rule("COMPLEXITY-NESTING-001")
+_RULE_LEN = bind_rule("COMPLEXITY-LENGTH-001")
+_RULE_PARAMS = bind_rule("COMPLEXITY-PARAMS-001")
+_RULE_COGNITIVE = bind_rule("COMPLEXITY-COGNITIVE-001")
 
 
 # Path constants
@@ -370,19 +385,24 @@ def _function_cognitive_complexity(func_node: ast.AST) -> int:
     return state["complexity"]
 
 
-def scan_cognitive_complexity(repo_root: Path) -> Tuple[int, List[str]]:
-    """Scan for cognitive complexity violations. Used by ratchet baseline."""
+def _collect_python_source_files(repo_root: Path) -> List[Path]:
     python_dir = repo_root / "python"
     if not python_dir.exists():
-        return 0, []
-    files = []
+        return []
+    files: List[Path] = []
     for py_file in python_dir.rglob("*.py"):
         if '/test/' in str(py_file) or py_file.name.startswith('test_'):
             continue
         if '__pycache__' in str(py_file) or py_file.name == '__init__.py':
             continue
         files.append(py_file)
-    violations = []
+    return files
+
+
+def scan_cognitive_complexity(repo_root: Path) -> Tuple[int, List[Violation]]:
+    """Scan for cognitive complexity violations. Used by ratchet baseline."""
+    files = _collect_python_source_files(repo_root)
+    violations: List[Violation] = []
     for py_file in files:
         try:
             source = py_file.read_text(encoding='utf-8')
@@ -391,23 +411,20 @@ def scan_cognitive_complexity(repo_root: Path) -> Tuple[int, List[str]]:
         for func_name, line_num, cc in calculate_cognitive_complexity(source):
             if cc > MAX_COGNITIVE_COMPLEXITY:
                 rel_path = py_file.relative_to(repo_root)
-                violations.append(f"{rel_path}:{line_num} {func_name} cognitive_complexity={cc}")
+                violations.append(Violation(
+                    rule_id=_RULE_COGNITIVE.rule_id,
+                    severity=_RULE_COGNITIVE.severity,
+                    location=f"{rel_path}:{line_num}",
+                    detail=f"{func_name} cognitive_complexity={cc} (>{MAX_COGNITIVE_COMPLEXITY})",
+                    fix_hint_ref=_RULE_COGNITIVE.fix_hint_ref,
+                ))
     return len(violations), violations
 
 
-def scan_cyclomatic_complexity(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_cyclomatic_complexity(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for cyclomatic complexity violations. Used by ratchet baseline."""
-    python_dir = repo_root / "python"
-    if not python_dir.exists():
-        return 0, []
-    files = []
-    for py_file in python_dir.rglob("*.py"):
-        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
-            continue
-        if '__pycache__' in str(py_file) or py_file.name == '__init__.py':
-            continue
-        files.append(py_file)
-    violations = []
+    files = _collect_python_source_files(repo_root)
+    violations: List[Violation] = []
     for py_file in files:
         for func_name, line_num, func_body in extract_functions(py_file):
             if count_function_lines(func_body) < 3:
@@ -415,73 +432,70 @@ def scan_cyclomatic_complexity(repo_root: Path) -> Tuple[int, List[str]]:
             complexity = calculate_cyclomatic_complexity(func_body)
             if complexity > MAX_CYCLOMATIC_COMPLEXITY:
                 rel_path = py_file.relative_to(repo_root)
-                violations.append(f"{rel_path}:{line_num} {func_name} complexity={complexity}")
+                violations.append(Violation(
+                    rule_id=_RULE_CYCLO.rule_id,
+                    severity=_RULE_CYCLO.severity,
+                    location=f"{rel_path}:{line_num}",
+                    detail=f"{func_name} complexity={complexity} (>{MAX_CYCLOMATIC_COMPLEXITY})",
+                    fix_hint_ref=_RULE_CYCLO.fix_hint_ref,
+                ))
     return len(violations), violations
 
 
-def scan_nesting_depth(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_nesting_depth(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for nesting depth violations. Used by ratchet baseline."""
-    python_dir = repo_root / "python"
-    if not python_dir.exists():
-        return 0, []
-    files = []
-    for py_file in python_dir.rglob("*.py"):
-        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
-            continue
-        if '__pycache__' in str(py_file) or py_file.name == '__init__.py':
-            continue
-        files.append(py_file)
-    violations = []
+    files = _collect_python_source_files(repo_root)
+    violations: List[Violation] = []
     for py_file in files:
         for func_name, line_num, func_body in extract_functions(py_file):
             depth = calculate_nesting_depth(func_body)
             if depth > MAX_NESTING_DEPTH:
                 rel_path = py_file.relative_to(repo_root)
-                violations.append(f"{rel_path}:{line_num} {func_name} depth={depth}")
+                violations.append(Violation(
+                    rule_id=_RULE_NEST.rule_id,
+                    severity=_RULE_NEST.severity,
+                    location=f"{rel_path}:{line_num}",
+                    detail=f"{func_name} depth={depth} (>{MAX_NESTING_DEPTH})",
+                    fix_hint_ref=_RULE_NEST.fix_hint_ref,
+                ))
     return len(violations), violations
 
 
-def scan_function_length(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_function_length(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for function length violations. Used by ratchet baseline."""
-    python_dir = repo_root / "python"
-    if not python_dir.exists():
-        return 0, []
-    files = []
-    for py_file in python_dir.rglob("*.py"):
-        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
-            continue
-        if '__pycache__' in str(py_file) or py_file.name == '__init__.py':
-            continue
-        files.append(py_file)
-    violations = []
+    files = _collect_python_source_files(repo_root)
+    violations: List[Violation] = []
     for py_file in files:
         for func_name, line_num, func_body in extract_functions(py_file):
             lines = count_function_lines(func_body)
             if lines > MAX_FUNCTION_LINES:
                 rel_path = py_file.relative_to(repo_root)
-                violations.append(f"{rel_path}:{line_num} {func_name} lines={lines}")
+                violations.append(Violation(
+                    rule_id=_RULE_LEN.rule_id,
+                    severity=_RULE_LEN.severity,
+                    location=f"{rel_path}:{line_num}",
+                    detail=f"{func_name} lines={lines} (>{MAX_FUNCTION_LINES})",
+                    fix_hint_ref=_RULE_LEN.fix_hint_ref,
+                ))
     return len(violations), violations
 
 
-def scan_function_params(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_function_params(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for function parameter count violations. Used by ratchet baseline."""
-    python_dir = repo_root / "python"
-    if not python_dir.exists():
-        return 0, []
-    files = []
-    for py_file in python_dir.rglob("*.py"):
-        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
-            continue
-        if '__pycache__' in str(py_file) or py_file.name == '__init__.py':
-            continue
-        files.append(py_file)
-    violations = []
+    files = _collect_python_source_files(repo_root)
+    violations: List[Violation] = []
     for py_file in files:
         for func_name, line_num, func_body in extract_functions(py_file):
             param_count = count_function_parameters(func_body)
             if param_count > MAX_FUNCTION_PARAMS:
                 rel_path = py_file.relative_to(repo_root)
-                violations.append(f"{rel_path}:{line_num} {func_name} params={param_count}")
+                violations.append(Violation(
+                    rule_id=_RULE_PARAMS.rule_id,
+                    severity=_RULE_PARAMS.severity,
+                    location=f"{rel_path}:{line_num}",
+                    detail=f"{func_name} params={param_count} (>{MAX_FUNCTION_PARAMS})",
+                    fix_hint_ref=_RULE_PARAMS.fix_hint_ref,
+                ))
     return len(violations), violations
 
 
