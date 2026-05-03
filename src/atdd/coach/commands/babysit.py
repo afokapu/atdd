@@ -24,11 +24,90 @@ from typing import Callable, Dict, List, Optional, Tuple
 import yaml
 
 import atdd
+from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.utils.multiplexer import (
     MultiplexerBackend,
     MultiplexerError,
     get_multiplexer,
 )
+
+
+# =============================================================================
+# Token-count alert (issue #378)
+# =============================================================================
+# Default threshold leaves ~200k headroom under the typical 600k effective cap,
+# giving the worker enough budget to react to the alert (run /compact, optionally
+# /clear and `atdd session-template <N> --from-checkpoint`).
+DEFAULT_TOKEN_ALERT_THRESHOLD = 400_000
+
+
+def load_token_alert_threshold(*, repo_root: Optional[Path] = None) -> int:
+    """Resolve the token-alert threshold from .atdd/config.yaml or fall back to default."""
+    base = Path(repo_root) if repo_root is not None else Path.cwd()
+    try:
+        config = load_atdd_config(base)
+    except Exception:
+        return DEFAULT_TOKEN_ALERT_THRESHOLD
+    babysit_cfg = (config or {}).get("babysit") or {}
+    value = babysit_cfg.get("token_alert_threshold")
+    if isinstance(value, int) and value > 0:
+        return value
+    return DEFAULT_TOKEN_ALERT_THRESHOLD
+
+
+def read_token_count(
+    backend: MultiplexerBackend, workspace_ref: str
+) -> Optional[int]:
+    """Best-effort per-workspace token count via `claude --print-context-status`.
+
+    Returns None when the binary is missing, the call errors, or the output is
+    not parseable JSON. Callers must treat None as "unknown" — the dashboard
+    renders this as "—" and no alert fires.
+
+    Decision 6 (issue #378): the source mechanism is `claude --print-context-status`.
+    A future revision can swap in a per-surface multiplexer command without
+    changing the alert logic.
+    """
+    del workspace_ref  # reserved for future per-surface routing
+    try:
+        result = subprocess.run(
+            ["claude", "--print-context-status"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        payload = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    for key in ("context_used_tokens", "tokens_used", "tokens"):
+        value = payload.get(key) if isinstance(payload, dict) else None
+        if isinstance(value, int):
+            return value
+    return None
+
+
+def check_token_threshold(
+    *, token_count: Optional[int], threshold: int
+) -> Optional["BabysitDecision"]:
+    """Return an escalation decision when the count crosses the threshold."""
+    if token_count is None:
+        return None
+    if token_count < threshold:
+        return None
+    matched = f"token={token_count} threshold={threshold}"
+    return BabysitDecision(
+        action="escalate",
+        matched=matched,
+        reason=(
+            f"token count {token_count} crossed threshold {threshold} — "
+            "recommend /compact and `atdd session-template <N> --from-checkpoint`"
+        ),
+    )
 
 
 # =============================================================================
@@ -309,6 +388,7 @@ def process_workspace(
     stale_warn_minutes: int,
     stale_escalate_minutes: int,
     log_path: Path = DEFAULT_LOG_PATH,
+    token_alert_threshold: Optional[int] = None,
 ) -> BabysitDecision:
     try:
         screen = backend.read_screen(state.ref, lines=80)
@@ -318,6 +398,23 @@ def process_workspace(
             path=log_path,
         )
         return BabysitDecision(action="idle", reason=f"read error: {exc}")
+
+    if token_alert_threshold is not None:
+        token_count = read_token_count(backend, state.ref)
+        token_decision = check_token_threshold(
+            token_count=token_count, threshold=token_alert_threshold
+        )
+        if token_decision is not None:
+            log_event(
+                {
+                    "event": "token_threshold",
+                    "workspace": state.ref,
+                    "token_count": token_count,
+                    "threshold": token_alert_threshold,
+                },
+                path=log_path,
+            )
+            return token_decision
 
     digest = _screen_hash(screen)
     now = time.time()
@@ -686,6 +783,7 @@ def run(
     orchestrate_state_path: Path = DEFAULT_ORCHESTRATE_STATE_PATH,
     phase_cache_seconds: int = DEFAULT_PHASE_CACHE_SECONDS,
     phase_fetcher: Optional[Callable[[List[int]], Dict[int, str]]] = None,
+    token_alert_threshold: Optional[int] = None,
 ) -> int:
     try:
         backend = get_multiplexer(preferred=multiplexer)
@@ -710,6 +808,9 @@ def run(
         print(f"{result.escalated} prompts escalated (kept for manual review)")
         return 0
 
+    if token_alert_threshold is None:
+        token_alert_threshold = load_token_alert_threshold()
+
     states = {ref: WorkspaceState(ref=ref) for ref in workspaces}
     last_decisions: Dict[str, Optional[BabysitDecision]] = {ref: None for ref in workspaces}
     print(f"👀 babysitting {len(states)} workspace(s): {', '.join(states)}")
@@ -721,7 +822,9 @@ def run(
     while True:
         for ref, st in states.items():
             decision = process_workspace(
-                backend, st, stale_warn, stale_escalate, log_path=log_path
+                backend, st, stale_warn, stale_escalate,
+                log_path=log_path,
+                token_alert_threshold=token_alert_threshold,
             )
             last_decisions[ref] = decision
             if not dashboard and decision.action != "idle":

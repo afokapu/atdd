@@ -970,6 +970,17 @@ Phase descriptions:
             "manual review (issue #377)"
         ),
     )
+    babysit_parser.add_argument(
+        "--token-alert-threshold",
+        type=int,
+        default=None,
+        dest="token_alert_threshold",
+        help=(
+            "Token-count threshold that triggers an escalate alert (default: "
+            "loaded from .atdd/config.yaml::babysit.token_alert_threshold or "
+            "400000). Source: `claude --print-context-status`. See issue #378."
+        ),
+    )
 
     # ----- atdd merge-cascade <pr-numbers...> -----
     merge_cascade_parser = subparsers.add_parser(
@@ -1776,6 +1787,7 @@ Phase descriptions:
             multiplexer=getattr(args, "multiplexer", None),
             dashboard=getattr(args, "dashboard", False),
             approve_all_safe=getattr(args, "approve_all_safe", False),
+            token_alert_threshold=getattr(args, "token_alert_threshold", None),
         )
 
     # atdd merge-cascade <pr-numbers...>
