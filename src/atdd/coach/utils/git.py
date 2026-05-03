@@ -138,7 +138,7 @@ def git_commit_manifest_update(
 
     # No-op: manifest matches HEAD already.
     if not _path_has_diff(path, repo_root):
-        logger.debug("%s: manifest unchanged at %s — skipping commit", verb, path)
+        logger.debug("%s: manifest unchanged at %s — skipping commit", verb, path)  # atdd:suppress(LOGGING-STRUCTURED-001) UNTIL=2026-07-03
         return None
 
     rel = str(path.relative_to(repo_root))

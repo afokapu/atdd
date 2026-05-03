@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 import atdd
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
@@ -253,20 +254,12 @@ def scan_structured_logging(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 
 @pytest.mark.coder
-def test_no_print_in_production_code(ratchet_baseline):
+def test_no_print_in_production_code():
     """
     SPEC-CODER-LOG-0001: No print() in non-test production Python code.
 
-    Production code should use the logging module, not print().
-    Print statements are acceptable in:
-    - Test files (test_*.py, */tests/*, */test/*)
-    - ATDD toolkit (src/atdd/) — CLI tool where print() is intentional output
-
-    Scans: REPO_ROOT/python/ only (consumer product code).
-
-    Given: Python files in python/ (excluding tests)
-    When: Checking for print() calls via AST analysis
-    Then: Violation count does not exceed baseline (ratchet pattern)
+    Pass/fail decided by LOGGING-PRINT-001's disposition (currently
+    ``strict``: any print() in production fails CI).
 
     Convention: atdd/coder/conventions/logging.convention.yaml (LOG-001)
     """
@@ -274,31 +267,22 @@ def test_no_print_in_production_code(ratchet_baseline):
     if not python_files:
         pytest.skip("No Python files found in python/ to validate")
 
-    count, violations = scan_print_in_production(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    _count, violations = scan_print_in_production(REPO_ROOT)
+    assert_disposition_satisfied(
         validator_id="print_in_production",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_structured_logging_format(ratchet_baseline):
+def test_structured_logging_format():
     """
     SPEC-CODER-LOG-0002: Logger calls must include extra= context dict.
 
-    Stdlib logging with extra={} provides structured context for observability.
-    Bare-string log calls (logger.info("msg")) are unstructured.
-
-    Valid:   logger.info("User created", extra={"user_id": uid})
-    Invalid: logger.info("User created")
-    Invalid: logger.info("User %s", username)
-
-    Scans: REPO_ROOT/python/ and src/atdd/ (consumer code + toolkit dogfooding).
-
-    Given: Python files in python/ and src/atdd/ (excluding tests)
-    When: Checking logger calls via AST analysis
-    Then: Violation count does not exceed baseline (ratchet pattern)
+    Pass/fail decided by LOGGING-STRUCTURED-001's disposition
+    (``suppress-and-clean``): pre-existing bare log calls carry inline
+    ``# atdd:suppress(LOGGING-STRUCTURED-001) UNTIL=<date>`` markers and
+    are absorbed; new bare calls fail.
 
     Convention: atdd/coder/conventions/logging.convention.yaml (LOG-002)
     """
@@ -309,9 +293,8 @@ def test_structured_logging_format(ratchet_baseline):
     if not python_files:
         pytest.skip("No Python files found to validate")
 
-    count, violations = scan_structured_logging(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    _count, violations = scan_structured_logging(REPO_ROOT)
+    assert_disposition_satisfied(
         validator_id="structured_logging_format",
-        current_count=count,
         violations=violations,
     )
