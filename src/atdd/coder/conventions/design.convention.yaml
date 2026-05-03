@@ -6,6 +6,29 @@ description: "Hierarchy rules and validation standards for design system archite
 design_system:
   goal: "Enforce reusable UI patterns via tokens → primitives → components → templates hierarchy"
 
+  # Structured rules (issue #389 Phase 3a — Decision #9: nested placement is canonical).
+  # Consolidates the testable invariants implied by `principles:` (DS-NN) and
+  # `anti_patterns:` (AP-DS-NN) into the canonical <DOMAIN>-<TOPIC>-<NNN>
+  # grammar. The legacy DS-NN/AP-DS-NN entries below are preserved verbatim
+  # — renaming is out of scope (Out-of-Scope per issue #389).
+  rules:
+    - id: DESIGN-HIERARCHY-001
+      severity: 3
+      description: "Tokens are pure values — no widgets, no logic (mirrors principles.DS-01)"
+      introduced_in: "1.66.0"
+    - id: DESIGN-HIERARCHY-002
+      severity: 3
+      description: "Dependency flow: tokens ← primitives ← components ← templates (mirrors principles.DS-05)"
+      introduced_in: "1.66.0"
+    - id: DESIGN-HIERARCHY-003
+      severity: 3
+      description: "Wagons import from design_system; design_system never imports from wagons (mirrors principles.DS-06)"
+      introduced_in: "1.66.0"
+    - id: DESIGN-HIERARCHY-004
+      severity: 2
+      description: "Extract to design_system on 3rd occurrence (DRY threshold; mirrors principles.DS-07)"
+      introduced_in: "1.66.0"
+
   location:
     path: "lib/design_system/"
     note: "Design system is a shared wagon at same level as feature wagons"

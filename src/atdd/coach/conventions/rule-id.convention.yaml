@@ -30,6 +30,28 @@ grammar:
     zero_padded: true
 
 # =============================================================================
+# Legacy grammar (issue #389 Phase 1)
+# =============================================================================
+# Pre-#340 rule IDs whose shape predates the canonical
+# `<DOMAIN>-<TOPIC>-<NNN>` grammar. Acceptance is gated on the declaring
+# convention being listed under `migration.completed:` — legacy IDs in
+# unmigrated files are still ignored exactly as before.
+#
+# Decision #8: `AP-DS-NN` and `COACH-BABYSIT-NNN` are NOT legacy — they
+# already match the canonical regex (two-or-more-hyphen IDs are canonical),
+# so adding them here would create double-grammar uniqueness edge cases.
+#
+# New rules MUST use the canonical grammar. This block exists to preserve
+# history without forcing flag-day renames across every reference site.
+legacy_grammar:
+  - pattern: "^DS-\\d{2}$"
+    rationale: "Design-system principles (e.g., DS-01) — predate DESIGN-* canonical IDs."
+  - pattern: "^ERR-\\d{2}$"
+    rationale: "Error-response rules (e.g., ERR-01) — predate ERROR-* canonical IDs."
+  - pattern: "^GP-\\d{2}$"
+    rationale: "Green-phase rules (e.g., GP-01) — predate GREEN-* canonical IDs."
+
+# =============================================================================
 # DOMAIN registry (closed set — SPEC-COACH-RULEID-0002)
 # =============================================================================
 # Adding a value here is a SPEC edit. The rule-id-uniqueness validator

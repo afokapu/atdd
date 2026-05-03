@@ -2,6 +2,23 @@ version: "1.0"
 name: "Presentation Convention"
 description: "Presentation layer implementation patterns across Python, TypeScript, and Dart"
 
+# Structured rules (issue #389 Phase 3a) — top-level placement so the registry
+# walker discovers them; existing `architecture:`, `http_rest_api:`,
+# `cli_pattern:`, `validation:` blocks are preserved verbatim.
+rules:
+  - id: PRESENTATION-THIN-001
+    severity: 3
+    description: "Presentation layer is thin — no business logic; controllers delegate to application use cases"
+    introduced_in: "1.66.0"
+  - id: PRESENTATION-THIN-002
+    severity: 3
+    description: "Controllers never call domain directly; flow is Controller → Use Case → Domain"
+    introduced_in: "1.66.0"
+  - id: PRESENTATION-THIN-003
+    severity: 3
+    description: "Response models live in contract_dto and match contract JSON schemas"
+    introduced_in: "1.66.0"
+
 purpose: |
   Defines how to implement presentation layer (HTTP REST, CLI, GraphQL) across runtimes.
 

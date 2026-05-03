@@ -240,6 +240,23 @@ dependency_rules:
       to: [integration]
       reason: "Application uses ports; integration implements them"
 
+  # Structured rules (issue #389 Phase 3a) — Decision #9: nested placement next
+  # to existing rule-bearing structure is canonical. allowed_edges/forbidden_edges
+  # above are preserved verbatim; the rules below give them registry-walker IDs.
+  rules:
+    - id: BOUNDARIES-COMMONS-001
+      severity: 3
+      description: "Domain layer in commons has no outbound edges (no application/integration imports)"
+      introduced_in: "1.66.0"
+    - id: BOUNDARIES-COMMONS-002
+      severity: 3
+      description: "Application layer uses ports; integration implements them (no application→integration edges)"
+      introduced_in: "1.66.0"
+    - id: BOUNDARIES-COMMONS-003
+      severity: 3
+      description: "Cross-feature imports in commons go through the layer above (no peer-to-peer feature edges)"
+      introduced_in: "1.66.0"
+
 # ============================================================================
 # STACK-SPECIFIC PATTERNS
 # ============================================================================

@@ -2,6 +2,23 @@ version: "1.0"
 name: "Technology Stack Convention"
 description: "Lean map of default technologies with rationales, constraints, and deviation guidance"
 
+# Structured rules (issue #389 Phase 3a) — top-level placement so the registry
+# walker discovers them; existing technology.* tree (defaults, alternatives,
+# rationales) is preserved verbatim.
+rules:
+  - id: COACH-TECH-STACK-001
+    severity: 2
+    description: "New components default to the technology.<layer>.default for their layer; deviations declare an approved alternative"
+    introduced_in: "1.66.0"
+  - id: COACH-TECH-STACK-002
+    severity: 2
+    description: "Approved alternatives are taken only when the use_when criteria are met; tradeoff is documented in the wagon"
+    introduced_in: "1.66.0"
+  - id: COACH-TECH-STACK-003
+    severity: 2
+    description: "Unapproved technology choices require a SPEC edit before they can ship"
+    introduced_in: "1.66.0"
+
 technology:
   backend:
     presentation:
