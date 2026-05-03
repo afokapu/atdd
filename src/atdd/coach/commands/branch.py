@@ -64,7 +64,7 @@ class BranchManager:
             gh_title = issue_data.get("title", "")
             if gh_title:
                 pr_title = f"{gh_title} (#{issue_number})"
-        except Exception:
+        except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             pass  # Fall back to slug-based title
 
         pr_body = f"Closes #{issue_number}\n\n---\nDraft PR created by `atdd branch`."

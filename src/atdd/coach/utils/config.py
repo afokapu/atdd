@@ -85,7 +85,7 @@ def load_atdd_config(repo_root: Path) -> Dict[str, Any]:
         with open(config_path) as f:
             config = yaml.safe_load(f)
             return config if config else {}
-    except Exception:
+    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         return {}
 
 

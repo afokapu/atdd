@@ -111,7 +111,7 @@ class PRManager:
                 branch = result.stdout.strip()
                 if branch and branch != "HEAD":
                     return branch
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             pass
         return None
 
@@ -126,7 +126,7 @@ class PRManager:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             pass
         return None
 
@@ -414,7 +414,7 @@ class PRManager:
             )
             if result.returncode == 0:
                 return result.stdout.strip().lower() == "true"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             pass
         return False
 

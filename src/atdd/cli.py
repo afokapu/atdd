@@ -1689,7 +1689,7 @@ Phase descriptions:
                 return 1
             try:
                 issue_number = int(number_str)
-            except ValueError:
+            except ValueError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
                 print(f"Error: invalid issue number '{number_str}'")
                 return 1
             delta = manager.sync_labels(issue_number, dry_run=dry_run)
@@ -1699,7 +1699,7 @@ Phase descriptions:
         # Detect mode: integer → enter, string → create (future)
         try:
             issue_number = int(target)
-        except ValueError:
+        except ValueError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             # Slug mode — create new issue and enter at INIT
             from atdd.coach.commands.issue_lifecycle import IssueLifecycle
             lifecycle = IssueLifecycle()

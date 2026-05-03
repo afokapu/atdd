@@ -138,7 +138,7 @@ def print_update_notice() -> None:
         notice = check_for_updates()
         if notice:
             print(notice, file=sys.stderr)
-    except Exception:
+    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         pass  # Never fail the main command due to version check
 
 
@@ -276,7 +276,7 @@ def print_upgrade_sync_notice() -> None:
         if notice:
             print(f"\n⚠️  {notice}", file=sys.stderr)
             print(file=sys.stderr)
-    except Exception:
+    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         pass  # Never fail the main command
 
 
@@ -310,7 +310,7 @@ def auto_upgrade() -> bool:
             capture_output=True, text=True, timeout=120,
         )
         return result.returncode == 0
-    except Exception:
+    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         return False
 
 

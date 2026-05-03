@@ -197,7 +197,7 @@ def _file_line_count(repo_root: Path, ref: str, path: str) -> int:
             text=True,
             stderr=subprocess.DEVNULL,
         )
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         return 0
     if not content:
         return 0

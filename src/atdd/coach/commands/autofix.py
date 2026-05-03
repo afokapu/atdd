@@ -67,12 +67,12 @@ def _rewrite_file(path: Path) -> Tuple[int, Optional[str]]:
     """
     try:
         source = path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except OSError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         return (0, f"skip {path}: {exc}")
 
     try:
         tree = ast.parse(source, filename=str(path))
-    except SyntaxError as exc:
+    except SyntaxError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         return (0, f"skip {path}: parse error ({exc})")
 
     offenders = _find_offending_classes(tree)

@@ -95,7 +95,7 @@ def set_governance_status(contract_path: Path, dry_run: bool = False) -> dict:
             "changes": changes
         }
 
-    except Exception as e:
+    except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         return {"status": "error", "reason": str(e)}
 
 

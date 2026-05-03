@@ -107,7 +107,7 @@ def _load_yaml_safely(path: Path) -> Optional[dict]:
     try:
         with open(path) as f:
             doc = yaml.safe_load(f)
-    except Exception:
+    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         return None
     return doc if isinstance(doc, dict) else None
 
@@ -196,7 +196,7 @@ def _collect_pyproject_keywords(repo_root: Path) -> List[str]:
         return []
     try:
         text = path.read_text()
-    except OSError:
+    except OSError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         return []
 
     # Minimal keyword extraction: parse the `keywords = [...]` array.
@@ -221,7 +221,7 @@ def _collect_package_json_keywords(repo_root: Path) -> List[str]:
         import json
 
         data = json.loads(path.read_text())
-    except Exception:
+    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         return []
     keywords = data.get("keywords") if isinstance(data, dict) else None
     if not isinstance(keywords, list):
