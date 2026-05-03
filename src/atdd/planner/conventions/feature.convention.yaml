@@ -369,3 +369,17 @@ validation_rules:
   - "footprint scores architectural complexity using point system"
   - "Features exceeding component/event limits must be split"
   - "Features exceeding hard limits (tables/jobs/integrations) MUST be split"
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: PLANNER-FEATURE-SHAPE-001
+    severity: 2
+    description: "Feature YAMLs declare urn, status, and a non-empty acceptance section"
+    introduced_in: "1.67.0"
+  - id: PLANNER-FEATURE-WAGON-LINK-001
+    severity: 2
+    description: "Each feature is registered under exactly one wagon's _features.yaml manifest"
+    introduced_in: "1.67.0"
