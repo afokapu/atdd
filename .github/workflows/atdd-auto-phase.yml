@@ -16,6 +16,7 @@ jobs:
       issues: write
       contents: read
       pull-requests: read
+      projects: write   # Issue #384: required for ProjectV2 sync.
     steps:
       - uses: actions/checkout@v4
         with:
