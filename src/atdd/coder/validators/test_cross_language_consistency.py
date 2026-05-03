@@ -9,15 +9,28 @@ Validates:
 
 Inspired by: .claude/utils/coder/ (multiple utilities)
 But: Self-contained, no utility dependencies
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``BOUNDARIES-XLANG-*-001`` rule_ids declared in
+``src/atdd/coder/conventions/boundaries.convention.yaml``.
 """
 
 import pytest
 import re
 import json
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root, find_python_dir
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_ENTITY = bind_rule("BOUNDARIES-XLANG-ENTITY-001")
+_RULE_ENUM = bind_rule("BOUNDARIES-XLANG-ENUM-001")
+_RULE_NAMING = bind_rule("BOUNDARIES-XLANG-NAMING-001")
+_RULE_CONTRACT = bind_rule("BOUNDARIES-XLANG-CONTRACT-001")
 
 
 # Path constants
@@ -225,14 +238,14 @@ def find_contract_entities() -> Dict[str, Set[str]]:
     return entities
 
 
-def scan_entity_cross_language(repo_root: Path):
+def scan_entity_cross_language(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for missing entity implementations. Used by ratchet baseline."""
     python_classes = extract_python_classes()
     dart_classes = extract_dart_classes()
     contract_entities = find_contract_entities()
     if (not python_classes and not dart_classes) or not contract_entities:
         return 0, []
-    violations = []
+    violations: List[Violation] = []
     for entity_name, fields in contract_entities.items():
         normalized = ''.join(word.capitalize() for word in re.split(r'[-_]', entity_name))
         has_python = (normalized in python_classes or entity_name in python_classes or
@@ -245,26 +258,38 @@ def scan_entity_cross_language(repo_root: Path):
         if dart_classes and not has_dart:
             missing.append("Dart")
         if missing:
-            violations.append(f"{entity_name} missing in {', '.join(missing)}")
+            violations.append(Violation(
+                rule_id=_RULE_ENTITY.rule_id,
+                severity=_RULE_ENTITY.severity,
+                location=f"contracts/{entity_name}:0",
+                detail=f"{entity_name} missing in {', '.join(missing)}",
+                fix_hint_ref=_RULE_ENTITY.fix_hint_ref,
+            ))
     return len(violations), violations
 
 
-def scan_enum_cross_language(repo_root: Path):
+def scan_enum_cross_language(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for enum mismatches across languages. Used by ratchet baseline."""
     python_enums = extract_python_enums()
     dart_enums = extract_dart_enums()
     if not python_enums and not dart_enums:
         return 0, []
-    violations = []
+    violations: List[Violation] = []
     for enum_name in set(python_enums.keys()) & set(dart_enums.keys()):
         py_lower = {v.lower() for v in python_enums[enum_name]}
         dart_lower = {v.lower() for v in dart_enums[enum_name]}
         if py_lower != dart_lower:
-            violations.append(f"{enum_name}: Python={py_lower - dart_lower} Dart={dart_lower - py_lower}")
+            violations.append(Violation(
+                rule_id=_RULE_ENUM.rule_id,
+                severity=_RULE_ENUM.severity,
+                location=f"enums/{enum_name}:0",
+                detail=f"{enum_name}: Python={py_lower - dart_lower} Dart={dart_lower - py_lower}",
+                fix_hint_ref=_RULE_ENUM.fix_hint_ref,
+            ))
     return len(violations), violations
 
 
-def scan_naming_cross_language(repo_root: Path):
+def scan_naming_cross_language(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for naming inconsistencies across languages. Used by ratchet baseline."""
     python_classes = extract_python_classes()
     dart_classes = extract_dart_classes()
@@ -280,24 +305,30 @@ def scan_naming_cross_language(repo_root: Path):
         for suffix in ['Entity', 'Model', 'DTO', 'Service', 'Repository']:
             if name.endswith(suffix):
                 dart_suffixes.setdefault(suffix, set()).add(name[:-len(suffix)])
-    violations = []
+    violations: List[Violation] = []
     for suffix in set(python_suffixes.keys()) | set(dart_suffixes.keys()):
         python_bases = python_suffixes.get(suffix, set())
         for base in python_bases:
             for dart_suffix in dart_suffixes:
                 if suffix != dart_suffix and base in dart_suffixes[dart_suffix]:
-                    violations.append(f"{base}: Python={suffix} Dart={dart_suffix}")
+                    violations.append(Violation(
+                        rule_id=_RULE_NAMING.rule_id,
+                        severity=_RULE_NAMING.severity,
+                        location=f"naming/{base}:0",
+                        detail=f"{base}: Python={suffix} Dart={dart_suffix}",
+                        fix_hint_ref=_RULE_NAMING.fix_hint_ref,
+                    ))
     return len(violations), violations
 
 
-def scan_api_contracts_cross_language(repo_root: Path):
+def scan_api_contracts_cross_language(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for unimplemented contracts. Used by ratchet baseline."""
     contract_entities = find_contract_entities()
     python_classes = extract_python_classes()
     dart_classes = extract_dart_classes()
     if not contract_entities:
         return 0, []
-    violations = []
+    violations: List[Violation] = []
     for entity_name, fields in contract_entities.items():
         normalized = ''.join(word.capitalize() for word in re.split(r'[-_]', entity_name))
         has_any = (normalized in python_classes or entity_name in python_classes or
@@ -305,7 +336,13 @@ def scan_api_contracts_cross_language(repo_root: Path):
                    any(normalized in cls for cls in python_classes) or
                    any(normalized in cls for cls in dart_classes))
         if not has_any:
-            violations.append(f"{entity_name}: no implementations found")
+            violations.append(Violation(
+                rule_id=_RULE_CONTRACT.rule_id,
+                severity=_RULE_CONTRACT.severity,
+                location=f"contracts/{entity_name}:0",
+                detail=f"{entity_name}: no implementations found",
+                fix_hint_ref=_RULE_CONTRACT.fix_hint_ref,
+            ))
     return len(violations), violations
 
 

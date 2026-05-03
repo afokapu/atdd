@@ -1,3 +1,13 @@
+api_contracts_cross_language:
+- rule_id: BOUNDARIES-XLANG-CONTRACT-001
+  severity: 3
+  location: contracts/render-metadata:0
+  detail: 'render-metadata: no implementations found'
+entity_cross_language:
+- rule_id: BOUNDARIES-XLANG-ENTITY-001
+  severity: 3
+  location: contracts/render-metadata:0
+  detail: render-metadata missing in Python
 silent_exception_swallowing_python:
 - rule_id: COACH-SILENT-SWALLOW-001
   severity: 4
