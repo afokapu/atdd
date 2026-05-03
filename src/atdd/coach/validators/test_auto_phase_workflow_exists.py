@@ -18,6 +18,10 @@ from atdd.coach.utils.repo import find_repo_root
 
 REPO_ROOT = find_repo_root()
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "atdd-auto-phase.yml"
+TEMPLATE_PATH = (
+    REPO_ROOT
+    / "src" / "atdd" / "coach" / "templates" / "workflows" / "atdd-auto-phase.yml"
+)
 
 
 def _load_workflow() -> dict:
@@ -28,6 +32,21 @@ def _load_workflow() -> dict:
             "phase on PR merge."
         )
     return yaml.safe_load(WORKFLOW_PATH.read_text()) or {}
+
+
+def _load_template() -> dict:
+    if not TEMPLATE_PATH.exists():
+        pytest.skip(
+            f"Template not present at {TEMPLATE_PATH.relative_to(REPO_ROOT)} "
+            "(consumer repo without toolkit source) — deployed-file checks "
+            "still apply."
+        )
+    return yaml.safe_load(TEMPLATE_PATH.read_text()) or {}
+
+
+def _job_permissions(wf: dict) -> dict:
+    """Extract the auto-phase job's `permissions:` block."""
+    return ((wf.get("jobs") or {}).get("auto-phase") or {}).get("permissions") or {}
 
 
 def test_auto_phase_workflow_file_exists():
@@ -65,4 +84,33 @@ def test_auto_phase_workflow_invokes_atdd_auto_phase():
     assert "auto-phase" in content, (
         "atdd-auto-phase.yml must invoke `atdd auto-phase` (or "
         "`python -m atdd.cli auto-phase`) to perform the transition."
+    )
+
+
+def test_auto_phase_workflow_grants_projects_write():
+    """Issue #384: `permissions:` must declare `projects: write`.
+
+    Without this, the GHA token is denied ProjectV2 GraphQL writes with
+    `Resource not accessible by integration`, and auto-phase silently fails
+    after computing the transition. Regression of #382's intended fix.
+    """
+    perms = _job_permissions(_load_workflow())
+    assert perms.get("projects") == "write", (
+        "atdd-auto-phase.yml `permissions:` must declare `projects: write`. "
+        f"Found permissions={perms!r}. Issue #384."
+    )
+
+
+def test_auto_phase_workflow_template_grants_projects_write():
+    """Issue #384: the shipped template must declare `projects: write`.
+
+    Catches regressions where the template ships without ProjectV2 write
+    access; consumer repos receiving the template via `atdd init` would
+    otherwise inherit the broken permissions block on every refresh.
+    """
+    perms = _job_permissions(_load_template())
+    assert perms.get("projects") == "write", (
+        "src/atdd/coach/templates/workflows/atdd-auto-phase.yml "
+        "`permissions:` must declare `projects: write`. "
+        f"Found permissions={perms!r}. Issue #384."
     )
