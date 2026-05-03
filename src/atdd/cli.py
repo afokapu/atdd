@@ -793,6 +793,17 @@ Phase descriptions:
         dest="worktree_path",
         help="Worktree path to embed in the launch script (default: derived from branch)",
     )
+    session_template_parser.add_argument(
+        "--from-checkpoint",
+        action="store_true",
+        dest="from_checkpoint",
+        help=(
+            "Inline `.atdd/worker-state-<N>.json` (if present) into the launch "
+            "script so a /clear+reload restores worker state without manual "
+            "re-briefing. Falls back to default behavior when no checkpoint "
+            "exists. See issue #378."
+        ),
+    )
 
     # ----- atdd orchestrate <issue-numbers...> -----
     orchestrate_parser = subparsers.add_parser(
@@ -1738,6 +1749,7 @@ Phase descriptions:
             issue_number=args.issue_number,
             output=out,
             worktree_path=getattr(args, "worktree_path", "") or "",
+            from_checkpoint=getattr(args, "from_checkpoint", False),
         )
 
     # atdd orchestrate <issue-numbers...>
