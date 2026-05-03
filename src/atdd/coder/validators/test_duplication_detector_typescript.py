@@ -14,6 +14,10 @@ Conventions from:
 - atdd/coder/conventions/duplication.convention.yaml
 
 Reuses layer detection from test_typescript_architecture.py.
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``DUPLICATION-TS-001`` declared in
+``src/atdd/coder/conventions/duplication.convention.yaml``.
 """
 
 import fnmatch
@@ -27,6 +31,12 @@ from typing import Dict, List, Optional, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_DUP_TS = bind_rule("DUPLICATION-TS-001")
 
 
 # ---------------------------------------------------------------------------
@@ -288,9 +298,9 @@ def scan_typescript_duplications(repo_root: Path) -> Tuple[int, List[str]]:
             continue
         files_by_layer.setdefault(layer, []).append(f)
 
-    violations = find_intra_layer_duplicates_ts(files_by_layer, min_lines)
-    violation_strs = []
-    for v in violations:
+    raw_violations = find_intra_layer_duplicates_ts(files_by_layer, min_lines)
+    structured: List[Violation] = []
+    for v in raw_violations:
         try:
             rel_a = v["file_a"].relative_to(repo_root)
         except ValueError:
@@ -299,11 +309,17 @@ def scan_typescript_duplications(repo_root: Path) -> Tuple[int, List[str]]:
             rel_b = v["file_b"].relative_to(repo_root)
         except ValueError:
             rel_b = v["file_b"]
-        violation_strs.append(
-            f"[{v['layer']}] {rel_a}:{v['line_a']} ↔ {rel_b}:{v['line_b']} "
-            f"({v['lines']} identical normalized lines)"
-        )
-    return len(violations), violation_strs
+        structured.append(Violation(
+            rule_id=_RULE_DUP_TS.rule_id,
+            severity=_RULE_DUP_TS.severity,
+            location=f"{rel_a}:{v['line_a']}",
+            detail=(
+                f"[{v['layer']}] {rel_a}:{v['line_a']} <-> {rel_b}:{v['line_b']} "
+                f"({v['lines']} identical normalized lines)"
+            ),
+            fix_hint_ref=_RULE_DUP_TS.fix_hint_ref,
+        ))
+    return len(structured), structured
 
 
 @pytest.mark.coder

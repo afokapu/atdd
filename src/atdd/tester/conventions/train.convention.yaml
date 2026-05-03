@@ -68,3 +68,13 @@ validation_rules:
   - "Journey test URN must match: test:train:{train_id}:{HARNESS}-{NNN}-{slug}"
   - "Layer must be 'assembly' for all journey tests"
   - "No Acceptance: or WMBT: lines allowed in journey test files"
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: TESTER-TRAIN-COVERAGE-001
+    severity: 2
+    description: "Each train wagon has a smoke test exercising its composition root"
+    introduced_in: "1.67.0"

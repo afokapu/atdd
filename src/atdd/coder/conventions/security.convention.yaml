@@ -118,3 +118,26 @@ security:
         - "**/*.test.tsx"
         - "**/sanitize*.ts"
         - "**/sanitize*.tsx"
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+# Top-level `rules:` array — registry-walkable. Mirrors canonical rule_ids
+# already emitted by validators alongside the legacy SPEC-CODER-SEC-* IDs above.
+rules:
+  - id: SECURITY-XSS-001
+    severity: 5
+    description: "No innerHTML or dangerouslySetInnerHTML in frontend code (use safe DOM APIs)"
+    introduced_in: "1.67.0"
+  - id: SECURITY-SQL-INJECTION-001
+    severity: 5
+    description: "No raw SQL string concatenation in execute calls (use parameterized queries)"
+    introduced_in: "1.67.0"
+  - id: SECURITY-MISSING-AUTH-001
+    severity: 5
+    description: "FastAPI route handlers must include a Depends(auth_fn) parameter"
+    introduced_in: "1.67.0"
+  - id: SECURITY-HARDCODED-SECRET-001
+    severity: 5
+    description: "No hardcoded credentials, AWS keys, private keys, or API tokens in source files"
+    introduced_in: "1.67.0"

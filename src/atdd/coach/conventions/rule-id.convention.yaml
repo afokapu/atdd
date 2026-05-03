@@ -50,6 +50,8 @@ legacy_grammar:
     rationale: "Error-response rules (e.g., ERR-01) — predate ERROR-* canonical IDs."
   - pattern: "^GP-\\d{2}$"
     rationale: "Green-phase rules (e.g., GP-01) — predate GREEN-* canonical IDs."
+  - pattern: "^COACH-PRGATE-\\d{4}$"
+    rationale: "PR-phase gate rules (e.g., COACH-PRGATE-0003) — predate canonical 3-digit grammar; published in issue #293."
 
 # =============================================================================
 # DOMAIN registry (closed set — SPEC-COACH-RULEID-0002)
@@ -269,3 +271,34 @@ migration:
     # Add migrated convention paths here as they land.
     - "src/atdd/coder/conventions/green.convention.yaml"
     - "src/atdd/coach/conventions/orchestration.convention.yaml"
+    - "src/atdd/coder/conventions/refactor.convention.yaml"
+    # Issue #394 Phase 1 — coder conventions whose ratchet validators emit Violations
+    - "src/atdd/coder/conventions/boundaries.convention.yaml"
+    - "src/atdd/coder/conventions/dead-code.convention.yaml"
+    - "src/atdd/coder/conventions/design.convention.yaml"
+    - "src/atdd/coder/conventions/duplication.convention.yaml"
+    - "src/atdd/coder/conventions/error-response.convention.yaml"
+    - "src/atdd/coder/conventions/presentation.convention.yaml"
+    # Issue #394 Phase 2 — coder conventions with declared structured rules
+    - "src/atdd/coder/conventions/dto.convention.yaml"
+    - "src/atdd/coder/conventions/frontend.convention.yaml"
+    # Issue #394 Phase 2 — tester conventions with declared structured rules
+    - "src/atdd/tester/conventions/filename.convention.yaml"
+    - "src/atdd/tester/conventions/migration.convention.yaml"
+    - "src/atdd/tester/conventions/red.convention.yaml"
+    - "src/atdd/tester/conventions/routing.convention.yaml"
+    - "src/atdd/tester/conventions/security.convention.yaml"
+    - "src/atdd/tester/conventions/telemetry.convention.yaml"
+    - "src/atdd/tester/conventions/train.convention.yaml"
+    # Issue #394 Phase 2 — planner conventions with declared structured rules
+    - "src/atdd/planner/conventions/acceptance.convention.yaml"
+    - "src/atdd/planner/conventions/appendix.convention.yaml"
+    - "src/atdd/planner/conventions/artifact-naming.convention.yaml"
+    - "src/atdd/planner/conventions/criteria.convention.yaml"
+    - "src/atdd/planner/conventions/feature.convention.yaml"
+    - "src/atdd/planner/conventions/steps.convention.yaml"
+    - "src/atdd/planner/conventions/wagon.convention.yaml"
+    - "src/atdd/planner/conventions/wmbt.convention.yaml"
+    # Issue #394 Phase 3 — strict-flip prerequisite registrations
+    - "src/atdd/coder/conventions/security.convention.yaml"
+    - "src/atdd/tester/conventions/smoke.convention.yaml"

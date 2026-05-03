@@ -19,6 +19,14 @@ from pathlib import Path
 from typing import List, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_CYCLO_TS = bind_rule("COMPLEXITY-CYCLOMATIC-TS-001")
+_RULE_NEST_TS = bind_rule("COMPLEXITY-NESTING-TS-001")
+_RULE_LEN_TS = bind_rule("COMPLEXITY-LENGTH-TS-001")
 
 
 # ---------------------------------------------------------------------------
@@ -368,14 +376,14 @@ def count_function_lines_ts(function_body: str) -> int:
 # ---------------------------------------------------------------------------
 # Scan functions (used by ratchet baseline registration)
 # ---------------------------------------------------------------------------
-def scan_cyclomatic_complexity_ts(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_cyclomatic_complexity_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for cyclomatic complexity violations in TS/TSX files."""
     web_src = repo_root / "web" / "src"
     if not web_src.exists():
         return 0, []
 
     files = find_typescript_files(web_src)
-    violations: List[str] = []
+    violations: List[Violation] = []
 
     for ts_file in files:
         for func_name, line_num, func_body in extract_functions_ts(ts_file):
@@ -384,51 +392,63 @@ def scan_cyclomatic_complexity_ts(repo_root: Path) -> Tuple[int, List[str]]:
             complexity = calculate_cyclomatic_complexity_ts(func_body)
             if complexity > MAX_CYCLOMATIC_COMPLEXITY:
                 rel_path = ts_file.relative_to(repo_root)
-                violations.append(
-                    f"{rel_path}:{line_num} {func_name} complexity={complexity}"
-                )
+                violations.append(Violation(
+                    rule_id=_RULE_CYCLO_TS.rule_id,
+                    severity=_RULE_CYCLO_TS.severity,
+                    location=f"{rel_path}:{line_num}",
+                    detail=f"{func_name} complexity={complexity} (>{MAX_CYCLOMATIC_COMPLEXITY})",
+                    fix_hint_ref=_RULE_CYCLO_TS.fix_hint_ref,
+                ))
 
     return len(violations), violations
 
 
-def scan_nesting_depth_ts(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_nesting_depth_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for nesting depth violations in TS/TSX files."""
     web_src = repo_root / "web" / "src"
     if not web_src.exists():
         return 0, []
 
     files = find_typescript_files(web_src)
-    violations: List[str] = []
+    violations: List[Violation] = []
 
     for ts_file in files:
         for func_name, line_num, func_body in extract_functions_ts(ts_file):
             depth = calculate_nesting_depth_ts(func_body)
             if depth > MAX_NESTING_DEPTH:
                 rel_path = ts_file.relative_to(repo_root)
-                violations.append(
-                    f"{rel_path}:{line_num} {func_name} depth={depth}"
-                )
+                violations.append(Violation(
+                    rule_id=_RULE_NEST_TS.rule_id,
+                    severity=_RULE_NEST_TS.severity,
+                    location=f"{rel_path}:{line_num}",
+                    detail=f"{func_name} depth={depth} (>{MAX_NESTING_DEPTH})",
+                    fix_hint_ref=_RULE_NEST_TS.fix_hint_ref,
+                ))
 
     return len(violations), violations
 
 
-def scan_function_length_ts(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_function_length_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for function length violations in TS/TSX files."""
     web_src = repo_root / "web" / "src"
     if not web_src.exists():
         return 0, []
 
     files = find_typescript_files(web_src)
-    violations: List[str] = []
+    violations: List[Violation] = []
 
     for ts_file in files:
         for func_name, line_num, func_body in extract_functions_ts(ts_file):
             lines = count_function_lines_ts(func_body)
             if lines > MAX_FUNCTION_LINES:
                 rel_path = ts_file.relative_to(repo_root)
-                violations.append(
-                    f"{rel_path}:{line_num} {func_name} lines={lines}"
-                )
+                violations.append(Violation(
+                    rule_id=_RULE_LEN_TS.rule_id,
+                    severity=_RULE_LEN_TS.severity,
+                    location=f"{rel_path}:{line_num}",
+                    detail=f"{func_name} lines={lines} (>{MAX_FUNCTION_LINES})",
+                    fix_hint_ref=_RULE_LEN_TS.fix_hint_ref,
+                ))
 
     return len(violations), violations
 

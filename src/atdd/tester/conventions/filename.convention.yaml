@@ -591,3 +591,13 @@ migration:
       legacy_urn_comment: "// urn: acc:maintain-ux.001.AC-HTTP-006"
       new_urn: "acc:maintain-ux:C004-HTTP-006-primitive-endpoint"
       new_filename: "C004_HTTP_006_primitive_endpoint_test.dart"
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: TESTER-FILENAME-URN-001
+    severity: 2
+    description: "Test filenames follow URN-based pattern test_<NNNN>.py / test_<NNNN>.ts"
+    introduced_in: "1.67.0"

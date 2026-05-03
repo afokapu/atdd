@@ -273,3 +273,45 @@ multiplexer:
     targeting (via the ZELLIJ_SESSION_NAME env var), both of which align
     with the headless orchestration model. tmux remains as the ubiquitous
     last-resort fallback.
+
+# =============================================================================
+# Validator self-rules (issue #394)
+# =============================================================================
+# Rule_ids emitted by validators that police THIS convention's pattern
+# definitions and PR-phase orchestration. Registered here so the coherence
+# validator (test_rule_id_registry_coherence) can resolve them.
+babysit_validator_rules:
+  description: "Rules emitted by test_babysit_allowlist_consistency to police babysit pattern definitions"
+  rules:
+    - id: COACH-BABYSIT-001
+      severity: 3
+      description: "Babysit rule_id matches grammar <DOMAIN>-<TOPIC>-<NNN>"
+      introduced_in: "1.67.0"
+    - id: COACH-BABYSIT-002
+      severity: 3
+      description: "Babysit rule_id uses DOMAIN=COACH, TOPIC=BABYSIT"
+      introduced_in: "1.67.0"
+    - id: COACH-BABYSIT-003
+      severity: 3
+      description: "Babysit rule severity is integer in [1, 5]"
+      introduced_in: "1.67.0"
+    - id: COACH-BABYSIT-004
+      severity: 2
+      description: "Babysit rule has non-empty description"
+      introduced_in: "1.67.0"
+    - id: COACH-BABYSIT-005
+      severity: 4
+      description: "Babysit rule regex is non-empty and compiles"
+      introduced_in: "1.67.0"
+    - id: COACH-BABYSIT-006
+      severity: 3
+      description: "Babysit allow/deny patterns do not overlap on test corpus"
+      introduced_in: "1.67.0"
+
+pr_phase_alignment_rules:
+  description: "Rule emitted by test_pr_phase_alignment to gate GREEN-phase PRs that ship code without SMOKE evidence"
+  rules:
+    - id: COACH-PRGATE-0003
+      severity: 4
+      description: "GREEN-phase PR ships code files without SMOKE evidence (issue #293)"
+      introduced_in: "1.67.0"

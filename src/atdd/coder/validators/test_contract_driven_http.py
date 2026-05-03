@@ -5,8 +5,12 @@ Validates:
 - No raw fetch() calls outside whitelisted files
 - Whitelist configured via .atdd/config.yaml contract_driven_http.whitelist
 
-Convention: src/atdd/coder/conventions/frontend.convention.yaml
+Convention: src/atdd/coder/conventions/boundaries.convention.yaml
 Spec: SPEC-CODER-CONTRACT-0001
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``BOUNDARIES-HTTP-CLIENT-001`` declared in
+``src/atdd/coder/conventions/boundaries.convention.yaml``.
 """
 
 import fnmatch
@@ -18,6 +22,12 @@ from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_HTTP_CLIENT = bind_rule("BOUNDARIES-HTTP-CLIENT-001")
 
 
 # ---------------------------------------------------------------------------
@@ -192,14 +202,21 @@ def test_no_raw_fetch_calls(ratchet_baseline):
         pytest.skip("No TypeScript files found in web/src/")
 
     violations = scan_raw_fetch(files)
+    structured = [
+        Violation(
+            rule_id=_RULE_HTTP_CLIENT.rule_id,
+            severity=_RULE_HTTP_CLIENT.severity,
+            location=f"{v['file'].relative_to(REPO_ROOT)}:{v['line']}",
+            detail=v['detail'],
+            fix_hint_ref=_RULE_HTTP_CLIENT.fix_hint_ref,
+        )
+        for v in violations
+    ]
 
     ratchet_baseline.assert_no_regression(
         validator_id="contract_driven_http",
         current_count=len(violations),
-        violations=[
-            f"{v['file'].relative_to(REPO_ROOT)}:{v['line']}  {v['detail']}"
-            for v in violations
-        ],
+        violations=structured,
     )
 
     if violations:

@@ -3,17 +3,18 @@
 # Purpose: Surface emissions whose rule_id is not declared in any convention rules: block.
 
 """
-Coach validator for rule-id registry coherence (issue #387).
+Coach validator for rule-id registry coherence (issue #387, strict-flip #394).
 
 Walks production validator + command source, extracts rule_id emissions via
 three regex patterns (Decision #1), and cross-checks against the registry
 built from every ``*.convention.yaml``. Drift surfaces as plain text:
 
-  - permissive mode (default)     -> WARN, exit 0
-  - ``ATDD_STRICT_COHERENCE=1``   -> ERROR, exit 1
+  - strict mode (default)         -> ERROR, exit 1
+  - ``ATDD_PERMISSIVE_COHERENCE=1`` -> WARN, exit 0 (opt-out)
 
-The CLI flag ``--strict-coherence`` on ``atdd validate coach`` sets the
-env var.
+The CLI flag ``--permissive-coherence`` on ``atdd validate coach`` sets the
+opt-out env var. Issue #394 flipped the default: drift fails CI unless the
+caller explicitly opts back into permissive mode.
 
 Decision #2: this validator does NOT emit ``Violation`` records for drift —
 drift is a config issue, not a runtime violation. Plain text avoids
@@ -94,7 +95,7 @@ def _collect_drift() -> List[Tuple[Path, int, str]]:
 def _format_drift(drift: List[Tuple[Path, int, str]]) -> str:
     repo_root = find_repo_root()
     lines = [
-        f"[WARN] rule_id_registry_coherence: "
+        f"[ERROR] rule_id_registry_coherence: "
         f"{len(drift)} emission(s) reference unregistered rule_id(s):"
     ]
     for fp, ln, rid in sorted(drift):
@@ -103,47 +104,25 @@ def _format_drift(drift: List[Tuple[Path, int, str]]) -> str:
         except ValueError:
             rel = fp
         lines.append(f"  {rel}:{ln}   {rid}   not in any convention rules: block")
-    lines.append("  Run with --strict-coherence to fail CI on this.")
+    lines.append("  Run with --permissive-coherence to demote to WARN (opt-out).")
     return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
-# Tests / validator entry points
+# Validator entry point
 # ---------------------------------------------------------------------------
-class TestCoherenceValidatorAgainstCurrentMain:
-    """Smoke assertions against the live toolkit source."""
-
-    def test_seeded_drift_id_surfaces(self):
-        """The seeded drift example from #387: ``COACH-PRGATE-0003`` is
-        declared in ``test_pr_phase_alignment.py`` but not in any convention
-        rules: block.
-        """
-        roots = _scan_roots()
-        assert roots, "no production scan roots resolved"
-
-        registry = build_registry()
-        unregistered = set()
-        for f in iter_scan_files(roots):
-            for e in extract_emissions(f):
-                if e.rule_id not in registry:
-                    unregistered.add(e.rule_id)
-
-        seeded = "COACH-" + "PRGATE-0003"
-        assert seeded in unregistered, (
-            f"expected seed {seeded} in drift; got {sorted(unregistered)[:10]}..."
-        )
-
-
 @pytest.mark.coach
 def test_rule_id_registry_coherence():
-    """Permissive-mode coherence check.
+    """Strict-by-default coherence check (issue #394).
 
-    Default behavior: print a WARN block listing every emission whose
-    rule_id is missing from the registry, then PASS (exit 0).
+    Default behavior: any emission whose rule_id is missing from the
+    convention registry fails the test, which makes ``atdd validate coach``
+    exit 1.
 
-    Strict mode is opt-in via ``ATDD_STRICT_COHERENCE=1`` (the env var the
-    CLI flag ``--strict-coherence`` sets) — when enabled, drift fails the
-    test, which makes ``atdd validate coach`` exit 1.
+    Permissive-mode opt-out: set ``ATDD_PERMISSIVE_COHERENCE=1`` (the env
+    var the CLI flag ``--permissive-coherence`` sets) — drift logs as WARN
+    and the gate passes. Use sparingly while migrating new rule_ids into
+    convention files.
     """
     drift = _collect_drift()
     if not drift:
@@ -151,9 +130,7 @@ def test_rule_id_registry_coherence():
 
     msg = _format_drift(drift)
 
-    if os.environ.get("ATDD_STRICT_COHERENCE") == "1":
-        pytest.fail(msg.replace("[WARN]", "[ERROR]"))
-    else:
+    if os.environ.get("ATDD_PERMISSIVE_COHERENCE") == "1":
         # Permissive-mode WARN — surfaces drift without failing the gate.
         _logger.warning(
             "rule_id_registry_coherence drift: %d unregistered emission(s)",
@@ -166,3 +143,6 @@ def test_rule_id_registry_coherence():
                 fp, ln, rid,
                 extra={"file": str(fp), "line": ln, "rule_id": rid},
             )
+        return
+
+    pytest.fail(msg)

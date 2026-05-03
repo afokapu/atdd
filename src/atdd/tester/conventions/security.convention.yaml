@@ -163,3 +163,17 @@ references:
   test_file: "atdd/tester/validators/test_contract_security.py"
   contract_convention: "atdd/tester/conventions/contract.convention.yaml"
   api_structure: "contract.convention.yaml#api_structure.authentication"
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: TESTER-SECURITY-AUTH-001
+    severity: 4
+    description: "Security-sensitive endpoints are covered by tests asserting auth and authorization"
+    introduced_in: "1.67.0"
+  - id: TESTER-SECURITY-INPUT-001
+    severity: 4
+    description: "Input-validation tests assert rejection of malformed and adversarial payloads"
+    introduced_in: "1.67.0"

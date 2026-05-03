@@ -461,3 +461,13 @@ tracking_structure:
     framework: "pytest"
     markers: ["telemetry", "validation"]
     specs: "SPEC-TESTER-CONV-0050 through SPEC-TESTER-CONV-0058"
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: TESTER-TELEMETRY-EMIT-001
+    severity: 3
+    description: "Telemetry tests assert that the validator emits the expected events to the configured sink"
+    introduced_in: "1.67.0"

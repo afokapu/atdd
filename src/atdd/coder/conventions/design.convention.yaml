@@ -348,3 +348,40 @@ design_system:
       - "No hardcoded values in existing design system components"
       - "Hierarchy validation passing"
       - "Zero design_system → wagon imports"
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: DESIGN-PRIMITIVES-001
+    severity: 2
+    description: "Presentation layer composes design system primitives instead of raw HTML/Native elements"
+    introduced_in: "1.67.0"
+  - id: DESIGN-TOKEN-COLOR-001
+    severity: 2
+    description: "UI files reference design tokens for colors instead of hex/rgb literals"
+    introduced_in: "1.67.0"
+  - id: DESIGN-ORPHAN-EXPORT-001
+    severity: 2
+    description: "Design system exports must have at least one consumer"
+    introduced_in: "1.67.0"
+  - id: DESIGN-FOUNDATIONS-001
+    severity: 2
+    description: "Design system primitives must compose foundations (tokens, layout, color) rather than raw values"
+    introduced_in: "1.67.0"
+  - id: DESIGN-HIERARCHY-IMPORT-001
+    severity: 3
+    description: "Design system layers may only import from layers below them in the hierarchy"
+    introduced_in: "1.67.0"
+  - id: DESIGN-TOKEN-HARDCODED-001
+    severity: 2
+    description: "Wagons must not hardcode token values that exist in the design system"
+    introduced_in: "1.67.0"
+  - id: DESIGN-ORPHAN-UI-001
+    severity: 2
+    description: "UI elements (components/pages/screens) must be referenced by a route, parent, or test"
+    introduced_in: "1.67.0"
+  - id: DESIGN-HIERARCHY-COVERAGE-001
+    severity: 2
+    description: "Every feature must have hierarchy coverage (manifest, design system entries, or registered exceptions)"
+    introduced_in: "1.67.0"

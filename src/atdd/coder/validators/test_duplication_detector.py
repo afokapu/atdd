@@ -10,6 +10,10 @@ Conventions from:
 
 Algorithm: Normalize AST subtrees (strip names/constants), hash consecutive
 statement blocks, group by layer, report collisions across different files.
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``DUPLICATION-PY-001`` declared in
+``src/atdd/coder/conventions/duplication.convention.yaml``.
 """
 
 import ast
@@ -22,7 +26,13 @@ from typing import Dict, List, Optional, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
 from atdd.coder.utils.python_file_walker import walk_consumer_python_files
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_DUP_PY = bind_rule("DUPLICATION-PY-001")
 
 
 # ---------------------------------------------------------------------------
@@ -306,9 +316,9 @@ def scan_python_duplications(repo_root: Path) -> Tuple[int, List[str]]:
             continue
         files_by_layer.setdefault(layer, []).append(f)
 
-    violations = find_intra_layer_duplicates(files_by_layer, min_stmts)
-    violation_strs = []
-    for v in violations:
+    raw_violations = find_intra_layer_duplicates(files_by_layer, min_stmts)
+    structured: List[Violation] = []
+    for v in raw_violations:
         try:
             rel_a = v["file_a"].relative_to(repo_root)
         except ValueError:
@@ -317,11 +327,17 @@ def scan_python_duplications(repo_root: Path) -> Tuple[int, List[str]]:
             rel_b = v["file_b"].relative_to(repo_root)
         except ValueError:
             rel_b = v["file_b"]
-        violation_strs.append(
-            f"[{v['layer']}] {rel_a}:{v['line_a']} ↔ {rel_b}:{v['line_b']} "
-            f"({v['statements']} identical statements)"
-        )
-    return len(violations), violation_strs
+        structured.append(Violation(
+            rule_id=_RULE_DUP_PY.rule_id,
+            severity=_RULE_DUP_PY.severity,
+            location=f"{rel_a}:{v['line_a']}",
+            detail=(
+                f"[{v['layer']}] {rel_a}:{v['line_a']} <-> {rel_b}:{v['line_b']} "
+                f"({v['statements']} identical statements)"
+            ),
+            fix_hint_ref=_RULE_DUP_PY.fix_hint_ref,
+        ))
+    return len(structured), structured
 
 
 @pytest.mark.coder

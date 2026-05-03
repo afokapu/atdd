@@ -281,3 +281,17 @@ artifact_contracts:
 artifact_transformation:
   $ref: "conventions:planner:artifact#/artifact_transformation"
   note: "Full artifact transformation patterns defined in artifact.convention.yaml"
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: PLANNER-WAGON-URN-001
+    severity: 3
+    description: "Wagons declare a stable URN and live under plan/<wagon-slug>/ with the documented file layout"
+    introduced_in: "1.67.0"
+  - id: PLANNER-WAGON-FEATURES-001
+    severity: 2
+    description: "Wagon _features.yaml lists every feature module and its current status"
+    introduced_in: "1.67.0"

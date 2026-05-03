@@ -393,14 +393,15 @@ Phase descriptions:
         ),
     )
     validate_parser.add_argument(
-        "--strict-coherence",
+        "--permissive-coherence",
         action="store_true",
-        dest="strict_coherence",
+        dest="permissive_coherence",
         help=(
-            "Fail (exit 1) when the rule-id registry coherence validator "
-            "finds emissions whose rule_id is not declared in any "
-            "convention rules: block. Default is permissive (drift logs "
-            "as WARN, exit 0). Active when phase=coach or all. Issue #387."
+            "Demote rule-id registry coherence drift to WARN (exit 0). "
+            "Default is strict — drift fails the gate (exit 1) when an "
+            "emission references a rule_id not declared in any convention "
+            "rules: block. Active when phase=coach or all. "
+            "Issue #394 (replaces --strict-coherence)."
         ),
     )
 
@@ -1481,17 +1482,18 @@ Phase descriptions:
         if getattr(args, 'no_cache', False):
             os.environ["ATDD_NO_CACHE"] = "1"
 
-        # --strict-coherence: opt the rule-id registry coherence validator
-        # into failure mode (default is permissive WARN). Issue #387.
-        if getattr(args, 'strict_coherence', False):
+        # --permissive-coherence: opt the rule-id registry coherence
+        # validator out of strict-by-default failure mode and back to WARN.
+        # Issue #394 flipped the default; this flag is the opt-out.
+        if getattr(args, 'permissive_coherence', False):
             if args.phase not in ("coach", "all"):
                 print(
-                    "Error: --strict-coherence is only supported with phase "
-                    "'coach' (or 'all'). Re-run: atdd validate coach "
-                    "--strict-coherence"
+                    "Error: --permissive-coherence is only supported with "
+                    "phase 'coach' (or 'all'). Re-run: atdd validate coach "
+                    "--permissive-coherence"
                 )
                 return 1
-            os.environ["ATDD_STRICT_COHERENCE"] = "1"
+            os.environ["ATDD_PERMISSIVE_COHERENCE"] = "1"
 
         coach = ATDDCoach(repo_root=repo_path)
         skip_api = getattr(args, 'skip_api', False)

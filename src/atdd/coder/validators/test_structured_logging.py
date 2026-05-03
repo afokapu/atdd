@@ -2,8 +2,8 @@
 Test structured logging conventions are followed.
 
 Validates:
-- No print() calls in non-test production Python code (LOG-001)
-- Logger calls include extra= keyword for structured context (LOG-002)
+- No print() calls in non-test production Python code (LOGGING-PRINT-001)
+- Logger calls include extra= keyword for structured context (LOGGING-STRUCTURED-001)
 
 Conventions from:
 - atdd/coder/conventions/logging.convention.yaml
@@ -12,9 +12,12 @@ Scan scope:
 - REPO_ROOT/python/ (consumer product code)
 - ATDD_PKG_DIR (src/atdd/ — toolkit dogfooding)
 
-LOG-001 exemptions:
+LOGGING-PRINT-001 exemptions:
 - ATDD toolkit (src/atdd/) — CLI tool where print() is the primary output mechanism
-- LOG-001 only applies to consumer product code (python/)
+- LOGGING-PRINT-001 only applies to consumer product code (python/)
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``LOGGING-PRINT-001`` and ``LOGGING-STRUCTURED-001``.
 """
 
 import pytest
@@ -24,6 +27,13 @@ from typing import List, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_PRINT = bind_rule("LOGGING-PRINT-001")
+_RULE_STRUCTURED = bind_rule("LOGGING-STRUCTURED-001")
 
 
 # Path constants
@@ -182,11 +192,11 @@ def _rel_path(file_path: Path) -> Path:
         return file_path
 
 
-def scan_print_in_production(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_print_in_production(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for print() calls in production code. Used by ratchet baseline."""
     python_dir = repo_root / "python"
     python_files = _collect_files(python_dir)
-    violations = []
+    violations: List[Violation] = []
     for py_file in python_files:
         prints = detect_print_calls(py_file)
         for lineno, col in prints:
@@ -194,11 +204,17 @@ def scan_print_in_production(repo_root: Path) -> Tuple[int, List[str]]:
                 rel = py_file.relative_to(repo_root)
             except ValueError:
                 rel = py_file
-            violations.append(f"{rel}:{lineno}:{col} — print() call")
+            violations.append(Violation(
+                rule_id=_RULE_PRINT.rule_id,
+                severity=_RULE_PRINT.severity,
+                location=f"{rel}:{lineno}:{col}",
+                detail="print() call in production code (use logger)",
+                fix_hint_ref=_RULE_PRINT.fix_hint_ref,
+            ))
     return len(violations), violations
 
 
-def scan_structured_logging(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_structured_logging(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for bare log calls. Used by ratchet baseline.
 
     Scans consumer product code in ``repo_root/python/``. When running inside
@@ -212,7 +228,7 @@ def scan_structured_logging(repo_root: Path) -> Tuple[int, List[str]]:
     if ATDD_PKG_DIR is not None:
         scan_dirs.append(ATDD_PKG_DIR)
     python_files = _collect_files(*scan_dirs)
-    violations = []
+    violations: List[Violation] = []
     for py_file in python_files:
         bare_logs = detect_bare_log_calls(py_file)
         for lineno, col, method in bare_logs:
@@ -226,7 +242,13 @@ def scan_structured_logging(repo_root: Path) -> Tuple[int, List[str]]:
                         rel = py_file
                 else:
                     rel = py_file
-            violations.append(f"{rel}:{lineno}:{col} — logger.{method}() without extra=")
+            violations.append(Violation(
+                rule_id=_RULE_STRUCTURED.rule_id,
+                severity=_RULE_STRUCTURED.severity,
+                location=f"{rel}:{lineno}:{col}",
+                detail=f"logger.{method}() without extra= keyword",
+                fix_hint_ref=_RULE_STRUCTURED.fix_hint_ref,
+            ))
     return len(violations), violations
 
 

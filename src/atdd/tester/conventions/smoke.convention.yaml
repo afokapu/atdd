@@ -388,3 +388,16 @@ references:
   red_convention: "src/atdd/tester/conventions/red.convention.yaml"
   contract_convention: "src/atdd/tester/conventions/contract.convention.yaml"
   filename_convention: "src/atdd/tester/conventions/filename.convention.yaml"
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+# Registry-walkable rule_ids emitted by smoke-related validators. Nested under
+# a sibling key because the top-level `rules:` slot is occupied by the legacy
+# must/must_not prose block above.
+presentation_smoke_rules:
+  rules:
+    - id: TESTER-SMOKE-PRES-001
+      severity: 3
+      description: "Every web/src/*/presentation/*.tsx must have a sibling smoke test under e2e/*smoke*.spec.ts"
+      introduced_in: "1.67.0"

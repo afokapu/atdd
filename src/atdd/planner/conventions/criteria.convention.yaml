@@ -139,3 +139,13 @@ metrics:
   "financial value":
     minimize: metric:cost_per_unit
     maximize: metric:net_margin
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: PLANNER-CRITERIA-SHAPE-001
+    severity: 2
+    description: "Criteria entries follow the documented shape (id, description, harness, expected_outcome)"
+    introduced_in: "1.67.0"

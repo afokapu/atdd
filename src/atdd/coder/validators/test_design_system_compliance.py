@@ -8,6 +8,10 @@ Validates:
 
 Location: web/src/
 Design System: web/src/maintain-ux/
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``DESIGN-*-001`` rule_ids declared in
+``src/atdd/coder/conventions/design.convention.yaml``.
 """
 
 import pytest
@@ -17,6 +21,18 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_PRIMITIVES = bind_rule("DESIGN-PRIMITIVES-001")
+_RULE_COLOR = bind_rule("DESIGN-TOKEN-COLOR-001")
+_RULE_ORPHAN_EXPORT = bind_rule("DESIGN-ORPHAN-EXPORT-001")
+_RULE_FOUNDATIONS = bind_rule("DESIGN-FOUNDATIONS-001")
+_RULE_HIERARCHY_IMPORT = bind_rule("DESIGN-HIERARCHY-IMPORT-001")
+_RULE_HARDCODED = bind_rule("DESIGN-TOKEN-HARDCODED-001")
+_RULE_ORPHAN_UI = bind_rule("DESIGN-ORPHAN-UI-001")
 
 
 # Path constants
@@ -234,12 +250,23 @@ def extract_raw_color_values(file_path: Path) -> List[Tuple[int, str]]:
     return violations
 
 
-def scan_ds_presentation_primitives(repo_root: Path) -> Tuple[int, List[str]]:
+def _v(rule, location: str, detail: str) -> Violation:
+    """Helper: build a Violation from a bound RuleMetadata."""
+    return Violation(
+        rule_id=rule.rule_id,
+        severity=rule.severity,
+        location=location,
+        detail=detail,
+        fix_hint_ref=rule.fix_hint_ref,
+    )
+
+
+def scan_ds_presentation_primitives(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for presentation files missing DS imports. Used by ratchet baseline."""
     web_src = repo_root / "web" / "src"
     if not web_src.exists():
         return 0, []
-    violations = []
+    violations: List[Violation] = []
     for f in get_presentation_files():
         imports = extract_imports(f)
         has_jsx = f.suffix == '.tsx'
@@ -251,7 +278,11 @@ def scan_ds_presentation_primitives(repo_root: Path) -> Tuple[int, List[str]]:
                 content = f.read_text(encoding='utf-8')
                 if re.search(r'return\s*\(?\s*<', content):
                     rel_path = f.relative_to(repo_root)
-                    violations.append(f"{rel_path}: presentation component without DS imports")
+                    violations.append(_v(
+                        _RULE_PRIMITIVES,
+                        location=f"{rel_path}:1",
+                        detail=f"{rel_path}: presentation component without DS imports",
+                    ))
             except Exception:
                 pass
     return len(violations), violations
@@ -287,18 +318,18 @@ def test_ui_files_use_design_tokens_for_colors(ratchet_baseline):
 
     Rationale: Consistent theming through centralized color definitions
     """
-    all_violations = []
+    all_violations: List[Violation] = []
 
     for f in get_all_ui_files():
         violations = extract_raw_color_values(f)
         if violations:
             rel_path = f.relative_to(REPO_ROOT)
             for line_num, issue in violations[:3]:  # Max 3 per file
-                all_violations.append(
-                    f"{rel_path}:{line_num}\n"
-                    f"  {issue}\n"
-                    f"  Fix: Use colors from @/maintain-ux/foundations"
-                )
+                all_violations.append(_v(
+                    _RULE_COLOR,
+                    location=f"{rel_path}:{line_num}",
+                    detail=issue,
+                ))
 
     # Allow some violations during migration (warning, not failure)
     ratchet_baseline.assert_no_regression(
@@ -332,7 +363,10 @@ def test_no_orphaned_design_system_exports(ratchet_baseline):
     false_positives = {'type', 'h', 'Fragment'}
     orphaned = orphaned - false_positives
 
-    violations = sorted(orphaned)
+    violations = [
+        _v(_RULE_ORPHAN_EXPORT, location=f"web/src/maintain-ux/{name}:0", detail=f"orphaned export: {name}")
+        for name in sorted(orphaned)
+    ]
     ratchet_baseline.assert_no_regression(
         validator_id="ds_orphaned_exports",
         current_count=len(orphaned),
@@ -351,7 +385,7 @@ def test_design_system_uses_foundations(ratchet_baseline):
 
     Rationale: Design system itself must be consistent
     """
-    violations = []
+    violations: List[Violation] = []
 
     for category_dir in [PRIMITIVES_DIR, COMPONENTS_DIR]:
         if not category_dir.exists():
@@ -369,7 +403,11 @@ def test_design_system_uses_foundations(ratchet_baseline):
             raw_pixels = re.findall(r":\s*['\"]?(\d{2,}px)['\"]?", content)
             if raw_pixels and not uses_foundations:
                 rel_path = f.relative_to(REPO_ROOT)
-                violations.append(f"{rel_path}: raw pixel values {', '.join(raw_pixels[:5])}")
+                violations.append(_v(
+                    _RULE_FOUNDATIONS,
+                    location=f"{rel_path}:1",
+                    detail=f"{rel_path}: raw pixel values {', '.join(raw_pixels[:5])}",
+                ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="ds_foundations_usage",
@@ -416,7 +454,7 @@ def test_design_system_hierarchy_imports(ratchet_baseline):
     if not primitives_files and not components_files and not all_ds_files:
         pytest.skip("No design system files found in maintain-ux/")
 
-    violations = []
+    violations: List[Violation] = []
 
     # VC-DS-03: Primitives must not import from components or templates
     for f in primitives_files:
@@ -424,18 +462,18 @@ def test_design_system_hierarchy_imports(ratchet_baseline):
         for imp in imports:
             if "../components/" in imp or "../components" == imp:
                 rel = f.relative_to(REPO_ROOT)
-                violations.append(
-                    f"{rel}\n"
-                    f"  Forbidden: primitives → components (import '{imp}')\n"
-                    f"  Fix: Primitives can only import from tokens"
-                )
+                violations.append(_v(
+                    _RULE_HIERARCHY_IMPORT,
+                    location=f"{rel}:1",
+                    detail=f"primitives → components (import '{imp}')",
+                ))
             if "../templates/" in imp or "../templates" == imp:
                 rel = f.relative_to(REPO_ROOT)
-                violations.append(
-                    f"{rel}\n"
-                    f"  Forbidden: primitives → templates (import '{imp}')\n"
-                    f"  Fix: Primitives can only import from tokens"
-                )
+                violations.append(_v(
+                    _RULE_HIERARCHY_IMPORT,
+                    location=f"{rel}:1",
+                    detail=f"primitives → templates (import '{imp}')",
+                ))
 
     # VC-DS-04: Components must not import from templates
     for f in components_files:
@@ -443,11 +481,11 @@ def test_design_system_hierarchy_imports(ratchet_baseline):
         for imp in imports:
             if "../templates/" in imp or "../templates" == imp:
                 rel = f.relative_to(REPO_ROOT)
-                violations.append(
-                    f"{rel}\n"
-                    f"  Forbidden: components → templates (import '{imp}')\n"
-                    f"  Fix: Components can import from tokens and primitives only"
-                )
+                violations.append(_v(
+                    _RULE_HIERARCHY_IMPORT,
+                    location=f"{rel}:1",
+                    detail=f"components → templates (import '{imp}')",
+                ))
 
     # VC-DS-05 / VC-DS-06: No maintain-ux file imports from outside maintain-ux wagon paths
     for f in all_ds_files:
@@ -462,11 +500,11 @@ def test_design_system_hierarchy_imports(ratchet_baseline):
             if imp.startswith("@/") or imp.startswith("../"):
                 # Reaching outside maintain-ux into a feature wagon
                 rel = f.relative_to(REPO_ROOT)
-                violations.append(
-                    f"{rel}\n"
-                    f"  Forbidden: design system → wagon (import '{imp}')\n"
-                    f"  Fix: Design system must be wagon-agnostic"
-                )
+                violations.append(_v(
+                    _RULE_HIERARCHY_IMPORT,
+                    location=f"{rel}:1",
+                    detail=f"design system → wagon (import '{imp}')",
+                ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="ds_hierarchy_imports",
@@ -492,7 +530,7 @@ def test_no_hardcoded_tokens_in_wagons(ratchet_baseline):
     if not files:
         pytest.skip("No frontend UI files found")
 
-    all_violations = []
+    all_violations: List[Violation] = []
 
     # Patterns to detect hardcoded tokens (not colors — DESIGN-002 covers those)
     patterns = [
@@ -545,11 +583,11 @@ def test_no_hardcoded_tokens_in_wagons(ratchet_baseline):
         if file_violations:
             rel_path = f.relative_to(REPO_ROOT)
             for line_num, issue in file_violations[:3]:  # Max 3 per file
-                all_violations.append(
-                    f"{rel_path}:{line_num}\n"
-                    f"  {issue}\n"
-                    f"  Fix: Use tokens from @/maintain-ux/foundations"
-                )
+                all_violations.append(_v(
+                    _RULE_HARDCODED,
+                    location=f"{rel_path}:{line_num}",
+                    detail=issue,
+                ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="ds_hardcoded_tokens",
@@ -576,7 +614,7 @@ def test_no_orphaned_ui_elements(ratchet_baseline):
     if not files:
         pytest.skip("No frontend UI files found")
 
-    orphaned = []
+    violations: List[Violation] = []
 
     for f in files:
         try:
@@ -597,19 +635,15 @@ def test_no_orphaned_ui_elements(ratchet_baseline):
 
         if not has_ds_import:
             rel_path = f.relative_to(REPO_ROOT)
-            orphaned.append(
-                f"{rel_path}\n"
-                f"  Issue: TSX component with zero design system imports\n"
-                f"  Fix: Import primitives/components from @/maintain-ux/"
-            )
-
-    violations = []
-    for f_path in orphaned:
-        violations.append(str(f_path))
+            violations.append(_v(
+                _RULE_ORPHAN_UI,
+                location=f"{rel_path}:1",
+                detail=f"{rel_path}: TSX component with zero design system imports",
+            ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="ds_orphaned_ui",
-        current_count=len(orphaned),
+        current_count=len(violations),
         violations=violations,
     )
 

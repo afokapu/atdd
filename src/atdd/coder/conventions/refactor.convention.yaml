@@ -546,6 +546,7 @@ refactor_phase:
     rules:
       - id: COACH-RATCHET-PRES-001
         severity: 3  # Decision #5 in issue #358 — advisory + gate, not blocking.
+        description: "Presentation-layer reduction >20% requires recorded smoke evidence"
         title: "Presentation-layer reduction >20% requires recorded smoke evidence"
         applies_to: "*/presentation/*.{tsx,ts,py}"
         threshold: 0.20  # Decision #1 — 20% reduction, configurable here.
@@ -562,3 +563,82 @@ refactor_phase:
           Ratchet improvements (a "good thing" by metric) become a vector for
           regressions when they touch presentation. Without a layer-aware gate,
           structural validators report green even when behavior was removed.
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+# Top-level `rules:` array — registry-walkable. Used by ratchet validators
+# emitting Violation records during REFACTOR-phase complexity / quality scans.
+rules:
+  - id: COMPLEXITY-CYCLOMATIC-001
+    severity: 3
+    description: "Cyclomatic complexity per function below threshold (default <10)"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-NESTING-001
+    severity: 3
+    description: "Function nesting depth below threshold (default <4)"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-LENGTH-001
+    severity: 2
+    description: "Function length below threshold (default <50 LOC)"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-PARAMS-001
+    severity: 2
+    description: "Function parameter count below threshold (default <6)"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-COGNITIVE-001
+    severity: 3
+    description: "Cognitive complexity per function below threshold (default <=15)"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-CYCLOMATIC-TS-001
+    severity: 3
+    description: "TypeScript cyclomatic complexity per function below threshold"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-NESTING-TS-001
+    severity: 3
+    description: "TypeScript function nesting depth below threshold"
+    introduced_in: "1.67.0"
+  - id: COMPLEXITY-LENGTH-TS-001
+    severity: 2
+    description: "TypeScript function length below threshold"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-MI-001
+    severity: 2
+    description: "Python module maintainability index above threshold"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-COMMENTS-001
+    severity: 2
+    description: "Python source files have an adequate code-comment ratio"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-DUPLICATION-001
+    severity: 2
+    description: "Python sources have no significant code duplication beyond the configured threshold"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-NAMING-001
+    severity: 2
+    description: "Python identifiers follow consistent naming conventions (PEP 8)"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-FILE-LENGTH-001
+    severity: 2
+    description: "Python source files stay within the configured maximum line count"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-MI-TS-001
+    severity: 2
+    description: "TypeScript module maintainability index above threshold"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-COMMENTS-TS-001
+    severity: 2
+    description: "TypeScript source files have an adequate code-comment ratio"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-NPLUS1-001
+    severity: 3
+    description: "No database client calls inside loop bodies or comprehensions (N+1 query pattern)"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-COMPOSITION-CONSUMER-001
+    severity: 3
+    description: "Each layer file (presentation/integration/domain) has at least one upstream consumer per composition rules"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-COMPOSITION-ROOT-001
+    severity: 3
+    description: "Python composition.py reaches every existing layer of its feature via imports or setter wiring"
+    introduced_in: "1.67.0"

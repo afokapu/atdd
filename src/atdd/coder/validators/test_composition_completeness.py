@@ -8,6 +8,13 @@ Scope:
 - Python composition.py reachability respects setter-call wiring for presentation
 
 Convention: src/atdd/coder/conventions/composition.convention.yaml
+
+Structured violations (issue #394): emits canonical ``Violation`` records keyed
+off ``REFACTOR-COMPOSITION-CONSUMER-001`` (layer file unwired) and
+``REFACTOR-COMPOSITION-ROOT-001`` (composition root incomplete) declared in
+``src/atdd/coder/conventions/refactor.convention.yaml``. The private
+``CompositionViolation`` dataclass was removed; spec_ids 0001/0002/0003 are
+preserved as a `spec_id=...` token in ``Violation.detail`` for greppability.
 """
 
 from __future__ import annotations
@@ -25,7 +32,14 @@ import pytest
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root, is_atdd_source_repo
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
 from atdd.coder.utils.python_file_walker import walk_consumer_python_files
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_CONSUMER = bind_rule("REFACTOR-COMPOSITION-CONSUMER-001")
+_RULE_ROOT = bind_rule("REFACTOR-COMPOSITION-ROOT-001")
 
 
 REPO_ROOT = find_repo_root()
@@ -57,15 +71,10 @@ class FeatureContext:
         return str(self.feature_dir.relative_to(self.stack_root))
 
 
-@dataclass(frozen=True)
-class CompositionViolation:
-    spec_id: str
-    feature: str
-    file: str
-    layer: str
-    expected: str
-    found: str
-    detail: str
+# CompositionViolation removed in #394 — replaced with canonical Violation.
+# Domain-specific fields (spec_id, feature, file, layer, expected, found) are
+# encoded into ``Violation.location`` and ``Violation.detail`` so downstream
+# tooling and tests can still recover them by parsing the canonical record.
 
 
 @dataclass(frozen=True)
@@ -519,8 +528,8 @@ def feature_rule_violations(
     feature: FeatureContext,
     reverse_graph: Dict[Path, Set[Path]],
     rules: Sequence[Dict[str, object]],
-) -> List[CompositionViolation]:
-    violations: List[CompositionViolation] = []
+) -> List[Violation]:
+    violations: List[Violation] = []
 
     for rule in rules:
         spec_id = str(rule["spec_id"])
@@ -539,17 +548,20 @@ def feature_rule_violations(
                 continue
 
             consumer_desc = " or ".join(sorted(allowed_layers))
-            violations.append(
-                CompositionViolation(
-                    spec_id=spec_id,
-                    feature=feature.feature_id,
-                    file=str(source_file.relative_to(feature.feature_dir)),
-                    layer=source_layer,
-                    expected=f"imported by at least one file in {consumer_desc}",
-                    found="0 consumers",
-                    detail=f"This {source_layer} file exists but is never consumed. Add a valid downstream consumer or remove it.",
-                )
-            )
+            file_rel = str(source_file.relative_to(feature.feature_dir))
+            violations.append(Violation(
+                rule_id=_RULE_CONSUMER.rule_id,
+                severity=_RULE_CONSUMER.severity,
+                location=f"{feature.feature_id}/{file_rel}",
+                detail=(
+                    f"spec_id={spec_id} layer={source_layer} "
+                    f"expected=imported_by_{consumer_desc.replace(' ', '_')} "
+                    f"found=0_consumers — this {source_layer} file exists but "
+                    f"is never consumed; add a valid downstream consumer or "
+                    f"remove it"
+                ),
+                fix_hint_ref=_RULE_CONSUMER.fix_hint_ref,
+            ))
 
     return violations
 
@@ -558,7 +570,7 @@ def python_composition_root_violations(
     feature: FeatureContext,
     graph: Dict[Path, Set[Path]],
     rule: Dict[str, object],
-) -> List[CompositionViolation]:
+) -> List[Violation]:
     composition_file = feature.feature_dir / "composition.py"
     if not composition_file.exists():
         return []
@@ -577,20 +589,23 @@ def python_composition_root_violations(
     if not missing:
         return []
 
-    return [
-        CompositionViolation(
-            spec_id=str(rule["spec_id"]),
-            feature=feature.feature_id,
-            file=str(composition_file.relative_to(feature.feature_dir)),
-            layer="composition",
-            expected="reaches all existing feature layers via imports or setter wiring",
-            found=f"missing reachable layers: {', '.join(missing)}",
-            detail="The feature composition root does not reach every existing layer. Import the missing layer directly or wire it through a called setter.",
-        )
-    ]
+    file_rel = str(composition_file.relative_to(feature.feature_dir))
+    return [Violation(
+        rule_id=_RULE_ROOT.rule_id,
+        severity=_RULE_ROOT.severity,
+        location=f"{feature.feature_id}/{file_rel}",
+        detail=(
+            f"spec_id={rule['spec_id']} layer=composition "
+            f"expected=reaches_all_existing_layers "
+            f"found=missing_{','.join(missing)} — the feature composition "
+            f"root does not reach every existing layer; import the missing "
+            f"layer directly or wire it through a called setter"
+        ),
+        fix_hint_ref=_RULE_ROOT.fix_hint_ref,
+    )]
 
 
-def analyze_python_repo(repo_root: Path) -> List[CompositionViolation]:
+def analyze_python_repo(repo_root: Path) -> List[Violation]:
     convention = load_yaml(COMPOSITION_CONVENTION)
     stack_conf = convention["composition"]["stacks"]["python"]
     stack_root = repo_root / stack_conf["repo_root"]
@@ -600,7 +615,7 @@ def analyze_python_repo(repo_root: Path) -> List[CompositionViolation]:
 
     graph = build_python_graph(repo_root)
     reverse = build_reverse_graph(graph)
-    violations: List[CompositionViolation] = []
+    violations: List[Violation] = []
 
     violations.extend(
         violation
@@ -615,7 +630,7 @@ def analyze_python_repo(repo_root: Path) -> List[CompositionViolation]:
     return violations
 
 
-def analyze_typescript_repo(repo_root: Path, stack: str = "typescript") -> List[CompositionViolation]:
+def analyze_typescript_repo(repo_root: Path, stack: str = "typescript") -> List[Violation]:
     convention = load_yaml(COMPOSITION_CONVENTION)
     stack_conf = convention["composition"]["stacks"][stack]
     stack_root = repo_root / stack_conf["repo_root"]
@@ -633,19 +648,12 @@ def analyze_typescript_repo(repo_root: Path, stack: str = "typescript") -> List[
     ]
 
 
-def format_violation(violation: CompositionViolation) -> str:
-    return (
-        f"{violation.spec_id} FAIL: Unwired {violation.layer} layer\n\n"
-        f"  Feature:  {violation.feature}\n"
-        f"  File:     {violation.file}\n"
-        f"  Layer:    {violation.layer}\n"
-        f"  Expected: {violation.expected}\n"
-        f"  Found:    {violation.found}\n\n"
-        f"  {violation.detail}"
-    )
+def format_violation(violation: Violation) -> str:
+    """Render a Violation for the assert_no_violations error message."""
+    return f"{violation.rule_id} FAIL: {violation.location}\n  {violation.detail}"
 
 
-def assert_no_violations(violations: Sequence[CompositionViolation]) -> None:
+def assert_no_violations(violations: Sequence[Violation]) -> None:
     assert not violations, "\n\n" + "\n\n".join(format_violation(item) for item in violations)
 
 
@@ -718,9 +726,10 @@ def test_composition_completeness_python_fixture_detects_missing_setter_call():
     violations = analyze_python_repo(FIXTURE_ROOT / "python_fail_setter")
     assert len(violations) == 1, "expected one composition root violation"
     violation = violations[0]
-    assert violation.spec_id == "SPEC-CODER-COMP-0004"
-    assert violation.feature == "bad_match/orchestrate_bad"
-    assert "presentation" in violation.found
+    assert violation.rule_id == "REFACTOR-COMPOSITION-ROOT-001"
+    assert "spec_id=SPEC-CODER-COMP-0004" in violation.detail
+    assert violation.location.startswith("bad_match/orchestrate_bad/")
+    assert "presentation" in violation.detail
 
 
 @pytest.mark.coder
@@ -735,16 +744,22 @@ def test_composition_completeness_typescript_fixture_detects_cameo_and_import_ty
     if not is_atdd_source_repo():
         pytest.skip("fixture-based dogfood test — runs only inside the atdd source repo (#276)")
     violations = analyze_typescript_repo(FIXTURE_ROOT / "typescript_repo")
-    violation_map = {(item.feature, item.file): item for item in violations}
+    # Violation.location is "feature_id/file_path" — split on the last '/'
+    # before "application/" to recover the feature/file pair.
+    violation_map = {item.location: item for item in violations}
 
-    assert ("manage-profile/display-profile", "application/useCameoBalance.ts") in violation_map
-    assert ("arena/show-forecast", "application/useForecast.ts") in violation_map
+    cameo_loc = "manage-profile/display-profile/application/useCameoBalance.ts"
+    forecast_loc = "arena/show-forecast/application/useForecast.ts"
+    assert cameo_loc in violation_map
+    assert forecast_loc in violation_map
 
-    cameo = violation_map[("manage-profile/display-profile", "application/useCameoBalance.ts")]
-    forecast = violation_map[("arena/show-forecast", "application/useForecast.ts")]
+    cameo = violation_map[cameo_loc]
+    forecast = violation_map[forecast_loc]
 
-    assert cameo.spec_id == "SPEC-CODER-COMP-0001"
-    assert forecast.spec_id == "SPEC-CODER-COMP-0001"
+    assert cameo.rule_id == "REFACTOR-COMPOSITION-CONSUMER-001"
+    assert forecast.rule_id == "REFACTOR-COMPOSITION-CONSUMER-001"
+    assert "spec_id=SPEC-CODER-COMP-0001" in cameo.detail
+    assert "spec_id=SPEC-CODER-COMP-0001" in forecast.detail
 
 
 @pytest.mark.coder
@@ -759,10 +774,10 @@ def test_composition_completeness_typescript_fixture_accepts_barrels_and_partial
     if not is_atdd_source_repo():
         pytest.skip("fixture-based dogfood test — runs only inside the atdd source repo (#276)")
     violations = analyze_typescript_repo(FIXTURE_ROOT / "typescript_repo")
-    violated_files = {item.file for item in violations}
+    violated_locations = {item.location for item in violations}
 
-    assert "application/usePlayerRank.ts" not in violated_files
-    assert "integration/EloRepository.ts" not in violated_files
+    assert not any(loc.endswith("application/usePlayerRank.ts") for loc in violated_locations)
+    assert not any(loc.endswith("integration/EloRepository.ts") for loc in violated_locations)
 
 
 @pytest.mark.coder
@@ -781,7 +796,7 @@ def test_composition_completeness_python_live_repo(ratchet_baseline):
     ratchet_baseline.assert_no_regression(
         validator_id="composition_completeness_python",
         current_count=len(violations),
-        violations=[str(v) for v in violations],
+        violations=violations,
     )
 
 
@@ -801,7 +816,7 @@ def test_composition_completeness_typescript_live_repo(ratchet_baseline):
     ratchet_baseline.assert_no_regression(
         validator_id="composition_completeness_typescript",
         current_count=len(violations),
-        violations=[str(v) for v in violations],
+        violations=violations,
     )
 
 
@@ -821,5 +836,5 @@ def test_composition_completeness_supabase_live_repo(ratchet_baseline):
     ratchet_baseline.assert_no_regression(
         validator_id="composition_completeness_supabase",
         current_count=len(violations),
-        violations=[str(v) for v in violations],
+        violations=violations,
     )

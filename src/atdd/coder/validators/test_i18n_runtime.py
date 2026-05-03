@@ -9,7 +9,7 @@ Validates that runtime code uses the centralized locale manifest:
 import re
 import pytest
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 from atdd.coach.utils.locale_phase import (
     LocalePhase,
@@ -17,6 +17,13 @@ from atdd.coach.utils.locale_phase import (
     emit_locale_warning,
 )
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_I18N_CONFIG = bind_rule("PRESENTATION-I18N-CONFIG-001")
+_RULE_I18N_SWITCHER = bind_rule("PRESENTATION-I18N-SWITCHER-001")
 
 # Path constants
 REPO_ROOT = find_repo_root()
@@ -40,7 +47,7 @@ def _read_file_content(path: Path) -> Optional[str]:
         return None
 
 
-def scan_i18n_config(repo_root: Path):
+def scan_i18n_config(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for hardcoded locale arrays in i18n config. Used by ratchet baseline."""
     web_dir = repo_root / "web"
     i18n_config = _find_file(
@@ -65,10 +72,17 @@ def scan_i18n_config(repo_root: Path):
     if any(re.search(p, content, re.IGNORECASE) for p in manifest_patterns):
         return 0, []
     rel = i18n_config.relative_to(repo_root)
-    return 1, [f"{rel}: hardcoded locale array (should import from manifest)"]
+    violation = Violation(
+        rule_id=_RULE_I18N_CONFIG.rule_id,
+        severity=_RULE_I18N_CONFIG.severity,
+        location=f"{rel}:1",
+        detail=f"{rel}: hardcoded locale array (should import from manifest)",
+        fix_hint_ref=_RULE_I18N_CONFIG.fix_hint_ref,
+    )
+    return 1, [violation]
 
 
-def scan_language_switcher(repo_root: Path):
+def scan_language_switcher(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for hardcoded locales in LanguageSwitcher. Used by ratchet baseline."""
     web_dir = repo_root / "web"
     if not web_dir.exists():
@@ -102,7 +116,14 @@ def scan_language_switcher(repo_root: Path):
     if any(re.search(p, content, re.IGNORECASE) for p in shared_patterns):
         return 0, []
     rel = switcher_file.relative_to(repo_root)
-    return 1, [f"{rel}: hardcoded locale array (should use shared SUPPORTED_LOCALES)"]
+    violation = Violation(
+        rule_id=_RULE_I18N_SWITCHER.rule_id,
+        severity=_RULE_I18N_SWITCHER.severity,
+        location=f"{rel}:1",
+        detail=f"{rel}: hardcoded locale array (should use shared SUPPORTED_LOCALES)",
+        fix_hint_ref=_RULE_I18N_SWITCHER.fix_hint_ref,
+    )
+    return 1, [violation]
 
 
 @pytest.mark.locale

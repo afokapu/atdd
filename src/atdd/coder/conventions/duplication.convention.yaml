@@ -79,3 +79,16 @@ duplication:
         - "**/*.d.ts"
         - "**/node_modules/**"
         - "**/index.ts"
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: DUPLICATION-PY-001
+    severity: 2
+    description: "No intra-layer code duplication in Python sources beyond the configured threshold"
+    introduced_in: "1.67.0"
+  - id: DUPLICATION-TS-001
+    severity: 2
+    description: "No intra-layer code duplication in TypeScript sources beyond the configured threshold"
+    introduced_in: "1.67.0"
