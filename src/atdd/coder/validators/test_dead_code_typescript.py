@@ -10,6 +10,10 @@ Validates:
 Convention: src/atdd/coder/conventions/dead-code.convention.yaml
 
 BE parity with: test_dead_code_python.py
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``DEAD-CODE-REACHABILITY-TS-001`` declared in
+``src/atdd/coder/conventions/dead-code.convention.yaml``.
 """
 
 import os
@@ -20,8 +24,14 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
 
 import atdd
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_DEAD_CODE_TS = bind_rule("DEAD-CODE-REACHABILITY-TS-001")
 
 
 # ============================================================================
@@ -383,19 +393,25 @@ def test_no_unreachable_typescript_files(ratchet_baseline):
     all_reachable = reachable | reverse_reachable
 
     # Find unreachable files (exclude index.ts — structural like __init__.py)
-    unreachable: List[str] = []
+    violations: List[Violation] = []
     for ts_file in ts_files:
         if ts_file in all_reachable:
             continue
         if ts_file.name in {"index.ts", "index.tsx"}:
             continue
         rel_path = ts_file.relative_to(REPO_ROOT)
-        unreachable.append(str(rel_path))
+        violations.append(Violation(
+            rule_id=_RULE_DEAD_CODE_TS.rule_id,
+            severity=_RULE_DEAD_CODE_TS.severity,
+            location=f"{rel_path}:1",
+            detail=f"unreachable TypeScript file: {rel_path}",
+            fix_hint_ref=_RULE_DEAD_CODE_TS.fix_hint_ref,
+        ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="dead_code_typescript",
-        current_count=len(unreachable),
-        violations=unreachable,
+        current_count=len(violations),
+        violations=violations,
     )
 
 
