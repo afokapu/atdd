@@ -34,7 +34,7 @@ import yaml
 from atdd.coach.validators.test_rule_id_uniqueness import find_convention_files
 
 
-_LOGGER = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -133,7 +133,7 @@ def _extract_from_rules_block(
             # Recurse so deeply-nested rules: blocks still contribute.
             yield from _walk_node(body, file_path)
         if skipped:
-            _LOGGER.debug(
+            _logger.debug(
                 "rule_id_registry: skipped %d entries in %s (shape C — no id field)",
                 skipped, file_path,
             )
@@ -149,7 +149,7 @@ def _load_yaml(path: Path):
         with open(path) as fh:
             return yaml.safe_load(fh)
     except (OSError, yaml.YAMLError) as exc:
-        _LOGGER.debug("rule_id_registry: skipping malformed YAML %s: %s", path, exc)
+        _logger.debug("rule_id_registry: skipping malformed YAML %s: %s", path, exc)
         return None
 
 

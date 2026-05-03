@@ -39,10 +39,14 @@ live outside the scan roots.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Sequence
+
+
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -80,7 +84,11 @@ def extract_emissions(file_path: Path) -> Iterable[Emission]:
     """
     try:
         text = file_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError) as exc:
+        _logger.debug(
+            "rule_id_emission_extractor: skipping unreadable file %s: %s",
+            file_path, exc,
+        )
         return
 
     seen = set()
