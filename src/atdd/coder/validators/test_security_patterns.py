@@ -12,6 +12,11 @@ Conventions from:
 Rationale: These patterns pretend to be opinions during code review
 but are fully encodable as AST/regex rules. Phase 1: AST for SQL
 and auth, regex for secrets. Entropy-based detection deferred.
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``SECURITY-SQL-INJECTION-001``, ``SECURITY-MISSING-AUTH-001``,
+``SECURITY-HARDCODED-SECRET-001`` declared in
+``src/atdd/coder/conventions/security.convention.yaml``.
 """
 
 import ast
@@ -25,6 +30,14 @@ from typing import Dict, List, Optional, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_SQL = bind_rule("SECURITY-SQL-INJECTION-001")
+_RULE_AUTH = bind_rule("SECURITY-MISSING-AUTH-001")
+_RULE_SECRET = bind_rule("SECURITY-HARDCODED-SECRET-001")
 
 
 # ---------------------------------------------------------------------------
@@ -296,19 +309,29 @@ def _format_violations(violations: List[Dict], base_dir: Path) -> str:
 # Tests
 # ===========================================================================
 
-def _violation_strs(violations: List[Dict], base_dir: Path) -> List[str]:
-    """Convert violation dicts to string list for ratchet baseline."""
-    result = []
-    for v in violations:
+def _to_violation_records(
+    violation_dicts: List[Dict],
+    base_dir: Path,
+    rule,
+) -> List[Violation]:
+    """Convert internal violation dicts to canonical Violation records keyed off *rule*."""
+    records: List[Violation] = []
+    for v in violation_dicts:
         try:
             rel = v["file"].relative_to(base_dir)
         except ValueError:
             rel = v["file"]
-        result.append(f"{rel}:{v['line']} {v['detail']}")
-    return result
+        records.append(Violation(
+            rule_id=rule.rule_id,
+            severity=rule.severity,
+            location=f"{rel}:{v['line']}",
+            detail=v["detail"],
+            fix_hint_ref=rule.fix_hint_ref,
+        ))
+    return records
 
 
-def scan_sql_concatenation(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_sql_concatenation(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for SQL concatenation violations. Used by ratchet baseline."""
     convention = load_security_convention()
     rule = convention.get("rules", {}).get("sql_injection", {})
@@ -320,10 +343,11 @@ def scan_sql_concatenation(repo_root: Path) -> Tuple[int, List[str]]:
     violations: List[Dict] = []
     for f in files:
         violations.extend(check_sql_concatenation(f, sql_keywords, sink_methods))
-    return len(violations), _violation_strs(violations, repo_root)
+    records = _to_violation_records(violations, repo_root, _RULE_SQL)
+    return len(records), records
 
 
-def scan_missing_auth(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_missing_auth(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for missing auth dependency violations. Used by ratchet baseline."""
     convention = load_security_convention()
     rule = convention.get("rules", {}).get("missing_auth", {})
@@ -336,10 +360,11 @@ def scan_missing_auth(repo_root: Path) -> Tuple[int, List[str]]:
     violations: List[Dict] = []
     for f in files:
         violations.extend(check_missing_auth(f, route_decorators, router_objects, auth_deps))
-    return len(violations), _violation_strs(violations, repo_root)
+    records = _to_violation_records(violations, repo_root, _RULE_AUTH)
+    return len(records), records
 
 
-def scan_hardcoded_secrets(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_hardcoded_secrets(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for hardcoded secrets. Used by ratchet baseline."""
     convention = load_security_convention()
     rule = convention.get("rules", {}).get("hardcoded_secrets", {})
@@ -356,7 +381,8 @@ def scan_hardcoded_secrets(repo_root: Path) -> Tuple[int, List[str]]:
     violations: List[Dict] = []
     for f in files:
         violations.extend(check_hardcoded_secrets(f, patterns))
-    return len(violations), _violation_strs(violations, repo_root)
+    records = _to_violation_records(violations, repo_root, _RULE_SECRET)
+    return len(records), records
 
 
 @pytest.mark.coder
