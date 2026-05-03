@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atdd.dev/schemas/train-render-metadata.schema.json",
+  "title": "TrainRenderMetadata",
+  "description": "Optional render-content expectations attached to a train manifest. Consumed by tester validator test_train_renders_content.py to verify that mounting the train produces non-empty, non-stub DOM output. SPEC-CODER-TRAIN-0003.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "train_id": {
+      "type": "string",
+      "description": "The train identifier (matches plan/_trains.yaml entry)."
+    },
+    "expected_content": {
+      "type": "object",
+      "description": "What 'rendered' means for this train. When omitted, the validator only requires textLength > 0 and stubDetected == false.",
+      "additionalProperties": false,
+      "properties": {
+        "min_text_nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Minimum number of non-empty text nodes the rendered DOM must contain."
+        },
+        "must_contain": {
+          "type": "array",
+          "description": "Substrings or selectors that must be present in the rendered DOM.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "fixture": {
+          "type": "string",
+          "description": "Optional path to a fixture loaded into the harness before mounting (relative to repo root)."
+        }
+      }
+    },
+    "template": {
+      "type": "string",
+      "description": "Optional layout template the train resolves through TrainView."
+    },
+    "auth_required": {
+      "type": "boolean",
+      "description": "When true, the harness mounts the train inside an authenticated session fixture."
+    }
+  }
+}

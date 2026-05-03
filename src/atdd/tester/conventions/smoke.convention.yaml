@@ -288,6 +288,100 @@ ci_integration:
     via .atdd/baselines/coach.yaml. Interaction with issue #355
     (auto-phase-on-merge) is documented in #293's parent issue body.
 
+# =============================================================================
+# Behavioral Render (issue #335)
+# =============================================================================
+# Runtime peer to test_presentation_has_behavioral_test (#356). The
+# header-level check answers "does this presentation file have a behavioral
+# test?"; the section below answers "does this train actually render
+# something when mounted?". Together they close the structural-vs-behavioral
+# gap documented in idea-issue #318.
+behavioral_render:
+  description: |
+    For every train in plan/_trains.yaml, mount the train through
+    FrontendTrainRunner.runTrain in a headless harness and assert the
+    resulting DOM is non-empty and not a stub-only render.
+
+  validator: "src/atdd/tester/validators/test_train_renders_content.py"
+  spec_id: "SPEC-TESTER-BEHAV-0001"
+
+  harness:
+    invoker_module: "src/atdd/tester/validators/test_train_renders_content.py::HarnessInvoker"
+    template_dir: "src/atdd/coach/templates/harness/"
+    consumer_install_dir: ".atdd/harness/"
+    entrypoint: ".atdd/harness/mount-train.mjs"
+    runtime: "node + @testing-library/preact + jsdom (vitest)"
+    timeout_seconds: 30
+    invocation: "node .atdd/harness/mount-train.mjs --train <train_id>"
+    result_schema: "src/atdd/tester/schemas/train-render-harness-result.schema.json"
+    metadata_schema: "contracts/train-render-metadata.schema.json"
+
+  opt_in:
+    config_path: ".atdd/config.yaml → train_renders_content"
+    keys:
+      enabled:
+        type: boolean
+        default: false
+        description: |
+          When false (default for repos without web/), the validator emits
+          pytest.skip(). Toolkit-self repo is intentionally opted out.
+
+  classification:
+    description: "How a parsed harness result maps to canonical Violations."
+    cases:
+      empty_render:
+        rule_id: "TESTER-RENDER-001"
+        severity: 4
+        condition: "result.text_length == 0 AND no expected_content match"
+        detail: "Train mounted but produced an empty DOM (textLength=0)."
+      stub_render:
+        rule_id: "TESTER-RENDER-002"
+        severity: 4
+        condition: "result.stub_detected == true"
+        detail: "Train mounted but the rendered DOM is loader/skeleton-only."
+        related: "Conceptual peer to #334's source-AST stub detector."
+      harness_error:
+        rule_id: "TESTER-RENDER-003"
+        severity: 3
+        condition: "result.error != null OR subprocess timed out OR stdout schema-invalid"
+        detail: "Harness subprocess failed or returned an unparseable result."
+        related: "Per #357: errors must surface; never bare try/except."
+
+  rules:
+    - id: TESTER-RENDER-001
+      severity: 4
+      description: "Train mounts but the rendered DOM textContent is empty (textLength == 0 with no expected_content match)."
+      introduced_in: "1.64.5"
+    - id: TESTER-RENDER-002
+      severity: 4
+      description: "Train mounts but the rendered DOM is classified as stub-only (loader/skeleton/placeholder)."
+      introduced_in: "1.64.5"
+    - id: TESTER-RENDER-003
+      severity: 3
+      description: "Harness subprocess failed (crash, timeout, or schema-invalid stdout) when mounting the train."
+      introduced_in: "1.64.5"
+
+  ratchet:
+    baseline_id: "train_renders_content"
+    baseline_file: ".atdd/baselines/tester.yaml"
+    rationale: |
+      Pre-existing empty-render trains are baselined on first run; new
+      regressions must lower the count. Same pattern as
+      train_route_smoke_coverage.
+
+  failure_modes:
+    harness_unavailable: "Validator skips with a clear message naming the missing template; never a silent pass."
+    train_yaml_missing_metadata: "Treated as 'no expectations declared' — analyzer falls back to text_length > 0 + not stub."
+    metadata_schema_invalid: "Validator emits TESTER-RENDER-003 referencing the schema path."
+
+  cross_references:
+    parent_incident: "#318 — 63/63 R283 structural tests passed while the match page rendered blank."
+    sibling_runtime: "#333 — route → train edge existence (different gap)."
+    sibling_static: "#334 — detect_stub_presentation_returns (source-AST peer)."
+    sibling_header: "#356 — test_presentation_has_behavioral_test (URN-header peer)."
+    substrate: "#340 — Violation dataclass + rule-id grammar."
+    silent_swallow: "#357 — harness errors must surface."
+
 # Cross-References
 references:
   train_convention: "src/atdd/tester/conventions/train.convention.yaml"

@@ -1,0 +1,9 @@
+{
+  "trainId": "fixture-empty-train",
+  "textLength": 0,
+  "matchedExpectations": [],
+  "stubDetected": false,
+  "stubReason": null,
+  "error": null,
+  "durationMs": 41
+}
