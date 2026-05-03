@@ -9,14 +9,17 @@ description: "Production orchestration layer for executing user journeys across 
 rules:
   - id: COACH-TRAIN-COMPOSITION-001
     severity: 3
+    disposition: strict
     description: "Train is a production composition root in python/trains/, not test infrastructure"
     introduced_in: "1.66.0"
   - id: COACH-TRAIN-COMPOSITION-002
     severity: 3
+    disposition: strict
     description: "Wagons communicate via cargo (contract artifacts) — never via direct cross-wagon imports"
     introduced_in: "1.66.0"
   - id: COACH-TRAIN-COMPOSITION-003
     severity: 3
+    disposition: strict
     description: "Train YAML is the single source of truth for orchestration; production and tests both consume it via TrainRunner"
     introduced_in: "1.66.0"
 

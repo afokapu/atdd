@@ -22,6 +22,7 @@ cross_references:
 performance:
   rules:
     - id: "PERF-001"
+      disposition: strict
       name: "No DB calls inside loops"
       severity: "error"
       description: |

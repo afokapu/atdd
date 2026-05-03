@@ -37,6 +37,7 @@ scan_scope:
 
 rules:
   - id: "LOG-001"
+    disposition: strict
     name: "no-print-in-production"
     description: "No print() calls in non-test production Python code"
     severity: "error"
@@ -47,6 +48,7 @@ rules:
       - "Test files — print is acceptable for debug output"
 
   - id: "LOG-002"
+    disposition: suppress-and-clean
     name: "structured-logging-required"
     description: "Logger calls must include extra= keyword argument with context dict"
     severity: "error"
@@ -64,6 +66,7 @@ rules:
     name: "no-silent-exception-swallowing"
     description: "Exception handlers must log, re-raise, or otherwise observably react — never silently return a success value"
     severity: 4
+    disposition: suppress-and-clean
     detection: |
       AST (Python) / regex (TS) — try/except (or try/catch) where the handler body has:
         * NO logging call (logger.X / log.X / logging.X)
@@ -152,9 +155,11 @@ canonical_rules:
   rules:
     - id: LOGGING-PRINT-001
       severity: 2
+      disposition: strict
       description: "No print() calls in non-test production Python code (use logger)"
       introduced_in: "1.67.0"
     - id: LOGGING-STRUCTURED-001
       severity: 2
+      disposition: suppress-and-clean
       description: "Logger calls must include extra= keyword argument with context dict"
       introduced_in: "1.67.0"

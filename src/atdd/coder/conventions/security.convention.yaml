@@ -13,6 +13,7 @@ security:
     # ------------------------------------------------------------------
     sql_injection:
       id: "SPEC-CODER-SEC-0001"
+      disposition: strict
       description: "No raw SQL string concatenation in execute calls"
       severity: error
       language: python
@@ -41,6 +42,7 @@ security:
     # ------------------------------------------------------------------
     missing_auth:
       id: "SPEC-CODER-SEC-0002"
+      disposition: strict
       description: "FastAPI routes must have auth dependency injection"
       severity: error
       language: python
@@ -72,6 +74,7 @@ security:
     # ------------------------------------------------------------------
     hardcoded_secrets:
       id: "SPEC-CODER-SEC-0003"
+      disposition: strict
       description: "No hardcoded secrets (AWS keys, private keys, passwords, API keys)"
       severity: error
       language: python
@@ -99,6 +102,7 @@ security:
     # ------------------------------------------------------------------
     xss_patterns:
       id: "SPEC-CODER-SEC-0004"
+      disposition: strict
       description: "No innerHTML or dangerouslySetInnerHTML in frontend code"
       severity: error
       language: typescript
@@ -127,17 +131,21 @@ security:
 rules:
   - id: SECURITY-XSS-001
     severity: 5
+    disposition: strict
     description: "No innerHTML or dangerouslySetInnerHTML in frontend code (use safe DOM APIs)"
     introduced_in: "1.67.0"
   - id: SECURITY-SQL-INJECTION-001
     severity: 5
+    disposition: strict
     description: "No raw SQL string concatenation in execute calls (use parameterized queries)"
     introduced_in: "1.67.0"
   - id: SECURITY-MISSING-AUTH-001
     severity: 5
+    disposition: strict
     description: "FastAPI route handlers must include a Depends(auth_fn) parameter"
     introduced_in: "1.67.0"
   - id: SECURITY-HARDCODED-SECRET-001
     severity: 5
+    disposition: strict
     description: "No hardcoded credentials, AWS keys, private keys, or API tokens in source files"
     introduced_in: "1.67.0"

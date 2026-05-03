@@ -193,5 +193,6 @@ notes:
 rules:
   - id: PLANNER-APPENDIX-STRUCTURE-001
     severity: 1
+    disposition: strict
     description: "Appendix sections follow the documented heading order and link back to the main wagon body"
     introduced_in: "1.67.0"

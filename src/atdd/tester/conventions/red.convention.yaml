@@ -954,9 +954,11 @@ mock_discipline:
 rules:
   - id: TESTER-RED-NAMING-001
     severity: 2
+    disposition: strict
     description: "RED tests use URN-based filenames matching test_<NNNN>.py"
     introduced_in: "1.67.0"
   - id: TESTER-RED-FAILS-FIRST-001
     severity: 3
+    disposition: strict
     description: "RED tests must fail on first run before implementation begins"
     introduced_in: "1.67.0"

@@ -50,33 +50,39 @@ green_phase:
     rules:
       - id: GREEN-URN-001
         severity: 3
+        disposition: strict
         description: "Component URN marker is the first non-empty line of every implementation file"
         recipe: adapter
         introduced_in: "1.61.2"
 
       - id: GREEN-URN-002
         severity: 3
+        disposition: strict
         description: "Component URN matches pattern component:{wagon}:{feature}:{name}:{side}:{layer}"
         recipe: adapter
         introduced_in: "1.61.2"
 
       - id: GREEN-URN-003
         severity: 3
+        disposition: strict
         description: "Wagon and feature segments of the URN exist in the wagon manifest"
         introduced_in: "1.61.2"
 
       - id: GREEN-URN-004
         severity: 2
+        disposition: strict
         description: "Component name segment matches the filename (with PascalCase/camelCase casing)"
         introduced_in: "1.61.2"
 
       - id: GREEN-URN-005
         severity: 3
+        disposition: strict
         description: "Side segment is one of: frontend, backend"
         introduced_in: "1.61.2"
 
       - id: GREEN-URN-006
         severity: 3
+        disposition: strict
         description: "Layer segment is one of: domain, application, integration, presentation, assembly"
         introduced_in: "1.61.2"
 
@@ -90,21 +96,25 @@ green_phase:
     rules:
       - id: GREEN-HEADER-001
         severity: 2
+        disposition: strict
         description: "Runtime declaration (# Runtime: <python|supabase|flutter>) is present"
         introduced_in: "1.61.2"
 
       - id: GREEN-HEADER-002
         severity: 2
+        disposition: strict
         description: "Purpose description (# Purpose: ...) is present and ≤80 chars"
         introduced_in: "1.61.2"
 
       - id: GREEN-HEADER-003
         severity: 2
+        disposition: strict
         description: "Tested-By block lists at least one valid test URN"
         introduced_in: "1.61.2"
 
       - id: GREEN-HEADER-004
         severity: 2
+        disposition: strict
         description: "Header order: URN → Tested-By → Runtime → Purpose → blank → docstring → imports"
         introduced_in: "1.61.2"
 

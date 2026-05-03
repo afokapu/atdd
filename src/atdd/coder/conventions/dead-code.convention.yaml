@@ -127,9 +127,11 @@ examples:
 rules:
   - id: DEAD-CODE-REACHABILITY-001
     severity: 2
+    disposition: strict
     description: "Python source files must be reachable from a known entrypoint (composition root, train, test, or registered exception)"
     introduced_in: "1.67.0"
   - id: DEAD-CODE-REACHABILITY-TS-001
     severity: 2
+    disposition: strict
     description: "TypeScript source files must be reachable from a known entrypoint (main entry, route, or registered exception)"
     introduced_in: "1.67.0"

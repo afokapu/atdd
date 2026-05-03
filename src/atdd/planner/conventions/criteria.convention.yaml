@@ -147,5 +147,6 @@ metrics:
 rules:
   - id: PLANNER-CRITERIA-SHAPE-001
     severity: 2
+    disposition: strict
     description: "Criteria entries follow the documented shape (id, description, harness, expected_outcome)"
     introduced_in: "1.67.0"

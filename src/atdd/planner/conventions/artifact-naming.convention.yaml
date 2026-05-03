@@ -858,5 +858,6 @@ references:
 rules:
   - id: PLANNER-ARTIFACT-NAMING-001
     severity: 2
+    disposition: strict
     description: "Planner artifacts use stable URN-based names matching the registered grammar"
     introduced_in: "1.67.0"

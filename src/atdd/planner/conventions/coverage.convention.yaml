@@ -4,6 +4,7 @@ description: "Section 2 of ATDD Hierarchy Coverage Spec v0.1 - Ensures every pla
 
 rules:
   - id: "COVERAGE-PLAN-2.1"
+    disposition: strict
     name: "Train - Wagon Coverage"
     description: "Bidirectional coverage between trains and wagons"
     bidirectional:
@@ -17,6 +18,7 @@ rules:
         validator: "test_all_train_wagon_refs_exist"
 
   - id: "COVERAGE-PLAN-2.2"
+    disposition: strict
     name: "Wagon - Feature Coverage"
     description: "Bidirectional coverage between wagons and features"
     bidirectional:
@@ -30,6 +32,7 @@ rules:
         validator: "test_all_wagon_feature_refs_exist"
 
   - id: "COVERAGE-PLAN-2.3"
+    disposition: strict
     name: "WMBT - Feature Coverage"
     description: "Every WMBT must be referenced by at least one feature"
     bidirectional:
@@ -38,6 +41,7 @@ rules:
         validator: "test_all_wmbts_in_at_least_one_feature"
 
   - id: "COVERAGE-PLAN-2.4"
+    disposition: strict
     name: "WMBT - Acceptance Coverage"
     description: "Every WMBT must have at least one acceptance criterion"
     requirement: "Every WMBT must have at least one acceptance (except status:draft)"
