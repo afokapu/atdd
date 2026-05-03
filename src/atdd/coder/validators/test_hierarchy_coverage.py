@@ -31,6 +31,12 @@ from atdd.coach.utils.coverage_phase import (
     emit_coverage_warning
 )
 from atdd.coach.utils.manifest import is_manifest_slug
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_HIERARCHY_COVERAGE = bind_rule("DESIGN-HIERARCHY-COVERAGE-001")
 
 
 # Path constants — repo-derived only. Implementation-root constants
@@ -322,7 +328,7 @@ def test_all_features_have_implementations(
     Uses ratchet baseline so planned-but-unimplemented features don't block CI.
     """
     allowed_features = set(coverage_exceptions.get("features_without_implementation", []))
-    violations = []
+    violations: List[Violation] = []
 
     for path, feature_data in feature_files:
         wagon_dir = path.parent.parent.name
@@ -343,9 +349,17 @@ def test_all_features_have_implementations(
 
         if not has_implementation(wagon_slug, feature_slug, code_roots=code_roots):
             registered = ", ".join(sorted(code_roots))
-            violations.append(
-                f"{feature_urn}: no implementation found under any registered stack ({registered})"
-            )
+            try:
+                rel = path.relative_to(REPO_ROOT)
+            except ValueError:
+                rel = path
+            violations.append(Violation(
+                rule_id=_RULE_HIERARCHY_COVERAGE.rule_id,
+                severity=_RULE_HIERARCHY_COVERAGE.severity,
+                location=f"{rel}:1",
+                detail=f"{feature_urn}: no implementation found under any registered stack ({registered})",
+                fix_hint_ref=_RULE_HIERARCHY_COVERAGE.fix_hint_ref,
+            ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="hierarchy_coverage_features",

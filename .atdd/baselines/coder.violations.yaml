@@ -8,6 +8,12 @@ entity_cross_language:
   severity: 3
   location: contracts/render-metadata:0
   detail: render-metadata missing in Python
+hierarchy_coverage_features:
+- rule_id: DESIGN-HIERARCHY-COVERAGE-001
+  severity: 2
+  location: plan/implement_code/features/n_plus_one_detection.yaml:1
+  detail: 'feature:implement-code:n-plus-one-detection: no implementation found under
+    any registered stack (python, supabase, toolkit, web)'
 silent_exception_swallowing_python:
 - rule_id: COACH-SILENT-SWALLOW-001
   severity: 4
