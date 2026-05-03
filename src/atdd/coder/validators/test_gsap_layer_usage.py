@@ -23,6 +23,13 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_GSAP_LAYER = bind_rule("PRESENTATION-GSAP-LAYER-001")
+_RULE_GSAP_COMMONS = bind_rule("PRESENTATION-GSAP-COMMONS-001")
 
 
 REPO_ROOT = find_repo_root()
@@ -129,28 +136,34 @@ def _scan_files_for_gsap(directory: Path) -> List[Tuple[Path, str]]:
     return violations
 
 
-def scan_gsap_layer_usage(repo_root: Path):
+def scan_gsap_layer_usage(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for GSAP imports outside presentation layer. Used by ratchet baseline."""
     web_src = repo_root / "web" / "src"
     if not web_src.exists():
         return 0, []
-    violations = _scan_files_for_gsap(web_src)
-    strs = []
-    for file_path, matched_import in violations:
+    raw_violations = _scan_files_for_gsap(web_src)
+    structured: List[Violation] = []
+    for file_path, matched_import in raw_violations:
         try:
             rel = file_path.relative_to(repo_root)
         except ValueError:
             rel = file_path
-        strs.append(f"{rel}: {matched_import}")
-    return len(violations), strs
+        structured.append(Violation(
+            rule_id=_RULE_GSAP_LAYER.rule_id,
+            severity=_RULE_GSAP_LAYER.severity,
+            location=f"{rel}:1",
+            detail=f"{rel}: {matched_import}",
+            fix_hint_ref=_RULE_GSAP_LAYER.fix_hint_ref,
+        ))
+    return len(structured), structured
 
 
-def scan_gsap_commons(repo_root: Path):
+def scan_gsap_commons(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for GSAP imports in commons. Used by ratchet baseline."""
     commons_dir = repo_root / "web" / "src" / "commons"
     if not commons_dir.exists():
         return 0, []
-    violations = []
+    violations: List[Violation] = []
     for ext in ["*.ts", "*.tsx"]:
         for ts_file in commons_dir.rglob(ext):
             try:
@@ -163,7 +176,13 @@ def scan_gsap_commons(repo_root: Path):
                     rel = ts_file.relative_to(repo_root)
                 except ValueError:
                     rel = ts_file
-                violations.append(f"{rel}: {gsap_import}")
+                violations.append(Violation(
+                    rule_id=_RULE_GSAP_COMMONS.rule_id,
+                    severity=_RULE_GSAP_COMMONS.severity,
+                    location=f"{rel}:1",
+                    detail=f"{rel}: {gsap_import}",
+                    fix_hint_ref=_RULE_GSAP_COMMONS.fix_hint_ref,
+                ))
     return len(violations), violations
 
 
