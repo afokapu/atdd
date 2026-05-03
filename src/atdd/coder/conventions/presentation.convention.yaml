@@ -18,6 +18,22 @@ rules:
     severity: 3
     description: "Response models live in contract_dto and match contract JSON schemas"
     introduced_in: "1.66.0"
+  - id: PRESENTATION-GSAP-LAYER-001
+    severity: 3
+    description: "GSAP/animation libraries may only be imported from the presentation layer"
+    introduced_in: "1.67.0"
+  - id: PRESENTATION-GSAP-COMMONS-001
+    severity: 3
+    description: "GSAP/animation libraries must not be referenced from commons modules"
+    introduced_in: "1.67.0"
+  - id: PRESENTATION-I18N-CONFIG-001
+    severity: 3
+    description: "i18n runtime configuration must derive supported locales from the shared locale manifest"
+    introduced_in: "1.67.0"
+  - id: PRESENTATION-I18N-SWITCHER-001
+    severity: 3
+    description: "Language switcher components must source the locale list from the shared locale manifest"
+    introduced_in: "1.67.0"
 
 purpose: |
   Defines how to implement presentation layer (HTTP REST, CLI, GraphQL) across runtimes.
