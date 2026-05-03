@@ -444,7 +444,10 @@ def _load_orchestrate_state(path: Path) -> Dict[str, int]:
         return {}
     try:
         data = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Best-effort read for dashboard rendering. Falling back to {} causes
+        # the dashboard to render `?`/`—` placeholders rather than crashing
+        # the babysit loop, which is the documented behavior.
         return {}
     inverted: Dict[str, int] = {}
     for key, entry in (data or {}).items():
@@ -493,11 +496,16 @@ def _fetch_phase_cache(issue_numbers: List[int]) -> Dict[int, str]:
             text=True,
             timeout=10,
         )
-    except (FileNotFoundError, subprocess.SubprocessError):
+    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Best-effort GitHub fetch. gh missing / offline / rate-limited all
+        # collapse to "no phase data this cycle" — the dashboard renders `?`
+        # for that issue and tries again next refresh.
         return {}
     try:
         records = json.loads(result.stdout or "[]")
-    except json.JSONDecodeError:
+    except json.JSONDecodeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # gh returned non-JSON (e.g. an error message on stdout). Same
+        # fallback as the subprocess error path: render `?` and retry.
         return {}
     cache: Dict[int, str] = {}
     wanted = set(issue_numbers)
