@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atdd.dev/schemas/train-render-harness-result.schema.json",
+  "title": "TrainRenderHarnessResult",
+  "description": "JSON shape produced by .atdd/harness/mount-train.mjs on stdout. The Python validator parses each result, classifies it via TrainRenderAnalyzer, and emits Violation records for empty/stub/error cases.",
+  "type": "object",
+  "required": ["trainId", "textLength", "matchedExpectations", "stubDetected"],
+  "additionalProperties": false,
+  "properties": {
+    "trainId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The train identifier the harness mounted."
+    },
+    "textLength": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Length of textContent.trim() in the mounted DOM container."
+    },
+    "matchedExpectations": {
+      "type": "array",
+      "description": "Subset of expected_content.must_contain entries that were found in the rendered DOM.",
+      "items": { "type": "string" }
+    },
+    "stubDetected": {
+      "type": "boolean",
+      "description": "True when the rendered DOM matches the loader/skeleton/placeholder heuristic (see TrainRenderAnalyzer)."
+    },
+    "stubReason": {
+      "type": ["string", "null"],
+      "description": "When stubDetected is true, a one-line explanation (e.g. 'aria-busy=true on root container')."
+    },
+    "error": {
+      "type": ["string", "null"],
+      "description": "When non-null, the harness failed to mount this train. The validator emits TESTER-RENDER-003."
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Wall-clock duration of the mount in milliseconds."
+    }
+  }
+}

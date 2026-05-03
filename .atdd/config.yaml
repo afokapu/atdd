@@ -20,7 +20,7 @@ no_stub_presentation:
   scan_dirs: []
   allowlist: []
 toolkit:
-  last_version: 1.61.2
+  last_version: 1.64.5
 github:
   repo: afokapu/atdd
   project_number: 1

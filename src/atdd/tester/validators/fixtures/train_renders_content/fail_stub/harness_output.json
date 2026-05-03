@@ -1,0 +1,9 @@
+{
+  "trainId": "fixture-stub-train",
+  "textLength": 18,
+  "matchedExpectations": [],
+  "stubDetected": true,
+  "stubReason": "root container has aria-busy=true and class 'skeleton-loader'",
+  "error": null,
+  "durationMs": 39
+}

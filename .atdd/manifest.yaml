@@ -156,3 +156,14 @@ sessions:
   status: INIT
   created: '2026-05-01'
   archived: null
+- id: '335'
+  slug: enforce-train-has-rendered-content
+  file: null
+  issue_number: 335
+  type: implementation
+  status: SMOKE
+  created: '2026-05-02'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:enforce-train-has-rendered-content
+  train: 0001-self-compliance-validate

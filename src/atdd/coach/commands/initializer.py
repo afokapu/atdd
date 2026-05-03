@@ -460,6 +460,9 @@ class ProjectInitializer:
             # Install git hooks (pre-commit worktree enforcement)
             self._install_hooks(force)
 
+            # Install train-render harness when consumer repo has a frontend (#335)
+            self._install_harness(force)
+
             # Sync agent config files
             from atdd.coach.commands.sync import AgentConfigSync
             syncer = AgentConfigSync(self.target_dir)
@@ -727,6 +730,46 @@ class ProjectInitializer:
             print(f"Set git core.hooksPath → {abs_hooks}")
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
             logger.warning("Could not set core.hooksPath: %s", exc, extra={"path": str(abs_hooks)})
+
+    def _install_harness(self, force: bool = False) -> None:
+        """Install train-render harness templates into ``.atdd/harness/``.
+
+        Only runs when the consumer repo has a ``web/`` directory — repos
+        without a frontend (toolkit-self, BE-only consumers) get nothing
+        and the validator opt-in stays at its default ``enabled: false``.
+
+        See ``src/atdd/tester/conventions/smoke.convention.yaml >
+        behavioral_render`` for the harness contract (#335).
+        """
+        if not (self.target_dir / "web").exists():
+            return
+
+        harness_dir = self.atdd_config_dir / "harness"
+        harness_dir.mkdir(parents=True, exist_ok=True)
+
+        template_dir = self.package_root / "templates" / "harness"
+        if not template_dir.exists():
+            logger.warning(
+                "Harness template directory not found: %s",
+                template_dir,
+                extra={"path": str(template_dir)},
+            )
+            return
+
+        installed = 0
+        for src in sorted(template_dir.iterdir()):
+            if src.name.startswith(("__", ".")) or src.is_dir():
+                continue
+            dst = harness_dir / src.name
+            if dst.exists() and not force:
+                print(f"Harness file exists (skip): {dst}")
+                continue
+            shutil.copy2(src, dst)
+            print(f"Installed: {dst}")
+            installed += 1
+
+        if installed == 0 and not force:
+            print("All harness templates already installed.")
 
     def is_initialized(self) -> bool:
         """Check if ATDD is already initialized in target directory."""

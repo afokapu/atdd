@@ -617,7 +617,7 @@ frontend:
         config: ".atdd/config.yaml → train_yaml_render_metadata"
         example_config:
           enabled: true
-          schema_path: "contracts/train-render-metadata.schema.json"
+          schema_path: "contracts/frontend/train/render-metadata.schema.json"
           trains_glob: "plan/_trains/**/*.yaml"
 
   ci_enforcement:
