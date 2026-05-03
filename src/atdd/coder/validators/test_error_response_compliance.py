@@ -21,6 +21,7 @@ Phase: RED
 import json
 import re
 from pathlib import Path
+from typing import List, Tuple
 
 import jsonschema
 import pytest
@@ -28,6 +29,13 @@ import yaml
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_BARE_STRING = bind_rule("ERROR-BARE-STRING-001")
+_RULE_CODE_FORMAT = bind_rule("ERROR-CODE-FORMAT-001")
 
 # Consumer repo artifacts
 REPO_ROOT = find_repo_root()
@@ -235,13 +243,13 @@ def test_error_response_convention_exists():
 # ============================================================================
 
 
-def scan_bare_string_errors(repo_root: Path):
+def scan_bare_string_errors(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for bare string HTTPException details. Used by ratchet baseline."""
     python_dir = repo_root / "python"
     if not python_dir.exists():
         return 0, []
     py_files = list(python_dir.rglob("*.py"))
-    violations = []
+    violations: List[Violation] = []
     for py_file in py_files:
         if "__pycache__" in str(py_file):
             continue
@@ -250,19 +258,24 @@ def scan_bare_string_errors(repo_root: Path):
             continue
         for match in BARE_STRING_DETAIL_RE.finditer(content):
             line_num = content[: match.start()].count("\n") + 1
-            violations.append(
-                f"{py_file.relative_to(repo_root)}:{line_num}: bare string detail in HTTPException"
-            )
+            rel = py_file.relative_to(repo_root)
+            violations.append(Violation(
+                rule_id=_RULE_BARE_STRING.rule_id,
+                severity=_RULE_BARE_STRING.severity,
+                location=f"{rel}:{line_num}",
+                detail="bare string detail in HTTPException",
+                fix_hint_ref=_RULE_BARE_STRING.fix_hint_ref,
+            ))
     return len(violations), violations
 
 
-def scan_error_code_format(repo_root: Path):
+def scan_error_code_format(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for non-UPPER_SNAKE_CASE error codes. Used by ratchet baseline."""
     python_dir = repo_root / "python"
     if not python_dir.exists():
         return 0, []
     py_files = list(python_dir.rglob("*.py"))
-    violations = []
+    violations: List[Violation] = []
     for py_file in py_files:
         if "__pycache__" in str(py_file):
             continue
@@ -271,9 +284,14 @@ def scan_error_code_format(repo_root: Path):
             error_code = match.group(1)
             if not UPPER_SNAKE_CASE_RE.match(error_code):
                 line_num = content[: match.start()].count("\n") + 1
-                violations.append(
-                    f"{py_file.relative_to(repo_root)}:{line_num}: error_code '{error_code}' not UPPER_SNAKE_CASE"
-                )
+                rel = py_file.relative_to(repo_root)
+                violations.append(Violation(
+                    rule_id=_RULE_CODE_FORMAT.rule_id,
+                    severity=_RULE_CODE_FORMAT.severity,
+                    location=f"{rel}:{line_num}",
+                    detail=f"error_code '{error_code}' not UPPER_SNAKE_CASE",
+                    fix_hint_ref=_RULE_CODE_FORMAT.fix_hint_ref,
+                ))
     return len(violations), violations
 
 
