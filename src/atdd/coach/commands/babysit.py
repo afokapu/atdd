@@ -482,17 +482,11 @@ def _fetch_phase_cache(issue_numbers: List[int]) -> Dict[int, str]:
     try:
         result = subprocess.run(
             [
-                "gh",
-                "issue",
-                "list",
-                "--state",
-                "all",
-                "--search",
-                "label:atdd: assignee:@me",
-                "--json",
-                "number,labels",
-                "--limit",
-                "200",
+                "gh", "issue", "list",
+                "--state", "all",
+                "--search", "assignee:@me",
+                "--json", "number,labels",
+                "--limit", "200",
             ],
             check=True,
             capture_output=True,
