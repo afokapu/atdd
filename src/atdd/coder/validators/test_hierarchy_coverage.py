@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from atdd.coach.utils.config import get_code_roots, load_atdd_config
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.coverage_phase import (
     CoveragePhase,
@@ -314,7 +315,7 @@ def code_roots(atdd_config) -> Dict[str, Path]:
 
 @pytest.mark.coder
 def test_all_features_have_implementations(
-    feature_files, coverage_exceptions, ratchet_baseline, code_roots
+    feature_files, coverage_exceptions, code_roots
 ):
     """
     COVERAGE-CODE-4.1: Every feature has implementation code.
@@ -361,9 +362,8 @@ def test_all_features_have_implementations(
                 fix_hint_ref=_RULE_HIERARCHY_COVERAGE.fix_hint_ref,
             ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="hierarchy_coverage_features",
-        current_count=len(violations),
         violations=violations,
     )
 

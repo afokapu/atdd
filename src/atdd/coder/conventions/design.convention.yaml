@@ -394,6 +394,10 @@ rules:
     introduced_in: "1.67.0"
   - id: DESIGN-HIERARCHY-COVERAGE-001
     severity: 2
-    disposition: suppress-and-clean
+    # Coverage check; emits ``plan/.../<feature>.yaml:1`` locations.
+    # Suppression scanner only walks .py/.ts/.tsx, so YAML markers don't
+    # apply. Per issue #395 Decision: route as advisory; site-fix path is
+    # the .atdd/config.yaml allow-list, not an inline marker.
+    disposition: advisory
     description: "Every feature must have hierarchy coverage (manifest, design system entries, or registered exceptions)"
     introduced_in: "1.67.0"

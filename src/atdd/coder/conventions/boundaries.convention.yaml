@@ -687,7 +687,10 @@ rules:
     introduced_in: "1.67.0"
   - id: BOUNDARIES-XLANG-ENTITY-001
     severity: 3
-    disposition: suppress-and-clean
+    # Cross-language consistency check; emits synthetic ``contracts/<name>:0``
+    # locations rather than per-site source lines, so per-site suppression
+    # markers don't apply. Per issue #395 Decision: route as advisory.
+    disposition: advisory
     description: "Domain entities must be defined consistently across Python and TypeScript"
     introduced_in: "1.67.0"
   - id: BOUNDARIES-XLANG-ENUM-001
@@ -702,6 +705,9 @@ rules:
     introduced_in: "1.67.0"
   - id: BOUNDARIES-XLANG-CONTRACT-001
     severity: 3
-    disposition: suppress-and-clean
+    # Cross-language consistency check; emits synthetic ``contracts/<name>:0``
+    # locations rather than per-site source lines, so per-site suppression
+    # markers don't apply. Per issue #395 Decision: route as advisory.
+    disposition: advisory
     description: "API contracts must be honored consistently across Python and TypeScript"
     introduced_in: "1.67.0"
