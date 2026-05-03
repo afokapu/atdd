@@ -850,3 +850,13 @@ references:
     - "Contract file structure mirrors artifact naming"
     - "Hierarchy reflects domain organization"
     - "Variants reflect runtime/configuration differences"
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: PLANNER-ARTIFACT-NAMING-001
+    severity: 2
+    description: "Planner artifacts use stable URN-based names matching the registered grammar"
+    introduced_in: "1.67.0"
