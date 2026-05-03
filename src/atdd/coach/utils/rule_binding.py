@@ -137,7 +137,10 @@ def extract_rules(
     try:
         with open(file_path) as fh:
             data = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError):
+    except (OSError, yaml.YAMLError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Unreadable / malformed YAML is policed by test_rule_id_uniqueness;
+        # bind_rule treats such files as empty so a single broken convention
+        # does not break the entire registry walk.
         return []
     if data is None:
         return []
