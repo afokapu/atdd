@@ -36,6 +36,7 @@ features:
   - urn: "feature:govern-lifecycle:config-driven-code-roots"
   - urn: "feature:govern-lifecycle:orchestrate-pane-mode"
   - urn: "feature:govern-lifecycle:detect-stub-presentation-returns"
+  - urn: "feature:govern-lifecycle:enforce-route-train-wagon-coverage"
 
 wmbt:
   total: 26
