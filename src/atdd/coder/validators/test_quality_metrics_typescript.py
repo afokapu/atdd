@@ -10,7 +10,11 @@ Regex-based — no AST parser or tree-sitter dependency.
 Same thresholds as the Python counterpart (test_quality_metrics.py).
 Uses ratchet baseline to prevent regression.
 
-Convention: src/atdd/coder/conventions/quality.convention.yaml
+Convention: src/atdd/coder/conventions/refactor.convention.yaml
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``REFACTOR-QUALITY-MI-TS-001`` and ``REFACTOR-QUALITY-COMMENTS-TS-001``
+declared in ``src/atdd/coder/conventions/refactor.convention.yaml``.
 """
 
 import math
@@ -20,6 +24,13 @@ from pathlib import Path
 from typing import List, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_MI_TS = bind_rule("REFACTOR-QUALITY-MI-TS-001")
+_RULE_COMMENTS_TS = bind_rule("REFACTOR-QUALITY-COMMENTS-TS-001")
 
 
 # ---------------------------------------------------------------------------
@@ -239,14 +250,14 @@ def calculate_comment_ratio_ts(file_path: Path) -> float:
 # ---------------------------------------------------------------------------
 # Scan functions (used by ratchet baseline registration)
 # ---------------------------------------------------------------------------
-def scan_maintainability_index_ts(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_maintainability_index_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for MI violations in TS/TSX files. Used by ratchet baseline."""
     web_src = repo_root / "web" / "src"
     if not web_src.exists():
         return 0, []
 
     files = find_typescript_files(web_src)
-    violations: List[str] = []
+    violations: List[Violation] = []
 
     for ts_file in files:
         try:
@@ -259,19 +270,25 @@ def scan_maintainability_index_ts(repo_root: Path) -> Tuple[int, List[str]]:
         mi = calculate_maintainability_index_ts(ts_file)
         if mi < MIN_MAINTAINABILITY_INDEX:
             rel_path = ts_file.relative_to(repo_root)
-            violations.append(f"{rel_path} MI={mi:.1f}")
+            violations.append(Violation(
+                rule_id=_RULE_MI_TS.rule_id,
+                severity=_RULE_MI_TS.severity,
+                location=f"{rel_path}:1",
+                detail=f"{rel_path} MI={mi:.1f}",
+                fix_hint_ref=_RULE_MI_TS.fix_hint_ref,
+            ))
 
     return len(violations), violations
 
 
-def scan_comment_ratio_ts(repo_root: Path) -> Tuple[int, List[str]]:
+def scan_comment_ratio_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for comment ratio violations in TS/TSX files. Used by ratchet baseline."""
     web_src = repo_root / "web" / "src"
     if not web_src.exists():
         return 0, []
 
     files = find_typescript_files(web_src)
-    violations: List[str] = []
+    violations: List[Violation] = []
 
     for ts_file in files:
         try:
@@ -284,7 +301,13 @@ def scan_comment_ratio_ts(repo_root: Path) -> Tuple[int, List[str]]:
         ratio = calculate_comment_ratio_ts(ts_file)
         if ratio < MIN_COMMENT_RATIO:
             rel_path = ts_file.relative_to(repo_root)
-            violations.append(f"{rel_path} {ratio * 100:.1f}%")
+            violations.append(Violation(
+                rule_id=_RULE_COMMENTS_TS.rule_id,
+                severity=_RULE_COMMENTS_TS.severity,
+                location=f"{rel_path}:1",
+                detail=f"{rel_path} {ratio * 100:.1f}%",
+                fix_hint_ref=_RULE_COMMENTS_TS.fix_hint_ref,
+            ))
 
     return len(violations), violations
 
