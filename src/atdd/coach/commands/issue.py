@@ -1607,36 +1607,39 @@ class IssueManager:
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
+        # Issue #384: ProjectV2 sync may be denied when the GHA token lacks
+        # `projects: write` (or when the org-level Actions policy disables
+        # Projects access). The inner try catches the narrow access-denied
+        # case so the label swap below still runs (label-only sync). Any
+        # other error re-raises into the outer except for the existing
+        # user-visible abort path — no new print sites introduced.
+        projects_access_denied = False
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:
-            print(f"Error: {e}")
-            return 1
-
-        # Issue #384: ProjectV2 sync may be denied when the GHA token lacks
-        # `projects: write` (or when the org-level Actions policy disables
-        # Projects access). Catch the narrow access-denied case so the label
-        # swap below still runs (label-only sync). Anything else still aborts.
-        projects_access_denied = False
-        try:
-            fields = client.get_project_fields()
-            item_id = client.get_project_item_id(issue_number)
-        except GitHubClientError as e:
-            if "Resource not accessible by integration" in str(e):
+            try:
+                fields = client.get_project_fields()
+                item_id = client.get_project_item_id(issue_number)
+            except GitHubClientError as e:
+                if "Resource not accessible by integration" not in str(e):
+                    raise
                 logger.warning(
                     "ProjectV2 sync denied for issue #%s; continuing with "
                     "label-only sync. Grant the GHA token 'projects: write' "
                     "or enable Projects access in repo Settings → Actions → "
                     "Workflow permissions to silence this.",
                     issue_number,
+                    extra={
+                        "action": "projects_access_fallback",
+                        "issue": issue_number,
+                    },
                 )
                 projects_access_denied = True
                 fields = {}
                 item_id = None
-            else:
-                print(f"Error: {e}")
-                return 1
+        except (GitHubClientError, Exception) as e:
+            print(f"Error: {e}")
+            return 1
 
         if item_id is None and not projects_access_denied:
             print(f"Error: #{issue_number} not found in Project")
