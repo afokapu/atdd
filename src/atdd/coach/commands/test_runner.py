@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import atdd
-from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.repo import find_repo_root, is_atdd_source_repo
 
 
 def _xdist_available() -> bool:
@@ -185,9 +185,21 @@ class TestRunner:
 
         Stage 1: All tests except github_api — parallel
         Stage 2: github_api tests (live GitHub API) — sequential (shared session fixtures)
+
+        In consumer mode (atdd installed via pip/pipx, not running from the
+        toolkit source checkout), tests marked `platform` are skipped in
+        Stage 1. They are toolkit-self dogfood tests that walk paths like
+        ``src/atdd/...`` which only exist in the toolkit checkout — running
+        them against a consumer repo would fail with assertion errors that
+        have no consumer-side fix.
         """
-        # Stage 1: all tests except github_api, parallel
-        fast_markers = list(markers or []) + ["not github_api"]
+        # Stage 1: all tests except github_api, parallel.
+        # In consumer mode, also exclude `platform`-marked toolkit-self tests.
+        # Multiple -m flags don't AND in pytest — combine into one expression.
+        stage1_expr = "not github_api"
+        if not is_atdd_source_repo():
+            stage1_expr += " and not platform"
+        fast_markers = list(markers or []) + [stage1_expr]
         fast_cmd = self._build_pytest_cmd(
             validator_dirs, verbose=verbose, coverage=coverage,
             html_report=False, markers=fast_markers, parallel=parallel,
