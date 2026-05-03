@@ -9,7 +9,21 @@ purpose: |
 
 contract_ref: "contracts/commons/error/response.schema.json"
 
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
 rules:
+  - id: ERROR-BARE-STRING-001
+    severity: 4
+    description: "HTTPException detail must be a structured dict matching the error response contract, not a bare string"
+    introduced_in: "1.67.0"
+  - id: ERROR-CODE-FORMAT-001
+    severity: 4
+    description: "error_code values must follow UPPER_SNAKE_CASE convention matching ^[A-Z][A-Z0-9_]+$"
+    introduced_in: "1.67.0"
+
+# Legacy prose rules (pre-#394 — kept for documentation, not registry-walked)
+legacy_rules:
   ERR-01:
     id: ERR-01
     name: "Structured error responses required"
