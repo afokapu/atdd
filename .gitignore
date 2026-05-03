@@ -29,6 +29,7 @@ coverage.xml
 # ATDD cache + agent-local state
 .atdd/cache/
 .atdd/orchestration-log.jsonl
+.atdd/worker-state-*.json
 .scratch/
 
 # Presentation ratchet smoke evidence — local/CI artifact, not git history.

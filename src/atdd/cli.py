@@ -853,6 +853,58 @@ Phase descriptions:
         help="Path to the orchestrate state file (default: .atdd/orchestrate-state.json)",
     )
 
+    # ----- atdd checkpoint <issue-number> -----
+    checkpoint_parser = subparsers.add_parser(
+        "checkpoint",
+        help="Persist worker state to .atdd/worker-state-<issue>.json",
+        description=(
+            "Write a per-issue worker checkpoint after a phase transition so "
+            "that `atdd session-template <N> --from-checkpoint` can rebuild the "
+            "launch prompt without manual re-briefing (issue #378)."
+        ),
+    )
+    checkpoint_parser.add_argument(
+        "issue_number",
+        type=int,
+        help="Issue number this checkpoint belongs to",
+    )
+    checkpoint_parser.add_argument(
+        "--phase",
+        type=str,
+        required=True,
+        choices=[
+            "INIT", "PLANNED", "RED", "GREEN",
+            "SMOKE", "REFACTOR", "COMPLETE", "BLOCKED",
+        ],
+        help="ATDD phase the worker had just completed",
+    )
+    checkpoint_parser.add_argument(
+        "--summary",
+        type=str,
+        default="",
+        help="Short progress summary (≤500 chars; longer is truncated)",
+    )
+    checkpoint_parser.add_argument(
+        "--open-files",
+        type=str,
+        default="",
+        dest="open_files",
+        help="Comma-separated list of open files",
+    )
+    checkpoint_parser.add_argument(
+        "--branch",
+        type=str,
+        default=None,
+        help="Branch name (default: detected from git)",
+    )
+    checkpoint_parser.add_argument(
+        "--last-commit",
+        type=str,
+        default=None,
+        dest="last_commit",
+        help="Last commit short SHA (default: detected from git)",
+    )
+
     # ----- atdd babysit -----
     babysit_parser = subparsers.add_parser(
         "babysit",
@@ -1688,6 +1740,22 @@ Phase descriptions:
             multiplexer_mode=getattr(args, "multiplexer_mode", "workspace"),
             dry_run=getattr(args, "dry_run", False),
             state_file=getattr(args, "state_file", ".atdd/orchestrate-state.json"),
+        )
+
+    # atdd checkpoint <issue-number>
+    elif args.command == "checkpoint":
+        from atdd.coach.commands.checkpoint import run as run_checkpoint
+        open_files_arg = getattr(args, "open_files", "") or ""
+        open_files = [
+            f.strip() for f in open_files_arg.split(",") if f.strip()
+        ]
+        return run_checkpoint(
+            issue=args.issue_number,
+            phase=args.phase,
+            summary=getattr(args, "summary", "") or "",
+            open_files=open_files,
+            branch=getattr(args, "branch", None),
+            last_commit=getattr(args, "last_commit", None),
         )
 
     # atdd babysit
