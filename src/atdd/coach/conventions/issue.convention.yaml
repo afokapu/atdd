@@ -535,6 +535,24 @@ status:
       - OBSOLETE
     validator: "src/atdd/coach/validators/test_auto_phase_workflow_exists.py"
 
+    # Issue #384: ProjectV2 sync may be unavailable when the GHA token lacks
+    # `projects: write` (or org-level Actions policy disables Projects).
+    # `IssueManager.update` catches the narrow "Resource not accessible by
+    # integration" GitHubClientError, logs a WARNING, and continues with
+    # label-only sync via the existing `atdd:<PHASE>` swap. Non-matching
+    # GitHubClientError instances still abort.
+    projects_access_fallback:
+      enabled: true
+      trigger: "GitHubClientError matching 'Resource not accessible by integration'"
+      behavior: "label-only sync (atdd:<PHASE> swap); ProjectV2 fields skipped"
+      log_level: "WARNING"
+      remediation: |
+        Grant the GHA token `projects: write` in the workflow `permissions:`
+        block (already shipped in atdd-auto-phase.yml since #384), or enable
+        Projects access in repo Settings → Actions → Workflow permissions.
+      template: "src/atdd/coach/templates/workflows/atdd-auto-phase.yml"
+      validator: "src/atdd/coach/commands/tests/test_issue_update_fallback.py"
+
 # Infrastructure archetypes - what can be changed
 archetypes:
   database:
