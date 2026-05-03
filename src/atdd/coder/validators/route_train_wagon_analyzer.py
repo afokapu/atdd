@@ -6,12 +6,21 @@
 """
 Route → Train → Wagon coverage analyzer.
 
-Splits the validator file in two so the orchestration tests
-(`test_route_train_wagon_coverage.py`) can keep their pytest signature
-while the lookup pipeline lives in a layer-pure module.
+Layered shape (refactored under #333 Phase 4):
 
-Phase 2 (GREEN): regex-based scan per Decision #1. The TypeScript AST
-rewrite is tracked as a follow-up to issue #333; not in scope here.
+* DOMAIN       — ``TrainIdBinding`` dataclass, rule_id constants, severity
+                 constants. No I/O, no framework imports.
+* APPLICATION  — ``parse_trainview_bindings``, ``analyze_router_content``.
+                 Pure functions over strings + dicts; no filesystem access.
+* INTEGRATION  — ``load_registered_trains``, ``load_registered_wagons``,
+                 ``analyze_router_file``. Reads YAML and TSX from disk.
+* FAÇADE       — ``RouteTrainWagonAnalyzer``. Stateful binding for the
+                 orchestration layer (``test_route_train_wagon_coverage.py``)
+                 and SMOKE tests (``e2e/0001-self-compliance-validate``).
+
+Phase 2 (GREEN) implemented the parser as regex per Decision #1. The
+TypeScript AST rewrite is tracked as a follow-up to issue #333; not in
+scope here.
 """
 
 from __future__ import annotations
@@ -20,7 +29,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set
 
 import yaml
 
@@ -30,20 +39,21 @@ from atdd.coach.validators._violation import Violation
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Rule constants — single source of truth, re-exported by the validator file.
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# DOMAIN LAYER
+# ===========================================================================
+
+# Rule constants — single source of truth, re-exported by the validator file
+# and mirrored in frontend.convention.yaml::route_train_wagon_coverage.
 RULE_UNREGISTERED_TRAIN = "BOUNDARIES-ROUTE-COVERAGE-001"
 RULE_UNREGISTERED_WAGON = "BOUNDARIES-ROUTE-COVERAGE-002"
 RULE_DYNAMIC_TRAIN_ID = "BOUNDARIES-ROUTE-COVERAGE-003"
 
-SEVERITY_ARCHITECTURAL = 3  # rule-id.convention.yaml severity_scale[3]
-SEVERITY_ADVISORY = 1       # rule-id.convention.yaml severity_scale[1]
+# Severities per rule-id.convention.yaml::severity_scale.
+SEVERITY_ARCHITECTURAL = 3   # tier 3 — URN markers, layer boundaries
+SEVERITY_ADVISORY = 1        # tier 1 — style nits, ordering preferences
 
 
-# ---------------------------------------------------------------------------
-# Entity layer
-# ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class TrainIdBinding:
     """A single ``<TrainView trainId={...}>`` occurrence inside a router file.
@@ -58,9 +68,11 @@ class TrainIdBinding:
     resolved: Optional[str]
 
 
-# ---------------------------------------------------------------------------
-# Static parser (regex per Decision #1; AST is the tracked follow-up)
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# APPLICATION LAYER (pure — no I/O)
+# ===========================================================================
+
+# Regex catalogue for the lightweight TSX scanner (Decision #1).
 _TRAINVIEW_TAG_RE = re.compile(
     r"<TrainView\b(?P<attrs>[^>]*?)/?>",
     re.DOTALL,
@@ -141,57 +153,6 @@ def parse_trainview_bindings(content: str) -> List[TrainIdBinding]:
     return bindings
 
 
-# ---------------------------------------------------------------------------
-# Plan-YAML loaders
-# ---------------------------------------------------------------------------
-def load_registered_trains(trains_file: Path) -> Dict[str, List[str]]:
-    """Parse ``plan/_trains.yaml`` → ``{train_id: [wagon, ...]}``.
-
-    Schema mirror of
-    ``atdd.tester.validators.test_smoke_coverage.PlanTrainDiscovery.discover``
-    but retains the per-train ``wagons:`` list which that loader discards.
-    """
-    if not trains_file.is_file():
-        return {}
-    try:
-        data = yaml.safe_load(trains_file.read_text(encoding="utf-8")) or {}
-    except (yaml.YAMLError, OSError) as exc:
-        logger.warning("Failed to load trains file %s: %s", trains_file, exc)
-        return {}
-
-    out: Dict[str, List[str]] = {}
-    for theme in (data.get("trains") or {}).values():
-        if not isinstance(theme, dict):
-            continue
-        for trains in theme.values():
-            for train in trains or []:
-                tid = train.get("train_id")
-                if tid:
-                    out[tid] = list(train.get("wagons") or [])
-    return out
-
-
-def load_registered_wagons(wagons_file: Path) -> Set[str]:
-    """Parse ``plan/_wagons.yaml`` → ``{wagon_id, ...}``."""
-    if not wagons_file.is_file():
-        return set()
-    try:
-        data = yaml.safe_load(wagons_file.read_text(encoding="utf-8")) or {}
-    except (yaml.YAMLError, OSError) as exc:
-        logger.warning("Failed to load wagons file %s: %s", wagons_file, exc)
-        return set()
-
-    out: Set[str] = set()
-    for entry in data.get("wagons") or []:
-        wid = entry.get("wagon")
-        if wid:
-            out.add(wid)
-    return out
-
-
-# ---------------------------------------------------------------------------
-# Use-case layer
-# ---------------------------------------------------------------------------
 def analyze_router_content(
     rel_path: str,
     content: str,
@@ -248,6 +209,55 @@ def analyze_router_content(
     return violations
 
 
+# ===========================================================================
+# INTEGRATION LAYER (file I/O)
+# ===========================================================================
+
+def load_registered_trains(trains_file: Path) -> Dict[str, List[str]]:
+    """Parse ``plan/_trains.yaml`` → ``{train_id: [wagon, ...]}``.
+
+    Schema mirror of
+    ``atdd.tester.validators.test_smoke_coverage.PlanTrainDiscovery.discover``
+    but retains the per-train ``wagons:`` list which that loader discards.
+    """
+    if not trains_file.is_file():
+        return {}
+    try:
+        data = yaml.safe_load(trains_file.read_text(encoding="utf-8")) or {}
+    except (yaml.YAMLError, OSError) as exc:
+        logger.warning("Failed to load trains file %s: %s", trains_file, exc)
+        return {}
+
+    out: Dict[str, List[str]] = {}
+    for theme in (data.get("trains") or {}).values():
+        if not isinstance(theme, dict):
+            continue
+        for trains in theme.values():
+            for train in trains or []:
+                tid = train.get("train_id")
+                if tid:
+                    out[tid] = list(train.get("wagons") or [])
+    return out
+
+
+def load_registered_wagons(wagons_file: Path) -> Set[str]:
+    """Parse ``plan/_wagons.yaml`` → ``{wagon_id, ...}``."""
+    if not wagons_file.is_file():
+        return set()
+    try:
+        data = yaml.safe_load(wagons_file.read_text(encoding="utf-8")) or {}
+    except (yaml.YAMLError, OSError) as exc:
+        logger.warning("Failed to load wagons file %s: %s", wagons_file, exc)
+        return set()
+
+    out: Set[str] = set()
+    for entry in data.get("wagons") or []:
+        wid = entry.get("wagon")
+        if wid:
+            out.add(wid)
+    return out
+
+
 def analyze_router_file(
     router_path: Path,
     registered_trains: Dict[str, List[str]],
@@ -282,11 +292,17 @@ def analyze_router_file(
     )
 
 
+# ===========================================================================
+# FAÇADE
+# ===========================================================================
+
 class RouteTrainWagonAnalyzer:
     """Stateful façade over the loaders + the pure analyzer.
 
     Used by orchestration tests and SMOKE tests that hit the real
-    ``plan/_trains.yaml`` + ``plan/_wagons.yaml`` files.
+    ``plan/_trains.yaml`` + ``plan/_wagons.yaml`` files. Loaders run once
+    per instance via the cached properties so the per-router scan costs
+    one YAML parse, not N.
     """
 
     def __init__(self, trains_file: Path, wagons_file: Path) -> None:

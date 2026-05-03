@@ -589,6 +589,41 @@ frontend:
         spec_id: "SPEC-CODER-PAGE-0004"
         rule: "New routes must use TrainView, not direct page component imports"
         config: ".atdd/config.yaml → route_train_compliance"
+      route_train_wagon_coverage:
+        spec_id: "SPEC-CODER-ROUTE-0005"
+        rule: >
+          Every <TrainView trainId="..." /> in a router file must resolve
+          to a registered train in plan/_trains.yaml, and that train's
+          wagons: list must reference registered wagons in plan/_wagons.yaml.
+          Same-file `const X = "id"` declarations are resolved; dynamic
+          expressions surface as advisory-only UNKNOWN warnings.
+        config: ".atdd/config.yaml → route_train_wagon_coverage"
+        validator: "src/atdd/coder/validators/test_route_train_wagon_coverage.py"
+        analyzer: "src/atdd/coder/validators/route_train_wagon_analyzer.py"
+        baseline: ".atdd/baselines/coder.yaml → route_train_wagon_coverage"
+        rules:
+          - id: "BOUNDARIES-ROUTE-COVERAGE-001"
+            severity: 3
+            description: "trainId not registered in plan/_trains.yaml (hard fail)"
+          - id: "BOUNDARIES-ROUTE-COVERAGE-002"
+            severity: 3
+            description: "Resolved train lists wagon not in plan/_wagons.yaml (hard fail)"
+          - id: "BOUNDARIES-ROUTE-COVERAGE-003"
+            severity: 1
+            description: "trainId expression not statically resolvable (advisory; never hard-fail)"
+        rationale: >
+          Closes the route → train → wagon segment of the structural-vs-
+          behavioral incident series tracked at #318. Sibling validators
+          (#334 stub presentation; #335 train renders content) close the
+          presentation-leaf and runtime-render segments.
+        example_config:
+          enabled: true
+          router_patterns:
+            - "web/src/**/router.tsx"
+            - "web/src/**/App.tsx"
+          allowlist:
+            - path: "web/src/legacy/router.tsx"
+              migration: "owner/repo#NNN"
       frontend_composition_root:
         spec_id: "SPEC-CODER-TRAIN-0001"
         rule: "The configured composition root file must exist, declare the configured class, and implement every required method"
