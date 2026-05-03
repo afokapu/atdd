@@ -99,6 +99,18 @@ rule_schema:
       description: "Newer rule ID that replaces this one (deprecation window)."
 
 # =============================================================================
+# Rules declared by this convention (issue #388)
+# =============================================================================
+# Top-level `rules:` block — parallel to `domains:`, `severity_scale:`,
+# `rule_schema:`. Do NOT nest these under `migration.steps` (the example
+# `rules:` snippet there is illustrative, not a runtime declaration).
+rules:
+  - id: "COACH-RULEID-BIND-001"
+    severity: 2
+    description: "Migrated validators must not redeclare rule severity as a module constant"
+    introduced_in: "1.66.0"
+
+# =============================================================================
 # Migration playbook
 # =============================================================================
 # Step-by-step retrofit guide for the ~15 conventions that don't yet declare

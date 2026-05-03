@@ -39,13 +39,18 @@ from __future__ import annotations
 import re
 import warnings
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import pytest
 import yaml
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import (
+    _walk_rules,
+    extract_rules,
+    find_convention_files as _find_convention_files,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -90,20 +95,12 @@ def load_allowed_domains() -> set:
 # Convention discovery
 # ---------------------------------------------------------------------------
 def find_convention_files() -> List[Path]:
-    """Walk *_CONVENTION_ROOTS* for ``*.convention.yaml`` files (deduped)."""
-    seen: Dict[str, Path] = {}
-    for root in _CONVENTION_ROOTS:
-        if not root.is_dir():
-            continue
-        for path in root.rglob("*.convention.yaml"):
-            # Skip __pycache__-adjacent caches and tests fixtures.
-            if "__pycache__" in path.parts:
-                continue
-            # Dedupe by resolved path so the same file installed + checked-out
-            # is not validated twice.
-            key = str(path.resolve())
-            seen[key] = path
-    return sorted(seen.values())
+    """Walk this validator's search roots for ``*.convention.yaml`` files.
+
+    Thin wrapper over :func:`atdd.coach.utils.rule_binding.find_convention_files`
+    that pins the toolkit-self search roots used by the uniqueness validator.
+    """
+    return _find_convention_files(_CONVENTION_ROOTS)
 
 
 def load_migrated_files() -> List[Path]:
@@ -140,44 +137,8 @@ def load_migrated_files() -> List[Path]:
     return resolved
 
 
-# ---------------------------------------------------------------------------
-# Rule extraction
-# ---------------------------------------------------------------------------
-def _is_structured_rule(item) -> bool:
-    """A structured rule is a dict with an ``id`` field.
-
-    Distinguishes from legacy prose ``rules:`` arrays whose items are bare
-    strings (e.g. green.convention.yaml `composition_completeness.rules:`).
-    """
-    return isinstance(item, dict) and "id" in item
-
-
-def _walk_rules(node, path_parts: Tuple[str, ...]) -> Iterable[Tuple[Tuple[str, ...], Dict]]:
-    """Recursively yield (yaml_path, rule_dict) for every structured rule."""
-    if isinstance(node, dict):
-        for key, value in node.items():
-            new_path = path_parts + (str(key),)
-            if key == "rules" and isinstance(value, list):
-                for idx, item in enumerate(value):
-                    if _is_structured_rule(item):
-                        yield (new_path + (str(idx),), item)
-            else:
-                yield from _walk_rules(value, new_path)
-    elif isinstance(node, list):
-        for idx, item in enumerate(node):
-            yield from _walk_rules(item, path_parts + (str(idx),))
-
-
-def extract_rules(file_path: Path) -> List[Tuple[Path, Tuple[str, ...], Dict]]:
-    """Return (file, yaml_path, rule_dict) for every structured rule in *file_path*."""
-    try:
-        with open(file_path) as fh:
-            data = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError):
-        return []
-    if data is None:
-        return []
-    return [(file_path, p, r) for (p, r) in _walk_rules(data, ())]
+# Rule extraction lives in atdd.coach.utils.rule_binding so bind_rule and
+# this validator share one walker implementation (issue #388).
 
 
 # ---------------------------------------------------------------------------

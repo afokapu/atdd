@@ -29,6 +29,7 @@ import yaml
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
 
@@ -46,11 +47,12 @@ FIXTURES_DIR = (
 
 
 # ---------------------------------------------------------------------------
-# Rule constants (mirrored in logging.convention.yaml::COACH-SILENT-SWALLOW-001)
+# Rule binding — severity, description, recipe pulled from convention at
+# import time. Module import fails loudly if the rule is unregistered or
+# duplicated (issue #388).
 # ---------------------------------------------------------------------------
-RULE_ID = "COACH-SILENT-SWALLOW-001"
-RULE_SEVERITY = 4
-SUPPRESSION_MARKER = f"atdd:suppress({RULE_ID})"
+_RULE = bind_rule("COACH-SILENT-SWALLOW-001")
+_SUPPRESSION_MARKER = f"atdd:suppress({_RULE.rule_id})"
 
 LOGGER_RECEIVER_NAMES = {
     "logger", "log", "_logger", "_log", "logging", "LOG",
@@ -165,7 +167,7 @@ def _is_suppressed(handler: ast.ExceptHandler, source_lines: List[str]) -> bool:
         return False
     idx = handler.lineno - 1
     if 0 <= idx < len(source_lines):
-        if SUPPRESSION_MARKER in source_lines[idx]:
+        if _SUPPRESSION_MARKER in source_lines[idx]:
             return True
     return False
 
@@ -242,10 +244,11 @@ def detect_silent_swallows(file_path: Path) -> List[Violation]:
                 )
 
             violations.append(Violation(
-                rule_id=RULE_ID,
-                severity=RULE_SEVERITY,
+                rule_id=_RULE.rule_id,
+                severity=_RULE.severity,
                 location=f"{rel}:{handler.lineno}",
                 detail=detail,
+                fix_hint_ref=_RULE.fix_hint_ref,
             ))
 
     return violations
@@ -305,8 +308,8 @@ def test_silent_swallow_fixture_violations_detected():
             f"but detector found none"
         )
         for v in violations:
-            assert v.rule_id == RULE_ID, f"Wrong rule_id: {v.rule_id}"
-            assert v.severity == RULE_SEVERITY, f"Wrong severity: {v.severity}"
+            assert v.rule_id == _RULE.rule_id, f"Wrong rule_id: {v.rule_id}"
+            assert v.severity == _RULE.severity, f"Wrong severity: {v.severity}"
 
 
 @pytest.mark.coder
@@ -379,15 +382,15 @@ def test_silent_swallow_rule_declared_in_convention():
         convention = yaml.safe_load(fh)
 
     rules = {r["id"]: r for r in convention.get("rules", [])}
-    if RULE_ID not in rules:
+    if _RULE.rule_id not in rules:
         pytest.fail(
-            f"Rule {RULE_ID} not found in {LOGGING_CONVENTION}; "
+            f"Rule {_RULE.rule_id} not found in {LOGGING_CONVENTION}; "
             f"available rule ids: {sorted(rules.keys())}"
         )
 
-    rule = rules[RULE_ID]
-    assert rule["severity"] == RULE_SEVERITY, (
-        f"Expected severity {RULE_SEVERITY}, got {rule['severity']}"
+    rule = rules[_RULE.rule_id]
+    assert rule["severity"] == _RULE.severity, (
+        f"Expected severity {_RULE.severity}, got {rule['severity']}"
     )
     assert "no-silent-exception-swallowing" == rule["name"], (
         f"Unexpected rule name: {rule['name']}"
