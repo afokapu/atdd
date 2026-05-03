@@ -98,8 +98,8 @@ severity_scale:
 # Per-rule YAML shape (SPEC-COACH-RULEID-0006)
 # =============================================================================
 rule_schema:
-  required: [id, severity, description]
-  optional: [recipe, introduced_in, superseded_by]
+  required: [id, severity, description, disposition]
+  optional: [recipe, introduced_in, superseded_by, suppression_deadline]
   fields:
     id:
       type: string
@@ -112,6 +112,24 @@ rule_schema:
     description:
       type: string
       description: "One-line human-readable rule statement."
+    disposition:
+      type: string
+      enum: [strict, suppress-and-clean, advisory]
+      description: |
+        Per-rule policy that decides CI behavior on violations
+        (issue #395, replaces RatchetBaseline):
+          - strict             — any violation fails CI.
+          - suppress-and-clean — pre-existing violations carry inline
+              ``# atdd:suppress(<id>) [UNTIL=<YYYY-MM-DD>]`` markers;
+              new (unsuppressed) violations fail CI.
+          - advisory           — emits warnings, never fails CI.
+    suppression_deadline:
+      type: string
+      pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+      description: |
+        Optional default UNTIL= deadline for suppress-and-clean rules,
+        used when stamping new suppression markers. Per-site UNTIL=
+        overrides this default. Decision #4: optional in v1.
     recipe:
       type: string
       description: "Name of a peer *.recipe.yaml file (without the .recipe.yaml suffix)."
@@ -132,7 +150,18 @@ rules:
   - id: "COACH-RULEID-BIND-001"
     severity: 2
     description: "Migrated validators must not redeclare rule severity as a module constant"
+    disposition: strict
     introduced_in: "1.66.0"
+  - id: "COACH-RULEID-DISPOSITION-001"
+    severity: 2
+    description: "Every declared rule must carry a disposition (strict | suppress-and-clean | advisory)"
+    disposition: strict
+    introduced_in: "2.0.0"
+  - id: "COACH-RULEID-STALE-SUPPRESSION-001"
+    severity: 3
+    description: "Inline ``# atdd:suppress(<id>) UNTIL=<date>`` markers must not have a past UNTIL date"
+    disposition: strict
+    introduced_in: "2.0.0"
 
 # =============================================================================
 # Migration playbook

@@ -50,6 +50,11 @@ class RuleMetadata:
             those are preserved as-is.
         description: One-line human-readable rule statement (may be empty
             for legacy rules).
+        disposition: Per-rule CI policy (issue #395). One of
+            ``"strict"``, ``"suppress-and-clean"``, ``"advisory"``, or
+            ``None`` when the convention has not been migrated yet.
+        suppression_deadline: Optional default ``UNTIL=`` for
+            suppress-and-clean rules (``YYYY-MM-DD``).
         recipe: Optional pointer to a peer ``*.recipe.yaml`` file
             (without the ``.recipe.yaml`` suffix).
         introduced_in: Optional toolkit version that first published this rule.
@@ -59,6 +64,8 @@ class RuleMetadata:
     convention_path: Path
     severity: object = None
     description: str = ""
+    disposition: Optional[str] = None
+    suppression_deadline: Optional[str] = None
     recipe: Optional[str] = None
     introduced_in: Optional[str] = None
 
@@ -69,6 +76,16 @@ def _build_metadata(rule_id: str, raw: Dict, path: Path) -> RuleMetadata:
         convention_path=path,
         severity=raw.get("severity"),
         description=str(raw.get("description") or ""),
+        disposition=(
+            raw.get("disposition")
+            if isinstance(raw.get("disposition"), str)
+            else None
+        ),
+        suppression_deadline=(
+            raw.get("suppression_deadline")
+            if isinstance(raw.get("suppression_deadline"), str)
+            else None
+        ),
         recipe=raw.get("recipe") if isinstance(raw.get("recipe"), str) else None,
         introduced_in=(
             raw.get("introduced_in")
