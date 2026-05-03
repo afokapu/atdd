@@ -630,3 +630,15 @@ rules:
     severity: 2
     description: "TypeScript source files have an adequate code-comment ratio"
     introduced_in: "1.67.0"
+  - id: REFACTOR-NPLUS1-001
+    severity: 3
+    description: "No database client calls inside loop bodies or comprehensions (N+1 query pattern)"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-COMPOSITION-CONSUMER-001
+    severity: 3
+    description: "Each layer file (presentation/integration/domain) has at least one upstream consumer per composition rules"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-COMPOSITION-ROOT-001
+    severity: 3
+    description: "Python composition.py reaches every existing layer of its feature via imports or setter wiring"
+    introduced_in: "1.67.0"

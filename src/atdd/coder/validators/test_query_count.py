@@ -9,14 +9,25 @@ Validates:
 Suppression: Add '# noqa: N+1' on the flagged line to suppress.
 
 Self-contained, no utility dependencies beyond find_repo_root / find_python_dir.
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``REFACTOR-NPLUS1-001`` declared in
+``src/atdd/coder/conventions/refactor.convention.yaml``. Records flow through
+``RatchetBaseline.assert_no_regression(violations=...)``.
 """
 
 import ast
 import pytest
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from atdd.coach.utils.repo import find_repo_root, find_python_dir
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule binding — fail at import if convention drifts (issue #394).
+_RULE_NPLUS1 = bind_rule("REFACTOR-NPLUS1-001")
 
 
 # Path constants
@@ -192,7 +203,7 @@ def detect_n_plus_one(file_path: Path) -> List[Dict]:
     return violations
 
 
-def scan_query_count(repo_root: Path):
+def scan_query_count(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for N+1 query patterns. Used by ratchet baseline."""
     python_dir = find_python_dir(repo_root)
     if not python_dir.exists():
@@ -207,15 +218,18 @@ def scan_query_count(repo_root: Path):
         if py_file.name == '__init__.py' or '/migrations/' in path_str:
             continue
         files.append(py_file)
-    all_violations = []
+    violations: List[Violation] = []
     for py_file in files:
-        violations = detect_n_plus_one(py_file)
-        for v in violations:
+        for v in detect_n_plus_one(py_file):
             rel_path = v['file'].relative_to(repo_root)
-            all_violations.append(
-                f"{rel_path}:{v['line']} {v['function']} {v['call']} in {v['loop_type']}"
-            )
-    return len(all_violations), all_violations
+            violations.append(Violation(
+                rule_id=_RULE_NPLUS1.rule_id,
+                severity=_RULE_NPLUS1.severity,
+                location=f"{rel_path}:{v['line']}",
+                detail=f"{v['function']} {v['call']} in {v['loop_type']}",
+                fix_hint_ref=_RULE_NPLUS1.fix_hint_ref,
+            ))
+    return len(violations), violations
 
 
 @pytest.mark.coder
