@@ -546,6 +546,7 @@ refactor_phase:
     rules:
       - id: COACH-RATCHET-PRES-001
         severity: 3  # Decision #5 in issue #358 — advisory + gate, not blocking.
+        description: "Presentation-layer reduction >20% requires recorded smoke evidence"
         title: "Presentation-layer reduction >20% requires recorded smoke evidence"
         applies_to: "*/presentation/*.{tsx,ts,py}"
         threshold: 0.20  # Decision #1 — 20% reduction, configurable here.
