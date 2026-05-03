@@ -50,6 +50,8 @@ legacy_grammar:
     rationale: "Error-response rules (e.g., ERR-01) — predate ERROR-* canonical IDs."
   - pattern: "^GP-\\d{2}$"
     rationale: "Green-phase rules (e.g., GP-01) — predate GREEN-* canonical IDs."
+  - pattern: "^COACH-PRGATE-\\d{4}$"
+    rationale: "PR-phase gate rules (e.g., COACH-PRGATE-0003) — predate canonical 3-digit grammar; published in issue #293."
 
 # =============================================================================
 # DOMAIN registry (closed set — SPEC-COACH-RULEID-0002)
