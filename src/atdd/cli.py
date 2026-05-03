@@ -900,6 +900,24 @@ Phase descriptions:
         default=None,
         help="Force multiplexer backend (default: auto-detect)",
     )
+    babysit_parser.add_argument(
+        "--dashboard",
+        action="store_true",
+        help=(
+            "Render an aggregate per-surface dashboard each interval "
+            "instead of streaming events to stdout (issue #377)"
+        ),
+    )
+    babysit_parser.add_argument(
+        "--approve-all-safe",
+        action="store_true",
+        dest="approve_all_safe",
+        help=(
+            "Sweep every monitored surface once, auto-approve prompts that "
+            "match the bash allowlist, and exit. Escalations are kept for "
+            "manual review (issue #377)"
+        ),
+    )
 
     # ----- atdd merge-cascade <pr-numbers...> -----
     merge_cascade_parser = subparsers.add_parser(
@@ -1688,6 +1706,8 @@ Phase descriptions:
             stale_escalate=args.stale_escalate,
             once=getattr(args, "once", False),
             multiplexer=getattr(args, "multiplexer", None),
+            dashboard=getattr(args, "dashboard", False),
+            approve_all_safe=getattr(args, "approve_all_safe", False),
         )
 
     # atdd merge-cascade <pr-numbers...>

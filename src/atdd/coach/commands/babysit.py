@@ -14,11 +14,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -283,6 +284,7 @@ def detect_violation(screen: str) -> Optional[BabysitDecision]:
 # =============================================================================
 
 DEFAULT_LOG_PATH = Path(".atdd/orchestration-log.jsonl")
+DEFAULT_ORCHESTRATE_STATE_PATH = Path(".atdd/orchestrate-state.json")
 
 
 def log_event(event: dict, path: Path = DEFAULT_LOG_PATH) -> None:
@@ -396,6 +398,281 @@ def process_workspace(
     return decision
 
 
+# =============================================================================
+# Dashboard mode (issue #377)
+# =============================================================================
+# A second rendering layer over the existing event loop. Instead of streaming
+# per-event lines to stdout, the dashboard repaints an aggregate table every
+# `--interval`. State primitives (WorkspaceState, classifier, stale thresholds)
+# are unchanged — only the surfacing of that state is new.
+
+DEFAULT_PHASE_CACHE_SECONDS = 60
+_PHASE_LABEL_PREFIX = "atdd:"
+
+
+@dataclass
+class SurfaceRow:
+    """One rendered row of the dashboard. Pure data."""
+
+    ref: str
+    issue: Optional[int]
+    phase: str
+    last_tool_seconds: float
+    pending_prompt: str  # "" or "1 (Bash)" — recomputed each cycle
+    stalled: bool
+    status: str  # ACTIVE | STALLED | escalated | violation
+
+
+@dataclass
+class AggregateApprovalResult:
+    """Summary returned by `aggregate_approve` for `--approve-all-safe`."""
+
+    approved: int = 0
+    escalated: int = 0
+    approvals_by_ref: Dict[str, str] = field(default_factory=dict)
+    escalations_by_ref: Dict[str, str] = field(default_factory=dict)
+
+
+def _load_orchestrate_state(path: Path) -> Dict[str, int]:
+    """Invert the `{"<issue>": {"ref": "surface:NN", ...}}` map written by
+    `atdd orchestrate` into `{ref: issue_num}`.
+
+    Returns an empty dict if the file is missing or unreadable — the dashboard
+    will then render `?`/`—` placeholders rather than crashing the loop.
+    """
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Best-effort read for dashboard rendering. Falling back to {} causes
+        # the dashboard to render `?`/`—` placeholders rather than crashing
+        # the babysit loop, which is the documented behavior.
+        return {}
+    inverted: Dict[str, int] = {}
+    for key, entry in (data or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        ref = entry.get("ref") or entry.get("workspace_ref") or ""
+        if not ref:
+            continue
+        try:
+            issue_num = int(key)
+        except (TypeError, ValueError):
+            continue
+        inverted[ref] = issue_num
+    return inverted
+
+
+def _phase_from_labels(labels: List[dict]) -> str:
+    """Return the first `atdd:<PHASE>` label value, or `?` when none present."""
+    for label in labels or []:
+        name = label.get("name") if isinstance(label, dict) else None
+        if isinstance(name, str) and name.startswith(_PHASE_LABEL_PREFIX):
+            return name[len(_PHASE_LABEL_PREFIX) :].upper() or "?"
+    return "?"
+
+
+def _fetch_phase_cache(issue_numbers: List[int]) -> Dict[int, str]:
+    """Best-effort batched phase-label fetch. Returns issue→phase mapping.
+
+    Uses a single `gh issue list` call (per Decision #2 in issue #377). On any
+    failure (gh missing, network error, parse error) returns an empty dict so
+    the dashboard renders `?` rather than crashing.
+    """
+    if not issue_numbers:
+        return {}
+    try:
+        result = subprocess.run(
+            [
+                "gh", "issue", "list",
+                "--state", "all",
+                "--search", "assignee:@me",
+                "--json", "number,labels",
+                "--limit", "200",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Best-effort GitHub fetch. gh missing / offline / rate-limited all
+        # collapse to "no phase data this cycle" — the dashboard renders `?`
+        # for that issue and tries again next refresh.
+        return {}
+    try:
+        records = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # gh returned non-JSON (e.g. an error message on stdout). Same
+        # fallback as the subprocess error path: render `?` and retry.
+        return {}
+    cache: Dict[int, str] = {}
+    wanted = set(issue_numbers)
+    for rec in records:
+        num = rec.get("number")
+        if num in wanted:
+            cache[int(num)] = _phase_from_labels(rec.get("labels", []))
+    return cache
+
+
+def _extract_surface_state(
+    *,
+    ref: str,
+    state: WorkspaceState,
+    ref_to_issue: Dict[str, int],
+    phase_cache: Dict[int, str],
+    last_decision: Optional[BabysitDecision],
+    now: float,
+    stale_warn_minutes: int,
+) -> SurfaceRow:
+    """Build a `SurfaceRow` from a per-ref `WorkspaceState` + the latest
+    classifier decision. Pure (no I/O)."""
+    issue = ref_to_issue.get(ref)
+    phase = phase_cache.get(issue, "?") if issue is not None else "?"
+    elapsed = max(0.0, now - state.last_change_ts)
+    stalled = elapsed >= stale_warn_minutes * 60
+
+    pending_prompt = ""
+    if last_decision is not None and last_decision.action == "escalate":
+        kind = last_decision.matched or "Bash"
+        pending_prompt = f"1 ({kind})"
+
+    if last_decision is not None and last_decision.action == "violation":
+        status = "violation"
+    elif last_decision is not None and last_decision.action == "escalate":
+        status = "escalated"
+    elif stalled:
+        status = "STALLED"
+    else:
+        status = "ACTIVE"
+
+    return SurfaceRow(
+        ref=ref,
+        issue=issue,
+        phase=phase,
+        last_tool_seconds=elapsed,
+        pending_prompt=pending_prompt,
+        stalled=stalled,
+        status=status,
+    )
+
+
+def _format_hms(seconds: float) -> str:
+    s = max(0, int(seconds))
+    h, rem = divmod(s, 3600)
+    m, sec = divmod(rem, 60)
+    return f"{h}:{m:02d}:{sec:02d}"
+
+
+def _render_dashboard(
+    *,
+    rows: List[SurfaceRow],
+    now_iso: str,
+    scope_label: str,
+) -> str:
+    """Render the aggregate table as a single string. Pure."""
+    header = (
+        f"ATDD Dashboard — {scope_label} ({len(rows)} surface(s), "
+        f"refreshed {now_iso})"
+    )
+    sep = "─" * 78
+    columns = (
+        f"{'Surface':<14}{'Issue':<10}{'Phase':<10}"
+        f"{'LastTool':<11}{'PendingPrompts':<18}{'Status'}"
+    )
+    body_lines: List[str] = []
+    for row in rows:
+        issue_str = f"#{row.issue}" if row.issue is not None else "—"
+        last_tool = _format_hms(row.last_tool_seconds)
+        pending = row.pending_prompt or "0"
+        body_lines.append(
+            f"{row.ref:<14}{issue_str:<10}{row.phase:<10}"
+            f"{last_tool:<11}{pending:<18}{row.status}"
+        )
+    return "\n".join([header, sep, columns, sep, *body_lines, sep])
+
+
+def aggregate_approve(
+    *,
+    backend: MultiplexerBackend,
+    refs: List[str],
+    log_path: Path = DEFAULT_LOG_PATH,
+) -> AggregateApprovalResult:
+    """Sweep every ref in `refs`, run the existing classifier, and auto-approve
+    matches. Escalations and violations are recorded but not approved.
+
+    Each approval is appended to `log_path` as `event=agg_approve` with the
+    matching rule_id and a `reason` prefixed `agg-approve: ` so the action is
+    auditable in `orchestration-log.jsonl`.
+    """
+    result = AggregateApprovalResult()
+    for ref in refs:
+        try:
+            screen = backend.read_screen(ref, lines=80)
+        except MultiplexerError as exc:
+            log_event(
+                {"event": "screen_read_error", "workspace": ref, "error": str(exc)},
+                path=log_path,
+            )
+            continue
+
+        violation = detect_violation(screen)
+        if violation is not None:
+            result.escalated += 1
+            result.escalations_by_ref[ref] = violation.reason or "violation"
+            continue
+
+        decision = classify_prompt(screen)
+        if decision.action == "auto_approve":
+            try:
+                backend.send(ref, "1")
+                backend.send_key(ref, "Enter")
+            except MultiplexerError as exc:
+                log_event(
+                    {
+                        "event": "agg_approve_failed",
+                        "workspace": ref,
+                        "error": str(exc),
+                    },
+                    path=log_path,
+                )
+                result.escalated += 1
+                result.escalations_by_ref[ref] = f"send error: {exc}"
+                continue
+            description = decision.matched or "auto-approve"
+            log_event(
+                {
+                    "event": "agg_approve",
+                    "workspace": ref,
+                    "matched": description,
+                    "pattern": decision.rule_id or "",
+                    "reason": f"agg-approve: {description}",
+                },
+                path=log_path,
+            )
+            result.approved += 1
+            result.approvals_by_ref[ref] = decision.rule_id or "auto"
+        elif decision.action == "escalate":
+            result.escalated += 1
+            result.escalations_by_ref[ref] = decision.reason or "escalate"
+        # idle → no-op
+    return result
+
+
+# =============================================================================
+# Main loop
+# =============================================================================
+
+
+def _scope_label(refs: List[str]) -> str:
+    if not refs:
+        return "(none)"
+    if len(refs) <= 3:
+        return ", ".join(refs)
+    return f"{len(refs)} surfaces"
+
+
 def run(
     interval: int = 60,
     workspaces: Optional[list[str]] = None,
@@ -404,6 +681,11 @@ def run(
     once: bool = False,
     multiplexer: Optional[str] = None,
     log_path: Path = DEFAULT_LOG_PATH,
+    dashboard: bool = False,
+    approve_all_safe: bool = False,
+    orchestrate_state_path: Path = DEFAULT_ORCHESTRATE_STATE_PATH,
+    phase_cache_seconds: int = DEFAULT_PHASE_CACHE_SECONDS,
+    phase_fetcher: Optional[Callable[[List[int]], Dict[int, str]]] = None,
 ) -> int:
     try:
         backend = get_multiplexer(preferred=multiplexer)
@@ -422,16 +704,56 @@ def run(
         print("⚠️  no workspaces to babysit")
         return 0
 
+    if approve_all_safe:
+        result = aggregate_approve(backend=backend, refs=workspaces, log_path=log_path)
+        print(f"{result.approved} prompts auto-approved")
+        print(f"{result.escalated} prompts escalated (kept for manual review)")
+        return 0
+
     states = {ref: WorkspaceState(ref=ref) for ref in workspaces}
+    last_decisions: Dict[str, Optional[BabysitDecision]] = {ref: None for ref in workspaces}
     print(f"👀 babysitting {len(states)} workspace(s): {', '.join(states)}")
+
+    fetcher = phase_fetcher or _fetch_phase_cache
+    phase_cache: Dict[int, str] = {}
+    phase_cache_ts: float = 0.0
 
     while True:
         for ref, st in states.items():
             decision = process_workspace(
                 backend, st, stale_warn, stale_escalate, log_path=log_path
             )
-            if decision.action != "idle":
+            last_decisions[ref] = decision
+            if not dashboard and decision.action != "idle":
                 print(f"  [{ref}] {decision.action}: {decision.matched or decision.reason}")
+
+        if dashboard:
+            now = time.time()
+            ref_to_issue = _load_orchestrate_state(orchestrate_state_path)
+            if (now - phase_cache_ts) >= phase_cache_seconds:
+                phase_cache = fetcher(sorted(set(ref_to_issue.values())))
+                phase_cache_ts = now
+
+            rows = [
+                _extract_surface_state(
+                    ref=ref,
+                    state=states[ref],
+                    ref_to_issue=ref_to_issue,
+                    phase_cache=phase_cache,
+                    last_decision=last_decisions[ref],
+                    now=now,
+                    stale_warn_minutes=stale_warn,
+                )
+                for ref in states
+            ]
+            now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            output = _render_dashboard(
+                rows=rows, now_iso=now_iso, scope_label=_scope_label(list(states))
+            )
+            # Clear screen + home cursor before repaint, per Decision #5/#6.
+            print("\033[2J\033[H", end="")
+            print(output, flush=True)
+
         if once:
             return 0
         try:
