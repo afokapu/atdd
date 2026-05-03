@@ -546,6 +546,7 @@ refactor_phase:
     rules:
       - id: COACH-RATCHET-PRES-001
         severity: 3  # Decision #5 in issue #358 — advisory + gate, not blocking.
+        disposition: advisory
         description: "Presentation-layer reduction >20% requires recorded smoke evidence"
         title: "Presentation-layer reduction >20% requires recorded smoke evidence"
         applies_to: "*/presentation/*.{tsx,ts,py}"
@@ -572,73 +573,91 @@ refactor_phase:
 rules:
   - id: COMPLEXITY-CYCLOMATIC-001
     severity: 3
+    disposition: strict
     description: "Cyclomatic complexity per function below threshold (default <10)"
     introduced_in: "1.67.0"
   - id: COMPLEXITY-NESTING-001
     severity: 3
+    disposition: strict
     description: "Function nesting depth below threshold (default <4)"
     introduced_in: "1.67.0"
   - id: COMPLEXITY-LENGTH-001
     severity: 2
+    disposition: strict
     description: "Function length below threshold (default <50 LOC)"
     introduced_in: "1.67.0"
   - id: COMPLEXITY-PARAMS-001
     severity: 2
+    disposition: strict
     description: "Function parameter count below threshold (default <6)"
     introduced_in: "1.67.0"
   - id: COMPLEXITY-COGNITIVE-001
     severity: 3
+    disposition: strict
     description: "Cognitive complexity per function below threshold (default <=15)"
     introduced_in: "1.67.0"
   - id: COMPLEXITY-CYCLOMATIC-TS-001
     severity: 3
+    disposition: strict
     description: "TypeScript cyclomatic complexity per function below threshold"
     introduced_in: "1.67.0"
   - id: COMPLEXITY-NESTING-TS-001
     severity: 3
+    disposition: strict
     description: "TypeScript function nesting depth below threshold"
     introduced_in: "1.67.0"
   - id: COMPLEXITY-LENGTH-TS-001
     severity: 2
+    disposition: strict
     description: "TypeScript function length below threshold"
     introduced_in: "1.67.0"
   - id: REFACTOR-QUALITY-MI-001
     severity: 2
+    disposition: strict
     description: "Python module maintainability index above threshold"
     introduced_in: "1.67.0"
   - id: REFACTOR-QUALITY-COMMENTS-001
     severity: 2
+    disposition: strict
     description: "Python source files have an adequate code-comment ratio"
     introduced_in: "1.67.0"
   - id: REFACTOR-QUALITY-DUPLICATION-001
     severity: 2
+    disposition: strict
     description: "Python sources have no significant code duplication beyond the configured threshold"
     introduced_in: "1.67.0"
   - id: REFACTOR-QUALITY-NAMING-001
     severity: 2
+    disposition: strict
     description: "Python identifiers follow consistent naming conventions (PEP 8)"
     introduced_in: "1.67.0"
   - id: REFACTOR-QUALITY-FILE-LENGTH-001
     severity: 2
+    disposition: strict
     description: "Python source files stay within the configured maximum line count"
     introduced_in: "1.67.0"
   - id: REFACTOR-QUALITY-MI-TS-001
     severity: 2
+    disposition: strict
     description: "TypeScript module maintainability index above threshold"
     introduced_in: "1.67.0"
   - id: REFACTOR-QUALITY-COMMENTS-TS-001
     severity: 2
+    disposition: strict
     description: "TypeScript source files have an adequate code-comment ratio"
     introduced_in: "1.67.0"
   - id: REFACTOR-NPLUS1-001
     severity: 3
+    disposition: strict
     description: "No database client calls inside loop bodies or comprehensions (N+1 query pattern)"
     introduced_in: "1.67.0"
   - id: REFACTOR-COMPOSITION-CONSUMER-001
     severity: 3
+    disposition: strict
     description: "Each layer file (presentation/integration/domain) has at least one upstream consumer per composition rules"
     introduced_in: "1.67.0"
   - id: REFACTOR-COMPOSITION-ROOT-001
     severity: 3
+    disposition: strict
     description: "Python composition.py reaches every existing layer of its feature via imports or setter wiring"
     introduced_in: "1.67.0"

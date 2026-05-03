@@ -604,12 +604,15 @@ frontend:
         rules:
           - id: "BOUNDARIES-ROUTE-COVERAGE-001"
             severity: 3
+            disposition: strict
             description: "trainId not registered in plan/_trains.yaml (hard fail)"
           - id: "BOUNDARIES-ROUTE-COVERAGE-002"
             severity: 3
+            disposition: strict
             description: "Resolved train lists wagon not in plan/_wagons.yaml (hard fail)"
           - id: "BOUNDARIES-ROUTE-COVERAGE-003"
             severity: 1
+            disposition: strict
             description: "trainId expression not statically resolvable (advisory; never hard-fail)"
         rationale: >
           Closes the route → train → wagon segment of the structural-vs-
@@ -696,36 +699,43 @@ frontend:
     rules:
       - id: PRESENTATION-NOSTUB-001
         severity: 4
+        disposition: strict
         description: >
           Arrow function with a bare null/undefined expression body
           (`() => null`, `() => undefined`).
       - id: PRESENTATION-NOSTUB-002
         severity: 4
+        disposition: strict
         description: >
           Function or function-expression block whose only return is a null
           literal, undefined, or a bare `return;`.
       - id: PRESENTATION-NOSTUB-003
         severity: 4
+        disposition: strict
         description: >
           Empty fragment return (`<></>` or `<Fragment></Fragment>`) with zero
           children and zero attributes.
       - id: PRESENTATION-NOSTUB-004
         severity: 4
+        disposition: strict
         description: >
           Self-closing or empty element with zero children, zero static
           attributes, and zero spread expressions (e.g. `<div />`).
       - id: PRESENTATION-NOSTUB-005
         severity: 4
+        disposition: strict
         description: >
           Conditional whose every branch resolves to a stub literal
           (e.g. `flag ? null : null`).
       - id: PRESENTATION-NOSTUB-010
         severity: 2
+        disposition: strict
         description: >
           Allowlist entry must include a `migration:` field referencing the
           issue that will eliminate the exemption.
       - id: PRESENTATION-NOSTUB-020
         severity: 4
+        disposition: strict
         description: >
           Negative rule. A guarded null return paired with a sibling JSX
           return path (e.g. `if (loading) return null; return <Foo/>;`) is
@@ -738,9 +748,11 @@ frontend:
 rules:
   - id: BOUNDARIES-FE-LAYERS-001
     severity: 3
+    disposition: strict
     description: "Frontend code follows the 4-layer architecture (presentation, application, integration, domain)"
     introduced_in: "1.67.0"
   - id: BOUNDARIES-FE-IMPORTS-001
     severity: 3
+    disposition: strict
     description: "Frontend imports respect inward dependency direction (presentation -> application -> domain)"
     introduced_in: "1.67.0"

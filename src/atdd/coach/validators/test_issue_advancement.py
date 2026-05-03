@@ -18,15 +18,12 @@ from typing import List, Sequence, Tuple
 import pytest
 
 from atdd.coach.commands.pr import PRManager
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
-from atdd.coder.baselines.ratchet import RatchetBaseline
 
 pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
 REPO_ROOT = find_repo_root()
-
-# Baseline path for coach validators
-COACH_BASELINE_PATH = REPO_ROOT / ".atdd" / "baselines" / "coach.yaml"
 
 # Phases that should have advanced after a PR merges.
 # If a PR merged and the issue is still at one of these, something was missed.
@@ -103,15 +100,11 @@ def test_issue_advancement():
 
     Given: Recently merged PRs with linked ATDD issues
     When: Checking the linked issue's current phase label
-    Then: Issues still at INIT/PLANNED after PR merge are flagged
-
-    Ratchet baseline: violations must not exceed recorded baseline (Category A).
+    Then: Issues still at INIT/PLANNED after PR merge are gated by
+          COACH-PRGATE-0003's disposition.
     """
-    baseline = RatchetBaseline(COACH_BASELINE_PATH)
-    count, violations = scan_issue_advancement(REPO_ROOT)
-
-    baseline.assert_no_regression(
+    _count, violations = scan_issue_advancement(REPO_ROOT)
+    assert_disposition_satisfied(
         validator_id="issue_advancement",
-        current_count=count,
         violations=violations,
     )

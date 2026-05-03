@@ -23,6 +23,7 @@ from typing import List, Set
 from dataclasses import dataclass, field
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Path constants
@@ -323,7 +324,7 @@ def test_smoke_tests_have_correct_headers():
 
 
 @pytest.mark.tester
-def test_smoke_coverage_gaps(ratchet_baseline):
+def test_smoke_coverage_gaps():
     """Trains with contract-level journey tests must have smoke tests.
 
     Convention: smoke.convention.yaml > coverage > rule
@@ -350,8 +351,7 @@ def test_smoke_coverage_gaps(ratchet_baseline):
         report = formatter.format_coverage(trains, gaps)
         print(report)
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="smoke_coverage_gaps",
-        current_count=len(violations),
         violations=violations,
     )

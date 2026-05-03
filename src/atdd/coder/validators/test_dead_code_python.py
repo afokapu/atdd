@@ -26,6 +26,7 @@ from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
 import atdd
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -288,7 +289,7 @@ def build_reverse_graph(graph: Dict[Path, Set[Path]]) -> Dict[Path, Set[Path]]:
 
 
 @pytest.mark.coder
-def test_no_unreachable_python_files(ratchet_baseline):
+def test_no_unreachable_python_files():
     """
     SPEC-CODER-DEADCODE-0001: No unreachable Python files.
 
@@ -361,9 +362,8 @@ def test_no_unreachable_python_files(ratchet_baseline):
             fix_hint_ref=_RULE_DEAD_CODE_PY.fix_hint_ref,
         ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="dead_code_python",
-        current_count=len(violations),
         violations=violations,
     )
 

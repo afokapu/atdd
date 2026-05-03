@@ -4,6 +4,7 @@ description: "Section 3 of ATDD Hierarchy Coverage Spec v0.1 - Ensures test arti
 
 rules:
   - id: "COVERAGE-TEST-3.1"
+    disposition: strict
     name: "Acceptance - Tests Coverage"
     description: "Every acceptance criterion must have corresponding test(s)"
     bidirectional:
@@ -13,6 +14,7 @@ rules:
         validator: "test_all_acceptances_have_tests"
 
   - id: "COVERAGE-TEST-3.2"
+    disposition: strict
     name: "Contract - Wagon Coverage"
     description: "Bidirectional coverage between contracts and wagon produce/consume"
     bidirectional:
@@ -26,6 +28,7 @@ rules:
         validator: "test_all_contract_refs_exist"
 
   - id: "COVERAGE-TEST-3.3"
+    disposition: strict
     name: "Telemetry - Wagon Coverage"
     description: "Bidirectional coverage between telemetry signals and wagon produce"
     bidirectional:
@@ -39,6 +42,7 @@ rules:
         validator: "test_all_telemetry_refs_exist"
 
   - id: "COVERAGE-TEST-3.4"
+    disposition: strict
     name: "Telemetry Tracking Manifest"
     description: "Tracking manifest must be complete if present"
     requirement: "If telemetry/_tracking_manifest.yaml exists, all signals must be present"

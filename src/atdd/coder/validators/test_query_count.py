@@ -13,7 +13,7 @@ Self-contained, no utility dependencies beyond find_repo_root / find_python_dir.
 Structured violations (issue #394): emits ``Violation`` records keyed off
 ``REFACTOR-NPLUS1-001`` declared in
 ``src/atdd/coder/conventions/refactor.convention.yaml``. Records flow through
-``RatchetBaseline.assert_no_regression(violations=...)``.
+``assert_disposition_satisfied(...)``.
 """
 
 import ast
@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple
 from atdd.coach.utils.repo import find_repo_root, find_python_dir
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule binding — fail at import if convention drifts (issue #394).
@@ -233,7 +234,7 @@ def scan_query_count(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 
 @pytest.mark.coder
-def test_no_db_calls_inside_loops(ratchet_baseline):
+def test_no_db_calls_inside_loops():
     """
     SPEC-CODER-PERF-0001: No database client calls inside loop bodies.
 
@@ -250,8 +251,7 @@ def test_no_db_calls_inside_loops(ratchet_baseline):
         pytest.skip("No Python source files found")
 
     count, violations = scan_query_count(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="query_count",
-        current_count=count,
         violations=violations,
     )

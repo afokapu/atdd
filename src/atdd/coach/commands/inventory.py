@@ -385,7 +385,7 @@ class RepositoryInventory:
                 "by_theme": dict(by_theme),
                 "source": "registry"
             }
-        except Exception:
+        except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             return {"total": 0, "by_theme": {}, "source": "error"}
 
     def count_test_cases_in_file(self, test_file: Path) -> int:
@@ -398,7 +398,7 @@ class RepositoryInventory:
                 pattern = r'^\s*(?:async\s+)?def\s+test_\w+'
                 matches = re.findall(pattern, content, re.MULTILINE)
                 return len(matches)
-        except:
+        except:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             return 0
 
     def scan_tests(self) -> Dict[str, Any]:

@@ -21,7 +21,7 @@ Convention: ``src/atdd/coder/conventions/frontend.convention.yaml``
 Structured violations: emits ``Violation`` records keyed off
 ``PRESENTATION-NOSTUB-001``..``005``/``010``/``020`` rule_ids declared in
 ``src/atdd/coder/conventions/frontend.convention.yaml::no_stub_presentation``.
-Records flow through ``RatchetBaseline.assert_no_regression(violations=...)``.
+Records flow through ``assert_disposition_satisfied(...)``.
 The rule-id grammar is governed by ``src/atdd/coach/specs/rule-id.spec.md``.
 """
 
@@ -39,6 +39,7 @@ from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.validators._violation import Violation
 from atdd.coder.validators._ast_tsx import parse_tsx, TSXParserUnavailable
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # ---------------------------------------------------------------------------
@@ -598,7 +599,7 @@ def test_allowlist_entries_have_migration_references():
 
 
 @pytest.mark.coder
-def test_no_stub_presentation_returns(ratchet_baseline):
+def test_no_stub_presentation_returns():
     """
     PRESENTATION-NOSTUB-001..005 ratchet: no stub-return regressions.
 
@@ -618,9 +619,8 @@ def test_no_stub_presentation_returns(ratchet_baseline):
         )
 
     count, violations = scan_stub_presentation_returns(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="no_stub_presentation_returns",
-        current_count=count,
         violations=violations,
     )
 

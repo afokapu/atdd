@@ -147,5 +147,6 @@ steps:
 rules:
   - id: PLANNER-STEPS-SEQUENCE-001
     severity: 2
+    disposition: strict
     description: "Steps are ordered, numbered, and each declares pre-conditions and outputs"
     introduced_in: "1.67.0"

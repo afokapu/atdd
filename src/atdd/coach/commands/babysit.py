@@ -395,7 +395,7 @@ def process_workspace(
 ) -> BabysitDecision:
     try:
         screen = backend.read_screen(state.ref, lines=80)
-    except MultiplexerError as exc:
+    except MultiplexerError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         log_event(
             {"event": "screen_read_error", "workspace": state.ref, "error": str(exc)},
             path=log_path,
@@ -471,7 +471,7 @@ def process_workspace(
         try:
             backend.send(state.ref, "1")
             backend.send_key(state.ref, "Enter")
-        except MultiplexerError as exc:
+        except MultiplexerError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             log_event(
                 {"event": "auto_approve_failed", "workspace": state.ref, "error": str(exc)},
                 path=log_path,
@@ -790,14 +790,14 @@ def run(
 ) -> int:
     try:
         backend = get_multiplexer(preferred=multiplexer)
-    except MultiplexerError as exc:
+    except MultiplexerError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
         print(f"❌ {exc}")
         return 1
 
     if workspaces is None:
         try:
             workspaces = backend.list_workspaces()
-        except MultiplexerError as exc:
+        except MultiplexerError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             print(f"❌ {exc}")
             return 1
 
@@ -864,6 +864,6 @@ def run(
             return 0
         try:
             time.sleep(interval)
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             print("\n👋 babysitter stopped")
             return 0

@@ -109,7 +109,6 @@ your-project/
 └── .atdd/
     ├── manifest.yaml      # Issue tracking
     ├── config.yaml        # Agent sync + release + code roots + themes
-    ├── baselines/         # Ratchet baselines per validator phase
     └── hooks/             # Advisory pre-commit / pre-push hooks
 ```
 
@@ -292,7 +291,7 @@ atdd validate coach            # Coach validators (issues, registries, release, 
 atdd validate --quick          # Fast smoke test
 atdd validate --no-split       # Single-pass execution (skip two-stage split)
 atdd validate --skip-api       # Skip github_api-marked validators (offline mode)
-atdd validate --verify-baseline  # Fail if any ratchet baseline drifts from .atdd/baselines/
+atdd validate --verify-baseline  # Fast pass-record check (skip full re-run)
 atdd validate --coverage       # With coverage report
 atdd validate --html           # With HTML report
 ```
@@ -373,20 +372,20 @@ atdd merge-cascade <pr1> <pr2> ...                   # Wave-ordered merge with C
 | zellij  | Sessions targeted via `ZELLIJ_SESSION_NAME`         | `zellij attach --create-background` |
 | tmux    | Sessions                                            | `tmux new-session -d` |
 
-### Baselines (Ratchet System)
+### Per-rule disposition gating
 
-Coder validators record baseline violation counts so existing debt is
-tolerated but regressions fail CI. Baselines live in
-`.atdd/baselines/coder.yaml` and are committed to the repo.
+Each rule in every `*.convention.yaml` declares a `disposition:`:
 
-```bash
-atdd baseline show                # Print current baselines per validator
-atdd baseline update              # Re-seed baselines from current state (commit the change)
-atdd validate --verify-baseline   # Fail if any validator drifts above its baseline
-```
+| Disposition          | CI behavior |
+|----------------------|-------------|
+| `strict`             | any violation fails CI |
+| `suppress-and-clean` | pre-existing sites carry inline `# atdd:suppress(<id>) [UNTIL=<YYYY-MM-DD>]` markers; new violations fail |
+| `advisory`           | emits warnings only, never fails CI |
 
-Baselines are auto-seeded on first run of an affected validator. After
-seeding, commit `.atdd/baselines/coder.yaml` to lock in the ceiling.
+Coach validators enforce that every rule has a disposition
+(`test_rule_disposition_required`) and that no `UNTIL=` marker is past
+its deadline (`test_no_stale_suppressions`). Replaced the count-based
+ratchet baseline in issue #395.
 
 ### Upgrading
 

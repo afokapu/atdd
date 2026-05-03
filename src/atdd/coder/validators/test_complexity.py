@@ -13,7 +13,7 @@ But: Self-contained, no utility dependencies
 Structured violations (issue #394): emits ``Violation`` records keyed off
 ``COMPLEXITY-*-001`` rule_ids declared in
 ``src/atdd/coder/conventions/refactor.convention.yaml``. Records flow through
-``RatchetBaseline.assert_no_regression(violations=...)``.
+``assert_disposition_satisfied(...)``.
 """
 
 import ast
@@ -25,6 +25,7 @@ from typing import List, Tuple
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift.
@@ -500,7 +501,7 @@ def scan_function_params(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 
 @pytest.mark.coder
-def test_cyclomatic_complexity_under_threshold(ratchet_baseline):
+def test_cyclomatic_complexity_under_threshold():
     """
     SPEC-CODER-COMPLEXITY-0001: Functions have acceptable cyclomatic complexity.
 
@@ -521,15 +522,14 @@ def test_cyclomatic_complexity_under_threshold(ratchet_baseline):
         pytest.skip("No Python files found")
 
     count, violations = scan_cyclomatic_complexity(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="cyclomatic_complexity",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_nesting_depth_under_threshold(ratchet_baseline):
+def test_nesting_depth_under_threshold():
     """
     SPEC-CODER-COMPLEXITY-0002: Functions have acceptable nesting depth.
 
@@ -549,15 +549,14 @@ def test_nesting_depth_under_threshold(ratchet_baseline):
         pytest.skip("No Python files found")
 
     count, violations = scan_nesting_depth(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="nesting_depth",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_function_length_under_threshold(ratchet_baseline):
+def test_function_length_under_threshold():
     """
     SPEC-CODER-COMPLEXITY-0003: Functions are not too long.
 
@@ -577,15 +576,14 @@ def test_function_length_under_threshold(ratchet_baseline):
         pytest.skip("No Python files found")
 
     count, violations = scan_function_length(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="function_length",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_function_parameter_count_under_threshold(ratchet_baseline):
+def test_function_parameter_count_under_threshold():
     """
     SPEC-CODER-COMPLEXITY-0004: Functions don't have too many parameters.
 
@@ -605,15 +603,14 @@ def test_function_parameter_count_under_threshold(ratchet_baseline):
         pytest.skip("No Python files found")
 
     count, violations = scan_function_params(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="function_parameter_count",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_cognitive_complexity_under_threshold(ratchet_baseline):
+def test_cognitive_complexity_under_threshold():
     """
     SPEC-CODER-COGNITIVE-0001: Functions have acceptable cognitive complexity.
 
@@ -640,8 +637,7 @@ def test_cognitive_complexity_under_threshold(ratchet_baseline):
         pytest.skip("No Python files found")
 
     count, violations = scan_cognitive_complexity(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="cognitive_complexity",
-        current_count=count,
         violations=violations,
     )

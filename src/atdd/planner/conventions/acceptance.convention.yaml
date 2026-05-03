@@ -544,9 +544,11 @@ extraction:
 rules:
   - id: PLANNER-ACCEPTANCE-HARNESS-001
     severity: 2
+    disposition: strict
     description: "Each acceptance criterion declares a harness type (UNIT, INTEGRATION, SMOKE, etc.)"
     introduced_in: "1.67.0"
   - id: PLANNER-ACCEPTANCE-COMPLETE-001
     severity: 3
+    disposition: strict
     description: "Each acceptance criterion has Given/When/Then prose and a verifiable outcome"
     introduced_in: "1.67.0"

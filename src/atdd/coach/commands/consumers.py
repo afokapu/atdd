@@ -213,7 +213,7 @@ class ManifestScanner:
                             consumers.append(contract_ref)
 
             return consumers
-        except Exception:
+        except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             return []
 
 
@@ -264,7 +264,7 @@ class ContractScanner:
 
             metadata = data.get("x-artifact-metadata", {})
             return metadata.get("consumers", [])
-        except Exception:
+        except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             return []
 
     @staticmethod
@@ -275,7 +275,7 @@ class ContractScanner:
                 data = json.load(f)
 
             return data.get("$id")
-        except Exception:
+        except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             return None
 
 
@@ -305,7 +305,7 @@ class FileUpdater:
                 yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
             return True
-        except Exception as e:
+        except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             print(f"Error updating manifest {manifest_path}: {e}")
             return False
 
@@ -331,7 +331,7 @@ class FileUpdater:
                 json.dump(data, f, indent=2)
 
             return True
-        except Exception as e:
+        except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             print(f"Error updating contract {contract_path}: {e}")
             return False
 
@@ -353,7 +353,7 @@ class FileUpdater:
                 json.dump(data, f, indent=2)
 
             return True
-        except Exception as e:
+        except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             print(f"Error removing consumer from contract {contract_path}: {e}")
             return False
 

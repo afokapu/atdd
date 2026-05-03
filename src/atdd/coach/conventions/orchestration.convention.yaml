@@ -151,26 +151,32 @@ babysit:
     rules:
       - id: COACH-BABYSIT-010
         severity: 2
+        disposition: strict
         description: "Read-only git diagnostics"
         regex: '^git (status|log|diff|show|branch|remote|fetch|rev-parse|reflog|stash list)\b'
       - id: COACH-BABYSIT-011
         severity: 2
+        disposition: strict
         description: "Test runner invocations"
         regex: '^pytest\b'
       - id: COACH-BABYSIT-012
         severity: 2
+        disposition: strict
         description: "Read-only file inspection"
         regex: '^(ls|cat|head|tail|grep|find|wc)\b'
       - id: COACH-BABYSIT-013
         severity: 1
+        disposition: strict
         description: "Stdout-only output"
         regex: '^echo\b'
       - id: COACH-BABYSIT-014
         severity: 1
+        disposition: strict
         description: "Print working directory"
         regex: '^pwd\s*$'
       - id: COACH-BABYSIT-015
         severity: 1
+        disposition: strict
         description: "Worker self-checkpoint (issue #378)"
         regex: '^atdd checkpoint\b'
 
@@ -201,18 +207,22 @@ babysit:
     rules:
       - id: COACH-BABYSIT-050
         severity: 5
+        disposition: strict
         description: "Network egress — escalate even if otherwise safe"
         regex: '^(curl|wget)\b'
       - id: COACH-BABYSIT-051
         severity: 4
+        disposition: strict
         description: "Mutates Python environment"
         regex: '^pip (install|uninstall)\b'
       - id: COACH-BABYSIT-052
         severity: 5
+        disposition: strict
         description: "Destructive file ops — always escalate"
         regex: '^(rm|mv)\b'
       - id: COACH-BABYSIT-053
         severity: 4
+        disposition: strict
         description: "Destructive or remote-mutating git ops"
         regex: '^git (push|reset --hard|clean -f|branch -D|checkout --)\b'
 
@@ -285,26 +295,32 @@ babysit_validator_rules:
   rules:
     - id: COACH-BABYSIT-001
       severity: 3
+      disposition: strict
       description: "Babysit rule_id matches grammar <DOMAIN>-<TOPIC>-<NNN>"
       introduced_in: "1.67.0"
     - id: COACH-BABYSIT-002
       severity: 3
+      disposition: strict
       description: "Babysit rule_id uses DOMAIN=COACH, TOPIC=BABYSIT"
       introduced_in: "1.67.0"
     - id: COACH-BABYSIT-003
       severity: 3
+      disposition: strict
       description: "Babysit rule severity is integer in [1, 5]"
       introduced_in: "1.67.0"
     - id: COACH-BABYSIT-004
       severity: 2
+      disposition: strict
       description: "Babysit rule has non-empty description"
       introduced_in: "1.67.0"
     - id: COACH-BABYSIT-005
       severity: 4
+      disposition: strict
       description: "Babysit rule regex is non-empty and compiles"
       introduced_in: "1.67.0"
     - id: COACH-BABYSIT-006
       severity: 3
+      disposition: strict
       description: "Babysit allow/deny patterns do not overlap on test corpus"
       introduced_in: "1.67.0"
 
@@ -313,5 +329,6 @@ pr_phase_alignment_rules:
   rules:
     - id: COACH-PRGATE-0003
       severity: 4
+      disposition: strict
       description: "GREEN-phase PR ships code files without SMOKE evidence (issue #293)"
       introduced_in: "1.67.0"

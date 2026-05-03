@@ -29,6 +29,7 @@ from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coder.utils.python_file_walker import walk_consumer_python_files
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -341,7 +342,7 @@ def scan_python_duplications(repo_root: Path) -> Tuple[int, List[str]]:
 
 
 @pytest.mark.coder
-def test_no_intra_layer_duplication(ratchet_baseline):
+def test_no_intra_layer_duplication():
     """
     SPEC-CODER-DUP-0001: No structurally identical fragments within same layer.
 
@@ -365,8 +366,7 @@ def test_no_intra_layer_duplication(ratchet_baseline):
         if not has_files:
             pytest.skip("No Python files found in scan_dirs to validate")
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="duplication_detector",
-        current_count=count,
         violations=violations,
     )

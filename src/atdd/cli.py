@@ -1089,45 +1089,6 @@ Phase descriptions:
         help="Skip the live PyPI check (use local stamp only)",
     )
 
-    # ----- atdd baseline {update,show} -----
-    baseline_parser = subparsers.add_parser(
-        "baseline",
-        help="Manage ratchet baselines for coder validators",
-        description="View and update violation count baselines (.atdd/baselines/coder.yaml)"
-    )
-    baseline_subparsers = baseline_parser.add_subparsers(
-        dest="baseline_command",
-        help="Baseline commands"
-    )
-
-    # atdd baseline update
-    baseline_update_parser = baseline_subparsers.add_parser(
-        "update",
-        help="Run validators and write current violation counts to baseline file"
-    )
-    baseline_update_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        dest="dry_run",
-        help="Show what would be written without modifying the baseline file"
-    )
-    baseline_update_parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Show per-validator violation details"
-    )
-
-    # atdd baseline show
-    baseline_show_parser = baseline_subparsers.add_parser(
-        "show",
-        help="Display baseline vs current violation counts"
-    )
-    baseline_show_parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Include per-validator detail"
-    )
-
     # ----- atdd urn {graph,orphans,broken,validate,resolve,declarations,viz} -----
     urn_parser = subparsers.add_parser(
         "urn",
@@ -1689,7 +1650,7 @@ Phase descriptions:
                 return 1
             try:
                 issue_number = int(number_str)
-            except ValueError:
+            except ValueError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
                 print(f"Error: invalid issue number '{number_str}'")
                 return 1
             delta = manager.sync_labels(issue_number, dry_run=dry_run)
@@ -1699,7 +1660,7 @@ Phase descriptions:
         # Detect mode: integer → enter, string → create (future)
         try:
             issue_number = int(target)
-        except ValueError:
+        except ValueError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
             # Slug mode — create new issue and enter at INIT
             from atdd.coach.commands.issue_lifecycle import IssueLifecycle
             lifecycle = IssueLifecycle()
@@ -1857,23 +1818,6 @@ Phase descriptions:
             yes=args.yes,
             no_pypi=getattr(args, "no_pypi", False),
         )
-
-    # atdd baseline {update,show}
-    elif args.command == "baseline":
-        from atdd.coach.commands.baseline import BaselineCommand
-        repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
-        cmd = BaselineCommand(repo_root=repo_path)
-
-        if args.baseline_command == "update":
-            return cmd.update(
-                dry_run=args.dry_run,
-                verbose=args.verbose,
-            )
-        elif args.baseline_command == "show":
-            return cmd.show(verbose=args.verbose)
-        else:
-            baseline_parser.print_help()
-            return 0
 
     # atdd urn {graph,orphans,broken,validate,resolve,declarations,families,viz}
     elif args.command == "urn":

@@ -515,5 +515,6 @@ changelog_v1_1:
 rules:
   - id: TESTER-MIGRATION-NAMING-001
     severity: 2
+    disposition: strict
     description: "Migration tests are named after the migration ID and live alongside the migration artifact"
     introduced_in: "1.67.0"

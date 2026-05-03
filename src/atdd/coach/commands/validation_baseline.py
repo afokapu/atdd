@@ -17,13 +17,14 @@ Baseline schema::
     skipped_api: false
 
 ``source_hash`` is computed from the atdd **toolkit** files only (validators,
-conventions, schemas for the phase) — NOT consumer repo code.  The ratchet
-baseline handles consumer code violations separately.
+conventions, schemas for the phase) — NOT consumer repo code. Per-rule
+disposition gating (issue #395) handles consumer-code violations separately.
 
 SPEC-COACH-BASELINE-0001: atdd validate <phase> writes baseline on pass
 SPEC-COACH-BASELINE-0002: atdd validate --verify-baseline completes in <10s
 SPEC-COACH-BASELINE-0003: Stale baseline produces actionable error message
-SPEC-COACH-BASELINE-0004: Validation baselines use separate namespace from ratchet
+SPEC-COACH-BASELINE-0004: Validation baselines are scoped to validate-pass
+    proofs, separate from per-rule disposition gating
 SPEC-COACH-BASELINE-0005: --skip-api recorded in baseline, accepted with warning
 """
 

@@ -18,6 +18,7 @@ from typing import List
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.tester.validators.test_smoke_coverage import PlanTrainDiscovery
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 REPO_ROOT = find_repo_root()
@@ -140,7 +141,7 @@ class ChainReportFormatter:
 
 
 @pytest.mark.tester
-def test_train_completeness(ratchet_baseline):
+def test_train_completeness():
     """Every registered train must have the full chain: E2E + smoke.
 
     Convention: train.convention.yaml + smoke.convention.yaml
@@ -169,8 +170,7 @@ def test_train_completeness(ratchet_baseline):
         report = ChainReportFormatter.format_matrix(statuses)
         print(report)
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="train_completeness",
-        current_count=len(violations),
         violations=violations,
     )

@@ -42,6 +42,7 @@ import yaml
 import atdd
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.config import load_atdd_config
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.validators._violation import Violation
 from atdd.coder.validators.route_train_wagon_analyzer import (
     RULE_UNREGISTERED_TRAIN,
@@ -288,7 +289,7 @@ def test_resolved_chain_passes():
 # ===========================================================================
 
 @pytest.mark.coder
-def test_route_train_wagon_coverage(ratchet_baseline):
+def test_route_train_wagon_coverage():
     """SPEC-CODER-ROUTE-0005 ratchet: no new route → train → wagon gaps.
 
     Given: router files matching ``route_train_wagon_coverage.router_patterns``
@@ -307,9 +308,8 @@ def test_route_train_wagon_coverage(ratchet_baseline):
         )
 
     count, violations = scan_route_train_wagon_coverage(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="route_train_wagon_coverage",
-        current_count=count,
         violations=violations,
     )
 

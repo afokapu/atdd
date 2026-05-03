@@ -29,6 +29,7 @@ import yaml
 import atdd
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +336,7 @@ def test_silent_swallow_ts_fixture_clean_no_false_positives():
 
 
 @pytest.mark.coder
-def test_no_silent_exception_swallowing_typescript(ratchet_baseline):
+def test_no_silent_exception_swallowing_typescript():
     """
     SPEC-CODER-SILENT-SWALLOW-0002: no silent catch-swallow regressions in TS.
 
@@ -355,9 +356,8 @@ def test_no_silent_exception_swallowing_typescript(ratchet_baseline):
         pytest.skip("No web/src/ directory found")
 
     count, violations = scan_silent_swallows_typescript(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="silent_exception_swallowing_typescript",
-        current_count=count,
         violations=violations,
     )
 

@@ -246,14 +246,17 @@ dependency_rules:
   rules:
     - id: BOUNDARIES-COMMONS-001
       severity: 3
+      disposition: strict
       description: "Domain layer in commons has no outbound edges (no application/integration imports)"
       introduced_in: "1.66.0"
     - id: BOUNDARIES-COMMONS-002
       severity: 3
+      disposition: strict
       description: "Application layer uses ports; integration implements them (no application→integration edges)"
       introduced_in: "1.66.0"
     - id: BOUNDARIES-COMMONS-003
       severity: 3
+      disposition: strict
       description: "Cross-feature imports in commons go through the layer above (no peer-to-peer feature edges)"
       introduced_in: "1.66.0"
 

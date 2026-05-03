@@ -22,6 +22,7 @@ from typing import List, Tuple
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -278,7 +279,7 @@ def scan_file_line_count(repo_root: Path) -> Tuple[int, List[str]]:
 
 
 @pytest.mark.coder
-def test_maintainability_index_above_threshold(ratchet_baseline):
+def test_maintainability_index_above_threshold():
     """
     SPEC-CODER-QUALITY-0001: Code has acceptable maintainability index.
 
@@ -319,15 +320,14 @@ def test_maintainability_index_above_threshold(ratchet_baseline):
                 fix_hint_ref=_RULE_MI.fix_hint_ref,
             ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="maintainability_index",
-        current_count=len(violations),
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_adequate_code_comments(ratchet_baseline):
+def test_adequate_code_comments():
     """
     SPEC-CODER-QUALITY-0002: Code has adequate comments.
 
@@ -368,15 +368,14 @@ def test_adequate_code_comments(ratchet_baseline):
                 fix_hint_ref=_RULE_COMMENTS.fix_hint_ref,
             ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="code_comments",
-        current_count=len(violations),
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_no_significant_code_duplication(ratchet_baseline):
+def test_no_significant_code_duplication():
     """
     SPEC-CODER-QUALITY-0003: No significant code duplication.
 
@@ -409,15 +408,14 @@ def test_no_significant_code_duplication(ratchet_baseline):
             fix_hint_ref=_RULE_DUP.fix_hint_ref,
         ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="code_duplication",
-        current_count=len(duplicates),
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_consistent_naming_conventions(ratchet_baseline):
+def test_consistent_naming_conventions():
     """
     SPEC-CODER-QUALITY-0004: Code follows consistent naming conventions.
 
@@ -451,15 +449,14 @@ def test_consistent_naming_conventions(ratchet_baseline):
                     fix_hint_ref=_RULE_NAMING.fix_hint_ref,
                 ))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="naming_conventions",
-        current_count=len(all_violations),
         violations=all_violations,
     )
 
 
 @pytest.mark.coder
-def test_file_line_count(ratchet_baseline):
+def test_file_line_count():
     """
     SPEC-CODER-FILELINES-0001: File line count tracked via ratchet.
 
@@ -480,8 +477,7 @@ def test_file_line_count(ratchet_baseline):
         pytest.skip("No Python files found")
 
     count, violations = scan_file_line_count(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="file_line_count",
-        current_count=count,
         violations=violations,
     )

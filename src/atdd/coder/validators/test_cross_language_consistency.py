@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root, find_python_dir
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
@@ -347,13 +348,13 @@ def scan_api_contracts_cross_language(repo_root: Path) -> Tuple[int, List[Violat
 
 
 @pytest.mark.coder
-def test_entity_classes_exist_across_languages(ratchet_baseline):
+def test_entity_classes_exist_across_languages():
     """
     SPEC-CODER-CONSISTENCY-0001: Core entities exist in all languages.
 
     Given: Entity classes in Python, Dart, contracts
     When: Comparing entity names
-    Then: Violation count does not exceed baseline (ratchet pattern)
+    Then: Violations gated by BOUNDARIES-XLANG-ENTITY-001 disposition
     """
     python_classes = extract_python_classes()
     dart_classes = extract_dart_classes()
@@ -364,22 +365,21 @@ def test_entity_classes_exist_across_languages(ratchet_baseline):
     if not contract_entities:
         pytest.skip("No contract entities found")
 
-    count, violations = scan_entity_cross_language(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    _count, violations = scan_entity_cross_language(REPO_ROOT)
+    assert_disposition_satisfied(
         validator_id="entity_cross_language",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_enums_match_across_languages(ratchet_baseline):
+def test_enums_match_across_languages():
     """
     SPEC-CODER-CONSISTENCY-0002: Enums match across languages.
 
     Given: Enum definitions in Python and Dart
     When: Comparing enum values
-    Then: Violation count does not exceed baseline (ratchet pattern)
+    Then: Violations gated by BOUNDARIES-XLANG-ENUM-001 disposition
     """
     python_enums = extract_python_enums()
     dart_enums = extract_dart_enums()
@@ -387,22 +387,21 @@ def test_enums_match_across_languages(ratchet_baseline):
     if not python_enums and not dart_enums:
         pytest.skip("No enums found")
 
-    count, violations = scan_enum_cross_language(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    _count, violations = scan_enum_cross_language(REPO_ROOT)
+    assert_disposition_satisfied(
         validator_id="enum_cross_language",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_naming_conventions_consistent(ratchet_baseline):
+def test_naming_conventions_consistent():
     """
     SPEC-CODER-CONSISTENCY-0003: Naming conventions are consistent.
 
     Given: Class names in all languages
     When: Comparing patterns
-    Then: Violation count does not exceed baseline (ratchet pattern)
+    Then: Violations gated by BOUNDARIES-XLANG-NAMING-001 disposition
     """
     python_classes = extract_python_classes()
     dart_classes = extract_dart_classes()
@@ -410,31 +409,29 @@ def test_naming_conventions_consistent(ratchet_baseline):
     if not python_classes or not dart_classes:
         pytest.skip("Need classes in multiple languages")
 
-    count, violations = scan_naming_cross_language(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    _count, violations = scan_naming_cross_language(REPO_ROOT)
+    assert_disposition_satisfied(
         validator_id="naming_cross_language",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_api_contracts_honored_across_languages(ratchet_baseline):
+def test_api_contracts_honored_across_languages():
     """
     SPEC-CODER-CONSISTENCY-0004: API contracts honored in all implementations.
 
     Given: Contract schemas
     When: Checking for matching entities
-    Then: Violation count does not exceed baseline (ratchet pattern)
+    Then: Violations gated by BOUNDARIES-XLANG-CONTRACT-001 disposition
     """
     contract_entities = find_contract_entities()
 
     if not contract_entities:
         pytest.skip("No contracts found")
 
-    count, violations = scan_api_contracts_cross_language(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    _count, violations = scan_api_contracts_cross_language(REPO_ROOT)
+    assert_disposition_satisfied(
         validator_id="api_contracts_cross_language",
-        current_count=count,
         violations=violations,
     )

@@ -25,6 +25,7 @@ from typing import List, Tuple, Optional
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -187,7 +188,7 @@ def scan_gsap_commons(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 
 @pytest.mark.coder
-def test_gsap_only_in_presentation_layer(ratchet_baseline):
+def test_gsap_only_in_presentation_layer():
     """
     SPEC-CODER-GSAP-0001: GSAP imports allowed only in presentation layer.
 
@@ -201,15 +202,14 @@ def test_gsap_only_in_presentation_layer(ratchet_baseline):
         pytest.skip("web/src does not exist")
 
     count, violations = scan_gsap_layer_usage(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="gsap_layer_usage",
-        current_count=count,
         violations=violations,
     )
 
 
 @pytest.mark.coder
-def test_gsap_not_in_commons(ratchet_baseline):
+def test_gsap_not_in_commons():
     """
     SPEC-CODER-GSAP-0002: GSAP imports forbidden in commons.
 
@@ -224,8 +224,7 @@ def test_gsap_not_in_commons(ratchet_baseline):
         pytest.skip("web/src/commons does not exist")
 
     count, violations = scan_gsap_commons(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="gsap_commons",
-        current_count=count,
         violations=violations,
     )

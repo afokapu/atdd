@@ -14,7 +14,7 @@ Convention: ``src/atdd/coder/conventions/logging.convention.yaml``
             (rule ``COACH-SILENT-SWALLOW-001``)
 
 Structured violations: emits ``Violation(rule_id="COACH-SILENT-SWALLOW-001", ...)``
-records via ``RatchetBaseline.assert_no_regression(violations=...)``.
+records that flow through ``assert_disposition_satisfied(...)``.
 The rule-id grammar is governed by ``src/atdd/coach/specs/rule-id.spec.md``.
 """
 
@@ -28,6 +28,7 @@ import pytest
 import yaml
 
 import atdd
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
@@ -343,25 +344,26 @@ def test_silent_swallow_fixture_clean_no_false_positives():
 
 
 @pytest.mark.coder
-def test_no_silent_exception_swallowing_python(ratchet_baseline):
+def test_no_silent_exception_swallowing_python():
     """
     SPEC-CODER-SILENT-SWALLOW-0001: no silent except-swallow regressions.
 
     Scans REPO_ROOT/python/ (consumer code) and src/atdd/ (toolkit dogfooding)
-    for silent exception swallowing. Uses ratchet baseline so pre-existing
-    violations are tolerated until they are migrated, but new violations fail.
+    for silent exception swallowing. Pass/fail decided by the rule's
+    ``disposition`` (``suppress-and-clean``): pre-existing handlers carry
+    inline ``# atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=<date>`` markers
+    and are absorbed; unmarked handlers fail the gate.
 
     Given: production .py files (excluding tests, fixtures, __init__.py)
     When:  AST scan for try/except handlers with no log / no raise that return
-    Then:  violation count does not exceed baseline (auto-seeds first run)
+    Then:  every flagged handler is suppressed or fixed.
 
     Convention: src/atdd/coder/conventions/logging.convention.yaml
                 (rule COACH-SILENT-SWALLOW-001)
     """
-    count, violations = scan_silent_swallows_python(REPO_ROOT)
-    ratchet_baseline.assert_no_regression(
+    _count, violations = scan_silent_swallows_python(REPO_ROOT)
+    assert_disposition_satisfied(
         validator_id="silent_exception_swallowing_python",
-        current_count=count,
         violations=violations,
     )
 

@@ -12,7 +12,7 @@ XSS vector in frontend code.  Safe alternatives exist (textContent,
 React's JSX escaping, DOMPurify).
 
 Structured violations (issue #340): emits ``Violation(rule_id="SECURITY-XSS-001", ...)``
-records via ``RatchetBaseline.assert_no_regression(violations=...)`` so that
+records via ``assert_disposition_satisfied(...)`` so that
 risk-scoring, suppression-audit, and self-fix tooling can route off the rule_id.
 The ID grammar is governed by ``src/atdd/coach/specs/rule-id.spec.md``.
 """
@@ -28,6 +28,7 @@ from typing import Dict, List, Optional
 import atdd
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.validators._violation import Violation
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +168,7 @@ def _format_violations(violations: List[Violation]) -> str:
 # ===========================================================================
 
 @pytest.mark.coder
-def test_no_xss_prone_patterns(ratchet_baseline):
+def test_no_xss_prone_patterns():
     """
     SECURITY-XSS-001: No innerHTML or dangerouslySetInnerHTML in frontend code.
 
@@ -195,8 +196,7 @@ def test_no_xss_prone_patterns(ratchet_baseline):
     for f in files:
         violations.extend(check_xss_patterns(f, patterns, REPO_ROOT))
 
-    ratchet_baseline.assert_no_regression(
+    assert_disposition_satisfied(
         validator_id="frontend_security_patterns",
-        current_count=len(violations),
         violations=violations,
     )
