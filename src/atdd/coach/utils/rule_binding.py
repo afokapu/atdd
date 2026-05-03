@@ -147,10 +147,18 @@ def extract_rules(
     return [(file_path, p, r) for (p, r) in _walk_rules(data, ())]
 
 
-def _find_convention_files(roots: Iterable[Path]) -> List[Path]:
-    """Walk *roots* for ``*.convention.yaml`` files (deduped by resolved path)."""
+def find_convention_files(
+    roots: Optional[Iterable[Path]] = None,
+) -> List[Path]:
+    """Walk *roots* for ``*.convention.yaml`` files (deduped by resolved path).
+
+    When *roots* is ``None``, the default toolkit search roots are used
+    (installed package + ``src/atdd`` checkout).  Both the rule-id
+    uniqueness validator and ``bind_rule`` consume this function so the
+    discovery rules stay in one place.
+    """
     seen: Dict[str, Path] = {}
-    for root in roots:
+    for root in roots if roots is not None else _default_roots():
         if not root.is_dir():
             continue
         for path in root.rglob("*.convention.yaml"):
@@ -188,7 +196,7 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
     """Walk every convention file and index rules by ``rule_id``."""
     roots = _OVERRIDE_ROOTS if _OVERRIDE_ROOTS is not None else _default_roots()
     registry: Dict[str, List[RuleMetadata]] = {}
-    for file_path in _find_convention_files(roots):
+    for file_path in find_convention_files(roots):
         for _, _, rule in extract_rules(file_path):
             rid = rule.get("id")
             if not isinstance(rid, str) or not rid:
@@ -264,4 +272,5 @@ __all__ = [
     "bind_rule",
     "clear_cache",
     "extract_rules",
+    "find_convention_files",
 ]

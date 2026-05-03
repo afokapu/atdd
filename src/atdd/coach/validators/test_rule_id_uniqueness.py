@@ -49,6 +49,7 @@ from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import (
     _walk_rules,
     extract_rules,
+    find_convention_files as _find_convention_files,
 )
 
 
@@ -94,20 +95,12 @@ def load_allowed_domains() -> set:
 # Convention discovery
 # ---------------------------------------------------------------------------
 def find_convention_files() -> List[Path]:
-    """Walk *_CONVENTION_ROOTS* for ``*.convention.yaml`` files (deduped)."""
-    seen: Dict[str, Path] = {}
-    for root in _CONVENTION_ROOTS:
-        if not root.is_dir():
-            continue
-        for path in root.rglob("*.convention.yaml"):
-            # Skip __pycache__-adjacent caches and tests fixtures.
-            if "__pycache__" in path.parts:
-                continue
-            # Dedupe by resolved path so the same file installed + checked-out
-            # is not validated twice.
-            key = str(path.resolve())
-            seen[key] = path
-    return sorted(seen.values())
+    """Walk this validator's search roots for ``*.convention.yaml`` files.
+
+    Thin wrapper over :func:`atdd.coach.utils.rule_binding.find_convention_files`
+    that pins the toolkit-self search roots used by the uniqueness validator.
+    """
+    return _find_convention_files(_CONVENTION_ROOTS)
 
 
 def load_migrated_files() -> List[Path]:
