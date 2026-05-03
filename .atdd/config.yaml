@@ -43,3 +43,5 @@ github:
   project_number: 1
   project_id: PVT_kwHOAIbyOM4BPpKf
   field_schema: atdd/coach/schemas/project_fields.schema.json
+babysit:
+  token_alert_threshold: 400000

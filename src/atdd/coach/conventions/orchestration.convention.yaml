@@ -169,6 +169,10 @@ babysit:
         severity: 1
         description: "Print working directory"
         regex: '^pwd\s*$'
+      - id: COACH-BABYSIT-015
+        severity: 1
+        description: "Worker self-checkpoint (issue #378)"
+        regex: '^atdd checkpoint\b'
 
   dashboard:
     description: |
