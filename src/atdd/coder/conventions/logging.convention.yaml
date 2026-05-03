@@ -142,3 +142,19 @@ deferred:
     - "Required context fields (wagon, phase, urn) enforcement"
     - "Log-level appropriateness analysis"
     - "Exclusion list configuration via .atdd/config.yaml"
+
+# =============================================================================
+# Structured rules (issue #394 — canonical grammar mirror)
+# =============================================================================
+# Top-level `rules:` array — registry-walkable. Mirrors the legacy LOG-001 /
+# LOG-002 IDs above (which use string severities and pre-grammar shape).
+canonical_rules:
+  rules:
+    - id: LOGGING-PRINT-001
+      severity: 2
+      description: "No print() calls in non-test production Python code (use logger)"
+      introduced_in: "1.67.0"
+    - id: LOGGING-STRUCTURED-001
+      severity: 2
+      description: "Logger calls must include extra= keyword argument with context dict"
+      introduced_in: "1.67.0"
