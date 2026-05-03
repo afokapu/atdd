@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:enforce-route-train-wagon-coverage"
+wagon: "wagon:govern-lifecycle"
+description: "Cross-check that every <TrainView trainId='...'/> in router files resolves to a registered train in plan/_trains.yaml and that the train's wagons all exist in plan/_wagons.yaml. Closes the route → train → wagon segment of the structural-vs-behavioral incident series tracked at #318."
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:D018"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "Coder-validator only; no CLI surface."
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "parse_trainview_bindings + analyze_router_content (pure)."
+    domain:
+      - type: "entities"
+        count: 1
+        rationale: "TrainIdBinding dataclass; reuses Violation from #340."
+    integration:
+      - type: "repositories"
+        count: 2
+        rationale: "load_registered_trains + load_registered_wagons (YAML I/O)."

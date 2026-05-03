@@ -1,0 +1,12 @@
+# Fixture: synthetic _trains.yaml fragment where `registered-train-x` lists
+# one registered wagon (`registered-wagon-y`) AND one unregistered wagon
+# (`ghost-wagon-not-registered`). Drives BOUNDARIES-ROUTE-COVERAGE-002
+# (severity 3, hard fail) when paired with good_router.tsx.
+trains:
+  test-theme:
+    nominal:
+      - train_id: "registered-train-x"
+        title: "Test Train (unregistered wagon)"
+        wagons:
+          - registered-wagon-y
+          - ghost-wagon-not-registered

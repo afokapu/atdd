@@ -19,6 +19,23 @@ coverage:
 no_stub_presentation:
   scan_dirs: []
   allowlist: []
+route_train_wagon_coverage:
+  # Router files to scan. Globs are evaluated relative to repo root and any
+  # path containing /fixtures/ is excluded by the validator. Defaults from
+  # _DEFAULT_ROUTER_PATTERNS in test_route_train_wagon_coverage.py apply
+  # when this list is omitted.
+  router_patterns:
+    - "web/src/**/router.ts"
+    - "web/src/**/router.tsx"
+    - "web/src/**/routes.ts"
+    - "web/src/**/routes.tsx"
+    - "web/src/**/*-routes.ts"
+    - "web/src/**/*-routes.tsx"
+    - "web/src/**/App.tsx"
+  # Each entry needs `path` + `migration` (issue ref). The hygiene test
+  # `test_route_train_wagon_allowlist_hygiene` fails entries missing
+  # a migration reference.
+  allowlist: []
 toolkit:
   last_version: 1.64.5
 github:
