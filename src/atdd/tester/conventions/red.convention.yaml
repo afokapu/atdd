@@ -946,3 +946,17 @@ mock_discipline:
     phase: "REFACTOR"
     gate: "atdd validate coach"
     hook: "pre-commit-advisory (warns on new hand-rolled stubs)"
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: TESTER-RED-NAMING-001
+    severity: 2
+    description: "RED tests use URN-based filenames matching test_<NNNN>.py"
+    introduced_in: "1.67.0"
+  - id: TESTER-RED-FAILS-FIRST-001
+    severity: 3
+    description: "RED tests must fail on first run before implementation begins"
+    introduced_in: "1.67.0"
