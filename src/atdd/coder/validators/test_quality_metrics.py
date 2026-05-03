@@ -7,7 +7,11 @@ Validates:
 - No code duplication
 - Consistent naming conventions
 
-Convention: src/atdd/coder/conventions/quality.convention.yaml
+Convention: src/atdd/coder/conventions/refactor.convention.yaml
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``REFACTOR-QUALITY-*-001`` rule_ids declared in
+``src/atdd/coder/conventions/refactor.convention.yaml``.
 """
 
 import pytest
@@ -16,6 +20,16 @@ from pathlib import Path
 from typing import List, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_MI = bind_rule("REFACTOR-QUALITY-MI-001")
+_RULE_COMMENTS = bind_rule("REFACTOR-QUALITY-COMMENTS-001")
+_RULE_DUP = bind_rule("REFACTOR-QUALITY-DUPLICATION-001")
+_RULE_NAMING = bind_rule("REFACTOR-QUALITY-NAMING-001")
+_RULE_FILE_LEN = bind_rule("REFACTOR-QUALITY-FILE-LENGTH-001")
 
 # Path constants
 REPO_ROOT = find_repo_root()
@@ -245,7 +259,7 @@ def scan_file_line_count(repo_root: Path) -> Tuple[int, List[str]]:
         if '__pycache__' in str(py_file):
             continue
         files.append(py_file)
-    violations = []
+    violations: List[Violation] = []
     for py_file in files:
         try:
             line_count = len(py_file.read_text(encoding='utf-8').splitlines())
@@ -253,7 +267,13 @@ def scan_file_line_count(repo_root: Path) -> Tuple[int, List[str]]:
             continue
         if line_count > FILE_LINE_REPORT_THRESHOLD:
             rel_path = py_file.relative_to(repo_root)
-            violations.append(f"{rel_path} lines={line_count}")
+            violations.append(Violation(
+                rule_id=_RULE_FILE_LEN.rule_id,
+                severity=_RULE_FILE_LEN.severity,
+                location=f"{rel_path}:1",
+                detail=f"{rel_path} lines={line_count}",
+                fix_hint_ref=_RULE_FILE_LEN.fix_hint_ref,
+            ))
     return len(violations), violations
 
 
@@ -275,7 +295,7 @@ def test_maintainability_index_above_threshold(ratchet_baseline):
     if not python_files:
         pytest.skip("No Python files found")
 
-    violations = []
+    violations: List[Violation] = []
 
     for py_file in python_files:
         # Skip very small files
@@ -291,11 +311,13 @@ def test_maintainability_index_above_threshold(ratchet_baseline):
 
         if index < MIN_MAINTAINABILITY_INDEX:
             rel_path = py_file.relative_to(REPO_ROOT)
-            violations.append(
-                f"{rel_path}\n"
-                f"  Maintainability Index: {index:.1f} (min: {MIN_MAINTAINABILITY_INDEX})\n"
-                f"  Suggestion: Reduce complexity, extract functions, or split file"
-            )
+            violations.append(Violation(
+                rule_id=_RULE_MI.rule_id,
+                severity=_RULE_MI.severity,
+                location=f"{rel_path}:1",
+                detail=f"Maintainability Index: {index:.1f} (min: {MIN_MAINTAINABILITY_INDEX})",
+                fix_hint_ref=_RULE_MI.fix_hint_ref,
+            ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="maintainability_index",
@@ -322,7 +344,7 @@ def test_adequate_code_comments(ratchet_baseline):
     if not python_files:
         pytest.skip("No Python files found")
 
-    violations = []
+    violations: List[Violation] = []
 
     for py_file in python_files:
         # Skip very small files
@@ -338,11 +360,13 @@ def test_adequate_code_comments(ratchet_baseline):
 
         if ratio < MIN_COMMENT_RATIO:
             rel_path = py_file.relative_to(REPO_ROOT)
-            violations.append(
-                f"{rel_path}\n"
-                f"  Comment ratio: {ratio*100:.1f}% (min: {MIN_COMMENT_RATIO*100:.0f}%)\n"
-                f"  Suggestion: Add docstrings and inline comments"
-            )
+            violations.append(Violation(
+                rule_id=_RULE_COMMENTS.rule_id,
+                severity=_RULE_COMMENTS.severity,
+                location=f"{rel_path}:1",
+                detail=f"Comment ratio: {ratio*100:.1f}% (min: {MIN_COMMENT_RATIO*100:.0f}%)",
+                fix_hint_ref=_RULE_COMMENTS.fix_hint_ref,
+            ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="code_comments",
@@ -373,11 +397,17 @@ def test_no_significant_code_duplication(ratchet_baseline):
     sample_files = python_files[:50]
 
     duplicates = find_duplicate_code_blocks(sample_files)
-    violations = []
+    violations: List[Violation] = []
     for file1, file2, block in duplicates:
-        violations.append(
-            f"{file1.relative_to(REPO_ROOT)} ↔ {file2.relative_to(REPO_ROOT)} ({len(block)} lines)"
-        )
+        rel1 = file1.relative_to(REPO_ROOT)
+        rel2 = file2.relative_to(REPO_ROOT)
+        violations.append(Violation(
+            rule_id=_RULE_DUP.rule_id,
+            severity=_RULE_DUP.severity,
+            location=f"{rel1}:1",
+            detail=f"{rel1} <-> {rel2} ({len(block)} lines)",
+            fix_hint_ref=_RULE_DUP.fix_hint_ref,
+        ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="code_duplication",
@@ -406,14 +436,20 @@ def test_consistent_naming_conventions(ratchet_baseline):
     if not python_files:
         pytest.skip("No Python files found")
 
-    all_violations = []
+    all_violations: List[Violation] = []
 
     for py_file in python_files:
         violations = check_naming_consistency(py_file)
         if violations:
             rel_path = py_file.relative_to(REPO_ROOT)
             for v in violations:
-                all_violations.append(f"{rel_path}: {v}")
+                all_violations.append(Violation(
+                    rule_id=_RULE_NAMING.rule_id,
+                    severity=_RULE_NAMING.severity,
+                    location=f"{rel_path}:1",
+                    detail=v,
+                    fix_hint_ref=_RULE_NAMING.fix_hint_ref,
+                ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="naming_conventions",
