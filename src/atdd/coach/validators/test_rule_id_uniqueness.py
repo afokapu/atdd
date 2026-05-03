@@ -91,6 +91,26 @@ def load_allowed_domains() -> set:
     return {str(d) for d in domains}
 
 
+def load_legacy_patterns() -> List["re.Pattern[str]"]:
+    """Compile the ``legacy_grammar:`` regex variants from the rule-id convention.
+
+    Returns an empty list if the section is absent — callers must treat
+    legacy acceptance as opt-in. The acceptance contract (issue #389 Phase 1):
+    a legacy-shaped ID is accepted *only* when its declaring convention file
+    is also listed under ``migration.completed:``.
+    """
+    data = load_rule_id_convention()
+    entries = data.get("legacy_grammar") or []
+    compiled: List[re.Pattern[str]] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        pattern = entry.get("pattern")
+        if isinstance(pattern, str) and pattern:
+            compiled.append(re.compile(pattern))
+    return compiled
+
+
 # ---------------------------------------------------------------------------
 # Convention discovery
 # ---------------------------------------------------------------------------
@@ -144,10 +164,24 @@ def load_migrated_files() -> List[Path]:
 # ---------------------------------------------------------------------------
 # Validators
 # ---------------------------------------------------------------------------
-def validate_grammar(rule_id: str, allowed_domains: set) -> Optional[str]:
-    """Return error message when *rule_id* fails the grammar; None when OK."""
+def validate_grammar(
+    rule_id: str,
+    allowed_domains: set,
+    legacy_patterns: Optional[List["re.Pattern[str]"]] = None,
+) -> Optional[str]:
+    """Return error message when *rule_id* fails the grammar; None when OK.
+
+    When ``legacy_patterns`` is supplied, an ID matching any of those patterns
+    bypasses the canonical grammar/domain/suffix checks. Callers must only
+    pass legacy patterns when validating IDs from a file listed under
+    ``migration.completed:`` (issue #389 Phase 1).
+    """
     if not isinstance(rule_id, str):
         return f"id must be a string, got {type(rule_id).__name__}"
+    if legacy_patterns:
+        for pat in legacy_patterns:
+            if pat.match(rule_id):
+                return None
     if not RULE_ID_PATTERN.match(rule_id):
         return (
             f"id {rule_id!r} does not match grammar "
@@ -211,6 +245,8 @@ def test_rule_id_grammar_and_required_fields():
         "rule-id.convention.yaml::migration.completed"
     )
 
+    legacy_patterns = load_legacy_patterns()
+
     errors: List[str] = []
     for file_path in find_convention_files():
         if file_path.resolve() not in migrated:
@@ -219,7 +255,9 @@ def test_rule_id_grammar_and_required_fields():
         for _, yaml_path, rule in extract_rules(file_path):
             loc = f"{file_path.name}:{'.'.join(yaml_path[:-1])}[{yaml_path[-1]}]"
 
-            grammar_err = validate_grammar(rule.get("id", ""), allowed_domains)
+            grammar_err = validate_grammar(
+                rule.get("id", ""), allowed_domains, legacy_patterns=legacy_patterns
+            )
             if grammar_err:
                 errors.append(f"{loc}: {grammar_err}")
 
@@ -240,22 +278,34 @@ def test_rule_id_grammar_and_required_fields():
 
 @pytest.mark.coach
 def test_rule_id_uniqueness():
-    """No grammar-conformant rule ID is declared in more than one place.
+    """No rule ID is declared in more than one place.
 
     SPEC-COACH-RULEID-0004: stability requires global uniqueness.
 
-    Legacy IDs (e.g. ``LOG-001``, ``COVERAGE-CODE-4.1``) that don't match the
-    new grammar are ignored — they belong to the pre-#340 prose-rules world
-    and the migration playbook covers retrofitting them.
+    Canonical IDs are checked across every convention. Legacy-shaped IDs
+    (issue #389 Phase 1: ``DS-NN``, ``ERR-NN``, ``GP-NN``) are checked only
+    when their declaring file is in ``migration.completed:`` — IDs in
+    unmigrated files remain out of scope per the migration playbook.
+
+    Other pre-#340 prose IDs (e.g. ``LOG-001``, ``COVERAGE-CODE-4.1``) that
+    match neither grammar are still ignored.
     """
+    legacy_patterns = load_legacy_patterns()
+    migrated = set(load_migrated_files())
+
     seen: Dict[str, List[str]] = {}
     for file_path in find_convention_files():
+        is_migrated = file_path.resolve() in migrated
         for _, yaml_path, rule in extract_rules(file_path):
             rid = rule.get("id")
             if not isinstance(rid, str) or not rid:
                 continue
-            if not RULE_ID_PATTERN.match(rid):
-                continue  # legacy ID — out of scope.
+            if RULE_ID_PATTERN.match(rid):
+                pass  # canonical — always tracked
+            elif is_migrated and any(p.match(rid) for p in legacy_patterns):
+                pass  # legacy + migrated — tracked per #389 Phase 1
+            else:
+                continue
             loc = f"{file_path.name}:{'.'.join(yaml_path[:-1])}[{yaml_path[-1]}]"
             seen.setdefault(rid, []).append(loc)
 
