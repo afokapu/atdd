@@ -220,6 +220,25 @@
       },
       "additionalProperties": false
     },
+    "train_renders_content": {
+      "type": "object",
+      "description": "Behavioral train-render validator settings (#335). When enabled, src/atdd/tester/validators/test_train_renders_content.py mounts every train via .atdd/harness/mount-train.mjs and asserts the rendered DOM is non-empty and non-stub.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt-in flag. Default false so toolkit-self and BE-only repos skip the check."
+        },
+        "harness_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600,
+          "default": 30,
+          "description": "Per-train mount timeout passed to HarnessInvoker."
+        }
+      },
+      "additionalProperties": false
+    },
     "coach": {
       "type": "object",
       "description": "Coach agent validation settings",
