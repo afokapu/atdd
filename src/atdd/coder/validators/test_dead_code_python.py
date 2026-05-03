@@ -8,6 +8,10 @@ Validates:
 - dead-code.convention.yaml exists
 
 Convention: src/atdd/coder/conventions/dead-code.convention.yaml
+
+Structured violations (issue #394): emits ``Violation`` records keyed off
+``DEAD-CODE-REACHABILITY-001`` declared in
+``src/atdd/coder/conventions/dead-code.convention.yaml``.
 """
 
 import ast
@@ -18,8 +22,14 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
 
 import atdd
+
+
+# Rule bindings — fail at import if conventions drift (issue #394).
+_RULE_DEAD_CODE_PY = bind_rule("DEAD-CODE-REACHABILITY-001")
 
 
 # ============================================================================
@@ -336,19 +346,25 @@ def test_no_unreachable_python_files(ratchet_baseline):
     all_reachable = reachable | reverse_reachable
 
     # Find unreachable files (exclude __init__.py — they're structural)
-    unreachable = []
+    violations: List[Violation] = []
     for py_file in python_files:
         if py_file in all_reachable:
             continue
         if py_file.name == "__init__.py":
             continue  # __init__.py files are structural, not dead code
         rel_path = py_file.relative_to(REPO_ROOT)
-        unreachable.append(str(rel_path))
+        violations.append(Violation(
+            rule_id=_RULE_DEAD_CODE_PY.rule_id,
+            severity=_RULE_DEAD_CODE_PY.severity,
+            location=f"{rel_path}:1",
+            detail=f"unreachable Python file: {rel_path}",
+            fix_hint_ref=_RULE_DEAD_CODE_PY.fix_hint_ref,
+        ))
 
     ratchet_baseline.assert_no_regression(
         validator_id="dead_code_python",
-        current_count=len(unreachable),
-        violations=unreachable,
+        current_count=len(violations),
+        violations=violations,
     )
 
 
