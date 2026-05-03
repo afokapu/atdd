@@ -601,3 +601,31 @@ rules:
     severity: 2
     description: "TypeScript function length below threshold"
     introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-MI-001
+    severity: 2
+    description: "Python module maintainability index above threshold"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-COMMENTS-001
+    severity: 2
+    description: "Python source files have an adequate code-comment ratio"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-DUPLICATION-001
+    severity: 2
+    description: "Python sources have no significant code duplication beyond the configured threshold"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-NAMING-001
+    severity: 2
+    description: "Python identifiers follow consistent naming conventions (PEP 8)"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-FILE-LENGTH-001
+    severity: 2
+    description: "Python source files stay within the configured maximum line count"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-MI-TS-001
+    severity: 2
+    description: "TypeScript module maintainability index above threshold"
+    introduced_in: "1.67.0"
+  - id: REFACTOR-QUALITY-COMMENTS-TS-001
+    severity: 2
+    description: "TypeScript source files have an adequate code-comment ratio"
+    introduced_in: "1.67.0"
