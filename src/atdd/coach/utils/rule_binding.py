@@ -35,7 +35,6 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import yaml
 
 import atdd
-from atdd.coach.utils.repo import find_repo_root
 
 
 # ---------------------------------------------------------------------------
@@ -92,12 +91,16 @@ class RuleMetadata:
 # ---------------------------------------------------------------------------
 # Convention search roots
 # ---------------------------------------------------------------------------
+# `atdd.__file__` points at the package directory under both install shapes:
+#   * pip-installed:  <site-packages>/atdd/__init__.py
+#   * editable / src-checkout:  <repo>/src/atdd/__init__.py
+# So a single root is sufficient — see SPEC-COACH-PKG-LAYOUT-001 (#367).
 _ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 
 
 def _default_roots() -> List[Path]:
     """Search roots for ``*.convention.yaml`` files (deduped at walk time)."""
-    return [_ATDD_PKG_DIR, find_repo_root() / "src" / "atdd"]
+    return [_ATDD_PKG_DIR]
 
 
 # ---------------------------------------------------------------------------
