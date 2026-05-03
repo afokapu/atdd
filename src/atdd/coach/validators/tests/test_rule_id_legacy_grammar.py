@@ -168,7 +168,7 @@ class TestUniquenessAcrossLegacyAndCanonical:
         monkeypatch.setattr(mod, "find_convention_files", lambda: [migrated, other])
         monkeypatch.setattr(mod, "load_migrated_files", lambda: [migrated.resolve(), other.resolve()])
 
-        with pytest.raises((pytest.fail.Exception, AssertionError, BaseException)) as exc:
+        with pytest.raises(pytest.fail.Exception) as exc:
             mod.test_rule_id_uniqueness()
 
         # The collision detection should mention DS-01.
