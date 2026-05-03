@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "worker-state.schema.json",
+  "title": "ATDD Worker Checkpoint",
+  "description": "Per-session worker state captured after a phase transition. Lives at .atdd/worker-state-{issue}.json (gitignored). Source: issue #378.",
+  "type": "object",
+  "required": ["issue", "phase", "summary", "open_files", "checkpointed_at"],
+  "additionalProperties": false,
+  "properties": {
+    "issue": {
+      "type": "integer",
+      "description": "GitHub issue number this checkpoint belongs to",
+      "minimum": 1
+    },
+    "phase": {
+      "type": "string",
+      "description": "ATDD lifecycle phase the worker had just completed when the checkpoint was written",
+      "enum": ["INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE", "BLOCKED"]
+    },
+    "branch": {
+      "type": "string",
+      "description": "Git branch the worker was operating on"
+    },
+    "last_commit": {
+      "type": "string",
+      "description": "Short SHA of the last commit on the branch when the checkpoint was written"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Human-readable summary of what the worker just finished (≤500 chars; longer values are truncated by the writer)",
+      "maxLength": 500
+    },
+    "open_files": {
+      "type": "array",
+      "description": "Files the worker had open / was actively editing when the checkpoint was written",
+      "items": {"type": "string"}
+    },
+    "checkpointed_at": {
+      "type": "string",
+      "description": "ISO-8601 UTC timestamp",
+      "format": "date-time"
+    },
+    "ttl_seconds": {
+      "type": "integer",
+      "description": "Advisory TTL — older checkpoints SHOULD be ignored by --from-checkpoint",
+      "minimum": 0
+    }
+  }
+}

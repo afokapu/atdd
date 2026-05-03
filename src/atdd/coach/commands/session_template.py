@@ -195,10 +195,52 @@ def render(context: IssueContext, template_path: Path = TEMPLATE_PATH) -> str:
     return rendered
 
 
+def _format_checkpoint_block(checkpoint: dict) -> str:
+    open_files = checkpoint.get("open_files") or []
+    files_block = (
+        "\n".join(f"- `{f}`" for f in open_files)
+        if open_files
+        else "_(no open files recorded)_"
+    )
+    summary = (checkpoint.get("summary") or "").strip() or "_(no summary recorded)_"
+    return (
+        "\n## Resumed from checkpoint\n\n"
+        f"- **Phase:** `{checkpoint.get('phase', 'UNKNOWN')}`\n"
+        f"- **Last commit:** `{checkpoint.get('last_commit', 'unknown')}`\n"
+        f"- **Checkpointed at:** {checkpoint.get('checkpointed_at', 'unknown')}\n\n"
+        "### Summary at last checkpoint\n\n"
+        f"{summary}\n\n"
+        "### Open files at last checkpoint\n\n"
+        f"{files_block}\n"
+    )
+
+
+def render_with_checkpoint(
+    context: IssueContext,
+    template_path: Path = TEMPLATE_PATH,
+    *,
+    root: Optional[Path] = None,
+) -> str:
+    """Render the launch script with a `## Resumed from checkpoint` block
+    inlined when ``.atdd/worker-state-<N>.json`` exists. Falls back to plain
+    `render()` when no checkpoint is found.
+    """
+    from atdd.coach.commands.checkpoint import read_worker_checkpoint
+
+    plain = render(context, template_path=template_path)
+    checkpoint = read_worker_checkpoint(context.number, root=root)
+    if checkpoint is None:
+        return plain
+    return plain + _format_checkpoint_block(checkpoint)
+
+
 def run(
     issue_number: int,
     output: Optional[Path] = None,
     worktree_path: str = "",
+    *,
+    from_checkpoint: bool = False,
+    root: Optional[Path] = None,
 ) -> int:
     issue = fetch_issue(issue_number)
     if not issue:
@@ -216,7 +258,11 @@ def run(
         title=title,
         worktree_path=worktree_path,
     )
-    rendered = render(context)
+    rendered = (
+        render_with_checkpoint(context, root=root)
+        if from_checkpoint
+        else render(context)
+    )
     if output:
         output.write_text(rendered)
         print(f"✓ wrote launch script to {output}")

@@ -793,6 +793,17 @@ Phase descriptions:
         dest="worktree_path",
         help="Worktree path to embed in the launch script (default: derived from branch)",
     )
+    session_template_parser.add_argument(
+        "--from-checkpoint",
+        action="store_true",
+        dest="from_checkpoint",
+        help=(
+            "Inline `.atdd/worker-state-<N>.json` (if present) into the launch "
+            "script so a /clear+reload restores worker state without manual "
+            "re-briefing. Falls back to default behavior when no checkpoint "
+            "exists. See issue #378."
+        ),
+    )
 
     # ----- atdd orchestrate <issue-numbers...> -----
     orchestrate_parser = subparsers.add_parser(
@@ -851,6 +862,58 @@ Phase descriptions:
         default=".atdd/orchestrate-state.json",
         dest="state_file",
         help="Path to the orchestrate state file (default: .atdd/orchestrate-state.json)",
+    )
+
+    # ----- atdd checkpoint <issue-number> -----
+    checkpoint_parser = subparsers.add_parser(
+        "checkpoint",
+        help="Persist worker state to .atdd/worker-state-<issue>.json",
+        description=(
+            "Write a per-issue worker checkpoint after a phase transition so "
+            "that `atdd session-template <N> --from-checkpoint` can rebuild the "
+            "launch prompt without manual re-briefing (issue #378)."
+        ),
+    )
+    checkpoint_parser.add_argument(
+        "issue_number",
+        type=int,
+        help="Issue number this checkpoint belongs to",
+    )
+    checkpoint_parser.add_argument(
+        "--phase",
+        type=str,
+        required=True,
+        choices=[
+            "INIT", "PLANNED", "RED", "GREEN",
+            "SMOKE", "REFACTOR", "COMPLETE", "BLOCKED",
+        ],
+        help="ATDD phase the worker had just completed",
+    )
+    checkpoint_parser.add_argument(
+        "--summary",
+        type=str,
+        default="",
+        help="Short progress summary (≤500 chars; longer is truncated)",
+    )
+    checkpoint_parser.add_argument(
+        "--open-files",
+        type=str,
+        default="",
+        dest="open_files",
+        help="Comma-separated list of open files",
+    )
+    checkpoint_parser.add_argument(
+        "--branch",
+        type=str,
+        default=None,
+        help="Branch name (default: detected from git)",
+    )
+    checkpoint_parser.add_argument(
+        "--last-commit",
+        type=str,
+        default=None,
+        dest="last_commit",
+        help="Last commit short SHA (default: detected from git)",
     )
 
     # ----- atdd babysit -----
@@ -916,6 +979,17 @@ Phase descriptions:
             "Sweep every monitored surface once, auto-approve prompts that "
             "match the bash allowlist, and exit. Escalations are kept for "
             "manual review (issue #377)"
+        ),
+    )
+    babysit_parser.add_argument(
+        "--token-alert-threshold",
+        type=int,
+        default=None,
+        dest="token_alert_threshold",
+        help=(
+            "Token-count threshold that triggers an escalate alert (default: "
+            "loaded from .atdd/config.yaml::babysit.token_alert_threshold or "
+            "400000). Source: `claude --print-context-status`. See issue #378."
         ),
     )
 
@@ -1675,6 +1749,7 @@ Phase descriptions:
             issue_number=args.issue_number,
             output=out,
             worktree_path=getattr(args, "worktree_path", "") or "",
+            from_checkpoint=getattr(args, "from_checkpoint", False),
         )
 
     # atdd orchestrate <issue-numbers...>
@@ -1688,6 +1763,22 @@ Phase descriptions:
             multiplexer_mode=getattr(args, "multiplexer_mode", "workspace"),
             dry_run=getattr(args, "dry_run", False),
             state_file=getattr(args, "state_file", ".atdd/orchestrate-state.json"),
+        )
+
+    # atdd checkpoint <issue-number>
+    elif args.command == "checkpoint":
+        from atdd.coach.commands.checkpoint import run as run_checkpoint
+        open_files_arg = getattr(args, "open_files", "") or ""
+        open_files = [
+            f.strip() for f in open_files_arg.split(",") if f.strip()
+        ]
+        return run_checkpoint(
+            issue=args.issue_number,
+            phase=args.phase,
+            summary=getattr(args, "summary", "") or "",
+            open_files=open_files,
+            branch=getattr(args, "branch", None),
+            last_commit=getattr(args, "last_commit", None),
         )
 
     # atdd babysit
@@ -1708,6 +1799,7 @@ Phase descriptions:
             multiplexer=getattr(args, "multiplexer", None),
             dashboard=getattr(args, "dashboard", False),
             approve_all_safe=getattr(args, "approve_all_safe", False),
+            token_alert_threshold=getattr(args, "token_alert_threshold", None),
         )
 
     # atdd merge-cascade <pr-numbers...>
