@@ -730,3 +730,17 @@ frontend:
           Negative rule. A guarded null return paired with a sibling JSX
           return path (e.g. `if (loading) return null; return <Foo/>;`) is
           NOT a stub and MUST NOT be flagged.
+
+
+# =============================================================================
+# Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
+# =============================================================================
+rules:
+  - id: BOUNDARIES-FE-LAYERS-001
+    severity: 3
+    description: "Frontend code follows the 4-layer architecture (presentation, application, integration, domain)"
+    introduced_in: "1.67.0"
+  - id: BOUNDARIES-FE-IMPORTS-001
+    severity: 3
+    description: "Frontend imports respect inward dependency direction (presentation -> application -> domain)"
+    introduced_in: "1.67.0"
