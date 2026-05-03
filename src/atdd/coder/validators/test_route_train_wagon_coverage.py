@@ -25,23 +25,35 @@ Convention: src/atdd/coder/conventions/frontend.convention.yaml
 Config:     .atdd/config.yaml → route_train_wagon_coverage
 Baseline:   .atdd/baselines/coder.yaml → route_train_wagon_coverage
 
-Phase 1 (RED): this file ships with stub `analyze_router_file` returning
-[] so the four inline RED tests fail meaningfully. Phase 2 introduces
-`route_train_wagon_analyzer.py` and replaces the stub with real
-identifier-resolution + plan-lookup logic.
+Phase 2 (GREEN): the analyzer module
+``src/atdd/coder/validators/route_train_wagon_analyzer.py`` carries the
+parser + plan loaders; this file holds the orchestration tests and the
+ratchet wiring.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 import pytest
 import yaml
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.validators._violation import Violation
+from atdd.coder.validators.route_train_wagon_analyzer import (
+    RULE_UNREGISTERED_TRAIN,
+    RULE_UNREGISTERED_WAGON,
+    RULE_DYNAMIC_TRAIN_ID,
+    SEVERITY_ARCHITECTURAL,
+    SEVERITY_ADVISORY,
+    RouteTrainWagonAnalyzer,
+    analyze_router_file,
+    load_registered_trains,
+    load_registered_wagons,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -54,17 +66,6 @@ FIXTURES_DIR = (
     Path(__file__).resolve().parent / "fixtures" / "route_train_wagon"
 )
 
-
-# ---------------------------------------------------------------------------
-# Rule constants (mirror frontend.convention.yaml::route_train_wagon_coverage)
-# ---------------------------------------------------------------------------
-RULE_UNREGISTERED_TRAIN = "BOUNDARIES-ROUTE-COVERAGE-001"
-RULE_UNREGISTERED_WAGON = "BOUNDARIES-ROUTE-COVERAGE-002"
-RULE_DYNAMIC_TRAIN_ID = "BOUNDARIES-ROUTE-COVERAGE-003"
-
-SEVERITY_ARCHITECTURAL = 3  # rule-id.convention.yaml::severity_scale[3]
-SEVERITY_ADVISORY = 1       # rule-id.convention.yaml::severity_scale[1]
-
 ALL_RULE_IDS = (
     RULE_UNREGISTERED_TRAIN,
     RULE_UNREGISTERED_WAGON,
@@ -73,47 +74,91 @@ ALL_RULE_IDS = (
 
 
 # ---------------------------------------------------------------------------
-# Public entrypoint (Phase 1 stub — replaced by Phase 2 analyzer delegation)
+# Production scan plumbing (mirrors test_route_train_compliance.py)
 # ---------------------------------------------------------------------------
-def analyze_router_file(
-    router_path: Path,
-    registered_trains: Dict[str, List[str]],
-    registered_wagons: Set[str],
-) -> List[Violation]:
-    """Return Violations for route → train → wagon mismatches.
-
-    Phase 1 stub: returns []. The three "fails" RED tests below assert
-    specific Violations and therefore fail until Phase 2 wires up the
-    real analyzer.
-    """
-    return []
+_DEFAULT_ROUTER_PATTERNS = [
+    "web/src/**/router.ts",
+    "web/src/**/router.tsx",
+    "web/src/**/routes.ts",
+    "web/src/**/routes.tsx",
+    "web/src/**/*-routes.ts",
+    "web/src/**/*-routes.tsx",
+    "web/src/**/App.tsx",
+]
 
 
-# ---------------------------------------------------------------------------
-# Helpers used by RED tests (kept small; real loaders live in Phase 2 module)
-# ---------------------------------------------------------------------------
-def _load_registered_trains(yaml_path: Path) -> Dict[str, List[str]]:
-    """Parse a `_trains.yaml`-shaped doc into ``{train_id: [wagon, ...]}``.
+def _load_route_train_wagon_config() -> Dict:
+    """Load the ``route_train_wagon_coverage`` block from .atdd/config.yaml."""
+    config = load_atdd_config(REPO_ROOT)
+    return config.get("route_train_wagon_coverage", {}) or {}
 
-    Mirrors the discovery pattern in
-    `atdd.tester.validators.test_smoke_coverage.PlanTrainDiscovery` but
-    keeps the per-train wagon list (which `PlanTrainDiscovery` discards).
-    """
-    data = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
-    out: Dict[str, List[str]] = {}
-    for theme in (data.get("trains") or {}).values():
-        if not isinstance(theme, dict):
-            continue
-        for trains in theme.values():
-            for train in trains or []:
-                tid = train.get("train_id")
-                if tid:
-                    out[tid] = list(train.get("wagons") or [])
+
+def _load_allowlist(cfg: Dict) -> Dict[str, str]:
+    """Build ``{path: migration}`` from allowlist entries."""
+    out: Dict[str, str] = {}
+    for entry in cfg.get("allowlist", []) or []:
+        path = (entry.get("path") or "").strip()
+        migration = (entry.get("migration") or "").strip()
+        if path:
+            out[path] = migration
     return out
 
 
+def _find_router_files(repo_root: Path, router_patterns: List[str]) -> List[Path]:
+    """Resolve glob patterns to router files, excluding fixture trees."""
+    seen: Set[Path] = set()
+    files: List[Path] = []
+    for pattern in router_patterns:
+        for match in repo_root.glob(pattern):
+            if match.is_file() and match not in seen:
+                seen.add(match)
+                files.append(match)
+    return sorted(p for p in files if "/fixtures/" not in str(p))
+
+
+def scan_route_train_wagon_coverage(
+    repo_root: Path,
+) -> Tuple[int, List[Violation]]:
+    """Aggregate Violations across all router files in *repo_root*.
+
+    Used by the orchestration test (with ``REPO_ROOT``) and by SMOKE
+    tests (with ``tmp_path`` roots).
+    """
+    cfg = _load_route_train_wagon_config()
+    router_patterns = cfg.get("router_patterns") or _DEFAULT_ROUTER_PATTERNS
+    allowlist = _load_allowlist(cfg)
+
+    router_files = _find_router_files(repo_root, router_patterns)
+    if not router_files:
+        return 0, []
+
+    analyzer = RouteTrainWagonAnalyzer(
+        trains_file=repo_root / "plan" / "_trains.yaml",
+        wagons_file=repo_root / "plan" / "_wagons.yaml",
+    )
+
+    violations: List[Violation] = []
+    for f in router_files:
+        try:
+            rel = str(f.relative_to(repo_root))
+        except ValueError:
+            rel = str(f)
+        if rel in allowlist:
+            continue
+        violations.extend(analyzer.analyze(f, repo_root))
+    return len(violations), violations
+
+
+# ---------------------------------------------------------------------------
+# Helpers used by inline RED tests below
+# ---------------------------------------------------------------------------
+def _load_registered_trains_from_fixture(yaml_path: Path) -> Dict[str, List[str]]:
+    """Re-export of the analyzer's loader, kept here for test readability."""
+    return load_registered_trains(yaml_path)
+
+
 # ===========================================================================
-# Inline RED tests
+# Inline RED tests (Phase 1 of #333; now passing under Phase 2 analyzer)
 # ===========================================================================
 
 @pytest.mark.coder
@@ -164,9 +209,8 @@ def test_unregistered_wagon_in_train_fails():
     assert fixture.exists(), f"missing fixture: {fixture}"
     assert yaml_fixture.exists(), f"missing fixture: {yaml_fixture}"
 
-    registered_trains = _load_registered_trains(yaml_fixture)
-    # Only registered-wagon-y is registered; ghost-wagon-not-registered isn't.
-    registered_wagons = {"registered-wagon-y"}
+    registered_trains = _load_registered_trains_from_fixture(yaml_fixture)
+    registered_wagons = {"registered-wagon-y"}  # ghost-wagon-not-registered missing
 
     violations = analyze_router_file(fixture, registered_trains, registered_wagons)
 
@@ -211,7 +255,6 @@ def test_dynamic_train_id_warns():
         f"{v.rule_id} severity={v.severity}, expected {SEVERITY_ADVISORY} "
         f"(advisory — never hard-fail per Decision #4)"
     )
-    # No hard-failure rule should be emitted for a dynamic prop pass-through.
     hard = [v for v in violations if v.rule_id != RULE_DYNAMIC_TRAIN_ID]
     assert not hard, (
         f"dynamic trainId must not emit hard-failure rules; got {hard!r}"
@@ -238,3 +281,62 @@ def test_resolved_chain_passes():
     assert violations == [], (
         f"expected zero violations for a fully-resolved chain; got {violations!r}"
     )
+
+
+# ===========================================================================
+# Orchestration tests
+# ===========================================================================
+
+@pytest.mark.coder
+def test_route_train_wagon_coverage(ratchet_baseline):
+    """SPEC-CODER-ROUTE-0005 ratchet: no new route → train → wagon gaps.
+
+    Given: router files matching ``route_train_wagon_coverage.router_patterns``
+           (defaults to ``_DEFAULT_ROUTER_PATTERNS`` when unset).
+    When:  each router file is analyzed against ``plan/_trains.yaml`` +
+           ``plan/_wagons.yaml``.
+    Then:  total violation count does not exceed the ratchet baseline.
+    """
+    cfg = _load_route_train_wagon_config()
+    router_patterns = cfg.get("router_patterns") or _DEFAULT_ROUTER_PATTERNS
+    router_files = _find_router_files(REPO_ROOT, router_patterns)
+    if not router_files:
+        pytest.skip(
+            "No router files match route_train_wagon_coverage.router_patterns; "
+            "configure .atdd/config.yaml or add a web/src router to enable."
+        )
+
+    count, violations = scan_route_train_wagon_coverage(REPO_ROOT)
+    ratchet_baseline.assert_no_regression(
+        validator_id="route_train_wagon_coverage",
+        current_count=count,
+        violations=violations,
+    )
+
+
+@pytest.mark.coder
+def test_route_train_wagon_allowlist_hygiene():
+    """SPEC-CODER-ROUTE-0005 (allowlist hygiene): every entry needs a migration.
+
+    Given: ``route_train_wagon_coverage.allowlist`` in ``.atdd/config.yaml``.
+    When:  iterating entries.
+    Then:  entries missing a non-empty ``migration:`` field fail.
+    """
+    cfg = _load_route_train_wagon_config()
+    entries = cfg.get("allowlist") or []
+    if not entries:
+        pytest.skip("No route_train_wagon_coverage.allowlist entries")
+
+    missing: List[str] = []
+    for entry in entries:
+        path = (entry.get("path") or "<missing path>").strip()
+        migration = (entry.get("migration") or "").strip()
+        if not migration:
+            missing.append(path)
+
+    if missing:
+        pytest.fail(
+            "Allowlist entries missing migration reference:\n"
+            + "\n".join(f"  - {p}" for p in missing)
+            + "\nFix: add `migration: \"owner/repo#NNN\"` to each entry."
+        )
