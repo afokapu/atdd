@@ -314,7 +314,7 @@ behavioral_render:
     timeout_seconds: 30
     invocation: "node .atdd/harness/mount-train.mjs --train <train_id>"
     result_schema: "src/atdd/tester/schemas/train-render-harness-result.schema.json"
-    metadata_schema: "contracts/train-render-metadata.schema.json"
+    metadata_schema: "contracts/frontend/train/render-metadata.schema.json"
 
   opt_in:
     config_path: ".atdd/config.yaml → train_renders_content"

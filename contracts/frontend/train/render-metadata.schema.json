@@ -1,8 +1,42 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://atdd.dev/schemas/train-render-metadata.schema.json",
-  "title": "TrainRenderMetadata",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "frontend:train:render-metadata",
+  "title": "FrontendTrainRenderMetadata",
   "description": "Optional render-content expectations attached to a train manifest. Consumed by tester validator test_train_renders_content.py to verify that mounting the train produces non-empty, non-stub DOM output. SPEC-CODER-TRAIN-0003.",
+  "version": "1.0.0",
+  "x-artifact-metadata": {
+    "domain": "frontend",
+    "resource": "train",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:govern-lifecycle",
+    "consumers": ["wagon:govern-lifecycle"],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/plan/_trains/{train_id}.yaml",
+          "description": "Validator reads optional render-metadata block from a train manifest before mounting via FrontendTrainRunner.runTrain.",
+          "responses": {
+            "200": {
+              "description": "Render metadata block (or absent — treated as no expectations).",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/govern_lifecycle/_govern_lifecycle.yaml",
+      "feature_refs": [
+        "feature:govern-lifecycle:enforce-train-has-rendered-content"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  },
   "type": "object",
   "additionalProperties": true,
   "properties": {
