@@ -69,9 +69,20 @@ def _reload_validator_with(
     """
     Reload test_structured_logging with atdd.__file__ and find_repo_root()
     monkeypatched so module-level path constants pick up the fake layout.
+
+    The rule_binding registry cache is primed with the real toolkit
+    conventions BEFORE atdd.__file__ is monkeypatched, so the validator's
+    ``bind_rule()`` calls at import-time succeed even though the fake
+    atdd path has no conventions to walk (issue #394).
     """
     import atdd
     from atdd.coach.utils import repo as repo_util
+    from atdd.coach.utils import rule_binding
+
+    # Prime the registry against the real toolkit so the reloaded validator
+    # finds LOGGING-PRINT-001 / LOGGING-STRUCTURED-001 even though
+    # atdd.__file__ will point at a fake site-packages stub below.
+    rule_binding._get_registry()
 
     monkeypatch.setattr(atdd, "__file__", str(atdd_file), raising=False)
     monkeypatch.setattr(repo_util, "find_repo_root", lambda *a, **k: repo_root)
@@ -113,8 +124,8 @@ def test_consumer_mode_skips_vendored_site_packages(
         f"Expected exactly 1 violation (consumer python/ only); "
         f"got {count}: {violations}"
     )
-    assert any("python/app.py" in v.replace("\\", "/") for v in violations), violations
-    assert not any("site-packages" in v for v in violations), (
+    assert any("python/app.py" in v.location.replace("\\", "/") for v in violations), violations
+    assert not any("site-packages" in v.location for v in violations), (
         f"Vendored site-packages must not be scanned: {violations}"
     )
 
