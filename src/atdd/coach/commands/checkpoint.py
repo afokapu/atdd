@@ -36,7 +36,8 @@ def _detect_last_commit() -> Optional[str]:
             capture_output=True, text=True, check=True,
         )
         return result.stdout.strip() or None
-    except (FileNotFoundError, subprocess.CalledProcessError):
+    except (FileNotFoundError, subprocess.CalledProcessError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Best-effort detection: git missing or not a repo → caller fills in None.
         return None
 
 
@@ -47,7 +48,8 @@ def _detect_branch() -> Optional[str]:
             capture_output=True, text=True, check=True,
         )
         return result.stdout.strip() or None
-    except (FileNotFoundError, subprocess.CalledProcessError):
+    except (FileNotFoundError, subprocess.CalledProcessError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Best-effort detection: git missing or not a repo → caller fills in None.
         return None
 
 
@@ -106,7 +108,9 @@ def read_worker_checkpoint(
         return None
     try:
         return json.loads(target.read_text())
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Corrupt or unreadable checkpoint → treat as "no checkpoint";
+        # caller falls back to the plain renderer.
         return None
 
 
@@ -131,7 +135,9 @@ def run(
             last_commit=last_commit,
             root=root,
         )
-    except ValueError as exc:
+    except ValueError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # User-facing CLI error: surfaced to stderr/stdout via print, return
+        # non-zero so the shell sees the failure.
         print(f"❌ {exc}")
         return 2
     print(f"✓ checkpoint written: {path}")

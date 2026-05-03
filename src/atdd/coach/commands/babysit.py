@@ -46,7 +46,8 @@ def load_token_alert_threshold(*, repo_root: Optional[Path] = None) -> int:
     base = Path(repo_root) if repo_root is not None else Path.cwd()
     try:
         config = load_atdd_config(base)
-    except Exception:
+    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Malformed or unreadable config → fall back to the documented default.
         return DEFAULT_TOKEN_ALERT_THRESHOLD
     babysit_cfg = (config or {}).get("babysit") or {}
     value = babysit_cfg.get("token_alert_threshold")
@@ -76,13 +77,15 @@ def read_token_count(
             text=True,
             timeout=5,
         )
-    except (FileNotFoundError, subprocess.SubprocessError):
+    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Best-effort: claude binary missing or call errored → caller renders "—".
         return None
     if result.returncode != 0:
         return None
     try:
         payload = json.loads(result.stdout)
-    except (json.JSONDecodeError, TypeError):
+    except (json.JSONDecodeError, TypeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        # Best-effort: stdout shape unrecognized → caller renders "—".
         return None
     for key in ("context_used_tokens", "tokens_used", "tokens"):
         value = payload.get(key) if isinstance(payload, dict) else None
