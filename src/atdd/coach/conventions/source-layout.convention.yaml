@@ -37,7 +37,8 @@ scan_scope:
     - "*/fixtures/*"
 
 rules:
-  - id: "COACH-PKG-LAYOUT-001"
+  - id: "coach.source-layout.no-toolkit-self-layout-assumption"
+    aliases: ["COACH-PKG-LAYOUT-001"]
     name: "no-toolkit-self-layout-assumption"
     description: |
       Toolkit code must not call find_repo_root() and concatenate 'src/atdd/'
@@ -46,7 +47,7 @@ rules:
       consumer (where the toolkit lives at <site-packages>/atdd/, not
       <repo>/src/atdd/).
     severity: 4
-    disposition: strict
+    disposition: documentation-only
     detection: |
       AST — ast.BinOp(op=Div) chain whose leftmost operand is a Call to
       find_repo_root (optionally wrapped in 'or' / Path()) and whose
@@ -81,7 +82,8 @@ rules:
       - "#341"
       - "#367"
 
-  - id: "COACH-PKG-LAYOUT-002"
+  - id: "coach.source-layout.no-bare-version-detection"
+    aliases: ["COACH-PKG-LAYOUT-002"]
     name: "no-bare-version-detection"
     description: |
       Toolkit code must not call version("atdd") / pkg_version("atdd") /
@@ -90,7 +92,7 @@ rules:
       raises PackageNotFoundError when atdd runs from source without a wheel
       installed (CI's exact setup).
     severity: 4
-    disposition: strict
+    disposition: documentation-only
     detection: |
       AST — ast.Call where the callee resolves to a name in {version,
       pkg_version} (or attribute access ending in version) and the first

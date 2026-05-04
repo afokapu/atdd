@@ -82,7 +82,7 @@ class ColorManager:
 
         try:
             choice = input("Enter number, preset name, or hex (#RRGGBB): ").strip()
-        except (EOFError, KeyboardInterrupt):  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except (EOFError, KeyboardInterrupt):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print("\nAborted.")
             return None
 
@@ -149,7 +149,7 @@ class ColorManager:
 
         try:
             data = json.loads(ws_path.read_text())
-        except (json.JSONDecodeError, OSError) as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except (json.JSONDecodeError, OSError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Warning: could not read {ws_path}: {exc}")
             return
 

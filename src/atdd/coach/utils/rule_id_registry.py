@@ -25,7 +25,7 @@ discovery surface stays consistent across the two validators.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -37,12 +37,17 @@ from atdd.coach.validators.test_rule_id_uniqueness import find_convention_files
 _logger = logging.getLogger(__name__)
 
 
+class AmbiguousAliasError(LookupError):
+    """Raised when a legacy alias collides with another rule's canonical id or alias."""
+
+
 @dataclass(frozen=True)
 class RuleMetadata:
     """Normalized metadata for one declared rule.
 
     Attributes:
-        rule_id: Stable rule identifier (e.g. ``GREEN-URN-001``).
+        rule_id: Canonical namespaced identifier
+            (``<archetype>.<convention>.<rule>``).
         convention_path: Absolute path to the ``*.convention.yaml`` that
             declared the rule.
         severity: Integer severity 1..5 (per SPEC-COACH-RULEID-0003) when
@@ -51,13 +56,19 @@ class RuleMetadata:
         description: One-line human-readable rule statement (may be empty
             for legacy rules).
         disposition: Per-rule CI policy (issue #395). One of
-            ``"strict"``, ``"suppress-and-clean"``, ``"advisory"``, or
-            ``None`` when the convention has not been migrated yet.
+            ``"strict"``, ``"suppress-and-clean"``, ``"advisory"``,
+            ``"documentation-only"``, or ``None`` when the convention has
+            not been migrated yet.
         suppression_deadline: Optional default ``UNTIL=`` for
             suppress-and-clean rules (``YYYY-MM-DD``).
         recipe: Optional pointer to a peer ``*.recipe.yaml`` file
             (without the ``.recipe.yaml`` suffix).
         introduced_in: Optional toolkit version that first published this rule.
+        validator: Bidirectional back-reference of form
+            ``<module_basename>::<function_name>``, or ``None`` (issue #399).
+        fix_hint: Canonical remediation guidance (issue #399), or ``None``.
+        aliases: Legacy ids (typically flat-grammar) this canonical rule
+            supersedes (issue #399).
     """
 
     rule_id: str
@@ -68,9 +79,17 @@ class RuleMetadata:
     suppression_deadline: Optional[str] = None
     recipe: Optional[str] = None
     introduced_in: Optional[str] = None
+    validator: Optional[str] = None
+    fix_hint: Optional[str] = None
+    aliases: Tuple[str, ...] = ()
 
 
 def _build_metadata(rule_id: str, raw: Dict, path: Path) -> RuleMetadata:
+    aliases_raw = raw.get("aliases")
+    if isinstance(aliases_raw, list):
+        aliases = tuple(a for a in aliases_raw if isinstance(a, str) and a)
+    else:
+        aliases = ()
     return RuleMetadata(
         rule_id=rule_id,
         convention_path=path,
@@ -92,6 +111,17 @@ def _build_metadata(rule_id: str, raw: Dict, path: Path) -> RuleMetadata:
             if isinstance(raw.get("introduced_in"), str)
             else None
         ),
+        validator=(
+            raw.get("validator")
+            if isinstance(raw.get("validator"), str) and raw.get("validator")
+            else None
+        ),
+        fix_hint=(
+            raw.get("fix_hint")
+            if isinstance(raw.get("fix_hint"), str) and raw.get("fix_hint")
+            else None
+        ),
+        aliases=aliases,
     )
 
 
@@ -161,9 +191,19 @@ def _extract_from_rules_block(
             )
 
 
+_NAMESPACED_RE = __import__("re").compile(
+    r"^[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+)
+
+
 def _looks_like_rule_id(s: str) -> bool:
-    """Cheap heuristic: rule IDs are uppercase + hyphenated, never snake_case."""
-    return bool(s) and s == s.upper() and "-" in s and "_" not in s
+    """Cheap heuristic: matches namespaced (``coder.x.y``) or legacy flat ids."""
+    if not s:
+        return False
+    if _NAMESPACED_RE.match(s):
+        return True
+    # Legacy flat: uppercase + hyphenated, never snake_case.
+    return s == s.upper() and "-" in s and "_" not in s
 
 
 def _load_yaml(path: Path):
@@ -188,9 +228,11 @@ def build_registry(roots: Optional[Sequence[Path]] = None) -> Dict[str, RuleMeta
             ``test_rule_id_uniqueness.find_convention_files``.
 
     Returns:
-        Dict keyed by rule_id. First occurrence wins on cross-file
-        duplication (uniqueness is enforced by
-        ``test_rule_id_uniqueness.py``).
+        Dict keyed by rule_id (canonical AND aliases). First occurrence wins
+        on cross-file duplication for canonical ids (uniqueness is enforced
+        by ``test_rule_id_uniqueness.py``). Alias collisions with another
+        canonical id or another rule's alias raise ``AmbiguousAliasError``
+        at registry-build time (issue #399).
     """
     if roots is None:
         files: List[Path] = find_convention_files()
@@ -202,6 +244,9 @@ def build_registry(roots: Optional[Sequence[Path]] = None) -> Dict[str, RuleMeta
             files.extend(sorted(Path(root).rglob("*.convention.yaml")))
 
     registry: Dict[str, RuleMetadata] = {}
+    canonical_ids: set = set()
+    alias_to_canonical: Dict[str, str] = {}
+
     for path in files:
         if "__pycache__" in path.parts:
             continue
@@ -210,11 +255,29 @@ def build_registry(roots: Optional[Sequence[Path]] = None) -> Dict[str, RuleMeta
             continue
         for rule_id, raw in _walk_node(data, path):
             if rule_id in registry:
-                # Cross-file duplicate. Keep the first occurrence; uniqueness
-                # is enforced separately, so we don't need to choose here.
                 continue
-            registry[rule_id] = _build_metadata(rule_id, raw, path)
+            meta = _build_metadata(rule_id, raw, path)
+            registry[rule_id] = meta
+            canonical_ids.add(rule_id)
+
+            for alias in meta.aliases:
+                if alias in canonical_ids and alias != rule_id:
+                    raise AmbiguousAliasError(
+                        f"alias {alias!r} on rule {rule_id!r} collides with another "
+                        f"rule's canonical id (declared in "
+                        f"{registry[alias].convention_path}). "
+                        f"Aliases must be unique across the registry."
+                    )
+                if alias in alias_to_canonical and alias_to_canonical[alias] != rule_id:
+                    raise AmbiguousAliasError(
+                        f"alias {alias!r} is claimed by both {rule_id!r} and "
+                        f"{alias_to_canonical[alias]!r}. Aliases must point at "
+                        f"a single canonical rule."
+                    )
+                alias_to_canonical[alias] = rule_id
+                if alias != rule_id:
+                    registry.setdefault(alias, meta)
     return registry
 
 
-__all__ = ["RuleMetadata", "build_registry"]
+__all__ = ["AmbiguousAliasError", "RuleMetadata", "build_registry"]

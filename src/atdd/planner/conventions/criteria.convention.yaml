@@ -145,8 +145,9 @@ metrics:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: PLANNER-CRITERIA-SHAPE-001
+  - id: "planner.criteria.shape"
+    aliases: ["PLANNER-CRITERIA-SHAPE-001"]
     severity: 2
-    disposition: strict
+    disposition: documentation-only
     description: "Criteria entries follow the documented shape (id, description, harness, expected_outcome)"
     introduced_in: "1.67.0"

@@ -52,15 +52,20 @@ _logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Decision #1 regex set
 # ---------------------------------------------------------------------------
-_PATTERN_A = re.compile(
-    r"""Violation\(\s*rule_id\s*=\s*"([A-Z][A-Z0-9\-]+)" """.strip()
+# Match either a legacy flat-grammar id (uppercase, hyphen-separated) OR a
+# canonical namespaced id (lowercase, dot-separated). Both shapes resolve via
+# the registry's alias index, so the extractor needs to surface both.
+_LEGACY_ID = r"[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+"
+_NAMESPACED_ID = (
+    r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*"
+    r"\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*"
+    r"\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*"
 )
-_PATTERN_B = re.compile(
-    r"""\b([A-Z][A-Z0-9_]*)\s*=\s*"([A-Z][A-Z0-9]*(?:-[A-Z0-9]+){2,})" """.strip()
-)
-_PATTERN_C = re.compile(
-    r"""\brule_id\s*=\s*"([A-Z][A-Z0-9\-]+)" """.strip()
-)
+_ANY_ID = rf"(?:{_LEGACY_ID}|{_NAMESPACED_ID})"
+
+_PATTERN_A = re.compile(rf'Violation\(\s*rule_id\s*=\s*"({_ANY_ID})"')
+_PATTERN_B = re.compile(rf'\b([A-Z][A-Z0-9_]*)\s*=\s*"({_ANY_ID})"')
+_PATTERN_C = re.compile(rf'\brule_id\s*=\s*"({_ANY_ID})"')
 
 EMISSION_PATTERNS = (_PATTERN_A, _PATTERN_B, _PATTERN_C)
 

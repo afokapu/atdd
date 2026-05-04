@@ -262,8 +262,9 @@ filename:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: PLANNER-WMBT-SHAPE-001
+  - id: "planner.wmbt.shape"
+    aliases: ["PLANNER-WMBT-SHAPE-001"]
     severity: 2
-    disposition: strict
+    disposition: documentation-only
     description: "WMBT entries declare id, statement, and the artifacts that prove the statement"
     introduced_in: "1.67.0"

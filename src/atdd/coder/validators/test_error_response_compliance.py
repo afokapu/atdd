@@ -35,8 +35,8 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_BARE_STRING = bind_rule("ERROR-BARE-STRING-001")
-_RULE_CODE_FORMAT = bind_rule("ERROR-CODE-FORMAT-001")
+_RULE_BARE_STRING = bind_rule("coder.error-response.bare-string")
+_RULE_CODE_FORMAT = bind_rule("coder.error-response.code-format")
 
 # Consumer repo artifacts
 REPO_ROOT = find_repo_root()

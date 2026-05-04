@@ -12,16 +12,16 @@ rationale: |
   CLI tools (src/atdd/) are exempt because print() is their primary output mechanism.
 
 scan_scope:
-  LOG-001:
+  coder.logging.no-print-calls-in:
     include:
       - "python/"
     note: "print() check applies to consumer product code only. ATDD toolkit (src/atdd/) is a CLI tool where print() is the intentional output mechanism."
-  LOG-002:
+  coder.logging.logger-calls-must-include:
     include:
       - "python/"
       - "src/atdd/"
     note: "Structured logging check applies to both consumer code and the ATDD toolkit itself (dogfooding)."
-  COACH-SILENT-SWALLOW-001:
+  coder.logging.coach-silent-swallow:
     include:
       - "python/"
       - "src/atdd/"
@@ -36,8 +36,9 @@ scan_scope:
     - "*/fixtures/*"
 
 rules:
-  - id: "LOG-001"
-    disposition: strict
+  - id: "coder.logging.no-print-calls-in"
+    aliases: ["LOG-001"]
+    disposition: documentation-only
     name: "no-print-in-production"
     description: "No print() calls in non-test production Python code"
     severity: "error"
@@ -47,8 +48,9 @@ rules:
       - "CLI tools (src/atdd/) — print is intentional user-facing output"
       - "Test files — print is acceptable for debug output"
 
-  - id: "LOG-002"
-    disposition: suppress-and-clean
+  - id: "coder.logging.logger-calls-must-include"
+    aliases: ["LOG-002"]
+    disposition: documentation-only
     name: "structured-logging-required"
     description: "Logger calls must include extra= keyword argument with context dict"
     severity: "error"
@@ -62,7 +64,9 @@ rules:
       - 'logger.info("User %s created", username)'
       - 'logger.debug("Processing request")'
 
-  - id: "COACH-SILENT-SWALLOW-001"
+  - id: "coder.logging.coach-silent-swallow"
+    validator: "test_no_silent_exception_swallowing_python::test_silent_swallow_fixture_violations_detected"
+    aliases: ["COACH-SILENT-SWALLOW-001"]
     name: "no-silent-exception-swallowing"
     description: "Exception handlers must log, re-raise, or otherwise observably react — never silently return a success value"
     severity: 4
@@ -153,12 +157,16 @@ deferred:
 # LOG-002 IDs above (which use string severities and pre-grammar shape).
 canonical_rules:
   rules:
-    - id: LOGGING-PRINT-001
+    - id: "coder.logging.print"
+      validator: "test_structured_logging::test_no_print_in_production_code"
+      aliases: ["LOGGING-PRINT-001"]
       severity: 2
       disposition: strict
       description: "No print() calls in non-test production Python code (use logger)"
       introduced_in: "1.67.0"
-    - id: LOGGING-STRUCTURED-001
+    - id: "coder.logging.structured"
+      validator: "test_structured_logging::test_no_print_in_production_code"
+      aliases: ["LOGGING-STRUCTURED-001"]
       severity: 2
       disposition: suppress-and-clean
       description: "Logger calls must include extra= keyword argument with context dict"

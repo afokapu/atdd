@@ -404,6 +404,18 @@ Phase descriptions:
             "Issue #394 (replaces --strict-coherence)."
         ),
     )
+    validate_parser.add_argument(
+        "--allow-orphan-rules",
+        action="store_true",
+        dest="allow_orphan_rules",
+        help=(
+            "Skip the reverse-coherence gate (test_rule_validator_binding). "
+            "Emergency unblock only — prefer fixing the violation by adding "
+            "a validator: <module>::<func> back-reference to the rule, or "
+            "flipping its disposition to documentation-only. "
+            "Issue #399."
+        ),
+    )
 
     # ----- atdd inventory -----
     inventory_parser = subparsers.add_parser(
@@ -1456,6 +1468,17 @@ Phase descriptions:
                 return 1
             os.environ["ATDD_PERMISSIVE_COHERENCE"] = "1"
 
+        # --allow-orphan-rules: opt OUT of reverse-coherence gate (issue #399).
+        if getattr(args, "allow_orphan_rules", False):
+            if args.phase not in ("coach", "all"):
+                print(
+                    "Error: --allow-orphan-rules is only supported with "
+                    "phase 'coach' (or 'all'). Re-run: atdd validate coach "
+                    "--allow-orphan-rules"
+                )
+                return 1
+            os.environ["ATDD_ALLOW_ORPHAN_RULES"] = "1"
+
         coach = ATDDCoach(repo_root=repo_path)
         skip_api = getattr(args, 'skip_api', False)
         rc = coach.run_validators(
@@ -1650,7 +1673,7 @@ Phase descriptions:
                 return 1
             try:
                 issue_number = int(number_str)
-            except ValueError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+            except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
                 print(f"Error: invalid issue number '{number_str}'")
                 return 1
             delta = manager.sync_labels(issue_number, dry_run=dry_run)
@@ -1660,7 +1683,7 @@ Phase descriptions:
         # Detect mode: integer → enter, string → create (future)
         try:
             issue_number = int(target)
-        except ValueError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             # Slug mode — create new issue and enter at INIT
             from atdd.coach.commands.issue_lifecycle import IssueLifecycle
             lifecycle = IssueLifecycle()
@@ -1700,7 +1723,7 @@ Phase descriptions:
                 args.close_wmbt,
                 force=getattr(args, 'force', False),
             )
-  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+  # atdd:suppress(coder.logging.coach-silent-swallow)
         # Default: enter existing issue
         return lifecycle.enter(issue_number)
 

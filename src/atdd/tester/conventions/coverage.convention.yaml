@@ -3,8 +3,9 @@ name: "Tester Coverage Convention"
 description: "Section 3 of ATDD Hierarchy Coverage Spec v0.1 - Ensures test artifacts have complete coverage"
 
 rules:
-  - id: "COVERAGE-TEST-3.1"
-    disposition: strict
+  - id: "tester.coverage.every-acceptance-criterion-must"
+    aliases: ["COVERAGE-TEST-3.1"]
+    disposition: documentation-only
     name: "Acceptance - Tests Coverage"
     description: "Every acceptance criterion must have corresponding test(s)"
     bidirectional:
@@ -13,8 +14,9 @@ rules:
         exceptions: "acceptance_without_tests allow-list"
         validator: "test_all_acceptances_have_tests"
 
-  - id: "COVERAGE-TEST-3.2"
-    disposition: strict
+  - id: "tester.coverage.bidirectional-coverage-between-contracts"
+    aliases: ["COVERAGE-TEST-3.2"]
+    disposition: documentation-only
     name: "Contract - Wagon Coverage"
     description: "Bidirectional coverage between contracts and wagon produce/consume"
     bidirectional:
@@ -27,8 +29,9 @@ rules:
         requirement: "Every produce/consume contract ref must have schema file"
         validator: "test_all_contract_refs_exist"
 
-  - id: "COVERAGE-TEST-3.3"
-    disposition: strict
+  - id: "tester.coverage.bidirectional-coverage-between-telemetry"
+    aliases: ["COVERAGE-TEST-3.3"]
+    disposition: documentation-only
     name: "Telemetry - Wagon Coverage"
     description: "Bidirectional coverage between telemetry signals and wagon produce"
     bidirectional:
@@ -41,12 +44,14 @@ rules:
         requirement: "Every produce telemetry ref must have signal files"
         validator: "test_all_telemetry_refs_exist"
 
-  - id: "COVERAGE-TEST-3.4"
+  - id: "tester.coverage.tracking-manifest-must-be"
+    aliases: ["COVERAGE-TEST-3.4"]
+    severity: 3
     disposition: strict
     name: "Telemetry Tracking Manifest"
     description: "Tracking manifest must be complete if present"
     requirement: "If telemetry/_tracking_manifest.yaml exists, all signals must be present"
-    validator: "test_telemetry_manifest_complete"
+    validator: "test_hierarchy_coverage::test_telemetry_manifest_complete"
 
 coverage_graph:
   description: "The tester coverage graph ensures acceptance-to-test traceability and artifact completeness"

@@ -117,7 +117,7 @@ checks for an enclosing `Try` ancestor whose handlers catch
 Inline suppression on the offending line silences a single violation:
 
 ```python
-root = find_repo_root() / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(COACH-PKG-LAYOUT-001)
+root = find_repo_root() / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(coach.source-layout.no-toolkit-self-layout-assumption)
 ```
 
 Suppressions are intended for code paths that are toolkit-self-only by
@@ -126,7 +126,7 @@ and fall through silently in pip-installed consumers). Each suppression
 should be paired with a comment justifying the exception.
 
 The suppression grammar follows
-[`logging.convention.yaml::COACH-SILENT-SWALLOW-001`](../conventions/../coder/conventions/logging.convention.yaml)
+[`logging.convention.yaml::coder.logging.coach-silent-swallow`](../conventions/../coder/conventions/logging.convention.yaml)
 and the `rule-id.spec.md` substrate (#357 + #340).
 
 ---

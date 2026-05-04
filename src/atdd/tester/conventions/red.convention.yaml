@@ -952,13 +952,15 @@ mock_discipline:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: TESTER-RED-NAMING-001
+  - id: "tester.red.naming"
+    aliases: ["TESTER-RED-NAMING-001"]
     severity: 2
-    disposition: strict
+    disposition: documentation-only
     description: "RED tests use URN-based filenames matching test_<NNNN>.py"
     introduced_in: "1.67.0"
-  - id: TESTER-RED-FAILS-FIRST-001
+  - id: "tester.red.fails-first"
+    aliases: ["TESTER-RED-FAILS-FIRST-001"]
     severity: 3
-    disposition: strict
+    disposition: documentation-only
     description: "RED tests must fail on first run before implementation begins"
     introduced_in: "1.67.0"

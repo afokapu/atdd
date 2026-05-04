@@ -145,8 +145,9 @@ steps:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: PLANNER-STEPS-SEQUENCE-001
+  - id: "planner.steps.sequence"
+    aliases: ["PLANNER-STEPS-SEQUENCE-001"]
     severity: 2
-    disposition: strict
+    disposition: documentation-only
     description: "Steps are ordered, numbered, and each declares pre-conditions and outputs"
     introduced_in: "1.67.0"

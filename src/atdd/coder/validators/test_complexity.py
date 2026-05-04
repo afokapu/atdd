@@ -29,11 +29,11 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift.
-_RULE_CYCLO = bind_rule("COMPLEXITY-CYCLOMATIC-001")
-_RULE_NEST = bind_rule("COMPLEXITY-NESTING-001")
-_RULE_LEN = bind_rule("COMPLEXITY-LENGTH-001")
-_RULE_PARAMS = bind_rule("COMPLEXITY-PARAMS-001")
-_RULE_COGNITIVE = bind_rule("COMPLEXITY-COGNITIVE-001")
+_RULE_CYCLO = bind_rule("coder.refactor.complexity-cyclomatic")
+_RULE_NEST = bind_rule("coder.refactor.complexity-nesting")
+_RULE_LEN = bind_rule("coder.refactor.complexity-length")
+_RULE_PARAMS = bind_rule("coder.refactor.complexity-params")
+_RULE_COGNITIVE = bind_rule("coder.refactor.complexity-cognitive")
 
 
 # Path constants

@@ -23,8 +23,8 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_I18N_CONFIG = bind_rule("PRESENTATION-I18N-CONFIG-001")
-_RULE_I18N_SWITCHER = bind_rule("PRESENTATION-I18N-SWITCHER-001")
+_RULE_I18N_CONFIG = bind_rule("coder.presentation.i18n-config")
+_RULE_I18N_SWITCHER = bind_rule("coder.presentation.i18n-switcher")
 
 # Path constants
 REPO_ROOT = find_repo_root()

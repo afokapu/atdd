@@ -13,7 +13,7 @@ validator emitting at severity 4 forever.
 search roots, locates the matching ``rules:`` entry, and returns a
 ``RuleMetadata`` view.  Validators call it once at module-import time:
 
-    _RULE = bind_rule("COACH-SILENT-SWALLOW-001")
+    _RULE = bind_rule("coder.logging.coach-silent-swallow")
 
 If the rule is unregistered or appears in two convention files, the call
 raises at import — the failure surfaces immediately rather than later in a
@@ -28,7 +28,7 @@ Related substrate:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -48,6 +48,10 @@ class AmbiguousRuleError(LookupError):
     """Raised when a rule_id appears in more than one convention file."""
 
 
+class AmbiguousAliasError(LookupError):
+    """Raised when a legacy alias collides with another rule's canonical id or alias."""
+
+
 # ---------------------------------------------------------------------------
 # Metadata
 # ---------------------------------------------------------------------------
@@ -56,10 +60,18 @@ class RuleMetadata:
     """Read-only view of a single rule's authoritative declaration.
 
     Attributes:
-        rule_id: Stable ID matching the grammar in ``rule-id.spec.md``.
+        rule_id: Canonical namespaced ID (``<archetype>.<convention>.<rule>``).
         severity: Integer 1-5 from the convention (mirrors
             ``Violation.severity``).
         description: One-line human-readable rule statement.
+        disposition: Per-rule CI policy (``strict`` / ``suppress-and-clean``
+            / ``advisory`` / ``documentation-only``) or ``None`` for
+            unmigrated entries.
+        validator: Bidirectional back-reference of form
+            ``<module_basename>::<function_name>``, or ``None``.
+        fix_hint: Canonical remediation guidance for this rule, or ``None``.
+        aliases: Legacy rule ids (typically flat-grammar) this canonical
+            rule supersedes; empty tuple when none.
         recipe: Bare peer-recipe filename (no ``.recipe.yaml`` suffix), or
             ``None`` if the convention has no ``recipe:`` field.
         introduced_in: Toolkit version string that first published the rule,
@@ -74,6 +86,10 @@ class RuleMetadata:
     recipe: Optional[str]
     introduced_in: Optional[str]
     source_path: Path
+    disposition: Optional[str] = None
+    validator: Optional[str] = None
+    fix_hint: Optional[str] = None
+    aliases: Tuple[str, ...] = ()
 
     @property
     def fix_hint_ref(self) -> Optional[str]:
@@ -140,7 +156,7 @@ def extract_rules(
     try:
         with open(file_path) as fh:
             data = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         # Unreadable / malformed YAML is policed by test_rule_id_uniqueness;
         # bind_rule treats such files as empty so a single broken convention
         # does not break the entire registry walk.
@@ -196,9 +212,23 @@ def clear_cache(*, override_roots: Optional[Iterable[Path]] = None) -> None:
 
 
 def _load_registry() -> Dict[str, List[RuleMetadata]]:
-    """Walk every convention file and index rules by ``rule_id``."""
+    """Walk every convention file and index rules by canonical id and alias.
+
+    Each rule's ``id:`` is registered as a primary key. Every entry in
+    ``aliases:`` is ALSO registered, pointing at the same ``RuleMetadata``,
+    so legacy flat-grammar callsites continue to resolve through bind_rule
+    and the suppression scanner. (Issue #399.)
+
+    Collisions surface here: two canonical rules with the same id raise
+    ``AmbiguousRuleError`` at bind time; an alias colliding with another
+    rule's canonical id (or another rule's alias) raises
+    ``AmbiguousAliasError`` at registry-build time.
+    """
     roots = _OVERRIDE_ROOTS if _OVERRIDE_ROOTS is not None else _default_roots()
     registry: Dict[str, List[RuleMetadata]] = {}
+    canonical_ids: set = set()
+    alias_to_canonical: Dict[str, str] = {}
+
     for file_path in find_convention_files(roots):
         for _, _, rule in extract_rules(file_path):
             rid = rule.get("id")
@@ -210,6 +240,15 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
             description = rule.get("description") or ""
             recipe = rule.get("recipe")
             introduced_in = rule.get("introduced_in")
+            disposition = rule.get("disposition")
+            validator = rule.get("validator")
+            fix_hint = rule.get("fix_hint")
+            aliases_raw = rule.get("aliases")
+            aliases: Tuple[str, ...]
+            if isinstance(aliases_raw, list):
+                aliases = tuple(a for a in aliases_raw if isinstance(a, str) and a)
+            else:
+                aliases = ()
             meta = RuleMetadata(
                 rule_id=rid,
                 severity=severity,
@@ -221,8 +260,37 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
                     else None
                 ),
                 source_path=file_path.resolve(),
+                disposition=(
+                    disposition if isinstance(disposition, str) else None
+                ),
+                validator=validator if isinstance(validator, str) and validator else None,
+                fix_hint=fix_hint if isinstance(fix_hint, str) and fix_hint else None,
+                aliases=aliases,
             )
             registry.setdefault(rid, []).append(meta)
+            canonical_ids.add(rid)
+
+            for alias in aliases:
+                # Alias collides with another canonical id?
+                if alias in canonical_ids and alias != rid:
+                    raise AmbiguousAliasError(
+                        f"alias {alias!r} on rule {rid!r} collides with another "
+                        f"rule's canonical id (declared in "
+                        f"{registry[alias][0].source_path}). "
+                        f"Aliases must be unique across the registry."
+                    )
+                # Alias collides with another rule's alias?
+                if alias in alias_to_canonical and alias_to_canonical[alias] != rid:
+                    raise AmbiguousAliasError(
+                        f"alias {alias!r} is claimed by both {rid!r} and "
+                        f"{alias_to_canonical[alias]!r}. Aliases must point at "
+                        f"a single canonical rule."
+                    )
+                alias_to_canonical[alias] = rid
+                # Register alias entry pointing at the same RuleMetadata so
+                # bind_rule(alias) resolves to the canonical rule.
+                if alias != rid:
+                    registry.setdefault(alias, []).append(meta)
     return registry
 
 
@@ -268,7 +336,20 @@ def bind_rule(rule_id: str) -> RuleMetadata:
     return matches[0]
 
 
+def get_canonical_id(rule_id: str) -> str:
+    """Resolve *rule_id* (canonical or alias) to its canonical form.
+
+    Useful when a callsite holds a legacy flat-grammar id and needs to
+    normalize it (e.g. for stable ordering, reporting, or storage).
+    Raises ``RuleNotInRegistryError`` when the id is unknown; raises
+    ``AmbiguousRuleError`` when the id is declared canonically in two
+    convention files.
+    """
+    return bind_rule(rule_id).rule_id
+
+
 __all__ = [
+    "AmbiguousAliasError",
     "AmbiguousRuleError",
     "RuleMetadata",
     "RuleNotInRegistryError",
@@ -276,4 +357,5 @@ __all__ = [
     "clear_cache",
     "extract_rules",
     "find_convention_files",
+    "get_canonical_id",
 ]

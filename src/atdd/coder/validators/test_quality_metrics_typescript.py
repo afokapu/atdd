@@ -30,8 +30,8 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_MI_TS = bind_rule("REFACTOR-QUALITY-MI-TS-001")
-_RULE_COMMENTS_TS = bind_rule("REFACTOR-QUALITY-COMMENTS-TS-001")
+_RULE_MI_TS = bind_rule("coder.refactor.quality-mi-typescript")
+_RULE_COMMENTS_TS = bind_rule("coder.refactor.quality-comments-typescript")
 
 
 # ---------------------------------------------------------------------------

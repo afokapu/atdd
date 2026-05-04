@@ -27,8 +27,8 @@ validators). Each took 30+ minutes to root-cause; this validator catches the
 Convention: ``src/atdd/coach/conventions/source-layout.convention.yaml``
 SPEC:       ``src/atdd/coach/specs/toolkit-source-layout.spec.md``
 
-Suppression: ``# atdd:suppress(COACH-PKG-LAYOUT-001)`` /
-``# atdd:suppress(COACH-PKG-LAYOUT-002)`` on the offending line per the
+Suppression: ``# atdd:suppress(coach.source-layout.no-toolkit-self-layout-assumption)`` /
+``# atdd:suppress(coach.source-layout.no-bare-version-detection)`` on the offending line per the
 grammar in #357.
 """
 
@@ -61,8 +61,8 @@ FIXTURES_DIR = (
 # ---------------------------------------------------------------------------
 # Rule constants (mirrored in source-layout.convention.yaml)
 # ---------------------------------------------------------------------------
-RULE_A_ID = "COACH-PKG-LAYOUT-001"
-RULE_B_ID = "COACH-PKG-LAYOUT-002"
+RULE_A_ID = "coach.source-layout.no-toolkit-self-layout-assumption"
+RULE_B_ID = "coach.source-layout.no-bare-version-detection"
 RULE_SEVERITY = 4
 
 SUPPRESSION_MARKER_A = f"atdd:suppress({RULE_A_ID})"

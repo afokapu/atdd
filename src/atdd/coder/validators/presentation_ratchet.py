@@ -149,7 +149,7 @@ class PresentationRatchetRule:
     Severity 3 per Decision #5 — advisory + gate, not stop-the-world.
     """
 
-    RULE_ID = "COACH-RATCHET-PRES-001"
+    RULE_ID = "coder.refactor.coach-ratchet-pres"
     SEVERITY = 3
 
     @classmethod
@@ -197,7 +197,7 @@ def _file_line_count(repo_root: Path, ref: str, path: str) -> int:
             text=True,
             stderr=subprocess.DEVNULL,
         )
-    except subprocess.CalledProcessError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return 0
     if not content:
         return 0

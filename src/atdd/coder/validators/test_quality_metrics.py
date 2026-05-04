@@ -26,11 +26,11 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_MI = bind_rule("REFACTOR-QUALITY-MI-001")
-_RULE_COMMENTS = bind_rule("REFACTOR-QUALITY-COMMENTS-001")
-_RULE_DUP = bind_rule("REFACTOR-QUALITY-DUPLICATION-001")
-_RULE_NAMING = bind_rule("REFACTOR-QUALITY-NAMING-001")
-_RULE_FILE_LEN = bind_rule("REFACTOR-QUALITY-FILE-LENGTH-001")
+_RULE_MI = bind_rule("coder.refactor.quality-mi")
+_RULE_COMMENTS = bind_rule("coder.refactor.quality-comments")
+_RULE_DUP = bind_rule("coder.refactor.quality-duplication")
+_RULE_NAMING = bind_rule("coder.refactor.quality-naming")
+_RULE_FILE_LEN = bind_rule("coder.refactor.quality-file-length")
 
 # Path constants
 REPO_ROOT = find_repo_root()

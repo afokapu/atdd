@@ -54,11 +54,11 @@ def test_is_suppressed_wrong_rule_id():
 def test_find_suppressions_python_and_typescript(tmp_path):
     py = _write(
         tmp_path / "a.py",
-        "print('x')  # atdd:suppress(LOG-001)\n",
+        "print('x')  # atdd:suppress(coder.logging.no-print-calls-in)\n",
     )
     ts = _write(
         tmp_path / "b.ts",
-        "console.log('y')  // atdd:suppress(LOG-002) UNTIL=2099-12-31\n",
+        "console.log('y')  // atdd:suppress(coder.logging.logger-calls-must-include) UNTIL=2099-12-31\n",
     )
     tsx = _write(
         tmp_path / "c.tsx",
@@ -66,9 +66,13 @@ def test_find_suppressions_python_and_typescript(tmp_path):
     )
     found = find_suppressions([tmp_path])
     by_id = {m.rule_id: m for m in found}
-    assert set(by_id) == {"LOG-001", "LOG-002", "JSX-001"}
-    assert by_id["LOG-002"].until == date(2099, 12, 31)
-    assert by_id["LOG-001"].until is None
+    assert set(by_id) == {
+        "coder.logging.no-print-calls-in",
+        "coder.logging.logger-calls-must-include",
+        "JSX-001",
+    }
+    assert by_id["coder.logging.logger-calls-must-include"].until == date(2099, 12, 31)
+    assert by_id["coder.logging.no-print-calls-in"].until is None
 
 
 def test_find_suppressions_skips_vendored_dirs(tmp_path):

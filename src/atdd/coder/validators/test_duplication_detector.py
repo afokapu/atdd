@@ -33,7 +33,7 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_DUP_PY = bind_rule("DUPLICATION-PY-001")
+_RULE_DUP_PY = bind_rule("coder.duplication.no-intra-layer-code-python")
 
 
 # ---------------------------------------------------------------------------

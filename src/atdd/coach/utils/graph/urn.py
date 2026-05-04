@@ -1021,7 +1021,7 @@ def main() -> int:
         else:
             print(f"Unsupported entity: {args.entity}")
             return 1
-    except ValueError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

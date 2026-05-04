@@ -27,13 +27,13 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_PRIMITIVES = bind_rule("DESIGN-PRIMITIVES-001")
-_RULE_COLOR = bind_rule("DESIGN-TOKEN-COLOR-001")
-_RULE_ORPHAN_EXPORT = bind_rule("DESIGN-ORPHAN-EXPORT-001")
-_RULE_FOUNDATIONS = bind_rule("DESIGN-FOUNDATIONS-001")
-_RULE_HIERARCHY_IMPORT = bind_rule("DESIGN-HIERARCHY-IMPORT-001")
-_RULE_HARDCODED = bind_rule("DESIGN-TOKEN-HARDCODED-001")
-_RULE_ORPHAN_UI = bind_rule("DESIGN-ORPHAN-UI-001")
+_RULE_PRIMITIVES = bind_rule("coder.design.primitives")
+_RULE_COLOR = bind_rule("coder.design.token-color")
+_RULE_ORPHAN_EXPORT = bind_rule("coder.design.orphan-export")
+_RULE_FOUNDATIONS = bind_rule("coder.design.foundations")
+_RULE_HIERARCHY_IMPORT = bind_rule("coder.design.hierarchy-import")
+_RULE_HARDCODED = bind_rule("coder.design.token-hardcoded")
+_RULE_ORPHAN_UI = bind_rule("coder.design.orphan-ui")
 
 
 # Path constants

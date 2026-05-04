@@ -267,13 +267,14 @@ class TestConventionsExcludeUrnAndOrganization:
         assert "organization" not in frontend_convention, "Frontend convention should not have organization section"
         assert "framework_adaptations" not in frontend_convention, "Frontend convention should not have framework_adaptations"
 
-        # Verify conventions only have expected top-level keys
-        expected_backend_keys = {"version", "name", "description", "backend"}
+        # Verify conventions only have expected top-level keys.
+        # ``rules:`` is allowed (issue #394 introduced top-level rules arrays).
+        expected_backend_keys = {"version", "name", "description", "backend", "rules"}
         actual_backend_keys = set(backend_convention.keys())
-        assert actual_backend_keys == expected_backend_keys, \
+        assert actual_backend_keys.issubset(expected_backend_keys), \
             f"Backend convention has unexpected keys: {actual_backend_keys - expected_backend_keys}"
 
-        expected_frontend_keys = {"version", "name", "description", "frontend"}
+        expected_frontend_keys = {"version", "name", "description", "frontend", "rules"}
         actual_frontend_keys = set(frontend_convention.keys())
-        assert actual_frontend_keys == expected_frontend_keys, \
+        assert actual_frontend_keys.issubset(expected_frontend_keys), \
             f"Frontend convention has unexpected keys: {actual_frontend_keys - expected_frontend_keys}"

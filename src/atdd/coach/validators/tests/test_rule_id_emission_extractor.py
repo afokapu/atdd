@@ -53,12 +53,12 @@ class TestEmissionExtractorPatterns:
         f = tmp_path / "c2.py"
         f.write_text(
             'RULE_EMPTY_RENDER = "TESTER-RENDER-001"\n'
-            'XSS_RULE_ID = "SECURITY-XSS-001"\n'
+            'XSS_RULE_ID = "coder.security.xss"\n'
             'RULE_DYNAMIC_TRAIN_ID = "BOUNDARIES-ROUTE-COVERAGE-003"\n'
         )
         ids = {e.rule_id for e in extract_emissions(f)}
         assert "TESTER-RENDER-001" in ids
-        assert "SECURITY-XSS-001" in ids
+        assert "coder.security.xss" in ids
         assert "BOUNDARIES-ROUTE-COVERAGE-003" in ids
 
     def test_pattern_c_matches_keyword_arg_in_other_constructors(self, tmp_path: Path):

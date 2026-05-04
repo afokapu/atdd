@@ -45,7 +45,7 @@ def returns_none_naturally(player_id: str) -> str | None:
 def suppression_pragma(player_id: str) -> str:
     try:
         return _create_match(player_id).id
-    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
         return ""
 
 

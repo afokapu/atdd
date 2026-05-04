@@ -597,8 +597,9 @@ migration:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: TESTER-FILENAME-URN-001
+  - id: "tester.filename.urn"
+    aliases: ["TESTER-FILENAME-URN-001"]
     severity: 2
-    disposition: strict
+    disposition: documentation-only
     description: "Test filenames follow URN-based pattern test_<NNNN>.py / test_<NNNN>.ts"
     introduced_in: "1.67.0"

@@ -191,8 +191,9 @@ notes:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: PLANNER-APPENDIX-STRUCTURE-001
+  - id: "planner.appendix.structure"
+    aliases: ["PLANNER-APPENDIX-STRUCTURE-001"]
     severity: 1
-    disposition: strict
+    disposition: documentation-only
     description: "Appendix sections follow the documented heading order and link back to the main wagon body"
     introduced_in: "1.67.0"

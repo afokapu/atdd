@@ -39,8 +39,8 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_CONSUMER = bind_rule("REFACTOR-COMPOSITION-CONSUMER-001")
-_RULE_ROOT = bind_rule("REFACTOR-COMPOSITION-ROOT-001")
+_RULE_CONSUMER = bind_rule("coder.refactor.composition-consumer")
+_RULE_ROOT = bind_rule("coder.refactor.composition-root")
 
 
 REPO_ROOT = find_repo_root()
@@ -727,7 +727,7 @@ def test_composition_completeness_python_fixture_detects_missing_setter_call():
     violations = analyze_python_repo(FIXTURE_ROOT / "python_fail_setter")
     assert len(violations) == 1, "expected one composition root violation"
     violation = violations[0]
-    assert violation.rule_id == "REFACTOR-COMPOSITION-ROOT-001"
+    assert violation.rule_id == "coder.refactor.composition-root"
     assert "spec_id=SPEC-CODER-COMP-0004" in violation.detail
     assert violation.location.startswith("bad_match/orchestrate_bad/")
     assert "presentation" in violation.detail
@@ -757,8 +757,8 @@ def test_composition_completeness_typescript_fixture_detects_cameo_and_import_ty
     cameo = violation_map[cameo_loc]
     forecast = violation_map[forecast_loc]
 
-    assert cameo.rule_id == "REFACTOR-COMPOSITION-CONSUMER-001"
-    assert forecast.rule_id == "REFACTOR-COMPOSITION-CONSUMER-001"
+    assert cameo.rule_id == "coder.refactor.composition-consumer"
+    assert forecast.rule_id == "coder.refactor.composition-consumer"
     assert "spec_id=SPEC-CODER-COMP-0001" in cameo.detail
     assert "spec_id=SPEC-CODER-COMP-0001" in forecast.detail
 

@@ -513,8 +513,9 @@ changelog_v1_1:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: TESTER-MIGRATION-NAMING-001
+  - id: "tester.migration.naming"
+    aliases: ["TESTER-MIGRATION-NAMING-001"]
     severity: 2
-    disposition: strict
+    disposition: documentation-only
     description: "Migration tests are named after the migration ID and live alongside the migration artifact"
     introduced_in: "1.67.0"

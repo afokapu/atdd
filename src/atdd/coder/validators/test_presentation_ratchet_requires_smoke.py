@@ -14,7 +14,7 @@ Issue: #358 (replaces idea-issue #319 — past incident: 8 match features
 silently removed during ratchet trimming).
 
 Structured violations (issue #340): emits ``Violation(
-    rule_id="COACH-RATCHET-PRES-001", severity=3, ...)`` records via
+    rule_id="coder.refactor.coach-ratchet-pres", severity=3, ...)`` records via
 ``assert_disposition_satisfied(...)``.
 
 Severity rationale (per issue body, decision #5): 3 = advisory + gate, not
@@ -31,7 +31,11 @@ import pytest
 import yaml
 
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+
+
+_RULE = bind_rule("coder.refactor.coach-ratchet-pres")
 from atdd.coder.validators.presentation_ratchet import (
     PRESENTATION_GLOBS,
     PresentationReduction,
@@ -166,7 +170,7 @@ def test_record_smoke_evidence_persists_metadata(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_rule_id_and_severity_are_documented_constants():
-    assert PresentationRatchetRule.RULE_ID == "COACH-RATCHET-PRES-001"
+    assert PresentationRatchetRule.RULE_ID == "coder.refactor.coach-ratchet-pres"
     assert PresentationRatchetRule.SEVERITY == 3
 
 
@@ -184,7 +188,7 @@ def test_violation_emitted_when_evidence_missing():
     assert len(violations) == 1
     v = violations[0]
     assert isinstance(v, Violation)
-    assert v.rule_id == "COACH-RATCHET-PRES-001"
+    assert v.rule_id == "coder.refactor.coach-ratchet-pres"
     assert v.severity == 3
     assert "MatchPage.tsx" in v.location
     assert "25" in v.detail or "0.25" in v.detail

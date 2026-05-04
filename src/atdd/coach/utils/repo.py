@@ -186,7 +186,7 @@ def is_atdd_source_repo() -> bool:
         import atdd  # local import to avoid cycles at module import time
 
         pkg_dir = Path(atdd.__file__).resolve().parent
-    except (ImportError, AttributeError, TypeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except (ImportError, AttributeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return False
 
     if any(part in _VENDORED_PATH_MARKERS for part in pkg_dir.parts):
@@ -194,12 +194,12 @@ def is_atdd_source_repo() -> bool:
 
     try:
         repo_root = find_repo_root().resolve()
-    except RuntimeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return False
 
     try:
         pkg_dir.relative_to(repo_root)
-    except ValueError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return False
 
     # Source repo always has a top-level pyproject.toml whose [project].name
@@ -210,6 +210,6 @@ def is_atdd_source_repo() -> bool:
         return False
     try:
         text = pyproject.read_text(encoding="utf-8")
-    except OSError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return False
     return 'name = "atdd"' in text

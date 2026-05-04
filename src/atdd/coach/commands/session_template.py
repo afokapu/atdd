@@ -135,11 +135,11 @@ def fetch_issue(issue_number: int) -> dict:
             capture_output=True,
             text=True,
         )
-    except (FileNotFoundError, subprocess.CalledProcessError):  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except (FileNotFoundError, subprocess.CalledProcessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return {}
     try:
         return json.loads(result.stdout)
-    except json.JSONDecodeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return {}
 
 
