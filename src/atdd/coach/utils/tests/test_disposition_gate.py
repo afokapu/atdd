@@ -22,13 +22,19 @@ from atdd.coach.utils.rule_id_registry import RuleMetadata
 from atdd.coach.validators._violation import Violation
 
 
-def _meta(rule_id: str, disposition: str) -> RuleMetadata:
+def _meta(
+    rule_id: str,
+    disposition: str,
+    description: str = "fixture rule",
+    fix_hint: str | None = None,
+) -> RuleMetadata:
     return RuleMetadata(
         rule_id=rule_id,
         convention_path=Path("/dev/null"),
         severity=3,
-        description="fixture rule",
+        description=description,
         disposition=disposition,
+        fix_hint=fix_hint,
     )
 
 
@@ -263,6 +269,123 @@ def test_mixed_dispositions_routed_independently(tmp_path):
 # ---------------------------------------------------------------------------
 # Opaque legacy callers
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Enriched output: description + fix_hint surfaced from registry (issue #402)
+# ---------------------------------------------------------------------------
+
+def test_failure_includes_description_when_set(tmp_path):
+    target = _write(tmp_path / "code.py", "print('x')\n")
+    v = Violation(
+        rule_id="LOG-PRINT-001",
+        severity=3,
+        location=f"{target.name}:1",
+        detail="print() at line 1",
+    )
+    registry = {
+        "LOG-PRINT-001": _meta(
+            "LOG-PRINT-001",
+            "strict",
+            description="print() in production code is not allowed",
+        )
+    }
+    with pytest.raises(pytest.fail.Exception) as excinfo:
+        assert_disposition_satisfied(
+            validator_id="vid",
+            violations=[v],
+            registry=registry,
+            repo_root=tmp_path,
+        )
+    msg = str(excinfo.value)
+    assert "description: print() in production code is not allowed" in msg
+
+
+def test_failure_includes_fix_hint_when_set(tmp_path):
+    target = _write(tmp_path / "code.py", "print('x')\n")
+    v = Violation(
+        rule_id="LOG-PRINT-001",
+        severity=3,
+        location=f"{target.name}:1",
+        detail="print() at line 1",
+    )
+    registry = {
+        "LOG-PRINT-001": _meta(
+            "LOG-PRINT-001",
+            "suppress-and-clean",
+            description="prefer logging",
+            fix_hint="Use logging.info() instead of print().",
+        )
+    }
+    with pytest.raises(pytest.fail.Exception) as excinfo:
+        assert_disposition_satisfied(
+            validator_id="vid",
+            violations=[v],
+            registry=registry,
+            repo_root=tmp_path,
+        )
+    msg = str(excinfo.value)
+    assert "fix_hint:    Use logging.info() instead of print()." in msg
+    # Suppress-marker template still appears under suppress-and-clean
+    assert "atdd:suppress(LOG-PRINT-001)" in msg
+
+
+def test_failure_omits_fields_when_not_set(tmp_path):
+    target = _write(tmp_path / "code.py", "print('x')\n")
+    v = Violation(
+        rule_id="LOG-PRINT-001",
+        severity=3,
+        location=f"{target.name}:1",
+        detail="print() at line 1",
+    )
+    # description="" + fix_hint=None — neither line should appear.
+    registry = {
+        "LOG-PRINT-001": _meta(
+            "LOG-PRINT-001",
+            "strict",
+            description="",
+            fix_hint=None,
+        )
+    }
+    with pytest.raises(pytest.fail.Exception) as excinfo:
+        assert_disposition_satisfied(
+            validator_id="vid",
+            violations=[v],
+            registry=registry,
+            repo_root=tmp_path,
+        )
+    msg = str(excinfo.value)
+    assert "description:" not in msg
+    assert "fix_hint:" not in msg
+
+
+def test_advisory_block_includes_description_and_fix_hint(tmp_path, recwarn):
+    target = _write(tmp_path / "code.py", "x\n")
+    v = Violation(
+        rule_id="STYLE-NIT-001",
+        severity=1,
+        location=f"{target.name}:1",
+        detail="trailing whitespace",
+    )
+    registry = {
+        "STYLE-NIT-001": _meta(
+            "STYLE-NIT-001",
+            "advisory",
+            description="trailing whitespace is discouraged",
+            fix_hint="Run `ruff format` to clean up.",
+        )
+    }
+    assert_disposition_satisfied(
+        validator_id="style_nits",
+        violations=[v],
+        registry=registry,
+        repo_root=tmp_path,
+    )
+    messages = [str(w.message) for w in recwarn.list]
+    assert any(
+        "description: trailing whitespace is discouraged" in m for m in messages
+    )
+    assert any("fix_hint:    Run `ruff format` to clean up." in m for m in messages)
+
 
 def test_opaque_violations_default_strict():
     with pytest.raises(pytest.fail.Exception) as excinfo:
