@@ -1625,9 +1625,10 @@ class IssueManager:
                     raise
                 logger.warning(
                     "ProjectV2 sync denied for issue #%s; continuing with "
-                    "label-only sync. Grant the GHA token 'projects: write' "
-                    "or enable Projects access in repo Settings → Actions → "
-                    "Workflow permissions to silence this.",
+                    "label-only sync. To enable full Status-field sync, "
+                    "create a fine-grained PAT with Projects: R/W "
+                    "(https://github.com/settings/tokens?type=beta) and set "
+                    "it as the PROJECT_TOKEN repo secret — see issue #404.",
                     issue_number,
                     extra={
                         "action": "projects_access_fallback",

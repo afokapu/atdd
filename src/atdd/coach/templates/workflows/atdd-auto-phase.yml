@@ -18,7 +18,11 @@ jobs:
       issues: write
       contents: read
       pull-requests: read
-      projects: write   # Issue #384: required for ProjectV2 sync.
+      # Issue #404: 'projects: write' removed — GITHUB_TOKEN cannot grant the
+      # account-level Projects scope, and declaring it caused preflight to
+      # reject the workflow on every run. Full ProjectV2 Status sync is opt-in
+      # via the PROJECT_TOKEN PAT (see GH_TOKEN below); without it,
+      # IssueManager.update falls back to label-only sync.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,6 +42,6 @@ jobs:
 
       - name: Run atdd auto-phase
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: atdd auto-phase "$PR_NUMBER"
