@@ -26,6 +26,7 @@ Auto-detection precedence:
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from abc import ABC, abstractmethod
@@ -115,6 +116,24 @@ def _last_nonempty_line(stdout: str) -> str:
     return ""
 
 
+def _extract_ref_token(stdout: str, prefix: str) -> str:
+    """Extract the first ``<prefix>:<N>`` token from a cmux OK-line.
+
+    cmux mutating commands (``new-pane``, ``new-split``, ``new-surface``) emit
+    a single line of the shape ``OK <ref> [<ref>...]`` where each ref is
+    ``<kind>:<integer>``. The CLI only accepts the bare ``<kind>:<integer>``
+    token as a handle — feeding back the whole OK-line is rejected with
+    "Invalid pane handle". Returns ``""`` when no matching token is present;
+    callers raise ``MultiplexerError`` so the failure surfaces clearly.
+    """
+    pattern = re.compile(rf"(?:^|\s){re.escape(prefix)}:(\d+)\b")
+    for line in (stdout or "").splitlines():
+        match = pattern.search(line)
+        if match:
+            return f"{prefix}:{match.group(1)}"
+    return ""
+
+
 class CmuxBackend(MultiplexerBackend):
     """cmux backend — workspace + pane/surface dispatch.
 
@@ -148,17 +167,21 @@ class CmuxBackend(MultiplexerBackend):
             if workspace_ref:
                 new_pane_cmd.extend(["--workspace", workspace_ref])
             pane_result = _run(new_pane_cmd)
-            pane_ref = _last_nonempty_line(pane_result.stdout or "")
+            pane_ref = _extract_ref_token(pane_result.stdout or "", "pane")
             if not pane_ref:
-                raise MultiplexerError("cmux new-pane returned no pane ref")
+                raise MultiplexerError(
+                    f"cmux new-pane returned no pane ref: {(pane_result.stdout or '').strip()!r}"
+                )
 
         new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
         if name:
             new_surface_cmd.extend(["--name", name])
         surface_result = _run(new_surface_cmd)
-        surface_ref = _last_nonempty_line(surface_result.stdout or "")
+        surface_ref = _extract_ref_token(surface_result.stdout or "", "surface")
         if not surface_ref:
-            raise MultiplexerError("cmux new-surface returned no surface ref")
+            raise MultiplexerError(
+                f"cmux new-surface returned no surface ref: {(surface_result.stdout or '').strip()!r}"
+            )
 
         if cwd or command:
             seed_parts = []
