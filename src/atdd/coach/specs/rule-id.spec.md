@@ -1,43 +1,58 @@
 # Rule-ID Grammar SPEC
 
-`SPEC-COACH-RULEID-0001..0006`
+`SPEC-COACH-RULEID-0001..0007`
 
 This SPEC governs the stable identifiers that label every rule declared in an
 ATDD convention YAML. Rule IDs are the substrate that links convention text,
-validator output, ratchet baselines, suppression markers, and fix recipes.
+validator output, suppression markers, and fix recipes — and, since #399, the
+two-way binding contract between rules and the validators that enforce them.
 
-The grammar is closed and audited — adding a new `DOMAIN` value is a SPEC edit,
-not a free-form choice.
+The grammar is closed and audited — every rule_id is namespaced under
+`<archetype>.<convention>.<rule>`, where `archetype` is one of a fixed set.
 
 ---
 
-## SPEC-COACH-RULEID-0001 — Grammar
+## SPEC-COACH-RULEID-0001 — Grammar (namespaced, post-#399)
 
 ```
-RULE_ID ::= <DOMAIN> "-" <TOPIC> "-" <NNN>
-DOMAIN  ::= GREEN | RED | SMOKE | REFACTOR
-          | COACH | PLANNER | TESTER
-          | BOUNDARIES | DESIGN | SECURITY | LOGGING
-          | DTO | ERROR | PRESENTATION
-          | DUPLICATION | DEAD-CODE | COMPLEXITY
-TOPIC   ::= [A-Z][A-Z0-9-]+        ; 1-3 hyphen-separated segments
-                                   ; e.g. URN, URN-LAYER, FILE-HEADER-RUNTIME
-NNN     ::= [0-9][0-9][0-9]        ; 3-digit zero-padded
+RULE_ID    ::= <archetype> "." <convention_short_name> "." <rule_name>
+archetype  ::= coder | coach | tester | planner
+convention_short_name ::= <segment> ("-" <segment>)*
+                         ; filename of the declaring *.convention.yaml
+                         ; minus the .convention.yaml suffix
+                         ; (e.g. dead-code, error-response, rule-id)
+rule_name  ::= <segment> ("-" <segment>)*
+                         ; lowercase, hyphenated, human-readable
+segment    ::= [a-z][a-z0-9]*
+```
+
+Compiled regex (machine-readable mirror in `rule-id.convention.yaml::grammar.pattern`):
+
+```
+^[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9]*(-[a-z0-9]+)*$
 ```
 
 Examples that conform:
 
-- `coder.green.component-urn-marker-is`
-- `GREEN-URN-LAYER-002`
-- `SECURITY-XSS-004`
-- `COACH-RULEID-001`
+- `coder.dead-code.unreachable-definitions`
+- `coach.rule-id.stale-suppression`
+- `planner.criteria.shape`
+- `tester.smoke.harness-subprocess-failed-crash`
 
 Examples that DO NOT conform:
 
-- `green-urn-001` (DOMAIN must be uppercase)
-- `GREEN-URN-1` (NNN must be 3 digits, zero-padded)
-- `MISC-FOO-001` (`MISC` is not in the closed DOMAIN set)
-- `GREEN_URN_001` (separator must be `-`, not `_`)
+- `GREEN-URN-001` — flat (legacy) grammar; allowed ONLY as an `aliases:` entry
+  on a canonical rule, never as the canonical `id:`. Recognised via the
+  `legacy_grammar:` block.
+- `coder.dead-code` — must have three dot-separated segments.
+- `Coder.dead-code.x` — must be lowercase.
+
+Pre-#399 flat IDs (`<DOMAIN>-<TOPIC>-<NNN>`) are preserved as
+`aliases:` on canonical rules and remain resolvable via `bind_rule()` and the
+suppression scanner. The `legacy_grammar:` block in
+`rule-id.convention.yaml` enumerates the residual patterns
+(`^[A-Z][A-Z0-9]*(-[A-Z0-9]+){2,4}$`, plus `DS-NN`, `ERR-NN`, `GP-NN`,
+`COACH-PRGATE-NNNN`).
 
 ---
 
@@ -121,14 +136,73 @@ A rule entry in a convention YAML has the shape:
 
 ```yaml
 rules:
-  - id: coder.green.component-urn-marker-is               # required, matches SPEC-COACH-RULEID-0001
-    severity: 3                     # required, int 1..5
-    description: "..."              # required, one-line human-readable
-    recipe: adapter                 # optional, name of *.recipe.yaml peer
-    introduced_in: "1.61.0"         # optional, version string
-    superseded_by: coder.green.component-urn-matches-pattern    # optional, see SPEC-COACH-RULEID-0004
+  - id: coder.dead-code.unreachable-definitions   # required, matches SPEC-COACH-RULEID-0001
+    severity: 3                                   # required, int 1..5
+    description: "..."                            # required, one-line human-readable
+    disposition: strict                           # required: strict | suppress-and-clean | advisory | documentation-only
+    validator: "test_dead_code_python::test_no_unreachable_definitions"  # required when disposition ≠ documentation-only
+    fix_hint: "Either wire into a composition root, or delete it."        # optional canonical remediation
+    aliases: ["DEAD-CODE-REACHABILITY-001"]       # optional legacy IDs this canonical rule supersedes
+    recipe: adapter                               # optional, name of *.recipe.yaml peer
+    introduced_in: "1.61.0"                       # optional, version string
+    superseded_by: coder.dead-code.reachability-v2  # optional, see SPEC-COACH-RULEID-0004
 ```
 
-The `rules:` array hangs off any top-level convention concept block (e.g.
-`green_phase.urn_naming.rules`, not at the file root). This keeps rule IDs
-locally readable next to the rule text.
+The `rules:` array hangs off any convention concept block (e.g.
+`green_phase.urn_naming.rules`, or top-level), as long as it lives inside the
+declaring `*.convention.yaml`.
+
+Field contract changes in #399:
+
+- `disposition:` gains a fourth value `documentation-only` for rules that
+  declare a principle but have no enforcing validator.
+- `validator:` is REQUIRED when `disposition ∈ {strict, suppress-and-clean,
+  advisory}` and MUST be absent when `disposition == documentation-only`.
+- `validator:` value is `<module_basename>::<function_name>`. The dotted-import
+  path is INFERRED from the rule's archetype:
+  `atdd.<archetype>.validators.<module_basename>`.
+- `fix_hint:` carries the canonical remediation; `Violation.fix_hint_ref` may
+  still override per-emission.
+- `aliases:` lists legacy ids (typically pre-#399 flat-grammar). The registry
+  walker registers each alias as an additional dict key pointing at the same
+  `RuleMetadata`, so `bind_rule(<flat_or_namespaced_id>)` resolves both.
+
+---
+
+## SPEC-COACH-RULEID-0007 — Bidirectional binding contract (#399)
+
+Every enforced rule MUST be bound by the validator that emits it. Concretely:
+
+1. The rule entry declares `validator: <module>::<function>`.
+2. The named `module` is the basename of a Python file at
+   `src/atdd/<archetype>/validators/<module>.py` (the archetype is the rule's
+   first dot-segment).
+3. The named `function` is a top-level `def` in that module.
+4. Either the function body OR the module top level contains a literal
+   `bind_rule("<canonical_id>")` call (an alias of the canonical id is also
+   accepted).
+
+The reverse-coherence validator
+(`src/atdd/coach/validators/test_rule_validator_binding.py`) walks the
+registry and FAILs CI when:
+
+- An enforced rule has no `validator:` field.
+- The named module or function does not exist.
+- The function body / module level never calls `bind_rule(<this rule id>)`.
+- A `documentation-only` rule carries a `validator:` field anyway.
+
+The forward direction (every `bind_rule()` callsite resolves to a registered
+rule) is policed by the existing
+`test_rule_id_registry_coherence.py` validator. Together the two close the
+loop.
+
+The resolver
+(`src/atdd/coach/utils/rule_validator_resolver.py`) AST-parses the validator
+file as TEXT — it does NOT import the module. A single broken validator
+therefore cannot cascade into an opaque collapse of the entire reverse
+coherence pass; failures are surfaced as structured `Violation` records.
+
+Emergency opt-out: `atdd validate coach --allow-orphan-rules`. This sets
+`ATDD_ALLOW_ORPHAN_RULES=1` so the reverse-coherence validator demotes
+failure to a `UserWarning`. The flag is for unblocking specific incidents,
+not for permanent disablement.

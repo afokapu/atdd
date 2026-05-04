@@ -57,12 +57,12 @@ FIXTURES_DIR = (
 # ---------------------------------------------------------------------------
 # Rule constants (mirrored in frontend.convention.yaml::no_stub_presentation)
 # ---------------------------------------------------------------------------
-RULE_ARROW_LITERAL = "PRESENTATION-NOSTUB-001"
-RULE_FN_RETURN_LITERAL = "PRESENTATION-NOSTUB-002"
-RULE_EMPTY_FRAGMENT = "PRESENTATION-NOSTUB-003"
-RULE_EMPTY_ELEMENT = "PRESENTATION-NOSTUB-004"
-RULE_UNCONDITIONAL_STUB = "PRESENTATION-NOSTUB-005"
-RULE_ALLOWLIST_MIGRATION = "PRESENTATION-NOSTUB-010"
+RULE_ARROW_LITERAL = "coder.frontend.arrow-function-with-a"
+RULE_FN_RETURN_LITERAL = "coder.frontend.function-or-function-expression"
+RULE_EMPTY_FRAGMENT = "coder.frontend.empty-fragment-return-or"
+RULE_EMPTY_ELEMENT = "coder.frontend.self-closing-or-empty"
+RULE_UNCONDITIONAL_STUB = "coder.frontend.conditional-whose-every-branch"
+RULE_ALLOWLIST_MIGRATION = "coder.frontend.allowlist-entry-must-include"
 
 STUB_RULE_SEVERITY = 4
 ALLOWLIST_RULE_SEVERITY = 2

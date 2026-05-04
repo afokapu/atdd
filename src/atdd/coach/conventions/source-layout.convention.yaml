@@ -37,7 +37,7 @@ scan_scope:
     - "*/fixtures/*"
 
 rules:
-  - id: "coach.source-layout.toolkit-code-must-not"
+  - id: "coach.source-layout.no-toolkit-self-layout-assumption"
     aliases: ["COACH-PKG-LAYOUT-001"]
     name: "no-toolkit-self-layout-assumption"
     description: |
@@ -82,7 +82,7 @@ rules:
       - "#341"
       - "#367"
 
-  - id: "coach.source-layout.toolkit-code-must-not-1"
+  - id: "coach.source-layout.no-bare-version-detection"
     aliases: ["COACH-PKG-LAYOUT-002"]
     name: "no-bare-version-detection"
     description: |

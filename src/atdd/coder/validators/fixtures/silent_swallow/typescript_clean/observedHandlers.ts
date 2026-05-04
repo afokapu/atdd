@@ -42,7 +42,7 @@ export function rethrowWithContext(playerId: string): string {
 export function suppressedSwallow(playerId: string): string {
   try {
     return createMatch(playerId).id;
-  } catch (e) { // atdd:suppress(COACH-SILENT-SWALLOW-001)
+  } catch (e) { // atdd:suppress(coder.logging.coach-silent-swallow)
     return "";
   }
 }

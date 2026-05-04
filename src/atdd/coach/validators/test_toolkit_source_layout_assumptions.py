@@ -61,8 +61,8 @@ FIXTURES_DIR = (
 # ---------------------------------------------------------------------------
 # Rule constants (mirrored in source-layout.convention.yaml)
 # ---------------------------------------------------------------------------
-RULE_A_ID = "COACH-PKG-LAYOUT-001"
-RULE_B_ID = "COACH-PKG-LAYOUT-002"
+RULE_A_ID = "coach.source-layout.no-toolkit-self-layout-assumption"
+RULE_B_ID = "coach.source-layout.no-bare-version-detection"
 RULE_SEVERITY = 4
 
 SUPPRESSION_MARKER_A = f"atdd:suppress({RULE_A_ID})"

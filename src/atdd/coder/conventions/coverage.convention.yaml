@@ -5,6 +5,7 @@ description: "Section 4 of ATDD Hierarchy Coverage Spec v0.1 - Ensures code impl
 rules:
   - id: "coder.coverage.every-feature-must-have"
     aliases: ["COVERAGE-CODE-4.1"]
+    severity: 3
     disposition: strict
     name: "Feature - Implementation Coverage"
     description: "Every feature must have corresponding code implementation"
@@ -14,6 +15,7 @@ rules:
 
   - id: "coder.coverage.every-implementation-must-have"
     aliases: ["COVERAGE-CODE-4.2"]
+    severity: 3
     disposition: strict
     name: "Implementation - Tests Coverage"
     description: "Every implementation must have at least one linked test"

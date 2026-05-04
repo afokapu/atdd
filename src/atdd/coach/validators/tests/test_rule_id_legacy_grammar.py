@@ -107,11 +107,16 @@ class TestLoadLegacyPatterns:
             assert matches_any(rid), f"legacy ID {rid!r} should match a legacy pattern"
 
     def test_canonical_ids_dont_match_legacy(self):
+        """Post-#399 canonical (namespaced) IDs must not match any legacy pattern."""
         from atdd.coach.validators.test_rule_id_uniqueness import load_legacy_patterns
         patterns = load_legacy_patterns()
-        for rid in ("GREEN-URN-001", "AP-DS-01", "COACH-BABYSIT-010"):
+        for rid in (
+            "coder.green.urn",
+            "coach.rule-id.binding",
+            "tester.smoke.harness-subprocess-failed-crash",
+        ):
             assert not any(p.match(rid) for p in patterns), (
-                f"canonical/canonical-shaped ID {rid!r} must not match a legacy pattern"
+                f"canonical namespaced ID {rid!r} must not match a legacy pattern"
             )
 
 
@@ -128,9 +133,10 @@ class TestValidateGrammarLegacy:
         assert validate_grammar("DS-01", domains, legacy_patterns=[re.compile(r"^DS-\d{2}$")]) is None
 
     def test_canonical_still_accepted_with_legacy_kwarg(self):
+        """A canonical namespaced ID is accepted regardless of legacy_patterns."""
         domains = load_allowed_domains()
         legacy = [re.compile(r"^DS-\d{2}$")]
-        assert validate_grammar("GREEN-URN-001", domains, legacy_patterns=legacy) is None
+        assert validate_grammar("coder.green.urn", domains, legacy_patterns=legacy) is None
 
     def test_unknown_id_rejected_with_legacy_kwarg(self):
         domains = load_allowed_domains()

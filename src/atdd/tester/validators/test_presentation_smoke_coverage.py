@@ -257,7 +257,7 @@ def _seed_smoke(tmp_path: Path, name: str) -> Path:
 
 @pytest.mark.tester
 def test_rule_id_and_severity_are_documented_constants():
-    assert PresentationSmokeRule.RULE_ID == "TESTER-SMOKE-PRES-001"
+    assert PresentationSmokeRule.RULE_ID == "tester.smoke.pres"
     assert PresentationSmokeRule.SEVERITY == 3
 
 
@@ -382,7 +382,7 @@ def test_violation_for_carries_rule_id_and_location():
     )
     v = PresentationSmokeRule.violation_for(pres)
     assert isinstance(v, Violation)
-    assert v.rule_id == "TESTER-SMOKE-PRES-001"
+    assert v.rule_id == "tester.smoke.pres"
     assert v.severity == 3
     assert v.location == "web/src/match/presentation/Grid.tsx:1"
     assert "match" in v.detail
@@ -412,7 +412,7 @@ def test_scan_flags_uncovered_presentation_file(tmp_path):
     _seed_pres(tmp_path, "match", "Grid")  # no smoke spec
     count, violations = scan_presentation_smoke_coverage(tmp_path)
     assert count == 1
-    assert violations[0].rule_id == "TESTER-SMOKE-PRES-001"
+    assert violations[0].rule_id == "tester.smoke.pres"
     assert "match" in violations[0].detail
 
 

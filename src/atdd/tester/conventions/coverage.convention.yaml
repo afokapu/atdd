@@ -46,6 +46,7 @@ rules:
 
   - id: "tester.coverage.tracking-manifest-must-be"
     aliases: ["COVERAGE-TEST-3.4"]
+    severity: 3
     disposition: strict
     name: "Telemetry Tracking Manifest"
     description: "Tracking manifest must be complete if present"

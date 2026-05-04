@@ -34,23 +34,22 @@ ALLOWED = load_allowed_domains()
 
 class TestGrammar:
     @pytest.mark.parametrize("rid", [
-        "GREEN-URN-001",
-        "GREEN-URN-LAYER-002",
-        "SECURITY-XSS-001",
-        "COACH-RULEID-001",
-        "DEAD-CODE-CYCLE-001",
+        "coder.green.urn",
+        "coder.green.urn-layer",
+        "coder.security.xss",
+        "coach.rule-id.binding",
+        "coder.dead-code.cycle",
     ])
     def test_accepts_conformant(self, rid):
         assert validate_grammar(rid, ALLOWED) is None, rid
 
     @pytest.mark.parametrize("rid,reason", [
-        ("green-urn-001", "lowercase domain"),
-        ("GREEN-URN-1", "single-digit suffix"),
-        ("GREEN-URN-12", "two-digit suffix"),
-        ("GREEN_URN_001", "underscore separator"),
-        ("MISC-FOO-001", "domain not in registry"),
-        ("GREEN-001", "missing topic"),
+        ("Green.urn.thing", "uppercase archetype"),
+        ("coder.green", "missing rule_name segment"),
+        ("frontend.x.y", "archetype not in closed set"),
+        ("coder_green_urn", "underscore separator"),
         ("", "empty string"),
+        ("coder..thing", "empty middle segment"),
     ])
     def test_rejects_nonconformant(self, rid, reason):
         assert validate_grammar(rid, ALLOWED) is not None, reason
@@ -58,11 +57,10 @@ class TestGrammar:
     def test_rejects_non_string(self):
         assert "string" in validate_grammar(123, ALLOWED)  # type: ignore[arg-type]
 
-    def test_dead_code_domain_handled(self):
-        """DEAD-CODE itself contains a hyphen; the grammar must split correctly."""
-        assert validate_grammar("DEAD-CODE-CYCLE-001", ALLOWED) is None
-        # And without a topic, it should still fail.
-        assert validate_grammar("DEAD-CODE-001", ALLOWED) is None
+    def test_multi_segment_convention_handled(self):
+        """Multi-segment convention names (e.g. dead-code) split on the dot."""
+        assert validate_grammar("coder.dead-code.cycle", ALLOWED) is None
+        assert validate_grammar("coder.error-response.bare-string", ALLOWED) is None
 
 
 # ---------------------------------------------------------------------------
@@ -105,14 +103,14 @@ class TestExtraction:
         f.write_text(
             "top:\n"
             "  rules:\n"
-            "    - id: GREEN-URN-001\n"
+            "    - id: coder.green.urn\n"
             "      severity: 3\n"
             "      description: hi\n"
         )
         rows = extract_rules(f)
         assert len(rows) == 1
         _, yaml_path, rule = rows[0]
-        assert rule["id"] == "GREEN-URN-001"
+        assert rule["id"] == "coder.green.urn"
         assert "rules" in yaml_path
 
     def test_ignores_prose_rules(self, tmp_path: Path):
@@ -132,17 +130,17 @@ class TestExtraction:
             "top:\n"
             "  inner:\n"
             "    rules:\n"
-            "      - id: GREEN-URN-001\n"
+            "      - id: coder.green.urn\n"
             "        severity: 3\n"
             "        description: hi\n"
             "  other:\n"
             "    rules:\n"
-            "      - id: GREEN-URN-002\n"
+            "      - id: coder.green.urn-layer\n"
             "        severity: 3\n"
             "        description: hi\n"
         )
         rows = extract_rules(f)
-        assert sorted(r["id"] for _, _, r in rows) == ["GREEN-URN-001", "GREEN-URN-002"]
+        assert sorted(r["id"] for _, _, r in rows) == ["coder.green.urn", "coder.green.urn-layer"]
 
     def test_handles_empty_file(self, tmp_path: Path):
         f = tmp_path / "empty.convention.yaml"
@@ -162,9 +160,14 @@ class TestExtraction:
 
 class TestPatternConsistency:
     def test_pattern_matches_canonical_examples(self):
-        for rid in ["GREEN-URN-001", "SECURITY-XSS-001", "DEAD-CODE-CYCLE-001"]:
+        for rid in [
+            "coder.green.urn",
+            "coder.security.xss",
+            "coder.dead-code.cycle",
+        ]:
             assert RULE_ID_PATTERN.match(rid)
 
-    def test_pattern_rejects_dotted_legacy(self):
-        """Legacy IDs like COVERAGE-CODE-4.1 must not match — they have dots."""
+    def test_pattern_rejects_uppercase_legacy(self):
+        """Legacy flat IDs (uppercase, hyphen-only) must not match the canonical pattern."""
+        assert not RULE_ID_PATTERN.match("GREEN-URN-001")
         assert not RULE_ID_PATTERN.match("COVERAGE-CODE-4.1")

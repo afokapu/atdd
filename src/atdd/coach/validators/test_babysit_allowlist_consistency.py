@@ -50,7 +50,16 @@ ORCHESTRATION_CONVENTION = (
 )
 
 
-_RULE_ID_PATTERN = re.compile(r"^[A-Z][A-Z0-9]*(-[A-Z0-9]+){2,4}$")
+# Post-#399: babysit rule_ids use the canonical namespaced grammar
+# (`<archetype>.<convention>.<rule>`); the legacy flat shape is preserved on
+# `aliases:` for transition. Either form is acceptable in this validator's
+# input (a babysit rule may carry the canonical id with a flat alias).
+_RULE_ID_PATTERN = re.compile(
+    r"^("
+    r"[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9]*(-[a-z0-9]+)*"
+    r"|[A-Z][A-Z0-9]*(-[A-Z0-9]+){2,4}"
+    r")$"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +116,7 @@ def _validate_rule(loc: str, rule: Dict) -> List[Violation]:
                 detail=f"rule id {rule_id!r} does not match grammar <DOMAIN>-<TOPIC>-<NNN>",
             )
         )
-    elif not rule_id.startswith("COACH-BABYSIT-"):
+    elif not (rule_id.startswith("COACH-BABYSIT-") or rule_id.startswith("coach.orchestration.")):
         violations.append(
             Violation(
                 rule_id="COACH-BABYSIT-002",

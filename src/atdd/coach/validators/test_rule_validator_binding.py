@@ -87,8 +87,8 @@ def _build_violations() -> List[Violation]:
             if validator_field:
                 violations.append(
                     Violation(
-                        rule_id="coach.rule-id.validator-binding-violation",
-                        severity=3,
+                        rule_id=_RULE.rule_id,
+                        severity=_RULE.severity,
                         location=loc,
                         detail=(
                             f"rule {rule_id!r} is documentation-only but carries "
@@ -107,8 +107,8 @@ def _build_violations() -> List[Violation]:
         if not validator_field:
             violations.append(
                 Violation(
-                    rule_id="coach.rule-id.validator-binding-violation",
-                    severity=3,
+                    rule_id=_RULE.rule_id,
+                    severity=_RULE.severity,
                     location=loc,
                     detail=(
                         f"rule {rule_id!r} has disposition {disposition!r} but "
@@ -129,8 +129,8 @@ def _build_violations() -> List[Violation]:
         except (ValidatorResolutionError, ValueError) as exc:
             violations.append(
                 Violation(
-                    rule_id="coach.rule-id.validator-binding-violation",
-                    severity=3,
+                    rule_id=_RULE.rule_id,
+                    severity=_RULE.severity,
                     location=loc,
                     detail=(
                         f"rule {rule_id!r} validator {validator_field!r} could "
@@ -146,8 +146,8 @@ def _build_violations() -> List[Violation]:
         ):
             violations.append(
                 Violation(
-                    rule_id="coach.rule-id.validator-binding-violation",
-                    severity=3,
+                    rule_id=_RULE.rule_id,
+                    severity=_RULE.severity,
                     location=f"{resolved.module_path}",
                     detail=(
                         f"rule {rule_id!r} names validator "
