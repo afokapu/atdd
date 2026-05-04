@@ -85,16 +85,19 @@ def _build_violations() -> List[Violation]:
 
         if disposition == "documentation-only":
             if validator_field:
+                detail = (
+                    f"rule {rule_id!r} is documentation-only but carries "
+                    f"validator:{validator_field!r}; remove the validator "
+                    f"field or change the disposition."
+                )
+                if meta.description:
+                    detail += f" | rule purpose: {meta.description}"
                 violations.append(
                     Violation(
                         rule_id=_RULE.rule_id,
                         severity=_RULE.severity,
                         location=loc,
-                        detail=(
-                            f"rule {rule_id!r} is documentation-only but carries "
-                            f"validator:{validator_field!r}; remove the validator "
-                            f"field or change the disposition."
-                        ),
+                        detail=detail,
                     )
                 )
             continue
@@ -105,17 +108,20 @@ def _build_violations() -> List[Violation]:
             continue
 
         if not validator_field:
+            detail = (
+                f"rule {rule_id!r} has disposition {disposition!r} but "
+                f"declares no validator: field. Either set "
+                f"validator: '<module>::<func>' or change disposition "
+                f"to documentation-only."
+            )
+            if meta.description:
+                detail += f" | rule purpose: {meta.description}"
             violations.append(
                 Violation(
                     rule_id=_RULE.rule_id,
                     severity=_RULE.severity,
                     location=loc,
-                    detail=(
-                        f"rule {rule_id!r} has disposition {disposition!r} but "
-                        f"declares no validator: field. Either set "
-                        f"validator: '<module>::<func>' or change disposition "
-                        f"to documentation-only."
-                    ),
+                    detail=detail,
                 )
             )
             continue
@@ -127,15 +133,18 @@ def _build_violations() -> List[Violation]:
                 validator_field=validator_field,
             )
         except (ValidatorResolutionError, ValueError) as exc:
+            detail = (
+                f"rule {rule_id!r} validator {validator_field!r} could "
+                f"not be resolved: {exc}"
+            )
+            if meta.description:
+                detail += f" | rule purpose: {meta.description}"
             violations.append(
                 Violation(
                     rule_id=_RULE.rule_id,
                     severity=_RULE.severity,
                     location=loc,
-                    detail=(
-                        f"rule {rule_id!r} validator {validator_field!r} could "
-                        f"not be resolved: {exc}"
-                    ),
+                    detail=detail,
                 )
             )
             continue
@@ -144,17 +153,20 @@ def _build_violations() -> List[Violation]:
         if rule_id not in resolved.bound_rule_ids and not (
             set(meta.aliases) & resolved.bound_rule_ids
         ):
+            detail = (
+                f"rule {rule_id!r} names validator "
+                f"{validator_field!r}, but the function body never "
+                f"calls bind_rule({rule_id!r}). Found "
+                f"{sorted(resolved.bound_rule_ids)!r}."
+            )
+            if meta.description:
+                detail += f" | rule purpose: {meta.description}"
             violations.append(
                 Violation(
                     rule_id=_RULE.rule_id,
                     severity=_RULE.severity,
                     location=f"{resolved.module_path}",
-                    detail=(
-                        f"rule {rule_id!r} names validator "
-                        f"{validator_field!r}, but the function body never "
-                        f"calls bind_rule({rule_id!r}). Found "
-                        f"{sorted(resolved.bound_rule_ids)!r}."
-                    ),
+                    detail=detail,
                 )
             )
 
