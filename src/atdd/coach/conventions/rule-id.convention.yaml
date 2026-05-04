@@ -186,21 +186,37 @@ rule_schema:
 # `rule_schema:`. Do NOT nest these under `migration.steps` (the example
 # `rules:` snippet there is illustrative, not a runtime declaration).
 rules:
-  - id: "COACH-RULEID-BIND-001"
+  - id: "coach.rule-id.no-hardcoded-rule-severity"
     severity: 2
     description: "Migrated validators must not redeclare rule severity as a module constant"
     disposition: strict
     introduced_in: "1.66.0"
-  - id: "COACH-RULEID-DISPOSITION-001"
+    aliases: ["COACH-RULEID-BIND-001"]
+    validator: "test_no_hardcoded_rule_severity::test_no_hardcoded_rule_severity"
+    fix_hint: "Remove the module-level RULE_SEVERITY/RULE_DESCRIPTION constants and call bind_rule(<id>) at import time instead."
+  - id: "coach.rule-id.disposition-required"
     severity: 2
-    description: "Every declared rule must carry a disposition (strict | suppress-and-clean | advisory)"
+    description: "Every declared rule must carry a disposition (strict | suppress-and-clean | advisory | documentation-only)"
     disposition: strict
     introduced_in: "2.0.0"
-  - id: "COACH-RULEID-STALE-SUPPRESSION-001"
+    aliases: ["COACH-RULEID-DISPOSITION-001"]
+    validator: "test_rule_disposition_required::test_every_rule_has_disposition"
+    fix_hint: "Add `disposition: <strict|suppress-and-clean|advisory|documentation-only>` to the rule body."
+  - id: "coach.rule-id.stale-suppression"
     severity: 3
     description: "Inline ``# atdd:suppress(<id>) UNTIL=<date>`` markers must not have a past UNTIL date"
     disposition: strict
     introduced_in: "2.0.0"
+    aliases: ["COACH-RULEID-STALE-SUPPRESSION-001"]
+    validator: "test_no_stale_suppressions::test_no_past_until_dates"
+    fix_hint: "Either fix the underlying violation or extend UNTIL= past today."
+  - id: "coach.rule-id.validator-binding-violation"
+    severity: 3
+    description: "Every enforced rule (strict|suppress-and-clean|advisory) must name a validator that calls bind_rule(<id>)"
+    disposition: strict
+    introduced_in: "3.0.0"
+    validator: "test_rule_validator_binding::test_every_enforced_rule_has_real_validator"
+    fix_hint: "Either set validator: '<module>::<func>' on the rule and have that function call bind_rule(<id>), or change disposition to documentation-only."
 
 # =============================================================================
 # Migration playbook
