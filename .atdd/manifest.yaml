@@ -167,3 +167,14 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:enforce-train-has-rendered-content
   train: 0001-self-compliance-validate
+- id: '402'
+  slug: enrich-failure-output-with-rule-content
+  file: null
+  issue_number: 402
+  type: feature
+  status: PLANNED
+  created: '2026-05-04'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:actionable-failure-output
+  train: 0001-self-compliance-validate

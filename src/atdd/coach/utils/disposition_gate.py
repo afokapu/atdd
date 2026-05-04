@@ -169,7 +169,9 @@ def assert_disposition_satisfied(
             disposition = _DEFAULT_DISPOSITION
 
         if disposition == "advisory":
-            advisory_blocks.append(_format_advisory_block(validator_id, rule_id, vs))
+            advisory_blocks.append(
+                _format_advisory_block(validator_id, rule_id, vs, registry)
+            )
             continue
 
         if disposition == "strict":
@@ -179,6 +181,7 @@ def assert_disposition_satisfied(
                 disposition=disposition,
                 violations=vs,
                 suppressed_count=0,
+                registry=registry,
             ))
             continue
 
@@ -201,6 +204,7 @@ def assert_disposition_satisfied(
                 disposition=disposition,
                 violations=unsuppressed,
                 suppressed_count=len(suppressed),
+                registry=registry,
             ))
 
     # Opaque violations: no rule_id ⇒ default-strict.
@@ -229,6 +233,7 @@ def _format_failure_block(
     disposition: str,
     violations: Sequence[Any],
     suppressed_count: int,
+    registry: Optional[Dict[str, RuleMetadata]] = None,
 ) -> str:
     lines = [
         f"\n  rule_id={rule_id} disposition={disposition} "
@@ -236,6 +241,11 @@ def _format_failure_block(
         + (f", {suppressed_count} suppressed" if suppressed_count else "")
         + "):",
     ]
+    meta = registry.get(rule_id) if registry else None
+    if meta and meta.description:
+        lines.append(f"    description: {meta.description.splitlines()[0]}")
+    if meta and meta.fix_hint:
+        lines.append(f"    fix_hint:    {meta.fix_hint.splitlines()[0]}")
     for v in violations:
         lines.append(_format_violation(v, disposition))
     if disposition == "suppress-and-clean":
@@ -248,10 +258,16 @@ def _format_advisory_block(
     validator_id: str,
     rule_id: str,
     violations: Sequence[Any],
+    registry: Optional[Dict[str, RuleMetadata]] = None,
 ) -> str:
     lines = [
         f"[advisory] {validator_id} {rule_id}: {len(violations)} violation(s)"
     ]
+    meta = registry.get(rule_id) if registry else None
+    if meta and meta.description:
+        lines.append(f"    description: {meta.description.splitlines()[0]}")
+    if meta and meta.fix_hint:
+        lines.append(f"    fix_hint:    {meta.fix_hint.splitlines()[0]}")
     for v in violations:
         lines.append(_format_violation(v, "advisory"))
     return "\n".join(lines)
