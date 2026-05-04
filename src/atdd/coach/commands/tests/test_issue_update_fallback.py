@@ -122,7 +122,10 @@ def test_denied_logs_warning_with_remediation(tmp_path, caplog):
 
     warnings = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
     assert any("ProjectV2" in m for m in warnings), warnings
-    assert any("projects: write" in m or "Workflow permissions" in m for m in warnings), warnings
+    # Issue #404 changed the remediation hint: GITHUB_TOKEN cannot grant
+    # projects:write, so the actionable upgrade path is now the optional
+    # PROJECT_TOKEN PAT, not the workflow permissions block.
+    assert any("PROJECT_TOKEN" in m for m in warnings), warnings
 
 
 # ---------------------------------------------------------------------------

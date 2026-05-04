@@ -87,30 +87,79 @@ def test_auto_phase_workflow_invokes_atdd_auto_phase():
     )
 
 
-def test_auto_phase_workflow_grants_projects_write():
-    """Issue #384: `permissions:` must declare `projects: write`.
+_PROJECT_TOKEN_FALLBACK_EXPR = (
+    "${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}"
+)
 
-    Without this, the GHA token is denied ProjectV2 GraphQL writes with
-    `Resource not accessible by integration`, and auto-phase silently fails
-    after computing the transition. Regression of #382's intended fix.
+
+def _job_env(wf: dict) -> dict:
+    """Extract the `env:` block from the auto-phase job's `Run atdd auto-phase` step."""
+    job = (wf.get("jobs") or {}).get("auto-phase") or {}
+    for step in job.get("steps") or []:
+        if "auto-phase" in (step.get("name") or "").lower():
+            return step.get("env") or {}
+    return {}
+
+
+def test_auto_phase_workflow_does_not_request_projects_write():
+    """Issue #404: `permissions:` must NOT declare `projects: write`.
+
+    GITHUB_TOKEN cannot grant the account-level Projects scope, so declaring
+    `projects: write` caused GitHub to reject the workflow at preflight on
+    every run (0-second 'workflow file issue' failure). The fix dropped the
+    permission and moved full ProjectV2 sync to an opt-in PROJECT_TOKEN PAT;
+    the GH_TOKEN fallback expression silently degrades to label-only sync
+    when no PAT is present.
     """
     perms = _job_permissions(_load_workflow())
-    assert perms.get("projects") == "write", (
-        "atdd-auto-phase.yml `permissions:` must declare `projects: write`. "
-        f"Found permissions={perms!r}. Issue #384."
+    assert "projects" not in perms, (
+        "atdd-auto-phase.yml `permissions:` MUST NOT declare any `projects:` "
+        "scope — GITHUB_TOKEN cannot satisfy it and preflight rejects the "
+        f"workflow. Found permissions={perms!r}. Issue #404."
     )
 
 
-def test_auto_phase_workflow_template_grants_projects_write():
-    """Issue #384: the shipped template must declare `projects: write`.
+def test_auto_phase_workflow_template_does_not_request_projects_write():
+    """Issue #404: the shipped template must not declare `projects: write` either.
 
-    Catches regressions where the template ships without ProjectV2 write
-    access; consumer repos receiving the template via `atdd init` would
-    otherwise inherit the broken permissions block on every refresh.
+    Otherwise `atdd init --force` would regress every consumer repo back to
+    the broken preflight shape.
     """
     perms = _job_permissions(_load_template())
-    assert perms.get("projects") == "write", (
+    assert "projects" not in perms, (
         "src/atdd/coach/templates/workflows/atdd-auto-phase.yml "
-        "`permissions:` must declare `projects: write`. "
-        f"Found permissions={perms!r}. Issue #384."
+        "`permissions:` MUST NOT declare any `projects:` scope. "
+        f"Found permissions={perms!r}. Issue #404."
+    )
+
+
+def test_auto_phase_workflow_uses_project_token_fallback():
+    """Issue #404: `GH_TOKEN` must use the PROJECT_TOKEN || GITHUB_TOKEN fallback.
+
+    The fallback supports both modes without per-consumer setup:
+      * with PROJECT_TOKEN set → full ProjectV2 Status-field sync.
+      * without PROJECT_TOKEN  → GITHUB_TOKEN fallback, label-only sync via
+        `IssueManager.update`'s access-denial path.
+    A hard-coded `${{ secrets.GITHUB_TOKEN }}` would lock out optional PAT
+    consumers; a hard-coded `${{ secrets.PROJECT_TOKEN }}` would break every
+    default consumer that hasn't created the PAT.
+    """
+    env = _job_env(_load_workflow())
+    gh_token = env.get("GH_TOKEN", "")
+    assert gh_token == _PROJECT_TOKEN_FALLBACK_EXPR, (
+        "atdd-auto-phase.yml `GH_TOKEN` must be "
+        f"'{_PROJECT_TOKEN_FALLBACK_EXPR}' so a PROJECT_TOKEN PAT, when set, "
+        "is preferred and GITHUB_TOKEN is the safe fallback. "
+        f"Found GH_TOKEN={gh_token!r}. Issue #404."
+    )
+
+
+def test_auto_phase_workflow_template_uses_project_token_fallback():
+    """Issue #404: the shipped template must also use the fallback expression."""
+    env = _job_env(_load_template())
+    gh_token = env.get("GH_TOKEN", "")
+    assert gh_token == _PROJECT_TOKEN_FALLBACK_EXPR, (
+        "src/atdd/coach/templates/workflows/atdd-auto-phase.yml `GH_TOKEN` "
+        f"must be '{_PROJECT_TOKEN_FALLBACK_EXPR}'. "
+        f"Found GH_TOKEN={gh_token!r}. Issue #404."
     )

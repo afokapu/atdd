@@ -178,3 +178,14 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:actionable-failure-output
   train: 0001-self-compliance-validate
+- id: '404'
+  slug: auto-phase-pat-swap-and-validator-annotations
+  file: null
+  issue_number: 404
+  type: fix
+  status: PLANNED
+  created: '2026-05-04'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:actionable-ci-feedback
+  train: 0001-self-compliance-validate

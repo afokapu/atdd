@@ -396,3 +396,196 @@ def test_opaque_violations_default_strict():
         )
     assert "legacy" in str(excinfo.value)
     assert "bare string violation" in str(excinfo.value)
+
+
+# ---------------------------------------------------------------------------
+# GitHub Actions annotations (issue #404)
+# ---------------------------------------------------------------------------
+
+def test_emits_github_annotation_on_failure(tmp_path, monkeypatch, capsys):
+    """Strict failure under GITHUB_ACTIONS=true must emit a ::error:: directive."""
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    target = _write(tmp_path / "code.py", "print('x')\n")
+    v = Violation(
+        rule_id="LOG-PRINT-001",
+        severity=3,
+        location=f"{target.name}:1",
+        detail="print() at line 1",
+    )
+    registry = {
+        "LOG-PRINT-001": _meta(
+            "LOG-PRINT-001",
+            "strict",
+            description="print() in production code is not allowed",
+            fix_hint="Use logging.info() instead.",
+        )
+    }
+    with pytest.raises(pytest.fail.Exception):
+        assert_disposition_satisfied(
+            validator_id="vid",
+            violations=[v],
+            registry=registry,
+            repo_root=tmp_path,
+        )
+    captured = capsys.readouterr().out
+    # Directive shape: file= + line= + title= + delimited message.
+    assert "::error " in captured
+    assert "file=code.py" in captured
+    assert "line=1" in captured
+    assert "title=LOG-PRINT-001" in captured
+    assert "print() in production code is not allowed" in captured
+    assert "fix: Use logging.info() instead." in captured
+    assert "site: print() at line 1" in captured
+
+
+def test_emits_github_warning_for_advisory(tmp_path, monkeypatch, capsys):
+    """Advisory disposition under GITHUB_ACTIONS=true emits ::warning::, not ::error::."""
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    target = _write(tmp_path / "code.py", "x\n")
+    v = Violation(
+        rule_id="STYLE-NIT-001",
+        severity=1,
+        location=f"{target.name}:1",
+        detail="trailing whitespace",
+    )
+    registry = {
+        "STYLE-NIT-001": _meta(
+            "STYLE-NIT-001",
+            "advisory",
+            description="trailing whitespace is discouraged",
+            fix_hint="Run `ruff format` to clean up.",
+        )
+    }
+    assert_disposition_satisfied(
+        validator_id="style_nits",
+        violations=[v],
+        registry=registry,
+        repo_root=tmp_path,
+    )
+    captured = capsys.readouterr().out
+    assert "::warning " in captured
+    assert "::error " not in captured
+    assert "title=STYLE-NIT-001" in captured
+    assert "fix: Run `ruff format` to clean up." in captured
+
+
+def test_no_annotations_outside_github_actions(tmp_path, monkeypatch, capsys):
+    """Helper is a no-op when GITHUB_ACTIONS != 'true' — local runs stay clean."""
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    target = _write(tmp_path / "code.py", "print('x')\n")
+    v = Violation(
+        rule_id="LOG-PRINT-001",
+        severity=3,
+        location=f"{target.name}:1",
+        detail="print() at line 1",
+    )
+    with pytest.raises(pytest.fail.Exception):
+        assert_disposition_satisfied(
+            validator_id="vid",
+            violations=[v],
+            registry=_registry(("LOG-PRINT-001", "strict")),
+            repo_root=tmp_path,
+        )
+    captured = capsys.readouterr().out
+    assert "::error" not in captured
+    assert "::warning" not in captured
+
+
+def test_annotation_uses_see_convention_when_fix_hint_missing(
+    tmp_path, monkeypatch, capsys
+):
+    """When the rule has no fix_hint, the annotation falls back to 'see convention'."""
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    target = _write(tmp_path / "code.py", "print('x')\n")
+    v = Violation(
+        rule_id="LOG-PRINT-001",
+        severity=3,
+        location=f"{target.name}:1",
+        detail="print() at line 1",
+    )
+    registry = {
+        "LOG-PRINT-001": _meta(
+            "LOG-PRINT-001",
+            "strict",
+            description="rule with no fix_hint",
+            fix_hint=None,
+        )
+    }
+    with pytest.raises(pytest.fail.Exception):
+        assert_disposition_satisfied(
+            validator_id="vid",
+            violations=[v],
+            registry=registry,
+            repo_root=tmp_path,
+        )
+    captured = capsys.readouterr().out
+    assert "fix: see convention" in captured
+
+
+def test_suppressed_violations_do_not_annotate(tmp_path, monkeypatch, capsys):
+    """A line carrying an inline suppress marker must NOT emit an annotation."""
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    target = _write(
+        tmp_path / "code.py",
+        "print('x')  # atdd:suppress(LOG-PRINT-001)\n",
+    )
+    v = Violation(
+        rule_id="LOG-PRINT-001",
+        severity=3,
+        location=f"{target.name}:1",
+        detail="print() in production code",
+    )
+    assert_disposition_satisfied(
+        validator_id="vid",
+        violations=[v],
+        registry=_registry(("LOG-PRINT-001", "suppress-and-clean")),
+        repo_root=tmp_path,
+    )
+    captured = capsys.readouterr().out
+    assert "::error" not in captured
+    assert "::warning" not in captured
+
+
+def test_annotation_message_strips_newlines_and_double_colons(
+    tmp_path, monkeypatch, capsys
+):
+    """``::`` and newlines in registry text would break the directive — sanitize."""
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    target = _write(tmp_path / "code.py", "print('x')\n")
+    v = Violation(
+        rule_id="LOG-PRINT-001",
+        severity=3,
+        location=f"{target.name}:1",
+        detail="multiline\ndetail with :: inside",
+    )
+    registry = {
+        "LOG-PRINT-001": _meta(
+            "LOG-PRINT-001",
+            "strict",
+            description="first line\nsecond line",
+            fix_hint="hint :: with marker",
+        )
+    }
+    with pytest.raises(pytest.fail.Exception):
+        assert_disposition_satisfied(
+            validator_id="vid",
+            violations=[v],
+            registry=registry,
+            repo_root=tmp_path,
+        )
+    captured = capsys.readouterr().out
+    # Exactly one annotation line emitted (no newline broke it apart).
+    annotation_lines = [
+        ln for ln in captured.splitlines() if ln.startswith("::error ")
+    ]
+    assert len(annotation_lines) == 1
+    line = annotation_lines[0]
+    # The header `::error ...::` is the only `::` we keep — message has none.
+    head, _, message = line.partition("::")
+    head, _, message = (head + "::" + message).partition(line[:7])  # noqa: F841
+    assert "\n" not in line
+    # First-line truncation: "second line" must NOT appear in annotation.
+    assert "second line" not in line
+    # Message portion (after the second `::`) must not contain `::`.
+    body = line.split("::", 2)[2]
+    assert "::" not in body

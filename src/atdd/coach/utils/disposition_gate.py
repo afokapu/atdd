@@ -30,6 +30,8 @@ default — unregistered rules should be caught by the
 from __future__ import annotations
 
 import logging
+import os
+import sys
 import warnings
 from collections import defaultdict
 from pathlib import Path
@@ -161,6 +163,8 @@ def assert_disposition_satisfied(
 
     failures: List[str] = []
     advisory_blocks: List[str] = []
+    error_annotations: List[Any] = []
+    warning_annotations: List[Any] = []
 
     for rule_id, vs in structured.items():
         meta = registry.get(rule_id)
@@ -172,6 +176,7 @@ def assert_disposition_satisfied(
             advisory_blocks.append(
                 _format_advisory_block(validator_id, rule_id, vs, registry)
             )
+            warning_annotations.extend(vs)
             continue
 
         if disposition == "strict":
@@ -183,6 +188,7 @@ def assert_disposition_satisfied(
                 suppressed_count=0,
                 registry=registry,
             ))
+            error_annotations.extend(vs)
             continue
 
         # suppress-and-clean
@@ -206,10 +212,17 @@ def assert_disposition_satisfied(
                 suppressed_count=len(suppressed),
                 registry=registry,
             ))
+            error_annotations.extend(unsuppressed)
 
     # Opaque violations: no rule_id ⇒ default-strict.
     if opaque:
         failures.append(_format_opaque_block(validator_id, opaque))
+
+    # Issue #404: emit GH Actions ::error::/::warning:: directives so each
+    # violation surfaces as an inline annotation on the PR's "Files changed"
+    # tab. No-op outside GH Actions to keep local pytest output clean.
+    _emit_github_annotations(error_annotations, registry, level="error")
+    _emit_github_annotations(warning_annotations, registry, level="warning")
 
     for block in advisory_blocks:
         warnings.warn(block, UserWarning, stacklevel=2)
@@ -281,6 +294,100 @@ def _format_opaque_block(validator_id: str, opaque: Sequence[Any]) -> str:
     for v in opaque:
         lines.append(f"    {v}")
     return "\n".join(lines)
+
+
+def _first_line(text: Optional[str], default: str = "") -> str:
+    """Return the first non-empty line of ``text`` (or ``default``)."""
+    if not text:
+        return default
+    for line in text.splitlines():
+        line = line.strip()
+        if line:
+            return line
+    return default
+
+
+def _sanitize_annotation_field(value: str) -> str:
+    """Strip characters that would break a GH Actions workflow command.
+
+    GitHub parses the directive as ``::error file=...,line=...,title=...::msg``;
+    embedded ``\\n``, ``::``, or ``,`` in ``title``/``file`` would corrupt the
+    parse. Replace them with safe equivalents while preserving readability.
+    """
+    return (
+        value.replace("\r", " ")
+        .replace("\n", " ")
+        .replace("::", ":")
+        .replace(",", ";")
+        .strip()
+    )
+
+
+def _sanitize_annotation_message(value: str) -> str:
+    """Strip characters that would terminate the message early."""
+    return value.replace("\r", " ").replace("\n", " ").replace("::", ":").strip()
+
+
+def _emit_github_annotations(
+    violations: Sequence[Any],
+    registry: Optional[Dict[str, RuleMetadata]],
+    *,
+    level: str = "error",
+    stream: Any = None,
+) -> None:
+    """Emit one ``::error::`` / ``::warning::`` workflow command per violation.
+
+    Issue #404. Each annotation surfaces inline on the PR's "Files changed"
+    tab at the offending ``file:line`` with the rule's description, fix_hint,
+    and the violation's detail packed into the message. No-op when the
+    process is not running under GitHub Actions (detected via the
+    ``GITHUB_ACTIONS=true`` env var) — local pytest stdout stays clean.
+
+    Args:
+        violations: Sequence of structured ``Violation`` records
+            (``rule_id`` + ``location`` + ``detail``). Opaque/dict-shaped
+            entries are skipped — they have no anchor to annotate.
+        registry: Optional registry of ``RuleMetadata`` keyed by ``rule_id``.
+            When present, ``description`` and ``fix_hint`` are pulled from
+            here to enrich the annotation message.
+        level: ``"error"`` (default) or ``"warning"``. Mirrors the
+            disposition: ``strict`` and unsuppressed ``suppress-and-clean``
+            emit ``::error::``; ``advisory`` emits ``::warning::``.
+        stream: Override the output stream (used by tests). Defaults to
+            ``sys.stdout``.
+    """
+    if not violations:
+        return
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    if level not in ("error", "warning"):
+        level = "error"
+
+    out = stream if stream is not None else sys.stdout
+    for v in violations:
+        if not _looks_like_violation(v):
+            continue
+        path, line = _split_location(v.location)
+        meta = registry.get(v.rule_id) if registry else None
+        description = _first_line(meta.description if meta else None)
+        fix_hint = _first_line(meta.fix_hint if meta else None, default="see convention")
+        detail = _first_line(v.detail, default="")
+
+        params = [f"file={_sanitize_annotation_field(path)}"]
+        if line is not None:
+            params.append(f"line={line}")
+        params.append(f"title={_sanitize_annotation_field(v.rule_id)}")
+
+        message_parts: List[str] = []
+        if description:
+            message_parts.append(description)
+        message_parts.append(f"fix: {fix_hint}")
+        if detail:
+            message_parts.append(f"site: {detail}")
+        message = _sanitize_annotation_message(" | ".join(message_parts))
+
+        out.write(f"::{level} {','.join(params)}::{message}\n")
+    out.flush()
 
 
 __all__ = ["assert_disposition_satisfied"]
