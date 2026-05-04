@@ -117,7 +117,7 @@ checks for an enclosing `Try` ancestor whose handlers catch
 Inline suppression on the offending line silences a single violation:
 
 ```python
-root = find_repo_root() / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(coach.source-layout.toolkit-code-must-not)
+root = find_repo_root() / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(coach.source-layout.no-toolkit-self-layout-assumption)
 ```
 
 Suppressions are intended for code paths that are toolkit-self-only by

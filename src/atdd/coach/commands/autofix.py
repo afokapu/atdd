@@ -160,7 +160,7 @@ def run_github_client_stub_autofix(
     """
     # autofix targets toolkit-self test sources only; falls through silently
     # when run from a pip-installed consumer (root.exists() check below).
-    root = (repo_root or find_repo_root()) / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(coach.source-layout.toolkit-code-must-not)
+    root = (repo_root or find_repo_root()) / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(coach.source-layout.no-toolkit-self-layout-assumption)
     if not root.exists():
         print(f"autofix: tests root not found: {root}")
         return 0

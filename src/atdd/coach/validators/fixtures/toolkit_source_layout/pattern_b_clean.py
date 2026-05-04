@@ -20,4 +20,4 @@ def version_for_other_package():
 
 
 def suppressed_legitimate_use():
-    return version("atdd")  # atdd:suppress(coach.source-layout.toolkit-code-must-not-1)
+    return version("atdd")  # atdd:suppress(coach.source-layout.no-bare-version-detection)
