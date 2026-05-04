@@ -36,9 +36,9 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_SQL = bind_rule("SECURITY-SQL-INJECTION-001")
-_RULE_AUTH = bind_rule("SECURITY-MISSING-AUTH-001")
-_RULE_SECRET = bind_rule("SECURITY-HARDCODED-SECRET-001")
+_RULE_SQL = bind_rule("coder.security.sql-injection")
+_RULE_AUTH = bind_rule("coder.security.missing-auth")
+_RULE_SECRET = bind_rule("coder.security.hardcoded-secret")
 
 
 # ---------------------------------------------------------------------------

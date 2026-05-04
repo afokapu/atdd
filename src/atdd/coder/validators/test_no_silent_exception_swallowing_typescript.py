@@ -48,7 +48,7 @@ FIXTURES_DIR = (
 # ---------------------------------------------------------------------------
 # Rule constants (mirrored in logging.convention.yaml)
 # ---------------------------------------------------------------------------
-RULE_ID = "COACH-SILENT-SWALLOW-001"
+RULE_ID = "coder.logging.coach-silent-swallow"
 RULE_SEVERITY = 4
 SUPPRESSION_MARKER = f"atdd:suppress({RULE_ID})"
 

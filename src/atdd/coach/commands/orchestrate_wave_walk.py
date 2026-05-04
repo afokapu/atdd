@@ -94,7 +94,7 @@ def _gh_fetch_body(issue_number: int) -> str:
             return ""
         import json
         return json.loads(result.stdout).get("body") or ""
-    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return ""
 
 
@@ -118,7 +118,7 @@ def _gh_is_complete(issue_number: int) -> bool:
             if name == "atdd:COMPLETE":
                 return True
         return False
-    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return False
 
 
@@ -141,6 +141,6 @@ def orchestrate_from_issue(issue_number: int) -> int:
             check=False,
         )
         return result.returncode
-    except FileNotFoundError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except FileNotFoundError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         print("Error: `atdd` binary not found on PATH.")
         return 1

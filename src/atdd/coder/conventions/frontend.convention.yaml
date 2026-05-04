@@ -602,15 +602,18 @@ frontend:
         analyzer: "src/atdd/coder/validators/route_train_wagon_analyzer.py"
         baseline: ".atdd/baselines/coder.yaml → route_train_wagon_coverage"
         rules:
-          - id: "BOUNDARIES-ROUTE-COVERAGE-001"
+          - id: "coder.frontend.trainid-not-registered-in"
+            aliases: ["BOUNDARIES-ROUTE-COVERAGE-001"]
             severity: 3
             disposition: strict
             description: "trainId not registered in plan/_trains.yaml (hard fail)"
-          - id: "BOUNDARIES-ROUTE-COVERAGE-002"
+          - id: "coder.frontend.resolved-train-lists-wagon"
+            aliases: ["BOUNDARIES-ROUTE-COVERAGE-002"]
             severity: 3
             disposition: strict
             description: "Resolved train lists wagon not in plan/_wagons.yaml (hard fail)"
-          - id: "BOUNDARIES-ROUTE-COVERAGE-003"
+          - id: "coder.frontend.trainid-expression-not-statically"
+            aliases: ["BOUNDARIES-ROUTE-COVERAGE-003"]
             severity: 1
             disposition: strict
             description: "trainId expression not statically resolvable (advisory; never hard-fail)"
@@ -697,43 +700,50 @@ frontend:
       green ATDD suite. This validator is the static-AST half of the framing
       established by parent issue #318; #356 owns the runtime/behavioral half.
     rules:
-      - id: PRESENTATION-NOSTUB-001
+      - id: "coder.frontend.arrow-function-with-a"
+        aliases: ["PRESENTATION-NOSTUB-001"]
         severity: 4
         disposition: strict
         description: >
           Arrow function with a bare null/undefined expression body
           (`() => null`, `() => undefined`).
-      - id: PRESENTATION-NOSTUB-002
+      - id: "coder.frontend.function-or-function-expression"
+        aliases: ["PRESENTATION-NOSTUB-002"]
         severity: 4
         disposition: strict
         description: >
           Function or function-expression block whose only return is a null
           literal, undefined, or a bare `return;`.
-      - id: PRESENTATION-NOSTUB-003
+      - id: "coder.frontend.empty-fragment-return-or"
+        aliases: ["PRESENTATION-NOSTUB-003"]
         severity: 4
         disposition: strict
         description: >
           Empty fragment return (`<></>` or `<Fragment></Fragment>`) with zero
           children and zero attributes.
-      - id: PRESENTATION-NOSTUB-004
+      - id: "coder.frontend.self-closing-or-empty"
+        aliases: ["PRESENTATION-NOSTUB-004"]
         severity: 4
         disposition: strict
         description: >
           Self-closing or empty element with zero children, zero static
           attributes, and zero spread expressions (e.g. `<div />`).
-      - id: PRESENTATION-NOSTUB-005
+      - id: "coder.frontend.conditional-whose-every-branch"
+        aliases: ["PRESENTATION-NOSTUB-005"]
         severity: 4
         disposition: strict
         description: >
           Conditional whose every branch resolves to a stub literal
           (e.g. `flag ? null : null`).
-      - id: PRESENTATION-NOSTUB-010
+      - id: "coder.frontend.allowlist-entry-must-include"
+        aliases: ["PRESENTATION-NOSTUB-010"]
         severity: 2
         disposition: strict
         description: >
           Allowlist entry must include a `migration:` field referencing the
           issue that will eliminate the exemption.
-      - id: PRESENTATION-NOSTUB-020
+      - id: "coder.frontend.negative-rule-a-guarded"
+        aliases: ["PRESENTATION-NOSTUB-020"]
         severity: 4
         disposition: strict
         description: >
@@ -746,12 +756,14 @@ frontend:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: BOUNDARIES-FE-LAYERS-001
+  - id: "coder.frontend.boundaries-fe-layers"
+    aliases: ["BOUNDARIES-FE-LAYERS-001"]
     severity: 3
     disposition: strict
     description: "Frontend code follows the 4-layer architecture (presentation, application, integration, domain)"
     introduced_in: "1.67.0"
-  - id: BOUNDARIES-FE-IMPORTS-001
+  - id: "coder.frontend.boundaries-fe-imports"
+    aliases: ["BOUNDARIES-FE-IMPORTS-001"]
     severity: 3
     disposition: strict
     description: "Frontend imports respect inward dependency direction (presentation -> application -> domain)"

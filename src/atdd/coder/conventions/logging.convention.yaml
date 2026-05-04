@@ -36,7 +36,8 @@ scan_scope:
     - "*/fixtures/*"
 
 rules:
-  - id: "LOG-001"
+  - id: "coder.logging.no-print-calls-in"
+    aliases: ["LOG-001"]
     disposition: strict
     name: "no-print-in-production"
     description: "No print() calls in non-test production Python code"
@@ -47,7 +48,8 @@ rules:
       - "CLI tools (src/atdd/) — print is intentional user-facing output"
       - "Test files — print is acceptable for debug output"
 
-  - id: "LOG-002"
+  - id: "coder.logging.logger-calls-must-include"
+    aliases: ["LOG-002"]
     disposition: suppress-and-clean
     name: "structured-logging-required"
     description: "Logger calls must include extra= keyword argument with context dict"
@@ -62,7 +64,8 @@ rules:
       - 'logger.info("User %s created", username)'
       - 'logger.debug("Processing request")'
 
-  - id: "COACH-SILENT-SWALLOW-001"
+  - id: "coder.logging.coach-silent-swallow"
+    aliases: ["COACH-SILENT-SWALLOW-001"]
     name: "no-silent-exception-swallowing"
     description: "Exception handlers must log, re-raise, or otherwise observably react — never silently return a success value"
     severity: 4
@@ -153,12 +156,14 @@ deferred:
 # LOG-002 IDs above (which use string severities and pre-grammar shape).
 canonical_rules:
   rules:
-    - id: LOGGING-PRINT-001
+    - id: "coder.logging.print"
+      aliases: ["LOGGING-PRINT-001"]
       severity: 2
       disposition: strict
       description: "No print() calls in non-test production Python code (use logger)"
       introduced_in: "1.67.0"
-    - id: LOGGING-STRUCTURED-001
+    - id: "coder.logging.structured"
+      aliases: ["LOGGING-STRUCTURED-001"]
       severity: 2
       disposition: suppress-and-clean
       description: "Logger calls must include extra= keyword argument with context dict"

@@ -111,7 +111,7 @@ class URNCommand:
             print(output)
             return 0
 
-        except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error generating graph: {e}", file=sys.stderr)
             return 1
 
@@ -138,7 +138,7 @@ class URNCommand:
         """
         try:
             import streamlit  # noqa: F401
-        except ImportError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(
                 "Error: Streamlit is not installed.\n"
                 "Install the viz extra: pip install atdd[viz]",
@@ -148,7 +148,7 @@ class URNCommand:
 
         try:
             import st_link_analysis  # noqa: F401
-        except ImportError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(
                 "Error: st-link-analysis is not installed.\n"
                 "Install the viz extra: pip install atdd[viz]",
@@ -177,7 +177,7 @@ class URNCommand:
         print(f"Launching URN graph visualizer on http://{host}:{port}")
         try:
             return subprocess.call(cmd, env=env)
-        except KeyboardInterrupt:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except KeyboardInterrupt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             return 0
 
     def orphans(
@@ -214,7 +214,7 @@ class URNCommand:
 
             return 1 if issues else 0
 
-        except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error finding orphans: {e}", file=sys.stderr)
             return 1
 
@@ -252,7 +252,7 @@ class URNCommand:
 
             return 1 if issues else 0
 
-        except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error finding broken refs: {e}", file=sys.stderr)
             return 1
 
@@ -297,7 +297,7 @@ class URNCommand:
             else:
                 return 1 if result.has_errors else 0
 
-        except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error running validation: {e}", file=sys.stderr)
             return 1
 
@@ -384,7 +384,7 @@ class URNCommand:
 
             return 0 if resolution.is_resolved else 1
 
-        except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error resolving URN: {e}", file=sys.stderr)
             return 1
 
@@ -446,7 +446,7 @@ class URNCommand:
 
             return 0
 
-        except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error listing declarations: {e}", file=sys.stderr)
             return 1
 

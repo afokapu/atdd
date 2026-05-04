@@ -23,7 +23,7 @@ Fixtures, tests outside the validators/ tree, and validators that have not
 yet adopted ``bind_rule`` are out of scope (they're tracked in #389).
 
 Convention: ``src/atdd/coach/conventions/rule-id.convention.yaml``
-            (rule ``COACH-RULEID-BIND-001``).
+            (rule ``coach.rule-id.no-hardcoded-rule-severity``).
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ VALIDATOR_ROOTS = [
     ATDD_PKG_DIR / "coder" / "validators",
 ]
 
-_RULE = bind_rule("COACH-RULEID-BIND-001")
+_RULE = bind_rule("coach.rule-id.no-hardcoded-rule-severity")
 
 _BIND_RULE_MODULE = "atdd.coach.utils.rule_binding"
 
@@ -160,7 +160,7 @@ def scan_for_hardcoded_severity() -> List[Violation]:
         try:
             source = py_file.read_text(encoding="utf-8")
             tree = ast.parse(source, filename=str(py_file))
-        except (OSError, SyntaxError, UnicodeDecodeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+        except (OSError, SyntaxError, UnicodeDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
             # Unparseable files are policed by the syntax test_suite; skip.
             continue
         if not _imports_bind_rule(tree):
@@ -210,7 +210,7 @@ def scan_for_hardcoded_severity() -> List[Violation]:
 def test_no_hardcoded_rule_severity_in_migrated_validators():
     """Migrated validators must not redeclare rule severity.
 
-    SPEC: ``rule-id.convention.yaml::rules[COACH-RULEID-BIND-001]``.
+    SPEC: ``rule-id.convention.yaml::rules[coach.rule-id.no-hardcoded-rule-severity]``.
 
     Given:  Python files under ``src/atdd/{coach,coder}/validators/`` that
             import ``atdd.coach.utils.rule_binding``.

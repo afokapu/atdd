@@ -28,7 +28,7 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule binding — fail at import if convention drifts (issue #394).
-_RULE_NPLUS1 = bind_rule("REFACTOR-NPLUS1-001")
+_RULE_NPLUS1 = bind_rule("coder.refactor.nplus1")
 
 
 # Path constants

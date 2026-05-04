@@ -48,39 +48,45 @@ green_phase:
     # Structured rules (issue #340 — see src/atdd/coach/specs/rule-id.spec.md)
     # ---------------------------------------------------------------------
     rules:
-      - id: GREEN-URN-001
+      - id: "coder.green.component-urn-marker-is"
+        aliases: ["GREEN-URN-001"]
         severity: 3
         disposition: strict
         description: "Component URN marker is the first non-empty line of every implementation file"
         recipe: adapter
         introduced_in: "1.61.2"
 
-      - id: GREEN-URN-002
+      - id: "coder.green.component-urn-matches-pattern"
+        aliases: ["GREEN-URN-002"]
         severity: 3
         disposition: strict
         description: "Component URN matches pattern component:{wagon}:{feature}:{name}:{side}:{layer}"
         recipe: adapter
         introduced_in: "1.61.2"
 
-      - id: GREEN-URN-003
+      - id: "coder.green.wagon-and-feature-segments"
+        aliases: ["GREEN-URN-003"]
         severity: 3
         disposition: strict
         description: "Wagon and feature segments of the URN exist in the wagon manifest"
         introduced_in: "1.61.2"
 
-      - id: GREEN-URN-004
+      - id: "coder.green.component-name-segment-matches"
+        aliases: ["GREEN-URN-004"]
         severity: 2
         disposition: strict
         description: "Component name segment matches the filename (with PascalCase/camelCase casing)"
         introduced_in: "1.61.2"
 
-      - id: GREEN-URN-005
+      - id: "coder.green.side-segment-is-one"
+        aliases: ["GREEN-URN-005"]
         severity: 3
         disposition: strict
         description: "Side segment is one of: frontend, backend"
         introduced_in: "1.61.2"
 
-      - id: GREEN-URN-006
+      - id: "coder.green.layer-segment-is-one"
+        aliases: ["GREEN-URN-006"]
         severity: 3
         disposition: strict
         description: "Layer segment is one of: domain, application, integration, presentation, assembly"
@@ -94,25 +100,29 @@ green_phase:
     # Structured rules (issue #340 — see src/atdd/coach/specs/rule-id.spec.md)
     # ---------------------------------------------------------------------
     rules:
-      - id: GREEN-HEADER-001
+      - id: "coder.green.runtime-declaration-runtime-python"
+        aliases: ["GREEN-HEADER-001"]
         severity: 2
         disposition: strict
         description: "Runtime declaration (# Runtime: <python|supabase|flutter>) is present"
         introduced_in: "1.61.2"
 
-      - id: GREEN-HEADER-002
+      - id: "coder.green.purpose-description-purpose-is"
+        aliases: ["GREEN-HEADER-002"]
         severity: 2
         disposition: strict
         description: "Purpose description (# Purpose: ...) is present and ≤80 chars"
         introduced_in: "1.61.2"
 
-      - id: GREEN-HEADER-003
+      - id: "coder.green.tested-by-block-lists"
+        aliases: ["GREEN-HEADER-003"]
         severity: 2
         disposition: strict
         description: "Tested-By block lists at least one valid test URN"
         introduced_in: "1.61.2"
 
-      - id: GREEN-HEADER-004
+      - id: "coder.green.header-order-urn-tested"
+        aliases: ["GREEN-HEADER-004"]
         severity: 2
         disposition: strict
         description: "Header order: URN → Tested-By → Runtime → Purpose → blank → docstring → imports"

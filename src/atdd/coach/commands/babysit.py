@@ -46,7 +46,7 @@ def load_token_alert_threshold(*, repo_root: Optional[Path] = None) -> int:
     base = Path(repo_root) if repo_root is not None else Path.cwd()
     try:
         config = load_atdd_config(base)
-    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
         # Malformed or unreadable config → fall back to the documented default.
         return DEFAULT_TOKEN_ALERT_THRESHOLD
     babysit_cfg = (config or {}).get("babysit") or {}
@@ -77,14 +77,14 @@ def read_token_count(
             text=True,
             timeout=5,
         )
-    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         # Best-effort: claude binary missing or call errored → caller renders "—".
         return None
     if result.returncode != 0:
         return None
     try:
         payload = json.loads(result.stdout)
-    except (json.JSONDecodeError, TypeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (json.JSONDecodeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         # Best-effort: stdout shape unrecognized → caller renders "—".
         return None
     for key in ("context_used_tokens", "tokens_used", "tokens"):
@@ -395,7 +395,7 @@ def process_workspace(
 ) -> BabysitDecision:
     try:
         screen = backend.read_screen(state.ref, lines=80)
-    except MultiplexerError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except MultiplexerError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         log_event(
             {"event": "screen_read_error", "workspace": state.ref, "error": str(exc)},
             path=log_path,
@@ -471,7 +471,7 @@ def process_workspace(
         try:
             backend.send(state.ref, "1")
             backend.send_key(state.ref, "Enter")
-        except MultiplexerError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except MultiplexerError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             log_event(
                 {"event": "auto_approve_failed", "workspace": state.ref, "error": str(exc)},
                 path=log_path,
@@ -544,7 +544,7 @@ def _load_orchestrate_state(path: Path) -> Dict[str, int]:
         return {}
     try:
         data = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         # Best-effort read for dashboard rendering. Falling back to {} causes
         # the dashboard to render `?`/`—` placeholders rather than crashing
         # the babysit loop, which is the documented behavior.
@@ -596,14 +596,14 @@ def _fetch_phase_cache(issue_numbers: List[int]) -> Dict[int, str]:
             text=True,
             timeout=10,
         )
-    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         # Best-effort GitHub fetch. gh missing / offline / rate-limited all
         # collapse to "no phase data this cycle" — the dashboard renders `?`
         # for that issue and tries again next refresh.
         return {}
     try:
         records = json.loads(result.stdout or "[]")
-    except json.JSONDecodeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow)
         # gh returned non-JSON (e.g. an error message on stdout). Same
         # fallback as the subprocess error path: render `?` and retry.
         return {}
@@ -790,14 +790,14 @@ def run(
 ) -> int:
     try:
         backend = get_multiplexer(preferred=multiplexer)
-    except MultiplexerError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except MultiplexerError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         print(f"❌ {exc}")
         return 1
 
     if workspaces is None:
         try:
             workspaces = backend.list_workspaces()
-        except MultiplexerError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except MultiplexerError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"❌ {exc}")
             return 1
 
@@ -864,6 +864,6 @@ def run(
             return 0
         try:
             time.sleep(interval)
-        except KeyboardInterrupt:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except KeyboardInterrupt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print("\n👋 babysitter stopped")
             return 0

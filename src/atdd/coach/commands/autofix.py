@@ -67,12 +67,12 @@ def _rewrite_file(path: Path) -> Tuple[int, Optional[str]]:
     """
     try:
         source = path.read_text(encoding="utf-8")
-    except OSError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return (0, f"skip {path}: {exc}")
 
     try:
         tree = ast.parse(source, filename=str(path))
-    except SyntaxError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except SyntaxError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return (0, f"skip {path}: parse error ({exc})")
 
     offenders = _find_offending_classes(tree)
@@ -160,7 +160,7 @@ def run_github_client_stub_autofix(
     """
     # autofix targets toolkit-self test sources only; falls through silently
     # when run from a pip-installed consumer (root.exists() check below).
-    root = (repo_root or find_repo_root()) / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(COACH-PKG-LAYOUT-001)
+    root = (repo_root or find_repo_root()) / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(coach.source-layout.toolkit-code-must-not)
     if not root.exists():
         print(f"autofix: tests root not found: {root}")
         return 0

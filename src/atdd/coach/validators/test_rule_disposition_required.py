@@ -23,7 +23,7 @@ Failure mode:
     ``pytest.fail`` with a per-rule punch list of missing or invalid
     ``disposition`` declarations.
 
-Rule emitted: ``COACH-RULEID-DISPOSITION-001`` (severity 2, strict).
+Rule emitted: ``coach.rule-id.disposition-required`` (severity 2, strict).
 """
 
 from __future__ import annotations
@@ -97,7 +97,7 @@ def _format_offenders(offenders: List[Tuple[str, Path, str]]) -> str:
         by_path.setdefault(path, []).append((rid, reason))
 
     lines = [
-        f"[ERROR] COACH-RULEID-DISPOSITION-001: "
+        f"[ERROR] coach.rule-id.disposition-required: "
         f"{len(offenders)} rule(s) without a valid disposition:"
     ]
     for path in sorted(by_path):

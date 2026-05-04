@@ -28,10 +28,10 @@ from atdd.coach.validators._violation import Violation
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_ENTITY = bind_rule("BOUNDARIES-XLANG-ENTITY-001")
-_RULE_ENUM = bind_rule("BOUNDARIES-XLANG-ENUM-001")
-_RULE_NAMING = bind_rule("BOUNDARIES-XLANG-NAMING-001")
-_RULE_CONTRACT = bind_rule("BOUNDARIES-XLANG-CONTRACT-001")
+_RULE_ENTITY = bind_rule("coder.boundaries.xlang-entity")
+_RULE_ENUM = bind_rule("coder.boundaries.xlang-enum")
+_RULE_NAMING = bind_rule("coder.boundaries.xlang-naming")
+_RULE_CONTRACT = bind_rule("coder.boundaries.xlang-contract")
 
 
 # Path constants

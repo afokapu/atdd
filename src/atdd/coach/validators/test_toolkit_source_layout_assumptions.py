@@ -27,8 +27,8 @@ validators). Each took 30+ minutes to root-cause; this validator catches the
 Convention: ``src/atdd/coach/conventions/source-layout.convention.yaml``
 SPEC:       ``src/atdd/coach/specs/toolkit-source-layout.spec.md``
 
-Suppression: ``# atdd:suppress(COACH-PKG-LAYOUT-001)`` /
-``# atdd:suppress(COACH-PKG-LAYOUT-002)`` on the offending line per the
+Suppression: ``# atdd:suppress(coach.source-layout.toolkit-code-must-not)`` /
+``# atdd:suppress(coach.source-layout.toolkit-code-must-not-1)`` on the offending line per the
 grammar in #357.
 """
 

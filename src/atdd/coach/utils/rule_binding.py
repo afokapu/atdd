@@ -13,7 +13,7 @@ validator emitting at severity 4 forever.
 search roots, locates the matching ``rules:`` entry, and returns a
 ``RuleMetadata`` view.  Validators call it once at module-import time:
 
-    _RULE = bind_rule("COACH-SILENT-SWALLOW-001")
+    _RULE = bind_rule("coder.logging.coach-silent-swallow")
 
 If the rule is unregistered or appears in two convention files, the call
 raises at import — the failure surfaces immediately rather than later in a
@@ -156,7 +156,7 @@ def extract_rules(
     try:
         with open(file_path) as fh:
             data = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         # Unreadable / malformed YAML is policed by test_rule_id_uniqueness;
         # bind_rule treats such files as empty so a single broken convention
         # does not break the entire registry walk.

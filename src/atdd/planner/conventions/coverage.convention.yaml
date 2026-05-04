@@ -3,7 +3,8 @@ name: "Planner Coverage Convention"
 description: "Section 2 of ATDD Hierarchy Coverage Spec v0.1 - Ensures every planner artifact participates in lifecycle graph"
 
 rules:
-  - id: "COVERAGE-PLAN-2.1"
+  - id: "planner.coverage.bidirectional-coverage-between-trains"
+    aliases: ["COVERAGE-PLAN-2.1"]
     disposition: strict
     name: "Train - Wagon Coverage"
     description: "Bidirectional coverage between trains and wagons"
@@ -17,7 +18,8 @@ rules:
         requirement: "Every wagon: participant must have a wagon manifest"
         validator: "test_all_train_wagon_refs_exist"
 
-  - id: "COVERAGE-PLAN-2.2"
+  - id: "planner.coverage.bidirectional-coverage-between-wagons"
+    aliases: ["COVERAGE-PLAN-2.2"]
     disposition: strict
     name: "Wagon - Feature Coverage"
     description: "Bidirectional coverage between wagons and features"
@@ -31,7 +33,8 @@ rules:
         requirement: "Every features[] entry must have corresponding YAML file"
         validator: "test_all_wagon_feature_refs_exist"
 
-  - id: "COVERAGE-PLAN-2.3"
+  - id: "planner.coverage.every-wmbt-must-be"
+    aliases: ["COVERAGE-PLAN-2.3"]
     disposition: strict
     name: "WMBT - Feature Coverage"
     description: "Every WMBT must be referenced by at least one feature"
@@ -40,7 +43,8 @@ rules:
         requirement: "Every WMBT file must appear in at least one feature's wmbts list"
         validator: "test_all_wmbts_in_at_least_one_feature"
 
-  - id: "COVERAGE-PLAN-2.4"
+  - id: "planner.coverage.every-wmbt-must-have"
+    aliases: ["COVERAGE-PLAN-2.4"]
     disposition: strict
     name: "WMBT - Acceptance Coverage"
     description: "Every WMBT must have at least one acceptance criterion"

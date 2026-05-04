@@ -3,7 +3,8 @@ name: "Tester Coverage Convention"
 description: "Section 3 of ATDD Hierarchy Coverage Spec v0.1 - Ensures test artifacts have complete coverage"
 
 rules:
-  - id: "COVERAGE-TEST-3.1"
+  - id: "tester.coverage.every-acceptance-criterion-must"
+    aliases: ["COVERAGE-TEST-3.1"]
     disposition: strict
     name: "Acceptance - Tests Coverage"
     description: "Every acceptance criterion must have corresponding test(s)"
@@ -13,7 +14,8 @@ rules:
         exceptions: "acceptance_without_tests allow-list"
         validator: "test_all_acceptances_have_tests"
 
-  - id: "COVERAGE-TEST-3.2"
+  - id: "tester.coverage.bidirectional-coverage-between-contracts"
+    aliases: ["COVERAGE-TEST-3.2"]
     disposition: strict
     name: "Contract - Wagon Coverage"
     description: "Bidirectional coverage between contracts and wagon produce/consume"
@@ -27,7 +29,8 @@ rules:
         requirement: "Every produce/consume contract ref must have schema file"
         validator: "test_all_contract_refs_exist"
 
-  - id: "COVERAGE-TEST-3.3"
+  - id: "tester.coverage.bidirectional-coverage-between-telemetry"
+    aliases: ["COVERAGE-TEST-3.3"]
     disposition: strict
     name: "Telemetry - Wagon Coverage"
     description: "Bidirectional coverage between telemetry signals and wagon produce"
@@ -41,7 +44,8 @@ rules:
         requirement: "Every produce telemetry ref must have signal files"
         validator: "test_all_telemetry_refs_exist"
 
-  - id: "COVERAGE-TEST-3.4"
+  - id: "tester.coverage.tracking-manifest-must-be"
+    aliases: ["COVERAGE-TEST-3.4"]
     disposition: strict
     name: "Telemetry Tracking Manifest"
     description: "Tracking manifest must be complete if present"

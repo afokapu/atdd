@@ -3,7 +3,8 @@ name: "Coder Coverage Convention"
 description: "Section 4 of ATDD Hierarchy Coverage Spec v0.1 - Ensures code implementation covers all features"
 
 rules:
-  - id: "COVERAGE-CODE-4.1"
+  - id: "coder.coverage.every-feature-must-have"
+    aliases: ["COVERAGE-CODE-4.1"]
     disposition: strict
     name: "Feature - Implementation Coverage"
     description: "Every feature must have corresponding code implementation"
@@ -11,7 +12,8 @@ rules:
     exceptions: "features_without_implementation allow-list"
     validator: "test_all_features_have_implementations"
 
-  - id: "COVERAGE-CODE-4.2"
+  - id: "coder.coverage.every-implementation-must-have"
+    aliases: ["COVERAGE-CODE-4.2"]
     disposition: strict
     name: "Implementation - Tests Coverage"
     description: "Every implementation must have at least one linked test"

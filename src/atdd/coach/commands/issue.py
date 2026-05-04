@@ -171,7 +171,7 @@ class IssueManager:
                 verb=verb,
                 repo_root=self.target_dir,
             )
-        except ManifestCommitError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"  Warning: manifest not committed — {exc}")
             print(
                 "    Run `git add .atdd/manifest.yaml && git commit` once "
@@ -741,7 +741,7 @@ class IssueManager:
                 repo=github_config["repo"],
                 project_id=github_config.get("project_id"),
             )
-        except (GitHubClientError, KeyError) as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except (GitHubClientError, KeyError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: GitHub integration failed: {e}")
             return 1
 
@@ -923,7 +923,7 @@ class IssueManager:
         try:
             client = self._get_github_client()
             issues = client.list_issues_by_label("atdd-issue")
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: {e}")
             return 1
 
@@ -995,7 +995,7 @@ class IssueManager:
             issues = client.list_open_issues(
                 label=label, limit=limit, assignee=assignee,
             )
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: {e}")
             return 1
 
@@ -1039,14 +1039,14 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: {e}")
             return 1
 
@@ -1091,7 +1091,7 @@ class IssueManager:
                     client.set_project_field_select(
                         item_id, fields["ATDD Status"]["id"], options["COMPLETE"]
                     )
-        except GitHubClientError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except GitHubClientError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             pass
 
         # Update manifest
@@ -1375,10 +1375,10 @@ class IssueManager:
                 base_ref="origin/main",
                 head_ref="HEAD",
             )
-        except subprocess.CalledProcessError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             messages.append("  Smoke gate: SKIPPED (origin/main unreachable)")
             return True, messages
-        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             messages.append(f"  Smoke gate: SKIPPED ({exc})")
             return True, messages
 
@@ -1603,7 +1603,7 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
@@ -1637,7 +1637,7 @@ class IssueManager:
                 projects_access_denied = True
                 fields = {}
                 item_id = None
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: {e}")
             return 1
 
@@ -1886,14 +1886,14 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
             client = self._get_github_client()
             subs = client.get_sub_issues(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: {e}")
             return 1
 

@@ -55,7 +55,8 @@ routing_examples:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: TESTER-ROUTING-PATH-001
+  - id: "tester.routing.path"
+    aliases: ["TESTER-ROUTING-PATH-001"]
     severity: 2
     disposition: strict
     description: "Test path determines the runtime that executes it (python/ vs supabase/ vs web/)"

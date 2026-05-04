@@ -39,8 +39,8 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_CONSUMER = bind_rule("REFACTOR-COMPOSITION-CONSUMER-001")
-_RULE_ROOT = bind_rule("REFACTOR-COMPOSITION-ROOT-001")
+_RULE_CONSUMER = bind_rule("coder.refactor.composition-consumer")
+_RULE_ROOT = bind_rule("coder.refactor.composition-root")
 
 
 REPO_ROOT = find_repo_root()

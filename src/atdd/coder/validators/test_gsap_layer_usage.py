@@ -29,8 +29,8 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_GSAP_LAYER = bind_rule("PRESENTATION-GSAP-LAYER-001")
-_RULE_GSAP_COMMONS = bind_rule("PRESENTATION-GSAP-COMMONS-001")
+_RULE_GSAP_LAYER = bind_rule("coder.presentation.gsap-layer")
+_RULE_GSAP_COMMONS = bind_rule("coder.presentation.gsap-commons")
 
 
 REPO_ROOT = find_repo_root()

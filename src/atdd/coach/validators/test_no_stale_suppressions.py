@@ -17,7 +17,7 @@ A marker is *stale* when its ``UNTIL=`` date is past today. Per Decision 4
 deadline is optional in v1, and strict orgs may layer on a separate
 disposition rule to require it.
 
-Rule emitted: ``COACH-RULEID-STALE-SUPPRESSION-001``.
+Rule emitted: ``coach.rule-id.stale-suppression``.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from atdd.coach.utils.suppression_scanner import (
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 
-_RULE_ID = "COACH-RULEID-STALE-SUPPRESSION-001"
+_RULE_ID = "coach.rule-id.stale-suppression"
 
 
 def _scan_roots() -> List[Path]:

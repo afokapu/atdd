@@ -45,7 +45,7 @@ def _parse_version(version: str) -> Tuple[int, ...]:
     """Parse version string into tuple for comparison."""
     try:
         return tuple(int(x) for x in version.split(".")[:3])
-    except (ValueError, AttributeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (ValueError, AttributeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         return (0, 0, 0)
 
 
@@ -60,7 +60,7 @@ def _load_cache() -> dict:
         if CACHE_FILE.exists():
             with open(CACHE_FILE) as f:
                 return json.load(f)
-    except (json.JSONDecodeError, OSError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         pass
     return {}
 
@@ -71,7 +71,7 @@ def _save_cache(data: dict) -> None:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         with open(CACHE_FILE, "w") as f:
             json.dump(data, f)
-    except OSError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow)
         pass  # Silently fail if we can't write cache
 
 
@@ -81,7 +81,7 @@ def _fetch_latest_version() -> Optional[str]:
         with urlopen(PYPI_URL, timeout=2) as response:
             data = json.loads(response.read().decode())
             return data.get("info", {}).get("version")
-    except (URLError, json.JSONDecodeError, OSError, TimeoutError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (URLError, json.JSONDecodeError, OSError, TimeoutError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         return None
 
 
@@ -138,7 +138,7 @@ def print_update_notice() -> None:
         notice = check_for_updates()
         if notice:
             print(notice, file=sys.stderr)
-    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         pass  # Never fail the main command due to version check
 
 
@@ -158,7 +158,7 @@ def _load_repo_config() -> Tuple[Optional[dict], Optional[Path]]:
     try:
         with open(config_path) as f:
             return yaml.safe_load(f) or {}, config_path
-    except (yaml.YAMLError, OSError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         return None, None
 
 
@@ -252,7 +252,7 @@ def update_toolkit_version(config_path: Optional[Path] = None) -> bool:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
         return True
-    except (yaml.YAMLError, OSError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         return False
 
 
@@ -276,7 +276,7 @@ def print_upgrade_sync_notice() -> None:
         if notice:
             print(f"\n⚠️  {notice}", file=sys.stderr)
             print(file=sys.stderr)
-    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         pass  # Never fail the main command
 
 
@@ -310,7 +310,7 @@ def auto_upgrade() -> bool:
             capture_output=True, text=True, timeout=120,
         )
         return result.returncode == 0
-    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return False
 
 

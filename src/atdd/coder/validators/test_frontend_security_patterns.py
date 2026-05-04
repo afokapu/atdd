@@ -107,7 +107,7 @@ def find_frontend_files(
 # ---------------------------------------------------------------------------
 # SPEC-COACH-RULEID-0001: rule_id matching the grammar <DOMAIN>-<TOPIC>-<NNN>.
 # Severity 5 = security/blocking per SPEC-COACH-RULEID-0003.
-XSS_RULE_ID = "SECURITY-XSS-001"
+XSS_RULE_ID = "coder.security.xss"
 XSS_RULE_SEVERITY = 5
 
 

@@ -33,8 +33,8 @@ from atdd.coach.validators._violation import Violation
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_PRINT = bind_rule("LOGGING-PRINT-001")
-_RULE_STRUCTURED = bind_rule("LOGGING-STRUCTURED-001")
+_RULE_PRINT = bind_rule("coder.logging.print")
+_RULE_STRUCTURED = bind_rule("coder.logging.structured")
 
 
 # Path constants
@@ -281,7 +281,7 @@ def test_structured_logging_format():
 
     Pass/fail decided by LOGGING-STRUCTURED-001's disposition
     (``suppress-and-clean``): pre-existing bare log calls carry inline
-    ``# atdd:suppress(LOGGING-STRUCTURED-001) UNTIL=<date>`` markers and
+    ``# atdd:suppress(coder.logging.structured) UNTIL=<date>`` markers and
     are absorbed; new bare calls fail.
 
     Convention: atdd/coder/conventions/logging.convention.yaml (LOG-002)

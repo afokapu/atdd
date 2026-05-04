@@ -12,22 +12,26 @@ design_system:
   # grammar. The legacy DS-NN/AP-DS-NN entries below are preserved verbatim
   # — renaming is out of scope (Out-of-Scope per issue #389).
   rules:
-    - id: DESIGN-HIERARCHY-001
+    - id: "coder.design.tokens-are-pure-values"
+      aliases: ["DESIGN-HIERARCHY-001"]
       severity: 3
       disposition: strict
       description: "Tokens are pure values — no widgets, no logic (mirrors principles.DS-01)"
       introduced_in: "1.66.0"
-    - id: DESIGN-HIERARCHY-002
+    - id: "coder.design.dependency-flow-tokens-primitives"
+      aliases: ["DESIGN-HIERARCHY-002"]
       severity: 3
       disposition: strict
       description: "Dependency flow: tokens ← primitives ← components ← templates (mirrors principles.DS-05)"
       introduced_in: "1.66.0"
-    - id: DESIGN-HIERARCHY-003
+    - id: "coder.design.wagons-import-from-design"
+      aliases: ["DESIGN-HIERARCHY-003"]
       severity: 3
       disposition: strict
       description: "Wagons import from design_system; design_system never imports from wagons (mirrors principles.DS-06)"
       introduced_in: "1.66.0"
-    - id: DESIGN-HIERARCHY-004
+    - id: "coder.design.extract-to-design-system"
+      aliases: ["DESIGN-HIERARCHY-004"]
       severity: 2
       disposition: strict
       description: "Extract to design_system on 3rd occurrence (DRY threshold; mirrors principles.DS-07)"
@@ -357,42 +361,50 @@ design_system:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: DESIGN-PRIMITIVES-001
+  - id: "coder.design.primitives"
+    aliases: ["DESIGN-PRIMITIVES-001"]
     severity: 2
     disposition: strict
     description: "Presentation layer composes design system primitives instead of raw HTML/Native elements"
     introduced_in: "1.67.0"
-  - id: DESIGN-TOKEN-COLOR-001
+  - id: "coder.design.token-color"
+    aliases: ["DESIGN-TOKEN-COLOR-001"]
     severity: 2
     disposition: strict
     description: "UI files reference design tokens for colors instead of hex/rgb literals"
     introduced_in: "1.67.0"
-  - id: DESIGN-ORPHAN-EXPORT-001
+  - id: "coder.design.orphan-export"
+    aliases: ["DESIGN-ORPHAN-EXPORT-001"]
     severity: 2
     disposition: strict
     description: "Design system exports must have at least one consumer"
     introduced_in: "1.67.0"
-  - id: DESIGN-FOUNDATIONS-001
+  - id: "coder.design.foundations"
+    aliases: ["DESIGN-FOUNDATIONS-001"]
     severity: 2
     disposition: strict
     description: "Design system primitives must compose foundations (tokens, layout, color) rather than raw values"
     introduced_in: "1.67.0"
-  - id: DESIGN-HIERARCHY-IMPORT-001
+  - id: "coder.design.hierarchy-import"
+    aliases: ["DESIGN-HIERARCHY-IMPORT-001"]
     severity: 3
     disposition: strict
     description: "Design system layers may only import from layers below them in the hierarchy"
     introduced_in: "1.67.0"
-  - id: DESIGN-TOKEN-HARDCODED-001
+  - id: "coder.design.token-hardcoded"
+    aliases: ["DESIGN-TOKEN-HARDCODED-001"]
     severity: 2
     disposition: strict
     description: "Wagons must not hardcode token values that exist in the design system"
     introduced_in: "1.67.0"
-  - id: DESIGN-ORPHAN-UI-001
+  - id: "coder.design.orphan-ui"
+    aliases: ["DESIGN-ORPHAN-UI-001"]
     severity: 2
     disposition: strict
     description: "UI elements (components/pages/screens) must be referenced by a route, parent, or test"
     introduced_in: "1.67.0"
-  - id: DESIGN-HIERARCHY-COVERAGE-001
+  - id: "coder.design.hierarchy-coverage"
+    aliases: ["DESIGN-HIERARCHY-COVERAGE-001"]
     severity: 2
     # Coverage check; emits ``plan/.../<feature>.yaml:1`` locations.
     # Suppression scanner only walks .py/.ts/.tsx, so YAML markers don't

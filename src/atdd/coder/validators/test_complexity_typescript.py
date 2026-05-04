@@ -25,9 +25,9 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_CYCLO_TS = bind_rule("COMPLEXITY-CYCLOMATIC-TS-001")
-_RULE_NEST_TS = bind_rule("COMPLEXITY-NESTING-TS-001")
-_RULE_LEN_TS = bind_rule("COMPLEXITY-LENGTH-TS-001")
+_RULE_CYCLO_TS = bind_rule("coder.refactor.complexity-cyclomatic-typescript")
+_RULE_NEST_TS = bind_rule("coder.refactor.complexity-nesting-typescript")
+_RULE_LEN_TS = bind_rule("coder.refactor.complexity-length-typescript")
 
 
 # ---------------------------------------------------------------------------

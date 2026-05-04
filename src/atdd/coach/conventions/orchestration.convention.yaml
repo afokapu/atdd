@@ -149,32 +149,38 @@ babysit:
 
       Numeric suffix range: 010-049. Reserve 050+ for deny rules.
     rules:
-      - id: COACH-BABYSIT-010
+      - id: "coach.orchestration.read-only-git-diagnostics"
+        aliases: ["COACH-BABYSIT-010"]
         severity: 2
         disposition: strict
         description: "Read-only git diagnostics"
         regex: '^git (status|log|diff|show|branch|remote|fetch|rev-parse|reflog|stash list)\b'
-      - id: COACH-BABYSIT-011
+      - id: "coach.orchestration.test-runner-invocations"
+        aliases: ["COACH-BABYSIT-011"]
         severity: 2
         disposition: strict
         description: "Test runner invocations"
         regex: '^pytest\b'
-      - id: COACH-BABYSIT-012
+      - id: "coach.orchestration.read-only-file-inspection"
+        aliases: ["COACH-BABYSIT-012"]
         severity: 2
         disposition: strict
         description: "Read-only file inspection"
         regex: '^(ls|cat|head|tail|grep|find|wc)\b'
-      - id: COACH-BABYSIT-013
+      - id: "coach.orchestration.stdout-only-output"
+        aliases: ["COACH-BABYSIT-013"]
         severity: 1
         disposition: strict
         description: "Stdout-only output"
         regex: '^echo\b'
-      - id: COACH-BABYSIT-014
+      - id: "coach.orchestration.print-working-directory"
+        aliases: ["COACH-BABYSIT-014"]
         severity: 1
         disposition: strict
         description: "Print working directory"
         regex: '^pwd\s*$'
-      - id: COACH-BABYSIT-015
+      - id: "coach.orchestration.worker-self-checkpoint-issue"
+        aliases: ["COACH-BABYSIT-015"]
         severity: 1
         disposition: strict
         description: "Worker self-checkpoint (issue #378)"
@@ -205,22 +211,26 @@ babysit:
 
       Numeric suffix range: 050+.
     rules:
-      - id: COACH-BABYSIT-050
+      - id: "coach.orchestration.network-egress-escalate-even"
+        aliases: ["COACH-BABYSIT-050"]
         severity: 5
         disposition: strict
         description: "Network egress — escalate even if otherwise safe"
         regex: '^(curl|wget)\b'
-      - id: COACH-BABYSIT-051
+      - id: "coach.orchestration.mutates-python-environment"
+        aliases: ["COACH-BABYSIT-051"]
         severity: 4
         disposition: strict
         description: "Mutates Python environment"
         regex: '^pip (install|uninstall)\b'
-      - id: COACH-BABYSIT-052
+      - id: "coach.orchestration.destructive-file-ops-always"
+        aliases: ["COACH-BABYSIT-052"]
         severity: 5
         disposition: strict
         description: "Destructive file ops — always escalate"
         regex: '^(rm|mv)\b'
-      - id: COACH-BABYSIT-053
+      - id: "coach.orchestration.destructive-or-remote-mutating"
+        aliases: ["COACH-BABYSIT-053"]
         severity: 4
         disposition: strict
         description: "Destructive or remote-mutating git ops"
@@ -293,32 +303,38 @@ multiplexer:
 babysit_validator_rules:
   description: "Rules emitted by test_babysit_allowlist_consistency to police babysit pattern definitions"
   rules:
-    - id: COACH-BABYSIT-001
+    - id: "coach.orchestration.babysit-rule-id-matches"
+      aliases: ["COACH-BABYSIT-001"]
       severity: 3
       disposition: strict
       description: "Babysit rule_id matches grammar <DOMAIN>-<TOPIC>-<NNN>"
       introduced_in: "1.67.0"
-    - id: COACH-BABYSIT-002
+    - id: "coach.orchestration.babysit-rule-id-uses"
+      aliases: ["COACH-BABYSIT-002"]
       severity: 3
       disposition: strict
       description: "Babysit rule_id uses DOMAIN=COACH, TOPIC=BABYSIT"
       introduced_in: "1.67.0"
-    - id: COACH-BABYSIT-003
+    - id: "coach.orchestration.babysit-rule-severity-is"
+      aliases: ["COACH-BABYSIT-003"]
       severity: 3
       disposition: strict
       description: "Babysit rule severity is integer in [1, 5]"
       introduced_in: "1.67.0"
-    - id: COACH-BABYSIT-004
+    - id: "coach.orchestration.babysit-rule-has-non"
+      aliases: ["COACH-BABYSIT-004"]
       severity: 2
       disposition: strict
       description: "Babysit rule has non-empty description"
       introduced_in: "1.67.0"
-    - id: COACH-BABYSIT-005
+    - id: "coach.orchestration.babysit-rule-regex-is"
+      aliases: ["COACH-BABYSIT-005"]
       severity: 4
       disposition: strict
       description: "Babysit rule regex is non-empty and compiles"
       introduced_in: "1.67.0"
-    - id: COACH-BABYSIT-006
+    - id: "coach.orchestration.babysit-allow-deny-patterns"
+      aliases: ["COACH-BABYSIT-006"]
       severity: 3
       disposition: strict
       description: "Babysit allow/deny patterns do not overlap on test corpus"
@@ -327,7 +343,8 @@ babysit_validator_rules:
 pr_phase_alignment_rules:
   description: "Rule emitted by test_pr_phase_alignment to gate GREEN-phase PRs that ship code without SMOKE evidence"
   rules:
-    - id: COACH-PRGATE-0003
+    - id: "coach.orchestration.prgate"
+      aliases: ["COACH-PRGATE-0003"]
       severity: 4
       disposition: strict
       description: "GREEN-phase PR ships code files without SMOKE evidence (issue #293)"

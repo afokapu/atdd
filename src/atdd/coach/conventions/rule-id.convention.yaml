@@ -345,7 +345,8 @@ migration:
       window is visible.
     example: |
       rules:
-        - id: GREEN-URN-001
+        - id: "coder.green.component-urn-marker-is"
+          aliases: ["GREEN-URN-001"]
           severity: 3
           superseded_by: GREEN-URN-LAYER-002
           description: "Component URN required as first non-empty line"

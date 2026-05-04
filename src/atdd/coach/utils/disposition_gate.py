@@ -86,7 +86,7 @@ def _read_line(repo_root: Path, rel_path: str, lineno: int) -> Optional[str]:
             for idx, line in enumerate(fh, start=1):
                 if idx == lineno:
                     return line
-    except (OSError, UnicodeDecodeError):  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except (OSError, UnicodeDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         return None
     return None
 

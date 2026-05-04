@@ -467,7 +467,8 @@ tracking_structure:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: TESTER-TELEMETRY-EMIT-001
+  - id: "tester.telemetry.emit"
+    aliases: ["TESTER-TELEMETRY-EMIT-001"]
     severity: 3
     disposition: strict
     description: "Telemetry tests assert that the validator emits the expected events to the configured sink"

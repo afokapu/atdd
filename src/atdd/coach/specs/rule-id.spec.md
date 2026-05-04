@@ -27,7 +27,7 @@ NNN     ::= [0-9][0-9][0-9]        ; 3-digit zero-padded
 
 Examples that conform:
 
-- `GREEN-URN-001`
+- `coder.green.component-urn-marker-is`
 - `GREEN-URN-LAYER-002`
 - `SECURITY-XSS-004`
 - `COACH-RULEID-001`
@@ -84,7 +84,7 @@ After that:
    `superseded_by:` on the old entry:
 
    ```yaml
-   - id: GREEN-URN-001
+   - id: coder.green.component-urn-marker-is
      severity: 3
      superseded_by: GREEN-URN-LAYER-002
      description: "Component URN required as first non-empty line"
@@ -121,12 +121,12 @@ A rule entry in a convention YAML has the shape:
 
 ```yaml
 rules:
-  - id: GREEN-URN-001               # required, matches SPEC-COACH-RULEID-0001
+  - id: coder.green.component-urn-marker-is               # required, matches SPEC-COACH-RULEID-0001
     severity: 3                     # required, int 1..5
     description: "..."              # required, one-line human-readable
     recipe: adapter                 # optional, name of *.recipe.yaml peer
     introduced_in: "1.61.0"         # optional, version string
-    superseded_by: GREEN-URN-002    # optional, see SPEC-COACH-RULEID-0004
+    superseded_by: coder.green.component-urn-matches-pattern    # optional, see SPEC-COACH-RULEID-0004
 ```
 
 The `rules:` array hangs off any top-level convention concept block (e.g.

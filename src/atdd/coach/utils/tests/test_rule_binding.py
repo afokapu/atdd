@@ -65,14 +65,25 @@ def test_bind_rule_returns_metadata_for_known_rule():
     """Binding a real published rule yields metadata pulled from the convention."""
     from atdd.coach.utils.rule_binding import bind_rule, RuleMetadata
 
-    meta = bind_rule("COACH-SILENT-SWALLOW-001")
+    meta = bind_rule("coder.logging.coach-silent-swallow")
 
     assert isinstance(meta, RuleMetadata)
-    assert meta.rule_id == "COACH-SILENT-SWALLOW-001"
+    assert meta.rule_id == "coder.logging.coach-silent-swallow"
+    assert "COACH-SILENT-SWALLOW-001" in meta.aliases
     assert meta.severity == 4
     assert isinstance(meta.description, str) and meta.description
     assert meta.source_path is not None
     assert str(meta.source_path).endswith("logging.convention.yaml")
+
+
+def test_bind_rule_resolves_legacy_alias():
+    """A legacy flat-form id resolves through the alias index to the canonical metadata."""
+    from atdd.coach.utils.rule_binding import bind_rule
+
+    canonical = bind_rule("coder.logging.coach-silent-swallow")
+    via_alias = bind_rule("COACH-SILENT-SWALLOW-001")
+    assert via_alias.rule_id == canonical.rule_id
+    assert via_alias.source_path == canonical.source_path
 
 
 def test_bind_rule_metadata_is_frozen():
@@ -81,7 +92,7 @@ def test_bind_rule_metadata_is_frozen():
 
     from atdd.coach.utils.rule_binding import bind_rule
 
-    meta = bind_rule("COACH-SILENT-SWALLOW-001")
+    meta = bind_rule("coder.logging.coach-silent-swallow")
     with pytest.raises(FrozenInstanceError):
         meta.severity = 99  # type: ignore[misc]
 
@@ -101,10 +112,10 @@ def test_bind_rule_severity_matches_convention():
     )
     data = yaml.safe_load(convention.read_text(encoding="utf-8"))
     declared = next(
-        r for r in data["rules"] if r["id"] == "COACH-SILENT-SWALLOW-001"
+        r for r in data["rules"] if r["id"] == "coder.logging.coach-silent-swallow"
     )
 
-    meta = bind_rule("COACH-SILENT-SWALLOW-001")
+    meta = bind_rule("coder.logging.coach-silent-swallow")
     assert meta.severity == declared["severity"]
     assert meta.description == declared["description"]
 
@@ -116,7 +127,7 @@ def test_fix_hint_ref_none_when_recipe_absent():
     """Pilot rule has no ``recipe:`` — derived ``fix_hint_ref`` is ``None``."""
     from atdd.coach.utils.rule_binding import bind_rule
 
-    meta = bind_rule("COACH-SILENT-SWALLOW-001")
+    meta = bind_rule("coder.logging.coach-silent-swallow")
     assert meta.recipe is None
     assert meta.fix_hint_ref is None
 

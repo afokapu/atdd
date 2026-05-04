@@ -52,7 +52,7 @@ FIXTURES_DIR = (
 # import time. Module import fails loudly if the rule is unregistered or
 # duplicated (issue #388).
 # ---------------------------------------------------------------------------
-_RULE = bind_rule("COACH-SILENT-SWALLOW-001")
+_RULE = bind_rule("coder.logging.coach-silent-swallow")
 _SUPPRESSION_MARKER = f"atdd:suppress({_RULE.rule_id})"
 
 LOGGER_RECEIVER_NAMES = {
@@ -188,7 +188,7 @@ def detect_silent_swallows(file_path: Path) -> List[Violation]:
     * a ``logger.<level>(...)``, ``self.logger.<level>(...)``,
       ``logging.<level>(...)``, etc. call in the body
     * a ``raise`` statement in the body (re-raise or raise-new)
-    * an inline pragma ``# atdd:suppress(COACH-SILENT-SWALLOW-001)`` on the
+    * an inline pragma ``# atdd:suppress(coder.logging.coach-silent-swallow)`` on the
       ``except`` line.
     """
     try:
@@ -351,7 +351,7 @@ def test_no_silent_exception_swallowing_python():
     Scans REPO_ROOT/python/ (consumer code) and src/atdd/ (toolkit dogfooding)
     for silent exception swallowing. Pass/fail decided by the rule's
     ``disposition`` (``suppress-and-clean``): pre-existing handlers carry
-    inline ``# atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=<date>`` markers
+    inline ``# atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=<date>`` markers
     and are absorbed; unmarked handlers fail the gate.
 
     Given: production .py files (excluding tests, fixtures, __init__.py)

@@ -104,7 +104,7 @@ def load_state(path: Path) -> dict:
         return {}
     try:
         return json.loads(path.read_text())
-    except json.JSONDecodeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return {}
 
 
@@ -132,7 +132,7 @@ def _remove_worktree(worktree_path: Path) -> None:
             capture_output=True,
             text=True,
         )
-    except Exception:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         pass
 
 
@@ -193,7 +193,7 @@ def run(
 
     try:
         waves = compute_waves(plan)
-    except ValueError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         print(f"❌ {exc}", file=sys.stderr)
         return 2
 
@@ -217,7 +217,7 @@ def run(
             state.setdefault(key, {})["worktree_created"] = True
             state[key]["worktree_path"] = issue.worktree_path
             save_state(state_path, state)
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         print(f"❌ worktree creation failed: {exc.stderr or exc}", file=sys.stderr)
         for wt in created:
             _remove_worktree(wt)
@@ -226,7 +226,7 @@ def run(
     # Phase B: launch scripts + sessions
     try:
         backend: MultiplexerBackend = get_multiplexer(preferred=multiplexer)
-    except MultiplexerError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except MultiplexerError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         print(f"❌ {exc}", file=sys.stderr)
         return 4
 

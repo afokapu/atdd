@@ -30,4 +30,4 @@ def find_repo_root_for_consumer_only():
 
 
 def suppressed_legitimate_use():
-    return find_repo_root() / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(COACH-PKG-LAYOUT-001)
+    return find_repo_root() / "src" / "atdd" / "coach" / "commands" / "tests"  # atdd:suppress(coach.source-layout.toolkit-code-must-not)

@@ -82,11 +82,11 @@ def attempt_pyproject_resolve(pr: int) -> bool:
 
     try:
         view = _run_gh(["pr", "view", str(pr), "--json", "headRefName,baseRefName"])
-    except subprocess.CalledProcessError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow)
         return False
     try:
         meta = json.loads(view.stdout or "{}")
-    except json.JSONDecodeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow)
         return False
     head = meta.get("headRefName")
     base = meta.get("baseRefName") or "main"
@@ -124,7 +124,7 @@ def attempt_pyproject_resolve(pr: int) -> bool:
             _git("commit", "--no-edit")
         _git("push", "origin", head)
         return True
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         print(
             f"⚠ pyproject auto-resolve failed for PR #{pr}: "
             f"{exc.cmd!r} → {(exc.stderr or '').strip()}",
@@ -145,11 +145,11 @@ def fetch_pr_files(pr: int) -> set[str]:
     """
     try:
         result = _run_gh(["pr", "view", str(pr), "--json", "files"])
-    except subprocess.CalledProcessError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow)
         return set()
     try:
         data = json.loads(result.stdout or "{}")
-    except json.JSONDecodeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001)
+    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow)
         return set()
     return {entry["path"] for entry in data.get("files") or [] if entry.get("path")}
 
@@ -177,7 +177,7 @@ def update_branch(pr: int) -> MergeResult:
     """Run `gh pr update-branch <pr>`. Returns conflict result if git says so."""
     try:
         _run_gh(["pr", "update-branch", str(pr)])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         stderr = (exc.stderr or "").lower()
         if "conflict" in stderr or "merge conflict" in stderr:
             return MergeResult(pr=pr, status="conflict", detail=exc.stderr.strip())
@@ -194,14 +194,14 @@ def fetch_ci_status(pr: int) -> tuple[str, str]:
         result = _run_gh([
             "pr", "checks", str(pr), "--required", "--json", "state,name,conclusion",
         ])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         stderr = (exc.stderr or "")
         if "no required" in stderr.lower() or "no checks" in stderr.lower():
             return "pass", "no required checks"
         return "unknown", stderr.strip()
     try:
         checks = json.loads(result.stdout or "[]")
-    except json.JSONDecodeError:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return "unknown", f"unparseable: {result.stdout[:100]}"
     if not checks:
         return "pass", "no required checks"
@@ -242,7 +242,7 @@ def wait_for_ci(
 def merge_pr(pr: int) -> MergeResult:
     try:
         _run_gh(["pr", "merge", str(pr), "--squash", "--delete-branch"])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return MergeResult(pr=pr, status="conflict", detail=f"merge failed: {exc.stderr.strip()}")
     return MergeResult(pr=pr, status="merged", detail="squash-merged")
 
@@ -310,7 +310,7 @@ def run(
 ) -> int:
     try:
         order, files_by_pr = _resolve_order(pr_numbers)
-    except MergeCascadeCycleError as cyc:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except MergeCascadeCycleError as cyc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         path_str = " → ".join(f"#{n}" for n in cyc.cycle_path)
         print(
             f"\n❌ cycle detected in merge cascade: {path_str}",
@@ -329,7 +329,7 @@ def run(
             timeout=timeout,
             auto=auto,
         )
-    except MergeHalt as halt:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except MergeHalt as halt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         r = halt.result
         print(f"\n❌ halted on PR #{r.pr} ({r.status}): {r.detail}", file=sys.stderr)
         return 1

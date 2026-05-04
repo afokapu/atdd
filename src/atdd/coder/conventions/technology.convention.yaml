@@ -6,17 +6,20 @@ description: "Lean map of default technologies with rationales, constraints, and
 # walker discovers them; existing technology.* tree (defaults, alternatives,
 # rationales) is preserved verbatim.
 rules:
-  - id: COACH-TECH-STACK-001
+  - id: "coder.technology.new-components-default-to"
+    aliases: ["COACH-TECH-STACK-001"]
     severity: 2
     disposition: strict
     description: "New components default to the technology.<layer>.default for their layer; deviations declare an approved alternative"
     introduced_in: "1.66.0"
-  - id: COACH-TECH-STACK-002
+  - id: "coder.technology.approved-alternatives-are-taken"
+    aliases: ["COACH-TECH-STACK-002"]
     severity: 2
     disposition: strict
     description: "Approved alternatives are taken only when the use_when criteria are met; tradeoff is documented in the wagon"
     introduced_in: "1.66.0"
-  - id: COACH-TECH-STACK-003
+  - id: "coder.technology.unapproved-technology-choices-require"
+    aliases: ["COACH-TECH-STACK-003"]
     severity: 2
     disposition: strict
     description: "Unapproved technology choices require a SPEC edit before they can ship"

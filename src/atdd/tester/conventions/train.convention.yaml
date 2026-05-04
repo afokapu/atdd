@@ -74,7 +74,8 @@ validation_rules:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: TESTER-TRAIN-COVERAGE-001
+  - id: "tester.train.coverage"
+    aliases: ["TESTER-TRAIN-COVERAGE-001"]
     severity: 2
     disposition: strict
     description: "Each train wagon has a smoke test exercising its composition root"

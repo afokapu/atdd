@@ -6,17 +6,20 @@ description: "Consolidated naming patterns for all ATDD archetypes with regex va
 # walker discovers them; existing `separator_semantics:` and `patterns:` blocks
 # (with their per-archetype regex/examples) are preserved verbatim.
 rules:
-  - id: COACH-NAMING-SEPARATOR-001
+  - id: "coach.naming.separator"
+    aliases: ["COACH-NAMING-SEPARATOR-001"]
     severity: 2
     disposition: strict
     description: "Colon (:) marks hierarchical descent; dot (.) marks lateral variation; hyphen (-) is the kebab-case word separator"
     introduced_in: "1.66.0"
-  - id: COACH-NAMING-FORMAT-001
+  - id: "coach.naming.format"
+    aliases: ["COACH-NAMING-FORMAT-001"]
     severity: 2
     disposition: strict
     description: "Each archetype uses its declared regex from patterns.<archetype>.regex (no ad-hoc casing or separators)"
     introduced_in: "1.66.0"
-  - id: COACH-NAMING-URN-001
+  - id: "coach.naming.urn"
+    aliases: ["COACH-NAMING-URN-001"]
     severity: 3
     disposition: strict
     description: "URN format follows patterns.<archetype>.urn_format and matches patterns.<archetype>.urn_regex"

@@ -125,12 +125,14 @@ examples:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: DEAD-CODE-REACHABILITY-001
+  - id: "coder.dead-code.reachability"
+    aliases: ["DEAD-CODE-REACHABILITY-001"]
     severity: 2
     disposition: strict
     description: "Python source files must be reachable from a known entrypoint (composition root, train, test, or registered exception)"
     introduced_in: "1.67.0"
-  - id: DEAD-CODE-REACHABILITY-TS-001
+  - id: "coder.dead-code.reachability-typescript"
+    aliases: ["DEAD-CODE-REACHABILITY-TS-001"]
     severity: 2
     disposition: strict
     description: "TypeScript source files must be reachable from a known entrypoint (main entry, route, or registered exception)"

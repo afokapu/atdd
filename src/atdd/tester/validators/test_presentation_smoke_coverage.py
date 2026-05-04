@@ -47,7 +47,7 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 # ---------------------------------------------------------------------------
 
 # Stable rule identity (issue #293 + #340 substrate)
-RULE_ID = "TESTER-SMOKE-PRES-001"
+RULE_ID = "tester.smoke.pres"
 SEVERITY = 3  # architectural per rule-id.convention.yaml severity_scale
 
 # Path conventions — consumer-repo layout (toolkit-self has no web/)

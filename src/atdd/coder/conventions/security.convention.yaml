@@ -12,7 +12,8 @@ security:
     # SPEC-CODER-SEC-0001: SQL Injection via string concatenation
     # ------------------------------------------------------------------
     sql_injection:
-      id: "SPEC-CODER-SEC-0001"
+      id: "coder.security.no-raw-sql-string"
+      aliases: ["SPEC-CODER-SEC-0001"]
       disposition: strict
       description: "No raw SQL string concatenation in execute calls"
       severity: error
@@ -41,7 +42,8 @@ security:
     # SPEC-CODER-SEC-0002: Missing auth dependency on FastAPI routes
     # ------------------------------------------------------------------
     missing_auth:
-      id: "SPEC-CODER-SEC-0002"
+      id: "coder.security.fastapi-routes-must-have"
+      aliases: ["SPEC-CODER-SEC-0002"]
       disposition: strict
       description: "FastAPI routes must have auth dependency injection"
       severity: error
@@ -73,7 +75,8 @@ security:
     # SPEC-CODER-SEC-0003: Hardcoded secrets
     # ------------------------------------------------------------------
     hardcoded_secrets:
-      id: "SPEC-CODER-SEC-0003"
+      id: "coder.security.no-hardcoded-secrets-aws"
+      aliases: ["SPEC-CODER-SEC-0003"]
       disposition: strict
       description: "No hardcoded secrets (AWS keys, private keys, passwords, API keys)"
       severity: error
@@ -101,7 +104,8 @@ security:
     # SPEC-CODER-SEC-0004: XSS-prone DOM patterns
     # ------------------------------------------------------------------
     xss_patterns:
-      id: "SPEC-CODER-SEC-0004"
+      id: "coder.security.no-innerhtml-or-dangerouslysetinnerhtml"
+      aliases: ["SPEC-CODER-SEC-0004"]
       disposition: strict
       description: "No innerHTML or dangerouslySetInnerHTML in frontend code"
       severity: error
@@ -129,22 +133,26 @@ security:
 # Top-level `rules:` array — registry-walkable. Mirrors canonical rule_ids
 # already emitted by validators alongside the legacy SPEC-CODER-SEC-* IDs above.
 rules:
-  - id: SECURITY-XSS-001
+  - id: "coder.security.xss"
+    aliases: ["SECURITY-XSS-001"]
     severity: 5
     disposition: strict
     description: "No innerHTML or dangerouslySetInnerHTML in frontend code (use safe DOM APIs)"
     introduced_in: "1.67.0"
-  - id: SECURITY-SQL-INJECTION-001
+  - id: "coder.security.sql-injection"
+    aliases: ["SECURITY-SQL-INJECTION-001"]
     severity: 5
     disposition: strict
     description: "No raw SQL string concatenation in execute calls (use parameterized queries)"
     introduced_in: "1.67.0"
-  - id: SECURITY-MISSING-AUTH-001
+  - id: "coder.security.missing-auth"
+    aliases: ["SECURITY-MISSING-AUTH-001"]
     severity: 5
     disposition: strict
     description: "FastAPI route handlers must include a Depends(auth_fn) parameter"
     introduced_in: "1.67.0"
-  - id: SECURITY-HARDCODED-SECRET-001
+  - id: "coder.security.hardcoded-secret"
+    aliases: ["SECURITY-HARDCODED-SECRET-001"]
     severity: 5
     disposition: strict
     description: "No hardcoded credentials, AWS keys, private keys, or API tokens in source files"

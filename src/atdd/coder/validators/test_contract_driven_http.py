@@ -28,7 +28,7 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_HTTP_CLIENT = bind_rule("BOUNDARIES-HTTP-CLIENT-001")
+_RULE_HTTP_CLIENT = bind_rule("coder.boundaries.http-client")
 
 
 # ---------------------------------------------------------------------------

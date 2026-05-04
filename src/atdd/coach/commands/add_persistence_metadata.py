@@ -82,7 +82,7 @@ def add_persistence_to_contract(contract_path: Path, table_name: str, migration_
 
         return True
 
-    except Exception as e:  # atdd:suppress(COACH-SILENT-SWALLOW-001) UNTIL=2026-07-03
+    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         print(f"  ❌ Error updating {contract_path.name}: {e}")
         return False
 

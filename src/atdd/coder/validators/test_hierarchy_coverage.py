@@ -37,7 +37,7 @@ from atdd.coach.validators._violation import Violation
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
-_RULE_HIERARCHY_COVERAGE = bind_rule("DESIGN-HIERARCHY-COVERAGE-001")
+_RULE_HIERARCHY_COVERAGE = bind_rule("coder.design.hierarchy-coverage")
 
 
 # Path constants — repo-derived only. Implementation-root constants

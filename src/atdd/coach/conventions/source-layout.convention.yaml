@@ -37,7 +37,8 @@ scan_scope:
     - "*/fixtures/*"
 
 rules:
-  - id: "COACH-PKG-LAYOUT-001"
+  - id: "coach.source-layout.toolkit-code-must-not"
+    aliases: ["COACH-PKG-LAYOUT-001"]
     name: "no-toolkit-self-layout-assumption"
     description: |
       Toolkit code must not call find_repo_root() and concatenate 'src/atdd/'
@@ -81,7 +82,8 @@ rules:
       - "#341"
       - "#367"
 
-  - id: "COACH-PKG-LAYOUT-002"
+  - id: "coach.source-layout.toolkit-code-must-not-1"
+    aliases: ["COACH-PKG-LAYOUT-002"]
     name: "no-bare-version-detection"
     description: |
       Toolkit code must not call version("atdd") / pkg_version("atdd") /

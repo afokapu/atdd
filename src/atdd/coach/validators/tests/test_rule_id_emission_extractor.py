@@ -53,7 +53,7 @@ class TestEmissionExtractorPatterns:
         f = tmp_path / "c2.py"
         f.write_text(
             'RULE_EMPTY_RENDER = "TESTER-RENDER-001"\n'
-            'XSS_RULE_ID = "SECURITY-XSS-001"\n'
+            'XSS_RULE_ID = "coder.security.xss"\n'
             'RULE_DYNAMIC_TRAIN_ID = "BOUNDARIES-ROUTE-COVERAGE-003"\n'
         )
         ids = {e.rule_id for e in extract_emissions(f)}
