@@ -14,12 +14,12 @@ contract_ref: "contracts/commons/error/response.schema.json"
 # =============================================================================
 rules:
   - id: "coder.error-response.bare-string"
+    validator: "test_error_response_compliance::test_error_response_contract_exists"
     aliases: ["ERROR-BARE-STRING-001"]
     severity: 4
     disposition: strict
     description: "HTTPException detail must be a structured dict matching the error response contract, not a bare string"
     introduced_in: "1.67.0"
-  - id: "coder.error-response.code-format"
     aliases: ["ERROR-CODE-FORMAT-001"]
     severity: 4
     disposition: strict

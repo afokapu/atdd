@@ -27,6 +27,10 @@ from atdd.coach.utils.coverage_phase import (
     emit_coverage_warning
 )
 from atdd.coach.utils.manifest import is_manifest_slug
+from atdd.coach.utils.rule_binding import bind_rule
+
+
+_RULE_WMBT_ACCEPTANCE = bind_rule("planner.coverage.every-wmbt-must-have")
 
 
 # Path constants

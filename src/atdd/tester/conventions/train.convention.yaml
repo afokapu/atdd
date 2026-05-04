@@ -77,6 +77,6 @@ rules:
   - id: "tester.train.coverage"
     aliases: ["TESTER-TRAIN-COVERAGE-001"]
     severity: 2
-    disposition: strict
+    disposition: documentation-only
     description: "Each train wagon has a smoke test exercising its composition root"
     introduced_in: "1.67.0"

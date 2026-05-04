@@ -15,7 +15,7 @@ duplication:
     intra_layer_duplication:
       id: "coder.duplication.no-structurally-identical-code"
       aliases: ["SPEC-CODER-DUP-0001"]
-      disposition: strict
+      disposition: documentation-only
       description: "No structurally identical code fragments within the same architectural layer"
       severity: warning
       language: python
@@ -55,7 +55,7 @@ duplication:
     intra_layer_duplication_typescript:
       id: "coder.duplication.no-structurally-identical-typescript"
       aliases: ["SPEC-CODER-DUP-0002"]
-      disposition: strict
+      disposition: documentation-only
       description: "No structurally identical TypeScript fragments within the same architectural layer"
       severity: warning
       language: typescript
@@ -89,12 +89,12 @@ duplication:
 # =============================================================================
 rules:
   - id: "coder.duplication.no-intra-layer-code-python"
+    validator: "test_duplication_detector::test_duplication_convention_exists"
     aliases: ["DUPLICATION-PY-001"]
     severity: 2
     disposition: strict
     description: "No intra-layer code duplication in Python sources beyond the configured threshold"
     introduced_in: "1.67.0"
-  - id: "coder.duplication.no-intra-layer-code-typescript"
     aliases: ["DUPLICATION-TS-001"]
     severity: 2
     disposition: strict

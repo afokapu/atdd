@@ -28,6 +28,10 @@ from atdd.coach.utils.coverage_phase import (
     should_enforce,
     emit_coverage_warning
 )
+from atdd.coach.utils.rule_binding import bind_rule
+
+
+_RULE_TELEMETRY_MANIFEST = bind_rule("tester.coverage.tracking-manifest-must-be")
 
 
 # Path constants

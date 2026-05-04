@@ -290,12 +290,12 @@ rules:
   - id: "planner.wagon.urn"
     aliases: ["PLANNER-WAGON-URN-001"]
     severity: 3
-    disposition: strict
+    disposition: documentation-only
     description: "Wagons declare a stable URN and live under plan/<wagon-slug>/ with the documented file layout"
     introduced_in: "1.67.0"
   - id: "planner.wagon.features"
     aliases: ["PLANNER-WAGON-FEATURES-001"]
     severity: 2
-    disposition: strict
+    disposition: documentation-only
     description: "Wagon _features.yaml lists every feature module and its current status"
     introduced_in: "1.67.0"

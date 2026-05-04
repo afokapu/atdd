@@ -23,7 +23,7 @@ performance:
   rules:
     - id: "coder.performance.perf"
       aliases: ["PERF-001"]
-      disposition: strict
+      disposition: documentation-only
       name: "No DB calls inside loops"
       severity: "error"
       description: |

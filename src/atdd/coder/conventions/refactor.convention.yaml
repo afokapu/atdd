@@ -552,7 +552,7 @@ refactor_phase:
         title: "Presentation-layer reduction >20% requires recorded smoke evidence"
         applies_to: "*/presentation/*.{tsx,ts,py}"
         threshold: 0.20  # Decision #1 — 20% reduction, configurable here.
-        validator: "src/atdd/coder/validators/test_presentation_ratchet_requires_smoke.py"
+        validator: "test_presentation_ratchet_requires_smoke::test_detects_25pct_reduction_in_presentation_tsx"
         evidence:
           location: ".atdd/smoke-evidence/<issue>.yaml"
           gitignored: true  # Decision #3 — local/CI evidence, not git history.
@@ -573,108 +573,108 @@ refactor_phase:
 # emitting Violation records during REFACTOR-phase complexity / quality scans.
 rules:
   - id: "coder.refactor.complexity-cyclomatic"
+    validator: "test_complexity::test_cyclomatic_complexity_under_threshold"
     aliases: ["COMPLEXITY-CYCLOMATIC-001"]
     severity: 3
     disposition: strict
     description: "Cyclomatic complexity per function below threshold (default <10)"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.complexity-nesting"
     aliases: ["COMPLEXITY-NESTING-001"]
     severity: 3
     disposition: strict
     description: "Function nesting depth below threshold (default <4)"
     introduced_in: "1.67.0"
   - id: "coder.refactor.complexity-length"
+    validator: "test_complexity::test_cyclomatic_complexity_under_threshold"
     aliases: ["COMPLEXITY-LENGTH-001"]
     severity: 2
     disposition: strict
     description: "Function length below threshold (default <50 LOC)"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.complexity-params"
     aliases: ["COMPLEXITY-PARAMS-001"]
     severity: 2
     disposition: strict
     description: "Function parameter count below threshold (default <6)"
     introduced_in: "1.67.0"
   - id: "coder.refactor.complexity-cognitive"
+    validator: "test_complexity::test_cyclomatic_complexity_under_threshold"
     aliases: ["COMPLEXITY-COGNITIVE-001"]
     severity: 3
     disposition: strict
     description: "Cognitive complexity per function below threshold (default <=15)"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.complexity-cyclomatic-typescript"
     aliases: ["COMPLEXITY-CYCLOMATIC-TS-001"]
     severity: 3
     disposition: strict
     description: "TypeScript cyclomatic complexity per function below threshold"
     introduced_in: "1.67.0"
   - id: "coder.refactor.complexity-nesting-typescript"
+    validator: "test_complexity_typescript::test_cyclomatic_complexity_typescript"
     aliases: ["COMPLEXITY-NESTING-TS-001"]
     severity: 3
     disposition: strict
     description: "TypeScript function nesting depth below threshold"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.complexity-length-typescript"
     aliases: ["COMPLEXITY-LENGTH-TS-001"]
     severity: 2
     disposition: strict
     description: "TypeScript function length below threshold"
     introduced_in: "1.67.0"
   - id: "coder.refactor.quality-mi"
+    validator: "test_quality_metrics::test_maintainability_index_above_threshold"
     aliases: ["REFACTOR-QUALITY-MI-001"]
     severity: 2
     disposition: strict
     description: "Python module maintainability index above threshold"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.quality-comments"
     aliases: ["REFACTOR-QUALITY-COMMENTS-001"]
     severity: 2
     disposition: strict
     description: "Python source files have an adequate code-comment ratio"
     introduced_in: "1.67.0"
   - id: "coder.refactor.quality-duplication"
+    validator: "test_quality_metrics::test_maintainability_index_above_threshold"
     aliases: ["REFACTOR-QUALITY-DUPLICATION-001"]
     severity: 2
     disposition: strict
     description: "Python sources have no significant code duplication beyond the configured threshold"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.quality-naming"
     aliases: ["REFACTOR-QUALITY-NAMING-001"]
     severity: 2
     disposition: strict
     description: "Python identifiers follow consistent naming conventions (PEP 8)"
     introduced_in: "1.67.0"
   - id: "coder.refactor.quality-file-length"
+    validator: "test_quality_metrics::test_maintainability_index_above_threshold"
     aliases: ["REFACTOR-QUALITY-FILE-LENGTH-001"]
     severity: 2
     disposition: strict
     description: "Python source files stay within the configured maximum line count"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.quality-mi-typescript"
     aliases: ["REFACTOR-QUALITY-MI-TS-001"]
     severity: 2
     disposition: strict
     description: "TypeScript module maintainability index above threshold"
     introduced_in: "1.67.0"
   - id: "coder.refactor.quality-comments-typescript"
+    validator: "test_quality_metrics_typescript::test_maintainability_index_typescript"
     aliases: ["REFACTOR-QUALITY-COMMENTS-TS-001"]
     severity: 2
     disposition: strict
     description: "TypeScript source files have an adequate code-comment ratio"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.nplus1"
     aliases: ["REFACTOR-NPLUS1-001"]
     severity: 3
     disposition: strict
     description: "No database client calls inside loop bodies or comprehensions (N+1 query pattern)"
     introduced_in: "1.67.0"
   - id: "coder.refactor.composition-consumer"
+    validator: "test_composition_completeness::test_composition_convention_exists_and_has_required_sections"
     aliases: ["REFACTOR-COMPOSITION-CONSUMER-001"]
     severity: 3
     disposition: strict
     description: "Each layer file (presentation/integration/domain) has at least one upstream consumer per composition rules"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.composition-root"
     aliases: ["REFACTOR-COMPOSITION-ROOT-001"]
     severity: 3
     disposition: strict

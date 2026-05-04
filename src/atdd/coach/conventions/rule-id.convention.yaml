@@ -192,7 +192,7 @@ rules:
     disposition: strict
     introduced_in: "1.66.0"
     aliases: ["COACH-RULEID-BIND-001"]
-    validator: "test_no_hardcoded_rule_severity::test_no_hardcoded_rule_severity"
+    validator: "test_no_hardcoded_rule_severity::test_no_hardcoded_rule_severity_in_migrated_validators"
     fix_hint: "Remove the module-level RULE_SEVERITY/RULE_DESCRIPTION constants and call bind_rule(<id>) at import time instead."
   - id: "coach.rule-id.disposition-required"
     severity: 2
@@ -200,7 +200,7 @@ rules:
     disposition: strict
     introduced_in: "2.0.0"
     aliases: ["COACH-RULEID-DISPOSITION-001"]
-    validator: "test_rule_disposition_required::test_every_rule_has_disposition"
+    validator: "test_rule_disposition_required::test_rule_disposition_required"
     fix_hint: "Add `disposition: <strict|suppress-and-clean|advisory|documentation-only>` to the rule body."
   - id: "coach.rule-id.stale-suppression"
     severity: 3
@@ -208,7 +208,7 @@ rules:
     disposition: strict
     introduced_in: "2.0.0"
     aliases: ["COACH-RULEID-STALE-SUPPRESSION-001"]
-    validator: "test_no_stale_suppressions::test_no_past_until_dates"
+    validator: "test_no_stale_suppressions::test_no_stale_suppressions"
     fix_hint: "Either fix the underlying violation or extend UNTIL= past today."
   - id: "coach.rule-id.validator-binding-violation"
     severity: 3

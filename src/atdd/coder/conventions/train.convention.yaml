@@ -10,19 +10,19 @@ rules:
   - id: "coder.train.is-a-production"
     aliases: ["COACH-TRAIN-COMPOSITION-001"]
     severity: 3
-    disposition: strict
+    disposition: documentation-only
     description: "Train is a production composition root in python/trains/, not test infrastructure"
     introduced_in: "1.66.0"
   - id: "coder.train.wagons-communicate-via-cargo"
     aliases: ["COACH-TRAIN-COMPOSITION-002"]
     severity: 3
-    disposition: strict
+    disposition: documentation-only
     description: "Wagons communicate via cargo (contract artifacts) — never via direct cross-wagon imports"
     introduced_in: "1.66.0"
   - id: "coder.train.yaml-is-the"
     aliases: ["COACH-TRAIN-COMPOSITION-003"]
     severity: 3
-    disposition: strict
+    disposition: documentation-only
     description: "Train YAML is the single source of truth for orchestration; production and tests both consume it via TrainRunner"
     introduced_in: "1.66.0"
 

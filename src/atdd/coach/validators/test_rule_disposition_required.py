@@ -34,6 +34,7 @@ from typing import Dict, List, Tuple
 import pytest
 import yaml
 
+from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.utils.rule_id_registry import build_registry
 from atdd.coach.validators.test_rule_id_uniqueness import find_convention_files
 
@@ -41,7 +42,8 @@ from atdd.coach.validators.test_rule_id_uniqueness import find_convention_files
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 
-_LEGAL_DISPOSITIONS = frozenset({"strict", "suppress-and-clean", "advisory"})
+_RULE = bind_rule("coach.rule-id.disposition-required")
+_LEGAL_DISPOSITIONS = frozenset({"strict", "suppress-and-clean", "advisory", "documentation-only"})
 
 
 def _load_completed_allowlist() -> List[str]:

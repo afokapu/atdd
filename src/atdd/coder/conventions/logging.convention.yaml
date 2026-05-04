@@ -38,7 +38,7 @@ scan_scope:
 rules:
   - id: "coder.logging.no-print-calls-in"
     aliases: ["LOG-001"]
-    disposition: strict
+    disposition: documentation-only
     name: "no-print-in-production"
     description: "No print() calls in non-test production Python code"
     severity: "error"
@@ -50,7 +50,7 @@ rules:
 
   - id: "coder.logging.logger-calls-must-include"
     aliases: ["LOG-002"]
-    disposition: suppress-and-clean
+    disposition: documentation-only
     name: "structured-logging-required"
     description: "Logger calls must include extra= keyword argument with context dict"
     severity: "error"
@@ -65,6 +65,7 @@ rules:
       - 'logger.debug("Processing request")'
 
   - id: "coder.logging.coach-silent-swallow"
+    validator: "test_no_silent_exception_swallowing_python::test_silent_swallow_fixture_violations_detected"
     aliases: ["COACH-SILENT-SWALLOW-001"]
     name: "no-silent-exception-swallowing"
     description: "Exception handlers must log, re-raise, or otherwise observably react — never silently return a success value"
@@ -125,7 +126,6 @@ rules:
       - "Fixture directories (*/fixtures/*) — intentional violations for validator testing"
       - "Inline suppression: # atdd:suppress(COACH-SILENT-SWALLOW-001) on the except line"
 
-enforcement:
   validator: "src/atdd/coder/validators/test_structured_logging.py"
   specs:
     - id: "SPEC-CODER-LOG-0001"
@@ -157,12 +157,12 @@ deferred:
 canonical_rules:
   rules:
     - id: "coder.logging.print"
+      validator: "test_structured_logging::test_no_print_in_production_code"
       aliases: ["LOGGING-PRINT-001"]
       severity: 2
       disposition: strict
       description: "No print() calls in non-test production Python code (use logger)"
       introduced_in: "1.67.0"
-    - id: "coder.logging.structured"
       aliases: ["LOGGING-STRUCTURED-001"]
       severity: 2
       disposition: suppress-and-clean

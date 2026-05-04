@@ -29,6 +29,7 @@ import pytest
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.utils.suppression_scanner import (
     SuppressionMarker,
     find_stale_suppressions,
@@ -38,7 +39,8 @@ from atdd.coach.utils.suppression_scanner import (
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 
-_RULE_ID = "coach.rule-id.stale-suppression"
+_RULE = bind_rule("coach.rule-id.stale-suppression")
+_RULE_ID = _RULE.rule_id
 
 
 def _scan_roots() -> List[Path]:

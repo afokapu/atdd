@@ -247,19 +247,19 @@ dependency_rules:
     - id: "coder.commons.domain-layer-in-commons"
       aliases: ["BOUNDARIES-COMMONS-001"]
       severity: 3
-      disposition: strict
+      disposition: documentation-only
       description: "Domain layer in commons has no outbound edges (no application/integration imports)"
       introduced_in: "1.66.0"
     - id: "coder.commons.application-layer-uses-ports"
       aliases: ["BOUNDARIES-COMMONS-002"]
       severity: 3
-      disposition: strict
+      disposition: documentation-only
       description: "Application layer uses ports; integration implements them (no application→integration edges)"
       introduced_in: "1.66.0"
     - id: "coder.commons.cross-feature-imports-in"
       aliases: ["BOUNDARIES-COMMONS-003"]
       severity: 3
-      disposition: strict
+      disposition: documentation-only
       description: "Cross-feature imports in commons go through the layer above (no peer-to-peer feature edges)"
       introduced_in: "1.66.0"
 

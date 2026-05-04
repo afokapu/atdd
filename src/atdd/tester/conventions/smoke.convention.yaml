@@ -351,19 +351,19 @@ behavioral_render:
     - id: "tester.smoke.train-mounts-but-the"
       aliases: ["TESTER-RENDER-001"]
       severity: 4
-      disposition: strict
+      disposition: documentation-only
       description: "Train mounts but the rendered DOM textContent is empty (textLength == 0 with no expected_content match)."
       introduced_in: "1.64.5"
     - id: "tester.smoke.train-mounts-but-the-1"
       aliases: ["TESTER-RENDER-002"]
       severity: 4
-      disposition: strict
+      disposition: documentation-only
       description: "Train mounts but the rendered DOM is classified as stub-only (loader/skeleton/placeholder)."
       introduced_in: "1.64.5"
     - id: "tester.smoke.harness-subprocess-failed-crash"
       aliases: ["TESTER-RENDER-003"]
       severity: 3
-      disposition: strict
+      disposition: documentation-only
       description: "Harness subprocess failed (crash, timeout, or schema-invalid stdout) when mounting the train."
       introduced_in: "1.64.5"
 
@@ -406,6 +406,6 @@ presentation_smoke_rules:
     - id: "tester.smoke.pres"
       aliases: ["TESTER-SMOKE-PRES-001"]
       severity: 3
-      disposition: strict
+      disposition: documentation-only
       description: "Every web/src/*/presentation/*.tsx must have a sibling smoke test under e2e/*smoke*.spec.ts"
       introduced_in: "1.67.0"

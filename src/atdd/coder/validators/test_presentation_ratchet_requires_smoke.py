@@ -31,7 +31,11 @@ import pytest
 import yaml
 
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+
+
+_RULE = bind_rule("coder.refactor.coach-ratchet-pres")
 from atdd.coder.validators.presentation_ratchet import (
     PRESENTATION_GLOBS,
     PresentationReduction,

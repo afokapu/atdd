@@ -28,6 +28,7 @@ from typing import List
 
 import pytest
 
+from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.utils.rule_id_registry import build_registry
 from atdd.coach.utils.rule_validator_resolver import (
     ResolvedValidator,
@@ -38,6 +39,9 @@ from atdd.coach.validators._violation import Violation
 
 
 pytestmark = [pytest.mark.coach]
+
+
+_RULE = bind_rule("coach.rule-id.validator-binding-violation")
 
 
 _NAMESPACED_RE = re.compile(

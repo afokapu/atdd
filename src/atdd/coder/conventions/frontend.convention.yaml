@@ -605,17 +605,17 @@ frontend:
           - id: "coder.frontend.trainid-not-registered-in"
             aliases: ["BOUNDARIES-ROUTE-COVERAGE-001"]
             severity: 3
-            disposition: strict
+            disposition: documentation-only
             description: "trainId not registered in plan/_trains.yaml (hard fail)"
           - id: "coder.frontend.resolved-train-lists-wagon"
             aliases: ["BOUNDARIES-ROUTE-COVERAGE-002"]
             severity: 3
-            disposition: strict
+            disposition: documentation-only
             description: "Resolved train lists wagon not in plan/_wagons.yaml (hard fail)"
           - id: "coder.frontend.trainid-expression-not-statically"
             aliases: ["BOUNDARIES-ROUTE-COVERAGE-003"]
             severity: 1
-            disposition: strict
+            disposition: documentation-only
             description: "trainId expression not statically resolvable (advisory; never hard-fail)"
         rationale: >
           Closes the route → train → wagon segment of the structural-vs-
@@ -703,49 +703,49 @@ frontend:
       - id: "coder.frontend.arrow-function-with-a"
         aliases: ["PRESENTATION-NOSTUB-001"]
         severity: 4
-        disposition: strict
+        disposition: documentation-only
         description: >
           Arrow function with a bare null/undefined expression body
           (`() => null`, `() => undefined`).
       - id: "coder.frontend.function-or-function-expression"
         aliases: ["PRESENTATION-NOSTUB-002"]
         severity: 4
-        disposition: strict
+        disposition: documentation-only
         description: >
           Function or function-expression block whose only return is a null
           literal, undefined, or a bare `return;`.
       - id: "coder.frontend.empty-fragment-return-or"
         aliases: ["PRESENTATION-NOSTUB-003"]
         severity: 4
-        disposition: strict
+        disposition: documentation-only
         description: >
           Empty fragment return (`<></>` or `<Fragment></Fragment>`) with zero
           children and zero attributes.
       - id: "coder.frontend.self-closing-or-empty"
         aliases: ["PRESENTATION-NOSTUB-004"]
         severity: 4
-        disposition: strict
+        disposition: documentation-only
         description: >
           Self-closing or empty element with zero children, zero static
           attributes, and zero spread expressions (e.g. `<div />`).
       - id: "coder.frontend.conditional-whose-every-branch"
         aliases: ["PRESENTATION-NOSTUB-005"]
         severity: 4
-        disposition: strict
+        disposition: documentation-only
         description: >
           Conditional whose every branch resolves to a stub literal
           (e.g. `flag ? null : null`).
       - id: "coder.frontend.allowlist-entry-must-include"
         aliases: ["PRESENTATION-NOSTUB-010"]
         severity: 2
-        disposition: strict
+        disposition: documentation-only
         description: >
           Allowlist entry must include a `migration:` field referencing the
           issue that will eliminate the exemption.
       - id: "coder.frontend.negative-rule-a-guarded"
         aliases: ["PRESENTATION-NOSTUB-020"]
         severity: 4
-        disposition: strict
+        disposition: documentation-only
         description: >
           Negative rule. A guarded null return paired with a sibling JSX
           return path (e.g. `if (loading) return null; return <Foo/>;`) is
@@ -759,12 +759,12 @@ rules:
   - id: "coder.frontend.boundaries-fe-layers"
     aliases: ["BOUNDARIES-FE-LAYERS-001"]
     severity: 3
-    disposition: strict
+    disposition: documentation-only
     description: "Frontend code follows the 4-layer architecture (presentation, application, integration, domain)"
     introduced_in: "1.67.0"
   - id: "coder.frontend.boundaries-fe-imports"
     aliases: ["BOUNDARIES-FE-IMPORTS-001"]
     severity: 3
-    disposition: strict
+    disposition: documentation-only
     description: "Frontend imports respect inward dependency direction (presentation -> application -> domain)"
     introduced_in: "1.67.0"

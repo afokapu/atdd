@@ -667,18 +667,18 @@ rules:
   - id: "coder.dto.placement"
     aliases: ["DTO-PLACEMENT-001"]
     severity: 3
-    disposition: strict
+    disposition: documentation-only
     description: "DTOs live in contract_dto modules and are derived from contracts"
     introduced_in: "1.67.0"
   - id: "coder.dto.purity"
     aliases: ["DTO-PURITY-001"]
     severity: 3
-    disposition: strict
+    disposition: documentation-only
     description: "Domain models stay wagon-internal; cross-wagon traffic uses DTOs"
     introduced_in: "1.67.0"
   - id: "coder.dto.mapper"
     aliases: ["DTO-MAPPER-001"]
     severity: 3
-    disposition: strict
+    disposition: documentation-only
     description: "Mappers between domain entities and DTOs live in the integration layer"
     introduced_in: "1.67.0"

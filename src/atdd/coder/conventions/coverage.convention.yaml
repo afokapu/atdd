@@ -10,7 +10,7 @@ rules:
     description: "Every feature must have corresponding code implementation"
     requirement: "Each feature's components must map to code paths"
     exceptions: "features_without_implementation allow-list"
-    validator: "test_all_features_have_implementations"
+    validator: "test_hierarchy_coverage::test_all_features_have_implementations"
 
   - id: "coder.coverage.every-implementation-must-have"
     aliases: ["COVERAGE-CODE-4.2"]
@@ -18,7 +18,7 @@ rules:
     name: "Implementation - Tests Coverage"
     description: "Every implementation must have at least one linked test"
     requirement: "Each implementation must have at least one linked test"
-    validator: "test_all_implementations_have_tests"
+    validator: "test_hierarchy_coverage::test_all_implementations_have_tests"
 
 coverage_graph:
   description: "The coder coverage graph ensures features are implemented and tested"
