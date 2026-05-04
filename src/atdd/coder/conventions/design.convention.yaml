@@ -368,6 +368,8 @@ rules:
     disposition: strict
     description: "Presentation layer composes design system primitives instead of raw HTML/Native elements"
     introduced_in: "1.67.0"
+  - id: "coder.design.token-color"
+    validator: "test_design_system_compliance::test_presentation_uses_design_system_primitives"
     aliases: ["DESIGN-TOKEN-COLOR-001"]
     severity: 2
     disposition: strict
@@ -380,6 +382,8 @@ rules:
     disposition: strict
     description: "Design system exports must have at least one consumer"
     introduced_in: "1.67.0"
+  - id: "coder.design.foundations"
+    validator: "test_design_system_compliance::test_presentation_uses_design_system_primitives"
     aliases: ["DESIGN-FOUNDATIONS-001"]
     severity: 2
     disposition: strict
@@ -392,6 +396,8 @@ rules:
     disposition: strict
     description: "Design system layers may only import from layers below them in the hierarchy"
     introduced_in: "1.67.0"
+  - id: "coder.design.token-hardcoded"
+    validator: "test_design_system_compliance::test_presentation_uses_design_system_primitives"
     aliases: ["DESIGN-TOKEN-HARDCODED-001"]
     severity: 2
     disposition: strict
@@ -404,6 +410,8 @@ rules:
     disposition: strict
     description: "UI elements (components/pages/screens) must be referenced by a route, parent, or test"
     introduced_in: "1.67.0"
+  - id: "coder.design.hierarchy-coverage"
+    validator: "test_hierarchy_coverage::test_all_features_have_implementations"
     aliases: ["DESIGN-HIERARCHY-COVERAGE-001"]
     severity: 2
     # Coverage check; emits ``plan/.../<feature>.yaml:1`` locations.

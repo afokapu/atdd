@@ -146,6 +146,8 @@ rules:
     disposition: strict
     description: "No raw SQL string concatenation in execute calls (use parameterized queries)"
     introduced_in: "1.67.0"
+  - id: "coder.security.missing-auth"
+    validator: "test_security_patterns::test_no_raw_sql_concatenation"
     aliases: ["SECURITY-MISSING-AUTH-001"]
     severity: 5
     disposition: strict

@@ -31,6 +31,8 @@ rules:
     disposition: strict
     description: "GSAP/animation libraries may only be imported from the presentation layer"
     introduced_in: "1.67.0"
+  - id: "coder.presentation.gsap-commons"
+    validator: "test_gsap_layer_usage::test_gsap_only_in_presentation_layer"
     aliases: ["PRESENTATION-GSAP-COMMONS-001"]
     severity: 3
     disposition: strict
@@ -43,6 +45,8 @@ rules:
     disposition: strict
     description: "i18n runtime configuration must derive supported locales from the shared locale manifest"
     introduced_in: "1.67.0"
+  - id: "coder.presentation.i18n-switcher"
+    validator: "test_i18n_runtime::test_i18n_config_uses_manifest"
     aliases: ["PRESENTATION-I18N-SWITCHER-001"]
     severity: 3
     disposition: strict

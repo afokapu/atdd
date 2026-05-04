@@ -95,6 +95,8 @@ rules:
     disposition: strict
     description: "No intra-layer code duplication in Python sources beyond the configured threshold"
     introduced_in: "1.67.0"
+  - id: "coder.duplication.no-intra-layer-code-typescript"
+    validator: "test_duplication_detector_typescript::test_no_intra_layer_duplication_typescript"
     aliases: ["DUPLICATION-TS-001"]
     severity: 2
     disposition: strict

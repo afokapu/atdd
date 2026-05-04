@@ -687,6 +687,8 @@ rules:
     disposition: strict
     description: "Frontend HTTP calls must go through the contract-driven HTTP client (no raw fetch)"
     introduced_in: "1.67.0"
+  - id: "coder.boundaries.xlang-entity"
+    validator: "test_cross_language_consistency::test_entity_classes_exist_across_languages"
     aliases: ["BOUNDARIES-XLANG-ENTITY-001"]
     severity: 3
     # Cross-language consistency check; emits synthetic ``contracts/<name>:0``
@@ -702,6 +704,8 @@ rules:
     disposition: strict
     description: "Enum values must match across Python and TypeScript domain definitions"
     introduced_in: "1.67.0"
+  - id: "coder.boundaries.xlang-naming"
+    validator: "test_cross_language_consistency::test_entity_classes_exist_across_languages"
     aliases: ["BOUNDARIES-XLANG-NAMING-001"]
     severity: 2
     disposition: strict

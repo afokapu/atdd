@@ -404,6 +404,18 @@ Phase descriptions:
             "Issue #394 (replaces --strict-coherence)."
         ),
     )
+    validate_parser.add_argument(
+        "--allow-orphan-rules",
+        action="store_true",
+        dest="allow_orphan_rules",
+        help=(
+            "Skip the reverse-coherence gate (test_rule_validator_binding). "
+            "Emergency unblock only — prefer fixing the violation by adding "
+            "a validator: <module>::<func> back-reference to the rule, or "
+            "flipping its disposition to documentation-only. "
+            "Issue #399."
+        ),
+    )
 
     # ----- atdd inventory -----
     inventory_parser = subparsers.add_parser(
@@ -1455,6 +1467,17 @@ Phase descriptions:
                 )
                 return 1
             os.environ["ATDD_PERMISSIVE_COHERENCE"] = "1"
+
+        # --allow-orphan-rules: opt OUT of reverse-coherence gate (issue #399).
+        if getattr(args, "allow_orphan_rules", False):
+            if args.phase not in ("coach", "all"):
+                print(
+                    "Error: --allow-orphan-rules is only supported with "
+                    "phase 'coach' (or 'all'). Re-run: atdd validate coach "
+                    "--allow-orphan-rules"
+                )
+                return 1
+            os.environ["ATDD_ALLOW_ORPHAN_RULES"] = "1"
 
         coach = ATDDCoach(repo_root=repo_path)
         skip_api = getattr(args, 'skip_api', False)

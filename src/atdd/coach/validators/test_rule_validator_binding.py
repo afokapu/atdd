@@ -22,6 +22,7 @@ Failures emit ``Violation`` records keyed off
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import List
@@ -164,14 +165,26 @@ def _build_violations() -> List[Violation]:
 def test_every_enforced_rule_has_real_validator():
     """Reverse coherence: enforced rules name a validator that binds them."""
     violations = _build_violations()
-    if violations:
-        formatted = "\n".join(f"  - {v.location}: {v.detail}" for v in violations)
-        pytest.fail(
-            "\nReverse rule-coherence found "
-            f"{len(violations)} violation(s):\n\n{formatted}\n\n"
-            "Either add a `validator:` back-reference + bind_rule call, or "
-            "set `disposition: documentation-only`."
+    if not violations:
+        return
+    formatted = "\n".join(f"  - {v.location}: {v.detail}" for v in violations)
+    if os.environ.get("ATDD_ALLOW_ORPHAN_RULES"):
+        # Emergency opt-out — emit warning, do NOT fail (issue #399).
+        import warnings
+        warnings.warn(
+            f"[ATDD_ALLOW_ORPHAN_RULES] Reverse rule-coherence found "
+            f"{len(violations)} violation(s); gate demoted to WARN:\n\n"
+            f"{formatted}",
+            UserWarning,
         )
+        return
+    pytest.fail(
+        "\nReverse rule-coherence found "
+        f"{len(violations)} violation(s):\n\n{formatted}\n\n"
+        "Either add a `validator:` back-reference + bind_rule call, or "
+        "set `disposition: documentation-only`. "
+        "Emergency opt-out: atdd validate coach --allow-orphan-rules."
+    )
 
 
 __all__ = ["test_every_enforced_rule_has_real_validator"]
