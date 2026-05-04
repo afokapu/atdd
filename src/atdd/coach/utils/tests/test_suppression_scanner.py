@@ -66,9 +66,13 @@ def test_find_suppressions_python_and_typescript(tmp_path):
     )
     found = find_suppressions([tmp_path])
     by_id = {m.rule_id: m for m in found}
-    assert set(by_id) == {"LOG-001", "LOG-002", "JSX-001"}
-    assert by_id["LOG-002"].until == date(2099, 12, 31)
-    assert by_id["LOG-001"].until is None
+    assert set(by_id) == {
+        "coder.logging.no-print-calls-in",
+        "coder.logging.logger-calls-must-include",
+        "JSX-001",
+    }
+    assert by_id["coder.logging.logger-calls-must-include"].until == date(2099, 12, 31)
+    assert by_id["coder.logging.no-print-calls-in"].until is None
 
 
 def test_find_suppressions_skips_vendored_dirs(tmp_path):
