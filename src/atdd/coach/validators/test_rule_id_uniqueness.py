@@ -69,7 +69,9 @@ _CONVENTION_ROOTS = [
 # ---------------------------------------------------------------------------
 # Grammar (machine-readable mirror of SPEC-COACH-RULEID-0001)
 # ---------------------------------------------------------------------------
-RULE_ID_PATTERN = re.compile(r"^[A-Z][A-Z0-9]*(-[A-Z0-9]+){2,4}$")
+RULE_ID_PATTERN = re.compile(
+    r"^[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+)
 
 
 def load_rule_id_convention() -> Dict:
@@ -184,23 +186,18 @@ def validate_grammar(
                 return None
     if not RULE_ID_PATTERN.match(rule_id):
         return (
-            f"id {rule_id!r} does not match grammar "
-            f"<DOMAIN>-<TOPIC>-<NNN> (uppercase, 3-digit zero-padded suffix)"
+            f"id {rule_id!r} does not match canonical namespaced grammar "
+            f"<archetype>.<convention_short_name>.<rule_name> (lowercase, "
+            f"dot-separated, hyphenated segments)"
         )
-    domain = rule_id.split("-", 1)[0]
-    # Handle DEAD-CODE which itself contains a hyphen.
-    if rule_id.startswith("DEAD-CODE-"):
-        domain = "DEAD-CODE"
-    if domain not in allowed_domains:
+    # Canonical archetype must be one of the closed set (issue #399).
+    archetype = rule_id.split(".", 1)[0]
+    canonical_archetypes = {"coder", "coach", "tester", "planner"}
+    if archetype not in canonical_archetypes:
         return (
-            f"id {rule_id!r} uses DOMAIN {domain!r} which is not in the closed "
-            f"registry. Add it to src/atdd/coach/conventions/rule-id.convention.yaml::domains "
-            f"after editing SPEC-COACH-RULEID-0002."
+            f"id {rule_id!r} uses archetype {archetype!r} which is not in the "
+            f"closed registry {sorted(canonical_archetypes)!r}."
         )
-    # NNN suffix must be exactly 3 digits.
-    suffix = rule_id.rsplit("-", 1)[-1]
-    if not (len(suffix) == 3 and suffix.isdigit()):
-        return f"id {rule_id!r} numeric suffix must be 3 zero-padded digits"
     return None
 
 
