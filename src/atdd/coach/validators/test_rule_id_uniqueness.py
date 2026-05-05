@@ -192,7 +192,7 @@ def validate_grammar(
         )
     # Canonical archetype must be one of the closed set (issue #399).
     archetype = rule_id.split(".", 1)[0]
-    canonical_archetypes = {"coder", "coach", "tester", "planner"}
+    canonical_archetypes = {"coder", "coach", "tester", "planner", "repo"}
     if archetype not in canonical_archetypes:
         return (
             f"id {rule_id!r} uses archetype {archetype!r} which is not in the "
