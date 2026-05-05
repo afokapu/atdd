@@ -39,6 +39,7 @@ class URNDeclaration:
     source_path: Path
     line_number: Optional[int] = None
     context: Optional[str] = None
+    metadata: Dict = field(default_factory=dict)
 
 
 @dataclass
@@ -60,6 +61,7 @@ class URNResolution:
     is_deterministic: bool = True
     error: Optional[str] = None
     declaration: Optional[URNDeclaration] = None
+    metadata: Dict = field(default_factory=dict)
 
     @property
     def is_resolved(self) -> bool:
@@ -445,6 +447,213 @@ class AcceptanceResolver(BaseResolver):
                     continue
 
         return declarations
+
+
+class SecurityResolver(BaseResolver):
+    """
+    Resolver for security: URNs.
+
+    Reads ``feature.yaml::security.abuse_cases[]`` and emits
+    ``security:<wagon>:<feature-slug>:<threat-seq>`` URNs.
+
+    Threat-seq is derived from ``abuse_case.id`` by stripping the
+    alphabetic prefix and zero-padding the trailing number to three digits
+    (e.g. id ``"THREAT-1"`` → seq ``"001"``; id ``"THREAT-42"`` → ``"042"``;
+    id ``"THREAT-001"`` → ``"001"``). Ids whose tail is >999 are rejected.
+    """
+
+    _ABUSE_ID_RE = re.compile(r"^([A-Z][A-Z0-9-]*)-(\d+)$")
+
+    @property
+    def family(self) -> str:
+        return "security"
+
+    @classmethod
+    def derive_threat_seq(cls, abuse_id: object) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Validate an ``abuse_case.id`` value and derive the zero-padded
+        three-digit threat sequence.
+
+        Returns ``(seq, error)``. ``seq`` is None if validation fails;
+        ``error`` is None on success.
+        """
+        if abuse_id is None:
+            return None, "abuse_case is missing required 'id' field"
+        if not isinstance(abuse_id, str) or not abuse_id.strip():
+            return None, f"abuse_case 'id' must be a non-empty string (got {abuse_id!r})"
+        match = cls._ABUSE_ID_RE.match(abuse_id.strip())
+        if not match:
+            return (
+                None,
+                (
+                    f"abuse_case id {abuse_id!r} does not match required pattern "
+                    f"^[A-Z][A-Z0-9-]*-\\d+$ (e.g. 'THREAT-001')"
+                ),
+            )
+        numeric = int(match.group(2))
+        if numeric > 999:
+            return (
+                None,
+                (
+                    f"abuse_case id {abuse_id!r} has numeric tail {numeric} which exceeds 999; "
+                    "threat-seq must fit in three digits"
+                ),
+            )
+        return f"{numeric:03d}", None
+
+    def _iter_feature_files(self):
+        """Yield every ``plan/<wagon>/features/*.yaml`` file."""
+        if not self.plan_dir.exists():
+            return
+        for feature_file in self.plan_dir.rglob("features/*.yaml"):
+            yield feature_file
+
+    @staticmethod
+    def _extract_wagon_feature_from_yaml(data: dict, fallback_path: Path) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Recover (wagon_slug, feature_slug) from a feature YAML.
+
+        Prefer the canonical ``urn: feature:<wagon>:<feature>`` field; fall
+        back to the on-disk path layout ``plan/<wagon>/features/<feature>.yaml``.
+        """
+        wagon_slug = None
+        feature_slug = None
+        feature_urn = data.get("urn") if isinstance(data, dict) else None
+        if isinstance(feature_urn, str) and feature_urn.startswith("feature:"):
+            parts = feature_urn[len("feature:"):].split(":")
+            if len(parts) == 2 and all(parts):
+                wagon_slug, feature_slug = parts[0], parts[1]
+        if not wagon_slug or not feature_slug:
+            try:
+                # plan/<wagon>/features/<feature>.yaml
+                feature_slug = feature_slug or fallback_path.stem.replace("_", "-")
+                wagon_dir = fallback_path.parent.parent
+                wagon_slug = wagon_slug or wagon_dir.name.replace("_", "-")
+            except Exception:
+                pass
+        return wagon_slug, feature_slug
+
+    @staticmethod
+    def _abuse_metadata(abuse: dict) -> Dict:
+        """
+        Build a metadata dict from an abuse_case YAML block.
+
+        Preserves spec fields verbatim so downstream consumers
+        (graph nodes, validators) can read them without re-parsing.
+        """
+        keys = ("id", "name", "threat", "mitigation", "severity", "acceptance_ref")
+        return {k: abuse.get(k) for k in keys if k in abuse}
+
+    def find_declarations(self) -> List[URNDeclaration]:
+        """Find all security URN declarations across feature YAMLs."""
+        declarations: List[URNDeclaration] = []
+        if not self.plan_dir.exists():
+            return declarations
+
+        import yaml
+
+        for feature_file in self._iter_feature_files():
+            try:
+                with open(feature_file, "r", encoding="utf-8") as f:
+                    data = yaml.safe_load(f)
+            except Exception:
+                continue
+            if not isinstance(data, dict):
+                continue
+            security = data.get("security")
+            if not isinstance(security, dict):
+                continue
+            abuse_cases = security.get("abuse_cases")
+            if not isinstance(abuse_cases, list) or not abuse_cases:
+                continue
+
+            wagon_slug, feature_slug = self._extract_wagon_feature_from_yaml(data, feature_file)
+            if not wagon_slug or not feature_slug:
+                continue
+
+            for abuse in abuse_cases:
+                if not isinstance(abuse, dict):
+                    continue
+                abuse_id = abuse.get("id")
+                seq, err = self.derive_threat_seq(abuse_id)
+                if err:
+                    raise ValueError(f"{feature_file}: {err}")
+                urn = f"security:{wagon_slug}:{feature_slug}:{seq}"
+                declarations.append(
+                    URNDeclaration(
+                        urn=urn,
+                        family=self.family,
+                        source_path=feature_file,
+                        context="abuse_case",
+                        metadata=self._abuse_metadata(abuse),
+                    )
+                )
+
+        return declarations
+
+    def resolve(self, urn: str) -> URNResolution:
+        if not self.can_resolve(urn):
+            return URNResolution(urn=urn, family=self.family, error="Not a security URN")
+
+        error = self._validate_urn_format(urn)
+        if error:
+            return URNResolution(urn=urn, family=self.family, error=error)
+
+        parts = urn.replace("security:", "").split(":")
+        if len(parts) != 3:
+            return URNResolution(
+                urn=urn, family=self.family, error="Invalid security URN format"
+            )
+        wagon_slug, feature_slug, seq = parts
+
+        wagon_dir = self.plan_dir / wagon_slug.replace("-", "_")
+        feature_path = wagon_dir / "features" / f"{feature_slug.replace('-', '_')}.yaml"
+
+        if not feature_path.exists():
+            return URNResolution(
+                urn=urn,
+                family=self.family,
+                resolved_paths=[],
+                is_deterministic=False,
+                error=f"Feature file not found for security URN: {feature_path}",
+            )
+
+        try:
+            import yaml
+
+            with open(feature_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+        except Exception as exc:
+            return URNResolution(
+                urn=urn,
+                family=self.family,
+                error=f"Failed to parse feature file {feature_path}: {exc}",
+            )
+
+        security = (data or {}).get("security") or {}
+        abuse_cases = security.get("abuse_cases") or []
+        for abuse in abuse_cases:
+            if not isinstance(abuse, dict):
+                continue
+            derived_seq, derive_err = self.derive_threat_seq(abuse.get("id"))
+            if derive_err or derived_seq != seq:
+                continue
+            return URNResolution(
+                urn=urn,
+                family=self.family,
+                resolved_paths=[feature_path],
+                is_deterministic=True,
+                error=None,
+                metadata=self._abuse_metadata(abuse),
+            )
+
+        return URNResolution(
+            urn=urn,
+            family=self.family,
+            resolved_paths=[],
+            is_deterministic=False,
+            error=f"No abuse_case with threat-seq {seq} found in {feature_path}",
+        )
 
 
 class ContractResolver(BaseResolver):
@@ -1284,6 +1493,7 @@ class ResolverRegistry:
             FeatureResolver(self.repo_root),
             WMBTResolver(self.repo_root),
             AcceptanceResolver(self.repo_root),
+            SecurityResolver(self.repo_root),
             ContractResolver(self.repo_root),
             TelemetryResolver(self.repo_root),
             TrainResolver(self.repo_root),
