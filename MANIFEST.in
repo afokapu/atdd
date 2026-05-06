@@ -1,0 +1,16 @@
+recursive-include src/atdd/coach/validators/fixtures *
+recursive-include src/atdd/coder/validators/fixtures *
+recursive-include src/atdd/tester/validators/fixtures *
+recursive-include src/atdd/planner/validators/fixtures *
+
+recursive-exclude src/atdd/coach/validators/fixtures __pycache__ *.pyc *.pyo
+recursive-exclude src/atdd/coder/validators/fixtures __pycache__ *.pyc *.pyo
+recursive-exclude src/atdd/tester/validators/fixtures __pycache__ *.pyc *.pyo
+recursive-exclude src/atdd/planner/validators/fixtures __pycache__ *.pyc *.pyo
+
+recursive-exclude src/atdd/coach/validators/fixtures .pytest_cache
+recursive-exclude src/atdd/coder/validators/fixtures .pytest_cache
+recursive-exclude src/atdd/tester/validators/fixtures .pytest_cache
+recursive-exclude src/atdd/planner/validators/fixtures .pytest_cache
+
+global-exclude .DS_Store

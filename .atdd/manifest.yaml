@@ -255,3 +255,14 @@ sessions:
   wagon: null
   feature: null
   train: 0001-self-compliance-validate
+- id: '451'
+  slug: toolkit-wheel-missing-train-renders-fixtures
+  file: null
+  issue_number: 451
+  type: cleanup
+  status: PLANNED
+  created: '2026-05-06'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:toolkit-wheel-completeness
+  train: 0001-self-compliance-validate
