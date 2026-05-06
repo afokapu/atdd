@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atdd"
-version = "3.4.3"
+version = "3.4.5"
 description = "ATDD Platform - Acceptance Test Driven Development toolkit"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -33,6 +33,9 @@ viz = ["streamlit", "st-link-analysis"]
 
 [project.scripts]
 atdd = "atdd.cli:cli"
+
+[project.entry-points.pytest11]
+atdd_substrate = "atdd.tester.substrate.plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]
