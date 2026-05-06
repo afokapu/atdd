@@ -126,6 +126,7 @@ class ATDDCoach:
         split: bool = True,
         local: bool = False,
         skip_api: bool = False,
+        no_diagnostics: bool = False,
     ) -> int:
         """Run ATDD validators."""
         if quick:
@@ -142,6 +143,7 @@ class ATDDCoach:
             split=split,
             local=local,
             markers=markers,
+            no_diagnostics=no_diagnostics,
         )
 
     def update_registries(
@@ -365,6 +367,25 @@ Phase descriptions:
         action="store_true",
         dest="verify_baseline",
         help="Verify validation baseline freshness (<10s, no test execution)"
+    )
+    validate_parser.add_argument(
+        "--no-diagnostics",
+        action="store_true",
+        dest="no_diagnostics",
+        help=(
+            "Suppress the validation diagnostics artifact and stdout summary "
+            "(issue #449). Default: enabled — `.atdd/diagnostics/validation/<phase>.yaml` "
+            "is written on every run."
+        ),
+    )
+    validate_parser.add_argument(
+        "--diagnostics-only",
+        action="store_true",
+        dest="diagnostics_only",
+        help=(
+            "Read and print the most recent diagnostics artifact in <100 ms "
+            "without running pytest. Issue #449."
+        ),
     )
     validate_parser.add_argument(
         "--no-cache",
@@ -1562,6 +1583,17 @@ Phase descriptions:
     elif args.command == "validate":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
 
+        # --diagnostics-only: read+print the most recent artifact without
+        # invoking pytest. Must complete in <100 ms (issue #449).
+        if getattr(args, 'diagnostics_only', False):
+            from atdd.coach.commands.diagnostics import (
+                print_latest_diagnostics,
+            )
+            return print_latest_diagnostics(
+                phase=args.phase,
+                repo_root=repo_path,
+            )
+
         # --smoke-required: record smoke evidence for an issue (#358).
         # Resolves COACH-RATCHET-PRES-001 by writing the gate-unblocking file.
         smoke_required = getattr(args, 'smoke_required', None)
@@ -1606,8 +1638,12 @@ Phase descriptions:
             if fix_rc != 0:
                 return fix_rc
 
-        # --verify-baseline: fast path, no test execution
+        # --verify-baseline: fast path, no test execution. Diagnostics
+        # plugin must be a no-op here (issue #449 GT-140) — verify-baseline
+        # doesn't run pytest at all, but the env var also flips off the
+        # plugin if anything inside the verifier ever does.
         if getattr(args, 'verify_baseline', False):
+            os.environ["ATDD_DIAGNOSTICS_DISABLED"] = "1"
             from atdd.coach.commands.validation_baseline import (
                 verify_validation_baseline,
             )
@@ -1646,6 +1682,7 @@ Phase descriptions:
 
         coach = ATDDCoach(repo_root=repo_path)
         skip_api = getattr(args, 'skip_api', False)
+        no_diagnostics = getattr(args, 'no_diagnostics', False)
         rc = coach.run_validators(
             phase=args.phase,
             verbose=args.verbose,
@@ -1655,6 +1692,7 @@ Phase descriptions:
             split=not args.no_split and not skip_api,
             local=args.local,
             skip_api=skip_api,
+            no_diagnostics=no_diagnostics,
         )
 
         # Write baseline on success

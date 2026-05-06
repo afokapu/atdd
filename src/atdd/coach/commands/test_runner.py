@@ -65,6 +65,7 @@ class TestRunner:
         html_report: bool = False,
         markers: Optional[List[str]] = None,
         parallel: bool = True,
+        no_diagnostics: bool = False,
     ) -> list:
         """Build a pytest command list."""
         # Module-form invocation so atdd's own interpreter resolves pytest.
@@ -102,6 +103,15 @@ class TestRunner:
             print("  pytest-xdist not installed, running sequentially")
 
         cmd.append("--tb=short")
+
+        # Validation diagnostics plugin (issue #449). Argv injection only —
+        # never via conftest.py / pytest_plugins, which would auto-load it
+        # in consumer suites outside ``atdd validate``. Suppressible via
+        # ``--no-diagnostics`` for the rare runner that needs the legacy
+        # stdout-only output (CI smoke jobs, --verify-baseline, etc.).
+        if not no_diagnostics:
+            cmd.extend(["-p", "atdd.coach.plugins.diagnostics"])
+
         return cmd
 
     def _run_pytest(self, cmd: list) -> int:
@@ -127,6 +137,7 @@ class TestRunner:
         parallel: bool = True,
         split: bool = True,
         local: bool = False,
+        no_diagnostics: bool = False,
     ) -> int:
         """
         Run ATDD validators with specified options.
@@ -164,11 +175,13 @@ class TestRunner:
             return self._run_split(
                 validator_dirs, verbose=verbose, coverage=coverage,
                 html_report=html_report, markers=markers, parallel=parallel,
+                no_diagnostics=no_diagnostics,
             )
 
         cmd = self._build_pytest_cmd(
             validator_dirs, verbose=verbose, coverage=coverage,
             html_report=html_report, markers=markers, parallel=parallel,
+            no_diagnostics=no_diagnostics,
         )
         return self._run_pytest(cmd)
 
@@ -180,6 +193,7 @@ class TestRunner:
         html_report: bool = False,
         markers: Optional[List[str]] = None,
         parallel: bool = True,
+        no_diagnostics: bool = False,
     ) -> int:
         """Run validators in two stages: fast then slow.
 
@@ -203,16 +217,21 @@ class TestRunner:
         fast_cmd = self._build_pytest_cmd(
             validator_dirs, verbose=verbose, coverage=coverage,
             html_report=False, markers=fast_markers, parallel=parallel,
+            no_diagnostics=no_diagnostics,
         )
 
         print("\n[1/2] Fast validators (file parsing + local platform, no API):")
         fast_rc = self._run_pytest(fast_cmd)
 
-        # Stage 2: github_api tests, sequential to share session fixtures
+        # Stage 2: github_api tests, sequential to share session fixtures.
+        # Diagnostics plugin disabled for the slow stage so the artifact
+        # written by the fast stage isn't overwritten with a tiny tail of
+        # github_api results (often 0 collected → empty findings list).
         slow_markers = list(markers or []) + ["github_api"]
         slow_cmd = self._build_pytest_cmd(
             validator_dirs, verbose=verbose, coverage=False,
             html_report=html_report, markers=slow_markers, parallel=False,
+            no_diagnostics=True,
         )
 
         print("\n[2/2] GitHub API validators (live API):")
