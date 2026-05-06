@@ -111,7 +111,15 @@ def _iter_acceptances_in_file(
     try:
         with open(path, encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError):
+    except (OSError, yaml.YAMLError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # Malformed plan/ YAMLs are policed by URN-graph validators; this
+        # walker treats them as empty so a single broken file doesn't mask
+        # other conformance failures across the rest of plan/.
+        _logger.debug(
+            "_acceptance_walker: skipping unreadable %s: %s",
+            path, exc,
+            extra={"path": str(path), "error_type": type(exc).__name__},
+        )
         return
     if not isinstance(data, dict):
         return
@@ -213,7 +221,11 @@ def _relpath(path: Path, repo_root: Path) -> str:
     """Best-effort relative path; falls back to absolute when outside the root."""
     try:
         return str(path.resolve().relative_to(repo_root.resolve()))
-    except ValueError:
+    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # Path outside repo_root (e.g., absolute fixture path under tmp).
+        # Falling back to the absolute string is the documented behavior
+        # — the caller uses the result purely for Violation.location, not
+        # for reading the file again.
         return str(path)
 
 

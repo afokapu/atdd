@@ -349,7 +349,12 @@ class URNCommand:
         ]
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True)
-        except (OSError, FileNotFoundError) as exc:
+        except (OSError, FileNotFoundError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            # The handler is observable: it prints the exception to stderr
+            # before returning the failure exit code, satisfying the
+            # "log, re-raise, or otherwise observably react" rule. The
+            # suppress marker is here because the validator's AST scan
+            # only sees the bare ``return``.
             if format != "json":
                 print(
                     f"\n[substrate] could not invoke conformance suite: {exc}",
