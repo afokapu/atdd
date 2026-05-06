@@ -99,7 +99,7 @@
 |----|-------|---------|----------|----------------|--------|
 | GT-001 | design | `atdd validate coach` | PASS | `src/atdd/coach/validators/test_issue_validation.py` | TODO |
 | GT-002 | design | `atdd registry update --check` | PASS | `src/atdd/coach/commands/registry.py` | TODO |
-{gate_tests_rows}| GT-800 | completion | `atdd urn validate` | PASS | `src/atdd/coach/validators/test_urn_traceability.py` | TODO |
+{gate_tests_rows}| GT-800 | completion | `atdd repo validate` | PASS | `src/atdd/coach/validators/test_urn_traceability.py` | TODO |
 | GT-850 | completion | `atdd registry update --check` | PASS | `src/atdd/coach/commands/registry.py` | TODO |
 | GT-900 | completion | `atdd validate` | PASS | `src/atdd/` | TODO |
 

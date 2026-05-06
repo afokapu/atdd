@@ -10,7 +10,7 @@ acceptances:
   - identity:
       urn: "acc:self-compliance-migration:R001-UNIT-001-urn-validate-passes"
       id: "AC-UNIT-001"
-      purpose: "atdd urn validate passes with no errors"
+      purpose: "atdd repo validate passes with no errors"
       phase: "GREEN"
     harness:
       type: "unit"
@@ -19,7 +19,7 @@ acceptances:
       abstract:
         - "Plan artifacts, contracts, and wagon manifests with URN references"
     when:
-      abstract: "Running atdd urn validate"
+      abstract: "Running atdd repo validate"
     then:
       abstract:
         - "No broken URN references"
