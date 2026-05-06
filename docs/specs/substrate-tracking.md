@@ -23,7 +23,7 @@
 | #5 | [#411](https://github.com/afokapu/atdd/issues/411) | C | Harness-mode pytest plugin | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #407, #408 |
 | #6 | [#412](https://github.com/afokapu/atdd/issues/412) | D | Metric runner with two-root discovery | ✅ verified | 🟠 IN-REVIEW | [#428](https://github.com/afokapu/atdd/pull/428) OPEN | validate-coder FAIL, validate-gate FAIL | Paused mid-fixup; needs error addressed before merge |
 | #7 | [#413](https://github.com/afokapu/atdd/issues/413) | D | First toolkit metric (`hardcoded_theme_map_literal_count`) | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #412 |
-| #8 | [#414](https://github.com/afokapu/atdd/issues/414) | E | Rename `atdd urn` → `atdd repo` | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #408 (breaking-change) |
+| #8 | [#414](https://github.com/afokapu/atdd/issues/414) | E | Rename legacy URN CLI namespace → `atdd repo` | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #408 (breaking-change) |
 | #9 | [#415](https://github.com/afokapu/atdd/issues/415) | E | Extend `atdd init` for substrate mode | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #411, #414 |
 | #10 | [#416](https://github.com/afokapu/atdd/issues/416) | F | Coach phase dispatch for repo rules | ✅ verified | ⏸ NOT-STARTED | none | n/a | Merge-window task; gates on A/C/D/E |
 | #11 | [#417](https://github.com/afokapu/atdd/issues/417) | F | Spawn-harness repo rule blocks | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #408 |

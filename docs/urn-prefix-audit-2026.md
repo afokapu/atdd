@@ -138,7 +138,7 @@ The test then verifies the contract:
 | (b) PATTERNS entry | `URNBuilder.validate_urn("theatre:hamlet", "theatre")` and `validate_grammar(...)` | ✅ pass |
 | (b) Wrong segment count | `validate_grammar("theatre:hamlet:act-1")` raises `wrong segment count` | ✅ pass |
 | Validators untouched | Orphan check + `validate_edges` + `validate_all` run cleanly on a graph containing `theatre:` nodes (no crashes, no false positives) | ✅ pass |
-| CLI untouched | `atdd urn families` iterates `ResolverRegistry.families` — picks up the new family with no argparse edit | ✅ pass |
+| CLI untouched | `atdd repo families` iterates `ResolverRegistry.families` — picks up the new family with no argparse edit | ✅ pass |
 | Test discovery untouched | `registry.find_all_declarations()` includes `theatre` automatically | ✅ pass |
 
 Full graph test suite (`pytest src/atdd/coach/utils/graph/`): **108 passed**,
