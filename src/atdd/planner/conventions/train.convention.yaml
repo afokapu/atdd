@@ -191,6 +191,34 @@ numbering:
     variation_digits: "Position 2-3: Variation within category (01-99)"
     name_part: "kebab-case descriptive name"
 
+# Train-level acceptances (substrate spec v12 §5.2)
+# Optional block — when present, each acceptance contributes a derived rule
+# to the registry via the repo-rule walker (atdd.coach.utils.rule_binding.find_repo_rules).
+acceptances:
+  optional: true
+  shape: "Mirrors the WMBT acceptance shape (see planner/conventions/acceptance.convention.yaml)."
+  rule_id_derivation: "Per spec v12 §3.3: acc:<train-id>:<slug> -> repo.<train-id>.acc-<slug>"
+  required_invariants:
+    - "identity.urn matches URNBuilder.PATTERNS['acc'] (train-acceptance shape)"
+    - "identity.purpose populated (becomes RuleMetadata.description)"
+    - "identity.phase populated (RED|GREEN|SMOKE|REFACTOR)"
+    - "EITHER harness.type OR (signal.metric AND signal.threshold) populated (measurability invariant §4.3)"
+  forbidden_fields:
+    - "id: at acceptance-block top level (rule-id derives mechanically — see §3.3)"
+    - "disposition: anywhere in repo YAML (walker sets to 'strict' per §4.4)"
+  example: |
+    acceptances:
+      - identity:
+          urn: "acc:0001-self-compliance-validate:idempotent-on-retry"
+          id: "AC-SMOKE-001"
+          purpose: "Re-running the train with the same idempotency key produces no duplicate side effects"
+          phase: "SMOKE"
+        harness:
+          type: "e2e"
+        signal:
+          metric: "duplicate_side_effects_on_retry"
+          threshold: 0
+
 # URN naming pattern
 urn_naming:
   pattern: "train:{train_id}"
