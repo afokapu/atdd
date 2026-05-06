@@ -195,6 +195,7 @@ def _build_violation(
         _logger.debug(
             "metric_runner: skipping rule %s with non-int severity %r",
             meta.rule_id, severity,
+            extra={"rule_id": meta.rule_id, "severity": repr(severity)},
         )
         return None
     if not (1 <= severity <= 5):
