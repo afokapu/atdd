@@ -1,0 +1,54 @@
+recipe: acceptance-phase
+pattern: "Declare identity.phase explicitly on every acceptance"
+category: planner
+source: "Substrate spec v12 §7.3 + §8.1 (coach Tier-1 dispatch)"
+
+applies_when:
+  - "tester.acceptance-violation.acceptance-must-declare-phase fires"
+  - "An acceptance YAML block omits identity.phase or sets it to a non-canonical value"
+
+steps:
+  - step: 1
+    what: "Decide which ATDD phase this acceptance gates"
+    explain: |
+      Phase is canonical for coach dispatch (§8.1): the coach selects which
+      acceptances enforce at the current phase by reading identity.phase.
+      It cannot be inferred from harness type or source kind.
+
+      Pick one of: RED | GREEN | SMOKE | REFACTOR.
+
+      Heuristic:
+        - RED:      contract should fail because the feature does not yet exist.
+        - GREEN:    contract should pass once the minimal implementation lands.
+        - SMOKE:    contract is end-to-end against real infrastructure.
+        - REFACTOR: contract enforces an architectural property (post-implementation cleanup).
+
+  - step: 2
+    what: "Add the phase: field under the identity: block"
+    where: "plan/<wagon>/<WMBT>.yaml or plan/_trains/<train-id>.yaml"
+    template: |
+      acceptances:
+        - identity:
+            urn: "acc:<wagon>:..."
+            phase: GREEN              # ← REQUIRED, no default
+            purpose: "..."
+          harness: { type: unit, category: backend }
+          # ...
+    explain: |
+      The phase MUST be one of the four canonical values, uppercase. The
+      walker treats missing or invalid phase as a silent skip — the
+      conformance rule above surfaces it instead.
+
+  - step: 3
+    what: "Re-run the conformance suite"
+    verify:
+      - run: "atdd repo validate"
+        expect: "the rule no longer fires for this acceptance"
+
+requirements:
+  - "Phase is per-acceptance, not per-WMBT. Different acceptances on the same WMBT may gate different phases."
+  - "RED acceptances are EXPECTED to fail at RED (proves the contract exercises behavior not yet implemented)."
+
+final_verify:
+  - "atdd repo validate emits zero tester.acceptance-violation.acceptance-must-declare-phase findings"
+  - "The acceptance's RuleMetadata.phase populates correctly in the registry"

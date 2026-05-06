@@ -311,6 +311,17 @@ def _find_disposition_anywhere(
     return None
 
 
+def derive_repo_rule_id(acc_urn: str) -> str:
+    """Derive the substrate repo rule-id from an ``acc:`` URN per spec §3.3.
+
+    Public façade around ``_derive_repo_rule_id`` for runners (issue #411
+    harness-mode plugin, #412 metric runner) that need the rule-id without
+    walking the YAML. Raises ``RepoYamlValidationError`` on malformed URNs.
+    """
+    rule_id, _parent = _derive_repo_rule_id(acc_urn)
+    return rule_id
+
+
 def _derive_repo_rule_id(acc_urn: str) -> Tuple[str, str]:
     """Derive ``(rule_id, parent_token)`` from an ``acc:`` URN per spec §3.3.
 
@@ -900,6 +911,7 @@ __all__ = [
     "RuleNotInRegistryError",
     "bind_rule",
     "clear_cache",
+    "derive_repo_rule_id",
     "extract_rules",
     "find_convention_files",
     "find_repo_rules",
