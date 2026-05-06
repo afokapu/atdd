@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atdd"
-version = "3.5.4"
+version = "3.5.5"
 description = "ATDD Platform - Acceptance Test Driven Development toolkit"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -63,5 +63,4 @@ markers = [
     "security: marks tests as security validators",
     "locale: marks tests as localization validators (Localization Manifest Spec v1)",
     "coder: marks tests as coder phase validators",
-    "atdd_phase(name): substrate phase tag — security-runner items reorder after acceptance items per spec v12 §4.5 (issue #422)",
 ]
