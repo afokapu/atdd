@@ -247,27 +247,53 @@ class TestStatusCommand:
 
 
 # ============================================================================
-# E001-005: atdd urn families
+# E001-005: atdd repo families
 # ============================================================================
 
-class TestUrnFamiliesCommand:
-    """Characterize `atdd urn families` output."""
+class TestRepoFamiliesCommand:
+    """Characterize `atdd repo families` output (renamed from `urn` per #414)."""
 
     def test_urn_families_lists_core_families(self):
         """
-        SPEC-SELF-COMPLIANCE-E001-040: urn families includes core URN families.
+        SPEC-SELF-COMPLIANCE-E001-040: repo families includes core URN families.
 
-        Given: ATDD urn families command
-        When: Running `atdd urn families`
+        Given: ATDD repo families command
+        When: Running `atdd repo families`
         Then: Output lists at minimum: wagon, train, wmbt, contract, telemetry, feature
         """
-        result = run_atdd("urn", "families")
+        result = run_atdd("repo", "families")
         stdout = result.stdout
         core_families = ["wagon", "train", "wmbt", "contract", "telemetry", "feature"]
         for family in core_families:
             assert family in stdout, (
-                f"urn families must include '{family}'"
+                f"repo families must include '{family}'"
             )
+
+
+# ============================================================================
+# E001-005b: legacy `urn` deprecation shim (issue #414, spec §9.1)
+# ============================================================================
+
+class TestUrnDeprecationShim:
+    """Verify the legacy `urn` namespace exits with the canonical error."""
+
+    EXPECTED_ERROR = (
+        "`atdd urn` was renamed to `atdd repo`. See CHANGELOG for migration."
+    )
+
+    def test_legacy_urn_exits_nonzero_with_pointer(self):
+        """
+        SPEC-SELF-COMPLIANCE-E001-041: legacy `urn` shim exits 1 with pointer.
+
+        Given: ATDD CLI post-#414 rename
+        When: Running `atdd urn families` (any legacy subcommand)
+        Then: Exit status is non-zero AND stderr contains the migration pointer
+        """
+        result = run_atdd("urn", "families", expect_rc=1)
+        assert self.EXPECTED_ERROR in result.stderr, (
+            f"deprecation shim must print the migration pointer to stderr. "
+            f"got stderr={result.stderr!r}"
+        )
 
 
 # ============================================================================
@@ -289,7 +315,7 @@ class TestHelpCommand:
         stdout = result.stdout
         core_commands = [
             "validate", "inventory", "status", "registry", "init",
-            "issue", "list", "branch", "color", "sync", "gate", "urn",
+            "issue", "list", "branch", "color", "sync", "gate", "repo",
         ]
         for cmd in core_commands:
             assert cmd in stdout, f"--help must mention subcommand '{cmd}'"
