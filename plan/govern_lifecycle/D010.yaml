@@ -8,13 +8,10 @@ lens: "functional.sustainability"
 statement: "minimize quantity of duplicated-hardcoded-theme-map-dicts-across-modules when theme_map dicts are hardcoded in inventory.py, registry.py, and test_train_validation.py blocking any config-driven override"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:D010-UNIT-001-single-source-theme-map-helper"
-      id: "AC-UNIT-001"
+      urn: "acc:govern-lifecycle:D010-METRIC-001-single-source-theme-map-helper"
+      id: "AC-METRIC-001"
       purpose: "A single get_theme_map(config) helper replaces every hardcoded theme_map dict in the codebase"
       phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
     given:
       abstract:
         - "coach/utils/theme_map.py exposes get_theme_map(config) returning merged defaults + overrides"

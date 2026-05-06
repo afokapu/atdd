@@ -291,15 +291,99 @@ class URNCommand:
             else:
                 self._print_validation_result(result)
 
-            # Determine exit code
+            # Substrate Track-B conformance suite (#410, spec §11 step 2):
+            # `atdd urn validate` (renamed to `atdd repo validate` post-#414)
+            # MUST also surface Class-1 substrate-conformance findings so
+            # day-1 backlog appears on the same CLI surface as URN-graph
+            # findings. The conformance tests live under
+            # ``src/atdd/tester/validators/test_acceptance_*.py`` +
+            # ``test_metric_implementation.py`` +
+            # ``test_repo_validator_binding.py``; pytest is the gate so the
+            # rule_id-keyed Violation records and disposition gate apply.
+            substrate_rc = self._run_substrate_conformance(format=format)
+
+            # Determine exit code: combine URN-graph + substrate.
+            urn_rc: int
             if strict:
-                return 1 if result.issues else 0
+                urn_rc = 1 if result.issues else 0
             else:
-                return 1 if result.has_errors else 0
+                urn_rc = 1 if result.has_errors else 0
+
+            return 1 if (urn_rc or substrate_rc) else 0
 
         except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error running validation: {e}", file=sys.stderr)
             return 1
+
+    def _run_substrate_conformance(self, format: str = "text") -> int:
+        """Invoke the substrate Track-B conformance pytest suite.
+
+        Returns 0 on pass, 1 on any failing conformance rule. The
+        ``ATDD_ALLOW_SUBSTRATE_BACKLOG`` env var (set by the toolkit's
+        own CI during the migration window) demotes findings to warnings
+        — see ``_acceptance_walker.assert_substrate_strict``.
+        """
+        import atdd as _atdd_pkg
+
+        pkg_dir = Path(_atdd_pkg.__file__).resolve().parent
+        validators_dir = pkg_dir / "tester" / "validators"
+        targets = [
+            str(validators_dir / "test_acceptance_measurable.py"),
+            str(validators_dir / "test_acceptance_phase.py"),
+            str(validators_dir / "test_acceptance_disposition.py"),
+            str(validators_dir / "test_repo_validator_binding.py"),
+            str(validators_dir / "test_metric_implementation.py"),
+        ]
+        existing = [t for t in targets if Path(t).is_file()]
+        if not existing:
+            return 0
+
+        cmd = [
+            sys.executable,
+            "-m",
+            "pytest",
+            *existing,
+            "-q",
+            "--tb=short",
+            "--no-header",
+        ]
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+        except (OSError, FileNotFoundError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            # The handler is observable: it prints the exception to stderr
+            # before returning the failure exit code, satisfying the
+            # "log, re-raise, or otherwise observably react" rule. The
+            # suppress marker is here because the validator's AST scan
+            # only sees the bare ``return``.
+            if format != "json":
+                print(
+                    f"\n[substrate] could not invoke conformance suite: {exc}",
+                    file=sys.stderr,
+                )
+            return 1
+
+        if format == "json":
+            payload = {
+                "substrate_conformance": {
+                    "exit_code": proc.returncode,
+                    "stdout": proc.stdout,
+                    "stderr": proc.stderr,
+                }
+            }
+            print(json.dumps(payload, indent=2))
+        else:
+            sep = "\n--- Substrate Track-B conformance (spec §7.3) ---"
+            print(sep)
+            if proc.returncode == 0:
+                print("[substrate] conformance: PASS")
+            else:
+                if proc.stdout:
+                    print(proc.stdout)
+                if proc.stderr:
+                    print(proc.stderr, file=sys.stderr)
+                print("[substrate] conformance: FAIL")
+
+        return proc.returncode
 
     def _fix_jel_contracts(self, dry_run: bool = False, format: str = "text") -> int:
         """
