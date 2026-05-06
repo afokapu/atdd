@@ -247,13 +247,22 @@ def _load_yaml(path: Path):
         return None
 
 
-def build_registry(roots: Optional[Sequence[Path]] = None) -> Dict[str, RuleMetadata]:
+def build_registry(
+    roots: Optional[Sequence[Path]] = None,
+    repo_root: Optional[Path] = None,
+) -> Dict[str, RuleMetadata]:
     """Build the ``{rule_id: RuleMetadata}`` index.
 
     Args:
-        roots: Optional explicit search roots. When omitted, uses the
-            toolkit-wide convention discovery from
+        roots: Optional explicit search roots for ``*.convention.yaml`` files.
+            When omitted, uses the toolkit-wide convention discovery from
             ``test_rule_id_uniqueness.find_convention_files``.
+        repo_root: Optional consumer repo root to walk for ``plan/`` repo
+            rules (substrate spec v12 §4.2). When ``roots`` is the default
+            and ``repo_root`` is omitted, the live consumer repo is auto-
+            detected via ``find_repo_root()``. Pass ``repo_root=None``
+            together with explicit ``roots`` (test mode) to skip the repo
+            walk and stay hermetic.
 
     Returns:
         Dict keyed by rule_id (canonical AND aliases). First occurrence wins
@@ -261,15 +270,22 @@ def build_registry(roots: Optional[Sequence[Path]] = None) -> Dict[str, RuleMeta
         by ``test_rule_id_uniqueness.py``). Alias collisions with another
         canonical id or another rule's alias raise ``AmbiguousAliasError``
         at registry-build time (issue #399).
+
+        Repo-derived rules (acceptance / security URNs) are merged in via
+        ``rule_binding.find_repo_rules``; their ``description`` / ``fix_hint``
+        flow through the disposition-gate failure formatter so spec §6
+        sample blocks render with the same enrichment as toolkit rules.
     """
     if roots is None:
         files: List[Path] = find_convention_files()
+        explicit_roots = False
     else:
         files = []
         for root in roots:
             if not Path(root).is_dir():
                 continue
             files.extend(sorted(Path(root).rglob("*.convention.yaml")))
+        explicit_roots = True
 
     registry: Dict[str, RuleMetadata] = {}
     canonical_ids: set = set()
@@ -305,7 +321,93 @@ def build_registry(roots: Optional[Sequence[Path]] = None) -> Dict[str, RuleMeta
                 alias_to_canonical[alias] = rule_id
                 if alias != rule_id:
                     registry.setdefault(alias, meta)
+
+    _merge_repo_rules(registry, repo_root, explicit_roots)
     return registry
+
+
+def _merge_repo_rules(
+    registry: Dict[str, RuleMetadata],
+    repo_root: Optional[Path],
+    explicit_roots: bool,
+) -> None:
+    """Merge substrate repo-rule walker output into the registry.
+
+    Walks ``<repo>/plan/`` via ``rule_binding.find_repo_rules`` and converts
+    each repo-scoped ``RuleMetadata`` (from ``rule_binding``) into an
+    ``rule_id_registry.RuleMetadata`` view. The disposition-gate failure
+    formatter consumes ``description`` and ``fix_hint`` from this registry,
+    so populating them here is what makes spec v12 §6 sample blocks render
+    for repo rules. First-occurrence-wins matches the toolkit-rule path.
+    """
+    target: Optional[Path]
+    if repo_root is not None:
+        target = Path(repo_root)
+    elif explicit_roots:
+        return
+    else:
+        try:
+            from atdd.coach.utils.repo import find_repo_root
+        except ImportError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            # Toolkit packaging shipped without repo-detection — extremely
+            # unusual, but the registry must still load convention rules so
+            # toolkit-only validators continue to work. Log + skip.
+            _logger.debug(
+                "rule_id_registry: repo module unavailable, skipping repo walk: %s",
+                exc,
+                extra={"error_type": type(exc).__name__},
+            )
+            return
+        try:
+            target = find_repo_root()
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            _logger.debug(
+                "rule_id_registry: find_repo_root failed, skipping repo walk: %s",
+                exc,
+                extra={"error_type": type(exc).__name__},
+            )
+            return
+    if target is None or not Path(target).is_dir():
+        return
+
+    try:
+        from atdd.coach.utils.rule_binding import find_repo_rules
+    except ImportError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        _logger.debug(
+            "rule_id_registry: rule_binding module unavailable, skipping repo walk: %s",
+            exc,
+            extra={"error_type": type(exc).__name__},
+        )
+        return
+
+    try:
+        repo_rules = find_repo_rules(target)
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        _logger.debug(
+            "rule_id_registry: skipping repo-rule walk under %s: %s",
+            target, exc,
+            extra={"repo_root": str(target), "error_type": type(exc).__name__},
+        )
+        return
+
+    for src_path, repo_meta in repo_rules:
+        if repo_meta.rule_id in registry:
+            continue
+        registry[repo_meta.rule_id] = RuleMetadata(
+            rule_id=repo_meta.rule_id,
+            convention_path=Path(src_path),
+            severity=repo_meta.severity,
+            description=repo_meta.description or "",
+            disposition=repo_meta.disposition,
+            suppression_deadline=None,
+            recipe=repo_meta.recipe,
+            introduced_in=repo_meta.introduced_in,
+            validator=repo_meta.validator,
+            fix_hint=repo_meta.fix_hint,
+            aliases=repo_meta.aliases,
+            signal_metric=repo_meta.signal_metric,
+            signal_threshold=repo_meta.signal_threshold,
+        )
 
 
 __all__ = ["AmbiguousAliasError", "RuleMetadata", "build_registry"]

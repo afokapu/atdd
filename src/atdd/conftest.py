@@ -3,6 +3,14 @@ Root conftest for unified test reporting across all test categories.
 """
 import pytest
 
+# Activate pytester at the test-root conftest. The substrate plugin's
+# integration tests (issue #411) spin up an inner pytest session via
+# ``pytester.runpytest`` to verify hook behavior end-to-end. pytest 7+
+# removed support for ``pytest_plugins`` in non-rootdir conftests, so the
+# fixture has to be enabled here. pytester is a no-op for sessions that
+# never touch the fixture.
+pytest_plugins = ["pytester"]
+
 try:
     import pytest_html as _pytest_html_check  # noqa: F401
     _HAS_PYTEST_HTML = True
