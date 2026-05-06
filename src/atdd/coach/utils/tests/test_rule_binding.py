@@ -375,9 +375,12 @@ def test_rule_metadata_constructable_with_all_substrate_fields():
         "harness_category": "unit",
         "signal_metric": "violation_count",
         "signal_threshold": "0",
-        "given": "a fresh registry",
-        "when": "a substrate rule binds",
-        "then": "every substrate field round-trips",
+        "given": ("a fresh registry",),
+        "when": ("a substrate rule binds",),
+        "then": (
+            "every substrate field round-trips",
+            "the renderer can consume it as a list",
+        ),
         "author": "alec",
         "created": "2026-05-06",
     }
