@@ -1,0 +1,75 @@
+schema_version: "1.0.0"
+convention_id: "tester.acceptance-violation"
+name: "Acceptance Substrate Conformance"
+description: |
+  Substrate enforcement convention (spec v12 §7.3). Surfaces day-1 Class 1
+  failures: missing measurability, missing identity.phase, declared
+  disposition, broken validator binding, missing metric implementation.
+
+  These rules are toolkit-authored conventions, so each carries a
+  prescriptive ``recipe:`` pointer telling the team exactly what to add or
+  remove to make the rule pass.
+
+rules:
+  - id: tester.acceptance-violation.acceptance-must-be-measurable
+    severity: 4
+    disposition: strict
+    validator: "test_acceptance_measurable::test_every_acceptance_has_enforcement"
+    description: "Every acceptance in plan/ must declare harness.type with a binding test, OR signal.metric + signal.threshold (both fields required together), or both"
+    fix_hint: |
+      Under the failing acceptance, ensure at least one is present:
+        - harness.type: <unit|backend|e2e|...> with a test file anchored to this acceptance via headers
+        - signal.metric: <name> with signal.threshold: <value>
+      If using signal mode, both fields are required — neither alone satisfies measurability.
+    recipe: acceptance-measurability
+
+  - id: tester.acceptance-violation.acceptance-must-declare-phase
+    severity: 4
+    disposition: strict
+    validator: "test_acceptance_phase::test_every_acceptance_declares_phase"
+    description: "Every acceptance in plan/ must declare identity.phase explicitly"
+    fix_hint: |
+      Under the failing acceptance's identity: block, add:
+        phase: <RED|GREEN|SMOKE|REFACTOR>
+      Phase is canonical for coach dispatch (§8.1) and cannot be inferred from source kind.
+    recipe: acceptance-phase
+
+  - id: tester.acceptance-violation.disposition-must-not-be-declared
+    severity: 3
+    disposition: strict
+    validator: "test_acceptance_disposition::test_no_disposition_in_repo_yaml"
+    description: "Repo acceptance and security YAML must NOT declare a disposition: field — the substrate sets it to strict for all repo rules"
+    fix_hint: |
+      Remove the disposition: field from the failing acceptance or abuse_case rule block.
+      Repo contract rules are unsuppressible by construction (§2); declaring disposition is misleading.
+    recipe: acceptance-rule-block
+
+  - id: tester.acceptance-violation.validator-binding-must-be-bidirectional
+    severity: 3
+    disposition: strict
+    validator: "test_repo_validator_binding::test_validator_binding_is_bidirectional"
+    description: "When harness.type is declared, an anchored test must exist whose headers match the acceptance"
+    fix_hint: |
+      Either add the standard test header block at the top of the test file:
+        # URN: test:<wagon-or-train>:<acceptance-slug>
+        # Acceptance: <acc:URN>
+        # WMBT: <wmbt:URN>      (or  # Train: <train:URN>)
+        # Phase: <RED|GREEN|SMOKE|REFACTOR>
+        # Layer: <presentation|application|domain|integration|assembly>
+      Or fix the test to anchor at the right acceptance.
+    recipe: acceptance-test-headers
+
+  - id: tester.acceptance-violation.metric-implementation-must-exist
+    severity: 4
+    disposition: strict
+    validator: "test_metric_implementation::test_every_signal_metric_has_compute_function"
+    description: "When signal.metric is declared, a compute() implementation must exist in either <repo>/.atdd/metrics/<metric>.py or src/atdd/runners/metrics/<metric>.py (two-root lookup, repo-local takes precedence)"
+    fix_hint: |
+      The acceptance declares signal.metric: <name>, but no compute function exists in either lookup root:
+        - <repo>/.atdd/metrics/<name>.py::compute       (repo-local; consumer-authored)
+        - src/atdd/runners/metrics/<name>.py::compute   (toolkit-shipped; commons)
+      Either add the missing implementation in <repo>/.atdd/metrics/<name>.py (no toolkit code change required),
+      rename the metric to match an existing implementation, or remove signal.metric from the acceptance
+      and rely on harness mode. The module must export compute(repo_root: Path) -> int|float|bool and
+      passes(value, threshold) -> bool (default `value <= threshold` for upper-bound metrics).
+    recipe: metric-implementation
