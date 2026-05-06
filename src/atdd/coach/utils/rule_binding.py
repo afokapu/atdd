@@ -871,7 +871,7 @@ def iter_rules() -> Iterable[RuleMetadata]:
     each rule is yielded once.
 
     The iterator is the public peer of the underscored ``_get_registry``
-    helper. ``atdd rules`` and ``atdd urn rules`` consume it (issue #409).
+    helper. ``atdd rules`` and ``atdd repo rules`` consume it (issue #409).
 
     Order: ascending by ``rule_id``. Stable across calls within a process
     (the registry is cached) but not across processes (file discovery

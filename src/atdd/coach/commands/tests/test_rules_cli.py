@@ -1,7 +1,7 @@
 # URN: urn:atdd:test:coach:commands:rules_cli
 # Issue: #409
 
-"""Unit tests for ``atdd rules`` and the ``atdd urn`` repo-rule listings.
+"""Unit tests for ``atdd rules`` and the ``atdd repo`` repo-rule listings.
 
 Substrate spec v12 §9.2 — surface the merged rule registry to humans.
 
@@ -11,9 +11,9 @@ Coverage:
   unknown-id error path).
 * ``atdd rules where <rule-id>`` (source path + acceptance URN).
 * ``atdd rules grep <pattern>`` (id-match, description-match, no-match).
-* ``atdd urn rules`` (lists every repo rule, grouped by parent).
-* ``atdd urn wmbt-rules <wmbt-urn>`` (single-WMBT filter).
-* ``atdd urn train-rules <train-urn>`` (single-train filter).
+* ``atdd repo rules`` (lists every repo rule, grouped by parent).
+* ``atdd repo wmbt-rules <wmbt-urn>`` (single-WMBT filter).
+* ``atdd repo train-rules <train-urn>`` (single-train filter).
 
 The fixture builds a tmp-path consumer repo with two WMBT acceptances and
 one train acceptance, then drives the registry through
@@ -302,12 +302,12 @@ def test_rules_grep_invalid_regex_returns_nonzero(
 
 
 # ---------------------------------------------------------------------------
-# atdd urn rules — list every repo rule, grouped by parent URN
+# atdd repo rules — list every repo rule, grouped by parent URN
 # ---------------------------------------------------------------------------
 def test_urn_rules_lists_every_repo_rule_grouped_by_parent(
     seeded_registry: Path, capsys: pytest.CaptureFixture[str]
 ):
-    """``atdd urn rules`` shows every repo-derived rule across WMBT + train."""
+    """``atdd repo rules`` shows every repo-derived rule across WMBT + train."""
     from atdd.coach.commands.rules import RepoRulesListing
 
     rc = RepoRulesListing().list_all_repo_rules()
@@ -343,7 +343,7 @@ def test_urn_rules_json_serializes_list(
 
 
 # ---------------------------------------------------------------------------
-# atdd urn wmbt-rules <wmbt-urn>
+# atdd repo wmbt-rules <wmbt-urn>
 # ---------------------------------------------------------------------------
 def test_urn_wmbt_rules_filters_to_one_wmbt(
     seeded_registry: Path, capsys: pytest.CaptureFixture[str]
@@ -385,7 +385,7 @@ def test_urn_wmbt_rules_rejects_non_wmbt_urn(
 
 
 # ---------------------------------------------------------------------------
-# atdd urn train-rules <train-urn>
+# atdd repo train-rules <train-urn>
 # ---------------------------------------------------------------------------
 def test_urn_train_rules_filters_to_one_train(
     seeded_registry: Path, capsys: pytest.CaptureFixture[str]

@@ -1048,7 +1048,7 @@ gate_tests:
       - id: "GT-800"
         phase: "completion"
         archetype: "all"
-        command: "atdd urn validate"
+        command: "atdd repo validate"
         expected: "PASS"
         atdd_validator: "atdd/coach/validators/test_urn_traceability.py"
         description: "URN traceability graph integrity"

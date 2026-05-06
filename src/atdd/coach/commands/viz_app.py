@@ -3,7 +3,7 @@ ATDD URN Graph Visualizer
 =========================
 Streamlit app for interactive URN traceability graph visualization.
 
-Launched via: atdd urn viz
+Launched via: atdd repo viz
 Default port: 8502
 
 Uses st-link-analysis (Cytoscape.js) for graph rendering.

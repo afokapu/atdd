@@ -1101,66 +1101,69 @@ Phase descriptions:
         help="Skip the live PyPI check (use local stamp only)",
     )
 
-    # ----- atdd urn {graph,orphans,broken,validate,resolve,declarations,viz} -----
-    urn_parser = subparsers.add_parser(
-        "urn",
-        help="URN traceability analysis",
-        description="Analyze URN coverage, traceability, and resolution"
+    # ----- atdd repo {graph,orphans,broken,validate,resolve,declarations,viz} -----
+    # Renamed from the legacy `urn` namespace per spec §9.1 (issue #414).
+    # A deprecation shim for the legacy command is registered further down
+    # so legacy callers get a clear migration error.
+    repo_parser = subparsers.add_parser(
+        "repo",
+        help="Repo traceability analysis (URN graph, validation, rules)",
+        description="Analyze URN coverage, traceability, resolution, and repo rules"
     )
-    urn_subparsers = urn_parser.add_subparsers(
-        dest="urn_command",
-        help="URN commands"
+    repo_subparsers = repo_parser.add_subparsers(
+        dest="repo_command",
+        help="Repo commands"
     )
 
-    # atdd urn graph
-    urn_graph_parser = urn_subparsers.add_parser(
+    # atdd repo graph
+    repo_graph_parser = repo_subparsers.add_parser(
         "graph",
         help="Generate URN traceability graph"
     )
-    urn_graph_parser.add_argument(
+    repo_graph_parser.add_argument(
         "--format", "-f",
         type=str,
         choices=["json", "dot"],
         default="json",
         help="Output format (default: json)"
     )
-    urn_graph_parser.add_argument(
+    repo_graph_parser.add_argument(
         "--root",
         type=str,
         help="Root URN for subgraph extraction"
     )
-    urn_graph_parser.add_argument(
+    repo_graph_parser.add_argument(
         "--family",
         type=str,
         action="append",
         dest="families",
         help="Filter by URN families (can be repeated)"
     )
-    urn_graph_parser.add_argument(
+    repo_graph_parser.add_argument(
         "--depth",
         type=int,
         default=-1,
         help="Maximum depth for subgraph (-1 for unlimited)"
     )
-    urn_graph_parser.add_argument(
+    repo_graph_parser.add_argument(
         "--full",
         action="store_true",
         help="Output full raw nodes + edges (default: agent-optimized summary)"
     )
 
-    # atdd urn orphans
-    urn_orphans_parser = urn_subparsers.add_parser(
+    # atdd repo orphans
+    repo_orphans_parser = repo_subparsers.add_parser(
         "orphans",
         help="Find orphaned URNs (declared but not referenced)"
     )
-    urn_orphans_parser.add_argument(
+    repo_orphans_parser.add_argument(
         "--family",
         type=str,
         action="append",
         dest="families",
         help="Filter by URN families (can be repeated)"
     )
-    urn_orphans_parser.add_argument(
+    repo_orphans_parser.add_argument(
         "--format", "-f",
         type=str,
         choices=["text", "json"],
@@ -1168,19 +1171,19 @@ Phase descriptions:
         help="Output format (default: text)"
     )
 
-    # atdd urn broken
-    urn_broken_parser = urn_subparsers.add_parser(
+    # atdd repo broken
+    repo_broken_parser = repo_subparsers.add_parser(
         "broken",
         help="Find broken URN references"
     )
-    urn_broken_parser.add_argument(
+    repo_broken_parser.add_argument(
         "--family",
         type=str,
         action="append",
         dest="families",
         help="Filter by URN families (can be repeated)"
     )
-    urn_broken_parser.add_argument(
+    repo_broken_parser.add_argument(
         "--format", "-f",
         type=str,
         choices=["text", "json"],
@@ -1188,60 +1191,60 @@ Phase descriptions:
         help="Output format (default: text)"
     )
 
-    # atdd urn validate
-    urn_validate_parser = urn_subparsers.add_parser(
+    # atdd repo validate
+    repo_validate_parser = repo_subparsers.add_parser(
         "validate",
         help="Validate URN traceability"
     )
-    urn_validate_parser.add_argument(
+    repo_validate_parser.add_argument(
         "--phase",
         type=str,
         choices=["warn", "fail"],
         default="warn",
         help="Validation phase: warn (errors as warnings) or fail (strict)"
     )
-    urn_validate_parser.add_argument(
+    repo_validate_parser.add_argument(
         "--family",
         type=str,
         action="append",
         dest="families",
         help="Filter by URN families (can be repeated)"
     )
-    urn_validate_parser.add_argument(
+    repo_validate_parser.add_argument(
         "--format", "-f",
         type=str,
         choices=["text", "json"],
         default="text",
         help="Output format (default: text)"
     )
-    urn_validate_parser.add_argument(
+    repo_validate_parser.add_argument(
         "--strict",
         action="store_true",
         help="Fail on warnings too"
     )
-    urn_validate_parser.add_argument(
+    repo_validate_parser.add_argument(
         "--fix",
         action="store_true",
         help="Auto-fix urn:jel:* contract IDs by deriving from file path"
     )
-    urn_validate_parser.add_argument(
+    repo_validate_parser.add_argument(
         "--dry-run",
         action="store_true",
         dest="dry_run",
         help="Show what --fix would change without modifying files"
     )
 
-    # atdd urn resolve
-    urn_resolve_parser = urn_subparsers.add_parser(
+    # atdd repo resolve
+    repo_resolve_parser = repo_subparsers.add_parser(
         "resolve",
         help="Resolve a URN to its artifact(s)"
     )
-    urn_resolve_parser.add_argument(
+    repo_resolve_parser.add_argument(
         "urn",
         type=str,
         help="The URN to resolve"
     )
-    urn_resolve_parser.add_argument(
+    repo_resolve_parser.add_argument(
         "--format", "-f",
         type=str,
         choices=["text", "json"],
@@ -1249,19 +1252,19 @@ Phase descriptions:
         help="Output format (default: text)"
     )
 
-    # atdd urn declarations
-    urn_declarations_parser = urn_subparsers.add_parser(
+    # atdd repo declarations
+    repo_declarations_parser = repo_subparsers.add_parser(
         "declarations",
         help="List all URN declarations"
     )
-    urn_declarations_parser.add_argument(
+    repo_declarations_parser.add_argument(
         "--family",
         type=str,
         action="append",
         dest="families",
         help="Filter by URN families (can be repeated)"
     )
-    urn_declarations_parser.add_argument(
+    repo_declarations_parser.add_argument(
         "--format", "-f",
         type=str,
         choices=["text", "json"],
@@ -1269,54 +1272,54 @@ Phase descriptions:
         help="Output format (default: text)"
     )
 
-    # atdd urn families
-    urn_subparsers.add_parser(
+    # atdd repo families
+    repo_subparsers.add_parser(
         "families",
         help="List registered URN families"
     )
 
-    # atdd urn viz
-    urn_viz_parser = urn_subparsers.add_parser(
+    # atdd repo viz
+    repo_viz_parser = repo_subparsers.add_parser(
         "viz",
         help="Launch interactive URN graph visualizer (requires atdd[viz])"
     )
-    urn_viz_parser.add_argument(
+    repo_viz_parser.add_argument(
         "--port",
         type=int,
         default=8502,
         help="Streamlit server port (default: 8502)"
     )
-    urn_viz_parser.add_argument(
+    repo_viz_parser.add_argument(
         "--host",
         type=str,
         default="127.0.0.1",
         help="Streamlit server address (default: 127.0.0.1)"
     )
-    urn_viz_parser.add_argument(
+    repo_viz_parser.add_argument(
         "--root",
         type=str,
         help="Root URN for subgraph extraction"
     )
-    urn_viz_parser.add_argument(
+    repo_viz_parser.add_argument(
         "--family",
         type=str,
         action="append",
         dest="families",
         help="Filter by URN families (can be repeated)"
     )
-    urn_viz_parser.add_argument(
+    repo_viz_parser.add_argument(
         "--depth",
         type=int,
         default=-1,
         help="Maximum depth for subgraph (-1 for unlimited)"
     )
 
-    # atdd urn rules — list every repo-derived rule grouped by parent URN
-    urn_rules_parser = urn_subparsers.add_parser(
+    # atdd repo rules — list every repo-derived rule grouped by parent URN
+    repo_rules_parser = repo_subparsers.add_parser(
         "rules",
         help="List all repo rules derived from plan/ acceptances",
     )
-    urn_rules_parser.add_argument(
+    repo_rules_parser.add_argument(
         "--format", "-f",
         type=str,
         choices=["text", "json"],
@@ -1324,17 +1327,17 @@ Phase descriptions:
         help="Output format (default: text)",
     )
 
-    # atdd urn wmbt-rules <wmbt-urn>
-    urn_wmbt_rules_parser = urn_subparsers.add_parser(
+    # atdd repo wmbt-rules <wmbt-urn>
+    repo_wmbt_rules_parser = repo_subparsers.add_parser(
         "wmbt-rules",
         help="List repo rules derived from a WMBT URN",
     )
-    urn_wmbt_rules_parser.add_argument(
+    repo_wmbt_rules_parser.add_argument(
         "wmbt_urn",
         type=str,
         help="WMBT URN (e.g. wmbt:govern-lifecycle:D010)",
     )
-    urn_wmbt_rules_parser.add_argument(
+    repo_wmbt_rules_parser.add_argument(
         "--format", "-f",
         type=str,
         choices=["text", "json"],
@@ -1342,22 +1345,39 @@ Phase descriptions:
         help="Output format (default: text)",
     )
 
-    # atdd urn train-rules <train-urn>
-    urn_train_rules_parser = urn_subparsers.add_parser(
+    # atdd repo train-rules <train-urn>
+    repo_train_rules_parser = repo_subparsers.add_parser(
         "train-rules",
         help="List repo rules derived from a train URN",
     )
-    urn_train_rules_parser.add_argument(
+    repo_train_rules_parser.add_argument(
         "train_urn",
         type=str,
         help="Train URN (e.g. train:0001-self-compliance-validate)",
     )
-    urn_train_rules_parser.add_argument(
+    repo_train_rules_parser.add_argument(
         "--format", "-f",
         type=str,
         choices=["text", "json"],
         default="text",
         help="Output format (default: text)",
+    )
+
+    # ----- legacy `urn` deprecation shim (issue #414, spec §9.1) -----
+    # The legacy `urn` namespace was renamed to `atdd repo`. The shim prints
+    # the canonical deprecation error string and exits non-zero so legacy
+    # callers get a clear migration pointer. argparse.REMAINDER swallows any
+    # subcommand/flags so legacy invocations of every flavor still hit the
+    # dispatcher rather than falling through to argparse's own error path.
+    urn_shim_parser = subparsers.add_parser(
+        "urn",
+        help="(deprecated) renamed to `atdd repo`",
+        description="Deprecated — use `atdd repo` instead.",
+    )
+    urn_shim_parser.add_argument(
+        "_legacy_args",
+        nargs=argparse.REMAINDER,
+        help=argparse.SUPPRESS,
     )
 
     # ----- atdd rules {show,where,grep} (substrate spec v12 §9.2 — issue #409) -----
@@ -1956,12 +1976,13 @@ Phase descriptions:
             no_pypi=getattr(args, "no_pypi", False),
         )
 
-    # atdd urn {graph,orphans,broken,validate,resolve,declarations,families,viz}
-    elif args.command == "urn":
+    # atdd repo {graph,orphans,broken,validate,resolve,declarations,families,viz,
+    #            rules,wmbt-rules,train-rules}
+    elif args.command == "repo":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
         cmd = URNCommand(repo_root=repo_path)
 
-        if args.urn_command == "graph":
+        if args.repo_command == "graph":
             return cmd.graph(
                 format=args.format,
                 root=args.root,
@@ -1969,17 +1990,17 @@ Phase descriptions:
                 max_depth=args.depth,
                 full=args.full,
             )
-        elif args.urn_command == "orphans":
+        elif args.repo_command == "orphans":
             return cmd.orphans(
                 families=args.families,
                 format=args.format
             )
-        elif args.urn_command == "broken":
+        elif args.repo_command == "broken":
             return cmd.broken(
                 families=args.families,
                 format=args.format
             )
-        elif args.urn_command == "validate":
+        elif args.repo_command == "validate":
             return cmd.validate(
                 phase=args.phase,
                 families=args.families,
@@ -1988,19 +2009,19 @@ Phase descriptions:
                 fix=args.fix,
                 dry_run=args.dry_run
             )
-        elif args.urn_command == "resolve":
+        elif args.repo_command == "resolve":
             return cmd.resolve(
                 urn=args.urn,
                 format=args.format
             )
-        elif args.urn_command == "declarations":
+        elif args.repo_command == "declarations":
             return cmd.declarations(
                 families=args.families,
                 format=args.format
             )
-        elif args.urn_command == "families":
+        elif args.repo_command == "families":
             return cmd.list_families()
-        elif args.urn_command == "viz":
+        elif args.repo_command == "viz":
             return cmd.viz(
                 port=args.port,
                 host=args.host,
@@ -2008,13 +2029,13 @@ Phase descriptions:
                 families=args.families,
                 max_depth=args.depth,
             )
-        elif args.urn_command in ("rules", "wmbt-rules", "train-rules"):
+        elif args.repo_command in ("rules", "wmbt-rules", "train-rules"):
             from atdd.coach.commands.rules import RepoRulesListing
 
             listing = RepoRulesListing()
-            if args.urn_command == "rules":
+            if args.repo_command == "rules":
                 return listing.list_all_repo_rules(format=args.format)
-            if args.urn_command == "wmbt-rules":
+            if args.repo_command == "wmbt-rules":
                 return listing.list_rules_for_wmbt(
                     args.wmbt_urn, format=args.format
                 )
@@ -2022,8 +2043,20 @@ Phase descriptions:
                 args.train_urn, format=args.format
             )
         else:
-            urn_parser.print_help()
+            repo_parser.print_help()
             return 0
+
+    # legacy `urn` deprecation shim (issue #414, spec §9.1)
+    # The legacy `urn` namespace was renamed to `atdd repo`. This shim exits
+    # non-zero with the canonical migration error string so legacy callers
+    # get a clear pointer. A follow-up issue removes this shim after one
+    # minor release.
+    elif args.command == "urn":
+        print(
+            "`atdd urn` was renamed to `atdd repo`. See CHANGELOG for migration.",
+            file=sys.stderr,
+        )
+        return 1
 
     # atdd rules {show,where,grep}
     elif args.command == "rules":

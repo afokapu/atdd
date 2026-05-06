@@ -1,8 +1,8 @@
 # URN: component:govern-lifecycle:enforcement-substrate:rules_cli:backend:application
 # Runtime: python
-# Purpose: CLI command handler for `atdd rules {show,where,grep}` and the repo-rule listing peers under `atdd urn`.
+# Purpose: CLI command handler for `atdd rules {show,where,grep}` and the repo-rule listing peers under `atdd repo`.
 
-"""``atdd rules`` and ``atdd urn {rules,wmbt-rules,train-rules}`` handlers.
+"""``atdd rules`` and ``atdd repo {rules,wmbt-rules,train-rules}`` handlers.
 
 Substrate spec v12 §9.2 — surface the merged rule registry to humans.
 
@@ -15,12 +15,12 @@ Three ``atdd rules`` subcommands:
 * ``atdd rules grep <pattern>`` — list every rule whose id or description
   matches the regex.
 
-Three ``atdd urn`` listing peers (Track-A landing surface; Issue #414
-renames ``atdd urn`` to ``atdd repo`` wholesale):
+Three ``atdd repo`` listing peers (Track-A landing surface; Issue #414
+renamed the legacy CLI namespace to ``atdd repo`` wholesale):
 
-* ``atdd urn rules`` — every repo rule, grouped by parent URN.
-* ``atdd urn wmbt-rules <wmbt-urn>`` — rules derived from one WMBT.
-* ``atdd urn train-rules <train-urn>`` — rules derived from one train.
+* ``atdd repo rules`` — every repo rule, grouped by parent URN.
+* ``atdd repo wmbt-rules <wmbt-urn>`` — rules derived from one WMBT.
+* ``atdd repo train-rules <train-urn>`` — rules derived from one train.
 
 Implementation iterates the merged registry exposed by
 ``atdd.coach.utils.rule_binding.iter_rules`` so toolkit conventions and
@@ -205,16 +205,16 @@ def _print_repo_rule_line(meta: RuleMetadata, indent: int = 2) -> None:
 
 
 class RepoRulesListing:
-    """Handler for the repo-rule listing peers under ``atdd urn``.
+    """Handler for the repo-rule listing peers under ``atdd repo``.
 
     Lives next to ``RulesCommand`` rather than inside ``URNCommand`` so
     the consumer (the CLI dispatcher) can hold one rule-aware command.
-    Issue #414 renames ``atdd urn`` to ``atdd repo`` wholesale; this
-    handler carries over unchanged.
+    Issue #414 renamed the legacy CLI namespace to ``atdd repo`` wholesale;
+    this handler carries over unchanged.
     """
 
     def list_all_repo_rules(self, format: str = "text") -> int:
-        """``atdd urn rules`` — every repo rule, grouped by parent URN."""
+        """``atdd repo rules`` — every repo rule, grouped by parent URN."""
         repo_rules = _filter_repo_rules(iter_rules())
 
         if format == "json":
@@ -243,7 +243,7 @@ class RepoRulesListing:
         return 0
 
     def list_rules_for_wmbt(self, wmbt_urn: str, format: str = "text") -> int:
-        """``atdd urn wmbt-rules <wmbt-urn>`` — rules derived from one WMBT."""
+        """``atdd repo wmbt-rules <wmbt-urn>`` — rules derived from one WMBT."""
         if not wmbt_urn.startswith("wmbt:"):
             print(
                 f"Error: expected WMBT URN starting with 'wmbt:', got {wmbt_urn!r}",
@@ -268,7 +268,7 @@ class RepoRulesListing:
         return 0
 
     def list_rules_for_train(self, train_urn: str, format: str = "text") -> int:
-        """``atdd urn train-rules <train-urn>`` — rules derived from one train."""
+        """``atdd repo train-rules <train-urn>`` — rules derived from one train."""
         if not train_urn.startswith("train:"):
             print(
                 f"Error: expected train URN starting with 'train:', got {train_urn!r}",

@@ -340,7 +340,7 @@ templates:
 # =============================================================================
 totals:
   cli_commands: 17             # top-level commands (+ issue unified)
-  urn_subcommands: 8           # atdd urn {graph,orphans,...}
+  repo_subcommands: 11         # atdd repo {graph,orphans,broken,validate,resolve,declarations,families,viz,rules,wmbt-rules,train-rules}
   command_modules: 20          # src/atdd/coach/commands/*.py (+ issue_lifecycle)
   validator_files: 72          # test_*.py across all wagons
   test_functions: 453          # total collected by pytest

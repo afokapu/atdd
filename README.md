@@ -254,7 +254,7 @@ code:
   frontend: "web/src"
   toolkit: "src/atdd"   # only for the atdd toolkit-self repo
 
-# Optional theme overrides for atdd urn viz / status output
+# Optional theme overrides for atdd repo viz / status output
 themes:
   default: "auto"
   # custom:
@@ -338,11 +338,11 @@ Visualize URN traceability as an interactive graph with search, family filters, 
 
 ```bash
 pip install atdd[viz]
-atdd urn viz                           # Launch on default port 8502
-atdd urn viz --port 9000               # Custom port
-atdd urn viz --root wagon:my-wagon     # Subgraph from root
-atdd urn viz --family wagon --family feature  # Filter families
-atdd urn viz --mode journey            # Journey mode — TRAIN_STEP edges from train sequence[]
+atdd repo viz                           # Launch on default port 8502
+atdd repo viz --port 9000               # Custom port
+atdd repo viz --root wagon:my-wagon     # Subgraph from root
+atdd repo viz --family wagon --family feature  # Filter families
+atdd repo viz --mode journey            # Journey mode — TRAIN_STEP edges from train sequence[]
 ```
 
 ### Parallel Orchestration
