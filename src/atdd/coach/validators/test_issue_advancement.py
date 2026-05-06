@@ -32,6 +32,23 @@ _STALE_PHASES = frozenset({"INIT", "PLANNED"})
 # Terminal or expected post-merge phases — no advancement expected
 _TERMINAL_PHASES = frozenset({"COMPLETE", "OBSOLETE"})
 
+# Issue labels that mark a non-lifecycle issue (parent meta-issue, tracker,
+# milestone, etc.). These don't advance through the standard 6-phase lifecycle
+# because their "advancement" is the cumulative state of their child issues,
+# not a single phase transition. PRs that reference them (e.g., a docs PR whose
+# title includes "(#406)") should not trigger advancement enforcement.
+_NON_LIFECYCLE_LABELS = frozenset({"tracking", "meta", "epic", "parent"})
+
+
+def _issue_is_non_lifecycle(issue_data: dict) -> bool:
+    """True if the issue carries a label marking it as non-lifecycle."""
+    labels = issue_data.get("labels", []) or []
+    label_names = {
+        (lbl.get("name") if isinstance(lbl, dict) else lbl)
+        for lbl in labels
+    }
+    return bool(label_names & _NON_LIFECYCLE_LABELS)
+
 
 def scan_issue_advancement(repo_root: Path) -> Tuple[int, Sequence]:
     """Scan recently merged PRs for stale linked issues.
@@ -64,6 +81,12 @@ def scan_issue_advancement(repo_root: Path) -> Tuple[int, Sequence]:
 
         # Skip terminal phases
         if phase in _TERMINAL_PHASES:
+            continue
+
+        # Skip non-lifecycle issues (tracking / meta / epic / parent).
+        # Their "advancement" is the cumulative state of child issues, not
+        # a single label transition.
+        if _issue_is_non_lifecycle(resolution["issue_data"]):
             continue
 
         if phase in _STALE_PHASES:
