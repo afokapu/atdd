@@ -41,7 +41,10 @@ def print_latest_diagnostics(
 
     try:
         document = yaml.safe_load(artifact.read_text()) or {}
-    except yaml.YAMLError as exc:
+    except yaml.YAMLError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-06
+        # Reported via print + non-zero exit code — observable by both
+        # the user and CI. Re-raising would obscure the actual problem
+        # (corrupt artifact) behind a stack trace.
         print(f"Failed to parse diagnostics artifact at {artifact}: {exc}")
         return 2
 

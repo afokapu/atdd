@@ -114,18 +114,13 @@ def _is_toolkit_packaging_issue(filename: Optional[str]) -> bool:
         return False
     try:
         target = Path(filename).resolve()
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-06
+        # Bogus path (NUL byte, symlink loop, etc.) — not a toolkit
+        # resource by definition. Returning False is the only sensible
+        # answer; raising would mask the actual test failure.
         return False
     pkg = _atdd_pkg_dir()
-    try:
-        return target.is_relative_to(pkg)
-    except AttributeError:
-        # Defensive: pre-3.9 fallback. Toolkit pins 3.10+ so this is dead.
-        try:
-            target.relative_to(pkg)
-            return True
-        except ValueError:
-            return False
+    return target.is_relative_to(pkg)
 
 
 _FNFE_FILENAME_RE = re.compile(r"FileNotFoundError.*?'([^']+)'", re.DOTALL)
