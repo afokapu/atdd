@@ -753,18 +753,26 @@ class GraphBuilder:
                 artifact_path = (
                     resolution.resolved_paths[0] if resolution.resolved_paths else None
                 )
+                node_metadata = {
+                    "source_path": str(decl.source_path),
+                    "is_broken": resolution.is_broken,
+                    "resolution_error": resolution.error,
+                    "is_deterministic": resolution.is_deterministic,
+                    "is_resolved": resolution.is_resolved,
+                    "resolved_paths": [str(p) for p in resolution.resolved_paths],
+                }
+                # Surface declaration- and resolution-level metadata onto the
+                # graph node so downstream consumers (validators, viz) can
+                # read e.g. abuse_case fields without re-parsing YAMLs.
+                if getattr(decl, "metadata", None):
+                    node_metadata["declaration"] = dict(decl.metadata)
+                if getattr(resolution, "metadata", None):
+                    node_metadata["resolution"] = dict(resolution.metadata)
                 node = URNNode(
                     urn=decl.urn,
                     family=family,
                     artifact_path=artifact_path,
-                    metadata={
-                        "source_path": str(decl.source_path),
-                        "is_broken": resolution.is_broken,
-                        "resolution_error": resolution.error,
-                        "is_deterministic": resolution.is_deterministic,
-                        "is_resolved": resolution.is_resolved,
-                        "resolved_paths": [str(p) for p in resolution.resolved_paths],
-                    },
+                    metadata=node_metadata,
                 )
                 graph.add_node(node)
 
@@ -773,6 +781,7 @@ class GraphBuilder:
         self._build_produce_consume_edges(graph)
         self._build_train_edges(graph)
         self._build_component_edges(graph)
+        self._build_security_edges(graph)
         # Phase 3: pass content cache to edge builders that read files
         self._build_test_edges(graph, content_cache)
         self._build_tested_by_edges(graph, content_cache)
@@ -1127,6 +1136,81 @@ class GraphBuilder:
 
             except Exception:
                 continue
+
+    def _build_security_edges(self, graph: TraceabilityGraph) -> None:
+        """
+        Build security URN edges:
+
+        - ``feature → security`` (CONTAINS) — every resolved abuse_case is
+          contained by its parent feature.
+        - ``security → acceptance_ref`` (REFERENCES) — every abuse_case that
+          declares ``acceptance_ref`` references the named acc URN. Edges
+          are emitted regardless of whether the target acc URN resolves;
+          broken refs are flagged separately by ``find_broken``.
+        """
+        for node in list(graph.nodes.values()):
+            if node.family != "security":
+                continue
+
+            # security:{wagon}:{feature}:{NNN}
+            parts = node.urn.replace("security:", "").split(":")
+            if len(parts) != 3:
+                continue
+            wagon_id, feature_id, _seq = parts
+            feature_urn = f"feature:{wagon_id}:{feature_id}"
+
+            # feature → security (CONTAINS); add_edge auto-synthesizes missing feature node
+            graph.add_edge(
+                URNEdge(
+                    source_urn=feature_urn,
+                    target_urn=node.urn,
+                    edge_type=EdgeType.CONTAINS,
+                    metadata={"source": "abuse-case-structure"},
+                )
+            )
+
+            # security → acceptance_ref (REFERENCES). The abuse_case fields
+            # were stashed onto node.metadata['declaration'] in build().
+            decl_meta = node.metadata.get("declaration") or {}
+            acceptance_ref = decl_meta.get("acceptance_ref")
+            if not acceptance_ref or not isinstance(acceptance_ref, str):
+                continue
+
+            # If the target acc URN was not declared elsewhere, synthesize a
+            # broken target node so EdgeValidator.find_broken flags it.
+            if acceptance_ref not in graph.nodes:
+                target_resolution = self.registry.resolve(acceptance_ref)
+                graph.add_node(
+                    URNNode(
+                        urn=acceptance_ref,
+                        family=self.registry.get_family(acceptance_ref) or "unknown",
+                        artifact_path=(
+                            target_resolution.resolved_paths[0]
+                            if target_resolution.resolved_paths
+                            else None
+                        ),
+                        metadata={
+                            "source_path": str(node.metadata.get("source_path", "")),
+                            "is_broken": target_resolution.is_broken,
+                            "resolution_error": target_resolution.error,
+                            "is_deterministic": target_resolution.is_deterministic,
+                            "is_resolved": target_resolution.is_resolved,
+                            "resolved_paths": [
+                                str(p) for p in target_resolution.resolved_paths
+                            ],
+                            "synthesized_by": "abuse_case.acceptance_ref",
+                        },
+                    )
+                )
+
+            graph.add_edge(
+                URNEdge(
+                    source_urn=node.urn,
+                    target_urn=acceptance_ref,
+                    edge_type=EdgeType.REFERENCES,
+                    metadata={"source": "abuse-case-acceptance-ref"},
+                )
+            )
 
     def _build_component_edges(self, graph: TraceabilityGraph) -> None:
         """Build feature -> component (CONTAINS) edges from component URN structure."""
