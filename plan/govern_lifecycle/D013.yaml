@@ -25,9 +25,6 @@ acceptances:
         - "Schema validation passes"
         - "Unknown stack-name keys (e.g. rust: crates/) are permitted (additionalProperties string)"
         - "A config without any code: block still validates (backward compatible)"
-    signal:
-      metric: "config_schema_drift_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

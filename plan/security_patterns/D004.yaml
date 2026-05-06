@@ -26,9 +26,6 @@ acceptances:
         - "Violation reported with pattern name, line number, and truncated match"
         - "Comment-only lines skipped"
         - "Test and fixture files excluded via glob patterns"
-    signal:
-      metric: "secret_violations"
-      threshold: 0
     metadata:
       author: "atdd:security-patterns"
       created: "2026-03-31"

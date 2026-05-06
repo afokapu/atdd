@@ -25,9 +25,6 @@ acceptances:
         - "The validator FAILs with exit code non-zero"
         - "The failure message names the offending issue and which label family is missing"
         - "The failure message suggests atdd issue sync-labels <N> as the supervised repair path"
-    signal:
-      metric: "issues_missing_required_label_family_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

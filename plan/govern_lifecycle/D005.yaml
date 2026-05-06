@@ -26,9 +26,6 @@ acceptances:
         - "The validator FAILs with exit code non-zero"
         - "The failure message names every offending open issue by number"
         - "The failure message suggests a remediation command (gh issue edit <N> --add-label atdd-issue or atdd issue sync-labels <N>)"
-    signal:
-      metric: "unlabeled_open_issue_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

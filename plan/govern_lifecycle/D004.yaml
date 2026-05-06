@@ -27,9 +27,6 @@ acceptances:
         - "The resulting issue set is passed to atdd orchestrate as the wave"
         - "A cycle in the dep graph is detected and reported without crashing"
         - "Issues that are already COMPLETE are excluded from the wave"
-    signal:
-      metric: "orchestrate_wave_computation_error_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-14"

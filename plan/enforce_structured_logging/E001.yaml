@@ -26,9 +26,6 @@ acceptances:
         - "All print() calls in non-test Python files are reported as violations"
         - "Test files are excluded from scanning"
         - "Validator skips gracefully if python/ does not exist"
-    signal:
-      metric: "print_violations"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"

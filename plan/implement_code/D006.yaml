@@ -25,9 +25,6 @@ acceptances:
       abstract:
         - "Missing file, missing class, or missing required method produces a hard failure with SPEC-CODER-TRAIN-0001 error block"
         - "Absent configuration key produces a clean pytest skip with no failure"
-    signal:
-      metric: "composition_root_violation_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-14"

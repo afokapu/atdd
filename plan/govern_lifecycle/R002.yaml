@@ -26,9 +26,6 @@ acceptances:
         - "Exit code is 0"
         - "No 'Repository layout is worktree, expected worktree-ready' error is printed"
         - "Updated status is displayed to the user"
-    signal:
-      metric: "transition_reenter_error_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-14"

@@ -25,9 +25,6 @@ acceptances:
       abstract:
         - "Violation reported with file path, line number, and SQL keyword found"
         - "Files matching exclusion globs are skipped"
-    signal:
-      metric: "sql_violations"
-      threshold: 0
     metadata:
       author: "atdd:security-patterns"
       created: "2026-03-31"

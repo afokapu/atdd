@@ -24,9 +24,6 @@ acceptances:
       abstract:
         - "453 tests collected"
         - "All tests pass (0 failures)"
-    signal:
-      metric: "test_count"
-      threshold: 453
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"

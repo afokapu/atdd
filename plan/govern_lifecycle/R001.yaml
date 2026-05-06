@@ -26,9 +26,6 @@ acceptances:
         - "The session entry for N has status == <target>"
         - "No other session entries are mutated"
         - "The on-disk manifest is rewritten atomically"
-    signal:
-      metric: "manifest_status_drift_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-14"

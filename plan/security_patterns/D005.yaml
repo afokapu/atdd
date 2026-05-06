@@ -25,9 +25,6 @@ acceptances:
       abstract:
         - "Violation reported with file path, line number, and matched pattern"
         - "Type declaration files (.d.ts) and test files excluded"
-    signal:
-      metric: "xss_violations"
-      threshold: 0
     metadata:
       author: "atdd:security-patterns"
       created: "2026-03-31"

@@ -26,9 +26,6 @@ acceptances:
         - "The violation count is ≤2 (down from 10)"
         - "The baseline in .atdd/baselines/coder.yaml reflects the new post-refactor count"
         - "atdd validate coder --local passes with no regression vs pre-refactor main"
-    signal:
-      metric: "stale_baseline_bump_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

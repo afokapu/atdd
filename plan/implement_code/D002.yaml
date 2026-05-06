@@ -25,9 +25,6 @@ acceptances:
         - "Root files are excluded from dead code analysis"
         - "__init__.py re-exports are treated as graph edges, not terminal usage"
         - "Symbols reachable via re-export chains are not flagged"
-    signal:
-      metric: "false_positive_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"

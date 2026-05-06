@@ -25,9 +25,6 @@ acceptances:
       abstract:
         - "All tests pass or skip (no failures)"
         - "Tests skip gracefully when consumer directories do not exist"
-    signal:
-      metric: "test_pass_rate"
-      threshold: 100
     metadata:
       author: "atdd:security-patterns"
       created: "2026-03-31"

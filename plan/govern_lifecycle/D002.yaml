@@ -28,9 +28,6 @@ acceptances:
         - "Existing WMBT sub-issues are left untouched (idempotent)"
         - "Project v2 custom fields are populated on newly created sub-issues"
         - "The command exits 0 and reports how many were created vs skipped"
-    signal:
-      metric: "missing_wmbt_subissue_count_after_sync"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-14"

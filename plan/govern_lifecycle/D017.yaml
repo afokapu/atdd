@@ -26,9 +26,6 @@ acceptances:
         - "Two sub-rules exist: workspace mode (one agent per workspace) and pane mode (one agent per surface)"
         - "Anti-pattern remains: sub-agent delegation that shares context within one agent's session"
         - "Old key 'one_agent_per_workspace' is removed (or marked deprecated with a pointer to the new key)"
-    signal:
-      metric: "convention_rule_drift_count"
-      threshold: 0
   - identity:
       urn: "acc:govern-lifecycle:D017-UNIT-002-babysit-shared-state-documented"
       id: "AC-UNIT-002"
@@ -46,9 +43,6 @@ acceptances:
       abstract:
         - "A note documents shared WorkspaceState in pane mode"
         - "A pointer to the surface-isolated-state follow-on issue is present (or marked TBD if the follow-on is not yet filed)"
-    signal:
-      metric: "missing_caveat_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-01"

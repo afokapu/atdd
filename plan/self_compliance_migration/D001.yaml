@@ -24,9 +24,6 @@ acceptances:
       abstract:
         - "5 wagon manifests found (govern-lifecycle, define-plans, verify-contracts, implement-code, self-compliance-migration)"
         - "All manifests pass wagon schema validation"
-    signal:
-      metric: "wagon_count"
-      threshold: 5
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"

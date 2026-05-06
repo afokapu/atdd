@@ -27,9 +27,6 @@ acceptances:
         - "Low-confidence candidate tokens from repo metadata are reported separately and never escape into the primary list"
         - "The force-fit heuristic flags at least one wagon whose slug tokens do not overlap with its assigned theme's synonym set (e.g. authenticate-users tagged commons)"
         - "Output is consumable by both the interactive prompt and the --themes custom non-interactive flow"
-    signal:
-      metric: "blind_prompt_count_when_plan_has_themes"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

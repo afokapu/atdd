@@ -24,9 +24,6 @@ acceptances:
       abstract:
         - "No broken URN references"
         - "No orphaned contracts"
-    signal:
-      metric: "urn_errors"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"

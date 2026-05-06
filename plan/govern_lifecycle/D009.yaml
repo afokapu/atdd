@@ -26,9 +26,6 @@ acceptances:
         - "Validation passes with no errors"
         - "Consumers without a themes block continue to validate (backward compatible)"
         - "Non-digit keys or non-kebab-case names fail validation with a pinpointed error"
-    signal:
-      metric: "config_themes_schema_rejection_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

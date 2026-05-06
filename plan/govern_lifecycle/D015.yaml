@@ -27,9 +27,6 @@ acceptances:
         - "send issues 'cmux rpc surface.send_text' with the surface id and text"
         - "close issues 'cmux close-surface' with the surface id"
         - "workspace_ref shaped like workspace:NN routes to the workspace-level cmux subcommands as before"
-    signal:
-      metric: "wrong_rpc_dispatched_count"
-      threshold: 0
   - identity:
       urn: "acc:govern-lifecycle:D015-UNIT-002-new-surface-creates-pane-then-surface"
       id: "AC-UNIT-002"
@@ -50,9 +47,6 @@ acceptances:
         - "cmux new-surface is invoked with the freshly-created pane ref"
         - "cmux rpc surface.send_text is invoked with text 'cd /x && echo y\\n' (cwd and command seeded together)"
         - "The returned ref has the surface:* prefix"
-    signal:
-      metric: "missing_rpc_call_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-01"

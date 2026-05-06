@@ -25,9 +25,6 @@ acceptances:
       abstract:
         - "Violation reported for route missing Depends(get_current_user) or equivalent"
         - "Health check and public endpoint files excluded via glob patterns"
-    signal:
-      metric: "unauth_routes"
-      threshold: 0
     metadata:
       author: "atdd:security-patterns"
       created: "2026-03-31"

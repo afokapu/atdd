@@ -26,9 +26,6 @@ acceptances:
         - "Any train YAML that violates the schema shape produces a hard failure with SPEC-CODER-TRAIN-0003 error block"
         - "Absent configuration key produces a clean pytest skip"
         - "Missing schema file produces a hard failure (config error, not opt-out)"
-    signal:
-      metric: "train_render_metadata_violation_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-14"

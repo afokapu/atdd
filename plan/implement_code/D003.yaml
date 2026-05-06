@@ -24,9 +24,6 @@ acceptances:
       abstract:
         - "All DB client calls inside loop bodies are flagged as N+1 risks"
         - "Violations report file path, line number, function name, and call pattern"
-    signal:
-      metric: "n_plus_one_violations"
-      threshold: 0
     metadata:
       author: "atdd:implement-code"
       created: "2026-03-31"
@@ -48,9 +45,6 @@ acceptances:
       abstract:
         - "Zero violations reported"
         - "Test files are excluded from scanning"
-    signal:
-      metric: "false_positive_count"
-      threshold: 0
     metadata:
       author: "atdd:implement-code"
       created: "2026-03-31"
