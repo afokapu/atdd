@@ -28,6 +28,7 @@ coverage.xml
 
 # ATDD cache + agent-local state
 .atdd/cache/
+.atdd/diagnostics/
 .atdd/orchestration-log.jsonl
 .atdd/worker-state-*.json
 .scratch/

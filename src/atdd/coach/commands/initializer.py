@@ -476,6 +476,10 @@ class ProjectInitializer:
 
             # Ensure .atdd/cache/ is gitignored
             self._ensure_gitignore_entry(".atdd/cache/")
+            # Issue #449: validation diagnostics artifact directory.
+            # Written by `atdd validate` on every run — local artifact,
+            # not git history.
+            self._ensure_gitignore_entry(".atdd/diagnostics/")
 
             # Create manifest.yaml
             self._create_manifest(force)
