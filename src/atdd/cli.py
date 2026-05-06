@@ -501,6 +501,19 @@ Phase descriptions:
         dest="export_schemas",
         help="Export convention YAML and schema JSON files to .atdd/schemas/"
     )
+    # Substrate mode (issue #415, spec v12 §9.3) — mutually exclusive overrides.
+    init_substrate_group = init_parser.add_mutually_exclusive_group()
+    init_substrate_group.add_argument(
+        "--consumer-repo",
+        action="store_true",
+        dest="consumer_repo",
+        help="Force consumer-repo substrate mode (writes repo.* fields to .atdd/config.yaml)"
+    )
+    init_substrate_group.add_argument(
+        "--toolkit",
+        action="store_true",
+        help="Force toolkit mode (removes substrate fields; only existing toolkit init behavior)"
+    )
 
     # ----- atdd schemas --check -----
     schemas_parser = subparsers.add_parser(
@@ -1675,7 +1688,12 @@ Phase descriptions:
         initializer = ProjectInitializer()
         if args.export_schemas:
             return initializer.export_schemas()
-        return initializer.init(force=args.force, worktree_layout=args.worktree_layout)
+        return initializer.init(
+            force=args.force,
+            worktree_layout=args.worktree_layout,
+            consumer_repo=getattr(args, "consumer_repo", False),
+            toolkit=getattr(args, "toolkit", False),
+        )
 
     # atdd new <slug> — DEPRECATED, delegates to atdd issue <slug>
     elif args.command == "new":

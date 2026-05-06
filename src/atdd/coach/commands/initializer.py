@@ -69,6 +69,21 @@ Define themes now? [defaults / custom / skip]
 _THEME_MODES = frozenset({"defaults", "custom", "skip"})
 
 
+# -----------------------------------------------------------------------------
+# Substrate mode (issue #415, spec v12 §9.3)
+# -----------------------------------------------------------------------------
+# Toolkit-self vs consumer-repo is detected by heuristic, with explicit flag
+# override. The substrate's pytest plugin is registered via pytest11 entry-point
+# in pyproject.toml; the plugin checks `repo.substrate.enabled` at collect time
+# and is a no-op in toolkit mode.
+
+SUBSTRATE_MODE_CONSUMER = "consumer-repo"
+SUBSTRATE_MODE_TOOLKIT = "toolkit"
+SUBSTRATE_PLUGIN_ENTRY_POINT = "atdd.tester.substrate.plugin"
+SUBSTRATE_DEFAULT_TEST_ROOT = "tests/"
+SUBSTRATE_DEFAULT_PLAN_ROOT = "plan/"
+
+
 def slug_to_branch_name(slug: str) -> str:
     """Convert worktree directory slug to branch-style name.
 
@@ -359,17 +374,31 @@ class ProjectInitializer:
         self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
-    def init(self, force: bool = False, worktree_layout: bool = False) -> int:
+    def init(
+        self,
+        force: bool = False,
+        worktree_layout: bool = False,
+        consumer_repo: bool = False,
+        toolkit: bool = False,
+    ) -> int:
         """
         Bootstrap .atdd/ config and GitHub infrastructure.
 
         Args:
             force: If True, overwrite existing files.
             worktree_layout: If True, migrate repo to flat-sibling worktree layout.
+            consumer_repo: If True, force consumer-repo substrate mode (writes
+                substrate fields to .atdd/config.yaml). Mutually exclusive with
+                ``toolkit``. Spec v12 §9.3, issue #415.
+            toolkit: If True, force toolkit mode (removes substrate fields).
+                Mutually exclusive with ``consumer_repo``.
 
         Returns:
             0 on success, 1 on error.
         """
+        if consumer_repo and toolkit:
+            print("Error: --consumer-repo and --toolkit are mutually exclusive.")
+            return 1
         from atdd.coach.utils.repo import detect_worktree_layout, find_repo_root
 
         layout = detect_worktree_layout(self.target_dir)
@@ -453,6 +482,14 @@ class ProjectInitializer:
 
             # Create config.yaml
             self._create_config(force)
+
+            # Resolve substrate mode (consumer-repo vs toolkit) and write/remove
+            # the `repo:` block in .atdd/config.yaml — issue #415, spec v12 §9.3.
+            substrate_mode = self._apply_substrate_mode(
+                force_consumer=consumer_repo,
+                force_toolkit=toolkit,
+            )
+            print(f"Substrate mode: {substrate_mode}")
 
             # Prompt for workspace color if unset or default yellow
             self._prompt_workspace_color()
@@ -683,6 +720,129 @@ class ProjectInitializer:
 
         action = "Updated" if is_update else "Created"
         print(f"{action}: {self.config_file}")
+
+    # -------------------------------------------------------------------------
+    # Substrate mode (issue #415, spec v12 §9.3)
+    # -------------------------------------------------------------------------
+    def detect_substrate_mode_heuristic(self) -> str:
+        """Resolve substrate mode purely from filesystem layout.
+
+        Default heuristic per spec v12 §9.3: presence of ``plan/`` AND absence
+        of ``src/atdd/`` → consumer-repo mode. Otherwise toolkit mode.
+
+        The toolkit's own checkout has both signals, so the heuristic correctly
+        classifies it as toolkit; the override flag (`--consumer-repo`) is
+        needed only for dogfooding.
+        """
+        has_plan = (self.target_dir / "plan").is_dir()
+        has_src_atdd = (self.target_dir / "src" / "atdd").is_dir()
+        if has_plan and not has_src_atdd:
+            return SUBSTRATE_MODE_CONSUMER
+        return SUBSTRATE_MODE_TOOLKIT
+
+    def resolve_substrate_mode(
+        self,
+        force_consumer: bool = False,
+        force_toolkit: bool = False,
+    ) -> str:
+        """Resolve the substrate mode to apply on this `atdd init` run.
+
+        Precedence (high → low):
+          1. ``--toolkit`` flag
+          2. ``--consumer-repo`` flag
+          3. Existing ``repo.substrate.mode`` in ``.atdd/config.yaml``
+             (a subsequent bare `atdd init` stays in mode)
+          4. Filesystem heuristic (`plan/` ^ `src/atdd/`)
+        """
+        if force_toolkit:
+            return SUBSTRATE_MODE_TOOLKIT
+        if force_consumer:
+            return SUBSTRATE_MODE_CONSUMER
+
+        if self.config_file.exists():
+            try:
+                with open(self.config_file) as f:
+                    cfg = yaml.safe_load(f) or {}
+            except (yaml.YAMLError, OSError) as exc:
+                logger.debug("substrate mode: cannot read config %s: %s", self.config_file, exc)
+                cfg = {}
+            existing_mode = (
+                cfg.get("repo", {}).get("substrate", {}).get("mode")
+                if isinstance(cfg, dict) else None
+            )
+            if existing_mode in (SUBSTRATE_MODE_CONSUMER, SUBSTRATE_MODE_TOOLKIT):
+                return existing_mode
+
+        return self.detect_substrate_mode_heuristic()
+
+    def _apply_substrate_mode(
+        self,
+        force_consumer: bool = False,
+        force_toolkit: bool = False,
+    ) -> str:
+        """Resolve mode and write/remove the `repo:` block in `.atdd/config.yaml`.
+
+        Returns the resolved mode string for the caller to print/log.
+        """
+        mode = self.resolve_substrate_mode(force_consumer, force_toolkit)
+        if mode == SUBSTRATE_MODE_CONSUMER:
+            self._write_substrate_config()
+        else:
+            self._remove_substrate_config()
+        return mode
+
+    def _write_substrate_config(self) -> None:
+        """Write the `repo:` block to `.atdd/config.yaml` (consumer-repo mode).
+
+        Idempotent: rewriting with the same defaults yields no diff. Existing
+        non-default values for `test_root` / `plan_root` are preserved.
+        """
+        if not self.config_file.exists():
+            return
+
+        with open(self.config_file) as f:
+            cfg = yaml.safe_load(f) or {}
+        if not isinstance(cfg, dict):
+            cfg = {}
+
+        existing_repo = cfg.get("repo") if isinstance(cfg.get("repo"), dict) else {}
+        existing_substrate = (
+            existing_repo.get("substrate")
+            if isinstance(existing_repo.get("substrate"), dict) else {}
+        )
+
+        repo_block = {
+            "test_root": existing_repo.get("test_root", SUBSTRATE_DEFAULT_TEST_ROOT),
+            "plan_root": existing_repo.get("plan_root", SUBSTRATE_DEFAULT_PLAN_ROOT),
+            "substrate": {
+                "enabled": existing_substrate.get("enabled", True),
+                "plugin": existing_substrate.get("plugin", SUBSTRATE_PLUGIN_ENTRY_POINT),
+                "mode": SUBSTRATE_MODE_CONSUMER,
+            },
+        }
+
+        if cfg.get("repo") == repo_block:
+            return  # already current — no-op
+
+        cfg["repo"] = repo_block
+        with open(self.config_file, "w") as f:
+            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+        print(f"  Wrote substrate fields to {self.config_file}")
+
+    def _remove_substrate_config(self) -> None:
+        """Remove the `repo:` block from `.atdd/config.yaml` (toolkit mode)."""
+        if not self.config_file.exists():
+            return
+
+        with open(self.config_file) as f:
+            cfg = yaml.safe_load(f) or {}
+        if not isinstance(cfg, dict) or "repo" not in cfg:
+            return
+
+        del cfg["repo"]
+        with open(self.config_file, "w") as f:
+            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+        print(f"  Removed substrate fields from {self.config_file}")
 
     def _install_hooks(self, force: bool = False) -> None:
         """Install git hooks from package templates into .atdd/hooks/.

@@ -143,6 +143,41 @@ def _read_atdd_config_test_root(repo_root: Path) -> Optional[Path]:
     return None
 
 
+def _substrate_enabled(repo_root: Path) -> bool:
+    """Return True if the substrate is enabled in `.atdd/config.yaml`.
+
+    Spec v12 §9.3 / issue #415: `atdd init --consumer-repo` writes
+    ``repo.substrate.enabled: true``; `--toolkit` removes the `repo:` block
+    entirely. The plugin is auto-loaded as a pytest11 entry-point in any
+    consumer that has atdd installed, so the runtime check on
+    ``repo.substrate.enabled`` is the authoritative on/off switch.
+    """
+    cfg = repo_root / ".atdd" / "config.yaml"
+    if not cfg.is_file():
+        return False
+    try:
+        import yaml
+
+        with open(cfg, encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        _logger.debug(
+            "substrate plugin: skipping malformed %s: %s",
+            cfg, exc,
+            extra={"path": str(cfg), "error_type": type(exc).__name__},
+        )
+        return False
+    if not isinstance(data, dict):
+        return False
+    repo_section = data.get("repo")
+    if not isinstance(repo_section, dict):
+        return False
+    substrate = repo_section.get("substrate")
+    if not isinstance(substrate, dict):
+        return False
+    return substrate.get("enabled") is True
+
+
 def _read_pyproject_testpaths(repo_root: Path) -> List[Path]:
     pp = repo_root / "pyproject.toml"
     if not pp.is_file():
@@ -281,6 +316,14 @@ def pytest_collection_modifyitems(
 
     repo_root = _detect_repo_root_for_session(session, config)
     if repo_root is None:
+        return
+
+    # Spec v12 §9.3 / issue #415: in toolkit mode (or any environment that
+    # never ran `atdd init --consumer-repo`), the `repo:` block is absent and
+    # the plugin must be a no-op — even though it is auto-loaded by pytest's
+    # entry-point discovery. This gate is the runtime equivalent of "plugin
+    # not registered" for non-substrate consumers.
+    if not _substrate_enabled(repo_root):
         return
 
     test_roots = _resolve_test_roots(repo_root)

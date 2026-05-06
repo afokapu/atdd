@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atdd"
-version = "3.5.0"
+version = "3.5.1"
 description = "ATDD Platform - Acceptance Test Driven Development toolkit"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -33,6 +33,13 @@ viz = ["streamlit", "st-link-analysis"]
 
 [project.scripts]
 atdd = "atdd.cli:cli"
+
+# Substrate pytest plugin (spec v12 §7.2, §9.3 — issues #411, #415).
+# Auto-loaded by pytest whenever atdd is importable; the plugin itself
+# early-returns when `.atdd/config.yaml::repo.substrate.enabled` is unset
+# (toolkit mode), so non-substrate consumers see no behavior change.
+[project.entry-points.pytest11]
+atdd_substrate = "atdd.tester.substrate.plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]

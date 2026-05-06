@@ -239,6 +239,49 @@
       },
       "additionalProperties": false
     },
+    "repo": {
+      "type": "object",
+      "description": "Consumer-repo substrate settings (issue #415, spec v12 §9.3). Written by `atdd init --consumer-repo` (or by default heuristic when `plan/` exists and `src/atdd/` does not). The `--toolkit` flag removes this block.",
+      "properties": {
+        "test_root": {
+          "type": "string",
+          "description": "Path the substrate pytest plugin walks for `# Acceptance:` headers (consumed by `atdd.tester.substrate.plugin`, issue #411). Relative to repo root.",
+          "default": "tests/",
+          "examples": ["tests/", "python/tests/"]
+        },
+        "plan_root": {
+          "type": "string",
+          "description": "Walker root for AcceptanceResolver (issue #408). Relative to repo root.",
+          "default": "plan/",
+          "examples": ["plan/"]
+        },
+        "substrate": {
+          "type": "object",
+          "description": "Substrate registration metadata. Pinned schema so the plugin (#411) reads what `atdd init` (#415) writes.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Toggle for opting out without running `atdd init --toolkit`. The substrate pytest plugin checks this before scanning for anchored tests.",
+              "default": true
+            },
+            "plugin": {
+              "type": "string",
+              "description": "Entry-point id of the substrate pytest plugin. Mirrors `[project.entry-points.pytest11]` in the toolkit pyproject.toml.",
+              "default": "atdd.tester.substrate.plugin"
+            },
+            "mode": {
+              "type": "string",
+              "enum": ["consumer-repo", "toolkit"],
+              "description": "Mode resolved by `atdd init`. Subsequent bare `atdd init` reads this and stays in mode (override needs explicit --toolkit / --consumer-repo)."
+            }
+          },
+          "required": ["enabled", "plugin", "mode"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["test_root", "plan_root", "substrate"],
+      "additionalProperties": false
+    },
     "coach": {
       "type": "object",
       "description": "Coach agent validation settings",

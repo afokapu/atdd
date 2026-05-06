@@ -76,6 +76,23 @@ def _write_repo_skeleton(repo: Path) -> None:
     (repo / ".atdd" / "manifest.yaml").write_text(
         "version: '2.0'\nsessions: []\n", encoding="utf-8",
     )
+    # Per spec v12 §9.3 (issue #415), the substrate plugin is auto-loaded
+    # via a pytest11 entry-point and gated at runtime on the `repo:` block.
+    # Integration fixtures simulate a consumer-repo `atdd init --consumer-repo`
+    # by writing the same block the initializer would produce.
+    (repo / ".atdd" / "config.yaml").write_text(
+        "version: '1.0'\n"
+        "release:\n"
+        "  version_file: pyproject.toml\n"
+        "repo:\n"
+        "  test_root: tests/\n"
+        "  plan_root: plan/\n"
+        "  substrate:\n"
+        "    enabled: true\n"
+        "    plugin: atdd.tester.substrate.plugin\n"
+        "    mode: consumer-repo\n",
+        encoding="utf-8",
+    )
     (repo / "plan").mkdir(exist_ok=True)
     (repo / "tests").mkdir(exist_ok=True)
 
