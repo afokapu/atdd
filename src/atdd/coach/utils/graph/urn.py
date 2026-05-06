@@ -35,6 +35,34 @@ URN Patterns:
               - Wagon entrypoint:    component:{wagon}:wagon:{name}:{side}:assembly
               - Train infra:         component:trains:{feature}:{name}:{side}:assembly
 
+- security:   security:{wagon}:{feature-slug}:{NNN}
+              Example: security:auth:session-management:001
+              Pattern: ^security:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[0-9]{3}$
+              Threat-seq: zero-padded to 3 digits (e.g. THREAT-1 -> 001, THREAT-42 -> 042)
+
+Parent-it-belongs-to principle (spec v12 §3.2)
+----------------------------------------------
+Each URN takes the form ``<resource>:<parent-coordinates>:<local-id>``, where
+``<parent-coordinates>`` may require multiple colon-separated tokens depending on
+how the parent is uniquely identified. URN segment count reflects the parent's
+identification cost — it is not a fixed scheme depth. New resource families
+register one entry in ``URNBuilder.PATTERNS`` and inherit the same convention
+without re-litigating per-type rules.
+
+Per-resource segment-count table (verbatim from spec §3.2):
+
+  | Resource                                  | Parent                  | Total tokens after the prefix |
+  | ----------------------------------------- | ----------------------- | ----------------------------- |
+  | wagon:<id>                                | none                    | 1                             |
+  | train:<id>                                | none                    | 1                             |
+  | feature:<wagon>:<slug>                    | wagon (1 token)         | 2                             |
+  | wmbt:<wagon>:<wmbt-id>                    | wagon (1 token)         | 2                             |
+  | acc:<wagon>:<wmbt-id>-<harness>-<seq>     | WMBT (collapses)        | 2                             |
+  | security:<wagon>:<feature-slug>:<seq>     | feature (2 tokens)      | 3                             |
+
+The machine-readable mirror of this table is ``URNBuilder.SEGMENT_COUNTS``;
+``test_urn_segment_count_table`` parametrizes over both to keep them in lockstep.
+
 Usage:
     from utils.graph import URNBuilder
     # or
@@ -147,9 +175,25 @@ class URNBuilder:
         'table': r'^table:[a-z0-9_]+$',
         'team': r'^team:[a-z0-9-]+$',
 
+        # Security artifacts (spec v12 §3.2: parent = feature, 3 tokens)
+        'security': r'^security:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[0-9]{3}$',
+
         # Release management
         'train': r'^train:\d{4}-[a-z0-9][a-z0-9-]*$',
         'migration': r'^migration:\d{14}_[a-z][a-z0-9_]*$',
+    }
+
+    # Per-resource segment-count table (spec v12 §3.2 parent-it-belongs-to).
+    # Token count = number of colon-separated tokens AFTER the resource prefix.
+    # Adding a new family REQUIRES adding an entry here in lockstep with PATTERNS;
+    # ``test_urn_segment_count_table`` enforces parity.
+    SEGMENT_COUNTS = {
+        'wagon':    1,  # parent: none
+        'train':    1,  # parent: none
+        'feature':  2,  # parent: wagon (1 token)
+        'wmbt':     2,  # parent: wagon (1 token)
+        'acc':      2,  # parent: WMBT collapses into local-id segment
+        'security': 3,  # parent: feature (2 tokens) + threat-seq
     }
 
     @classmethod
@@ -159,6 +203,52 @@ class URNBuilder:
         if not pattern:
             raise ValueError(f"Unknown entity type: {entity_type}")
         return bool(re.match(pattern, urn))
+
+    @classmethod
+    def validate_grammar(cls, urn: str) -> bool:
+        """Validate a URN against the parent-it-belongs-to grammar (spec §3.2).
+
+        Auto-detects the resource family from the prefix before the first
+        ``:``. Returns ``True`` if the URN matches the registered pattern for
+        that family. Raises ``ValueError`` with a clear, actionable message
+        when:
+
+        - the prefix is not a registered resource type, or
+        - the segment count does not match ``SEGMENT_COUNTS`` for that family.
+
+        This is the public entry point for the substrate spec's parent-it-
+        belongs-to principle: every ``security:`` URN is a 3-token URN; every
+        ``feature:`` URN is a 2-token URN; etc. Adding a new family means
+        registering one ``PATTERNS`` entry plus one ``SEGMENT_COUNTS`` entry,
+        not editing this method.
+        """
+        if not isinstance(urn, str) or ':' not in urn:
+            raise ValueError(f"Malformed URN (missing prefix): {urn!r}")
+
+        prefix = urn.split(':', 1)[0]
+        if prefix not in cls.PATTERNS:
+            known = ', '.join(sorted(cls.PATTERNS))
+            raise ValueError(
+                f"unknown resource type: {prefix!r} in URN {urn!r}. "
+                f"Known resource types: {known}"
+            )
+
+        # Segment-count check (parent-it-belongs-to). Only enforced for
+        # families with a declared expected count; other families (test,
+        # contract, telemetry, plan, endpoint, ...) keep their existing
+        # regex-only validation.
+        expected = cls.SEGMENT_COUNTS.get(prefix)
+        if expected is not None:
+            actual = len(urn.split(':')) - 1  # tokens AFTER the prefix
+            if actual != expected:
+                raise ValueError(
+                    f"{prefix!r} URN has wrong segment count: expected "
+                    f"{expected} token{'s' if expected != 1 else ''} after "
+                    f"'{prefix}:' per parent-it-belongs-to principle "
+                    f"(spec §3.2), got {actual} in {urn!r}"
+                )
+
+        return cls.validate_urn(urn, prefix)
 
     @classmethod
     def wagon(cls, wagon_id: str) -> str:
@@ -219,6 +309,82 @@ class URNBuilder:
             raise ValueError(f"Generated invalid feature URN: {urn}")
 
         return urn
+
+    @classmethod
+    def security(cls, wagon_id: str, feature_slug: str, threat_seq) -> str:
+        """
+        Build a security URN (spec v12 §3.2, parent = feature).
+
+        Args:
+            wagon_id: The grandparent wagon identifier
+            feature_slug: The parent feature slug (kebab-case)
+            threat_seq: Threat sequence — accepts an int (1..999), a 1-3 digit
+                string, or a ``THREAT-<n>`` style id (case-insensitive). The
+                numeric tail is zero-padded to three digits. ``THREAT-1`` -> "001",
+                ``THREAT-42`` -> "042", ``"7"`` -> "007".
+
+        Returns:
+            URN in format: security:{wagon}:{feature_slug}:{NNN}
+
+        Examples:
+            URNBuilder.security("auth", "session-management", "001")
+            -> "security:auth:session-management:001"
+
+            URNBuilder.security("auth", "session-management", "THREAT-1")
+            -> "security:auth:session-management:001"
+        """
+        wagon_id = cls._normalize_id(wagon_id)
+        feature_slug = cls._normalize_id(feature_slug)
+
+        if not re.match(r'^[a-z][a-z0-9-]*$', wagon_id):
+            raise ValueError(f"Invalid wagon ID for security: {wagon_id}")
+        if not re.match(r'^[a-z][a-z0-9-]*$', feature_slug):
+            raise ValueError(f"Invalid feature slug for security: {feature_slug}")
+
+        seq_str = cls._normalize_threat_seq(threat_seq)
+
+        urn = f"security:{wagon_id}:{feature_slug}:{seq_str}"
+
+        if not cls.validate_urn(urn, 'security'):
+            raise ValueError(f"Generated invalid security URN: {urn}")
+
+        return urn
+
+    @classmethod
+    def _normalize_threat_seq(cls, threat_seq) -> str:
+        """Normalize a threat-seq value to a zero-padded 3-digit string.
+
+        Accepts int, digit-only string, or ``THREAT-<n>`` style id
+        (case-insensitive). Rejects values whose numeric tail is <1 or >999.
+        """
+        if isinstance(threat_seq, bool):  # bool is a subclass of int; reject explicitly
+            raise TypeError("threat_seq must be an int or string, got bool")
+
+        if isinstance(threat_seq, int):
+            value = threat_seq
+        elif isinstance(threat_seq, str):
+            cleaned = threat_seq.strip()
+            if not cleaned:
+                raise ValueError("threat_seq cannot be empty")
+
+            match = re.fullmatch(r'(?i)threat[-_]?(\d+)', cleaned)
+            if match:
+                value = int(match.group(1))
+            elif re.fullmatch(r'\d+', cleaned):
+                value = int(cleaned)
+            else:
+                raise ValueError(
+                    f"Invalid threat_seq: {threat_seq!r}. Must be int, digits, or THREAT-<n>."
+                )
+        else:
+            raise TypeError(f"threat_seq must be int or string, got {type(threat_seq).__name__}")
+
+        if value < 1 or value > 999:
+            raise ValueError(
+                f"threat_seq numeric tail must be between 1 and 999 (got {value})"
+            )
+
+        return f"{value:03d}"
 
     @classmethod
     def wmbt(cls, wagon_id: str, sequence: str) -> str:
@@ -927,6 +1093,21 @@ class URNBuilder:
                 'component_name': parts[2] if len(parts) > 2 else None,
                 'side': parts[3] if len(parts) > 3 else None,
                 'layer': parts[4] if len(parts) > 4 else None
+            }
+        elif urn.startswith('security:'):
+            parts = urn[len('security:'):].split(':')
+            expected = cls.SEGMENT_COUNTS['security']
+            if len(parts) != expected:
+                raise ValueError(
+                    f"Invalid security URN segment count: expected {expected} "
+                    f"tokens after 'security:' (wagon, feature_slug, threat_seq), "
+                    f"got {len(parts)} in {urn!r}"
+                )
+            return {
+                'type': 'security',
+                'wagon_id': parts[0],
+                'feature_id': parts[1],
+                'threat_seq': parts[2],
             }
         else:
             raise ValueError(f"Unknown URN type: {urn}")
