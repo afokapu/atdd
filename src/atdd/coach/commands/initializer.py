@@ -764,7 +764,11 @@ class ProjectInitializer:
                 with open(self.config_file) as f:
                     cfg = yaml.safe_load(f) or {}
             except (yaml.YAMLError, OSError) as exc:
-                logger.debug("substrate mode: cannot read config %s: %s", self.config_file, exc)
+                logger.debug(
+                    "substrate mode: cannot read config %s: %s",
+                    self.config_file, exc,
+                    extra={"path": str(self.config_file), "error_type": type(exc).__name__},
+                )
                 cfg = {}
             existing_mode = (
                 cfg.get("repo", {}).get("substrate", {}).get("mode")
