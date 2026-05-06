@@ -200,10 +200,10 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:repo-rule-substrate
   train: 0001-self-compliance-validate
-- id: '411'
-  slug: substrate-411-harness-plugin
+- id: '413'
+  slug: substrate-413-theme-metric
   file: null
-  issue_number: 411
+  issue_number: 413
   type: feature
   status: RED
   created: '2026-05-06'
