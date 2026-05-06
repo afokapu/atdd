@@ -79,7 +79,11 @@ _PATH_CATEGORY_HINTS = (
 
 class _DiagnosticsState:
     def __init__(self) -> None:
-        self.start_time: float = 0.0
+        # Default to time.time() so that if anyone resets the state mid-
+        # session (toolkit-self dogfood, tests), duration_seconds doesn't
+        # blow up to ``time.time() - 0.0``. pytest_sessionstart still
+        # overwrites this with the real session start.
+        self.start_time: float = time.time()
         self.findings: List[Finding] = []
         self.toolkit_packaging_issues: List[Dict[str, Any]] = []
         # Counts mirror pytest's terminal summary so the artifact is
