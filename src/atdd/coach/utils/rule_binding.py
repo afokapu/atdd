@@ -850,6 +850,48 @@ def get_canonical_id(rule_id: str) -> str:
     return bind_rule(rule_id).rule_id
 
 
+def iter_rules() -> Iterable[RuleMetadata]:
+    """Yield every canonically-registered rule in the merged registry.
+
+    Walks the same registry that ``bind_rule`` resolves against — so the
+    iterator surfaces both toolkit-convention rules (via
+    ``find_convention_files``) and repo-derived rules (via
+    ``find_repo_rules``). Aliases are skipped; only the canonical id of
+    each rule is yielded once.
+
+    The iterator is the public peer of the underscored ``_get_registry``
+    helper. ``atdd rules`` and ``atdd urn rules`` consume it (issue #409).
+
+    Order: ascending by ``rule_id``. Stable across calls within a process
+    (the registry is cached) but not across processes (file discovery
+    order can shift if conventions are added or moved).
+
+    Yields:
+        ``RuleMetadata`` for each canonical rule. Ambiguous rules
+        (declared in two convention files) are silently elided here —
+        ``bind_rule`` is the place those failures surface.
+    """
+    registry = _get_registry()
+    seen: set = set()
+    for rule_id in sorted(registry.keys()):
+        matches = registry.get(rule_id, [])
+        if not matches:
+            continue
+        # ``registry`` includes alias entries pointing at the canonical
+        # ``RuleMetadata``. Yield each canonical metadata exactly once by
+        # gating on its own ``rule_id`` (the canonical id, not the lookup
+        # key — which may be an alias).
+        canonical_meta = matches[0]
+        if canonical_meta.rule_id in seen:
+            continue
+        if rule_id != canonical_meta.rule_id:
+            # This entry is the alias-row; skip — the canonical row will
+            # appear separately in the sorted walk.
+            continue
+        seen.add(canonical_meta.rule_id)
+        yield canonical_meta
+
+
 __all__ = [
     "AmbiguousAliasError",
     "AmbiguousRuleError",
@@ -862,4 +904,5 @@ __all__ = [
     "find_convention_files",
     "find_repo_rules",
     "get_canonical_id",
+    "iter_rules",
 ]
