@@ -17,6 +17,7 @@ for dispatch — per §8.1 line 584. Pre-#422 this branch is a no-op.
 
 from __future__ import annotations
 
+import logging
 from typing import Iterable, Iterator, List, Optional
 
 from atdd.coach.utils.rule_binding import (
@@ -25,6 +26,8 @@ from atdd.coach.utils.rule_binding import (
     bind_rule,
     iter_rules,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +78,23 @@ def _phase_for_dispatch(rule: RuleMetadata) -> Optional[str]:
         return rule.phase
     try:
         bound_meta = bind_rule(bound)
-    except RuleNotInRegistryError:
+    except RuleNotInRegistryError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # Per spec §7.3 the substrate enforcement rule
+        # ``security-rule-must-have-acceptance-ref-resolved`` surfaces an
+        # unresolvable ``bound_acceptance_urn`` at PLANNED phase. The
+        # dispatch selector skips the rule silently at runtime so a stale
+        # binding does not poison phase selection. Log at debug so
+        # operators can correlate skipped rules with the upstream
+        # validator output.
+        _logger.debug(
+            "phase_dispatch: bound_acceptance_urn %r on rule %r not in registry — skipping: %s",
+            bound, rule.rule_id, exc,
+            extra={
+                "rule_id": rule.rule_id,
+                "bound_acceptance_urn": bound,
+                "error_type": type(exc).__name__,
+            },
+        )
         return None
     return bound_meta.phase
 
