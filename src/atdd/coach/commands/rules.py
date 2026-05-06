@@ -86,9 +86,11 @@ def _print_metadata_text(meta: RuleMetadata) -> None:
         ("harness_category", meta.harness_category),
         ("signal_metric", meta.signal_metric),
         ("signal_threshold", meta.signal_threshold),
-        ("given", meta.given),
-        ("when", meta.when),
-        ("then", meta.then),
+        # given/when/then are tuples per spec v12 §4.1 ("full lists"); join
+        # for the text view so a multi-line clause renders on one row.
+        ("given", "; ".join(meta.given) if meta.given else None),
+        ("when", "; ".join(meta.when) if meta.when else None),
+        ("then", "; ".join(meta.then) if meta.then else None),
         ("author", meta.author),
         ("created", meta.created),
     ]
