@@ -300,16 +300,40 @@ def is_outdated() -> Tuple[bool, str, str]:
     return _is_newer(latest, current), current, latest
 
 
+def _is_pep668_error(stderr: str) -> bool:
+    """Detect PEP 668 externally-managed-environment refusal.
+
+    Triggered on macOS Homebrew Python and Debian/Ubuntu system Python where
+    pip refuses to install into the system site-packages without an explicit
+    --break-system-packages override.
+    """
+    return "externally-managed-environment" in stderr or "error: externally-managed" in stderr
+
+
 def auto_upgrade() -> bool:
-    """Run pip install --upgrade atdd. Returns True on success."""
+    """Run pip install --upgrade atdd. Returns True on success.
+
+    Falls back to --break-system-packages on PEP 668 refusal, which is the
+    documented override for "I'm a CLI tool, not a system library" upgrades
+    on Homebrew/Debian-managed Pythons.
+    """
     import subprocess as _sp
 
+    base_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "atdd"]
+
     try:
-        result = _sp.run(
-            [sys.executable, "-m", "pip", "install", "--upgrade", "atdd"],
-            capture_output=True, text=True, timeout=120,
-        )
-        return result.returncode == 0
+        result = _sp.run(base_cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode == 0:
+            return True
+        if _is_pep668_error(result.stderr):
+            # PEP 668 refusal — retry with --break-system-packages.
+            # Safe for atdd because it's a stand-alone CLI, not a shared library.
+            retry = _sp.run(
+                base_cmd + ["--break-system-packages"],
+                capture_output=True, text=True, timeout=120,
+            )
+            return retry.returncode == 0
+        return False
     except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return False
 
