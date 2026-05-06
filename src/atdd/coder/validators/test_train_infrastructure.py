@@ -31,6 +31,11 @@ from pathlib import Path
 from typing import List, Dict, Optional, Set, Tuple, Any
 
 import atdd
+from atdd.coach.utils.diagnostics import (
+    ConventionRef,
+    Item,
+    fail_with_diagnostic,
+)
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.train_spec_phase import (
     TrainSpecPhase,
@@ -199,28 +204,99 @@ def test_train_runner_class_exists():
     """TrainRunner class must exist in python/trains/runner.py or python/trains/runner/runner.py."""
     runner_file = _find_train_file("runner", "runner.py")
 
-    assert runner_file is not None, (
-        "runner.py not found.\n"
-        "Searched: python/trains/runner/runner.py, python/trains/runner.py"
-    )
+    if runner_file is None:
+        candidates = [
+            "python/trains/runner/runner.py",
+            "python/trains/runner.py",
+        ]
+        message = (
+            "runner.py not found.\n"
+            f"Searched: {', '.join(candidates)}"
+        )
+        fail_with_diagnostic(
+            message,
+            category="missing-file",
+            items=[
+                Item(
+                    file=path,
+                    expected="present",
+                    found="absent",
+                    fix=(
+                        "Create python/trains/runner.py (or "
+                        "python/trains/runner/runner.py) defining "
+                        "class TrainRunner with __init__, execute, "
+                        "_execute_step methods"
+                    ),
+                )
+                for path in candidates
+            ],
+            convention_ref=ConventionRef(
+                file="coder/conventions/train.convention.yaml",
+                anchor="train_structure",
+            ),
+            summary="train runner module missing — searched two well-known paths",
+        )
+        return
 
     with open(runner_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
     # Check for TrainRunner class
-    assert "class TrainRunner" in content, (
-        f"TrainRunner class not found in {runner_file.relative_to(REPO_ROOT)}\n"
-        "Expected: class TrainRunner with execute() method"
-    )
+    rel_runner = runner_file.relative_to(REPO_ROOT)
+    if "class TrainRunner" not in content:
+        message = (
+            f"TrainRunner class not found in {rel_runner}\n"
+            "Expected: class TrainRunner with execute() method"
+        )
+        fail_with_diagnostic(
+            message,
+            category="missing-file",
+            items=[
+                Item(
+                    file=str(rel_runner),
+                    symbol="TrainRunner",
+                    expected="class TrainRunner: ...",
+                    found="<not defined>",
+                    fix="Define class TrainRunner with __init__, execute, _execute_step methods",
+                ),
+            ],
+            convention_ref=ConventionRef(
+                file="coder/conventions/train.convention.yaml",
+                anchor="train_structure",
+            ),
+            summary=f"TrainRunner class missing in {rel_runner}",
+        )
+        return
 
     # Check for key methods
     required_methods = ["__init__", "execute", "_execute_step"]
     missing_methods = [m for m in required_methods if f"def {m}" not in content]
 
     if missing_methods:
-        pytest.fail(
+        message = (
             f"\nTrainRunner missing required methods: {', '.join(missing_methods)}\n"
             "Expected methods: __init__, execute, _execute_step"
+        )
+        fail_with_diagnostic(
+            message,
+            category="missing-file",
+            items=[
+                Item(
+                    file=str(rel_runner),
+                    symbol=f"TrainRunner.{method}",
+                    expected=f"def {method}(self, ...)",
+                    found="<not defined>",
+                    fix=f"Add {method}() method to TrainRunner",
+                )
+                for method in missing_methods
+            ],
+            convention_ref=ConventionRef(
+                file="coder/conventions/train.convention.yaml",
+                anchor="train_structure",
+            ),
+            summary=(
+                f"TrainRunner missing {len(missing_methods)} required method(s)"
+            ),
         )
 
 
