@@ -43,11 +43,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 
-from atdd.coach.utils.disposition_gate import (
-    assert_disposition_satisfied,
-    record_rule_outcome,
-    set_active_pytest_session,
-)
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import (
     RepoYamlValidationError,
@@ -145,6 +141,41 @@ def _read_atdd_config_test_root(repo_root: Path) -> Optional[Path]:
     if isinstance(test_root, str) and test_root.strip():
         return Path(test_root.strip())
     return None
+
+
+def _substrate_enabled(repo_root: Path) -> bool:
+    """Return True if the substrate is enabled in `.atdd/config.yaml`.
+
+    Spec v12 §9.3 / issue #415: `atdd init --consumer-repo` writes
+    ``repo.substrate.enabled: true``; `--toolkit` removes the `repo:` block
+    entirely. The plugin is auto-loaded as a pytest11 entry-point in any
+    consumer that has atdd installed, so the runtime check on
+    ``repo.substrate.enabled`` is the authoritative on/off switch.
+    """
+    cfg = repo_root / ".atdd" / "config.yaml"
+    if not cfg.is_file():
+        return False
+    try:
+        import yaml
+
+        with open(cfg, encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        _logger.debug(
+            "substrate plugin: skipping malformed %s: %s",
+            cfg, exc,
+            extra={"path": str(cfg), "error_type": type(exc).__name__},
+        )
+        return False
+    if not isinstance(data, dict):
+        return False
+    repo_section = data.get("repo")
+    if not isinstance(repo_section, dict):
+        return False
+    substrate = repo_section.get("substrate")
+    if not isinstance(substrate, dict):
+        return False
+    return substrate.get("enabled") is True
 
 
 def _read_pyproject_testpaths(repo_root: Path) -> List[Path]:
@@ -267,90 +298,42 @@ def _bind_for_acceptance(acc_urn: str) -> Optional[Any]:
 # ---------------------------------------------------------------------------
 # Pytest hooks
 # ---------------------------------------------------------------------------
-_SECURITY_RUNNER_MODULE_STEM = "test_security_ref_binding"
-_SECURITY_RUNTIME_TEST = "test_acceptance_ref_resolves_and_passes"
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    """Register the substrate's custom marks so pytest doesn't warn.
-
-    The substrate's pytest_collection_modifyitems hook applies
-    ``atdd_phase("security")`` to security-runner items per spec v12
-    §4.5. Without registration, pytest emits a ``PytestUnknownMarkWarning``
-    on every test session — registering it here keeps the run quiet and
-    documents the substrate-owned mark surface.
-    """
-    config.addinivalue_line(
-        "markers",
-        "atdd_phase(name): substrate phase tag; security-runner items "
-        "are reordered after acceptance items per spec v12 §4.5.",
-    )
-
-
-def pytest_sessionstart(session: pytest.Session) -> None:
-    """Register the active session for the disposition gate.
-
-    Substrate spec v12 §4.5 — the gate writes per-rule outcomes to
-    ``session._atdd["rule_outcomes"]`` so the security runner can read
-    them. The gate gets the session reference via
-    ``set_active_pytest_session`` rather than threading it through every
-    caller.
-    """
-    set_active_pytest_session(session)
-
-
-def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    """Clear the active-session reference at session end.
-
-    Avoids stale references between sequential pytest invocations in the
-    same Python process (e.g. plugin tests, REPL workflows).
-    """
-    set_active_pytest_session(None)
-    _NODEID_TO_RULE_ID.clear()
-
-
 def pytest_collection_modifyitems(
     session: pytest.Session,
     config: pytest.Config,
     items: List[pytest.Item],
 ) -> None:
-    """Attach substrate bindings + reorder security items after acceptance.
+    """Attach substrate bindings to anchored test items at collection time.
 
-    Two concerns merge here so file paths cache once across the session:
-
-      1. **Acceptance binding** (issue #411): for each anchored test
-         (``# Acceptance: <acc:URN>`` header), derive the rule and stash
-         the binding on the pytest item.
-      2. **Security ordering** (issue #422 / spec v12 §4.5): apply
-         ``@pytest.mark.atdd_phase("security")`` to the security runner's
-         runtime test and reorder all security-marked items to run
-         AFTER all acceptance-bound items in the same session. This
-         guarantees the session result map (``_atdd["rule_outcomes"]``)
-         is populated before the security runner reads it.
+    Iterates over all collected items (rather than walking the configured
+    test root and re-collecting) so the plugin's binding tracks pytest's
+    actual selection — including ``-k`` filters, fixture parametrization,
+    and consumers who collect from non-default roots. Files are scanned
+    once and cached per session.
     """
     if not items:
         return
 
     repo_root = _detect_repo_root_for_session(session, config)
-    test_roots = _resolve_test_roots(repo_root) if repo_root else []
+    if repo_root is None:
+        return
+
+    # Spec v12 §9.3 / issue #415: in toolkit mode (or any environment that
+    # never ran `atdd init --consumer-repo`), the `repo:` block is absent and
+    # the plugin must be a no-op — even though it is auto-loaded by pytest's
+    # entry-point discovery. This gate is the runtime equivalent of "plugin
+    # not registered" for non-substrate consumers.
+    if not _substrate_enabled(repo_root):
+        return
+
+    test_roots = _resolve_test_roots(repo_root)
+    if not test_roots:
+        return
 
     file_acc_cache: Dict[Path, Optional[str]] = {}
     rule_cache: Dict[str, Any] = {}
 
     for item in items:
-        # Pass 1 — security mark application. The security runtime test
-        # function lives in ``atdd.tester.validators.test_security_ref_binding``;
-        # apply the phase mark so the reorder pass below picks it up.
-        # Idempotent: re-applying a mark with the same name is harmless.
-        if _is_security_runtime_item(item):
-            item.add_marker(pytest.mark.atdd_phase("security"))
-
-        # Pass 2 — acceptance binding. Skipped when no test root resolved
-        # (toolkit-only or weird checkout); harness mode just runs as
-        # plain pytest in that case.
-        if repo_root is None or not test_roots:
-            continue
-
         path = _item_path(item)
         if path is None:
             continue
@@ -379,91 +362,6 @@ def pytest_collection_modifyitems(
             "test_file": str(path),
         }
         setattr(item, _ITEM_BINDING_KEY, binding)
-        # Mirror the binding into the module-level nodeid → rule_id map so
-        # ``pytest_runtest_logreport`` (which only sees the report's
-        # nodeid) can resolve the rule_id at outcome-record time.
-        _NODEID_TO_RULE_ID[item.nodeid] = rule.rule_id
-
-    # Pass 3 — stable-sort security-marked items after all others. We use
-    # a stable sort with a binary key (0 = non-security, 1 = security)
-    # so the rest of pytest's collection order is preserved.
-    items.sort(key=_security_sort_key)
-
-
-def _is_security_runtime_item(item: pytest.Item) -> bool:
-    """Return True for the security runner's runtime pytest function.
-
-    Identifies the item by its module stem + function name rather than by
-    a string fixture path so the check works for both src-checkout and
-    pip-installed deployments.
-    """
-    if item.name != _SECURITY_RUNTIME_TEST:
-        return False
-    path = _item_path(item)
-    if path is None:
-        return False
-    return path.stem == _SECURITY_RUNNER_MODULE_STEM
-
-
-def _has_security_phase_mark(item: pytest.Item) -> bool:
-    """Return True when the item carries ``@pytest.mark.atdd_phase("security")``."""
-    for mark in item.iter_markers(name="atdd_phase"):
-        args = mark.args
-        if args and args[0] == "security":
-            return True
-    return False
-
-
-def _security_sort_key(item: pytest.Item) -> int:
-    """Sort key — 1 for security-marked items, 0 for everything else."""
-    return 1 if _has_security_phase_mark(item) else 0
-
-
-def pytest_runtest_logreport(report: pytest.TestReport) -> None:
-    """Record per-test outcomes for harness-anchored items (spec §4.5).
-
-    Substrate spec v12 §4.5: the session result map
-    (``session._atdd["rule_outcomes"]``) is populated by both the
-    disposition gate (failure path) and the pytest plugin (pass path
-    for harness mode). Failures already write through the gate; this
-    hook records the pass-path entry so the security runner can
-    distinguish "passed" from "did-not-run" rules.
-
-    Only the ``call`` phase report is consulted — setup/teardown reports
-    don't reflect the test author's contract claim.
-    """
-    if report.when != "call":
-        return
-    if report.outcome != "passed":
-        # Failures already routed through the gate (which records "failed").
-        # "skipped" outcomes are intentionally not recorded — a skipped
-        # test exercised no contract; the security runner treats absence
-        # as "did not run" rather than "passed".
-        return
-
-    rule_id = _rule_id_from_nodeid(report.nodeid)
-    if rule_id is None:
-        return
-
-    record_rule_outcome(rule_id, "passed")
-
-
-def _rule_id_from_nodeid(nodeid: str) -> Optional[str]:
-    """Look up the harness-binding rule_id by pytest nodeid.
-
-    Pytest reports carry only the nodeid string; the binding cache lives
-    on the Item object (which the report does not reference). The binding
-    cache below mirrors writes from ``pytest_collection_modifyitems`` so
-    the logreport hook can resolve nodeid → rule_id without reaching back
-    into the Item.
-    """
-    return _NODEID_TO_RULE_ID.get(nodeid)
-
-
-# Per-session map populated alongside the per-Item binding stash. Cleared
-# at session-end. Module-level rather than session-attached so the
-# logreport hook can read it without holding the Session reference.
-_NODEID_TO_RULE_ID: Dict[str, str] = {}
 
 
 def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> None:
@@ -688,9 +586,5 @@ def _format_detail(excinfo: pytest.ExceptionInfo) -> str:
 
 __all__ = [
     "pytest_collection_modifyitems",
-    "pytest_configure",
-    "pytest_runtest_logreport",
     "pytest_runtest_makereport",
-    "pytest_sessionfinish",
-    "pytest_sessionstart",
 ]
