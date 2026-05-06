@@ -78,6 +78,16 @@ class RuleMetadata:
             type is preserved verbatim from the YAML source so the metric
             module's ``passes(value, threshold)`` call sees what the author
             wrote. ``None`` when not set.
+        security_urn: Substrate field (issue #422, spec v12 §4.1 / §5.4).
+            Source ``security:<wagon>:<feature>:<seq>`` URN for security-
+            derived rules; ``None`` for non-security rules.
+        feature_urn: Substrate field (issue #422). Parent
+            ``feature:<wagon>:<feature>`` URN for security rules; ``None``
+            otherwise.
+        bound_acceptance_urn: Substrate field (issue #422). The resolved
+            ``acc:`` URN that this security rule binds to. The security
+            runner (issue #422 / spec §4.5) iterates the registry on this
+            field. ``None`` for non-security rules.
     """
 
     rule_id: str
@@ -93,6 +103,9 @@ class RuleMetadata:
     aliases: Tuple[str, ...] = ()
     signal_metric: Optional[str] = None
     signal_threshold: object = None
+    security_urn: Optional[str] = None
+    feature_urn: Optional[str] = None
+    bound_acceptance_urn: Optional[str] = None
 
 
 def _build_metadata(rule_id: str, raw: Dict, path: Path) -> RuleMetadata:
@@ -371,7 +384,10 @@ def _merge_repo_rules(
         return
 
     try:
-        from atdd.coach.utils.rule_binding import find_repo_rules
+        from atdd.coach.utils.rule_binding import (
+            find_repo_rules,
+            find_repo_security_rules,
+        )
     except ImportError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
         _logger.debug(
             "rule_id_registry: rule_binding module unavailable, skipping repo walk: %s",
@@ -407,6 +423,44 @@ def _merge_repo_rules(
             aliases=repo_meta.aliases,
             signal_metric=repo_meta.signal_metric,
             signal_threshold=repo_meta.signal_threshold,
+            security_urn=None,
+            feature_urn=None,
+            bound_acceptance_urn=None,
+        )
+
+    # Substrate security walker (issue #422 / spec v12 §5.4) — registers
+    # resolved security rules so disposition_gate's failure formatter
+    # surfaces description/fix_hint per §6 sample output.
+    try:
+        sec_rules = find_repo_security_rules(target)
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        _logger.debug(
+            "rule_id_registry: skipping security-rule walk under %s: %s",
+            target, exc,
+            extra={"repo_root": str(target), "error_type": type(exc).__name__},
+        )
+        return
+
+    for src_path, sec_meta in sec_rules:
+        if sec_meta.rule_id in registry:
+            continue
+        registry[sec_meta.rule_id] = RuleMetadata(
+            rule_id=sec_meta.rule_id,
+            convention_path=Path(src_path),
+            severity=sec_meta.severity,
+            description=sec_meta.description or "",
+            disposition=sec_meta.disposition,
+            suppression_deadline=None,
+            recipe=sec_meta.recipe,
+            introduced_in=sec_meta.introduced_in,
+            validator=sec_meta.validator,
+            fix_hint=sec_meta.fix_hint,
+            aliases=sec_meta.aliases,
+            signal_metric=None,
+            signal_threshold=None,
+            security_urn=sec_meta.security_urn,
+            feature_urn=sec_meta.feature_urn,
+            bound_acceptance_urn=sec_meta.bound_acceptance_urn,
         )
 
 
