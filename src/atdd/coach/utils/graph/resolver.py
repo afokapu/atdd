@@ -16,6 +16,7 @@ Architecture:
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import dataclass, field
@@ -25,6 +26,8 @@ from abc import ABC, abstractmethod
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.graph.urn import URNBuilder
+
+LOG = logging.getLogger(__name__)
 
 
 @dataclass
@@ -529,8 +532,12 @@ class SecurityResolver(BaseResolver):
                 feature_slug = feature_slug or fallback_path.stem.replace("_", "-")
                 wagon_dir = fallback_path.parent.parent
                 wagon_slug = wagon_slug or wagon_dir.name.replace("_", "-")
-            except Exception:
-                pass
+            except (AttributeError, IndexError) as exc:
+                LOG.warning(
+                    "SecurityResolver: could not derive wagon/feature from path %s: %s",
+                    fallback_path,
+                    exc,
+                )
         return wagon_slug, feature_slug
 
     @staticmethod
@@ -623,7 +630,12 @@ class SecurityResolver(BaseResolver):
 
             with open(feature_path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
-        except Exception as exc:
+        except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+            LOG.warning(
+                "SecurityResolver: failed to parse feature file %s: %s",
+                feature_path,
+                exc,
+            )
             return URNResolution(
                 urn=urn,
                 family=self.family,
