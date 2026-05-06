@@ -1311,6 +1311,120 @@ Phase descriptions:
         help="Maximum depth for subgraph (-1 for unlimited)"
     )
 
+    # atdd urn rules — list every repo-derived rule grouped by parent URN
+    urn_rules_parser = urn_subparsers.add_parser(
+        "rules",
+        help="List all repo rules derived from plan/ acceptances",
+    )
+    urn_rules_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
+    # atdd urn wmbt-rules <wmbt-urn>
+    urn_wmbt_rules_parser = urn_subparsers.add_parser(
+        "wmbt-rules",
+        help="List repo rules derived from a WMBT URN",
+    )
+    urn_wmbt_rules_parser.add_argument(
+        "wmbt_urn",
+        type=str,
+        help="WMBT URN (e.g. wmbt:govern-lifecycle:D010)",
+    )
+    urn_wmbt_rules_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
+    # atdd urn train-rules <train-urn>
+    urn_train_rules_parser = urn_subparsers.add_parser(
+        "train-rules",
+        help="List repo rules derived from a train URN",
+    )
+    urn_train_rules_parser.add_argument(
+        "train_urn",
+        type=str,
+        help="Train URN (e.g. train:0001-self-compliance-validate)",
+    )
+    urn_train_rules_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
+    # ----- atdd rules {show,where,grep} (substrate spec v12 §9.2 — issue #409) -----
+    rules_parser = subparsers.add_parser(
+        "rules",
+        help="Inspect the merged rule registry (toolkit + repo-derived)",
+        description=(
+            "Inspect rules registered in the merged registry. Combines "
+            "toolkit conventions and repo-derived acceptance rules from plan/."
+        ),
+    )
+    rules_subparsers = rules_parser.add_subparsers(
+        dest="rules_command",
+        help="rules commands",
+    )
+
+    rules_show_parser = rules_subparsers.add_parser(
+        "show",
+        help="Print the bound RuleMetadata for a rule-id",
+    )
+    rules_show_parser.add_argument(
+        "rule_id",
+        type=str,
+        help="Canonical rule-id or legacy alias",
+    )
+    rules_show_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
+    rules_where_parser = rules_subparsers.add_parser(
+        "where",
+        help="Print the rule's source path and YAML location",
+    )
+    rules_where_parser.add_argument(
+        "rule_id",
+        type=str,
+        help="Canonical rule-id or legacy alias",
+    )
+    rules_where_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
+    rules_grep_parser = rules_subparsers.add_parser(
+        "grep",
+        help="Filter rule-ids/descriptions by regex",
+    )
+    rules_grep_parser.add_argument(
+        "pattern",
+        type=str,
+        help="Regex matched against rule_id and description",
+    )
+    rules_grep_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
 
     # Repository root override (not deprecated - still useful)
@@ -1894,9 +2008,36 @@ Phase descriptions:
                 families=args.families,
                 max_depth=args.depth,
             )
+        elif args.urn_command in ("rules", "wmbt-rules", "train-rules"):
+            from atdd.coach.commands.rules import RepoRulesListing
+
+            listing = RepoRulesListing()
+            if args.urn_command == "rules":
+                return listing.list_all_repo_rules(format=args.format)
+            if args.urn_command == "wmbt-rules":
+                return listing.list_rules_for_wmbt(
+                    args.wmbt_urn, format=args.format
+                )
+            return listing.list_rules_for_train(
+                args.train_urn, format=args.format
+            )
         else:
             urn_parser.print_help()
             return 0
+
+    # atdd rules {show,where,grep}
+    elif args.command == "rules":
+        from atdd.coach.commands.rules import RulesCommand
+
+        rules_cmd = RulesCommand()
+        if args.rules_command == "show":
+            return rules_cmd.show(args.rule_id, format=args.format)
+        if args.rules_command == "where":
+            return rules_cmd.where(args.rule_id, format=args.format)
+        if args.rules_command == "grep":
+            return rules_cmd.grep(args.pattern, format=args.format)
+        rules_parser.print_help()
+        return 0
 
     # ----- Handle deprecated flag-based commands -----
 
