@@ -537,6 +537,14 @@ class SecurityResolver(BaseResolver):
                     "SecurityResolver: could not derive wagon/feature from path %s: %s",
                     fallback_path,
                     exc,
+                    extra={
+                        "resolver": "security",
+                        "phase": "wagon_feature_path_fallback",
+                        "fallback_path": str(fallback_path),
+                        "wagon_slug": wagon_slug,
+                        "feature_slug": feature_slug,
+                        "exception_type": type(exc).__name__,
+                    },
                 )
         return wagon_slug, feature_slug
 
@@ -635,6 +643,16 @@ class SecurityResolver(BaseResolver):
                 "SecurityResolver: failed to parse feature file %s: %s",
                 feature_path,
                 exc,
+                extra={
+                    "resolver": "security",
+                    "phase": "resolve_yaml_load",
+                    "urn": urn,
+                    "feature_path": str(feature_path),
+                    "wagon_slug": wagon_slug,
+                    "feature_slug": feature_slug,
+                    "threat_seq": seq,
+                    "exception_type": type(exc).__name__,
+                },
             )
             return URNResolution(
                 urn=urn,
