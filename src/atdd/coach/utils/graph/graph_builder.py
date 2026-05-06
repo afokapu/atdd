@@ -31,6 +31,7 @@ from atdd.coach.utils.graph.resolver import (
     URNDeclaration,
     URNResolution,
 )
+from atdd.coach.utils.graph.urn import URNBuilder
 
 
 class EdgeType(Enum):
@@ -468,8 +469,17 @@ class TraceabilityGraph:
                 dataflow[urn] = {"feeds": sorted(wagon_feeds.get(urn, set()))}
 
         # ── gaps ───────────────────────────────────────────────
-        # Nodes with zero incoming edges (excluding root families)
-        root_families = {"wagon", "train"}
+        # Nodes with zero incoming edges (excluding root families).
+        # Root families derived from URNBuilder.SEGMENT_COUNTS (parent-it-belongs-to,
+        # spec v12 §3.2): a family is a root when its segment count after the
+        # prefix is 1 (no parent coordinates). Adding a new top-level family in
+        # PATTERNS + SEGMENT_COUNTS automatically extends this set.
+        # Audit reference: docs/urn-prefix-audit-2026.md (finding #2).
+        root_families = {
+            family
+            for family, count in URNBuilder.SEGMENT_COUNTS.items()
+            if count == 1
+        }
         all_targets = set()
         for e in self._edges:
             all_targets.add(e.target_urn)
@@ -548,7 +558,10 @@ class TraceabilityGraph:
             "",
         ]
 
-        # Define node colors by family
+        # Define node colors by family. Intentionally closed enumeration:
+        # visualization-only mapping with a "#FAFAFA" fallback for unknown
+        # families. New URN families render with the fallback color and need
+        # no edits here. Audit reference: docs/urn-prefix-audit-2026.md (#3).
         family_colors = {
             "wagon": "#E3F2FD",  # Light blue
             "feature": "#E8F5E9",  # Light green

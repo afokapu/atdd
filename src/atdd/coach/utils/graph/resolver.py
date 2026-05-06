@@ -1645,7 +1645,12 @@ class ResolverRegistry:
         result: Dict[str, List[URNDeclaration]] = {}
         content_cache: Dict[str, str] = {}
 
-        # Families whose find_declarations() walk the full code tree
+        # Families whose find_declarations() walks the full code tree.
+        # Intentionally closed: this is a performance fast-path that batches
+        # code-tree walks for component and test families. New URN families
+        # whose declarations live in YAML/JSON are handled via their own
+        # find_declarations() in the loop below — no edits here required.
+        # Audit reference: docs/urn-prefix-audit-2026.md (finding #4).
         code_scan_families = {"component", "test"}
 
         # Non-code families: delegate to existing find_declarations()
