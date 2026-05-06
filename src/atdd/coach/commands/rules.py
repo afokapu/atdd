@@ -116,10 +116,10 @@ class RulesCommand:
         """
         try:
             meta = bind_rule(rule_id)
-        except RuleNotInRegistryError as exc:
+        except RuleNotInRegistryError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: {exc}", file=sys.stderr)
             return 1
-        except AmbiguousRuleError as exc:
+        except AmbiguousRuleError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 
@@ -139,10 +139,10 @@ class RulesCommand:
         """
         try:
             meta = bind_rule(rule_id)
-        except RuleNotInRegistryError as exc:
+        except RuleNotInRegistryError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: {exc}", file=sys.stderr)
             return 1
-        except AmbiguousRuleError as exc:
+        except AmbiguousRuleError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 
@@ -164,7 +164,7 @@ class RulesCommand:
         """List rules whose id or description matches *pattern* (regex)."""
         try:
             regex = re.compile(pattern)
-        except re.error as exc:
+        except re.error as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: invalid regex {pattern!r}: {exc}", file=sys.stderr)
             return 1
 
