@@ -111,9 +111,17 @@ class RuleMetadata:
         harness_category: Coarse-grained harness category.
         signal_metric: Telemetry metric the rule produces / consumes.
         signal_threshold: Threshold against which ``signal_metric`` is judged.
-        given: Authoring-time precondition prose.
-        when: Authoring-time stimulus prose.
-        then: Authoring-time expectation prose.
+        given: Authoring-time precondition prose, full list per
+            §4.1 (one tuple element per ``given.abstract`` list item, or
+            a single-element tuple when the source is a scalar string).
+            ``None`` for toolkit rules and for repo rules whose YAML
+            omits the block.
+        when: Authoring-time stimulus prose; same shape as ``given``.
+        then: Authoring-time expectation prose; same shape as ``given``.
+            The substrate spawn-harness renderer (§8.2) consumes this as
+            the source of the ``expectations:`` block — one bullet per
+            tuple element. Distinct from ``fix_hint`` which is the
+            joined-string form for legacy display paths (§4.2).
         author: Rule author identifier.
         created: ISO date the rule entry was created.
     """
@@ -139,9 +147,9 @@ class RuleMetadata:
     harness_category: Optional[str] = None
     signal_metric: Optional[str] = None
     signal_threshold: Optional[str] = None
-    given: Optional[str] = None
-    when: Optional[str] = None
-    then: Optional[str] = None
+    given: Optional[Tuple[str, ...]] = None
+    when: Optional[Tuple[str, ...]] = None
+    then: Optional[Tuple[str, ...]] = None
     author: Optional[str] = None
     created: Optional[str] = None
 
@@ -417,6 +425,36 @@ def _passthrough_str(block, key) -> Optional[str]:
     return None
 
 
+def _passthrough_list(block, key) -> Optional[Tuple[str, ...]]:
+    """Return ``block[key]`` as a tuple of strings (preserves list structure).
+
+    Spec v12 §4.1 documents ``given/when/then`` context fields as full
+    lists. Returns:
+      * ``None`` when the block or key is missing.
+      * a single-element tuple when the source is a scalar string (so
+        legacy single-line acceptances still surface a list-shape).
+      * a tuple of stringified items when the source is a list.
+    Empty / blank-only lists collapse to ``None`` so the renderer can
+    omit the bullet block instead of emitting an empty ``expectations:``.
+    """
+    if not isinstance(block, dict):
+        return None
+    val = block.get(key)
+    if val is None:
+        return None
+    if isinstance(val, list):
+        items = tuple(
+            str(x).strip()
+            for x in val
+            if isinstance(x, (str, int, float)) and str(x).strip()
+        )
+        return items or None
+    if isinstance(val, (str, int, float)):
+        s = str(val).strip()
+        return (s,) if s else None
+    return None
+
+
 def _passthrough_threshold(signal):
     """Return ``signal.threshold`` as a string (preserves int/float/str)."""
     if not isinstance(signal, dict):
@@ -483,9 +521,9 @@ def _build_repo_rule_metadata(
         harness_category=_passthrough_str(harness, "category"),
         signal_metric=_passthrough_str(signal, "metric"),
         signal_threshold=_passthrough_threshold(signal),
-        given=_passthrough_str(acc.get("given"), "abstract"),
-        when=_passthrough_str(acc.get("when"), "abstract"),
-        then=_passthrough_str(acc.get("then"), "abstract"),
+        given=_passthrough_list(acc.get("given"), "abstract"),
+        when=_passthrough_list(acc.get("when"), "abstract"),
+        then=_passthrough_list(acc.get("then"), "abstract"),
         author=_passthrough_str(metadata_block, "author"),
         created=_passthrough_str(metadata_block, "created"),
     )
