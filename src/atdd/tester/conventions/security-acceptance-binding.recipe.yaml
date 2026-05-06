@@ -1,0 +1,123 @@
+recipe: security-acceptance-binding
+pattern: "Bind a feature.yaml abuse_case to a real acceptance via acceptance_ref"
+category: tester
+source: "Substrate spec v12 §5.4 (security artifacts) + §7.4 (reference-binding) + §7.3"
+
+applies_when:
+  - "tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved fires"
+  - "An abuse_case in feature.yaml declares an acceptance_ref that does not resolve to an authored acceptance"
+
+steps:
+  - step: 1
+    what: "Locate the failing feature.yaml and abuse_case"
+    explain: |
+      The validation-time enforcement rule names the specific feature.yaml
+      and abuse_case id. Open the file and find the offending entry under
+      security.abuse_cases[]. Each abuse_case carries:
+
+        - id              (e.g. THREAT-001)
+        - name            (short label)
+        - threat          (one-line attacker scenario)
+        - mitigation      (one-line defense)
+        - severity        (low | medium | high | critical)
+        - acceptance_ref  (acc: URN to the binding acceptance)
+
+      The failing rule fires because acceptance_ref does not point at an
+      authored acceptance — either the URN is malformed, the WMBT/train
+      file does not exist, or the file exists but contains no acceptance
+      block with the matching identity.urn.
+
+  - step: 2
+    what: "Decide which fix path applies"
+    explain: |
+      Three options (pick one — they are mutually exclusive):
+
+        (a) Author the missing acceptance.
+            The threat IS in scope and the team needs a binding contract.
+            Add the acceptance under the appropriate WMBT (or train) per
+            the existing schema (see acceptance-rule-block recipe).
+
+        (b) Update acceptance_ref to point at an existing acceptance.
+            The threat IS in scope, and an existing acceptance already
+            covers it. Re-aim the acceptance_ref at that acceptance's
+            identity.urn.
+
+        (c) Remove the abuse_case.
+            The threat is no longer in scope (e.g. the feature was
+            descoped, the mitigation moved elsewhere). Delete the
+            abuse_case block entirely.
+
+  - step: 3
+    what: "Apply path (a) — author the missing acceptance"
+    where: "plan/<wagon>/<WMBT-id>.yaml  OR  plan/_trains/<train-id>.yaml"
+    template: |
+      acceptances:
+        - identity:
+            urn: "acc:<wagon>:<WMBT-id>-SEC-<NNN>-<slug>"
+            id: "AC-SEC-<NNN>"
+            purpose: "<one-line purpose tied to the threat>"
+            phase: "<RED|GREEN|SMOKE|REFACTOR>"
+          harness:
+            type: "<unit|http|e2e|...>"
+          given:
+            abstract:
+              - "<precondition>"
+          when:
+            abstract: "<stimulus>"
+          then:
+            abstract:
+              - "<expectation that closes the threat>"
+          metadata:
+            author: "<author>"
+            created: "<YYYY-MM-DD>"
+    explain: |
+      The acceptance URN MUST match the abuse_case.acceptance_ref exactly.
+      Authoring the acceptance also creates the binding test (see the
+      acceptance-test-headers recipe). At RED the security runner will
+      emit a violation because the bound acceptance's rule fails; at
+      GREEN the violation clears.
+
+  - step: 4
+    what: "Apply path (b) — repoint acceptance_ref"
+    where: "plan/<wagon>/features/<feature>.yaml"
+    template: |
+      security:
+        abuse_cases:
+          - id: "THREAT-<NNN>"
+            name: "<name>"
+            threat: "<one-line attacker scenario>"
+            mitigation: "<one-line defense>"
+            severity: <low|medium|high|critical>
+            acceptance_ref: "acc:<wagon>:<existing-acceptance-urn-tail>"
+    explain: |
+      Verify the new acceptance_ref by running:
+
+        atdd repo validate
+
+      The ref resolves when the acceptance_ref string matches an authored
+      identity.urn in plan/.
+
+  - step: 5
+    what: "Apply path (c) — remove the abuse_case"
+    explain: |
+      Delete the entire block under security.abuse_cases[]. If this is
+      the only abuse_case, also remove the security: top-level key from
+      the feature.yaml so the registry walker has nothing to traverse.
+
+  - step: 6
+    what: "Verify the rule no longer fires"
+    verify:
+      - run: "atdd repo validate"
+        expect: "zero tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved findings"
+      - run: "atdd repo security-rules feature:<wagon>:<feature-slug>"
+        expect: "the rule appears in the listing with bound_acceptance_urn populated"
+
+requirements:
+  - "abuse_case.acceptance_ref MUST match an authored identity.urn in plan/."
+  - "Path (a) requires both the acceptance YAML AND the binding test (see acceptance-test-headers)."
+  - "Path (b) does not require any other change — the registry rebuilds on the next run."
+  - "Path (c) is the right call only when the threat is genuinely out of scope; do not use it to silence the rule."
+
+final_verify:
+  - "atdd repo validate emits zero security-rule-must-have-acceptance-ref-resolved findings"
+  - "The security runner (test_security_ref_binding::test_acceptance_ref_resolves_and_passes) emits a violation at RED and clears at GREEN once the bound acceptance's rule passes"

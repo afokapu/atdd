@@ -26,6 +26,11 @@ from typing import Dict, List, Optional
 import yaml
 
 from atdd.coach.commands.issue import TYPE_TO_PREFIX
+from atdd.coach.utils.risk_score import (
+    compute_risk_breakdown,
+    format_risk_breakdown_section,
+)
+from atdd.coach.validators._violation import Violation
 
 logger = logging.getLogger(__name__)
 
@@ -348,12 +353,23 @@ class PRManager:
 
         return f"{prefix}: {clean_title} (#{issue_number})"
 
+    def _collect_violations(self) -> List[Violation]:
+        """Hook for subclasses / future aggregator (substrate spec §8.3, #418).
+
+        Returning an empty list keeps the breakdown section as a substrate
+        signal — slices render as zero until a global violation aggregator
+        lands. Override or monkey-patch this in tests or follow-up issues
+        that wire validators into the PR pipeline.
+        """
+        return []
+
     def _build_pr_body(
         self,
         issue_number: int,
         issue_data: dict,
         sub_issues: list,
         manifest_entry: Optional[dict],
+        violations: Optional[List[Violation]] = None,
     ) -> str:
         """Build PR body with closing keywords and WMBT summary."""
         lines = []
@@ -396,6 +412,16 @@ class PRManager:
         if labels:
             label_names = [lbl.get("name", lbl) if isinstance(lbl, dict) else str(lbl) for lbl in labels]
             lines.append(f"| Labels | {', '.join(label_names)} |")
+
+        # Risk-score breakdown — substrate spec v12 §8.3, issue #418.
+        # Slices severity sums by archetype (coder|coach|tester|planner|repo)
+        # so reviewers can tell at a glance whether outstanding debt is in
+        # toolkit conventions or repo acceptances/security.
+        if violations is None:
+            violations = self._collect_violations()
+        breakdown = compute_risk_breakdown(violations)
+        lines.append("")
+        lines.append(format_risk_breakdown_section(breakdown))
 
         lines.append("")
         lines.append("---")

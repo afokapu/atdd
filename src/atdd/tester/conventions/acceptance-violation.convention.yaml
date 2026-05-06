@@ -59,6 +59,19 @@ rules:
       Or fix the test to anchor at the right acceptance.
     recipe: acceptance-test-headers
 
+  - id: tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved
+    severity: 4
+    disposition: strict
+    validator: "test_security_ref_binding::test_every_abuse_case_resolves"
+    description: "Every abuse_case in feature.yaml::security.abuse_cases[] must have acceptance_ref pointing at a real acceptance whose rule passes"
+    fix_hint: |
+      In the failing feature.yaml under security.abuse_cases[], the listed abuse_case has
+      acceptance_ref: <acc:URN> that does not resolve to an acceptance in plan/. Either:
+        - Author the missing acceptance (and its test) in the appropriate WMBT
+        - Update acceptance_ref to point at an existing acceptance covering this threat
+        - Remove the abuse_case if the threat is no longer in scope
+    recipe: security-acceptance-binding
+
   - id: tester.acceptance-violation.metric-implementation-must-exist
     severity: 4
     disposition: strict

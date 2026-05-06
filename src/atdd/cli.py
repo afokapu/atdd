@@ -1376,6 +1376,24 @@ Phase descriptions:
         help="Output format (default: text)",
     )
 
+    # atdd repo security-rules <feature-urn>
+    repo_security_rules_parser = repo_subparsers.add_parser(
+        "security-rules",
+        help="List repo security rules derived from a feature URN",
+    )
+    repo_security_rules_parser.add_argument(
+        "feature_urn",
+        type=str,
+        help="Feature URN (e.g. feature:auth:session-management)",
+    )
+    repo_security_rules_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
     # ----- legacy `urn` deprecation shim (issue #414, spec §9.1) -----
     # The legacy `urn` namespace was renamed to `atdd repo`. The shim prints
     # the canonical deprecation error string and exits non-zero so legacy
@@ -1995,7 +2013,7 @@ Phase descriptions:
         )
 
     # atdd repo {graph,orphans,broken,validate,resolve,declarations,families,viz,
-    #            rules,wmbt-rules,train-rules}
+    #            rules,wmbt-rules,train-rules,security-rules}
     elif args.command == "repo":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
         cmd = URNCommand(repo_root=repo_path)
@@ -2047,7 +2065,7 @@ Phase descriptions:
                 families=args.families,
                 max_depth=args.depth,
             )
-        elif args.repo_command in ("rules", "wmbt-rules", "train-rules"):
+        elif args.repo_command in ("rules", "wmbt-rules", "train-rules", "security-rules"):
             from atdd.coach.commands.rules import RepoRulesListing
 
             listing = RepoRulesListing()
@@ -2056,6 +2074,10 @@ Phase descriptions:
             if args.repo_command == "wmbt-rules":
                 return listing.list_rules_for_wmbt(
                     args.wmbt_urn, format=args.format
+                )
+            if args.repo_command == "security-rules":
+                return listing.list_rules_for_feature(
+                    args.feature_urn, format=args.format
                 )
             return listing.list_rules_for_train(
                 args.train_urn, format=args.format
