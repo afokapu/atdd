@@ -200,11 +200,11 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:repo-rule-substrate
   train: 0001-self-compliance-validate
-- id: '413'
-  slug: substrate-413-theme-metric
+- id: '421'
+  slug: substrate-421-urn-audit
   file: null
-  issue_number: 413
-  type: feature
+  issue_number: 421
+  type: chore
   status: RED
   created: '2026-05-06'
   archived: null

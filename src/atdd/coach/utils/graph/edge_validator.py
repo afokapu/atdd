@@ -28,6 +28,7 @@ from atdd.coach.utils.graph.graph_builder import (
     EdgeType,
     URNNode,
 )
+from atdd.coach.utils.graph.urn import URNBuilder
 
 
 class IssueSeverity(Enum):
@@ -171,11 +172,25 @@ class EdgeValidator:
     def __init__(self, graph: TraceabilityGraph):
         self.graph = graph
 
-        # Families that are expected to have incoming edges (not orphaned)
-        self._non_orphan_families = {"feature", "wmbt", "acc", "contract", "telemetry", "component"}
+        # Root families: derived from URNBuilder.SEGMENT_COUNTS (parent-it-belongs-to,
+        # spec v12 §3.2). A family is a root when its segment count after the prefix
+        # is 1 (no parent coordinates). Adding a new top-level family in PATTERNS +
+        # SEGMENT_COUNTS automatically extends this set — no edits here required.
+        self._root_families = {
+            family
+            for family, count in URNBuilder.SEGMENT_COUNTS.items()
+            if count == 1
+        }
 
-        # Families that are root nodes (allowed to be orphaned)
-        self._root_families = {"wagon", "train"}
+        # Non-orphan families: families whose URNs are expected to have a parent
+        # reference in the graph. Intentionally curated (not derived from the full
+        # registry) because some non-root families (test, table, migration) are
+        # standalone artifacts whose orphan semantics differ and would generate
+        # false positives. New URN families opt in by being listed here.
+        # Audit reference: docs/urn-prefix-audit-2026.md (finding #1).
+        self._non_orphan_families = {
+            "feature", "wmbt", "acc", "security", "contract", "telemetry", "component",
+        }
 
     def find_orphans(
         self, families: Optional[List[str]] = None
@@ -218,11 +233,20 @@ class EdgeValidator:
         return issues
 
     def _suggest_parent(self, family: str) -> str:
-        """Suggest parent family for orphan fix."""
+        """Suggest parent family for orphan fix.
+
+        Intentionally curated (not auto-derived) because parent semantics
+        differ per family: ``acc`` parents are ``wmbt`` (collapsed-segment
+        per spec §3.2), but other 2-token families parent on ``wagon``.
+        New URN families opt in by adding an entry here; unknown families
+        fall back to a generic "parent" hint.
+        Audit reference: docs/urn-prefix-audit-2026.md (finding #1).
+        """
         parent_map = {
             "feature": "wagon",
             "wmbt": "wagon",
             "acc": "wmbt",
+            "security": "feature",
             "contract": "wagon",
             "telemetry": "wagon",
             "component": "feature",
@@ -330,6 +354,13 @@ class EdgeValidator:
         - train -> wagon (includes)
         - feature -> component (contains) — chain completeness
         - component wagon slug -> wagon (ancestry validation)
+
+        The per-family ``if/elif node.family == "X"`` branches below are
+        intentionally closed: each family encodes bespoke containment rules
+        from the spec. New URN families do not need an edit here — they
+        simply skip these checks (no false positives). Families that need
+        their own edge rules opt in by adding a new branch.
+        Audit reference: docs/urn-prefix-audit-2026.md (finding #5).
 
         Args:
             families: Families to check. If None, checks all.

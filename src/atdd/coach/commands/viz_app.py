@@ -30,6 +30,10 @@ from atdd.coach.utils.graph.graph_builder import EdgeType, GraphBuilder
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
+# FAMILY_COLORS / FAMILY_ICONS are intentionally closed enumerations:
+# visualization-only mappings with FALLBACK_COLOR / "circle" defaults for
+# unknown families. New URN families render with the fallback styles and
+# need no edits here. Audit reference: docs/urn-prefix-audit-2026.md (#3).
 FAMILY_COLORS = {
     "wagon": "#4A90D9",
     "feature": "#27AE60",

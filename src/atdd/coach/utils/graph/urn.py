@@ -988,6 +988,12 @@ class URNBuilder:
         """
         Parse a URN into its components.
 
+        The per-family ``if/elif urn.startswith('X:')`` branches below are the
+        documented extension point for new URN types: adding a new family
+        requires (a) a resolver class in resolver.py, (b) a PATTERNS entry,
+        (c) one new branch here, (d) optionally a builder method — and
+        nothing else. Audit reference: docs/urn-prefix-audit-2026.md.
+
         Args:
             urn: The URN to parse
 
