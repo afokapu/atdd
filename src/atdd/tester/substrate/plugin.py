@@ -229,11 +229,27 @@ def _bind_for_acceptance(acc_urn: str) -> Optional[Any]:
     """
     try:
         rule_id = derive_repo_rule_id(acc_urn)
-    except RepoYamlValidationError:
+    except RepoYamlValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # Malformed acc URN — the URN-grammar validator (#420) surfaces the
+        # author defect at validation time. The plugin skips silently so a
+        # bad header doesn't double-fail at runtime.
+        _logger.debug(
+            "substrate plugin: malformed acceptance URN %r: %s",
+            acc_urn, exc,
+            extra={"acceptance_urn": acc_urn, "error_type": type(exc).__name__},
+        )
         return None
     try:
         return bind_rule(rule_id)
-    except RuleNotInRegistryError:
+    except RuleNotInRegistryError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # Walker rejected the upstream acceptance (missing phase, missing
+        # measurability, etc.). Per spec §7.2 the test runs as a plain
+        # pytest test; the #410 conformance validators surface the defect.
+        _logger.debug(
+            "substrate plugin: rule_id %r not in registry — running as plain test: %s",
+            rule_id, exc,
+            extra={"rule_id": rule_id, "error_type": type(exc).__name__},
+        )
         return None
     except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
         _logger.debug(
@@ -405,7 +421,12 @@ def _detect_repo_root_for_session(
     for c in candidates:
         try:
             return find_repo_root(c.resolve())
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            _logger.debug(
+                "substrate plugin: find_repo_root(%s) raised: %s",
+                c, exc,
+                extra={"candidate": str(c), "error_type": type(exc).__name__},
+            )
             continue
     return None
 
@@ -420,11 +441,21 @@ def _item_path(item: pytest.Item) -> Optional[Path]:
             return None
         try:
             return Path(str(fspath)).resolve()
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            _logger.debug(
+                "substrate plugin: cannot resolve item fspath %r: %s",
+                fspath, exc,
+                extra={"fspath": str(fspath), "error_type": type(exc).__name__},
+            )
             return None
     try:
         return Path(str(raw)).resolve()
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        _logger.debug(
+            "substrate plugin: cannot resolve item path %r: %s",
+            raw, exc,
+            extra={"path": str(raw), "error_type": type(exc).__name__},
+        )
         return None
 
 
@@ -487,8 +518,12 @@ def _format_location(
                 # entry.lineno is 0-based on older pytest; +1 to render the
                 # human line number consistent with `path:line` elsewhere.
                 return f"{test_file}:{lineno + 1}"
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
-        pass
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        _logger.debug(
+            "substrate plugin: traceback parse failed, falling back to function name: %s",
+            exc,
+            extra={"error_type": type(exc).__name__},
+        )
     return f"{test_file}:{item.name}"
 
 

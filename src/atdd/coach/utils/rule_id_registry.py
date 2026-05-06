@@ -348,18 +348,36 @@ def _merge_repo_rules(
     else:
         try:
             from atdd.coach.utils.repo import find_repo_root
-        except ImportError:
+        except ImportError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            # Toolkit packaging shipped without repo-detection — extremely
+            # unusual, but the registry must still load convention rules so
+            # toolkit-only validators continue to work. Log + skip.
+            _logger.debug(
+                "rule_id_registry: repo module unavailable, skipping repo walk: %s",
+                exc,
+                extra={"error_type": type(exc).__name__},
+            )
             return
         try:
             target = find_repo_root()
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            _logger.debug(
+                "rule_id_registry: find_repo_root failed, skipping repo walk: %s",
+                exc,
+                extra={"error_type": type(exc).__name__},
+            )
             return
     if target is None or not Path(target).is_dir():
         return
 
     try:
         from atdd.coach.utils.rule_binding import find_repo_rules
-    except ImportError:
+    except ImportError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        _logger.debug(
+            "rule_id_registry: rule_binding module unavailable, skipping repo walk: %s",
+            exc,
+            extra={"error_type": type(exc).__name__},
+        )
         return
 
     try:
