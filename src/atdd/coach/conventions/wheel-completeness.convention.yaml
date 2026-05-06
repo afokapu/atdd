@@ -1,0 +1,106 @@
+schema_version: "1.0.0"
+convention_id: "coach.wheel-completeness"
+name: "Wheel Completeness Convention"
+description: |
+  Declares the build-time guard that every validator-fixture file present
+  in the toolkit's source tree (``src/atdd/**/validators/fixtures/**``)
+  must also ship in the installed wheel under
+  ``Path(atdd.__file__).parent``.
+
+  Source-tree inverse scan (NOT code-AST): walk fixture files in the
+  source tree, compute the expected install-path for each, assert each
+  exists. False-negative-resistant by construction — there is no code
+  parsing involved.
+
+rationale: |
+  Pre-#449 incident (verified live on 2026-05-06): v3.7.0 shipped with
+  ``[tool.setuptools.package-data]`` declaring only ``coder/validators/
+  fixtures/**``; the tester / coach / planner phase fixture trees were
+  silently dropped from the wheel. Five test failures on consumer repos
+  (all of them resolving to ``FileNotFoundError`` against
+  ``train_renders_content/<bucket>/harness_output.json``) were
+  indistinguishable from genuine consumer-side bugs until #449's
+  ``toolkit_packaging_issues`` diagnostics field made the cause legible.
+
+  This convention promotes the pattern from "category of past bugs" to
+  "automated guard against future occurrences". The rule is shipped as
+  ``advisory`` for the 3.7.x line; flip to ``strict`` in 3.8.0 once the
+  install-path coverage is empirically clean across the active
+  consumer-repo fleet.
+
+scan_scope:
+  COACH-WHEEL-COMPLETENESS-001:
+    include:
+      - "src/atdd/**/validators/fixtures/**"
+    note: |
+      Walk every file under any phase's validator fixture tree. Skip
+      cache-cruft (``__pycache__/``, ``*.pyc``, ``*.pyo``,
+      ``.pytest_cache/``, ``.DS_Store``) — those are build-artifacts
+      not source-of-truth and are explicitly recursive-excluded by
+      ``MANIFEST.in``.
+    exempt:
+      - "Editable install — when ``Path(atdd.__file__).resolve()`` is the
+        repo's own ``src/atdd/__init__.py`` the source tree IS the wheel
+        root, so the check is trivially satisfied. ``pytest.skip`` keeps
+        local-dev runs noise-free; CI exercises the wheel-built path."
+
+rules:
+  - id: "coach.wheel-completeness.fixture-missing-from-wheel"
+    aliases: ["COACH-WHEEL-COMPLETENESS-001"]
+    name: "fixture-missing-from-wheel"
+    description: |
+      Every file under ``src/atdd/**/validators/fixtures/**`` (excluding
+      cache-cruft) must exist at the corresponding path under
+      ``Path(atdd.__file__).resolve().parent``.
+    severity: 3
+    disposition: advisory
+    introduced_in: "3.7.1"
+    validator: "test_wheel_completeness::test_validator_fixtures_present_in_wheel"
+    detection: |
+      Source-tree inverse scan. For each source-tree fixture file
+      ``<repo_root>/src/atdd/<rel>``, compute expected install path
+      ``Path(atdd.__file__).resolve().parent/<rel>`` and assert
+      ``.exists()``. Skip the entire check when the resolved
+      ``atdd.__file__`` IS ``<repo_root>/src/atdd/__init__.py``
+      (editable install — source == wheel root).
+    rationale: |
+      Pre-fix v3.7.0 packaging dropped 13 fixture files from the wheel
+      (5 tester + 8 coach + 0 planner). Diagnostics #449 surfaced 4 of
+      them via ``toolkit_packaging_issues`` (the failing-test
+      references); the inverse scan would have surfaced all 13 at
+      build-time, before publish.
+    canonical_recipe:
+      bad: |
+        # pyproject.toml — narrow glob misses non-coder phase fixtures
+        [tool.setuptools.package-data]
+        "atdd" = ["coder/validators/fixtures/**"]
+      good: |
+        # pyproject.toml — recursive glob covers every phase's fixtures
+        [tool.setuptools.package-data]
+        "atdd" = ["**/validators/fixtures/**"]
+    exemptions:
+      - "Editable install (``pip install -e``) — source is the wheel root."
+      - "Cache-cruft files (``__pycache__/``, ``*.pyc``, ``*.pyo``,
+        ``.pytest_cache``, ``.DS_Store``) — those must NOT ship; the
+        scan walks past them."
+    incident_refs:
+      - "#449"
+      - "#451"
+    promotion_plan:
+      target_disposition: "strict"
+      target_version: "3.8.0"
+      gate: "Empirically clean inverse-scan across the active consumer
+        fleet for one minor cycle (3.7.x). Track via the ratchet baseline."
+
+enforcement:
+  validator: "src/atdd/coach/validators/test_wheel_completeness.py"
+  specs:
+    - id: "SPEC-COACH-WHEEL-COMPLETENESS-0001"
+      description: "Source-tree inverse scan asserts every fixture ships in the wheel"
+      validates: "COACH-WHEEL-COMPLETENESS-001"
+    - id: "SPEC-COACH-WHEEL-COMPLETENESS-0002"
+      description: "Editable install short-circuits the scan via pytest.skip"
+      validates: "COACH-WHEEL-COMPLETENESS-001"
+    - id: "SPEC-COACH-WHEEL-COMPLETENESS-0003"
+      description: "Cache-cruft (__pycache__, *.pyc, .DS_Store) is excluded from the scan"
+      validates: "COACH-WHEEL-COMPLETENESS-001"
