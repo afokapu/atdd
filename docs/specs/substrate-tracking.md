@@ -2,7 +2,7 @@
 
 > **Companion to**: `atdd-repo-substrate-spec-v12.md` (the spec) and `atdd-repo-substrate-issues.md` (the 17-issue plan).
 > **Purpose**: ground-truth status of each substrate issue — both filing-verified and work-done.
-> **Last audit**: 2026-05-06 02:30 UTC.
+> **Last audit**: 2026-05-06 14:35 UTC (post wave-2 + 5 more merges; 10/17 done; #414 rename in-flight).
 
 ## Verification methodology
 
@@ -17,20 +17,20 @@
 | Local | GH | Track | Title | Filing | Work | PR | CI | Notes |
 |---|---|---|---|---|---|---|---|---|
 | #1 | [#407](https://github.com/afokapu/atdd/issues/407) | A | Add `repo` archetype + RuleMetadata substrate fields | ✅ verified | ✅ DONE | [#426](https://github.com/afokapu/atdd/pull/426) MERGED | all pass | Foundation landed at `9db00c7`, v3.3.0 |
-| #2 | [#408](https://github.com/afokapu/atdd/issues/408) | A | Derive WMBT/train repo rules from acceptance URNs | ✅ verified | 🟡 IN-FLIGHT | none | n/a | 3 commits in worktree `feat-substrate-408-walker`, not pushed (paused) |
-| #3 | [#409](https://github.com/afokapu/atdd/issues/409) | A | Add repo rule discovery CLI commands | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #408 |
-| #4 | [#410](https://github.com/afokapu/atdd/issues/410) | B | Add substrate conformance convention + 5 validators | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #407, #408 |
-| #5 | [#411](https://github.com/afokapu/atdd/issues/411) | C | Harness-mode pytest plugin | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #407, #408 |
-| #6 | [#412](https://github.com/afokapu/atdd/issues/412) | D | Metric runner with two-root discovery | ✅ verified | 🟠 IN-REVIEW | [#428](https://github.com/afokapu/atdd/pull/428) OPEN | validate-coder FAIL, validate-gate FAIL | Paused mid-fixup; needs error addressed before merge |
-| #7 | [#413](https://github.com/afokapu/atdd/issues/413) | D | First toolkit metric (`hardcoded_theme_map_literal_count`) | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #412 |
-| #8 | [#414](https://github.com/afokapu/atdd/issues/414) | E | Rename `atdd urn` → `atdd repo` | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #408 (breaking-change) |
+| #2 | [#408](https://github.com/afokapu/atdd/issues/408) | A | Derive WMBT/train repo rules from acceptance URNs | ✅ verified | ✅ DONE | [#433](https://github.com/afokapu/atdd/pull/433) MERGED | all pass | Landed at `43af092`, v3.4.3 |
+| #3 | [#409](https://github.com/afokapu/atdd/issues/409) | A | Add repo rule discovery CLI commands | ✅ verified | ✅ DONE | [#435](https://github.com/afokapu/atdd/pull/435) MERGED | all pass | Landed at `a9a2c50`, v3.4.5 |
+| #4 | [#410](https://github.com/afokapu/atdd/issues/410) | B | Add substrate conformance convention + 5 validators | ✅ verified | ✅ DONE | [#439](https://github.com/afokapu/atdd/pull/439) MERGED | all pass | Landed at `2da05d9`, v3.4.6 |
+| #5 | [#411](https://github.com/afokapu/atdd/issues/411) | C | Harness-mode pytest plugin | ✅ verified | ✅ DONE | [#438](https://github.com/afokapu/atdd/pull/438) MERGED | all pass | Landed at `62eb765`, v3.4.7 |
+| #6 | [#412](https://github.com/afokapu/atdd/issues/412) | D | Metric runner with two-root discovery | ✅ verified | ✅ DONE | [#428](https://github.com/afokapu/atdd/pull/428) MERGED | all pass | Landed at `1d061ff`, v3.4.1 |
+| #7 | [#413](https://github.com/afokapu/atdd/issues/413) | D | First toolkit metric (`hardcoded_theme_map_literal_count`) | ✅ verified | ✅ DONE | [#436](https://github.com/afokapu/atdd/pull/436) MERGED | all pass | Landed at `73db8b7`, v3.4.8 |
+| #8 | [#414](https://github.com/afokapu/atdd/issues/414) | E | Rename `atdd urn` → `atdd repo` | ✅ verified | 🟡 IN-FLIGHT | none yet | n/a | surface:72; bumping to v3.5.0 (breaking) |
 | #9 | [#415](https://github.com/afokapu/atdd/issues/415) | E | Extend `atdd init` for substrate mode | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #411, #414 |
 | #10 | [#416](https://github.com/afokapu/atdd/issues/416) | F | Coach phase dispatch for repo rules | ✅ verified | ⏸ NOT-STARTED | none | n/a | Merge-window task; gates on A/C/D/E |
 | #11 | [#417](https://github.com/afokapu/atdd/issues/417) | F | Spawn-harness repo rule blocks | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #408 |
 | #12 | [#418](https://github.com/afokapu/atdd/issues/418) | F | Risk-score archetype breakdown | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #408 |
-| #13 | [#419](https://github.com/afokapu/atdd/issues/419) | G | SecurityResolver + registration + graph edges | ✅ verified | 🟠 IN-REVIEW | [#427](https://github.com/afokapu/atdd/pull/427) OPEN | coach/coder/gate PASS; version-bump FAIL (needs 3.3.0 → 3.4.0) | Paused mid-fixup-3 |
-| #14 | [#420](https://github.com/afokapu/atdd/issues/420) | G | URN grammar validator + parent-it-belongs-to | ✅ verified | 🟡 IN-FLIGHT | none | n/a | 2 commits in worktree `feat-substrate-420-urn-grammar`, not pushed (paused) |
-| #15 | [#421](https://github.com/afokapu/atdd/issues/421) | G | URN-prefix hardcoding audit + report | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #419, #420 |
+| #13 | [#419](https://github.com/afokapu/atdd/issues/419) | G | SecurityResolver + registration + graph edges | ✅ verified | ✅ DONE | [#427](https://github.com/afokapu/atdd/pull/427) MERGED | all pass | Landed at `b5cdff8`, v3.4.0 |
+| #14 | [#420](https://github.com/afokapu/atdd/issues/420) | G | URN grammar validator + parent-it-belongs-to | ✅ verified | ✅ DONE | [#432](https://github.com/afokapu/atdd/pull/432) MERGED | all pass | Landed at `c2d8099`, v3.4.2 |
+| #15 | [#421](https://github.com/afokapu/atdd/issues/421) | G | URN-prefix hardcoding audit + report | ✅ verified | ✅ DONE | [#437](https://github.com/afokapu/atdd/pull/437) MERGED | all pass | Landed at `d43ae59`, v3.4.9 |
 | #16 | [#422](https://github.com/afokapu/atdd/issues/422) | H | Security-derived repo rules + ref-binding runner | ✅ verified | ⏸ NOT-STARTED | none | n/a | Gated on #419, #420, #411, #412 |
 | #17 | [#423](https://github.com/afokapu/atdd/issues/423) | I | Substrate end-to-end validation (worked example) | ✅ verified | ⏸ NOT-STARTED | none | n/a | Done-line; gates on #1–#9 |
 
@@ -38,10 +38,11 @@
 
 ```
 Filed:       17/17 — all bodies match post-3-pass-review source (Pass 2 hash-equivalent)
-Done:         1/17 — #407 merged
-In-review:    2/17 — #412 (#428), #419 (#427)
-In-flight:    2/17 — #408, #420 (commits in worktrees, paused, not pushed)
-Not-started: 12/17 — gated on upstream
+Done:        10/17 — #407, #408, #409, #410, #411, #412, #413, #419, #420, #421
+In-review:    0/17
+In-flight:    1/17 — #414 (atdd urn → atdd repo rename, breaking, running solo)
+Ready-now:    4/17 — #415, #417, #418, #422 (unblocked once #414 merges)
+Not-started:  2/17 — #416 (gates on Track F deps), #423 (done-line)
 ```
 
 ## Active worktrees
