@@ -1,0 +1,74 @@
+recipe: acceptance-measurability
+pattern: "Make an acceptance measurable (harness OR signal+threshold)"
+category: planner
+source: "Substrate spec v12 §7.3 + §11 (Class 1 day-1 failures)"
+
+applies_when:
+  - "tester.acceptance-violation.acceptance-must-be-measurable fires"
+  - "An acceptance YAML block lacks both harness.type and signal.metric+signal.threshold"
+
+steps:
+  - step: 1
+    what: "Decide which mode the acceptance gates"
+    where: "plan/<wagon>/<WMBT>.yaml or plan/_trains/<train-id>.yaml"
+    explain: |
+      Acceptances must be enforceable on a real signal. Pick one (or both):
+        - HARNESS mode: a test exercises the contract end-to-end.
+          Use when: behavior is best verified by running code.
+        - SIGNAL mode: a metric computes a number (count, rate, percentile).
+          Use when: the contract is a numeric invariant ("count of X stays at 0").
+      You may declare both — they run in parallel and both must pass.
+
+  - step: 2a
+    what: "If HARNESS mode: declare harness.type and write the anchored test"
+    where: "plan/<wagon>/<WMBT>.yaml"
+    template: |
+      acceptances:
+        - identity:
+            urn: "acc:<wagon>:<WMBT>-<HARNESS>-<NNN>-<slug>"
+            phase: <RED|GREEN|SMOKE|REFACTOR>
+            purpose: "<one-line contract statement>"
+          harness:
+            type: unit          # or http, e2e, a11y, vis, metric, ...
+            category: backend   # or frontend, etc.
+          given: { abstract: ["..."] }
+          when:  { abstract: "..." }
+          then:  { abstract: ["..."] }
+    verify:
+      - run: "ls <test-root>/  # confirm a test file anchors to acc:<urn>"
+        expect: "test file exists with `# Acceptance: <acc:urn>` header"
+
+  - step: 2b
+    what: "If SIGNAL mode: declare BOTH signal.metric and signal.threshold"
+    where: "plan/<wagon>/<WMBT>.yaml"
+    template: |
+      acceptances:
+        - identity:
+            urn: "acc:<wagon>:<WMBT>-METRIC-<NNN>-<slug>"
+            phase: <RED|GREEN|SMOKE|REFACTOR>
+            purpose: "<one-line contract statement>"
+          signal:
+            metric: <metric_name>     # snake_case, must match a compute() module
+            threshold: <number>       # int / float / bool — type preserved verbatim
+    explain: |
+      Both fields are required together. signal.metric alone is unmeasurable
+      (no threshold to compare against); signal.threshold alone is meaningless
+      (nothing to measure). The metric implementation lookup is two-root:
+        1. <repo>/.atdd/metrics/<metric>.py     (consumer-authored; takes precedence)
+        2. src/atdd/runners/metrics/<metric>.py (toolkit-shipped commons)
+      See recipe: metric-implementation.
+
+  - step: 3
+    what: "Re-run the conformance suite"
+    verify:
+      - run: "atdd repo validate"
+        expect: "the rule no longer fires for this acceptance"
+
+requirements:
+  - "Authoring this acceptance does NOT make the contract pass — it only makes it ENFORCEABLE."
+  - "Phase still required (see recipe: acceptance-phase)."
+  - "If signal.metric is set, a compute() implementation must exist (see recipe: metric-implementation)."
+
+final_verify:
+  - "atdd repo validate emits zero tester.acceptance-violation.acceptance-must-be-measurable findings"
+  - "The acceptance now appears in the registry (atdd rules show repo.<wagon>.<rule-id>)"
