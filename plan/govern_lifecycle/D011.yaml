@@ -25,9 +25,6 @@ acceptances:
         - "The returned dict contains exactly the keys python, supabase, web"
         - "The toolkit key is NOT present (opt-in per Decision #1)"
         - "Values are Path objects pointing at python, supabase/functions, web/src"
-    signal:
-      metric: "hardcoded_code_root_constant_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

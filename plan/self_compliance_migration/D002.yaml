@@ -23,9 +23,6 @@ acceptances:
     then:
       abstract:
         - "8 WMBT references present (C001 through K001)"
-    signal:
-      metric: "wmbt_ref_count"
-      threshold: 8
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"

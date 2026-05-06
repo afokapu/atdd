@@ -25,9 +25,6 @@ acceptances:
         - "The posted body contains the Issue Metadata table with Branch, Train, and Dependencies entries"
         - "atdd issue <N> --check on the freshly-created issue reports 'template compliant'"
         - "Branch defaults to feat/issue-{num} when no override is given"
-    signal:
-      metric: "non_compliant_created_issue_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-14"

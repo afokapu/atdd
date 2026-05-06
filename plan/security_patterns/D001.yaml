@@ -26,9 +26,6 @@ acceptances:
         - "4 rules defined: sql_injection, missing_auth, hardcoded_secrets, xss_patterns"
         - "Each rule has id, patterns/keywords, and exclusions"
         - "Exclusions use glob patterns compatible with fnmatch"
-    signal:
-      metric: "rule_count"
-      threshold: 4
     metadata:
       author: "atdd:security-patterns"
       created: "2026-03-31"

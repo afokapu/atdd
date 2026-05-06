@@ -26,9 +26,6 @@ acceptances:
         - "backend.new_workspace is NOT called"
         - "The orchestrate state file records the surface ref per issue"
         - "Default invocation (no flag) preserves the existing workspace mode"
-    signal:
-      metric: "wrong_backend_method_call_count"
-      threshold: 0
   - identity:
       urn: "acc:govern-lifecycle:D016-UNIT-002-resume-respects-mode"
       id: "AC-UNIT-002"
@@ -46,9 +43,6 @@ acceptances:
       abstract:
         - "Existing surface refs in state are reused"
         - "No new surfaces are created for already-launched issues"
-    signal:
-      metric: "duplicate_spawn_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-01"

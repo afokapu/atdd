@@ -25,9 +25,6 @@ acceptances:
       abstract:
         - "At least one Path is returned whose basename stem contains the normalized feature slug"
         - "Unknown feature slugs yield an empty list (no false positives)"
-    signal:
-      metric: "toolkit_feature_without_resolved_implementation_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

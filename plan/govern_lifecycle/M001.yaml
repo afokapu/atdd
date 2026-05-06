@@ -26,9 +26,6 @@ acceptances:
         - "The override is accepted (no hard failure)"
         - "The warning is visible in stdout and captured by --html reports"
         - "Repos that keep digit 0 as commons emit no warning"
-    signal:
-      metric: "silent_commons_overrides_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

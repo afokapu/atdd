@@ -28,9 +28,6 @@ acceptances:
         - "Runtime validation confirms qualification is present in get_theme_map(config)"
         - "A wagon with theme: not-declared-anywhere fails runtime validation with a clear error"
         - "Existing repos without a themes block continue validating against the 10 built-in names"
-    signal:
-      metric: "valid_custom_theme_rejections_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

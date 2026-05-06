@@ -25,9 +25,6 @@ acceptances:
         - "Structurally identical fragments (>=7 normalized lines) across different files flagged"
         - "Identifiers and literals normalized (renamed copies still caught)"
         - "Only intra-layer comparisons (cross-layer duplication ignored)"
-    signal:
-      metric: "ts_duplicate_fragment_count"
-      threshold: 0
     metadata:
       author: "atdd:implement-code"
       created: "2026-04-01"

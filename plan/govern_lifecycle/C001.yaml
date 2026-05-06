@@ -28,9 +28,6 @@ acceptances:
         - "Non-digit or multi-digit keys are rejected with a pinpointed message"
         - "Empty name strings are rejected"
         - "The validator exit code is non-zero on any violation"
-    signal:
-      metric: "invalid_theme_names_accepted_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

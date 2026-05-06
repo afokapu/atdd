@@ -26,9 +26,6 @@ acceptances:
       abstract:
         - "Both test_no_print_in_production_code and test_structured_logging_format are collected"
         - "Tests either pass or skip gracefully when python/ does not exist"
-    signal:
-      metric: "collected_test_count"
-      threshold: 2
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"

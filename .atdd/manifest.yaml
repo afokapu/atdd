@@ -233,3 +233,14 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:repo-rule-substrate
   train: 0001-self-compliance-validate
+- id: '423'
+  slug: substrate-423-worked-example
+  file: null
+  issue_number: 423
+  type: feature
+  status: RED
+  created: '2026-05-06'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:repo-rule-substrate
+  train: 0001-self-compliance-validate

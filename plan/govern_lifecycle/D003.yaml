@@ -25,9 +25,6 @@ acceptances:
         - "The validator reports the non-compliant issue number and missing sections"
         - "The overall coach validation exits non-zero"
         - "Compliant issues pass without noise"
-    signal:
-      metric: "open_issue_template_drift_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-14"

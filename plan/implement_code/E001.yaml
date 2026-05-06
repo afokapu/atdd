@@ -24,9 +24,6 @@ acceptances:
       abstract:
         - "Every .py file is classified as reachable or unreachable"
         - "Unreachable files and their definitions are reported as dead code"
-    signal:
-      metric: "graph_coverage_percentage"
-      threshold: 100
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"

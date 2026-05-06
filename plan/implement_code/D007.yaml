@@ -25,9 +25,6 @@ acceptances:
       abstract:
         - "Any wagon missing trains.ts, or exporting only a subset of required_exports, produces a hard failure with SPEC-CODER-TRAIN-0002 error block"
         - "Absent configuration key produces a clean pytest skip with no failure"
-    signal:
-      metric: "wagon_trains_export_violation_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-14"

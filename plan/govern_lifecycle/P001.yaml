@@ -27,9 +27,6 @@ acceptances:
         - "When detections are empty and interactive, the blind prompt offers defaults/custom/skip without naming any product category"
         - "When --themes {defaults|custom|skip} is given, the non-interactive path writes the correct .atdd/config.yaml shape without prompting"
         - "Prompt copy contains no forbidden tokens (game, gaming, app, saas, fintech, product category)"
-    signal:
-      metric: "blind_prompts_when_scan_has_results_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

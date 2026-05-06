@@ -30,9 +30,6 @@ acceptances:
         - "ternary_both_null.tsx → PRESENTATION-NOSTUB-005"
         - "Every Violation has severity=4"
         - "jel_app_repro/AuthGateShell.tsx emits PRESENTATION-NOSTUB-001"
-    signal:
-      metric: "stub_fixture_classification_drift"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-02"
@@ -54,9 +51,6 @@ acceptances:
     then:
       abstract:
         - "Zero Violations emitted from each clean fixture"
-    signal:
-      metric: "stub_false_positive_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-02"
@@ -78,9 +72,6 @@ acceptances:
       abstract:
         - "First run: PRESENTATION-NOSTUB-001 emitted at AuthGateShell.tsx:1, severity=4"
         - "Second run (allowlisted with migration:): zero Violations"
-    signal:
-      metric: "allowlist_round_trip_violation_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-02"
@@ -105,9 +96,6 @@ acceptances:
         - "PRESENTATION-NOSTUB-010 declared with severity=2"
         - "PRESENTATION-NOSTUB-020 declared as the negative rule"
         - "Every rule-id passes test_rule_id_uniqueness grammar + uniqueness checks"
-    signal:
-      metric: "convention_drift_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-02"

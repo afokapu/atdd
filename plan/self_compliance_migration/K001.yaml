@@ -24,9 +24,6 @@ acceptances:
       abstract:
         - "atdd validate --local passes"
         - "python3 -m pytest src/atdd passes (excluding release tag check)"
-    signal:
-      metric: "gate_failures"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"

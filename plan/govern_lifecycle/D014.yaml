@@ -25,9 +25,6 @@ acceptances:
         - "new_surface is declared on the abstract base"
         - "new_workspace remains declared and unchanged in signature"
         - "read_screen, send, send_key, close accept either workspace_ref or surface_ref"
-    signal:
-      metric: "missing_abstract_method_count"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-01"

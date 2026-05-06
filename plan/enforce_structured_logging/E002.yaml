@@ -27,9 +27,6 @@ acceptances:
         - "logger.info('msg', extra={'key': 'val'}) is NOT flagged"
         - "logger.info('msg %s', arg) without extra= IS flagged"
         - "Validator skips gracefully if python/ does not exist"
-    signal:
-      metric: "bare_log_violations"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"

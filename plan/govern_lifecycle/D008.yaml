@@ -25,9 +25,6 @@ acceptances:
         - "The hook exits with non-zero status"
         - "The hook prints the offending issue number and a sync-labels remediation hint"
         - "The push is blocked until labels are backfilled"
-    signal:
-      metric: "unlabeled_issue_push_attempts"
-      threshold: 0
     metadata:
       author: "atdd:self-compliance"
       created: "2026-04-17"

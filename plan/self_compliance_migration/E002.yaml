@@ -24,9 +24,6 @@ acceptances:
       abstract:
         - "Contract schema compliance passes"
         - "Contract structure validation passes"
-    signal:
-      metric: "contract_count"
-      threshold: 2
     metadata:
       author: "atdd:self-compliance"
       created: "2026-03-31"
