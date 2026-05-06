@@ -78,6 +78,32 @@ class RuleMetadata:
             or ``None``.
         source_path: Absolute path to the convention file that declared the
             rule.  Used in ``AmbiguousRuleError`` messages.
+
+    Substrate-added fields (issue #407, spec v12 §4.1) — discriminator /
+    graph-resolution pointers and authoring context. All default to ``None``
+    so toolkit rules predating the substrate are unaffected; repo-scope rules
+    populate them on construction.
+
+        acceptance_urn: Acceptance criterion this rule enforces.
+        wmbt_urn: WMBT (What Must Be True) criterion linkage.
+        train_urn: Train (release journey) the rule belongs to.
+        security_urn: Security control / policy the rule enforces.
+        feature_urn: Feature the rule scopes to.
+        bound_acceptance_urn: Graph-resolvable URN bound at registry-load
+            time. Distinct from ``fix_hint_ref`` (a remediation pointer) and
+            from the YAML-source ``acceptance_ref`` opaque pointer string —
+            this field is the resolved URN form (per §4.1).
+        phase: ATDD lifecycle phase pin (``RED``/``GREEN``/``SMOKE``/
+            ``REFACTOR``) when applicable.
+        harness_type: Test harness type the rule expects.
+        harness_category: Coarse-grained harness category.
+        signal_metric: Telemetry metric the rule produces / consumes.
+        signal_threshold: Threshold against which ``signal_metric`` is judged.
+        given: Authoring-time precondition prose.
+        when: Authoring-time stimulus prose.
+        then: Authoring-time expectation prose.
+        author: Rule author identifier.
+        created: ISO date the rule entry was created.
     """
 
     rule_id: str
@@ -90,6 +116,22 @@ class RuleMetadata:
     validator: Optional[str] = None
     fix_hint: Optional[str] = None
     aliases: Tuple[str, ...] = ()
+    acceptance_urn: Optional[str] = None
+    wmbt_urn: Optional[str] = None
+    train_urn: Optional[str] = None
+    security_urn: Optional[str] = None
+    feature_urn: Optional[str] = None
+    bound_acceptance_urn: Optional[str] = None
+    phase: Optional[str] = None
+    harness_type: Optional[str] = None
+    harness_category: Optional[str] = None
+    signal_metric: Optional[str] = None
+    signal_threshold: Optional[str] = None
+    given: Optional[str] = None
+    when: Optional[str] = None
+    then: Optional[str] = None
+    author: Optional[str] = None
+    created: Optional[str] = None
 
     @property
     def fix_hint_ref(self) -> Optional[str]:

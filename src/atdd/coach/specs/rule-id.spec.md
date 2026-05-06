@@ -16,7 +16,7 @@ The grammar is closed and audited — every rule_id is namespaced under
 
 ```
 RULE_ID    ::= <archetype> "." <convention_short_name> "." <rule_name>
-archetype  ::= coder | coach | tester | planner
+archetype  ::= coder | coach | tester | planner | repo
 convention_short_name ::= <segment> ("-" <segment>)*
                          ; filename of the declaring *.convention.yaml
                          ; minus the .convention.yaml suffix

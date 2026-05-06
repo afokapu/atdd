@@ -24,7 +24,7 @@ grammar:
   pattern: "^[a-z][a-z0-9]*(-[a-z0-9]+)*\\.[a-z][a-z0-9]*(-[a-z0-9]+)*\\.[a-z][a-z0-9]*(-[a-z0-9]+)*$"
   description: |
     <archetype>.<convention_short_name>.<rule_name>
-    archetype ∈ {coder, coach, tester, planner}
+    archetype ∈ {coder, coach, tester, planner, repo}
     convention_short_name = filename without .convention.yaml
     rule_name = hyphenated human-readable
   separator: "."

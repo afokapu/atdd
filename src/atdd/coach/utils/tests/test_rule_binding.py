@@ -310,3 +310,113 @@ section:
     assert file_path == path
     assert rule["id"] == "COACH-EXT-001"
     assert "section" in yaml_path
+
+
+# ---------------------------------------------------------------------------
+# Substrate fields (issue #407, spec v12 §4.1)
+# ---------------------------------------------------------------------------
+SUBSTRATE_FIELDS = (
+    # Discriminator / graph-resolution pointers.
+    "acceptance_urn",
+    "wmbt_urn",
+    "train_urn",
+    "security_urn",
+    "feature_urn",
+    "bound_acceptance_urn",
+    "phase",
+    # Authoring context.
+    "harness_type",
+    "harness_category",
+    "signal_metric",
+    "signal_threshold",
+    "given",
+    "when",
+    "then",
+    "author",
+    "created",
+)
+
+
+def test_substrate_fields_default_to_none_for_toolkit_rules():
+    """Existing toolkit rules carry None for every substrate-added field.
+
+    Asserts the non-breaking property of #407: pre-substrate convention
+    entries (which never declared substrate fields) bind cleanly with all
+    new attributes equal to None.
+    """
+    from atdd.coach.utils.rule_binding import bind_rule
+
+    meta = bind_rule("coder.logging.coach-silent-swallow")
+
+    for field_name in SUBSTRATE_FIELDS:
+        assert hasattr(meta, field_name), f"missing substrate field {field_name!r}"
+        assert getattr(meta, field_name) is None, (
+            f"toolkit rule has non-None substrate field {field_name!r}"
+        )
+
+
+def test_rule_metadata_constructable_with_all_substrate_fields():
+    """RuleMetadata accepts every substrate field as a kwarg and preserves them.
+
+    Acceptance criterion from issue #407: a unit test demonstrating
+    constructable RuleMetadata with all substrate fields populated.
+    """
+    from atdd.coach.utils.rule_binding import RuleMetadata
+
+    populated = {
+        "acceptance_urn": "urn:atdd:acceptance:repo:substrate:foo",
+        "wmbt_urn": "wmbt:repo:substrate:bar",
+        "train_urn": "urn:atdd:train:repo:substrate",
+        "security_urn": "urn:atdd:security:repo:substrate:baz",
+        "feature_urn": "urn:atdd:feature:repo:substrate:qux",
+        "bound_acceptance_urn": "urn:atdd:acceptance:repo:substrate:foo#bound",
+        "phase": "RED",
+        "harness_type": "pytest",
+        "harness_category": "unit",
+        "signal_metric": "violation_count",
+        "signal_threshold": "0",
+        "given": "a fresh registry",
+        "when": "a substrate rule binds",
+        "then": "every substrate field round-trips",
+        "author": "alec",
+        "created": "2026-05-06",
+    }
+
+    meta = RuleMetadata(
+        rule_id="repo.substrate.fixture-rule",
+        severity=3,
+        description="Fixture rule covering every substrate field",
+        recipe=None,
+        introduced_in="3.3.0",
+        source_path=Path("/tmp/fake.convention.yaml"),
+        disposition="advisory",
+        validator="test_substrate_fixture::test_substrate_fixture",
+        fix_hint="N/A — fixture only",
+        aliases=("LEGACY-SUBSTRATE-001",),
+        **populated,
+    )
+
+    assert meta.rule_id == "repo.substrate.fixture-rule"
+    assert meta.aliases == ("LEGACY-SUBSTRATE-001",)
+    for field_name, expected in populated.items():
+        assert getattr(meta, field_name) == expected
+
+
+def test_repo_archetype_passes_grammar_validator():
+    """``validate_grammar('repo.<convention>.<rule>', ...)`` returns None.
+
+    The substrate spec v12 §3.1 extension landed when ``repo`` joined the
+    canonical archetype set in
+    ``src/atdd/coach/validators/test_rule_id_uniqueness.py::validate_grammar``.
+    """
+    from atdd.coach.validators.test_rule_id_uniqueness import (
+        load_allowed_domains,
+        validate_grammar,
+    )
+
+    allowed = load_allowed_domains()
+    assert validate_grammar("repo.substrate.fixture-rule", allowed) is None
+    assert validate_grammar("repo.layout.flat-tree", allowed) is None
+    # Sanity: an unknown archetype still rejects.
+    bogus = validate_grammar("noarchetype.substrate.fixture-rule", allowed)
+    assert bogus is not None and "noarchetype" in bogus
