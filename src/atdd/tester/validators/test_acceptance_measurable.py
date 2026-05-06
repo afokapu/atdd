@@ -23,12 +23,12 @@ from typing import List, Optional
 
 import pytest
 
-from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.tester.validators._acceptance_walker import (
     acceptance_urn,
+    assert_substrate_strict,
     has_harness_type,
     has_signal_metric_and_threshold,
     iter_repo_acceptances,
@@ -78,7 +78,7 @@ def collect_violations(repo_root: Optional[Path] = None) -> List[Violation]:
 def test_every_acceptance_has_enforcement() -> None:
     """Every acceptance under plan/ must be measurable (§7.3)."""
     violations = collect_violations()
-    assert_disposition_satisfied(_VALIDATOR_ID, violations)
+    assert_substrate_strict(_VALIDATOR_ID, violations)
 
 
 __all__ = ["collect_violations", "test_every_acceptance_has_enforcement"]

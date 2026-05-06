@@ -31,11 +31,11 @@ from typing import List, Optional
 import pytest
 import yaml
 
-from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.tester.validators._acceptance_walker import (
+    assert_substrate_strict,
     find_disposition_path,
     iter_feature_files,
     yaml_path_str,
@@ -150,7 +150,7 @@ def _make_violation(path: Path, parts: tuple, repo_root: Path) -> Violation:
 def test_no_disposition_in_repo_yaml() -> None:
     """Repo YAML must NOT declare 'disposition:' anywhere (§7.3)."""
     violations = collect_violations()
-    assert_disposition_satisfied(_VALIDATOR_ID, violations)
+    assert_substrate_strict(_VALIDATOR_ID, violations)
 
 
 __all__ = ["collect_violations", "test_no_disposition_in_repo_yaml"]

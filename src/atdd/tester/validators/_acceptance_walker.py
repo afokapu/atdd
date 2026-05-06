@@ -21,12 +21,36 @@ records keyed off the conformance rule_ids defined in
 
 from __future__ import annotations
 
+import logging
+import os
 import re
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Sequence
 
 import yaml
+
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.validators._violation import Violation
+
+
+_logger = logging.getLogger(__name__)
+
+
+SUBSTRATE_BACKLOG_ENV = "ATDD_ALLOW_SUBSTRATE_BACKLOG"
+"""Emergency opt-out env var for the five Track-B conformance validators.
+
+When set to a truthy value, ``assert_substrate_strict`` demotes every
+substrate-conformance violation to a ``UserWarning`` instead of failing.
+
+Use case: substrate ships strict-from-day-1 (spec §11), but each
+consuming repo (including this toolkit's own ``plan/``) must clear its
+Class-1 backlog (#410's siblings — #413 metric impl, #422 abuse-case
+binding, etc.) before the conformance suite is allowed to gate CI. The
+env var is the same shape as ``ATDD_ALLOW_ORPHAN_RULES`` (issue #399)
+and is meant to be removed from CI once backlog is clear.
+"""
 
 
 _WMBT_FILE_RE = re.compile(r"^[DLPCEMYRK]\d{3}\.yaml$")
@@ -193,10 +217,53 @@ def _relpath(path: Path, repo_root: Path) -> str:
         return str(path)
 
 
+def assert_substrate_strict(
+    validator_id: str,
+    violations: Sequence[Violation],
+) -> None:
+    """Strict-by-default gate for substrate Track-B conformance validators.
+
+    Default behavior: hands the violations to
+    ``assert_disposition_satisfied`` — the convention sets
+    ``disposition: strict`` so any violation fails the test.
+
+    Emergency opt-out: when ``ATDD_ALLOW_SUBSTRATE_BACKLOG`` is set to a
+    truthy value, the violations are demoted to a ``UserWarning`` and
+    the test passes. The env var is intended for the migration window
+    while Class-1 backlog (missing metric impls, missing test files for
+    pre-existing acceptances) is cleared by the substrate's sibling
+    issues. Remove the env var from CI once backlog is at zero.
+    """
+    if not violations:
+        return
+    if _is_truthy_env(os.environ.get(SUBSTRATE_BACKLOG_ENV)):
+        warnings.warn(
+            f"[{SUBSTRATE_BACKLOG_ENV}] {validator_id}: "
+            f"substrate conformance found {len(violations)} violation(s); "
+            f"gate demoted to WARN. Sample:\n  - "
+            + "\n  - ".join(
+                f"{v.rule_id}: {v.location}: {v.detail}"
+                for v in list(violations)[:5]
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+        return
+    assert_disposition_satisfied(validator_id, violations)
+
+
+def _is_truthy_env(value: Optional[str]) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() not in {"", "0", "false", "no", "off"}
+
+
 __all__ = [
     "RawAcceptance",
+    "SUBSTRATE_BACKLOG_ENV",
     "acceptance_phase",
     "acceptance_urn",
+    "assert_substrate_strict",
     "find_disposition_path",
     "has_harness_type",
     "has_signal_metric_and_threshold",

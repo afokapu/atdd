@@ -31,11 +31,11 @@ from typing import Iterable, List, Optional
 
 import pytest
 
-from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import RuleMetadata, bind_rule, find_repo_rules
 from atdd.coach.validators._violation import Violation
 from atdd.runners.metric_runner import discover_metric_module
+from atdd.tester.validators._acceptance_walker import assert_substrate_strict
 
 
 pytestmark = [pytest.mark.platform]
@@ -130,7 +130,7 @@ def collect_violations(repo_root: Optional[Path] = None) -> List[Violation]:
 def test_every_signal_metric_has_compute_function() -> None:
     """Every signal.metric in the registry must resolve to a compute() module (§7.3)."""
     violations = collect_violations()
-    assert_disposition_satisfied(_VALIDATOR_ID, violations)
+    assert_substrate_strict(_VALIDATOR_ID, violations)
 
 
 __all__ = [
