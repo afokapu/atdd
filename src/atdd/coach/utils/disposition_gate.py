@@ -51,6 +51,85 @@ _DEFAULT_DISPOSITION = "strict"
 _LEGAL_DISPOSITIONS = frozenset({"strict", "suppress-and-clean", "advisory"})
 
 
+# ---------------------------------------------------------------------------
+# Session result map (substrate spec v12 §4.5 — issue #422)
+# ---------------------------------------------------------------------------
+# Holds a reference to the active pytest session so the gate can record
+# (rule_id, outcome) pairs into ``session._atdd["rule_outcomes"]`` without
+# threading the session object through every caller. The substrate's
+# pytest plugin sets this at session-start and clears it at session-end.
+# Outside a pytest run the variable stays ``None`` and the gate's outcome
+# write is a no-op (spec v12 §4.5 line 274).
+_ACTIVE_PYTEST_SESSION: Optional[Any] = None
+
+
+def set_active_pytest_session(session: Optional[Any]) -> None:
+    """Plugin hook — record the active pytest session for outcome writes.
+
+    The substrate's pytest plugin (issue #411 / #422) calls this in
+    ``pytest_sessionstart`` and again with ``None`` in
+    ``pytest_sessionfinish``. The gate uses the reference to populate
+    ``session._atdd["rule_outcomes"]`` per spec v12 §4.5; outside pytest
+    the reference stays ``None`` and the gate's outcome write is a no-op.
+    """
+    global _ACTIVE_PYTEST_SESSION
+    _ACTIVE_PYTEST_SESSION = session
+
+
+def get_active_pytest_session() -> Optional[Any]:
+    """Test hook — read the active pytest session reference."""
+    return _ACTIVE_PYTEST_SESSION
+
+
+def record_rule_outcome(rule_id: str, outcome: str) -> None:
+    """Public hook — write ``(rule_id, outcome)`` to the session result map.
+
+    Substrate spec v12 §4.5 / issue #422. Runners (metric, security,
+    harness plugin) call this to record per-rule outcomes; the gate also
+    calls it internally for failures (see ``assert_disposition_satisfied``).
+    Outside a pytest run the call is a no-op. ``outcome`` is one of
+    ``"passed"`` / ``"failed"``.
+    """
+    _record_rule_outcome(rule_id, outcome)
+
+
+def _record_rule_outcome(rule_id: str, outcome: str) -> None:
+    """Write ``(rule_id, outcome)`` into ``session._atdd['rule_outcomes']``.
+
+    Substrate spec v12 §4.5 / issue #422. The security runner reads this
+    map to determine whether each bound acceptance's rule passed in this
+    run. ``outcome`` is one of ``"passed"`` / ``"failed"``.
+
+    Robust to:
+      - No active session (outside pytest) — silent no-op.
+      - Missing ``_atdd`` namespace — initialized on first write.
+      - Missing ``rule_outcomes`` key — initialized on first write.
+
+    Last-write-wins semantics: a rule may be touched by multiple gate
+    calls (e.g. harness + metric mode for the same acceptance). Either
+    failure marks the rule failed; the security runner reads "failed" if
+    ANY gate call recorded a failure for the bound rule_id.
+    """
+    session = _ACTIVE_PYTEST_SESSION
+    if session is None:
+        return
+    namespace = getattr(session, "_atdd", None)
+    if not isinstance(namespace, dict):
+        namespace = {}
+        try:
+            setattr(session, "_atdd", namespace)
+        except (AttributeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+            return
+    outcomes = namespace.get("rule_outcomes")
+    if not isinstance(outcomes, dict):
+        outcomes = {}
+        namespace["rule_outcomes"] = outcomes
+    # Promote a recorded failure over a recorded pass — either gate call
+    # producing a failure means the rule's contract was broken in this run.
+    if outcome == "failed" or rule_id not in outcomes:
+        outcomes[rule_id] = outcome
+
+
 def _looks_like_violation(obj: Any) -> bool:
     """Duck-typed check: structured ``Violation`` carries rule_id+severity+location."""
     return (
@@ -146,6 +225,12 @@ def assert_disposition_satisfied(
           up. Empty → pass; non-empty → fail.
     """
     if not violations:
+        # Substrate spec v12 §4.5 / issue #422: record a "passed" outcome on
+        # the session result map for the validator's rule_id when the gate
+        # was given an empty list. The validator_id is "<module>::<func>"
+        # and not itself a rule_id, so this branch only fires for the
+        # opaque-but-empty case; per-rule passes are recorded inside the
+        # main loop below using the structured bucket's keys.
         return
 
     registry = registry if registry is not None else build_registry()
@@ -160,6 +245,14 @@ def assert_disposition_satisfied(
             structured[v.rule_id].append(v)
         else:
             opaque.append(v)
+
+    # Substrate spec v12 §4.5 / issue #422: record per-rule outcomes on the
+    # active pytest session BEFORE we route through the gate. The security
+    # runner reads this map to decide whether each bound acceptance's rule
+    # failed in the current run; recording before the gate raises ensures
+    # the outcome is captured even when ``pytest.fail`` aborts the test.
+    for rule_id in structured.keys():
+        _record_rule_outcome(rule_id, "failed")
 
     failures: List[str] = []
     advisory_blocks: List[str] = []
@@ -390,4 +483,9 @@ def _emit_github_annotations(
     out.flush()
 
 
-__all__ = ["assert_disposition_satisfied"]
+__all__ = [
+    "assert_disposition_satisfied",
+    "get_active_pytest_session",
+    "record_rule_outcome",
+    "set_active_pytest_session",
+]

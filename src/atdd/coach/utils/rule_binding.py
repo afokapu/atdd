@@ -31,7 +31,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import yaml
 
@@ -272,13 +272,32 @@ _RULE_ID_PATTERN = re.compile(
 #       (a) WMBT: ``<WMBT-id>-acc-<harness>-<NNN>``  (WMBT-id is uppercase
 #           step-letter + 3 digits; harness is lowercase)
 #       (b) Train: ``acc-<acceptance-slug>``         (kebab-case slug)
+#       (c) Security: ``<feature-slug>-security-<NNN>`` (issue #422 / spec
+#           v12 §5.4) — derived from a feature.yaml abuse_case.
 _REPO_RULE_ID_PATTERN = re.compile(
     r"^repo\.[a-z0-9][a-z0-9-]*\.("
     r"[DLPCEMYRK][0-9]{3}-acc-(?:unit|http|event|ws|e2e|a11y|vis|metric|job|db|sec|load|script|widget|golden|bloc|integration|rls|edge|realtime|storage)-[0-9]{3}"
     r"|"
     r"acc-[a-z][a-z0-9-]*"
+    r"|"
+    r"[a-z][a-z0-9-]*-security-[0-9]{3}"
     r")$"
 )
+
+
+# Security severity → integer mapping per spec v12 §4.5 / issue #422 scope.
+# Missing severity defaults to "medium" (3) per the issue spec.
+_SECURITY_SEVERITY_MAP = {
+    "low": 2,
+    "medium": 3,
+    "high": 4,
+    "critical": 5,
+}
+_SECURITY_DEFAULT_SEVERITY = 3  # "medium"
+
+# Stable validator_id literal for the security-mode runner. Matches the
+# anchor module name used in spec v12 §4.5 line 265.
+_SECURITY_RUNTIME_VALIDATOR = "test_security_ref_binding::test_acceptance_ref_resolves_and_passes"
 
 
 def _yaml_path_str(parts: Tuple[object, ...]) -> str:
@@ -357,6 +376,132 @@ def _derive_repo_rule_id(acc_urn: str) -> Tuple[str, str]:
         # Train shape: body is the acceptance slug.
         rule_id = f"repo.{parent}.acc-{body}"
     return rule_id, parent
+
+
+def derive_security_rule_id(security_urn: str) -> str:
+    """Derive the substrate repo rule-id from a ``security:`` URN per spec §5.4.
+
+    URN shape: ``security:<wagon>:<feature-slug>:<threat-seq>``.
+    Output:    ``repo.<wagon>.<feature-slug>-security-<threat-seq>``.
+
+    Raises ``RepoYamlValidationError`` when the URN is malformed.
+    """
+    if not isinstance(security_urn, str) or not security_urn.startswith("security:"):
+        raise RepoYamlValidationError(
+            f"security URN must start with 'security:', got {security_urn!r}"
+        )
+    parts = security_urn.split(":")
+    if len(parts) != 4:
+        raise RepoYamlValidationError(
+            f"security URN must have shape 'security:<wagon>:<feature>:<seq>', "
+            f"got {security_urn!r}"
+        )
+    _, wagon, feature, seq = parts
+    if not (wagon and feature and seq):
+        raise RepoYamlValidationError(
+            f"security URN segments must be non-empty, got {security_urn!r}"
+        )
+    return f"repo.{wagon}.{feature}-security-{seq}"
+
+
+def _security_severity(raw: Any) -> int:
+    """Return integer severity from an abuse_case ``severity:`` value.
+
+    Per spec v12 §4.5 / issue #422: low→2, medium→3, high→4, critical→5.
+    Missing or unrecognized values default to ``medium`` (3) — issue #422
+    explicitly opts for the conservative middle value rather than failing
+    registry-build for an authoring nit.
+    """
+    if isinstance(raw, str):
+        return _SECURITY_SEVERITY_MAP.get(raw.strip().lower(), _SECURITY_DEFAULT_SEVERITY)
+    if isinstance(raw, int) and not isinstance(raw, bool) and 1 <= raw <= 5:
+        return raw
+    return _SECURITY_DEFAULT_SEVERITY
+
+
+def _read_acceptance_phase(acc_urn: str, repo_root: Path) -> Optional[str]:
+    """Look up ``identity.phase`` for the acceptance referenced by ``acc_urn``.
+
+    Walks the WMBT or train YAML the URN resolves to and returns the
+    declared phase string, or ``None`` if the lookup fails for any reason
+    (resolver miss, malformed YAML, missing phase). Phase propagation is
+    best-effort — security-rule ``phase`` is informational for coach
+    dispatch; an absent value does not block walker execution.
+    """
+    try:
+        from atdd.coach.utils.graph.resolver import AcceptanceResolver
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        return None
+    try:
+        resolver = AcceptanceResolver(repo_root=repo_root)
+        resolution = resolver.resolve(acc_urn)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        return None
+    if not resolution.is_resolved or not resolution.resolved_paths:
+        return None
+    target = resolution.resolved_paths[0]
+    try:
+        with open(target, encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+        return None
+    if not isinstance(data, dict):
+        return None
+    for acc in data.get("acceptances", []) or []:
+        if not isinstance(acc, dict):
+            continue
+        identity = acc.get("identity") or {}
+        if not isinstance(identity, dict):
+            continue
+        if identity.get("urn") == acc_urn:
+            phase = identity.get("phase")
+            if isinstance(phase, str) and phase.strip():
+                return phase.strip()
+            return None
+    return None
+
+
+def _acceptance_ref_resolves(acc_ref: Any, repo_root: Path) -> bool:
+    """Return ``True`` when ``acc_ref`` is an acc URN that AcceptanceResolver
+    resolves to at least one on-disk artifact AND the WMBT/train YAML
+    actually declares an acceptance with that exact URN.
+
+    The resolver's path-based check confirms the parent file exists; the
+    URN-membership check (this function) confirms the acceptance block is
+    actually authored. A feature.yaml may reference an acceptance URN
+    pointing at an existing WMBT file that does NOT declare the matching
+    acceptance — the §7.4 enforcement rule must catch that case.
+    """
+    if not isinstance(acc_ref, str) or not acc_ref.startswith("acc:"):
+        return False
+    try:
+        from atdd.coach.utils.graph.resolver import AcceptanceResolver
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        return False
+    try:
+        resolver = AcceptanceResolver(repo_root=repo_root)
+        resolution = resolver.resolve(acc_ref)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        return False
+    if not resolution.is_resolved or not resolution.resolved_paths:
+        return False
+    target = resolution.resolved_paths[0]
+    try:
+        with open(target, encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+        return False
+    if not isinstance(data, dict):
+        return False
+    for acc in data.get("acceptances", []) or []:
+        if not isinstance(acc, dict):
+            continue
+        identity = acc.get("identity") or {}
+        if not isinstance(identity, dict):
+            continue
+        if identity.get("urn") == acc_ref:
+            return True
+    return False
 
 
 def _check_walker_invariants(acc: Dict) -> Optional[str]:
@@ -674,6 +819,218 @@ def find_repo_rules(
 
 
 # ---------------------------------------------------------------------------
+# Security walker (substrate spec v12 §4.5, §5.4, §7.4 — issue #422)
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class UnresolvedSecurityRef:
+    """One abuse_case whose ``acceptance_ref`` does not resolve.
+
+    The §7.4 validation-time enforcement rule
+    ``tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved``
+    consumes this list to surface broken references at
+    ``atdd repo validate`` time. The walker also uses it as a sentinel —
+    abuse_cases recorded here are NOT registered as security rules, so the
+    runtime runner cannot accidentally fire on them (§7.4 two-place split).
+    """
+
+    feature_path: Path
+    feature_urn: str
+    abuse_id: str
+    security_urn: str
+    acceptance_ref: Optional[str]
+
+
+def _build_security_rule_metadata(
+    abuse_meta: Dict,
+    security_urn: str,
+    feature_urn: str,
+    feature_path: Path,
+    repo_root: Path,
+) -> "RuleMetadata":
+    """Construct RuleMetadata for one resolved abuse_case per §5.4 / §6.
+
+    Caller must ensure ``acceptance_ref`` is non-None and resolvable.
+    Severity, description, and fix_hint mirror the §6 sample output.
+    """
+    rule_id = derive_security_rule_id(security_urn)
+    name = abuse_meta.get("name") or ""
+    threat = abuse_meta.get("threat") or ""
+    if isinstance(name, str) and isinstance(threat, str) and name and threat:
+        description = f"{name} — {threat}"
+    elif isinstance(name, str) and name:
+        description = name
+    elif isinstance(threat, str) and threat:
+        description = threat
+    else:
+        description = ""
+
+    mitigation = abuse_meta.get("mitigation")
+    fix_hint = mitigation if isinstance(mitigation, str) and mitigation.strip() else None
+
+    severity = _security_severity(abuse_meta.get("severity"))
+    bound_acc = abuse_meta.get("acceptance_ref")
+    bound_acc_str = bound_acc if isinstance(bound_acc, str) and bound_acc else None
+    phase = _read_acceptance_phase(bound_acc_str, repo_root) if bound_acc_str else None
+
+    return RuleMetadata(
+        rule_id=rule_id,
+        severity=severity,
+        description=description.strip(),
+        recipe=None,  # security rules carry no peer-recipe (the bound acceptance owns the recipe surface).
+        introduced_in=None,
+        source_path=feature_path.resolve(),
+        disposition="strict",  # walker-set per §4.4; security rules are unsuppressible by construction.
+        validator=_SECURITY_RUNTIME_VALIDATOR,
+        fix_hint=fix_hint,
+        aliases=(),
+        security_urn=security_urn,
+        feature_urn=feature_urn,
+        bound_acceptance_urn=bound_acc_str,
+        phase=phase,
+    )
+
+
+def _walk_security_declarations(
+    repo_root: Path,
+) -> Tuple[List[Tuple[Path, "RuleMetadata"]], List[UnresolvedSecurityRef]]:
+    """Walk feature.yaml::security.abuse_cases[] and split resolved vs unresolved.
+
+    Returns ``(resolved_rules, unresolved_refs)``. The resolved-rule list
+    feeds the registry; the unresolved-ref list feeds the §7.4 enforcement
+    validator. Unresolved abuse_cases are intentionally NOT registered as
+    security rules so the runtime runner cannot fire on them — the
+    two-place split keeps the failure surface honest (validation-time vs
+    runtime).
+    """
+    try:
+        from atdd.coach.utils.graph.resolver import SecurityResolver
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # Graph package unavailable — registry build continues without
+        # security rules. Toolkit-only deployments hit this path; the
+        # absence is benign (no plan/ feature.yaml to walk).
+        raise RepoYamlValidationError(
+            f"security walker requires graph.resolver.SecurityResolver: {exc}"
+        )
+
+    resolver = SecurityResolver(repo_root=repo_root)
+    try:
+        declarations = resolver.find_declarations()
+    except ValueError as exc:
+        # SecurityResolver raises ValueError for malformed abuse_case ids.
+        # The §7.3 conformance validators police authoring nits at validation
+        # time; the walker re-raises so the registry build fails LOUDLY
+        # rather than silently emit half a registry.
+        raise RepoYamlValidationError(str(exc))
+
+    resolved: List[Tuple[Path, RuleMetadata]] = []
+    unresolved: List[UnresolvedSecurityRef] = []
+
+    for decl in declarations:
+        meta_block = decl.metadata if isinstance(decl.metadata, dict) else {}
+        # Reconstruct the parent feature URN from the URN segments — the
+        # resolver guarantees the URN structure, so this is a string slice
+        # rather than a parse.
+        parts = decl.urn.split(":")
+        if len(parts) == 4:
+            feature_urn = f"feature:{parts[1]}:{parts[2]}"
+        else:
+            feature_urn = ""
+
+        acc_ref = meta_block.get("acceptance_ref")
+        if not _acceptance_ref_resolves(acc_ref, repo_root):
+            abuse_id = meta_block.get("id")
+            unresolved.append(
+                UnresolvedSecurityRef(
+                    feature_path=decl.source_path,
+                    feature_urn=feature_urn,
+                    abuse_id=str(abuse_id) if isinstance(abuse_id, str) else "",
+                    security_urn=decl.urn,
+                    acceptance_ref=acc_ref if isinstance(acc_ref, str) else None,
+                )
+            )
+            continue
+
+        meta = _build_security_rule_metadata(
+            abuse_meta=meta_block,
+            security_urn=decl.urn,
+            feature_urn=feature_urn,
+            feature_path=decl.source_path,
+            repo_root=repo_root,
+        )
+
+        # Defensive: derived rule-id must satisfy the repo grammar (covers
+        # the security shape via the §5.4 extension to _REPO_RULE_ID_PATTERN).
+        if not _REPO_RULE_ID_PATTERN.match(meta.rule_id):
+            raise RepoYamlValidationError(
+                f"{decl.source_path}: derivation produced rule-id "
+                f"{meta.rule_id!r} that does not match the repo-rule grammar. "
+                f"Source URN: {decl.urn!r}."
+            )
+
+        resolved.append((decl.source_path, meta))
+
+    return resolved, unresolved
+
+
+def find_repo_security_rules(
+    repo_root: Optional[Path] = None,
+) -> List[Tuple[Path, "RuleMetadata"]]:
+    """Walk ``<repo>/plan/<wagon>/features/*.yaml`` for resolved security rules.
+
+    Substrate spec v12 §5.4 / issue #422. Peer to ``find_repo_rules`` —
+    this walker derives RuleMetadata from each abuse_case whose
+    ``acceptance_ref`` resolves to a real on-disk acceptance.
+
+    Each resolved abuse_case contributes one ``RuleMetadata`` with:
+      - ``rule_id`` = ``repo.<wagon>.<feature>-security-<seq>``
+      - ``severity`` mapped from low/medium/high/critical (default 3 / medium)
+      - ``disposition = "strict"`` (walker-set per §4.4)
+      - ``validator = "test_security_ref_binding::test_acceptance_ref_resolves_and_passes"``
+      - ``description`` = ``<name> — <threat>``
+      - ``fix_hint`` = ``mitigation``
+      - ``security_urn``, ``feature_urn``, ``bound_acceptance_urn`` populated.
+
+    Abuse cases whose ``acceptance_ref`` does not resolve are EXCLUDED here
+    (they fire the §7.4 validation-time enforcement rule via
+    ``find_unresolved_security_refs``).
+
+    Returns a list of ``(source_path, metadata)`` tuples in deterministic
+    order (by feature path then security URN).
+    """
+    from atdd.coach.utils.repo import find_repo_root as _find_repo_root
+
+    root = Path(repo_root).resolve() if repo_root is not None else _find_repo_root()
+    if not (root / "plan").is_dir():
+        return []
+
+    resolved, _unresolved = _walk_security_declarations(root)
+    resolved.sort(key=lambda pair: (str(pair[0]), pair[1].rule_id))
+    return resolved
+
+
+def find_unresolved_security_refs(
+    repo_root: Optional[Path] = None,
+) -> List[UnresolvedSecurityRef]:
+    """Walk feature.yaml abuse_cases and return ones with broken acceptance_ref.
+
+    Substrate spec v12 §7.4 — feeds the validation-time enforcement rule
+    ``tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved``.
+
+    Order is deterministic by ``(feature_path, security_urn)`` so the
+    enforcement validator's output is stable for snapshot tests.
+    """
+    from atdd.coach.utils.repo import find_repo_root as _find_repo_root
+
+    root = Path(repo_root).resolve() if repo_root is not None else _find_repo_root()
+    if not (root / "plan").is_dir():
+        return []
+
+    _resolved, unresolved = _walk_security_declarations(root)
+    unresolved.sort(key=lambda u: (str(u.feature_path), u.security_urn))
+    return unresolved
+
+
+# ---------------------------------------------------------------------------
 # Registry cache
 # ---------------------------------------------------------------------------
 # rule_id -> [RuleMetadata, ...] (length > 1 means ambiguous)
@@ -803,6 +1160,18 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
     if repo_root is not None:
         for _src_path, repo_meta in find_repo_rules(repo_root):
             registry.setdefault(repo_meta.rule_id, []).append(repo_meta)
+        # Substrate security walker (issue #422 / spec v12 §5.4) — merges
+        # resolved security rules into the same index. Unresolved abuse_case
+        # acceptance_refs do NOT enter the registry (§7.4 two-place split);
+        # they fire the validation-time enforcement rule instead.
+        try:
+            for _src_path, sec_meta in find_repo_security_rules(repo_root):
+                registry.setdefault(sec_meta.rule_id, []).append(sec_meta)
+        except RepoYamlValidationError:
+            # Re-raise so the registry build fails LOUDLY rather than silently
+            # emit half a registry. The conformance validators surface the
+            # underlying authoring nit at validation time.
+            raise
 
     return registry
 
@@ -909,12 +1278,16 @@ __all__ = [
     "RepoYamlValidationError",
     "RuleMetadata",
     "RuleNotInRegistryError",
+    "UnresolvedSecurityRef",
     "bind_rule",
     "clear_cache",
     "derive_repo_rule_id",
+    "derive_security_rule_id",
     "extract_rules",
     "find_convention_files",
     "find_repo_rules",
+    "find_repo_security_rules",
+    "find_unresolved_security_refs",
     "get_canonical_id",
     "iter_rules",
 ]

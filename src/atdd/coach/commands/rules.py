@@ -267,6 +267,41 @@ class RepoRulesListing:
             _print_repo_rule_line(meta)
         return 0
 
+    def list_rules_for_feature(self, feature_urn: str, format: str = "text") -> int:
+        """``atdd repo security-rules <feature-urn>`` — security rules for a feature.
+
+        Iterates the merged registry and returns rules whose
+        ``feature_urn`` matches *feature_urn*. Spec v12 §9.1 lists this
+        subcommand as a peer of ``wmbt-rules`` / ``train-rules``; issue
+        #422 wires it.
+        """
+        if not feature_urn.startswith("feature:"):
+            print(
+                f"Error: expected feature URN starting with 'feature:', got {feature_urn!r}",
+                file=sys.stderr,
+            )
+            return 1
+
+        matches = [
+            m for m in _filter_repo_rules(iter_rules()) if m.feature_urn == feature_urn
+        ]
+
+        if format == "json":
+            print(json.dumps([_meta_to_dict(m) for m in matches], indent=2))
+            return 0 if matches else 1
+
+        if not matches:
+            print(f"No repo security rules derived from {feature_urn}.")
+            return 1
+        print(f"{feature_urn} ({len(matches)} security rule(s)):")
+        for meta in sorted(matches, key=lambda m: m.rule_id):
+            _print_repo_rule_line(meta)
+            if meta.security_urn:
+                print(f"      security_urn:        {meta.security_urn}")
+            if meta.bound_acceptance_urn:
+                print(f"      bound_acceptance_urn: {meta.bound_acceptance_urn}")
+        return 0
+
     def list_rules_for_train(self, train_urn: str, format: str = "text") -> int:
         """``atdd repo train-rules <train-urn>`` — rules derived from one train."""
         if not train_urn.startswith("train:"):
