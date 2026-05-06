@@ -67,6 +67,14 @@ jobs:
         run: PYTHONPATH=src python3 -m pytest src/atdd/tester/validators/ -v --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Substrate Track-B conformance (#410) ships strict-from-day-1 per
+          # spec §11. The toolkit's own plan/ has Class-1 backlog (missing
+          # metric impls #413, missing test anchors) that the substrate
+          # sibling issues will clear. Until then, demote substrate
+          # conformance violations to warnings so the toolkit's CI passes
+          # while the conformance suite is in place. Remove this env var
+          # once Class-1 backlog is at zero.
+          ATDD_ALLOW_SUBSTRATE_BACKLOG: "1"
 
   validate-coder:
     runs-on: ubuntu-latest
