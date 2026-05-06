@@ -188,9 +188,75 @@
       "items": {
         "$ref": "#/definitions/step"
       }
+    },
+    "acceptances": {
+      "type": "array",
+      "description": "Train-level acceptance criteria. Mirror of the WMBT acceptance shape (substrate spec v12 §5.2). Each entry contributes a derived rule to the registry via the repo-rule walker — the rule-id derives from identity.urn per §3.3, so the acceptance block MUST NOT include an id: field at the top level (the per-acceptance identity.id field is allowed for human reference).",
+      "items": {
+        "$ref": "#/definitions/acceptance"
+      }
     }
   },
   "definitions": {
+    "acceptance": {
+      "type": "object",
+      "required": ["identity"],
+      "additionalProperties": true,
+      "properties": {
+        "identity": {
+          "type": "object",
+          "required": ["urn", "purpose", "phase"],
+          "additionalProperties": true,
+          "properties": {
+            "urn": {
+              "type": "string",
+              "description": "Acceptance URN: acc:<train-id>:<acceptance-slug>"
+            },
+            "id": {
+              "type": "string",
+              "description": "Optional human-facing label (e.g. AC-SMOKE-001). NOT used for rule-id derivation."
+            },
+            "purpose": {
+              "type": "string",
+              "minLength": 5,
+              "description": "One-line statement of what this acceptance enforces (becomes RuleMetadata.description)."
+            },
+            "phase": {
+              "type": "string",
+              "enum": ["RED", "GREEN", "SMOKE", "REFACTOR"],
+              "description": "ATDD lifecycle phase the acceptance dispatches to."
+            }
+          }
+        },
+        "harness": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "type": {"type": "string"},
+            "category": {"type": "string"}
+          }
+        },
+        "given": {"type": "object"},
+        "when": {"type": "object"},
+        "then": {"type": "object"},
+        "signal": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "metric": {"type": "string"},
+            "threshold": {}
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "author": {"type": "string"},
+            "created": {"type": "string"}
+          }
+        }
+      }
+    },
     "step": {
       "type": "object",
       "required": ["step", "intent", "from", "to", "artifact"],

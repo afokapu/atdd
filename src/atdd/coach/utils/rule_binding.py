@@ -28,6 +28,7 @@ Related substrate:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -50,6 +51,17 @@ class AmbiguousRuleError(LookupError):
 
 class AmbiguousAliasError(LookupError):
     """Raised when a legacy alias collides with another rule's canonical id or alias."""
+
+
+class RepoYamlValidationError(ValueError):
+    """Raised when a repo plan/ YAML violates the substrate's structural rules.
+
+    Surfaces (a) ``disposition:`` declared in repo YAML (walker sets it per
+    spec v12 §4.4); (b) literal ``id:`` field at the top of an acceptance
+    block (rule-id is derived per §3.3 — declaring it is misleading);
+    (c) acceptance URN that fails ``URNBuilder.PATTERNS['acc']``;
+    (d) derived rule-id that fails the canonical-archetype + grammar check.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -230,27 +242,456 @@ def find_convention_files(
 
 
 # ---------------------------------------------------------------------------
+# Repo-rule walker (substrate spec v12 §3.3, §4.2, §4.3, §4.4 — issue #408)
+# ---------------------------------------------------------------------------
+# Pattern matching the WMBT-shaped acceptance body inside an `acc:` URN:
+#   <WMBT-id>-<HARNESS>-<NNN>(-<slug>)?
+# The HARNESS list mirrors URNBuilder.HARNESS_CODES.
+_WMBT_ACC_BODY_RE = re.compile(
+    r"^([DLPCEMYRK][0-9]{3})-"
+    r"(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|"
+    r"WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-"
+    r"([0-9]{3})(?:-([a-z0-9-]+))?$"
+)
+
+# Canonical rule-id grammar (mirrors
+# ``src/atdd/coach/validators/test_rule_id_uniqueness.py::RULE_ID_PATTERN``).
+# Repeated here so the walker can validate without circular-importing the
+# validator module.
+_RULE_ID_PATTERN = re.compile(
+    r"^[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9]*(-[a-z0-9]+)*\.[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+)
+
+# Repo-derived rule-id grammar — looser than the toolkit grammar in the
+# rule-name segment to permit the WMBT step-letter prefix (e.g. ``D010-``)
+# that the spec example preserves verbatim. Still enforces:
+#   - archetype == "repo"
+#   - <wagon-or-train> is a kebab-case identifier (digit-leading allowed for
+#     train ids like 0001-self-compliance-validate)
+#   - rule-name body matches one of two derived shapes:
+#       (a) WMBT: ``<WMBT-id>-acc-<harness>-<NNN>``  (WMBT-id is uppercase
+#           step-letter + 3 digits; harness is lowercase)
+#       (b) Train: ``acc-<acceptance-slug>``         (kebab-case slug)
+_REPO_RULE_ID_PATTERN = re.compile(
+    r"^repo\.[a-z0-9][a-z0-9-]*\.("
+    r"[DLPCEMYRK][0-9]{3}-acc-(?:unit|http|event|ws|e2e|a11y|vis|metric|job|db|sec|load|script|widget|golden|bloc|integration|rls|edge|realtime|storage)-[0-9]{3}"
+    r"|"
+    r"acc-[a-z][a-z0-9-]*"
+    r")$"
+)
+
+
+def _yaml_path_str(parts: Tuple[object, ...]) -> str:
+    """Render a YAML key path tuple as a dotted string for error messages."""
+    return ".".join(str(p) for p in parts) if parts else "<root>"
+
+
+def _find_disposition_anywhere(
+    node, parts: Tuple[object, ...] = ()
+) -> Optional[Tuple[object, ...]]:
+    """Return the YAML path to the first ``disposition:`` key found, or None.
+
+    Repo YAML (WMBT and train acceptance files) MUST NOT declare
+    ``disposition:`` — the walker sets it to ``strict`` per spec v12 §4.4.
+    A declared ``disposition:`` is misleading because it suggests the value
+    is configurable when it is not.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "disposition":
+                return parts + (key,)
+            sub = _find_disposition_anywhere(value, parts + (key,))
+            if sub is not None:
+                return sub
+    elif isinstance(node, list):
+        for idx, item in enumerate(node):
+            sub = _find_disposition_anywhere(item, parts + (idx,))
+            if sub is not None:
+                return sub
+    return None
+
+
+def _derive_repo_rule_id(acc_urn: str) -> Tuple[str, str]:
+    """Derive ``(rule_id, parent_token)`` from an ``acc:`` URN per spec §3.3.
+
+    Returns a tuple of the canonical repo rule-id and the parent
+    wagon-or-train token. Raises ``RepoYamlValidationError`` when the URN
+    is malformed (this should already have been caught by URN validation
+    upstream — kept as a defensive belt to surface derivation bugs loudly).
+
+    Transformations (issue #408 derivation table):
+      - WMBT shape ``acc:<wagon>:<WMBT-id>-<HARNESS>-<seq>(-<slug>)?``
+        → ``repo.<wagon>.<WMBT-id>-acc-<harness>-<seq>``
+        (HARNESS lowercased; trailing slug dropped — original slug stays
+        on ``RuleMetadata.acceptance_urn``).
+      - Train shape ``acc:<train-id>:<acceptance-slug>``
+        → ``repo.<train-id>.acc-<acceptance-slug>``
+    """
+    if not isinstance(acc_urn, str) or not acc_urn.startswith("acc:"):
+        raise RepoYamlValidationError(
+            f"acc URN must start with 'acc:', got {acc_urn!r}"
+        )
+    parts = acc_urn.split(":", 2)
+    if len(parts) != 3:
+        raise RepoYamlValidationError(
+            f"acc URN must have shape 'acc:<parent>:<body>', got {acc_urn!r}"
+        )
+    _, parent, body = parts
+
+    wmbt_match = _WMBT_ACC_BODY_RE.match(body)
+    if wmbt_match:
+        wmbt_id, harness, seq, _slug = wmbt_match.groups()
+        rule_id = f"repo.{parent}.{wmbt_id}-acc-{harness.lower()}-{seq}"
+    else:
+        # Train shape: body is the acceptance slug.
+        rule_id = f"repo.{parent}.acc-{body}"
+    return rule_id, parent
+
+
+def _check_walker_invariants(acc: Dict) -> Optional[str]:
+    """Return None when the acceptance satisfies measurability + phase invariants.
+
+    Per spec v12 §4.3: each acceptance MUST declare ``identity.phase`` AND
+    EITHER ``harness.type`` (with a binding test) OR both
+    ``signal.metric`` and ``signal.threshold``. Acceptances failing either
+    invariant are silently skipped during walking — the substrate's
+    enforcement validators (Track B / Issue #410) surface the same fail
+    condition with a different rule-id, keeping the two-class-failure
+    model clean (§11).
+    """
+    identity = acc.get("identity") if isinstance(acc, dict) else None
+    if not isinstance(identity, dict) or not identity.get("phase"):
+        return "missing identity.phase"
+    harness = acc.get("harness") if isinstance(acc, dict) else None
+    has_harness = isinstance(harness, dict) and isinstance(harness.get("type"), str) and harness.get("type")
+    signal = acc.get("signal") if isinstance(acc, dict) else None
+    has_signal = (
+        isinstance(signal, dict)
+        and isinstance(signal.get("metric"), str)
+        and signal.get("metric")
+        and signal.get("threshold") is not None
+    )
+    if not has_harness and not has_signal:
+        return "missing harness.type and signal.metric+signal.threshold (one is required)"
+    return None
+
+
+def _compose_fix_hint(then_block) -> Optional[str]:
+    """Compose ``fix_hint`` from ``then.abstract`` items joined with ``; ``."""
+    if not isinstance(then_block, dict):
+        return None
+    abstract = then_block.get("abstract")
+    if isinstance(abstract, list):
+        items = [str(x).strip() for x in abstract if isinstance(x, (str, int, float)) and str(x).strip()]
+        if not items:
+            return None
+        return "; ".join(items)
+    if isinstance(abstract, str) and abstract.strip():
+        return abstract.strip()
+    return None
+
+
+def _passthrough_str(block, key) -> Optional[str]:
+    """Return ``block[key]`` when it is a non-empty string, else None."""
+    if not isinstance(block, dict):
+        return None
+    val = block.get(key)
+    if isinstance(val, (str, int, float)):
+        s = str(val).strip()
+        return s or None
+    if isinstance(val, list):
+        # Some authors pass given/when/then.abstract as list — render to string.
+        items = [str(x).strip() for x in val if isinstance(x, (str, int, float))]
+        return "; ".join(items) if items else None
+    return None
+
+
+def _passthrough_threshold(signal):
+    """Return ``signal.threshold`` as a string (preserves int/float/str)."""
+    if not isinstance(signal, dict):
+        return None
+    val = signal.get("threshold")
+    if val is None:
+        return None
+    return str(val)
+
+
+def _build_repo_rule_metadata(
+    acc: Dict,
+    file_path: Path,
+    parent_urn: Optional[str],
+    parent_kind: str,
+) -> "RuleMetadata":
+    """Construct RuleMetadata from a single repo acceptance block per §4.2.
+
+    Caller is responsible for invariant + structural validation. This helper
+    only does field population.
+    """
+    identity = acc.get("identity", {}) or {}
+    acc_urn = identity.get("urn", "")
+    rule_id, _parent_token = _derive_repo_rule_id(acc_urn)
+
+    description = ""
+    purpose = identity.get("purpose")
+    if isinstance(purpose, (str, int, float)):
+        description = str(purpose).strip()
+
+    harness = acc.get("harness") if isinstance(acc, dict) else None
+    signal = acc.get("signal") if isinstance(acc, dict) else None
+    has_signal = (
+        isinstance(signal, dict)
+        and isinstance(signal.get("metric"), str)
+        and signal.get("threshold") is not None
+    )
+
+    # Validator: signal mode → toolkit-shipped metric runner; harness-only →
+    # None (the anchored test function can't be derived statically from YAML
+    # alone — surfaced when the substrate runner machinery lands).
+    validator: Optional[str] = None
+    if has_signal:
+        validator = "test_metric_runner::test_metric_threshold_satisfied"
+
+    metadata_block = acc.get("metadata") if isinstance(acc, dict) else None
+
+    return RuleMetadata(
+        rule_id=rule_id,
+        severity=4,  # walker-set constant per §4.2
+        description=description,
+        recipe=None,  # acceptance rules have no recipe pointer (§4.2 close)
+        introduced_in=None,
+        source_path=file_path.resolve(),
+        disposition="strict",  # walker-set constant per §4.4
+        validator=validator,
+        fix_hint=_compose_fix_hint(acc.get("then")),
+        aliases=(),
+        acceptance_urn=acc_urn,
+        wmbt_urn=parent_urn if parent_kind == "wmbt" else None,
+        train_urn=parent_urn if parent_kind == "train" else None,
+        phase=identity.get("phase") if isinstance(identity.get("phase"), str) else None,
+        harness_type=_passthrough_str(harness, "type"),
+        harness_category=_passthrough_str(harness, "category"),
+        signal_metric=_passthrough_str(signal, "metric"),
+        signal_threshold=_passthrough_threshold(signal),
+        given=_passthrough_str(acc.get("given"), "abstract"),
+        when=_passthrough_str(acc.get("when"), "abstract"),
+        then=_passthrough_str(acc.get("then"), "abstract"),
+        author=_passthrough_str(metadata_block, "author"),
+        created=_passthrough_str(metadata_block, "created"),
+    )
+
+
+def _train_urn_from_file(data: Dict, train_file: Path) -> str:
+    """Derive ``train:<id>`` URN from a parent train YAML.
+
+    Train files declare ``train_id:`` rather than ``urn:``. Falls back to
+    the file stem so a missing field still produces a usable parent URN
+    (consistent with TrainResolver.find_declarations).
+    """
+    train_id = data.get("train_id") if isinstance(data, dict) else None
+    if not isinstance(train_id, str) or not train_id:
+        train_id = train_file.stem
+    return f"train:{train_id}"
+
+
+def _walk_repo_acceptance_file(
+    file_path: Path, parent_kind: str
+) -> Iterable["RuleMetadata"]:
+    """Read one repo YAML and yield RuleMetadata for each valid acceptance.
+
+    Raises ``RepoYamlValidationError`` for structural violations
+    (disposition declared, top-level ``id:`` in acceptance, malformed URN,
+    derivation produces a non-conforming rule-id). Silently skips
+    acceptances that fail the §4.3 walker invariants — those are surfaced
+    by Track B substrate validators.
+    """
+    # Defer URNBuilder import to walk-time so the module loads even when
+    # the graph package is not yet importable (avoids import cycles in
+    # validators that import rule_binding at module-import time).
+    from atdd.coach.utils.graph.urn import URNBuilder
+
+    try:
+        with open(file_path) as fh:
+            data = yaml.safe_load(fh)
+    except (OSError, yaml.YAMLError) as exc:
+        raise RepoYamlValidationError(
+            f"unreadable repo YAML at {file_path}: {exc}"
+        )
+    if not isinstance(data, dict):
+        return
+
+    # (1) Reject disposition: anywhere in the file (§4.4).
+    bad = _find_disposition_anywhere(data)
+    if bad is not None:
+        raise RepoYamlValidationError(
+            f"{file_path}: declared 'disposition:' at YAML path "
+            f"'{_yaml_path_str(bad)}' — repo YAML must not declare disposition; "
+            f"the walker sets it to 'strict' per spec v12 §4.4."
+        )
+
+    acceptances = data.get("acceptances")
+    if not isinstance(acceptances, list):
+        return
+
+    parent_urn: Optional[str]
+    if parent_kind == "wmbt":
+        urn_field = data.get("urn")
+        parent_urn = urn_field if isinstance(urn_field, str) else None
+    elif parent_kind == "train":
+        parent_urn = _train_urn_from_file(data, file_path)
+    else:
+        parent_urn = None
+
+    for idx, acc in enumerate(acceptances):
+        if not isinstance(acc, dict):
+            continue
+
+        # (2) Reject top-level id: field on the acceptance block (§3.3 —
+        # rule-id derives from identity.urn; declaring id: is misleading).
+        if "id" in acc:
+            raise RepoYamlValidationError(
+                f"{file_path}: acceptance at acceptances[{idx}] declares a "
+                f"top-level 'id:' field — rule-id is derived from identity.urn "
+                f"per spec v12 §3.3. Remove the top-level 'id:' (identity.id "
+                f"is the human-facing label and is allowed)."
+            )
+
+        identity = acc.get("identity") or {}
+        if not isinstance(identity, dict):
+            continue
+        acc_urn = identity.get("urn")
+        if not isinstance(acc_urn, str) or not acc_urn:
+            # No URN: nothing to derive. Substrate enforcement (Track B)
+            # surfaces this separately.
+            continue
+
+        # (3) Acceptance URN must match URNBuilder.PATTERNS['acc']. Per the
+        # spec, "failure of (a) is a parent-graph problem caught by
+        # `atdd repo validate`" — so the walker SKIPS malformed-URN
+        # acceptances rather than failing loud on the whole registry build.
+        # The substrate enforcement validator (Track B / Issue #410)
+        # surfaces the URN violation separately.
+        if not URNBuilder.validate_urn(acc_urn, "acc"):
+            continue
+
+        # (4) Walker invariant: phase + (harness OR signal+threshold).
+        invariant_err = _check_walker_invariants(acc)
+        if invariant_err is not None:
+            # Silent skip — substrate enforcement surfaces this separately.
+            continue
+
+        meta = _build_repo_rule_metadata(acc, file_path, parent_urn, parent_kind)
+
+        # (5) Derived rule-id must satisfy the canonical-archetype check
+        # AND match the repo-rule grammar. Failure here means a derivation
+        # bug — fail loudly with the offending URN and derivation output.
+        archetype = meta.rule_id.split(".", 1)[0]
+        canonical_archetypes = {"coder", "coach", "tester", "planner", "repo"}
+        if archetype not in canonical_archetypes:
+            raise RepoYamlValidationError(
+                f"{file_path}: derivation produced rule-id {meta.rule_id!r} "
+                f"with archetype {archetype!r} not in {sorted(canonical_archetypes)}."
+            )
+        if not _REPO_RULE_ID_PATTERN.match(meta.rule_id):
+            raise RepoYamlValidationError(
+                f"{file_path}: derivation produced rule-id {meta.rule_id!r} "
+                f"that does not match the repo-rule grammar "
+                f"(expected 'repo.<wagon|train>.(<WMBT-id>-acc-<harness>-<NNN>|"
+                f"acc-<slug>)'). Source URN: {acc_urn!r}."
+            )
+
+        yield meta
+
+
+def find_repo_rules(
+    repo_root: Optional[Path] = None,
+) -> List[Tuple[Path, "RuleMetadata"]]:
+    """Walk ``<repo>/plan/`` and derive RuleMetadata from every acceptance.
+
+    Substrate spec v12 §4.2/§4.3/§4.4 — peer to ``find_convention_files``.
+    The two walkers share a registry index but discover from disjoint
+    sources: ``find_convention_files`` finds ``*.convention.yaml`` (toolkit
+    rules), this function finds ``plan/<wagon>/[DLPCEMYRK]NNN.yaml`` (WMBT
+    acceptances) and ``plan/_trains/<train-id>.yaml`` (train acceptances).
+
+    Each acceptance contributes one ``RuleMetadata`` with:
+      - ``rule_id`` derived from ``identity.urn`` per §3.3.
+      - ``severity = 4`` (walker-set constant).
+      - ``disposition = "strict"`` (walker-set constant per §4.4).
+      - All other fields populated per §4.2.
+
+    Acceptances failing the walker invariants (missing ``identity.phase``
+    or missing both harness.type AND signal.metric+threshold) are silently
+    skipped — Track B substrate validators surface them separately.
+
+    Raises ``RepoYamlValidationError`` for structural violations:
+      - ``disposition:`` declared anywhere in repo YAML (§4.4).
+      - Literal top-level ``id:`` field on an acceptance block (§3.3).
+      - Acceptance URN failing ``URNBuilder.PATTERNS['acc']``.
+      - Derivation producing a rule-id that fails repo grammar.
+
+    Returns a list of ``(source_path, metadata)`` tuples. Order is
+    deterministic by file path.
+    """
+    from atdd.coach.utils.repo import find_repo_root as _find_repo_root
+
+    root = Path(repo_root).resolve() if repo_root is not None else _find_repo_root()
+    plan_dir = root / "plan"
+    if not plan_dir.is_dir():
+        return []
+
+    results: List[Tuple[Path, RuleMetadata]] = []
+
+    # WMBT acceptances: plan/<wagon>/[DLPCEMYRK]NNN.yaml
+    wmbt_pattern = re.compile(r"^[DLPCEMYRK]\d{3}\.yaml$")
+    for wagon_dir in sorted(plan_dir.iterdir()):
+        if not wagon_dir.is_dir() or wagon_dir.name.startswith("_"):
+            continue
+        for wmbt_file in sorted(wagon_dir.glob("*.yaml")):
+            if not wmbt_pattern.match(wmbt_file.name):
+                continue
+            for meta in _walk_repo_acceptance_file(wmbt_file, parent_kind="wmbt"):
+                results.append((wmbt_file, meta))
+
+    # Train acceptances: plan/_trains/<train-id>.yaml
+    trains_dir = plan_dir / "_trains"
+    if trains_dir.is_dir():
+        for train_file in sorted(trains_dir.glob("*.yaml")):
+            for meta in _walk_repo_acceptance_file(train_file, parent_kind="train"):
+                results.append((train_file, meta))
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Registry cache
 # ---------------------------------------------------------------------------
 # rule_id -> [RuleMetadata, ...] (length > 1 means ambiguous)
 _REGISTRY_CACHE: Optional[Dict[str, List[RuleMetadata]]] = None
 _OVERRIDE_ROOTS: Optional[List[Path]] = None
+_OVERRIDE_REPO_ROOT: Optional[Path] = None
 
 
-def clear_cache(*, override_roots: Optional[Iterable[Path]] = None) -> None:
+def clear_cache(
+    *,
+    override_roots: Optional[Iterable[Path]] = None,
+    override_repo_root: Optional[Path] = None,
+) -> None:
     """Drop the cached registry.
 
     Test-only hook.  Pass ``override_roots=[...]`` to seed the next
     ``bind_rule`` call against fixture conventions instead of the live
-    toolkit tree.  Pass nothing (or ``override_roots=None``) to reset to the
+    toolkit tree.  Pass ``override_repo_root=Path(...)`` to point the
+    repo-rule walker (issue #408) at a fixture ``plan/`` tree instead of
+    the live consumer repo. Pass nothing (or ``=None``) to reset to the
     default search roots.
     """
-    global _REGISTRY_CACHE, _OVERRIDE_ROOTS
+    global _REGISTRY_CACHE, _OVERRIDE_ROOTS, _OVERRIDE_REPO_ROOT
     _REGISTRY_CACHE = None
     if override_roots is None:
         _OVERRIDE_ROOTS = None
     else:
         _OVERRIDE_ROOTS = [Path(p) for p in override_roots]
+    _OVERRIDE_REPO_ROOT = Path(override_repo_root) if override_repo_root is not None else None
 
 
 def _load_registry() -> Dict[str, List[RuleMetadata]]:
@@ -333,6 +774,25 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
                 # bind_rule(alias) resolves to the canonical rule.
                 if alias != rid:
                     registry.setdefault(alias, []).append(meta)
+
+    # Repo-rule walker (substrate spec v12 §4.2 — issue #408). Merges into
+    # the same registry index so bind_rule resolves both toolkit-convention
+    # and repo-derived rules through one path. Cross-source collisions
+    # raise AmbiguousRuleError at lookup time (existing behavior).
+    repo_root = _OVERRIDE_REPO_ROOT
+    if repo_root is None and _OVERRIDE_ROOTS is None:
+        # Live mode: walk the consumer repo's plan/ tree.
+        from atdd.coach.utils.repo import find_repo_root
+
+        repo_root = find_repo_root()
+    # When override_roots is set (test mode pointing at fixture conventions)
+    # we DO NOT also walk a live plan/ — tests must explicitly opt in by
+    # passing override_repo_root. This keeps fixture-based convention tests
+    # hermetic from the consumer repo's plan/ contents.
+    if repo_root is not None:
+        for _src_path, repo_meta in find_repo_rules(repo_root):
+            registry.setdefault(repo_meta.rule_id, []).append(repo_meta)
+
     return registry
 
 
@@ -393,11 +853,13 @@ def get_canonical_id(rule_id: str) -> str:
 __all__ = [
     "AmbiguousAliasError",
     "AmbiguousRuleError",
+    "RepoYamlValidationError",
     "RuleMetadata",
     "RuleNotInRegistryError",
     "bind_rule",
     "clear_cache",
     "extract_rules",
     "find_convention_files",
+    "find_repo_rules",
     "get_canonical_id",
 ]

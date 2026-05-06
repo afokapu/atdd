@@ -19,10 +19,13 @@ URN Patterns:
               Pattern: ^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$
               Step Codes: D=define, L=locate, P=prepare, C=confirm, E=execute, M=monitor, Y=modify, R=resolve, K=conclude
 
-- acceptance: acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]
-              Example: acc:authenticate-user:C004-E2E-019
-                       acc:maintain-ux:C004-E2E-019-user-connection
-              Pattern: ^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|...)-[0-9]{3}(?:-[a-z0-9-]+)?$
+- acceptance: acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]   (WMBT shape)
+              acc:{train_id}:{acceptance-slug}                  (train shape, spec v12 §3.3)
+              Examples:
+                acc:authenticate-user:C004-E2E-019
+                acc:maintain-ux:C004-E2E-019-user-connection
+                acc:0001-self-compliance-validate:idempotent-on-retry
+              Pattern: ^acc:[a-z0-9][a-z0-9-]*:(WMBT-form|train-slug)$
 
 - component:  component:{wagon}:{feature}:{name}:{side}:{layer}
               Example: component:resolve-dilemmas:binary-choice:OptionValidator:backend:domain
@@ -166,7 +169,21 @@ class URNBuilder:
 
         # ATDD Specific
         'wmbt': r'^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$',
-        'acc': r'^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-[0-9]{3}(?:-[a-z0-9-]+)?$',
+        # Two shapes (substrate spec v12 §3.3):
+        #   WMBT acceptance: acc:<wagon>:<WMBT-id>-<HARNESS>-<NNN>[-<slug>]
+        #   Train acceptance: acc:<train-id>:<acceptance-slug>  (free-form kebab slug)
+        # The wagon/train segment now allows a leading digit so train ids like
+        # "0001-self-compliance-validate" are accepted. WMBT alternative is
+        # listed first; train alternative requires the slug to NOT match the
+        # WMBT shape (covered by alternation order — WMBT branch consumes
+        # `[DLPCEMYRK]\d{3}-<HARNESS>-\d{3}` greedily before the train branch).
+        'acc': (
+            r'^acc:[a-z0-9][a-z0-9-]*:('
+            r'[DLPCEMYRK][0-9]{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-[0-9]{3}(?:-[a-z0-9-]+)?'
+            r'|'
+            r'[a-z][a-z0-9-]*'
+            r')$'
+        ),
         'security': r'^security:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:\d{3}$',
 
         # Resources

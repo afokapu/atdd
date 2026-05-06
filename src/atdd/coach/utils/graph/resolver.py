@@ -415,11 +415,19 @@ class AcceptanceResolver(BaseResolver):
         )
 
     def find_declarations(self) -> List[URNDeclaration]:
-        """Find all acceptance URN declarations in WMBT files."""
+        """Find all acceptance URN declarations in WMBT and train YAML files.
+
+        WMBT acceptances live under ``plan/<wagon>/[DLPCEMYRK]NNN.yaml``.
+        Train acceptances live under ``plan/_trains/<train-id>.yaml`` (substrate
+        spec v12 §5.2). Both sources contribute ``acc:`` URN declarations.
+        """
         declarations = []
         if not self.plan_dir.exists():
             return declarations
 
+        import yaml
+
+        # WMBT acceptances: plan/<wagon>/[DLPCEMYRK]NNN.yaml
         wmbt_pattern = re.compile(r"^[DLPCEMYRK]\d{3}\.yaml$")
         for wagon_dir in self.plan_dir.iterdir():
             if not wagon_dir.is_dir() or wagon_dir.name.startswith("_"):
@@ -430,8 +438,6 @@ class AcceptanceResolver(BaseResolver):
                     continue
 
                 try:
-                    import yaml
-
                     with open(wmbt_file, "r", encoding="utf-8") as f:
                         data = yaml.safe_load(f)
                     if data and isinstance(data, dict):
@@ -443,7 +449,29 @@ class AcceptanceResolver(BaseResolver):
                                         urn=acc_urn,
                                         family=self.family,
                                         source_path=wmbt_file,
-                                        context="acceptance block",
+                                        context="WMBT acceptance block",
+                                    )
+                                )
+                except Exception:
+                    continue
+
+        # Train acceptances: plan/_trains/<train-id>.yaml
+        trains_dir = self.plan_dir / "_trains"
+        if trains_dir.is_dir():
+            for train_file in trains_dir.glob("*.yaml"):
+                try:
+                    with open(train_file, "r", encoding="utf-8") as f:
+                        data = yaml.safe_load(f)
+                    if data and isinstance(data, dict):
+                        for acc in data.get("acceptances", []) or []:
+                            acc_urn = acc.get("identity", {}).get("urn")
+                            if acc_urn and acc_urn.startswith("acc:"):
+                                declarations.append(
+                                    URNDeclaration(
+                                        urn=acc_urn,
+                                        family=self.family,
+                                        source_path=train_file,
+                                        context="train acceptance block",
                                     )
                                 )
                 except Exception:
