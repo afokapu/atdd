@@ -43,6 +43,12 @@ atdd_substrate = "atdd.tester.substrate.plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+# Validator fixture trees are SHIPPED AS DATA via package-data below.
+# Excluding them here prevents setuptools from treating fixture sub-dirs
+# (which sometimes carry __init__.py for test-import purposes) as
+# importable packages, which in turn stops pip's compile-on-install from
+# generating __pycache__/*.pyc beside the fixture sources.
+exclude = ["atdd.*.validators.fixtures*"]
 
 [tool.setuptools.package-data]
 "atdd.coach.templates" = ["*.md"]
