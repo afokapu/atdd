@@ -339,7 +339,7 @@ def pytest_collection_modifyitems(
 
     for item in items:
         # Pass 1 — security mark application. The security runtime test
-        # function lives in ``atdd.runners.test_security_ref_binding``;
+        # function lives in ``atdd.tester.validators.test_security_ref_binding``;
         # apply the phase mark so the reorder pass below picks it up.
         # Idempotent: re-applying a mark with the same name is harmless.
         if _is_security_runtime_item(item):

@@ -55,6 +55,14 @@ _VALIDATION_VALIDATOR_ID = (
 """Validator_id for the validation-time enforcement rule (spec §7.3)."""
 
 
+# Reverse-coherence binding (#399). Surfaces this module as the
+# ``test_every_abuse_case_resolves`` rule's enforcer at module-import
+# time so ``test_rule_validator_binding`` finds the literal back-reference.
+_RULE = bind_rule(
+    "tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved"
+)
+
+
 @pytest.mark.atdd_phase("security")
 def test_acceptance_ref_resolves_and_passes() -> None:
     """Runtime: every security rule's bound acceptance must pass in this run.
@@ -82,20 +90,7 @@ def test_every_abuse_case_resolves() -> None:
     if not unresolved:
         return
 
-    # Look up the enforcement rule's severity from the conformance
-    # convention. Defensive fallback to severity 4 mirrors spec §7.3
-    # severity declaration so missing-registry entries still produce a
-    # well-formed Violation.
-    severity = 4
-    try:
-        enforcement_meta = bind_rule(_ENFORCEMENT_RULE_ID)
-        if isinstance(enforcement_meta.severity, int) and 1 <= enforcement_meta.severity <= 5:
-            severity = enforcement_meta.severity
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
-        # Registry build hiccup — proceed with the default severity rather
-        # than mask the underlying conformance failure.
-        pass
-
+    severity = _RULE.severity if isinstance(_RULE.severity, int) else 4
     violations: List[Violation] = [
         _format_unresolved_violation(ref, severity) for ref in unresolved
     ]

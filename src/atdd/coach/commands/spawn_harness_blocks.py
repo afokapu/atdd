@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional
 
-from atdd.coach.utils.rule_id_registry import RuleMetadata
+from atdd.coach.utils.rule_binding import RuleMetadata
 
 
 def render_security_rules_block(
