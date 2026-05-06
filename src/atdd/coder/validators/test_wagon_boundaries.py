@@ -28,6 +28,11 @@ from typing import List, Tuple, Set
 import ast
 
 import atdd
+from atdd.coach.utils.diagnostics import (
+    ConventionRef,
+    Item,
+    fail_with_diagnostic,
+)
 from atdd.coach.utils.repo import find_repo_root
 
 # Path constants
@@ -401,6 +406,7 @@ def test_no_syspath_manipulation_in_tests():
         pytest.skip("No test files found to validate")
 
     violations = []
+    items: list[Item] = []
 
     for test_file in test_files:
         syspath_lines = check_for_syspath_manipulation(test_file)
@@ -414,13 +420,29 @@ def test_no_syspath_manipulation_in_tests():
                     f"  Issue: Test file manipulates sys.path\n"
                     f"  Fix: Remove sys.path manipulation; pytest pythonpath handles this"
                 )
+                items.append(Item(
+                    file=str(rel_path),
+                    line=line_no,
+                    found=line_content,
+                    fix="Remove sys.path manipulation — pytest pythonpath handles this",
+                ))
 
     if violations:
-        pytest.fail(
+        message = (
             f"\n\nFound {len(violations)} sys.path manipulations in test files:\n\n" +
             "\n\n".join(violations[:10]) +
             (f"\n\n... and {len(violations) - 10} more" if len(violations) > 10 else "") +
             "\n\nSee: atdd/coder/conventions/boundaries.convention.yaml::namespacing.syspath_prohibition"
+        )
+        fail_with_diagnostic(
+            message,
+            category="hygiene",
+            items=items,
+            convention_ref=ConventionRef(
+                file="coder/conventions/boundaries.convention.yaml",
+                anchor="namespacing.syspath_prohibition",
+            ),
+            summary=f"{len(violations)} sys.path manipulation(s) in test files",
         )
 
 

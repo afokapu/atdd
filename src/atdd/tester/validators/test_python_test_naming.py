@@ -16,6 +16,11 @@ import pytest
 import re
 from pathlib import Path
 
+from atdd.coach.utils.diagnostics import (
+    ConventionRef,
+    Item,
+    fail_with_diagnostic,
+)
 from atdd.coach.utils.repo import find_repo_root
 
 
@@ -205,6 +210,18 @@ def test_python_test_functions_named_correctly():
         )
 
 
+def _suggest_pascal_case(class_name: str) -> str:
+    """Best-effort: collapse underscores after 'Test' to PascalCase.
+
+    ``TestL001_LoadYaml`` → ``TestL001LoadYaml``. Not perfect (won't fix
+    leading-lowercase or all-snake_case names) but covers the vast
+    majority of naming.convention.yaml::TN-03 violations.
+    """
+    if not class_name.startswith("Test"):
+        return class_name
+    return class_name.replace("_", "")
+
+
 @pytest.mark.tester
 def test_python_test_classes_named_correctly():
     """
@@ -225,6 +242,7 @@ def test_python_test_classes_named_correctly():
         pytest.skip("No Python test files found")
 
     violations = []
+    items: list[Item] = []
 
     for test_file in test_files:
         classes = extract_test_classes(test_file)
@@ -234,27 +252,54 @@ def test_python_test_classes_named_correctly():
             if not class_name.startswith('Test'):
                 continue
 
+            rel = test_file.relative_to(REPO_ROOT)
+
             # Check PascalCase
             if not re.match(r'^Test[A-Z][a-zA-Z0-9]*$', class_name):
+                expected = _suggest_pascal_case(class_name)
                 violations.append(
-                    f"{test_file.relative_to(REPO_ROOT)}\\n"
-                    f"  Class: {class_name}\\n"
+                    f"{rel}\n"
+                    f"  Class: {class_name}\n"
                     f"  Issue: Test class should use PascalCase after 'Test'"
                 )
+                items.append(Item(
+                    file=str(rel),
+                    symbol=class_name,
+                    expected=expected,
+                    found=class_name,
+                    fix=f"Rename {class_name} to {expected}",
+                ))
 
             # Check if too short
             if len(class_name) < 8:  # Test + at least 3 chars
                 violations.append(
-                    f"{test_file.relative_to(REPO_ROOT)}\\n"
-                    f"  Class: {class_name}\\n"
+                    f"{rel}\n"
+                    f"  Class: {class_name}\n"
                     f"  Issue: Test class name too short (should be descriptive)"
                 )
+                items.append(Item(
+                    file=str(rel),
+                    symbol=class_name,
+                    found=class_name,
+                    fix=f"Expand {class_name} to a more descriptive name (>=8 chars)",
+                    extra={"reason": "too-short"},
+                ))
 
     if violations:
-        pytest.fail(
-            f"\\n\\nFound {len(violations)} class naming violations:\\n\\n" +
-            "\\n\\n".join(violations[:10]) +
-            (f"\\n\\n... and {len(violations) - 10} more" if len(violations) > 10 else "")
+        message = (
+            f"\n\nFound {len(violations)} class naming violations:\n\n" +
+            "\n\n".join(violations[:10]) +
+            (f"\n\n... and {len(violations) - 10} more" if len(violations) > 10 else "")
+        )
+        fail_with_diagnostic(
+            message,
+            category="naming",
+            items=items,
+            convention_ref=ConventionRef(
+                file="tester/conventions/filename.convention.yaml",
+                anchor="test_class_pascalcase",
+            ),
+            summary=f"{len(violations)} test class naming violation(s)",
         )
 
 
