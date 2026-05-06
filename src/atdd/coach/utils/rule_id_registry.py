@@ -69,6 +69,15 @@ class RuleMetadata:
         fix_hint: Canonical remediation guidance (issue #399), or ``None``.
         aliases: Legacy ids (typically flat-grammar) this canonical rule
             supersedes (issue #399).
+        signal_metric: Substrate field (issue #407, spec v12 §4.1). Name of
+            the metric the rule's enforcement consumes; the metric runner
+            (issue #412) iterates the registry on this field. ``None`` for
+            harness-only or non-substrate rules.
+        signal_threshold: Substrate field (issue #407). Threshold scalar
+            (``int`` / ``float`` / ``bool``) the metric is judged against;
+            type is preserved verbatim from the YAML source so the metric
+            module's ``passes(value, threshold)`` call sees what the author
+            wrote. ``None`` when not set.
     """
 
     rule_id: str
@@ -82,6 +91,8 @@ class RuleMetadata:
     validator: Optional[str] = None
     fix_hint: Optional[str] = None
     aliases: Tuple[str, ...] = ()
+    signal_metric: Optional[str] = None
+    signal_threshold: object = None
 
 
 def _build_metadata(rule_id: str, raw: Dict, path: Path) -> RuleMetadata:
@@ -90,6 +101,21 @@ def _build_metadata(rule_id: str, raw: Dict, path: Path) -> RuleMetadata:
         aliases = tuple(a for a in aliases_raw if isinstance(a, str) and a)
     else:
         aliases = ()
+    signal_raw = raw.get("signal")
+    signal_metric: Optional[str] = None
+    signal_threshold: object = None
+    if isinstance(signal_raw, dict):
+        sm = signal_raw.get("metric")
+        if isinstance(sm, str) and sm:
+            signal_metric = sm
+        if "threshold" in signal_raw:
+            signal_threshold = signal_raw["threshold"]
+    else:
+        sm = raw.get("signal_metric")
+        if isinstance(sm, str) and sm:
+            signal_metric = sm
+        if "signal_threshold" in raw:
+            signal_threshold = raw["signal_threshold"]
     return RuleMetadata(
         rule_id=rule_id,
         convention_path=path,
@@ -122,6 +148,8 @@ def _build_metadata(rule_id: str, raw: Dict, path: Path) -> RuleMetadata:
             else None
         ),
         aliases=aliases,
+        signal_metric=signal_metric,
+        signal_threshold=signal_threshold,
     )
 
 
