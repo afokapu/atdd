@@ -1,6 +1,6 @@
 # URN: test:coach:urn_cli:edge_type_exclude_default
 """
-Regression test for issue #287 Phase 3: ``atdd urn graph --root <urn>`` must
+Regression test for issue #287 Phase 3: ``atdd repo graph --root <urn>`` must
 apply the correct default ``edge_type_exclude`` per root family so the CLI
 matches the programmatic get_subgraph(edge_type_exclude=...) contract.
 

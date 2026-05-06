@@ -7,7 +7,7 @@ Root cause of #285: train.schema.json requires `participants` (with
 `additionalProperties: false`) while graph_builder._build_train_edges was
 reading the legacy `wagons` field. Any schema-valid plan/ tree therefore
 produced a URN graph with zero train→wagon edges, silently breaking
-`atdd urn graph`, `atdd urn viz`, and every downstream DOT/SVG/PNG render.
+`atdd repo graph`, `atdd repo viz`, and every downstream DOT/SVG/PNG render.
 
 These tests pin the contract so the drift cannot silently return:
 

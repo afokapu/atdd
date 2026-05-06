@@ -10,12 +10,12 @@ Commands:
 - validate: Run full validation suite
 
 Usage:
-    atdd urn graph --format json
-    atdd urn graph --format dot --root wagon:my-wagon
-    atdd urn orphans
-    atdd urn broken
-    atdd urn validate --phase warn
-    atdd urn validate --phase fail
+    atdd repo graph --format json
+    atdd repo graph --format dot --root wagon:my-wagon
+    atdd repo orphans
+    atdd repo broken
+    atdd repo validate --phase warn
+    atdd repo validate --phase fail
 """
 from __future__ import annotations
 
@@ -292,8 +292,8 @@ class URNCommand:
                 self._print_validation_result(result)
 
             # Substrate Track-B conformance suite (#410, spec §11 step 2):
-            # `atdd urn validate` (renamed to `atdd repo validate` post-#414)
-            # MUST also surface Class-1 substrate-conformance findings so
+            # `atdd repo validate` (renamed from the legacy `urn validate`
+            # per #414) MUST also surface Class-1 substrate-conformance findings so
             # day-1 backlog appears on the same CLI surface as URN-graph
             # findings. The conformance tests live under
             # ``src/atdd/tester/validators/test_acceptance_*.py`` +

@@ -1102,9 +1102,9 @@ Phase descriptions:
     )
 
     # ----- atdd repo {graph,orphans,broken,validate,resolve,declarations,viz} -----
-    # Renamed from `atdd urn` per spec §9.1 (issue #414). Deprecation shim
-    # for `atdd urn` is registered further down so legacy callers get a
-    # clear migration error.
+    # Renamed from the legacy `urn` namespace per spec §9.1 (issue #414).
+    # A deprecation shim for the legacy command is registered further down
+    # so legacy callers get a clear migration error.
     repo_parser = subparsers.add_parser(
         "repo",
         help="Repo traceability analysis (URN graph, validation, rules)",
@@ -1363,11 +1363,12 @@ Phase descriptions:
         help="Output format (default: text)",
     )
 
-    # ----- atdd urn — deprecation shim (issue #414, spec §9.1) -----
-    # `atdd urn` was renamed to `atdd repo`. The shim prints a fixed error
-    # string and exits non-zero so legacy callers get a clear migration
-    # pointer. argparse.REMAINDER swallows any subcommand/flags so callers
-    # like `atdd urn validate --strict` still hit the dispatcher.
+    # ----- legacy `urn` deprecation shim (issue #414, spec §9.1) -----
+    # The legacy `urn` namespace was renamed to `atdd repo`. The shim prints
+    # the canonical deprecation error string and exits non-zero so legacy
+    # callers get a clear migration pointer. argparse.REMAINDER swallows any
+    # subcommand/flags so legacy invocations of every flavor still hit the
+    # dispatcher rather than falling through to argparse's own error path.
     urn_shim_parser = subparsers.add_parser(
         "urn",
         help="(deprecated) renamed to `atdd repo`",
@@ -2045,11 +2046,11 @@ Phase descriptions:
             repo_parser.print_help()
             return 0
 
-    # atdd urn — deprecation shim (issue #414, spec §9.1)
-    # The legacy `atdd urn` namespace was renamed to `atdd repo`. This shim
-    # exits non-zero with a fixed error string so legacy callers get a clear
-    # migration pointer. A follow-up issue removes this shim after one minor
-    # release.
+    # legacy `urn` deprecation shim (issue #414, spec §9.1)
+    # The legacy `urn` namespace was renamed to `atdd repo`. This shim exits
+    # non-zero with the canonical migration error string so legacy callers
+    # get a clear pointer. A follow-up issue removes this shim after one
+    # minor release.
     elif args.command == "urn":
         print(
             "`atdd urn` was renamed to `atdd repo`. See CHANGELOG for migration.",

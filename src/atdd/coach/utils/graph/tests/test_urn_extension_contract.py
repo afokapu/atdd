@@ -141,7 +141,7 @@ def test_no_validator_edits_required(theatre_pattern_installed, tmp_path):
 
 
 def test_no_cli_subcommand_registry_edits_required(theatre_pattern_installed, tmp_path):
-    """The CLI ``atdd urn families`` command iterates ResolverRegistry.families
+    """The CLI ``atdd repo families`` command iterates ResolverRegistry.families
     — the new family appears with no argparse / subcommand-table edits."""
     registry = ResolverRegistry(repo_root=tmp_path)
     registry.register(TheatreResolver(repo_root=tmp_path))
