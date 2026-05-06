@@ -167,6 +167,7 @@ class URNBuilder:
         # ATDD Specific
         'wmbt': r'^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$',
         'acc': r'^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-[0-9]{3}(?:-[a-z0-9-]+)?$',
+        'security': r'^security:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:\d{3}$',
 
         # Resources
         'endpoint': r'^endpoint:[a-z0-9-]+\.(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\.[a-z0-9-/]+$',
