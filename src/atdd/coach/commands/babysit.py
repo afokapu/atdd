@@ -30,6 +30,13 @@ from atdd.coach.utils.multiplexer import (
     MultiplexerError,
     get_multiplexer,
 )
+from atdd.coach.utils.session_naming import (
+    branch_to_slug,
+    compute_canonical_name,
+    compute_repo_short_name,
+    is_canonical_name,
+    target_grid_label,
+)
 
 
 # =============================================================================
@@ -359,6 +366,143 @@ def detect_violation(screen: str) -> Optional[BabysitDecision]:
             reason="transition to REFACTOR without passing through SMOKE",
         )
     return None
+
+
+# =============================================================================
+# Session-naming + layout drift correction (issue #470)
+# =============================================================================
+# Both passes are idempotent: a rename/layout call only fires when drift is
+# detected. Already-canonical names + already-conforming layouts are cheap
+# no-ops. The applied-name cache lives for the lifetime of one babysit run
+# and is keyed by surface ref; first-tick observation populates it from
+# `.atdd/orchestrate-state.json`.
+
+
+def _expected_canonical_name(
+    issue_number: int,
+    canonical_hint: str,
+    config: Optional[Dict] = None,
+) -> str:
+    """Resolve the expected canonical name for an issue.
+
+    Prefers the hint persisted by ``atdd orchestrate`` (when present in
+    ``orchestrate-state.json::canonical_name``); otherwise computes from
+    issue number + branch slug (best-effort, since the worktree ref does
+    not always carry branch info).
+    """
+    if canonical_hint and is_canonical_name(canonical_hint):
+        return canonical_hint
+    repo_short = compute_repo_short_name(config or {})
+    return compute_canonical_name(repo_short, issue_number, f"issue-{issue_number}")
+
+
+def correct_naming_drift(
+    backend: MultiplexerBackend,
+    ref: str,
+    expected_name: str,
+    applied_cache: Dict[str, str],
+    *,
+    log_path: Path,
+) -> bool:
+    """Re-apply the canonical name to ``ref`` when drift is detected.
+
+    Idempotent — once we've applied ``expected_name`` to ``ref`` in this
+    run, subsequent ticks short-circuit. Returns True when a rename was
+    actually issued (drift corrected); False when already canonical.
+    Issue #470 — coach.orchestration.canonical-session-name.
+    """
+    if not expected_name:
+        return False
+    if applied_cache.get(ref) == expected_name:
+        return False
+    try:
+        backend.rename(ref, expected_name)
+        backend.send(ref, f"/rename {expected_name}\n")
+    except MultiplexerError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        # Best-effort: log + retry next tick.
+        log_event(
+            {
+                "event": "session_rename_failed",
+                "workspace": ref,
+                "expected": expected_name,
+                "error": str(exc),
+            },
+            path=log_path,
+        )
+        return False
+    applied_cache[ref] = expected_name
+    log_event(
+        {
+            "event": "session_renamed",
+            "workspace": ref,
+            "to": expected_name,
+            "rule_id": "coach.orchestration.canonical-session-name",
+        },
+        path=log_path,
+    )
+    print(
+        f"::notice::babysit auto-renamed {ref} → {expected_name} "
+        f"(coach.orchestration.canonical-session-name)"
+    )
+    return True
+
+
+def correct_layout_drift(
+    surface_count: int,
+    layout_cache: Dict[str, str],
+    *,
+    log_path: Path,
+) -> bool:
+    """Announce the target grid label when surface_count crosses a threshold.
+
+    Layout rebalancing across cmux panes is the multiplexer's job; this
+    helper logs the expected layout per Decision row 13 (drift-detection
+    only — no per-tick shuffles). Returns True when the announcement was
+    new this run; False when the layout band is unchanged.
+    """
+    target = target_grid_label(surface_count)
+    if layout_cache.get("last_target") == target:
+        return False
+    layout_cache["last_target"] = target
+    log_event(
+        {
+            "event": "layout_target",
+            "surface_count": surface_count,
+            "target": target,
+            "rule_id": "coach.orchestration.layout-conformance",
+        },
+        path=log_path,
+    )
+    print(
+        f"::notice::babysit layout target ({surface_count} surface[s]): {target} "
+        f"(coach.orchestration.layout-conformance)"
+    )
+    return True
+
+
+def _load_canonical_hints(
+    orchestrate_state_path: Path,
+) -> Dict[str, Tuple[int, str]]:
+    """Read ``ref → (issue_number, canonical_name)`` from orchestrate state."""
+    if not orchestrate_state_path.is_file():
+        return {}
+    try:
+        data = json.loads(orchestrate_state_path.read_text())
+    except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        return {}
+    out: Dict[str, Tuple[int, str]] = {}
+    for key, entry in (data or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        ref = entry.get("ref") or entry.get("workspace_ref") or ""
+        if not ref:
+            continue
+        try:
+            issue_num = int(key)
+        except (TypeError, ValueError):
+            continue
+        out[ref] = (issue_num, entry.get("canonical_name") or "")
+    return out
 
 
 # =============================================================================
@@ -822,7 +966,37 @@ def run(
     phase_cache: Dict[int, str] = {}
     phase_cache_ts: float = 0.0
 
+    # Issue #470: drift-correction caches. Keys are surface refs; values are
+    # the last-applied canonical name. Idempotency contract: a rename only
+    # fires when the cache entry differs from the expected name.
+    name_applied_cache: Dict[str, str] = {}
+    layout_cache: Dict[str, str] = {}
+    canonical_hints = _load_canonical_hints(orchestrate_state_path)
+
     while True:
+        # Issue #470 — paired naming + layout pass. Idempotent: only fires
+        # on drift. Scoped to the workspaces babysit is already monitoring,
+        # so other cmux surfaces (operator shell, unrelated worktrees) are
+        # untouched.
+        for ref in states:
+            hint = canonical_hints.get(ref)
+            if hint is None:
+                continue
+            issue_num, hint_name = hint
+            expected = _expected_canonical_name(issue_num, hint_name)
+            correct_naming_drift(
+                backend=backend,
+                ref=ref,
+                expected_name=expected,
+                applied_cache=name_applied_cache,
+                log_path=log_path,
+            )
+        correct_layout_drift(
+            surface_count=len(states),
+            layout_cache=layout_cache,
+            log_path=log_path,
+        )
+
         for ref, st in states.items():
             decision = process_workspace(
                 backend, st, stale_warn, stale_escalate,

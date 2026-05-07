@@ -31,6 +31,7 @@ class IssueContext:
     dependencies: list[str] = field(default_factory=list)
     grep_gates: list[str] = field(default_factory=list)
     worktree_path: str = ""
+    canonical_session_name: str = ""
     stop_condition: str = (
         "Stop at the REFACTOR boundary. Do not proceed past REFACTOR "
         "without user confirmation unless --autonomous was set."
@@ -149,18 +150,38 @@ def build_context(
     title: str = "",
     worktree_path: str = "",
 ) -> IssueContext:
+    from atdd.coach.utils.config import load_atdd_config
+    from atdd.coach.utils.repo import find_repo_root
+    from atdd.coach.utils.session_naming import (
+        branch_to_slug,
+        compute_canonical_name,
+        compute_repo_short_name,
+    )
+
     meta = parse_metadata(body)
     deps = parse_dependencies(body)
     gates = parse_grep_gates(body)
+    branch = meta.get("Branch", "TBD") or "TBD"
+    # Issue #470: precompute the canonical session name so the launch prompt
+    # can echo "your canonical name is X" — keeps the agent's self-rename
+    # aligned with the cmux tab even if the dispatch-time pass missed.
+    try:
+        config = load_atdd_config(find_repo_root())
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        config = {}
+    repo_short = compute_repo_short_name(config)
+    slug = branch_to_slug(branch) if branch != "TBD" else f"issue-{issue_number}"
+    canonical_name = compute_canonical_name(repo_short, issue_number, slug or f"issue-{issue_number}")
     return IssueContext(
         number=issue_number,
         title=title or meta.get("Feature", ""),
-        branch=meta.get("Branch", "TBD") or "TBD",
+        branch=branch,
         train=meta.get("Train", "TBD") or "TBD",
         feature=meta.get("Feature", ""),
         dependencies=deps,
         grep_gates=gates,
         worktree_path=worktree_path or f"../{meta.get('Branch', '').replace('/', '-')}",
+        canonical_session_name=canonical_name,
     )
 
 
@@ -188,6 +209,7 @@ def render(context: IssueContext, template_path: Path = TEMPLATE_PATH) -> str:
         "{{grep_gates}}": gates_block,
         "{{stop_condition}}": context.stop_condition,
         "{{worktree_path}}": context.worktree_path,
+        "{{canonical_session_name}}": context.canonical_session_name,
     }
     rendered = template
     for key, value in substitutions.items():
