@@ -93,24 +93,45 @@ jobs:
           echo "pypi_status=pending" >> "$GITHUB_OUTPUT"
           echo "pypi_version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
+      - name: Compose release metadata
+        id: release_meta
         if: env.CREATED == 'true'
         run: |
           COMMIT_SUBJECT=$(git log -1 --format='%s')
-          TITLE="$TAG — $COMMIT_SUBJECT"
-          PYPI_LINE=""
           if [ "$PYPI_STATUS" = "published" ]; then
             PYPI_LINE="Published to PyPI: atdd==$PYPI_VERSION"
           else
             PYPI_LINE="PyPI publication pending (may still be propagating)"
           fi
-          gh release create "$TAG" --generate-notes --title "$TITLE" \
-            --notes-start-tag "$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo '')" \
-            || gh release create "$TAG" --title "$TITLE" --notes "$PYPI_LINE"
-          # Append PyPI status to existing release body
-          EXISTING_BODY=$(gh release view "$TAG" --json body --jq '.body' 2>/dev/null || echo "")
-          gh release edit "$TAG" --notes "$(printf '%s\n\n---\n%s' "$EXISTING_BODY" "$PYPI_LINE")"
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$TAG" \
+              -f previous_tag_name="$PREV_TAG" \
+              --jq '.body' 2>/dev/null || echo "")
+          else
+            NOTES=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$TAG" \
+              --jq '.body' 2>/dev/null || echo "")
+          fi
+          {
+            echo "title=$TAG — $COMMIT_SUBJECT"
+            echo "pypi_line=$PYPI_LINE"
+            echo "body<<RELEASE_BODY_EOF"
+            printf '%s\n\n---\n%s\n' "$NOTES" "$PYPI_LINE"
+            echo "RELEASE_BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYPI_STATUS: ${{ steps.pypi_verify.outputs.pypi_status }}
           PYPI_VERSION: ${{ steps.pypi_verify.outputs.pypi_version }}
+
+      - name: Create GitHub Release
+        if: env.CREATED == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ steps.release_meta.outputs.title }}
+          body: ${{ steps.release_meta.outputs.body }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
