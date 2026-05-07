@@ -266,3 +266,14 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:toolkit-wheel-completeness
   train: 0001-self-compliance-validate
+- id: '453'
+  slug: dead-code-validator-misses-relative-imports
+  file: null
+  issue_number: 453
+  type: implementation
+  status: PLANNED
+  created: '2026-05-07'
+  archived: null
+  wagon: null
+  feature: null
+  train: 0001-self-compliance-validate
