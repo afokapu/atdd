@@ -288,3 +288,14 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:atdd-upgrade-pypi-propagation-window
   train: 0001-self-compliance-validate
+- id: '457'
+  slug: add-glm-and-mistral-agent-sync
+  file: null
+  issue_number: 457
+  type: implementation
+  status: PLANNED
+  created: '2026-05-07'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:multi-agent-sync-coverage-extended
+  train: 0001-self-compliance-validate

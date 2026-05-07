@@ -803,7 +803,7 @@ Phase descriptions:
     sync_parser.add_argument(
         "--agent",
         type=str,
-        choices=["claude", "codex", "gemini", "qwen"],
+        choices=["claude", "codex", "gemini", "qwen", "glm", "mistral"],
         help="Sync specific agent only"
     )
     sync_parser.add_argument(
