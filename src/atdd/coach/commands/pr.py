@@ -26,6 +26,7 @@ from typing import Dict, List, Optional
 import yaml
 
 from atdd.coach.commands.issue import TYPE_TO_PREFIX
+from atdd.coach.utils.default_branch import resolve_default_branch
 from atdd.coach.utils.risk_score import (
     compute_risk_breakdown,
     format_risk_breakdown_section,
@@ -134,6 +135,23 @@ class PRManager:
         except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             pass
         return None
+
+    def _rev_count_past_default(self, default_branch: str) -> Optional[int]:
+        """Return commits in HEAD past origin/<default_branch>; None on failure."""
+        try:
+            result = subprocess.run(
+                ["git", "rev-list", "--count", f"origin/{default_branch}..HEAD"],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.target_dir,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return None
+        if result.returncode != 0:
+            return None
+        out = result.stdout.strip()
+        if not out.isdigit():
+            return None
+        return int(out)
 
     # ------------------------------------------------------------------
     # PR → Issue resolution (4-strategy cascade)
@@ -513,6 +531,25 @@ class PRManager:
             print(f"PR already exists for branch '{branch}':")
             print(f"  {existing}")
             return 0
+
+        # 2b. Empty-branch gate — GitHub rejects createPullRequest when
+        # head==base. Print structured Fix hint per #467 contract C1-C4
+        # instead of forwarding the GraphQL error.
+        default_branch = resolve_default_branch(self.target_dir)
+        rev_count = self._rev_count_past_default(default_branch)
+        if rev_count == 0:
+            print(
+                f"Error: Branch '{branch}' has 0 commits past "
+                f"`{default_branch}` — cannot open PR."
+            )
+            print( "  Fix:")
+            print( "    1. Make at least one commit on this branch:")
+            print( "       git add <files> && git commit -m \"<message>\"")
+            print( "       git push")
+            print(f"    2. atdd pr {issue_number}")
+            print( "  Why: GitHub's createPullRequest mutation requires at least")
+            print(f"       one commit diverging from `{default_branch}`. (See #478.)")
+            return 1
 
         # 3. Fetch issue metadata from GitHub
         issue_data = self._fetch_issue(issue_number)
