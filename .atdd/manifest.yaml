@@ -277,3 +277,14 @@ sessions:
   wagon: null
   feature: null
   train: 0001-self-compliance-validate
+- id: '455'
+  slug: auto-upgrade-pypi-cache-bust
+  file: null
+  issue_number: 455
+  type: implementation
+  status: PLANNED
+  created: '2026-05-07'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:atdd-upgrade-pypi-propagation-window
+  train: 0001-self-compliance-validate

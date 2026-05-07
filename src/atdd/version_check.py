@@ -10,17 +10,20 @@ Disable PyPI check: CI=true ATDD_NO_UPDATE_CHECK=1 (CI only)
 Disable sync reminder: CI=true ATDD_NO_UPGRADE_NOTICE=1 (CI only)
 """
 import json
+import logging
 import os
 import sys
 import time
 from pathlib import Path
 from typing import Optional, Tuple
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from urllib.error import URLError
 
 import yaml
 
 from atdd import __version__
+
+logger = logging.getLogger(__name__)
 
 # Version-specific upgrade notes shown to consumers after upgrade.
 # Key = version, value = short human-readable note.
@@ -76,9 +79,15 @@ def _save_cache(data: dict) -> None:
 
 
 def _fetch_latest_version() -> Optional[str]:
-    """Fetch latest version from PyPI."""
+    """Fetch latest version from PyPI.
+
+    Sends ``Cache-Control: no-cache`` to defeat any future PyPI/CDN caching
+    of the JSON metadata endpoint — belt-and-braces against the propagation
+    window observed during fresh-tag publishes.
+    """
     try:
-        with urlopen(PYPI_URL, timeout=2) as response:
+        request = Request(PYPI_URL, headers={"Cache-Control": "no-cache"})
+        with urlopen(request, timeout=2) as response:
             data = json.loads(response.read().decode())
             return data.get("info", {}).get("version")
     except (URLError, json.JSONDecodeError, OSError, TimeoutError):  # atdd:suppress(coder.logging.coach-silent-swallow)
@@ -310,29 +319,113 @@ def _is_pep668_error(stderr: str) -> bool:
     return "externally-managed-environment" in stderr or "error: externally-managed" in stderr
 
 
-def auto_upgrade() -> bool:
-    """Run pip install --upgrade atdd. Returns True on success.
+def _verify_installed_version(expected: Optional[str]) -> bool:
+    """Verify the on-disk installed atdd version matches ``expected``.
 
-    Falls back to --break-system-packages on PEP 668 refusal, which is the
-    documented override for "I'm a CLI tool, not a system library" upgrades
-    on Homebrew/Debian-managed Pythons.
+    Spawns a fresh subprocess to read ``importlib.metadata.version("atdd")``.
+    A subprocess is required because ``importlib.metadata`` caches its
+    distribution-finder state at module-import time; after ``pip install``
+    mutates ``site-packages``, ``importlib.reload(atdd)`` re-runs
+    ``__init__.py`` but the in-process metadata cache still serves the
+    pre-install version. A fresh interpreter starts with no cache and reads
+    the actual on-disk ``*.dist-info/`` directory.
+
+    Returns:
+        True iff ``expected`` is None (no target → no check) or the spawned
+        subprocess reports the same version. False on subprocess failure,
+        timeout, or version mismatch.
+    """
+    if not expected:
+        return True
+
+    import subprocess as _sp
+
+    try:
+        result = _sp.run(
+            [sys.executable, "-c",
+             "import importlib.metadata; print(importlib.metadata.version('atdd'))"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except _sp.TimeoutExpired:
+        logger.debug("auto_upgrade verify: subprocess timed out after 10s")
+        return False
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        return False
+
+    if result.returncode != 0:
+        return False
+    installed = result.stdout.strip()
+    return installed == expected
+
+
+def _run_with_pep668_retry(cmd: list, *, timeout: int = 120) -> Tuple[bool, str]:
+    """Run a pip command, retrying once with ``--break-system-packages`` on PEP 668 refusal.
+
+    Returns (success, stderr_of_last_attempt).
     """
     import subprocess as _sp
 
-    base_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "atdd"]
+    result = _sp.run(cmd, capture_output=True, text=True, timeout=timeout)
+    if result.returncode == 0:
+        return True, result.stderr
+    if _is_pep668_error(result.stderr):
+        logger.debug("PEP 668 refusal detected; retrying with --break-system-packages")
+        retry = _sp.run(
+            cmd + ["--break-system-packages"],
+            capture_output=True, text=True, timeout=timeout,
+        )
+        return retry.returncode == 0, retry.stderr
+    return False, result.stderr
+
+
+def auto_upgrade() -> bool:
+    """Run pip install --upgrade atdd. Returns True on success.
+
+    Two-attempt strategy to handle PyPI's CDN propagation window after a
+    fresh tag publish:
+
+    1. **Attempt 1** — name-only resolution: ``pip install --upgrade
+       --no-cache-dir atdd``. ``--no-cache-dir`` busts pip's local wheel
+       cache (belt-and-braces). On returncode 0, verify the installed
+       version matches what ``_fetch_latest_version`` reported.
+    2. **Attempt 2** — explicit version pin: if Attempt 1 succeeded but
+       verify failed (pip's resolver served a stale "latest" from its
+       in-process metadata cache), retry with
+       ``pip install --upgrade --no-cache-dir atdd==<expected>``. The
+       version pin forces fresh resolution and is the load-bearing fix.
+
+    Each attempt retries with ``--break-system-packages`` on PEP 668
+    refusal (Homebrew/Debian-managed Pythons).
+    """
+    target = _fetch_latest_version()
+    base_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-cache-dir", "atdd"]
 
     try:
-        result = _sp.run(base_cmd, capture_output=True, text=True, timeout=120)
-        if result.returncode == 0:
+        logger.debug("auto_upgrade attempt 1: cmd=%s", base_cmd)
+        ok, _stderr = _run_with_pep668_retry(base_cmd)
+        if ok and _verify_installed_version(target):
+            logger.debug("upgrade verified: atdd %s installed", target)
             return True
-        if _is_pep668_error(result.stderr):
-            # PEP 668 refusal — retry with --break-system-packages.
-            # Safe for atdd because it's a stand-alone CLI, not a shared library.
-            retry = _sp.run(
-                base_cmd + ["--break-system-packages"],
-                capture_output=True, text=True, timeout=120,
+        if ok and target:
+            logger.debug(
+                "pip install returncode=0 but installed != expected=%s; retrying with explicit pin",
+                target,
             )
-            return retry.returncode == 0
+        if not ok and not target:
+            return False
+
+        if target:
+            pinned_cmd = [
+                sys.executable, "-m", "pip", "install",
+                "--upgrade", "--no-cache-dir", f"atdd=={target}",
+            ]
+            logger.debug("auto_upgrade attempt 2 (pinned): cmd=%s", pinned_cmd)
+            ok2, _stderr2 = _run_with_pep668_retry(pinned_cmd)
+            if ok2 and _verify_installed_version(target):
+                logger.debug("upgrade verified after pin: atdd %s installed", target)
+                return True
+            return False
+
         return False
     except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return False
