@@ -329,3 +329,14 @@ sessions:
   wagon: null
   feature: null
   train: 0001-self-compliance-validate
+- id: '473'
+  slug: 473-init-template-fix
+  file: null
+  issue_number: 473
+  type: fix
+  status: RED
+  created: '2026-05-07'
+  archived: null
+  wagon: null
+  feature: null
+  train: 0001-self-compliance-validate
