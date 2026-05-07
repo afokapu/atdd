@@ -347,7 +347,10 @@ def _verify_installed_version(expected: Optional[str]) -> bool:
             capture_output=True, text=True, timeout=10,
         )
     except _sp.TimeoutExpired:
-        logger.debug("auto_upgrade verify: subprocess timed out after 10s")
+        logger.debug(
+            "auto_upgrade verify: subprocess timed out after 10s",
+            extra={"phase": "verify", "outcome": "timeout", "timeout_s": 10},
+        )
         return False
     except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
         return False
@@ -369,7 +372,10 @@ def _run_with_pep668_retry(cmd: list, *, timeout: int = 120) -> Tuple[bool, str]
     if result.returncode == 0:
         return True, result.stderr
     if _is_pep668_error(result.stderr):
-        logger.debug("PEP 668 refusal detected; retrying with --break-system-packages")
+        logger.debug(
+            "PEP 668 refusal detected; retrying with --break-system-packages",
+            extra={"phase": "pip-install", "mechanism": "pep668-fallback"},
+        )
         retry = _sp.run(
             cmd + ["--break-system-packages"],
             capture_output=True, text=True, timeout=timeout,
@@ -401,15 +407,22 @@ def auto_upgrade() -> bool:
     base_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-cache-dir", "atdd"]
 
     try:
-        logger.debug("auto_upgrade attempt 1: cmd=%s", base_cmd)
+        logger.debug(
+            "auto_upgrade attempt %d: cmd=%s", 1, base_cmd,
+            extra={"phase": "pip-install", "attempt": 1, "cmd": base_cmd, "target": target},
+        )
         ok, _stderr = _run_with_pep668_retry(base_cmd)
         if ok and _verify_installed_version(target):
-            logger.debug("upgrade verified: atdd %s installed", target)
+            logger.debug(
+                "upgrade verified: atdd %s installed", target,
+                extra={"phase": "verify", "attempt": 1, "version": target, "outcome": "match"},
+            )
             return True
         if ok and target:
             logger.debug(
                 "pip install returncode=0 but installed != expected=%s; retrying with explicit pin",
                 target,
+                extra={"phase": "verify", "attempt": 1, "expected": target, "outcome": "mismatch"},
             )
         if not ok and not target:
             return False
@@ -419,10 +432,16 @@ def auto_upgrade() -> bool:
                 sys.executable, "-m", "pip", "install",
                 "--upgrade", "--no-cache-dir", f"atdd=={target}",
             ]
-            logger.debug("auto_upgrade attempt 2 (pinned): cmd=%s", pinned_cmd)
+            logger.debug(
+                "auto_upgrade attempt %d (pinned): cmd=%s", 2, pinned_cmd,
+                extra={"phase": "pip-install", "attempt": 2, "cmd": pinned_cmd, "target": target},
+            )
             ok2, _stderr2 = _run_with_pep668_retry(pinned_cmd)
             if ok2 and _verify_installed_version(target):
-                logger.debug("upgrade verified after pin: atdd %s installed", target)
+                logger.debug(
+                    "upgrade verified after pin: atdd %s installed", target,
+                    extra={"phase": "verify", "attempt": 2, "version": target, "outcome": "match"},
+                )
                 return True
             return False
 
