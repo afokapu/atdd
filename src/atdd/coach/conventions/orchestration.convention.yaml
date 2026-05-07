@@ -156,9 +156,9 @@ session_naming:
       introduced_in: "3.10.0"
       validator: "test_orchestration_session_naming::test_active_session_names_canonical"
       fix_hint: |
-        Rename the surface to the canonical form, e.g.
-        cmux rename-tab --surface <surface-ref> 'ATDD<N>-<slug>'
-        and inside the session: /rename ATDD<N>-<slug>
+        Rename the surface to the canonical form.
+        e.g. "cmux rename-tab --surface surface:42 'ATDD470-canonical-session-naming'"
+        e.g. "/rename ATDD470-canonical-session-naming"
         (or run `atdd babysit` once to auto-correct drift).
 
 layout_placement:
@@ -195,8 +195,9 @@ layout_placement:
       validator: "test_orchestration_session_naming::test_workspace_layout_conforms"
       fix_hint: |
         Move impl-agent surfaces to the right region; keep the operator's
-        shell as the leftmost pane. Run `atdd babysit` to auto-correct,
-        or manually: cmux move-surface --surface <ref> --direction right.
+        shell as the leftmost pane.
+        (run `atdd babysit` to auto-correct)
+        e.g. "cmux move-surface --surface surface:42 --direction right"
 
 # =============================================================================
 # Prompt approval policy (babysit)

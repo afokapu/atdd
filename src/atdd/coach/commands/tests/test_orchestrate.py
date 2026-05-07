@@ -171,6 +171,8 @@ class _FakeBackend:
     def __init__(self):
         self.workspace_calls: list[dict] = []
         self.surface_calls: list[dict] = []
+        self.rename_calls: list[dict] = []
+        self.send_calls: list[dict] = []
         self._wcounter = 0
         self._scounter = 0
 
@@ -179,7 +181,15 @@ class _FakeBackend:
         self.workspace_calls.append({"cwd": cwd, "command": command, "name": name})
         return f"workspace:{self._wcounter}"
 
-    def new_surface(self, workspace_ref=None, pane_ref=None, cwd=None, command=None, name=None):
+    def new_surface(
+        self,
+        workspace_ref=None,
+        pane_ref=None,
+        cwd=None,
+        command=None,
+        name=None,
+        direction=None,
+    ):
         self._scounter += 1
         self.surface_calls.append({
             "workspace_ref": workspace_ref,
@@ -187,8 +197,17 @@ class _FakeBackend:
             "cwd": cwd,
             "command": command,
             "name": name,
+            "direction": direction,
         })
         return f"surface:{self._scounter}"
+
+    def rename(self, ref, name):
+        # Issue #470: capture the rename pass for assertions; no-op behavior.
+        self.rename_calls.append({"ref": ref, "name": name})
+
+    def send(self, ref, text):
+        # Capture /rename slash-command sends from the dispatch-time pass.
+        self.send_calls.append({"ref": ref, "text": text})
 
 
 def _wire_run_orchestrate(tmp_path, backend, plan: dict[int, PlannedIssue]):
