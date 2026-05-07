@@ -4,7 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atdd"
-version = "3.7.8"
+<<<<<<< HEAD
+version = "3.8.1"
+=======
+version = "3.8.1"
+>>>>>>> origin/main
 description = "ATDD Platform - Acceptance Test Driven Development toolkit"
 requires-python = ">=3.10"
 readme = "README.md"
