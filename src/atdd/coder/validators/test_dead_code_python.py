@@ -213,8 +213,23 @@ def extract_imports_ast(file_path: Path, *, root: Path = None) -> List[str]:
                 node.level,
                 root=root,
             )
-            if resolved is not None:
-                modules.append(resolved)
+            if resolved is None:
+                continue
+            modules.append(resolved)
+            # Relative imports may name SUBMODULES, not just package
+            # attributes: ``from . import x`` and ``from .X import Y``
+            # both import the named symbol's submodule when one exists
+            # (Python's import machinery loads it as a side effect).
+            # Speculatively emit ``<resolved>.<name>`` candidates so the
+            # downstream ``resolve_module_to_file`` lookup picks up the
+            # submodule file when it exists. When the name is just an
+            # attribute (no matching file), no edge is added — strictly
+            # monotonic.
+            if node.level >= 1:
+                for alias in node.names:
+                    if alias.name == "*":
+                        continue
+                    modules.append(f"{resolved}.{alias.name}")
 
     return modules
 
