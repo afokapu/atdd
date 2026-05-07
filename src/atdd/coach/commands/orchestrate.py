@@ -25,10 +25,17 @@ from atdd.coach.commands.session_template import (
     fetch_issue,
     render,
 )
+from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.utils.multiplexer import (
     MultiplexerBackend,
     MultiplexerError,
     get_multiplexer,
+)
+from atdd.coach.utils.session_naming import (
+    branch_to_slug,
+    compute_canonical_name,
+    compute_repo_short_name,
+    target_grid_label,
 )
 
 
@@ -166,6 +173,39 @@ def print_plan(waves: list[list[int]], plan: dict[int, PlannedIssue]) -> None:
             print(f"    #{num:<5} {issue.branch:<40} deps={deps}")
 
 
+def apply_canonical_name_and_layout(
+    backend: MultiplexerBackend,
+    ref: str,
+    canonical_name: str,
+    surface_count: int,
+) -> None:
+    """Issue #470 dispatch-time pass: rename + announce target layout.
+
+    Two paired application passes:
+        1. NAMING — cmux rename-tab + ``/rename`` slash command into the session.
+        2. LAYOUT — log the target grid policy for the current surface count.
+
+    Both fail soft (``MultiplexerError`` swallowed) so a missing cmux verb
+    or unrenamable backend does not crash the orchestrate flow; babysit's
+    drift-detection re-applies on the next tick.
+    """
+    if not canonical_name:
+        return
+    try:
+        backend.rename(ref, canonical_name)
+    except MultiplexerError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        # Best-effort: babysit retries on the next tick.
+        pass
+    try:
+        # Slash-command rename inside the running Claude session so the
+        # in-conversation header matches the cmux tab.
+        backend.send(ref, f"/rename {canonical_name}\n")
+    except MultiplexerError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        pass
+    layout = target_grid_label(surface_count)
+    print(f"   layout target ({surface_count} surface[s]): {layout}")
+
+
 def run(
     issue_numbers: list[int],
     autonomous: bool = False,
@@ -230,6 +270,10 @@ def run(
         print(f"❌ {exc}", file=sys.stderr)
         return 4
 
+    # Issue #470: resolve <REPO> short-name once for the whole run.
+    repo_short = compute_repo_short_name(load_atdd_config(repo_root))
+    launched_count = 0
+
     for num, issue in plan.items():
         key = str(num)
         if resume and state.get(key, {}).get("launched"):
@@ -256,18 +300,26 @@ def run(
             "claude --dangerously-skip-permissions "
             f"\"$(cat {script_path})\""
         )
+        # Issue #470: derive the canonical session name from <REPO><N>-<slug>.
+        slug = branch_to_slug(issue.branch) or f"issue-{num}"
+        canonical_name = compute_canonical_name(repo_short, num, slug)
+
         try:
             if multiplexer_mode == "pane":
+                # Right-anchored grid layout: new surfaces open to the right
+                # of the operator's shell pane. The backend's noop default
+                # for legacy cmux builds keeps this safe.
                 ref = backend.new_surface(
                     cwd=issue.worktree_path,
                     command=launch_cmd,
-                    name=f"issue-{num}",
+                    name=canonical_name,
+                    direction="right",
                 )
             else:
                 ref = backend.new_workspace(
                     cwd=issue.worktree_path,
                     command=launch_cmd,
-                    name=f"issue-{num}",
+                    name=canonical_name,
                 )
         except (MultiplexerError, NotImplementedError) as exc:
             print(f"⚠️  failed to launch session for #{num}: {exc}", file=sys.stderr)
@@ -279,9 +331,18 @@ def run(
             "launched": True,
             "ref": ref,
             "mode": multiplexer_mode,
+            "canonical_name": canonical_name,
         })
         save_state(state_path, state)
-        print(f"✓ launched #{num} in {ref}")
+        print(f"✓ launched #{num} in {ref} as {canonical_name}")
+
+        launched_count += 1
+        apply_canonical_name_and_layout(
+            backend=backend,
+            ref=ref,
+            canonical_name=canonical_name,
+            surface_count=launched_count,
+        )
 
     print(
         f"\nOrchestration complete. "

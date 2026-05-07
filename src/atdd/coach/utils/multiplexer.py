@@ -86,6 +86,16 @@ class MultiplexerBackend(ABC):
     def close(self, ref: MultiplexerRef) -> None:
         """Close/kill the workspace or surface."""
 
+    def rename(self, ref: MultiplexerRef, name: str) -> None:
+        """Rename a workspace or surface to ``name``.
+
+        Default implementation is a no-op so backends without a rename
+        primitive (zellij, tmux) silently degrade instead of breaking
+        the orchestrate flow. Issue #470 — canonical session naming.
+        Override in cmux backend.
+        """
+        del ref, name
+
 
 def _run(cmd: list[str], capture: bool = True) -> subprocess.CompletedProcess:
     try:
@@ -161,11 +171,17 @@ class CmuxBackend(MultiplexerBackend):
         cwd: Optional[str] = None,
         command: Optional[str] = None,
         name: Optional[str] = None,
+        direction: Optional[str] = None,
     ) -> MultiplexerRef:
         if pane_ref is None:
             new_pane_cmd = ["cmux", "new-pane"]
             if workspace_ref:
                 new_pane_cmd.extend(["--workspace", workspace_ref])
+            if direction:
+                # Issue #470: right-anchored grid layout. cmux new-pane accepts
+                # --direction {right,left,up,down}; default behavior is preserved
+                # when callers don't pass it.
+                new_pane_cmd.extend(["--direction", direction])
             pane_result = _run(new_pane_cmd)
             pane_ref = _extract_ref_token(pane_result.stdout or "", "pane")
             if not pane_ref:
@@ -239,6 +255,31 @@ class CmuxBackend(MultiplexerBackend):
             _run(["cmux", "close-surface", "--surface", ref], capture=False)
             return
         _run(["cmux", "close-workspace", "--workspace", ref], capture=False)
+
+    def rename(self, ref: MultiplexerRef, name: str) -> None:
+        """Rename a cmux surface/workspace tab title (issue #470).
+
+        Best-effort: failures degrade silently so a missing/renamed cmux
+        rename verb does not crash orchestrate. Babysit will retry on
+        the next tick.
+        """
+        if not name:
+            return
+        try:
+            if _is_surface_ref(ref):
+                _run(
+                    ["cmux", "rename-tab", "--surface", ref, name],
+                    capture=False,
+                )
+            else:
+                _run(
+                    ["cmux", "rename-workspace", "--workspace", ref, name],
+                    capture=False,
+                )
+        except MultiplexerError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            # Best-effort: cmux build may not expose rename verbs; the
+            # validator is advisory and babysit retries every tick.
+            pass
 
 
 class TmuxBackend(MultiplexerBackend):
