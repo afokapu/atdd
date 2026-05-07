@@ -16,10 +16,11 @@ Structured violations (issue #394): emits ``Violation`` records keyed off
 
 import ast
 import configparser
+import logging
 import pytest
 from collections import deque
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
@@ -27,6 +28,9 @@ from atdd.coach.validators._violation import Violation
 
 import atdd
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+
+
+_log = logging.getLogger(__name__)
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -121,9 +125,71 @@ def is_root_file(file_path: Path) -> bool:
     return False
 
 
-def extract_imports_ast(file_path: Path) -> List[str]:
+def _resolve_module_name(
+    importer: Path,
+    module: Optional[str],
+    level: int,
+    *,
+    root: Path = None,
+) -> Optional[str]:
+    """
+    Resolve an ``ast.ImportFrom`` to an absolute dotted module path.
+
+    Args:
+        importer: Path of the file containing the import statement.
+        module: The dotted path *after* leading dots (may be ``None`` for
+            ``from . import x``).
+        level: Number of leading dots (``0`` = absolute, ``1`` = ``.``,
+            ``2`` = ``..``).
+        root: The package root (defaults to ``PYTHON_DIR``). The importer
+            must be inside this root for relative resolution to apply;
+            out-of-root importers return ``None`` (not raise).
+
+    Returns:
+        The resolved absolute dotted module name, or ``None`` when:
+          - ``importer`` is outside ``root`` (debug-logged, no raise).
+          - ``level`` exceeds the importer's depth (would escape ``root``;
+            Python rejects these at runtime).
+          - The result would be empty.
+
+    Notes:
+        For ``from . import x`` (``module=None``, ``level=1``), returns the
+        package itself (e.g., ``"pkg"``). The named binding ``x`` is reached
+        via the existing ``__init__.py`` implicit-edges pathway in
+        ``build_file_import_graph``.
+    """
+    if root is None:
+        root = PYTHON_DIR
+    if level == 0:
+        return module
+    try:
+        rel = importer.relative_to(root)
+    except ValueError:
+        _log.debug(
+            "relative import from %s outside root %s; cannot resolve",
+            importer,
+            root,
+        )
+        return None
+    pkg_parts = list(rel.parent.parts)
+    # `from . import x` (level=1) → siblings of importer (the package itself).
+    # `from ..x import y` (level=2) → parent package + "x".
+    if level - 1 > len(pkg_parts):
+        return None
+    base = pkg_parts[: len(pkg_parts) - (level - 1)]
+    suffix = module.split(".") if module else []
+    parts = base + suffix
+    return ".".join(parts) if parts else None
+
+
+def extract_imports_ast(file_path: Path, *, root: Path = None) -> List[str]:
     """
     Extract import module paths from a Python file using AST.
+
+    Relative ``from .X import Y`` imports are resolved to their absolute
+    dotted module path via ``_resolve_module_name`` (using ``file_path``
+    and the ``ast.ImportFrom.level`` attribute), so the downstream
+    ``resolve_module_to_file`` lookup finds the correct file.
 
     Returns:
         List of module path strings (e.g., ["my_wagon.feature.src.domain.calc"]).
@@ -141,8 +207,29 @@ def extract_imports_ast(file_path: Path) -> List[str]:
             for alias in node.names:
                 modules.append(alias.name)
         elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                modules.append(node.module)
+            resolved = _resolve_module_name(
+                file_path,
+                node.module,
+                node.level,
+                root=root,
+            )
+            if resolved is None:
+                continue
+            modules.append(resolved)
+            # Relative imports may name SUBMODULES, not just package
+            # attributes: ``from . import x`` and ``from .X import Y``
+            # both import the named symbol's submodule when one exists
+            # (Python's import machinery loads it as a side effect).
+            # Speculatively emit ``<resolved>.<name>`` candidates so the
+            # downstream ``resolve_module_to_file`` lookup picks up the
+            # submodule file when it exists. When the name is just an
+            # attribute (no matching file), no edge is added — strictly
+            # monotonic.
+            if node.level >= 1:
+                for alias in node.names:
+                    if alias.name == "*":
+                        continue
+                    modules.append(f"{resolved}.{alias.name}")
 
     return modules
 
