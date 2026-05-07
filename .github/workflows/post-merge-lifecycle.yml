@@ -172,6 +172,127 @@ jobs:
 
           echo "Updated ATDD Status to COMPLETE for issue #${ISSUE}."
 
+      # ─── Bump-on-merge (issue #462 phase 2) ──────────────────────────────
+      # Replaces the pre-merge `version-bump` PR check. Branch prefix → semver
+      # class:
+      #   feat/                                  → MINOR
+      #   fix/, chore/, docs/, refactor/, devops/ → PATCH
+      #   PR title contains "BREAKING CHANGE" or matches "<type>!:" → MAJOR
+      # Skip path: if the merged PR already touched pyproject.toml::version
+      # (legacy/manual bump), do nothing.
+      # Push uses PROJECT_TOKEN (PAT) — GITHUB_TOKEN-pushed commits don't fire
+      # the workflow_run cascade that the Publish workflow depends on.
+      - name: Detect legacy version-bump in PR diff
+        if: github.event.pull_request.merged == true
+        id: legacy_bump
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          PATCH=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" \
+            --paginate \
+            --jq '.[] | select(.filename == "pyproject.toml") | .patch' 2>/dev/null || true)
+          if echo "$PATCH" | grep -qE '^[+-]version[[:space:]]*=[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"'; then
+            echo "::warning title=bump-on-merge skipped::PR #${PR_NUMBER} already modified pyproject.toml::version (legacy/manual bump). Auto-bump skipped."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify PROJECT_TOKEN is configured
+        if: github.event.pull_request.merged == true && steps.legacy_bump.outputs.skip == 'false'
+        env:
+          PT: ${{ secrets.PROJECT_TOKEN }}
+        run: |
+          if [ -z "${PT:-}" ]; then
+            cat >&2 <<'MSG'
+          ::error title=PROJECT_TOKEN required for bump-on-merge::PROJECT_TOKEN secret is unset. Bump-on-merge needs a PAT (or App token) with contents:write to push the bump commit so it triggers the Publish workflow on main; commits pushed with GITHUB_TOKEN do NOT fire workflow_run cascades. Configure PROJECT_TOKEN in repo Settings → Secrets and variables → Actions.
+          MSG
+            exit 1
+          fi
+
+      - name: Checkout main for bump-on-merge
+        if: github.event.pull_request.merged == true && steps.legacy_bump.outputs.skip == 'false'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.PROJECT_TOKEN }}
+
+      - name: Bump version on main (atomic with retries)
+        if: github.event.pull_request.merged == true && steps.legacy_bump.outputs.skip == 'false'
+        env:
+          BRANCH_REF: ${{ github.event.pull_request.head.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          # Compute next version inline; re-runs each attempt against the
+          # latest origin/main so we never push a stale version.
+          cat > /tmp/compute_next_version.py <<'PYEOF'
+          import os, re, sys
+          branch = os.environ["BRANCH_REF"]
+          title = os.environ["PR_TITLE"]
+          text = open("pyproject.toml").read()
+          m = re.search(r'^version\s*=\s*"([0-9]+)\.([0-9]+)\.([0-9]+)"', text, re.M)
+          if not m:
+              print("Could not parse version from pyproject.toml", file=sys.stderr)
+              sys.exit(1)
+          maj, mnr, pat = (int(g) for g in m.groups())
+          breaking = (
+              "BREAKING CHANGE" in title
+              or bool(re.match(r'^[a-z]+(\([^)]+\))?!:', title))
+          )
+          if breaking:
+              cls, nv = "major", f"{maj+1}.0.0"
+          elif branch.startswith("feat/"):
+              cls, nv = "minor", f"{maj}.{mnr+1}.0"
+          else:
+              # fix/, chore/, docs/, refactor/, devops/, and any other prefix
+              cls, nv = "patch", f"{maj}.{mnr}.{pat+1}"
+          old = f"{maj}.{mnr}.{pat}"
+          new_text = re.sub(
+              r'^(version\s*=\s*")' + re.escape(old) + r'(")',
+              rf'\g<1>{nv}\g<2>', text, count=1, flags=re.M)
+          open("pyproject.toml", "w").write(new_text)
+          print(f"old={old} new={nv} class={cls} branch={branch}", file=sys.stderr)
+          print(nv)
+          PYEOF
+
+          for attempt in 1 2 3; do
+            echo "::group::bump-on-merge attempt ${attempt}"
+            git fetch origin main
+            git reset --hard origin/main
+
+            if ! NEW=$(python3 /tmp/compute_next_version.py); then
+              echo "::error::Failed to compute next version on attempt ${attempt}"
+              echo "::endgroup::"
+              exit 1
+            fi
+
+            git add pyproject.toml
+            git commit -m "chore(release): bump version to ${NEW} [auto]"
+
+            if git push origin HEAD:main; then
+              echo "::notice title=bump-on-merge succeeded::Bumped to ${NEW} on attempt ${attempt} (pr=${PR_NUMBER}, branch=${BRANCH_REF})"
+              echo "::endgroup::"
+              exit 0
+            fi
+
+            echo "::warning::Push rejected on attempt ${attempt} (likely fast-forward race) — re-fetching"
+            sleep 2
+            echo "::endgroup::"
+          done
+
+          echo "::error title=bump-on-merge failed::pr=${PR_NUMBER} branch=${BRANCH_REF} attempts=3 — manual bump required on next PR. Publish tag-push is idempotent, so a missed bump is recoverable on the next merge."
+          exit 1
+
       - name: Read version from pyproject.toml
         if: steps.extract.outputs.found == 'true'
         id: version
