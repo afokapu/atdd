@@ -287,3 +287,46 @@ def test_from_dot_import_x_reaches_target_via_init_implicit_edge(
         f"models.py should be reachable via 'from . import models' two-hop; "
         f"unreachable={unreachable}"
     )
+
+
+# ============================================================================
+# Phase 3 — fixture-based regression test
+#
+# Mirrors the issue's reproducer (Notes section): app.py imports
+# trains.runner, runner.py uses ``from .models import Spec``. Pre-fix,
+# trains/models.py is reported unreachable because the relative-import
+# edge is missing. Post-fix, the edge is added and models.py is
+# reachable.
+#
+# Parametrized over expected-after-fix invariants. The xfail-baseline
+# variant from the issue Patch 2 is shipped as a comment (the fix lands
+# in this same PR; per the issue, the xfail decorator is to be removed
+# in-PR once it XPASSES) — we ship the post-fix assertion directly.
+# ============================================================================
+
+
+REGRESSION_REACHABLE_FILES = [
+    "trains/runner.py",  # imported by app.py via absolute import
+    "trains/models.py",  # imported by trains/runner.py via ``from .models``
+]
+
+
+@pytest.mark.coder
+@pytest.mark.parametrize("expected_reachable", REGRESSION_REACHABLE_FILES)
+def test_relative_imports_regression_no_unreachable(
+    expected_reachable, tmp_path, monkeypatch
+):
+    """Regression: issue #453's exact reproducer.
+
+    ``python/app.py`` → ``trains/runner.py`` → ``trains/models.py`` via
+    ``from .models import Spec``. Pre-fix, ``trains/models.py`` was
+    reported unreachable because the relative-import edge was missing.
+    Post-fix, the edge is created and the file is reachable.
+    """
+    unreachable = _stage_and_compute(
+        "relative_imports_regression", tmp_path, monkeypatch
+    )
+    assert expected_reachable not in unreachable, (
+        f"#453 regression: {expected_reachable} should be reachable in the "
+        f"reproducer fixture; unreachable={unreachable}"
+    )
