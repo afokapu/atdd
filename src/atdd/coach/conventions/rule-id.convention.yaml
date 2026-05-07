@@ -169,6 +169,73 @@ rule_schema:
         Canonical remediation guidance for this rule. Replaces ad-hoc
         per-Violation ``fix_hint_ref`` (Violation can still override).
         (issue #399)
+
+        ── Completeness contract (issue #467) ────────────────────────────
+        Every fix_hint — whether declared in a convention YAML or printed
+        from a CLI command (``Fix: …``) — MUST satisfy ALL FOUR clauses:
+
+          C1 — Placeholder resolution.
+            Every ``<placeholder>`` token in the hint MUST have a sibling
+            resolver line within the same hint block, of the form:
+              (see <file>::<path>)        — point at a definition site
+              (run <command>)             — name a CLI to enumerate values
+              (e.g. "<concrete-example>") — show one literal value
+            A bare ``<placeholder>`` with no resolver fails C1: the reader
+            has no way to discover what to substitute (e.g. issue #466's
+            train-required hint at commands/issue.py:1682-1684 — bare
+            ``<train_id>`` token, no resolver line).
+
+          C2 — No deprecation contradiction.
+            A hint MUST NOT recommend a CLI form flagged deprecated by any
+            ``Deprecated:`` warning the same toolkit emits. The validator
+            builds a deprecation registry from
+            ``_deprecation_warning(old, new)`` callsites in
+            ``src/atdd/cli.py`` and cross-references the first
+            atdd-subcommand referenced inside each Fix: hint.
+
+          C3 — Prerequisite disclosure.
+            When the hint's command requires an operational prerequisite
+            (worktree-cd, file existence, env-var) that produces a
+            *different* error if absent, that prerequisite MUST be
+            disclosed as step 1 of a numbered fix sequence. Heuristic:
+            hint contains a ``1.`` step marker when a known prereq pattern
+            applies.
+
+          C4 — Runnable as printed.
+            A copy-paste of the hint's command (or, for numbered hints,
+            the steps as written) MUST succeed without further
+            investigation, given the C3 prerequisite is met. Sandbox-smoke
+            verification is OPTIONAL (Phase 3 deliverable of #467); the
+            structural clauses C1-C3 are mandatory.
+
+        See the ``# === Fix-hint completeness contract ===`` exemplars
+        block below for positive + negative samples. The
+        ``coach.rule-id.fix-hint-completeness`` rule under ``rules:``
+        enforces this contract.
+      completeness_contract:
+        # Machine-readable form of the C1-C4 narrative above. Consumed by
+        # ``test_fix_hint_completeness::test_every_fix_hint_satisfies_completeness_contract``.
+        introduced_in: "3.8.0"
+        clauses:
+          - id: C1
+            name: "placeholder-resolution"
+            check: "every <placeholder> token has a sibling resolver line"
+            resolver_patterns:
+              - "(see <file>::<path>)"
+              - "(run <command>)"
+              - 'e.g. "<concrete-example>"'
+          - id: C2
+            name: "no-deprecation-contradiction"
+            check: "hint MUST NOT recommend a CLI form deprecated by a same-toolkit Deprecated: warning"
+            registry_source: "src/atdd/cli.py (_deprecation_warning callsites)"
+          - id: C3
+            name: "prerequisite-disclosure"
+            check: "when the hint's command requires a prereq, it MUST be step 1 of a numbered sequence"
+            heuristic: "hint contains a numbered '1.' step marker when a known prereq pattern applies"
+          - id: C4
+            name: "runnable-as-printed"
+            check: "copy-paste runs without investigation"
+            phase: "optional (sandbox smoke; deferred to follow-up of #467)"
     aliases:
       type: array
       items:
@@ -217,6 +284,73 @@ rules:
     introduced_in: "3.0.0"
     validator: "test_rule_validator_binding::test_every_enforced_rule_has_real_validator"
     fix_hint: "Either set validator: '<module>::<func>' on the rule and have that function call bind_rule(<id>), or change disposition to documentation-only."
+  - id: "coach.rule-id.fix-hint-completeness"
+    severity: 2
+    description: "Every fix_hint (convention-declared or CLI-printed) must satisfy the completeness contract C1-C4 in rule_schema.fields.fix_hint.description"
+    disposition: strict
+    introduced_in: "3.8.0"
+    aliases: []
+    validator: "test_fix_hint_completeness::test_every_fix_hint_satisfies_completeness_contract"
+    fix_hint: |
+      The named fix_hint fails one or more contract clauses (C1-C4). Repair as follows:
+        1. Re-run the validator to read which clause failed
+           (run: pytest src/atdd/coach/validators/test_fix_hint_completeness.py -v).
+           The Violation message names the clause + the offending token,
+           command, or structural shape.
+        2. Resolve per the failed clause:
+             - C1 placeholder resolution: for each bare ``<token>``, append
+               a resolver line in the same hint block. Patterns
+               (e.g. "(see plan/_trains.yaml::trains.id)" / "(run atdd list trains)" /
+                'e.g. "0001-self-compliance-validate"').
+             - C2 deprecation contradiction: substitute the deprecated CLI
+               form with the canonical one
+               (see src/atdd/cli.py::_deprecation_warning) — same toolkit
+               that emits the warning prints the canonical replacement.
+             - C3 prerequisite disclosure: convert the hint to a numbered
+               sequence; step 1 = the prerequisite
+               (e.g. "1. cd into the feature worktree (run: atdd branch <N>)").
+             - C4 runnable-as-printed: copy-paste the hint into a fresh
+               shell with the C3 prereq met; if it fails, simplify until it
+               succeeds. Sandbox-smoke is optional in 3.8.x.
+        3. Re-run step 1 to confirm clean.
+      Source contract: see src/atdd/coach/conventions/rule-id.convention.yaml
+      §rule_schema.fields.fix_hint.description (clauses C1-C4) and the
+      adjacent "# === Fix-hint completeness contract ===" exemplars block.
+
+# =============================================================================
+# === Fix-hint completeness contract ===
+# =============================================================================
+# Positive + negative exemplars for the C1-C4 contract declared in
+# rule_schema.fields.fix_hint.description. Validator
+# test_fix_hint_completeness consumes the contract; this block documents
+# canonical good/bad shapes so authors have a quick visual reference.
+fix_hint_exemplars:
+  positive:
+    - source: "src/atdd/tester/conventions/acceptance-violation.convention.yaml:15-100"
+      why_pass: |
+        Multi-line hints with valid-value enumerations, anchored
+        ``recipe:`` pointers, and §-references. Placeholders are bound by
+        adjacent valid-value lists (C1) or by the recipe link.
+      clauses_covered: [C1, C2, C3]
+    - source: "src/atdd/coach/commands/issue.py (the COMPLETE-walkthrough hint)"
+      observed: "2026-05-07"
+      why_pass: |
+        Numbered Fix: steps with a sibling ``Bypass:`` line documenting the
+        escape hatch. Disclosed prerequisite (rebase / artifacts / release
+        gate) appears as the leading step. Runnable as printed.
+      clauses_covered: [C1, C3, C4]
+  negative:
+    - source: "src/atdd/coach/commands/issue.py:1682-1684"
+      owner_issue: 466
+      why_fail: |
+        Single-line ``Fix: atdd update {issue_id} --status {status} --train <train_id>``
+        — bare ``<train_id>`` placeholder with no resolver line (C1 fail)
+        AND recommends the deprecated ``atdd update`` CLI form whose
+        deprecation warning is registered at src/atdd/cli.py:1783 / 1792
+        (C2 fail). After issue #466 lands the surgical fix, this site is
+        expected to comply; until then the validator surfaces it as a
+        known-defective fixture.
+      clauses_failed: [C1, C2]
 
 # =============================================================================
 # Migration playbook
