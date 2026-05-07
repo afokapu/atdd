@@ -17,12 +17,13 @@ Structured violations (issue #394): emits ``Violation`` records keyed off
 import pytest
 import re
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coder.validators.test_duplication_detector import extract_fragments
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -42,7 +43,11 @@ PYTHON_DIR = REPO_ROOT / "python"
 # MI >= 10 is "moderate", MI < 10 is "unmaintainable"
 MIN_MAINTAINABILITY_INDEX = 20
 MIN_COMMENT_RATIO = 0.10  # 10% comments
-MAX_DUPLICATE_LINES = 5
+# AST-based: window of N consecutive statements (issue #459). Calibrated against
+# src/atdd/ — value 5 keeps real-duplication signal (69 findings full-tree at
+# v3.7.5) while clearing the line-based algorithm's re-export false-positives.
+# Matches the sister detector's threshold (`coder.duplication.no-intra-layer`).
+MIN_DUPLICATE_STATEMENTS = 5
 
 
 def find_python_files() -> List[Path]:
@@ -149,50 +154,53 @@ def calculate_comment_ratio(file_path: Path) -> float:
     return comment_lines / total if total > 0 else 0.0
 
 
-def find_duplicate_code_blocks(files: List[Path]) -> List[Tuple[Path, Path, List[str]]]:
+def find_duplicate_code_blocks(
+    files: List[Path],
+) -> List[Tuple[Path, Path, int, int]]:
     """
-    Find duplicate code blocks across files.
+    Find structurally duplicate code fragments across files (issue #459).
+
+    Uses the AST-normalized sliding-window matcher from
+    ``test_duplication_detector.extract_fragments`` (Name nodes → ``"VAR"``,
+    constants → ``0``/``""``). A window of ``MIN_DUPLICATE_STATEMENTS``
+    consecutive statements that hashes equal across two different files is a
+    violation.
+
+    The rule is rename-insensitive: structurally identical functions with
+    different identifier names ARE flagged — that's the intended new behavior.
+
+    Re-export blocks (``from .x import (A, B, C, D, E)``) and other lexically-
+    similar-but-structurally-different windows do NOT match: each import is one
+    AST statement, so a 5-statement window almost never collides across
+    unrelated files. The previous hardcoded ABC/dataclass exclusion is
+    subsumed by this normalization and has been removed.
 
     Returns:
-        List of (file1, file2, duplicate_lines) tuples
+        List of ``(file_a, file_b, start_line_a, end_line_a)`` tuples — one per
+        unique ``(file_a, file_b, fragment_hash)`` collision. Line range refers
+        to the fragment as it appears in ``file_a``.
     """
-    duplicates = []
+    # hash → list of (file, start_line, end_line)
+    hash_map: Dict[str, List[Tuple[Path, int, int]]] = {}
+    for f in files:
+        for h, start, end in extract_fragments(f, MIN_DUPLICATE_STATEMENTS):
+            hash_map.setdefault(h, []).append((f, start, end))
 
-    # Simplified duplicate detection
-    # In reality, would use more sophisticated algorithm
-
-    file_contents = {}
-    for file in files:
-        try:
-            with open(file, 'r', encoding='utf-8') as f:
-                # Get normalized lines (stripped of whitespace)
-                lines = [line.strip() for line in f.readlines() if line.strip() and not line.strip().startswith('#')]
-                file_contents[file] = lines
-        except Exception:
+    seen_pairs: set = set()
+    duplicates: List[Tuple[Path, Path, int, int]] = []
+    for h, locations in hash_map.items():
+        unique_files = {loc[0] for loc in locations}
+        if len(unique_files) < 2:
             continue
-
-    # Compare files pairwise (simplified)
-    files_list = list(file_contents.keys())
-    for i, file1 in enumerate(files_list):
-        for file2 in files_list[i+1:]:
-            lines1 = file_contents[file1]
-            lines2 = file_contents[file2]
-
-            # Find consecutive duplicate lines
-            for start1 in range(len(lines1) - MAX_DUPLICATE_LINES):
-                block1 = lines1[start1:start1 + MAX_DUPLICATE_LINES]
-
-                for start2 in range(len(lines2) - MAX_DUPLICATE_LINES):
-                    block2 = lines2[start2:start2 + MAX_DUPLICATE_LINES]
-
-                    if block1 == block2:
-                        # Skip standard import blocks (common across port/adapter files)
-                        block_text = '\n'.join(block1)
-                        if 'from abc import' in block_text and 'from dataclasses import' in block_text:
-                            # Standard port/adapter imports - acceptable
-                            continue
-                        duplicates.append((file1, file2, block1))
-                        break
+        first = locations[0]
+        for other in locations[1:]:
+            if other[0] == first[0]:
+                continue
+            key = (first[0], other[0], h)
+            if key in seen_pairs:
+                continue
+            seen_pairs.add(key)
+            duplicates.append((first[0], other[0], first[1], first[2]))
 
     return duplicates
 
@@ -379,12 +387,16 @@ def test_no_significant_code_duplication():
     """
     SPEC-CODER-QUALITY-0003: No significant code duplication.
 
-    Duplicate code should be extracted into functions.
+    Duplicate code should be extracted into functions or shared helpers.
 
-    Threshold: < 5 consecutive duplicate lines
+    Threshold: ``MIN_DUPLICATE_STATEMENTS`` consecutive AST statements whose
+    normalized form (variable names → ``"VAR"``, constants → ``0``/``""``)
+    hashes equal across two different files. Issue #459 replaced the legacy
+    line-based algorithm; the per-file ``[:50]`` cap is gone — AST scans the
+    full tree in seconds.
 
     Given: All Python files
-    When: Checking for duplicate code blocks
+    When: Comparing AST statement windows by hash
     Then: Violation count does not exceed baseline (ratchet pattern)
     """
     python_files = find_python_files()
@@ -392,19 +404,20 @@ def test_no_significant_code_duplication():
     if not python_files:
         pytest.skip("No Python files found")
 
-    # Limit to avoid long running time
-    sample_files = python_files[:50]
-
-    duplicates = find_duplicate_code_blocks(sample_files)
+    duplicates = find_duplicate_code_blocks(python_files)
     violations: List[Violation] = []
-    for file1, file2, block in duplicates:
-        rel1 = file1.relative_to(REPO_ROOT)
-        rel2 = file2.relative_to(REPO_ROOT)
+    for file_a, file_b, start_line, end_line in duplicates:
+        rel_a = file_a.relative_to(REPO_ROOT)
+        rel_b = file_b.relative_to(REPO_ROOT)
+        span = end_line - start_line + 1
         violations.append(Violation(
             rule_id=_RULE_DUP.rule_id,
             severity=_RULE_DUP.severity,
-            location=f"{rel1}:1",
-            detail=f"{rel1} <-> {rel2} ({len(block)} lines)",
+            location=f"{rel_a}:{start_line}",
+            detail=(
+                f"{rel_a}:{start_line}-{end_line} <-> {rel_b} "
+                f"({MIN_DUPLICATE_STATEMENTS} identical statements, {span} lines)"
+            ),
             fix_hint_ref=_RULE_DUP.fix_hint_ref,
         ))
 
