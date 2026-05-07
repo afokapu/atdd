@@ -126,13 +126,22 @@ class ATDDCoach:
         split: bool = True,
         local: bool = False,
         skip_api: bool = False,
+        api_only: bool = False,
         no_diagnostics: bool = False,
     ) -> int:
         """Run ATDD validators."""
         if quick:
             return self.validator_runner.quick_check()
 
-        markers = ["not github_api"] if skip_api else None
+        # Issue #473: --skip-api and --api-only are symmetric counterparts.
+        # The argparse layer enforces mutual exclusivity; here we map either
+        # flag to the appropriate pytest marker filter.
+        if skip_api:
+            markers = ["not github_api"]
+        elif api_only:
+            markers = ["github_api"]
+        else:
+            markers = None
 
         return self.validator_runner.run_tests(
             phase=phase,
@@ -356,11 +365,20 @@ Phase descriptions:
         action="store_true",
         help="Run validators locally (default: GH Actions only)"
     )
-    validate_parser.add_argument(
+    # Issue #473: --skip-api / --api-only are mutually exclusive (running both
+    # at once would resolve to an empty marker set and silently skip all tests).
+    api_group = validate_parser.add_mutually_exclusive_group()
+    api_group.add_argument(
         "--skip-api",
         action="store_true",
         dest="skip_api",
         help="Skip github_api tests (for offline development)"
+    )
+    api_group.add_argument(
+        "--api-only",
+        action="store_true",
+        dest="api_only",
+        help="Run ONLY github_api tests (counterpart to --skip-api)"
     )
     validate_parser.add_argument(
         "--verify-baseline",
@@ -1682,6 +1700,7 @@ Phase descriptions:
 
         coach = ATDDCoach(repo_root=repo_path)
         skip_api = getattr(args, 'skip_api', False)
+        api_only = getattr(args, 'api_only', False)
         no_diagnostics = getattr(args, 'no_diagnostics', False)
         rc = coach.run_validators(
             phase=args.phase,
@@ -1689,9 +1708,10 @@ Phase descriptions:
             coverage=args.coverage,
             html=args.html,
             quick=args.quick,
-            split=not args.no_split and not skip_api,
+            split=not args.no_split and not skip_api and not api_only,
             local=args.local,
             skip_api=skip_api,
+            api_only=api_only,
             no_diagnostics=no_diagnostics,
         )
 
