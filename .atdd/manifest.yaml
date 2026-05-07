@@ -307,6 +307,14 @@ sessions:
   status: PLANNED
   created: '2026-05-07'
   archived: null
+- id: '462'
+  slug: publish-workflow-resilience
+  file: null
+  issue_number: 462
+  type: fix
+  status: PLANNED
+  created: '2026-05-07'
+  archived: null
   wagon: null
   feature: null
   train: 0001-self-compliance-validate
