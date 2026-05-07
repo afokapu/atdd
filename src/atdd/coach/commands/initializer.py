@@ -1467,7 +1467,7 @@ class ProjectInitializer:
         run: pip3 install atdd
 
       - name: Run {phase} validators
-        run: atdd validate {phase}{' -m "not github_api"' if phase == 'coach' else ''}
+        run: atdd validate {phase}{' --skip-api' if phase == 'coach' else ''}
         env:
           GH_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}
 """
