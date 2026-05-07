@@ -1681,7 +1681,14 @@ class IssueManager:
                     if not current_train or current_train.upper() == "TBD":
                         print(f"Error: Train field required for {issue_type or 'unknown'} type before transitioning to {status}")
                         print(f"  Current Train: {current_train or '(empty)'}")
-                        print(f"  Fix: atdd update {issue_id} --status {status} --train <train_id>")
+                        print( "  Fix:")
+                        print( "    1. cd into the issue's worktree (find via: git worktree list | grep <branch>):")
+                        print( "       cd /path/to/<feat-or-fix>-<slug>")
+                        print( "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"0001-self-compliance-validate\")")
+                        print( "    3. Run:")
+                        print(f"       atdd issue {issue_id} --status {status} --train <train_id>")
+                        print( "  Why train: implementation-type issues require lineage to a Train past PLANNED")
+                        print( "  so cross-cutting work threads to a shared journey. (See `plan/_trains.yaml`.)")
                         return 1
                 except GitHubClientError:
                     # If we can't read fields, allow the transition (fail open)

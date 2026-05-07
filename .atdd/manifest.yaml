@@ -318,3 +318,14 @@ sessions:
   wagon: null
   feature: null
   train: 0001-self-compliance-validate
+- id: '466'
+  slug: train-required-fix-hint-incomplete
+  file: null
+  issue_number: 466
+  type: fix
+  status: RED
+  created: '2026-05-07'
+  archived: null
+  wagon: null
+  feature: null
+  train: 0001-self-compliance-validate
