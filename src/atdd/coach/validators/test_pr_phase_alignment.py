@@ -5,8 +5,8 @@ Purpose: Verify that PR content matches the linked issue's ATDD phase label.
 A PR that merges code changes while the linked issue is still at INIT or
 PLANNED indicates skipped lifecycle phases (the incident pattern from #256).
 A PR that merges code changes while the linked issue is at GREEN indicates
-a missing SMOKE phase (the incident pattern from janetbusiness/jel-app#307,
-#308 — see issue #293).
+a missing SMOKE phase (the incident pattern from a downstream consumer repo
+PRs #307, #308 — see issue #293).
 
 Phase mapping:
     INIT / PLANNED  → warn (ratcheted): expect plan/contract artifacts only

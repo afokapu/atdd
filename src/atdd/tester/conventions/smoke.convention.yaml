@@ -243,7 +243,7 @@ validation:
       rationale: |
         Steady-state coverage (issue #293). Distinct from
         COACH-RATCHET-PRES-001 (#358), which only fires on ratchet-shrink
-        events. Evidence PRs: janetbusiness/jel-app#307, #308.
+        events. Evidence: downstream consumer repo PRs #307, #308.
 
 # CI Integration (issue #293)
 ci_integration:

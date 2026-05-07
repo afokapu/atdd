@@ -18,7 +18,7 @@ Distinct from sibling validators:
 
 This validator is steady-state: it fires whether or not the file changed,
 catching regressions where a presentation file lands without any browser
-verification (consumer-repo evidence: ``janetbusiness/jel-app#307``, ``#308``).
+verification (downstream consumer repo evidence: PRs #307, #308).
 
 Severity 3 (architectural) per #340 + smoke.convention.yaml — advisory + gate,
 not stop-the-world. Ratcheted via ``.atdd/baselines/tester.yaml``.
