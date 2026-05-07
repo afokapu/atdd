@@ -169,53 +169,12 @@ jobs:
         if: env.SMOKE_BASE_URL != ''
         run: npx playwright test "e2e/**/*smoke*.spec.ts"
 
-  version-bump:
-    name: Version bump check
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Check version was bumped
-        run: |
-          pip3 install pyyaml -q
-          python3 - <<'PYEOF'
-          import yaml, re, json, subprocess, sys
-
-          cfg = yaml.safe_load(open(".atdd/config.yaml"))
-          vf = cfg["release"]["version_file"]
-
-          def read_version(content, filename):
-              if filename.endswith(".toml"):
-                  m = re.search(r'^version\s*=\s*["\x27]([^"\x27]+)["\x27]', content, re.M)
-                  return m.group(1) if m else ""
-              elif filename.endswith(".json"):
-                  return json.loads(content).get("version", "")
-              else:
-                  return content.strip().split()[0]
-
-          # PR branch version (current checkout)
-          pr_version = read_version(open(vf).read(), vf)
-
-          # Main branch version
-          main_content = subprocess.check_output(
-              ["git", "show", f"origin/main:{vf}"], text=True
-          )
-          main_version = read_version(main_content, vf)
-
-          if pr_version == main_version:
-              print(f"::error::Version not bumped. PR: {pr_version}, main: {main_version}")
-              print(f"Bump the version in {vf} before merging.")
-              sys.exit(1)
-          else:
-              print(f"Version bumped: {main_version} → {pr_version}")
-          PYEOF
+  # Note: the pre-merge `version-bump` PR check was removed in #462 phase 2.
+  # Version is now bumped automatically on main by the bump-on-merge step in
+  # `.github/workflows/post-merge-lifecycle.yml` (branch-prefix → semver
+  # class). Branch protection's `Version bump check` required-check must be
+  # removed by an admin BEFORE this PR merges, otherwise PRs will hang on a
+  # check that no longer reports.
 
   validate-gate:
     needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-smoke]
