@@ -34,6 +34,8 @@ class AgentConfigSync:
         "codex": "AGENTS.md",
         "gemini": "GEMINI.md",
         "qwen": "QWEN.md",
+        "glm": "GLM.md",
+        "mistral": "MISTRAL.md",
     }
 
     BLOCK_BEGIN = "# --- ATDD:BEGIN (managed by atdd, do not edit) ---"
