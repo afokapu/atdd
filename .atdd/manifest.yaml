@@ -340,3 +340,14 @@ sessions:
   wagon: null
   feature: null
   train: 0001-self-compliance-validate
+- id: '473-phase-2'
+  slug: 473-api-only-and-drift
+  file: null
+  issue_number: 473
+  type: feat
+  status: RED
+  created: '2026-05-07'
+  archived: null
+  wagon: null
+  feature: null
+  train: 0001-self-compliance-validate

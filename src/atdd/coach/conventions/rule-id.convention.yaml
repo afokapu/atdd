@@ -284,6 +284,31 @@ rules:
     introduced_in: "3.0.0"
     validator: "test_rule_validator_binding::test_every_enforced_rule_has_real_validator"
     fix_hint: "Either set validator: '<module>::<func>' on the rule and have that function call bind_rule(<id>), or change disposition to documentation-only."
+  - id: "coach.initializer.template-cli-drift"
+    severity: 2
+    description: "Every `run: atdd ...` literal the initializer writes into consumer workflow templates must parse cleanly under the live atdd argparse"
+    disposition: strict
+    introduced_in: "3.11.0"
+    aliases: []
+    validator: "test_workflow_template_command_drift::test_every_run_line_parses_under_live_cli"
+    fix_hint: |
+      The named `run: atdd ...` line in src/atdd/coach/commands/initializer.py
+      emits a flag the live `atdd` argparse no longer accepts. Reproducer
+      case: the 3.10.0 release dropped `-m FLAG` from `atdd validate` while
+      the workflow templates still emitted `-m "not github_api"` (issue
+      #473). Repair as follows:
+
+        1. Read the validator output — the Violation cites the file:line
+           and the offending tokens (run: pytest src/atdd/coach/validators/test_workflow_template_command_drift.py -v).
+        2. Substitute the dead flag with the supported equivalent — for
+           the marker family the canonical mapping is:
+             -m "not github_api"  →  --skip-api
+             -m github_api        →  --api-only
+           (see src/atdd/cli.py::validate_parser for the live flag set;
+            run `atdd validate --help` to enumerate.)
+        3. Re-emit by re-running the unit test
+           src/atdd/coach/commands/tests/test_initializer_workflow_emission.py
+           which feeds every emitted run-line through the live argparse.
   - id: "coach.rule-id.fix-hint-completeness"
     severity: 2
     description: "Every fix_hint (convention-declared or CLI-printed) must satisfy the completeness contract C1-C4 in rule_schema.fields.fix_hint.description"
