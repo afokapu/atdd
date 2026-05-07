@@ -670,9 +670,23 @@ issues:
   # generation, Project v2 field setup, and worktree metadata.
   # The coach validator (`atdd validate coach`) will flag issues that exist
   # on GitHub but are missing from .atdd/manifest.yaml.
+  #
+  # PR creation specifically: the canonical site is `atdd pr <N>`, which
+  # validates `--base` against the repo's default branch (#477). Direct
+  # `gh pr create` invocations bypass that guard. The lived incident:
+  # PR #475 (the v3.11.0 #473-Phase-2+3 work) was opened with
+  # `gh pr create` and inherited a sibling-PR's branch as its base; when
+  # the sibling merged + auto-deleted that branch, #475's squash-merge
+  # commit landed on a phantom ref invisible to `git log main`. The
+  # v3.11.0 deliverable was orphaned — Closes #473 fired without the work
+  # actually shipping. Recovery cost: PR #476, manual conflict resolution,
+  # ~15 min. The Phase-2 coach validator
+  # (`coach.pr.base-must-be-default-branch`) now flags any open PR with a
+  # non-default base on every `atdd validate coach` run. Use `atdd pr <N>`
+  # for ALL PR creation.
   prohibited_commands:
     - "gh issue create    → use: atdd issue <slug>"
-    - "gh pr create       → use: atdd branch <N> (creates worktree + PR-ready branch)"
+    - "gh pr create       → use: atdd pr <N>  (validates --base against the repo default branch; #477 / #475 orphan-merge incident)"
 
   archetypes:
     db: "Supabase PostgreSQL + JSONB"
