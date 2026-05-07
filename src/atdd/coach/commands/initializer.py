@@ -1695,7 +1695,7 @@ class ProjectInitializer:
             "        run: pip3 install atdd\n"
             "\n"
             '      - name: Run github_api validators\n'
-            '        run: atdd validate coach -m github_api\n'
+            '        run: atdd validate coach --api-only\n'
             "        env:\n"
             "          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n"
         )
