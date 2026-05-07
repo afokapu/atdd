@@ -95,7 +95,10 @@ def scan_issue_advancement(repo_root: Path) -> Tuple[int, Sequence]:
                 f"PR #{pr_number} merged ({merged_at}) but linked issue "
                 f"#{issue_number} is still at {phase} — expected phase "
                 f"advancement after merge. "
-                f"Fix: atdd issue {issue_number} --status <next-phase>"
+                f"Fix: atdd issue {issue_number} --status <next-phase> "
+                f'(e.g. "REFACTOR" or "COMPLETE"; '
+                f"see CLAUDE.md::state_machine.transitions for the valid "
+                f"transitions out of {phase})."
             )
             logging.getLogger(__name__).warning(
                 "SPEC-COACH-PRGATE-0003: PR #%d merged but issue #%d "

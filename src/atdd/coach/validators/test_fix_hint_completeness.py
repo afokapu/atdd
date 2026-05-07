@@ -158,8 +158,27 @@ def collect_yaml_hints() -> List[Hint]:
     return out
 
 
+_HINT_BLOCK_LOOKAHEAD = 6
+
+
+def _is_string_continuation(line: str) -> bool:
+    """A line that continues a string-literal hint block.
+
+    Heuristic: leading whitespace then ``"``, ``'``, ``f"``, or ``f'``.
+    Stops at lines that start a new statement, close the call, or
+    introduce a separator like ``Bypass:`` (handled by caller).
+    """
+    s = line.lstrip()
+    return s.startswith(('f"', "f'", '"', "'"))
+
+
 def collect_py_hints() -> List[Hint]:
-    """Extract every ``print(... Fix: ...)`` literal under the toolkit."""
+    """Extract every ``Fix: …`` literal under the toolkit.
+
+    A hint is the ``Fix:`` body PLUS up to ``_HINT_BLOCK_LOOKAHEAD``
+    subsequent string-continuation lines (so resolver-pattern lines like
+    ``(e.g. "...")`` placed on the next f-string fragment are picked up).
+    """
     out: List[Hint] = []
     for root in _PY_HINT_ROOTS:
         if not root.is_dir():
@@ -171,19 +190,32 @@ def collect_py_hints() -> List[Hint]:
                 source = py.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
-            for lineno, raw in enumerate(source.splitlines(), 1):
-                # Skip the validator's own file and its Deprecated: registry.
+            lines = source.splitlines()
+            for idx, raw in enumerate(lines):
+                lineno = idx + 1
                 if "Fix:" not in raw:
                     continue
-                # Must be inside a string literal in a print/return/log call.
-                if "print" not in raw and "lines.append" not in raw and 'f"' not in raw and "f'" not in raw:
+                if (
+                    "print" not in raw
+                    and "lines.append" not in raw
+                    and 'f"' not in raw
+                    and "f'" not in raw
+                ):
                     continue
                 m = _FIX_INLINE_RE.search(raw)
                 if not m:
                     continue
-                body = m.group("body").rstrip()
-                # Strip closing quote / paren artifacts.
-                body = body.rstrip(')\'"` ').rstrip()
+                body_parts: List[str] = [m.group("body").rstrip().rstrip(')\'"` ').rstrip()]
+                # Pull in continuation string fragments to capture resolver
+                # patterns split across f-string concatenation.
+                for j in range(idx + 1, min(idx + 1 + _HINT_BLOCK_LOOKAHEAD, len(lines))):
+                    nxt = lines[j]
+                    if "Fix:" in nxt or "Bypass:" in nxt:
+                        break
+                    if not _is_string_continuation(nxt):
+                        break
+                    body_parts.append(nxt.strip().strip(')\'"` ').strip())
+                body = "\n".join(p for p in body_parts if p)
                 if not body:
                     continue
                 out.append(
