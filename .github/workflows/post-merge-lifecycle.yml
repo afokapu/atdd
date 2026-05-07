@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-      contents: read
+      contents: write   # bump-on-merge step pushes a follow-up commit to main
     steps:
       - name: Extract linked issue number
         id: extract
