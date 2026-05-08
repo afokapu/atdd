@@ -1,0 +1,35 @@
+urn: "wmbt:freeze-runtime-contracts:D004"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "divergent-temporal-assumptions-across-tracks"
+context_clarifier: "when six parallel coach v9 tracks consume runtime events and would otherwise form different temporal assumptions about producer, triggering condition, idempotency, ordering, and replay behavior — surfacing concurrency bugs only at #Q1 integration. Schemas freeze shape; this WMBT freezes semantics for the 12 event types (agent_spawned, heartbeat, commit_observed, event_emitted, escalation_emitted, pr_opened, pr_closed, validation_pending, validation_complete, review_complete, correction_emitted, process_silence)"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of divergent-temporal-assumptions-across-tracks when six parallel coach v9 tracks consume runtime events without an explicit per-event-type semantic contract"
+acceptances:
+  - identity:
+      urn: "acc:freeze-runtime-contracts:D004-UNIT-001-event-semantics-doc-complete"
+      id: "AC-UNIT-001"
+      purpose: "event-semantics.md is committed at src/atdd/coach/schemas/event-semantics.md and specifies producer + triggering condition + idempotency + ordering + replay for every one of the 12 event types"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/schemas/event-semantics.md exists in the repository"
+        - "runtime-event.schema.json enumerates the 12 event types"
+    when:
+      abstract: "A linter test cross-checks event-semantics.md against the schema enumeration"
+    then:
+      abstract:
+        - "Every one of the 12 event types has its own subsection in event-semantics.md"
+        - "Each subsection specifies Producer (the component that emits)"
+        - "Each subsection specifies Triggering condition (the precise state change that emits)"
+        - "Each subsection specifies Idempotency contract (at-least-once vs exactly-once; whether consumers must dedupe)"
+        - "Each subsection specifies Ordering guarantees (per-agent total order, cross-agent partial order, or none)"
+        - "Each subsection specifies Replay behavior (does the event re-fire on coach --resume; cached; idempotently re-applied)"
+        - "All track owners (J1, K1, L1, M1, N1, O1, P1) sign off on the document before merge"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-08"

@@ -1,0 +1,92 @@
+You are bootstrap-agent for ATDD coach v9. Your worktree is /Users/alecfokapu/Github/atdd/feat-coach-v9-bootstrap on branch feat/coach-v9-bootstrap. Your task is the **validation slice** for the coach v9 plan-artifact bootstrap effort. Land it, push, open a PR, and report done.
+
+## Read first (in this order)
+
+1. .coach-v9-bootstrap/briefing/track-wagon-map.md — train + 9-wagon table, archetype map, filing order
+2. .coach-v9-bootstrap/briefing/compliant-issue-template.md — body shape every coach-v9 issue must follow
+3. .coach-v9-bootstrap/briefing/spec.md §0–§5 (coach v9 spec) — at minimum read sections 0.1–0.2 (existing substrate, what's absorbed), §3 folder structure, §4 state machine, §5.1 atdd coach CLI
+4. .coach-v9-bootstrap/briefing/issues-v3.md — find issue #C0 (Track C0, line ~66 onward) — your single issue to file in this slice
+5. plan/_trains/0001-self-compliance-validate.yaml — schema reference for the train YAML you'll write
+6. plan/_wagons.yaml and plan/govern_lifecycle/_govern_lifecycle.yaml — schema reference for wagon entries + manifest
+7. plan/govern_lifecycle/D001.yaml, E001.yaml, C001.yaml — WMBT YAML schema reference
+8. plan/govern_lifecycle/features/custom_themes.yaml — feature YAML schema reference
+9. .coach-v9-bootstrap/briefing/example-477.json, example-481.json — compliant filed-issue body examples
+
+## Deliver
+
+### 1. Train YAML
+
+Write plan/_trains/0002-coach-drives-lifecycle.yaml. Train describes the coach v9 build-out journey: replace polling-and-trust with event-driven, observer-augmented coach that drives issue → merged-PR lifecycle. Sequence per spec §11.1 — C0 contracts freeze first, then state-machine + spawn + observer + validators + judge in parallel, then reviewer (depends on K2+M3), then discovery/decom, then end-to-end integration (#Q1) as done-line. List all 9 wagons under participants. Use 0001-self-compliance-validate.yaml as schema reference.
+
+Append a stub entry for the train in plan/_trains.yaml (whatever the registry shape is — open the file and follow precedent).
+
+### 2. _wagons.yaml — append 9 entries
+
+Append to plan/_wagons.yaml — one entry per wagon from track-wagon-map.md. Each entry follows the existing pattern (wagon, description, theme: commons, subject, context, action, goal, outcome, path, manifest). Subject for each wagon should be `agent:coach` since every track delivers coach machinery.
+
+### 3. coach-contracts wagon (the single wagon you author in this slice)
+
+Snake-case directory: plan/freeze_runtime_contracts/
+
+Create:
+
+a. plan/freeze_runtime_contracts/_freeze_runtime_contracts.yaml — wagon manifest. Mirror plan/govern_lifecycle/_govern_lifecycle.yaml shape exactly: wagon, urn (`wagon:freeze-runtime-contracts`), name, description, theme: commons, subject (`agent:coach`), context, action, goal, outcome, produce[] (this wagon produces the runtime/event/judgment/correction/validator-result/risk-score JSON schemas + the runtime-layout, validator-invocation, and event-semantics docs — name each as a distinct produce entry), consume[] (this wagon consumes nothing — it's the contract-freeze entry point).
+
+b. plan/freeze_runtime_contracts/features/runtime-schema-freeze.yaml — feature YAML. urn: feature:freeze-runtime-contracts:runtime-schema-freeze. Lists the WMBTs created next. sizing.wmbts = 4 (D001 schemas, D002 layout doc, D003 invocation contract, D004 event semantics). components fields per the existing feature-YAML pattern.
+
+c. WMBT YAMLs (4 of them):
+   - D001.yaml: define — minimize quantity of unfrozen-coach-runtime-schemas. acceptances cover all six schemas (runtime-event, coach-decision, coach-judgment, correction, validator-result, risk-score) existing as committed files at src/atdd/coach/schemas/, each with at least one valid example fixture.
+   - D002.yaml: define — minimize ambiguity-in-runtime-directory-layout. Acceptances cover runtime-layout.md being committed and approved.
+   - D003.yaml: define — minimize ambiguity-in-validator-invocation-contract. Acceptances cover validator-invocation.md.
+   - D004.yaml: define — minimize divergent-temporal-assumptions-across-tracks (per spec §C0 event-semantics.md rationale). Acceptances cover event-semantics.md being committed with the 12 event types each having producer + triggering condition + idempotency + ordering + replay defined.
+
+Mirror plan/govern_lifecycle/D001.yaml schema EXACTLY: urn, step, direction, dimension, object_of_control, context_clarifier, lens, statement, acceptances[] each with identity (urn, id, purpose, phase), harness (type, category), given.abstract[], when.abstract, then.abstract[], metadata (author: "atdd:self-compliance", created: "2026-05-08").
+
+### 4. Author + file the C0 issue
+
+Author the C0 issue body per .coach-v9-bootstrap/briefing/compliant-issue-template.md. The v3-spec body for C0 is in .coach-v9-bootstrap/briefing/issues-v3.md. Use it as the source of Scope.In-Scope items + Acceptance.
+
+Issue Metadata table values for C0:
+| Field | Value |
+| Date | `2026-05-08` |
+| Status | `INIT` |
+| Type | `implementation` |
+| Branch | `feat/coach-v9-c0-runtime-contracts` |
+| Archetypes | `coach` |
+| Train | `0002-coach-drives-lifecycle` |
+| Wagon | `freeze-runtime-contracts` |
+| Internal-Spec-Id | `C0` |
+| Feature | Centralized JSON schemas for runtime events, decisions, judgments, corrections, validator results; runtime layout + validator invocation + event semantics docs that unblock parallel coach v9 tracks |
+
+The Acceptance section MUST reference the 4 WMBT acceptance URNs you created above (e.g., acc:freeze-runtime-contracts:D001-UNIT-001-six-schemas-exist). Use those URNs verbatim as the leading token of each acceptance bullet.
+
+File via `gh issue create --title "feat(coach): freeze coach v9 runtime + validator contracts" --body-file <path-to-body> --label atdd-issue --label atdd:INIT --label track-c0 --label wave-w0 --label archetype:coach --label coordination`.
+
+After filing succeeds, capture the new issue number (gh stdout / gh issue list filter) and write to .coach-v9-bootstrap/mapping/internal-to-gh.json: `{"C0": <new-issue-number>}` (overwrite the empty `{}`).
+
+### 5. Commit, push, open PR
+
+Commit message:
+  feat(coach): coach v9 plan/ scaffolding — validation slice (C0)
+
+  Adds train 0002-coach-drives-lifecycle, registers 9 wagons, ships
+  coach-contracts wagon (freeze-runtime-contracts) with manifest, feature,
+  and 4 WMBT YAMLs. Files coach-v9 issue #C0 (GitHub #<N>) bound to the
+  train+wagon URNs.
+
+  This is the validation slice; remaining 8 wagons + 41 issues follow
+  in parallel after merge.
+
+Push: `git push -u origin feat/coach-v9-bootstrap`
+PR: `atdd pr` if available; otherwise `gh pr create --base main --title "feat(coach): coach v9 plan/ scaffolding — validation slice" --body "<short summary>"`. The PR's body MUST link to the freshly-filed issue #C0 by GH number.
+
+### 6. Report done
+
+When the PR is open, leave the pane in this state:
+- Last shell line: PR URL (`gh pr view --web` or just printed)
+- mapping/internal-to-gh.json: `{"C0": <N>}`
+- A note in the PR body: "Validation slice landed; remaining 8 wagons dispatched in parallel after merge."
+
+Do not stop early. Do not skip steps. If you hit a blocker, escalate via a comment on the open PR (or print the blocker prominently and exit non-zero so the orchestrator notices). Use `atdd validate` after authoring the wagon YAML to confirm schema compliance before committing — fix any violations in place.
+
+Begin.

@@ -1,0 +1,61 @@
+wagon: freeze-runtime-contracts
+urn: "wagon:freeze-runtime-contracts"
+name: "Freeze Runtime Contracts"
+description: "Coordination prerequisite for all coach v9 parallel tracks: centralized JSON schemas for runtime events, decisions, judgments, corrections, validator results, risk scores, plus runtime-layout, validator-invocation, and event-semantics docs at src/atdd/coach/schemas/"
+theme: commons
+
+subject: "agent:coach"
+context: "in-coach-v9-bootstrap, six-tracks-need-stable-cross-interface"
+action: "freezes coach-internal artifact contracts before parallel tracks begin"
+goal: "eliminate cross-track merge conflicts and divergent temporal assumptions in coach v9"
+outcome: "six committed JSON schemas with example fixtures plus three reviewed-and-approved contract docs at src/atdd/coach/schemas/"
+
+features:
+  - urn: "feature:freeze-runtime-contracts:runtime-schema-freeze"
+
+produce:
+  - name: commons:coach:runtime-event-schema
+    contract: "contract:commons:coach:runtime-event"
+    telemetry: null
+    to: external
+  - name: commons:coach:decision-schema
+    contract: "contract:commons:coach:decision"
+    telemetry: null
+    to: external
+  - name: commons:coach:judgment-schema
+    contract: "contract:commons:coach:judgment"
+    telemetry: null
+    to: external
+  - name: commons:coach:correction-schema
+    contract: "contract:commons:coach:correction"
+    telemetry: null
+    to: external
+  - name: commons:coach:validator-result-schema
+    contract: "contract:commons:coach:validator-result"
+    telemetry: null
+    to: external
+  - name: commons:coach:risk-score-schema
+    contract: "contract:commons:coach:risk-score"
+    telemetry: null
+    to: external
+  - name: commons:coach:runtime-layout-doc
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validator-invocation-doc
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:event-semantics-doc
+    contract: null
+    telemetry: null
+    to: external
+
+consume: []
+
+wmbt:
+  total: 4
+  D001: "minimize quantity of unfrozen-coach-runtime-schemas"
+  D002: "minimize ambiguity-in-runtime-directory-layout"
+  D003: "minimize ambiguity-in-validator-invocation-contract"
+  D004: "minimize divergent-temporal-assumptions-across-tracks"

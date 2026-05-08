@@ -1,0 +1,31 @@
+urn: "wmbt:freeze-runtime-contracts:D002"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "ambiguity-in-runtime-directory-layout"
+context_clarifier: "when parallel coach v9 tracks must agree on the directory and file structure under .atdd/runtime/ — agents/<id>/heartbeat.json, agents/<id>/output.log, agents/<id>/events.jsonl, agents/<id>/corrections.jsonl, coach/decisions.jsonl, coach/judgments.jsonl, validations/<sha>/violations.jsonl, validations/<sha>/risk-score.json, validations/<sha>/suppressed.jsonl, validations/<sha>/stale-suppressions.jsonl — and each file's role, writer, reader, append-only-vs-rewritten semantics, and JSON-line-vs-single-doc shape"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of ambiguity-in-runtime-directory-layout when parallel coach v9 tracks must agree on the directory and file structure under .atdd/runtime/ and each file's writer/reader/appendability semantics"
+acceptances:
+  - identity:
+      urn: "acc:freeze-runtime-contracts:D002-UNIT-001-runtime-layout-doc-committed"
+      id: "AC-UNIT-001"
+      purpose: "runtime-layout.md is committed at src/atdd/coach/schemas/runtime-layout.md and reviewed-and-approved by all track owners"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/schemas/runtime-layout.md exists in the repository"
+        - "All track owners (J1, K1, L1, M1, N1, O1, P1) sign off on the document before merge"
+    when:
+      abstract: "A linter test scans runtime-layout.md for the required entries"
+    then:
+      abstract:
+        - "Every file path under .atdd/runtime/ enumerated in spec §3.2 is documented with role, writer, reader, append-only-vs-rewritten, and JSON-line-vs-single-doc"
+        - "agents/<id>/, coach/, validations/<sha>/, issue-reviews/<issue-N>/, runs/<run-id>/ all appear with their child-file contracts"
+        - "The document references the JSON Schemas it complements (runtime-event.schema.json, etc.) by relative path"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-08"
