@@ -15,13 +15,13 @@ from __future__ import annotations
 import logging
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Final, Optional
 
 import yaml
 
 logger = logging.getLogger(__name__)
 
-_FALLBACK = "main"
+_FALLBACK: Final[str] = "main"
 
 
 def _read_from_config(repo_root: Path) -> Optional[str]:
