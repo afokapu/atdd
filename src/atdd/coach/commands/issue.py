@@ -1567,6 +1567,45 @@ class IssueManager:
         )
         return False, messages
 
+    def _validate_pr_exists_for_branch(
+        self, branch_name: str,
+    ) -> Tuple[bool, List[str]]:
+        """Issue #478: PR-existence check for INIT → PLANNED gate.
+
+        Returns ``(exists, messages)``. ``exists`` is True when ``gh pr list
+        --head <branch>`` returns a non-empty result. Subprocess failures
+        (gh missing, timeout) fail-open with True so the gate never wedges
+        a transition on local tooling problems.
+        """
+        messages: List[str] = []
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "list", "--head", branch_name,
+                 "--state", "open", "--json", "number",
+                 "--jq", ".[0].number"],
+                capture_output=True, text=True, timeout=10,
+                cwd=str(self.target_dir),
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            logger.debug(
+                "PR-existence gate fail-open: %s",
+                exc,
+                extra={"branch": branch_name, "action": "fail_open"},
+            )
+            return True, []
+        if result.returncode != 0:
+            logger.debug(
+                "gh pr list failed; PR-existence gate fail-open: %s",
+                result.stderr.strip(),
+                extra={"branch": branch_name, "action": "fail_open"},
+            )
+            return True, []
+        pr_number = result.stdout.strip()
+        if pr_number:
+            messages.append(f"  PR: #{pr_number} found for branch '{branch_name}'")
+            return True, messages
+        return False, messages
+
     # -------------------------------------------------------------------------
     # E004: update
     # -------------------------------------------------------------------------
@@ -1693,6 +1732,50 @@ class IssueManager:
                 except GitHubClientError:
                     # If we can't read fields, allow the transition (fail open)
                     logger.debug("Could not read Train field, allowing transition", extra={"action": "fail_open"})
+
+            # Issue #478 — PR-existence gate at INIT → PLANNED.
+            # `atdd branch` defers PR creation; `atdd pr` opens it post-commit.
+            # Block PLANNED transition when no PR exists for the issue's branch.
+            # --force bypasses the gate with a ::warning::.
+            if status == "PLANNED":
+                gate_branch = branch
+                if not gate_branch:
+                    try:
+                        field_values = client.get_project_item_field_values(item_id)
+                        gate_branch = (field_values.get("ATDD Branch") or "").strip()
+                    except GitHubClientError:
+                        gate_branch = ""
+
+                if gate_branch:
+                    pr_exists, pr_messages = self._validate_pr_exists_for_branch(
+                        gate_branch
+                    )
+                    for msg in pr_messages:
+                        print(msg)
+                    if not pr_exists:
+                        if force:
+                            print(
+                                "::warning::PR-existence gate bypassed (--force); "
+                                f"branch '{gate_branch}' has no open PR."
+                            )
+                        else:
+                            print(
+                                f"\nError: No open PR found for branch "
+                                f"'{gate_branch}' — cannot transition to PLANNED."
+                            )
+                            print( "  Fix:")
+                            print( "    1. cd into the issue's worktree")
+                            print( "       (find via: git worktree list | grep <branch>):")
+                            print(f"       cd /path/to/<feat-or-fix>-<slug>")
+                            print( "    2. Make at least one commit on the branch:")
+                            print( "       git add <files> && git commit -m \"<message>\"")
+                            print( "       git push")
+                            print(f"    3. atdd pr {issue_id}")
+                            print(f"    4. atdd issue {issue_id} --status PLANNED")
+                            print( "  Why PR: PLANNED transition assumes the branch is reviewable;")
+                            print( "          a draft PR is the canonical review surface. (See #478.)")
+                            print(f"  Bypass: atdd issue {issue_id} --status PLANNED --force")
+                            return 1
 
             # Train cross-reference: validate --train value against _trains.yaml
             # This check applies regardless of --force (identity enforcement)

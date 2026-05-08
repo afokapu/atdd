@@ -20,8 +20,24 @@ import yaml
 
 from atdd.coach.commands.issue import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
 from atdd.coach.github import GitHubClient, GitHubClientError, ProjectConfig
+from atdd.coach.utils.default_branch import resolve_default_branch
 
 logger = logging.getLogger(__name__)
+
+
+def _rev_count_past_default(worktree_path: Path, default_branch: str) -> Optional[int]:
+    """Return commits in HEAD past origin/<default_branch>; None on failure."""
+    result = subprocess.run(
+        ["git", "rev-list", "--count", f"origin/{default_branch}..HEAD"],
+        capture_output=True, text=True, timeout=10,
+        cwd=worktree_path,
+    )
+    if result.returncode != 0:
+        return None
+    out = result.stdout.strip()
+    if not out.isdigit():
+        return None
+    return int(out)
 
 
 class BranchManager:
@@ -54,6 +70,24 @@ class BranchManager:
             print(f"  PR: #{pr_num} already exists")
             return
 
+        default_branch = resolve_default_branch(self.target_dir)
+
+        # Defer PR creation when the branch has no commits past default.
+        # GitHub's createPullRequest mutation hard-fails when head==base, and
+        # the standard `atdd branch` flow always lands on an empty branch.
+        rev_count = _rev_count_past_default(worktree_path, default_branch)
+        if rev_count == 0:
+            print(
+                f"  Note: Draft PR deferred — branch has 0 commits past "
+                f"`{default_branch}`."
+            )
+            print(
+                f"        Commit your work, then run `atdd pr {issue_number}` "
+                f"to open the draft PR."
+            )
+            print( "        See `CLAUDE.md::issues.commands.new` for lifecycle.")
+            return
+
         # Fetch issue title for the PR title
         prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
         pr_title = f"{prefix}: {slug.replace('-', ' ')} (#{issue_number})"
@@ -74,7 +108,7 @@ class BranchManager:
              "--title", pr_title,
              "--body", pr_body,
              "--head", branch_name,
-             "--base", "main"],
+             "--base", default_branch],
             capture_output=True, text=True, timeout=15,
             cwd=worktree_path,
         )
@@ -82,7 +116,14 @@ class BranchManager:
             pr_url = result.stdout.strip()
             print(f"  Draft PR: {pr_url}")
         else:
-            print(f"  Warning: Could not create draft PR: {result.stderr.strip()}")
+            # Real PR-create failure (non-empty branch, actual API error).
+            # Print structured Fix hint per #467 contract.
+            print(f"  Error: Could not create draft PR: {result.stderr.strip()}")
+            print( "  Fix:")
+            print(f"    1. cd {worktree_path}")
+            print(f"    2. atdd pr {issue_number}")
+            print( "  Why: `atdd branch` defers PR creation to `atdd pr` when the")
+            print( "       inline createPullRequest call fails (e.g. transient gh/API).")
 
     def _load_manifest(self):
         if not self.manifest_file.exists():

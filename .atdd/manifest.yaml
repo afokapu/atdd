@@ -351,3 +351,14 @@ sessions:
   wagon: null
   feature: null
   train: 0001-self-compliance-validate
+- id: '478'
+  slug: 478-branch-pr-empty
+  file: null
+  issue_number: 478
+  type: cleanup
+  status: RED
+  created: '2026-05-07'
+  archived: null
+  wagon: null
+  feature: null
+  train: 0001-self-compliance-validate
