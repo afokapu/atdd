@@ -1,63 +1,40 @@
-"""
-Default-branch resolver shared by ``atdd branch`` and ``atdd pr``.
+"""Resolve the canonical default branch for the current repository.
 
-Resolution order:
-    1. ``.atdd/config.yaml::github.default_branch`` if present.
-    2. ``gh repo view --json defaultBranchRef --jq .defaultBranchRef.name``.
-    3. Literal ``"main"`` with a ``::warning::`` log.
+Resolution order (issue #477, shared with #478):
+  1. ``.atdd/config.yaml::github.default_branch`` if present.
+  2. ``gh repo view --json defaultBranchRef --jq .defaultBranchRef.name``.
+  3. Literal ``"main"`` with a ``::warning::`` log line.
 
-Cross-coordination: introduced for issues #477 and #478. First-mover wins;
-both PRs converge on this single canonical home so the literal ``"main"``
-hardcode disappears from ``branch.py:73`` and ``pr.py:478``.
+The helper is the canonical default-branch source for both
+``atdd pr`` (#477) and ``atdd branch`` (#478). Hardcoded ``"main"``
+in those call sites is a known-bad pattern that breaks consumer
+repos whose default is ``master`` or another name.
 """
 from __future__ import annotations
 
 import logging
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Final, Optional
 
 import yaml
 
 logger = logging.getLogger(__name__)
 
-
-def resolve_default_branch(repo_root: Optional[Path] = None) -> str:
-    """Resolve the repository's default branch name.
-
-    Args:
-        repo_root: Repo root containing ``.atdd/config.yaml``. Defaults to cwd.
-
-    Returns:
-        Branch name string (e.g. ``"main"``).
-    """
-    root = repo_root or Path.cwd()
-
-    cfg_default = _read_config_default_branch(root / ".atdd" / "config.yaml")
-    if cfg_default:
-        return cfg_default
-
-    gh_default = _query_gh_default_branch(root)
-    if gh_default:
-        return gh_default
-
-    print("::warning::default-branch resolver fell back to literal 'main'")
-    logger.warning(
-        "default-branch resolver fell back to literal 'main'",
-        extra={"action": "default_branch_fallback"},
-    )
-    return "main"
+_FALLBACK: Final[str] = "main"
 
 
-def _read_config_default_branch(config_file: Path) -> Optional[str]:
-    if not config_file.exists():
+def _read_from_config(repo_root: Path) -> Optional[str]:
+    cfg_path = repo_root / ".atdd" / "config.yaml"
+    if not cfg_path.is_file():
         return None
     try:
-        data = yaml.safe_load(config_file.read_text()) or {}
+        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
-        logger.debug(
-            "default_branch config read failed",
-            extra={"path": str(config_file), "error": str(exc)},
+        logger.warning(
+            "Failed to parse %s: %s",
+            cfg_path, exc,
+            extra={"path": str(cfg_path), "error": str(exc)},
         )
         return None
     value = (data.get("github") or {}).get("default_branch")
@@ -66,21 +43,59 @@ def _read_config_default_branch(config_file: Path) -> Optional[str]:
     return None
 
 
-def _query_gh_default_branch(cwd: Path) -> Optional[str]:
+def _read_from_gh(repo_root: Path) -> Optional[str]:
     try:
         result = subprocess.run(
-            ["gh", "repo", "view", "--json", "defaultBranchRef",
+            ["gh", "repo", "view",
+             "--json", "defaultBranchRef",
              "--jq", ".defaultBranchRef.name"],
             capture_output=True, text=True, timeout=10,
-            cwd=cwd,
+            cwd=repo_root,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        logger.debug(
-            "gh repo view default-branch query failed",
-            extra={"cwd": str(cwd), "error": str(exc)},
+        logger.warning(
+            "gh repo view failed: %s",
+            exc,
+            extra={"error": str(exc)},
         )
         return None
     if result.returncode != 0:
+        logger.warning(
+            "gh repo view returned %d: %s",
+            result.returncode, result.stderr.strip(),
+            extra={"stderr": result.stderr.strip(), "returncode": result.returncode},
+        )
         return None
     name = result.stdout.strip()
     return name or None
+
+
+def resolve_default_branch(repo_root: Optional[Path] = None) -> str:
+    """Return the repo's default branch name.
+
+    Resolves via ``.atdd/config.yaml::github.default_branch`` first,
+    then ``gh repo view``, then ``"main"`` as the final fallback.
+
+    Args:
+        repo_root: Repo root for config + gh CLI cwd. Defaults to ``Path.cwd()``.
+
+    Returns:
+        The default branch name (never empty).
+    """
+    root = repo_root or Path.cwd()
+
+    from_config = _read_from_config(root)
+    if from_config:
+        return from_config
+
+    from_gh = _read_from_gh(root)
+    if from_gh:
+        return from_gh
+
+    logger.warning(
+        "::warning::default-branch resolution fell back to '%s' "
+        "(no .atdd/config.yaml::github.default_branch and gh repo view failed)",
+        _FALLBACK,
+        extra={"fallback": _FALLBACK, "repo_root": str(root)},
+    )
+    return _FALLBACK

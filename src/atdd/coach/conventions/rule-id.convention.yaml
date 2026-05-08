@@ -309,6 +309,39 @@ rules:
         3. Re-emit by re-running the unit test
            src/atdd/coach/commands/tests/test_initializer_workflow_emission.py
            which feeds every emitted run-line through the live argparse.
+  - id: "coach.pr.base-must-be-default-branch"
+    severity: 3
+    description: "Every PR (open or being created via `atdd pr`) must target the repo's default branch unless --force is set"
+    disposition: strict
+    introduced_in: "3.12.0"
+    aliases: []
+    validator: "test_pr_base_branch::test_every_open_pr_targets_default_branch"
+    fix_hint: |
+      The named PR targets a non-default base branch. Repair as follows
+      (run gh repo view --json defaultBranchRef --jq .defaultBranchRef.name
+       to inspect the canonical default; for atdd it is "main" and is
+       also recorded at .atdd/config.yaml::github.default_branch):
+
+        1. Read the violation — it cites "PR#<N>" where N is the PR number
+           and the message names the offending baseRefName.
+           e.g. "PR#475 ... targets base 'fix/473-init-template-fix'".
+        2. Re-target the offending PR via the GitHub UI or via
+           "gh pr edit <N> --base <default>", substituting:
+             - <N>       = the PR number from step 1, e.g. "475"
+             - <default> = the default branch name, e.g. "main"
+        3. If the non-default base is intentional (release-train
+           branches, stacked PRs), close the PR and re-open via
+           "atdd pr <issue> --base <base> --force", substituting:
+             - <issue> = the linked atdd issue number, e.g. "477"
+             - <base>  = the explicit non-default base, e.g. "release/v3"
+        4. Re-run the validator to confirm clean
+           (run pytest src/atdd/coach/validators/test_pr_base_branch.py -v).
+
+      Source contract: this rule prevents the orphan-merge incident
+      from #475 where a PR merged onto a sibling-PR's branch (which
+      was deleted post-merge), orphaning the v3.11.0 work. See
+      issue #477 and src/atdd/coach/commands/pr.py for the CLI guard
+      that catches the same class of mistake at PR-creation time.
   - id: "coach.rule-id.fix-hint-completeness"
     severity: 2
     description: "Every fix_hint (convention-declared or CLI-printed) must satisfy the completeness contract C1-C4 in rule_schema.fields.fix_hint.description"
