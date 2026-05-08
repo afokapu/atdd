@@ -54,7 +54,11 @@ def _read_config_default_branch(config_file: Path) -> Optional[str]:
         return None
     try:
         data = yaml.safe_load(config_file.read_text()) or {}
-    except yaml.YAMLError:
+    except yaml.YAMLError as exc:
+        logger.debug(
+            "default_branch config read failed",
+            extra={"path": str(config_file), "error": str(exc)},
+        )
         return None
     value = (data.get("github") or {}).get("default_branch")
     if isinstance(value, str) and value.strip():
@@ -70,7 +74,11 @@ def _query_gh_default_branch(cwd: Path) -> Optional[str]:
             capture_output=True, text=True, timeout=10,
             cwd=cwd,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        logger.debug(
+            "gh repo view default-branch query failed",
+            extra={"cwd": str(cwd), "error": str(exc)},
+        )
         return None
     if result.returncode != 0:
         return None

@@ -144,7 +144,11 @@ class PRManager:
                 capture_output=True, text=True, timeout=10,
                 cwd=self.target_dir,
             )
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            logger.debug(
+                "rev-count past default branch failed",
+                extra={"branch": default_branch, "error": str(exc)},
+            )
             return None
         if result.returncode != 0:
             return None
