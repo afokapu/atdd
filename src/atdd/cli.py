@@ -676,6 +676,14 @@ Phase descriptions:
         default="squash",
         help="Merge strategy for auto-merge (default: squash)"
     )
+    pr_parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Skip the base-branch validation guard (#477). Use only for "
+            "legitimate non-default merges (release-train branches, stacked PRs)."
+        ),
+    )
 
     # ----- atdd close-wmbt <issue_number> <wmbt_id> -----
     close_wmbt_top_parser = subparsers.add_parser(
@@ -1840,6 +1848,7 @@ Phase descriptions:
             base=getattr(args, 'base', 'main'),
             auto_merge=getattr(args, 'auto', False),
             merge_strategy=getattr(args, 'merge_strategy', 'squash'),
+            force=getattr(args, 'force', False),
         )
 
     # atdd close-wmbt <issue_id> <wmbt_id> — DEPRECATED, delegates to atdd issue <N> --close-wmbt <ID>

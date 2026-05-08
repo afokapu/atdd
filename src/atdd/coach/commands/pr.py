@@ -26,6 +26,7 @@ from typing import Dict, List, Optional
 import yaml
 
 from atdd.coach.commands.issue import TYPE_TO_PREFIX
+from atdd.coach.utils.default_branch import resolve_default_branch
 from atdd.coach.utils.risk_score import (
     compute_risk_breakdown,
     format_risk_breakdown_section,
@@ -478,6 +479,7 @@ class PRManager:
         base: str = "main",
         auto_merge: bool = False,
         merge_strategy: str = "squash",
+        force: bool = False,
     ) -> int:
         """Create a PR linked to the given issue number.
 
@@ -487,6 +489,7 @@ class PRManager:
             base: Base branch for the PR (default: main).
             auto_merge: If True, enable auto-merge after PR creation.
             merge_strategy: Merge strategy for auto-merge (squash, merge, rebase).
+            force: If True, skip the base-branch validation guard (#477).
 
         Returns:
             0 on success, 1 on error.
@@ -552,7 +555,48 @@ class PRManager:
             if "Everything up-to-date" not in stderr and "set up to track" not in stderr:
                 print(f"Warning: git push may have failed: {stderr}")
 
-        # 8. Create the PR via gh CLI
+        # 8. Validate base branch against repo default (issue #477)
+        # Two failure paths converge on the same orphan-merge bug:
+        #   (a) explicit --base <wrong>  → caught here in the CLI guard
+        #   (b) implicit gh pr create    → caught by the coach validator
+        # Override with --force only for legitimate non-default merges
+        # (release-train branches, stacked work). #475 was the lived
+        # incident that motivated this gate.
+        default_branch = resolve_default_branch(self.target_dir)
+        if base != default_branch:
+            if force:
+                logger.warning(
+                    "::warning::Creating PR with non-default base '%s' "
+                    "(default: '%s') — --force override active.",
+                    base, default_branch,
+                    extra={"base": base, "default_branch": default_branch, "force": True},
+                )
+                print(
+                    f"::warning::Non-default base '{base}' "
+                    f"(default: '{default_branch}') — --force override active."
+                )
+            else:
+                print(
+                    f"Error: Refusing to create PR with non-default base "
+                    f"'{base}'. Default branch: '{default_branch}'.\n"
+                    f"\n"
+                    f"Fix:\n"
+                    f"  1. Re-run with the default base (recommended):\n"
+                    f"       atdd pr {issue_number}\n"
+                    f"  2. Or pass the default explicitly:\n"
+                    f"       atdd pr {issue_number} --base {default_branch}\n"
+                    f"  3. Override only for legitimate non-default merges\n"
+                    f"     (release-train branches, stacked PRs):\n"
+                    f"       atdd pr {issue_number} --base {base} --force\n"
+                    f"\n"
+                    f"Default branch resolved from "
+                    f".atdd/config.yaml::github.default_branch (fallback: "
+                    f"gh repo view --json defaultBranchRef). "
+                    f"See issue #477 for context (orphan-merge incident #475)."
+                )
+                return 1
+
+        # 9. Create the PR via gh CLI
         cmd = [
             "gh", "pr", "create",
             "--title", pr_title,
