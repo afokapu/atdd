@@ -36,8 +36,6 @@ from atdd.coach.validators._violation import Violation
 
 pytestmark = [pytest.mark.coach, pytest.mark.github_api]
 
-logger = logging.getLogger(__name__)
-
 REPO_ROOT = find_repo_root()
 
 _RULE = bind_rule("coach.pr.base-must-be-default-branch")
@@ -55,14 +53,14 @@ def _fetch_open_prs(repo_root: Path) -> List[dict]:
             cwd=repo_root,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        logger.warning(
+        logging.getLogger(__name__).warning(
             "gh pr list failed: %s",
             exc,
             extra={"error": str(exc)},
         )
         return []
     if result.returncode != 0:
-        logger.warning(
+        logging.getLogger(__name__).warning(
             "gh pr list returned %d: %s",
             result.returncode, result.stderr.strip(),
             extra={"stderr": result.stderr.strip(), "returncode": result.returncode},
@@ -71,7 +69,7 @@ def _fetch_open_prs(repo_root: Path) -> List[dict]:
     try:
         data = json.loads(result.stdout) if result.stdout.strip() else []
     except json.JSONDecodeError as exc:
-        logger.warning(
+        logging.getLogger(__name__).warning(
             "gh pr list returned non-JSON: %s",
             exc,
             extra={"error": str(exc)},
