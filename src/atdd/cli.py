@@ -1037,6 +1037,26 @@ Phase descriptions:
     )
     coach_parser.add_argument("--dry-run", action="store_true", dest="dry_run")
 
+    # ----- atdd agent <subcommand> ... (J2 — #497) -----
+    # The persona-agent runtime CLI; argparse for sub-subcommands lives in
+    # `atdd.coach.commands.agent._build_parser`. We register a single
+    # `agent` token here and forward the remaining argv to that parser so
+    # the sub-subcommand surface stays in one place.
+    agent_parser = subparsers.add_parser(
+        "agent",
+        help=(
+            "Persona-agent runtime CLI: heartbeat / event / commit / ask / "
+            "escalate / done / context / review (writes to "
+            ".atdd/runtime/agents/<id>/)"
+        ),
+        add_help=False,
+    )
+    agent_parser.add_argument(
+        "agent_argv",
+        nargs=argparse.REMAINDER,
+        help="Forwarded to atdd.coach.commands.agent",
+    )
+
     # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
     # O1 (#501): single boundary for ambiguous coach v9 routing decisions.
     # Renders a prompt template, calls a structured-output LLM via the
@@ -2247,6 +2267,11 @@ Phase descriptions:
             resume=getattr(args, "resume", None),
             dry_run=getattr(args, "dry_run", False),
         )
+
+    # atdd agent <subcommand> ... (J2 — #497)
+    elif args.command == "agent":
+        from atdd.coach.commands.agent import run as run_agent
+        return run_agent(list(getattr(args, "agent_argv", []) or []))
 
     # atdd judge ...  (O1 — #501)
     elif args.command == "judge":
