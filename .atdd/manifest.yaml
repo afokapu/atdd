@@ -483,3 +483,14 @@ sessions:
   wagon: drive-state-machine
   feature: feature:drive-state-machine:coach-state-machine-and-runtime
   train: 0002-coach-drives-lifecycle
+- id: '513'
+  slug: coach-v9-l4-babysit-absorbed-rules
+  file: null
+  issue_number: 513
+  type: feat
+  status: RED
+  created: '2026-05-09'
+  archived: null
+  wagon: observe-and-correct
+  feature: feature:observe-and-correct:observer-runtime-and-rules
+  train: 0002-coach-drives-lifecycle
