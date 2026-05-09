@@ -1,11 +1,11 @@
 urn: "wmbt:spawn-agents:D001"
 step: "define"
 direction: "minimize"
-dimension: "ambiguity"
+dimension: "likelihood"
 object_of_control: "ambiguity-in-substrate-spawn-harness-block-rendering"
 context_clarifier: "when atdd spawn must include three substrate v12 §8.2 rule-ID-rich blocks in the launch prompt — wmbt_rules:, train_rules:, security_rules: — but only the security_rules renderer (render_security_rules_block in src/atdd/coach/commands/spawn_harness_blocks.py) ships today; the wmbt_rules and train_rules renderers must follow the same field-mapping pattern (id, acceptance_urn, purpose, expectations[], harness_type, signal_metric for WMBT-acceptance rules; id, purpose, expectations[] for train-acceptance rules) and must phase-filter so only RuleMetadata.phase == coach.current_phase rules appear, otherwise downstream tracks (M validator dispatch, N reviewer, O judge) consume divergent block shapes"
 lens: "functional.effectiveness"
-statement: "minimize ambiguity-in-substrate-spawn-harness-block-rendering when atdd spawn must include three rule-ID-rich blocks (wmbt_rules, train_rules, security_rules) in the launch prompt and only the security renderer ships today, so the two missing renderers must follow the same field-mapping and phase-filtering pattern"
+statement: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering when atdd spawn must include three rule-ID-rich blocks (wmbt_rules, train_rules, security_rules) in the launch prompt and only the security renderer ships today, so the two missing renderers must follow the same field-mapping and phase-filtering pattern"
 acceptances:
   - identity:
       urn: "acc:spawn-agents:D001-UNIT-001-wmbt-rules-renderer-shape"
