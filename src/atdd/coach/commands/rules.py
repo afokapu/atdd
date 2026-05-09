@@ -151,7 +151,12 @@ def _infer_module_path_str(archetype: str, module_basename: str) -> str:
         s = str(path)
         idx = s.find(marker)
         return s[idx:] if idx != -1 else s
-    except ValidatorResolutionError:
+    except ValidatorResolutionError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        # Discovery surface, not a validator — the resolution miss is the
+        # expected branch for `repo.*` archetypes whose dispatcher lives
+        # outside ``src/atdd/<archetype>/validators/``. We render a
+        # human-readable marker instead of swallowing silently; logging
+        # would noise every legitimate repo-rule lookup.
         return (
             f"src/atdd/{archetype}/validators/{module_basename}.py "
             f"(substrate dispatcher)"
@@ -171,9 +176,13 @@ def _resolve_callsites(meta: RuleMetadata) -> List[_Callsite]:
     archetype = _archetype_of(meta.rule_id)
     try:
         module_basename, _func = parse_validator_field(meta.validator)
-    except ValueError:
-        # Malformed validator field — surface the raw string so the
-        # operator still has something to grep.
+    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        # Malformed validator field — surface the raw string with a
+        # ``<malformed>`` marker so the operator can grep for it. This
+        # is a discovery CLI; raising would crash the entire `where`
+        # invocation when one rule has a typo'd validator field, and
+        # the rule-binding validators (`test_rule_validator_binding`)
+        # already enforce the format at validation time.
         return [_Callsite(validator_field=meta.validator, module_path="<malformed>")]
     module_path = _infer_module_path_str(archetype, module_basename)
     return [_Callsite(validator_field=meta.validator, module_path=module_path)]
