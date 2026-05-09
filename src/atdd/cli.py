@@ -800,6 +800,31 @@ Phase descriptions:
         type=str,
         help="Comma-separated archetypes on creation (e.g., be,contracts,wmbt)"
     )
+    # ----- atdd issue review <N> [--passes ...] [--llms ...] (#508) -----
+    issue_parser.add_argument(
+        "--passes",
+        type=int,
+        default=None,
+        help="(review) Number of independent LLM passes (default from coach config; min 2)"
+    )
+    issue_parser.add_argument(
+        "--llms",
+        type=str,
+        default=None,
+        help="(review) Comma-separated LLM client ids (default from coach config)"
+    )
+    issue_parser.add_argument(
+        "--dimensions",
+        type=str,
+        default=None,
+        help="(review) Comma-separated dimensions to evaluate (default: all five)"
+    )
+    issue_parser.add_argument(
+        "--show",
+        action="store_true",
+        dest="show",
+        help="(review) Post the aggregate as a GitHub comment on the issue"
+    )
 
     # ----- atdd color [value] -----
     color_parser = subparsers.add_parser(
@@ -2057,6 +2082,29 @@ Phase descriptions:
                 label=getattr(args, 'label', None),
                 limit=getattr(args, 'limit', 30),
                 assignee=getattr(args, 'assignee', None),
+            )
+
+        # atdd issue review <N> [--passes ...] [--llms ...] [--dimensions ...] [--show] [--force]
+        if target == "review":
+            from atdd.coach.commands.issue_review import run as run_issue_review
+            number_str = getattr(args, 'number', None)
+            if not number_str:
+                print("Error: atdd issue review requires an issue number")
+                return 1
+            try:
+                review_issue = int(number_str)
+            except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+                print(f"Error: invalid issue number '{number_str}'")
+                return 1
+            llms_raw = getattr(args, 'llms', None)
+            dims_raw = getattr(args, 'dimensions', None)
+            return run_issue_review(
+                issue_number=review_issue,
+                passes=getattr(args, 'passes', None),
+                llms=[s.strip() for s in llms_raw.split(',') if s.strip()] if llms_raw else None,
+                dimensions=[s.strip() for s in dims_raw.split(',') if s.strip()] if dims_raw else None,
+                show=getattr(args, 'show', False),
+                force=getattr(args, 'force', False),
             )
 
         # atdd issue sync-labels [<N>|--all] [--dry-run]
