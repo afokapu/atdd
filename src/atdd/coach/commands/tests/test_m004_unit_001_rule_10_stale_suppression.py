@@ -28,6 +28,20 @@ def _make_worktree_with(file_relpath: str, content: str, tmp_path: Path) -> Path
     return worktree
 
 
+# Build the marker text at runtime so the literal `atdd:suppress(...)` token
+# is NOT present in this test file's source — otherwise
+# coach.rule-id.stale-suppression would scan this fixture file itself.
+_MARKER_PREFIX = "atdd:" + "suppress"
+
+
+def _stale_marker(rule_id: str, until: str = "2025-01-01") -> str:
+    return f"# {_MARKER_PREFIX}({rule_id}) UNTIL={until}"
+
+
+def _future_marker(rule_id: str, until: str = "2099-12-31") -> str:
+    return f"# {_MARKER_PREFIX}({rule_id}) UNTIL={until}"
+
+
 def _load_rule_10():
     """Helper — load the substrate-aware stale-suppression rule via the
     registry from the toolkit-shipped rules dir."""
@@ -51,7 +65,7 @@ def test_rule_10_fires_on_stale_toolkit_marker(tmp_path: Path):
 
     worktree = _make_worktree_with(
         "src/foo.py",
-        "x = 1  # atdd:suppress(coder.green.completion-without-commit) UNTIL=2025-01-01\n",
+        f"x = 1  {_stale_marker('coder.green.completion-without-commit')}\n",
         tmp_path,
     )
 
@@ -74,7 +88,7 @@ def test_rule_10_does_not_fire_for_repo_rule_id(tmp_path: Path):
 
     worktree = _make_worktree_with(
         "src/bar.py",
-        "x = 1  # atdd:suppress(repo.observe-and-correct.M004-acc-unit-001) UNTIL=2025-01-01\n",
+        f"x = 1  {_stale_marker('repo.observe-and-correct.M004-acc-unit-001')}\n",
         tmp_path,
     )
     rule = _load_rule_10()
@@ -93,7 +107,7 @@ def test_rule_10_does_not_fire_for_future_until(tmp_path: Path):
 
     worktree = _make_worktree_with(
         "src/baz.py",
-        "x = 1  # atdd:suppress(coder.green.completion-without-commit) UNTIL=2099-12-31\n",
+        f"x = 1  {_future_marker('coder.green.completion-without-commit')}\n",
         tmp_path,
     )
     rule = _load_rule_10()
@@ -110,7 +124,7 @@ def test_rule_10_correction_text_names_rule_id_and_location(tmp_path: Path):
 
     worktree = _make_worktree_with(
         "src/foo.py",
-        "x = 1  # atdd:suppress(coder.green.completion-without-commit) UNTIL=2025-01-01\n",
+        f"x = 1  {_stale_marker('coder.green.completion-without-commit')}\n",
         tmp_path,
     )
     rule = _load_rule_10()
