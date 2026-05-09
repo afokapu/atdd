@@ -19,50 +19,53 @@ basic_protocol_observer_rules:
     Seven rules from spec §8.3 that catch structural violations
     independent of substrate-rule-id machinery. Authored as YAML at
     ``.atdd/observer/rules/`` and unit-tested against synthetic agent
-    outputs. Disposition is ``advisory`` because the observer's job is
-    to nudge agents, not to fail builds — the harder dispositions
-    (``strict`` / ``suppress-and-clean``) are reserved for tier-1
-    validators that see post-commit artifacts.
+    outputs. Disposition is ``documentation-only`` because the rules
+    are dispatched by the observer runtime (``Observer.scan_once``)
+    rather than by a pytest validator — the back-reference machinery
+    in ``test_rule_validator_binding`` only resolves validator
+    callables, not runtime emitters. Corrections still surface to the
+    agent via the standard injection paths; the disposition only
+    governs CI's reaction (which is "none" for runtime advisories).
   rules:
     - id: "coach.observer.unstructured-question"
       severity: 3
-      disposition: advisory
+      disposition: documentation-only
       description: "Agent asked a free-form question outside `atdd agent ask`"
       fix_hint: "Reformulate via `atdd agent ask --type ...`."
       introduced_in: "3.21.0"
     - id: "coach.observer.token-silence"
       severity: 3
-      disposition: advisory
+      disposition: documentation-only
       description: "Agent emitted no tokens for longer than the configured silence threshold"
       fix_hint: "If blocked, escalate via `atdd agent escalate`."
       introduced_in: "3.21.0"
     - id: "coach.observer.completion-claim-without-commit"
       severity: 3
-      disposition: advisory
+      disposition: documentation-only
       description: "Agent claimed completion but no `commit_observed` event was recorded"
       fix_hint: "Commit your work before claiming completion, or revise the claim."
       introduced_in: "3.21.0"
     - id: "coach.observer.out-of-scope-edit"
       severity: 4
-      disposition: advisory
+      disposition: documentation-only
       description: "Agent modified a file outside the WMBT target paths or under `.atdd/` outside the allowlist"
       fix_hint: "Revert the out-of-scope change or escalate to widen scope."
       introduced_in: "3.21.0"
     - id: "coach.observer.missed-heartbeat"
       severity: 3
-      disposition: advisory
+      disposition: documentation-only
       description: "Agent's `heartbeat.json` mtime is older than the configured staleness threshold"
       fix_hint: "Call `atdd agent heartbeat` after each significant action."
       introduced_in: "3.21.0"
     - id: "coach.observer.reviewer-edit-attempt"
       severity: 4
-      disposition: advisory
+      disposition: documentation-only
       description: "Reviewer-persona agent's output mentions edits or commits — violates the reviewer no-write contract"
       fix_hint: "You are a Reviewer. You may not edit or commit."
       introduced_in: "3.21.0"
     - id: "coach.observer.validator-failure-ignored"
       severity: 4
-      disposition: advisory
+      disposition: documentation-only
       description: "Agent committed again without addressing tier-1 violations cited on the prior commit"
       fix_hint: "Address the unaddressed rule_ids before re-committing."
       introduced_in: "3.21.0"

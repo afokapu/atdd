@@ -21,4 +21,4 @@ correction_text: "You are a Reviewer. You may not edit or commit."
 
 injection_method: cli-return
 severity: 4
-disposition: advisory
+disposition: documentation-only

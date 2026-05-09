@@ -22,4 +22,4 @@ correction_text: |
 
 injection_method: cli-return
 severity: 4
-disposition: advisory
+disposition: documentation-only
