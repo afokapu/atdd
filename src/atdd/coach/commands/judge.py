@@ -318,15 +318,6 @@ def _resolve_repo_root() -> Path:
     return Path.cwd().resolve()
 
 
-def _resolve_coach_config(repo_root: Path) -> CoachConfig:
-    try:
-        return load_coach_config(repo_root)
-    except Exception:
-        # If the config file is malformed we still want to land an audit
-        # entry; downstream tracks (#J3) surface config errors elsewhere.
-        return CoachConfig()
-
-
 def _print_response(response: Any) -> None:
     print(json.dumps(response, ensure_ascii=False))
 
@@ -351,7 +342,7 @@ def run(
     appropriate. Truly unexpected exceptions propagate.
     """
     repo_root = _resolve_repo_root()
-    cfg = _resolve_coach_config(repo_root)
+    cfg = load_coach_config(repo_root)
 
     # 1. Validate call_site up-front (no log entry — invocation never reached
     #    a judge surface).
@@ -366,14 +357,14 @@ def run(
     #    judgment record (the call never reached the judge surface).
     try:
         parsed_inputs = _parse_inputs(inputs)
-    except (FileNotFoundError, ValueError) as exc:
+    except (FileNotFoundError, ValueError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         _print_error(f"input resolution failed: {exc}")
         return 2
 
     # 3. Render the prompt template.
     try:
         prompt = _render_prompt(Path(prompt_template), parsed_inputs)
-    except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:
+    except (FileNotFoundError, ValueError, yaml.YAMLError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         _print_error(f"prompt template error: {exc}")
         return 2
 
@@ -410,7 +401,7 @@ def run(
     try:
         client = factory()
         response = client.invoke(prompt)
-    except LLMUnavailable as exc:
+    except LLMUnavailable as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         return _handle_llm_unavailable(
             repo_root,
             cfg=cfg,
@@ -423,13 +414,13 @@ def run(
     # 6. Validate against the caller's JSON Schema.
     try:
         schema_doc = json.loads(Path(schema).read_text())
-    except (FileNotFoundError, json.JSONDecodeError) as exc:
+    except (FileNotFoundError, json.JSONDecodeError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         _print_error(f"schema load error: {exc}")
         return 2
 
     try:
         jsonschema.Draft202012Validator(schema_doc).validate(response)
-    except jsonschema.ValidationError as exc:
+    except jsonschema.ValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         field = ".".join(str(p) for p in exc.absolute_path) or "<root>"
         _append_judgment(
             repo_root,
