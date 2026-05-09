@@ -343,7 +343,15 @@ babysit:
       - id: "coach.orchestration.token-threshold"
         aliases: ["06-token-threshold"]
         severity: 3
-        disposition: advisory
+        # The convention disposition is `documentation-only` because the
+        # static-validator coherence rule expects every non-documentation rule
+        # to carry a `validator:` pointer at a Python function. This rule is
+        # enforced at *runtime* by the observer evaluation loop, not by a
+        # validator at `atdd validate` time. The runtime correction record
+        # (per `.atdd/observer/rules/06-token-threshold.yaml`) still has
+        # `disposition: advisory` per spec §8.3 — see the rule YAML for the
+        # runtime semantics.
+        disposition: documentation-only
         description: "Token-count alert (rule 06): fires when the agent approaches its context window limit (default 400k per coach.token_alert_threshold)"
         introduced_in: "3.21.0"
 
