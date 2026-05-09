@@ -27,14 +27,15 @@
     },
     "call_site": {
       "type": "string",
-      "description": "The judgment surface this record came from. Frozen at C0 to the six surfaces named in spec §6.9. New surfaces require an explicit follow-up issue.",
+      "description": "The judgment surface this record came from. Each value corresponds to a §6.9 / §6.10 judgment surface; new surfaces require an explicit follow-up issue per the discipline doc. `issue-review-aggregate` is the §6.9 #5 site (per issue #523).",
       "enum": [
         "phase-advance",
         "violation-suppression",
         "correction-injection",
         "review-disposition",
         "escalation",
-        "merge-readiness"
+        "merge-readiness",
+        "issue-review-aggregate"
       ]
     },
     "inputs_hash": {
