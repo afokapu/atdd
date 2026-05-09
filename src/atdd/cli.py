@@ -1057,6 +1057,25 @@ Phase descriptions:
         help="Forwarded to atdd.coach.commands.agent",
     )
 
+    # ----- atdd observer <subcommand> ... (L1 — #500) -----
+    # Coach v9 detect-and-correct sidecar; argparse for sub-subcommands
+    # lives in `atdd.coach.commands.observer._build_parser`. Single
+    # `observer` token registered here forwards the remainder of argv.
+    observer_parser = subparsers.add_parser(
+        "observer",
+        help=(
+            "Coach v9 detect-and-correct sidecar: run / attach / status / "
+            "aggregate-approve (writes to .atdd/runtime/agents/<id>/"
+            "corrections.jsonl)"
+        ),
+        add_help=False,
+    )
+    observer_parser.add_argument(
+        "observer_argv",
+        nargs=argparse.REMAINDER,
+        help="Forwarded to atdd.coach.commands.observer",
+    )
+
     # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
     # O1 (#501): single boundary for ambiguous coach v9 routing decisions.
     # Renders a prompt template, calls a structured-output LLM via the
@@ -2272,6 +2291,11 @@ Phase descriptions:
     elif args.command == "agent":
         from atdd.coach.commands.agent import run as run_agent
         return run_agent(list(getattr(args, "agent_argv", []) or []))
+
+    # atdd observer <subcommand> ... (L1 — #500)
+    elif args.command == "observer":
+        from atdd.coach.commands.observer import run as run_observer
+        return run_observer(list(getattr(args, "observer_argv", []) or []))
 
     # atdd judge ...  (O1 — #501)
     elif args.command == "judge":
