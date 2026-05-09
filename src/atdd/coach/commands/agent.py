@@ -490,7 +490,7 @@ def run(argv: list[str]) -> int:
             parser.error(f"unknown subcommand: {sub}")
     except (
         ValueError, FileNotFoundError,
-    ) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    ) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         # User-facing CLI error: surface to stderr, return non-zero.
         print(f"❌ {exc}", file=sys.stderr)
         return 2
