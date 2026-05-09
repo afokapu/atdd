@@ -1,0 +1,171 @@
+urn: "wmbt:observe-and-correct:M001"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "undetected-basic-protocol-violations"
+context_clarifier: "when agents under coach orchestration emit raw text that violates the structured-protocol contract — unstructured questions outside `atdd agent ask`, prolonged token silence indicating a stuck agent, completion claims without an accompanying commit, edits to files outside the WMBT target paths (including the .atdd/ hand-edit clause absorbed from babysit's detect_violation), missed heartbeats, reviewer agents that attempt edits or commits, and agents that commit again after a prior tier-1 validator failure without addressing the cited fix_hints"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of undetected-basic-protocol-violations by implementing observer rules 01–05, 08, and 09 from §8.3 — each as a YAML at .atdd/observer/rules/<NN>-<slug>.yaml with trigger and correction matching the §8.3 table and unit-tested against synthetic agent outputs"
+acceptances:
+  - identity:
+      urn: "acc:observe-and-correct:M001-UNIT-001-rule-01-unstructured-question"
+      id: "AC-UNIT-001"
+      purpose: "Rule 01-unstructured-question fires on question patterns outside `atdd agent ask` and emits the §8.3 correction text"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Synthetic agent output containing a free-form question phrasing"
+    when:
+      abstract: "Rule 01-unstructured-question evaluates against the output"
+    then:
+      abstract:
+        - "The rule fires and the correction text instructs the agent to reformulate via `atdd agent ask --type ...`"
+        - "A corresponding negative-fixture (a properly-formatted `atdd agent ask` invocation) does NOT fire the rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:M001-UNIT-002-rule-02-token-silence"
+      id: "AC-UNIT-002"
+      purpose: "Rule 02-token-silence fires when no tokens have been observed for >90s (default per §10) and the correction text reports the silence interval"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Simulated output stream with a token-silence interval exceeding the configured threshold"
+    when:
+      abstract: "Rule 02-token-silence evaluates the activity heartbeat"
+    then:
+      abstract:
+        - "The rule fires and the correction text identifies the silence duration and prompts `atdd agent escalate` if blocked"
+        - "Output streams below the threshold do not fire the rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:M001-UNIT-003-rule-03-completion-without-commit"
+      id: "AC-UNIT-003"
+      purpose: "Rule 03-completion-claim-without-commit fires on completion claims (e.g., `task complete`, `done`) when no commit has been observed and the correction reports the missing commit"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Simulated agent output asserting completion without a recent commit_observed event"
+    when:
+      abstract: "Rule 03 evaluates the agent state"
+    then:
+      abstract:
+        - "The rule fires and the correction text states that completion was indicated but no commit was detected"
+        - "A completion claim immediately following a recorded commit does NOT fire the rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:M001-UNIT-004-rule-04-out-of-scope-edit"
+      id: "AC-UNIT-004"
+      purpose: "Rule 04-out-of-scope-edit fires when a file outside the WMBT target paths is modified, including the `.atdd/` clause absorbed from babysit's detect_violation"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A diff modifying a file not declared in the WMBT target paths"
+        - "Or a diff modifying any path under .atdd/ outside an allowlisted set (the absorbed babysit clause)"
+    when:
+      abstract: "Rule 04 evaluates the diff"
+    then:
+      abstract:
+        - "The rule fires and the correction text names the offending path and instructs revert-or-escalate"
+        - "Behavior is at parity with babysit's detect_violation `.atdd/` clause for the absorbed cases"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:M001-UNIT-005-rule-05-missed-heartbeat"
+      id: "AC-UNIT-005"
+      purpose: "Rule 05-missed-heartbeat fires when no heartbeat.json has been written for >M seconds and the correction prompts the agent to call `atdd agent heartbeat` after each significant action"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An agent runtime directory whose heartbeat.json mtime is older than the configured threshold"
+    when:
+      abstract: "Rule 05 evaluates the agent's heartbeat freshness"
+    then:
+      abstract:
+        - "The rule fires and the correction reminds the agent to call `atdd agent heartbeat`"
+        - "Recently-touched heartbeat.json does not fire the rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:M001-UNIT-006-rule-08-reviewer-edit-attempt"
+      id: "AC-UNIT-006"
+      purpose: "Rule 08-reviewer-edit-attempt fires when a reviewer agent's output mentions edits or commits and the correction asserts the no-write contract for reviewers"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An agent record with persona=reviewer whose output mentions edits or commits"
+    when:
+      abstract: "Rule 08 evaluates the reviewer's output"
+    then:
+      abstract:
+        - "The rule fires and the correction states `You are a Reviewer. You may not edit or commit.`"
+        - "Non-reviewer personas exhibiting the same output do NOT fire this rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:M001-UNIT-007-rule-09-validator-failure-ignored"
+      id: "AC-UNIT-007"
+      purpose: "Rule 09-validator-failure-ignored fires when a tier-1 validator failed on a prior commit and the agent commits again without addressing the cited rule_ids"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A prior commit recorded a tier-1 violation set in validations/<sha>/violations.jsonl"
+        - "A subsequent commit landed without modifications addressing those rule_ids"
+    when:
+      abstract: "Rule 09 evaluates the new commit against the prior violation set"
+    then:
+      abstract:
+        - "The rule fires and the correction text enumerates the unaddressed rule_ids and their fix_hints from bind_rule()"
+        - "When the new commit clearly addresses the prior violations the rule does NOT fire"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:M001-UNIT-008-rules-co-located-as-yaml"
+      id: "AC-UNIT-008"
+      purpose: "Each of the seven rules is committed at .atdd/observer/rules/<NN>-<slug>.yaml in the canonical numbering"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The observer rule registry under .atdd/observer/rules/"
+    when:
+      abstract: "A unit test enumerates rule files and resolves their rule_id via bind_rule()"
+    then:
+      abstract:
+        - "Files 01-unstructured-question.yaml, 02-token-silence.yaml, 03-completion-claim-without-commit.yaml, 04-out-of-scope-edit.yaml, 05-missed-heartbeat.yaml, 08-reviewer-edit-attempt.yaml, 09-validator-failure-ignored.yaml all exist"
+        - "Each rule resolves to a canonical rule_id via bind_rule()"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"

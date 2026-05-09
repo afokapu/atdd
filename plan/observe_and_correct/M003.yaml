@@ -1,0 +1,94 @@
+urn: "wmbt:observe-and-correct:M003"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "undetected-multiplexer-and-bash-protocol-drift"
+context_clarifier: "when bash auto-approval, multiplexer surface naming, multiplexer layout arrangement, or SMOKE phase ordering drift from their canonical state — behavior previously implemented in commands/babysit.py via `classify_prompt`, `correct_naming_drift`, `correct_layout_drift`, and `detect_violation`. The functions absorb verbatim per §0.2 into observer rules 13–16 with no functional change, reusing `_load_bash_patterns`/`BashPattern` for rule 13, `is_canonical_name` for rule 14, `target_grid_label` for rule 15, and the `--status REFACTOR` clause for rule 16"
+lens: "functional.adaptability"
+statement: "minimize likelihood of undetected-multiplexer-and-bash-protocol-drift by absorbing `classify_prompt`, `correct_naming_drift`, `correct_layout_drift`, and `detect_violation`'s SMOKE-skip clause into observer rules 13-bash-auto-approve, 14-canonical-naming-drift, 15-layout-drift, and 16-smoke-skip per §8.3 with parity to babysit's current behavior"
+acceptances:
+  - identity:
+      urn: "acc:observe-and-correct:M003-UNIT-001-rule-13-bash-auto-approve"
+      id: "AC-UNIT-001"
+      purpose: "Rule 13-bash-auto-approve reads `orchestration.convention.yaml::babysit.bash_auto_approve_patterns.rules` and `bash_deny_patterns.rules`, auto-approves on approve-pattern match, escalates on deny-pattern match"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The orchestration convention's bash_auto_approve_patterns.rules and bash_deny_patterns.rules are loaded via the absorbed `_load_bash_patterns`/`BashPattern`"
+        - "A tool prompt that matches a known-safe pattern, and a separate prompt that matches a deny pattern"
+    when:
+      abstract: "Rule 13 evaluates each prompt"
+    then:
+      abstract:
+        - "The known-safe prompt is auto-approved without operator intervention"
+        - "The deny-pattern prompt triggers an escalation"
+        - "The bash patterns file is unchanged from its current location and shape"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:M003-UNIT-002-rule-14-naming-drift"
+      id: "AC-UNIT-002"
+      purpose: "Rule 14-canonical-naming-drift detects multiplexer surface names that no longer match canonical and re-applies the canonical name within one tick via `correct_naming_drift`"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A multiplexer surface whose name has drifted from its canonical form (per `is_canonical_name`)"
+    when:
+      abstract: "Rule 14 evaluates the surface on the next tick"
+    then:
+      abstract:
+        - "Drift is detected and the rule logs `coach.orchestration.canonical-session-name`"
+        - "`correct_naming_drift` re-applies the canonical name within one tick"
+        - "Surfaces already at canonical names do not fire the rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:M003-UNIT-003-rule-15-layout-drift"
+      id: "AC-UNIT-003"
+      purpose: "Rule 15-layout-drift detects surface count or arrangement that no longer matches `target_grid_label` and re-applies the layout via `correct_layout_drift`"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A multiplexer arrangement whose surface count or grid topology no longer matches `target_grid_label`"
+    when:
+      abstract: "Rule 15 evaluates the arrangement on the next tick"
+    then:
+      abstract:
+        - "Drift is detected and the rule logs `coach.orchestration.layout-conformance`"
+        - "`correct_layout_drift` re-applies the canonical layout"
+        - "Conforming arrangements do not fire the rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:M003-UNIT-004-rule-16-smoke-skip"
+      id: "AC-UNIT-004"
+      purpose: "Rule 16-smoke-skip flags a phase transition from GREEN to REFACTOR without an intervening SMOKE — at parity with babysit's `detect_violation` `--status REFACTOR` clause"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A simulated phase history showing GREEN → REFACTOR with no SMOKE in between"
+    when:
+      abstract: "Rule 16 evaluates the phase trajectory"
+    then:
+      abstract:
+        - "The rule fires and the correction text states that REFACTOR was reached without SMOKE"
+        - "The same screen patterns that babysit's `detect_violation` flags today fire this rule"
+        - "A trajectory GREEN → SMOKE → REFACTOR does NOT fire the rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
