@@ -29,7 +29,6 @@ repo-derived acceptance rules appear through one path (#408 walker).
 from __future__ import annotations
 
 import json
-import re
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -41,6 +40,11 @@ from atdd.coach.utils.rule_binding import (
     RuleNotInRegistryError,
     bind_rule,
     iter_rules,
+)
+from atdd.coach.utils.rule_validator_resolver import (
+    ValidatorResolutionError,
+    infer_module_path,
+    parse_validator_field,
 )
 
 
@@ -102,6 +106,75 @@ def _print_metadata_text(meta: RuleMetadata) -> None:
             print(f"  {key:<18} {value}")
 
 
+class _Callsite:
+    """One resolved validator callsite for ``atdd rules where``.
+
+    ``validator_field`` is the verbatim ``<module>::<function>`` string;
+    ``module_path`` is its archetype-relative import path
+    (``src/atdd/<archetype>/validators/<module>.py``) when the path can
+    be inferred, else a free-text marker explaining why it could not
+    (e.g., a ``repo.*`` rule whose dispatcher is the substrate runner
+    rather than a toolkit validator file).
+    """
+
+    __slots__ = ("validator_field", "module_path")
+
+    def __init__(self, validator_field: str, module_path: str) -> None:
+        self.validator_field = validator_field
+        self.module_path = module_path
+
+
+def _archetype_of(rule_id: str) -> str:
+    """Return the leading archetype segment of *rule_id* (``a.b.c → a``)."""
+    return rule_id.split(".", 1)[0] if "." in rule_id else rule_id
+
+
+def _infer_module_path_str(archetype: str, module_basename: str) -> str:
+    """Return the archetype-relative import path for *module_basename*.
+
+    Falls back to ``src/atdd/<archetype>/validators/<module>.py`` even
+    when ``infer_module_path`` rejects the archetype (e.g., ``repo``) so
+    the surface still tells the operator where to look — repo rules
+    point at the substrate dispatcher rather than a toolkit validator,
+    and this string makes that explicit.
+    """
+    try:
+        path = infer_module_path(archetype, module_basename)
+        # Render the path relative to the toolkit src tree when possible
+        # so the output is portable across install layouts; fall back to
+        # the absolute path otherwise.
+        marker = "src/atdd/"
+        s = str(path)
+        idx = s.find(marker)
+        return s[idx:] if idx != -1 else s
+    except ValidatorResolutionError:
+        return (
+            f"src/atdd/{archetype}/validators/{module_basename}.py "
+            f"(substrate dispatcher)"
+        )
+
+
+def _resolve_callsites(meta: RuleMetadata) -> List[_Callsite]:
+    """Return the validator callsites declared for *meta*.
+
+    The current registry stores one ``validator`` string per rule. The
+    helper still returns a list so the surface is honest about the
+    "one callsite per line" framing and so a future YAML schema that
+    permits multiple validators slots in without churn.
+    """
+    if not meta.validator:
+        return []
+    archetype = _archetype_of(meta.rule_id)
+    try:
+        module_basename, _func = parse_validator_field(meta.validator)
+    except ValueError:
+        # Malformed validator field — surface the raw string so the
+        # operator still has something to grep.
+        return [_Callsite(validator_field=meta.validator, module_path="<malformed>")]
+    module_path = _infer_module_path_str(archetype, module_basename)
+    return [_Callsite(validator_field=meta.validator, module_path=module_path)]
+
+
 class RulesCommand:
     """Handler for ``atdd rules {show,where,grep}``.
 
@@ -112,9 +185,13 @@ class RulesCommand:
         """Print the bound ``RuleMetadata`` for *rule_id*.
 
         Resolves through ``bind_rule`` so canonical ids and legacy aliases
-        both work. Exits non-zero when the rule is unregistered or
-        ambiguous (declared in two places — a registry-level fault, not a
-        user fault, but surfaced here so the CLI is honest about it).
+        both work. When invoked with a legacy alias the surface displays
+        BOTH the legacy form (so the operator sees what they typed) and
+        the canonical id (so they learn the canonical name) per spec
+        §5.7 / issue #493 acc:L001-UNIT-001. Exits non-zero when the rule
+        is unregistered or ambiguous (declared in two places — a
+        registry-level fault, not a user fault, but surfaced here so the
+        CLI is honest about it).
         """
         try:
             meta = bind_rule(rule_id)
@@ -125,19 +202,34 @@ class RulesCommand:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 
+        is_alias = rule_id != meta.rule_id
         if format == "json":
-            print(json.dumps(_meta_to_dict(meta), indent=2))
+            payload = _meta_to_dict(meta)
+            if is_alias:
+                payload["input_id"] = rule_id
+                payload["resolved_from_alias"] = True
+            print(json.dumps(payload, indent=2))
         else:
+            if is_alias:
+                print(
+                    f"Resolved legacy alias {rule_id!r} → "
+                    f"canonical {meta.rule_id!r}"
+                )
+                print()
             _print_metadata_text(meta)
         return 0
 
     def where(self, rule_id: str, format: str = "text") -> int:
-        """Print the rule's source path (and YAML location, if applicable).
+        """Print the validator ``<module>::<function>`` callsite(s) for *rule_id*.
 
-        For toolkit rules the YAML location is the ``*.convention.yaml``
-        path. For repo-derived rules (Track-A walker) the source path is
-        the WMBT or train YAML, AND the ``acceptance_urn`` discriminator
-        is printed so callers can grep the file for the matching block.
+        Issue #493 acc:L001-UNIT-002 / spec §5.7: surface the validator
+        reference and the import path inferred from the archetype
+        (``coder.* → src/atdd/coder/validators/<module>.py``). Repo
+        substrate rules carry the dispatcher reference set by the walker
+        (signal-mode acceptances point at the metric runner). The YAML
+        source path and (for repo rules) the ``acceptance_urn``
+        discriminator are also printed so callers can grep the file for
+        the matching block.
         """
         try:
             meta = bind_rule(rule_id)
@@ -148,31 +240,54 @@ class RulesCommand:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 
+        bindings = _resolve_callsites(meta)
         if format == "json":
             output = {
                 "rule_id": meta.rule_id,
+                "validator": meta.validator,
+                "callsites": [
+                    {
+                        "validator_field": cs.validator_field,
+                        "module_path": cs.module_path,
+                    }
+                    for cs in bindings
+                ],
                 "source_path": str(meta.source_path),
                 "acceptance_urn": meta.acceptance_urn,
             }
             print(json.dumps(output, indent=2))
         else:
             print(f"rule_id:        {meta.rule_id}")
+            if bindings:
+                # One callsite per line — the spec phrases the surface as
+                # "list every callsite, one per line" so an iteration here
+                # keeps the format honest even when there is exactly one.
+                for cs in bindings:
+                    print(f"validator:      {cs.validator_field}")
+                    print(f"module_path:    {cs.module_path}")
+            else:
+                print("validator:      <unbound — substrate harness dispatcher>")
             print(f"source_path:    {meta.source_path}")
             if meta.acceptance_urn is not None:
                 print(f"acceptance_urn: {meta.acceptance_urn}")
         return 0
 
     def grep(self, pattern: str, format: str = "text") -> int:
-        """List rules whose id or description matches *pattern* (regex)."""
-        try:
-            regex = re.compile(pattern)
-        except re.error as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
-            print(f"Error: invalid regex {pattern!r}: {exc}", file=sys.stderr)
-            return 1
+        """List rules whose id, description, or alias contains *pattern*.
 
+        Issue #493 acc:L001-UNIT-003 / spec §5.7: case-insensitive
+        substring search across rule-id, description, and aliases. Each
+        line shows ``<rule-id>  sev=<n>  <disposition>  — <description>``
+        so the surface is consistent across toolkit and ``repo.*``
+        archetypes. An empty result exits non-zero (grep convention)
+        without crashing on regex special characters in the pattern.
+        """
+        needle = pattern.lower()
         matches: List[RuleMetadata] = []
         for meta in iter_rules():
-            if regex.search(meta.rule_id) or regex.search(meta.description or ""):
+            haystacks = [meta.rule_id, meta.description or ""]
+            haystacks.extend(meta.aliases)
+            if any(needle in h.lower() for h in haystacks):
                 matches.append(meta)
 
         if format == "json":
@@ -185,9 +300,11 @@ class RulesCommand:
             print(f"No rules matched pattern {pattern!r}.")
             return 1
         for meta in matches:
-            print(f"{meta.rule_id}")
-            if meta.description:
-                print(f"    {meta.description}")
+            disposition = meta.disposition or "-"
+            description = meta.description or ""
+            print(
+                f"{meta.rule_id}  sev={meta.severity}  {disposition}  — {description}"
+            )
         print()
         print(f"Total: {len(matches)} rule(s) matched.")
         return 0

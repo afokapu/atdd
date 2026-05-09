@@ -232,10 +232,15 @@ def test_rules_where_prints_source_path_and_acceptance_urn(
     assert "acc:govern-lifecycle:D010-UNIT-001-single-source-theme-map-helper" in out
 
 
-def test_rules_where_json_keys_are_minimal(
+def test_rules_where_json_carries_validator_callsites_and_pointers(
     seeded_registry: Path, capsys: pytest.CaptureFixture[str]
 ):
-    """JSON output for ``where`` carries the three pointers — no kitchen sink."""
+    """JSON output for ``where`` carries validator callsites and source pointers.
+
+    Issue #493 acc:L001-UNIT-002 — the ``--format json`` payload exposes
+    the validator ``<module>::<function>`` reference, the inferred
+    module path, and (for repo rules) the source YAML + acceptance URN.
+    """
     from atdd.coach.commands.rules import RulesCommand
 
     rc = RulesCommand().where(
@@ -243,9 +248,25 @@ def test_rules_where_json_keys_are_minimal(
     )
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert set(payload.keys()) == {"rule_id", "source_path", "acceptance_urn"}
+    assert set(payload.keys()) == {
+        "rule_id",
+        "validator",
+        "callsites",
+        "source_path",
+        "acceptance_urn",
+    }
     assert payload["rule_id"] == "repo.govern-lifecycle.D010-acc-unit-001"
     assert payload["source_path"].endswith("D010.yaml")
+    # Walker pinned signal-mode acceptances at the metric runner.
+    assert payload["validator"] == (
+        "test_metric_runner::test_metric_threshold_satisfied"
+    )
+    assert isinstance(payload["callsites"], list)
+    assert len(payload["callsites"]) == 1
+    assert (
+        payload["callsites"][0]["validator_field"]
+        == "test_metric_runner::test_metric_threshold_satisfied"
+    )
 
 
 # ---------------------------------------------------------------------------
