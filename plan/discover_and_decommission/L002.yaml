@@ -1,0 +1,78 @@
+urn: "wmbt:discover-and-decommission:L002"
+step: "locate"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "unsurfaced-disposition-archetype-and-suppression-listings"
+context_clarifier: "when operators triaging CI failures, agents respawning under feedback, and reviewers prioritizing risk all need to enumerate every rule with a given disposition (strict / suppress-and-clean / advisory / documentation-only), every rule under a given archetype (coder / coach / tester / planner / repo), or every active or stale suppression marker in the working tree — without manually walking convention YAMLs or rerunning the suppression scanner"
+lens: "functional.effectiveness"
+statement: "minimize quantity of unsurfaced-disposition-archetype-and-suppression-listings when operators, agents, and reviewers need to enumerate rules by disposition or archetype and surface active or stale suppression markers from a single CLI"
+acceptances:
+  - identity:
+      urn: "acc:discover-and-decommission:L002-UNIT-001-rules-disposition-lists-strict-and-others"
+      id: "AC-UNIT-001"
+      purpose: "atdd rules disposition <strict|suppress-and-clean|advisory|documentation-only> lists every rule with the given disposition across toolkit and repo.* registries"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Toolkit conventions declare per-rule disposition; repo.* rules are uniformly strict per substrate v12 §2"
+    when:
+      abstract: "atdd rules disposition strict is invoked, then each of the other three dispositions"
+    then:
+      abstract:
+        - "atdd rules disposition strict lists every strict rule across both registries (toolkit + repo)"
+        - "atdd rules disposition suppress-and-clean lists every toolkit suppress-and-clean rule and lists zero repo.* rules"
+        - "atdd rules disposition advisory and documentation-only list only toolkit rules"
+        - "Each line shows rule-id, archetype, severity, and a one-line description"
+        - "Invalid disposition value exits non-zero with a list of the four valid options"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:discover-and-decommission:L002-UNIT-002-rules-archetype-lists-coder-coach-tester-planner-repo"
+      id: "AC-UNIT-002"
+      purpose: "atdd rules archetype <coder|coach|tester|planner|repo> lists every rule under the given archetype"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Rule-ids encode archetype as the first dotted segment per SPEC-COACH-RULEID-0001"
+    when:
+      abstract: "atdd rules archetype <name> is invoked for each of coder, coach, tester, planner, and repo"
+    then:
+      abstract:
+        - "atdd rules archetype repo lists every substrate-derived rule (WMBT-acceptance, train-acceptance, security)"
+        - "atdd rules archetype coder, coach, tester, planner each list their respective toolkit rules"
+        - "Output is sorted by rule-id within an archetype for stable diffing"
+        - "Unknown archetype exits non-zero listing the five valid options"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:discover-and-decommission:L002-UNIT-003-rules-suppressions-delegates-to-scanner"
+      id: "AC-UNIT-003"
+      purpose: "atdd rules suppressions [--stale-only] [--rule <id>] delegates to find_suppressions / find_stale_suppressions and lists active markers"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "find_suppressions() and find_stale_suppressions() exist in the existing toolkit machinery"
+        - "The working tree contains a mix of active and UNTIL-past suppression markers across multiple files"
+    when:
+      abstract: "atdd rules suppressions is invoked with no flags, then with --stale-only, then with --rule <id>"
+    then:
+      abstract:
+        - "The default invocation lists every active suppression marker with file path, line, rule-id, UNTIL date"
+        - "--stale-only filters to markers whose UNTIL date has passed today"
+        - "--rule <id> filters to markers for the given rule-id"
+        - "Markers referencing repo.* rules are surfaced as warnings (substrate-unsuppressible per substrate v12 §2)"
+        - "Empty result exits zero (clean working tree is the success case)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
