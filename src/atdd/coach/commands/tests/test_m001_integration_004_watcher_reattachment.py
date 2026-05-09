@@ -72,8 +72,12 @@ def test_replay_does_not_re_emit_handled_exactly_once_events(tmp_path):
 
 
 def test_replay_does_not_lose_unhandled_events(tmp_path):
-    """An event whose handler did NOT complete must be redelivered after
-    restart (durability via append-only state)."""
+    """A replay-cached event whose handler did NOT complete must be
+    redelivered after restart (durability via append-only state).
+
+    Uses ``commit_observed`` because it is replay-cached per
+    ``event-semantics.md`` and at-least-once dedup happens at the
+    consumer's natural-key, NOT at replay time."""
     from atdd.coach.commands.watchers import CoachEventQueue, RuntimeWatcher
 
     runtime = tmp_path
@@ -82,10 +86,10 @@ def test_replay_does_not_lose_unhandled_events(tmp_path):
         agent_dir,
         [
             {
-                "event_type": "validation_pending",
+                "event_type": "commit_observed",
                 "agent_id": "agent-pending",
                 "timestamp": "2026-05-09T14:00:00Z",
-                "payload": {"phase": "GREEN", "sha": "abc"},
+                "payload": {"sha": "abc", "branch": "main", "worktree_path": "/x"},
             }
         ],
     )
@@ -99,7 +103,7 @@ def test_replay_does_not_lose_unhandled_events(tmp_path):
     queue2 = CoachEventQueue(runtime_dir=runtime)
     watcher2 = RuntimeWatcher(runtime_dir=runtime, queue=queue2, poll_interval=0.05)
     watcher2.replay_from_disk()
-    pending = [e for e in queue2.drain() if e["event_type"] == "validation_pending"]
+    pending = [e for e in queue2.drain() if e["event_type"] == "commit_observed"]
     assert len(pending) == 1
     assert pending[0]["payload"]["sha"] == "abc"
 
