@@ -1,0 +1,57 @@
+urn: "wmbt:integrate-end-to-end:E001"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "one-real-issue-completing-coach-driven-cycle-to-complete-state"
+context_clarifier: "when all upstream coach v9 wagons (freeze-runtime-contracts, drive-state-machine, spawn-agents, observe-and-correct, dispatch-validators, review-phase-boundaries, judge-ambiguous-decisions, discover-and-decommission) have merged and one small-scope real GitHub issue (single WMBT, ideally exercising both harness.type and signal.metric so both substrate runner modes fire) is selected as the worked example for the first end-to-end coach-driven cycle"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of one-real-issue-completing-coach-driven-cycle-to-complete-state when all upstream coach v9 wagons have merged and one small-scope issue is selected as the worked example for the first end-to-end run"
+acceptances:
+  - identity:
+      urn: "acc:integrate-end-to-end:E001-SMOKE-001-cycle-reaches-complete"
+      id: "AC-SMOKE-001"
+      purpose: "atdd coach <N> drives the chosen issue from INIT through COMPLETE with a PR opened, exercising every state transition in the spec §4.1 state machine"
+      phase: "GREEN"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "All upstream coach v9 wagons have merged to main (freeze-runtime-contracts, drive-state-machine, spawn-agents, observe-and-correct, dispatch-validators, review-phase-boundaries, judge-ambiguous-decisions, discover-and-decommission)"
+        - "A small-scope real GitHub issue is selected with a single WMBT, ideally exercising both harness.type and signal.metric so both substrate runner modes fire"
+    when:
+      abstract: "atdd coach <N> is invoked from the main worktree to drive the chosen issue end-to-end"
+    then:
+      abstract:
+        - "The state machine reaches COMPLETE for the chosen issue without manual intervention beyond expected human escalations"
+        - "A PR is opened against the default branch with the risk-score breakdown included in the description"
+        - "The cycle records every state transition in .atdd/runtime/coach/decisions.jsonl with the schema frozen by freeze-runtime-contracts"
+        - "Per-commit validator outputs land at .atdd/runtime/coach/validations/<sha>/ with violations.jsonl, suppressed.jsonl, stale-suppressions.jsonl, and risk-score.json present"
+        - "A reviewer report exists for each enabled phase (PLANNED, RED, GREEN, SMOKE; REFACTOR optional per spec §6.3)"
+        - "If any repo-archetype rules trigger, the risk score includes a repo archetype slice"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:integrate-end-to-end:E001-SMOKE-002-artifacts-readable"
+      id: "AC-SMOKE-002"
+      purpose: "An agent (human or LLM) can read the runtime artifacts produced during the cycle and reconstruct what happened without consulting any other source"
+      phase: "GREEN"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The end-to-end coach-driven cycle on the chosen issue has completed (acc:integrate-end-to-end:E001-SMOKE-001-cycle-reaches-complete passes)"
+        - "All runtime artifacts under .atdd/runtime/coach/, .atdd/runtime/agents/<id>/, .atdd/runtime/validations/<sha>/, and .atdd/runtime/issue-reviews/<issue-N>/ are present"
+    when:
+      abstract: "A reader (human or LLM) opens decisions.jsonl, judgments.jsonl, the per-commit validations/<sha>/ artifacts, the per-agent agents/<id>/ artifacts, and the reviewer reports in chronological order"
+    then:
+      abstract:
+        - "The reader can reconstruct the full state-machine path the issue took (which transitions fired, in what order, on what evidence)"
+        - "The reader can pair each validation with its commit SHA and recover which rules fired with which dispositions"
+        - "The reader can pair each judgment with its call-site context per spec §6.9"
+        - "No artifact required by spec §3.2 is missing for the cycle"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
