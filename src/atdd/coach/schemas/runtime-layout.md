@@ -40,7 +40,13 @@ Anything under it is local to a coach run; nothing here is committed.
 │   ├── heartbeat.json
 │   ├── output.log
 │   ├── events.jsonl
-│   └── corrections.jsonl
+│   ├── corrections.jsonl
+│   ├── questions.jsonl
+│   ├── escalations.jsonl
+│   ├── done.json
+│   ├── context.json
+│   ├── answers/<question-id>.json
+│   └── reviews/<review-id>.json
 ├── coach/
 │   ├── decisions.jsonl
 │   └── judgments.jsonl
@@ -69,6 +75,12 @@ grep this document for an exact match:
 - `.atdd/runtime/agents/<id>/output.log`
 - `.atdd/runtime/agents/<id>/events.jsonl`
 - `.atdd/runtime/agents/<id>/corrections.jsonl`
+- `.atdd/runtime/agents/<id>/questions.jsonl`
+- `.atdd/runtime/agents/<id>/escalations.jsonl`
+- `.atdd/runtime/agents/<id>/done.json`
+- `.atdd/runtime/agents/<id>/context.json`
+- `.atdd/runtime/agents/<id>/answers/<question-id>.json`
+- `.atdd/runtime/agents/<id>/reviews/<review-id>.json`
 - `.atdd/runtime/coach/decisions.jsonl`
 - `.atdd/runtime/coach/judgments.jsonl`
 - `.atdd/runtime/validations/<sha>/violations.jsonl`
@@ -128,6 +140,72 @@ Each spawned agent owns a directory keyed by its agent id (a slug like
 | appendability | **append-only** |
 | serialization shape | **JSON-line** stream |
 | schema | [`correction.schema.json`](./correction.schema.json) |
+
+### `agents/<id>/questions.jsonl`
+
+| facet | value |
+|-------|-------|
+| role | Structured agent → coach questions emitted via `atdd agent ask`. One record per question with `question_id`, `type` (choice/text/approval/confirmation), `question`, and `timestamp`. |
+| writer | Persona agent via `atdd agent ask` (J2 — #497) |
+| reader | Coach state machine (#J3) — answers via `answers/<question-id>.json`; review reporters |
+| appendability | **append-only** |
+| serialization shape | **JSON-line** stream |
+| schema | (no committed schema yet — frozen alongside the coach-side answer writer in #J3) |
+
+### `agents/<id>/escalations.jsonl`
+
+| facet | value |
+|-------|-------|
+| role | Agent-emitted escalations via `atdd agent escalate`. One record per escalation with `reason`, `severity` (info/warn/block), and `timestamp`. |
+| writer | Persona agent via `atdd agent escalate` (J2 — #497) |
+| reader | Observer (#L1); coach state machine (#J3) for severity=block routing; review reporters |
+| appendability | **append-only** |
+| serialization shape | **JSON-line** stream |
+| schema | (no committed schema yet — frozen alongside the observer-side consumer in #L1) |
+
+### `agents/<id>/done.json`
+
+| facet | value |
+|-------|-------|
+| role | Final-summary record signalling persona completion via `atdd agent done`. |
+| writer | Persona agent via `atdd agent done` (J2 — #497) |
+| reader | Coach state machine (#J3) — drives the per-issue REFACTOR→COMPLETE transition; review reporters |
+| appendability | **rewritten** in place — only the most recent done-signal is meaningful per agent |
+| serialization shape | **single-doc** JSON |
+| schema | (no committed schema yet — frozen alongside the coach-side consumer in #J3) |
+
+### `agents/<id>/context.json`
+
+| facet | value |
+|-------|-------|
+| role | Spawn-time bundle the spawner writes for the agent: current `phase`, `wmbt_urn`, `issue`, plus any per-LLM convention pointers. Read-only from the agent's perspective. |
+| writer | Spawner / spawn-harness (#K4) at agent-spawn time |
+| reader | Persona agent via `atdd agent context` (J2 — #497) |
+| appendability | **rewritten** by the spawner only — agent never writes |
+| serialization shape | **single-doc** JSON |
+| schema | (no committed schema yet — frozen alongside the spawn-harness in #K4) |
+
+### `agents/<id>/answers/<question-id>.json`
+
+| facet | value |
+|-------|-------|
+| role | Coach's answer to a specific `atdd agent ask` question, keyed by `question_id`. The round-trip path is the only contract — no shared mutable state between agent and coach. |
+| writer | Coach state machine (#J3) — one file per answered question |
+| reader | Persona agent via `atdd.coach.commands.agent.read_answer()` (J2 — #497) |
+| appendability | **rewritten** if coach revises an answer (rare); each question_id maps to at most one file |
+| serialization shape | **single-doc** JSON |
+| schema | (no committed schema yet — frozen alongside the coach-side answer writer in #J3) |
+
+### `agents/<id>/reviews/<review-id>.json`
+
+| facet | value |
+|-------|-------|
+| role | Reviewer-only output channel (spec §6.3 hard rule): one record per review with `review_id`, `target_commit`, the report body, and `timestamp`. The full reviewer persona spawn (no-write adapter, etc.) is owned by #N1/#N5; J2 ships only the CLI surface. |
+| writer | Reviewer persona via `atdd agent review` (J2 — #497) |
+| reader | Review-report writer (#N2); reviewer-agents (#O2); audit |
+| appendability | **append-only** under the directory — one new file per review_id; existing files are never rewritten |
+| serialization shape | **single-doc** JSON (one file per review) |
+| schema | (no committed schema yet — frozen alongside the reviewer persona in #N1/#N5) |
 
 ---
 
