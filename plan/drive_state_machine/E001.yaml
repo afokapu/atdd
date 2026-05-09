@@ -1,0 +1,79 @@
+urn: "wmbt:drive-state-machine:E001"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "leaked-worktrees-on-failed-multi-issue-launch"
+context_clarifier: "when coach launches multiple issues in a wave and one worktree creation fails — without two-phase commit discipline, partial state persists across runs (orphaned worktrees, half-launched sessions). Spec §4.6 inherits this from atdd orchestrate: Phase A creates all worktrees with rollback-on-any-failure, Phase B launches sessions and writes a decision per success. The state file moves from .atdd/orchestrate-state.json (single-document JSON) to .atdd/runtime/coach/decisions.jsonl (JSON-lines, owned by #J3 / P001) as the durable resume source"
+lens: "functional.availability"
+statement: "minimize likelihood of leaked-worktrees-on-failed-multi-issue-launch when coach launches multiple issues in a wave by absorbing the two-phase-commit discipline from atdd orchestrate (Phase A worktrees with rollback, Phase B launch with per-success decision writes), preserving rollback verbatim"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:E001-INTEGRATION-001-phase-a-rollback"
+      id: "AC-INTEGRATION-001"
+      purpose: "Coach with multiple issues creates all worktrees in Phase A; if any fail, all already-created worktrees roll back via git worktree remove --force before exit"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "_create_worktree and _remove_worktree from src/atdd/coach/commands/orchestrate.py are absorbed into coach.py per spec §4.6"
+        - "Three issues are configured (358, 359, 360); creation of the worktree for 360 is rigged to fail"
+    when:
+      abstract: "Coach is invoked with the three issues"
+    then:
+      abstract:
+        - "Worktrees for 358 and 359 are created"
+        - "When 360's creation fails, _remove_worktree is called for 358 and 359 before coach exits"
+        - "Coach returns a non-zero exit code with an error naming the failed issue"
+        - "No partial state persists: no worktrees remain, no decisions.jsonl entries for the rolled-back creations"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:drive-state-machine:E001-INTEGRATION-002-phase-b-launch"
+      id: "AC-INTEGRATION-002"
+      purpose: "After all worktrees succeed, Phase B launches sessions and writes a decision per success; failed launches log without rolling back already-launched siblings"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "Phase A completed successfully for issues 358, 359, 360"
+        - "Launch of issue 360 is rigged to fail at multiplexer dispatch"
+    when:
+      abstract: "Phase B runs"
+    then:
+      abstract:
+        - "Sessions for 358 and 359 launch successfully and each writes a decision to decisions.jsonl"
+        - "When 360's launch fails, the failure is logged but 358's and 359's sessions are NOT rolled back"
+        - "Coach records the partial-launch state durably so --resume can finish 360 without restarting 358/359"
+        - "The rationale (a successfully-launched agent is recoverable on --resume; we don't undo it) is honored"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:drive-state-machine:E001-INTEGRATION-003-resume-source-replaced"
+      id: "AC-INTEGRATION-003"
+      purpose: "decisions.jsonl replaces .atdd/orchestrate-state.json as the durable resume source; coach --resume reconstructs which worktrees exist and which sessions launched, skipping idempotent steps"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "Coach was killed mid-Phase-B with worktrees for 358, 359, 360 created and only 358's session launched"
+        - ".atdd/orchestrate-state.json is NOT written by coach (the file format change is part of the absorption)"
+    when:
+      abstract: "atdd coach --resume <run-id> is invoked"
+    then:
+      abstract:
+        - "Coach reads decisions.jsonl to reconstruct the state"
+        - "Worktrees for 358, 359, 360 are recognized as already created (idempotent _create_worktree no-op)"
+        - "358's session is recognized as already launched (idempotent spawn check)"
+        - "Only 359 and 360 are newly launched"
+        - "src/atdd/coach/commands/orchestrate.py is not yet decommissioned (#P5 owns that); E001 absorbs the machinery without removing it"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"

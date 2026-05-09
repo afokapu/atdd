@@ -1,0 +1,76 @@
+urn: "wmbt:judge-ambiguous-decisions:D002"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "judge-call-site-misfire-on-tier1-retry-or-regression"
+context_clarifier: "when coach v9 must distinguish three high-frequency ambiguous-routing scenarios — (1) borderline tier-1 result where mixed pass/fail with ambiguous severity or suppress-and-clean rules clustered around recently-edited lines should not auto-block, (3) retry-vs-escalate at threshold where the next attempt would consume the final retry, (4) cross-phase regression risk where tier-1 in a later phase reveals a regression in earlier-phase work — each call site must trigger exactly when its conditions are met (not before, not after) and route per the response. Misfire (fire when conditions not met, or fail to fire when met) is the failure mode this WMBT controls"
+lens: "functional.availability"
+statement: "minimize likelihood of judge-call-site-misfire-on-tier1-retry-or-regression when coach must route call sites #1 (borderline tier-1), #3 (retry-vs-escalate), and #4 (cross-phase regression) — each with its own pre-conditions, response schema, and post-routing behavior"
+acceptances:
+  - identity:
+      urn: "acc:judge-ambiguous-decisions:D002-UNIT-001-call-site-trigger-conditions-precise"
+      id: "AC-UNIT-001"
+      purpose: "Each of call sites #1, #3, #4 fires exactly when its pre-conditions are met and never otherwise"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Coach state machine (track J) emits tier-1 results, retry counts, and per-phase regression deltas into runtime context"
+        - "Pre-condition predicates for the three call sites are codified per spec §6.9"
+    when:
+      abstract: "Coach evaluates routing across a fixture matrix that exercises pre-conditions met / not met for each call site"
+    then:
+      abstract:
+        - "Call site #1 fires only when tier-1 has mixed pass/fail with ambiguous severity, OR a suppress-and-clean rule cluster touches recently-edited lines"
+        - "Call site #3 fires only when the next attempt would consume the final retry (retry_count == max_retries - 1)"
+        - "Call site #4 fires only when tier-1 in a later phase reveals violations that did not exist at the predecessor phase's exit commit"
+        - "When pre-conditions are not met, no judge call is made and no judgments.jsonl line is appended"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:judge-ambiguous-decisions:D002-UNIT-002-response-schemas-frozen-and-validate"
+      id: "AC-UNIT-002"
+      purpose: "Each call site has a frozen JSON Schema response contract committed at src/atdd/coach/schemas/ and the LLM response validates against it before coach acts"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/schemas/judge-borderline-tier1.response.schema.json exists with required fields { decision: pass|respawn|annotate, confidence: 0..1, rationale }"
+        - "src/atdd/coach/schemas/judge-retry-vs-escalate.response.schema.json exists with required fields { decision: retry|escalate, reasoning }"
+        - "src/atdd/coach/schemas/judge-cross-phase-regression.response.schema.json exists with required fields { decision: fix_in_place|reopen_prior_phase|escalate, target_phase, rationale }"
+    when:
+      abstract: "atdd judge is invoked at each call site with stub LLM responses covering valid and invalid shapes"
+    then:
+      abstract:
+        - "Valid responses pass schema validation and feed coach routing"
+        - "Invalid responses (missing fields, decision values outside the enum, confidence out of range) fail validation loudly and coach falls back per coach.judge.fail_open"
+        - "Each schema has at least one valid example fixture committed at src/atdd/coach/schemas/fixtures/"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:judge-ambiguous-decisions:D002-INTEGRATION-001-coach-routes-per-response"
+      id: "AC-INTEGRATION-001"
+      purpose: "Coach state machine consumes the structured response and transitions accordingly: respawn fires the spawn-feedback path; annotate continues with PR annotation; escalate transitions to BLOCKED with operator notification; fix_in_place stays in current phase; reopen_prior_phase rolls back to the named target phase"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "An end-to-end coach run with fixture LLM responses exercising every decision branch for the three call sites"
+    when:
+      abstract: "Coach completes the run and emits decisions.jsonl entries"
+    then:
+      abstract:
+        - "Each decision in decisions.jsonl references the upstream judgments.jsonl entry by judgment_id"
+        - "State transitions follow the response: respawn → spawn (track K), escalate → BLOCKED, reopen_prior_phase → revert to named phase, fix_in_place → no transition"
+        - "PR annotations (annotate / annotate_and_continue) carry the rationale text from the judge response"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"

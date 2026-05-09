@@ -12,3 +12,16 @@ trains:
           - self-compliance-migration
           - security-patterns
           - enforce-structured-logging
+      - train_id: "0002-coach-drives-lifecycle"
+        title: "Coach Drives Lifecycle"
+        path: "plan/_trains/0002-coach-drives-lifecycle.yaml"
+        wagons:
+          - freeze-runtime-contracts
+          - drive-state-machine
+          - spawn-agents
+          - observe-and-correct
+          - dispatch-validators
+          - review-phase-boundaries
+          - judge-ambiguous-decisions
+          - discover-and-decommission
+          - integrate-end-to-end

@@ -1,0 +1,73 @@
+wagon: drive-state-machine
+urn: "wagon:drive-state-machine"
+name: "Drive State Machine"
+description: "atdd coach state machine MVP + atdd agent CLI subcommands + decision/judgment durability + two-phase commit absorbed from orchestrate + runtime/git/liveness watchers + resume from decisions log; the durable orchestrator that owns the per-issue lifecycle (INIT → COMPLETE) instead of trusting agents to self-report phase"
+theme: commons
+
+subject: "agent:coach"
+context: "in-coach-v9-execution, polling-based-orchestrate-replaced, runtime-contracts-frozen"
+action: "drives the per-issue state machine deterministically with durable decisions.jsonl, agent-CLI side-effects, two-phase-commit rollback discipline, event-driven watchers, and resume semantics"
+goal: "own the issue lifecycle as a durable orchestrator that survives restarts and is the single writer of phase truth"
+outcome: "atdd coach + atdd agent CLI surface with decisions.jsonl + judgments.jsonl + two-phase commit + three watchers (runtime/git/liveness) + --resume <run-id> reconstructing without double-execution"
+
+features:
+  - urn: "feature:drive-state-machine:coach-state-machine-and-runtime"
+
+produce:
+  - name: commons:coach:coach-cli-skeleton
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:agent-cli-subcommands
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:decisions-jsonl-writer
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:judgments-jsonl-writer
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:two-phase-commit-runner
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:runtime-event-watcher
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:git-event-watcher
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:liveness-checker
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:resume-runner
+    contract: null
+    telemetry: null
+    to: external
+
+consume:
+  - name: commons:coach:coach-decision-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:coach-judgment-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:event-semantics-doc
+    from: wagon:freeze-runtime-contracts
+
+wmbt:
+  total: 6
+  D001: "minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton"
+  D002: "minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface"
+  P001: "minimize likelihood of lossy-coach-decisions-and-judgments-on-restart"
+  E001: "minimize likelihood of leaked-worktrees-on-failed-multi-issue-launch"
+  M001: "minimize likelihood of missed-agent-runtime-events-from-polling-only-observation"
+  R001: "minimize likelihood of duplicate-state-transitions-on-coach-resume"

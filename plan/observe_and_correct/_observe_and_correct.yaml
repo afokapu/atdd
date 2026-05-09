@@ -1,0 +1,78 @@
+wagon: observe-and-correct
+urn: "wagon:observe-and-correct"
+name: "Observe And Correct"
+description: "Detect-and-correct observer sidecar for coach v9: implements `atdd observer` (run/attach/status/aggregate-approve), event-driven runtime watcher, all 17 default observer rules per spec §8.3 (basic protocol rules 01–05/08/09, absorbed-from-babysit rules 06/13/14/15/16, substrate-aware rules 10/11/12/17), three correction injection paths (CLI return-path, multiplexer send-keys, kill-and-respawn), dashboard parity with `atdd babysit`, aggregate-approval batch action, and the babysit parity test suite that gates decommissioning"
+theme: commons
+
+subject: "agent:coach"
+context: "during-active-coach-runs, agent-sidecars-must-detect-and-correct-protocol-violations-in-real-time"
+action: "tails agent output, watches worktrees, runs detection rules, and writes structured corrections back into the agent feedback loop"
+goal: "replace babysit's polling-and-fixed-pattern model with an event-driven, extensible observer that catches protocol-level issues before tier-1 validators do"
+outcome: "`atdd observer run` operates as the coach's standing detect-and-correct sidecar, with 17 default rules wired in, dashboard + aggregate-approve operator surfaces at parity with babysit, and a parity test suite proving behavioral equivalence before babysit is decommissioned"
+
+features:
+  - urn: "feature:observe-and-correct:observer-runtime-and-rules"
+  - urn: "feature:observe-and-correct:observer-operator-surface"
+
+produce:
+  - name: commons:coach:observer-command
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-correction-injection-paths
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-rule-registry
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-rules-basic-protocol
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-rule-token-threshold
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-rules-babysit-absorbed
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-rules-substrate-aware
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-status-dashboard
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-aggregate-approve
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:babysit-parity-test-suite
+    contract: null
+    telemetry: null
+    to: external
+
+consume:
+  - name: commons:coach:correction-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:event-semantics-doc
+    from: wagon:freeze-runtime-contracts
+
+wmbt:
+  total: 8
+  P001: "minimize quantity of observer-runtime-skeleton-gaps"
+  M001: "minimize likelihood of undetected-basic-protocol-violations"
+  M002: "minimize likelihood of unflagged-context-window-exhaustion"
+  M003: "minimize likelihood of undetected-multiplexer-and-bash-protocol-drift"
+  M004: "minimize likelihood of undetected-substrate-rule-id-and-suppression-violations"
+  L001: "minimize effort of locating-active-coach-surface-state"
+  E001: "minimize effort of approving-known-safe-cross-surface-prompts"
+  C001: "minimize likelihood of behavioral-regression-against-babysit-baseline"

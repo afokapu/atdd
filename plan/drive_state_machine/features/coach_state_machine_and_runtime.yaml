@@ -1,0 +1,35 @@
+urn: "feature:drive-state-machine:coach-state-machine-and-runtime"
+wagon: "wagon:drive-state-machine"
+description: "atdd coach state machine + atdd agent CLI subcommands + durable decisions/judgments + two-phase commit (worktrees, launch) absorbed from orchestrate + runtime/git/liveness watchers + --resume reconstruction. Owns the per-issue lifecycle (INIT → COMPLETE) deterministically with append-only decisions.jsonl as the resume source of truth, replacing atdd orchestrate's polling-and-trust model."
+sizing:
+  wmbts: 6
+  footprint_score: 18
+  footprint_size: "L"
+wmbts:
+  - "wmbt:drive-state-machine:D001"
+  - "wmbt:drive-state-machine:D002"
+  - "wmbt:drive-state-machine:P001"
+  - "wmbt:drive-state-machine:E001"
+  - "wmbt:drive-state-machine:M001"
+  - "wmbt:drive-state-machine:R001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 2
+        rationale: "atdd coach <issue-numbers...> entry point and atdd agent <subcommand> entry point — argparse + dispatch only"
+    application:
+      - type: "use_cases"
+        count: 6
+        rationale: "Per-issue state-machine driver, agent-CLI write coordinator, durable-log writer, two-phase-commit runner, watcher event router, resume reconstructor"
+    domain:
+      - type: "value_objects"
+        count: 3
+        rationale: "Phase enum (INIT|PLANNED|RED|GREEN|SMOKE|REFACTOR|COMPLETE|BLOCKED|MERGED), state-transition table, watcher event"
+    integration:
+      - type: "adapters"
+        count: 3
+        rationale: "inotify/fswatch runtime watcher, git refs/heads watcher + gh pr view poller, liveness timer"
+      - type: "absorbed_machinery"
+        count: 4
+        rationale: "compute_waves, _create_worktree, _remove_worktree, two-phase commit loop — absorbed verbatim from src/atdd/coach/commands/orchestrate.py per spec §0.2"

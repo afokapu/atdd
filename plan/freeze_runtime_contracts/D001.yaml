@@ -1,0 +1,52 @@
+urn: "wmbt:freeze-runtime-contracts:D001"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "unfrozen-coach-runtime-schemas"
+context_clarifier: "when six coach v9 tracks (J/K/L/M/N/O/P) need stable JSON Schema contracts for runtime-event, coach-decision, coach-judgment, correction, validator-result, and risk-score artifacts to avoid cross-track merge conflicts during parallel execution"
+lens: "functional.effectiveness"
+statement: "minimize quantity of unfrozen-coach-runtime-schemas when six coach v9 tracks need stable JSON Schema contracts for runtime-event, coach-decision, coach-judgment, correction, validator-result, and risk-score artifacts to avoid cross-track merge conflicts"
+acceptances:
+  - identity:
+      urn: "acc:freeze-runtime-contracts:D001-UNIT-001-six-schemas-exist"
+      id: "AC-UNIT-001"
+      purpose: "All six runtime schemas exist as committed JSON Schema files at src/atdd/coach/schemas/ and validate as schema-conformant"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/schemas/ exists in the repository"
+        - "The six schema slots are runtime-event.schema.json, coach-decision.schema.json, coach-judgment.schema.json, correction.schema.json, validator-result.schema.json, risk-score.schema.json"
+    when:
+      abstract: "atdd validate runs against the schemas directory"
+    then:
+      abstract:
+        - "All six files are present and parse as JSON Schema draft-2020-12"
+        - "Each schema declares required fields per spec §C0 (e.g., decision_id/timestamp/coach_run_id/issue_number/decision_type/inputs/outcome for coach-decision)"
+        - "The runtime-event schema enumerates the 12 event types listed in spec §C0"
+        - "The validator-result schema's fields align with substrate's Violation dataclass (validator_id, rule_id, severity, disposition, location, detail, suppression_marker)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-08"
+  - identity:
+      urn: "acc:freeze-runtime-contracts:D001-UNIT-002-fixtures-validate"
+      id: "AC-UNIT-002"
+      purpose: "Each schema has at least one valid example fixture committed alongside that round-trips through the schema validator"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Each of the six schemas has at least one example fixture file co-located at src/atdd/coach/schemas/fixtures/<schema-name>/"
+    when:
+      abstract: "A schema-validator test loads each fixture and validates it against its declared schema"
+    then:
+      abstract:
+        - "Every fixture validates with zero errors"
+        - "Fixtures collectively cover required-only and required-plus-optional shapes"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-08"

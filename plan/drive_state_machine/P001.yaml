@@ -1,0 +1,99 @@
+urn: "wmbt:drive-state-machine:P001"
+step: "prepare"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "lossy-coach-decisions-and-judgments-on-restart"
+context_clarifier: "when coach must own the per-issue lifecycle as a durable orchestrator — every state transition must be appended to .atdd/runtime/coach/decisions.jsonl BEFORE the action runs (per spec §4.5), and every atdd judge call must be appended to .atdd/runtime/coach/judgments.jsonl (per spec §6.9). Without this, a coach restart loses the truth of which transitions ran and which judgments were rendered, breaking idempotent --resume (#J6) and the 'mechanical floor' principle (§2). Schemas come from #C0 (coach-decision.schema.json, coach-judgment.schema.json); P001 prepares the writers + write-time validation"
+lens: "functional.availability"
+statement: "minimize likelihood of lossy-coach-decisions-and-judgments-on-restart when coach must append every state transition to decisions.jsonl before the action runs and every judge call to judgments.jsonl, with schema validation at write time, so that restart-and-resume is lossless"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:P001-UNIT-001-decisions-append-only"
+      id: "AC-UNIT-001"
+      purpose: "A coach run writes every state transition to decisions.jsonl in append-only fashion BEFORE the action runs, conformant to coach-decision.schema.json"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "coach-decision.schema.json is committed at src/atdd/coach/schemas/ (from #C0)"
+        - "A coach run that drives an issue from INIT to PLANNED is configured"
+    when:
+      abstract: "Coach executes the INIT→PLANNED transition"
+    then:
+      abstract:
+        - ".atdd/runtime/coach/decisions.jsonl exists and contains a JSON-line record matching coach-decision.schema.json"
+        - "The record was appended BEFORE the action ran (verified by injecting a failure at action-time and observing the decision still recorded)"
+        - "Required fields decision_id, timestamp, coach_run_id, issue_number, decision_type, inputs, outcome are populated per #C0 schema"
+        - "The file is opened with O_APPEND semantics; concurrent writes don't corrupt records"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:drive-state-machine:P001-UNIT-002-judgments-append-only"
+      id: "AC-UNIT-002"
+      purpose: "A coach run that calls atdd judge writes every call to judgments.jsonl conformant to coach-judgment.schema.json with inputs hashed by default"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "coach-judgment.schema.json is committed at src/atdd/coach/schemas/ (from #C0)"
+        - "atdd judge is invoked from one of the six v1 call sites (per spec §6.9)"
+    when:
+      abstract: "Coach completes a judge call"
+    then:
+      abstract:
+        - ".atdd/runtime/coach/judgments.jsonl gains a JSON-line record matching coach-judgment.schema.json"
+        - "Required fields judgment_id, timestamp, call_site, inputs_hash, response, cached are populated"
+        - "inputs_hash is a content hash; full inputs are written to the gitignored cache, not the durable log"
+        - "call_site value is one of the six enumerated in spec §6.9"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:drive-state-machine:P001-UNIT-003-schema-validation-at-write"
+      id: "AC-UNIT-003"
+      purpose: "Schema validation runs at write time for both decisions.jsonl and judgments.jsonl — malformed records are rejected before durable persistence"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "coach-decision.schema.json and coach-judgment.schema.json are loaded by the writer"
+        - "An attempt is made to write a record missing a required field"
+    when:
+      abstract: "The writer is invoked with an invalid payload"
+    then:
+      abstract:
+        - "The write is rejected with a schema-validation error before any bytes hit the file"
+        - "The error names the missing/invalid field"
+        - "The file is not partially written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:drive-state-machine:P001-UNIT-004-actions-idempotent"
+      id: "AC-UNIT-004"
+      purpose: "All actions whose intent is durably logged remain idempotent — replaying the same decision record produces no double-execution"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A decisions.jsonl with a recorded INIT→PLANNED transition for issue 358"
+        - "Coach is restarted and replays the log"
+    when:
+      abstract: "The replayed transition is re-encountered"
+    then:
+      abstract:
+        - "The action is recognized as already executed (via the durable log) and is skipped"
+        - "No duplicate side-effects are produced (no second commit, no second worktree, no second event emission)"
+        - "Idempotency is the contract that makes #J6 resume feasible"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"

@@ -1,0 +1,94 @@
+wagon: dispatch-validators
+urn: "wagon:dispatch-validators"
+name: "Dispatch Validators"
+description: "Implements coach v9's real-time tier-1 validator pipeline (spec §6.4–§6.6, §6.8): a git watcher emits commit_observed events with parsed Phase/WMBT-Urn/Agent-Id trailers; a pytest plugin (coach.runtime.violation_collector) captures Violation records into validations/<sha>/violations.jsonl; per-phase validator selection unions toolkit conventions with substrate v12 repo.* rules whose RuleMetadata.phase matches the current coach phase; the suppression scanner separates suppressed and stale-suppression violations into suppressed.jsonl and stale-suppressions.jsonl while strict repo rules bypass suppression; risk score with by_archetype (incl. repo slice), by_severity, by_disposition, and stale_suppressions is computed and written to risk-score.json. Together these deliver the deterministic feedback loop that coach uses to route GREEN/SMOKE/REFACTOR phase exits and to block COMPLETE on configurable risk thresholds."
+theme: commons
+
+subject: "agent:coach"
+context: "in-runtime-tier-1-dispatch, when-an-agent-commits-on-a-watched-worktree-and-coach-must-evaluate-the-commit-against-phase-scoped-validators-before-routing-the-next-action"
+action: "watches commits, dispatches phase-selected validators in subprocess, collects Violation records via the substrate-aligned pytest plugin, applies suppression-scanner end-to-end (toolkit only, repo rules bypass), and computes the per-commit risk score with archetype slices"
+goal: "ensure every commit on a coach-watched worktree produces a deterministic, schema-conformant validation record set (violations.jsonl, suppressed.jsonl, stale-suppressions.jsonl, risk-score.json) within the §6.4 grace window so coach can route the agent without trust-based polling"
+outcome: "for every observed commit on a watched worktree, .atdd/runtime/validations/<sha>/ contains four artifacts conforming to C0-frozen schemas, plus a validation_complete event on the agent's events.jsonl carrying the summary; coach can route GREEN/SMOKE/REFACTOR exits and block COMPLETE on configurable risk thresholds"
+
+features:
+  - urn: "feature:dispatch-validators:dispatch-tier-one-validators"
+
+produce:
+  - name: commons:coach:git-watcher
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:commit-observed-event
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validation-pending-event
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validation-complete-event
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:commit-trailers-rule-family
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:violation-collector-pytest-plugin
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:violations-jsonl-artifact
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validator-selection-resolver
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validator-selection-config-block
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:suppression-filter
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:suppressed-jsonl-artifact
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:stale-suppressions-jsonl-artifact
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:risk-score-computer
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:risk-score-json-artifact
+    contract: null
+    telemetry: null
+    to: external
+
+consume:
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-result-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:risk-score-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-invocation-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:event-semantics-doc
+    from: wagon:freeze-runtime-contracts
+
+wmbt:
+  total: 5
+  M001: "minimize quantity of unobserved-commits-on-watched-worktrees"
+  E001: "minimize loss of violation-records-during-pytest-execution"
+  D001: "minimize ambiguity-in-per-phase-validator-selection"
+  C001: "minimize quantity of unfiltered-suppressed-violations-blocking-phase-exit"
+  E002: "minimize quantity of commits-without-a-conformant-risk-score-artifact"

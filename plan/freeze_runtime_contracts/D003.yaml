@@ -1,0 +1,32 @@
+urn: "wmbt:freeze-runtime-contracts:D003"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "ambiguity-in-validator-invocation-contract"
+context_clarifier: "when track M (validator dispatch) and track J (coach state machine) must agree on how coach invokes the substrate pytest plugin — pytest CLI flags, PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 policy, per-phase timeouts, retry-on-subprocess-crash vs retry-on-test-failure semantics, and which env vars are passed through"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of ambiguity-in-validator-invocation-contract when track M and track J must agree on how coach invokes the substrate pytest plugin and the surrounding subprocess-vs-test-failure handling policy"
+acceptances:
+  - identity:
+      urn: "acc:freeze-runtime-contracts:D003-UNIT-001-validator-invocation-doc-committed"
+      id: "AC-UNIT-001"
+      purpose: "validator-invocation.md is committed at src/atdd/coach/schemas/validator-invocation.md and specifies the full subprocess contract"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/schemas/validator-invocation.md exists in the repository"
+    when:
+      abstract: "A linter test scans validator-invocation.md for the required sections"
+    then:
+      abstract:
+        - "The document specifies the pytest CLI flag set coach uses to invoke validators (incl. -p atdd.coach.plugins.diagnostics where applicable)"
+        - "The PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 policy is stated with rationale"
+        - "Per-phase timeout defaults and override mechanism are stated"
+        - "The retry-on-subprocess-crash policy is explicitly distinguished from retry-on-test-failure (different signal handling)"
+        - "The list of env vars passed through to validator subprocesses is enumerated"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-08"
