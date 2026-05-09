@@ -618,3 +618,435 @@ def test_iter_rules_emits_each_canonical_rule_once(seeded_registry: Path):
     }
     # No duplicates anywhere.
     assert len(set(rule_ids)) == len(rule_ids)
+
+
+# =============================================================================
+# Issue #494 — atdd rules disposition / archetype / suppressions
+# =============================================================================
+# These three subcommands extend the discovery surface from #493 with the
+# enumerate-by-attribute view (per spec §5.7). The fixture registry already
+# carries three repo.* rules (all walker-set to ``strict``) plus the full
+# toolkit-convention registry, so the assertions key off the fixture rules
+# while still tolerating the toolkit's own catalog growing over time.
+
+# ---------------------------------------------------------------------------
+# atdd rules disposition <strict|suppress-and-clean|advisory|documentation-only>
+#   acc:discover-and-decommission:L002-UNIT-001
+# ---------------------------------------------------------------------------
+def test_rules_disposition_strict_lists_repo_and_toolkit_rules(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``disposition strict`` surfaces every strict rule across both registries.
+
+    Repo rules are uniformly strict per substrate v12 §2 (walker-set), so
+    every fixture repo rule must appear; toolkit strict rules also appear
+    because the merged registry is one stream.
+    """
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().disposition("strict")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # All three fixture repo rules — uniformly strict per §2.
+    assert "repo.govern-lifecycle.D010-acc-unit-001" in out
+    assert "repo.foo-wagon.D001-acc-http-007" in out
+    assert "repo.0001-self-compliance-validate.acc-idempotent-on-retry" in out
+
+
+def test_rules_disposition_strict_line_carries_id_archetype_severity_description(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Each output line shows rule-id + archetype + severity + description.
+
+    Per acc:L002-UNIT-001: each line shows enough context to be
+    self-explanatory at a glance — rule-id, archetype, severity, and
+    the one-line description.
+    """
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().disposition("strict")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # The fixture repo rule's line carries the four required fields.
+    matching = [
+        line for line in out.splitlines()
+        if "repo.govern-lifecycle.D010-acc-unit-001" in line
+    ]
+    assert matching, "fixture repo rule missing from disposition strict output"
+    line = matching[0]
+    # Archetype tag.
+    assert "repo" in line
+    # Severity (walker constant: 4).
+    assert "sev=4" in line
+    # Description (purpose) substring.
+    assert "theme_map" in line
+
+
+def test_rules_disposition_suppress_and_clean_returns_toolkit_only(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``disposition suppress-and-clean`` lists toolkit rules only.
+
+    Per substrate v12 §2 repo rules are uniformly strict; non-strict
+    dispositions must NOT include any ``repo.*`` rule.
+    """
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().disposition("suppress-and-clean")
+    # Either zero (when toolkit has at least one) or non-zero (empty); but
+    # the load-bearing assertion is the registry purity.
+    out = capsys.readouterr().out
+    assert "repo." not in out, "repo.* rules must not appear under non-strict dispositions"
+
+
+def test_rules_disposition_advisory_returns_toolkit_only(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Same purity invariant as suppress-and-clean for advisory."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    RulesCommand().disposition("advisory")
+    out = capsys.readouterr().out
+    assert "repo." not in out
+
+
+def test_rules_disposition_documentation_only_returns_toolkit_only(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Same purity invariant for documentation-only."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    RulesCommand().disposition("documentation-only")
+    out = capsys.readouterr().out
+    assert "repo." not in out
+
+
+def test_rules_disposition_invalid_value_returns_nonzero_with_options(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """An unknown disposition exits 1 and surfaces the four valid options."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().disposition("nonsense")
+    assert rc == 1
+    err = capsys.readouterr().err
+    # Lists each valid option so the operator sees the vocabulary.
+    assert "strict" in err
+    assert "suppress-and-clean" in err
+    assert "advisory" in err
+    assert "documentation-only" in err
+
+
+def test_rules_disposition_json_format(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``--format json`` emits a list of rule metadata dicts."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().disposition("strict", format="json")
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert isinstance(payload, list)
+    rule_ids = {entry["rule_id"] for entry in payload}
+    assert "repo.govern-lifecycle.D010-acc-unit-001" in rule_ids
+    # Every entry has disposition='strict'.
+    assert all(entry["disposition"] == "strict" for entry in payload)
+
+
+# ---------------------------------------------------------------------------
+# atdd rules archetype <coder|coach|tester|planner|repo>
+#   acc:discover-and-decommission:L002-UNIT-002
+# ---------------------------------------------------------------------------
+def test_rules_archetype_repo_lists_every_substrate_rule(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``archetype repo`` lists every substrate-derived rule (per substrate v12)."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().archetype("repo")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # All three fixture repo rules.
+    assert "repo.govern-lifecycle.D010-acc-unit-001" in out
+    assert "repo.foo-wagon.D001-acc-http-007" in out
+    assert "repo.0001-self-compliance-validate.acc-idempotent-on-retry" in out
+    # No toolkit rule (e.g., coach.*) leaks in.
+    assert "coach.orchestration.canonical-session-name" not in out
+
+
+def test_rules_archetype_repo_output_sorted_by_rule_id(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Output is sorted by rule-id within an archetype (stable diffing)."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().archetype("repo")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Find positions of the three fixture rule-ids; they must be ordered
+    # ascending by string.
+    ids = [
+        "repo.0001-self-compliance-validate.acc-idempotent-on-retry",
+        "repo.foo-wagon.D001-acc-http-007",
+        "repo.govern-lifecycle.D010-acc-unit-001",
+    ]
+    positions = [out.index(rid) for rid in ids]
+    assert positions == sorted(positions), (
+        f"archetype repo output not sorted: positions={positions}"
+    )
+
+
+def test_rules_archetype_coach_excludes_repo_rules(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``archetype coach`` returns coach toolkit rules only — no repo leakage."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().archetype("coach")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # No repo.* rule in coach archetype.
+    assert "repo." not in out
+    # A known coach toolkit rule appears.
+    assert "coach.orchestration.canonical-session-name" in out
+
+
+def test_rules_archetype_coder_returns_only_coder_rules(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``archetype coder`` returns only rules whose id starts with ``coder.``."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().archetype("coder")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # A real coder rule we know exists.
+    assert "coder.logging.coach-silent-swallow" in out
+    # Other archetypes don't leak.
+    assert "coach." not in out.replace("coach-silent-swallow", "")
+    assert "tester." not in out
+    assert "planner." not in out
+
+
+def test_rules_archetype_tester_excludes_other_archetypes(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``archetype tester`` returns only tester rules."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().archetype("tester")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Other archetypes absent from each line.
+    for line in out.splitlines():
+        if "—" in line:  # rule lines carry an em-dash separator
+            # Lines under archetype=tester start with tester. rule-id.
+            stripped = line.lstrip()
+            if stripped and not stripped.startswith("Total:"):
+                assert stripped.startswith("tester."), f"non-tester rule in archetype tester: {line!r}"
+
+
+def test_rules_archetype_planner_excludes_other_archetypes(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``archetype planner`` returns only planner rules."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().archetype("planner")
+    assert rc == 0
+    out = capsys.readouterr().out
+    for line in out.splitlines():
+        if "—" in line and not line.lstrip().startswith("Total:"):
+            stripped = line.lstrip()
+            if stripped:
+                assert stripped.startswith("planner."), (
+                    f"non-planner rule in archetype planner: {line!r}"
+                )
+
+
+def test_rules_archetype_unknown_value_returns_nonzero_with_options(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """An unknown archetype exits 1 and surfaces the five valid options."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().archetype("frontend")
+    assert rc == 1
+    err = capsys.readouterr().err
+    for option in ("coder", "coach", "tester", "planner", "repo"):
+        assert option in err, f"missing valid archetype {option!r} in error message"
+
+
+def test_rules_archetype_json_format(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``--format json`` emits a list of rule metadata dicts for the archetype."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().archetype("repo", format="json")
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert isinstance(payload, list)
+    assert len(payload) == 3
+    assert {entry["rule_id"] for entry in payload} == {
+        "repo.govern-lifecycle.D010-acc-unit-001",
+        "repo.foo-wagon.D001-acc-http-007",
+        "repo.0001-self-compliance-validate.acc-idempotent-on-retry",
+    }
+
+
+# ---------------------------------------------------------------------------
+# atdd rules suppressions [--stale-only] [--rule <id>]
+#   acc:discover-and-decommission:L002-UNIT-003
+# ---------------------------------------------------------------------------
+# Build the suppression marker token at runtime so this *source* file does
+# not itself trigger the suppression scanner / stale-suppression validator
+# when CI walks the repo. The written tmp_path files reconstruct the full
+# literal so the scanner under test still sees a real marker.
+_SUPPRESS_TOKEN = "atdd:" + "suppress"
+
+
+def _seed_suppression_files(tmp_path: Path) -> None:
+    """Plant a mix of active, stale, and repo-rule markers under *tmp_path*.
+
+    Layout:
+      a.py      — active marker (UNTIL future)
+      b.py      — bare marker (no UNTIL — never stale)
+      stale.py  — stale marker (UNTIL past)
+      repo.py   — marker referencing a repo.* rule (substrate-unsuppressible)
+    """
+    (tmp_path / "a.py").write_text(
+        f"x = 1  # {_SUPPRESS_TOKEN}(coder.logging.coach-silent-swallow) UNTIL=2099-01-01\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "b.py").write_text(
+        f"y = 2  # {_SUPPRESS_TOKEN}(coder.logging.no-print-calls-in)\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "stale.py").write_text(
+        f"z = 3  # {_SUPPRESS_TOKEN}(coder.logging.coach-silent-swallow) UNTIL=2020-01-01\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "repo.py").write_text(
+        f"w = 4  # {_SUPPRESS_TOKEN}(repo.foo-wagon.D001-acc-http-007) UNTIL=2099-01-01\n",
+        encoding="utf-8",
+    )
+
+
+def test_rules_suppressions_lists_all_active_markers(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``atdd rules suppressions`` lists every active marker (file, line, rule, UNTIL)."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    _seed_suppression_files(tmp_path)
+    rc = RulesCommand().suppressions(roots=[tmp_path])
+    assert rc == 0
+    out = capsys.readouterr().out
+    # All four files surface.
+    assert "a.py" in out
+    assert "b.py" in out
+    assert "stale.py" in out
+    assert "repo.py" in out
+    # Each line shows rule-id + line number.
+    assert "coder.logging.coach-silent-swallow" in out
+    assert "coder.logging.no-print-calls-in" in out
+    assert "repo.foo-wagon.D001-acc-http-007" in out
+    # UNTIL date for the dated marker is rendered.
+    assert "2099-01-01" in out
+
+
+def test_rules_suppressions_stale_only_filters_to_past_until(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``--stale-only`` filters to markers whose UNTIL date has passed."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    _seed_suppression_files(tmp_path)
+    rc = RulesCommand().suppressions(roots=[tmp_path], stale_only=True)
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Only the stale marker survives.
+    assert "stale.py" in out
+    assert "2020-01-01" in out
+    # Active and bare markers are filtered out.
+    assert "a.py" not in out
+    assert "b.py" not in out
+
+
+def test_rules_suppressions_rule_filter_narrows_to_one_rule(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``--rule <id>`` filters to markers for the given rule-id only."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    _seed_suppression_files(tmp_path)
+    rc = RulesCommand().suppressions(
+        roots=[tmp_path],
+        rule_id="coder.logging.no-print-calls-in",
+    )
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Only b.py (the matching marker) appears.
+    assert "b.py" in out
+    assert "coder.logging.no-print-calls-in" in out
+    # Other markers do not.
+    assert "a.py" not in out
+    assert "stale.py" not in out
+    assert "repo.py" not in out
+
+
+def test_rules_suppressions_warns_on_repo_rule_marker(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Markers referencing ``repo.*`` rules surface as warnings.
+
+    Per substrate v12 §2 repo rules are uniformly strict and unsuppressible
+    — the marker is silently ignored by the gate, so the CLI is the only
+    place an operator can see the misapplication.
+    """
+    from atdd.coach.commands.rules import RulesCommand
+
+    _seed_suppression_files(tmp_path)
+    RulesCommand().suppressions(roots=[tmp_path])
+    captured = capsys.readouterr()
+    # The warning surfaces the offending rule-id and a clear "unsuppressible"
+    # phrase. Stderr is the right channel — operators piping stdout into a
+    # report still get the alert.
+    combined = captured.out + captured.err
+    assert "repo.foo-wagon.D001-acc-http-007" in combined
+    assert any(
+        token in combined.lower()
+        for token in ("warning", "unsuppressible", "ignored")
+    ), "repo-rule marker did not surface as a warning"
+
+
+def test_rules_suppressions_empty_repo_exits_zero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Empty result (no markers) still exits zero — distinct from grep."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().suppressions(roots=[tmp_path])
+    assert rc == 0
+
+
+def test_rules_suppressions_json_format(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``--format json`` emits a structured list of marker dicts."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    _seed_suppression_files(tmp_path)
+    rc = RulesCommand().suppressions(roots=[tmp_path], format="json")
+    assert rc == 0
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+    assert isinstance(payload, list)
+    # Each entry has the four required fields per spec §5.7.
+    for entry in payload:
+        assert set(entry).issuperset({"file_path", "line", "rule_id", "until"})
+    # All four markers appear.
+    assert len(payload) == 4
+    rule_ids = {entry["rule_id"] for entry in payload}
+    assert "repo.foo-wagon.D001-acc-http-007" in rule_ids
