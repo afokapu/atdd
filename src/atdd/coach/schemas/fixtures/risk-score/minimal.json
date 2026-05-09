@@ -1,0 +1,9 @@
+{
+  "sum": 0,
+  "by_severity": {},
+  "by_archetype": {
+    "repo": 0
+  },
+  "by_disposition": {},
+  "stale_suppressions": 0
+}

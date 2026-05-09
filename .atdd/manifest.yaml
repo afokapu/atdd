@@ -363,7 +363,7 @@ sessions:
   feature: null
   train: 0001-self-compliance-validate
 - id: '483'
-  slug: coach-v9-bootstrap
+  slug: coach-v9-c0-runtime-contracts
   file: null
   issue_number: 483
   type: implementation

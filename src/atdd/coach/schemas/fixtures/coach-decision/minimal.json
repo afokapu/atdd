@@ -1,0 +1,15 @@
+{
+  "decision_id": "01HW9P5C8K3D5R8X4M7VJZ4MZA",
+  "timestamp": "2026-05-09T13:45:02.482Z",
+  "coach_run_id": "run-2026-05-09-coach-v9-bootstrap",
+  "issue_number": 483,
+  "decision_type": "phase-transition",
+  "inputs": {
+    "current_phase": "GREEN",
+    "target_phase": "SMOKE"
+  },
+  "outcome": {
+    "transitioned": true,
+    "new_phase": "SMOKE"
+  }
+}

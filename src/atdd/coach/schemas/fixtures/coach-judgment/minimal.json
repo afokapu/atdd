@@ -1,0 +1,11 @@
+{
+  "judgment_id": "01HW9P6XK1G7H4ZN2A5DYJ8Q3X",
+  "timestamp": "2026-05-09T13:46:10.998Z",
+  "call_site": "escalation",
+  "inputs_hash": "sha256:8b1a9953c4611296a827abf8c47804d7",
+  "response": {
+    "decision": "respawn",
+    "confidence": 0.82
+  },
+  "cached": false
+}
