@@ -52,7 +52,7 @@ def _worktree_src() -> Path:
     return Path(__file__).resolve().parents[4]
 
 
-def test_dispatcher_runs_real_pytest_with_collector_plugin(tmp_path):
+def test_dispatcher_runs_real_pytest_with_collector_plugin(tmp_path, monkeypatch):
     """Drive coach.runtime.dispatcher against a fixture validator file."""
     from atdd.coach.runtime.dispatcher import dispatch_validators
 
@@ -169,29 +169,17 @@ def test_dispatcher_runs_real_pytest_with_collector_plugin(tmp_path):
     sha = "smoke" + "0" * 35  # 40-char-ish, not a real SHA
     runtime_dir = tmp_path / "runtime"
 
-    # Patch the subprocess env via dispatcher's extra_env: dispatcher already
-    # whitelists ATDD_VALIDATOR_TIMEOUT_*, ATDD_RUN_ID, etc.; PYTHONPATH is in
-    # the passthrough list so we set it on os.environ for the duration.
-    saved_pythonpath = os.environ.get("PYTHONPATH")
-    os.environ["PYTHONPATH"] = pythonpath_full
-    saved_diag = os.environ.get("ATDD_DIAGNOSTICS_DISABLED")
-    os.environ["ATDD_DIAGNOSTICS_DISABLED"] = "1"
-    try:
-        result = dispatch_validators(
-            sha=sha,
-            validator_paths=[validator],
-            repo_root=workspace,
-            runtime_dir=runtime_dir,
-        )
-    finally:
-        if saved_pythonpath is None:
-            os.environ.pop("PYTHONPATH", None)
-        else:
-            os.environ["PYTHONPATH"] = saved_pythonpath
-        if saved_diag is None:
-            os.environ.pop("ATDD_DIAGNOSTICS_DISABLED", None)
-        else:
-            os.environ["ATDD_DIAGNOSTICS_DISABLED"] = saved_diag
+    # Patch the subprocess env via monkeypatch so isolation is preserved
+    # under parallel pytest runs. PYTHONPATH and ATDD_DIAGNOSTICS_DISABLED
+    # are picked up by the dispatcher's whitelisted passthrough.
+    monkeypatch.setenv("PYTHONPATH", pythonpath_full)
+    monkeypatch.setenv("ATDD_DIAGNOSTICS_DISABLED", "1")
+    result = dispatch_validators(
+        sha=sha,
+        validator_paths=[validator],
+        repo_root=workspace,
+        runtime_dir=runtime_dir,
+    )
 
     # The strict test fails — pytest exit is 1, but the plugin must still
     # have flushed all observed violations.
