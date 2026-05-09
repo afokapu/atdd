@@ -1587,6 +1587,65 @@ Phase descriptions:
         help="Output format (default: text)",
     )
 
+    # ----- atdd rules disposition / archetype / suppressions (issue #494) -----
+    rules_disposition_parser = rules_subparsers.add_parser(
+        "disposition",
+        help="List rules by disposition (strict / suppress-and-clean / advisory / documentation-only)",
+    )
+    rules_disposition_parser.add_argument(
+        "value",
+        type=str,
+        help="Disposition value to filter by",
+    )
+    rules_disposition_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
+    rules_archetype_parser = rules_subparsers.add_parser(
+        "archetype",
+        help="List rules by archetype (coder / coach / tester / planner / repo)",
+    )
+    rules_archetype_parser.add_argument(
+        "value",
+        type=str,
+        help="Archetype to filter by",
+    )
+    rules_archetype_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
+    rules_suppressions_parser = rules_subparsers.add_parser(
+        "suppressions",
+        help="List active atdd:suppress(...) markers",
+    )
+    rules_suppressions_parser.add_argument(
+        "--stale-only",
+        action="store_true",
+        help="Filter to markers whose UNTIL date has passed today",
+    )
+    rules_suppressions_parser.add_argument(
+        "--rule",
+        type=str,
+        default=None,
+        metavar="RULE_ID",
+        help="Filter to markers for the given rule-id",
+    )
+    rules_suppressions_parser.add_argument(
+        "--format", "-f",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Output format (default: text)",
+    )
+
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
 
     # Repository root override (not deprecated - still useful)
@@ -2258,7 +2317,7 @@ Phase descriptions:
         )
         return 1
 
-    # atdd rules {show,where,grep}
+    # atdd rules {show,where,grep,disposition,archetype,suppressions}
     elif args.command == "rules":
         from atdd.coach.commands.rules import RulesCommand
 
@@ -2269,6 +2328,19 @@ Phase descriptions:
             return rules_cmd.where(args.rule_id, format=args.format)
         if args.rules_command == "grep":
             return rules_cmd.grep(args.pattern, format=args.format)
+        if args.rules_command == "disposition":
+            return rules_cmd.disposition(args.value, format=args.format)
+        if args.rules_command == "archetype":
+            return rules_cmd.archetype(args.value, format=args.format)
+        if args.rules_command == "suppressions":
+            # Default scan root: the resolved repo root, or CWD as fallback.
+            scan_root = Path(args.repo) if args.repo else Path.cwd()
+            return rules_cmd.suppressions(
+                roots=[scan_root],
+                stale_only=args.stale_only,
+                rule_id=args.rule,
+                format=args.format,
+            )
         rules_parser.print_help()
         return 0
 

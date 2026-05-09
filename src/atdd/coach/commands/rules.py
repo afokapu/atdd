@@ -6,18 +6,30 @@
 
 Substrate spec v12 §9.2 — surface the merged rule registry to humans.
 
-Three ``atdd rules`` subcommands (issue #493 / spec §5.7):
+Six ``atdd rules`` subcommands (spec §5.7):
 
 * ``atdd rules show <rule-id>`` — print the bound ``RuleMetadata`` (toolkit
   or repo). Legacy aliases resolve to canonical and surface BOTH forms
   so callers learn the canonical name while still seeing what they typed.
+  *(Issue #493.)*
 * ``atdd rules where <rule-id>`` — print the validator
   ``<module>::<function>`` callsite(s) and the inferred archetype-relative
   module path, plus the rule's source path and (for repo rules) the
-  ``acceptance_urn`` discriminator.
+  ``acceptance_urn`` discriminator. *(Issue #493.)*
 * ``atdd rules grep <pattern>`` — case-insensitive substring search over
   rule-id, description, and aliases. Each line shows
-  ``<rule-id>  sev=<n>  <disposition>  — <description>``.
+  ``<rule-id>  sev=<n>  <disposition>  — <description>``. *(Issue #493.)*
+* ``atdd rules disposition <strict|suppress-and-clean|advisory|documentation-only>``
+  — list every rule with the given disposition. Repo rules are uniformly
+  ``strict`` per substrate v12 §2; non-strict dispositions return toolkit
+  rules only. *(Issue #494.)*
+* ``atdd rules archetype <coder|coach|tester|planner|repo>`` — list every
+  rule under the given archetype, sorted by rule-id for stable diffing.
+  *(Issue #494.)*
+* ``atdd rules suppressions [--stale-only] [--rule <id>]`` — list every
+  active suppression marker as ``file_path:line  rule-id  UNTIL=<date>``.
+  Markers referencing ``repo.*`` rules surface as warnings (substrate-
+  unsuppressible per substrate v12 §2). *(Issue #494.)*
 
 Three ``atdd repo`` listing peers (Track-A landing surface; Issue #414
 renamed the legacy CLI namespace to ``atdd repo`` wholesale):
@@ -50,6 +62,27 @@ from atdd.coach.utils.rule_validator_resolver import (
     infer_module_path,
     parse_validator_field,
 )
+from atdd.coach.utils.suppression_scanner import (
+    SuppressionMarker,
+    find_stale_suppressions,
+    find_suppressions,
+)
+
+
+# Per spec §5.7 — the disposition vocabulary is governed by
+# ``acceptance-violation.convention.yaml``. The CLI surface enumerates the
+# four valid values so an invalid input is reported with the full set.
+_VALID_DISPOSITIONS: tuple = (
+    "strict",
+    "suppress-and-clean",
+    "advisory",
+    "documentation-only",
+)
+
+# Per substrate v12 §2 the substrate-derived archetype is ``repo``; the
+# four toolkit archetypes are listed alongside so an invalid input is
+# reported with the full set.
+_VALID_ARCHETYPES: tuple = ("coder", "coach", "tester", "planner", "repo")
 
 
 def _meta_to_dict(meta: RuleMetadata) -> dict:
@@ -321,6 +354,216 @@ class RulesCommand:
         print()
         print(f"Total: {len(matches)} rule(s) matched.")
         return 0
+
+    def disposition(self, value: str, format: str = "text") -> int:
+        """List every rule whose disposition equals *value*.
+
+        Issue #494 acc:L002-UNIT-001 / spec §5.7. The disposition
+        vocabulary is governed by ``acceptance-violation.convention.yaml``;
+        an invalid input exits non-zero and surfaces the full set of valid
+        options on stderr. Repo rules are uniformly ``strict`` per
+        substrate v12 §2 (walker-set), so ``disposition strict`` returns
+        repo + toolkit strict rules and the three other dispositions
+        return only toolkit rules.
+
+        Each line carries rule-id, archetype, severity, and a one-line
+        description so the listing is self-explanatory at a glance.
+        """
+        if value not in _VALID_DISPOSITIONS:
+            options = ", ".join(_VALID_DISPOSITIONS)
+            print(
+                f"Error: unknown disposition {value!r}. Valid options: {options}",
+                file=sys.stderr,
+            )
+            return 1
+
+        matches: List[RuleMetadata] = [
+            meta for meta in iter_rules() if meta.disposition == value
+        ]
+
+        if format == "json":
+            print(json.dumps([_meta_to_dict(m) for m in matches], indent=2))
+            return 0
+
+        if not matches:
+            print(f"No rules with disposition={value!r}.")
+            return 0
+        for meta in matches:
+            print(_format_rule_line(meta))
+        print()
+        print(
+            f"Total: {len(matches)} rule(s) with disposition={value!r}."
+        )
+        return 0
+
+    def archetype(self, value: str, format: str = "text") -> int:
+        """List every rule under archetype *value*, sorted by rule-id.
+
+        Issue #494 acc:L002-UNIT-002 / spec §5.7. ``archetype repo`` lists
+        every substrate-derived rule (WMBT-acceptance, train-acceptance,
+        security-derived) per substrate v12. The four toolkit archetypes
+        return their respective toolkit rules. An unknown archetype exits
+        non-zero and surfaces the five valid options on stderr.
+
+        Output sorted ascending by rule-id within an archetype so a
+        regenerated listing diffs cleanly against the previous run.
+        """
+        if value not in _VALID_ARCHETYPES:
+            options = ", ".join(_VALID_ARCHETYPES)
+            print(
+                f"Error: unknown archetype {value!r}. Valid options: {options}",
+                file=sys.stderr,
+            )
+            return 1
+
+        matches: List[RuleMetadata] = sorted(
+            (m for m in iter_rules() if _archetype_of(m.rule_id) == value),
+            key=lambda m: m.rule_id,
+        )
+
+        if format == "json":
+            print(json.dumps([_meta_to_dict(m) for m in matches], indent=2))
+            return 0
+
+        if not matches:
+            print(f"No rules under archetype={value!r}.")
+            return 0
+        for meta in matches:
+            print(_format_rule_line(meta))
+        print()
+        print(
+            f"Total: {len(matches)} rule(s) under archetype={value!r}."
+        )
+        return 0
+
+    def suppressions(
+        self,
+        roots: Optional[List[Path]] = None,
+        stale_only: bool = False,
+        rule_id: Optional[str] = None,
+        format: str = "text",
+    ) -> int:
+        """List active ``atdd:suppress(...)`` markers across the repo.
+
+        Issue #494 acc:L002-UNIT-003 / spec §5.7. Delegates to
+        ``find_suppressions`` and ``find_stale_suppressions`` per the
+        existing scanner contract.
+
+        Args:
+            roots: Directories to scan. Defaults to the current working
+                directory — the CLI dispatcher passes the repo root.
+            stale_only: When True, restricts output to markers whose
+                ``UNTIL=`` date has passed today.
+            rule_id: When set, restricts output to markers for that rule.
+            format: ``text`` (default) or ``json``.
+
+        Returns: ``0`` on success including empty results — the scanner is a
+        discovery surface, not a gate. Markers referencing ``repo.*`` rules
+        are surfaced as warnings on stderr because substrate v12 §2 makes
+        repo rules unsuppressible regardless of the marker's presence.
+        """
+        scan_roots: List[Path] = list(roots) if roots else [Path.cwd()]
+
+        if stale_only:
+            markers = find_stale_suppressions(scan_roots)
+        else:
+            markers = find_suppressions(scan_roots)
+
+        if rule_id is not None:
+            markers = [m for m in markers if m.rule_id == rule_id]
+
+        # Stable order: file path then line. The scanner walks rglob which
+        # is filesystem-order so we sort here.
+        markers = sorted(markers, key=lambda m: (str(m.file_path), m.line))
+
+        repo_markers = [m for m in markers if m.rule_id.startswith("repo.")]
+
+        if format == "json":
+            payload = [
+                {
+                    "file_path": str(m.file_path),
+                    "line": m.line,
+                    "rule_id": m.rule_id,
+                    "until": m.until.isoformat() if m.until else None,
+                    "is_stale": m.is_stale,
+                    "is_repo_rule": m.rule_id.startswith("repo."),
+                }
+                for m in markers
+            ]
+            print(json.dumps(payload, indent=2))
+            # Repo-rule warnings still go to stderr in JSON mode so a
+            # caller piping stdout to jq still sees the alert.
+            for m in repo_markers:
+                _warn_repo_rule_marker(m)
+            return 0
+
+        if not markers:
+            print("No suppression markers found.")
+            return 0
+        for m in markers:
+            print(_format_suppression_line(m))
+        print()
+        suffix = " (stale only)" if stale_only else ""
+        print(f"Total: {len(markers)} marker(s){suffix}.")
+        for m in repo_markers:
+            _warn_repo_rule_marker(m)
+        return 0
+
+
+def _format_rule_line(meta: RuleMetadata) -> str:
+    """Render one rule line for ``disposition`` / ``archetype`` listings.
+
+    Format: ``<rule-id>  [<archetype>]  sev=<n>  <disposition>  — <description>``
+    Carries the four context fields required by acc:L002-UNIT-001 (rule-id,
+    archetype, severity, description) plus disposition for cross-reference
+    use when ``archetype`` is the calling surface.
+    """
+    archetype = _archetype_of(meta.rule_id)
+    disposition = meta.disposition or "-"
+    description = meta.description or ""
+    return (
+        f"{meta.rule_id}  [{archetype}]  sev={meta.severity}  "
+        f"{disposition}  — {description}"
+    )
+
+
+def _format_suppression_line(marker: SuppressionMarker) -> str:
+    """Render one suppression marker line for the list output.
+
+    Format: ``<file_path>:<line>  <rule-id>  UNTIL=<date>``. Markers
+    without an ``UNTIL=`` segment render ``UNTIL=-`` so the column stays
+    aligned even when a marker omits the date. A trailing ``[STALE]``
+    or ``[REPO-RULE]`` tag flags the two non-default cases the operator
+    most often cares about.
+    """
+    until = marker.until.isoformat() if marker.until else "-"
+    tags: List[str] = []
+    if marker.is_stale:
+        tags.append("[STALE]")
+    if marker.rule_id.startswith("repo."):
+        tags.append("[REPO-RULE]")
+    suffix = ("  " + " ".join(tags)) if tags else ""
+    return (
+        f"{marker.file_path}:{marker.line}  {marker.rule_id}  "
+        f"UNTIL={until}{suffix}"
+    )
+
+
+def _warn_repo_rule_marker(marker: SuppressionMarker) -> None:
+    """Emit a stderr warning for a marker referencing a ``repo.*`` rule.
+
+    Substrate v12 §2 makes repo rules unsuppressible — the gate ignores
+    the marker silently. Surfacing the warning here is the CLI's job:
+    operators write the marker expecting absorption; without this line
+    the misapplication is invisible until the next CI run.
+    """
+    print(
+        f"Warning: {marker.file_path}:{marker.line} suppresses "
+        f"{marker.rule_id!r}, but repo.* rules are unsuppressible "
+        f"per substrate v12 §2. The marker is silently ignored by the "
+        f"gate.",
+        file=sys.stderr,
+    )
 
 
 def _filter_repo_rules(rules: Iterable[RuleMetadata]) -> List[RuleMetadata]:
