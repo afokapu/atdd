@@ -63,7 +63,9 @@ def test_correction_includes_fix_hints_from_bind_rule():
     from atdd.coach.utils.rule_binding import bind_rule
 
     rule = _load_rule()
-    rid = "coach.commit-trailers.phase-required"
+    # Pick a rule with a fix_hint declared in its convention file. The
+    # observer convention rules ship one each (issue #506).
+    rid = "coach.observer.unstructured-question"
     expected_hint = bind_rule(rid).fix_hint
     assert expected_hint, (
         "test fixture invariant: the chosen rule_id must have a fix_hint registered"
@@ -78,6 +80,29 @@ def test_correction_includes_fix_hints_from_bind_rule():
     # A non-trivial slice of the canonical fix_hint must appear in the text.
     snippet = expected_hint.splitlines()[0].strip()
     assert snippet[:20] in correction.correction_text
+
+
+def test_correction_falls_back_to_local_fix_hint_when_bind_rule_unknown():
+    """If a prior_violations entry carries a rule_id that bind_rule()
+    cannot resolve (e.g. the prior commit failed against a rule that
+    has since been retired), the rule still emits a correction using
+    the locally-recorded fix_hint."""
+    from atdd.coach.commands import observer
+
+    rule = _load_rule()
+    ctx = observer.ObservedInput(
+        agent_id="agent-A",
+        prior_violations=(
+            {
+                "rule_id": "retired.example.no-longer-registered",
+                "fix_hint": "Local fallback fix hint here.",
+            },
+        ),
+        addressed_rule_ids=(),
+    )
+    correction = rule.evaluate(ctx, agent_id="agent-A")
+    assert correction is not None
+    assert "Local fallback fix hint here." in correction.correction_text
 
 
 def test_does_not_fire_when_new_commit_addresses_all_prior_violations():

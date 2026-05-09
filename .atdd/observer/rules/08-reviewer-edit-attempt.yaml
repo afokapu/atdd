@@ -1,0 +1,24 @@
+# Observer rule 08 — Reviewer edit attempt (spec §8.3 row 08)
+#
+# Fires when a reviewer-persona agent's output mentions edits or
+# commits. The reviewer persona is contractually no-write — without
+# real-time correction, accidental reviewer edits pollute the review
+# surface and the no-write contract.
+#
+# Authored as part of issue #506 (L2 basic-protocol observer rules).
+
+rule_id: "coach.observer.reviewer-edit-attempt"
+
+trigger:
+  type: reviewer_edit_attempt
+  persona: reviewer
+  # Narrow to verbs that indicate the reviewer is *performing* the edit
+  # rather than discussing one. Bare "diff" / "patch" are normal reviewer
+  # vocabulary as nouns and would false-positive on benign LGTMs.
+  edit_pattern: '\b((I |let me |going to |gonna |I''ll |I will |I am |I''m )(edit|commit|amend|push|write)|edit(ed|ing)?\s+(src/|the)|commit(ted|ting)?\s+(this|that|the))\b'
+
+correction_text: "You are a Reviewer. You may not edit or commit."
+
+injection_method: cli-return
+severity: 4
+disposition: advisory

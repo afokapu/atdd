@@ -1,0 +1,25 @@
+# Observer rule 09 — Validator failure ignored (spec §8.3 row 09 /
+# §6.3 reviewer findings reference rule_ids / §7.6 agent feedback gets
+# fix_hints from bind_rule())
+#
+# Fires when a tier-1 validator failed on a prior commit and the agent
+# commits again without addressing the cited rule_ids. The correction
+# enumerates the unaddressed rule_ids and their fix_hints (resolved via
+# bind_rule()) so the agent has everything it needs to course-correct.
+#
+# Authored as part of issue #506 (L2 basic-protocol observer rules).
+
+rule_id: "coach.observer.validator-failure-ignored"
+
+trigger:
+  type: validator_failure_ignored
+
+correction_text: |
+  Prior tier-1 validator failures were not addressed in the new commit.
+  Unaddressed rule_ids: {unaddressed}
+  Fix hints (from bind_rule):
+  {fix_hints_block}
+
+injection_method: cli-return
+severity: 4
+disposition: advisory
