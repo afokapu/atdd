@@ -1,0 +1,5 @@
+{
+  "decision": "escalate",
+  "consolidated_feedback": "Pass 1 surfaced a structural mismatch between this issue's wagon and its declared acceptance contract URNs. Per §6.10 systemic concerns dominate; an operator must reconcile the wagon manifest before coach proceeds.",
+  "dominant_dimensions": ["systemic"]
+}

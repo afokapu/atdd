@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "judge-issue-review-aggregate.response.schema.json",
+  "title": "Judge call site #5 — issue review aggregate consolidation",
+  "description": "Frozen response contract for spec §6.9 #5 (issue review aggregate ambiguity). When `atdd issue review` returns a mixed-verdict aggregate, or when a single pass surfaces a systemic concern (per §6.10 systemic dominates), coach calls `atdd judge` with this schema to consolidate. The `decision` is the routing branch coach executes; the `consolidated_feedback` is what the issue author sees on `request_revision`; `dominant_dimensions` records which of the five §6.10 review dimensions drove the decision. Producer: structured-output LLM via `atdd judge --schema judge-issue-review-aggregate.response.schema.json`. Consumer: `coach.commands.judge_call_sites.route_issue_review_aggregate`. Issue: #523.",
+  "type": "object",
+  "required": ["decision", "consolidated_feedback", "dominant_dimensions"],
+  "additionalProperties": false,
+  "properties": {
+    "decision": {
+      "type": "string",
+      "description": "Routing branch coach takes. `accept` → emit a `coach_ready` decision and proceed past the §4.2 pre-coach precondition. `request_revision` → post `consolidated_feedback` as a GitHub issue comment and emit `pre_coach_paused`. `escalate` → transition the issue to BLOCKED with operator notification.",
+      "enum": ["accept", "request_revision", "escalate"]
+    },
+    "consolidated_feedback": {
+      "type": "string",
+      "description": "Human-readable consolidation of the disagreement across passes. On `request_revision` this is posted verbatim to the GitHub issue; on `escalate` it is included in the operator notification rationale; on `accept` it is recorded in `decisions.jsonl` for audit.",
+      "minLength": 1
+    },
+    "dominant_dimensions": {
+      "type": "array",
+      "description": "Non-empty subset of the five §6.10 review dimensions that drove the consolidation decision. Lets reviewers pinpoint which dimensions were decisive without re-reading the full per-pass payloads.",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["systemic", "ambiguities", "gap", "regression", "comprehensiveness"]
+      }
+    }
+  }
+}

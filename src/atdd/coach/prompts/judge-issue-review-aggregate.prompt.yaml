@@ -1,0 +1,37 @@
+prompt: |
+  You are consolidating a multi-pass cross-LLM review of an ATDD parent issue.
+  The passes disagreed about whether the issue is ready for coach to start work.
+
+  Per spec §6.10 the five review dimensions are:
+    systemic, ambiguities, gap, regression, comprehensiveness.
+
+  Per §6.10 systemic concerns dominate: a single pass flagging `systemic`
+  collapses the verdict to `unanimous-concern` even when the other passes
+  were silent on that dimension.
+
+  Your job: decide ONE of {{accept, request_revision, escalate}} and produce
+  consolidated feedback the issue author can act on.
+
+  Decision rubric:
+    - `accept` only when the disagreement is clearly noise (one pass
+      flagged a non-systemic concern that the issue body already addresses
+      in its Out-of-Scope or References section).
+    - `request_revision` when the disagreement points to a real gap or
+      ambiguity in the issue body. The author can fix this without
+      operator help.
+    - `escalate` when at least one pass surfaced a systemic concern and
+      the others did not see it. Per §6.10 this requires operator
+      reconciliation, not author revision.
+
+  Aggregate (issue #{issue_number}, {pass_count} passes):
+  {aggregate_json}
+
+  Findings (per-pass details):
+  {findings_json}
+
+  Return JSON conforming to judge-issue-review-aggregate.response.schema.json:
+    {{
+      "decision": "accept" | "request_revision" | "escalate",
+      "consolidated_feedback": "<human-readable string the issue author or operator will read>",
+      "dominant_dimensions": ["<one or more of: systemic, ambiguities, gap, regression, comprehensiveness>"]
+    }}
