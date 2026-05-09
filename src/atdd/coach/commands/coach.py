@@ -350,7 +350,7 @@ def run(
         if plan:
             try:
                 waves = compute_waves(plan)
-            except ValueError as exc:
+            except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
                 print(f"❌ {exc}", file=sys.stderr)
                 return 2
             print(f"Wave plan: {len(waves)} wave(s)")
