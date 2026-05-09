@@ -34,3 +34,7 @@ rules:
       --worktree <w> --issue <N> --agent-id <id> --runtime <rt>`. The
       claude-code adapter is shipped in K1; codex / gemini / glm follow
       as separate K-track issues registering on ADAPTER_REGISTRY.
+      e.g. `atdd spawn --persona coder --llm claude-code
+      --worktree ../feat-coach-v9-k1-spawn-skeleton --issue 499
+      --agent-id coder-499-001 --runtime .atdd/runtime`
+      (see src/atdd/coach/commands/spawn.py::cmd_spawn).
