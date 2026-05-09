@@ -1,0 +1,5 @@
+{
+  "decision": "accept",
+  "consolidated_feedback": "All three passes agree the issue body is complete; the lone gap finding (severity 3) is acknowledged in the issue's Out-of-Scope section.",
+  "dominant_dimensions": ["gap"]
+}
