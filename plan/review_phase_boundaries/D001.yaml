@@ -1,0 +1,51 @@
+urn: "wmbt:review-phase-boundaries:D001"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "write-permission-leak-from-reviewer-agent"
+context_clarifier: "when coach v9 spawns a reviewer persona at the exit of an enabled phase (PLANNED/RED/GREEN/SMOKE/optional REFACTOR) and the reviewer must not be able to mutate the worktree under review — its only output channel is `atdd agent review --target-commit <sha> --report-file <path>`, and observer rule 08-reviewer-edit-attempt (already authored under wagon:observe-and-correct) catches violations"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of write-permission-leak-from-reviewer-agent when coach v9 spawns a reviewer persona at the exit of an enabled phase and the reviewer must be confined to read-only review with `atdd agent review` as its only output channel"
+acceptances:
+  - identity:
+      urn: "acc:review-phase-boundaries:D001-UNIT-001-reviewer-cannot-write-worktree"
+      id: "AC-UNIT-001"
+      purpose: "A reviewer agent spawned with `atdd spawn --persona reviewer` cannot run `git commit` or write to the worktree because the spawn adapter strips commit/edit tools and the system prompt forbids edits"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The reviewer no-write spawn-adapter variant is layered over the base spawn adapter shipped by wagon:spawn-agents (#K2)"
+        - "An `atdd spawn --persona reviewer --target-commit <sha>` invocation is staged in test"
+    when:
+      abstract: "The spawn adapter resolves the reviewer persona and renders the launch prompt"
+    then:
+      abstract:
+        - "The rendered tool allowlist excludes every commit/edit tool — no Edit, Write, NotebookEdit, MultiEdit, git-commit, or other worktree-mutating surface is present"
+        - "The system prompt embedded in the launch prompt explicitly forbids edits and names `atdd agent review --target-commit <sha> --report-file <path>` as the sole output channel"
+        - "Observer rule 08-reviewer-edit-attempt (authored in wagon:observe-and-correct) is bound and will fire if the reviewer attempts an edit despite the adapter strip"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:review-phase-boundaries:D001-UNIT-002-reviewer-output-channel-bounded"
+      id: "AC-UNIT-002"
+      purpose: "Reviewer's only output channel is `atdd agent review --target-commit <sha> --report-file <path>`; any other emission (heartbeat aside) is rejected by the agent CLI when persona=reviewer"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An agent process tagged persona=reviewer is registered in .atdd/runtime/agents/<id>/manifest.json"
+    when:
+      abstract: "The reviewer agent invokes `atdd agent review --target-commit <sha> --report-file <path>` and `atdd agent commit ...`"
+    then:
+      abstract:
+        - "`atdd agent review` succeeds when --target-commit and --report-file are provided"
+        - "`atdd agent commit` is rejected with a clear error citing the no-write reviewer persona constraint"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"

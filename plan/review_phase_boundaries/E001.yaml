@@ -1,0 +1,54 @@
+urn: "wmbt:review-phase-boundaries:E001"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "unrecorded-or-unvalidated-review-outcomes"
+context_clarifier: "when a reviewer agent finishes its review and the only sanctioned output channel is `atdd agent review --target-commit <sha> --report-file <path>` (per spec §5.3); the command must validate the report against review-report.schema.json + the cross-field hard rules from #N2, write it to .atdd/runtime/agents/<reviewer-id>/reviews/<review-id>.json, and emit a `review_complete` runtime event that downstream coach state-machine consumers can observe"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of unrecorded-or-unvalidated-review-outcomes when a reviewer agent emits a review report; `atdd agent review` must validate against review-report.schema.json + cross-field hard rules, persist to .atdd/runtime/agents/<id>/reviews/<id>.json, and emit a schema-conformant review_complete event"
+acceptances:
+  - identity:
+      urn: "acc:review-phase-boundaries:E001-UNIT-001-conforming-report-persists-and-emits-event"
+      id: "AC-UNIT-001"
+      purpose: "A reviewer agent calling `atdd agent review --target-commit <sha> --report-file <path>` with a conforming report writes the report to disk and emits a review_complete event"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An agent process tagged persona=reviewer is registered under .atdd/runtime/agents/<reviewer-id>/"
+        - "A conforming review-report file exists at the path passed to --report-file"
+    when:
+      abstract: "The reviewer invokes `atdd agent review --target-commit <sha> --report-file <path>`"
+    then:
+      abstract:
+        - "The report is read, validated against review-report.schema.json plus the cross-field hard rules (AC coverage, rule-ID severity match, no-pass-with-strict-finding)"
+        - "The validated report is written to .atdd/runtime/agents/<reviewer-id>/reviews/<review-id>.json"
+        - "A review_complete event conforming to runtime-event.schema.json (frozen by wagon:freeze-runtime-contracts) is appended to .atdd/runtime/agents/<reviewer-id>/events.jsonl"
+        - "The command exits 0"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:review-phase-boundaries:E001-UNIT-002-malformed-report-rejected-with-rule-id-error"
+      id: "AC-UNIT-002"
+      purpose: "Schema validation rejects malformed reports with rule-ID-bound errors that name the violated hard rule and (where applicable) the offending acceptance_ref or rule_id"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A reviewer agent and a malformed review-report fixture (e.g., verdict=pass with ac_coverage entry not_covered, OR rule_id finding whose severity diverges from registry, OR verdict=pass with strict rule_id-bound finding)"
+    when:
+      abstract: "The reviewer invokes `atdd agent review --target-commit <sha> --report-file <path>` against the malformed fixture"
+    then:
+      abstract:
+        - "The command exits non-zero with a clear error citing the violated hard rule and the offending field(s)"
+        - "No file is written to .atdd/runtime/agents/<reviewer-id>/reviews/"
+        - "No review_complete event is emitted"
+        - "When the violation references a rule_id, the error includes the rule_id and the registry-expected severity/disposition"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
