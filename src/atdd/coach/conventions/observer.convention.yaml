@@ -1,0 +1,38 @@
+version: "1.0"
+convention_id: "coach.observer"
+name: "Observer Convention"
+description: "Rule registry for the substrate-aware observer rules shipped under src/atdd/coach/observer/rules/. Each entry binds a canonical rule_id (per SPEC-COACH-RULEID-0001) so bind_rule() resolves the YAML rules at observer-load time."
+
+# =============================================================================
+# Substrate-aware observer rules (issue #514)
+# =============================================================================
+# Per spec §8.3 the four substrate-aware rules (10/11/12/17) are tier-2
+# bridges that catch protocol-level issues before tier-1 validators flag
+# them. Each rule is co-located at src/atdd/coach/observer/rules/<NN>-<slug>.yaml
+# and dispatched via a substrate-aware trigger type implemented in
+# atdd.coach.observer.predicates.
+
+rules:
+  - id: "coach.observer.stale-suppression-detected"
+    severity: 3
+    disposition: "advisory"
+    description: "Stale `# atdd:suppress(<toolkit-rule-id>) [UNTIL=<past>]` marker on a changed file. Repo rules are skipped (substrate v12 §2 — unsuppressible)."
+    introduced_in: "3.21.0"
+
+  - id: "coach.observer.unbound-rule-id-in-validator"
+    severity: 4
+    disposition: "advisory"
+    description: "Validator emits a Violation with a literal rule_id but does not call bind_rule() at module-import time (SPEC-COACH-RULEID-0007)."
+    introduced_in: "3.21.0"
+
+  - id: "coach.observer.rule-id-grammar-violation"
+    severity: 4
+    disposition: "advisory"
+    description: "Rule declaration uses a non-canonical primary `id`; canonical form is `<archetype>.<convention>.<rule>` per SPEC-COACH-RULEID-0001 (legacy IDs belong under aliases)."
+    introduced_in: "3.21.0"
+
+  - id: "coach.observer.repo-rule-disposition-declared"
+    severity: 4
+    disposition: "advisory"
+    description: "Repo YAML (acceptance / abuse_case) declares `disposition:`. Repo rules are strict-by-construction; the walker sets disposition (substrate v12 §4.4)."
+    introduced_in: "3.21.0"

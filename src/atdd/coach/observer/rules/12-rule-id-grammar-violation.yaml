@@ -1,0 +1,18 @@
+# Observer rule 12 — rule-id-grammar-violation (issue #514, spec §8.3).
+#
+# Tier-2 bridge: fires when a *.convention.yaml under the worktree
+# declares a primary `id:` that does NOT match SPEC-COACH-RULEID-0001
+# canonical grammar `<archetype>.<convention>.<rule>`. Legacy IDs
+# (e.g. SPEC-COACH-RULEID-1234) MUST live under `aliases:` on a
+# canonical rule, not as the primary id. The substrate validator
+# (test_rule_id_uniqueness.py) catches the same condition at validate
+# time; this rule is the fast loop at commit-time.
+
+rule_id: "coach.observer.rule-id-grammar-violation"
+trigger:
+  type: rule_id_grammar_violation
+severity: 4
+disposition: advisory
+injection_method: cli-return
+correction_text: |
+  Rule id {legacy_id!r} at {location} is not canonical-grammar (SPEC-COACH-RULEID-0001). Use the canonical form <archetype>.<convention>.<rule> (archetype ∈ {{coder, coach, tester, planner, repo}}) and place {legacy_id!r} under `aliases:` on that rule instead.

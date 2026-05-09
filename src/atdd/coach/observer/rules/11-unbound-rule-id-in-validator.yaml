@@ -1,0 +1,16 @@
+# Observer rule 11 — unbound-rule-id-in-validator (issue #514, spec §8.3).
+#
+# Tier-2 bridge: fires when an agent commits a validator under
+# src/atdd/<archetype>/validators/ that emits a literal rule_id without
+# a peer bind_rule(...) call at module-import time (SPEC-COACH-RULEID-0007).
+# The substrate's own validator catches the same condition at validate-time;
+# this rule is the fast feedback loop at commit-time.
+
+rule_id: "coach.observer.unbound-rule-id-in-validator"
+trigger:
+  type: unbound_rule_id_in_validator
+severity: 4
+disposition: advisory
+injection_method: cli-return
+correction_text: |
+  Validator at {location} emits rule_id={rule_id!r} but does not call bind_rule({rule_id!r}) at module-import time (SPEC-COACH-RULEID-0007). Add `_RULE = bind_rule({rule_id!r})` at module top, then derive severity/description from `_RULE`.

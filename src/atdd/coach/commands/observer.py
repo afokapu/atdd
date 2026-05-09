@@ -129,6 +129,7 @@ class ObservedInput:
     log_lines: tuple[str, ...] = ()
     events: tuple[dict, ...] = ()
     worktree_changes: tuple[str, ...] = ()
+    worktree_root: Optional[Path] = None
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +159,7 @@ class ObserverRule:
         severity: int = 3,
         disposition: str = "advisory",
         source_path: Optional[Path] = None,
+        correction_builder: Optional[Callable[[ObservedInput, str], str]] = None,
     ) -> None:
         if injection_method not in INJECTION_METHODS:
             raise ValueError(
@@ -177,15 +179,19 @@ class ObserverRule:
         self.severity = int(severity)
         self.disposition = disposition
         self.source_path = source_path
+        self.correction_builder = correction_builder
 
     def evaluate(self, ctx: ObservedInput, *, agent_id: str) -> Optional[Correction]:
         if self.predicate(ctx):
+            text = self.correction_text
+            if self.correction_builder is not None:
+                text = self.correction_builder(ctx, base_text=self.correction_text)
             return Correction(
                 agent_id=agent_id,
                 rule_id=self.rule_id,
                 severity=self.severity,
                 disposition=self.disposition,
-                correction_text=self.correction_text,
+                correction_text=text,
                 injection_method=self.injection_method,
                 issued_at=_now_iso_z(),
             )
@@ -229,6 +235,8 @@ def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
     if not isinstance(trigger, dict):
         raise ValueError("'trigger' must be a mapping")
     trig_type = trigger.get("type", "log_regex")
+
+    correction_builder: Optional[Callable[[ObservedInput, str], str]] = None
     if trig_type == "log_regex":
         pattern = trigger.get("pattern")
         if not isinstance(pattern, str) or not pattern:
@@ -237,9 +245,18 @@ def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
     elif trig_type == "never":
         predicate = lambda _ctx: False  # noqa: E731 — terse intentional
     else:
-        raise ValueError(
-            f"unknown trigger.type {trig_type!r} (supported: log_regex, never)"
-        )
+        from atdd.coach.observer.predicates import get_substrate_trigger
+
+        substrate = get_substrate_trigger(trig_type)
+        if substrate is None:
+            raise ValueError(
+                f"unknown trigger.type {trig_type!r} (supported: log_regex, "
+                f"never, stale_suppression, unbound_rule_id_in_validator, "
+                f"rule_id_grammar_violation, repo_rule_disposition_declared)"
+            )
+        substrate_pred, substrate_builder = substrate
+        predicate = substrate_pred
+        correction_builder = substrate_builder
 
     return ObserverRule(
         rule_id=rule_id,
@@ -249,6 +266,7 @@ def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
         severity=int(payload.get("severity", 3)),
         disposition=payload.get("disposition", "advisory"),
         source_path=source_path,
+        correction_builder=correction_builder,
     )
 
 
@@ -491,6 +509,7 @@ class Observer:
             log_lines=tuple(self._tail_output_log()),
             events=(),
             worktree_changes=tuple(self._scan_worktree()),
+            worktree_root=self.worktree,
         )
 
     def _tail_output_log(self) -> list[str]:
