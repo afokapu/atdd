@@ -1,0 +1,31 @@
+urn: "feature:discover-and-decommission:legacy-cli-decommission"
+wagon: "wagon:discover-and-decommission"
+description: "Hard cut of atdd orchestrate and atdd babysit per spec §11.3. Source archived to commands/_archived/, CLI registry entries replaced by stubs that print migration messages and exit non-zero. Gated on the K5 orchestrate-parity suite and L8 babysit-parity suite passing on CI so that 'behavior parity' is operationalized rather than reviewer-judgment"
+sizing:
+  wmbts: 2
+  footprint_score: 5
+  footprint_size: "M"
+wmbts:
+  - "wmbt:discover-and-decommission:E001"
+  - "wmbt:discover-and-decommission:E002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 2
+        rationale: "Two stub commands at the legacy entry points (atdd orchestrate, atdd babysit) that print migration messages and exit non-zero"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "Pure removal + stub; no new application logic"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain types"
+    integration:
+      - type: "archives"
+        count: 2
+        rationale: "commands/_archived/orchestrate.py and commands/_archived/babysit.py preserve the legacy source for reference and for K5/L8 parity-suite reuse"
+      - type: "ci_gates"
+        count: 2
+        rationale: "K5 orchestrate-parity and L8 babysit-parity CI gates that must pass before P5/P6 can land"

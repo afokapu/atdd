@@ -1,0 +1,28 @@
+urn: "feature:discover-and-decommission:rules-discovery"
+wagon: "wagon:discover-and-decommission"
+description: "atdd rules discovery surface — six subcommands (show, where, grep, disposition, archetype, suppressions) that wrap bind_rule(), the substrate registry, and find_suppressions()/find_stale_suppressions(). Resolves toolkit and substrate-derived repo.* rules transparently per spec §5.7"
+sizing:
+  wmbts: 2
+  footprint_score: 4
+  footprint_size: "S"
+wmbts:
+  - "wmbt:discover-and-decommission:L001"
+  - "wmbt:discover-and-decommission:L002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 6
+        rationale: "Six CLI subcommand entry points under atdd rules: show, where, grep, disposition, archetype, suppressions"
+    application:
+      - type: "use_cases"
+        count: 6
+        rationale: "One use-case per subcommand orchestrating registry resolution, output formatting, and (for suppressions) suppression-scanner delegation"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "Reuses existing RuleMetadata, Violation, and Suppression dataclasses — no new domain values introduced"
+    integration:
+      - type: "adapters"
+        count: 0
+        rationale: "Wraps existing utilities (bind_rule, find_suppressions, find_stale_suppressions, registry iterators) — no new external integration"

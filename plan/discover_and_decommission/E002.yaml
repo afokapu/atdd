@@ -1,0 +1,73 @@
+urn: "wmbt:discover-and-decommission:E002"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "legacy-atdd-babysit-callsites-after-coach-v9"
+context_clarifier: "when coach v9 ships and atdd babysit must be removed from the CLI surface — its source archived to commands/_archived/babysit.py, the CLI registry stripped, a stub installed at the original entry point that prints the migration message ('atdd babysit has been removed in coach v9. Use atdd observer status (dashboard), atdd observer aggregate-approve (batch approve), or atdd coach (end-to-end) per atdd-coach-spec-v9.md §0.2.') and exits non-zero — gated on the L8 babysit-parity suite passing on CI so that the absorbed observer rules / dashboard / aggregate-approve / drift correctors deliver behavior parity with the legacy babysit machinery"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of legacy-atdd-babysit-callsites-after-coach-v9 when coach v9 ships and atdd babysit must be removed from the CLI surface, with parity preserved through the L8 fixture suite and migration guidance surfaced via a stub command"
+acceptances:
+  - identity:
+      urn: "acc:discover-and-decommission:E002-UNIT-001-babysit-stub-prints-migration-message"
+      id: "AC-UNIT-001"
+      purpose: "atdd babysit <args> prints the migration message and exits non-zero"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "commands/babysit.py is replaced by a stub and the original moved to commands/_archived/babysit.py"
+        - "The CLI registry no longer dispatches babysit to the legacy implementation"
+    when:
+      abstract: "atdd babysit is invoked with any arg combination"
+    then:
+      abstract:
+        - "stdout or stderr contains exactly the migration message: 'atdd babysit has been removed in coach v9. Use atdd observer status (dashboard), atdd observer aggregate-approve (batch approve), or atdd coach (end-to-end) per atdd-coach-spec-v9.md §0.2.'"
+        - "Process exit code is non-zero"
+        - "No babysit machinery executes (no token polling, no screen-hash comparison, no _render_dashboard invocation)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:discover-and-decommission:E002-UNIT-002-babysit-machinery-reachable-via-coach-and-observer"
+      id: "AC-UNIT-002"
+      purpose: "All babysit machinery is reachable through atdd observer or atdd coach equivalents"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Per spec §0.2, the absorbed mapping is: token-count alerting → observer rule 06; bash auto-approval → observer rule 13; aggregate approval → atdd observer aggregate-approve; naming/layout drift → observer rules 14/15; violation detection → observer rules 04/16; dashboard → atdd observer status"
+    when:
+      abstract: "A reverse mapping test enumerates each absorbed babysit capability and asserts reachability"
+    then:
+      abstract:
+        - "Every capability listed in spec §0.2 resolves to an atdd observer subcommand or observer rule"
+        - "Workspace-state polling has been replaced by event-driven runtime watchers from track L (no polling parity test exists by design)"
+        - "Phase-cache-via-GitHub-labels has been replaced by coach state-machine ownership of phase (no parity test exists by design)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:discover-and-decommission:E002-INTEGRATION-001-l8-parity-precondition"
+      id: "AC-INTEGRATION-001"
+      purpose: "The L8 parity suite passing on CI is a precondition for merging P6"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "L8 lives in the observe-and-correct wagon and runs side-by-side fixtures comparing atdd babysit and atdd observer against fixture multiplexer states"
+    when:
+      abstract: "P6 is opened as a PR"
+    then:
+      abstract:
+        - "CI blocks the merge unless the L8 parity suite is green on the PR's HEAD"
+        - "P6 PR description references the L8 parity-suite job name and the green run"
+        - "L8 asserts equivalent token-alert firing, bash-pattern auto-approval, naming/layout drift correction, and dashboard output between babysit and observer"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
