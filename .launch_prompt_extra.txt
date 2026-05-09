@@ -1,0 +1,13 @@
+
+
+IMPORTANT — friction-prevention guidance learned from prior PRs:
+
+1. **Silent-swallow validator**: if you write `except X as e: ... return` without logging, the validator (`coder.logging.coach-silent-swallow`) will fail CI. Either:
+   (a) Log via `print(f"...", file=sys.stderr)` or `warnings.warn(...)` in the handler before returning, OR
+   (b) Add `# atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01` on the EXACT line where the `except` keyword is (handler.lineno per the validator). For multi-line `except (\n  A, B,\n) as e:`, the marker MUST be on the first line (the `except (` line).
+
+2. **Push and PR yourself**: when all your acceptances pass and you've committed, run `git push -u origin <branch>` then `atdd pr <N>`. Don't stop until the PR URL is printed.
+
+3. **Version bump**: the release-gate convention requires bumping the version on each PR. Bump to the next MINOR (feat/) or PATCH (fix/) past whatever is currently in `pyproject.toml`. If main has advanced (your PR shows BEHIND), `git fetch origin && git merge origin/main`, resolve any version conflict by bumping past main's version, push.
+
+4. **Don't fix pre-existing failures**: only fix what your changes introduced. Existing test failures (e.g., legacy issue branch conventions on #260/#326/#386) are not your scope.

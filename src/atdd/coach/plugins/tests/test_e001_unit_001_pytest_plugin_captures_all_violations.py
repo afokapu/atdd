@@ -313,6 +313,17 @@ def test_plugin_runs_with_disabled_autoload_subprocess(tmp_path):
         "def test_noop():\n    assert True\n"
     )
 
+    # Point the subprocess at this worktree's ``src/`` so the freshly-added
+    # plugin module is importable. Real coach invocations rely on either a
+    # site-installed ``atdd`` package or the worktree's
+    # ``pyproject.toml::pythonpath = ['src']``; for the test we make this
+    # explicit via ``PYTHONPATH``.
+    src_dir = Path(__file__).resolve().parents[4]  # tests, plugins, coach, atdd, src
+    existing_pythonpath = os.environ.get("PYTHONPATH", "")
+    pythonpath = (
+        f"{src_dir}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else str(src_dir)
+    )
+
     env = dict(os.environ)
     env.update(
         {
@@ -320,6 +331,7 @@ def test_plugin_runs_with_disabled_autoload_subprocess(tmp_path):
             "ATDD_VALIDATION_SHA": sha,
             "ATDD_RUNTIME_DIR": str(runtime_dir),
             "ATDD_DIAGNOSTICS_DISABLED": "1",  # keep stdout quiet
+            "PYTHONPATH": pythonpath,
         }
     )
     proc = subprocess.run(
