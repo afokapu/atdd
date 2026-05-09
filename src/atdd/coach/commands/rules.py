@@ -6,14 +6,18 @@
 
 Substrate spec v12 §9.2 — surface the merged rule registry to humans.
 
-Three ``atdd rules`` subcommands:
+Three ``atdd rules`` subcommands (issue #493 / spec §5.7):
 
 * ``atdd rules show <rule-id>`` — print the bound ``RuleMetadata`` (toolkit
-  or repo).
-* ``atdd rules where <rule-id>`` — print the rule's source path (and YAML
-  location for repo rules — the ``acceptance_urn`` it was derived from).
-* ``atdd rules grep <pattern>`` — list every rule whose id or description
-  matches the regex.
+  or repo). Legacy aliases resolve to canonical and surface BOTH forms
+  so callers learn the canonical name while still seeing what they typed.
+* ``atdd rules where <rule-id>`` — print the validator
+  ``<module>::<function>`` callsite(s) and the inferred archetype-relative
+  module path, plus the rule's source path and (for repo rules) the
+  ``acceptance_urn`` discriminator.
+* ``atdd rules grep <pattern>`` — case-insensitive substring search over
+  rule-id, description, and aliases. Each line shows
+  ``<rule-id>  sev=<n>  <disposition>  — <description>``.
 
 Three ``atdd repo`` listing peers (Track-A landing surface; Issue #414
 renamed the legacy CLI namespace to ``atdd repo`` wholesale):
