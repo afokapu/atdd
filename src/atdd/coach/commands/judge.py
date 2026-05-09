@@ -55,6 +55,7 @@ CALL_SITES: tuple[str, ...] = (
     "review-disposition",
     "escalation",
     "merge-readiness",
+    "issue-review-aggregate",
 )
 
 # Per-call-site conservative fallback when fail_open=false. Bias is toward
@@ -68,6 +69,7 @@ _FALLBACK_DECISION: dict[str, str] = {
     "review-disposition":     "block",
     "escalation":             "escalate",
     "merge-readiness":        "block",
+    "issue-review-aggregate": "escalate",
 }
 
 

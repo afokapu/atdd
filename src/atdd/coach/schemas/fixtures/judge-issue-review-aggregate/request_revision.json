@@ -1,0 +1,5 @@
+{
+  "decision": "request_revision",
+  "consolidated_feedback": "The acceptance criteria do not specify behavior when the input is empty. Pass 1 (haiku) flagged this gap; passes 2 and 3 missed it. Please add an acceptance bullet covering the empty-input case before coach starts.",
+  "dominant_dimensions": ["gap", "ambiguities"]
+}
