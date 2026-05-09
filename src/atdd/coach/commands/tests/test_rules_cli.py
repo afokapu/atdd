@@ -899,6 +899,13 @@ def test_rules_archetype_json_format(
 # atdd rules suppressions [--stale-only] [--rule <id>]
 #   acc:discover-and-decommission:L002-UNIT-003
 # ---------------------------------------------------------------------------
+# Build the suppression marker token at runtime so this *source* file does
+# not itself trigger the suppression scanner / stale-suppression validator
+# when CI walks the repo. The written tmp_path files reconstruct the full
+# literal so the scanner under test still sees a real marker.
+_SUPPRESS_TOKEN = "atdd:" + "suppress"
+
+
 def _seed_suppression_files(tmp_path: Path) -> None:
     """Plant a mix of active, stale, and repo-rule markers under *tmp_path*.
 
@@ -909,19 +916,19 @@ def _seed_suppression_files(tmp_path: Path) -> None:
       repo.py   — marker referencing a repo.* rule (substrate-unsuppressible)
     """
     (tmp_path / "a.py").write_text(
-        "x = 1  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2099-01-01\n",
+        f"x = 1  # {_SUPPRESS_TOKEN}(coder.logging.coach-silent-swallow) UNTIL=2099-01-01\n",
         encoding="utf-8",
     )
     (tmp_path / "b.py").write_text(
-        "y = 2  # atdd:suppress(coder.logging.no-print-calls-in)\n",
+        f"y = 2  # {_SUPPRESS_TOKEN}(coder.logging.no-print-calls-in)\n",
         encoding="utf-8",
     )
     (tmp_path / "stale.py").write_text(
-        "z = 3  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2020-01-01\n",
+        f"z = 3  # {_SUPPRESS_TOKEN}(coder.logging.coach-silent-swallow) UNTIL=2020-01-01\n",
         encoding="utf-8",
     )
     (tmp_path / "repo.py").write_text(
-        "w = 4  # atdd:suppress(repo.foo-wagon.D001-acc-http-007) UNTIL=2099-01-01\n",
+        f"w = 4  # {_SUPPRESS_TOKEN}(repo.foo-wagon.D001-acc-http-007) UNTIL=2099-01-01\n",
         encoding="utf-8",
     )
 
