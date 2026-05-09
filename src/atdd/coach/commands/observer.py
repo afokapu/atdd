@@ -214,6 +214,27 @@ def _make_log_regex_predicate(pattern: str) -> Predicate:
     return predicate
 
 
+def _make_token_threshold_predicate() -> Predicate:
+    """Predicate for rule 06-token-threshold (issue #507).
+
+    Reads the threshold and current token count from the absorbed module
+    `atdd.coach.commands.token_threshold` at evaluation time so tests
+    (and config edits) can patch either function and see the effect on
+    the next pass.
+    """
+    def predicate(ctx: ObservedInput) -> bool:
+        # Late import + module-attribute lookup so tests can patch
+        # `atdd.coach.commands.token_threshold.{read_token_count,load_token_alert_threshold}`
+        # via unittest.mock.patch and have the patched bindings observed here.
+        from atdd.coach.commands import token_threshold as _tt
+
+        threshold = _tt.load_token_alert_threshold()
+        count = _tt.read_token_count()
+        return _tt.check_token_threshold(token_count=count, threshold=threshold)
+
+    return predicate
+
+
 def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
     if not isinstance(payload, dict):
         raise ValueError("rule YAML must be a mapping at the top level")
@@ -234,11 +255,14 @@ def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
         if not isinstance(pattern, str) or not pattern:
             raise ValueError("log_regex trigger missing 'pattern'")
         predicate = _make_log_regex_predicate(pattern)
+    elif trig_type == "token_threshold":
+        predicate = _make_token_threshold_predicate()
     elif trig_type == "never":
         predicate = lambda _ctx: False  # noqa: E731 — terse intentional
     else:
         raise ValueError(
-            f"unknown trigger.type {trig_type!r} (supported: log_regex, never)"
+            f"unknown trigger.type {trig_type!r} "
+            "(supported: log_regex, token_threshold, never)"
         )
 
     return ObserverRule(
