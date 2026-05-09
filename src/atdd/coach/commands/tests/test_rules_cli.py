@@ -232,10 +232,15 @@ def test_rules_where_prints_source_path_and_acceptance_urn(
     assert "acc:govern-lifecycle:D010-UNIT-001-single-source-theme-map-helper" in out
 
 
-def test_rules_where_json_keys_are_minimal(
+def test_rules_where_json_carries_validator_callsites_and_pointers(
     seeded_registry: Path, capsys: pytest.CaptureFixture[str]
 ):
-    """JSON output for ``where`` carries the three pointers — no kitchen sink."""
+    """JSON output for ``where`` carries validator callsites and source pointers.
+
+    Issue #493 acc:L001-UNIT-002 — the ``--format json`` payload exposes
+    the validator ``<module>::<function>`` reference, the inferred
+    module path, and (for repo rules) the source YAML + acceptance URN.
+    """
     from atdd.coach.commands.rules import RulesCommand
 
     rc = RulesCommand().where(
@@ -243,9 +248,25 @@ def test_rules_where_json_keys_are_minimal(
     )
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert set(payload.keys()) == {"rule_id", "source_path", "acceptance_urn"}
+    assert set(payload.keys()) == {
+        "rule_id",
+        "validator",
+        "callsites",
+        "source_path",
+        "acceptance_urn",
+    }
     assert payload["rule_id"] == "repo.govern-lifecycle.D010-acc-unit-001"
     assert payload["source_path"].endswith("D010.yaml")
+    # Walker pinned signal-mode acceptances at the metric runner.
+    assert payload["validator"] == (
+        "test_metric_runner::test_metric_threshold_satisfied"
+    )
+    assert isinstance(payload["callsites"], list)
+    assert len(payload["callsites"]) == 1
+    assert (
+        payload["callsites"][0]["validator_field"]
+        == "test_metric_runner::test_metric_threshold_satisfied"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -289,16 +310,179 @@ def test_rules_grep_no_match_returns_nonzero(
     assert "No rules matched" in out
 
 
-def test_rules_grep_invalid_regex_returns_nonzero(
+def test_rules_grep_treats_regex_specials_as_literal_substring(
     seeded_registry: Path, capsys: pytest.CaptureFixture[str]
 ):
-    """A malformed regex surfaces a clear error (not a stack trace)."""
+    """Issue #493 §AC-UNIT-003: grep is case-insensitive substring, not regex.
+
+    Regex special characters (``(``, ``[``, ``*``...) are matched as literal
+    text — the surface MUST NOT crash on a pattern like ``(unclosed`` and
+    MUST NOT print a regex-compile error. With no such substring in the
+    fixture registry the call returns the no-match exit-1 instead.
+    """
     from atdd.coach.commands.rules import RulesCommand
 
     rc = RulesCommand().grep("(unclosed")
     assert rc == 1
-    err = capsys.readouterr().err
-    assert "invalid regex" in err
+    captured = capsys.readouterr()
+    assert "invalid regex" not in captured.err
+    assert "No rules matched" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# Issue #493 acc:L001-UNIT-001 — show resolves toolkit and repo + alias display
+# ---------------------------------------------------------------------------
+def test_rules_show_legacy_alias_displays_both_forms(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``atdd rules show <legacy-alias>`` prints input alias AND canonical id.
+
+    Issue #493 acc:L001-UNIT-001 — when invoked with a legacy alias, the
+    output must surface BOTH the legacy form (so the operator knows what
+    they typed) and the canonical id (so they learn the canonical name).
+    """
+    from atdd.coach.commands.rules import RulesCommand
+
+    # Real toolkit rule with a known legacy alias.
+    rc = RulesCommand().show("COACH-ORCH-NAMING-0001")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Both forms appear.
+    assert "COACH-ORCH-NAMING-0001" in out
+    assert "coach.orchestration.canonical-session-name" in out
+    # Canonical metadata still printed.
+    assert "severity:" in out
+    assert "disposition:" in out
+
+
+def test_rules_show_canonical_call_does_not_print_alias_resolution_header(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """When invoked with the canonical id, no legacy-alias resolution noise."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().show("coach.orchestration.canonical-session-name")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # The canonical line is present.
+    assert "coach.orchestration.canonical-session-name" in out
+    # The alias-resolution header line MUST NOT appear when input is canonical.
+    assert "legacy alias" not in out.lower()
+
+
+# ---------------------------------------------------------------------------
+# Issue #493 acc:L001-UNIT-002 — where prints validator <module>::<function>
+# ---------------------------------------------------------------------------
+def test_rules_where_prints_module_function_for_toolkit_rule(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Issue #493 acc:L001-UNIT-002 — toolkit rule emits validator + path.
+
+    For a toolkit-archetype rule with a declared ``validator:`` field,
+    ``where`` must print the ``<module>::<function>`` reference and the
+    inferred archetype-relative path
+    (``src/atdd/<archetype>/validators/<module>.py``).
+    """
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().where("coach.orchestration.canonical-session-name")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # validator field surfaced.
+    assert "test_orchestration_session_naming::test_active_session_names_canonical" in out
+    # Inferred import path includes the archetype dir.
+    assert "coach/validators/test_orchestration_session_naming.py" in out
+
+
+def test_rules_where_prints_substrate_dispatcher_for_repo_signal_rule(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Repo signal-mode rules carry the substrate metric runner as validator."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().where("repo.govern-lifecycle.D010-acc-unit-001")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # The walker pins signal-mode acceptances to the toolkit metric runner.
+    assert "test_metric_runner::test_metric_threshold_satisfied" in out
+    # The repo-rule source path (the WMBT YAML) is still surfaced.
+    assert "D010.yaml" in out
+
+
+def test_rules_where_resolves_legacy_alias_to_canonical_validator(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """``where`` accepts a legacy alias and resolves to the canonical binding."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().where("COACH-ORCH-NAMING-0001")
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "test_orchestration_session_naming::test_active_session_names_canonical" in out
+
+
+def test_rules_where_unknown_rule_id_returns_nonzero(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Unregistered rule-id exits 1 with a clear stderr message (no stack trace)."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().where("does.not.exist")
+    assert rc == 1
+    captured = capsys.readouterr()
+    assert "not declared in any convention" in captured.err
+    assert captured.out == ""
+
+
+# ---------------------------------------------------------------------------
+# Issue #493 acc:L001-UNIT-003 — grep substring + alias + uniform output
+# ---------------------------------------------------------------------------
+def test_rules_grep_is_case_insensitive_substring(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Issue #493 acc:L001-UNIT-003 — grep matches the literal substring (case-insensitive)."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    # Uppercase pattern matches a description authored in lowercase.
+    rc = RulesCommand().grep("THEME_MAP")
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "repo.govern-lifecycle.D010-acc-unit-001" in out
+
+
+def test_rules_grep_searches_aliases(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Grep matches against legacy aliases — surface the canonical rule.
+
+    Issue #493 acc:L001-UNIT-003 — the search domain explicitly includes
+    aliases so an operator who only knows the legacy id can still find
+    the canonical rule via grep.
+    """
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().grep("COACH-ORCH-NAMING-0001")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # The canonical rule is surfaced even though the pattern is the alias.
+    assert "coach.orchestration.canonical-session-name" in out
+
+
+def test_rules_grep_each_line_shows_severity_disposition_description(
+    seeded_registry: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Issue #493 acc:L001-UNIT-003 — grep lines carry id+severity+disposition+description."""
+    from atdd.coach.commands.rules import RulesCommand
+
+    rc = RulesCommand().grep("theme_map")
+    assert rc == 0
+    out = capsys.readouterr().out
+    # The match line carries severity (sev=) and disposition (strict).
+    # Walker constants: severity=4, disposition='strict'.
+    assert "sev=4" in out
+    assert "strict" in out
+    # The description (purpose) text is on the same surface.
+    assert "theme_map" in out
 
 
 # ---------------------------------------------------------------------------
