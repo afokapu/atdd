@@ -19,7 +19,7 @@ produce:
     telemetry: null
     to: external
   - name: commons:coach:review-report-schema
-    contract: "contract:commons:coach:review-report"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:reviewer-phase-prompts
@@ -27,7 +27,7 @@ produce:
     telemetry: null
     to: external
   - name: commons:coach:judge-reviewer-concern-schema
-    contract: "contract:commons:coach:judge-reviewer-concern-response"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:atdd-agent-review-command

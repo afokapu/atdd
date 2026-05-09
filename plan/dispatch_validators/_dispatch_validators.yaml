@@ -11,7 +11,7 @@ goal: "ensure every commit on a coach-watched worktree produces a deterministic,
 outcome: "for every observed commit on a watched worktree, .atdd/runtime/validations/<sha>/ contains four artifacts conforming to C0-frozen schemas, plus a validation_complete event on the agent's events.jsonl carrying the summary; coach can route GREEN/SMOKE/REFACTOR exits and block COMPLETE on configurable risk thresholds"
 
 features:
-  - urn: "feature:dispatch-validators:tier-1-validator-pipeline"
+  - urn: "feature:dispatch-validators:dispatch-tier-one-validators"
 
 produce:
   - name: commons:coach:git-watcher
@@ -19,15 +19,15 @@ produce:
     telemetry: null
     to: external
   - name: commons:coach:commit-observed-event
-    contract: "contract:commons:coach:runtime-event"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:validation-pending-event
-    contract: "contract:commons:coach:runtime-event"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:validation-complete-event
-    contract: "contract:commons:coach:runtime-event"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:commit-trailers-rule-family
@@ -35,11 +35,11 @@ produce:
     telemetry: null
     to: external
   - name: commons:coach:violation-collector-pytest-plugin
-    contract: "contract:commons:coach:validator-result"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:violations-jsonl-artifact
-    contract: "contract:commons:coach:validator-result"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:validator-selection-resolver
@@ -55,7 +55,7 @@ produce:
     telemetry: null
     to: external
   - name: commons:coach:suppressed-jsonl-artifact
-    contract: "contract:commons:coach:validator-result"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:stale-suppressions-jsonl-artifact
@@ -63,11 +63,11 @@ produce:
     telemetry: null
     to: external
   - name: commons:coach:risk-score-computer
-    contract: "contract:commons:coach:risk-score"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:risk-score-json-artifact
-    contract: "contract:commons:coach:risk-score"
+    contract: null
     telemetry: null
     to: external
 

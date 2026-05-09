@@ -20,11 +20,11 @@ produce:
     telemetry: null
     to: external
   - name: coach:spawn:launch-prompt-file
-    contract: "contract:commons:coach:runtime-event"
+    contract: null
     telemetry: null
     to: external
   - name: coach:spawn:agent-spawned-event
-    contract: "contract:commons:coach:runtime-event"
+    contract: null
     telemetry: null
     to: external
   - name: coach:spawn:wmbt-rules-block-renderer

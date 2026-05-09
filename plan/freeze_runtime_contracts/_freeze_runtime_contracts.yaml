@@ -15,27 +15,27 @@ features:
 
 produce:
   - name: commons:coach:runtime-event-schema
-    contract: "contract:commons:coach:runtime-event"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:decision-schema
-    contract: "contract:commons:coach:decision"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:judgment-schema
-    contract: "contract:commons:coach:judgment"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:correction-schema
-    contract: "contract:commons:coach:correction"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:validator-result-schema
-    contract: "contract:commons:coach:validator-result"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:risk-score-schema
-    contract: "contract:commons:coach:risk-score"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:runtime-layout-doc

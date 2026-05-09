@@ -1,4 +1,4 @@
-urn: "feature:dispatch-validators:tier-1-validator-pipeline"
+urn: "feature:dispatch-validators:dispatch-tier-one-validators"
 wagon: "wagon:dispatch-validators"
 description: "Coach v9's real-time tier-1 validator pipeline (spec §6.4–§6.6, §6.8): a git watcher emits commit_observed events with parsed Phase/WMBT-Urn/Agent-Id trailers (#M1); a custom pytest plugin captures Violation records to validations/<sha>/violations.jsonl (#M2); per-phase validator selection unions toolkit conventions with repo.* rules whose RuleMetadata.phase matches (#M3); the suppression scanner separates suppressed and stale-suppression violations end-to-end with repo rules bypassing suppression (#M4); risk score with by_archetype (incl. repo slice), by_severity, by_disposition, and stale_suppressions is computed and written to risk-score.json (#M5)."
 sizing:

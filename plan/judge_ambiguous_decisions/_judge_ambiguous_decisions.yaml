@@ -19,23 +19,23 @@ produce:
     telemetry: null
     to: external
   - name: commons:coach:judge-borderline-tier1-response-schema
-    contract: "contract:commons:coach:judge-borderline-tier1-response"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:judge-retry-vs-escalate-response-schema
-    contract: "contract:commons:coach:judge-retry-vs-escalate-response"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:judge-cross-phase-regression-response-schema
-    contract: "contract:commons:coach:judge-cross-phase-regression-response"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:judge-issue-review-aggregate-response-schema
-    contract: "contract:commons:coach:judge-issue-review-aggregate-response"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:judge-superseded-rule-consolidation-response-schema
-    contract: "contract:commons:coach:judge-superseded-rule-consolidation-response"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:atdd-issue-review-cli
@@ -43,7 +43,7 @@ produce:
     telemetry: null
     to: external
   - name: commons:coach:issue-review-aggregate-schema
-    contract: "contract:commons:coach:issue-review-aggregate"
+    contract: null
     telemetry: null
     to: external
   - name: commons:coach:judge-call-site-discipline-doc
