@@ -428,3 +428,14 @@ sessions:
   wagon: drive-state-machine
   feature: feature:drive-state-machine:coach-state-machine-and-runtime
   train: 0002-coach-drives-lifecycle
+- id: '501'
+  slug: coach-v9-o1-atdd-judge-core
+  file: null
+  issue_number: 501
+  type: feat
+  status: RED
+  created: '2026-05-09'
+  archived: null
+  wagon: judge-ambiguous-decisions
+  feature: feature:judge-ambiguous-decisions:judge-and-issue-review
+  train: 0002-coach-drives-lifecycle
