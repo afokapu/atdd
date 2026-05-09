@@ -73,6 +73,7 @@ def test_judgment_write_rejects_missing_required_field(tmp_path):
         "inputs_hash": "sha256:x",
         "response": True,
         "cached": False,
+        "outcome": "ok",
     }
     with pytest.raises(SchemaValidationError) as exc_info:
         writer.append(invalid)

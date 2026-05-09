@@ -157,6 +157,7 @@ def test_smoke_judgment_full_inputs_cache_round_trip(tmp_path):
             "inputs_hash": h,
             "response": {"advance": True, "confidence": 0.95},
             "cached": False,
+            "outcome": "ok",
             "model": "claude-opus-4-7",
             "latency_ms": 1234,
         },

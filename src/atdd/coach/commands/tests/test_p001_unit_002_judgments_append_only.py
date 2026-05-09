@@ -45,6 +45,7 @@ def test_append_writes_jsonl_record(tmp_path):
         "inputs_hash": "sha256:abc123",
         "response": {"ok": True},
         "cached": False,
+        "outcome": "ok",
     }
     writer.append(record)
 
@@ -66,6 +67,7 @@ def test_required_fields_per_c0_schema(tmp_path):
         "inputs_hash": "sha256:abc",
         "response": True,
         "cached": False,
+        "outcome": "ok",
     }
     writer.append(record)
 
@@ -109,6 +111,7 @@ def test_call_site_constrained_to_six_v1_surfaces(tmp_path):
                 "inputs_hash": "sha256:x",
                 "response": True,
                 "cached": False,
+                "outcome": "ok",
             }
         )
 
@@ -121,6 +124,7 @@ def test_call_site_constrained_to_six_v1_surfaces(tmp_path):
                 "inputs_hash": "sha256:x",
                 "response": True,
                 "cached": False,
+                "outcome": "ok",
             }
         )
 
@@ -146,6 +150,7 @@ def test_full_inputs_persisted_to_gitignored_cache_not_log(tmp_path):
             "inputs_hash": h,
             "response": True,
             "cached": False,
+            "outcome": "ok",
         },
         full_inputs=full_inputs,
     )
