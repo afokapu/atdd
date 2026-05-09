@@ -121,7 +121,11 @@ def _create_surface(
         return multiplexer.new_surface(
             cwd=str(worktree), command=command, name=name,
         )
-    except NotImplementedError:
+    except NotImplementedError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        # Documented fallback per utils/multiplexer.py: tmux/zellij
+        # backends raise NotImplementedError on new_surface; we degrade
+        # to new_workspace so spawn works on every backend the
+        # abstraction supports.
         return multiplexer.new_workspace(
             cwd=str(worktree), command=command, name=name,
         )
