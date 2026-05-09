@@ -578,7 +578,7 @@ def run(
     )
     try:
         jsonschema.Draft202012Validator(_aggregate_schema()).validate(aggregate)
-    except jsonschema.ValidationError as exc:
+    except jsonschema.ValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         field = ".".join(str(p) for p in exc.absolute_path) or "<root>"
         _print_error(
             f"aggregate schema violation at {field!r}: {exc.message}"
