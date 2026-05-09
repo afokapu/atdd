@@ -1,0 +1,11 @@
+{
+  "event_type": "validation_complete",
+  "agent_id": "agent-J3-coach",
+  "timestamp": "2026-05-09T13:45:02.482Z",
+  "payload": {
+    "phase": "GREEN",
+    "sha": "7631322abcd",
+    "violations_total": 0,
+    "duration_ms": 4218
+  }
+}

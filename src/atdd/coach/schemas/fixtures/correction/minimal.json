@@ -1,0 +1,8 @@
+{
+  "agent_id": "agent-K1-tester",
+  "rule_id": "tester.red.assertion-mode",
+  "severity": 3,
+  "disposition": "strict",
+  "correction_text": "Your last commit added a structural-only assertion in a presentation-layer test. Per tester/red.convention.yaml §assertion_classification, presentation tests must declare Assertion: behavioral and execute the component. Re-run the test in execution mode and assert observable behavior.",
+  "injection_method": "multiplexer-send"
+}
