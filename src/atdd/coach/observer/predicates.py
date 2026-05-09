@@ -51,6 +51,25 @@ def _changed_files(ctx) -> List[Path]:
     return out
 
 
+def _rel_path(ctx, abs_path: Path) -> str:
+    """Return *abs_path* relative to ``ctx.worktree_root`` as a forward-
+    slashed string, or the absolute string if relativization fails."""
+    if ctx.worktree_root is None:
+        return str(abs_path)
+    try:
+        return str(abs_path.relative_to(Path(ctx.worktree_root))).replace("\\", "/")
+    except ValueError:
+        return str(abs_path)
+
+
+def _read_text(path: Path) -> Optional[str]:
+    """Best-effort UTF-8 read; ``None`` when the file is unreadable."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Rule 10 — stale-suppression-detected
 # ---------------------------------------------------------------------------
@@ -202,47 +221,35 @@ def _file_emits_rule_id_literal(text: str) -> Optional[str]:
     return None
 
 
-def unbound_rule_id_predicate(ctx) -> bool:
+def _find_unbound_validator(ctx) -> Optional[tuple[str, str]]:
+    """Return ``(rule_id, rel_path)`` for the first unbound validator
+    in ``ctx.worktree_changes``, or ``None``."""
     for path in _changed_files(ctx):
-        rel = ""
-        try:
-            rel = str(path.relative_to(Path(ctx.worktree_root)))
-        except ValueError:
-            rel = str(path)
+        rel = _rel_path(ctx, path)
         if not _is_validator_path(rel):
             continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        text = _read_text(path)
+        if text is None:
             continue
         emitted = _file_emits_rule_id_literal(text)
         if not emitted:
             continue
         if _file_has_module_level_bind_rule(text):
             continue
-        return True
-    return False
+        return emitted, rel
+    return None
+
+
+def unbound_rule_id_predicate(ctx) -> bool:
+    return _find_unbound_validator(ctx) is not None
 
 
 def unbound_rule_id_correction(ctx, *, base_text: str) -> str:
-    for path in _changed_files(ctx):
-        try:
-            rel = str(path.relative_to(Path(ctx.worktree_root)))
-        except ValueError:
-            rel = str(path)
-        if not _is_validator_path(rel):
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        emitted = _file_emits_rule_id_literal(text)
-        if not emitted:
-            continue
-        if _file_has_module_level_bind_rule(text):
-            continue
-        return base_text.format(rule_id=emitted, location=rel)
-    return base_text
+    hit = _find_unbound_validator(ctx)
+    if hit is None:
+        return base_text
+    emitted, rel = hit
+    return base_text.format(rule_id=emitted, location=rel)
 
 
 # ---------------------------------------------------------------------------
@@ -295,39 +302,30 @@ def _violating_rule_ids(text: str) -> List[str]:
     return out
 
 
-def rule_id_grammar_predicate(ctx) -> bool:
+def _find_grammar_violation(ctx) -> Optional[tuple[str, str]]:
     for path in _changed_files(ctx):
-        try:
-            rel = str(path.relative_to(Path(ctx.worktree_root)))
-        except ValueError:
-            rel = str(path)
+        rel = _rel_path(ctx, path)
         if not _is_convention_yaml(rel):
             continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        if _violating_rule_ids(text):
-            return True
-    return False
-
-
-def rule_id_grammar_correction(ctx, *, base_text: str) -> str:
-    for path in _changed_files(ctx):
-        try:
-            rel = str(path.relative_to(Path(ctx.worktree_root)))
-        except ValueError:
-            rel = str(path)
-        if not _is_convention_yaml(rel):
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        text = _read_text(path)
+        if text is None:
             continue
         bad = _violating_rule_ids(text)
         if bad:
-            return base_text.format(legacy_id=bad[0], location=rel)
-    return base_text
+            return bad[0], rel
+    return None
+
+
+def rule_id_grammar_predicate(ctx) -> bool:
+    return _find_grammar_violation(ctx) is not None
+
+
+def rule_id_grammar_correction(ctx, *, base_text: str) -> str:
+    hit = _find_grammar_violation(ctx)
+    if hit is None:
+        return base_text
+    legacy_id, rel = hit
+    return base_text.format(legacy_id=legacy_id, location=rel)
 
 
 # ---------------------------------------------------------------------------
@@ -377,38 +375,28 @@ def _scan_for_disposition(node) -> bool:
     return False
 
 
-def disposition_declared_predicate(ctx) -> bool:
+def _find_disposition_in_plan(ctx) -> Optional[str]:
     for path in _changed_files(ctx):
-        try:
-            rel = str(path.relative_to(Path(ctx.worktree_root)))
-        except ValueError:
-            rel = str(path)
+        rel = _rel_path(ctx, path)
         if not _is_plan_yaml(rel):
             continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        text = _read_text(path)
+        if text is None:
             continue
         if _disposition_in_plan_yaml(text):
-            return True
-    return False
+            return rel
+    return None
+
+
+def disposition_declared_predicate(ctx) -> bool:
+    return _find_disposition_in_plan(ctx) is not None
 
 
 def disposition_declared_correction(ctx, *, base_text: str) -> str:
-    for path in _changed_files(ctx):
-        try:
-            rel = str(path.relative_to(Path(ctx.worktree_root)))
-        except ValueError:
-            rel = str(path)
-        if not _is_plan_yaml(rel):
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        if _disposition_in_plan_yaml(text):
-            return base_text.format(location=rel)
-    return base_text
+    rel = _find_disposition_in_plan(ctx)
+    if rel is None:
+        return base_text
+    return base_text.format(location=rel)
 
 
 # ---------------------------------------------------------------------------
