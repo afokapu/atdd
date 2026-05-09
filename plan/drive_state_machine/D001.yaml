@@ -1,0 +1,102 @@
+urn: "wmbt:drive-state-machine:D001"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "ad-hoc-coach-state-machine-without-shared-skeleton"
+context_clarifier: "when six parallel coach v9 tracks (J/K/L/M/N/O/P) need a stable per-issue state-machine entry point and CLI argparse surface — INIT|PLANNED|RED|GREEN|SMOKE|REFACTOR|COMPLETE|BLOCKED|MERGED phases plus the state-transition table — to hook into without each track inventing its own coach orchestrator. Skeleton ONLY: no watcher attachment (#J5), no validator dispatch (#M3), no observer (#L1), no spawn (#K1), no per-state transition logic, no two-phase commit (#J4), no decision durability (#J3), no resume (#J6)"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton when six parallel coach v9 tracks need a stable per-issue state-machine entry point and CLI argparse surface to hook into without each track inventing its own coach orchestrator"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:D001-UNIT-001-state-machine-skeleton"
+      id: "AC-UNIT-001"
+      purpose: "atdd coach <issue-number> initializes a state machine in INIT for the issue and prints the planned state path without executing transitions"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/coach.py exists with the atdd coach <issue-numbers...> entry point"
+        - "The state-machine enum INIT|PLANNED|RED|GREEN|SMOKE|REFACTOR|COMPLETE|BLOCKED|MERGED is implemented per spec §4.1"
+        - "The state-transition table is implemented per spec §4.1 (which states can transition to which)"
+    when:
+      abstract: "atdd coach 358 is invoked"
+    then:
+      abstract:
+        - "A state machine is initialized in INIT for issue 358"
+        - "The planned state path is printed without executing transitions"
+        - "No watcher attachment, validator dispatch, observer integration, or spawn integration runs"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:drive-state-machine:D001-UNIT-002-flag-parsing"
+      id: "AC-UNIT-002"
+      purpose: "All flags from spec §5.1 parse correctly and the resolved configuration is printable"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd coach CLI argparse surface is implemented per spec §5.1"
+        - "Flags include --max-retries, --escalation-channel, --multiplexer, --multiplexer-mode, --auto-merge, --strict-deps, --llm, --persona-llm, --judge-llm, --require-issue-review, --review-phases, --skip-review, --risk-threshold-block, --allow-stale-suppressions, --resume, --dry-run"
+    when:
+      abstract: "atdd coach is invoked with flag combinations from §5.1 (including --persona-llm tester=claude-code,coder=codex,reviewer=gpt-5)"
+    then:
+      abstract:
+        - "Every flag is recognized; unknown flags raise argparse errors"
+        - "--persona-llm parses into a per-persona dict"
+        - "--review-phases parses into the enabled-phases set"
+        - "Resolved configuration matches §5.1's documented surface and can be dumped for inspection"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:drive-state-machine:D001-UNIT-003-compute-waves-reuse"
+      id: "AC-UNIT-003"
+      purpose: "Multi-issue invocations resolve the dependency graph and compute waves by reusing compute_waves() from commands/orchestrate.py per spec §4.3"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "compute_waves() exists in src/atdd/coach/commands/orchestrate.py"
+        - "Three GitHub issues (358, 359, 360) with declared dependencies are available in the test fixture"
+    when:
+      abstract: "atdd coach 358 359 360 --strict-deps is invoked"
+    then:
+      abstract:
+        - "compute_waves() is called from coach.py (no duplicate implementation)"
+        - "The resolved wave assignment is printed and matches the dependency-respecting topological order"
+        - "--strict-deps is propagated into the wave-transition gating policy"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:drive-state-machine:D001-INTEGRATION-001-no-scope-leak"
+      id: "AC-INTEGRATION-001"
+      purpose: "Code review and unit-test coverage confirm no scope leak into J5/M3/L1/K1/J4/J3/J6 territory"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/coach.py is the only new file (plus its tests)"
+    when:
+      abstract: "Static analysis and code review run on the J1 PR"
+    then:
+      abstract:
+        - "No watcher (inotify/fswatch) imports — that lives in #J5"
+        - "No validator dispatch (pytest invocation, suppression scanner) — that lives in #M3"
+        - "No observer correction injection — that lives in #L1"
+        - "No spawn invocation (multiplexer, session_template render) — that lives in #K1"
+        - "No two-phase-commit worktree creation/rollback — that lives in #J4"
+        - "No decisions.jsonl/judgments.jsonl writes — that lives in #J3"
+        - "No --resume reconstruction — that lives in #J6"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
