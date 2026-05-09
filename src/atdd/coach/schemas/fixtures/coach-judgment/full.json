@@ -1,0 +1,14 @@
+{
+  "judgment_id": "01HW9PA3XK7Q2RB9N6V1MZJ4FY",
+  "timestamp": "2026-05-09T13:50:42.118Z",
+  "call_site": "violation-suppression",
+  "inputs_hash": "sha256:1a79a4d60de6718e8e5b326e338ae533",
+  "response": {
+    "appropriate": true,
+    "until_recommended": "2026-08-15"
+  },
+  "cached": true,
+  "model": "claude-opus-4-7",
+  "latency_ms": 12,
+  "decision_id": "01HW9PA42XK7Q2RB9N6V1MZJ8FY"
+}

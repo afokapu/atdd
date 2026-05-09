@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "correction.schema.json",
+  "title": "Coach v9 Observer Correction",
+  "description": "Observer correction payload. Producer: observer-correction track (#L1). Consumer: runtime watcher (#J5) which performs the actual injection. Stored append-only in `.atdd/runtime/agents/<id>/corrections.jsonl`. Spec: atdd-coach-spec-v9.md §C0.",
+  "type": "object",
+  "required": [
+    "agent_id",
+    "rule_id",
+    "severity",
+    "disposition",
+    "correction_text",
+    "injection_method"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "agent_id": {
+      "type": "string",
+      "description": "ID of the agent the correction targets.",
+      "minLength": 1
+    },
+    "rule_id": {
+      "type": "string",
+      "description": "Stable rule identifier (`<DOMAIN>-<TOPIC>-<NNN>` per substrate rule-id grammar) the correction is anchored on.",
+      "minLength": 1
+    },
+    "severity": {
+      "type": "integer",
+      "description": "Severity 1..5, aligned with substrate.Violation.severity.",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "disposition": {
+      "type": "string",
+      "description": "Coach v9 disposition that drove the correction. Aligns with the substrate disposition vocabulary.",
+      "enum": [
+        "strict",
+        "suppress-and-clean",
+        "advisory",
+        "documentation-only"
+      ]
+    },
+    "correction_text": {
+      "type": "string",
+      "description": "Human-readable correction copy. Injected verbatim into the agent's input channel by the runtime watcher.",
+      "minLength": 1
+    },
+    "injection_method": {
+      "type": "string",
+      "description": "How the correction is delivered to the agent. Frozen at C0 to the three named methods; expansions require a follow-up issue.",
+      "enum": [
+        "cli-return",
+        "multiplexer-send",
+        "respawn"
+      ]
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional ISO-8601 UTC timestamp at which the observer issued the correction. The watcher records its own observation time when it injects."
+    },
+    "validator_id": {
+      "type": "string",
+      "description": "Optional identifier of the validator whose result triggered the correction."
+    },
+    "violation_location": {
+      "type": "string",
+      "description": "Optional `path:line` (or `path:line:col`) location anchor — useful when the correction references a specific site."
+    }
+  }
+}
