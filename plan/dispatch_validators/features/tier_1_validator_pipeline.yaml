@@ -1,0 +1,43 @@
+urn: "feature:dispatch-validators:tier-1-validator-pipeline"
+wagon: "wagon:dispatch-validators"
+description: "Coach v9's real-time tier-1 validator pipeline (spec §6.4–§6.6, §6.8): a git watcher emits commit_observed events with parsed Phase/WMBT-Urn/Agent-Id trailers (#M1); a custom pytest plugin captures Violation records to validations/<sha>/violations.jsonl (#M2); per-phase validator selection unions toolkit conventions with repo.* rules whose RuleMetadata.phase matches (#M3); the suppression scanner separates suppressed and stale-suppression violations end-to-end with repo rules bypassing suppression (#M4); risk score with by_archetype (incl. repo slice), by_severity, by_disposition, and stale_suppressions is computed and written to risk-score.json (#M5)."
+sizing:
+  wmbts: 5
+  footprint_score: 12
+  footprint_size: "M"
+wmbts:
+  - "wmbt:dispatch-validators:M001"
+  - "wmbt:dispatch-validators:E001"
+  - "wmbt:dispatch-validators:D001"
+  - "wmbt:dispatch-validators:C001"
+  - "wmbt:dispatch-validators:E002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No HTTP/CLI surface introduced; integration is event-driven, invoked by the runtime watcher (J5) and pytest subprocess invocation"
+    application:
+      - type: "use_cases"
+        count: 5
+        rationale: "Five orchestrators: observe-commit (M1), collect-violations (M2), select-validators-for-phase (M3), filter-and-classify-suppressions (M4), compute-risk-score (M5)"
+    domain:
+      - type: "value_objects"
+        count: 4
+        rationale: "ParsedCommitTrailers, ValidatorSet (toolkit ∪ repo), SuppressionDecision, RiskBreakdown — all immutable derivations from substrate Violation/RuleMetadata + commit metadata"
+    integration:
+      - type: "subprocess_invokers"
+        count: 1
+        rationale: "Pytest invocation harness for tier-1 dispatch (validator-invocation.md compliant: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1, per-phase timeouts, subprocess-crash vs test-failure retry distinction)"
+      - type: "watchers"
+        count: 1
+        rationale: "Git watcher (inotify/fswatch) emitting commit_observed events; lives in src/atdd/coach/runtime/git_watcher.py, complements the broader runtime watcher owned by #J5"
+      - type: "pytest_plugins"
+        count: 1
+        rationale: "src/atdd/coach/runtime/violation_collector.py — pytest_runtest_logreport hook capturing Violation records via assert_disposition_satisfied and writing JSONL to validations/<sha>/violations.jsonl"
+      - type: "artifact_writers"
+        count: 4
+        rationale: "violations.jsonl, suppressed.jsonl, stale-suppressions.jsonl, risk-score.json — schema-validated at write time per validator-result.schema.json and risk-score.schema.json"
+      - type: "rule_families"
+        count: 1
+        rationale: "coach.commit-trailers.* — emits violations when commit trailers are missing or malformed; complements the existing pre-commit hook"
