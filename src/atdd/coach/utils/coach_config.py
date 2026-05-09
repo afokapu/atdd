@@ -22,9 +22,9 @@ Public API:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from atdd.coach.utils.config import load_atdd_config
 
@@ -305,7 +305,7 @@ def _parse_persona_llm(raw: Any) -> PersonaLLM:
         key: _str(mapping[key], f"persona_llm.{key}")
         for key in mapping
     }
-    return PersonaLLM(**{**PersonaLLM().__dict__, **overrides})
+    return replace(PersonaLLM(), **overrides)
 
 
 def _parse_observer(raw: Any) -> ObserverConfig:
@@ -325,7 +325,7 @@ def _parse_observer(raw: Any) -> ObserverConfig:
         )
     if "rules_dir" in mapping:
         overrides["rules_dir"] = _str(mapping["rules_dir"], "observer.rules_dir")
-    return ObserverConfig(**{**ObserverConfig().__dict__, **overrides})
+    return replace(ObserverConfig(), **overrides)
 
 
 def _parse_review(raw: Any) -> ReviewConfig:
@@ -348,7 +348,7 @@ def _parse_review(raw: Any) -> ReviewConfig:
         overrides["same_model_allowed"] = _bool(
             mapping["same_model_allowed"], "review.same_model_allowed"
         )
-    return ReviewConfig(**{**ReviewConfig().__dict__, **overrides})
+    return replace(ReviewConfig(), **overrides)
 
 
 def _parse_validators(raw: Any) -> ValidatorsConfig:
@@ -370,7 +370,7 @@ def _parse_validators(raw: Any) -> ValidatorsConfig:
         overrides["pytest_args"] = _list_of_str(
             mapping["pytest_args"], "validators.pytest_args"
         )
-    return ValidatorsConfig(**{**ValidatorsConfig().__dict__, **overrides})
+    return replace(ValidatorsConfig(), **overrides)
 
 
 def _parse_suppressions(raw: Any) -> SuppressionsConfig:
@@ -390,7 +390,7 @@ def _parse_suppressions(raw: Any) -> SuppressionsConfig:
         overrides["grace_days"] = _non_negative_int(
             mapping["grace_days"], "suppressions.grace_days"
         )
-    return SuppressionsConfig(**{**SuppressionsConfig().__dict__, **overrides})
+    return replace(SuppressionsConfig(), **overrides)
 
 
 def _parse_risk_thresholds(raw: Any) -> RiskThresholds:
@@ -403,7 +403,7 @@ def _parse_risk_thresholds(raw: Any) -> RiskThresholds:
         overrides[phase] = _optional_non_negative_int(
             mapping[phase], f"risk_thresholds.{phase}"
         )
-    return RiskThresholds(**{**RiskThresholds().__dict__, **overrides})
+    return replace(RiskThresholds(), **overrides)
 
 
 def _parse_judge(raw: Any) -> JudgeConfig:
@@ -421,7 +421,7 @@ def _parse_judge(raw: Any) -> JudgeConfig:
         overrides["log_full_inputs"] = _bool(
             mapping["log_full_inputs"], "judge.log_full_inputs"
         )
-    return JudgeConfig(**{**JudgeConfig().__dict__, **overrides})
+    return replace(JudgeConfig(), **overrides)
 
 
 def _parse_issue_review(raw: Any) -> IssueReviewConfig:
@@ -453,7 +453,7 @@ def _parse_issue_review(raw: Any) -> IssueReviewConfig:
         overrides["stale_after_days"] = _non_negative_int(
             mapping["stale_after_days"], "issue_review.stale_after_days"
         )
-    return IssueReviewConfig(**{**IssueReviewConfig().__dict__, **overrides})
+    return replace(IssueReviewConfig(), **overrides)
 
 
 def _parse_escalation(raw: Any) -> EscalationConfig:
@@ -479,7 +479,7 @@ def _parse_escalation(raw: Any) -> EscalationConfig:
         overrides["github_label"] = _str(
             mapping["github_label"], "escalation.github_label"
         )
-    return EscalationConfig(**{**EscalationConfig().__dict__, **overrides})
+    return replace(EscalationConfig(), **overrides)
 
 
 def _parse_retries(raw: Any) -> RetriesConfig:
@@ -497,7 +497,7 @@ def _parse_retries(raw: Any) -> RetriesConfig:
         overrides["per_agent"] = _non_negative_int(
             mapping["per_agent"], "retries.per_agent"
         )
-    return RetriesConfig(**{**RetriesConfig().__dict__, **overrides})
+    return replace(RetriesConfig(), **overrides)
 
 
 # ---------------------------------------------------------------------------
