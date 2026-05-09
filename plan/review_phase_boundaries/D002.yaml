@@ -1,0 +1,92 @@
+urn: "wmbt:review-phase-boundaries:D002"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "false-pass-verdict-on-uncovered-or-strict-findings"
+context_clarifier: "when coach v9 ingests a review report at phase boundary and routes the next coach action — pass/concern/fail — based on the report's `verdict`; the schema must mechanically prevent reviewers from emitting `verdict: pass` while leaving any AC `not_covered` or any strict-disposition rule_id-bound finding unaddressed"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of false-pass-verdict-on-uncovered-or-strict-findings when coach v9 ingests a review report and routes the next coach action; the review-report schema must enforce three hard rules at intake (AC coverage, rule-ID severity match, no-pass-with-strict-finding) so a malformed report is rejected before routing"
+acceptances:
+  - identity:
+      urn: "acc:review-phase-boundaries:D002-UNIT-001-review-report-schema-committed"
+      id: "AC-UNIT-001"
+      purpose: "review-report.schema.json is committed at src/atdd/coach/schemas/review-report.schema.json with the rule-ID-first shape per spec §7.4"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/schemas/review-report.schema.json exists in the repository"
+    when:
+      abstract: "A schema-validator test parses the schema as JSON Schema draft-2020-12 and inspects required fields"
+    then:
+      abstract:
+        - "The schema declares required fields: review_id, target_commit, reviewer_agent_id, wmbt_urn, phase, verdict, tier1_risk_score, findings[], ac_coverage, summary"
+        - "Each findings[] entry declares rule_id (nullable), rule_id_legacy_alias (optional), severity (1..5), disposition (when rule_id != null), surface (one of convention|task|semantic|architecture), location, acceptance_ref, description, evidence"
+        - "ac_coverage is a map of acceptance_ref to one of `covered|not_covered|partial`"
+        - "verdict is one of `pass|concern|fail`"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:review-phase-boundaries:D002-UNIT-002-pass-blocked-when-ac-not-covered"
+      id: "AC-UNIT-002"
+      purpose: "A review report with `verdict: pass` AND any `ac_coverage[*] == not_covered` is rejected at coach intake with a clear error referencing the offending acceptance_ref"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A review-report fixture with verdict=pass and at least one ac_coverage entry == not_covered"
+    when:
+      abstract: "Coach intake validates the report against review-report.schema.json plus the cross-field hard rules"
+    then:
+      abstract:
+        - "Intake rejects the report with an error citing `verdict cannot be pass when any AC is not_covered`"
+        - "The error names the offending acceptance_ref(s)"
+        - "The report is NOT written to .atdd/runtime/agents/<id>/reviews/<id>.json"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:review-phase-boundaries:D002-UNIT-003-pass-blocked-with-strict-finding"
+      id: "AC-UNIT-003"
+      purpose: "A review report with `verdict: pass` AND any finding having both `rule_id != null` and `disposition: strict` is rejected at coach intake"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A review-report fixture with verdict=pass and one or more findings carrying rule_id != null and disposition: strict"
+    when:
+      abstract: "Coach intake validates the report against review-report.schema.json plus the cross-field hard rules"
+    then:
+      abstract:
+        - "Intake rejects the report with an error citing `verdict cannot be pass while a strict rule_id-bound finding remains`"
+        - "The error names the offending rule_id(s)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:review-phase-boundaries:D002-UNIT-004-rule-id-severity-matches-registry"
+      id: "AC-UNIT-004"
+      purpose: "When `rule_id != null`, the finding's `severity` and `disposition` MUST match the registry binding from `bind_rule(rule_id)`; mismatches are rejected at intake"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A review-report fixture whose finding cites a known canonical rule_id but with severity/disposition diverging from `bind_rule(rule_id)`"
+    when:
+      abstract: "Coach intake validates the report"
+    then:
+      abstract:
+        - "Intake rejects the report citing the rule_id and the registry's expected severity and disposition"
+        - "Conforming reports (rule_id null OR rule_id with registry-matching severity/disposition) parse cleanly"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
