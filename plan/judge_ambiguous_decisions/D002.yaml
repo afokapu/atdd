@@ -4,7 +4,7 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "judge-call-site-misfire-on-tier1-retry-or-regression"
 context_clarifier: "when coach v9 must distinguish three high-frequency ambiguous-routing scenarios — (1) borderline tier-1 result where mixed pass/fail with ambiguous severity or suppress-and-clean rules clustered around recently-edited lines should not auto-block, (3) retry-vs-escalate at threshold where the next attempt would consume the final retry, (4) cross-phase regression risk where tier-1 in a later phase reveals a regression in earlier-phase work — each call site must trigger exactly when its conditions are met (not before, not after) and route per the response. Misfire (fire when conditions not met, or fail to fire when met) is the failure mode this WMBT controls"
-lens: "functional.reliability"
+lens: "functional.availability"
 statement: "minimize likelihood of judge-call-site-misfire-on-tier1-retry-or-regression when coach must route call sites #1 (borderline tier-1), #3 (retry-vs-escalate), and #4 (cross-phase regression) — each with its own pre-conditions, response schema, and post-routing behavior"
 acceptances:
   - identity:

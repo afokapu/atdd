@@ -4,7 +4,7 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "issue-review-aggregate-judgment-without-audit-trail"
 context_clarifier: "when atdd issue review (§5.6, §6.10) returns a mixed pass/concern verdict across N independent passes — the per-pass verdicts disagree about whether the issue is ready for coach — coach calls judge call site #5 to aggregate. The aggregate judgment must be triggered exactly once per mixed-verdict review (not per pass, not per dimension), the response must conform to a frozen schema, and the call-plus-response must be logged to judgments.jsonl with a stable inputs_hash so re-runs against the same review aggregate are cache-resolvable. Without this contract, coach would either (a) ignore the disagreement and route on majority vote (losing systemic-concern signal), or (b) re-prompt per pass and explode the audit trail"
-lens: "functional.reliability"
+lens: "functional.availability"
 statement: "minimize likelihood of issue-review-aggregate-judgment-without-audit-trail when atdd issue review returns mixed pass/concern across passes and coach must consolidate via judge call site #5 with a frozen response schema and exactly-once audit-trail discipline"
 acceptances:
   - identity:
