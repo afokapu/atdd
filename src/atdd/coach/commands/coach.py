@@ -35,6 +35,7 @@ import argparse
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Optional
 
 # Per spec §0.2 absorption discipline: reuse, do not redefine.
@@ -359,7 +360,24 @@ def run(
                 print(f"  Wave {i}: {nums}")
 
     if cfg.resume is not None:
-        print(f"  --resume={cfg.resume!r} parsed; reconstruction owned by #J6")
+        from atdd.coach.commands.durability import DecisionWriter
+        from atdd.coach.commands.resume import ResumeRunner
+
+        runtime_dir = Path(".atdd") / "runtime"
+        writer = DecisionWriter(runtime_dir=runtime_dir)
+        runner = ResumeRunner(
+            runtime_dir=runtime_dir,
+            run_id=cfg.resume,
+            decision_writer=writer,
+        )
+        reconstructed = runner.reconstruct()
+        print(f"  --resume={cfg.resume!r}: reconstructed {len(reconstructed)} issue(s)")
+        for issue, phase in sorted(reconstructed.items()):
+            print(f"    #{issue}: {phase}")
+        if not cfg.dry_run:
+            final = runner.drive_to_complete(cfg.issue_numbers)
+            for issue, phase in sorted(final.items()):
+                print(f"    #{issue} → {phase}")
 
     return 0
 

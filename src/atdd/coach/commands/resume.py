@@ -1,0 +1,281 @@
+"""`atdd coach --resume <run-id>` runner — issue #511 / J6.
+
+Closes the durability loop. Reads `.atdd/runtime/coach/decisions.jsonl`,
+filters by `coach_run_id`, reconstructs the per-issue state-machine
+position (the most recent reached phase per issue), then drives the
+state machine forward to COMPLETE while consuming the idempotency
+contract from #498 / P001 so already-logged transitions never
+double-execute.
+
+The resume runner is the consumer of three producers:
+
+- ``decisions.jsonl`` (#498 / P001) — the durable transition log,
+  source of truth for "what already happened".
+- Idempotent worktree creation (#502 / E001) — re-running Phase A on
+  resume is a no-op for already-recorded creations.
+- Reattachable runtime watcher (#510 / M001) — events whose handlers
+  already completed (visible via ``decisions.jsonl``) are NOT
+  re-emitted; events that occurred during the kill window are
+  delivered now.
+
+Per spec §4.5: "On `--resume <run-id>`, coach reconstructs
+state-machine positions from the log. Actions are idempotent."
+
+Public surface:
+
+- ``read_decisions(runtime_dir, run_id)`` — load and filter the log.
+- ``reconstruct_state(runtime_dir, run_id)`` — most-recent phase per
+  issue, scoped to the run.
+- ``ResumeRunner`` — drives the lifecycle from a reconstructed state,
+  reattaches watchers, refuses to re-run already-logged transitions.
+"""
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Callable, Optional
+
+from atdd.coach.commands.coach import (
+    PLANNED_PATH,
+    Phase,
+    can_transition,
+)
+from atdd.coach.commands.durability import DecisionWriter, transactional_decision
+from atdd.coach.commands.event_queue import (
+    CoachEventQueue,
+    NATURAL_KEY,
+    natural_key,
+)
+from atdd.coach.commands.runtime_watcher import RuntimeWatcher
+
+
+TransitionAction = Callable[[int, str, str], dict]
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _phase_transition_decision_id(run_id: str, issue: int, src: str, dst: str) -> str:
+    return f"{run_id}:#{issue}:{src}->{dst}"
+
+
+def read_decisions(runtime_dir: Path, run_id: str) -> list[dict]:
+    """Return decision records for ``run_id``, in file (append) order."""
+    path = Path(runtime_dir) / "coach" / "decisions.jsonl"
+    if not path.exists():
+        return []
+    records: list[dict] = []
+    with path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if rec.get("coach_run_id") == run_id:
+                records.append(rec)
+    return records
+
+
+def reconstruct_state(runtime_dir: Path, run_id: str) -> dict[int, str]:
+    """Return ``{issue_number: phase_name}`` for the resumed run.
+
+    The phase is the most recent ``target_phase`` per issue across all
+    ``phase-transition`` decisions for the run. Issues mentioned only
+    in non-transition decisions (``worktree-create``, ``agent-spawn``)
+    have no reconstructed phase entry — the state-machine position is
+    defined exclusively by ``phase-transition`` records per spec §4.5.
+    """
+    state: dict[int, str] = {}
+    for rec in read_decisions(runtime_dir, run_id):
+        if rec.get("decision_type") != "phase-transition":
+            continue
+        issue = rec.get("issue_number")
+        target = (rec.get("inputs") or {}).get("target_phase")
+        if issue is None or target is None:
+            continue
+        state[issue] = target
+    return state
+
+
+def _phase_index(phase_name: str) -> int:
+    """Return the index of ``phase_name`` in the canonical PLANNED_PATH.
+
+    Returns ``-1`` if the phase is not on the planned-path
+    (e.g. ``BLOCKED``); in that case the resume runner cannot make
+    forward progress without external intervention.
+    """
+    for i, p in enumerate(PLANNED_PATH):
+        if p.value == phase_name:
+            return i
+    return -1
+
+
+@dataclass
+class ResumeRunner:
+    """Drives a coach run forward from a reconstructed state.
+
+    The runner is constructed with a ``decision_writer`` (the same
+    append-only writer used by the original run; #498 / P001) and an
+    optional ``transition_action`` callable that performs the side
+    effect for one transition. The runner relies on the writer's
+    decision-id idempotency to skip already-logged transitions — so a
+    transition's action is only invoked when no record for it exists in
+    the durable log yet.
+    """
+
+    runtime_dir: Path
+    run_id: str
+    decision_writer: DecisionWriter
+    transition_action: Optional[TransitionAction] = None
+    _watcher: Optional[RuntimeWatcher] = field(default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self.runtime_dir = Path(self.runtime_dir)
+
+    # ------------------------------------------------------------------
+    # State reconstruction
+    # ------------------------------------------------------------------
+
+    def reconstruct(self) -> dict[int, str]:
+        return reconstruct_state(self.runtime_dir, self.run_id)
+
+    # ------------------------------------------------------------------
+    # Watcher reattachment
+    # ------------------------------------------------------------------
+
+    def attach_watchers(self) -> tuple[CoachEventQueue, RuntimeWatcher]:
+        """Reattach the runtime watcher and replay pending events.
+
+        Marks every event already represented in ``decisions.jsonl`` as
+        handled BEFORE replay, so events whose handlers completed are
+        not re-emitted. Events that occurred during the kill window
+        but whose handlers had not run are delivered now via the
+        watcher's ``replay_from_disk()`` machinery.
+
+        Returns the queue and the started watcher; callers are
+        responsible for ``watcher.stop()``.
+        """
+        queue = CoachEventQueue(runtime_dir=self.runtime_dir)
+        watcher = RuntimeWatcher(runtime_dir=self.runtime_dir, queue=queue)
+        self._mark_handled_from_decisions(watcher)
+        watcher.replay_from_disk()
+        watcher.persist_checkpoint()
+        watcher.start()
+        self._watcher = watcher
+        return queue, watcher
+
+    def _mark_handled_from_decisions(self, watcher: RuntimeWatcher) -> None:
+        """Tell the watcher to suppress events whose handlers already
+        completed.
+
+        The mapping from decision → event natural-key is governed by
+        the decision's ``inputs`` payload. Decisions emitted by handlers
+        for a given ``event_type`` use input keys that mirror that
+        type's natural-key tuple from ``event_queue.NATURAL_KEY``.
+        """
+        for rec in read_decisions(self.runtime_dir, self.run_id):
+            event = self._decision_to_event(rec)
+            if event is None:
+                continue
+            watcher.mark_handled(event)
+
+    @staticmethod
+    def _decision_to_event(rec: dict) -> Optional[dict]:
+        """Best-effort recovery of an event-shaped dict from a decision
+        record so the watcher's natural-key index can recognize it.
+
+        Returns ``None`` when the decision does not correspond to a
+        handled event (e.g. ``worktree-create``, ``agent-spawn`` write
+        their own events but those are emitted directly by coach, not
+        handled-by-coach).
+        """
+        dtype = rec.get("decision_type") or ""
+        inputs = rec.get("inputs") or {}
+        if dtype.startswith("commit-"):
+            event_type = "commit_observed"
+        elif dtype in NATURAL_KEY:
+            event_type = dtype
+        else:
+            return None
+        # Build a synthetic event using the inputs payload. We lift the
+        # natural-key fields back into the event shape: top-level keys
+        # land at the top level, ``payload.X`` keys land in payload.
+        ev: dict = {"event_type": event_type, "payload": {}}
+        keys = NATURAL_KEY.get(event_type, ())
+        for key in keys:
+            if key.startswith("payload."):
+                pkey = key.split(".", 1)[1]
+                if pkey in inputs:
+                    ev["payload"][pkey] = inputs[pkey]
+            else:
+                if key in inputs:
+                    ev[key] = inputs[key]
+        return ev
+
+    # ------------------------------------------------------------------
+    # Driving forward
+    # ------------------------------------------------------------------
+
+    def drive_to_complete(self, issue_numbers: list[int]) -> dict[int, str]:
+        """Walk each issue from its reconstructed phase to COMPLETE.
+
+        For every transition along ``PLANNED_PATH``, we consult the
+        durable log via ``transactional_decision``: if a record for the
+        transition already exists the action is skipped (this is the
+        consumer side of P001's idempotency contract); otherwise the
+        action is invoked and a new record is appended.
+
+        Returns the final phase per issue.
+        """
+        reconstructed = self.reconstruct()
+        final: dict[int, str] = {}
+
+        for issue in issue_numbers:
+            phase_name = reconstructed.get(issue, Phase.INIT.value)
+            idx = _phase_index(phase_name)
+            if idx < 0:
+                # BLOCKED or unknown; the resume runner cannot make
+                # forward progress without operator action. Leave the
+                # phase as-is and continue with siblings.
+                final[issue] = phase_name
+                continue
+
+            current = phase_name
+            while current != Phase.COMPLETE.value:
+                idx = _phase_index(current)
+                if idx < 0 or idx + 1 >= len(PLANNED_PATH):
+                    break
+                next_phase = PLANNED_PATH[idx + 1]
+                # Stop walking past COMPLETE — MERGED is owned by the
+                # PR-merge handler, not the per-issue resume runner.
+                if next_phase == Phase.MERGED:
+                    break
+                if not can_transition(Phase(current), next_phase):
+                    break
+
+                self._step_transition(issue, current, next_phase.value)
+                current = next_phase.value
+
+            final[issue] = current
+
+        return final
+
+    def _step_transition(self, issue: int, src: str, dst: str) -> None:
+        record = {
+            "decision_id": _phase_transition_decision_id(self.run_id, issue, src, dst),
+            "timestamp": _now(),
+            "coach_run_id": self.run_id,
+            "issue_number": issue,
+            "decision_type": "phase-transition",
+            "inputs": {"current_phase": src, "target_phase": dst},
+            "outcome": {"transitioned": True, "new_phase": dst},
+        }
+        with transactional_decision(self.decision_writer, record) as run_action:
+            if run_action and self.transition_action is not None:
+                self.transition_action(issue, src, dst)
