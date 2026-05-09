@@ -417,3 +417,14 @@ sessions:
   wagon: drive-state-machine
   feature: feature:drive-state-machine:coach-state-machine-and-runtime
   train: 0002-coach-drives-lifecycle
+- id: '498'
+  slug: coach-v9-j3-decision-judgment-durability
+  file: null
+  issue_number: 498
+  type: feat
+  status: RED
+  created: '2026-05-09'
+  archived: null
+  wagon: drive-state-machine
+  feature: feature:drive-state-machine:coach-state-machine-and-runtime
+  train: 0002-coach-drives-lifecycle
