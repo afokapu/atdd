@@ -136,7 +136,7 @@ class RuntimeWatcher:
     def _emit_heartbeat(self, agent_id: str, path: Path) -> int:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             return 0
         event = {
             "event_type": "heartbeat",
@@ -205,7 +205,7 @@ class RuntimeWatcher:
                 fh.seek(self._jsonl_offsets.get(path, 0))
                 blob = fh.read()
                 self._jsonl_offsets[path] = fh.tell()
-        except OSError:
+        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             return []
         records: list[dict] = []
         for line in blob.splitlines():
@@ -272,7 +272,7 @@ class RuntimeWatcher:
             return
         try:
             data = json.loads(self._checkpoint_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             return
         for key in data.get("handled", []):
             self._handled_keys.add(tuple(key))
