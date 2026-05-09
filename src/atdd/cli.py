@@ -1012,6 +1012,43 @@ Phase descriptions:
     )
     coach_parser.add_argument("--dry-run", action="store_true", dest="dry_run")
 
+    # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
+    # O1 (#501): single boundary for ambiguous coach v9 routing decisions.
+    # Renders a prompt template, calls a structured-output LLM via the
+    # registry, validates the response against the caller's JSON Schema,
+    # and appends one record to .atdd/runtime/coach/judgments.jsonl.
+    judge_parser = subparsers.add_parser(
+        "judge",
+        help="Single boundary for ambiguous coach v9 routing decisions (#501)",
+        description=(
+            "Render a prompt template, call a structured-output LLM, "
+            "validate the response against the supplied JSON Schema, and "
+            "append a record to .atdd/runtime/coach/judgments.jsonl. "
+            "Behavior on LLM-unavailable follows coach.judge.fail_open."
+        ),
+    )
+    judge_parser.add_argument(
+        "--prompt-template", type=str, required=True, dest="prompt_template",
+        help="YAML file with a top-level `prompt` string field; placeholders use {key}.",
+    )
+    judge_parser.add_argument(
+        "--schema", type=str, required=True,
+        help="JSON Schema describing the expected LLM response shape.",
+    )
+    judge_parser.add_argument(
+        "--inputs", type=str, nargs="*", default=[],
+        help="key=value or key=@file pairs substituted into the prompt template.",
+    )
+    judge_parser.add_argument(
+        "--call-site", type=str, required=True, dest="call_site",
+        help="One of: phase-advance, violation-suppression, correction-injection, "
+             "review-disposition, escalation, merge-readiness.",
+    )
+    judge_parser.add_argument(
+        "--llm", type=str, default=None,
+        help="LLM client id from the registry (defaults to coach.judge_llm).",
+    )
+
     # ----- atdd checkpoint <issue-number> -----
     checkpoint_parser = subparsers.add_parser(
         "checkpoint",
@@ -2161,6 +2198,17 @@ Phase descriptions:
             allow_stale_suppressions=getattr(args, "allow_stale_suppressions", False),
             resume=getattr(args, "resume", None),
             dry_run=getattr(args, "dry_run", False),
+        )
+
+    # atdd judge ...  (O1 — #501)
+    elif args.command == "judge":
+        from atdd.coach.commands.judge import run as run_judge
+        return run_judge(
+            prompt_template=args.prompt_template,
+            schema=args.schema,
+            inputs=list(getattr(args, "inputs", []) or []),
+            call_site=args.call_site,
+            llm=getattr(args, "llm", None),
         )
 
     # atdd checkpoint <issue-number>
