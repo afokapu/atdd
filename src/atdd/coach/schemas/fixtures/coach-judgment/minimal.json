@@ -7,5 +7,6 @@
     "decision": "respawn",
     "confidence": 0.82
   },
-  "cached": false
+  "cached": false,
+  "outcome": "ok"
 }
