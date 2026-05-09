@@ -1,0 +1,76 @@
+wagon: integrate-end-to-end
+urn: "wagon:integrate-end-to-end"
+name: "Integrate End To End"
+description: "Coach v9 done-line: drives one real GitHub issue end-to-end through atdd coach <N> from INIT to COMPLETE with PR opened, captures every substrate↔coach handoff (validator invocation, bind_rule lookups, spawn-harness block rendering, gate verdict consumption) at INFO level in .atdd/runtime/coach/integration.log, and inventories first-contact integration bugs as follow-up issues against the appropriate track. Produces docs/coach-worked-example.md including an integration-bugs-discovered section and a coach-v9 production-readiness disclaimer."
+theme: commons
+
+subject: "agent:coach"
+context: "in-coach-v9-done-line, all-eight-upstream-wagons-merged-substrate-coach-integration-surface-still-unproven"
+action: "executes the first end-to-end coach-driven cycle on a real issue under verbose substrate-coach boundary logging and inventories integration bugs as follow-ups"
+goal: "prove the substrate v12 ↔ coach v9 integration surface works on a real issue and surface the bugs that no individual issue's tests can catch"
+outcome: "a closed coach-driven PR for the chosen issue, .atdd/runtime/coach/integration.log populated with every substrate↔coach handoff, docs/coach-worked-example.md committed with an integration-bugs-discovered section, and follow-up integration-hardening issues filed against the appropriate tracks"
+
+features:
+  - urn: "feature:integrate-end-to-end:end-to-end-coach-cycle"
+
+produce:
+  - name: commons:coach:end-to-end-coach-driven-cycle
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:integration-log
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:worked-example-doc
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:integration-bug-inventory
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:integration-hardening-followups
+    contract: null
+    telemetry: null
+    to: external
+
+consume:
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:decision-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:judgment-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:correction-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-result-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:risk-score-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-invocation-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:event-semantics-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:state-machine-and-agent-cli
+    from: wagon:drive-state-machine
+  - name: commons:coach:spawn-and-harness
+    from: wagon:spawn-agents
+  - name: commons:coach:observer-and-corrections
+    from: wagon:observe-and-correct
+  - name: commons:coach:tier-1-validator-dispatch
+    from: wagon:dispatch-validators
+  - name: commons:coach:reviewer-and-review-reports
+    from: wagon:review-phase-boundaries
+  - name: commons:coach:judge-and-issue-review
+    from: wagon:judge-ambiguous-decisions
+  - name: commons:coach:rules-discovery-and-decommission
+    from: wagon:discover-and-decommission
+
+wmbt:
+  total: 3
+  E001: "maximize likelihood of one-real-issue-completing-coach-driven-cycle-to-complete-state"
+  M001: "maximize frequency of substrate-coach-handoffs-logged-at-info-level"
+  D001: "minimize quantity of unrecorded-first-contact-integration-bugs"
