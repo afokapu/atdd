@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "validator-result.schema.json",
+  "title": "Coach v9 Validator Result",
+  "description": "One serialized validator result, written by coach's pytest plugin to `.atdd/runtime/validations/<sha>/violations.jsonl`. Producer: pytest violation-collector plugin (#M2). Consumers: review-report writer (#N2) and reviewer-agents (#O2). Aligns with substrate's `Violation` dataclass — every Violation field is preserved (rule_id, severity, location, detail, fix_hint_ref) and the coach extends with validator_id, disposition, and suppression_marker. Spec: atdd-coach-spec-v9.md §6.4 / §7.5 / §C0.",
+  "type": "object",
+  "required": [
+    "validator_id",
+    "rule_id",
+    "severity",
+    "disposition",
+    "location",
+    "detail",
+    "suppression_marker"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "validator_id": {
+      "type": "string",
+      "description": "Identifier of the validator that produced this result. Format: `<module_basename>::<function_name>` matching substrate.RuleMetadata.validator.",
+      "minLength": 1
+    },
+    "rule_id": {
+      "type": "string",
+      "description": "Stable rule identifier matching the substrate grammar `<DOMAIN>-<TOPIC>-<NNN>` (or the namespaced `<archetype>.<convention>.<rule>` form used by RuleMetadata.rule_id). Persisted forever; renames go through superseded_by.",
+      "minLength": 1
+    },
+    "severity": {
+      "type": "integer",
+      "description": "Integer 1..5 — aligns with substrate.Violation.__post_init__ which rejects values outside [1,5].",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "disposition": {
+      "type": "string",
+      "description": "Per-rule CI policy (substrate spec v12 §4.5 / issue #395). Strict fails CI; suppress-and-clean honors inline `# atdd:suppress(<rule_id>)` markers; advisory logs and passes; documentation-only is non-enforced.",
+      "enum": [
+        "strict",
+        "suppress-and-clean",
+        "advisory",
+        "documentation-only"
+      ]
+    },
+    "location": {
+      "type": "string",
+      "description": "`path:line` or `path:line:col` of the offending site, relative to the repo root. Aligns with substrate.Violation.location.",
+      "minLength": 1
+    },
+    "detail": {
+      "type": "string",
+      "description": "One-line human-readable description of *this* violation instance. Aligns with substrate.Violation.detail."
+    },
+    "suppression_marker": {
+      "type": ["string", "null"],
+      "description": "Inline suppression marker text that absorbed this result (e.g. `# atdd:suppress(<rule_id>) UNTIL=2026-12-31`), or null when no marker matched. Required field; null is the explicit 'no marker' sentinel."
+    },
+    "fix_hint_ref": {
+      "type": "string",
+      "description": "Optional pointer to a fix recipe step (e.g. `recipe:adapter#step-1`). Aligns with substrate.Violation.fix_hint_ref."
+    },
+    "outcome": {
+      "type": "string",
+      "description": "Optional terminal outcome of the result after disposition gating.",
+      "enum": [
+        "fail",
+        "suppressed",
+        "advisory-warn",
+        "documentation"
+      ]
+    }
+  }
+}

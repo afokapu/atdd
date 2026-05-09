@@ -363,7 +363,7 @@ sessions:
   feature: null
   train: 0001-self-compliance-validate
 - id: '483'
-  slug: coach-v9-bootstrap
+  slug: coach-v9-c0-runtime-contracts
   file: null
   issue_number: 483
   type: implementation
@@ -383,4 +383,15 @@ sessions:
   archived: null
   wagon: discover-and-decommission
   feature: feature:discover-and-decommission:rules-discovery
+  train: 0002-coach-drives-lifecycle
+- id: '495'
+  slug: coach-v9-p4-coach-config-loader
+  file: null
+  issue_number: 495
+  type: feat
+  status: RED
+  created: '2026-05-09'
+  archived: null
+  wagon: discover-and-decommission
+  feature: feature:discover-and-decommission:convention-sync-and-config-loader
   train: 0002-coach-drives-lifecycle

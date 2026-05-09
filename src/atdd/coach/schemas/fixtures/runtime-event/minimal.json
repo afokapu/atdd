@@ -1,0 +1,7 @@
+{
+  "event_type": "heartbeat",
+  "timestamp": "2026-05-09T13:42:18Z",
+  "payload": {
+    "load_avg": 0.31
+  }
+}

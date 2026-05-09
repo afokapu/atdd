@@ -1,0 +1,11 @@
+{
+  "agent_id": "agent-M3-coder",
+  "rule_id": "coder.boundaries.qualified-import",
+  "severity": 4,
+  "disposition": "suppress-and-clean",
+  "correction_text": "src/atdd/coach/utils/repo.py:42 imports across a wagon boundary without a qualified `from atdd.<wagon>.<feature> import` form. Replace the bare import or add an explicit `# atdd:suppress(coder.boundaries.qualified-import) UNTIL=2026-09-01` with a tracked cleanup ticket.",
+  "injection_method": "cli-return",
+  "issued_at": "2026-05-09T13:52:05.221Z",
+  "validator_id": "test_boundaries_qualified_import::test_no_unqualified_cross_wagon_import",
+  "violation_location": "src/atdd/coach/utils/repo.py:42"
+}

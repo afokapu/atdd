@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coach-decision.schema.json",
+  "title": "Coach v9 Decision",
+  "description": "Append-only entry in `.atdd/runtime/coach/decisions.jsonl`. One record per state transition, configuration choice, or escalation taken by the coach. Producer: coach state machine (#J3). Consumers: review reporters (#N2/#O2), audit tooling. Spec: atdd-coach-spec-v9.md §4.5 / §C0.",
+  "type": "object",
+  "required": [
+    "decision_id",
+    "timestamp",
+    "coach_run_id",
+    "issue_number",
+    "decision_type",
+    "inputs",
+    "outcome"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "decision_id": {
+      "type": "string",
+      "description": "Stable identifier for this decision. ULID or UUID is recommended for sortability across the JSONL stream.",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp at which the decision was finalized."
+    },
+    "coach_run_id": {
+      "type": "string",
+      "description": "Identifier of the coach run that emitted the decision. Multiple decisions share a `coach_run_id` for one orchestration session.",
+      "minLength": 1
+    },
+    "issue_number": {
+      "type": "integer",
+      "description": "GitHub issue number this decision relates to.",
+      "minimum": 1
+    },
+    "decision_type": {
+      "type": "string",
+      "description": "Coarse category of the decision. Open enum: extend with care, but consumers should tolerate unknown values for forward-compat.",
+      "examples": [
+        "phase-transition",
+        "configuration",
+        "escalation",
+        "agent-spawn",
+        "agent-respawn",
+        "pr-open",
+        "pr-merge",
+        "abort"
+      ]
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Snapshot of inputs the decision was made on. Shape is decision-type specific; consumers MUST tolerate unknown keys.",
+      "additionalProperties": true
+    },
+    "outcome": {
+      "type": "object",
+      "description": "What the coach actually did as a result. Shape is decision-type specific; consumers MUST tolerate unknown keys.",
+      "additionalProperties": true
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Optional human-readable note. Useful for cases where automated audit struggles to reconstruct the why."
+    },
+    "judgment_id": {
+      "type": "string",
+      "description": "Optional cross-reference to the `coach-judgment` record this decision is anchored on (when the decision required an LLM judgment)."
+    }
+  }
+}

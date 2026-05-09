@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coach-judgment.schema.json",
+  "title": "Coach v9 Judgment",
+  "description": "Append-only entry in `.atdd/runtime/coach/judgments.jsonl`. One record per LLM-judgment call the coach issues. Producer: coach state machine (#J3) via the judge wagon. Consumers: cache lookup, review reporters, audit tooling. Spec: atdd-coach-spec-v9.md §4.5 / §6.9 / §C0. The six call_site values mirror the six judgment surfaces enumerated in spec §6.9.",
+  "type": "object",
+  "required": [
+    "judgment_id",
+    "timestamp",
+    "call_site",
+    "inputs_hash",
+    "response",
+    "cached"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "judgment_id": {
+      "type": "string",
+      "description": "Stable identifier for this judgment. ULID or UUID is recommended for sortability across the JSONL stream.",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp at which the judgment was returned (cache-hit timestamps still record the *return* time, not the original)."
+    },
+    "call_site": {
+      "type": "string",
+      "description": "The judgment surface this record came from. Frozen at C0 to the six surfaces named in spec §6.9. New surfaces require an explicit follow-up issue.",
+      "enum": [
+        "phase-advance",
+        "violation-suppression",
+        "correction-injection",
+        "review-disposition",
+        "escalation",
+        "merge-readiness"
+      ]
+    },
+    "inputs_hash": {
+      "type": "string",
+      "description": "Stable hash of the (call_site, normalized-inputs) tuple. Used as the cache key; identical hashes MUST yield identical responses.",
+      "minLength": 1
+    },
+    "response": {
+      "description": "The judgment payload. Shape is call_site specific; consumers MUST tolerate unknown keys for forward-compat.",
+      "type": ["object", "string", "boolean", "number", "array", "null"]
+    },
+    "cached": {
+      "type": "boolean",
+      "description": "True if this entry was satisfied from the judgment cache; false if the LLM was actually invoked."
+    },
+    "model": {
+      "type": "string",
+      "description": "Optional identifier of the model that produced the judgment (when cached=false)."
+    },
+    "latency_ms": {
+      "type": "integer",
+      "description": "Optional wall-clock latency for the judgment call. For cached entries this is the cache lookup latency.",
+      "minimum": 0
+    },
+    "decision_id": {
+      "type": "string",
+      "description": "Optional cross-reference to the `coach-decision` record this judgment fed into."
+    }
+  }
+}
