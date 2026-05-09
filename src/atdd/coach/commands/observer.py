@@ -290,7 +290,7 @@ class RuleRegistry:
             text = path.read_text(encoding="utf-8")
             payload = yaml.safe_load(text)
             rule = _build_rule_from_yaml(payload, source_path=path)
-        except (
+        except (  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # rule load errors are surfaced via stderr + corrections.jsonl meta record per AC-006
             yaml.YAMLError,
             ValueError,
             TypeError,
