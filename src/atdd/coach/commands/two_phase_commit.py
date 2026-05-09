@@ -141,7 +141,7 @@ def phase_a_create_worktrees(
 
         try:
             _create_worktree_call(issue.branch, worktree_path, _issue_number=num)
-        except subprocess.CalledProcessError as exc:
+        except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             err = (exc.stderr or "").strip() or str(exc)
             print(
                 f"❌ worktree creation failed for #{num}: {err}",
@@ -153,7 +153,7 @@ def phase_a_create_worktrees(
                 _remove_worktree_call(path)
                 result.rolled_back_paths.append(path)
             return result
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             err = str(exc)
             print(
                 f"❌ worktree creation failed for #{num}: {err}",
