@@ -91,7 +91,7 @@ class RuntimeWatcher:
         while not self._stop.is_set():
             try:
                 self.scan_once()
-            except Exception:  # never crash the daemon
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # never crash the daemon
                 pass
             self._stop.wait(self.poll_interval)
 
@@ -253,7 +253,7 @@ class RuntimeWatcher:
                 stat = events_path.stat()
                 self._jsonl_offsets[events_path] = stat.st_size
                 self._snapshots[events_path] = _FileSnapshot(stat.st_mtime_ns, stat.st_size)
-            except OSError:
+            except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
                 pass
         return emitted
 
