@@ -1,0 +1,32 @@
+urn: "feature:spawn-agents:orchestrate-parity-and-decommission-gate"
+wagon: "wagon:spawn-agents"
+description: "Fixture-driven CI test suite at tests/integration/test_orchestrate_coach_parity.py that proves atdd orchestrate <args> and atdd coach <equivalent args> produce equivalent worktree creation, multiplexer dispatch, canonical naming, launch-prompt contents, and resume-state semantics across at least five fixture scenarios — the gate that authorizes the wave-w3 atdd orchestrate decommission (K5 blocks P5 per spec §11.3)"
+sizing:
+  wmbts: 1
+  footprint_score: 6
+  footprint_size: "S"
+wmbts:
+  - "wmbt:spawn-agents:C001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "Test-only feature; no runtime entry points introduced"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "Validates equivalence of two existing application paths (atdd orchestrate, atdd coach + atdd spawn); does not add new use cases"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "Equivalence-mapping reference at tests/integration/parity-fixtures/orchestrate-coach.md captures the field-by-field semantic mapping between orchestrate-state.json and decisions.jsonl as a value-object contract"
+    integration:
+      - type: "fixtures"
+        count: 5
+        rationale: "At least five fixture scenarios per spec §11.3: single issue, multi-issue with deps, resume case, worktree creation failure with rollback, and multiplexer-mode pane"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"

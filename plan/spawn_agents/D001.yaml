@@ -1,0 +1,95 @@
+urn: "wmbt:spawn-agents:D001"
+step: "define"
+direction: "minimize"
+dimension: "ambiguity"
+object_of_control: "ambiguity-in-substrate-spawn-harness-block-rendering"
+context_clarifier: "when atdd spawn must include three substrate v12 §8.2 rule-ID-rich blocks in the launch prompt — wmbt_rules:, train_rules:, security_rules: — but only the security_rules renderer (render_security_rules_block in src/atdd/coach/commands/spawn_harness_blocks.py) ships today; the wmbt_rules and train_rules renderers must follow the same field-mapping pattern (id, acceptance_urn, purpose, expectations[], harness_type, signal_metric for WMBT-acceptance rules; id, purpose, expectations[] for train-acceptance rules) and must phase-filter so only RuleMetadata.phase == coach.current_phase rules appear, otherwise downstream tracks (M validator dispatch, N reviewer, O judge) consume divergent block shapes"
+lens: "functional.effectiveness"
+statement: "minimize ambiguity-in-substrate-spawn-harness-block-rendering when atdd spawn must include three rule-ID-rich blocks (wmbt_rules, train_rules, security_rules) in the launch prompt and only the security renderer ships today, so the two missing renderers must follow the same field-mapping and phase-filtering pattern"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:D001-UNIT-001-wmbt-rules-renderer-shape"
+      id: "AC-UNIT-001"
+      purpose: "render_wmbt_rules_block(rules, *, coach_phase) produces output structurally matching the substrate v12 §8.2 example with one wmbt_urn entry per WMBT and one rules entry per acceptance-derived rule"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn_harness_blocks.py is extended with render_wmbt_rules_block(rules, *, coach_phase)"
+        - "A fixture set of RuleMetadata instances declares phase, wmbt_urn, acceptance_urn, purpose, expectations, harness_type, and signal_metric"
+    when:
+      abstract: "render_wmbt_rules_block is invoked against the fixture with coach_phase set to a value that matches a subset of the fixture rules"
+    then:
+      abstract:
+        - "The output yields one wmbt_urn entry per distinct WMBT in scope and one rules entry per acceptance-derived rule under that WMBT"
+        - "Field mapping per substrate v12 §8.2: id, acceptance_urn, purpose, expectations[], harness_type, signal_metric appear with the names and shapes the example documents"
+        - "The block parses as YAML"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:spawn-agents:D001-UNIT-002-train-rules-renderer-shape"
+      id: "AC-UNIT-002"
+      purpose: "render_train_rules_block(rules, *, coach_phase) produces output parallel to the security and wmbt renderers with one train_urn entry per train and one rules entry per train-acceptance-derived rule"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn_harness_blocks.py is extended with render_train_rules_block(rules, *, coach_phase)"
+        - "A fixture set of train-acceptance RuleMetadata instances declares phase, train_urn, purpose, and expectations"
+    when:
+      abstract: "render_train_rules_block is invoked against the fixture with coach_phase set"
+    then:
+      abstract:
+        - "The output yields one train_urn entry per train in scope and one rules entry per acceptance-derived rule under that train"
+        - "Field mapping (id, purpose, expectations[]) follows the same pattern as render_security_rules_block"
+        - "The block parses as YAML"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:spawn-agents:D001-UNIT-003-phase-filter-applied"
+      id: "AC-UNIT-003"
+      purpose: "Both renderers exclude any rule whose RuleMetadata.phase does not match the coach.current_phase argument"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixture mixes rules across phases (PLANNED, RED, GREEN, SMOKE, REFACTOR)"
+    when:
+      abstract: "render_wmbt_rules_block and render_train_rules_block are each invoked with coach_phase=GREEN"
+    then:
+      abstract:
+        - "Only rules whose phase is GREEN appear in the output"
+        - "Rules at other phases are dropped silently — they are not zero-rendered placeholders"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"
+  - identity:
+      urn: "acc:spawn-agents:D001-INTEGRATION-001-spawn-prompt-includes-all-three-blocks"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd spawn for an agent at GREEN includes a wmbt_rules: block listing only phase-GREEN rules in scope alongside the existing train_rules: and security_rules: blocks"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd spawn (per E001) calls all three renderers and embeds each block under sections wmbt_rules:, train_rules:, security_rules:"
+        - "A fixture worktree carries plan artifacts that exercise WMBT-acceptance, train-acceptance, and security-derived rules"
+    when:
+      abstract: "atdd spawn --persona coder --llm claude-code is invoked at the GREEN phase for the fixture worktree"
+    then:
+      abstract:
+        - "The rendered .launch_prompt.txt contains the three blocks under their canonical section names"
+        - "Each block lists only rules whose RuleMetadata.phase == GREEN"
+        - "Block ordering matches the spec §7.1 layout (wmbt_rules then train_rules then security_rules)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-09"

@@ -1,0 +1,38 @@
+urn: "feature:spawn-agents:atdd-spawn-skeleton-and-harness"
+wagon: "wagon:spawn-agents"
+description: "atdd spawn skeleton wrapping session_template render with multiplexer dispatch (K1), substrate spawn-harness block renderers wmbt_rules/train_rules to parallel the existing render_security_rules_block (K2), absorbed canonical-naming + layout pass calling apply_canonical_name_and_layout post-launch (K3), and per-LLM convention file generators emitting CLAUDE.md/AGENTS.md/GLM.md/GEMINI.md with rule-ID grammar and bind_rule contract via atdd sync (K4)"
+sizing:
+  wmbts: 4
+  footprint_score: 14
+  footprint_size: "M"
+wmbts:
+  - "wmbt:spawn-agents:E001"
+  - "wmbt:spawn-agents:D001"
+  - "wmbt:spawn-agents:E002"
+  - "wmbt:spawn-agents:P001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd spawn CLI entry at src/atdd/coach/commands/spawn.py is the single rule-IDed launch surface; persona/llm/worktree/issue/agent-id/runtime are parsed here"
+    application:
+      - type: "use_cases"
+        count: 4
+        rationale: "spawn-session orchestration (K1), harness-block rendering for wmbt/train rule sets (K2), canonical-naming + layout pass (K3), per-LLM convention file generation (K4) — each is a discrete coach-application use case"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "Domain shapes (rule-ID, RuleMetadata, canonical name) are imported from already-shipped substrate modules; no new domain primitives introduced by this feature"
+    integration:
+      - type: "adapters"
+        count: 2
+        rationale: "Multiplexer adapter (cmux/zellij/tmux via existing get_multiplexer) and per-LLM adapter selection (claude-code first; codex/gemini/glm follow-ups) — both surfaces of the launch step"
+      - type: "templates"
+        count: 4
+        rationale: "Per-LLM convention templates at src/atdd/coach/templates/persona/<llm>/<file>.md.tmpl produce CLAUDE.md, AGENTS.md, GLM.md, GEMINI.md"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"
