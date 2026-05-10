@@ -30,9 +30,8 @@ Override:
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from atdd.coach.utils.coach_config import CoachConfig
 from atdd.coach.utils.rule_binding import RuleMetadata, iter_rules
