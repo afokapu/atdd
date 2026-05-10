@@ -550,6 +550,7 @@ migration:
     # Add migrated convention paths here as they land.
     - "src/atdd/coder/conventions/green.convention.yaml"
     - "src/atdd/coach/conventions/orchestration.convention.yaml"
+    - "src/atdd/coach/conventions/spawn.convention.yaml"
     - "src/atdd/coder/conventions/refactor.convention.yaml"
     # Issue #394 Phase 1 — coder conventions whose ratchet validators emit Violations
     - "src/atdd/coder/conventions/boundaries.convention.yaml"
