@@ -62,7 +62,7 @@ class ReviewConfig:
 class ValidatorsConfig:
     enabled: bool = True
     grace_window_seconds: int = 30
-    selection: str = "default"
+    selection: Union[str, Dict[str, List[str]]] = "default"
     pytest_args: List[str] = field(
         default_factory=lambda: ["-x", "--tb=short"]
     )
@@ -365,7 +365,26 @@ def _parse_validators(raw: Any) -> ValidatorsConfig:
             mapping["grace_window_seconds"], "validators.grace_window_seconds"
         )
     if "selection" in mapping:
-        overrides["selection"] = _str(mapping["selection"], "validators.selection")
+        sel = mapping["selection"]
+        if isinstance(sel, dict):
+            parsed: Dict[str, List[str]] = {}
+            for phase_key, rule_list in sel.items():
+                if not isinstance(phase_key, str):
+                    raise _err(
+                        "validators.selection",
+                        f"phase key must be a string, got {_type_name(phase_key)}",
+                    )
+                parsed[phase_key] = _list_of_str(
+                    rule_list, f"validators.selection.{phase_key}"
+                )
+            overrides["selection"] = parsed
+        elif isinstance(sel, str):
+            overrides["selection"] = _str(sel, "validators.selection")
+        else:
+            raise _err(
+                "validators.selection",
+                f"expected string or mapping, got {_type_name(sel)}",
+            )
     if "pytest_args" in mapping:
         overrides["pytest_args"] = _list_of_str(
             mapping["pytest_args"], "validators.pytest_args"
