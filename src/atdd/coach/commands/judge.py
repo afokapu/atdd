@@ -59,6 +59,7 @@ CALL_SITES: tuple[str, ...] = (
     "retry-vs-escalate",
     "cross-phase-regression",
     "issue-review-aggregate",
+    "superseded-rule-consolidation",
 )
 
 # Per-call-site conservative fallback when fail_open=false. Bias is toward
@@ -76,6 +77,7 @@ _FALLBACK_DECISION: dict[str, str] = {
     "retry-vs-escalate":      "escalate",
     "cross-phase-regression": "block",
     "issue-review-aggregate": "escalate",
+    "superseded-rule-consolidation": "block",
 }
 
 

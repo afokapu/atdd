@@ -1,32 +1,34 @@
-# ATDD Session Launch — Issue #516
+# ATDD Session Launch — Issue #524
 
-You are implementing **atdd issue #516** (feat(coach): `atdd observer aggregate-approve` (absorbed from babysit)) in the
-worktree at `/Users/alecfokapu/Github/atdd/feat-coach-v9-l7-aggregate-approve` on branch `feat/coach-v9-l7-observer-aggregate-approve`.
+You are implementing **atdd issue #524** (feat(coach): judge call site 6 (superseded rule-ID consolidation)) in the
+worktree at `/Users/alecfokapu/Github/atdd/feat-coach-v9-o4-judge-superseded` on branch `feat/coach-v9-o4-judge-superseded-rule-consolidation`.
 
 ## Pre-flight
 
 1. Read CLAUDE.md in the worktree root.
 2. Run `atdd gate` to confirm ATDD rules are loaded.
-3. Run `gh issue view 516 --json body --jq '.body'` to see the full issue body.
+3. Run `gh issue view 524 --json body --jq '.body'` to see the full issue body.
 
 ## Issue context
 
-- **Number:** 516
-- **Branch:** feat/coach-v9-l7-observer-aggregate-approve
+- **Number:** 524
+- **Branch:** feat/coach-v9-o4-judge-superseded-rule-consolidation
 - **Train:** 0002-coach-drives-lifecycle
-- **Feature:** atdd observer aggregate-approve [--scope <ids>]` absorbing `aggregate_approve` and `AggregateApprovalResult` from `commands/babysit.py` for cross-surface batch approval of known-safe prompts
-- **Canonical session name:** `ATDD516-coach-v9-l7-observer-aggregate-approve` (per orchestration.convention.yaml::session_naming — issue #470). The cmux tab and Claude session header should both match this; if they don't, run `/rename ATDD516-coach-v9-l7-observer-aggregate-approve` and the babysitter will reconcile the cmux side on the next tick.
+- **Feature:** Judge call site #6 (superseded rule-ID consolidation): when a tier-1 Violation references a legacy alias whose canonical rule has `superseded_by` set, judge produces consolidated migration guidance for the next respawn's spawn-feedback
+- **Canonical session name:** `ATDD524-coach-v9-o4-judge-superseded-rule` (per orchestration.convention.yaml::session_naming — issue #470). The cmux tab and Claude session header should both match this; if they don't, run `/rename ATDD524-coach-v9-o4-judge-superseded-rule` and the babysitter will reconcile the cmux side on the next tick.
 
 ## Dependencies
 
-- #500
-- #513
+- #501
+- #499
+- #521
+- #483
 
 Before starting, wait for all dependency PRs to merge. Use this loop:
 
 ```bash
 while true; do
-  if gh pr list --state merged --search "#500 #513" --json number --jq 'length' | grep -qv '^0$'; then
+  if gh pr list --state merged --search "#501 #499 #521 #483" --json number --jq 'length' | grep -qv '^0$'; then
     echo "Dependencies merged — proceeding"
     break
   fi
