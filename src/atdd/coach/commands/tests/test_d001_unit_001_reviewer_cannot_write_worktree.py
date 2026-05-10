@@ -183,10 +183,21 @@ def test_reviewer_tool_allowlist_excludes_write_tools(
     # The prompt must contain a tool-allowlist section
     assert "allowlist" in prompt.lower() or "allowed tools" in prompt.lower()
 
-    # Every denied tool must be explicitly listed as denied
+    # Extract the allowed-tools bullet block and check that denied tools
+    # are NOT listed there. We match the "You may ONLY use" section
+    # which contains backtick-quoted tool names as bullet items.
+    import re
+
+    allowlist_match = re.search(
+        r"You may ONLY use the following tools:\s*\n([\s\S]*?)\n\n",
+        prompt,
+    )
+    assert allowlist_match, "Tool allowlist block not found in prompt"
+    allowlist_text = allowlist_match.group(1)
+
     for tool in DENIED_TOOLS:
-        assert tool.lower() not in prompt.lower(), (
-            f"Denied tool {tool!r} found in reviewer launch prompt allowlist"
+        assert tool not in allowlist_text, (
+            f"Denied tool {tool!r} found in reviewer allowed-tools block"
         )
 
 
