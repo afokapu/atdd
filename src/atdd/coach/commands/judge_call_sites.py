@@ -40,6 +40,7 @@ from typing import Optional
 import jsonschema
 
 from atdd.coach.commands import judge as judge_mod
+from atdd.coach.utils.rule_binding import bind_rule
 
 
 # ---------------------------------------------------------------------------
@@ -1346,4 +1347,272 @@ def route_cross_phase_regression(
         "fired": True,
         "state": "BLOCKED",
         "judgment_id": judgment_id,
+    }
+
+
+# =============================================================================
+# Call site #6 — superseded rule consolidation (spec §6.7 / §6.9 #6, issue #524)
+# =============================================================================
+
+
+SUPERSEDED_RULE_CALL_SITE = "superseded-rule-consolidation"
+SUPERSEDED_RULE_SCHEMA_PATH = (
+    _SCHEMAS_DIR / "judge-superseded-rule-consolidation.response.schema.json"
+)
+
+
+def should_fire_superseded_rule(
+    violation: dict,
+    *,
+    target_commit_sha: str,
+) -> bool:
+    """Decide whether call site #6 fires for a single Violation.
+
+    Per spec §6.7 / §6.9 #6: fires when the violation's ``rule_id`` is a
+    legacy alias (different from the canonical rule_id returned by
+    ``bind_rule``) AND the canonical rule has ``superseded_by`` set.
+
+    Non-superseded canonical violations and bare aliases without
+    ``superseded_by`` do not trigger.
+    """
+    rule_id = violation.get("rule_id", "")
+    try:
+        meta = bind_rule(rule_id)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return False
+
+    is_alias = rule_id != meta.rule_id
+    return is_alias and meta.superseded_by is not None
+
+
+def inputs_hash_for_superseded_rule(
+    *,
+    legacy_alias: str,
+    target_commit_sha: str,
+    canonical_rule_id: str,
+) -> str:
+    """Stable hash of (legacy_alias, target_commit_sha, canonical_rule_id).
+
+    Cache key for call site #6 — repeated violations of the same alias on
+    the same commit produce one judge call, not N.
+    """
+    payload = json.dumps(
+        {
+            "call_site": SUPERSEDED_RULE_CALL_SITE,
+            "legacy_alias": legacy_alias,
+            "target_commit_sha": target_commit_sha,
+            "canonical_rule_id": canonical_rule_id,
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _load_superseded_rule_schema() -> dict:
+    return json.loads(SUPERSEDED_RULE_SCHEMA_PATH.read_text())
+
+
+def invoke_superseded_rule_judge(
+    *,
+    violation: dict,
+    target_commit_sha: str,
+    llm: Optional[str] = None,
+) -> dict:
+    """Invoke ``atdd judge`` for call site #6 if the predicate fires."""
+    if not should_fire_superseded_rule(violation, target_commit_sha=target_commit_sha):
+        return {
+            "fired": False,
+            "response": None,
+            "judgment_id": None,
+            "inputs_hash": None,
+            "outcome": "skipped",
+        }
+
+    rule_id = violation.get("rule_id", "")
+    meta = bind_rule(rule_id)
+
+    repo_root = _resolve_repo_root()
+    inputs_hash = inputs_hash_for_superseded_rule(
+        legacy_alias=rule_id,
+        target_commit_sha=target_commit_sha,
+        canonical_rule_id=meta.rule_id,
+    )
+    judgment_id = str(uuid.uuid4())
+
+    factory = judge_mod.LLM_REGISTRY.get(llm) if llm else None
+    if factory is None:
+        _append_judgment_record(
+            repo_root,
+            judgment_id=judgment_id,
+            inputs_hash=inputs_hash,
+            response=None,
+            outcome="llm_unavailable",
+            cached=False,
+            model=llm,
+            call_site=SUPERSEDED_RULE_CALL_SITE,
+        )
+        print(
+            f"call site #6 (superseded-rule-consolidation): unknown LLM {llm!r}",
+            file=sys.stderr,
+        )
+        return {
+            "fired": True,
+            "response": None,
+            "judgment_id": judgment_id,
+            "inputs_hash": inputs_hash,
+            "outcome": "llm_unavailable",
+        }
+
+    try:
+        client = factory()
+        response = client.invoke(
+            f"Judge superseded-rule-consolidation: legacy alias {rule_id!r} "
+            f"→ canonical {meta.rule_id!r}, superseded_by={meta.superseded_by!r}. "
+            f"Violation: {json.dumps(violation, ensure_ascii=False)}"
+        )
+    except judge_mod.LLMUnavailable as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        print(
+            f"call site #6 (superseded-rule-consolidation): LLM unavailable: {exc}",
+            file=sys.stderr,
+        )
+        _append_judgment_record(
+            repo_root,
+            judgment_id=judgment_id,
+            inputs_hash=inputs_hash,
+            response=None,
+            outcome="llm_unavailable",
+            cached=False,
+            model=llm,
+            call_site=SUPERSEDED_RULE_CALL_SITE,
+        )
+        return {
+            "fired": True,
+            "response": None,
+            "judgment_id": judgment_id,
+            "inputs_hash": inputs_hash,
+            "outcome": "llm_unavailable",
+        }
+
+    schema = _load_superseded_rule_schema()
+    try:
+        jsonschema.Draft202012Validator(schema).validate(response)
+    except jsonschema.ValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        print(
+            f"call site #6 (superseded-rule-consolidation): schema validation "
+            f"failed at {'.'.join(str(p) for p in exc.absolute_path) or '<root>'}: "
+            f"{exc.message}",
+            file=sys.stderr,
+        )
+        _append_judgment_record(
+            repo_root,
+            judgment_id=judgment_id,
+            inputs_hash=inputs_hash,
+            response=response,
+            outcome="schema_violation",
+            cached=False,
+            model=llm,
+            call_site=SUPERSEDED_RULE_CALL_SITE,
+        )
+        return {
+            "fired": True,
+            "response": response,
+            "judgment_id": judgment_id,
+            "inputs_hash": inputs_hash,
+            "outcome": "schema_violation",
+        }
+
+    _append_judgment_record(
+        repo_root,
+        judgment_id=judgment_id,
+        inputs_hash=inputs_hash,
+        response=response,
+        outcome="ok",
+        cached=False,
+        model=llm,
+        call_site=SUPERSEDED_RULE_CALL_SITE,
+    )
+    return {
+        "fired": True,
+        "response": response,
+        "judgment_id": judgment_id,
+        "inputs_hash": inputs_hash,
+        "outcome": "ok",
+    }
+
+
+def route_superseded_rule(
+    *,
+    violation: dict,
+    target_commit_sha: str,
+    llm: Optional[str] = None,
+    coach_run_id: str,
+) -> dict:
+    """Invoke call site #6 (if it fires) and execute the routing branch.
+
+    Per spec §6.9 #6 (issue #524):
+      * Predicate does not fire → deterministic skip.
+      * LLM failure → escalation to BLOCKED with operator notification.
+      * Response carries the consolidated migration guidance → emitted as
+        a ``spawn_feedback`` decision for the next respawn's spawn-feedback.
+    """
+    repo_root = _resolve_repo_root()
+    invocation = invoke_superseded_rule_judge(
+        violation=violation,
+        target_commit_sha=target_commit_sha,
+        llm=llm,
+    )
+
+    if not invocation["fired"]:
+        return {
+            "decision": "skip",
+            "fired": False,
+            "state": "CONTINUE",
+            "judgment_id": None,
+            "response": None,
+        }
+
+    if invocation["outcome"] != "ok":
+        _append_decision_record(
+            repo_root,
+            decision_type="escalation",
+            issue_number=0,
+            coach_run_id=coach_run_id,
+            inputs={"rule_id": violation.get("rule_id")},
+            outcome={"state": "BLOCKED", "reason": invocation["outcome"]},
+            judgment_id=invocation["judgment_id"],
+            rationale=f"call site #6 {invocation['outcome']}",
+        )
+        notify_operator_blocked(
+            issue_number=0,
+            rationale=f"call site #6 (superseded-rule-consolidation): {invocation['outcome']}",
+        )
+        return {
+            "decision": "escalate",
+            "fired": True,
+            "state": "BLOCKED",
+            "judgment_id": invocation["judgment_id"],
+            "response": None,
+        }
+
+    response = invocation["response"]
+    judgment_id = invocation["judgment_id"]
+    guidance = response["guidance"]
+
+    _append_decision_record(
+        repo_root,
+        decision_type="spawn_feedback",
+        issue_number=0,
+        coach_run_id=coach_run_id,
+        inputs={"rule_id": violation.get("rule_id")},
+        outcome={"state": "RESPAWN"},
+        judgment_id=judgment_id,
+        rationale=guidance,
+    )
+    return {
+        "decision": "respawn",
+        "fired": True,
+        "state": "RESPAWN",
+        "judgment_id": judgment_id,
+        "response": response,
     }

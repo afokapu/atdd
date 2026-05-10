@@ -84,7 +84,6 @@ def _register_stub(payload: dict) -> str:
 def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".atdd").mkdir()
-    (tmp_path / ".attd" / "config.yaml").write_text("version: '1.0'\n") if False else None
     (tmp_path / ".atdd" / "config.yaml").write_text("version: '1.0'\n")
     return tmp_path
 
