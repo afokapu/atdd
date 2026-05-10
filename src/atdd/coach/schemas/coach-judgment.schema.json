@@ -36,6 +36,7 @@
         "escalation",
         "merge-readiness",
         "borderline-tier1",
+        "reviewer_concern",
         "retry-vs-escalate",
         "cross-phase-regression",
         "issue-review-aggregate"
