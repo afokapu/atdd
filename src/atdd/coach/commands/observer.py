@@ -1,25 +1,34 @@
-"""`atdd observer <subcommand>` — coach v9 L1 observer skeleton (issue #500).
+"""`atdd observer <subcommand>` — coach v9 observer (issues #500 + #515).
 
 Event-driven detect-and-correct sidecar per agent. Tails the agent's
 ``output.log``, watches the worktree, evaluates a YAML-discovered rule
 registry, and dispatches corrections through one of three injection
 paths (CLI return-path / multiplexer send-keys / kill-and-respawn).
 
-This module is the *runtime* + *registry* + *injection* foundation.
-The 17 default detection rules ship in #L2-#L5; this skeleton has zero
-detection-rule body of its own — it only owns the surface those rules
-plug into.
+This module owns the *runtime* + *registry* + *injection* foundation
+(skeleton from #500), plus the *operator-facing dashboard* absorbed
+from ``commands/babysit.py`` per spec §0.2 (issue #515 / L6):
+
+- ``SurfaceRow`` — one rendered row of the dashboard. Pure data.
+- ``_format_hms`` — duration formatter.
+- ``_render_dashboard`` — pure renderer of the aggregate table.
+- ``_extract_surface_state_from_runtime`` — build a ``SurfaceRow``
+  from ``.atdd/runtime/agents/<id>/`` (heartbeat.json, context.json,
+  optional token-count metadata) instead of polling multiplexer state.
+
+Output is at parity with ``atdd babysit``'s dashboard at time of
+decommissioning, modulo trailing whitespace. **This parity is a
+gating condition for #P6 (babysit decommissioning).**
 
 Subcommands per spec §5.4:
     run                — start the observer for an agent (tail + evaluate loop)
     attach             — print recent observations for an agent
-    status             — dashboard (stub here; full body in #L6)
+    status             — surface dashboard (#515 / L6)
     aggregate-approve  — batch approval action (stub here; full body in #L7)
 
 Out of scope:
 - The 17 default detection rules (#L2-#L5).
-- The `status` dashboard body (#L6).
-- The `aggregate-approve` action body (#L7).
+- The ``aggregate-approve`` action body (#L7).
 - The babysit parity test suite (#L8).
 """
 from __future__ import annotations
@@ -922,18 +931,195 @@ def cmd_attach(
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Dashboard primitives — absorbed from `commands/babysit.py` per spec §0.2
+# (issue #515 / L6). Output parity with babysit modulo trailing whitespace
+# is a gating condition for #P6 (babysit decommissioning).
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class SurfaceRow:
+    """One rendered row of the dashboard. Pure data."""
+
+    ref: str
+    issue: Optional[int]
+    phase: str
+    last_tool_seconds: float
+    pending_prompt: str  # "" or "1 (Bash)" — recomputed each cycle
+    stalled: bool
+    status: str  # ACTIVE | STALLED | escalated | violation
+    # New for L6: optional token-count surfacing per AC-001. Not rendered
+    # in the legacy column layout (parity with babysit), but carried on
+    # the row so downstream consumers can read it.
+    token_count: Optional[int] = None
+
+
+def _format_hms(seconds: float) -> str:
+    s = max(0, int(seconds))
+    h, rem = divmod(s, 3600)
+    m, sec = divmod(rem, 60)
+    return f"{h}:{m:02d}:{sec:02d}"
+
+
+def _render_dashboard(
+    *,
+    rows: list,
+    now_iso: str,
+    scope_label: str,
+) -> str:
+    """Render the aggregate table as a single string. Pure.
+
+    Layout is preserved verbatim from ``babysit._render_dashboard`` to
+    guarantee output parity at decommissioning (AC-002 / #P6 gate).
+    """
+    header = (
+        f"ATDD Dashboard — {scope_label} ({len(rows)} surface(s), "
+        f"refreshed {now_iso})"
+    )
+    sep = "─" * 78
+    columns = (
+        f"{'Surface':<14}{'Issue':<10}{'Phase':<10}"
+        f"{'LastTool':<11}{'PendingPrompts':<18}{'Status'}"
+    )
+    body_lines: list[str] = []
+    for row in rows:
+        issue_str = f"#{row.issue}" if row.issue is not None else "—"
+        last_tool = _format_hms(row.last_tool_seconds)
+        pending = row.pending_prompt or "0"
+        body_lines.append(
+            f"{row.ref:<14}{issue_str:<10}{row.phase:<10}"
+            f"{last_tool:<11}{pending:<18}{row.status}"
+        )
+    return "\n".join([header, sep, columns, sep, *body_lines, sep])
+
+
+# ---------------------------------------------------------------------------
+# Runtime-folder data source — `.atdd/runtime/agents/<id>/`
+# (issue #515 / L6). Replaces babysit's multiplexer polling.
+# ---------------------------------------------------------------------------
+
+
+_DEFAULT_STALE_WARN_MINUTES = 15
+
+
+def _parse_iso_z_to_epoch(value: object) -> Optional[float]:
+    """Parse an ISO-8601 ``observed_at`` / ``timestamp`` string into a
+    POSIX timestamp. Accepts both ``...Z`` and ``...+00:00`` forms.
+    Returns ``None`` for missing / unparseable inputs so the dashboard
+    falls back to ``0:00:00`` rather than crashing the loop.
+    """
+    if not isinstance(value, str) or not value:
+        return None
+    text = value.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(text).timestamp()
+    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # malformed heartbeat ts → render 0:00:00 per spec §3.2 fallback
+        return None
+
+
+def _extract_surface_state_from_runtime(
+    *,
+    agent_dir: Path,
+    now: Optional[float] = None,
+    stale_warn_minutes: int = _DEFAULT_STALE_WARN_MINUTES,
+) -> SurfaceRow:
+    """Build a ``SurfaceRow`` from ``.atdd/runtime/agents/<id>/``.
+
+    Reads ``heartbeat.json`` (last-known wall-clock + optional
+    ``token_count``) and ``context.json`` (current ``phase`` and
+    ``issue``). Pure-ish: only file I/O on the per-agent directory; no
+    multiplexer / network calls.
+    """
+    if now is None:
+        now = time.time()
+    agent_id = agent_dir.name
+
+    phase = "?"
+    issue: Optional[int] = None
+    context_path = agent_dir / "context.json"
+    if context_path.is_file():
+        try:
+            ctx = json.loads(context_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # render `?` placeholder per AC-001 fallback
+            print(
+                f"observer: failed to read {context_path}: {exc}",
+                file=sys.stderr,
+            )
+            ctx = {}
+        if isinstance(ctx, dict):
+            raw_phase = ctx.get("phase")
+            if isinstance(raw_phase, str) and raw_phase:
+                phase = raw_phase.upper()
+            raw_issue = ctx.get("issue")
+            if isinstance(raw_issue, int):
+                issue = raw_issue
+            elif isinstance(raw_issue, str) and raw_issue.isdigit():
+                issue = int(raw_issue)
+
+    last_tool_seconds = 0.0
+    token_count: Optional[int] = None
+    heartbeat_path = agent_dir / "heartbeat.json"
+    if heartbeat_path.is_file():
+        try:
+            hb = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # render 0:00:00 per spec §3.2 fallback
+            print(
+                f"observer: failed to read {heartbeat_path}: {exc}",
+                file=sys.stderr,
+            )
+            hb = {}
+        if isinstance(hb, dict):
+            ts = _parse_iso_z_to_epoch(hb.get("observed_at") or hb.get("timestamp"))
+            if ts is not None:
+                last_tool_seconds = max(0.0, now - ts)
+            raw_tokens = hb.get("token_count")
+            if isinstance(raw_tokens, int) and raw_tokens >= 0:
+                token_count = raw_tokens
+
+    stalled = last_tool_seconds >= stale_warn_minutes * 60
+    status = "STALLED" if stalled else "ACTIVE"
+
+    return SurfaceRow(
+        ref=agent_id,
+        issue=issue,
+        phase=phase,
+        last_tool_seconds=last_tool_seconds,
+        pending_prompt="",
+        stalled=stalled,
+        status=status,
+        token_count=token_count,
+    )
+
+
 def cmd_status(*, runtime_dir: Optional[Path] = None) -> int:
-    """Stub. Full body in #L6 (status dashboard)."""
+    """`atdd observer status` — render the surface dashboard at parity
+    with ``atdd babysit`` (issue #515 / L6).
+
+    Data source is ``.atdd/runtime/agents/*/`` — no multiplexer polling.
+    Output parity with babysit gates #P6 (babysit decommissioning).
+    """
     runtime = _runtime_root(runtime_dir)
     agents_dir = runtime / "agents"
-    if not agents_dir.exists():
-        print("observer: no agents under runtime")
-        return 0
-    print("observer: known agents:")
-    for child in sorted(agents_dir.iterdir()):
-        if child.is_dir():
-            print(f"  - {child.name}")
-    print("(status dashboard body lands in #L6)")
+    rows: list[SurfaceRow] = []
+    if agents_dir.exists():
+        now = time.time()
+        for child in sorted(agents_dir.iterdir()):
+            if child.is_dir():
+                rows.append(
+                    _extract_surface_state_from_runtime(agent_dir=child, now=now)
+                )
+    now_iso = (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
+    output = _render_dashboard(
+        rows=rows,
+        now_iso=now_iso,
+        scope_label=".atdd/runtime/agents/",
+    )
+    print(output)
     return 0
 
 

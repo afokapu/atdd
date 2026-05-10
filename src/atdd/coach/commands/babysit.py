@@ -632,17 +632,15 @@ DEFAULT_PHASE_CACHE_SECONDS = 60
 _PHASE_LABEL_PREFIX = "atdd:"
 
 
-@dataclass
-class SurfaceRow:
-    """One rendered row of the dashboard. Pure data."""
-
-    ref: str
-    issue: Optional[int]
-    phase: str
-    last_tool_seconds: float
-    pending_prompt: str  # "" or "1 (Bash)" — recomputed each cycle
-    stalled: bool
-    status: str  # ACTIVE | STALLED | escalated | violation
+# SurfaceRow / _format_hms / _render_dashboard moved to
+# `atdd.coach.commands.observer` per spec §0.2 absorption inventory
+# (issue #515 / L6). They are re-exported below so existing babysit
+# imports keep working until #P6 decommissions this module.
+from atdd.coach.commands.observer import (
+    SurfaceRow,
+    _format_hms,
+    _render_dashboard,
+)
 
 
 @dataclass
@@ -780,39 +778,9 @@ def _extract_surface_state(
     )
 
 
-def _format_hms(seconds: float) -> str:
-    s = max(0, int(seconds))
-    h, rem = divmod(s, 3600)
-    m, sec = divmod(rem, 60)
-    return f"{h}:{m:02d}:{sec:02d}"
-
-
-def _render_dashboard(
-    *,
-    rows: List[SurfaceRow],
-    now_iso: str,
-    scope_label: str,
-) -> str:
-    """Render the aggregate table as a single string. Pure."""
-    header = (
-        f"ATDD Dashboard — {scope_label} ({len(rows)} surface(s), "
-        f"refreshed {now_iso})"
-    )
-    sep = "─" * 78
-    columns = (
-        f"{'Surface':<14}{'Issue':<10}{'Phase':<10}"
-        f"{'LastTool':<11}{'PendingPrompts':<18}{'Status'}"
-    )
-    body_lines: List[str] = []
-    for row in rows:
-        issue_str = f"#{row.issue}" if row.issue is not None else "—"
-        last_tool = _format_hms(row.last_tool_seconds)
-        pending = row.pending_prompt or "0"
-        body_lines.append(
-            f"{row.ref:<14}{issue_str:<10}{row.phase:<10}"
-            f"{last_tool:<11}{pending:<18}{row.status}"
-        )
-    return "\n".join([header, sep, columns, sep, *body_lines, sep])
+# `_format_hms` and `_render_dashboard` are absorbed into
+# `atdd.coach.commands.observer` per spec §0.2 (issue #515 / L6) and
+# re-exported via the import block at the top of this module.
 
 
 def aggregate_approve(
