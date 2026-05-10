@@ -1123,13 +1123,154 @@ def cmd_status(*, runtime_dir: Optional[Path] = None) -> int:
     return 0
 
 
-def cmd_aggregate_approve(*, runtime_dir: Optional[Path] = None) -> int:
-    """Stub. Full body in #L7 (aggregate-approve action)."""
-    print(
-        "observer: aggregate-approve stub (full body lands in #L7)",
-        file=sys.stderr,
+# ---------------------------------------------------------------------------
+# Aggregate approval — absorbed from `commands/babysit.py` per spec §0.2
+# (issue #516 / L7). Output parity with babysit gates #P6.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AggregateApprovalResult:
+    """Summary returned by `cmd_aggregate_approve`."""
+
+    approved: int = 0
+    escalated: int = 0
+    approvals_by_ref: dict[str, str] = field(default_factory=dict)
+    escalations_by_ref: dict[str, str] = field(default_factory=dict)
+
+
+_PROMPT_MARKERS_OBSERVER: tuple[str, ...] = (
+    "Do you want to proceed?",
+    "Approve this tool use?",
+    "❯ 1. Yes",
+    "1) Yes, approve",
+)
+
+
+def _contains_prompt_marker(text: str) -> bool:
+    return any(m in text for m in _PROMPT_MARKERS_OBSERVER)
+
+
+def cmd_aggregate_approve(
+    *,
+    runtime_dir: Optional[Path] = None,
+    scope: Optional[str] = None,
+) -> AggregateApprovalResult:
+    """`atdd observer aggregate-approve [--scope <ids>]` — batch-approve
+    known-safe prompts across active sessions.
+
+    Enumerates agent dirs from ``.atdd/runtime/agents/*/``, reads
+    ``output.log`` for pending prompts, classifies using the same bash
+    patterns as babysit (from ``orchestration.convention.yaml``), and
+    writes approval signals to ``cli-return.jsonl``. Returns an
+    ``AggregateApprovalResult`` with approved/escalated counts and
+    per-surface dispositions.
+    """
+    # Lazy import to break the observer ↔ babysit circular dependency
+    # (babysit imports SurfaceRow from observer).
+    from atdd.coach.commands.babysit import (
+        classify_prompt,
+        detect_violation,
     )
-    return 0
+    runtime = _runtime_root(runtime_dir)
+    agents_dir = runtime / "agents"
+    result = AggregateApprovalResult()
+
+    # Parse --scope into a set of issue IDs.
+    scope_ids: Optional[set[int]] = None
+    if scope:
+        scope_ids = set()
+        for part in scope.split(","):
+            part = part.strip()
+            if part.isdigit():
+                scope_ids.add(int(part))
+
+    if not agents_dir.exists():
+        return result
+
+    for agent_child in sorted(agents_dir.iterdir()):
+        if not agent_child.is_dir():
+            continue
+
+        agent_id = agent_child.name
+
+        # Scope filter: if --scope is set, only include agents whose
+        # context.json maps to an issue in scope.
+        if scope_ids is not None:
+            context_path = agent_child / "context.json"
+            if not context_path.is_file():
+                continue
+            try:
+                ctx = json.loads(context_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # scope filter: skip unparseable context per AC-001 fallback
+                print(
+                    f"observer: aggregate-approve: skipping {agent_id}: "
+                    f"unreadable context.json",
+                    file=sys.stderr,
+                )
+                continue
+            issue = ctx.get("issue") if isinstance(ctx, dict) else None
+            if issue is None or int(issue) not in scope_ids:
+                continue
+
+        # Read output.log tail for the prompt screen.
+        output_log = agent_child / "output.log"
+        if not output_log.is_file():
+            continue
+        try:
+            screen = output_log.read_text(encoding="utf-8", errors="replace")
+        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # unreadable log → skip this surface per AC-001 fallback
+            print(
+                f"observer: aggregate-approve: skipping {agent_id}: "
+                f"unreadable output.log",
+                file=sys.stderr,
+            )
+            continue
+
+        if not _contains_prompt_marker(screen):
+            continue
+
+        # Check for violations first (same order as babysit).
+        violation = detect_violation(screen)
+        if violation is not None:
+            result.escalated += 1
+            result.escalations_by_ref[agent_id] = violation.reason or "violation"
+            continue
+
+        # Classify using the shared babysit classifier (same bash patterns).
+        decision = classify_prompt(screen)
+
+        if decision.action == "auto_approve":
+            # Write approval signal to cli-return.jsonl.
+            approval_record = {
+                "action": "auto_approve",
+                "rule_id": decision.rule_id or "",
+                "matched": decision.matched or "",
+                "issued_at": _now_iso_z(),
+            }
+            _append_jsonl(agent_child / "cli-return.jsonl", approval_record)
+
+            # Log the aggregate-approve event.
+            _append_jsonl(
+                agent_child / "corrections.jsonl",
+                {
+                    "event": "agg_approve",
+                    "agent_id": agent_id,
+                    "matched": decision.matched or "",
+                    "pattern": decision.rule_id or "",
+                    "reason": f"agg-approve: {decision.matched or 'auto'}",
+                    "issued_at": _now_iso_z(),
+                },
+            )
+
+            result.approved += 1
+            result.approvals_by_ref[agent_id] = decision.rule_id or "auto"
+        elif decision.action == "escalate":
+            result.escalated += 1
+            result.escalations_by_ref[agent_id] = decision.reason or "escalate"
+        # idle → no-op
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -1163,8 +1304,9 @@ def _build_parser() -> argparse.ArgumentParser:
     status_p = sub.add_parser("status", help="Stub — body in #L6")
     status_p.add_argument("--runtime-dir", default=None)
 
-    agg_p = sub.add_parser("aggregate-approve", help="Stub — body in #L7")
+    agg_p = sub.add_parser("aggregate-approve", help="Batch-approve known-safe prompts")
     agg_p.add_argument("--runtime-dir", default=None)
+    agg_p.add_argument("--scope", default=None, help="Comma-separated issue IDs to scope to")
 
     return parser
 
@@ -1193,7 +1335,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.subcommand == "status":
         return cmd_status(runtime_dir=runtime)
     if args.subcommand == "aggregate-approve":
-        return cmd_aggregate_approve(runtime_dir=runtime)
+        result = cmd_aggregate_approve(
+            runtime_dir=runtime,
+            scope=getattr(args, "scope", None),
+        )
+        print(f"{result.approved} prompts auto-approved")
+        print(f"{result.escalated} prompts escalated (kept for manual review)")
+        return 0
     parser.error(f"unknown subcommand {args.subcommand!r}")
     return 2
 
