@@ -72,8 +72,20 @@ def test_review_succeeds_for_reviewer_persona(
     succeeds when the agent's manifest records persona=reviewer."""
     from atdd.coach.commands import agent
 
-    report = tmp_path / "report.md"
-    report.write_text("# Review\n\nAll checks pass.")
+    report_data = {
+        "review_id": "rev-530-d001",
+        "target_commit": "abcd1234",
+        "reviewer_agent_id": reviewer_agent_id,
+        "wmbt_urn": "wmbt:review-phase-boundaries:D001",
+        "phase": "GREEN",
+        "verdict": "pass",
+        "tier1_risk_score": 0,
+        "findings": [],
+        "ac_coverage": {"acc:review-phase-boundaries:D001-UNIT-002": "covered"},
+        "summary": "All checks pass.",
+    }
+    report = tmp_path / "report.json"
+    report.write_text(json.dumps(report_data))
 
     path = agent.cmd_review(
         target_commit="abcd1234",
@@ -83,7 +95,7 @@ def test_review_succeeds_for_reviewer_persona(
     )
     assert path.is_file()
     payload = json.loads(path.read_text())
-    assert payload["target_commit"] == "abcd1234"
+    assert payload["review_id"] == "rev-530-d001"
 
 
 # ---------------------------------------------------------------------------
