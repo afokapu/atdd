@@ -34,8 +34,12 @@ def apply_canonical_name_and_layout(
         )
     try:
         backend.send(ref, f"/rename {canonical_name}\n")
-    except AttributeError:
-        pass
+    except AttributeError as exc:
+        print(
+            f"⚠️  /rename injection unavailable for {ref}: {exc} "
+            f"({CANONICAL_SESSION_NAME_RULE_ID})",
+            file=sys.stderr,
+        )
     except MultiplexerError as exc:
         print(
             f"⚠️  /rename injection failed for {ref}: {exc} "
