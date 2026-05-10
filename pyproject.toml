@@ -68,7 +68,7 @@ exclude = ["atdd.*.validators.fixtures*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-testpaths = ["src/atdd"]
+testpaths = ["src/atdd", "tests"]
 markers = [
     "tester: marks tests as tester validators",
     "platform: marks tests as platform validators",
