@@ -84,6 +84,9 @@ class RuleMetadata:
         fix_hint: Canonical remediation guidance for this rule, or ``None``.
         aliases: Legacy rule ids (typically flat-grammar) this canonical
             rule supersedes; empty tuple when none.
+        superseded_by: Canonical rule id that replaces this one (deprecation
+            window per SPEC-COACH-RULEID-0004), or ``None`` when the rule
+            is current.
         recipe: Bare peer-recipe filename (no ``.recipe.yaml`` suffix), or
             ``None`` if the convention has no ``recipe:`` field.
         introduced_in: Toolkit version string that first published the rule,
@@ -136,6 +139,7 @@ class RuleMetadata:
     validator: Optional[str] = None
     fix_hint: Optional[str] = None
     aliases: Tuple[str, ...] = ()
+    superseded_by: Optional[str] = None
     acceptance_urn: Optional[str] = None
     wmbt_urn: Optional[str] = None
     train_urn: Optional[str] = None
@@ -1138,6 +1142,12 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
                 aliases = tuple(a for a in aliases_raw if isinstance(a, str) and a)
             else:
                 aliases = ()
+            superseded_by_raw = rule.get("superseded_by")
+            superseded_by = (
+                superseded_by_raw
+                if isinstance(superseded_by_raw, str) and superseded_by_raw
+                else None
+            )
             meta = RuleMetadata(
                 rule_id=rid,
                 severity=severity,
@@ -1155,6 +1165,7 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
                 validator=validator if isinstance(validator, str) and validator else None,
                 fix_hint=fix_hint if isinstance(fix_hint, str) and fix_hint else None,
                 aliases=aliases,
+                superseded_by=superseded_by,
             )
             registry.setdefault(rid, []).append(meta)
             canonical_ids.add(rid)
