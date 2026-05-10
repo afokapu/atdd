@@ -123,13 +123,38 @@ class Correction:
 
 @dataclass(frozen=True)
 class ObservedInput:
-    """Snapshot of the agent's runtime state for one evaluation pass."""
+    """Snapshot of the agent's runtime state for one evaluation pass.
+
+    Extra fields beyond the L1-skeleton baseline (``agent_id``,
+    ``log_lines``, ``events``, ``worktree_changes``) carry the inputs the
+    L2 basic-protocol rules need (issue #506). Each defaults so existing
+    L1 callers stay backward-compatible.
+
+    - ``now`` / ``last_token_at`` / ``heartbeat_mtime``: epoch seconds for
+      the silence and heartbeat-staleness rules. ``None`` means
+      "not-observed-yet" (rules treat as no-fire).
+    - ``persona``: agent persona string (``"reviewer"``, ``"coder"``, …)
+      used by the reviewer-edit-attempt rule.
+    - ``wmbt_target_paths``: prefixes (relative to the worktree root)
+      declared in scope by the WMBT — anything outside is out-of-scope.
+    - ``prior_violations``: tuple of dicts, each carrying at minimum a
+      ``rule_id`` key (and optionally ``sha``, ``fix_hint``). Sourced
+      from a prior commit's ``validations/<sha>/violations.jsonl``.
+    - ``addressed_rule_ids``: rule_ids the agent has addressed in the
+      new commit (e.g. via fixed-up trailers / new code paths).
+    """
 
     agent_id: str
     log_lines: tuple[str, ...] = ()
     events: tuple[dict, ...] = ()
     worktree_changes: tuple[str, ...] = ()
-    worktree_root: Optional[Path] = None
+    now: Optional[float] = None
+    last_token_at: Optional[float] = None
+    heartbeat_mtime: Optional[float] = None
+    persona: Optional[str] = None
+    wmbt_target_paths: tuple[str, ...] = ()
+    prior_violations: tuple[dict, ...] = ()
+    addressed_rule_ids: tuple[str, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +162,15 @@ class ObservedInput:
 # ---------------------------------------------------------------------------
 
 
-Predicate = Callable[[ObservedInput], bool]
+# A predicate may return either:
+#   - bool          : ``True`` fires the rule (no correction-text formatting),
+#                     ``False`` does not.
+#   - dict          : truthy fire; the dict is passed as kwargs to
+#                     ``correction_text.format(**dict)`` so rules can splice
+#                     dynamic data (silence duration, offending path, etc.)
+#                     into their correction text.
+#   - None          : equivalent to ``False`` (no fire).
+Predicate = Callable[[ObservedInput], Any]
 
 
 class ObserverRule:
@@ -159,7 +192,6 @@ class ObserverRule:
         severity: int = 3,
         disposition: str = "advisory",
         source_path: Optional[Path] = None,
-        correction_builder: Optional[Callable[[ObservedInput, str], str]] = None,
     ) -> None:
         if injection_method not in INJECTION_METHODS:
             raise ValueError(
@@ -179,23 +211,33 @@ class ObserverRule:
         self.severity = int(severity)
         self.disposition = disposition
         self.source_path = source_path
-        self.correction_builder = correction_builder
 
     def evaluate(self, ctx: ObservedInput, *, agent_id: str) -> Optional[Correction]:
-        if self.predicate(ctx):
-            text = self.correction_text
-            if self.correction_builder is not None:
-                text = self.correction_builder(ctx, base_text=self.correction_text)
-            return Correction(
-                agent_id=agent_id,
-                rule_id=self.rule_id,
-                severity=self.severity,
-                disposition=self.disposition,
-                correction_text=text,
-                injection_method=self.injection_method,
-                issued_at=_now_iso_z(),
+        result = self.predicate(ctx)
+        if not result:
+            return None
+        format_args = result if isinstance(result, dict) else {}
+        try:
+            text = self.correction_text.format(**format_args)
+        except (KeyError, IndexError, ValueError):
+            # Malformed template / missing key — emit the raw text rather
+            # than crash the rule. Logged so the rule author can fix the
+            # YAML.
+            print(
+                f"observer: rule {self.rule_id} correction_text formatting "
+                f"failed; emitting raw template",
+                file=sys.stderr,
             )
-        return None
+            text = self.correction_text
+        return Correction(
+            agent_id=agent_id,
+            rule_id=self.rule_id,
+            severity=self.severity,
+            disposition=self.disposition,
+            correction_text=text,
+            injection_method=self.injection_method,
+            issued_at=_now_iso_z(),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -209,13 +251,189 @@ class RuleLoadError:
     reason: str
 
 
-def _make_log_regex_predicate(pattern: str) -> Predicate:
+def _make_log_regex_predicate(
+    pattern: str,
+    exclude_pattern: Optional[str] = None,
+) -> Predicate:
+    """Fire when any log line matches ``pattern`` and (when set) no log
+    line in the same window matches ``exclude_pattern``. The exclude
+    semantic is what lets rule 01 ignore properly-formatted
+    ``atdd agent ask`` invocations even when the surrounding text reads
+    like a question."""
     import re
 
     rx = re.compile(pattern)
+    exrx = re.compile(exclude_pattern) if exclude_pattern else None
 
     def predicate(ctx: ObservedInput) -> bool:
+        if exrx is not None and any(exrx.search(line) for line in ctx.log_lines):
+            return False
         return any(rx.search(line) for line in ctx.log_lines)
+
+    return predicate
+
+
+def _make_token_threshold_predicate() -> Predicate:
+    def predicate(ctx: ObservedInput) -> bool:
+        from atdd.coach.commands import token_threshold as _tt
+
+        threshold = _tt.load_token_alert_threshold()
+        count = _tt.read_token_count()
+        return _tt.check_token_threshold(token_count=count, threshold=threshold)
+
+    return predicate
+
+
+def _make_token_silence_predicate(threshold_seconds: float) -> Predicate:
+    """Fire when ``ctx.now - ctx.last_token_at > threshold_seconds``."""
+
+    def predicate(ctx: ObservedInput):
+        if ctx.now is None or ctx.last_token_at is None:
+            return False
+        elapsed = ctx.now - ctx.last_token_at
+        if elapsed <= threshold_seconds:
+            return False
+        return {"duration_seconds": int(elapsed)}
+
+    return predicate
+
+
+def _make_completion_without_commit_predicate(
+    completion_pattern: str,
+) -> Predicate:
+    """Fire when log lines contain a completion claim and no
+    ``commit_observed`` event is present in ``ctx.events``."""
+    import re
+
+    rx = re.compile(completion_pattern, flags=re.IGNORECASE)
+
+    def predicate(ctx: ObservedInput) -> bool:
+        claimed = any(rx.search(line) for line in ctx.log_lines)
+        if not claimed:
+            return False
+        committed = any(
+            isinstance(e, dict) and e.get("type") == "commit_observed"
+            for e in ctx.events
+        )
+        return not committed
+
+    return predicate
+
+
+def _make_out_of_scope_edit_predicate(
+    *,
+    atdd_allowlist_prefixes: tuple[str, ...] = (),
+) -> Predicate:
+    """Fire when any worktree change is either:
+      (a) not under any of ``ctx.wmbt_target_paths`` (when target paths
+          are declared); or
+      (b) under ``.atdd/`` AND not under one of
+          ``atdd_allowlist_prefixes`` (the absorbed babysit clause).
+
+    Returns format-args naming the first offending path so the
+    correction can identify it."""
+
+    def _under_any(path: str, prefixes: tuple[str, ...]) -> bool:
+        for prefix in prefixes:
+            norm = prefix.rstrip("/")
+            if norm in ("", "."):
+                return True
+            if path == norm or path.startswith(norm + "/"):
+                return True
+        return False
+
+    def predicate(ctx: ObservedInput):
+        for change in ctx.worktree_changes:
+            # (b) the absorbed babysit `.atdd/` clause is enforced
+            # independently of WMBT scope: any `.atdd/` write that isn't
+            # under the allowlist fires regardless of the WMBT.
+            if change.startswith(".atdd/") and not _under_any(
+                change, atdd_allowlist_prefixes
+            ):
+                return {"path": change}
+            # (a) WMBT scope check: only enforced when the WMBT declared
+            # one or more target paths.
+            if ctx.wmbt_target_paths and not _under_any(
+                change, ctx.wmbt_target_paths
+            ):
+                return {"path": change}
+        return False
+
+    return predicate
+
+
+def _make_heartbeat_stale_predicate(threshold_seconds: float) -> Predicate:
+    """Fire when ``ctx.now - ctx.heartbeat_mtime > threshold_seconds``."""
+
+    def predicate(ctx: ObservedInput):
+        if ctx.now is None or ctx.heartbeat_mtime is None:
+            return False
+        age = ctx.now - ctx.heartbeat_mtime
+        if age <= threshold_seconds:
+            return False
+        return {"age_seconds": int(age)}
+
+    return predicate
+
+
+def _make_reviewer_edit_attempt_predicate(
+    *,
+    persona: str = "reviewer",
+    edit_pattern: str = r"\b(edit|commit|patch|diff|write)\b",
+) -> Predicate:
+    """Fire when ``ctx.persona == persona`` AND any log line matches
+    ``edit_pattern``."""
+    import re
+
+    rx = re.compile(edit_pattern, flags=re.IGNORECASE)
+
+    def predicate(ctx: ObservedInput) -> bool:
+        if (ctx.persona or "").lower() != persona.lower():
+            return False
+        return any(rx.search(line) for line in ctx.log_lines)
+
+    return predicate
+
+
+def _make_validator_failure_ignored_predicate() -> Predicate:
+    """Fire when ``ctx.prior_violations`` cites rule_ids that are not in
+    ``ctx.addressed_rule_ids``. The format args carry the unaddressed
+    rule_ids and their fix_hints (resolved via ``bind_rule()``)."""
+
+    def predicate(ctx: ObservedInput):
+        if not ctx.prior_violations:
+            return False
+        addressed = set(ctx.addressed_rule_ids)
+        unaddressed: list[str] = []
+        for v in ctx.prior_violations:
+            if not isinstance(v, dict):
+                continue
+            rid = v.get("rule_id")
+            if rid and rid not in addressed and rid not in unaddressed:
+                unaddressed.append(rid)
+        if not unaddressed:
+            return False
+        # Resolve fix_hints via bind_rule(); fall back to whatever the
+        # prior-violation record carried locally if the rule_id isn't
+        # registered in this repo's convention tree.
+        lines: list[str] = []
+        for rid in unaddressed:
+            hint = None
+            try:
+                hint = bind_rule(rid).fix_hint
+            except (RuleNotInRegistryError, AmbiguousRuleError):
+                hint = None
+            if hint is None:
+                # Local fallback from the prior-violation record itself.
+                for v in ctx.prior_violations:
+                    if isinstance(v, dict) and v.get("rule_id") == rid:
+                        hint = v.get("fix_hint")
+                        break
+            lines.append(f"  - {rid}: {hint or '(no fix_hint registered)'}")
+        return {
+            "unaddressed": ", ".join(unaddressed),
+            "fix_hints_block": "\n".join(lines),
+        }
 
     return predicate
 
@@ -235,28 +453,57 @@ def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
     if not isinstance(trigger, dict):
         raise ValueError("'trigger' must be a mapping")
     trig_type = trigger.get("type", "log_regex")
-
-    correction_builder: Optional[Callable[[ObservedInput, str], str]] = None
     if trig_type == "log_regex":
         pattern = trigger.get("pattern")
         if not isinstance(pattern, str) or not pattern:
             raise ValueError("log_regex trigger missing 'pattern'")
-        predicate = _make_log_regex_predicate(pattern)
+        predicate = _make_log_regex_predicate(
+            pattern, exclude_pattern=trigger.get("exclude_pattern")
+        )
+    elif trig_type == "token_threshold":
+        predicate = _make_token_threshold_predicate()
+    elif trig_type == "token_silence":
+        threshold = trigger.get("threshold_seconds")
+        if not isinstance(threshold, (int, float)):
+            raise ValueError("token_silence trigger missing numeric 'threshold_seconds'")
+        predicate = _make_token_silence_predicate(float(threshold))
+    elif trig_type == "completion_claim_without_commit":
+        cp = trigger.get("completion_pattern")
+        if not isinstance(cp, str) or not cp:
+            raise ValueError(
+                "completion_claim_without_commit trigger missing 'completion_pattern'"
+            )
+        predicate = _make_completion_without_commit_predicate(cp)
+    elif trig_type == "out_of_scope_edit":
+        allow = trigger.get("atdd_allowlist_prefixes") or ()
+        if not isinstance(allow, (list, tuple)):
+            raise ValueError("out_of_scope_edit 'atdd_allowlist_prefixes' must be a list")
+        predicate = _make_out_of_scope_edit_predicate(
+            atdd_allowlist_prefixes=tuple(allow),
+        )
+    elif trig_type == "heartbeat_stale":
+        threshold = trigger.get("threshold_seconds")
+        if not isinstance(threshold, (int, float)):
+            raise ValueError("heartbeat_stale trigger missing numeric 'threshold_seconds'")
+        predicate = _make_heartbeat_stale_predicate(float(threshold))
+    elif trig_type == "reviewer_edit_attempt":
+        predicate = _make_reviewer_edit_attempt_predicate(
+            persona=trigger.get("persona", "reviewer"),
+            edit_pattern=trigger.get(
+                "edit_pattern", r"\b(edit|commit|patch|diff|write)\b"
+            ),
+        )
+    elif trig_type == "validator_failure_ignored":
+        predicate = _make_validator_failure_ignored_predicate()
     elif trig_type == "never":
         predicate = lambda _ctx: False  # noqa: E731 — terse intentional
     else:
-        from atdd.coach.observer.predicates import get_substrate_trigger
-
-        substrate = get_substrate_trigger(trig_type)
-        if substrate is None:
-            raise ValueError(
-                f"unknown trigger.type {trig_type!r} (supported: log_regex, "
-                f"never, stale_suppression, unbound_rule_id_in_validator, "
-                f"rule_id_grammar_violation, repo_rule_disposition_declared)"
-            )
-        substrate_pred, substrate_builder = substrate
-        predicate = substrate_pred
-        correction_builder = substrate_builder
+        raise ValueError(
+            f"unknown trigger.type {trig_type!r} (supported: log_regex, "
+            f"token_threshold, token_silence, completion_claim_without_commit, "
+            f"out_of_scope_edit, heartbeat_stale, reviewer_edit_attempt, "
+            f"validator_failure_ignored, never)"
+        )
 
     return ObserverRule(
         rule_id=rule_id,
@@ -266,7 +513,6 @@ def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
         severity=int(payload.get("severity", 3)),
         disposition=payload.get("disposition", "advisory"),
         source_path=source_path,
-        correction_builder=correction_builder,
     )
 
 
@@ -509,7 +755,6 @@ class Observer:
             log_lines=tuple(self._tail_output_log()),
             events=(),
             worktree_changes=tuple(self._scan_worktree()),
-            worktree_root=self.worktree,
         )
 
     def _tail_output_log(self) -> list[str]:

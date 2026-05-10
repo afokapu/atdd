@@ -1,46 +1,71 @@
 version: "1.0"
-convention_id: "coach.observer"
 name: "Observer Convention"
-description: "Rule registry for the substrate-aware observer rules shipped under src/atdd/coach/observer/rules/. Each entry binds a canonical rule_id (per SPEC-COACH-RULEID-0001) so bind_rule() resolves the YAML rules at observer-load time."
+description: |
+  Canonical rule_ids for the coach v9 observer's seventeen default
+  detection rules per spec §8.3. The basic-protocol set (01–05, 08, 09)
+  ships in #L2; token-threshold (06) ships in #L3; babysit-absorbed
+  (13–16) in #L4; substrate-aware (10, 11, 12, 17) in #L5.
+
+  Each rule_id resolves via ``bind_rule()`` at observer rule load time
+  per ``src/atdd/coach/commands/observer.py::ObserverRule``. The
+  YAML rule files at ``.atdd/observer/rules/<NN>-<slug>.yaml`` reference
+  these canonical ids via their ``rule_id:`` field.
 
 # =============================================================================
-# Substrate-aware observer rules (issue #514)
+# Basic protocol observer rules (#L2 — issue #506)
 # =============================================================================
-# Per spec §8.3 the four substrate-aware rules (10/11/12/17) are tier-2
-# bridges that catch protocol-level issues before tier-1 validators flag
-# them. Each rule is co-located at src/atdd/coach/observer/rules/<NN>-<slug>.yaml
-# and dispatched via a substrate-aware trigger type implemented in
-# atdd.coach.observer.predicates.
-#
-# Disposition note: the convention metadata uses `documentation-only`
-# because there is no Python validator function that calls
-# `bind_rule(<rule-id>)` for these — the actual enforcement runs in the
-# observer's YAML rules, not in a peer validator. The observer YAML
-# corrections themselves dispatch with `disposition: advisory` (the rule
-# emits a fast-loop correction; the substrate's tier-1 validator is the
-# strict floor that fails CI).
-
-rules:
-  - id: "coach.observer.stale-suppression-detected"
-    severity: 3
-    disposition: "documentation-only"
-    description: "Stale `# atdd:suppress(<toolkit-rule-id>) [UNTIL=<past>]` marker on a changed file. Repo rules are skipped (substrate v12 §2 — unsuppressible)."
-    introduced_in: "3.21.0"
-
-  - id: "coach.observer.unbound-rule-id-in-validator"
-    severity: 4
-    disposition: "documentation-only"
-    description: "Validator emits a Violation with a literal rule_id but does not call bind_rule() at module-import time (SPEC-COACH-RULEID-0007)."
-    introduced_in: "3.21.0"
-
-  - id: "coach.observer.rule-id-grammar-violation"
-    severity: 4
-    disposition: "documentation-only"
-    description: "Rule declaration uses a non-canonical primary `id`; canonical form is `<archetype>.<convention>.<rule>` per SPEC-COACH-RULEID-0001 (legacy IDs belong under aliases)."
-    introduced_in: "3.21.0"
-
-  - id: "coach.observer.repo-rule-disposition-declared"
-    severity: 4
-    disposition: "documentation-only"
-    description: "Repo YAML (acceptance / abuse_case) declares `disposition:`. Repo rules are strict-by-construction; the walker sets disposition (substrate v12 §4.4)."
-    introduced_in: "3.21.0"
+basic_protocol_observer_rules:
+  description: |
+    Seven rules from spec §8.3 that catch structural violations
+    independent of substrate-rule-id machinery. Authored as YAML at
+    ``.atdd/observer/rules/`` and unit-tested against synthetic agent
+    outputs. Disposition is ``documentation-only`` because the rules
+    are dispatched by the observer runtime (``Observer.scan_once``)
+    rather than by a pytest validator — the back-reference machinery
+    in ``test_rule_validator_binding`` only resolves validator
+    callables, not runtime emitters. Corrections still surface to the
+    agent via the standard injection paths; the disposition only
+    governs CI's reaction (which is "none" for runtime advisories).
+  rules:
+    - id: "coach.observer.unstructured-question"
+      severity: 3
+      disposition: documentation-only
+      description: "Agent asked a free-form question outside `atdd agent ask`"
+      fix_hint: "Reformulate via `atdd agent ask --type ...`."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.token-silence"
+      severity: 3
+      disposition: documentation-only
+      description: "Agent emitted no tokens for longer than the configured silence threshold"
+      fix_hint: "If blocked, escalate via `atdd agent escalate`."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.completion-claim-without-commit"
+      severity: 3
+      disposition: documentation-only
+      description: "Agent claimed completion but no `commit_observed` event was recorded"
+      fix_hint: "Commit your work before claiming completion, or revise the claim."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.out-of-scope-edit"
+      severity: 4
+      disposition: documentation-only
+      description: "Agent modified a file outside the WMBT target paths or under `.atdd/` outside the allowlist"
+      fix_hint: "Revert the out-of-scope change or escalate to widen scope."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.missed-heartbeat"
+      severity: 3
+      disposition: documentation-only
+      description: "Agent's `heartbeat.json` mtime is older than the configured staleness threshold"
+      fix_hint: "Call `atdd agent heartbeat` after each significant action."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.reviewer-edit-attempt"
+      severity: 4
+      disposition: documentation-only
+      description: "Reviewer-persona agent's output mentions edits or commits — violates the reviewer no-write contract"
+      fix_hint: "You are a Reviewer. You may not edit or commit."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.validator-failure-ignored"
+      severity: 4
+      disposition: documentation-only
+      description: "Agent committed again without addressing tier-1 violations cited on the prior commit"
+      fix_hint: "Address the unaddressed rule_ids before re-committing."
+      introduced_in: "3.21.0"
