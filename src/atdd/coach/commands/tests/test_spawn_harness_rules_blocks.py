@@ -122,3 +122,45 @@ def test_mixed_scope_uses_matching_renderer_only():
 def test_empty_scope_omits_block_content():
     assert render_wmbt_rules_block([], coach_phase="GREEN") == []
     assert render_train_rules_block([], coach_phase="GREEN") == []
+
+
+def test_spawn_prompt_includes_all_three_blocks_in_canonical_order(tmp_path, monkeypatch):
+    from atdd.coach.commands import spawn, session_template
+    from atdd.coach.commands.tests.test_e001_unit_001_spawn_cli_launches_session import FakeMultiplexer
+    from atdd.coach.commands.tests.test_spawn_harness_security_block import _security_meta
+
+    monkeypatch.setattr(
+        session_template,
+        "fetch_issue",
+        lambda n: {"number": n, "title": "t", "body": "body"},
+    )
+
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    runtime = tmp_path / "rt"
+    rules = [
+        _meta("repo.wmbt.D001.green", train_urn=None),
+        _meta("repo.wmbt.D001.smoke", phase="SMOKE", train_urn=None),
+        _meta("repo.train.0002.green", wmbt_urn=None),
+        _security_meta(rule_id="repo.security.green", phase="GREEN"),
+    ]
+
+    spawn.cmd_spawn(
+        persona="coder",
+        llm="claude-code",
+        worktree=worktree,
+        issue=503,
+        agent_id="coder-503-001",
+        runtime_root=runtime,
+        phase="GREEN",
+        multiplexer=FakeMultiplexer(),
+        rules=rules,
+    )
+
+    content = (worktree / ".launch_prompt.txt").read_text()
+    assert content.index("wmbt_rules:") < content.index("train_rules:") < content.index("security_rules:")
+    parsed = yaml.safe_load(content[content.index("wmbt_rules:"):])
+    assert parsed["wmbt_rules"][0]["rules"][0]["id"] == "repo.wmbt.D001.green"
+    assert "repo.wmbt.D001.smoke" not in content
+    assert parsed["train_rules"][0]["rules"][0]["id"] == "repo.train.0002.green"
+    assert parsed["security_rules"][0]["rules"][0]["id"] == "repo.security.green"

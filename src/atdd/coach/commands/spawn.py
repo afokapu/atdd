@@ -37,7 +37,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from atdd.coach.utils.session_naming import (
     branch_to_slug,
@@ -95,7 +95,7 @@ def _resolve_multiplexer(preferred: Optional[str] = None):
 # ---------------------------------------------------------------------------
 
 
-def _render_launch_prompt(issue: int, worktree: Path) -> Path:
+def _render_launch_prompt(issue: int, worktree: Path, *, phase: Optional[str] = None, rules: Optional[Iterable[Any]] = None) -> Path:
     """Wrap ``session_template`` to render the launch prompt and write
     it to ``<worktree>/.launch_prompt.txt``. Returns the prompt path."""
     from atdd.coach.commands import session_template
@@ -110,10 +110,38 @@ def _render_launch_prompt(issue: int, worktree: Path) -> Path:
         worktree_path=str(worktree),
     )
     rendered = session_template.render(context)
+    if rules is not None and phase is not None:
+        rendered = _append_spawn_rule_blocks(rendered, rules=rules, coach_phase=phase)
     prompt_path = worktree / ".launch_prompt.txt"
     prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(rendered)
     return prompt_path
+
+
+def _append_spawn_rule_blocks(
+    rendered: str, *, rules: Iterable[Any], coach_phase: str
+) -> str:
+    import yaml
+
+    from atdd.coach.commands.spawn_harness_blocks import (
+        render_security_rules_block,
+        render_train_rules_block,
+        render_wmbt_rules_block,
+    )
+
+    blocks: dict[str, list[dict[str, Any]]] = {}
+    wmbt_rules = render_wmbt_rules_block(rules, coach_phase=coach_phase)
+    if wmbt_rules:
+        blocks["wmbt_rules"] = wmbt_rules
+    train_rules = render_train_rules_block(rules, coach_phase=coach_phase)
+    if train_rules:
+        blocks["train_rules"] = train_rules
+    security_rules = render_security_rules_block(rules, coach_phase=coach_phase)
+    if security_rules:
+        blocks["security_rules"] = security_rules
+    if not blocks:
+        return rendered
+    return rendered.rstrip() + "\n\n" + yaml.safe_dump(blocks, sort_keys=False)
 
 
 def _create_surface(
@@ -154,6 +182,7 @@ def cmd_spawn(
     prior_attempt: Optional[str] = None,
     multiplexer_ref: Optional[str] = None,
     multiplexer: Any = None,
+    rules: Optional[Iterable[Any]] = None,
 ) -> dict:
     """Render the launch prompt, dispatch the multiplexer, run the
     per-LLM adapter, and emit the ``agent_spawned`` event.
@@ -176,7 +205,7 @@ def cmd_spawn(
     worktree = Path(worktree)
     runtime_root = Path(runtime_root)
 
-    prompt_path = _render_launch_prompt(issue, worktree)
+    prompt_path = _render_launch_prompt(issue, worktree, phase=phase, rules=rules)
     adapter = ADAPTER_REGISTRY[llm]
     command = adapter(prompt_path)
 
