@@ -21,12 +21,9 @@ K4_OUTPUTS = {
 
 
 @pytest.mark.parametrize(("llm", "template_name"), sorted(K4_PERSONA_TEMPLATES.items()))
-def test_k4_persona_template_exists(llm: str, template_name: str) -> None:
-    template = (
-        Path("src/atdd/coach/templates/persona")
-        / llm
-        / template_name
-    )
+def test_k4_persona_template_exists(tmp_path: Path, llm: str, template_name: str) -> None:
+    sync = AgentConfigSync(target_dir=tmp_path)
+    template = sync.templates_dir / "persona" / llm / template_name
 
     assert template.exists()
 
