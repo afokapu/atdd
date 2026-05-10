@@ -9,6 +9,7 @@ rejected when persona=reviewer.
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -97,7 +98,7 @@ def test_commit_rejected_for_reviewer_persona(
     persona=reviewer, citing the no-write reviewer constraint."""
     from atdd.coach.commands import agent
 
-    with pytest.raises(ValueError, match="reviewer.*no-write|no-write.*reviewer|reviewer.*commit"):
+    with pytest.raises(ValueError, match="Reviewer.*no-write|no-write.*constraint"):
         agent.cmd_commit(
             phase="GREEN",
             message="should be rejected",
@@ -119,14 +120,11 @@ def test_commit_succeeds_for_coder_persona(
     This test validates that the guard is reviewer-specific, not blanket."""
     from atdd.coach.commands import agent
 
-    # cmd_commit shells out to git, so we mock subprocess.run
-    import subprocess
-    from unittest.mock import patch
-
     with patch("atdd.coach.commands.agent.subprocess.run") as mock_run:
         mock_run.side_effect = [
             MagicMock(),  # git commit
             MagicMock(stdout="abc123def456\n"),  # git rev-parse HEAD
+            MagicMock(stdout="feat/test\n"),  # git rev-parse --abbrev-ref HEAD (checkpoint)
         ]
         sha = agent.cmd_commit(
             phase="GREEN",
@@ -149,15 +147,15 @@ def test_commit_allowed_when_no_manifest(
     """When no manifest.json exists, the commit should be allowed (backward
     compatibility — agents spawned before the manifest feature was added)."""
     from atdd.coach.commands import agent
-    from unittest.mock import MagicMock, patch
 
     no_manifest_id = "legacy-agent-001"
     # Intentionally do NOT create manifest.json
 
     with patch("atdd.coach.commands.agent.subprocess.run") as mock_run:
         mock_run.side_effect = [
-            MagicMock(),
-            MagicMock(stdout="fed456abc321\n"),
+            MagicMock(),  # git commit
+            MagicMock(stdout="fed456abc321\n"),  # git rev-parse HEAD
+            MagicMock(stdout="feat/test\n"),  # git rev-parse --abbrev-ref HEAD (checkpoint)
         ]
         sha = agent.cmd_commit(
             phase="GREEN",
