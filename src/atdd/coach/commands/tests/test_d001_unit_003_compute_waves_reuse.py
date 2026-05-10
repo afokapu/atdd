@@ -21,9 +21,11 @@ pytestmark = [pytest.mark.platform]
 
 
 def test_coach_imports_compute_waves_from_orchestrate():
-    """The function symbol in coach.py must BE the one in orchestrate.py."""
+    """The function symbol in coach.py must BE the one in the archived
+    orchestrate module (P5 #531: orchestrate.py is now a stub; the
+    absorbed implementation lives in commands/_archived/orchestrate.py)."""
     import atdd.coach.commands.coach as coach_mod
-    import atdd.coach.commands.orchestrate as orchestrate_mod
+    from atdd.coach.commands._archived import orchestrate as orchestrate_mod
 
     assert coach_mod.compute_waves is orchestrate_mod.compute_waves
 
@@ -44,7 +46,7 @@ def test_run_multi_issue_invokes_compute_waves(capsys):
     """`atdd coach 358 359 360 --strict-deps --dry-run` calls
     `compute_waves` and prints the resolved wave assignment."""
     from atdd.coach.commands.coach import run
-    from atdd.coach.commands.orchestrate import PlannedIssue
+    from atdd.coach.commands._archived.orchestrate import PlannedIssue
 
     fake_plan = {
         358: PlannedIssue(number=358, dependencies=[]),
@@ -58,7 +60,8 @@ def test_run_multi_issue_invokes_compute_waves(capsys):
     ) as mock_build, patch(
         "atdd.coach.commands.coach.compute_waves",
         wraps=__import__(
-            "atdd.coach.commands.orchestrate", fromlist=["compute_waves"]
+            "atdd.coach.commands._archived.orchestrate",
+            fromlist=["compute_waves"],
         ).compute_waves,
     ) as mock_waves:
         rc = run(

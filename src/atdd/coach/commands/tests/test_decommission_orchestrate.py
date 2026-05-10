@@ -48,11 +48,15 @@ class TestOrchestrateStub:
         assert MIGRATION_MESSAGE in combined
 
     def test_stub_cli_entry_exits_nonzero(self):
+        import os
+
+        env = {**os.environ, "PYTHONPATH": str(_REPO_ROOT / "src")}
         result = subprocess.run(
             [sys.executable, "-m", "atdd", "orchestrate", "1"],
             capture_output=True,
             text=True,
             timeout=30,
+            env=env,
         )
         assert result.returncode != 0
         combined = result.stdout + result.stderr

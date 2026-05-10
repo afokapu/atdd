@@ -208,7 +208,7 @@ _REPO_CONFIG = {"repo": {"short_name": "ATDD"}}
 
 
 def _build_plan(issues):
-    from atdd.coach.commands.orchestrate import PlannedIssue
+    from atdd.coach.commands._archived.orchestrate import PlannedIssue
 
     return {
         n: PlannedIssue(
@@ -311,7 +311,7 @@ def _collect_prompts(plan):
 
 def _run_orchestrate(issues, root, backend, mode="workspace",
                      resume=False, pre_state=None):
-    from atdd.coach.commands import orchestrate as orch
+    from atdd.coach.commands._archived import orchestrate as orch
 
     plan = _build_plan(issues)
     state_file = root / "orchestrate-state.json"
@@ -329,7 +329,7 @@ def _run_orchestrate(issues, root, backend, mode="workspace",
         get_multiplexer=lambda preferred=None: backend,
         apply_canonical_name_and_layout=lambda **kw: None,
     ), patch(
-        "atdd.coach.commands.orchestrate.load_atdd_config",
+        "atdd.coach.commands._archived.orchestrate.load_atdd_config",
         return_value=_REPO_CONFIG,
     ), patch(
         "atdd.coach.utils.config.load_atdd_config",
@@ -755,7 +755,7 @@ def test_worktree_creation_failure_rollback_parity(tmp_path):
     coach_root.mkdir()
 
     # Orchestrate: use a fake _create_worktree that fails for #401.
-    from atdd.coach.commands import orchestrate as orch
+    from atdd.coach.commands._archived import orchestrate as orch
 
     plan = _build_plan(issues)
 
@@ -796,7 +796,7 @@ def test_worktree_creation_failure_rollback_parity(tmp_path):
         get_multiplexer=lambda preferred=None: _RecordingBackend(),
         apply_canonical_name_and_layout=lambda **kw: None,
     ), patch(
-        "atdd.coach.commands.orchestrate.load_atdd_config",
+        "atdd.coach.commands._archived.orchestrate.load_atdd_config",
         return_value=_REPO_CONFIG,
     ), patch(
         "pathlib.Path.cwd",

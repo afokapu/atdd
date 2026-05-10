@@ -81,7 +81,7 @@ def _read_jsonl(path: Path) -> list[dict]:
 
 
 def _make_plan(numbers: list[int]):
-    from atdd.coach.commands.orchestrate import PlannedIssue
+    from atdd.coach.commands._archived.orchestrate import PlannedIssue
 
     return {
         n: PlannedIssue(
