@@ -35,6 +35,9 @@
         "review-disposition",
         "escalation",
         "merge-readiness",
+        "borderline-tier1",
+        "retry-vs-escalate",
+        "cross-phase-regression",
         "issue-review-aggregate"
       ]
     },
