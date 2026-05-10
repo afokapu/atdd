@@ -439,6 +439,17 @@ sessions:
   wagon: drive-state-machine
   feature: feature:drive-state-machine:coach-state-machine-and-runtime
   train: 0002-coach-drives-lifecycle
+- id: '499'
+  slug: coach-v9-k1-spawn-skeleton
+  file: null
+  issue_number: 499
+  type: feat
+  status: RED
+  created: '2026-05-09'
+  archived: null
+  wagon: spawn-agents
+  feature: feature:spawn-agents:atdd-spawn-skeleton-and-harness
+  train: 0002-coach-drives-lifecycle
 - id: '501'
   slug: coach-v9-o1-atdd-judge-core
   file: null

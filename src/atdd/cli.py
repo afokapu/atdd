@@ -1076,6 +1076,25 @@ Phase descriptions:
         help="Forwarded to atdd.coach.commands.observer",
     )
 
+    # ----- atdd spawn ... (K1 — #499) -----
+    # Single rule-IDed entry point for every coach v9 persona launch.
+    # Sub-arg surface lives in `atdd.coach.commands.spawn._build_parser`;
+    # we register `spawn` here and forward argv so the surface stays in
+    # one place.
+    spawn_parser = subparsers.add_parser(
+        "spawn",
+        help=(
+            "Coach v9 persona launch: render launch prompt, dispatch "
+            "multiplexer, run per-LLM adapter, emit agent_spawned event."
+        ),
+        add_help=False,
+    )
+    spawn_parser.add_argument(
+        "spawn_argv",
+        nargs=argparse.REMAINDER,
+        help="Forwarded to atdd.coach.commands.spawn",
+    )
+
     # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
     # O1 (#501): single boundary for ambiguous coach v9 routing decisions.
     # Renders a prompt template, calls a structured-output LLM via the
@@ -2296,6 +2315,11 @@ Phase descriptions:
     elif args.command == "observer":
         from atdd.coach.commands.observer import run as run_observer
         return run_observer(list(getattr(args, "observer_argv", []) or []))
+
+    # atdd spawn ... (K1 — #499)
+    elif args.command == "spawn":
+        from atdd.coach.commands.spawn import run as run_spawn
+        return run_spawn(list(getattr(args, "spawn_argv", []) or []))
 
     # atdd judge ...  (O1 — #501)
     elif args.command == "judge":
