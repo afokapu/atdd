@@ -38,6 +38,13 @@ class AgentConfigSync:
         "mistral": "MISTRAL.md",
     }
 
+    PERSONA_TEMPLATE_FILES = {
+        "claude": ("claude-code", "CLAUDE.md.tmpl"),
+        "codex": ("codex", "AGENTS.md.tmpl"),
+        "gemini": ("gemini", "GEMINI.md.tmpl"),
+        "glm": ("glm", "GLM.md.tmpl"),
+    }
+
     BLOCK_BEGIN = "# --- ATDD:BEGIN (managed by atdd, do not edit) ---"
     BLOCK_END = "# --- ATDD:END ---"
 
@@ -387,6 +394,18 @@ class AgentConfigSync:
 
         return overlay_path.read_text()
 
+    def _load_persona_template(self, agent: str) -> Optional[str]:
+        template_spec = self.PERSONA_TEMPLATE_FILES.get(agent)
+        if template_spec is None:
+            return None
+
+        llm_dir, template_name = template_spec
+        template_path = self.templates_dir / "persona" / llm_dir / template_name
+        if not template_path.exists():
+            return None
+
+        return template_path.read_text()
+
     def _generate_block(self, agent: str, base_content: str) -> str:
         """
         Combine base + overlay into managed block.
@@ -399,6 +418,11 @@ class AgentConfigSync:
             Complete managed block with markers.
         """
         parts = [self.BLOCK_BEGIN, "", base_content.strip()]
+
+        persona_template = self._load_persona_template(agent)
+        if persona_template:
+            parts.append("")
+            parts.append(persona_template.strip())
 
         overlay = self._load_overlay(agent)
         if overlay:
