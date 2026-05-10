@@ -35,8 +35,8 @@ from atdd.coach.utils.session_naming import (
     branch_to_slug,
     compute_canonical_name,
     compute_repo_short_name,
-    target_grid_label,
 )
+from atdd.coach.utils.session_naming_apply import apply_canonical_name_and_layout
 
 
 @dataclass
@@ -172,38 +172,6 @@ def print_plan(waves: list[list[int]], plan: dict[int, PlannedIssue]) -> None:
             deps = ",".join(f"#{d}" for d in issue.dependencies) or "-"
             print(f"    #{num:<5} {issue.branch:<40} deps={deps}")
 
-
-def apply_canonical_name_and_layout(
-    backend: MultiplexerBackend,
-    ref: str,
-    canonical_name: str,
-    surface_count: int,
-) -> None:
-    """Issue #470 dispatch-time pass: rename + announce target layout.
-
-    Two paired application passes:
-        1. NAMING — cmux rename-tab + ``/rename`` slash command into the session.
-        2. LAYOUT — log the target grid policy for the current surface count.
-
-    Both fail soft (``MultiplexerError`` swallowed) so a missing cmux verb
-    or unrenamable backend does not crash the orchestrate flow; babysit's
-    drift-detection re-applies on the next tick.
-    """
-    if not canonical_name:
-        return
-    try:
-        backend.rename(ref, canonical_name)
-    except MultiplexerError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        # Best-effort: babysit retries on the next tick.
-        pass
-    try:
-        # Slash-command rename inside the running Claude session so the
-        # in-conversation header matches the cmux tab.
-        backend.send(ref, f"/rename {canonical_name}\n")
-    except MultiplexerError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        pass
-    layout = target_grid_label(surface_count)
-    print(f"   layout target ({surface_count} surface[s]): {layout}")
 
 
 def run(
