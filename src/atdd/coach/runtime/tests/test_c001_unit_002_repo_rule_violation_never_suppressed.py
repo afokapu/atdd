@@ -91,7 +91,7 @@ class TestRepoRuleViolationNeverSuppressed:
         src = tmp_path / "src" / "mixed.py"
         src.parent.mkdir(parents=True, exist_ok=True)
         src.write_text(
-            f"# atdd:suppress(coder.dead-code.reachability) UNTIL={future.isoformat()}\n"
+            f"# atdd:suppress(coder.logging.coach-silent-swallow) UNTIL={future.isoformat()}\n"
             f"# atdd:suppress(repo.test-wagon.C001-acc-unit-002) UNTIL={future.isoformat()}\n"
             "x = 1\n",
             encoding="utf-8",
@@ -99,10 +99,10 @@ class TestRepoRuleViolationNeverSuppressed:
 
         violations = [
             Violation(
-                rule_id="coder.dead-code.reachability",
-                severity=3,
+                rule_id="coder.logging.coach-silent-swallow",
+                severity=4,
                 location="src/mixed.py:1",
-                detail="dead code",
+                detail="silent swallow",
             ),
             Violation(
                 rule_id="repo.test-wagon.C001-acc-unit-002",
@@ -117,6 +117,6 @@ class TestRepoRuleViolationNeverSuppressed:
         suppressed_ids = [v.rule_id for v in result.suppressed]
 
         assert "repo.test-wagon.C001-acc-unit-002" in active_ids
-        assert "coder.dead-code.reachability" not in active_ids
-        assert "coder.dead-code.reachability" in suppressed_ids
+        assert "coder.logging.coach-silent-swallow" not in active_ids
+        assert "coder.logging.coach-silent-swallow" in suppressed_ids
         assert "repo.test-wagon.C001-acc-unit-002" not in suppressed_ids
