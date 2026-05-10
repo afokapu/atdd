@@ -26,11 +26,13 @@ from pathlib import Path
 import pytest
 
 import atdd
+from atdd.coach.utils.rule_binding import bind_rule
 
 pytestmark = [pytest.mark.coach]
 
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 SPAWN_MODULE = ATDD_PKG_DIR / "coach" / "commands" / "spawn.py"
+_RULE = bind_rule("coach.spawn.atdd-spawn-cli")
 
 
 def test_spawn_module_committed() -> None:
