@@ -1,0 +1,29 @@
+# Coach observer rule 06 — token threshold (issue #507 / spec §8.3).
+#
+# Fires when the agent's context-window token count meets or exceeds
+# `coach.token_alert_threshold` (default 400000 per spec §10), prompting
+# the agent to /compact before silent context-window saturation degrades
+# its output. Absorbed verbatim from babysit's polling-loop alert.
+#
+# Behavior parity with babysit is asserted by the parity tests in
+# src/atdd/coach/commands/tests/test_m002_unit_003_babysit_parity_preserved.py
+# and the absorbing test suite owned by #L8.
+#
+# rule_id alias `06-token-threshold` is registered against canonical
+# `coach.orchestration.token-threshold` in
+# src/atdd/coach/conventions/orchestration.convention.yaml so bind_rule()
+# resolves the spec-numbered handle to the canonical id.
+rule_id: "06-token-threshold"
+correction_text: "Approaching context limit. Run /compact."
+trigger:
+  type: token_threshold
+injection_method: cli-return
+severity: 3
+disposition: advisory
+
+# Absorbed-from / absorbed-into provenance per AC-UNIT-003: the rule YAML
+# documents the absorbed module path so the audit trail from rule →
+# implementation is discoverable without code spelunking.
+absorbed_from: "src/atdd/coach/commands/babysit.py"
+absorbed_module: "src/atdd/coach/commands/token_threshold.py"
+spec_section: "atdd-coach-spec-v9.md §8.3"
