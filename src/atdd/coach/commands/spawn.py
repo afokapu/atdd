@@ -39,6 +39,16 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from atdd.coach.utils.session_naming import (
+    branch_to_slug,
+    compute_canonical_name,
+    compute_repo_short_name,
+)
+from atdd.coach.utils.session_naming_apply import (
+    CANONICAL_SESSION_NAME_RULE_ID,
+    apply_canonical_name_and_layout,
+)
+
 # Canonical rule-ID emitted on every spawn (spec §5.2 / §7.1). Observers
 # bind on this anchor to correlate spawn-time decisions with downstream
 # events. K-track follow-ups extend the namespace; the prefix is frozen.
@@ -170,9 +180,21 @@ def cmd_spawn(
     adapter = ADAPTER_REGISTRY[llm]
     command = adapter(prompt_path)
 
+    from atdd.coach.utils.config import load_atdd_config
+
+    repo_short = compute_repo_short_name(load_atdd_config(Path.cwd()))
+    slug = branch_to_slug(worktree.name) or worktree.name or agent_id
+    canonical_name = compute_canonical_name(repo_short, int(issue), slug)
+
     backend = multiplexer if multiplexer is not None else _resolve_multiplexer()
     surface_ref = _create_surface(
-        backend, worktree=worktree, command=command, name=agent_id,
+        backend, worktree=worktree, command=command, name=canonical_name,
+    )
+    apply_canonical_name_and_layout(
+        backend=backend,
+        ref=surface_ref,
+        canonical_name=canonical_name,
+        surface_count=1,
     )
 
     # Emit agent_spawned event via the existing agent.cmd_event primitive
@@ -186,6 +208,8 @@ def cmd_spawn(
         "issue": int(issue),
         "surface_ref": surface_ref,
         "rule_id": SPAWN_RULE_ID,
+        "canonical_name": canonical_name,
+        "canonical_rule_id": CANONICAL_SESSION_NAME_RULE_ID,
     }
     if phase is not None:
         payload["phase"] = phase
@@ -208,6 +232,8 @@ def cmd_spawn(
         "surface_ref": surface_ref,
         "command": command,
         "rule_id": SPAWN_RULE_ID,
+        "canonical_name": canonical_name,
+        "canonical_rule_id": CANONICAL_SESSION_NAME_RULE_ID,
     }
 
 

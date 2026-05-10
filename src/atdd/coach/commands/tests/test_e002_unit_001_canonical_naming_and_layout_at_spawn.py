@@ -104,7 +104,7 @@ def _spawn(tmp_path: Path, monkeypatch, fake_mx: FakeMultiplexer):
         raising=False,
     )
 
-    worktree = tmp_path / "wt"
+    worktree = tmp_path / "feat-coach-v9-k3-canonical-naming-pass"
     worktree.mkdir(exist_ok=True)
     runtime = tmp_path / "rt"
     return spawn.cmd_spawn(
@@ -122,7 +122,7 @@ def test_spawn_applies_canonical_name_and_injects_rename(tmp_path, monkeypatch):
     fake_mx = FakeMultiplexer()
     result = _spawn(tmp_path, monkeypatch, fake_mx)
     canonical_name = compute_canonical_name(
-        "ATDD", 358, "coach-v9-k3-canonical-naming-pass"
+        "ATDD", 358, "feat-coach-v9-k3-canonical-naming-pass"
     )
 
     rename_calls = [c for c in fake_mx.calls if c["op"] == "rename"]
