@@ -375,7 +375,6 @@ def _run_coach(issues, root, backend, mode="workspace", fail_for=None):
         def fake_create(branch, path, *, _issue_number=0):
             Path(path).mkdir(parents=True, exist_ok=True)
             created.append(Path(path))
-        fake_create = fake_create
     fake_remove = _fake_remove_factory(removed)
 
     with patch.object(tpc, "_create_worktree_call", fake_create), \
