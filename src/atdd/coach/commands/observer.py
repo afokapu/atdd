@@ -1,4 +1,4 @@
-"""`atdd observer <subcommand>` — coach v9 observer (issues #500 + #515).
+"""`atdd observer <subcommand>` — coach v9 observer (issues #500 + #515 + #516).
 
 Event-driven detect-and-correct sidecar per agent. Tails the agent's
 ``output.log``, watches the worktree, evaluates a YAML-discovered rule
@@ -16,19 +16,26 @@ from ``commands/babysit.py`` per spec §0.2 (issue #515 / L6):
   from ``.atdd/runtime/agents/<id>/`` (heartbeat.json, context.json,
   optional token-count metadata) instead of polling multiplexer state.
 
-Output is at parity with ``atdd babysit``'s dashboard at time of
-decommissioning, modulo trailing whitespace. **This parity is a
-gating condition for #P6 (babysit decommissioning).**
+And the *aggregate-approve* batch action absorbed from
+``commands/babysit.py`` per spec §0.2 (issue #516 / L7):
+
+- ``AggregateApprovalResult`` — approved/escalated counts + per-surface
+  dispositions. Absorbed from babysit's ``AggregateApprovalResult``.
+- ``cmd_aggregate_approve`` — enumerate agent dirs, classify pending
+  prompts using shared bash patterns, write approval signals.
+
+Output is at parity with ``atdd babysit`` at time of decommissioning,
+modulo trailing whitespace. **This parity is a gating condition for
+#P6 (babysit decommissioning).**
 
 Subcommands per spec §5.4:
     run                — start the observer for an agent (tail + evaluate loop)
     attach             — print recent observations for an agent
     status             — surface dashboard (#515 / L6)
-    aggregate-approve  — batch approval action (stub here; full body in #L7)
+    aggregate-approve  — batch approval action (#516 / L7)
 
 Out of scope:
 - The 17 default detection rules (#L2-#L5).
-- The ``aggregate-approve`` action body (#L7).
 - The babysit parity test suite (#L8).
 """
 from __future__ import annotations

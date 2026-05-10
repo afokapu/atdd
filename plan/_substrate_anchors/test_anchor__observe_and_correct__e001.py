@@ -5,7 +5,9 @@
 # Phase: GREEN
 # Layer: assembly
 # Runtime: python
-# Purpose: Coach v9 anchor stub. Real wired tests pending the issue's RED→GREEN cycle.
+# Purpose: Coach v9 anchor stub. Real wired tests are in:
+#   - test_e001_unit_001_observer_aggregate_approve.py (AC-UNIT-001)
+#   - test_e001_unit_002_parity_with_babysit_aggregate_approve.py (AC-UNIT-002)
 
 """Coach v9 anchor stub.
 
@@ -25,12 +27,10 @@ import pytest
 
 
 def test_e001_unit_001_scope_batch_approves() -> None:
-    """Anchor stub for acc:observe-and-correct:E001-UNIT-001-scope-batch-approves (real test pending implementation).""" 
+    """Anchor stub for acc:observe-and-correct:E001-UNIT-001-scope-batch-approves (real test pending implementation)."""
     pytest.skip("coach v9 anchor stub — real wired test pending implementation")
 
 
 def test_e001_unit_002_parity_with_babysit_aggregate_approve() -> None:
-    """Anchor stub for acc:observe-and-correct:E001-UNIT-002-parity-with-babysit-aggregate-approve (real test pending implementation).""" 
+    """Anchor stub for acc:observe-and-correct:E001-UNIT-002-parity-with-babysit-aggregate-approve (real test pending implementation)."""
     pytest.skip("coach v9 anchor stub — real wired test pending implementation")
-
-
