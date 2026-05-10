@@ -39,7 +39,8 @@ from pathlib import Path
 from typing import Optional
 
 # Per spec §0.2 absorption discipline: reuse, do not redefine.
-from atdd.coach.commands.orchestrate import build_plan, compute_waves
+# P5 (#531): orchestrate.py archived; import from _archived.
+from atdd.coach.commands._archived.orchestrate import build_plan, compute_waves
 
 
 class Phase(str, Enum):

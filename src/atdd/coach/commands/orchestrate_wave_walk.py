@@ -8,13 +8,14 @@ Two pure functions live here so they're unit-testable without mocking gh:
   issue number, using caller-supplied ``fetch`` and ``is_complete``
   callables so the network layer can be swapped out.
 
-The CLI entry point :func:`orchestrate_from_issue` wires the pure helpers
-to real GitHub fetches and hands the computed wave to ``atdd orchestrate``.
+P5 (#531): ``orchestrate_from_issue`` is now a migration stub that prints
+the decommission message and exits non-zero. The pure helpers are retained
+for parity-test reuse.
 """
 from __future__ import annotations
 
 import re
-import subprocess
+import sys
 from typing import Callable, List, Set
 
 
@@ -125,22 +126,13 @@ def _gh_is_complete(issue_number: int) -> bool:
 def orchestrate_from_issue(issue_number: int) -> int:
     """CLI entry for ``atdd issue <N> --orchestrate``.
 
-    Computes the wave starting at ``issue_number`` and delegates to
-    ``atdd orchestrate <wave...>``. Returns the orchestrate process's exit
-    code, or 1 on a local failure.
+    Decommissioned (P5 #531): prints the migration message and exits
+    non-zero. Operators should use ``atdd coach <issue-numbers>`` instead.
     """
-    wave = _compute_wave(issue_number, _gh_fetch_body, _gh_is_complete)
-    if not wave:
-        print(f"Wave for #{issue_number} is empty (issue may already be COMPLETE).")
-        return 0
-
-    print(f"Computed wave from #{issue_number}: {wave}")
-    try:
-        result = subprocess.run(
-            ["atdd", "orchestrate", *[str(n) for n in wave]],
-            check=False,
-        )
-        return result.returncode
-    except FileNotFoundError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
-        print("Error: `atdd` binary not found on PATH.")
-        return 1
+    print(
+        "atdd orchestrate has been removed in coach v9. "
+        "Use 'atdd coach <issue-numbers>' instead. "
+        "Migration: every flag maps directly per atdd-coach-spec-v9.md §5.1.",
+        file=sys.stderr,
+    )
+    return 1
