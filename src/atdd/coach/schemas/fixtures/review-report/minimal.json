@@ -1,0 +1,14 @@
+{
+  "review_id": "rev-minimal",
+  "target_commit": "abc1234",
+  "reviewer_agent_id": "reviewer-v9-no-write",
+  "wmbt_urn": "wmbt:review-phase-boundaries:D002",
+  "phase": "GREEN",
+  "verdict": "pass",
+  "tier1_risk_score": 0,
+  "findings": [],
+  "ac_coverage": {
+    "acc:review-phase-boundaries:D002-UNIT-001-review-report-schema-committed": "covered"
+  },
+  "summary": "Minimal fixture with required fields only."
+}
