@@ -55,6 +55,9 @@ CALL_SITES: tuple[str, ...] = (
     "review-disposition",
     "escalation",
     "merge-readiness",
+    "borderline-tier1",
+    "retry-vs-escalate",
+    "cross-phase-regression",
     "issue-review-aggregate",
 )
 
@@ -69,6 +72,9 @@ _FALLBACK_DECISION: dict[str, str] = {
     "review-disposition":     "block",
     "escalation":             "escalate",
     "merge-readiness":        "block",
+    "borderline-tier1":       "block",
+    "retry-vs-escalate":      "escalate",
+    "cross-phase-regression": "block",
     "issue-review-aggregate": "escalate",
 }
 

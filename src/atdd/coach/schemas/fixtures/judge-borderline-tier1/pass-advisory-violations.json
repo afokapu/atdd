@@ -1,0 +1,5 @@
+{
+  "decision": "pass",
+  "confidence": 0.85,
+  "rationale": "Violations are suppress-and-clean markers near recently-edited migration lines; not genuine regressions."
+}

@@ -1,0 +1,4 @@
+{
+  "decision": "escalate",
+  "reasoning": "Repeated transient failures suggest an infrastructure issue beyond the agent's control; operator intervention required."
+}
