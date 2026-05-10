@@ -1,0 +1,9 @@
+# Observer rule 14 — coach.observer.canonical-naming-drift
+# Spec: atdd-coach-spec-v9.md §8.3.
+# Issue #513 (L4) — absorbs babysit.correct_naming_drift verbatim per §0.2.
+# On drift, the rule's apply_correction() calls correct_naming_drift() which
+# logs coach.orchestration.canonical-session-name (orchestration.convention.yaml).
+
+trigger:
+  type: python
+  builder: "atdd.coach.observer_rules.canonical_naming_drift:build_rule"

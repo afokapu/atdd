@@ -69,3 +69,55 @@ basic_protocol_observer_rules:
       description: "Agent committed again without addressing tier-1 violations cited on the prior commit"
       fix_hint: "Address the unaddressed rule_ids before re-committing."
       introduced_in: "3.21.0"
+
+# =============================================================================
+# Babysit-absorbed observer rules (#L4 — issue #513)
+# =============================================================================
+babysit_absorbed_observer_rules:
+  description: |
+    Four rules from spec §8.3 that absorb existing ``atdd babysit`` behavior
+    per spec §0.2: preserve the babysit function bodies and change the caller.
+    Rules 14 and 15 log the existing ``coach.orchestration.*`` rule IDs from
+    orchestration.convention.yaml for backward telemetry parity.
+  rules:
+    - id: "coach.observer.bash-auto-approve"
+      severity: 3
+      disposition: advisory
+      description: "Auto-approve known-safe bash prompts; escalate deny-pattern prompts (absorbs babysit.classify_prompt)"
+      introduced_in: "3.21.0"
+      validator: "test_m003_unit_001_rule_13_bash_auto_approve::test_rule_13_parity_with_classify_prompt"
+      fix_hint: |
+        Inspect the bash command against orchestration.convention.yaml::babysit.bash_auto_approve_patterns
+        and bash_deny_patterns. Auto-approve matches send "1\n" via the multiplexer; deny matches
+        escalate to the operator.
+
+    - id: "coach.observer.canonical-naming-drift"
+      severity: 3
+      disposition: advisory
+      description: "Detect multiplexer surface name drift from canonical and re-apply via correct_naming_drift (absorbs babysit.correct_naming_drift)"
+      introduced_in: "3.21.0"
+      validator: "test_m003_unit_002_rule_14_canonical_naming_drift::test_rule_14_parity_with_correct_naming_drift"
+      fix_hint: |
+        Re-apply the canonical name to the drifted surface. See
+        orchestration.convention.yaml::session_naming.format and the
+        coach.orchestration.canonical-session-name rule for the canonical regex.
+
+    - id: "coach.observer.layout-drift"
+      severity: 2
+      disposition: advisory
+      description: "Detect surface count or arrangement drift from target_grid_label and re-apply via correct_layout_drift (absorbs babysit.correct_layout_drift)"
+      introduced_in: "3.21.0"
+      validator: "test_m003_unit_003_rule_15_layout_drift::test_rule_15_parity_with_correct_layout_drift"
+      fix_hint: |
+        Re-apply the canonical layout. See orchestration.convention.yaml::layout_placement.policy
+        and the coach.orchestration.layout-conformance rule.
+
+    - id: "coach.observer.smoke-skip"
+      severity: 4
+      disposition: strict
+      description: "Flag a phase transition from GREEN to REFACTOR without an intervening SMOKE (absorbs babysit.detect_violation --status REFACTOR clause)"
+      introduced_in: "3.21.0"
+      validator: "test_m003_unit_004_rule_16_smoke_skip::test_rule_16_parity_with_detect_violation"
+      fix_hint: |
+        Run SMOKE phase tests against real infrastructure before transitioning to REFACTOR.
+        See atdd-coach-spec-v9.md §6.4 (phase-ordering contract).
