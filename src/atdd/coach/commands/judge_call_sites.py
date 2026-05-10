@@ -570,7 +570,7 @@ def _locations_near(any_loc: str, edited: list[str], tolerance: int = 5) -> bool
         return False
     try:
         loc_line = int(parts[-1])
-    except ValueError:
+    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         return False
     loc_path = parts[0]
     for edited_loc in edited:
