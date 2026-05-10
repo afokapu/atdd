@@ -52,22 +52,17 @@ def _changed_files(ctx) -> List[Path]:
 
 
 def _rel_path(ctx, abs_path: Path) -> str:
-    """Return *abs_path* relative to ``ctx.worktree_root`` as a forward-
-    slashed string, or the absolute string if relativization fails."""
+    """Return *abs_path* relative to ``ctx.worktree_root`` as a forward-slashed string."""
     if ctx.worktree_root is None:
         return str(abs_path)
-    try:
-        return str(abs_path.relative_to(Path(ctx.worktree_root))).replace("\\", "/")
-    except ValueError:
-        return str(abs_path)
+    return str(abs_path.relative_to(Path(ctx.worktree_root))).replace("\\", "/")
 
 
 def _read_text(path: Path) -> Optional[str]:
     """Best-effort UTF-8 read; ``None`` when the file is unreadable."""
-    try:
-        return path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+    if not path.is_file():
         return None
+    return path.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -84,9 +79,8 @@ _STALE_SCAN_EXTS = (".py", ".ts", ".tsx")
 
 
 def _iter_stale_markers_in_file(path: Path, today):
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+    text = _read_text(path)
+    if text is None:
         return
     for lineno, line in enumerate(text.splitlines(), start=1):
         for m in _MARKER_RE.finditer(line):
@@ -94,11 +88,8 @@ def _iter_stale_markers_in_file(path: Path, today):
             until_raw = m.group(2)
             if not until_raw:
                 continue
-            try:
-                from datetime import date as _date
-                until = _date.fromisoformat(until_raw)
-            except ValueError:
-                continue
+            from datetime import date as _date
+            until = _date.fromisoformat(until_raw)
             if until >= today:
                 continue
             yield rid, lineno, until
@@ -184,10 +175,7 @@ def _file_has_module_level_bind_rule(text: str) -> bool:
     only when the function runs."""
     import ast
 
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
-        return False
+    tree = ast.parse(text)
     for node in tree.body:
         for sub in ast.walk(node):
             if isinstance(sub, ast.Call):
@@ -204,10 +192,7 @@ def _file_emits_rule_id_literal(text: str) -> Optional[str]:
     ``None``. Uses AST so docstrings / comments don't false-positive."""
     import ast
 
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
-        return None
+    tree = ast.parse(text)
     for node in ast.walk(tree):
         if isinstance(node, ast.keyword) and node.arg == "rule_id":
             v = node.value
@@ -287,10 +272,7 @@ def _is_convention_yaml(rel: str) -> bool:
 
 
 def _violating_rule_ids(text: str) -> List[str]:
-    try:
-        data = yaml.safe_load(text)
-    except yaml.YAMLError:
-        return []
+    data = yaml.safe_load(text)
     out: List[str] = []
     for rule in _iter_rule_decls(data):
         rid = rule.get("id")
@@ -352,10 +334,7 @@ def _disposition_in_plan_yaml(text: str) -> bool:
     The substrate v12 walker (``rule_binding._find_disposition_anywhere``)
     rejects ``disposition:`` anywhere in repo YAML — we mirror that
     breadth here so the observer matches the validator's blast radius."""
-    try:
-        data = yaml.safe_load(text)
-    except yaml.YAMLError:
-        return False
+    data = yaml.safe_load(text)
     if not isinstance(data, dict):
         return False
     return _scan_for_disposition(data)
