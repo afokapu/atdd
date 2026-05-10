@@ -1,68 +1,123 @@
 version: "1.0"
-name: "Observer Rule Convention"
+name: "Observer Convention"
 description: |
-  Rule-IDs for the coach v9 detect-and-correct observer rules (spec §8.3).
-  Skeleton + registry shipped in #500 (P001). Absorbed-from-babysit rules
-  (13–16) ship in #513 (M003). Basic-protocol rules (01–05/08/09) ship in
-  #L2/M001. Token-threshold rule (06) ships in #L3/M002. Substrate-aware
-  rules (10/11/12/17) ship in #L5/M004.
+  Canonical rule_ids for the coach v9 observer's seventeen default
+  detection rules per spec §8.3. The basic-protocol set (01–05, 08, 09)
+  ships in #L2; token-threshold (06) ships in #L3; babysit-absorbed
+  (13–16) in #L4; substrate-aware (10, 11, 12, 17) in #L5.
 
-  Each rule_id resolves through bind_rule() so the observer's YAML loader
-  can validate registry membership before instantiating the rule.
-
-# =============================================================================
-# Source-of-truth pointer
-# =============================================================================
-spec:
-  human_readable: "atdd-coach-spec-v9.md §8.3 (default observer rule table)"
+  Each rule_id resolves via ``bind_rule()`` at observer rule load time
+  per ``src/atdd/coach/commands/observer.py::ObserverRule``. The
+  YAML rule files at ``.atdd/observer/rules/<NN>-<slug>.yaml`` reference
+  these canonical ids via their ``rule_id:`` field.
 
 # =============================================================================
-# Rule-IDs (canonical grammar: <archetype>.<convention>.<rule>)
+# Basic protocol observer rules (#L2 — issue #506)
 # =============================================================================
-# Per spec §0.2, rules 13–16 absorb function bodies from commands/babysit.py
-# verbatim — preserve the function bodies; change the caller. The rule IDs
-# here are the new substrate-side identifiers; rules 14 and 15 also LOG
-# the existing coach.orchestration.* rule IDs from orchestration.convention.yaml
-# for backward telemetry parity.
-rules:
-  - id: "coach.observer.bash-auto-approve"
-    severity: 3
-    disposition: advisory
-    description: "Auto-approve known-safe bash prompts; escalate deny-pattern prompts (absorbs babysit.classify_prompt)"
-    introduced_in: "3.21.0"
-    validator: "test_m003_unit_001_rule_13_bash_auto_approve::test_rule_13_parity_with_classify_prompt"
-    fix_hint: |
-      Inspect the bash command against orchestration.convention.yaml::babysit.bash_auto_approve_patterns
-      and bash_deny_patterns. Auto-approve matches send "1\n" via the multiplexer; deny matches
-      escalate to the operator.
+basic_protocol_observer_rules:
+  description: |
+    Seven rules from spec §8.3 that catch structural violations
+    independent of substrate-rule-id machinery. Authored as YAML at
+    ``.atdd/observer/rules/`` and unit-tested against synthetic agent
+    outputs. Disposition is ``documentation-only`` because the rules
+    are dispatched by the observer runtime (``Observer.scan_once``)
+    rather than by a pytest validator — the back-reference machinery
+    in ``test_rule_validator_binding`` only resolves validator
+    callables, not runtime emitters. Corrections still surface to the
+    agent via the standard injection paths; the disposition only
+    governs CI's reaction (which is "none" for runtime advisories).
+  rules:
+    - id: "coach.observer.unstructured-question"
+      severity: 3
+      disposition: documentation-only
+      description: "Agent asked a free-form question outside `atdd agent ask`"
+      fix_hint: "Reformulate via `atdd agent ask --type ...`."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.token-silence"
+      severity: 3
+      disposition: documentation-only
+      description: "Agent emitted no tokens for longer than the configured silence threshold"
+      fix_hint: "If blocked, escalate via `atdd agent escalate`."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.completion-claim-without-commit"
+      severity: 3
+      disposition: documentation-only
+      description: "Agent claimed completion but no `commit_observed` event was recorded"
+      fix_hint: "Commit your work before claiming completion, or revise the claim."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.out-of-scope-edit"
+      severity: 4
+      disposition: documentation-only
+      description: "Agent modified a file outside the WMBT target paths or under `.atdd/` outside the allowlist"
+      fix_hint: "Revert the out-of-scope change or escalate to widen scope."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.missed-heartbeat"
+      severity: 3
+      disposition: documentation-only
+      description: "Agent's `heartbeat.json` mtime is older than the configured staleness threshold"
+      fix_hint: "Call `atdd agent heartbeat` after each significant action."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.reviewer-edit-attempt"
+      severity: 4
+      disposition: documentation-only
+      description: "Reviewer-persona agent's output mentions edits or commits — violates the reviewer no-write contract"
+      fix_hint: "You are a Reviewer. You may not edit or commit."
+      introduced_in: "3.21.0"
+    - id: "coach.observer.validator-failure-ignored"
+      severity: 4
+      disposition: documentation-only
+      description: "Agent committed again without addressing tier-1 violations cited on the prior commit"
+      fix_hint: "Address the unaddressed rule_ids before re-committing."
+      introduced_in: "3.21.0"
 
-  - id: "coach.observer.canonical-naming-drift"
-    severity: 3
-    disposition: advisory
-    description: "Detect multiplexer surface name drift from canonical and re-apply via correct_naming_drift (absorbs babysit.correct_naming_drift)"
-    introduced_in: "3.21.0"
-    validator: "test_m003_unit_002_rule_14_canonical_naming_drift::test_rule_14_parity_with_correct_naming_drift"
-    fix_hint: |
-      Re-apply the canonical name to the drifted surface. See
-      orchestration.convention.yaml::session_naming.format and the
-      coach.orchestration.canonical-session-name rule for the canonical regex.
+# =============================================================================
+# Babysit-absorbed observer rules (#L4 — issue #513)
+# =============================================================================
+babysit_absorbed_observer_rules:
+  description: |
+    Four rules from spec §8.3 that absorb existing ``atdd babysit`` behavior
+    per spec §0.2: preserve the babysit function bodies and change the caller.
+    Rules 14 and 15 log the existing ``coach.orchestration.*`` rule IDs from
+    orchestration.convention.yaml for backward telemetry parity.
+  rules:
+    - id: "coach.observer.bash-auto-approve"
+      severity: 3
+      disposition: advisory
+      description: "Auto-approve known-safe bash prompts; escalate deny-pattern prompts (absorbs babysit.classify_prompt)"
+      introduced_in: "3.21.0"
+      validator: "test_m003_unit_001_rule_13_bash_auto_approve::test_rule_13_parity_with_classify_prompt"
+      fix_hint: |
+        Inspect the bash command against orchestration.convention.yaml::babysit.bash_auto_approve_patterns
+        and bash_deny_patterns. Auto-approve matches send "1\n" via the multiplexer; deny matches
+        escalate to the operator.
 
-  - id: "coach.observer.layout-drift"
-    severity: 2
-    disposition: advisory
-    description: "Detect surface count or arrangement drift from target_grid_label and re-apply via correct_layout_drift (absorbs babysit.correct_layout_drift)"
-    introduced_in: "3.21.0"
-    validator: "test_m003_unit_003_rule_15_layout_drift::test_rule_15_parity_with_correct_layout_drift"
-    fix_hint: |
-      Re-apply the canonical layout. See orchestration.convention.yaml::layout_placement.policy
-      and the coach.orchestration.layout-conformance rule.
+    - id: "coach.observer.canonical-naming-drift"
+      severity: 3
+      disposition: advisory
+      description: "Detect multiplexer surface name drift from canonical and re-apply via correct_naming_drift (absorbs babysit.correct_naming_drift)"
+      introduced_in: "3.21.0"
+      validator: "test_m003_unit_002_rule_14_canonical_naming_drift::test_rule_14_parity_with_correct_naming_drift"
+      fix_hint: |
+        Re-apply the canonical name to the drifted surface. See
+        orchestration.convention.yaml::session_naming.format and the
+        coach.orchestration.canonical-session-name rule for the canonical regex.
 
-  - id: "coach.observer.smoke-skip"
-    severity: 4
-    disposition: strict
-    description: "Flag a phase transition from GREEN to REFACTOR without an intervening SMOKE (absorbs babysit.detect_violation --status REFACTOR clause)"
-    introduced_in: "3.21.0"
-    validator: "test_m003_unit_004_rule_16_smoke_skip::test_rule_16_parity_with_detect_violation"
-    fix_hint: |
-      Run SMOKE phase tests against real infrastructure before transitioning to REFACTOR.
-      See atdd-coach-spec-v9.md §6.4 (phase-ordering contract).
+    - id: "coach.observer.layout-drift"
+      severity: 2
+      disposition: advisory
+      description: "Detect surface count or arrangement drift from target_grid_label and re-apply via correct_layout_drift (absorbs babysit.correct_layout_drift)"
+      introduced_in: "3.21.0"
+      validator: "test_m003_unit_003_rule_15_layout_drift::test_rule_15_parity_with_correct_layout_drift"
+      fix_hint: |
+        Re-apply the canonical layout. See orchestration.convention.yaml::layout_placement.policy
+        and the coach.orchestration.layout-conformance rule.
+
+    - id: "coach.observer.smoke-skip"
+      severity: 4
+      disposition: strict
+      description: "Flag a phase transition from GREEN to REFACTOR without an intervening SMOKE (absorbs babysit.detect_violation --status REFACTOR clause)"
+      introduced_in: "3.21.0"
+      validator: "test_m003_unit_004_rule_16_smoke_skip::test_rule_16_parity_with_detect_violation"
+      fix_hint: |
+        Run SMOKE phase tests against real infrastructure before transitioning to REFACTOR.
+        See atdd-coach-spec-v9.md §6.4 (phase-ordering contract).

@@ -1,0 +1,21 @@
+# Observer rule 03 — Completion claim without commit (spec §8.3 row 03)
+#
+# Fires when an agent claims completion ("done", "task complete", etc.)
+# but no `commit_observed` event has been recorded since the claim.
+# Catches false-completion before it reaches review.
+#
+# Authored as part of issue #506 (L2 basic-protocol observer rules).
+
+rule_id: "coach.observer.completion-claim-without-commit"
+
+trigger:
+  type: completion_claim_without_commit
+  completion_pattern: '\b(task complete|all done|done\.|complete\.|finished|wrapping up)\b'
+
+correction_text: |
+  You indicated completion but no commit was detected.
+  Commit your work (or revise the completion claim) before proceeding.
+
+injection_method: cli-return
+severity: 3
+disposition: documentation-only
