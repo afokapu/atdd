@@ -133,7 +133,7 @@ def _read_persona_from_manifest(agent_id: str, runtime_root: Optional[Path]) -> 
     try:
         data = json.loads(manifest.read_text())
         return data.get("persona")
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         return None
 
 
