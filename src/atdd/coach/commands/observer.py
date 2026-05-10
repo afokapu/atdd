@@ -282,6 +282,17 @@ def _make_log_regex_predicate(
     return predicate
 
 
+def _make_token_threshold_predicate() -> Predicate:
+    def predicate(ctx: ObservedInput) -> bool:
+        from atdd.coach.commands import token_threshold as _tt
+
+        threshold = _tt.load_token_alert_threshold()
+        count = _tt.read_token_count()
+        return _tt.check_token_threshold(token_count=count, threshold=threshold)
+
+    return predicate
+
+
 def _make_token_silence_predicate(threshold_seconds: float) -> Predicate:
     """Fire when ``ctx.now - ctx.last_token_at > threshold_seconds``."""
 
@@ -458,6 +469,8 @@ def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
         predicate = _make_log_regex_predicate(
             pattern, exclude_pattern=trigger.get("exclude_pattern")
         )
+    elif trig_type == "token_threshold":
+        predicate = _make_token_threshold_predicate()
     elif trig_type == "token_silence":
         threshold = trigger.get("threshold_seconds")
         if not isinstance(threshold, (int, float)):
@@ -496,7 +509,7 @@ def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
     else:
         raise ValueError(
             f"unknown trigger.type {trig_type!r} (supported: log_regex, "
-            f"token_silence, completion_claim_without_commit, "
+            f"token_threshold, token_silence, completion_claim_without_commit, "
             f"out_of_scope_edit, heartbeat_stale, reviewer_edit_attempt, "
             f"validator_failure_ignored, never)"
         )

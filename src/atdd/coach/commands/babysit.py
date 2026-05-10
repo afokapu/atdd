@@ -40,74 +40,52 @@ from atdd.coach.utils.session_naming import (
 
 
 # =============================================================================
-# Token-count alert (issue #378)
+# Token-count alert (issue #378; absorbed into observer rule 06 by issue #507)
 # =============================================================================
-# Default threshold leaves ~200k headroom under the typical 600k effective cap,
-# giving the worker enough budget to react to the alert (run /compact, optionally
-# /clear and `atdd session-template <N> --from-checkpoint`).
-DEFAULT_TOKEN_ALERT_THRESHOLD = 400_000
-
-
-def load_token_alert_threshold(*, repo_root: Optional[Path] = None) -> int:
-    """Resolve the token-alert threshold from .atdd/config.yaml or fall back to default."""
-    base = Path(repo_root) if repo_root is not None else Path.cwd()
-    try:
-        config = load_atdd_config(base)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
-        # Malformed or unreadable config → fall back to the documented default.
-        return DEFAULT_TOKEN_ALERT_THRESHOLD
-    babysit_cfg = (config or {}).get("babysit") or {}
-    value = babysit_cfg.get("token_alert_threshold")
-    if isinstance(value, int) and value > 0:
-        return value
-    return DEFAULT_TOKEN_ALERT_THRESHOLD
+# The three primitive functions — `load_token_alert_threshold`, `read_token_count`,
+# `check_token_threshold` — were absorbed verbatim into
+# `atdd.coach.commands.token_threshold` (spec §0.2, §8.3). Babysit keeps its
+# public surface as thin wrappers around the absorbed module so:
+#   * legacy callers (process_workspace, test_babysit_token_alert.py) keep
+#     working through the deprecation window owned by #P6;
+#   * behavior parity with the observer is trivially satisfied — both paths
+#     call the same absorbed primitives (#L8 parity gate).
+from atdd.coach.commands.token_threshold import (
+    DEFAULT_TOKEN_ALERT_THRESHOLD,
+    check_token_threshold as _check_token_threshold_primitive,
+    load_token_alert_threshold,
+    read_token_count as _read_token_count_primitive,
+)
 
 
 def read_token_count(
     backend: MultiplexerBackend, workspace_ref: str
 ) -> Optional[int]:
-    """Best-effort per-workspace token count via `claude --print-context-status`.
+    """Best-effort per-workspace token count.
 
-    Returns None when the binary is missing, the call errors, or the output is
-    not parseable JSON. Callers must treat None as "unknown" — the dashboard
-    renders this as "—" and no alert fires.
-
-    Decision 6 (issue #378): the source mechanism is `claude --print-context-status`.
-    A future revision can swap in a per-surface multiplexer command without
-    changing the alert logic.
+    Thin wrapper around `atdd.coach.commands.token_threshold.read_token_count`;
+    the `(backend, workspace_ref)` arguments are reserved for future
+    per-surface routing (Decision 6, issue #378) and currently ignored —
+    parity with the pre-absorption signature.
     """
-    del workspace_ref  # reserved for future per-surface routing
-    try:
-        result = subprocess.run(
-            ["claude", "--print-context-status"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow)
-        # Best-effort: claude binary missing or call errored → caller renders "—".
-        return None
-    if result.returncode != 0:
-        return None
-    try:
-        payload = json.loads(result.stdout)
-    except (json.JSONDecodeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
-        # Best-effort: stdout shape unrecognized → caller renders "—".
-        return None
-    for key in ("context_used_tokens", "tokens_used", "tokens"):
-        value = payload.get(key) if isinstance(payload, dict) else None
-        if isinstance(value, int):
-            return value
-    return None
+    del backend, workspace_ref  # reserved for future per-surface routing
+    return _read_token_count_primitive()
 
 
 def check_token_threshold(
     *, token_count: Optional[int], threshold: int
 ) -> Optional["BabysitDecision"]:
-    """Return an escalation decision when the count crosses the threshold."""
-    if token_count is None:
-        return None
-    if token_count < threshold:
+    """Return an escalation BabysitDecision when the count crosses the threshold.
+
+    Babysit's public surface still hands back a ``BabysitDecision`` so
+    ``process_workspace`` can route the alert through its existing
+    escalation channel. The fire/no-fire decision delegates to the
+    absorbed primitive in `atdd.coach.commands.token_threshold` — that
+    is the parity contract enforced by #L8.
+    """
+    if not _check_token_threshold_primitive(
+        token_count=token_count, threshold=threshold
+    ):
         return None
     matched = f"token={token_count} threshold={threshold}"
     return BabysitDecision(
