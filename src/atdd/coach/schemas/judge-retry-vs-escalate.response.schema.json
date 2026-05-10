@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "judge-retry-vs-escalate.response.schema.json",
+  "title": "Judge Retry-vs-Escalate Response",
+  "description": "Structured response from the retry-vs-escalate judge call site (#3 per spec §6.9). Fires before consuming the final retry to let the LLM decide whether one more attempt is worthwhile or whether escalation is the better path.",
+  "type": "object",
+  "required": ["decision", "reasoning"],
+  "additionalProperties": false,
+  "properties": {
+    "decision": {
+      "type": "string",
+      "description": "'retry' continues with the remaining attempt; 'escalate' transitions to BLOCKED with operator notification.",
+      "enum": ["retry", "escalate"]
+    },
+    "reasoning": {
+      "type": "string",
+      "description": "Human-readable reasoning for why retry or escalation is the right call.",
+      "minLength": 1
+    }
+  }
+}

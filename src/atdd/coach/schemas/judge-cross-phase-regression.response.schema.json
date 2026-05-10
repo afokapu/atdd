@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "judge-cross-phase-regression.response.schema.json",
+  "title": "Judge Cross-Phase Regression Response",
+  "description": "Structured response from the cross-phase regression judge call site (#4 per spec §6.9). Fires when tier-1 in a later phase reveals violations not present at the predecessor phase's exit commit.",
+  "type": "object",
+  "required": ["decision", "target_phase", "rationale"],
+  "additionalProperties": false,
+  "properties": {
+    "decision": {
+      "type": "string",
+      "description": "'fix_in_place' stays in the current phase; 'reopen_prior_phase' rolls back to the named target phase; 'escalate' transitions to BLOCKED with operator notification.",
+      "enum": ["fix_in_place", "reopen_prior_phase", "escalate"]
+    },
+    "target_phase": {
+      "type": "string",
+      "description": "The phase to target for rollback or reference. Must be a valid ATDD phase name.",
+      "minLength": 1
+    },
+    "rationale": {
+      "type": "string",
+      "description": "Human-readable rationale for the routing decision.",
+      "minLength": 1
+    }
+  }
+}
