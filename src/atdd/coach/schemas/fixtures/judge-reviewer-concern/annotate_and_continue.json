@@ -1,0 +1,5 @@
+{
+  "decision": "annotate_and_continue",
+  "rationale": "The concern is semantic and low-severity; the affected AC is partial but the strict rules all pass. Annotating the PR body with the finding is sufficient.",
+  "pr_annotation": "Reviewer flagged a low-severity semantic concern on D002-UNIT-004 (partial coverage). No strict violations found."
+}

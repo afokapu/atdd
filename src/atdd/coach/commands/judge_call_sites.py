@@ -1616,3 +1616,294 @@ def route_superseded_rule(
         "judgment_id": judgment_id,
         "response": response,
     }
+
+
+# =============================================================================
+# Call site #2 — reviewer concern (spec §6.9 #2, issue #529)
+# =============================================================================
+
+
+REVIEWER_CONCERN_CALL_SITE = "reviewer_concern"
+REVIEWER_CONCERN_SCHEMA_PATH = (
+    _SCHEMAS_DIR / "judge-reviewer-concern.response.schema.json"
+)
+REVIEWER_CONCERN_PROMPT_PATH = (
+    _PROMPTS_DIR / "judge/judge-reviewer-concern.prompt.yaml"
+)
+
+
+def should_fire_reviewer_concern(review_report: dict) -> bool:
+    """Decide whether call site #2 fires for ``review_report``.
+
+    Per spec §6.9 #2 (issue #529): fires iff the reviewer returned
+    ``verdict=concern``. Pass and fail verdicts are handled
+    deterministically by the coach state machine — no judge call.
+    """
+    return review_report.get("verdict") == "concern"
+
+
+def inputs_hash_for_reviewer_concern(*, review_report: dict) -> str:
+    """Stable hash of ``(call_site, review_id, target_commit, phase)``.
+
+    Excludes timestamps and other volatile fields so re-running on an
+    unchanged report produces the same hash (cache-resolvable on
+    ``coach --resume``).
+    """
+    payload = json.dumps(
+        {
+            "call_site": REVIEWER_CONCERN_CALL_SITE,
+            "review_id": review_report.get("review_id", ""),
+            "target_commit": review_report.get("target_commit", ""),
+            "phase": review_report.get("phase", ""),
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def invoke_reviewer_concern_judge(
+    *,
+    review_report: dict,
+    llm: Optional[str] = None,
+) -> dict:
+    """Invoke ``atdd judge`` for call site #2 if the predicate fires.
+
+    Returns ``{"fired": bool, "response": dict | None, "judgment_id": str | None,
+    "inputs_hash": str | None, "outcome": str}``.
+    """
+    if not should_fire_reviewer_concern(review_report):
+        return {
+            "fired": False,
+            "response": None,
+            "judgment_id": None,
+            "inputs_hash": None,
+            "outcome": "skipped",
+        }
+
+    repo_root = _resolve_repo_root()
+    inputs_hash = inputs_hash_for_reviewer_concern(review_report=review_report)
+    judgment_id = str(uuid.uuid4())
+
+    factory = judge_mod.LLM_REGISTRY.get(llm) if llm else None
+    if factory is None:
+        _append_judgment_record(
+            repo_root,
+            judgment_id=judgment_id,
+            inputs_hash=inputs_hash,
+            response=None,
+            outcome="llm_unavailable",
+            cached=False,
+            model=llm,
+            call_site=REVIEWER_CONCERN_CALL_SITE,
+        )
+        print(
+            f"call site #2 (reviewer-concern): unknown LLM {llm!r}",
+            file=sys.stderr,
+        )
+        return {
+            "fired": True,
+            "response": None,
+            "judgment_id": judgment_id,
+            "inputs_hash": inputs_hash,
+            "outcome": "llm_unavailable",
+        }
+
+    try:
+        client = factory()
+        response = client.invoke(
+            _render_prompt_for_reviewer_concern(review_report)
+        )
+    except judge_mod.LLMUnavailable as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        print(
+            f"call site #2 (reviewer-concern): LLM unavailable: {exc}",
+            file=sys.stderr,
+        )
+        _append_judgment_record(
+            repo_root,
+            judgment_id=judgment_id,
+            inputs_hash=inputs_hash,
+            response=None,
+            outcome="llm_unavailable",
+            cached=False,
+            model=llm,
+            call_site=REVIEWER_CONCERN_CALL_SITE,
+        )
+        return {
+            "fired": True,
+            "response": None,
+            "judgment_id": judgment_id,
+            "inputs_hash": inputs_hash,
+            "outcome": "llm_unavailable",
+        }
+
+    schema = _load_reviewer_concern_schema()
+    try:
+        jsonschema.Draft202012Validator(schema).validate(response)
+    except jsonschema.ValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        print(
+            f"call site #2 (reviewer-concern): response failed schema "
+            f"validation at {'.'.join(str(p) for p in exc.absolute_path) or '<root>'}: "
+            f"{exc.message}",
+            file=sys.stderr,
+        )
+        _append_judgment_record(
+            repo_root,
+            judgment_id=judgment_id,
+            inputs_hash=inputs_hash,
+            response=response,
+            outcome="schema_violation",
+            cached=False,
+            model=llm,
+            call_site=REVIEWER_CONCERN_CALL_SITE,
+        )
+        return {
+            "fired": True,
+            "response": response,
+            "judgment_id": judgment_id,
+            "inputs_hash": inputs_hash,
+            "outcome": "schema_violation",
+        }
+
+    _append_judgment_record(
+        repo_root,
+        judgment_id=judgment_id,
+        inputs_hash=inputs_hash,
+        response=response,
+        outcome="ok",
+        cached=False,
+        model=llm,
+        call_site=REVIEWER_CONCERN_CALL_SITE,
+    )
+    return {
+        "fired": True,
+        "response": response,
+        "judgment_id": judgment_id,
+        "inputs_hash": inputs_hash,
+        "outcome": "ok",
+    }
+
+
+def _load_reviewer_concern_schema() -> dict:
+    return json.loads(REVIEWER_CONCERN_SCHEMA_PATH.read_text())
+
+
+def _render_prompt_for_reviewer_concern(review_report: dict) -> str:
+    import yaml as _yaml
+
+    raw = _yaml.safe_load(REVIEWER_CONCERN_PROMPT_PATH.read_text())
+    body = raw["prompt"]
+    return body.format(
+        phase=review_report.get("phase", ""),
+        target_commit=review_report.get("target_commit", ""),
+        wmbt_urn=review_report.get("wmbt_urn", ""),
+        tier1_risk_score=review_report.get("tier1_risk_score", ""),
+        review_report=json.dumps(review_report, ensure_ascii=False, indent=2),
+        findings_summary=json.dumps(
+            review_report.get("findings", []), ensure_ascii=False, indent=2
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Routing (call site #2)
+# ---------------------------------------------------------------------------
+
+
+def route_reviewer_concern(
+    *,
+    review_report: dict,
+    llm: Optional[str] = None,
+    coach_run_id: str,
+) -> dict:
+    """Invoke call site #2 (if it fires) and execute the routing branch.
+
+    Branches per spec §6.9 #2 (issue #529):
+
+      * Non-concern verdicts (pass/fail) do not fire; coach proceeds
+        deterministically.
+      * ``block``: respawn the phase agent with reviewer findings + judge
+        rationale embedded in spawn-feedback (per spec §7.6).
+      * ``annotate_and_continue``: proceed with ``pr_annotation`` queued
+        for COMPLETE-phase PR-body inclusion (per spec §4.7).
+    """
+    repo_root = _resolve_repo_root()
+    invocation = invoke_reviewer_concern_judge(
+        review_report=review_report, llm=llm
+    )
+
+    if not invocation["fired"]:
+        _append_decision_record(
+            repo_root,
+            decision_type="proceed",
+            issue_number=0,
+            coach_run_id=coach_run_id,
+            inputs={"verdict": review_report.get("verdict")},
+            outcome={"state": "PROCEED"},
+            judgment_id=None,
+        )
+        return {
+            "decision": "proceed",
+            "fired": False,
+            "state": "PROCEED",
+            "judgment_id": None,
+        }
+
+    if invocation["outcome"] != "ok":
+        _append_decision_record(
+            repo_root,
+            decision_type="escalation",
+            issue_number=0,
+            coach_run_id=coach_run_id,
+            inputs={"verdict": review_report.get("verdict")},
+            outcome={"state": "BLOCKED", "reason": invocation["outcome"]},
+            judgment_id=invocation["judgment_id"],
+            rationale=f"call site #2 {invocation['outcome']}",
+        )
+        return {
+            "decision": "block",
+            "fired": True,
+            "state": "BLOCKED",
+            "judgment_id": invocation["judgment_id"],
+        }
+
+    response = invocation["response"]
+    decision = response["decision"]
+    judgment_id = invocation["judgment_id"]
+
+    if decision == "block":
+        _append_decision_record(
+            repo_root,
+            decision_type="respawn",
+            issue_number=0,
+            coach_run_id=coach_run_id,
+            inputs={"verdict": review_report.get("verdict")},
+            outcome={"state": "RESPAWN"},
+            judgment_id=judgment_id,
+            rationale=response.get("rationale", ""),
+        )
+        return {
+            "decision": "block",
+            "fired": True,
+            "state": "RESPAWN",
+            "judgment_id": judgment_id,
+        }
+
+    # decision == "annotate_and_continue"
+    _append_decision_record(
+        repo_root,
+        decision_type="annotate_and_continue",
+        issue_number=0,
+        coach_run_id=coach_run_id,
+        inputs={"verdict": review_report.get("verdict")},
+        outcome={"state": "CONTINUE"},
+        judgment_id=judgment_id,
+        rationale=response.get("rationale", ""),
+    )
+    return {
+        "decision": "annotate_and_continue",
+        "fired": True,
+        "state": "CONTINUE",
+        "judgment_id": judgment_id,
+        "pr_annotation": response.get("pr_annotation", ""),
+    }
