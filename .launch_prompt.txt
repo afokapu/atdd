@@ -1,30 +1,32 @@
-# ATDD Session Launch — Issue #394
+# ATDD Session Launch — Issue #518
 
-You are implementing **atdd issue #394** (feat(atdd): Finish Rule Id Foundation) in the
-worktree at `/Users/alecfokapu/Github/atdd/feat-finish-rule-id-foundation` on branch `feat/finish-rule-id-foundation`.
+You are implementing **atdd issue #518** (feat(coach): custom pytest plugin for Violation collection) in the
+worktree at `/Users/alecfokapu/Github/atdd/feat-coach-v9-m2-violation-collector` on branch `feat/coach-v9-m2-violation-collector`.
 
 ## Pre-flight
 
 1. Read CLAUDE.md in the worktree root.
 2. Run `atdd gate` to confirm ATDD rules are loaded.
-3. Run `gh issue view 394 --json body --jq '.body'` to see the full issue body.
+3. Run `gh issue view 518 --json body --jq '.body'` to see the full issue body.
 
 ## Issue context
 
-- **Number:** 394
-- **Branch:** feat/finish-rule-id-foundation
-- **Train:** 0001-self-compliance-validate
-- **Feature:** rule-id-coherence-foundation
+- **Number:** 518
+- **Branch:** feat/coach-v9-m2-violation-collector
+- **Train:** 0002-coach-drives-lifecycle
+- **Feature:** Custom pytest plugin (coach.runtime.violation_collector) captures Violation records emitted via assert_disposition_satisfied and writes JSONL conforming to validator-result.schema.json.
+- **Canonical session name:** `ATDD518-coach-v9-m2-violation-collector` (per orchestration.convention.yaml::session_naming — issue #470). The cmux tab and Claude session header should both match this; if they don't, run `/rename ATDD518-coach-v9-m2-violation-collector` and the babysitter will reconcile the cmux side on the next tick.
 
 ## Dependencies
 
-_(no dependencies declared)_
+- #517
+- #483
 
 Before starting, wait for all dependency PRs to merge. Use this loop:
 
 ```bash
 while true; do
-  if gh pr list --state merged --search "" --json number --jq 'length' | grep -qv '^0$'; then
+  if gh pr list --state merged --search "#517 #483" --json number --jq 'length' | grep -qv '^0$'; then
     echo "Dependencies merged — proceeding"
     break
   fi
