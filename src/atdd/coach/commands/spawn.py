@@ -35,6 +35,7 @@ Out of scope (each owned by an adjacent K-track issue):
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
@@ -88,6 +89,23 @@ def _resolve_multiplexer(preferred: Optional[str] = None):
     from atdd.coach.utils.multiplexer import get_multiplexer
 
     return get_multiplexer(preferred=preferred)
+
+
+def _write_manifest(
+    runtime_root: Path, agent_id: str, persona: str, issue: int,
+) -> None:
+    """Write ``manifest.json`` to the agent's runtime dir so downstream
+    guards can read the persona without parsing events.jsonl."""
+    agent_dir = runtime_root / "agents" / agent_id
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    manifest = agent_dir / "manifest.json"
+    tmp = manifest.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps({
+        "persona": persona,
+        "agent_id": agent_id,
+        "issue": issue,
+    }, sort_keys=True))
+    tmp.replace(manifest)
 
 
 # ---------------------------------------------------------------------------
@@ -206,6 +224,17 @@ def cmd_spawn(
     runtime_root = Path(runtime_root)
 
     prompt_path = _render_launch_prompt(issue, worktree, phase=phase, rules=rules)
+
+    # Reviewer persona: layer the no-write adapter over the base prompt
+    if persona == "reviewer":
+        from atdd.coach.spawn.reviewer_adapter import render_reviewer_launch_prompt
+
+        base = prompt_path.read_text()
+        reviewer_prompt = render_reviewer_launch_prompt(
+            base, target_commit=target_commit,
+        )
+        prompt_path.write_text(reviewer_prompt)
+
     adapter = ADAPTER_REGISTRY[llm]
     command = adapter(prompt_path)
 
@@ -255,6 +284,10 @@ def cmd_spawn(
         data=payload,
         runtime_root=runtime_root,
     )
+
+    # Write manifest.json so downstream guards (e.g., reviewer commit
+    # rejection in agent.py) can read the persona without parsing events.
+    _write_manifest(runtime_root, agent_id, persona, issue)
 
     return {
         "launch_prompt_path": prompt_path,

@@ -118,6 +118,39 @@ def _resolve_issue(explicit: Optional[int]) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Reviewer guard — reject write operations for reviewer persona
+# ---------------------------------------------------------------------------
+
+
+def _read_persona_from_manifest(agent_id: str, runtime_root: Optional[Path]) -> Optional[str]:
+    """Read the persona from the agent's manifest.json. Returns None if
+    the manifest doesn't exist (backward compatibility with pre-manifest
+    spawns)."""
+    agent_dir = _runtime_root(runtime_root) / "agents" / agent_id
+    manifest = agent_dir / "manifest.json"
+    if not manifest.is_file():
+        return None
+    try:
+        data = json.loads(manifest.read_text())
+        return data.get("persona")
+    except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+
+def _reject_if_reviewer(agent_id: str, runtime_root: Optional[Path]) -> None:
+    """Raise ValueError if the agent is a reviewer persona. Reviewers
+    must not commit — their only output channel is ``atdd agent review``
+    (spec §6.3 hard rule)."""
+    persona = _read_persona_from_manifest(agent_id, runtime_root)
+    if persona == "reviewer":
+        raise ValueError(
+            "Reviewer persona agents cannot commit (spec §6.3 no-write "
+            "constraint). Use `atdd agent review --target-commit <sha> "
+            "--report-file <path>` as the sole output channel."
+        )
+
+
+# ---------------------------------------------------------------------------
 # Atomic writers
 # ---------------------------------------------------------------------------
 
@@ -327,11 +360,15 @@ def cmd_commit(
     agent_id: Optional[str] = None,
     issue: Optional[int] = None,
     wmbt_urn: Optional[str] = None,
+    runtime_root: Optional[Path] = None,
 ) -> str:
     """Produce a phase-aware git commit and update worker checkpoint.
 
     Returns the full SHA of the new commit.
     """
+    aid = _resolve_agent_id(agent_id)
+    _reject_if_reviewer(aid, runtime_root)
+
     if phase not in COMMIT_PHASES:
         raise ValueError(
             f"phase {phase!r} not in agent commit enum {COMMIT_PHASES} "
@@ -457,6 +494,7 @@ def run(argv: list[str]) -> int:
                 agent_id=args.agent_id,
                 issue=args.issue,
                 wmbt_urn=args.wmbt_urn,
+                runtime_root=None,
             )
             print(f"✓ commit {sha[:12]} ({args.phase})")
         elif sub == "ask":
