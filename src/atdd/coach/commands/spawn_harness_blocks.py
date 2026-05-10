@@ -43,6 +43,88 @@ from typing import Any, Dict, Iterable, List, Optional
 from atdd.coach.utils.rule_binding import RuleMetadata
 
 
+def _acceptance_kind(rule: RuleMetadata) -> str | None:
+    rule_id = str(getattr(rule, "rule_id", ""))
+    if ".wmbt." in rule_id or ":wmbt:" in rule_id:
+        return "wmbt"
+    if ".train." in rule_id or ":train:" in rule_id:
+        return "train"
+    return None
+
+
+def _phase_filtered_rules(
+    rules: Iterable[RuleMetadata], coach_phase: str | None
+) -> list[RuleMetadata]:
+    return [
+        rule
+        for rule in rules
+        if isinstance(rule, RuleMetadata)
+        and not (coach_phase is not None and rule.phase and rule.phase != coach_phase)
+    ]
+
+
+def _group_by_attr(rules: Iterable[RuleMetadata], attr: str) -> list[tuple[str, list[RuleMetadata]]]:
+    grouped: dict[str, list[RuleMetadata]] = {}
+    for rule in rules:
+        key = getattr(rule, attr, None)
+        if key:
+            grouped.setdefault(str(key), []).append(rule)
+    return sorted(grouped.items(), key=lambda item: item[0])
+
+
+def _rule_expectations(rule: RuleMetadata) -> list[str]:
+    expectations = getattr(rule, "then", None) or getattr(rule, "expectations", None) or []
+    return [str(item) for item in expectations]
+
+
+def _wmbt_rule_entry(rule: RuleMetadata) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "id": rule.rule_id,
+        "acceptance_urn": getattr(rule, "bound_acceptance_urn", None),
+        "purpose": getattr(rule, "description", ""),
+        "expectations": _rule_expectations(rule),
+        "harness_type": getattr(rule, "harness_type", None),
+        "signal_metric": getattr(rule, "signal_metric", None),
+    }
+    return {key: value for key, value in entry.items() if value not in (None, "")}
+
+
+def _train_rule_entry(rule: RuleMetadata) -> dict[str, Any]:
+    return {
+        "id": rule.rule_id,
+        "purpose": getattr(rule, "description", ""),
+        "expectations": _rule_expectations(rule),
+    }
+
+
+def render_wmbt_rules_block(
+    rules: Iterable[RuleMetadata], *, coach_phase: str | None = None
+) -> list[dict[str, Any]]:
+    scoped = [
+        rule
+        for rule in _phase_filtered_rules(rules, coach_phase)
+        if _acceptance_kind(rule) == "wmbt" or getattr(rule, "wmbt_urn", None)
+    ]
+    return [
+        {"wmbt_urn": wmbt_urn, "rules": [_wmbt_rule_entry(rule) for rule in group]}
+        for wmbt_urn, group in _group_by_attr(scoped, "wmbt_urn")
+    ]
+
+
+def render_train_rules_block(
+    rules: Iterable[RuleMetadata], *, coach_phase: str | None = None
+) -> list[dict[str, Any]]:
+    scoped = [
+        rule
+        for rule in _phase_filtered_rules(rules, coach_phase)
+        if _acceptance_kind(rule) == "train" or getattr(rule, "train_urn", None)
+    ]
+    return [
+        {"train_urn": train_urn, "rules": [_train_rule_entry(rule) for rule in group]}
+        for train_urn, group in _group_by_attr(scoped, "train_urn")
+    ]
+
+
 def render_security_rules_block(
     rules: Iterable[RuleMetadata],
     *,
@@ -117,4 +199,4 @@ def render_security_rules_block(
     return out
 
 
-__all__ = ["render_security_rules_block"]
+__all__ = ["render_wmbt_rules_block", "render_train_rules_block", "render_security_rules_block"]
