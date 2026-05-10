@@ -476,14 +476,14 @@ def _run_coach_resume(issues, root, backend, mode, pre_decisions):
 
 def _assert_worktree_equivalence(orch, coach):
     orch_paths = {
-        n: Path(p).name
-        for n, p in orch.plan.items()
-        if orch.plan[n].worktree_path
+        n: Path(issue.worktree_path).name
+        for n, issue in orch.plan.items()
+        if issue.worktree_path
     }
     coach_paths = {
-        n: Path(p).name
-        for n, p in coach.plan.items()
-        if coach.plan[n].worktree_path
+        n: Path(issue.worktree_path).name
+        for n, issue in coach.plan.items()
+        if issue.worktree_path
     }
     assert orch_paths == coach_paths, (
         f"Worktree path names differ: orch={orch_paths} coach={coach_paths}"
