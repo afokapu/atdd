@@ -303,6 +303,21 @@ def cmd_context(
     return json.loads(target.read_text())
 
 
+def _require_reviewer_persona(agent_id: str, runtime_root: Optional[Path]) -> None:
+    """Raise ValueError unless the agent's persona is 'reviewer'.
+
+    ``atdd agent review`` is the reviewer's sole output channel (spec §6.3);
+    non-reviewer callers and agents without a manifest are rejected.
+    """
+    persona = _read_persona_from_manifest(agent_id, runtime_root)
+    if persona != "reviewer":
+        raise ValueError(
+            f"atdd agent review requires persona=reviewer, got "
+            f"persona={persona!r}. Only reviewer agents may submit review "
+            f"reports (spec §6.3 persona-bounded write authority)."
+        )
+
+
 def cmd_review(
     *,
     target_commit: str,
@@ -310,22 +325,61 @@ def cmd_review(
     agent_id: Optional[str] = None,
     runtime_root: Optional[Path] = None,
 ) -> Path:
-    """Reviewer-only output channel (spec §6.3 hard rule)."""
+    """Reviewer-only output channel (spec §6.3 hard rule).
+
+    Reads the report file, validates against ``review-report.schema.json``
+    plus the three cross-field hard rules, persists the validated report
+    to ``reviews/<review-id>.json``, and emits a ``review_complete`` event.
+    On validation failure: raises ValueError with rule-id error, writes
+    nothing, emits nothing.
+    """
     report_path = Path(report_file)
     if not report_path.is_file():
         raise FileNotFoundError(
             f"report file not found: {report_path}"
         )
     aid = _resolve_agent_id(agent_id)
-    review_id = f"r-{secrets.token_hex(6)}"
-    payload = {
-        "review_id": review_id,
-        "target_commit": target_commit,
-        "report": report_path.read_text(),
-        "timestamp": _now_iso_z(),
-    }
+    _require_reviewer_persona(aid, runtime_root)
+
+    # Parse report JSON
+    try:
+        report_data = json.loads(report_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"report file is not valid JSON: {report_path}: {exc}"
+        ) from exc
+
+    # Validate against schema + hard rules
+    from atdd.coach.utils.review_report_intake import validate_review_report
+    result = validate_review_report(report_data)
+    if not result.valid:
+        parts = []
+        for err in result.errors:
+            parts.append(f"[{err.rule}] {err.message}")
+        raise ValueError(
+            f"review report validation failed: {'; '.join(parts)}"
+        )
+
+    # Persist the validated report using the report's own review_id
+    review_id = report_data["review_id"]
     target = _agent_dir(aid, runtime_root) / "reviews" / f"{review_id}.json"
-    _write_single_doc(target, payload)
+    _write_single_doc(target, report_data)
+
+    # Emit review_complete event per runtime-event.schema.json
+    event_record: dict[str, Any] = {
+        "event_type": "review_complete",
+        "agent_id": aid,
+        "timestamp": _now_iso_z(),
+        "payload": {
+            "review_id": review_id,
+            "verdict": report_data["verdict"],
+            "phase": report_data["phase"],
+            "target_commit": target_commit,
+        },
+    }
+    events_path = _agent_dir(aid, runtime_root) / "events.jsonl"
+    _append_jsonl(events_path, event_record)
+
     return target
 
 

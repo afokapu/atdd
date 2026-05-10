@@ -286,8 +286,26 @@ def test_review_writes_under_reviews_subdir(
 ):
     from atdd.coach.commands import agent
 
-    report = tmp_path / "report.md"
-    report.write_text("# Review findings\n\nNothing critical.")
+    # Write a reviewer manifest so the persona check passes
+    agent_dir = runtime_root / "agents" / agent_id
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    manifest = agent_dir / "manifest.json"
+    manifest.write_text(json.dumps({"persona": "reviewer", "agent_id": agent_id}))
+
+    report_data = {
+        "review_id": "rev-d002-test",
+        "target_commit": "0123abcd",
+        "reviewer_agent_id": agent_id,
+        "wmbt_urn": "wmbt:drive-state-machine:D002",
+        "phase": "GREEN",
+        "verdict": "pass",
+        "tier1_risk_score": 0,
+        "findings": [],
+        "ac_coverage": {"acc:drive-state-machine:D002-UNIT-001": "covered"},
+        "summary": "All clean.",
+    }
+    report = tmp_path / "report.json"
+    report.write_text(json.dumps(report_data))
 
     path = agent.cmd_review(
         target_commit="0123abcd",
@@ -296,13 +314,11 @@ def test_review_writes_under_reviews_subdir(
         runtime_root=runtime_root,
     )
     assert path.parent == runtime_root / "agents" / agent_id / "reviews"
-    assert path.suffix == ".json"
+    assert path.name == "rev-d002-test.json"
 
     payload = json.loads(path.read_text())
-    assert payload["target_commit"] == "0123abcd"
-    assert payload["report"] == "# Review findings\n\nNothing critical."
-    assert payload["review_id"]
-    assert payload["timestamp"].endswith("Z")
+    assert payload["review_id"] == "rev-d002-test"
+    assert payload["verdict"] == "pass"
 
 
 def test_review_rejects_missing_report_file(
