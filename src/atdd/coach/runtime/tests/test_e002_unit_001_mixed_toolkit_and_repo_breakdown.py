@@ -54,6 +54,9 @@ def _patch_bind_rule(monkeypatch, disposition_map: dict[str, str | None]):
             rule_id=rule_id,
             severity=1,
             description="mock",
+            recipe="",
+            introduced_in="",
+            source_path="",
             disposition=disp,
         )
 
