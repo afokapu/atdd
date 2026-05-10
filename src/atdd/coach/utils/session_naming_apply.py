@@ -19,7 +19,9 @@ def apply_canonical_name_and_layout(
     if not canonical_name:
         return
     try:
-        backend.rename(ref, canonical_name)
+        rename = getattr(backend, "rename", None)
+        if rename is not None:
+            rename(ref, canonical_name)
         print(
             f"   rename target: {canonical_name} "
             f"({CANONICAL_SESSION_NAME_RULE_ID})"
@@ -32,6 +34,8 @@ def apply_canonical_name_and_layout(
         )
     try:
         backend.send(ref, f"/rename {canonical_name}\n")
+    except AttributeError:
+        pass
     except MultiplexerError as exc:
         print(
             f"⚠️  /rename injection failed for {ref}: {exc} "
