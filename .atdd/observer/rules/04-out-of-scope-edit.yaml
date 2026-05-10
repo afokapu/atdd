@@ -1,0 +1,30 @@
+# Observer rule 04 — Out-of-scope edit (spec §8.3 row 04 / §0.2
+# absorbs the `.atdd/` clause from babysit's detect_violation)
+#
+# Fires when a worktree change touches a path outside the WMBT target
+# paths, OR touches `.atdd/` outside the allowlisted set. The `.atdd/`
+# clause is absorbed verbatim from `commands/babysit.py::detect_violation`
+# per spec §0.2 ("the underlying functions … move from
+# commands/babysit.py into observer-rule modules with no functional
+# change").
+#
+# Authored as part of issue #506 (L2 basic-protocol observer rules).
+
+rule_id: "coach.observer.out-of-scope-edit"
+
+trigger:
+  type: out_of_scope_edit
+  # `.atdd/` paths an agent IS allowed to edit (e.g. observer rule files
+  # this issue ships, hooks/, baselines/). Anything else under `.atdd/`
+  # is by-design managed by the CLI per the absorbed babysit clause.
+  atdd_allowlist_prefixes:
+    - ".atdd/observer/rules"
+    - ".atdd/hooks"
+    - ".atdd/baselines"
+
+correction_text: |
+  You modified {path} not in WMBT scope. Revert or escalate.
+
+injection_method: cli-return
+severity: 4
+disposition: documentation-only

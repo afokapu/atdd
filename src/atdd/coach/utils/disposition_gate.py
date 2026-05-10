@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 import warnings
 from collections import defaultdict
@@ -42,6 +43,55 @@ import pytest
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_id_registry import RuleMetadata, build_registry
 from atdd.coach.utils.suppression_scanner import is_suppressed
+
+
+# Inline marker grammar (mirrors atdd.coach.utils.suppression_scanner). Used
+# to extract the literal marker substring for violation_collector records;
+# we do not want to import the scanner's private regex.
+_MARKER_TEXT_PATTERN = re.compile(
+    r"atdd:suppress\(([^)]+)\)(?:\s+UNTIL=(\d{4}-\d{2}-\d{2}))?"
+)
+
+
+def _match_marker_text(line: str, rule_id: str) -> Optional[str]:
+    """Return the matched marker substring for ``rule_id`` on ``line`` or None."""
+    for match in _MARKER_TEXT_PATTERN.finditer(line):
+        if match.group(1).strip() == rule_id:
+            return match.group(0)
+    return None
+
+
+def _record_observed_violation(
+    validator_id: str,
+    violation: Any,
+    disposition: str,
+    suppression_marker: Optional[str],
+) -> None:
+    """Push an observation onto ``session._atdd['observed_violations']`` for
+    the coach pytest violation_collector plugin (issue #518). No-op outside a
+    pytest session — the active-session reference stays None."""
+    session = _ACTIVE_PYTEST_SESSION
+    if session is None:
+        return
+    namespace = getattr(session, "_atdd", None)
+    if not isinstance(namespace, dict):
+        namespace = {}
+        try:
+            setattr(session, "_atdd", namespace)
+        except (AttributeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            return
+    observed = namespace.get("observed_violations")
+    if not isinstance(observed, list):
+        observed = []
+        namespace["observed_violations"] = observed
+    observed.append(
+        {
+            "validator_id": validator_id,
+            "violation": violation,
+            "disposition": disposition,
+            "suppression_marker": suppression_marker,
+        }
+    )
 
 
 _logger = logging.getLogger(__name__)
@@ -270,6 +320,8 @@ def assert_disposition_satisfied(
                 _format_advisory_block(validator_id, rule_id, vs, registry)
             )
             warning_annotations.extend(vs)
+            for v in vs:
+                _record_observed_violation(validator_id, v, disposition, None)
             continue
 
         if disposition == "strict":
@@ -282,6 +334,8 @@ def assert_disposition_satisfied(
                 registry=registry,
             ))
             error_annotations.extend(vs)
+            for v in vs:
+                _record_observed_violation(validator_id, v, disposition, None)
             continue
 
         # suppress-and-clean
@@ -292,10 +346,15 @@ def assert_disposition_satisfied(
             line_text: Optional[str] = None
             if lineno is not None:
                 line_text = _read_line(root, rel_path, lineno)
-            if line_text is not None and is_suppressed(line_text, rule_id):
+            marker_text: Optional[str] = None
+            if line_text is not None:
+                marker_text = _match_marker_text(line_text, rule_id)
+            if marker_text is not None:
                 suppressed.append(v)
+                _record_observed_violation(validator_id, v, disposition, marker_text)
             else:
                 unsuppressed.append(v)
+                _record_observed_violation(validator_id, v, disposition, None)
         if unsuppressed:
             failures.append(_format_failure_block(
                 validator_id=validator_id,
