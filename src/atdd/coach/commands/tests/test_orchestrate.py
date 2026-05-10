@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from atdd.coach.commands.orchestrate import (
+from atdd.coach.commands._archived.orchestrate import (
     PlannedIssue,
     _parse_dep_numbers,
     build_plan,
@@ -140,7 +140,7 @@ def test_build_plan_populates_branches_and_deps():
         return fake_issues.get(n, {})
 
     with patch(
-        "atdd.coach.commands.orchestrate.fetch_issue",
+        "atdd.coach.commands._archived.orchestrate.fetch_issue",
         side_effect=fake_fetch,
     ):
         plan = build_plan([1, 2])
@@ -153,7 +153,7 @@ def test_build_plan_populates_branches_and_deps():
 
 def test_build_plan_skips_unfetchable():
     with patch(
-        "atdd.coach.commands.orchestrate.fetch_issue",
+        "atdd.coach.commands._archived.orchestrate.fetch_issue",
         return_value={},
     ):
         plan = build_plan([42])
@@ -212,7 +212,7 @@ class _FakeBackend:
 
 def _wire_run_orchestrate(tmp_path, backend, plan: dict[int, PlannedIssue]):
     """Patch orchestrate's collaborators so run() exercises the dispatch logic only."""
-    from atdd.coach.commands import orchestrate as orch
+    from atdd.coach.commands._archived import orchestrate as orch
 
     def fake_build_plan(issue_numbers):
         return {n: plan[n] for n in issue_numbers if n in plan}
@@ -240,7 +240,7 @@ def test_orchestrate_pane_mode_calls_new_surface_not_new_workspace(tmp_path: Pat
 
     State file records the surface ref per issue.
     """
-    from atdd.coach.commands.orchestrate import run as run_orchestrate
+    from atdd.coach.commands._archived.orchestrate import run as run_orchestrate
 
     plan = {
         1: PlannedIssue(number=1, title="A", branch="feat/a", body="", dependencies=[]),
@@ -268,7 +268,7 @@ def test_orchestrate_pane_mode_calls_new_surface_not_new_workspace(tmp_path: Pat
 
 def test_orchestrate_default_mode_is_workspace_backwards_compatible(tmp_path: Path):
     """D016-AC-UNIT-001: default invocation (no flag) preserves the existing workspace mode."""
-    from atdd.coach.commands.orchestrate import run as run_orchestrate
+    from atdd.coach.commands._archived.orchestrate import run as run_orchestrate
 
     plan = {1: PlannedIssue(number=1, title="A", branch="feat/a", body="", dependencies=[])}
     backend = _FakeBackend()
@@ -287,7 +287,7 @@ def test_orchestrate_default_mode_is_workspace_backwards_compatible(tmp_path: Pa
 
 def test_orchestrate_resume_pane_mode_skips_already_launched(tmp_path: Path):
     """D016-AC-UNIT-002: --resume in pane mode reuses existing surface refs without recreating them."""
-    from atdd.coach.commands.orchestrate import run as run_orchestrate
+    from atdd.coach.commands._archived.orchestrate import run as run_orchestrate
 
     plan = {
         1: PlannedIssue(number=1, title="A", branch="feat/a", body="", dependencies=[]),

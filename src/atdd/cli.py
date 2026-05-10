@@ -2264,17 +2264,11 @@ Phase descriptions:
             from_checkpoint=getattr(args, "from_checkpoint", False),
         )
 
-    # atdd orchestrate <issue-numbers...>
+    # atdd orchestrate <issue-numbers...> (decommissioned — P5 #531)
     elif args.command == "orchestrate":
         from atdd.coach.commands.orchestrate import run as run_orchestrate
         return run_orchestrate(
             issue_numbers=args.issue_numbers,
-            autonomous=getattr(args, "autonomous", False),
-            resume=getattr(args, "resume", False),
-            multiplexer=getattr(args, "multiplexer", None),
-            multiplexer_mode=getattr(args, "multiplexer_mode", "workspace"),
-            dry_run=getattr(args, "dry_run", False),
-            state_file=getattr(args, "state_file", ".atdd/orchestrate-state.json"),
         )
 
     # atdd coach <issue-numbers...> (J1 — #496)
