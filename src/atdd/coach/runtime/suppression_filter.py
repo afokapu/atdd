@@ -24,11 +24,10 @@ from __future__ import annotations
 
 import json
 import os
-import warnings
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Optional
 
 from atdd.coach.utils.rule_binding import RuleNotInRegistryError, bind_rule
 from atdd.coach.utils.suppression_scanner import (
