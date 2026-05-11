@@ -19,19 +19,19 @@ def _extract_json(text: str) -> Any:
     text = text.strip()
     try:
         return json.loads(text)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         pass
     m = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1).strip())
-        except json.JSONDecodeError:
+        except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             pass
     m = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1))
-        except json.JSONDecodeError:
+        except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             pass
     raise LLMUnavailable(f"no JSON found in response (first 200 chars): {text[:200]!r}")
 
