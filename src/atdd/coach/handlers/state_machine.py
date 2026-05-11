@@ -29,6 +29,7 @@ class HandlerResult(str, Enum):
     NOOP = "NOOP"
     HANDLED = "HANDLED"
     ERROR = "ERROR"
+    BLOCKED = "BLOCKED"
 
 
 class Phase(str, Enum):
