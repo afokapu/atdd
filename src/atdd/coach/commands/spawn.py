@@ -113,7 +113,14 @@ def _write_manifest(
 # ---------------------------------------------------------------------------
 
 
-def _render_launch_prompt(issue: int, worktree: Path, *, phase: Optional[str] = None, rules: Optional[Iterable[Any]] = None) -> Path:
+def _render_launch_prompt(
+    issue: int,
+    worktree: Path,
+    *,
+    phase: Optional[str] = None,
+    rules: Optional[Iterable[Any]] = None,
+    persona: str = "",
+) -> Path:
     """Wrap ``session_template`` to render the launch prompt and write
     it to ``<worktree>/.launch_prompt.txt``. Returns the prompt path."""
     from atdd.coach.commands import session_template
@@ -129,7 +136,7 @@ def _render_launch_prompt(issue: int, worktree: Path, *, phase: Optional[str] = 
     )
     rendered = session_template.render(context)
     if rules is not None and phase is not None:
-        rendered = _append_spawn_rule_blocks(rendered, rules=rules, coach_phase=phase)
+        rendered = _append_spawn_rule_blocks(rendered, rules=rules, coach_phase=phase, persona=persona)
     prompt_path = worktree / ".launch_prompt.txt"
     prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(rendered)
@@ -137,7 +144,7 @@ def _render_launch_prompt(issue: int, worktree: Path, *, phase: Optional[str] = 
 
 
 def _append_spawn_rule_blocks(
-    rendered: str, *, rules: Iterable[Any], coach_phase: str
+    rendered: str, *, rules: Iterable[Any], coach_phase: str, persona: str = ""
 ) -> str:
     import yaml
 
@@ -148,13 +155,13 @@ def _append_spawn_rule_blocks(
     )
 
     blocks: dict[str, list[dict[str, Any]]] = {}
-    wmbt_rules = render_wmbt_rules_block(rules, coach_phase=coach_phase)
+    wmbt_rules = render_wmbt_rules_block(rules, coach_phase=coach_phase, persona=persona)
     if wmbt_rules:
         blocks["wmbt_rules"] = wmbt_rules
-    train_rules = render_train_rules_block(rules, coach_phase=coach_phase)
+    train_rules = render_train_rules_block(rules, coach_phase=coach_phase, persona=persona)
     if train_rules:
         blocks["train_rules"] = train_rules
-    security_rules = render_security_rules_block(rules, coach_phase=coach_phase)
+    security_rules = render_security_rules_block(rules, coach_phase=coach_phase, persona=persona)
     if security_rules:
         blocks["security_rules"] = security_rules
     if not blocks:
@@ -223,7 +230,7 @@ def cmd_spawn(
     worktree = Path(worktree)
     runtime_root = Path(runtime_root)
 
-    prompt_path = _render_launch_prompt(issue, worktree, phase=phase, rules=rules)
+    prompt_path = _render_launch_prompt(issue, worktree, phase=phase, rules=rules, persona=persona)
 
     # Reviewer persona: layer the no-write adapter over the base prompt
     if persona == "reviewer":
