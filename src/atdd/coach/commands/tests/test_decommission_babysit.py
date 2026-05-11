@@ -41,33 +41,21 @@ class TestBabysitStub:
     and exits non-zero without executing any babysit machinery."""
 
     def test_stub_no_babysit_machinery(self):
-        """The stub module must NOT expose babysit internals.
+        """The stub must not contain babysit process machinery.
+
+        The stub MAY re-export compat symbols (BashPattern, classify_prompt,
+        correct_naming_drift, correct_layout_drift, detect_violation,
+        _load_bash_patterns) so that observer_rules installed at ≤3.30 continue
+        to import from this path without error.  What it must NOT have is the
+        polling / rendering machinery that actually ran during a babysit session.
 
         RED: fails because current babysit.py has all the machinery.
         GREEN: passes once the stub replaces the implementation.
         """
         import atdd.coach.commands.babysit as mod
 
-        assert not hasattr(mod, "BashPattern"), (
-            "BashPattern must not be exposed — it belongs in the archive"
-        )
-        assert not hasattr(mod, "_load_bash_patterns"), (
-            "_load_bash_patterns must not be exposed — it belongs in the archive"
-        )
-        assert not hasattr(mod, "classify_prompt"), (
-            "classify_prompt must not be exposed — it belongs in the archive"
-        )
         assert not hasattr(mod, "aggregate_approve"), (
             "aggregate_approve must not be exposed — it belongs in the archive"
-        )
-        assert not hasattr(mod, "correct_naming_drift"), (
-            "correct_naming_drift must not be exposed — it belongs in the archive"
-        )
-        assert not hasattr(mod, "correct_layout_drift"), (
-            "correct_layout_drift must not be exposed — it belongs in the archive"
-        )
-        assert not hasattr(mod, "detect_violation"), (
-            "detect_violation must not be exposed — it belongs in the archive"
         )
         assert not hasattr(mod, "process_workspace"), (
             "process_workspace must not be exposed — it belongs in the archive"
@@ -80,6 +68,12 @@ class TestBabysitStub:
         )
         assert not hasattr(mod, "SurfaceRow"), (
             "SurfaceRow must not be exposed — it belongs in the archive"
+        )
+        assert not hasattr(mod, "_fetch_phase_cache"), (
+            "_fetch_phase_cache must not be exposed — it belongs in the archive"
+        )
+        assert not hasattr(mod, "_phase_from_labels"), (
+            "_phase_from_labels must not be exposed — it belongs in the archive"
         )
 
     def test_stub_has_migration_message_constant(self):
@@ -274,8 +268,9 @@ class TestNoInternalCallsites:
         hits: list[str] = []
         allowed = (
             "commands/_archived/",
+            "commands/babysit.py",   # stub compat re-exports for ≤3.30 callers
             "commands/tests/",
-            "observer_rules/",  # absorption consumers per spec §0.2
+            "observer_rules/",       # absorption consumers per spec §0.2
             "tests/integration/",
         )
         for p, rel in self._collect_py_files():

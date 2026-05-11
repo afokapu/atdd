@@ -14,10 +14,27 @@ Absorption map (spec §0.2):
   dashboard                  → atdd observer status
   workspace polling          → replaced by event-driven runtime_watcher (no parity test)
   phase-cache-via-labels     → replaced by coach state machine (no parity test)
+
+Backward-compat re-exports
+--------------------------
+The four symbols below are re-exported so that observer_rules modules
+installed at 3.30.0 (which still import from this path) continue to work
+after the CLI surface is cut.  They resolve to the archived implementation;
+no babysit machinery executes via this module's ``run()``.
 """
 from __future__ import annotations
 
 import sys
+
+# Thin compat re-exports — observer_rules ≤3.30 import these from this path.
+from atdd.coach.commands._archived.babysit import (  # noqa: F401
+    BashPattern,
+    _load_bash_patterns,
+    classify_prompt,
+    correct_layout_drift,
+    correct_naming_drift,
+    detect_violation,
+)
 
 MIGRATION_MESSAGE = (
     "atdd babysit has been removed in coach v9. "
