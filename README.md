@@ -1,491 +1,433 @@
 # ATDD
 
-Acceptance Test Driven Development toolkit for structured planning and convention enforcement.
+[![PyPI](https://img.shields.io/pypi/v/atdd.svg)](https://pypi.org/project/atdd/) [![CI](https://github.com/afokapu/atdd/actions/workflows/atdd-validate.yml/badge.svg)](https://github.com/afokapu/atdd/actions) [![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
 
-ATDD covers the full software lifecycle, not just code. It starts from a job to be done (e.g., user problem or goal), turns it into deterministic requirements, validates them with tests, and then drives implementation.
+> **Acceptance Test Driven Development toolkit** — turns a job-to-be-done into deterministic requirements, validates them with tests, and drives implementation through a structured agent lifecycle.
 
 ```mermaid
 flowchart LR
-    A[Job to be Done] -->|Planner| B[Wagon + Acceptance Criteria]
-    B -->|Tester| C[RED Tests]
-    C -->|Coder| D[GREEN Code]
-    D -->|Tester| F[SMOKE Tests]
-    F -->|Coder| E[REFACTOR]
+    A[Job to be Done] --> B[Wagon + Acceptance]
+    B --> C[RED Tests]
+    C --> D[GREEN Code]
+    D --> F[SMOKE Tests]
+    F --> E[REFACTOR]
+    E --> COMPLETE[COMPLETE → MERGED]
     E -.->|feedback| B
-
-    subgraph "ATDD Lifecycle"
-        B
-        C
-        D
-        F
-        E
-    end
+    classDef phase fill:#1f2937,color:#fff,stroke:#3b82f6,stroke-width:2px
+    class B,C,D,F,E,COMPLETE phase
 ```
 
-## Installation
+**Jump to:** [Quick Start](#quick-start) · [Lifecycle](#the-atdd-lifecycle) · [Multi-agent orchestration](#multi-agent-orchestration) · [Commands](#commands) · [Validators](#validators) · [Installation](#installation)
 
-### From PyPI
+---
 
-```bash
-pip install atdd
-```
+## Why ATDD
 
-### Upgrade
+| You want to… | ATDD gives you… |
+|---|---|
+| stop agents skipping instructions | `atdd gate` — coercive mandatory tool-output bootstrap |
+| keep planning, testing, and code in lock-step | a deterministic state machine: `INIT → PLANNED → RED → GREEN → SMOKE → REFACTOR → COMPLETE → MERGED` |
+| run 5+ agents in parallel without merge chaos | `atdd coach` + worktrees + per-issue cmux/tmux/zellij panes |
+| catch regressions before review | 4 validator phases + per-rule disposition gates + rule-ID binding |
+| sync rules across Claude, Codex, Gemini, GLM | `atdd sync` — managed blocks that preserve user content |
+| treat issues, PRs, and releases as one artifact | GitHub Issues + Project v2 fields + auto-tag publish.yml |
 
-```bash
-pip install --upgrade atdd
-```
-
-### Uninstall (Consumer Repos)
-
-If you want to remove ATDD entirely:
-
-1. Uninstall the package:
-   ```bash
-   python -m pip uninstall atdd
-   ```
-2. Manually delete ATDD artifacts in the repo:
-   ```text
-   .atdd/
-   Managed blocks in CLAUDE.md, AGENTS.md, etc.
-   ```
-
-Uninstalling ATDD does not remove or revert any repo files.
-
-### For Development
-
-```bash
-git clone https://github.com/afokapu/atdd.git
-cd atdd
-pip install -e ".[dev]"
-atdd --help
-```
+---
 
 ## Quick Start
 
 ```bash
-atdd init                      # Initialize ATDD + GitHub infrastructure
-atdd gate                      # START EVERY SESSION WITH THIS
-atdd issue <slug>              # Create GitHub issue + WMBT sub-issues
-atdd branch <N>                # Create worktree branch from issue (auto-creates draft PR)
-atdd pr <N>                    # Open / promote PR linked to issue (closing keywords)
-atdd sync                      # Sync rules to agent config files
-atdd validate                  # Run all validators
-atdd upgrade                   # Pull latest atdd from PyPI, then sync + init --force
+pip install atdd                          # Install
+atdd init                                 # Bootstrap .atdd/ + GitHub infrastructure
+atdd gate                                 # ← START EVERY SESSION WITH THIS
+atdd issue my-new-feature                 # Create parent issue + WMBT sub-issues
+atdd branch <N>                           # Create worktree + draft PR
+atdd coach <N>                            # Drive INIT → MERGED via state machine
+atdd validate                             # Run all validators
 ```
 
-> **All issue/PR creation must go through the `atdd` CLI.**
-> `gh issue create` / `gh pr create` bypass manifest registration, WMBT
-> generation, and Project v2 field setup. The coach validator flags these.
+> **Mandatory:** all issue & PR creation goes through `atdd`. `gh issue create` / `gh pr create` are blocked by convention. Reason: bypass loses manifest registration, WMBT sub-issues, Project v2 fields, and the `--base default-branch` orphan-merge guard.
 
-> **`atdd gate` is required.**
-> Tell your agent: "Run `atdd gate` and follow ATDD rigorously."
-> Agents skip instruction files but can't ignore tool output. No gate = no guarantees.
+---
 
-## What It Does
+## The ATDD Lifecycle
 
-ATDD provides:
+```mermaid
+stateDiagram-v2
+    [*] --> INIT
+    INIT --> PLANNED: planner persona
+    PLANNED --> RED: tester persona
+    RED --> GREEN: coder persona
+    GREEN --> SMOKE: tester persona
+    SMOKE --> REFACTOR: coder persona
+    REFACTOR --> COMPLETE: reviewer persona
+    COMPLETE --> MERGED: two-phase commit
+    PLANNED --> BLOCKED
+    RED --> BLOCKED
+    GREEN --> BLOCKED
+    SMOKE --> BLOCKED
+    REFACTOR --> BLOCKED
+    BLOCKED --> [*]: OBSOLETE
+    MERGED --> [*]
+```
 
-1. **Issue Tracking** - GitHub Issues + Project v2 custom fields as source of truth
-2. **Convention Enforcement** - YAML-based conventions validated via pytest
-3. **ATDD Lifecycle** - Planner → Tester → Coder phase gates with state machine transitions
-4. **Agent Config Sync** - Keep ATDD rules in sync across AI agent config files
-5. **Design System Compliance** - Hierarchy, token, and adoption validators for frontend
+| State | Persona | Deliverable | Validator phase |
+|---|---|---|---|
+| `INIT` | planner | wagon + acceptance + WMBT | `atdd validate planner` |
+| `PLANNED` | tester | RED tests from acceptance | `atdd validate tester` |
+| `RED` | coder | GREEN implementation | `atdd validate coder` (green) |
+| `GREEN` | tester | SMOKE tests vs real infra | `atdd validate tester` (smoke) |
+| `SMOKE` | coder | REFACTOR to 4-layer arch | `atdd validate coder` (architecture) |
+| `REFACTOR` | reviewer | review-report.json pass | `atdd validate coach` |
+| `COMPLETE` | — | PR open + CI clean | gate validators |
+| `MERGED` | — | release tag + cleanup | publish.yml |
+
+---
+
+## Multi-agent orchestration
+
+```mermaid
+flowchart TB
+    coach["atdd coach &lt;N&gt;"] --> SM{state machine}
+    SM --> SP[spawn handler]
+    SM --> DEC[decisions.jsonl]
+    SM --> WATCH[runtime watcher]
+    SM --> VAL[validator dispatch]
+    SP --> AGENT[per-phase agent<br/>planner/tester/coder]
+    AGENT --> OBS[observer co-spawn]
+    AGENT --> REV[reviewer agent]
+    REV --> JUDGE{verdict}
+    JUDGE -->|pass| SM
+    JUDGE -->|concern| ATDDJUDGE[atdd judge]
+    JUDGE -->|fail| SP
+    SM --> TPC[two-phase commit<br/>PR → merge → tag → cleanup]
+    classDef shipped fill:#10b981,color:#fff,stroke:#065f46
+    classDef wip fill:#f59e0b,color:#fff,stroke:#92400e
+    class AGENT,OBS,REV,JUDGE,ATDDJUDGE,TPC,DEC,WATCH,VAL,SP shipped
+    class SM,coach wip
+```
+
+**Components:** all shipped via the coach-v9 train (42/42 issues closed, May 2026):
+
+| Component | CLI | Role |
+|---|---|---|
+| State machine | `atdd coach <N>` | drives `INIT → MERGED` per issue; supports `--persona-llm`, `--review-phases`, `--resume`, `--dry-run` |
+| Spawn | `atdd spawn --persona <p>` | renders launch prompt + creates worktree + opens multiplexer pane with canonical naming |
+| Observer | `atdd observer run --agent-id <id>` | watches agent screen, auto-approves safe prompts, escalates unknowns (absorbed legacy `babysit`) |
+| Reviewer | `atdd agent review --target-commit <sha> --report-file <p>` | emits review-report.json with hard rules (no-pass-with-not-covered, severity-matches-registry) |
+| Judge | `atdd judge --prompt-template <p> --schema <s>` | LLM tiebreaker for ambiguous routing (6 call sites, spec §6.9) |
+| Issue review | `atdd issue review <N> --passes 2` | multi-pass cross-LLM critique of an issue body across 5 dimensions |
+| Status | `atdd observer status` | dashboard of running agents per workspace |
+
+> Legacy `atdd orchestrate` and `atdd babysit` were decommissioned (May 2026, PRs #577 / #579). Their machinery lives under `commands/_archived/` for the parity test suites; the public CLI prints a migration message and exits non-zero.
+
+---
 
 ## Commands
 
-### Project Initialization
+### Initialization
 
 ```bash
-atdd init                    # Bootstrap .atdd/, GitHub labels, Project v2 fields, CLAUDE.md
-atdd init --force            # Reinitialize (overwrites existing)
-atdd init --export-schemas   # Also export convention schemas to consumer repo
+atdd init                          # Bootstrap .atdd/ + GitHub labels + Project v2 fields
+atdd init --force                  # Reinitialize (overwrites managed blocks)
+atdd init --worktree-layout        # Migrate repo to flat-sibling worktree layout
+atdd init --export-schemas         # Also export convention schemas to consumer repo
 ```
 
-Creates:
-```
-your-project/
-├── CLAUDE.md              # With managed ATDD block
-└── .atdd/
-    ├── manifest.yaml      # Issue tracking
-    ├── config.yaml        # Agent sync + release + code roots + themes
-    └── hooks/             # Advisory pre-commit / pre-push hooks
-```
+After `atdd init`, your project structure looks like:
 
-Also sets up on GitHub:
-- Labels: `atdd-issue`, `atdd-wmbt`, `atdd:RED`, `atdd:GREEN`, `atdd:SMOKE`, `atdd:REFACTOR`, archetype labels
-- Project v2 custom fields: `ATDD:Status`, `ATDD:Train`, `ATDD:Archetypes`, etc.
-
-### Worktree Layout
-
-Migrate your repo to a flat-sibling worktree layout where each branch lives alongside `main/`:
-
-```bash
-atdd init --worktree-layout         # Migrate repo into main/ subdirectory
-atdd init --worktree-layout --force # Non-interactive
-```
-
-Resulting structure:
 ```
 your-project/
-├── your-project.code-workspace   # VS Code multi-root workspace (auto-generated)
+├── your-project.code-workspace   # VS Code multi-root (open this, not main/)
 ├── main/                         # Primary checkout
-├── feat-some-feature/            # git worktree: feat/some-feature
-└── fix-login-bug/                # git worktree: fix/login-bug
+├── feat-some-feature/            # git worktree per branch
+├── CLAUDE.md                     # Managed by atdd sync
+├── AGENTS.md                     # Managed by atdd sync (optional)
+└── .atdd/
+    ├── manifest.yaml             # Issue tracking
+    ├── config.yaml               # Sync agents, release, code roots
+    └── hooks/                    # Pre-commit / pre-push hooks
 ```
 
-Creating and removing worktrees:
-```bash
-cd main
-git worktree add ../feat-my-feature -b feat/my-feature   # New branch
-git worktree remove ../feat-my-feature                    # After merge
-```
-
-After adding or removing worktrees, run `atdd sync` to refresh the workspace file:
-```bash
-atdd sync   # Regenerates .code-workspace with current worktrees
-```
-
-#### Opening the Workspace
-
-After migrating to worktree layout, **always open the `.code-workspace` file** instead of individual folders:
+### Issue & PR
 
 ```bash
-code your-project.code-workspace   # or: File → Open Workspace from File…
+atdd issue <slug>                       # Create parent issue + WMBT sub-issues
+atdd issue <slug> --archetypes be,fe    # Archetypes: db, be, fe, contracts, wmbt, wagon, train, telemetry, coach
+atdd issue <N>                          # Enter issue (state-driven context)
+atdd issue <N> --status <STATUS>        # Transition state; auto-swaps labels
+atdd issue <N> --check                  # Template compliance feedback
+atdd issue <N> --sync-wmbts             # Backfill missing WMBT sub-issues
+atdd issue review <N> --passes 2        # Multi-pass cross-LLM review (5 dimensions)
+
+atdd branch <N>                         # Create worktree + draft PR
+atdd pr <N>                             # Open / promote PR (closing keywords + base-branch guard)
+atdd pr <N> --auto --merge-strategy squash  # Auto-merge after CI
 ```
 
-This gives you:
-- **Branch-aware sidebar** — each worktree folder shows its active branch in the Explorer
-- **Git tracking per worktree** — Source Control panel tracks changes independently per branch
-- **Shared settings** — editor config, extensions, and tasks apply across all worktrees
-- **Auto-updated** — `atdd sync` regenerates the workspace file when worktrees are added or removed
-
-> **Do not open `main/` directly.** Without the workspace file, VS Code won't track sibling worktrees and you lose multi-branch visibility.
-
-### Issue Management
-
-Issues are the source of truth, backed by GitHub Issues with Project v2 custom fields.
+### Coach (single-command lifecycle)
 
 ```bash
-atdd issue <slug>                              # Create parent issue + WMBT sub-issues
-atdd issue <slug> --archetypes be,contracts    # Specify archetypes
-atdd issue <slug> --train <id>                 # Assign to train
-atdd issue <N>                                 # Enter issue (state-driven context)
-atdd issue <N> --check                         # Run template compliance check
-atdd issue <N> --status <STATUS>               # Transition status (swaps labels automatically)
-atdd issue <N> --status COMPLETE               # Runs gate tests, artifact + release verification
-atdd issue <N> --status COMPLETE --force       # Bypass gate/artifact/release checks (train still enforced)
-atdd issue <N> --close-wmbt <WMBT_ID>          # Close a WMBT sub-issue
-atdd issue <N> --sync-wmbts                    # Backfill missing GitHub WMBT sub-issues from plan YAMLs
-atdd issue <N> --orchestrate                   # Walk dep graph, launch atdd orchestrate on the wave
-atdd issue open                                # List open issues
-atdd issue sync-labels <N>                     # Re-derive labels from body metadata
-atdd list                                      # List all issues (from GitHub)
+atdd coach <N>                                 # Drive issue from INIT to MERGED
+atdd coach <N1> <N2> ...                       # Wave-ordered parallel run
+atdd coach <N> --persona-llm tester=glm-5.1,coder=claude-sonnet-4-6
+atdd coach <N> --review-phases planned,red,green,smoke
+atdd coach <N> --skip-review                   # Bypass reviewer agent spawns
+atdd coach <N> --auto-merge                    # Merge on CI clean
+atdd coach <N> --resume <run-id>               # Resume from decisions.jsonl
+atdd coach <N> --multiplexer-mode pane         # Tabs in current workspace
+atdd coach <N> --dry-run                       # Print planned state path, no side-effects
 ```
-
-**Branch & PR shortcuts** (mandatory — never use `gh pr create` directly):
-
-```bash
-atdd branch <N>                                  # Create worktree branch + push + draft PR
-atdd pr <N>                                      # Create / open PR with closing keywords
-atdd pr <N> --draft                              # Open as draft
-atdd pr <N> --base develop                       # Override base branch (default: main)
-atdd pr <N> --auto                               # Enable auto-merge after CI
-atdd pr <N> --auto --merge-strategy rebase       # squash | merge | rebase
-```
-
-> All open issues must carry the `atdd-issue` label — `atdd issue …`
-> applies it automatically. `atdd validate coach` flags any open issue
-> missing it (label-compliance gate).
-
-**State machine transitions:**
-```
-INIT → PLANNED → RED → GREEN → SMOKE → REFACTOR → COMPLETE
-         ↕         ↕      ↕      ↕       ↕
-       BLOCKED   BLOCKED BLOCKED BLOCKED BLOCKED → OBSOLETE
-```
-
-**Archetypes:** `db`, `be`, `fe`, `contracts`, `wmbt`, `wagon`, `train`, `telemetry`, `migrations`, `coach`
-
-Each archetype includes gate tests in the issue template (e.g., `fe` issues get GT-020 for TypeScript architecture and GT-021 for design system compliance).
-
-### Agent Config Sync
-
-Sync ATDD rules to agent config files using managed blocks that preserve user content:
-
-```bash
-atdd sync                  # Sync all enabled agents from config
-atdd sync --agent claude   # Sync specific agent only
-atdd sync --verify         # Check if files are in sync (for CI)
-atdd sync --status         # Show sync status for all agents
-```
-
-Supported agents:
-| Agent | File |
-|-------|------|
-| claude | CLAUDE.md |
-| codex | AGENTS.md |
-| gemini | GEMINI.md |
-| qwen | QWEN.md |
-
-Configure which agents to sync in `.atdd/config.yaml`. Full schema:
-
-```yaml
-version: "1.0"
-
-sync:
-  agents:
-    - claude      # Enabled by default
-    # - codex     # Uncomment to sync AGENTS.md
-    # - gemini    # Uncomment to sync GEMINI.md
-    # - qwen      # Uncomment to sync QWEN.md
-
-init:
-  skip_workflows: false   # Set true to skip generating .github/workflows on atdd init
-
-release:
-  version_file: "pyproject.toml"   # or package.json, VERSION, etc.
-  tag_prefix: "v"
-
-# Stack roots (drives validators that need to know where each archetype lives)
-code:
-  python: "src"
-  supabase: "supabase/functions"
-  frontend: "web/src"
-  toolkit: "src/atdd"   # only for the atdd toolkit-self repo
-
-# Optional theme overrides for atdd repo viz / status output
-themes:
-  default: "auto"
-  # custom:
-  #   primary: "#0ea5e9"
-  #   accent: "#22c55e"
-```
-
-### ATDD Gate (Bootstrap Protocol)
-
-Agents often skip instruction files. The gate solves this by injecting rules via mandatory tool output.
-
-```bash
-atdd gate              # Show gate verification info
-atdd gate --json       # Output as JSON
-```
-
-**Protocol:**
-1. Run `atdd gate` first
-2. Agent must confirm: which files were loaded, the reported hash, key constraints
-3. If files are missing/unsynced: run `atdd sync` then `atdd gate` again
-
-**Why this works:** Gate output is mandatory tool output — agent can't ignore it. Proves which ATDD files were actually loaded and forces consistency across all agents.
 
 ### Validation
 
-Four validator phases matching the ATDD lifecycle:
-
 ```bash
-atdd validate                  # Run all validators (two-stage: fast then platform)
-atdd validate planner          # Planning validators (wagons, trains, URNs, WMBTs)
-atdd validate tester           # Testing validators (contracts, telemetry, test naming, smoke coverage)
-atdd validate coder            # Implementation validators — see coverage list below
-atdd validate coach            # Coach validators (issues, registries, release, gate completion, label compliance)
-atdd validate --quick          # Fast smoke test
-atdd validate --no-split       # Single-pass execution (skip two-stage split)
-atdd validate --skip-api       # Skip github_api-marked validators (offline mode)
-atdd validate --verify-baseline  # Fast pass-record check (skip full re-run)
+atdd validate                  # All validators, two-stage (fast → platform)
+atdd validate planner          # Wagons, trains, URNs, WMBTs
+atdd validate tester           # Test naming, contracts, telemetry, SMOKE coverage
+atdd validate coder            # Architecture, boundaries, dead code, complexity (see below)
+atdd validate coach            # Issues, registries, release gate, label compliance
+atdd validate --quick          # Fast smoke pass
 atdd validate --coverage       # With coverage report
-atdd validate --html           # With HTML report
+atdd validate --verify-baseline  # Pass-record check, skip full re-run
 ```
 
-By default, `atdd validate` runs in two stages: fast file-parsing tests in parallel, then API-bound platform tests sequentially with shared session fixtures.
+### Agent config sync
 
-**Coder validator coverage:** 4-layer architecture, wagon boundaries, design system hierarchy, structured logging, security patterns, error responses, N+1 queries, cognitive complexity, dead code (Python + TypeScript), code duplication, contract-driven HTTP (no raw `fetch()`), and train-driven frontend composition.
+```bash
+atdd sync                  # Sync all enabled agents from config
+atdd sync --agent claude   # Sync specific
+atdd sync --verify         # CI check
+atdd sync --status         # Status across agents
+```
 
-### Release Versioning
+| Agent | Managed file |
+|---|---|
+| claude | `CLAUDE.md` |
+| codex | `AGENTS.md` |
+| gemini | `GEMINI.md` |
+| glm | `GLM.md` |
+| qwen | `QWEN.md` |
 
-ATDD enforces release versioning via coach validators. Configure the version file and tag prefix in `.atdd/config.yaml`:
+### Discovery & visualization
+
+```bash
+atdd rules show <rule_id>      # Show a rule definition (bind_rule contract)
+atdd rules where <rule_id>     # Where is rule fired/bound
+atdd rules grep <pattern>      # Search rule registry
+atdd inventory                 # Artifact inventory
+atdd inventory --trace         # Unified URN traceability matrix
+atdd repo viz                  # Interactive URN graph (pip install atdd[viz])
+atdd repo viz --mode journey   # Train-step edges from sequence[]
+```
+
+### Maintenance
+
+```bash
+atdd upgrade                   # pip-upgrade → sync → init --force
+atdd merge-cascade <pr1> ...   # Wave-ordered merge with CI gating
+atdd status                    # Platform status
+atdd registry update           # Update all registries (rules, conventions)
+```
+
+---
+
+## Validators
+
+Four phase validators map to the lifecycle. Each rule declares a **rule-ID** (canonical `<archetype>.<convention_short_name>.<rule_name>`) bound via `bind_rule()` at module-import time. Per-rule **dispositions** drive CI behavior:
+
+| Disposition | CI behavior |
+|---|---|
+| `strict` | any violation fails CI |
+| `suppress-and-clean` | pre-existing sites carry `# atdd:suppress(<id>) UNTIL=<YYYY-MM-DD>`; new violations fail |
+| `advisory` | warnings only, never fails CI |
+
+### Coder validator coverage (the strictest CI job)
+
+| Domain | Checks |
+|---|---|
+| Architecture | 4-layer (domain/application/integration/presentation), wagon boundaries, qualified imports |
+| Design system | Hierarchy, token, adoption (frontend) |
+| Quality | Cognitive complexity, dead code (Python + TypeScript), code duplication |
+| Logging | Structured logging, no silent exception swallowing |
+| Security | Pattern-based checks, error response compliance |
+| Cross-stack | Contract-driven HTTP (no raw `fetch()`), train-driven frontend composition |
+
+> **CI two-stage execution:** fast file-parsing tests run in parallel, then API-bound platform tests run sequentially with shared fixtures. Override with `--no-split`.
+
+---
+
+## Conventions registry
+
+YAML conventions per phase, each declaring rules with rule_id + disposition:
+
+| Phase | Conventions |
+|---|---|
+| planner | wagon, acceptance, wmbt, feature, artifact |
+| tester | red, filename, contract, artifact, smoke |
+| coder | green, refactor, boundaries, backend, frontend, design |
+| coach | issue, orchestration, persona-prompts, judge call-sites |
+
+Browse: `src/atdd/<phase>/conventions/*.convention.yaml`.
+
+---
+
+## Release & publishing
+
+```mermaid
+flowchart LR
+    A[feat/fix branch] -->|version bump| B[PR]
+    B -->|CI clean| C[merge to main]
+    C -->|workflow_run| D[publish.yml]
+    D -->|read version| E[git tag vX.Y.Z]
+    E -->|softprops/action-gh-release| F[release notes]
+    F -->|PyPI Trusted Publishing| G[pypi.org/atdd]
+```
+
+`atdd init` ships 3 workflows:
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| `atdd-validate.yml` | push, PR, issues | Run validators |
+| `publish.yml` | `workflow_run` after validate success on main | Tag + publish (rate-limit retries, body-shape preserved) |
+| `post-merge-lifecycle.yml` | PR merged | Auto-close WMBT sub-issues, transition parent to COMPLETE |
+
+Configure release in `.atdd/config.yaml`:
 
 ```yaml
 release:
-  version_file: "pyproject.toml"   # or package.json, VERSION, etc.
+  version_file: "pyproject.toml"
   tag_prefix: "v"
 ```
 
-Validation (`atdd validate coach`) requires:
-- Version file exists and contains a version
-- Git tag on HEAD matches `{tag_prefix}{version}`
+`atdd validate coach` enforces: version file exists, git tag on HEAD matches `{tag_prefix}{version}`.
 
-### CI Release Workflow
+---
 
-`atdd init` generates three GitHub Actions workflows:
+## Installation
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `atdd-validate.yml` | push, PR, issues | Run ATDD validators |
-| `publish.yml` | `workflow_run` (after validate succeeds on main) | Tag + publish |
-| `post-merge-lifecycle.yml` | `pull_request` closed (merged) | Auto-close WMBT sub-issues, transition parent issue to `atdd:COMPLETE` |
-
-**Release flow:**
-1. Agent bumps version on PR branch (feat/ → MINOR, fix/ → PATCH)
-2. PR merges to main
-3. `atdd-validate.yml` runs validators
-4. `publish.yml` triggers automatically: reads version → creates git tag → publishes
-
-**Consumer repos** get tag creation out of the box. To add platform-specific publishing (PyPI, npm, Docker), extend the generated `publish.yml` with your own publish steps. See the [atdd toolkit's publish.yml](.github/workflows/publish.yml) as a PyPI example.
-
-### URN Graph UI
-
-Visualize URN traceability as an interactive graph with search, family filters, and node inspection.
+### Standard
 
 ```bash
-pip install atdd[viz]
-atdd repo viz                           # Launch on default port 8502
-atdd repo viz --port 9000               # Custom port
-atdd repo viz --root wagon:my-wagon     # Subgraph from root
-atdd repo viz --family wagon --family feature  # Filter families
-atdd repo viz --mode journey            # Journey mode — TRAIN_STEP edges from train sequence[]
+pip install atdd                # PyPI
+pip install --upgrade atdd      # Upgrade
+pip install atdd[viz]           # With URN graph UI (Streamlit)
 ```
 
-### Parallel Orchestration
-
-Run multiple agent sessions in parallel — one issue per worktree, each in its
-own multiplexer workspace — with a babysitter that auto-approves known-safe
-prompts and escalates the rest. See `src/atdd/coach/conventions/orchestration.convention.yaml`.
-
-```bash
-atdd session-template <N>                            # Generate launch script from issue body
-atdd orchestrate <N1> <N2> ...                       # Wave-ordered parallel launch
-atdd orchestrate <N> --autonomous                    # Allow sessions past REFACTOR without confirmation
-atdd orchestrate <N> --resume                        # Resume from .atdd/orchestrate-state.json
-atdd orchestrate <N> --dry-run                       # Print waves without creating worktrees
-atdd orchestrate <N> --multiplexer cmux|zellij|tmux  # Force backend (default: auto-detect)
-atdd babysit                                         # Watch all sessions, auto-approve safe prompts
-atdd babysit --interval 30 --once                    # One screen-read cycle and exit
-atdd babysit --workspaces ws1,ws2 --stale-warn 10 --stale-escalate 20
-atdd merge-cascade <pr1> <pr2> ...                   # Wave-ordered merge with CI gating
-```
-
-**Supported multiplexers** (auto-detected; precedence cmux > zellij > tmux):
-
-| Backend | Workspace model | Detached creation |
-|---------|-----------------|-------------------|
-| cmux    | Native workspaces (preferred — matches ATDD model)  | `cmux new-workspace` |
-| zellij  | Sessions targeted via `ZELLIJ_SESSION_NAME`         | `zellij attach --create-background` |
-| tmux    | Sessions                                            | `tmux new-session -d` |
-
-### Per-rule disposition gating
-
-Each rule in every `*.convention.yaml` declares a `disposition:`:
-
-| Disposition          | CI behavior |
-|----------------------|-------------|
-| `strict`             | any violation fails CI |
-| `suppress-and-clean` | pre-existing sites carry inline `# atdd:suppress(<id>) [UNTIL=<YYYY-MM-DD>]` markers; new violations fail |
-| `advisory`           | emits warnings only, never fails CI |
-
-Coach validators enforce that every rule has a disposition
-(`test_rule_disposition_required`) and that no `UNTIL=` marker is past
-its deadline (`test_no_stale_suppressions`). Replaced the count-based
-ratchet baseline in issue #395.
-
-### Upgrading
-
-```bash
-atdd upgrade                   # Query PyPI, pip-upgrade if newer, then atdd sync + atdd init --force
-```
-
-After any successful `atdd ...` invocation that detects a version bump,
-the toolkit auto-runs `atdd sync` so agent config files (CLAUDE.md,
-AGENTS.md, etc.) stay aligned with the installed version.
-
-### Other Commands
-
-```bash
-atdd status                    # Platform status
-atdd inventory                 # Generate artifact inventory
-atdd inventory --format json   # Inventory as JSON
-atdd inventory --trace         # Unified URN traceability matrix report
-atdd registry update           # Update all registries
-atdd --help                    # Full help
-```
-
-## Project Structure
-
-```
-src/atdd/
-├── cli.py                 # Entry point
-├── coach/
-│   ├── commands/          # CLI command implementations (issue.py, initializer.py, sync.py, gate.py)
-│   ├── conventions/       # Coach conventions (issue.convention.yaml)
-│   ├── overlays/          # Agent-specific additions
-│   ├── schemas/           # JSON schemas (config, project fields, label taxonomy)
-│   ├── templates/         # Issue templates, ATDD.md
-│   ├── utils/             # Graph builder, URN resolver, repo utilities
-│   └── validators/        # Coach validators (issues, registries, release, traceability)
-├── planner/
-│   ├── conventions/       # Planning conventions
-│   ├── schemas/           # Planning schemas
-│   └── validators/        # Planning validators
-├── tester/
-│   ├── conventions/       # Testing conventions
-│   ├── schemas/           # Testing schemas
-│   └── validators/        # Testing validators
-└── coder/
-    ├── conventions/       # Coding conventions (architecture, design system, boundaries)
-    ├── schemas/           # Coder schemas
-    └── validators/        # Implementation validators (architecture, design system compliance)
-```
-
-## Development
-
-### Setup
+### Development
 
 ```bash
 git clone https://github.com/afokapu/atdd.git
-cd atdd
-pip install -e ".[dev]"
+cd atdd && pip install -e ".[dev]"
+atdd --help
 ```
 
-### Run Tests
+### Uninstall (consumer repo)
 
 ```bash
-# All validators from source
-PYTHONPATH=src python3 -m pytest src/atdd/ -v
-
-# Specific phase
-PYTHONPATH=src python3 -m pytest src/atdd/planner/validators/ -v
-
-# With coverage
-PYTHONPATH=src python3 -m pytest --cov=atdd --cov-report=html
+python -m pip uninstall atdd
+# Then manually delete: .atdd/, managed blocks in CLAUDE.md / AGENTS.md / etc.
 ```
 
-### Adding Validators
+---
 
-1. Create `src/atdd/{phase}/validators/test_{name}.py`
-2. Write pytest test functions with `@pytest.mark.{phase}` marker
-3. Run `atdd validate {phase}`
+## Project structure
 
-Validators are auto-discovered by pytest.
+```
+src/atdd/
+├── cli.py                    # Entry point
+├── coach/
+│   ├── commands/             # coach, spawn, observer, judge, agent (review), sync, gate, init…
+│   │   └── _archived/        # decommissioned: orchestrate.py, babysit.py
+│   ├── handlers/             # state_machine + 7 per-concern handlers (spawn, decisions, watcher, …)
+│   ├── conventions/          # issue, orchestration, persona prompts
+│   ├── prompts/              # per-persona × per-phase reviewer prompts
+│   ├── runtime/              # risk_score, integration_logger, suppression_filter
+│   ├── observer_rules/       # absorbed-from-babysit rules
+│   ├── schemas/              # review-report, runtime-event, coach-decision, judge schemas
+│   ├── plugins/              # pytest violation_collector
+│   └── validators/           # coach validators
+├── planner/
+│   ├── conventions/  schemas/  validators/
+├── tester/
+│   ├── conventions/  schemas/  validators/
+└── coder/
+    ├── conventions/  schemas/  validators/
+```
 
-### Adding Conventions
+---
 
-1. Create `src/atdd/{phase}/conventions/{name}.convention.yaml`
-2. Reference in validators via `Path(__file__).parent.parent / "conventions" / "..."`
+## Worker model selection
+
+Worker agents can run on any wrapper. See [`docs/MODELS.md`](docs/MODELS.md) for the full table and when to prefer each. Tldr:
+
+| Class | Wrapper | When to use |
+|---|---|---|
+| **compliant** (small, instruction-following) | `claude --model claude-sonnet-4-6`, `claude-haiku` | ATDD lifecycle work — structured prompts, fixed states |
+| **frontier** (large, reasoning) | `claude` (Opus 4.7), `claude-glm`, `claude-gpt` | Novel design, ambiguous spec, hard refactors |
+
+Configure default in `.atdd/config.yaml::coach.default_worker_class`. Override per invocation with `atdd coach <N> --persona-llm tester=...,coder=...`.
+
+---
 
 ## Requirements
 
-- Python 3.10+
-- pyyaml, jsonschema
-- `gh` CLI (authenticated, with `project` scope for issue management)
-- One of `cmux`, `zellij`, or `tmux` — only required for `atdd orchestrate` / `atdd babysit`
+| | |
+|---|---|
+| Python | 3.10+ |
+| Runtime deps | pyyaml, jsonschema |
+| GitHub CLI | `gh` authenticated with `project` scope |
+| Multiplexer | one of `cmux`, `zellij`, `tmux` (only needed for `atdd coach` parallel runs) |
+| Dev deps | pytest, pytest-xdist, pytest-html |
 
-**Optional environment variables:**
+**Optional env vars:**
 
 | Var | Default | Effect |
-|-----|---------|--------|
-| `ATDD_MAX_UNCOMMITTED` | 10 | Threshold for the pre-push micro-commit warning |
-| `ATDD_MAX_STAGED` | 20 | Threshold for the pre-commit micro-commit warning |
+|---|---|---|
+| `ATDD_MAX_UNCOMMITTED` | 10 | Pre-push micro-commit warning threshold |
+| `ATDD_MAX_STAGED` | 20 | Pre-commit micro-commit warning threshold |
+| `ATDD_SKIP_PREPUSH_VALIDATE` | unset | Bypass pre-push validator hook (when shipped) |
 
-Dev dependencies: pytest, pytest-xdist, pytest-html
+---
+
+## Development
+
+```bash
+# Run all validators from source
+PYTHONPATH=src python3 -m pytest src/atdd/ -v
+
+# Run a specific phase
+PYTHONPATH=src python3 -m pytest src/atdd/coder/validators/ -v
+
+# With coverage + HTML
+PYTHONPATH=src python3 -m pytest --cov=atdd --cov-report=html
+```
+
+### Adding a validator
+
+1. Create `src/atdd/<phase>/validators/test_<name>.py`
+2. Call `bind_rule("<canonical_id>")` at module-import; declare the rule in the matching `*.convention.yaml`
+3. `pytest` markers `@pytest.mark.<phase>` keep two-stage CI fast
+
+### Adding a convention
+
+1. Create `src/atdd/<phase>/conventions/<name>.convention.yaml`
+2. Declare each rule with: `id`, `severity`, `disposition`, `description`, optional `fix_hint`
+3. Reference from validators via `Path(__file__).parent.parent / "conventions" / "..."`
+
+---
+
+## Documentation
+
+| Doc | Purpose |
+|---|---|
+| `atdd-coach-spec-v9.md` | Single-command lifecycle spec (states, persona prompts, judge call sites, §11.6 integration-hardening) |
+| `atdd-repo-substrate-spec-v12.md` | Repo archetype + risk score + uniform-strict repo rules |
+| `docs/coach-worked-example.md` | E2E worked example with artifact inventory |
+| `docs/MODELS.md` | Worker-model selection (planned — see issue tracker) |
+| Convention files | `src/atdd/<phase>/conventions/*.convention.yaml` — machine-readable rule definitions |
+
+---
 
 ## License
 
