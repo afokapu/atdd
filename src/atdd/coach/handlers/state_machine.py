@@ -119,3 +119,5 @@ class CoachContext:
     risk_threshold_block: Optional[int] = None
     allow_stale_suppressions: bool = False
     resume: Optional[str] = None
+    auto_merge: bool = False
+    escalation_channel: Optional[str] = None
