@@ -1,176 +1,958 @@
 wagons:
-  - wagon: self-compliance-migration
-    description: "Bootstrap ATDD plan artifacts, contracts, and URN traceability for the toolkit itself"
-    theme: commons
-    subject: "toolkit:self"
-    context: "in-migration, no-plan-artifacts-exist"
-    action: "creates plan, contract, and traceability artifacts for existing code"
-    goal: "prove the toolkit can validate itself under its own conventions"
-    outcome: "full URN chain from plan to test to code for all four agent wagons"
-    path: "plan/self_compliance_migration/"
-    manifest: "plan/self_compliance_migration/_self_compliance_migration.yaml"
-
-  - wagon: govern-lifecycle
-    description: "Orchestrates ATDD lifecycle, manages GitHub issues, validates phase transitions, maintains registries"
-    theme: commons
-    subject: "agent:coach"
-    context: "in-atdd-lifecycle, phases-require-gates"
-    action: "validates compliance and orchestrates phase transitions"
-    goal: "ensure all agents follow ATDD conventions and quality gates"
-    outcome: "audit-passing repository with traceable plan-test-code graph"
-    path: "plan/govern_lifecycle/"
-    manifest: "plan/govern_lifecycle/_govern_lifecycle.yaml"
-
-  - wagon: define-plans
-    description: "Defines what must be built — wagons, features, acceptance criteria, and trains"
-    theme: commons
-    subject: "agent:planner"
-    context: "in-design-phase, no-implementation-yet"
-    action: "creates plan artifacts from requirements"
-    goal: "establish traceable specifications before any code is written"
-    outcome: "wagon manifests, feature YAMLs, WMBTs, and train definitions"
-    path: "plan/define_plans/"
-    manifest: "plan/define_plans/_define_plans.yaml"
-
-  - wagon: verify-contracts
-    description: "Defines how to verify the system — contracts, RED tests, and telemetry artifacts"
-    theme: commons
-    subject: "agent:tester"
-    context: "in-red-phase, plan-artifacts-available"
-    action: "generates failing tests and contract schemas from acceptance criteria"
-    goal: "lock expected behavior before implementation begins"
-    outcome: "RED tests, JSON Schema contracts, and telemetry signal definitions"
-    path: "plan/verify_contracts/"
-    manifest: "plan/verify_contracts/_verify_contracts.yaml"
-
-  - wagon: implement-code
-    description: "Implements code that makes RED tests GREEN, then refactors to clean 4-layer architecture"
-    theme: commons
-    subject: "agent:coder"
-    context: "in-green-phase, red-tests-available"
-    action: "writes minimal code to pass tests then refactors to 4-layer architecture"
-    goal: "deliver working, well-architected implementation"
-    outcome: "GREEN tests passing with domain-application-integration-presentation layers"
-    path: "plan/implement_code/"
-    manifest: "plan/implement_code/_implement_code.yaml"
-
-  - wagon: security-patterns
-    description: "AST-based validator that scans consumer code for known-bad security patterns — SQL injection, missing auth, hardcoded secrets, XSS"
-    theme: commons
-    subject: "coder:security"
-    context: "in-coder-phase, code-review-rules-encodable"
-    action: "scans consumer code via AST and regex for security anti-patterns"
-    goal: "catch security violations that code review catches but are fully automatable"
-    outcome: "zero known-bad security patterns in consumer codebase"
-    path: "plan/security_patterns/"
-    manifest: "plan/security_patterns/_security_patterns.yaml"
-
-  - wagon: enforce-structured-logging
-    description: "Enforce structured logging and prohibit print() in non-CLI production Python code"
-    theme: commons
-    subject: "agent:coder"
-    context: "in-green-phase, logging-conventions-undefined"
-    action: "validates logging patterns via AST analysis in coder phase"
-    goal: "ensure all production Python code uses structured logging with context"
-    outcome: "coder validator that detects unstructured log calls and print() in production code"
-    path: "plan/enforce_structured_logging/"
-    manifest: "plan/enforce_structured_logging/_enforce_structured_logging.yaml"
-
-  - wagon: freeze-runtime-contracts
-    description: "Coordination prerequisite for all coach v9 parallel tracks: centralized JSON schemas for runtime events, decisions, judgments, corrections, validator results, risk scores, plus runtime-layout, validator-invocation, and event-semantics docs"
-    theme: commons
-    subject: "agent:coach"
-    context: "in-coach-v9-bootstrap, six-tracks-need-stable-cross-interface"
-    action: "freezes coach-internal artifact contracts before parallel tracks begin"
-    goal: "eliminate cross-track merge conflicts and divergent temporal assumptions in coach v9"
-    outcome: "six committed JSON schemas with example fixtures plus three reviewed-and-approved contract docs at src/atdd/coach/schemas/"
-    path: "plan/freeze_runtime_contracts/"
-    manifest: "plan/freeze_runtime_contracts/_freeze_runtime_contracts.yaml"
-
-  - wagon: drive-state-machine
-    description: "atdd coach state machine MVP, atdd agent CLI subcommands, decision/judgment durability, two-phase commit absorbed from orchestrate, runtime watcher event sources, resume from decisions log"
-    theme: commons
-    subject: "agent:coach"
-    context: "in-coach-v9-execution, polling-based-orchestrate-replaced"
-    action: "drives the per-issue state machine (INIT → COMPLETE) deterministically with durable decisions.jsonl"
-    goal: "own the issue lifecycle as a durable orchestrator instead of trusting agents to self-report phase"
-    outcome: "atdd coach + atdd agent CLI surface with two-phase commit, runtime watchers, and resume semantics"
-    path: "plan/drive_state_machine/"
-    manifest: "plan/drive_state_machine/_drive_state_machine.yaml"
-
-  - wagon: spawn-agents
-    description: "atdd spawn skeleton, harness rendering with substrate blocks (wmbt_rules, train_rules, security_rules), canonical naming + layout pass, per-LLM convention file integration, orchestrate parity tests"
-    theme: commons
-    subject: "agent:coach"
-    context: "in-coach-v9-execution, atdd-orchestrate-spawn-pipeline-absorbed"
-    action: "spawns persona agents (planner/tester/coder/reviewer) via atdd spawn with substrate spawn-harness blocks"
-    goal: "centralize launch-prompt rendering, multiplexer dispatch, and naming/layout under one rule-IDed entry point"
-    outcome: "atdd spawn command at parity with absorbed orchestrate machinery (CI-enforced via K5)"
-    path: "plan/spawn_agents/"
-    manifest: "plan/spawn_agents/_spawn_agents.yaml"
-
-  - wagon: observe-and-correct
-    description: "atdd observer skeleton + correction injection paths, all 17 default observer rules (token threshold, bash auto-approve, naming/layout drift, smoke skip, substrate-aware), dashboard, aggregate-approve, babysit parity tests"
-    theme: commons
-    subject: "agent:coach"
-    context: "in-coach-v9-execution, atdd-babysit-polling-replaced-by-event-driven-watcher"
-    action: "observes per-agent runtime state via inotify/fswatch and injects corrections through rule-IDed sidecars"
-    goal: "replace babysit's fixed-handful detect_violation with extensible observer rules"
-    outcome: "atdd observer command at parity with absorbed babysit machinery (CI-enforced via L8)"
-    path: "plan/observe_and_correct/"
-    manifest: "plan/observe_and_correct/_observe_and_correct.yaml"
-
-  - wagon: dispatch-validators
-    description: "Git watcher, commit trailer parsing, custom pytest plugin (coach.runtime.violation_collector), validator selection per phase, suppression scanner integration, risk score with repo archetype slice"
-    theme: commons
-    subject: "agent:coach"
-    context: "in-coach-v9-execution, substrate-pytest-violation-substrate-available"
-    action: "dispatches tier-1 validators per (phase, WMBT scope) over each new commit and aggregates Violations by disposition"
-    goal: "deliver fast, deterministic, suppression-aware feedback to agents at every commit"
-    outcome: "real-time validator dispatch with risk-score routing and stale-suppression surfacing"
-    path: "plan/dispatch_validators/"
-    manifest: "plan/dispatch_validators/_dispatch_validators.yaml"
-
-  - wagon: review-phase-boundaries
-    description: "Reviewer persona + no-write spawn adapter, review-report schema (rule-ID-first + AC-coverage hard rule), per-phase reviewer prompts, judge call site #2 integration, atdd agent review"
-    theme: commons
-    subject: "agent:coach"
-    context: "in-coach-v9-execution, tier-1-validator-output-structured-and-spawn-supports-reviewer"
-    action: "runs adversarial LLM review at phase exits with rule-ID-resolving findings and no worktree write access"
-    goal: "catch semantic and AC-coverage gaps that deterministic validators cannot express"
-    outcome: "reviewer persona embedded in coach state machine at PLANNED, RED, GREEN, SMOKE (REFACTOR optional)"
-    path: "plan/review_phase_boundaries/"
-    manifest: "plan/review_phase_boundaries/_review_phase_boundaries.yaml"
-
-  - wagon: judge-ambiguous-decisions
-    description: "atdd judge core, six v1 call sites (borderline tier-1, reviewer concern, retry-vs-escalate, cross-phase regression, issue review aggregate, superseded rule-ID consolidation), atdd issue review multi-pass cross-LLM"
-    theme: commons
-    subject: "agent:coach"
-    context: "in-coach-v9-execution, deterministic-routing-cannot-resolve-genuinely-ambiguous-decisions"
-    action: "calls a structured-output LLM to judge ambiguous coach decisions and pre-coach issue reviews"
-    goal: "preserve deterministic-first ordering while letting LLM judgment break ties at well-defined call sites"
-    outcome: "atdd judge + atdd issue review with audit-trail in judgments.jsonl and discipline criteria for new call sites"
-    path: "plan/judge_ambiguous_decisions/"
-    manifest: "plan/judge_ambiguous_decisions/_judge_ambiguous_decisions.yaml"
-
-  - wagon: discover-and-decommission
-    description: "atdd rules discovery commands (show, where, grep, disposition, archetype, suppressions), per-LLM convention file generation in atdd sync, config loader extensions for coach.* block, decommissioning of atdd orchestrate (gated on K5) and atdd babysit (gated on L8)"
-    theme: commons
-    subject: "agent:coach"
-    context: "in-coach-v9-execution, parity-test-suites-passing-on-ci"
-    action: "exposes rule-registry discovery commands and removes legacy orchestrate/babysit entry points from the CLI"
-    goal: "give humans + agents discovery handles into the rule registry and finalize the hard cut from legacy commands"
-    outcome: "atdd rules subcommands + archived legacy commands with helpful error messages pointing at coach v9 equivalents"
-    path: "plan/discover_and_decommission/"
-    manifest: "plan/discover_and_decommission/_discover_and_decommission.yaml"
-
-  - wagon: integrate-end-to-end
-    description: "End-to-end coach-driven cycle on a real issue from atdd coach <N> through COMPLETE with PR opened; integration-bug observation as the explicit acceptance lens"
-    theme: commons
-    subject: "agent:coach"
-    context: "in-coach-v9-done-line, all-other-tracks-merged"
-    action: "drives the first real issue end-to-end and inventories integration bugs as follow-ups"
-    goal: "prove coach v9 can manage its own development beyond the worked example"
-    outcome: "successful coach-driven PR + filed integration-hardening follow-ups against the appropriate track"
-    path: "plan/integrate_end_to_end/"
-    manifest: "plan/integrate_end_to_end/_integrate_end_to_end.yaml"
+- wagon: define-plans
+  description: Defines what must be built — wagons, features, acceptance criteria,
+    and trains
+  theme: commons
+  subject: agent:planner
+  context: in-design-phase, no-implementation-yet
+  action: creates plan artifacts from requirements
+  goal: establish traceable specifications before any code is written
+  outcome: wagon manifests, feature YAMLs, WMBTs, and train definitions
+  produce:
+  - name: commons:plan:manifest
+    contract: null
+    telemetry: null
+    to: external
+  consume: []
+  wmbt:
+    total: 0
+  total: 0
+  manifest: plan/define_plans/_define_plans.yaml
+  path: plan/define_plans/
+- wagon: discover-and-decommission
+  description: 'Track P deliverables for coach v9: rule-registry discovery commands
+    (atdd rules show / where / grep / disposition / archetype / suppressions), per-LLM
+    convention file regeneration in atdd sync, the coach.* config loader, and the
+    hard-cut decommissioning of atdd orchestrate (gated on K5 parity) and atdd babysit
+    (gated on L8 parity)'
+  theme: commons
+  subject: agent:coach
+  context: in-coach-v9-execution, parity-test-suites-passing-on-ci
+  action: exposes rule-registry discovery commands, regenerates per-LLM convention
+    files from spawn-harness templates, parses the coach.* configuration block, and
+    removes legacy orchestrate / babysit entry points from the CLI
+  goal: give humans and agents discovery handles into the rule registry, freeze the
+    configuration shape coach reads at runtime, and finalize the v9 hard cut from
+    atdd orchestrate / atdd babysit to atdd coach + atdd observer + atdd spawn
+  outcome: atdd rules subcommands resolve toolkit and repo rules transparently; atdd
+    sync regenerates CLAUDE.md / AGENTS.md / GLM.md idempotently from the K4 templates;
+    load_atdd_config parses the coach.* block per spec §10 with defaults applied and
+    invalid fields rejected loudly; atdd orchestrate and atdd babysit print migration
+    messages, exit non-zero, and have their source archived under commands/_archived/
+  produce:
+  - name: cli:atdd-rules-show
+    contract: null
+    telemetry: null
+    to: external
+  - name: cli:atdd-rules-where
+    contract: null
+    telemetry: null
+    to: external
+  - name: cli:atdd-rules-grep
+    contract: null
+    telemetry: null
+    to: external
+  - name: cli:atdd-rules-disposition
+    contract: null
+    telemetry: null
+    to: external
+  - name: cli:atdd-rules-archetype
+    contract: null
+    telemetry: null
+    to: external
+  - name: cli:atdd-rules-suppressions
+    contract: null
+    telemetry: null
+    to: external
+  - name: cli:atdd-sync-per-llm-convention-file-generation
+    contract: null
+    telemetry: null
+    to: external
+  - name: config:coach-block-loader
+    contract: null
+    telemetry: null
+    to: external
+  - name: cli:atdd-orchestrate-decommission-stub
+    contract: null
+    telemetry: null
+    to: external
+  - name: cli:atdd-babysit-decommission-stub
+    contract: null
+    telemetry: null
+    to: external
+  - name: archive:commands-archived-orchestrate
+    contract: null
+    telemetry: null
+    to: external
+  - name: archive:commands-archived-babysit
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:decision-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:judgment-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:correction-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-result-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:risk-score-schema
+    from: wagon:freeze-runtime-contracts
+  - name: spawn:per-llm-convention-templates
+    from: wagon:spawn-agents
+  - name: spawn:orchestrate-parity-suite
+    from: wagon:spawn-agents
+  - name: observer:babysit-parity-suite
+    from: wagon:observe-and-correct
+  wmbt:
+    total: 6
+    L001: minimize quantity of unsurfaced-rule-registry-entries-in-discovery-cli
+    L002: minimize quantity of unsurfaced-disposition-archetype-and-suppression-listings
+    P001: minimize ambiguity-in-per-llm-convention-file-regeneration
+    P002: minimize quantity of unparsed-coach-config-fields
+    E001: minimize likelihood of legacy-atdd-orchestrate-callsites-after-coach-v9
+    E002: minimize likelihood of legacy-atdd-babysit-callsites-after-coach-v9
+  total: 0
+  manifest: plan/discover_and_decommission/_discover_and_decommission.yaml
+  path: plan/discover_and_decommission/
+- wagon: dispatch-validators
+  description: 'Implements coach v9''s real-time tier-1 validator pipeline (spec §6.4–§6.6,
+    §6.8): a git watcher emits commit_observed events with parsed Phase/WMBT-Urn/Agent-Id
+    trailers; a pytest plugin (coach.runtime.violation_collector) captures Violation
+    records into validations/<sha>/violations.jsonl; per-phase validator selection
+    unions toolkit conventions with substrate v12 repo.* rules whose RuleMetadata.phase
+    matches the current coach phase; the suppression scanner separates suppressed
+    and stale-suppression violations into suppressed.jsonl and stale-suppressions.jsonl
+    while strict repo rules bypass suppression; risk score with by_archetype (incl.
+    repo slice), by_severity, by_disposition, and stale_suppressions is computed and
+    written to risk-score.json. Together these deliver the deterministic feedback
+    loop that coach uses to route GREEN/SMOKE/REFACTOR phase exits and to block COMPLETE
+    on configurable risk thresholds.'
+  theme: commons
+  subject: agent:coach
+  context: in-runtime-tier-1-dispatch, when-an-agent-commits-on-a-watched-worktree-and-coach-must-evaluate-the-commit-against-phase-scoped-validators-before-routing-the-next-action
+  action: watches commits, dispatches phase-selected validators in subprocess, collects
+    Violation records via the substrate-aligned pytest plugin, applies suppression-scanner
+    end-to-end (toolkit only, repo rules bypass), and computes the per-commit risk
+    score with archetype slices
+  goal: ensure every commit on a coach-watched worktree produces a deterministic,
+    schema-conformant validation record set (violations.jsonl, suppressed.jsonl, stale-suppressions.jsonl,
+    risk-score.json) within the §6.4 grace window so coach can route the agent without
+    trust-based polling
+  outcome: for every observed commit on a watched worktree, .atdd/runtime/validations/<sha>/
+    contains four artifacts conforming to C0-frozen schemas, plus a validation_complete
+    event on the agent's events.jsonl carrying the summary; coach can route GREEN/SMOKE/REFACTOR
+    exits and block COMPLETE on configurable risk thresholds
+  produce:
+  - name: commons:coach:git-watcher
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:commit-observed-event
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validation-pending-event
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validation-complete-event
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:commit-trailers-rule-family
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:violation-collector-pytest-plugin
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:violations-jsonl-artifact
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validator-selection-resolver
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validator-selection-config-block
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:suppression-filter
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:suppressed-jsonl-artifact
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:stale-suppressions-jsonl-artifact
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:risk-score-computer
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:risk-score-json-artifact
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-result-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:risk-score-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-invocation-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:event-semantics-doc
+    from: wagon:freeze-runtime-contracts
+  wmbt:
+    total: 5
+    M001: minimize quantity of unobserved-commits-on-watched-worktrees
+    E001: minimize loss of violation-records-during-pytest-execution
+    D001: minimize ambiguity-in-per-phase-validator-selection
+    C001: minimize quantity of unfiltered-suppressed-violations-blocking-phase-exit
+    E002: minimize quantity of commits-without-a-conformant-risk-score-artifact
+  total: 0
+  manifest: plan/dispatch_validators/_dispatch_validators.yaml
+  path: plan/dispatch_validators/
+- wagon: drive-state-machine
+  description: atdd coach state machine MVP + atdd agent CLI subcommands + decision/judgment
+    durability + two-phase commit absorbed from orchestrate + runtime/git/liveness
+    watchers + resume from decisions log; the durable orchestrator that owns the per-issue
+    lifecycle (INIT → COMPLETE) instead of trusting agents to self-report phase
+  theme: commons
+  subject: agent:coach
+  context: in-coach-v9-execution, polling-based-orchestrate-replaced, runtime-contracts-frozen
+  action: drives the per-issue state machine deterministically with durable decisions.jsonl,
+    agent-CLI side-effects, two-phase-commit rollback discipline, event-driven watchers,
+    and resume semantics
+  goal: own the issue lifecycle as a durable orchestrator that survives restarts and
+    is the single writer of phase truth
+  outcome: atdd coach + atdd agent CLI surface with decisions.jsonl + judgments.jsonl
+    + two-phase commit + three watchers (runtime/git/liveness) + --resume <run-id>
+    reconstructing without double-execution
+  produce:
+  - name: commons:coach:coach-cli-skeleton
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:agent-cli-subcommands
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:decisions-jsonl-writer
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:judgments-jsonl-writer
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:two-phase-commit-runner
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:runtime-event-watcher
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:git-event-watcher
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:liveness-checker
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:resume-runner
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:coach:coach-decision-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:coach-judgment-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:event-semantics-doc
+    from: wagon:freeze-runtime-contracts
+  wmbt:
+    total: 6
+    D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
+    D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
+    P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
+    E001: minimize likelihood of leaked-worktrees-on-failed-multi-issue-launch
+    M001: minimize likelihood of missed-agent-runtime-events-from-polling-only-observation
+    R001: minimize likelihood of duplicate-state-transitions-on-coach-resume
+  total: 0
+  manifest: plan/drive_state_machine/_drive_state_machine.yaml
+  path: plan/drive_state_machine/
+- wagon: enforce-structured-logging
+  description: Enforce structured logging and prohibit print() in non-CLI production
+    Python code
+  theme: commons
+  subject: agent:coder
+  context: in-green-phase, logging-conventions-undefined
+  action: validates logging patterns via AST analysis in coder phase
+  goal: ensure all production Python code uses structured logging with context
+  outcome: coder validator that detects unstructured log calls and print() in production
+    code
+  produce:
+  - name: commons:compliance:logging
+    contract: null
+    telemetry: null
+    to: internal
+  consume: []
+  wmbt:
+    total: 4
+    D001: Define structured logging convention YAML
+    E001: Detect print() in non-test production Python code
+    E002: Detect bare-string log calls without key-value context
+    C001: Confirm validator integrates with atdd validate coder pipeline
+  total: 0
+  manifest: plan/enforce_structured_logging/_enforce_structured_logging.yaml
+  path: plan/enforce_structured_logging/
+- wagon: freeze-runtime-contracts
+  description: 'Coordination prerequisite for all coach v9 parallel tracks: centralized
+    JSON schemas for runtime events, decisions, judgments, corrections, validator
+    results, risk scores, plus runtime-layout, validator-invocation, and event-semantics
+    docs at src/atdd/coach/schemas/'
+  theme: commons
+  subject: agent:coach
+  context: in-coach-v9-bootstrap, six-tracks-need-stable-cross-interface
+  action: freezes coach-internal artifact contracts before parallel tracks begin
+  goal: eliminate cross-track merge conflicts and divergent temporal assumptions in
+    coach v9
+  outcome: six committed JSON schemas with example fixtures plus three reviewed-and-approved
+    contract docs at src/atdd/coach/schemas/
+  produce:
+  - name: commons:coach:runtime-event-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:decision-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:judgment-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:correction-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validator-result-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:risk-score-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:runtime-layout-doc
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validator-invocation-doc
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:event-semantics-doc
+    contract: null
+    telemetry: null
+    to: external
+  consume: []
+  wmbt:
+    total: 4
+    D001: minimize quantity of unfrozen-coach-runtime-schemas
+    D002: minimize ambiguity-in-runtime-directory-layout
+    D003: minimize ambiguity-in-validator-invocation-contract
+    D004: minimize divergent-temporal-assumptions-across-tracks
+  total: 0
+  manifest: plan/freeze_runtime_contracts/_freeze_runtime_contracts.yaml
+  path: plan/freeze_runtime_contracts/
+- wagon: govern-lifecycle
+  description: Orchestrates ATDD lifecycle, manages GitHub issues, validates phase
+    transitions, maintains registries
+  theme: commons
+  subject: agent:coach
+  context: in-atdd-lifecycle, phases-require-gates
+  action: validates compliance and orchestrates phase transitions
+  goal: ensure all agents follow ATDD conventions and quality gates
+  outcome: audit-passing repository with traceable plan-test-code graph
+  produce:
+  - name: commons:compliance:gate
+    contract: contract:commons:compliance:gate
+    telemetry: null
+    to: external
+  - name: commons:compliance:inventory
+    contract: contract:commons:compliance:inventory
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:plan:manifest
+    from: wagon:define-plans
+  - name: commons:contract:schema
+    from: wagon:verify-contracts
+  - name: commons:code:implementation
+    from: wagon:implement-code
+  wmbt:
+    total: 26
+    R001: minimize stale local manifest status after a successful GitHub transition
+    R002: minimize misleading layout errors during post-transition re-enter
+    R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
+      baseline bumps
+    D001: minimize issues created without orchestrate-ready template body
+    D002: minimize parent issues without GitHub WMBT sub-issues when plan artifacts
+      exist
+    D003: minimize undetected template drift across open issues
+    D004: minimize missed parallelization opportunities at issue creation time
+    D005: minimize unlabeled open issues invisible to coach validators
+    D006: minimize atdd-issues missing required label set (phase/archetype/wagon)
+    D007: minimize label drift between issue body metadata and GitHub labels
+    D008: minimize pushed commits referencing unlabeled issues
+    D009: minimize config files unable to declare domain-specific theme mappings
+    D010: minimize duplicated hardcoded theme_map dicts across modules
+    D011: minimize hardcoded implementation-root constants in coder validators blocking
+      multi-stack adoption
+    D012: minimize toolkit-self features invisible to the hierarchy-coverage validator
+    D013: 'minimize schema drift between documented CLAUDE.md code: contract and enforced
+      config'
+    D014: minimize multiplexer abstractions that bind the spawn unit to workspace-level
+      only
+    D015: minimize cmux pane and surface primitives left unreachable from the multiplexer
+      abstraction
+    D016: minimize orchestrate invocations that cannot opt into pane mode without
+      forking
+    D017: minimize convention rules whose letter (workspace) hides their intent (one
+      isolated agent context)
+    D018: 'minimize presentation components whose render body is statically empty
+      (jel-app AuthGateShell incident, #318)'
+    L001: minimize manual theme discovery during atdd init
+    P001: minimize blind theme prompts that force game-domain defaults on non-game
+      repos
+    C001: minimize invalid custom theme names accepted into config
+    E001: minimize schema validation failures on valid custom theme names
+    M001: minimize silent commons digit overrides that break cross-repo tooling
+  total: 0
+  manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
+  path: plan/govern_lifecycle/
+- wagon: implement-code
+  description: Implements code that makes RED tests GREEN, then refactors to clean
+    4-layer architecture
+  theme: commons
+  subject: agent:coder
+  context: in-green-phase, red-tests-available
+  action: writes minimal code to pass tests then refactors to 4-layer architecture
+  goal: deliver working, well-architected implementation
+  outcome: GREEN tests passing with domain-application-integration-presentation layers
+  produce:
+  - name: commons:code:implementation
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:plan:manifest
+    from: wagon:define-plans
+  - name: commons:contract:schema
+    from: wagon:verify-contracts
+  wmbt:
+    total: 10
+    D001: minimize unreachable Python definitions via AST analysis
+    D002: minimize false-positive dead-code reports for roots and re-exports
+    D003: Detect N+1 query patterns via AST analysis of loop bodies
+    D004: minimize intra-layer code duplication via AST subtree hashing
+    E001: maximize import-graph reachability analysis effectiveness
+    D005: minimize intra-layer TypeScript duplication via regex-based structural normalization
+    C001: maximize convention compliance via dead-code.convention.yaml
+    D006: minimize undetected frontend composition root drift via source scan
+    D007: minimize unverified wagon trains.ts export contracts via source scan
+    D008: minimize unstructured train YAML render metadata via JSON Schema
+  total: 0
+  manifest: plan/implement_code/_implement_code.yaml
+  path: plan/implement_code/
+- wagon: integrate-end-to-end
+  description: 'Coach v9 done-line: drives one real GitHub issue end-to-end through
+    atdd coach <N> from INIT to COMPLETE with PR opened, captures every substrate↔coach
+    handoff (validator invocation, bind_rule lookups, spawn-harness block rendering,
+    gate verdict consumption) at INFO level in .atdd/runtime/coach/integration.log,
+    and inventories first-contact integration bugs as follow-up issues against the
+    appropriate track. Produces docs/coach-worked-example.md including an integration-bugs-discovered
+    section and a coach-v9 production-readiness disclaimer.'
+  theme: commons
+  subject: agent:coach
+  context: in-coach-v9-done-line, all-eight-upstream-wagons-merged-substrate-coach-integration-surface-still-unproven
+  action: executes the first end-to-end coach-driven cycle on a real issue under verbose
+    substrate-coach boundary logging and inventories integration bugs as follow-ups
+  goal: prove the substrate v12 ↔ coach v9 integration surface works on a real issue
+    and surface the bugs that no individual issue's tests can catch
+  outcome: a closed coach-driven PR for the chosen issue, .atdd/runtime/coach/integration.log
+    populated with every substrate↔coach handoff, docs/coach-worked-example.md committed
+    with an integration-bugs-discovered section, and follow-up integration-hardening
+    issues filed against the appropriate tracks
+  produce:
+  - name: commons:coach:end-to-end-coach-driven-cycle
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:integration-log
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:worked-example-doc
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:integration-bug-inventory
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:integration-hardening-followups
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:decision-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:judgment-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:correction-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-result-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:risk-score-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-invocation-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:event-semantics-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:state-machine-and-agent-cli
+    from: wagon:drive-state-machine
+  - name: commons:coach:spawn-and-harness
+    from: wagon:spawn-agents
+  - name: commons:coach:observer-and-corrections
+    from: wagon:observe-and-correct
+  - name: commons:coach:tier-1-validator-dispatch
+    from: wagon:dispatch-validators
+  - name: commons:coach:reviewer-and-review-reports
+    from: wagon:review-phase-boundaries
+  - name: commons:coach:judge-and-issue-review
+    from: wagon:judge-ambiguous-decisions
+  - name: commons:coach:rules-discovery-and-decommission
+    from: wagon:discover-and-decommission
+  wmbt:
+    total: 3
+    E001: maximize likelihood of one-real-issue-completing-coach-driven-cycle-to-complete-state
+    M001: maximize frequency of substrate-coach-handoffs-logged-at-info-level
+    D001: minimize quantity of unrecorded-first-contact-integration-bugs
+  total: 0
+  manifest: plan/integrate_end_to_end/_integrate_end_to_end.yaml
+  path: plan/integrate_end_to_end/
+- wagon: judge-ambiguous-decisions
+  description: 'Coach v9 LLM-judgment surface and pre-coach issue review: atdd judge
+    core (§5.5) with six v1 call sites (§6.9: borderline tier-1, reviewer concern,
+    retry-vs-escalate, cross-phase regression, issue review aggregate, superseded
+    rule-ID consolidation), six call-site response schemas, audit trail in judgments.jsonl,
+    discipline criteria for adding new call sites, and atdd issue review multi-pass
+    cross-LLM (§5.6, §6.10) with N-pass aggregation feeding the pre-coach precondition
+    (§4.2)'
+  theme: commons
+  subject: agent:coach
+  context: in-coach-v9-execution, deterministic-routing-cannot-resolve-genuinely-ambiguous-decisions
+  action: calls a structured-output LLM to judge ambiguous coach decisions and runs
+    pre-coach multi-pass cross-LLM issue reviews
+  goal: preserve the deterministic-first ordering (tier-1 → operator escalation →
+    judge) while letting LLM judgment break ties at well-defined call sites without
+    letting routing logic migrate into prompts
+  outcome: atdd judge command, six v1 call sites wired into coach routing, six response
+    schemas at src/atdd/coach/schemas/, atdd issue review command, judgments.jsonl
+    audit trail per call, conservative fail-open fallback governed by coach.judge.fail_open,
+    and a written discipline doc for proposing new call sites
+  produce:
+  - name: commons:coach:atdd-judge-cli
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:judge-borderline-tier1-response-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:judge-retry-vs-escalate-response-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:judge-cross-phase-regression-response-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:judge-issue-review-aggregate-response-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:judge-superseded-rule-consolidation-response-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:atdd-issue-review-cli
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:issue-review-aggregate-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:judge-call-site-discipline-doc
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:coach:judgment-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:decision-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-result-schema
+    from: wagon:freeze-runtime-contracts
+  wmbt:
+    total: 5
+    D001: minimize quantity of unstructured-coach-decisions-bypassing-deterministic-routing
+    D002: minimize likelihood of judge-call-site-misfire-on-tier1-retry-or-regression
+    D003: minimize likelihood of issue-review-aggregate-judgment-without-audit-trail
+    D004: minimize likelihood of legacy-rule-alias-violation-without-consolidated-migration-guidance
+    D005: minimize likelihood of single-llm-bias-in-pre-coach-issue-review
+  total: 0
+  manifest: plan/judge_ambiguous_decisions/_judge_ambiguous_decisions.yaml
+  path: plan/judge_ambiguous_decisions/
+- wagon: observe-and-correct
+  description: 'Detect-and-correct observer sidecar for coach v9: implements `atdd
+    observer` (run/attach/status/aggregate-approve), event-driven runtime watcher,
+    all 17 default observer rules per spec §8.3 (basic protocol rules 01–05/08/09,
+    absorbed-from-babysit rules 06/13/14/15/16, substrate-aware rules 10/11/12/17),
+    three correction injection paths (CLI return-path, multiplexer send-keys, kill-and-respawn),
+    dashboard parity with `atdd babysit`, aggregate-approval batch action, and the
+    babysit parity test suite that gates decommissioning'
+  theme: commons
+  subject: agent:coach
+  context: during-active-coach-runs, agent-sidecars-must-detect-and-correct-protocol-violations-in-real-time
+  action: tails agent output, watches worktrees, runs detection rules, and writes
+    structured corrections back into the agent feedback loop
+  goal: replace babysit's polling-and-fixed-pattern model with an event-driven, extensible
+    observer that catches protocol-level issues before tier-1 validators do
+  outcome: '`atdd observer run` operates as the coach''s standing detect-and-correct
+    sidecar, with 17 default rules wired in, dashboard + aggregate-approve operator
+    surfaces at parity with babysit, and a parity test suite proving behavioral equivalence
+    before babysit is decommissioned'
+  produce:
+  - name: commons:coach:observer-command
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-correction-injection-paths
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-rule-registry
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-rules-basic-protocol
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-rule-token-threshold
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-rules-babysit-absorbed
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-rules-substrate-aware
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-status-dashboard
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-aggregate-approve
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:babysit-parity-test-suite
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:coach:correction-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:event-semantics-doc
+    from: wagon:freeze-runtime-contracts
+  wmbt:
+    total: 8
+    P001: minimize quantity of observer-runtime-skeleton-gaps
+    M001: minimize likelihood of undetected-basic-protocol-violations
+    M002: minimize likelihood of unflagged-context-window-exhaustion
+    M003: minimize likelihood of undetected-multiplexer-and-bash-protocol-drift
+    M004: minimize likelihood of undetected-substrate-rule-id-and-suppression-violations
+    L001: minimize effort of locating-active-coach-surface-state
+    E001: minimize effort of approving-known-safe-cross-surface-prompts
+    C001: minimize likelihood of behavioral-regression-against-babysit-baseline
+  total: 0
+  manifest: plan/observe_and_correct/_observe_and_correct.yaml
+  path: plan/observe_and_correct/
+- wagon: review-phase-boundaries
+  description: 'Stands up the coach v9 adversarial reviewer surface that gates every
+    meaningful phase boundary (PLANNED/RED/GREEN/SMOKE/optional REFACTOR): a no-write
+    reviewer persona spawn adapter, a rule-ID-first review-report schema with hard
+    rules forbidding false-pass on uncovered acceptances or strict findings, per-phase
+    reviewer prompt templates with rule-resolution guidance, judge call site #2 wiring
+    for concern verdicts, and the atdd agent review runtime command — all committed
+    under src/atdd/coach/. Consumes the C0 frozen runtime contracts and the spawn-agents/judge/dispatch-validators
+    surfaces.'
+  theme: commons
+  subject: agent:coach
+  context: in-coach-v9, every-meaningful-phase-boundary-needs-adversarial-review-to-prevent-false-completion
+  action: 'stands up the reviewer persona, review-report schema, per-phase prompts,
+    judge call site #2 wiring, and atdd agent review runtime command for adversarial
+    review at phase boundaries'
+  goal: ensure every phase boundary in coach v9 receives a rule-ID-aware adversarial
+    review whose verdict cannot mechanically pass on uncovered acceptances or unaddressed
+    strict findings
+  outcome: 'a no-write reviewer persona spawn-adapter variant, a schema-validated
+    review-report intake gate at src/atdd/coach/schemas/review-report.schema.json,
+    five per-phase reviewer prompt templates at src/atdd/coach/prompts/persona/reviewer/<phase>.prompt.yaml
+    with rule-resolution blocks, a judge-reviewer-concern.response.schema.json plus
+    call site #2 routing logged to judgments.jsonl, and an atdd agent review --target-commit
+    <sha> --report-file <path> command emitting review_complete events'
+  produce:
+  - name: commons:coach:reviewer-persona-spawn-adapter
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:review-report-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:reviewer-phase-prompts
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:judge-reviewer-concern-schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:atdd-agent-review-command
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:judgment-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:validator-result-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:risk-score-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:event-semantics-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:spawn-adapter
+    from: wagon:spawn-agents
+  - name: commons:coach:atdd-judge-core
+    from: wagon:judge-ambiguous-decisions
+  - name: commons:coach:tier1-validator-dispatch
+    from: wagon:dispatch-validators
+  wmbt:
+    total: 5
+    D001: minimize likelihood of write-permission-leak-from-reviewer-agent
+    D002: minimize likelihood of false-pass-verdict-on-uncovered-or-strict-findings
+    D003: minimize likelihood of phase-mismatched-reviewer-focus
+    D004: minimize likelihood of unaudited-concern-to-routing-decisions
+    E001: minimize likelihood of unrecorded-or-unvalidated-review-outcomes
+  total: 0
+  manifest: plan/review_phase_boundaries/_review_phase_boundaries.yaml
+  path: plan/review_phase_boundaries/
+- wagon: security-patterns
+  description: AST-based validator that scans consumer code for known-bad security
+    patterns — SQL injection, missing auth, hardcoded secrets, XSS
+  theme: commons
+  subject: coder:security
+  context: in-coder-phase, code-review-rules-encodable
+  action: scans consumer code via AST and regex for security anti-patterns
+  goal: catch security violations that code review catches but are fully automatable
+  outcome: zero known-bad security patterns in consumer codebase
+  produce:
+  - name: commons:security:violations
+    contract: null
+    telemetry: null
+    to: internal
+  consume: []
+  wmbt:
+    total: 6
+    D001: Define security convention YAML with rules, patterns, and exclusion mechanisms
+    D002: Define SQL injection AST detection for string concatenation in execute calls
+    D003: Define missing auth dependency detection for FastAPI route handlers
+    D004: Define hardcoded secret regex patterns (AWS keys, private keys, passwords,
+      tokens)
+    D005: Define XSS pattern detection for innerHTML and dangerouslySetInnerHTML in
+      frontend code
+    E001: All 4 security validators pass on a clean codebase with no violations
+  total: 0
+  manifest: plan/security_patterns/_security_patterns.yaml
+  path: plan/security_patterns/
+- wagon: self-compliance-migration
+  description: Bootstrap ATDD plan artifacts, contracts, and URN traceability for
+    the toolkit itself
+  theme: commons
+  subject: toolkit:self
+  context: in-migration, no-plan-artifacts-exist
+  action: creates plan, contract, and traceability artifacts for existing code
+  goal: prove the toolkit can validate itself under its own conventions
+  outcome: full URN chain from plan to test to code for all four agent wagons
+  produce:
+  - name: commons:compliance:inventory
+    contract: null
+    telemetry: null
+    to: internal
+  consume: []
+  wmbt:
+    total: 8
+    C001: Confirm all existing tests pass (baseline lock)
+    D001: Define wagon manifests for coach, planner, tester, coder
+    D002: Define feature YAMLs with WMBTs for each wagon
+    E001: Write characterization tests locking CLI and validator entrypoint behavior
+    E002: Define JSON Schema contracts for machine-readable CLI outputs and validator
+      envelopes
+    P001: Define validate lifecycle train
+    R001: Wire URN traceability across plan, test, code
+    K001: Both atdd validate and local pytest pass on the toolkit itself
+  total: 0
+  manifest: plan/self_compliance_migration/_self_compliance_migration.yaml
+  path: plan/self_compliance_migration/
+- wagon: spawn-agents
+  description: 'Centralizes coach v9 persona launch under one rule-IDed entry point:
+    atdd spawn skeleton wrapping session_template render with multiplexer dispatch
+    (per spec §5.2, §7.1), substrate spawn-harness block renderers (wmbt_rules / train_rules
+    / security_rules per spec §7.1 + substrate v12 §8.2), canonical-naming + layout
+    pass absorbed from atdd orchestrate (per spec §7.1.5), per-LLM convention file
+    generation (CLAUDE.md, AGENTS.md, GLM.md, GEMINI.md per spec §7.1), and a fixture-driven
+    orchestrate parity test suite that gates the eventual decommission of atdd orchestrate
+    (per spec §11.3)'
+  theme: commons
+  subject: agent:coach
+  context: in-coach-v9-execution, atdd-orchestrate-spawn-pipeline-absorbed
+  action: spawns persona agents (planner/tester/coder/reviewer) via atdd spawn with
+    substrate spawn-harness blocks
+  goal: centralize launch-prompt rendering, multiplexer dispatch, and naming/layout
+    under one rule-IDed entry point with CI-enforced parity to today's atdd orchestrate
+  outcome: atdd spawn command at parity with absorbed orchestrate machinery (CI-enforced
+    via K5 fixture suite), plus per-LLM convention files generated by atdd sync, ready
+    for the wave-w3 atdd orchestrate decommission gate
+  produce:
+  - name: coach:spawn:atdd-spawn-cli
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:launch-prompt-file
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:agent-spawned-event
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:wmbt-rules-block-renderer
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:train-rules-block-renderer
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:canonical-naming-and-layout-pass
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:per-llm-convention-files
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:orchestrate-parity-fixture-suite
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:runtime-layout-doc
+    from: wagon:freeze-runtime-contracts
+  - name: commons:coach:event-semantics-doc
+    from: wagon:freeze-runtime-contracts
+  wmbt:
+    total: 5
+    E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
+    D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
+    E002: minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout
+    P001: minimize quantity of llm-personas-without-rule-id-aware-convention-file
+    C001: minimize likelihood of orchestrate-coach-spawn-divergence-shipping-undetected
+  total: 0
+  manifest: plan/spawn_agents/_spawn_agents.yaml
+  path: plan/spawn_agents/
+- wagon: verify-contracts
+  description: Defines how to verify the system — contracts, RED tests, and telemetry
+    artifacts
+  theme: commons
+  subject: agent:tester
+  context: in-red-phase, plan-artifacts-available
+  action: generates failing tests and contract schemas from acceptance criteria
+  goal: lock expected behavior before implementation begins
+  outcome: RED tests, JSON Schema contracts, and telemetry signal definitions
+  produce:
+  - name: commons:contract:schema
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:error:response
+    contract: contract:commons:error:response
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:plan:manifest
+    from: wagon:define-plans
+  wmbt:
+    total: 4
+    C001: Confirm error response contract schema validates canonical error payloads
+    D001: Define error-response convention with enum-based error codes and phase guidance
+    E001: Write compliance validator enforcing structured error responses in Python
+      endpoints
+    C002: Validator passes on the toolkit itself with no false positives
+  total: 0
+  manifest: plan/verify_contracts/_verify_contracts.yaml
+  path: plan/verify_contracts/
