@@ -1,0 +1,37 @@
+urn: "feature:integration-hardening:coach-single-command-driver"
+wagon: "wagon:integration-hardening"
+description: "Wires all eight integration gaps into atdd coach <N>: K1 spawn-agents at each of the 5 persona transitions (#K001), durable decisions.jsonl write-before-action at every transition (#D001), J5-watcher-driven reactive state advancement (#E001), M3 validator dispatch at phase-exit gates with disposition-gated blocking (#M001), L1 observer co-spawned alongside each phase agent (#L001), N5 reviewer spawned at each enabled phase boundary with verdict routing (#R001), J4 two-phase commit at COMPLETE with --auto-merge flag (#P001), and production LLM clients self-registering at import time (#C001)."
+sizing:
+  wmbts: 8
+  footprint_score: 16
+  footprint_size: "L"
+wmbts:
+  - "wmbt:integration-hardening:K001"
+  - "wmbt:integration-hardening:D001"
+  - "wmbt:integration-hardening:E001"
+  - "wmbt:integration-hardening:M001"
+  - "wmbt:integration-hardening:L001"
+  - "wmbt:integration-hardening:R001"
+  - "wmbt:integration-hardening:P001"
+  - "wmbt:integration-hardening:C001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "All wiring is internal to the coach state machine; no new HTTP or CLI surface is introduced"
+    application:
+      - type: "use_cases"
+        count: 8
+        rationale: "Eight wiring use cases: spawn-at-transition (K001), write-decision-before-side-effect (D001), subscribe-watcher-to-events (E001), dispatch-validators-at-phase-exit (M001), co-spawn-observer (L001), spawn-reviewer-at-boundary (R001), invoke-two-phase-commit-at-complete (P001), register-production-llm-clients (C001)"
+    domain:
+      - type: "value_objects"
+        count: 4
+        rationale: "PhaseTransition, DecisionEntry, ValidatorGateResult, ReviewVerdict — immutable facts produced by or consumed from the wired subsystems"
+    integration:
+      - type: "wiring_modules"
+        count: 8
+        rationale: "src/atdd/coach/handlers/{spawn,decisions,watcher,validators,observer,reviewer,merge,llm_registry}.py — one module per wiring concern, composed into coach.py"
+      - type: "subprocess_invokers"
+        count: 3
+        rationale: "K1 spawn invocation, M3 validator dispatch subprocess, N5 reviewer spawn — all via existing harnesses"

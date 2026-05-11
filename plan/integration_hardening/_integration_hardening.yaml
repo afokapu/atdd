@@ -1,0 +1,89 @@
+wagon: integration-hardening
+urn: "wagon:integration-hardening"
+name: "Integration Hardening"
+description: "Wires the eight integration gaps discovered during the integrate-end-to-end run: K1 spawn-agents at every state transition, J3 decisions.jsonl write-before-action discipline, J5 watcher-driven reactive state advancement, M3 validator dispatch at phase-exit gates, L1 observer co-spawn alongside each phase agent, N5 reviewer spawn at phase boundaries, J4 two-phase commit at COMPLETE, and production LLM client registration. Together these gaps mean atdd coach <N> prints and exits rather than driving a real issue to MERGED."
+theme: commons
+
+subject: "agent:coach"
+context: "in-coach-v9-integration-hardening, integrate-end-to-end-revealed-eight-wiring-gaps-between-shipped-components-and-the-atdd-coach-state-machine"
+action: "wires K1 spawn, J3 decisions.jsonl, J5 watcher, M3 validator dispatch, L1 observer, N5 reviewer, J4 two-phase commit, and production LLM registry into src/atdd/coach/commands/coach.py and supporting handler modules"
+goal: "close all eight wiring gaps so atdd coach <N> can drive a real issue from INIT to MERGED without operator intervention"
+outcome: "atdd coach <N> autonomously drives an issue through the full lifecycle: spawning the right persona at each transition, writing durable decisions before side-effects, advancing state reactively via J5 watcher events, gating phase exits on M3 validator results, correcting agents via L1 observer, reviewing at phase boundaries via N5, merging via J4 two-phase commit, and resolving LLM calls via registered production clients"
+
+features:
+  - urn: "feature:integration-hardening:coach-single-command-driver"
+
+produce:
+  - name: commons:coach:spawn-wiring
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:decisions-wiring
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:watcher-wiring
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:validator-dispatch-wiring
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-wiring
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:reviewer-wiring
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:two-phase-commit-wiring
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:llm-registry-production-clients
+    contract: null
+    telemetry: null
+    to: external
+
+consume:
+  - name: commons:coach:coach-cli-skeleton
+    from: wagon:drive-state-machine
+  - name: commons:coach:decisions-jsonl-writer
+    from: wagon:drive-state-machine
+  - name: commons:coach:two-phase-commit-runner
+    from: wagon:drive-state-machine
+  - name: commons:coach:runtime-event-watcher
+    from: wagon:drive-state-machine
+  - name: commons:coach:git-event-watcher
+    from: wagon:drive-state-machine
+  - name: commons:coach:liveness-checker
+    from: wagon:drive-state-machine
+  - name: commons:coach:resume-runner
+    from: wagon:drive-state-machine
+  - name: commons:coach:spawn-harness
+    from: wagon:spawn-agents
+  - name: commons:coach:observer-rules
+    from: wagon:observe-and-correct
+  - name: commons:coach:git-watcher
+    from: wagon:dispatch-validators
+  - name: commons:coach:validation-complete-event
+    from: wagon:dispatch-validators
+  - name: commons:coach:review-report-schema
+    from: wagon:review-phase-boundaries
+  - name: commons:coach:judge-call-site-two
+    from: wagon:judge-ambiguous-decisions
+  - name: commons:compliance:integration-bugs
+    from: wagon:integrate-end-to-end
+
+wmbt:
+  total: 8
+  K001: "minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine"
+  D001: "minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries"
+  E001: "minimize quantity of imperatively-polled-state-transitions-bypassing-watcher-events"
+  M001: "minimize quantity of unvalidated-phase-exit-transitions-in-atdd-coach"
+  L001: "minimize quantity of uncorrected-agent-violations-during-phase-execution"
+  R001: "minimize quantity of unreviewed-phase-boundary-transitions-in-atdd-coach"
+  P001: "minimize likelihood of incomplete-merge-lifecycle-at-atdd-coach-complete-state"
+  C001: "minimize quantity of unregistered-production-llm-clients-at-coach-startup"

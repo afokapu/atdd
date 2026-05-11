@@ -1,0 +1,73 @@
+urn: "wmbt:integration-hardening:C001"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "unregistered-production-llm-clients-at-coach-startup"
+context_clarifier: "when atdd judge or atdd issue review is invoked and must look up an LLM by ID in the LLM_REGISTRY (src/atdd/coach/commands/judge.py::register_llm_client), with production clients self-registering at import time when their env-var (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, ZAI_API_KEY) is set and degrading gracefully with a clear message when no keys are configured"
+lens: "functional.availability"
+statement: "minimize quantity of unregistered-production-llm-clients-at-coach-startup when atdd judge or atdd issue review looks up an LLM by ID in the LLM_REGISTRY, with production clients self-registering at import time via env-var presence and degrading gracefully with a clear message when no clients are available"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:C001-INTEGRATION-001-default-clients-registered"
+      id: "AC-INTEGRATION-001"
+      purpose: "A fresh atdd issue review <N> invocation succeeds with at least 2 LLMs configured; per-pass JSON is written to the runtime path"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "ANTHROPIC_API_KEY and at least one other API key are set in the environment"
+        - "The llm_clients/ package self-registers providers at import time"
+    when:
+      abstract: "atdd issue review <N> is invoked"
+    then:
+      abstract:
+        - "LLM_REGISTRY contains at least 2 registered providers"
+        - "Per-pass JSON is written to .atdd/runtime/issue-reviews/<N>/pass-<i>.json"
+        - "The invocation exits 0"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:C001-INTEGRATION-002-missing-keys-degrade-gracefully"
+      id: "AC-INTEGRATION-002"
+      purpose: "With no API keys set, atdd issue review <N> prints a helpful message and exits non-zero without crashing"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "No API key environment variables are set"
+    when:
+      abstract: "atdd issue review <N> is invoked"
+    then:
+      abstract:
+        - "The command prints 'no LLM clients available — configure ANTHROPIC_API_KEY (or equivalent), or see .atdd/config.yaml::coach.llm_clients'"
+        - "The command exits non-zero"
+        - "No exception traceback is printed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:C001-INTEGRATION-003-judge-also-works"
+      id: "AC-INTEGRATION-003"
+      purpose: "atdd judge with a registered LLM completes end-to-end against a stub fixture"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "At least one LLM client is registered via env-var or .atdd/config.yaml::coach.llm_clients"
+        - "A stub judge fixture is available"
+    when:
+      abstract: "atdd judge is invoked with the stub fixture"
+    then:
+      abstract:
+        - "The judge call completes without 'unknown LLM id' error"
+        - "A judgment result is written to judgments.jsonl"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"

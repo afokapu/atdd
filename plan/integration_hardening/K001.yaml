@@ -1,0 +1,112 @@
+urn: "wmbt:integration-hardening:K001"
+step: "conclude"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "unspawned-phase-transitions-in-atdd-coach-state-machine"
+context_clarifier: "when atdd coach <N> advances through INIT→PLANNED, PLANNED→RED, RED→GREEN, GREEN→SMOKE, SMOKE→REFACTOR and must invoke the K1 spawn-agents pipeline with the correct persona, per-phase prompts, multiplexer mode, and retry policy rather than printing and exiting"
+lens: "functional.effectiveness"
+statement: "minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine when atdd coach <N> advances through the five persona-transitions and must invoke the K1 spawn-agents pipeline with the correct persona, per-phase prompts, multiplexer mode, and retry policy"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:K001-INTEGRATION-001-spawn-at-each-transition"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd coach <N> (non-dry-run) spawns one agent at each of the 5 transitions; persona matches the table; spawn manifest is written; canonical naming applied"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A running atdd coach <N> session with a real issue in INIT state"
+        - "K1 spawn skeleton (#499) and K3 canonical naming (#504) are merged"
+    when:
+      abstract: "atdd coach <N> is invoked without --dry-run and the issue advances from INIT to COMPLETE"
+    then:
+      abstract:
+        - "Exactly 5 spawn invocations occur matching the persona-per-transition table (INIT→PLANNED: planner, PLANNED→RED: tester, RED→GREEN: coder, GREEN→SMOKE: tester, SMOKE→REFACTOR: coder)"
+        - "Each spawn writes .atdd/runtime/agents/<id>/ with canonical naming applied per K3"
+        - "Phase prompts from src/atdd/coach/prompts/persona/<persona>/<phase>.prompt.yaml are embedded in each spawn"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:K001-INTEGRATION-002-persona-prompts-loaded"
+      id: "AC-INTEGRATION-002"
+      purpose: "Each spawn's launch prompt embeds the per-phase prompt; missing file aborts the transition with BLOCKED state in decisions.jsonl"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/prompts/persona/<persona>/<phase>.prompt.yaml files exist for all spawnable transitions"
+    when:
+      abstract: "atdd coach <N> attempts a transition where the persona prompt file is absent"
+    then:
+      abstract:
+        - "The spawn is aborted before any side-effect"
+        - "decisions.jsonl records BLOCKED state with the missing-prompt rationale"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:K001-INTEGRATION-003-persona-llm-honored"
+      id: "AC-INTEGRATION-003"
+      purpose: "--persona-llm mapping is passed through to the spawned agent's LLM selection"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach <N> invoked with --persona-llm planner=glm-5.1,tester=glm-5.1,coder=claude-sonnet-4-6"
+    when:
+      abstract: "Each phase transition spawns its persona agent"
+    then:
+      abstract:
+        - "The spawned agent for planner uses glm-5.1; tester uses glm-5.1; coder uses claude-sonnet-4-6"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:K001-INTEGRATION-004-multiplexer-mode-honored"
+      id: "AC-INTEGRATION-004"
+      purpose: "--multiplexer-mode pane spawns as tabs in caller's workspace; --multiplexer-mode workspace creates a new workspace"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach <N> invoked with --multiplexer-mode pane"
+    when:
+      abstract: "A phase transition triggers a spawn"
+    then:
+      abstract:
+        - "The spawned agent appears as a new tab in the calling workspace"
+        - "--multiplexer-mode workspace (default) creates a new workspace instead"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:K001-INTEGRATION-005-spawn-failure-retries-then-escalates"
+      id: "AC-INTEGRATION-005"
+      purpose: "With --max-retries 2, a forced spawn failure retries twice then escalates; final state recorded as BLOCKED"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach <N> invoked with --max-retries 2 and --escalation-channel configured"
+        - "The spawn command is forced to fail on every attempt"
+    when:
+      abstract: "Coach attempts the spawn for a phase transition"
+    then:
+      abstract:
+        - "The spawn is retried exactly 2 times with exponential backoff (1s, 2s)"
+        - "On exhaustion, escalation is sent via --escalation-channel"
+        - "decisions.jsonl records BLOCKED state with retry-exhausted rationale"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"
