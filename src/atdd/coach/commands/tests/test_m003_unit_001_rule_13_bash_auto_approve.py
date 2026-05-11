@@ -23,7 +23,8 @@ from pathlib import Path
 
 import pytest
 
-from atdd.coach.commands import babysit, observer
+from atdd.coach.commands import observer
+from atdd.coach.commands._archived import babysit
 
 pytestmark = [pytest.mark.platform]
 
