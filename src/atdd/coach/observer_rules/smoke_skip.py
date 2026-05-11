@@ -12,7 +12,7 @@ violation is a separate observer rule.
 from __future__ import annotations
 
 from atdd.coach.commands import observer
-from atdd.coach.commands.babysit import detect_violation
+from atdd.coach.commands._archived.babysit import detect_violation
 
 
 _RULE_ID = "coach.observer.smoke-skip"

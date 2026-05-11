@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable
 
 from atdd.coach.commands import observer
-from atdd.coach.commands.babysit import correct_layout_drift
+from atdd.coach.commands._archived.babysit import correct_layout_drift
 from atdd.coach.utils.session_naming import target_grid_label
 
 

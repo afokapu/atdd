@@ -24,7 +24,8 @@ from typing import Dict, List
 
 import pytest
 
-from atdd.coach.commands import babysit, observer
+from atdd.coach.commands import observer
+from atdd.coach.commands._archived import babysit
 from atdd.coach.utils import session_naming
 
 pytestmark = [pytest.mark.platform]

@@ -266,15 +266,16 @@ class TestNoInternalCallsites:
         return files
 
     def test_zero_archived_imports_outside_allowed(self):
-        """No shipped code imports _archived.babysit except parity tests.
+        """No shipped code imports _archived.babysit except parity tests
+        and observer rule modules (the legitimate absorption consumers).
 
-        This test passes in both RED and GREEN (there are no pre-existing
-        non-archive imports), so it documents the zero-callsite invariant.
+        This test passes in both RED and GREEN, documenting the callsite invariant.
         """
         hits: list[str] = []
         allowed = (
             "commands/_archived/",
             "commands/tests/",
+            "observer_rules/",  # absorption consumers per spec §0.2
             "tests/integration/",
         )
         for p, rel in self._collect_py_files():

@@ -22,7 +22,7 @@ Predicate semantics:
 from __future__ import annotations
 
 from atdd.coach.commands import observer
-from atdd.coach.commands.babysit import (
+from atdd.coach.commands._archived.babysit import (
     BashPattern,
     _load_bash_patterns,
     classify_prompt,
