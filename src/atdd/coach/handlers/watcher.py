@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from atdd.coach.commands.durability import DecisionWriter
 from atdd.coach.commands.event_queue import CoachEventQueue
 from atdd.coach.commands.runtime_watcher import RuntimeWatcher
 from atdd.coach.handlers.state_machine import (
@@ -145,9 +146,8 @@ class WatcherEventLoop:
         self._decision_writer = self._make_decision_writer()
         self._shutdown_called = False
 
-    def _make_decision_writer(self):  # type: ignore[no-untyped-def]
+    def _make_decision_writer(self) -> Optional[DecisionWriter]:
         try:
-            from atdd.coach.commands.durability import DecisionWriter
             return DecisionWriter(runtime_dir=self.runtime_dir)
         except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             return None
