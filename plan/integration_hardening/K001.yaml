@@ -13,9 +13,6 @@ acceptances:
       id: "AC-INTEGRATION-001"
       purpose: "atdd coach spawns one agent per phase transition with correct persona"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "An issue is registered in the manifest and `atdd coach <N>` is invoked without --dry-run"
@@ -36,9 +33,6 @@ acceptances:
       id: "AC-INTEGRATION-002"
       purpose: "Each spawn embeds the right phase prompt; missing prompts abort"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is wired to load persona prompts at spawn time"
@@ -57,9 +51,6 @@ acceptances:
       id: "AC-INTEGRATION-003"
       purpose: "--persona-llm flag maps per-persona to LLM ids"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked with --persona-llm planner=X,tester=Y,coder=Z,reviewer=W"
@@ -78,9 +69,6 @@ acceptances:
       id: "AC-INTEGRATION-004"
       purpose: "--multiplexer-mode controls workspace vs pane placement"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked with --multiplexer-mode pane (or workspace)"
@@ -99,9 +87,6 @@ acceptances:
       id: "AC-INTEGRATION-005"
       purpose: "Spawn failures retry per --max-retries, then escalate"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked with --max-retries N and a forced spawn failure"

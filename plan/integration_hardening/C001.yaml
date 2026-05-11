@@ -13,9 +13,6 @@ acceptances:
       id: "AC-INTEGRATION-001"
       purpose: "Default LLMs registered when env vars are set"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -32,9 +29,6 @@ acceptances:
       id: "AC-INTEGRATION-002"
       purpose: "Missing API keys produce clear non-crash error"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -51,9 +45,6 @@ acceptances:
       id: "AC-INTEGRATION-003"
       purpose: "atdd judge end-to-end works with registered LLM"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"

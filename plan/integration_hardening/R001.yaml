@@ -13,9 +13,6 @@ acceptances:
       id: "AC-INTEGRATION-001"
       purpose: "Reviewer spawns at each enabled phase boundary"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -32,9 +29,6 @@ acceptances:
       id: "AC-INTEGRATION-002"
       purpose: "Pass advances, concern routes via judge, fail respawns"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -51,9 +45,6 @@ acceptances:
       id: "AC-INTEGRATION-003"
       purpose: "--skip-review bypasses all reviewer spawns"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"

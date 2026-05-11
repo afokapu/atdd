@@ -13,9 +13,6 @@ acceptances:
       id: "AC-INTEGRATION-001"
       purpose: "Phase exit triggers validator dispatch with per-commit artifacts"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -32,9 +29,6 @@ acceptances:
       id: "AC-INTEGRATION-002"
       purpose: "Strict-disposition violation blocks the transition"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -51,9 +45,6 @@ acceptances:
       id: "AC-INTEGRATION-003"
       purpose: "--risk-threshold-block N blocks above-threshold transitions"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"

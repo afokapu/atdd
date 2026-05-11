@@ -13,9 +13,6 @@ acceptances:
       id: "AC-INTEGRATION-001"
       purpose: "Manual git commit triggers watcher-driven transition"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -32,9 +29,6 @@ acceptances:
       id: "AC-INTEGRATION-002"
       purpose: "Stale events fire warn at --stale-warn threshold"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -51,9 +45,6 @@ acceptances:
       id: "AC-INTEGRATION-003"
       purpose: "SIGTERM cleans up watcher subprocesses gracefully"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -70,9 +61,6 @@ acceptances:
       id: "AC-INTEGRATION-004"
       purpose: "Concurrent filesystem and git events serialize deterministically"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"

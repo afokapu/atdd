@@ -13,9 +13,6 @@ acceptances:
       id: "AC-INTEGRATION-001"
       purpose: "With --auto-merge, COMPLETE invokes atdd pr + gh pr merge"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -32,9 +29,6 @@ acceptances:
       id: "AC-INTEGRATION-002"
       purpose: "Post-MERGED cleanup removes worktree and cmux tab"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
@@ -51,9 +45,6 @@ acceptances:
       id: "AC-INTEGRATION-003"
       purpose: "Without --auto-merge, COMPLETE waits for operator approval"
       phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
     given:
       abstract:
         - "atdd coach is invoked and reaches the relevant transition or phase"
