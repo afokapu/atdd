@@ -231,7 +231,7 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
 
     try:
         persona_prompt_content = _load_persona_prompt(persona, phase)
-    except PromptNotFoundError as exc:
+    except PromptNotFoundError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         msg = str(exc)
         print(f"❌ spawn handler: {msg}", file=sys.stderr)
         try:
