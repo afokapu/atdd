@@ -1,12 +1,12 @@
-# URN: test:judge-ambiguous-decisions:judge-and-issue-review:D006-UNIT-003-judge-works-with-registered-llm
-# Acceptance: acc:judge-ambiguous-decisions:LLM-REGISTRY-003-judge-also-works
-# WMBT: wmbt:judge-ambiguous-decisions:D006
-# Phase: RED
+# URN: test:integration-hardening:coach-single-command-driver:C001-INTEGRATION-003-judge-also-works
+# Acceptance: acc:integration-hardening:C001-INTEGRATION-003-judge-also-works
+# WMBT: wmbt:integration-hardening:C001
+# Phase: GREEN
 # Layer: application
-"""D006-UNIT-003 — After importing llm_clients with a stub subprocess shim,
+"""C001-INTEGRATION-003 — After importing llm_clients with a stub subprocess shim,
 atdd judge run() completes successfully and writes a judgments.jsonl line.
 
-Spec: issue #592 acc:judge-ambiguous-decisions:LLM-REGISTRY-003-judge-also-works
+Spec: issue #592 acc:integration-hardening:C001-INTEGRATION-003-judge-also-works
 """
 from __future__ import annotations
 

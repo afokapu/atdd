@@ -1,12 +1,12 @@
-# URN: test:judge-ambiguous-decisions:judge-and-issue-review:D006-UNIT-001-default-clients-registered
-# Acceptance: acc:judge-ambiguous-decisions:LLM-REGISTRY-001-default-clients-registered
-# WMBT: wmbt:judge-ambiguous-decisions:D006
-# Phase: RED
+# URN: test:integration-hardening:coach-single-command-driver:C001-INTEGRATION-001-default-clients-registered
+# Acceptance: acc:integration-hardening:C001-INTEGRATION-001-default-clients-registered
+# WMBT: wmbt:integration-hardening:C001
+# Phase: GREEN
 # Layer: application
-"""D006-UNIT-001 — When the claude CLI is available, at least 2 production
+"""C001-INTEGRATION-001 — When the claude CLI is available, at least 2 production
 clients are registered in LLM_REGISTRY at import time.
 
-Spec: issue #592 acc:judge-ambiguous-decisions:LLM-REGISTRY-001-default-clients-registered
+Spec: issue #592 acc:integration-hardening:C001-INTEGRATION-001-default-clients-registered
 """
 from __future__ import annotations
 

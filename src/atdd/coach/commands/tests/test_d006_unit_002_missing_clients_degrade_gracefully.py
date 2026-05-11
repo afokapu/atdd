@@ -1,13 +1,13 @@
-# URN: test:judge-ambiguous-decisions:judge-and-issue-review:D006-UNIT-002-missing-clients-degrade-gracefully
-# Acceptance: acc:judge-ambiguous-decisions:LLM-REGISTRY-002-missing-keys-degrade-gracefully
-# WMBT: wmbt:judge-ambiguous-decisions:D006
-# Phase: RED
+# URN: test:integration-hardening:coach-single-command-driver:C001-INTEGRATION-002-missing-clients-degrade-gracefully
+# Acceptance: acc:integration-hardening:C001-INTEGRATION-002-missing-keys-degrade-gracefully
+# WMBT: wmbt:integration-hardening:C001
+# Phase: GREEN
 # Layer: application
-"""D006-UNIT-002 — When no claude CLI is found and no API keys are set,
+"""C001-INTEGRATION-002 — When no claude CLI is found and no API keys are set,
 register_production_clients() registers nothing, prints the help message to
 stderr, and does not raise.
 
-Spec: issue #592 acc:judge-ambiguous-decisions:LLM-REGISTRY-002-missing-keys-degrade-gracefully
+Spec: issue #592 acc:integration-hardening:C001-INTEGRATION-002-missing-keys-degrade-gracefully
 """
 from __future__ import annotations
 
