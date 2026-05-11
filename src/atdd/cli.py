@@ -2124,6 +2124,7 @@ Phase descriptions:
 
         # atdd issue review <N> [--passes ...] [--llms ...] [--dimensions ...] [--show] [--force]
         if target == "review":
+            import atdd.coach.commands.llm_clients  # noqa: F401 — side-effect: registers production clients
             from atdd.coach.commands.issue_review import run as run_issue_review
             number_str = getattr(args, 'number', None)
             if not number_str:
@@ -2317,6 +2318,7 @@ Phase descriptions:
 
     # atdd judge ...  (O1 — #501)
     elif args.command == "judge":
+        import atdd.coach.commands.llm_clients  # noqa: F401 — side-effect: registers production clients
         from atdd.coach.commands.judge import run as run_judge
         return run_judge(
             prompt_template=args.prompt_template,
