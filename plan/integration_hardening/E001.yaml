@@ -76,9 +76,9 @@ acceptances:
       id: "AC-SMOKE-001"
       purpose: "Watcher works against real filesystem and git refs"
       phase: "SMOKE"
-    harness:
-      type: "smoke"
-      category: "backend"
+    signal:
+      metric: "watcher.commit_observed.count"
+      threshold: ">= 1"
     given:
       abstract:
         - "atdd coach is running against a real git worktree with filesystem watchers active"
