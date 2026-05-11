@@ -9,7 +9,7 @@ statement: "establish observer-co-spawn-with-phase-agent when atdd coach drives 
 
 acceptances:
   - identity:
-      urn: "acc:integration-hardening:L1-INTEGRATION-001-observer-alongside-agent"
+      urn: "acc:integration-hardening:L001-INTEGRATION-001-observer-alongside-agent"
       id: "AC-INTEGRATION-001"
       purpose: "Each phase agent has a co-spawned observer recording correction events"
       phase: "GREEN"

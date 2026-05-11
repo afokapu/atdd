@@ -9,7 +9,7 @@ statement: "establish phase-exit-validator-dispatch-gates when atdd coach drives
 
 acceptances:
   - identity:
-      urn: "acc:integration-hardening:M3-INTEGRATION-001-validators-fire-at-phase-exit"
+      urn: "acc:integration-hardening:M001-INTEGRATION-001-validators-fire-at-phase-exit"
       id: "AC-INTEGRATION-001"
       purpose: "Phase exit triggers validator dispatch with per-commit artifacts"
       phase: "GREEN"
@@ -28,7 +28,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:M3-INTEGRATION-002-strict-violation-blocks"
+      urn: "acc:integration-hardening:M001-INTEGRATION-002-strict-violation-blocks"
       id: "AC-INTEGRATION-002"
       purpose: "Strict-disposition violation blocks the transition"
       phase: "GREEN"
@@ -47,7 +47,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:M3-INTEGRATION-003-risk-threshold-block"
+      urn: "acc:integration-hardening:M001-INTEGRATION-003-risk-threshold-block"
       id: "AC-INTEGRATION-003"
       purpose: "--risk-threshold-block N blocks above-threshold transitions"
       phase: "GREEN"

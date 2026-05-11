@@ -9,7 +9,7 @@ statement: "establish reviewer-spawn-at-phase-boundary-and-verdict-routing when 
 
 acceptances:
   - identity:
-      urn: "acc:integration-hardening:N5-INTEGRATION-001-reviewer-at-phase-boundary"
+      urn: "acc:integration-hardening:R001-INTEGRATION-001-reviewer-at-phase-boundary"
       id: "AC-INTEGRATION-001"
       purpose: "Reviewer spawns at each enabled phase boundary"
       phase: "GREEN"
@@ -28,7 +28,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:N5-INTEGRATION-002-verdict-routing"
+      urn: "acc:integration-hardening:R001-INTEGRATION-002-verdict-routing"
       id: "AC-INTEGRATION-002"
       purpose: "Pass advances, concern routes via judge, fail respawns"
       phase: "GREEN"
@@ -47,7 +47,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:N5-INTEGRATION-003-skip-review-honored"
+      urn: "acc:integration-hardening:R001-INTEGRATION-003-skip-review-honored"
       id: "AC-INTEGRATION-003"
       purpose: "--skip-review bypasses all reviewer spawns"
       phase: "GREEN"

@@ -25,3 +25,4 @@ trains:
           - judge-ambiguous-decisions
           - discover-and-decommission
           - integrate-end-to-end
+          - integration-hardening

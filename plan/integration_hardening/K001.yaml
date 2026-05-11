@@ -9,7 +9,7 @@ statement: "establish state-transition-to-K1-spawn-handler-binding when atdd coa
 
 acceptances:
   - identity:
-      urn: "acc:integration-hardening:K1-INTEGRATION-001-spawn-at-each-transition"
+      urn: "acc:integration-hardening:K001-INTEGRATION-001-spawn-at-each-transition"
       id: "AC-INTEGRATION-001"
       purpose: "atdd coach spawns one agent per phase transition with correct persona"
       phase: "GREEN"
@@ -32,7 +32,7 @@ acceptances:
       created: "2026-05-11"
 
   - identity:
-      urn: "acc:integration-hardening:K1-INTEGRATION-002-persona-prompts-loaded"
+      urn: "acc:integration-hardening:K001-INTEGRATION-002-persona-prompts-loaded"
       id: "AC-INTEGRATION-002"
       purpose: "Each spawn embeds the right phase prompt; missing prompts abort"
       phase: "GREEN"
@@ -53,7 +53,7 @@ acceptances:
       created: "2026-05-11"
 
   - identity:
-      urn: "acc:integration-hardening:K1-INTEGRATION-003-persona-llm-honored"
+      urn: "acc:integration-hardening:K001-INTEGRATION-003-persona-llm-honored"
       id: "AC-INTEGRATION-003"
       purpose: "--persona-llm flag maps per-persona to LLM ids"
       phase: "GREEN"
@@ -74,7 +74,7 @@ acceptances:
       created: "2026-05-11"
 
   - identity:
-      urn: "acc:integration-hardening:K1-INTEGRATION-004-multiplexer-mode-honored"
+      urn: "acc:integration-hardening:K001-INTEGRATION-004-multiplexer-mode-honored"
       id: "AC-INTEGRATION-004"
       purpose: "--multiplexer-mode controls workspace vs pane placement"
       phase: "GREEN"
@@ -95,7 +95,7 @@ acceptances:
       created: "2026-05-11"
 
   - identity:
-      urn: "acc:integration-hardening:K1-INTEGRATION-005-spawn-failure-retries-then-escalates"
+      urn: "acc:integration-hardening:K001-INTEGRATION-005-spawn-failure-retries-then-escalates"
       id: "AC-INTEGRATION-005"
       purpose: "Spawn failures retry per --max-retries, then escalate"
       phase: "GREEN"

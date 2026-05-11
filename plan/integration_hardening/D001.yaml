@@ -9,7 +9,7 @@ statement: "establish decisions.jsonl-write-per-transition when atdd coach drive
 
 acceptances:
   - identity:
-      urn: "acc:integration-hardening:J3-INTEGRATION-001-decision-per-transition"
+      urn: "acc:integration-hardening:D001-INTEGRATION-001-decision-per-transition"
       id: "AC-INTEGRATION-001"
       purpose: "Exactly one decisions.jsonl entry per transition"
       phase: "GREEN"
@@ -28,7 +28,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:J3-INTEGRATION-002-write-before-side-effect"
+      urn: "acc:integration-hardening:D001-INTEGRATION-002-write-before-side-effect"
       id: "AC-INTEGRATION-002"
       purpose: "Crash between decision-write and side-effect leaves coherent state"
       phase: "GREEN"
@@ -47,7 +47,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:J3-INTEGRATION-003-resume-replays-correctly"
+      urn: "acc:integration-hardening:D001-INTEGRATION-003-resume-replays-correctly"
       id: "AC-INTEGRATION-003"
       purpose: "atdd coach --resume reconstructs from decisions.jsonl"
       phase: "GREEN"

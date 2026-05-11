@@ -9,7 +9,7 @@ statement: "establish production-LLM-client-registration-at-import-time when atd
 
 acceptances:
   - identity:
-      urn: "acc:integration-hardening:LLM-REGISTRY-001-default-clients-registered"
+      urn: "acc:integration-hardening:C001-001-default-clients-registered"
       id: "AC-INTEGRATION-001"
       purpose: "Default LLMs registered when env vars are set"
       phase: "GREEN"
@@ -28,7 +28,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:LLM-REGISTRY-002-missing-keys-degrade-gracefully"
+      urn: "acc:integration-hardening:C001-002-missing-keys-degrade-gracefully"
       id: "AC-INTEGRATION-002"
       purpose: "Missing API keys produce clear non-crash error"
       phase: "GREEN"
@@ -47,7 +47,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:LLM-REGISTRY-003-judge-also-works"
+      urn: "acc:integration-hardening:C001-003-judge-also-works"
       id: "AC-INTEGRATION-003"
       purpose: "atdd judge end-to-end works with registered LLM"
       phase: "GREEN"

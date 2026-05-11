@@ -9,7 +9,7 @@ statement: "establish two-phase-commit-on-COMPLETE-to-MERGED-transition when atd
 
 acceptances:
   - identity:
-      urn: "acc:integration-hardening:P2-INTEGRATION-001-complete-triggers-merge"
+      urn: "acc:integration-hardening:P001-INTEGRATION-001-complete-triggers-merge"
       id: "AC-INTEGRATION-001"
       purpose: "With --auto-merge, COMPLETE invokes atdd pr + gh pr merge"
       phase: "GREEN"
@@ -28,7 +28,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:P2-INTEGRATION-002-cleanup"
+      urn: "acc:integration-hardening:P001-INTEGRATION-002-cleanup"
       id: "AC-INTEGRATION-002"
       purpose: "Post-MERGED cleanup removes worktree and cmux tab"
       phase: "GREEN"
@@ -47,7 +47,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:P2-INTEGRATION-003-no-auto-merge-without-flag"
+      urn: "acc:integration-hardening:P001-INTEGRATION-003-no-auto-merge-without-flag"
       id: "AC-INTEGRATION-003"
       purpose: "Without --auto-merge, COMPLETE waits for operator approval"
       phase: "GREEN"

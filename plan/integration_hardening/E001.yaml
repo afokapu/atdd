@@ -9,7 +9,7 @@ statement: "establish watcher-driven-state-transitions when atdd coach drives th
 
 acceptances:
   - identity:
-      urn: "acc:integration-hardening:J5-INTEGRATION-001-watcher-drives-state"
+      urn: "acc:integration-hardening:E001-INTEGRATION-001-watcher-drives-state"
       id: "AC-INTEGRATION-001"
       purpose: "Manual git commit triggers watcher-driven transition"
       phase: "GREEN"
@@ -28,7 +28,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:J5-INTEGRATION-002-stale-warn-fires"
+      urn: "acc:integration-hardening:E001-INTEGRATION-002-stale-warn-fires"
       id: "AC-INTEGRATION-002"
       purpose: "Stale events fire warn at --stale-warn threshold"
       phase: "GREEN"
@@ -47,7 +47,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:J5-INTEGRATION-003-liveness-cleanup"
+      urn: "acc:integration-hardening:E001-INTEGRATION-003-liveness-cleanup"
       id: "AC-INTEGRATION-003"
       purpose: "SIGTERM cleans up watcher subprocesses gracefully"
       phase: "GREEN"
@@ -66,7 +66,7 @@ acceptances:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
   - identity:
-      urn: "acc:integration-hardening:J5-INTEGRATION-004-event-serialization"
+      urn: "acc:integration-hardening:E001-INTEGRATION-004-event-serialization"
       id: "AC-INTEGRATION-004"
       purpose: "Concurrent filesystem and git events serialize deterministically"
       phase: "GREEN"
