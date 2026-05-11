@@ -43,7 +43,8 @@ def test_shutdown_stops_runtime_watcher(tmp_path):
 
     loop.shutdown()
 
-    assert not loop.runtime_watcher._thread.is_alive()
+    # RuntimeWatcher.stop() joins and sets _thread = None
+    assert loop.runtime_watcher._thread is None
 
 
 def test_shutdown_persists_watcher_checkpoint(tmp_path):

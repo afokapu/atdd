@@ -96,6 +96,7 @@ class Config:
     allow_stale_suppressions: bool = False
     resume: Optional[str] = None
     dry_run: bool = False
+    stale_warn_minutes: Optional[int] = None
 
 
 @dataclass
@@ -220,6 +221,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run", action="store_true", dest="dry_run",
     )
+    parser.add_argument(
+        "--stale-warn",
+        type=int,
+        default=None,
+        dest="stale_warn_minutes",
+        metavar="MINUTES",
+        help="Emit INFO escalation after MINUTES of no watcher events.",
+    )
     return parser
 
 
@@ -243,6 +252,7 @@ def parse_cli(argv: list[str]) -> Config:
         allow_stale_suppressions=ns.allow_stale_suppressions,
         resume=ns.resume,
         dry_run=ns.dry_run,
+        stale_warn_minutes=ns.stale_warn_minutes,
     )
 
 
