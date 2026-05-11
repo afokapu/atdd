@@ -34,7 +34,6 @@ from __future__ import annotations
 import argparse
 import sys
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -42,66 +41,33 @@ from typing import Optional
 # P5 (#531): orchestrate.py archived; import from _archived.
 from atdd.coach.commands._archived.orchestrate import build_plan, compute_waves
 
-
-class Phase(str, Enum):
-    """Per-issue lifecycle states (spec §4.1).
-
-    `str` mixin gives a stable string serialization for the eventual
-    decision-log writer (#J3); J1 itself never writes the log.
-    """
-
-    INIT = "INIT"
-    PLANNED = "PLANNED"
-    RED = "RED"
-    GREEN = "GREEN"
-    SMOKE = "SMOKE"
-    REFACTOR = "REFACTOR"
-    COMPLETE = "COMPLETE"
-    BLOCKED = "BLOCKED"
-    MERGED = "MERGED"
-
-    def __str__(self) -> str:
-        return self.value
-
-
-TRANSITION_TABLE: dict[Phase, set[Phase]] = {
-    Phase.INIT:     {Phase.PLANNED, Phase.BLOCKED},
-    Phase.PLANNED:  {Phase.RED, Phase.BLOCKED},
-    Phase.RED:      {Phase.GREEN, Phase.BLOCKED},
-    Phase.GREEN:    {Phase.SMOKE, Phase.BLOCKED},
-    Phase.SMOKE:    {Phase.REFACTOR, Phase.BLOCKED},
-    Phase.REFACTOR: {Phase.COMPLETE, Phase.BLOCKED},
-    Phase.COMPLETE: {Phase.MERGED},
-    Phase.BLOCKED:  {
-        Phase.INIT, Phase.PLANNED, Phase.RED,
-        Phase.GREEN, Phase.SMOKE, Phase.REFACTOR,
-    },
-    Phase.MERGED:   set(),
-}
-
-
-def can_transition(src: Phase, dst: Phase) -> bool:
-    return dst in TRANSITION_TABLE[src]
-
-
-PLANNED_PATH: tuple[Phase, ...] = (
-    Phase.INIT, Phase.PLANNED, Phase.RED, Phase.GREEN,
-    Phase.SMOKE, Phase.REFACTOR, Phase.COMPLETE, Phase.MERGED,
+# State-machine types extracted to handlers package (#591 split).
+# Re-exported here so all existing importers continue to work unchanged.
+from atdd.coach.handlers.state_machine import (
+    Phase,
+    PLANNED_PATH,
+    StateMachine,
+    TRANSITION_TABLE,
+    can_transition,
+    initialize_state_machine,
 )
 
-
-@dataclass
-class StateMachine:
-    """Per-issue state container. J1 ships the structure; transition
-    handlers land in per-state issues across the J/K/L/M tracks."""
-
-    issue_number: int
-    phase: Phase = Phase.INIT
-    history: list[Phase] = field(default_factory=list)
-
-
-def initialize_state_machine(issue_number: int) -> StateMachine:
-    return StateMachine(issue_number=issue_number, phase=Phase.INIT)
+__all__ = [
+    "Phase",
+    "PLANNED_PATH",
+    "StateMachine",
+    "TRANSITION_TABLE",
+    "can_transition",
+    "initialize_state_machine",
+    "Config",
+    "Policy",
+    "parse_cli",
+    "resolve_policy",
+    "build_plan",
+    "compute_waves",
+    "run",
+    "main",
+]
 
 
 # ---------------------------------------------------------------------------
