@@ -505,3 +505,10 @@ sessions:
   wagon: observe-and-correct
   feature: feature:observe-and-correct:observer-runtime-and-rules
   train: 0002-coach-drives-lifecycle
+- issue: 533
+  slug: coach-v9-q1-end-to-end-cycle
+  branch: feat/coach-v9-q1-end-to-end-cycle
+  worktree: /Users/alecfokapu/Github/atdd/feat-coach-v9-q1-end-to-end
+  train: 0002-coach-drives-lifecycle
+  wagon: integrate-end-to-end
+  created: '2026-05-11'
