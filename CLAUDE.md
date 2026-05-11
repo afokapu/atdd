@@ -767,6 +767,24 @@ conventions:
     - "issue.convention.yaml: Session planning structure & archetypes"
 ---
 
+# Per-LLM convention context: Claude Code
+
+## Rule-ID grammar
+
+Canonical rule IDs use `<archetype>.<convention_short_name>.<rule_name>`.
+
+Example: `coder.dead-code.reachability`.
+
+## bind_rule contract
+
+validators MUST call `bind_rule` at module-import time:
+
+```python
+_RULE = bind_rule("<canonical_id>")
+```
+
+The named rule MUST exist in a convention's `rules:` block. This is the bidirectional binding contract anchored by `SPEC-COACH-RULEID-0007`.
+
 # Agent-specific: claude
 # Claude-specific additions
 # This content is appended to the base ATDD.md when syncing to CLAUDE.md

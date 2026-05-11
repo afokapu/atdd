@@ -1,32 +1,27 @@
 trains:
   0-commons:
     00-commons-nominal:
-    - train_id: 0001-self-compliance-validate
-      description: 'Validate lifecycle train: planner defines plans, tester verifies
-        contracts, coder implements, coach governs'
-      path: plan/_trains/0001-self-compliance-validate.yaml
-      wagons:
-      - define-plans
-      - verify-contracts
-      - implement-code
-      - govern-lifecycle
-      - self-compliance-migration
-      - security-patterns
-      - enforce-structured-logging
-    - train_id: 0002-coach-drives-lifecycle
-      description: Replace polling-and-trust with an event-driven, observer-augmented
-        coach that drives the issue → merged-PR lifecycle (per atdd-coach-spec-v9.md).
-        Absorbs valuable machinery from atdd orchestrate and atdd babysit; introduces
-        durable state, two-tier verification, six judge call sites, and pre-coach
-        issue review.
-      path: plan/_trains/0002-coach-drives-lifecycle.yaml
-      wagons:
-      - freeze-runtime-contracts
-      - drive-state-machine
-      - spawn-agents
-      - observe-and-correct
-      - dispatch-validators
-      - review-phase-boundaries
-      - judge-ambiguous-decisions
-      - discover-and-decommission
-      - integrate-end-to-end
+      - train_id: "0001-self-compliance-validate"
+        title: "Self Compliance Validate"
+        path: "plan/_trains/0001-self-compliance-validate.yaml"
+        wagons:
+          - define-plans
+          - verify-contracts
+          - implement-code
+          - govern-lifecycle
+          - self-compliance-migration
+          - security-patterns
+          - enforce-structured-logging
+      - train_id: "0002-coach-drives-lifecycle"
+        title: "Coach Drives Lifecycle"
+        path: "plan/_trains/0002-coach-drives-lifecycle.yaml"
+        wagons:
+          - freeze-runtime-contracts
+          - drive-state-machine
+          - spawn-agents
+          - observe-and-correct
+          - dispatch-validators
+          - review-phase-boundaries
+          - judge-ambiguous-decisions
+          - discover-and-decommission
+          - integrate-end-to-end
