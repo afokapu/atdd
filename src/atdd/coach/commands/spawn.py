@@ -175,11 +175,24 @@ def _create_surface(
     worktree: Path,
     command: str,
     name: str,
+    mode: str = "auto",
 ) -> str:
-    """Dispatch to the multiplexer. Prefer ``new_surface`` (the cmux
-    workspace+pane+surface model used by orchestrate); fall back to
-    ``new_workspace`` for tmux / zellij backends per the abstraction
-    contract in ``utils/multiplexer.py``."""
+    """Dispatch to the multiplexer.
+
+    ``mode`` controls the surface creation strategy:
+    - ``"pane"`` — always call ``new_surface`` (attaches to the caller's
+      workspace as a new tab/pane; never falls back).
+    - ``"workspace"`` — always call ``new_workspace`` (creates an isolated
+      workspace for the spawned agent; never falls back to ``new_surface``).
+    - ``"auto"`` (default) — try ``new_surface`` first; fall back to
+      ``new_workspace`` for tmux/zellij backends that raise
+      ``NotImplementedError`` on ``new_surface``.
+    """
+    if mode == "pane":
+        return multiplexer.new_surface(cwd=str(worktree), command=command, name=name)
+    if mode == "workspace":
+        return multiplexer.new_workspace(cwd=str(worktree), command=command, name=name)
+    # "auto" — existing behaviour preserved for callers that don't specify a mode.
     try:
         return multiplexer.new_surface(
             cwd=str(worktree), command=command, name=name,
@@ -208,6 +221,8 @@ def cmd_spawn(
     multiplexer_ref: Optional[str] = None,
     multiplexer: Any = None,
     rules: Optional[Iterable[Any]] = None,
+    persona_prompt_content: Optional[str] = None,
+    multiplexer_mode: str = "auto",
 ) -> dict:
     """Render the launch prompt, dispatch the multiplexer, run the
     per-LLM adapter, and emit the ``agent_spawned`` event.
@@ -242,6 +257,16 @@ def cmd_spawn(
         )
         prompt_path.write_text(reviewer_prompt)
 
+    # Persona prompt injection: append per-phase instructions before dispatch.
+    # Must happen after the reviewer adapter (which also post-processes the prompt)
+    # and before the adapter generates the command string, so the shell cat picks
+    # up the enriched file at execution time.
+    if persona_prompt_content:
+        base = prompt_path.read_text()
+        prompt_path.write_text(
+            base.rstrip() + "\n\n# Persona instructions\n\n" + persona_prompt_content
+        )
+
     adapter = ADAPTER_REGISTRY[llm]
     command = adapter(prompt_path)
 
@@ -254,6 +279,7 @@ def cmd_spawn(
     backend = multiplexer if multiplexer is not None else _resolve_multiplexer()
     surface_ref = _create_surface(
         backend, worktree=worktree, command=command, name=canonical_name,
+        mode=multiplexer_mode,
     )
     apply_canonical_name_and_layout(
         backend=backend,

@@ -124,4 +124,5 @@ class CoachContext:
     allow_stale_suppressions: bool = False
     resume: Optional[str] = None
     auto_merge: bool = False
+    max_retries: Optional[int] = None
     escalation_channel: Optional[str] = None
