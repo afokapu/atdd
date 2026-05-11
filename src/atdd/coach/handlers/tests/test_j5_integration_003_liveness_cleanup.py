@@ -1,5 +1,5 @@
-# URN: test:integration-hardening:coach-state-machine-and-runtime:J5-INTEGRATION-003-liveness-cleanup
-# Acceptance: acc:integration-hardening:J5-INTEGRATION-003-liveness-cleanup
+# URN: test:integration-hardening:coach-state-machine-and-runtime:E001-INTEGRATION-003-liveness-cleanup
+# Acceptance: acc:integration-hardening:E001-INTEGRATION-003-liveness-cleanup
 # WMBT: wmbt:drive-state-machine:M001
 # Phase: RED
 # Layer: integration

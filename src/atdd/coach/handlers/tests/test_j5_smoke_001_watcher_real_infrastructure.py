@@ -1,5 +1,5 @@
-# URN: test:integration-hardening:coach-state-machine-and-runtime:J5-SMOKE-001-watcher-real-infrastructure
-# Acceptance: acc:integration-hardening:J5-SMOKE-001-watcher-real-infrastructure
+# URN: test:integration-hardening:coach-state-machine-and-runtime:E001-SMOKE-001-watcher-real-infrastructure
+# Acceptance: acc:integration-hardening:E001-SMOKE-001-watcher-real-infrastructure
 # WMBT: wmbt:drive-state-machine:M001
 # Phase: SMOKE
 # Layer: smoke
