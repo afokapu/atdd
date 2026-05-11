@@ -1,6 +1,6 @@
-# URN: test:integration-hardening:m3-validator-dispatch:M3-INTEGRATION-001-validators-fire-at-phase-exit
-# Acceptance: acc:integration-hardening:M3-INTEGRATION-001-validators-fire-at-phase-exit
-# WMBT: wmbt:integration-hardening:M3
+# URN: test:integration-hardening:m3-validator-dispatch:M001-INTEGRATION-001-validators-fire-at-phase-exit
+# Acceptance: acc:integration-hardening:M001-INTEGRATION-001-validators-fire-at-phase-exit
+# WMBT: wmbt:integration-hardening:M001
 # Phase: RED
 # Layer: integration
 """M3-INTEGRATION-001 — validators fire at phase exit and produce artifacts.

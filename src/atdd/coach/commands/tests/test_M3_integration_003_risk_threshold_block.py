@@ -1,6 +1,6 @@
-# URN: test:integration-hardening:m3-validator-dispatch:M3-INTEGRATION-003-risk-threshold-block
-# Acceptance: acc:integration-hardening:M3-INTEGRATION-003-risk-threshold-block
-# WMBT: wmbt:integration-hardening:M3
+# URN: test:integration-hardening:m3-validator-dispatch:M001-INTEGRATION-003-risk-threshold-block
+# Acceptance: acc:integration-hardening:M001-INTEGRATION-003-risk-threshold-block
+# WMBT: wmbt:integration-hardening:M001
 # Phase: RED
 # Layer: integration
 """M3-INTEGRATION-003 — --risk-threshold-block gates transitions.

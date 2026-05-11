@@ -1,6 +1,6 @@
-# URN: test:integration-hardening:m3-validator-dispatch:M3-INTEGRATION-002-strict-violation-blocks
-# Acceptance: acc:integration-hardening:M3-INTEGRATION-002-strict-violation-blocks
-# WMBT: wmbt:integration-hardening:M3
+# URN: test:integration-hardening:m3-validator-dispatch:M001-INTEGRATION-002-strict-violation-blocks
+# Acceptance: acc:integration-hardening:M001-INTEGRATION-002-strict-violation-blocks
+# WMBT: wmbt:integration-hardening:M001
 # Phase: RED
 # Layer: integration
 """M3-INTEGRATION-002 — strict-disposition violation blocks RED→GREEN.
