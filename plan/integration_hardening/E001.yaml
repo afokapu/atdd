@@ -77,9 +77,9 @@ acceptances:
       id: "AC-INTEGRATION-004"
       purpose: "Concurrent watcher events serialize deterministically"
       phase: "GREEN"
-    signal:
-      metric: "watcher.event_ordering.deterministic"
-      threshold: "= true"
+    harness:
+      type: "integration"
+      category: "backend"
     given:
       abstract:
         - "Multiple watcher event sources fire concurrently (git-refs + filesystem)"
@@ -96,9 +96,9 @@ acceptances:
       id: "AC-SMOKE-001"
       purpose: "Watcher works against real filesystem and git refs"
       phase: "SMOKE"
-    signal:
-      metric: "watcher.commit_observed.count"
-      threshold: ">= 1"
+    harness:
+      type: "smoke"
+      category: "backend"
     given:
       abstract:
         - "atdd coach is running against a real git worktree with filesystem watchers active"
