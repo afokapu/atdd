@@ -124,7 +124,7 @@ def test_judge_run_writes_judgments_jsonl(judge_workspace: Path):
     assert judgments_path.exists(), "judgments.jsonl was not created"
     lines = [json.loads(line) for line in judgments_path.read_text().splitlines() if line.strip()]
     assert len(lines) >= 1, "No judgment lines written"
-    assert lines[-1]["outcome"] == "success", f"Expected outcome=success, got {lines[-1]['outcome']}"
+    assert lines[-1]["outcome"] == "ok", f"Expected outcome=ok, got {lines[-1]['outcome']}"
 
 
 def test_subprocess_client_extracts_json_from_markdown_wrapper(judge_workspace: Path):
