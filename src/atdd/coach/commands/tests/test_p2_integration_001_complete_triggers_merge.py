@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:two-phase-commit-wiring:P2-INTEGRATION-001-complete-triggers-merge
-# Acceptance: acc:integration-hardening:P2-INTEGRATION-001-complete-triggers-merge
-# WMBT: wmbt:integration-hardening:P2
+# URN: test:integration-hardening:two-phase-commit-wiring:P001-INTEGRATION-001-complete-triggers-merge
+# Acceptance: acc:integration-hardening:P001-INTEGRATION-001-complete-triggers-merge
+# WMBT: wmbt:integration-hardening:P001
 # Phase: RED
 # Layer: integration
-"""P2-INTEGRATION-001 — with --auto-merge, COMPLETE → MERGED triggers PR creation + merge.
+"""P001-INTEGRATION-001 — with --auto-merge, COMPLETE → MERGED triggers PR creation + merge.
 
 Verifies that the two-phase commit handler:
   1. Invokes `atdd pr <N>` (Phase A — validates default-branch base per #477)
@@ -72,7 +72,7 @@ class _CallTracker:
 
 
 def test_auto_merge_invokes_atdd_pr_then_gh_merge(monkeypatch):
-    """P2-INTEGRATION-001: handler calls atdd pr <N> then gh pr merge, in that order."""
+    """P001-INTEGRATION-001: handler calls atdd pr <N> then gh pr merge, in that order."""
     import atdd.coach.handlers.two_phase_commit as tpc
     from atdd.coach.handlers.state_machine import HandlerResult
 
@@ -96,7 +96,7 @@ def test_auto_merge_invokes_atdd_pr_then_gh_merge(monkeypatch):
 
 
 def test_auto_merge_returns_error_on_pr_creation_failure(monkeypatch):
-    """P2-INTEGRATION-001: if atdd pr fails, handler returns ERROR and skips merge."""
+    """P001-INTEGRATION-001: if atdd pr fails, handler returns ERROR and skips merge."""
     import atdd.coach.handlers.two_phase_commit as tpc
     from atdd.coach.handlers.state_machine import HandlerResult
 
@@ -111,7 +111,7 @@ def test_auto_merge_returns_error_on_pr_creation_failure(monkeypatch):
 
 
 def test_auto_merge_returns_error_on_merge_failure(monkeypatch):
-    """P2-INTEGRATION-001: if gh pr merge fails, handler returns ERROR."""
+    """P001-INTEGRATION-001: if gh pr merge fails, handler returns ERROR."""
     import atdd.coach.handlers.two_phase_commit as tpc
     from atdd.coach.handlers.state_machine import HandlerResult
 

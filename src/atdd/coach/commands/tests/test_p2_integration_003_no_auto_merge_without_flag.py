@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:two-phase-commit-wiring:P2-INTEGRATION-003-no-auto-merge-without-flag
-# Acceptance: acc:integration-hardening:P2-INTEGRATION-003-no-auto-merge-without-flag
-# WMBT: wmbt:integration-hardening:P2
+# URN: test:integration-hardening:two-phase-commit-wiring:P001-INTEGRATION-003-no-auto-merge-without-flag
+# Acceptance: acc:integration-hardening:P001-INTEGRATION-003-no-auto-merge-without-flag
+# WMBT: wmbt:integration-hardening:P001
 # Phase: RED
 # Layer: integration
-"""P2-INTEGRATION-003 — without --auto-merge, COMPLETE stays pending + escalation sent.
+"""P001-INTEGRATION-003 — without --auto-merge, COMPLETE stays pending + escalation sent.
 
 Verifies that:
   1. With auto_merge=False, handler returns HandlerResult.NOOP (COMPLETE
@@ -41,7 +41,7 @@ def _make_transition():
 
 
 def test_no_auto_merge_returns_noop(monkeypatch):
-    """P2-INTEGRATION-003: auto_merge=False → NOOP (COMPLETE stays pending)."""
+    """P001-INTEGRATION-003: auto_merge=False → NOOP (COMPLETE stays pending)."""
     import atdd.coach.handlers.two_phase_commit as tpc
     from atdd.coach.handlers.state_machine import HandlerResult
 
@@ -61,7 +61,7 @@ def test_no_auto_merge_returns_noop(monkeypatch):
 
 
 def test_no_auto_merge_makes_no_pr_or_merge_calls(monkeypatch):
-    """P2-INTEGRATION-003: no `atdd pr` or `gh pr merge` calls when auto_merge=False."""
+    """P001-INTEGRATION-003: no `atdd pr` or `gh pr merge` calls when auto_merge=False."""
     import atdd.coach.handlers.two_phase_commit as tpc
 
     recorded: list[list[str]] = []
@@ -81,7 +81,7 @@ def test_no_auto_merge_makes_no_pr_or_merge_calls(monkeypatch):
 
 
 def test_no_auto_merge_sends_escalation_to_stderr(monkeypatch, capsys):
-    """P2-INTEGRATION-003: escalation message printed to stderr."""
+    """P001-INTEGRATION-003: escalation message printed to stderr."""
     import atdd.coach.handlers.two_phase_commit as tpc
 
     mod = MagicMock()
@@ -98,7 +98,7 @@ def test_no_auto_merge_sends_escalation_to_stderr(monkeypatch, capsys):
 
 
 def test_no_auto_merge_escalation_includes_channel(monkeypatch, capsys):
-    """P2-INTEGRATION-003: when escalation_channel is set, it appears in stderr."""
+    """P001-INTEGRATION-003: when escalation_channel is set, it appears in stderr."""
     import atdd.coach.handlers.two_phase_commit as tpc
 
     mod = MagicMock()
@@ -117,7 +117,7 @@ def test_no_auto_merge_escalation_includes_channel(monkeypatch, capsys):
 
 
 def test_no_auto_merge_escalation_includes_manual_resume_hint(monkeypatch, capsys):
-    """P2-INTEGRATION-003: escalation message tells operator how to complete the merge."""
+    """P001-INTEGRATION-003: escalation message tells operator how to complete the merge."""
     import atdd.coach.handlers.two_phase_commit as tpc
 
     mod = MagicMock()

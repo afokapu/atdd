@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:two-phase-commit-wiring:P2-INTEGRATION-002-cleanup
-# Acceptance: acc:integration-hardening:P2-INTEGRATION-002-cleanup
-# WMBT: wmbt:integration-hardening:P2
+# URN: test:integration-hardening:two-phase-commit-wiring:P001-INTEGRATION-002-cleanup
+# Acceptance: acc:integration-hardening:P001-INTEGRATION-002-cleanup
+# WMBT: wmbt:integration-hardening:P001
 # Phase: RED
 # Layer: integration
-"""P2-INTEGRATION-002 — post-MERGED, worktree is removed.
+"""P001-INTEGRATION-002 — post-MERGED, worktree is removed.
 
 Verifies that:
   1. After a successful merge, the handler attempts to remove the
@@ -80,7 +80,7 @@ class _CallRouter:
 
 
 def test_worktree_remove_called_when_matching_worktree_found(monkeypatch):
-    """P2-INTEGRATION-002: handler calls git worktree remove --force <path> after merge."""
+    """P001-INTEGRATION-002: handler calls git worktree remove --force <path> after merge."""
     import atdd.coach.handlers.two_phase_commit as tpc
     from atdd.coach.handlers.state_machine import HandlerResult
 
@@ -99,7 +99,7 @@ def test_worktree_remove_called_when_matching_worktree_found(monkeypatch):
 
 
 def test_worktree_remove_skipped_when_no_matching_worktree(monkeypatch):
-    """P2-INTEGRATION-002: no worktree remove call when no matching worktree found."""
+    """P001-INTEGRATION-002: no worktree remove call when no matching worktree found."""
     import atdd.coach.handlers.two_phase_commit as tpc
     from atdd.coach.handlers.state_machine import HandlerResult
 
@@ -114,7 +114,7 @@ def test_worktree_remove_skipped_when_no_matching_worktree(monkeypatch):
 
 
 def test_cleanup_failure_still_returns_handled(monkeypatch):
-    """P2-INTEGRATION-002: worktree removal failure → MERGED (warn log, not ERROR)."""
+    """P001-INTEGRATION-002: worktree removal failure → MERGED (warn log, not ERROR)."""
     import atdd.coach.handlers.two_phase_commit as tpc
     from atdd.coach.handlers.state_machine import HandlerResult
 
