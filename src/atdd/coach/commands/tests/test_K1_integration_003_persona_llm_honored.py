@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:coach-spawn-wiring:K1-INTEGRATION-003-persona-llm-honored
-# Acceptance: acc:integration-hardening:K1-INTEGRATION-003-persona-llm-honored
-# WMBT: wmbt:integration-hardening:K1
+# URN: test:integration-hardening:coach-spawn-wiring:K001-INTEGRATION-003-persona-llm-honored
+# Acceptance: acc:integration-hardening:K001-INTEGRATION-003-persona-llm-honored
+# WMBT: wmbt:integration-hardening:K001
 # Phase: RED
 # Layer: integration
-"""K1-INTEGRATION-003 — --persona-llm flag routes each persona to the configured LLM.
+"""K001-INTEGRATION-003 — --persona-llm flag routes each persona to the configured LLM.
 
 Verifies that when CoachContext.persona_llm is set (from --persona-llm CLI flag),
 each spawn call uses the mapped LLM for the given persona. Fallback to ctx.llm

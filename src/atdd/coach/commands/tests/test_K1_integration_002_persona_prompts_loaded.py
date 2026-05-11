@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:coach-spawn-wiring:K1-INTEGRATION-002-persona-prompts-loaded
-# Acceptance: acc:integration-hardening:K1-INTEGRATION-002-persona-prompts-loaded
-# WMBT: wmbt:integration-hardening:K1
+# URN: test:integration-hardening:coach-spawn-wiring:K001-INTEGRATION-002-persona-prompts-loaded
+# Acceptance: acc:integration-hardening:K001-INTEGRATION-002-persona-prompts-loaded
+# WMBT: wmbt:integration-hardening:K001
 # Phase: RED
 # Layer: integration
-"""K1-INTEGRATION-002 — persona prompt is embedded in the launch prompt; missing
+"""K001-INTEGRATION-002 — persona prompt is embedded in the launch prompt; missing
 file aborts the transition and records BLOCKED in decisions.jsonl.
 
 Verifies:

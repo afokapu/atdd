@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:coach-spawn-wiring:K1-INTEGRATION-005-spawn-failure-retries-then-escalates
-# Acceptance: acc:integration-hardening:K1-INTEGRATION-005-spawn-failure-retries-then-escalates
-# WMBT: wmbt:integration-hardening:K1
+# URN: test:integration-hardening:coach-spawn-wiring:K001-INTEGRATION-005-spawn-failure-retries-then-escalates
+# Acceptance: acc:integration-hardening:K001-INTEGRATION-005-spawn-failure-retries-then-escalates
+# WMBT: wmbt:integration-hardening:K001
 # Phase: RED
 # Layer: integration
-"""K1-INTEGRATION-005 — forced spawn failure retries (max_retries times) then escalates.
+"""K001-INTEGRATION-005 — forced spawn failure retries (max_retries times) then escalates.
 
 Verifies:
 - _call_spawn is retried exactly max_retries+1 times total on persistent failure

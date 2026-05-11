@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:coach-spawn-wiring:K1-INTEGRATION-004-multiplexer-mode-honored
-# Acceptance: acc:integration-hardening:K1-INTEGRATION-004-multiplexer-mode-honored
-# WMBT: wmbt:integration-hardening:K1
+# URN: test:integration-hardening:coach-spawn-wiring:K001-INTEGRATION-004-multiplexer-mode-honored
+# Acceptance: acc:integration-hardening:K001-INTEGRATION-004-multiplexer-mode-honored
+# WMBT: wmbt:integration-hardening:K001
 # Phase: RED
 # Layer: integration
-"""K1-INTEGRATION-004 — --multiplexer-mode dispatches to new_surface (pane) vs
+"""K001-INTEGRATION-004 — --multiplexer-mode dispatches to new_surface (pane) vs
 new_workspace (workspace).
 
 Verifies that when CoachContext.multiplexer_mode is "pane", the spawn call uses

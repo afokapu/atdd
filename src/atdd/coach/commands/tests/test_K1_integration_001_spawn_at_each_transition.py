@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:coach-spawn-wiring:K1-INTEGRATION-001-spawn-at-each-transition
-# Acceptance: acc:integration-hardening:K1-INTEGRATION-001-spawn-at-each-transition
-# WMBT: wmbt:integration-hardening:K1
+# URN: test:integration-hardening:coach-spawn-wiring:K001-INTEGRATION-001-spawn-at-each-transition
+# Acceptance: acc:integration-hardening:K001-INTEGRATION-001-spawn-at-each-transition
+# WMBT: wmbt:integration-hardening:K001
 # Phase: RED
 # Layer: integration
-"""K1-INTEGRATION-001 — atdd coach spawns the right persona at each of the 5 phase
+"""K001-INTEGRATION-001 — atdd coach spawns the right persona at each of the 5 phase
 transitions defined in spec §4.1.
 
 For each transition in the persona-per-transition table, handle() must:
