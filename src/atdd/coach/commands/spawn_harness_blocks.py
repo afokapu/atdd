@@ -42,6 +42,11 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from atdd.coach.utils.rule_binding import RuleMetadata
 
+try:
+    from atdd.coach.runtime import integration_logger as _ilog
+except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    _ilog = None  # type: ignore[assignment]
+
 
 def _acceptance_kind(rule: RuleMetadata) -> str | None:
     rule_id = str(getattr(rule, "rule_id", ""))
@@ -98,37 +103,48 @@ def _train_rule_entry(rule: RuleMetadata) -> dict[str, Any]:
 
 
 def render_wmbt_rules_block(
-    rules: Iterable[RuleMetadata], *, coach_phase: str | None = None
+    rules: Iterable[RuleMetadata], *, coach_phase: str | None = None, persona: str = ""
 ) -> list[dict[str, Any]]:
     scoped = [
         rule
         for rule in _phase_filtered_rules(rules, coach_phase)
         if _acceptance_kind(rule) == "wmbt" or getattr(rule, "wmbt_urn", None)
     ]
-    return [
+    result = [
         {"wmbt_urn": wmbt_urn, "rules": [_wmbt_rule_entry(rule) for rule in group]}
         for wmbt_urn, group in _group_by_attr(scoped, "wmbt_urn")
     ]
+    if _ilog is not None and _ilog.is_enabled():
+        _ilog.log_spawn_harness_rendering(
+            renderer_name="wmbt_rules", persona=persona, rule_count=len(scoped)
+        )
+    return result
 
 
 def render_train_rules_block(
-    rules: Iterable[RuleMetadata], *, coach_phase: str | None = None
+    rules: Iterable[RuleMetadata], *, coach_phase: str | None = None, persona: str = ""
 ) -> list[dict[str, Any]]:
     scoped = [
         rule
         for rule in _phase_filtered_rules(rules, coach_phase)
         if _acceptance_kind(rule) == "train" or getattr(rule, "train_urn", None)
     ]
-    return [
+    result = [
         {"train_urn": train_urn, "rules": [_train_rule_entry(rule) for rule in group]}
         for train_urn, group in _group_by_attr(scoped, "train_urn")
     ]
+    if _ilog is not None and _ilog.is_enabled():
+        _ilog.log_spawn_harness_rendering(
+            renderer_name="train_rules", persona=persona, rule_count=len(scoped)
+        )
+    return result
 
 
 def render_security_rules_block(
     rules: Iterable[RuleMetadata],
     *,
     coach_phase: Optional[str] = None,
+    persona: str = "",
 ) -> List[Dict[str, Any]]:
     """Render the ``security_rules:`` block as a list of feature groups.
 
@@ -196,6 +212,10 @@ def render_security_rules_block(
             "feature_urn": feature_urn,
             "rules": rule_blocks,
         })
+    if _ilog is not None and _ilog.is_enabled():
+        _ilog.log_spawn_harness_rendering(
+            renderer_name="security_rules", persona=persona, rule_count=len(selected)
+        )
     return out
 
 

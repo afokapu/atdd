@@ -53,6 +53,29 @@ class AmbiguousAliasError(LookupError):
     """Raised when a legacy alias collides with another rule's canonical id or alias."""
 
 
+# ---------------------------------------------------------------------------
+# bind_rule hooks (integration logging)
+# ---------------------------------------------------------------------------
+# Application-layer callers register callbacks here so domain code emits
+# bind_rule boundary events without importing upward.
+from typing import Callable as _Callable  # noqa: E402 (guarded by TYPE_CHECKING-safe pattern)
+
+_bind_rule_hooks: list[_Callable[["RuleMetadata"], None]] = []
+
+
+def register_bind_rule_hook(callback: _Callable[["RuleMetadata"], None]) -> None:
+    """Register *callback* to be called after each successful ``bind_rule``.
+
+    Signature: ``callback(metadata: RuleMetadata) -> None``
+    """
+    _bind_rule_hooks.append(callback)
+
+
+def clear_bind_rule_hooks() -> None:
+    """Remove all registered bind_rule hooks (use in test teardown)."""
+    _bind_rule_hooks.clear()
+
+
 class RepoYamlValidationError(ValueError):
     """Raised when a repo plan/ YAML violates the substrate's structural rules.
 
@@ -1264,7 +1287,13 @@ def bind_rule(rule_id: str) -> RuleMetadata:
             f"Rule IDs are stable forever — use superseded_by instead of "
             f"redeclaring."
         )
-    return matches[0]
+    result = matches[0]
+    for hook in _bind_rule_hooks:
+        try:
+            hook(result)
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            pass
+    return result
 
 
 def get_canonical_id(rule_id: str) -> str:

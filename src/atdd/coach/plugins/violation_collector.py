@@ -106,6 +106,10 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             fh.write(line)
             fh.write("\n")
 
+    # Emit integration-log entries for each unique validator invocation observed.
+    # Uses the opt-in integration_logger — no-op when logger is not enabled.
+    _emit_validator_invocation_log(observed, exitstatus, out_path)
+
 
 # ---------------------------------------------------------------------------
 # Internals
@@ -191,6 +195,42 @@ def _resolve_sha(repo_root: Path) -> str:
             file=sys.stderr,
         )
         return "unknown"
+
+
+def _emit_validator_invocation_log(
+    observed: List[Dict[str, Any]],
+    exitstatus: int,
+    out_path: Path,
+) -> None:
+    """Emit one integration-log entry per unique validator_id in *observed*.
+
+    No-op when integration logging is not enabled.
+    """
+    try:
+        from atdd.coach.runtime import integration_logger as ilog  # noqa: PLC0415
+        if not ilog.is_enabled():
+            return
+    except ImportError:
+        return
+
+    sha = out_path.parent.name  # parent dir is the SHA
+    by_validator: Dict[str, List[Dict[str, Any]]] = {}
+    for entry in observed:
+        vid = entry.get("validator_id", "unknown")
+        by_validator.setdefault(vid, []).append(entry)
+
+    for validator_id, entries in by_validator.items():
+        rule_ids = {entry.get("violation") and getattr(entry["violation"], "rule_id", None) for entry in entries}
+        rule_ids.discard(None)
+        outcome = "failed" if exitstatus != 0 else "passed"
+        for rule_id in (rule_ids or {"<no-violations>"}):
+            ilog.log_validator_invocation(
+                validator_id=validator_id,
+                rule_id=str(rule_id),
+                phase=os.environ.get("ATDD_COACH_PHASE", "unknown"),
+                commit_sha=sha,
+                outcome=outcome,
+            )
 
 
 __all__ = [

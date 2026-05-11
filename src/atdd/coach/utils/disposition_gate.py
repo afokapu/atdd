@@ -36,13 +36,54 @@ import sys
 import warnings
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 import pytest
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_id_registry import RuleMetadata, build_registry
 from atdd.coach.utils.suppression_scanner import is_suppressed
+
+
+# ---------------------------------------------------------------------------
+# Gate verdict hooks (integration logging)
+# ---------------------------------------------------------------------------
+# Application-layer callers (e.g. integration_logger) register callbacks here
+# so domain code emits boundary-crossing events without importing upward.
+_gate_verdict_hooks: list[Callable[[str, str, bool, int, list[str]], None]] = []
+
+
+def register_gate_verdict_hook(
+    callback: Callable[[str, str, bool, int, list[str]], None],
+) -> None:
+    """Register *callback* to be called after every gate verdict.
+
+    Signature: ``callback(validator_id, disposition_tier, passed, violation_count, driving_ids)``
+    """
+    _gate_verdict_hooks.append(callback)
+
+
+def clear_gate_verdict_hooks() -> None:
+    """Remove all registered gate verdict hooks (use in test teardown)."""
+    _gate_verdict_hooks.clear()
+
+
+def _emit_gate_verdict(
+    validator_id: str,
+    disposition_tier: str,
+    passed: bool,
+    violations: Sequence[Any],
+) -> None:
+    if not _gate_verdict_hooks:
+        return
+    driving_ids = [
+        str(getattr(v, "rule_id", "")) for v in violations if _looks_like_violation(v)
+    ]
+    for hook in _gate_verdict_hooks:
+        try:
+            hook(validator_id, disposition_tier, passed, len(violations), driving_ids)
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            pass
 
 
 # Inline marker grammar (mirrors atdd.coach.utils.suppression_scanner). Used
@@ -281,6 +322,7 @@ def assert_disposition_satisfied(
         # and not itself a rule_id, so this branch only fires for the
         # opaque-but-empty case; per-rule passes are recorded inside the
         # main loop below using the structured bucket's keys.
+        _emit_gate_verdict(validator_id, "empty", True, [])
         return
 
     registry = registry if registry is not None else build_registry()
@@ -384,7 +426,10 @@ def assert_disposition_satisfied(
             f"\n[disposition gate] {validator_id}: "
             f"{sum(_count_block_violations(b) for b in failures)} unsuppressed violation(s)\n"
         )
+        _emit_gate_verdict(validator_id, "strict", False, list(violations))
         pytest.fail(header + "\n".join(failures))
+    else:
+        _emit_gate_verdict(validator_id, "pass", True, list(violations))
 
 
 def _count_block_violations(block: str) -> int:
