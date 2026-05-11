@@ -17,8 +17,8 @@ import json
 import os
 import sys
 import time
-import uuid
 from pathlib import Path
+import uuid
 from typing import Optional
 
 from atdd.coach.handlers.state_machine import CoachContext, HandlerResult, Transition
