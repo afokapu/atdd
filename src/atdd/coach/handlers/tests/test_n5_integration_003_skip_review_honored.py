@@ -1,8 +1,9 @@
-# URN: test:integration-hardening:N5-INTEGRATION-003-skip-review-honored
-# Acceptance: acc:integration-hardening:N5-INTEGRATION-003-skip-review-honored
-# Phase: RED
-# Layer: unit
-"""N5-INTEGRATION-003 — `--skip-review` bypasses all reviewer spawns.
+# URN: test:integration-hardening:R001-INTEGRATION-003-skip-review-honored
+# Acceptance: acc:integration-hardening:R001-INTEGRATION-003-skip-review-honored
+# WMBT: wmbt:integration-hardening:R001
+# Phase: GREEN
+# Layer: integration
+"""R001-INTEGRATION-003 — `--skip-review` bypasses all reviewer spawns.
 
 When `ctx.skip_review` is True, the reviewer handler returns NOOP and
 no reviewer manifest is written.

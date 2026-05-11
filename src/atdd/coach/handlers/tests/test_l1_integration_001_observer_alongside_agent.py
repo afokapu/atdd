@@ -1,8 +1,9 @@
-# URN: test:integration-hardening:L1-INTEGRATION-001-observer-alongside-agent
-# Acceptance: acc:integration-hardening:L1-INTEGRATION-001-observer-alongside-agent
-# Phase: RED
-# Layer: unit
-"""L1-INTEGRATION-001 — observer co-spawned alongside phase agent.
+# URN: test:integration-hardening:L001-INTEGRATION-001-observer-alongside-agent
+# Acceptance: acc:integration-hardening:L001-INTEGRATION-001-observer-alongside-agent
+# WMBT: wmbt:integration-hardening:L001
+# Phase: GREEN
+# Layer: integration
+"""L001-INTEGRATION-001 — observer co-spawned alongside phase agent.
 
 Per spec §8.3: every spawned phase agent has a co-spawned observer whose
 pid is recorded in `.atdd/runtime/agents/<id>/observer_pid.json`.

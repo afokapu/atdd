@@ -1,8 +1,9 @@
-# URN: test:integration-hardening:N5-INTEGRATION-001-reviewer-at-phase-boundary
-# Acceptance: acc:integration-hardening:N5-INTEGRATION-001-reviewer-at-phase-boundary
-# Phase: RED
-# Layer: unit
-"""N5-INTEGRATION-001 — reviewer agent spawns at each enabled phase boundary.
+# URN: test:integration-hardening:R001-INTEGRATION-001-reviewer-at-phase-boundary
+# Acceptance: acc:integration-hardening:R001-INTEGRATION-001-reviewer-at-phase-boundary
+# WMBT: wmbt:integration-hardening:R001
+# Phase: GREEN
+# Layer: integration
+"""R001-INTEGRATION-001 — reviewer agent spawns at each enabled phase boundary.
 
 Per spec §6.3: when `--review-phases` includes a phase, a reviewer persona
 is spawned at that phase boundary and its manifest is written to

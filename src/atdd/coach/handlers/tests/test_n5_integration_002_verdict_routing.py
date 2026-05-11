@@ -1,8 +1,9 @@
-# URN: test:integration-hardening:N5-INTEGRATION-002-verdict-routing
-# Acceptance: acc:integration-hardening:N5-INTEGRATION-002-verdict-routing
-# Phase: RED
-# Layer: unit
-"""N5-INTEGRATION-002 — verdict routing: pass/concern/fail.
+# URN: test:integration-hardening:R001-INTEGRATION-002-verdict-routing
+# Acceptance: acc:integration-hardening:R001-INTEGRATION-002-verdict-routing
+# WMBT: wmbt:integration-hardening:R001
+# Phase: GREEN
+# Layer: integration
+"""R001-INTEGRATION-002 — verdict routing: pass/concern/fail.
 
 pass     → HandlerResult.HANDLED (state advances)
 concern  → judge call site #2 invoked, then HandlerResult.HANDLED
