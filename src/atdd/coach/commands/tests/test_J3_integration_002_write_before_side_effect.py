@@ -1,6 +1,6 @@
-# URN: test:integration-hardening:coach-decisions-wiring:J3-INTEGRATION-002-write-before-side-effect
-# Acceptance: acc:integration-hardening:J3-INTEGRATION-002-write-before-side-effect
-# WMBT: wmbt:integration-hardening:J3
+# URN: test:integration-hardening:coach-decisions-wiring:D001-INTEGRATION-002-write-before-side-effect
+# Acceptance: acc:integration-hardening:D001-INTEGRATION-002-write-before-side-effect
+# WMBT: wmbt:integration-hardening:D001
 # Phase: RED
 # Layer: integration
 """J3-INTEGRATION-002 — decision write completes before side-effect runs

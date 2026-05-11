@@ -1,6 +1,6 @@
-# URN: test:integration-hardening:coach-decisions-wiring:J3-INTEGRATION-001-decision-per-transition
-# Acceptance: acc:integration-hardening:J3-INTEGRATION-001-decision-per-transition
-# WMBT: wmbt:integration-hardening:J3
+# URN: test:integration-hardening:coach-decisions-wiring:D001-INTEGRATION-001-decision-per-transition
+# Acceptance: acc:integration-hardening:D001-INTEGRATION-001-decision-per-transition
+# WMBT: wmbt:integration-hardening:D001
 # Phase: RED
 # Layer: integration
 """J3-INTEGRATION-001 — every state transition produces exactly one

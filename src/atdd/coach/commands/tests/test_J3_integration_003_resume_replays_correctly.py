@@ -1,6 +1,6 @@
-# URN: test:integration-hardening:coach-decisions-wiring:J3-INTEGRATION-003-resume-replays-correctly
-# Acceptance: acc:integration-hardening:J3-INTEGRATION-003-resume-replays-correctly
-# WMBT: wmbt:integration-hardening:J3
+# URN: test:integration-hardening:coach-decisions-wiring:D001-INTEGRATION-003-resume-replays-correctly
+# Acceptance: acc:integration-hardening:D001-INTEGRATION-003-resume-replays-correctly
+# WMBT: wmbt:integration-hardening:D001
 # Phase: RED
 # Layer: integration
 """J3-INTEGRATION-003 — `atdd coach --resume <run-id>` reconstructs
