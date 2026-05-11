@@ -1,0 +1,73 @@
+urn: "wmbt:judge-ambiguous-decisions:D006"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "llm-registry-empty-at-runtime"
+context_clarifier: "when atdd judge / atdd issue review are invoked in production — the LLM_REGISTRY is populated only by test stubs, so production calls fail with 'unknown LLM id; not in registry (known: [])'. The fix is to wire production LLM clients at import time using subprocess shims that delegate to the local claude CLI (already in use) and auto-register when the binary is available. When no CLI or env-var is configured, the command must degrade gracefully with a message rather than crashing."
+lens: "functional.reliability"
+statement: "minimize likelihood of llm-registry-empty-at-runtime when atdd judge or atdd issue review are invoked — by auto-registering production subprocess-shim clients at import time based on available CLIs or env vars, and printing a clear help message when none are available"
+acceptances:
+  - identity:
+      urn: "acc:judge-ambiguous-decisions:LLM-REGISTRY-001-default-clients-registered"
+      id: "AC-UNIT-001"
+      purpose: "When the claude CLI is available (shutil.which finds it), at least 2 production clients are registered in LLM_REGISTRY at import time; they can be constructed via their factory callables"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/llm_clients/ package exists and is imported by judge.py"
+        - "shutil.which('claude') returns a non-None path"
+    when:
+      abstract: "atdd.coach.commands.llm_clients is imported"
+    then:
+      abstract:
+        - "At least 2 LLM client names are registered in LLM_REGISTRY (e.g. claude-haiku, claude-sonnet-4-6)"
+        - "Each registered factory is callable and returns an object with an invoke(prompt) method"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:judge-ambiguous-decisions:LLM-REGISTRY-002-missing-keys-degrade-gracefully"
+      id: "AC-UNIT-002"
+      purpose: "When no claude CLI or API keys are available, import of llm_clients registers nothing, prints 'no LLM clients available — configure ANTHROPIC_API_KEY (or equivalent), or see .atdd/config.yaml::coach.llm_clients' to stderr, and exits 0 (does not crash)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "shutil.which returns None for all LLM CLIs"
+        - "No ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY env vars are set"
+    when:
+      abstract: "register_production_clients() is called"
+    then:
+      abstract:
+        - "LLM_REGISTRY has no entries from the production registration call"
+        - "Stderr contains 'no LLM clients available' with instructions"
+        - "No exception is raised"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:judge-ambiguous-decisions:LLM-REGISTRY-003-judge-also-works"
+      id: "AC-UNIT-003"
+      purpose: "After importing llm_clients (with a stub claude shim patched in), atdd judge run() completes successfully and writes to judgments.jsonl"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "llm_clients is imported with a subprocess-shim client registered as 'claude-haiku'"
+        - "A stub subprocess that returns valid JSON is used instead of the real claude CLI"
+    when:
+      abstract: "judge.run() is called with --llm claude-haiku and a valid schema + prompt template"
+    then:
+      abstract:
+        - "run() returns 0"
+        - ".atdd/runtime/coach/judgments.jsonl receives one new line with outcome=success"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-11"
