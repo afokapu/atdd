@@ -210,7 +210,7 @@ def _emit_validator_invocation_log(
         from atdd.coach.runtime import integration_logger as ilog  # noqa: PLC0415
         if not ilog.is_enabled():
             return
-    except ImportError:
+    except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         return
 
     sha = out_path.parent.name  # parent dir is the SHA
