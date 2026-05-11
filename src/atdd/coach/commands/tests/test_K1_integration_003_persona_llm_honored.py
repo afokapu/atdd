@@ -39,7 +39,7 @@ def _patch_handler(monkeypatch, tmp_path, spawn_handler, fake_spawn):
     )
     monkeypatch.setattr(spawn_handler, "_resolve_worktree", lambda ctx: tmp_path / "wt")
     monkeypatch.setattr(spawn_handler, "_RUNTIME_ROOT", tmp_path / ".atdd" / "runtime")
-    (tmp_path / "wt").mkdir(parents=True)
+    (tmp_path / "wt").mkdir(parents=True, exist_ok=True)
 
 
 def test_persona_llm_planner_honored(tmp_path, monkeypatch):
