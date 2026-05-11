@@ -6,8 +6,9 @@ worktree at `{{worktree_path}}` on branch `{{branch}}`.
 ## Pre-flight
 
 1. Read CLAUDE.md in the worktree root.
-2. Run `atdd gate` to confirm ATDD rules are loaded.
-3. Run `gh issue view {{issue_number}} --json body --jq '.body'` to see the full issue body.
+2. Run `atdd gate` to confirm ATDD rules are loaded (output includes available diagnostic commands).
+3. Run `atdd repo validate` to check URN traceability — fix any errors before writing code.
+4. Run `gh issue view {{issue_number}} --json body --jq '.body'` to see the full issue body.
 
 ## Issue context
 
