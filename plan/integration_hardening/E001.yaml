@@ -71,14 +71,34 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-11"
 
+
+  - identity:
+      urn: "acc:integration-hardening:E001-INTEGRATION-004-event-serialization"
+      id: "AC-INTEGRATION-004"
+      purpose: "Concurrent watcher events serialize deterministically"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "Multiple watcher event sources fire concurrently (git-refs + filesystem)"
+    when:
+      abstract: "The state machine processes them"
+    then:
+      abstract:
+        - "Transition ordering is deterministic per timestamp"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
   - identity:
       urn: "acc:integration-hardening:E001-SMOKE-001-watcher-real-infrastructure"
       id: "AC-SMOKE-001"
       purpose: "Watcher works against real filesystem and git refs"
       phase: "SMOKE"
-    signal:
-      metric: "watcher.commit_observed.count"
-      threshold: ">= 1"
+    harness:
+      type: "smoke"
+      category: "backend"
     given:
       abstract:
         - "atdd coach is running against a real git worktree with filesystem watchers active"
