@@ -1,0 +1,40 @@
+urn: "feature:integration-hardening:coach-single-command-driver"
+wagon: "wagon:integration-hardening"
+description: "Wires `atdd coach <N>` state-machine handlers (from #591 split) to shipped per-track components — K1 spawn, J3 decisions, J5 watcher, M3 validators, L1 observer, N5 reviewer, P2 two-phase commit, LLM registry. Closes spec §11.6 milestone (parent: #584). Each WMBT (K1/J3/J5/M3/L1/N5/P2/LLM) wires one handler module in src/atdd/coach/handlers/ to its corresponding shipped component."
+sizing:
+  wmbts: 8
+  footprint_score: 18
+  footprint_size: "L"
+wmbts:
+  - "wmbt:integration-hardening:K1"
+  - "wmbt:integration-hardening:J3"
+  - "wmbt:integration-hardening:J5"
+  - "wmbt:integration-hardening:M3"
+  - "wmbt:integration-hardening:L1"
+  - "wmbt:integration-hardening:N5"
+  - "wmbt:integration-hardening:P2"
+  - "wmbt:integration-hardening:LLM"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface; reuses atdd coach <N> argparse from J1"
+    application:
+      - type: "use_cases"
+        count: 8
+        rationale: "Eight handler-wirings: spawn (K1), decisions (J3), watcher (J5), validator-dispatch (M3), observer (L1), reviewer (N5), two-phase-commit (P2), LLM-registry init (LLM)"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "CoachContext (passed across handlers), HandlerResult (uniform success/blocked/noop return)"
+    integration:
+      - type: "subprocess_invokers"
+        count: 0
+        rationale: "Reuses K1 subprocess spawn; no new subprocess interfaces introduced"
+      - type: "watchers"
+        count: 0
+        rationale: "Reuses J5 watcher; no new watchers"
+      - type: "artifact_writers"
+        count: 0
+        rationale: "Reuses J3 decisions.jsonl writer + M3 risk-score writer"

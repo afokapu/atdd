@@ -23,12 +23,3 @@ produce:
     contract: null
     telemetry: null
     to: external
-steps:
-  - K1
-  - J3
-  - J5
-  - M3
-  - L1
-  - N5
-  - P2
-  - LLM
