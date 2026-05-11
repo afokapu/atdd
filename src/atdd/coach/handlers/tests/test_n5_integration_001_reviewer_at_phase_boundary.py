@@ -19,13 +19,15 @@ import pytest
 pytestmark = [pytest.mark.platform]
 
 
-def _pass_report(phase: str = "PLANNED") -> dict:
+def _pass_report(phase: str = "GREEN") -> dict:
+    # Schema (review-report.schema.json) only permits RED/GREEN/SMOKE/REFACTOR.
+    valid_phase = phase if phase in ("RED", "GREEN", "SMOKE", "REFACTOR") else "GREEN"
     return {
         "review_id": f"rev-pass-{phase.lower()}",
         "target_commit": "deadbeef00",
         "reviewer_agent_id": "reviewer-test-001",
         "wmbt_urn": "wmbt:integration-hardening:N5",
-        "phase": phase,
+        "phase": valid_phase,
         "verdict": "pass",
         "tier1_risk_score": 0,
         "findings": [],
@@ -64,8 +66,7 @@ def _fake_spawn(ctx, transition, reviewer_agent_id, runtime_root_path):
 
 def _fake_wait(reviewer_agent_dir: Path, **kwargs) -> Optional[dict]:
     """Immediately return a pass report without polling."""
-    phase = reviewer_agent_dir.parent.parent.name  # rough heuristic
-    return _pass_report()
+    return _pass_report("GREEN")
 
 
 ALL_REVIEW_PHASES = {"planned", "red", "green", "smoke", "refactor"}

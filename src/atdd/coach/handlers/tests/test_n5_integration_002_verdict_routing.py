@@ -40,7 +40,7 @@ def _report(verdict: str, phase: str = "GREEN") -> dict:
                 "severity": 2,
                 "surface": "semantic",
                 "location": "src/x.py",
-                "acceptance_ref": None,
+                "acceptance_ref": "acc:integration-hardening:N5-INTEGRATION-002-verdict-routing",
                 "description": "Minor concern.",
                 "evidence": "Evidence here.",
             }
@@ -50,9 +50,9 @@ def _report(verdict: str, phase: str = "GREEN") -> dict:
             {
                 "rule_id": None,
                 "severity": 5,
-                "surface": "structural",
+                "surface": "architecture",
                 "location": "src/y.py",
-                "acceptance_ref": None,
+                "acceptance_ref": "acc:integration-hardening:N5-INTEGRATION-002-verdict-routing",
                 "description": "Critical failure.",
                 "evidence": "Evidence here.",
             }
