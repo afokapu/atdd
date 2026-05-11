@@ -14,6 +14,7 @@ participants:
   - "wagon:judge-ambiguous-decisions"
   - "wagon:discover-and-decommission"
   - "wagon:integrate-end-to-end"
+  - "wagon:integration-hardening"
   - "system:atdd-cli"
 sequence:
   - step: 1
@@ -61,4 +62,9 @@ sequence:
     from: "wagon:integrate-end-to-end"
     to: "system:atdd-cli"
     artifact: "commons:compliance:gate"
+  - step: 10
+    intent: "Wire all eight integration gaps (K1 spawn, J3 decisions.jsonl, J5 watcher, M3 validator dispatch, L1 observer, N5 reviewer, J4 two-phase commit, LLM registry) into atdd coach <N> so it drives a real issue from INIT to MERGED autonomously"
+    from: "wagon:integration-hardening"
+    to: "system:atdd-cli"
+    artifact: "commons:coach:spawn-wiring"
 status: planned

@@ -174,3 +174,14 @@ wagons:
     outcome: "successful coach-driven PR + filed integration-hardening follow-ups against the appropriate track"
     path: "plan/integrate_end_to_end/"
     manifest: "plan/integrate_end_to_end/_integrate_end_to_end.yaml"
+
+  - wagon: integration-hardening
+    description: "Wires the eight integration gaps discovered during the integrate-end-to-end run: K1 spawn-agents at every state transition, J3 decisions.jsonl write-before-action discipline, J5 watcher-driven reactive state advancement, M3 validator dispatch at phase-exit gates, L1 observer co-spawn, N5 reviewer at phase boundaries, J4 two-phase commit at COMPLETE, and production LLM client registration"
+    theme: commons
+    subject: "agent:coach"
+    context: "in-coach-v9-integration-hardening, integrate-end-to-end-revealed-eight-wiring-gaps"
+    action: "wires K1 spawn, J3 decisions.jsonl, J5 watcher, M3 validator dispatch, L1 observer, N5 reviewer, J4 two-phase commit, and production LLM registry into atdd coach state machine handlers"
+    goal: "close all eight wiring gaps so atdd coach <N> drives a real issue from INIT to MERGED without operator intervention"
+    outcome: "atdd coach <N> autonomously drives an issue through the full lifecycle with durable decisions, reactive watcher events, validator-gated phase exits, observer corrections, reviewer verdicts, two-phase commit, and registered LLM clients"
+    path: "plan/integration_hardening/"
+    manifest: "plan/integration_hardening/_integration_hardening.yaml"
