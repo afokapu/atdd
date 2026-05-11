@@ -1,0 +1,67 @@
+urn: "wmbt:integration-hardening:P2"
+step: "wire"
+direction: "establish"
+dimension: "binding"
+object_of_control: "two-phase-commit-on-COMPLETE-to-MERGED-transition"
+context_clarifier: "when an issue reaches COMPLETE state and the P2 handler must run the two-phase commit (PR creation, merge, cleanup)"
+lens: "functional.effectiveness"
+statement: "establish two-phase-commit-on-COMPLETE-to-MERGED-transition when atdd coach drives the lifecycle so the P2 handler invokes the shipped component"
+
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:P2-INTEGRATION-001-complete-triggers-merge"
+      id: "AC-INTEGRATION-001"
+      purpose: "With --auto-merge, COMPLETE invokes atdd pr + gh pr merge"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The P2 handler fires"
+    then:
+      abstract:
+        - "With --auto-merge, COMPLETE invokes atdd pr <N> then gh pr merge --squash --delete-branch; decisions.jsonl records MERGED"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:P2-INTEGRATION-002-cleanup"
+      id: "AC-INTEGRATION-002"
+      purpose: "Post-MERGED cleanup removes worktree and cmux tab"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The P2 handler fires"
+    then:
+      abstract:
+        - "Post-MERGED, the worktree directory is removed and the cmux pane/tab is closed"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:P2-INTEGRATION-003-no-auto-merge-without-flag"
+      id: "AC-INTEGRATION-003"
+      purpose: "Without --auto-merge, COMPLETE waits for operator approval"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The P2 handler fires"
+    then:
+      abstract:
+        - "Without --auto-merge, COMPLETE remains pending operator approval; escalation sent on --escalation-channel; manual --resume --auto-merge completes the merge"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"

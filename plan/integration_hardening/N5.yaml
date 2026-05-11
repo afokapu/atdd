@@ -1,0 +1,67 @@
+urn: "wmbt:integration-hardening:N5"
+step: "wire"
+direction: "establish"
+dimension: "binding"
+object_of_control: "reviewer-spawn-at-phase-boundary-and-verdict-routing"
+context_clarifier: "when a phase boundary is reached (per --review-phases) and a reviewer persona must be spawned to emit review-report.json, with verdict routing on pass/concern/fail"
+lens: "functional.effectiveness"
+statement: "establish reviewer-spawn-at-phase-boundary-and-verdict-routing when atdd coach drives the lifecycle so the N5 handler invokes the shipped component"
+
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:N5-INTEGRATION-001-reviewer-at-phase-boundary"
+      id: "AC-INTEGRATION-001"
+      purpose: "Reviewer spawns at each enabled phase boundary"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The N5 handler fires"
+    then:
+      abstract:
+        - "With default --review-phases, a reviewer spawns at PLANNED/RED/GREEN/SMOKE/REFACTOR boundaries; review-report.json appears at .atdd/runtime/agents/<reviewer-id>/reviews/<review-id>.json"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:N5-INTEGRATION-002-verdict-routing"
+      id: "AC-INTEGRATION-002"
+      purpose: "Pass advances, concern routes via judge, fail respawns"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The N5 handler fires"
+    then:
+      abstract:
+        - "pass → next state; concern → judge call site #2 (#529); fail → respawn coder with reviewer findings as spawn-feedback"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:N5-INTEGRATION-003-skip-review-honored"
+      id: "AC-INTEGRATION-003"
+      purpose: "--skip-review bypasses all reviewer spawns"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The N5 handler fires"
+    then:
+      abstract:
+        - "atdd coach --skip-review runs the full lifecycle without reviewer spawns; no review-report.json files emitted"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"

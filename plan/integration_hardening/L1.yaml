@@ -1,0 +1,29 @@
+urn: "wmbt:integration-hardening:L1"
+step: "wire"
+direction: "establish"
+dimension: "binding"
+object_of_control: "observer-co-spawn-with-phase-agent"
+context_clarifier: "when a phase agent is spawned via K1 and an observer must be co-spawned with the appropriate rule subset for the phase"
+lens: "functional.effectiveness"
+statement: "establish observer-co-spawn-with-phase-agent when atdd coach drives the lifecycle so the L1 handler invokes the shipped component"
+
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:L1-INTEGRATION-001-observer-alongside-agent"
+      id: "AC-INTEGRATION-001"
+      purpose: "Each phase agent has a co-spawned observer recording correction events"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The L1 handler fires"
+    then:
+      abstract:
+        - "Every spawned phase agent has a co-spawned observer; observer pid recorded in .atdd/runtime/agents/<id>/; correction events appear in events.jsonl when a rule predicate fires"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"

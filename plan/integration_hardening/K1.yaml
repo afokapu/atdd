@@ -1,0 +1,117 @@
+urn: "wmbt:integration-hardening:K1"
+step: "wire"
+direction: "establish"
+dimension: "binding"
+object_of_control: "state-transition-to-K1-spawn-handler-binding"
+context_clarifier: "when `atdd coach <N>` reaches a state transition and must spawn the appropriate persona (planner/tester/coder) via K1 spawn-agents per spec §4.1 persona-per-transition table"
+lens: "functional.effectiveness"
+statement: "establish state-transition-to-K1-spawn-handler-binding when atdd coach reaches each phase transition so the appropriate persona is spawned"
+
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:K1-INTEGRATION-001-spawn-at-each-transition"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd coach spawns one agent per phase transition with correct persona"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "An issue is registered in the manifest and `atdd coach <N>` is invoked without --dry-run"
+        - "Per-phase persona prompts exist at src/atdd/coach/prompts/persona/<persona>/<phase>.prompt.yaml"
+    when:
+      abstract: "Each transition fires (INIT→PLANNED, PLANNED→RED, RED→GREEN, GREEN→SMOKE, SMOKE→REFACTOR)"
+    then:
+      abstract:
+        - "One agent is spawned per transition with the persona matching the spec §4.1 table (planner→tester→coder→tester→coder)"
+        - "Spawn manifest at .atdd/runtime/agents/<id>/ is written"
+        - "Canonical naming + layout are applied per K3"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+
+  - identity:
+      urn: "acc:integration-hardening:K1-INTEGRATION-002-persona-prompts-loaded"
+      id: "AC-INTEGRATION-002"
+      purpose: "Each spawn embeds the right phase prompt; missing prompts abort"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is wired to load persona prompts at spawn time"
+    when:
+      abstract: "A transition fires"
+    then:
+      abstract:
+        - "The spawned agent's launch prompt embeds src/atdd/coach/prompts/persona/<persona>/<phase>.prompt.yaml content verbatim"
+        - "A missing prompt file aborts the transition with a clear error; decisions.jsonl records BLOCKED state"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+
+  - identity:
+      urn: "acc:integration-hardening:K1-INTEGRATION-003-persona-llm-honored"
+      id: "AC-INTEGRATION-003"
+      purpose: "--persona-llm flag maps per-persona to LLM ids"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked with --persona-llm planner=X,tester=Y,coder=Z,reviewer=W"
+    when:
+      abstract: "Each transition fires and spawns the persona"
+    then:
+      abstract:
+        - "Each spawned agent uses the LLM mapped to its persona class"
+        - "Default class (compliant or frontier) applies when no override is given"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+
+  - identity:
+      urn: "acc:integration-hardening:K1-INTEGRATION-004-multiplexer-mode-honored"
+      id: "AC-INTEGRATION-004"
+      purpose: "--multiplexer-mode controls workspace vs pane placement"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked with --multiplexer-mode pane (or workspace)"
+    when:
+      abstract: "A spawn fires"
+    then:
+      abstract:
+        - "pane mode places the new pane in the caller's workspace as a tab"
+        - "workspace mode creates a new multiplexer workspace"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+
+  - identity:
+      urn: "acc:integration-hardening:K1-INTEGRATION-005-spawn-failure-retries-then-escalates"
+      id: "AC-INTEGRATION-005"
+      purpose: "Spawn failures retry per --max-retries, then escalate"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked with --max-retries N and a forced spawn failure"
+    when:
+      abstract: "The spawn call raises"
+    then:
+      abstract:
+        - "The handler retries up to N times with exponential backoff (1s/2s/4s)"
+        - "On exhaustion, the handler escalates via --escalation-channel"
+        - "Final state recorded as BLOCKED in decisions.jsonl"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"

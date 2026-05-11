@@ -1,0 +1,67 @@
+urn: "wmbt:integration-hardening:M3"
+step: "wire"
+direction: "establish"
+dimension: "binding"
+object_of_control: "phase-exit-validator-dispatch-gates"
+context_clarifier: "when a phase exit point is reached and the M3 dispatcher must run the per-phase validator subset and apply disposition gates"
+lens: "functional.effectiveness"
+statement: "establish phase-exit-validator-dispatch-gates when atdd coach drives the lifecycle so the M3 handler invokes the shipped component"
+
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:M3-INTEGRATION-001-validators-fire-at-phase-exit"
+      id: "AC-INTEGRATION-001"
+      purpose: "Phase exit triggers validator dispatch with per-commit artifacts"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The M3 handler fires"
+    then:
+      abstract:
+        - "atdd coach run produces .atdd/runtime/coach/validations/<sha>/{violations,suppressed,stale-suppressions,risk-score} at every phase exit; phase-appropriate subset runs"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:M3-INTEGRATION-002-strict-violation-blocks"
+      id: "AC-INTEGRATION-002"
+      purpose: "Strict-disposition violation blocks the transition"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The M3 handler fires"
+    then:
+      abstract:
+        - "A strict-disposition violation in coder phase blocks RED→GREEN; transition aborts; decisions.jsonl records BLOCKED with violating rule_id"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:M3-INTEGRATION-003-risk-threshold-block"
+      id: "AC-INTEGRATION-003"
+      purpose: "--risk-threshold-block N blocks above-threshold transitions"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The M3 handler fires"
+    then:
+      abstract:
+        - "--risk-threshold-block 10 blocks any transition whose post-validation risk_score.sum > 10; below threshold proceeds"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"

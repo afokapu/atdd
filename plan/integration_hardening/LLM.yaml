@@ -1,0 +1,67 @@
+urn: "wmbt:integration-hardening:LLM"
+step: "wire"
+direction: "establish"
+dimension: "binding"
+object_of_control: "production-LLM-client-registration-at-import-time"
+context_clarifier: "when atdd judge or atdd issue review is invoked and the LLM_REGISTRY must have production clients registered"
+lens: "functional.effectiveness"
+statement: "establish production-LLM-client-registration-at-import-time when atdd coach drives the lifecycle so the LLM handler invokes the shipped component"
+
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:LLM-REGISTRY-001-default-clients-registered"
+      id: "AC-INTEGRATION-001"
+      purpose: "Default LLMs registered when env vars are set"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The LLM handler fires"
+    then:
+      abstract:
+        - "Fresh atdd issue review <N> succeeds with at least 2 LLMs configured; per-pass JSON written to .atdd/runtime/issue-reviews/<N>/pass-<i>.json"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:LLM-REGISTRY-002-missing-keys-degrade-gracefully"
+      id: "AC-INTEGRATION-002"
+      purpose: "Missing API keys produce clear non-crash error"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The LLM handler fires"
+    then:
+      abstract:
+        - "With no keys set, atdd issue review <N> prints clear configuration message and exits non-zero; does not crash"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:LLM-REGISTRY-003-judge-also-works"
+      id: "AC-INTEGRATION-003"
+      purpose: "atdd judge end-to-end works with registered LLM"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The LLM handler fires"
+    then:
+      abstract:
+        - "atdd judge with a registered LLM completes end-to-end against a stub fixture"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"

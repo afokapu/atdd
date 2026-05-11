@@ -1,0 +1,34 @@
+wagon: integration-hardening
+urn: "wagon:integration-hardening"
+name: "Integration Hardening"
+description: "Wires `atdd coach <N>` state-machine handlers (from #591 split) to the shipped per-track components (K1 spawn, J3 decisions, J5 watcher, M3 validators, L1 observer, N5 reviewer, P2 two-phase commit, LLM registry). Closes spec §11.6 milestone (parent: #584)."
+theme: commons
+subject: "agent:coach"
+context: "post-coach-v9-component-ship, when-the-state-machine-skeleton-from-J1-exists-and-the-per-track-components-ship-independently-and-need-wiring-into-a-single-`atdd coach <N>`-end-to-end-driver"
+action: "wires each handler module in src/atdd/coach/handlers/ to its corresponding shipped component, threads CoachContext through the state machine, and binds runtime events to durable decisions.jsonl + per-commit validations/<sha>/ artifacts + per-agent reviews"
+goal: "make `atdd coach <N>` drive a real issue from INIT to MERGED in one command, with all spec §3.2 artifacts populated"
+outcome: "running `atdd coach <N>` on a small single-WMBT issue spawns the planner→tester→coder→reviewer chain, durably records every transition, runs phase-exit validators, routes reviewer concern verdicts via judge, and merges via two-phase commit"
+features:
+  - urn: "feature:integration-hardening:coach-single-command-driver"
+produce:
+  - name: commons:coach:state-handler-spawn
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:state-handler-decisions
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:llm-registry-clients
+    contract: null
+    telemetry: null
+    to: external
+steps:
+  - K1
+  - J3
+  - J5
+  - M3
+  - L1
+  - N5
+  - P2
+  - LLM

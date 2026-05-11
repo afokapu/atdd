@@ -174,3 +174,14 @@ wagons:
     outcome: "successful coach-driven PR + filed integration-hardening follow-ups against the appropriate track"
     path: "plan/integrate_end_to_end/"
     manifest: "plan/integrate_end_to_end/_integrate_end_to_end.yaml"
+
+  - wagon: integration-hardening
+    description: "Wire `atdd coach <N>` state-machine handlers (from #591 split) to shipped per-track components — K1 spawn, J3 decisions, J5 watcher, M3 validators, L1 observer, N5 reviewer, P2 two-phase commit, LLM registry. Closes spec §11.6 milestone (parent: #584)."
+    theme: commons
+    subject: "agent:coach"
+    context: "post-coach-v9-component-ship, when-state-machine-skeleton-from-J1-exists-and-per-track-components-need-wiring-into-single-end-to-end-driver"
+    action: "wires each handler module in src/atdd/coach/handlers/ to its corresponding shipped component"
+    goal: "make atdd coach <N> drive a real issue from INIT to MERGED in one command"
+    outcome: "running atdd coach <N> on a small single-WMBT issue spawns the planner→tester→coder→reviewer chain end-to-end without operator intervention"
+    path: "plan/integration_hardening/"
+    manifest: "plan/integration_hardening/_integration_hardening.yaml"

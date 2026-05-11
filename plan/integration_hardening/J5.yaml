@@ -1,0 +1,86 @@
+urn: "wmbt:integration-hardening:J5"
+step: "wire"
+direction: "establish"
+dimension: "binding"
+object_of_control: "watcher-driven-state-transitions"
+context_clarifier: "when filesystem and git-refs events fire and the J5 watcher must propose state transitions reactively (not via imperative polling)"
+lens: "functional.effectiveness"
+statement: "establish watcher-driven-state-transitions when atdd coach drives the lifecycle so the J5 handler invokes the shipped component"
+
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:J5-INTEGRATION-001-watcher-drives-state"
+      id: "AC-INTEGRATION-001"
+      purpose: "Manual git commit triggers watcher-driven transition"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The J5 handler fires"
+    then:
+      abstract:
+        - "With a running atdd coach and a manually-triggered git commit, the state advances and decisions.jsonl is appended; advance is event-driven not polling-driven"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:J5-INTEGRATION-002-stale-warn-fires"
+      id: "AC-INTEGRATION-002"
+      purpose: "Stale events fire warn at --stale-warn threshold"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The J5 handler fires"
+    then:
+      abstract:
+        - "After --stale-warn minutes of no events, an INFO escalation appears on --escalation-channel"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:J5-INTEGRATION-003-liveness-cleanup"
+      id: "AC-INTEGRATION-003"
+      purpose: "SIGTERM cleans up watcher subprocesses gracefully"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The J5 handler fires"
+    then:
+      abstract:
+        - "atdd coach exits cleanly on SIGTERM; watcher subprocess terminated; partial state preserved in decisions.jsonl"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:J5-INTEGRATION-004-event-serialization"
+      id: "AC-INTEGRATION-004"
+      purpose: "Concurrent filesystem and git events serialize deterministically"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The J5 handler fires"
+    then:
+      abstract:
+        - "Simultaneous git-refs + filesystem events produce deterministic transition ordering per timestamp"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"

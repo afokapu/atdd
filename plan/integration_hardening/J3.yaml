@@ -1,0 +1,67 @@
+urn: "wmbt:integration-hardening:J3"
+step: "wire"
+direction: "establish"
+dimension: "binding"
+object_of_control: "decisions.jsonl-write-per-transition"
+context_clarifier: "when each state transition fires and the J3 writer must record the decision before any side-effect (durable-before-action discipline)"
+lens: "functional.effectiveness"
+statement: "establish decisions.jsonl-write-per-transition when atdd coach drives the lifecycle so the J3 handler invokes the shipped component"
+
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:J3-INTEGRATION-001-decision-per-transition"
+      id: "AC-INTEGRATION-001"
+      purpose: "Exactly one decisions.jsonl entry per transition"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The J3 handler fires"
+    then:
+      abstract:
+        - "A full atdd coach run produces N decisions.jsonl entries where N == count of transitions; each validates against coach-decision.schema.json"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:J3-INTEGRATION-002-write-before-side-effect"
+      id: "AC-INTEGRATION-002"
+      purpose: "Crash between decision-write and side-effect leaves coherent state"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The J3 handler fires"
+    then:
+      abstract:
+        - "Simulated crash leaves decisions.jsonl recording the to_state but no spawn artifacts; --resume re-issues side-effect cleanly"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
+  - identity:
+      urn: "acc:integration-hardening:J3-INTEGRATION-003-resume-replays-correctly"
+      id: "AC-INTEGRATION-003"
+      purpose: "atdd coach --resume reconstructs from decisions.jsonl"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach is invoked and reaches the relevant transition or phase"
+    when:
+      abstract: "The J3 handler fires"
+    then:
+      abstract:
+        - "atdd coach --resume <run-id> reconstructs state from decisions.jsonl and continues from last to_state; J6 reader is invoked"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
