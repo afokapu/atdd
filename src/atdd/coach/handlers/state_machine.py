@@ -16,8 +16,10 @@ the stub handle() functions in the sibling modules.
 """
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import NamedTuple, Optional
 
 
@@ -102,10 +104,12 @@ class CoachContext:
     """Frozen view of resolved CLI config passed to handler stubs.
 
     Children (#585-#590) will read fields relevant to their concern.
-    J1 / #591 only defines the shape — no logic reads it yet.
+    J3 (#586) adds coach_run_id and runtime_dir for the decisions writer.
     """
 
     issue_number: int
+    coach_run_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    runtime_dir: Optional[Path] = None
     dry_run: bool = False
     strict_deps: bool = False
     multiplexer: Optional[str] = None
