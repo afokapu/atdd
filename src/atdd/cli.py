@@ -2342,26 +2342,10 @@ Phase descriptions:
             last_commit=getattr(args, "last_commit", None),
         )
 
-    # atdd babysit
+    # atdd babysit (decommissioned — P6 #532)
     elif args.command == "babysit":
         from atdd.coach.commands.babysit import run as run_babysit
-        workspaces_arg = getattr(args, "workspaces", None)
-        workspaces = (
-            [w.strip() for w in workspaces_arg.split(",") if w.strip()]
-            if workspaces_arg
-            else None
-        )
-        return run_babysit(
-            interval=args.interval,
-            workspaces=workspaces,
-            stale_warn=args.stale_warn,
-            stale_escalate=args.stale_escalate,
-            once=getattr(args, "once", False),
-            multiplexer=getattr(args, "multiplexer", None),
-            dashboard=getattr(args, "dashboard", False),
-            approve_all_safe=getattr(args, "approve_all_safe", False),
-            token_alert_threshold=getattr(args, "token_alert_threshold", None),
-        )
+        return run_babysit()
 
     # atdd merge-cascade <pr-numbers...>
     elif args.command == "merge-cascade":
