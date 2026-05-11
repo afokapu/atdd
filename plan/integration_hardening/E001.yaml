@@ -71,6 +71,26 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-11"
 
+
+  - identity:
+      urn: "acc:integration-hardening:E001-INTEGRATION-004-event-serialization"
+      id: "AC-INTEGRATION-004"
+      purpose: "Concurrent watcher events serialize deterministically"
+      phase: "GREEN"
+    signal:
+      metric: "watcher.event_ordering.deterministic"
+      threshold: "= true"
+    given:
+      abstract:
+        - "Multiple watcher event sources fire concurrently (git-refs + filesystem)"
+    when:
+      abstract: "The state machine processes them"
+    then:
+      abstract:
+        - "Transition ordering is deterministic per timestamp"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-11"
   - identity:
       urn: "acc:integration-hardening:E001-SMOKE-001-watcher-real-infrastructure"
       id: "AC-SMOKE-001"
