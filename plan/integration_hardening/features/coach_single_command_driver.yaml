@@ -6,14 +6,14 @@ sizing:
   footprint_score: 18
   footprint_size: "L"
 wmbts:
-  - "wmbt:integration-hardening:K1"
-  - "wmbt:integration-hardening:J3"
-  - "wmbt:integration-hardening:J5"
-  - "wmbt:integration-hardening:M3"
-  - "wmbt:integration-hardening:L1"
-  - "wmbt:integration-hardening:N5"
-  - "wmbt:integration-hardening:P2"
-  - "wmbt:integration-hardening:LLM"
+  - "wmbt:integration-hardening:K001"
+  - "wmbt:integration-hardening:D001"
+  - "wmbt:integration-hardening:E001"
+  - "wmbt:integration-hardening:M001"
+  - "wmbt:integration-hardening:L001"
+  - "wmbt:integration-hardening:R001"
+  - "wmbt:integration-hardening:P001"
+  - "wmbt:integration-hardening:C001"
 components:
   backend:
     presentation:

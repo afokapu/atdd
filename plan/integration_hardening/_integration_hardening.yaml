@@ -38,11 +38,11 @@ consume:
 
 wmbt:
   total: 8
-  K1: "establish state-transition-to-K1-spawn-handler-binding for atdd coach phase spawns"
-  J3: "establish decisions.jsonl-write-per-transition for durable state-transition records"
-  J5: "establish watcher-driven-state-transitions reactive to filesystem + git-refs events"
-  M3: "establish phase-exit-validator-dispatch-gates running per-phase validator subset"
-  L1: "establish observer-co-spawn-with-phase-agent for correction-injection"
-  N5: "establish reviewer-spawn-at-phase-boundary-and-verdict-routing for hard-rule enforcement"
-  P2: "establish two-phase-commit-on-COMPLETE-to-MERGED-transition for autonomous PR-merge-tag-cleanup"
-  LLM: "establish production-LLM-client-registration-at-import-time for judge/issue-review usability"
+  K001: "establish state-transition-to-K1-spawn-handler-binding for atdd coach phase spawns"
+  D001: "establish decisions.jsonl-write-per-transition for durable state-transition records"
+  E001: "establish watcher-driven-state-transitions reactive to filesystem + git-refs events"
+  M001: "establish phase-exit-validator-dispatch-gates running per-phase validator subset"
+  L001: "establish observer-co-spawn-with-phase-agent for correction-injection"
+  R001: "establish reviewer-spawn-at-phase-boundary-and-verdict-routing for hard-rule enforcement"
+  P001: "establish two-phase-commit-on-COMPLETE-to-MERGED-transition for autonomous PR-merge-tag-cleanup"
+  C001: "establish production-LLM-client-registration-at-import-time for judge/issue-review usability"

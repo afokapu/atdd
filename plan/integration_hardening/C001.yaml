@@ -1,4 +1,4 @@
-urn: "wmbt:integration-hardening:LLM"
+urn: "wmbt:integration-hardening:C001"
 step: "wire"
 direction: "establish"
 dimension: "binding"

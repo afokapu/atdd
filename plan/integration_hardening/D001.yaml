@@ -1,4 +1,4 @@
-urn: "wmbt:integration-hardening:J3"
+urn: "wmbt:integration-hardening:D001"
 step: "wire"
 direction: "establish"
 dimension: "binding"
