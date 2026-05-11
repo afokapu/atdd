@@ -1,0 +1,5 @@
+phase: tester
+passed_at: '2026-05-10T22:34:08.786525+00:00'
+source_hash: d96b973b8ef5cedbd9943db3219ae064e74eac9e2242d0068dff5429a74fb541
+atdd_version: 3.24.0
+skipped_api: false
