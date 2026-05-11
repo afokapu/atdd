@@ -1,11 +1,16 @@
 """
-`atdd babysit` — parallel-session monitor.
+ARCHIVED: `atdd babysit` — parallel-session monitor (decommissioned coach v9).
 
-Polls multiplexer workspaces, auto-approves known-safe tool prompts,
-escalates unknown prompts, and detects policy violations (`.atdd/` hand-edits,
-SMOKE skips, hallucinated completion).
+Moved from ``commands/babysit.py`` by issue #532. Preserved here for parity-test
+reuse by the L8 fixture suite (#525). The CLI surface is replaced by a stub at
+``commands/babysit.py`` that prints the migration message and exits non-zero.
 
-Events are appended to `.atdd/orchestration-log.jsonl` as JSON Lines.
+Original docstring:
+    Polls multiplexer workspaces, auto-approves known-safe tool prompts,
+    escalates unknown prompts, and detects policy violations (``.atdd/`` hand-edits,
+    SMOKE skips, hallucinated completion).
+
+    Events are appended to ``.atdd/orchestration-log.jsonl`` as JSON Lines.
 
 SPEC IDs: SPEC-COACH-ORCH-0004, SPEC-COACH-ORCH-0005
 """
