@@ -711,3 +711,11 @@ sessions:
   status: INIT
   created: '2026-05-12'
   archived: null
+- id: '624'
+  slug: coach-review-operator-trigger
+  file: null
+  issue_number: 624
+  type: implementation
+  status: INIT
+  created: '2026-05-12'
+  archived: null
