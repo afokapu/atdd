@@ -1,6 +1,6 @@
 #!/bin/sh
-# ATDD pre-push hook — version gate + branch protection.
-# Installed by `atdd init`. Bypasses require CI=true.
+# ATDD pre-push hook — version gate + branch protection + blocking validators.
+# Installed by `atdd init`.
 
 set -e
 
@@ -29,9 +29,9 @@ BARE_MSG
     exit 1
 fi
 
-# --- Version gate (CI can skip with ATDD_SKIP_VERSION_GATE=1) ---
-if [ "${CI:-}" = "true" ] && [ "${ATDD_SKIP_VERSION_GATE:-0}" = "1" ]; then
-    : # CI bypass
+# --- Version gate (skip with ATDD_SKIP_VERSION_GATE=1) ---
+if [ "${ATDD_SKIP_VERSION_GATE:-0}" = "1" ]; then
+    : # bypass
 else
     python3 -c "
 try:
@@ -49,8 +49,16 @@ fi
 REMOTE="$1"
 URL="$2"
 
+# Accumulate the last ref's SHAs for blast-radius detection below.
+LAST_LOCAL_SHA=""
+LAST_REMOTE_SHA=""
+
 # Read each ref being pushed (stdin: local_ref local_sha remote_ref remote_sha)
 while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
+    # Track for blast-radius detection (last ref wins; most pushes have one ref)
+    LAST_LOCAL_SHA="$LOCAL_SHA"
+    LAST_REMOTE_SHA="$REMOTE_SHA"
+
     # Block manual tag pushes (tags should only come from CI publish workflow)
     case "$LOCAL_REF" in
         refs/tags/*)
@@ -86,6 +94,100 @@ CI bypass (requires CI=true):
 EOF
     exit 1
 done
+
+# --- Blocking validator pass (#583) ---
+# Runs the blast-radius subset of local validators for the files in this push.
+# Only phases whose source paths appear in the diff are validated.
+#
+# Auto-skipped when:
+#   CI=true                        — CI runs the full suite; no double-run
+#   ATDD_SKIP_PREPUSH_VALIDATE=1   — emergency override
+#   No ATDD source files changed   — fast path for non-toolkit pushes
+#
+# Override: ATDD_SKIP_PREPUSH_VALIDATE=1 git push ...
+if [ "${ATDD_SKIP_PREPUSH_VALIDATE:-0}" != "1" ] && \
+        [ "${CI:-}" != "true" ] && \
+        [ -n "$LAST_LOCAL_SHA" ]; then
+
+    # Compute the set of files changed in this push.
+    NULL_SHA="0000000000000000000000000000000000000000"
+    if [ -z "$LAST_REMOTE_SHA" ] || [ "$LAST_REMOTE_SHA" = "$NULL_SHA" ]; then
+        # New branch — diff against origin/main if reachable, else the previous commit
+        BASE=$(git rev-parse --verify origin/main 2>/dev/null || \
+               git rev-parse --verify origin/HEAD 2>/dev/null || echo "")
+        if [ -n "$BASE" ]; then
+            CHANGED_FILES=$(git diff --name-only "${BASE}..${LAST_LOCAL_SHA}" 2>/dev/null || true)
+        else
+            PARENT=$(git rev-parse --verify "${LAST_LOCAL_SHA}^" 2>/dev/null || echo "")
+            if [ -n "$PARENT" ]; then
+                CHANGED_FILES=$(git diff --name-only "${PARENT}..${LAST_LOCAL_SHA}" 2>/dev/null || true)
+            else
+                CHANGED_FILES=""
+            fi
+        fi
+    else
+        # Branch update — compare the pushed range
+        CHANGED_FILES=$(git diff --name-only "${LAST_REMOTE_SHA}..${LAST_LOCAL_SHA}" 2>/dev/null || true)
+    fi
+
+    # Map changed files → validator phases (same mapping as post-commit hook)
+    RUN_REPO=0
+    RUN_PLANNER=0
+    RUN_TESTER=0
+    RUN_CODER=0
+    RUN_COACH=0
+
+    while IFS= read -r _f; do
+        case "$_f" in
+            plan/*)              RUN_REPO=1 ;;
+            contracts/*)         RUN_REPO=1; RUN_TESTER=1 ;;
+            src/atdd/planner/*)  RUN_PLANNER=1 ;;
+            src/atdd/tester/*)   RUN_TESTER=1 ;;
+            src/atdd/coder/*)    RUN_CODER=1 ;;
+            src/atdd/coach/*)    RUN_COACH=1 ;;
+            .atdd/manifest.yaml) RUN_COACH=1 ;;
+        esac
+    done <<__BLAST__
+$CHANGED_FILES
+__BLAST__
+
+    # Fast path — nothing in blast-radius, skip entirely
+    if [ "${RUN_REPO}${RUN_PLANNER}${RUN_TESTER}${RUN_CODER}${RUN_COACH}" != "00000" ]; then
+        echo "ATDD pre-push: running blast-radius validators (--local --skip-api)..." >&2
+
+        FAIL=0
+        if [ "$RUN_REPO" = "1" ]; then
+            atdd repo validate >&2 2>&1 || FAIL=1
+        fi
+        if [ "$RUN_PLANNER" = "1" ]; then
+            atdd validate planner --local --skip-api >&2 2>&1 || FAIL=1
+        fi
+        if [ "$RUN_TESTER" = "1" ]; then
+            atdd validate tester --local --skip-api >&2 2>&1 || FAIL=1
+        fi
+        if [ "$RUN_CODER" = "1" ]; then
+            atdd validate coder --local --skip-api >&2 2>&1 || FAIL=1
+        fi
+        if [ "$RUN_COACH" = "1" ]; then
+            atdd validate coach --local --skip-api >&2 2>&1 || FAIL=1
+        fi
+
+        if [ "$FAIL" = "1" ]; then
+            cat >&2 <<'VALIDATE_FAIL'
+
+ATDD: Pre-push blocked — one or more local validators failed (see above).
+
+These validators catch violations that burn CI cycles when pushed.
+Fix the issues above, then retry your push.
+
+Emergency override (records bypass in git log):
+  ATDD_SKIP_PREPUSH_VALIDATE=1 git push ...
+
+VALIDATE_FAIL
+            exit 1
+        fi
+    fi
+fi
 
 # --- Uncommitted delta warning (advisory only — never blocks) ---
 UNCOMMITTED=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
