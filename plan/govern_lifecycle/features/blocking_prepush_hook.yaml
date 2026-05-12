@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:blocking-prepush-validator-hook"
+wagon: "wagon:govern-lifecycle"
+description: "Extends the pre-push hook template to run atdd validate coder and atdd validate coach as blocking checks before every push, catching high-frequency CI offenders (coach-silent-swallow, dead-code, boundary violations) locally. Includes ATDD_SKIP_PREPUSH_VALIDATE=1 override, CI=true skip, and chaining for existing .git/hooks/pre-push."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:govern-lifecycle:D019"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface; change is entirely in the hook template file"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No new application logic; the validators run as subprocesses via the shell"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain concepts introduced"
+    integration:
+      - type: "shell_templates"
+        count: 1
+        rationale: "src/atdd/coach/templates/hooks/pre-push — adds blocking validator section with override and CI skip"

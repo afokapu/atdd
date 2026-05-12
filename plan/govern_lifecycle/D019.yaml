@@ -1,0 +1,114 @@
+urn: "wmbt:govern-lifecycle:D019"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "validator-violations-that-reach-ci-without-local-pre-push-catch"
+context_clarifier: "when agents push branches without running atdd validate coder or atdd validate coach locally, so the first signal of coach-silent-swallow and similar violations arrives only after a CI cycle (PR #560, #564, #570, #571, #578 pattern)"
+lens: "functional.effectiveness"
+statement: "minimize quantity of validator-violations-that-reach-ci-without-local-pre-push-catch when agents push branches without running atdd validate coder or atdd validate coach locally so CI becomes the first and only feedback loop for high-frequency validator offenders"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-001-prepush-template-runs-validate-coder"
+      id: "AC-UNIT-001"
+      purpose: "The pre-push hook template invokes atdd validate coder and blocks on failure"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/templates/hooks/pre-push is the ATDD pre-push hook template"
+    when:
+      abstract: "The template file content is read"
+    then:
+      abstract:
+        - "The template contains 'atdd validate coder'"
+        - "The template exits non-zero when the coder validator fails (|| exit 1 pattern or equivalent)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-002-prepush-template-runs-validate-coach"
+      id: "AC-UNIT-002"
+      purpose: "The pre-push hook template invokes atdd validate coach and blocks on failure"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/templates/hooks/pre-push is the ATDD pre-push hook template"
+    when:
+      abstract: "The template file content is read"
+    then:
+      abstract:
+        - "The template contains 'atdd validate coach'"
+        - "The template exits non-zero when the coach validator fails (|| exit 1 pattern or equivalent)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-003-prepush-skip-env-var"
+      id: "AC-UNIT-003"
+      purpose: "Setting ATDD_SKIP_PREPUSH_VALIDATE=1 bypasses the blocking validator section"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/templates/hooks/pre-push is the ATDD pre-push hook template"
+    when:
+      abstract: "The template file content is read"
+    then:
+      abstract:
+        - "The template checks ATDD_SKIP_PREPUSH_VALIDATE"
+        - "When ATDD_SKIP_PREPUSH_VALIDATE=1, the validator calls are skipped"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-004-prepush-skipped-in-ci"
+      id: "AC-UNIT-004"
+      purpose: "The blocking validator section is skipped automatically when CI=true"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/templates/hooks/pre-push is the ATDD pre-push hook template"
+    when:
+      abstract: "The template file content is read"
+    then:
+      abstract:
+        - "The validator section checks the CI environment variable"
+        - "When CI=true, the atdd validate coder and atdd validate coach calls are not reached"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-005-prepush-chains-existing-git-hook"
+      id: "AC-UNIT-005"
+      purpose: "The pre-push template chains an existing .git/hooks/pre-push rather than silently replacing it"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/templates/hooks/pre-push is the ATDD pre-push hook template"
+        - "A user may have had a custom .git/hooks/pre-push before atdd init set core.hooksPath"
+    when:
+      abstract: "The template file content is read"
+    then:
+      abstract:
+        - "The template contains logic to detect and call the original .git/hooks/pre-push if it is executable"
+        - "If the chained hook exits non-zero, the push is also blocked"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"

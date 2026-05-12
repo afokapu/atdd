@@ -37,9 +37,10 @@ features:
   - urn: "feature:govern-lifecycle:orchestrate-pane-mode"
   - urn: "feature:govern-lifecycle:detect-stub-presentation-returns"
   - urn: "feature:govern-lifecycle:enforce-route-train-wagon-coverage"
+  - urn: "feature:govern-lifecycle:blocking-prepush-validator-hook"
 
 wmbt:
-  total: 26
+  total: 31
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -66,3 +67,4 @@ wmbt:
   C001: "minimize invalid custom theme names accepted into config"
   E001: "minimize schema validation failures on valid custom theme names"
   M001: "minimize silent commons digit overrides that break cross-repo tooling"
+  D019: "minimize validator violations reaching CI without local pre-push catch (blocking hook adds validate coder + validate coach)"
