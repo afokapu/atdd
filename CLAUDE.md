@@ -415,6 +415,21 @@ audits:
     give_context: "Error messages reference specific conventions and schemas"
     validate_compliance: "All audits must pass before phase transition"
 
+  # Repo diagnostic commands (local, no network — run before committing)
+  repo_diagnostics:
+    validate: "atdd repo validate          # URN traceability (0 errors = clean)"
+    broken: "atdd repo broken             # grammar violations in plan/ URNs"
+    orphans: "atdd repo orphans            # declared URNs with no parent refs"
+    resolve: "atdd repo resolve <urn>      # trace a single URN to its artifact"
+    rules: "atdd repo rules              # repo rules derived from WMBT accs"
+    wmbt_rules: "atdd repo wmbt-rules <urn>  # rules for a specific WMBT"
+    rule_show: "atdd rules show <rule-id>  # resolve a rule-ID via bind_rule()"
+    rule_grep: "atdd rules grep <pattern>  # search rule descriptions and aliases"
+  repo_diagnostics_note: >
+    Call these any time you author or edit plan/ YAML files (wagons, WMBTs,
+    acceptances). They run locally with no network and catch URN grammar drift
+    and broken references before the validator suite sees them.
+
 # ATDD Lifecycle (Detailed steps in agent conventions)
 atdd_cycle:
   phases:

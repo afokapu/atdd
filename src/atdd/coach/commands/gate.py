@@ -129,6 +129,16 @@ class ATDDGate:
                 "constraints": self.KEY_CONSTRAINTS,
                 "issue_convention": issue_convention,
                 "worktree_layout": layout,
+                "diagnostic_commands": [
+                    "atdd repo validate",
+                    "atdd repo broken",
+                    "atdd repo orphans",
+                    "atdd repo resolve <urn>",
+                    "atdd repo rules",
+                    "atdd repo wmbt-rules <wmbt-urn>",
+                    "atdd rules show <rule-id>",
+                    "atdd rules grep <pattern>",
+                ],
             }
             if layout == "flat":
                 output["worktree_advisory"] = "Run: atdd init --worktree-layout"
@@ -165,6 +175,20 @@ class ATDDGate:
             print(f"Warning: issue convention not found at {self.issue_convention}")
         else:
             print(issue_convention.rstrip())
+
+        print("\n" + "=" * 60)
+        print("Repo Diagnostic Commands")
+        print("=" * 60)
+        print("  atdd repo validate              # URN traceability (0 errors = clean)")
+        print("  atdd repo broken                # grammar violations in plan/ URNs")
+        print("  atdd repo orphans               # declared URNs with no parent refs")
+        print("  atdd repo resolve <urn>         # trace a single URN to its artifact")
+        print("  atdd repo rules                 # repo rules derived from WMBT accs")
+        print("  atdd repo wmbt-rules <wmbt-urn> # rules for a specific WMBT")
+        print("  atdd rules show <rule-id>       # resolve a rule-ID via bind_rule()")
+        print("  atdd rules grep <pattern>       # search rule descriptions and aliases")
+        print("\nRun these locally — no network needed. Call before committing to")
+        print("catch URN grammar drift and broken references early.")
 
         print("\n" + "-" * 60)
         print("Before starting work, confirm you have loaded these rules.")
