@@ -408,7 +408,6 @@ def run_cli(argv: list[str]) -> int:
     and all other invocations to the existing ``parse_cli`` + ``run`` path.
     """
     if argv and argv[0] == "status":
-        from atdd.coach.commands.coach_status import run_status
         return run_status(argv[1:])
     cfg = parse_cli(argv)
     return run(
