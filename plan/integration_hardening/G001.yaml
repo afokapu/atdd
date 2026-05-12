@@ -1,0 +1,183 @@
+urn: "wmbt:integration-hardening:G001"
+step: "guard"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "undetected-seam-integration-failures-in-atdd-coach-lifecycle"
+context_clarifier: "when the eight Wave-10 seams (K1 spawn, J3 decisions, J5 watcher, M3 validators, L1 observer, N5 reviewer, J4 two-phase-commit, and LLM-registry) are exercised together in a single INIT→COMPLETE→MERGED drive and must all hold together without silent integration breakage between seams"
+lens: "functional.effectiveness"
+statement: "minimize quantity of undetected-seam-integration-failures-in-atdd-coach-lifecycle when all eight Wave-10 integration seams are exercised together in a single CI-gated end-to-end pytest drive from INIT to MERGED with mocked external calls"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:G001-INTEGRATION-001-all-seams-exercised-in-happy-path"
+      id: "AC-INTEGRATION-001"
+      purpose: "A single pytest exercises all eight Wave-10 seams together: K1 spawn, J3 decisions, J5 watcher, M3 validators, L1 observer, N5 reviewer, J4 two-phase-commit, and LLM-registry"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "All eight Wave-10 seam handlers are merged and importable"
+        - "External calls (spawn, gh pr create, dispatch_validators) are mocked to succeed"
+        - "A CoachContext is configured with skip_review=True and a tmp runtime_dir"
+    when:
+      abstract: "Each handler is invoked in sequence for all transitions on PLANNED_PATH"
+    then:
+      abstract:
+        - "Every handler returns HANDLED, NOOP, or an expected result (no ERROR or unexpected exception)"
+        - "decisions.jsonl exists and is non-empty after the drive"
+        - "The test completes in under 30 seconds"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:integration-hardening:G001-INTEGRATION-002-decisions-jsonl-has-expected-sequence"
+      id: "AC-INTEGRATION-002"
+      purpose: "decisions.jsonl produced by J3 during the drive has one schema-valid entry per transition, in planned-path order, with correct phase pairs"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "J3 decisions handler (issue #586) is wired"
+        - "ctx.runtime_dir points to tmp_path"
+    when:
+      abstract: "decisions.handle() is called for each transition from INIT to MERGED"
+    then:
+      abstract:
+        - "decisions.jsonl has exactly N entries for N transitions on PLANNED_PATH"
+        - "Each entry validates against coach-decision.schema.json"
+        - "phase pairs in entries match the PLANNED_PATH sequence"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:integration-hardening:G001-INTEGRATION-003-spawn-personas-match-table"
+      id: "AC-INTEGRATION-003"
+      purpose: "K1 spawn handler fires exactly 5 times with personas matching the spec §4.1 table (planner, tester, coder, tester, coder) across the 5 spawnable transitions"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "K1 spawn handler (issue #585) is wired"
+        - "_call_spawn is monkeypatched to record calls without real subprocess"
+    when:
+      abstract: "spawn.handle() is called for all transitions on PLANNED_PATH"
+    then:
+      abstract:
+        - "Exactly 5 spawn calls recorded (REFACTOR→COMPLETE and COMPLETE→MERGED are not spawn transitions)"
+        - "Persona sequence matches [planner, tester, coder, tester, coder]"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:integration-hardening:G001-INTEGRATION-004-validator-fires-at-each-phase-exit"
+      id: "AC-INTEGRATION-004"
+      purpose: "M3 validator dispatch fires once per non-NOOP phase-exit transition; dispatch_validators is called with a sha and repo_root"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "M3 validator dispatch handler (issue #588) is wired"
+        - "dispatch_validators is monkeypatched to succeed with empty violations"
+    when:
+      abstract: "validator_dispatch.handle() is called for each transition"
+    then:
+      abstract:
+        - "dispatch_validators is called at least once across the full drive"
+        - "No BLOCKED result is returned when violations list is empty"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:integration-hardening:G001-INTEGRATION-005-j4-merge-fires-on-complete"
+      id: "AC-INTEGRATION-005"
+      purpose: "J4 two-phase-commit handler fires at COMPLETE→MERGED with auto_merge=True; both atdd pr and gh pr merge are invoked"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "J4 two-phase-commit handler (issue #590) is wired"
+        - "_create_pr and _merge_pr are monkeypatched to succeed"
+        - "ctx.auto_merge=True"
+    when:
+      abstract: "two_phase_commit.handle() is called with Transition(COMPLETE, MERGED)"
+    then:
+      abstract:
+        - "_create_pr is called exactly once with the correct issue_number"
+        - "_merge_pr is called exactly once"
+        - "handler returns HandlerResult.HANDLED"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:integration-hardening:G001-INTEGRATION-006-watcher-event-advances-state"
+      id: "AC-INTEGRATION-006"
+      purpose: "J5 WatcherEventLoop advances the state machine when a commit_observed event with a Phase trailer is injected into the queue"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "J5 watcher handler (issue #587) is wired"
+        - "WatcherEventLoop is instantiated with a real CoachEventQueue and a StateMachine in PLANNED state"
+        - "RuntimeWatcher background thread is stubbed"
+    when:
+      abstract: "A commit_observed event with Issue and Phase=PLANNED trailers is put in the queue and process_one_event() is called"
+    then:
+      abstract:
+        - "process_one_event() returns 'applied'"
+        - "StateMachine.phase advances from PLANNED to RED"
+        - "decisions.jsonl receives a watcher-driven phase-transition entry"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:integration-hardening:G001-INTEGRATION-007-llm-registry-registers-mock-client"
+      id: "AC-INTEGRATION-007"
+      purpose: "LLM registry (issue #592) can register a mock client and retrieve it by model-id without raising 'unknown LLM id'"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "LLM registry (src/atdd/coach/commands/judge.py::register_llm_client) is importable"
+        - "A mock client function is available"
+    when:
+      abstract: "A mock client is registered under a test model-id and then looked up"
+    then:
+      abstract:
+        - "Lookup succeeds and returns the registered mock client"
+        - "Lookup of an unknown model-id raises the expected error"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:integration-hardening:G001-INTEGRATION-008-test-completes-under-30s"
+      id: "AC-INTEGRATION-008"
+      purpose: "The complete E2E test suite (all assertions) completes in under 30 seconds with mocked externals"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "All external subprocess calls are mocked"
+        - "RuntimeWatcher background thread is stubbed"
+    when:
+      abstract: "pytest tests/integration/test_coach_end_to_end.py is run"
+    then:
+      abstract:
+        - "Wall time < 30 seconds"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
