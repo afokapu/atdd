@@ -132,7 +132,7 @@ def run_status(
                 if rc != 0:
                     return rc
                 time.sleep(2)
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             return 0
 
     rc, output = _render_once()

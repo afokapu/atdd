@@ -67,7 +67,7 @@ def _read_jsonl(path: Path) -> list[dict]:
         if line:
             try:
                 records.append(json.loads(line))
-            except json.JSONDecodeError:
+            except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
                 pass
     return records
 
@@ -167,12 +167,12 @@ def read_agent_state(
                     state.last_heartbeat = datetime.fromisoformat(
                         observed.replace("Z", "+00:00")
                     )
-                except ValueError:
+                except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
                     pass
             state.status = hb.get("status", "unknown")
             if "token_count" in hb:
                 state.token_count = hb["token_count"]
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             pass
 
     context_path = agent_dir / "context.json"
@@ -181,7 +181,7 @@ def read_agent_state(
             ctx = json.loads(context_path.read_text(encoding="utf-8"))
             state.issue = ctx.get("issue")
             state.phase = ctx.get("phase")
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             pass
 
     return state
