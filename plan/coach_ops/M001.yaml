@@ -1,5 +1,5 @@
 urn: "wmbt:coach-ops:M001"
-step: "unify"
+step: "monitor"
 direction: "minimize"
 dimension: "likelihood"
 object_of_control: "secondary-rate-limit-hits-during-batched-pr-polling"

@@ -194,5 +194,5 @@ wagons:
     action: "batches all PR status reads into a single gh pr list call, backs off exponentially on abuse responses, skips cycles when <500 graphql points remain"
     goal: "reduce GitHub API consumption ~24× and eliminate secondary-rate-limit blackouts during multi-PR waves"
     outcome: "pr_watcher module + coach watch + agent wait-ci CLI; no secondary-rate-limit hits during 8-PR waves"
-    path: "plan/coach-ops/"
-    manifest: "plan/coach-ops/_coach_ops.yaml"
+    path: "plan/coach_ops/"
+    manifest: "plan/coach_ops/_coach_ops.yaml"

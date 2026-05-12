@@ -26,3 +26,4 @@ trains:
           - discover-and-decommission
           - integrate-end-to-end
           - integration-hardening
+          - coach-ops
