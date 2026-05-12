@@ -1,5 +1,0 @@
-{
-  "decision": "respawn",
-  "confidence": 0.6,
-  "rationale": "Mixed pass/fail with suppress-and-clean cluster suggests migration in flight; respawn to get fresh context."
-}

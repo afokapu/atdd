@@ -1,5 +1,0 @@
-{
-  "decision": "fix_in_place",
-  "target_phase": "SMOKE",
-  "rationale": "Regression is a missing import; fixable in-place without rollback to GREEN."
-}
