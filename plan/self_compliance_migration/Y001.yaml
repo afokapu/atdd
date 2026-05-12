@@ -4,7 +4,7 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "silent-content-loss-during-atdd-sync"
 context_clarifier: "when atdd sync re-renders managed files (CLAUDE.md, AGENTS.md, etc.) and the file contains user-owned content outside the ATDD:BEGIN/END markers, or the managed block would shrink relative to the current file, the sync must never silently remove that content"
-lens: "functional.safety"
+lens: "functional.availability"
 statement: "minimize likelihood of silent-content-loss-during-atdd-sync when atdd sync re-renders managed agent config files that contain user-owned content outside the ATDD:BEGIN/END markers or sections present in the current block but absent from the regenerated template"
 acceptances:
   - identity:
