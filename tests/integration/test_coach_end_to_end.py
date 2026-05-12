@@ -1,13 +1,13 @@
-# URN: test:integration-hardening:coach-e2e-integration:G001-INTEGRATION-001-all-seams-exercised-in-happy-path
-# Acceptance: acc:integration-hardening:G001-INTEGRATION-001-all-seams-exercised-in-happy-path
-# Acceptance: acc:integration-hardening:G001-INTEGRATION-002-decisions-jsonl-has-expected-sequence
-# Acceptance: acc:integration-hardening:G001-INTEGRATION-003-spawn-personas-match-table
-# Acceptance: acc:integration-hardening:G001-INTEGRATION-004-validator-fires-at-each-phase-exit
-# Acceptance: acc:integration-hardening:G001-INTEGRATION-005-j4-merge-fires-on-complete
-# Acceptance: acc:integration-hardening:G001-INTEGRATION-006-watcher-event-advances-state
-# Acceptance: acc:integration-hardening:G001-INTEGRATION-007-llm-registry-registers-mock-client
-# Acceptance: acc:integration-hardening:G001-INTEGRATION-008-test-completes-under-30s
-# WMBT: wmbt:integration-hardening:G001
+# URN: test:integration-hardening:coach-e2e-integration:Y001-INTEGRATION-001-all-seams-exercised-in-happy-path
+# Acceptance: acc:integration-hardening:Y001-INTEGRATION-001-all-seams-exercised-in-happy-path
+# Acceptance: acc:integration-hardening:Y001-INTEGRATION-002-decisions-jsonl-has-expected-sequence
+# Acceptance: acc:integration-hardening:Y001-INTEGRATION-003-spawn-personas-match-table
+# Acceptance: acc:integration-hardening:Y001-INTEGRATION-004-validator-fires-at-each-phase-exit
+# Acceptance: acc:integration-hardening:Y001-INTEGRATION-005-j4-merge-fires-on-complete
+# Acceptance: acc:integration-hardening:Y001-INTEGRATION-006-watcher-event-advances-state
+# Acceptance: acc:integration-hardening:Y001-INTEGRATION-007-llm-registry-registers-mock-client
+# Acceptance: acc:integration-hardening:Y001-INTEGRATION-008-test-completes-under-30s
+# WMBT: wmbt:integration-hardening:Y001
 # Phase: RED
 # Layer: integration
 
@@ -517,7 +517,7 @@ def test_llm_registry_unknown_model_raises() -> None:
 
 
 def test_e2e_suite_timing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """G001-INTEGRATION-008: full drive (all handlers) completes under 30s with mocks."""
+    """Y001-INTEGRATION-008: full drive (all handlers) completes under 30s with mocks."""
     from atdd.coach.handlers import (
         decisions as decisions_handler,
         spawn as spawn_handler,
@@ -564,6 +564,6 @@ def test_e2e_suite_timing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 
     elapsed = time.monotonic() - start
     assert elapsed < 30.0, (
-        f"G001-INTEGRATION-008: full drive took {elapsed:.1f}s, "
+        f"Y001-INTEGRATION-008: full drive took {elapsed:.1f}s, "
         f"exceeds 30s wall-time budget"
     )

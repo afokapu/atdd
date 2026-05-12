@@ -1,4 +1,4 @@
-urn: "wmbt:integration-hardening:G001"
+urn: "wmbt:integration-hardening:Y001"
 step: "guard"
 direction: "minimize"
 dimension: "quantity"
