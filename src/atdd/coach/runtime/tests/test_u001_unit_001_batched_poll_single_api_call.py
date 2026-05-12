@@ -29,29 +29,38 @@ def mock_gh_pr_list_response():
     ])
 
 
-def test_poll_makes_exactly_one_subprocess_call(mock_gh_pr_list_response):
-    call_count = 0
+def test_poll_makes_exactly_one_gh_pr_list_call(mock_gh_pr_list_response):
+    """The core invariant: N PRs → exactly 1 gh pr list call (not N calls)."""
+    pr_list_call_count = 0
 
     def fake_run(cmd, **kwargs):
-        nonlocal call_count
-        call_count += 1
+        nonlocal pr_list_call_count
         result = MagicMock()
         result.returncode = 0
-        result.stdout = mock_gh_pr_list_response
+        # rate_limit check — return high budget so poll proceeds
+        if "rate_limit" in " ".join(cmd):
+            result.stdout = json.dumps({"resources": {"graphql": {"remaining": 5000, "limit": 5000}}})
+        else:
+            pr_list_call_count += 1
+            result.stdout = mock_gh_pr_list_response
         result.stderr = ""
         return result
 
     with patch("atdd.coach.runtime.pr_watcher.subprocess.run", side_effect=fake_run):
         result = poll(prs=[101, 102, 103, 104])
 
-    assert call_count == 1, f"Expected 1 gh call, got {call_count}"
+    assert pr_list_call_count == 1, (
+        f"Expected 1 gh pr list call (regardless of PR count), got {pr_list_call_count}"
+    )
 
 
 def test_poll_returns_dict_mapping_pr_to_merge_state(mock_gh_pr_list_response):
+    _RATE_OK = json.dumps({"resources": {"graphql": {"remaining": 5000, "limit": 5000}}})
+
     def fake_run(cmd, **kwargs):
         result = MagicMock()
         result.returncode = 0
-        result.stdout = mock_gh_pr_list_response
+        result.stdout = _RATE_OK if "rate_limit" in " ".join(cmd) else mock_gh_pr_list_response
         result.stderr = ""
         return result
 
@@ -65,20 +74,25 @@ def test_poll_returns_dict_mapping_pr_to_merge_state(mock_gh_pr_list_response):
 
 
 def test_poll_uses_json_flag_with_number_and_merge_state(mock_gh_pr_list_response):
-    captured_cmd = []
+    _RATE_OK = json.dumps({"resources": {"graphql": {"remaining": 5000, "limit": 5000}}})
+    captured_pr_list_cmds: list[list[str]] = []
 
     def fake_run(cmd, **kwargs):
-        captured_cmd.extend(cmd)
         result = MagicMock()
         result.returncode = 0
-        result.stdout = mock_gh_pr_list_response
+        if "rate_limit" in " ".join(cmd):
+            result.stdout = _RATE_OK
+        else:
+            captured_pr_list_cmds.append(list(cmd))
+            result.stdout = mock_gh_pr_list_response
         result.stderr = ""
         return result
 
     with patch("atdd.coach.runtime.pr_watcher.subprocess.run", side_effect=fake_run):
         poll(prs=[101, 102])
 
-    cmd_str = " ".join(captured_cmd)
+    assert len(captured_pr_list_cmds) == 1
+    cmd_str = " ".join(captured_pr_list_cmds[0])
     assert "--json" in cmd_str
     assert "mergeStateStatus" in cmd_str
     assert "number" in cmd_str

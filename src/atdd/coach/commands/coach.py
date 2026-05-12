@@ -70,6 +70,7 @@ __all__ = [
     "run_cli",
     "run_status",
     "run_review",
+    "run_watch",
     "main",
 ]
 
@@ -80,6 +81,10 @@ from atdd.coach.commands.coach_status import run_status  # noqa: E402
 # Re-export run_review so test imports from atdd.coach.commands.coach work.
 # The implementation lives in coach_review.py (#624).
 from atdd.coach.commands.coach_review import run_review  # noqa: E402
+
+# Re-export run_watch so test imports from atdd.coach.commands.coach work.
+# The implementation lives in coach_watch.py (#628).
+from atdd.coach.commands.coach_watch import run_watch  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -416,6 +421,8 @@ def run_cli(argv: list[str]) -> int:
         return run_status(argv[1:])
     if argv and argv[0] == "review":
         return run_review(argv[1:])
+    if argv and argv[0] == "watch":
+        return run_watch(argv[1:])
     cfg = parse_cli(argv)
     return run(
         issue_numbers=cfg.issue_numbers,

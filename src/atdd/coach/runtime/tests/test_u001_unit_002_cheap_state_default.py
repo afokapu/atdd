@@ -18,11 +18,14 @@ import pytest
 from atdd.coach.runtime.pr_watcher import poll
 
 
+_RATE_OK = json.dumps({"resources": {"graphql": {"remaining": 5000, "limit": 5000}}})
+
+
 def _make_fake_run(response_body: str):
     def fake_run(cmd, **kwargs):
         r = MagicMock()
         r.returncode = 0
-        r.stdout = response_body
+        r.stdout = _RATE_OK if "rate_limit" in " ".join(cmd) else response_body
         r.stderr = ""
         return r
     return fake_run
@@ -37,20 +40,24 @@ def test_poll_response_values_are_plain_strings():
 
 
 def test_poll_command_does_not_include_status_check_rollup():
-    captured_cmd: list[str] = []
+    pr_list_cmds: list[list[str]] = []
 
     def fake_run(cmd, **kwargs):
-        captured_cmd.extend(cmd)
         r = MagicMock()
         r.returncode = 0
-        r.stdout = json.dumps([{"number": 55, "mergeStateStatus": "CLEAN"}])
+        if "rate_limit" in " ".join(cmd):
+            r.stdout = _RATE_OK
+        else:
+            pr_list_cmds.append(list(cmd))
+            r.stdout = json.dumps([{"number": 55, "mergeStateStatus": "CLEAN"}])
         r.stderr = ""
         return r
 
     with patch("atdd.coach.runtime.pr_watcher.subprocess.run", side_effect=fake_run):
         poll(prs=[55])
 
-    cmd_str = " ".join(captured_cmd)
+    assert len(pr_list_cmds) == 1
+    cmd_str = " ".join(pr_list_cmds[0])
     assert "statusCheckRollup" not in cmd_str, (
         "poll() must not request statusCheckRollup in the default call"
     )
