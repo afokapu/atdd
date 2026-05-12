@@ -1,4 +1,4 @@
-# Acceptance: acc:integration-hardening:E001-UNIT-NNN-escalation-channel-value-spec  # placeholder
+# Acceptance: acc:integration-hardening:E001-UNIT-001-escalation-channel-value-spec
 """Unit tests for ``parse_escalation_channel`` (#615)."""
 from __future__ import annotations
 
