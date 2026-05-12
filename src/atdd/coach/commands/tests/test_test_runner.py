@@ -1,9 +1,9 @@
 """Unit tests for `atdd.coach.commands.test_runner`.
 
-Regression coverage for issue #341: `atdd validate --quick` must invoke
-pytest as a module under the active interpreter (`sys.executable -m pytest`)
-rather than relying on PATH resolution of a bare `pytest` argv0. The latter
-fails when atdd is installed in an isolated venv (e.g. via pipx) whose
+Regression coverage for issue #341: `atdd validate` must invoke pytest as
+a module under the active interpreter (`sys.executable -m pytest`) rather
+than relying on PATH resolution of a bare `pytest` argv0. The latter fails
+when atdd is installed in an isolated venv (e.g. via pipx) whose
 `bin/pytest` is not on the consumer's PATH.
 """
 from __future__ import annotations

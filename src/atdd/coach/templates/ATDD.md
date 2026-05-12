@@ -95,7 +95,6 @@ audits:
     validate_tester: "atdd validate tester"
     validate_coder: "atdd validate coder"
     validate_coach: "atdd validate coach"
-    quick_check: "atdd validate --quick"
     with_coverage: "atdd validate --coverage"
     with_html: "atdd validate --html"
     inventory: "atdd inventory"

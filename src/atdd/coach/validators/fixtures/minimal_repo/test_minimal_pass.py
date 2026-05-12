@@ -1,4 +1,4 @@
-"""Minimal passing test for the validate-quick smoke fixture (issue #341).
+"""Minimal passing test for the pytest invocation form smoke fixture (issue #341).
 
 This file exists so the smoke test can invoke pytest against a real test file
 and observe a process actually start. The test itself is trivial; what matters

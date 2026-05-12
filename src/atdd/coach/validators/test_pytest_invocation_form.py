@@ -1,10 +1,10 @@
-"""Smoke test for `atdd validate --quick` pytest invocation (issue #341).
+"""Smoke test for the pytest subprocess invocation form (issue #341).
 
-End-to-end regression: invokes the pytest runner shape used by
-`atdd validate --quick` against a fixture repo containing a single trivial
-test, and asserts the runner does not raise ``FileNotFoundError``. This
-catches the failure mode where bare ``pytest`` argv0 is unresolvable on the
-caller's PATH (e.g. atdd installed via pipx into an isolated venv).
+End-to-end regression: invokes the pytest runner shape used by `atdd
+validate` against a fixture repo containing a single trivial test, and
+asserts the runner does not raise ``FileNotFoundError``. This catches the
+failure mode where bare ``pytest`` argv0 is unresolvable on the caller's
+PATH (e.g. atdd installed via pipx into an isolated venv).
 
 The test deliberately exercises the runner as it is wired in production
 (via ``TestRunner._build_pytest_cmd`` + ``_run_pytest``) so that any
@@ -26,7 +26,7 @@ pytestmark = [pytest.mark.platform]
 FIXTURE_REPO = Path(__file__).parent / "fixtures" / "minimal_repo"
 
 
-def test_validate_quick_runs_without_filenotfound(tmp_path: Path) -> None:
+def test_validate_runs_without_filenotfound(tmp_path: Path) -> None:
     """`_run_pytest` must launch pytest without raising FileNotFoundError.
 
     Reproduces the user-facing failure from issue #341: a bare ``pytest``

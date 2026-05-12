@@ -9,7 +9,7 @@ planner/tester/coder/coach validator directories.
 Usage:
     atdd validate                # Run all validators
     atdd validate planner        # Run planner validators only
-    atdd validate --quick        # Quick smoke test
+    atdd validate --local        # Run all validators offline (skip github_api tests)
 """
 
 import subprocess
@@ -255,17 +255,6 @@ class TestRunner:
     def run_all(self, **kwargs) -> int:
         """Run all ATDD validators."""
         return self.run_tests(phase="all", **kwargs)
-
-    def quick_check(self) -> int:
-        """Quick smoke validation - run without parallelization."""
-        print("🚀 Running quick validation (no parallel)...")
-        return self.run_tests(
-            phase="all",
-            verbose=False,
-            parallel=False,
-            html_report=False,
-            local=True,
-        )
 
     def full_suite(self) -> int:
         """Full validation suite with coverage and HTML report."""
