@@ -1,0 +1,97 @@
+urn: "wmbt:integration-hardening:D002"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path"
+context_clarifier: "when any test_*.py file inside src/atdd/ calls subprocess.run(['git','init','--bare',...], cwd=os.getcwd()), subprocess.run(['git','config','core.bare','true']) with no -C flag or non-tmp_path cwd, or os.chdir() to a non-tmp_path target — the pattern class that caused Wave 12 contamination on 2026-05-12 (PRs #625/#627 pushed 220,000-line deletions) — a tester-phase AST-walking meta-validator must flag these patterns at static-analysis time before any commit reaches CI, enforcing structural isolation independent of human memory"
+lens: "functional.availability"
+statement: "minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path when the tester validator suite is run, by adding an AST-walking tester-phase validator that scans all test_*.py files in src/atdd/ and flags bare-mode-init-with-bad-cwd and unscoped-core-bare-config patterns as RED violations with WMBT-anchored error messages"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:D002-UNIT-001-meta-validator-flags-bare-init-non-tmp"
+      id: "AC-UNIT-001"
+      purpose: "scan_text() returns at least one violation when code calls subprocess.run(['git','init','--bare',...], cwd=os.getcwd())"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A Python code string containing subprocess.run(['git', 'init', '--bare', '/some/path'], cwd=os.getcwd())"
+    when:
+      abstract: "scan_text(code) is called on the fixture string"
+    then:
+      abstract:
+        - "At least one PollutionViolation is returned"
+        - "The violation pattern is 'bare-init-bad-cwd'"
+        - "The violation lineno is non-zero"
+    metadata:
+      author: "atdd:issue-636"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:integration-hardening:D002-UNIT-002-meta-validator-flags-core-bare-config"
+      id: "AC-UNIT-002"
+      purpose: "scan_text() returns at least one violation when code calls subprocess.run(['git','config','core.bare','true']) with no -C flag and no cwd= arg"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A Python code string containing subprocess.run(['git', 'config', 'core.bare', 'true']) with no cwd= keyword argument and no -C flag in the command list"
+    when:
+      abstract: "scan_text(code) is called on the fixture string"
+    then:
+      abstract:
+        - "At least one PollutionViolation is returned"
+        - "The violation pattern is 'core-bare-unscoped'"
+    metadata:
+      author: "atdd:issue-636"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:integration-hardening:D002-UNIT-003-meta-validator-passes-properly-isolated-tests"
+      id: "AC-UNIT-003"
+      purpose: "scan_text() returns zero violations for code that correctly scopes all git operations to tmp_path via -C flag or cwd= keyword argument"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A Python code string containing subprocess.run(['git', '-C', str(tmp_path), 'config', 'core.bare', 'true']) — scoped via -C flag"
+        - "A Python code string containing subprocess.run(['git', 'config', 'core.bare', 'true'], cwd=str(tmp_path)) — scoped via cwd="
+        - "A Python code string containing subprocess.run(['git', 'config', '--worktree', 'core.bare', 'true']) — uses safe worktree scope"
+    when:
+      abstract: "scan_text(code) is called on each fixture string"
+    then:
+      abstract:
+        - "Each call returns an empty violations list"
+        - "No false positives on legitimate tmp_path-scoped or --worktree-scoped git operations"
+    metadata:
+      author: "atdd:issue-636"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:integration-hardening:D002-INTEGRATION-001-scans-entire-repo-and-reports-violations"
+      id: "AC-INTEGRATION-001"
+      purpose: "scan_repo(ATDD_PKG_DIR) runs on the current source tree and returns zero violations — the repo is clean at ship time"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The ATDD source tree under src/atdd/ contains only properly isolated test files"
+        - "All subprocess.run(['git','config','core.bare','true']) calls in test files use -C or cwd= scoped to tmp_path"
+        - "All subprocess.run(['git','init','--bare',...]) calls in test files do NOT use cwd=os.getcwd() or similar process-level cwd"
+    when:
+      abstract: "scan_repo(ATDD_PKG_DIR) is called (the live integration test)"
+    then:
+      abstract:
+        - "The violations list is empty"
+        - "The validator test exits 0 with no failures emitted"
+    metadata:
+      author: "atdd:issue-636"
+      created: "2026-05-13"

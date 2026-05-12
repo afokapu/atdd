@@ -1,5 +1,5 @@
 version: '2.0'
-created: '2026-03-31'
+created: '2026-05-13'
 sessions:
 - id: '270'
   slug: enforce-train-composition
@@ -715,6 +715,14 @@ sessions:
   slug: ci-mass-delete-guard
   file: null
   issue_number: 635
+  type: implementation
+  status: INIT
+  created: '2026-05-12'
+  archived: null
+- id: '636'
+  slug: meta-validator-test-pollution
+  file: null
+  issue_number: 636
   type: implementation
   status: INIT
   created: '2026-05-13'
