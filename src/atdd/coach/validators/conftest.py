@@ -8,6 +8,8 @@ Performance optimization: ``_github_prefetch`` uses ``GitHubClient.prefetch_vali
 which batches API calls into 3 parallel groups (issues, project data, sub-issues),
 reducing 7 sequential HTTP round-trips to 3 concurrent ones.
 """
+import subprocess
+
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 
@@ -16,6 +18,54 @@ from atdd.coach.validators.shared_fixtures import *  # noqa: F401,F403
 
 
 REPO_ROOT = find_repo_root()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _worktree_integrity_guard():
+    """Safety net: the active worktree must be unchanged after the validator session.
+
+    Snapshots ``git rev-parse HEAD`` and ``git config core.bare`` before the
+    session starts.  Asserts both are identical after.
+
+    Any test that accidentally calls ``git commit`` (or ``git config core.bare
+    true``) against the live worktree rather than a ``tmp_path`` fixture repo
+    will be caught here with a clear error message (issue #619).
+
+    The guard runs in ALL worktrees (atdd source and consumer repos) because
+    test pollution is equally harmful in both contexts.
+    """
+    def _git(*args: str) -> str:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+
+    head_before = _git("rev-parse", "HEAD")
+    bare_before = _git("config", "core.bare")
+
+    yield
+
+    head_after = _git("rev-parse", "HEAD")
+    bare_after = _git("config", "core.bare")
+
+    assert head_before == head_after, (
+        f"Test session added phantom commits to the active worktree.\n"
+        f"  HEAD before: {head_before}\n"
+        f"  HEAD after:  {head_after}\n"
+        "A test ran `git commit` against the live repo rather than a tmp_path "
+        "fixture.  Find it with:\n"
+        "  git log --oneline --author='ATDD Test' HEAD~10..HEAD"
+    )
+    assert bare_before == bare_after, (
+        f"Test session mutated core.bare on the active worktree.\n"
+        f"  core.bare before: {bare_before!r}\n"
+        f"  core.bare after:  {bare_after!r}\n"
+        "A test called `git config core.bare true` against the live repo.\n"
+        "Recovery: git config core.bare false"
+    )
 
 
 def _build_github_client():
