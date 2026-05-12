@@ -4,6 +4,31 @@
 
 set -e
 
+# --- Bare-mode contamination guard (#629 Layer 1) ---
+# A worktree with core.bare=true silently mass-deletes its files on the next
+# `git add -A`. Wave 12 (PRs #625, #627) shipped 220k-line deletions this way.
+# Override (use sparingly): ATDD_SKIP_BARE_CHECK=1 git push ...
+if [ "${ATDD_SKIP_BARE_CHECK:-0}" != "1" ] && \
+        [ "$(git config --get core.bare 2>/dev/null)" = "true" ]; then
+    cat >&2 <<'BARE_MSG'
+
+ATDD: Pre-push blocked — this worktree has core.bare=true.
+
+This is the bare-mode contamination signature that mass-deleted PRs
+#625 and #627 in Wave 12 (220,000 lines / 1,277 files each).
+
+Recovery:
+  1. git config core.bare false
+  2. git log --oneline -5         # audit recent commits for surprise deletions
+  3. git show --stat HEAD         # confirm last commit's diff is sane
+
+Override (use sparingly — only if you intentionally created a bare repo):
+  ATDD_SKIP_BARE_CHECK=1 git push ...
+
+BARE_MSG
+    exit 1
+fi
+
 # --- Version gate (CI can skip with ATDD_SKIP_VERSION_GATE=1) ---
 if [ "${CI:-}" = "true" ] && [ "${ATDD_SKIP_VERSION_GATE:-0}" = "1" ]; then
     : # CI bypass
