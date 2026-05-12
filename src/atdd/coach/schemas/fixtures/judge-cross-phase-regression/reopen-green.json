@@ -1,5 +1,0 @@
-{
-  "decision": "reopen_prior_phase",
-  "target_phase": "GREEN",
-  "rationale": "Regression invalidates GREEN exit claims; the test suite must be re-greened."
-}

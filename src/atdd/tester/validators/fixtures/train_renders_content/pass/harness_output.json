@@ -1,9 +1,0 @@
-{
-  "trainId": "fixture-pass-train",
-  "textLength": 42,
-  "matchedExpectations": ["Match"],
-  "stubDetected": false,
-  "stubReason": null,
-  "error": null,
-  "durationMs": 87
-}

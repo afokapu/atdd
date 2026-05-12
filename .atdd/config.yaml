@@ -1,40 +1,4 @@
-version: '1.0'
-release:
-  version_file: pyproject.toml
-  tag_prefix: v
-code:
-  python: python
-  supabase: supabase/functions
-  web: web/src
-  toolkit: src/atdd
-sync:
-  agents:
-  - claude
-init:
-  skip_workflows: true
-coverage:
-  exceptions:
-    features_without_implementation:
-    - feature:self-compliance-migration:bootstrap-compliance
-no_stub_presentation:
-  scan_dirs: []
-  allowlist: []
-route_train_wagon_coverage:
-  router_patterns:
-  - web/src/**/router.ts
-  - web/src/**/router.tsx
-  - web/src/**/routes.ts
-  - web/src/**/routes.tsx
-  - web/src/**/*-routes.ts
-  - web/src/**/*-routes.tsx
-  - web/src/**/App.tsx
-  allowlist: []
 toolkit:
-  last_version: 3.36.0
-github:
-  repo: afokapu/atdd
-  project_number: 1
-  project_id: PVT_kwHOAIbyOM4BPpKf
-  field_schema: atdd/coach/schemas/project_fields.schema.json
-babysit:
-  token_alert_threshold: 400000
+  last_version: 0.0.1
+sync:
+  agents: []

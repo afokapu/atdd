@@ -1,9 +1,0 @@
-# Observer rule 16 — coach.observer.smoke-skip
-# Spec: atdd-coach-spec-v9.md §6.4 (phase-ordering), §8.3 (rule table).
-# Issue #513 (L4) — absorbs babysit.detect_violation --status REFACTOR clause
-# verbatim per §0.2. The .atdd/ hand-edit clause of detect_violation is
-# owned by a separate observer rule (out of scope for #513).
-
-trigger:
-  type: python
-  builder: "atdd.coach.observer_rules.smoke_skip:build_rule"

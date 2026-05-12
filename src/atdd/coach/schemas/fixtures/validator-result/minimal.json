@@ -1,9 +1,0 @@
-{
-  "validator_id": "test_no_stale_suppressions::test_no_stale_suppressions",
-  "rule_id": "coach.suppression.no-stale",
-  "severity": 3,
-  "disposition": "strict",
-  "location": "src/atdd/coach/utils/legacy.py:118",
-  "detail": "Suppression marker has UNTIL=2026-04-30, which is in the past. Remove the suppression and fix the underlying violation.",
-  "suppression_marker": null
-}

@@ -1,5 +1,0 @@
-{
-  "decision": "block",
-  "rationale": "The concern flags a partial coverage gap on a strict rule that cannot be safely annotated past. Respawning gives the phase agent a chance to address the finding.",
-  "pr_annotation": ""
-}
