@@ -1,11 +1,16 @@
-# Acceptance: acc:integration-hardening:C002-UNIT-003-pre-commit-blocks-mass-delete
-# Acceptance: acc:integration-hardening:C002-UNIT-004-pre-commit-allows-explicit-decom
-"""Unit tests for the pre-commit mass-delete contamination guard (#629 Layer 2).
+# Acceptance: acc:integration-hardening:C002-UNIT-003-commit-msg-blocks-mass-delete
+# Acceptance: acc:integration-hardening:C002-UNIT-004-commit-msg-allows-explicit-decom
+"""Unit tests for the commit-msg mass-delete contamination guard (#629 Layer 2).
 
 Background: bare-mode contamination first manifests at commit time as a
-``git add -A`` that stages thousands of deletions. Layer 2 catches that
-signature at the earliest possible runtime gate. Override env var:
-``ATDD_SKIP_MASSDELETE=1`` for the rare legitimate decommission case.
+``git add -A`` that stages thousands of deletions. The check lives in
+commit-msg (not pre-commit) because pre-commit runs before git writes
+the current message to ``.git/COMMIT_EDITMSG`` — at pre-commit time that
+file still holds the previous commit's message. commit-msg receives the
+message path as ``$1`` and can reliably read the prefix.
+
+Override env var: ``ATDD_SKIP_MASSDELETE=1`` for the rare legitimate
+decommission case.
 """
 from __future__ import annotations
 
@@ -19,7 +24,7 @@ import pytest
 pytestmark = [pytest.mark.platform]
 
 REPO_ROOT = Path(__file__).resolve().parents[6]
-HOOK_PATH = REPO_ROOT / "src/atdd/coach/templates/hooks/pre-commit"
+HOOK_PATH = REPO_ROOT / "src/atdd/coach/templates/hooks/commit-msg"
 
 # How many files we stage as deletions to comfortably cross the >50 threshold.
 MASS_DELETE_FILE_COUNT = 60
@@ -89,11 +94,8 @@ def _write_commit_msg(tmp_path: Path, msg: str) -> Path:
 def _run_hook(
     tmp_path: Path, commit_msg_path: Path, env: dict | None = None
 ) -> subprocess.CompletedProcess:
-    """Execute pre-commit. Passes the COMMIT_EDITMSG path as $1 (git's interface for prepare-commit-msg, but pre-commit accepts it too)."""
-    full_env = {
-        **os.environ,
-        "ATDD_SKIP_MANIFEST_CHECK": "1",
-    }
+    """Execute commit-msg. Git invokes this with $1 = path to the commit message file."""
+    full_env = {**os.environ}
     if env:
         full_env.update(env)
     return subprocess.run(

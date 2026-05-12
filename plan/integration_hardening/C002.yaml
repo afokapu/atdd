@@ -54,7 +54,7 @@ acceptances:
       created: "2026-05-12"
 
   - identity:
-      urn: "acc:integration-hardening:C002-UNIT-003-pre-commit-blocks-mass-delete"
+      urn: "acc:integration-hardening:C002-UNIT-003-commit-msg-blocks-mass-delete"
       id: "AC-UNIT-003"
       purpose: "pre-commit hook exits non-zero with mass-delete error when staged diff deletes more than 50 files without a decommission-prefix message; ATDD_SKIP_MASSDELETE=1 overrides"
       phase: "GREEN"
@@ -63,7 +63,7 @@ acceptances:
       category: "backend"
     given:
       abstract:
-        - "The pre-commit hook template src/atdd/coach/templates/hooks/pre-commit installed in a tmp_path git repo"
+        - "The commit-msg hook template src/atdd/coach/templates/hooks/commit-msg installed in a tmp_path git repo"
         - "A staged diff that deletes more than 50 files"
         - "A COMMIT_EDITMSG content without a decommission prefix"
     when:
@@ -78,7 +78,7 @@ acceptances:
       created: "2026-05-12"
 
   - identity:
-      urn: "acc:integration-hardening:C002-UNIT-004-pre-commit-allows-explicit-decom"
+      urn: "acc:integration-hardening:C002-UNIT-004-commit-msg-allows-explicit-decom"
       id: "AC-UNIT-004"
       purpose: "pre-commit mass-delete check allows a staged diff with a decommission prefix in the commit message"
       phase: "GREEN"
@@ -87,7 +87,7 @@ acceptances:
       category: "backend"
     given:
       abstract:
-        - "The pre-commit hook template src/atdd/coach/templates/hooks/pre-commit installed in a tmp_path git repo"
+        - "The commit-msg hook template src/atdd/coach/templates/hooks/commit-msg installed in a tmp_path git repo"
         - "A staged diff that deletes more than 50 files"
         - "A COMMIT_EDITMSG content beginning with one of chore(decom): refactor(remove): chore(archive): or containing [mass-delete-approved]"
     when:
