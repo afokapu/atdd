@@ -1,9 +1,9 @@
-# URN: test:coach-ops:pr-watcher-module:U001-INTEGRATION-001-backoff-on-secondary-limit
-# Acceptance: acc:coach-ops:U001-INTEGRATION-001-backoff-on-secondary-limit
-# WMBT: wmbt:coach-ops:U001
+# URN: test:coach-ops:pr-watcher-module:M001-INTEGRATION-001-backoff-on-secondary-limit
+# Acceptance: acc:coach-ops:M001-INTEGRATION-001-backoff-on-secondary-limit
+# WMBT: wmbt:coach-ops:M001
 # Phase: RED
 # Layer: integration
-"""U001-INTEGRATION-001 — 403 abuse response triggers exponential backoff 180s→600s→1200s.
+"""M001-INTEGRATION-001 — 403 abuse response triggers exponential backoff 180s→600s→1200s.
 
 When gh returns a secondary rate-limit / 403-abuse error, pr_watcher must
 back off exponentially: first failure → 600s sleep, second → 1200s, then

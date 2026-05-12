@@ -1,9 +1,9 @@
-# URN: test:coach-ops:pr-watcher-module:U001-UNIT-002-cheap-state-default
-# Acceptance: acc:coach-ops:U001-UNIT-002-cheap-state-default
-# WMBT: wmbt:coach-ops:U001
+# URN: test:coach-ops:pr-watcher-module:M001-UNIT-002-cheap-state-default
+# Acceptance: acc:coach-ops:M001-UNIT-002-cheap-state-default
+# WMBT: wmbt:coach-ops:M001
 # Phase: RED
 # Layer: application
-"""U001-UNIT-002 — default poll contains mergeStateStatus only, no statusCheckRollup.
+"""M001-UNIT-002 — default poll contains mergeStateStatus only, no statusCheckRollup.
 
 The expensive statusCheckRollup expansion is deferred entirely to failures().
 poll() must never include it, even implicitly.

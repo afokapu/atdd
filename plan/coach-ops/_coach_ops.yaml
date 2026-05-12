@@ -31,4 +31,4 @@ consume: []
 
 wmbt:
   total: 1
-  U001: "minimize likelihood of secondary-rate-limit-hits-during-batched-pr-polling"
+  M001: "minimize likelihood of secondary-rate-limit-hits-during-batched-pr-polling"

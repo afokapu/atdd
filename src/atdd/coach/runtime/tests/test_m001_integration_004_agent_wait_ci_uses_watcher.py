@@ -1,9 +1,9 @@
-# URN: test:coach-ops:pr-watcher-module:U001-INTEGRATION-004-agent-wait-ci-uses-watcher
-# Acceptance: acc:coach-ops:U001-INTEGRATION-004-agent-wait-ci-uses-watcher
-# WMBT: wmbt:coach-ops:U001
+# URN: test:coach-ops:pr-watcher-module:M001-INTEGRATION-004-agent-wait-ci-uses-watcher
+# Acceptance: acc:coach-ops:M001-INTEGRATION-004-agent-wait-ci-uses-watcher
+# WMBT: wmbt:coach-ops:M001
 # Phase: RED
 # Layer: integration
-"""U001-INTEGRATION-004 — atdd agent wait-ci routes through pr_watcher.poll.
+"""M001-INTEGRATION-004 — atdd agent wait-ci routes through pr_watcher.poll.
 
 When an agent calls `atdd agent wait-ci --pr 101` it must use the batched
 pr_watcher.poll() path — no direct per-PR gh pr view calls.

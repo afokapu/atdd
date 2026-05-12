@@ -1,9 +1,9 @@
-# URN: test:coach-ops:pr-watcher-module:U001-INTEGRATION-003-coach-watch-cli-batched
-# Acceptance: acc:coach-ops:U001-INTEGRATION-003-coach-watch-cli-batched
-# WMBT: wmbt:coach-ops:U001
+# URN: test:coach-ops:pr-watcher-module:M001-INTEGRATION-003-coach-watch-cli-batched
+# Acceptance: acc:coach-ops:M001-INTEGRATION-003-coach-watch-cli-batched
+# WMBT: wmbt:coach-ops:M001
 # Phase: RED
 # Layer: integration
-"""U001-INTEGRATION-003 — atdd coach watch with 4 PRs makes a single gh pr list call.
+"""M001-INTEGRATION-003 — atdd coach watch with 4 PRs makes a single gh pr list call.
 
 Verifies the CLI surface routes through pr_watcher and inherits its batching guarantee.
 """

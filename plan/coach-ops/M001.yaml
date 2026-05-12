@@ -1,4 +1,4 @@
-urn: "wmbt:coach-ops:U001"
+urn: "wmbt:coach-ops:M001"
 step: "unify"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of secondary-rate-limit-hits-during-batched-pr-polling by implementing coach.runtime.pr_watcher with a single gh pr list call per cycle (regardless of PR count), deferring statusCheckRollup to on-demand failures(), enforcing a 180s minimum poll interval, performing a pre-flight rate-limit budget check, and applying exponential backoff (180s→600s→1200s) on 403-abuse responses"
 acceptances:
   - identity:
-      urn: "acc:coach-ops:U001-UNIT-001-batched-poll-single-api-call"
+      urn: "acc:coach-ops:M001-UNIT-001-batched-poll-single-api-call"
       id: "AC-UNIT-001"
       purpose: "poll(prs=[N1,N2,N3,N4]) issues exactly one gh pr list call regardless of PR count"
       phase: "GREEN"
@@ -30,7 +30,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-13"
   - identity:
-      urn: "acc:coach-ops:U001-UNIT-002-cheap-state-default"
+      urn: "acc:coach-ops:M001-UNIT-002-cheap-state-default"
       id: "AC-UNIT-002"
       purpose: "default poll response contains mergeStateStatus only — no statusCheckRollup field"
       phase: "GREEN"
@@ -50,7 +50,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-13"
   - identity:
-      urn: "acc:coach-ops:U001-UNIT-003-failures-on-demand"
+      urn: "acc:coach-ops:M001-UNIT-003-failures-on-demand"
       id: "AC-UNIT-003"
       purpose: "failures(pr_number) fetches statusCheckRollup for that single PR and returns failing check names"
       phase: "GREEN"
@@ -72,7 +72,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-13"
   - identity:
-      urn: "acc:coach-ops:U001-INTEGRATION-001-backoff-on-secondary-limit"
+      urn: "acc:coach-ops:M001-INTEGRATION-001-backoff-on-secondary-limit"
       id: "AC-INTEGRATION-001"
       purpose: "simulated 403 abuse response triggers exponential backoff sequence 180s→600s→1200s"
       phase: "GREEN"
@@ -95,7 +95,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-13"
   - identity:
-      urn: "acc:coach-ops:U001-INTEGRATION-002-preflight-budget-check"
+      urn: "acc:coach-ops:M001-INTEGRATION-002-preflight-budget-check"
       id: "AC-INTEGRATION-002"
       purpose: "when gh api rate_limit shows <500 graphql points, poll cycle is skipped and operator notified once"
       phase: "GREEN"
@@ -117,7 +117,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-13"
   - identity:
-      urn: "acc:coach-ops:U001-INTEGRATION-003-coach-watch-cli-batched"
+      urn: "acc:coach-ops:M001-INTEGRATION-003-coach-watch-cli-batched"
       id: "AC-INTEGRATION-003"
       purpose: "atdd coach watch with 4 PRs makes a single gh pr list call"
       phase: "GREEN"
@@ -139,7 +139,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-13"
   - identity:
-      urn: "acc:coach-ops:U001-INTEGRATION-004-agent-wait-ci-uses-watcher"
+      urn: "acc:coach-ops:M001-INTEGRATION-004-agent-wait-ci-uses-watcher"
       id: "AC-INTEGRATION-004"
       purpose: "atdd agent wait-ci routes through pr_watcher.poll — same batched behavior"
       phase: "GREEN"

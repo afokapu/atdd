@@ -1,9 +1,9 @@
-# URN: test:coach-ops:pr-watcher-module:U001-INTEGRATION-002-preflight-budget-check
-# Acceptance: acc:coach-ops:U001-INTEGRATION-002-preflight-budget-check
-# WMBT: wmbt:coach-ops:U001
+# URN: test:coach-ops:pr-watcher-module:M001-INTEGRATION-002-preflight-budget-check
+# Acceptance: acc:coach-ops:M001-INTEGRATION-002-preflight-budget-check
+# WMBT: wmbt:coach-ops:M001
 # Phase: RED
 # Layer: integration
-"""U001-INTEGRATION-002 — <500 graphql points remaining → poll cycle skipped, notified once.
+"""M001-INTEGRATION-002 — <500 graphql points remaining → poll cycle skipped, notified once.
 
 When the pre-flight gh api rate_limit check returns fewer than 500 remaining
 graphql points, pr_watcher must skip the poll cycle and notify the operator

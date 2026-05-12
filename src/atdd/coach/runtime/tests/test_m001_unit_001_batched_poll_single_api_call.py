@@ -1,9 +1,9 @@
-# URN: test:coach-ops:pr-watcher-module:U001-UNIT-001-batched-poll-single-api-call
-# Acceptance: acc:coach-ops:U001-UNIT-001-batched-poll-single-api-call
-# WMBT: wmbt:coach-ops:U001
+# URN: test:coach-ops:pr-watcher-module:M001-UNIT-001-batched-poll-single-api-call
+# Acceptance: acc:coach-ops:M001-UNIT-001-batched-poll-single-api-call
+# WMBT: wmbt:coach-ops:M001
 # Phase: RED
 # Layer: application
-"""U001-UNIT-001 — poll(prs=[N1,N2,N3,N4]) issues exactly one gh pr list call.
+"""M001-UNIT-001 — poll(prs=[N1,N2,N3,N4]) issues exactly one gh pr list call.
 
 Batching all PR status reads into a single gh pr list --json call is the
 core invariant of pr_watcher.py. This test verifies that regardless of how

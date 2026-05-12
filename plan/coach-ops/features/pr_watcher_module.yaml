@@ -6,7 +6,7 @@ sizing:
   footprint_score: 5
   footprint_size: "S"
 wmbts:
-  - "wmbt:coach-ops:U001"
+  - "wmbt:coach-ops:M001"
 components:
   backend:
     presentation:

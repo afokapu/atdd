@@ -1,9 +1,9 @@
-# URN: test:coach-ops:pr-watcher-module:U001-UNIT-003-failures-on-demand
-# Acceptance: acc:coach-ops:U001-UNIT-003-failures-on-demand
-# WMBT: wmbt:coach-ops:U001
+# URN: test:coach-ops:pr-watcher-module:M001-UNIT-003-failures-on-demand
+# Acceptance: acc:coach-ops:M001-UNIT-003-failures-on-demand
+# WMBT: wmbt:coach-ops:M001
 # Phase: RED
 # Layer: application
-"""U001-UNIT-003 — failures(pr) fetches statusCheckRollup for ONE PR only when called.
+"""M001-UNIT-003 — failures(pr) fetches statusCheckRollup for ONE PR only when called.
 
 statusCheckRollup is expensive; it must only be fetched when the caller
 explicitly asks for failure diagnostics via pr_watcher.failures(pr).
