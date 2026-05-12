@@ -15,6 +15,7 @@ participants:
   - "wagon:discover-and-decommission"
   - "wagon:integrate-end-to-end"
   - "wagon:integration-hardening"
+  - "wagon:coach-ops"
   - "system:atdd-cli"
 sequence:
   - step: 1
@@ -67,4 +68,9 @@ sequence:
     from: "wagon:integration-hardening"
     to: "system:atdd-cli"
     artifact: "commons:coach:spawn-wiring"
+  - step: 11
+    intent: "Rate-limit-aware batched PR polling — replaces per-PR gh pr view with a single gh pr list call; exponential backoff on 403-abuse; atdd coach watch + atdd agent wait-ci CLI"
+    from: "wagon:coach-ops"
+    to: "system:atdd-cli"
+    artifact: "commons:coach:pr-watcher"
 status: planned

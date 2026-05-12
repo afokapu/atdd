@@ -185,3 +185,14 @@ wagons:
     outcome: "atdd coach <N> autonomously drives an issue through the full lifecycle with durable decisions, reactive watcher events, validator-gated phase exits, observer corrections, reviewer verdicts, two-phase commit, and registered LLM clients"
     path: "plan/integration_hardening/"
     manifest: "plan/integration_hardening/_integration_hardening.yaml"
+
+  - wagon: coach-ops
+    description: "Rate-limit-aware batched PR polling: single gh pr list call per cycle, statusCheckRollup deferred to on-demand failures(), 180s minimum interval, exponential backoff on 403-abuse, pre-flight rate-limit budget check; atdd coach watch + atdd agent wait-ci CLI"
+    theme: commons
+    subject: "agent:coach"
+    context: "in-coach-v9-execution, dense-waves-hit-secondary-rate-limit-multiple-times-per-session"
+    action: "batches all PR status reads into a single gh pr list call, backs off exponentially on abuse responses, skips cycles when <500 graphql points remain"
+    goal: "reduce GitHub API consumption ~24× and eliminate secondary-rate-limit blackouts during multi-PR waves"
+    outcome: "pr_watcher module + coach watch + agent wait-ci CLI; no secondary-rate-limit hits during 8-PR waves"
+    path: "plan/coach_ops/"
+    manifest: "plan/coach_ops/_coach_ops.yaml"

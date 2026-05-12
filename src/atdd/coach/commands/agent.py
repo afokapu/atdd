@@ -522,6 +522,20 @@ def _build_parser() -> argparse.ArgumentParser:
     p_rv.add_argument("--report-file", required=True, dest="report_file")
     p_rv.add_argument("--agent-id", default=None, dest="agent_id")
 
+    # wait-ci — block until the agent's own PR (or a specified PR) is CLEAN
+    p_wci = sub.add_parser(
+        "wait-ci",
+        help="Block until a PR reaches CLEAN state via batched poll (no per-PR gh pr view).",
+    )
+    p_wci.add_argument("--pr", type=int, required=True, dest="pr_number", help="PR number to watch")
+    p_wci.add_argument(
+        "--repo", default="afokapu/atdd", help="GitHub repo (owner/repo)."
+    )
+    p_wci.add_argument(
+        "--interval", type=int, default=180, metavar="SECONDS",
+        help="Poll interval in seconds (default 180, min 60).",
+    )
+
     return parser
 
 
@@ -578,6 +592,12 @@ def run(argv: list[str]) -> int:
                 agent_id=args.agent_id,
             )
             print(f"✓ review: {path}")
+        elif sub == "wait-ci":
+            from atdd.coach.runtime.pr_watcher import PRWatcher
+            interval = max(60, args.interval)
+            watcher = PRWatcher(repo=args.repo, poll_interval=interval)
+            result = watcher.wait_any(prs=[args.pr_number], target_state="CLEAN")
+            print(f"CLEAN: #{result}")
         else:
             parser.error(f"unknown subcommand: {sub}")
     except (  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
@@ -587,6 +607,11 @@ def run(argv: list[str]) -> int:
         print(f"❌ {exc}", file=sys.stderr)
         return 2
     return 0
+
+
+def run_cli(argv: list[str]) -> int:
+    """Alias for run() — consistent naming with other coach commands."""
+    return run(argv)
 
 
 def main(argv: Optional[list[str]] = None) -> int:

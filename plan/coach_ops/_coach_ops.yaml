@@ -1,0 +1,34 @@
+wagon: coach-ops
+urn: "wagon:coach-ops"
+name: "Coach Ops"
+description: "Rate-limit-aware operational tooling for coach runtime: batched PR polling via a single gh pr list call, exponential backoff on secondary rate-limit hits, pre-flight budget checks, and the `atdd coach watch` / `atdd agent wait-ci` CLI surface. Replaces per-PR gh pr view polling that caused ~24× over-consumption of GitHub GraphQL quota during dense waves."
+theme: commons
+
+subject: "agent:coach"
+context: "in-coach-v9-execution, dense-waves-hit-secondary-rate-limit-multiple-times-per-session"
+action: "batches all PR status reads into a single gh pr list call per cycle, defers statusCheckRollup to on-demand failures(), and exponentially backs off on 403-abuse responses"
+goal: "reduce GitHub API consumption by ~24× and eliminate secondary-rate-limit blackouts during multi-PR waves"
+outcome: "atdd coach watch + atdd agent wait-ci commands backed by a reusable coach.runtime.pr_watcher module; rate-limit preflight guard; exponential backoff with escalation-channel notification"
+
+features:
+  - urn: "feature:coach-ops:pr-watcher-module"
+
+produce:
+  - name: commons:coach:pr-watcher-module
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:coach-watch-cli
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:agent-wait-ci-cli
+    contract: null
+    telemetry: null
+    to: external
+
+consume: []
+
+wmbt:
+  total: 1
+  M001: "minimize likelihood of secondary-rate-limit-hits-during-batched-pr-polling"
