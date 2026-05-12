@@ -1,6 +1,0 @@
-{
-  "guidance": "Rule DEAD-CODE-REACHABILITY-001 has been superseded by coder.dead-code.reachability. Update all references to use the canonical namespaced ID. The legacy flat-grammar form is no longer emitted by validators.",
-  "suggested_aliases": ["DEAD-CODE-REACHABILITY-001", "dead-code-reachability"],
-  "canonical_rule_id": "coder.dead-code.reachability",
-  "fix_hint": "Replace the legacy rule_id with coder.dead-code.reachability in any suppress markers and update the fix to match the current convention's remediation recipe."
-}

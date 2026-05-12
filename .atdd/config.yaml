@@ -1,3 +1,4 @@
-github:
-  repo: afokapu/atdd
-  project_id: PVT_x
+toolkit:
+  last_version: 0.0.1
+sync:
+  agents: []

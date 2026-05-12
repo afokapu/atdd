@@ -1,9 +1,0 @@
-{
-  "trainId": "fixture-error-train",
-  "textLength": 0,
-  "matchedExpectations": [],
-  "stubDetected": false,
-  "stubReason": null,
-  "error": "TimeoutError: harness exceeded 30000ms",
-  "durationMs": 30001
-}

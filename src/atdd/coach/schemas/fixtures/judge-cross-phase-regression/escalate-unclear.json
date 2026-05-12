@@ -1,5 +1,0 @@
-{
-  "decision": "escalate",
-  "target_phase": "GREEN",
-  "rationale": "Cross-phase regression with no clear fix path; operator must assess scope and impact."
-}

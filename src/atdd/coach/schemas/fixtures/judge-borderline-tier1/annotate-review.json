@@ -1,5 +1,0 @@
-{
-  "decision": "annotate",
-  "confidence": 0.72,
-  "rationale": "Ambiguous severity; annotate for reviewer attention without blocking forward progress."
-}

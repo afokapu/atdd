@@ -1,5 +1,0 @@
-"""
-Shared fixtures for coder tests.
-"""
-# Import all shared fixtures from coach via absolute import
-from atdd.coach.validators.shared_fixtures import *  # noqa: F401,F403

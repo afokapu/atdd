@@ -1,4 +1,0 @@
-{
-  "decision": "retry",
-  "reasoning": "Previous failure was a transient network error; the fix is sound and one more attempt is likely to succeed."
-}
