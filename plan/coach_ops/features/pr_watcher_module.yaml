@@ -1,0 +1,27 @@
+urn: "feature:coach-ops:pr-watcher-module"
+wagon: "wagon:coach-ops"
+description: "Reusable coach.runtime.pr_watcher module implementing rate-limit-aware batched PR polling: poll() issues a single gh pr list call for all PRs, failures() fetches statusCheckRollup on demand, wait_any() blocks until any PR reaches a target state. Includes exponential backoff on 403-abuse responses and pre-flight budget check via gh api rate_limit. Backed by atdd coach watch and atdd agent wait-ci CLI surfaces."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:coach-ops:U001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 2
+        rationale: "coach_watch.py (atdd coach watch) and agent.py extension (atdd agent wait-ci)"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "poll(), wait_any(), failures() use-case functions in pr_watcher.py"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "PRStatus (number + mergeStateStatus) and BackoffState (current interval + retry count)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "gh CLI adapter — wraps subprocess calls to gh pr list and gh api rate_limit"
