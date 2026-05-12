@@ -277,6 +277,37 @@ git:
     prefixes: ["feat/", "fix/", "refactor/", "chore/", "docs/", "devops/"]
     example: "git worktree add ../feat-traceability-gates -b feat/traceability-gates"
 
+  # ─── PER-WORKTREE GIT CONFIG (PREVENT BLEED-TO-MAIN CONTAMINATION) ─────
+  # Inside a git worktree, `git config <key>` (no scope flag) writes to the
+  # SHARED `.git/config`, which every worktree reads. Setting certain keys
+  # — most dangerously `core.bare` — bleeds to main and other worktrees,
+  # causing the Wave 12 contamination class (PRs #625/#627 shipped 220k-
+  # line deletions; #629 Layer 1 pre-push hook now blocks the push, but
+  # the local mess remains and breaks the worktree's view of files).
+  #
+  # Repo opt-in is already enabled on main:
+  #   extensions.worktreeConfig = true
+  #
+  # RULE: any time you set a git config inside a worktree for testing or
+  # debugging, use the --worktree flag so it stays in that worktree only:
+  #
+  #   git config --worktree core.bare true     # OK — per-worktree
+  #   git config core.bare true                # NEVER — writes to shared
+  #
+  # Better still: don't set core.bare on real worktrees at all — exercise
+  # hook behavior in tmp_path repos. See
+  # `src/atdd/coach/templates/hooks/tests/test_C002_unit_pre_push_bare_mode.py`
+  # for the correct isolation pattern (every git call uses
+  # `git -C str(tmp_path) ...`).
+  # ───────────────────────────────────────────────────────────────────────
+  worktree_config:
+    rule: "Use --worktree flag for per-worktree git config; never run bare git config in a worktree"
+    danger_keys: ["core.bare", "core.worktree", "core.hooksPath"]
+    repo_extension: "extensions.worktreeConfig = true (already set on this repo's .git/config)"
+    test_pattern: "src/atdd/coach/templates/hooks/tests/test_C002_unit_pre_push_bare_mode.py uses git -C str(tmp_path) — never touches the worktree's .git"
+    recovery: "If core.bare=true leaks to main: `git -C <main-worktree> config --unset core.bare` then verify with `git status` that the worktree sees its full file set again"
+    incident_2026_05_12: "An agent debugging the #583 prepush-validator hook ran `git config core.bare true` directly inside its worktree; that wrote to the SHARED .git/config and contaminated main + sibling worktrees. The #629 Layer 1 hook caught the push (Wave 12 PRs #625/#627 also stopped at push), but the local mess cycled for hours before the root cause (worktrees share .git/config by default) was understood. extensions.worktreeConfig was enabled afterwards."
+
   # ─── PARALLEL WORK VIA WORKTREE + CMUX ────────────────────────────────
   # Machine-readable rules for parallel agent sessions (waves, babysitter,
   # prompt approval policy, violation patterns, merge cascade, telemetry)
