@@ -1,0 +1,45 @@
+schema_version: "1.0.0"
+convention_id: "tester.test-isolation"
+name: "Test Isolation Convention"
+description: |
+  Structural prevention of test pollution patterns. Validates that test files
+  do not contain AST-detectable patterns that mutate shared git state outside
+  a tmp_path fixture scope. These patterns caused the Wave 12 contamination
+  incident (2026-05-12): PRs #625 and #627 each pushed 220,000-line deletions
+  because validator tests set core.bare=true on the live worktree's shared
+  .git/config.
+
+  This convention enforces structural isolation at the code level — independent
+  of whether any human remembers the #619/#622 incident — so the pattern class
+  cannot re-emerge undetected.
+
+rules:
+  - id: tester.test-isolation.no-polluting-patterns
+    severity: 4
+    disposition: strict
+    validator: "test_no_polluting_patterns::test_repo_has_no_pollution_patterns"
+    description: "Test files must not contain AST-detectable bare-mode-init or unscoped-core-bare-config patterns (Wave 12 contamination class)"
+    fix_hint: |
+      Replace the offending pattern with a properly scoped equivalent:
+
+        WRONG (bare-init with bad cwd):
+          subprocess.run(['git', 'init', '--bare', path], cwd=os.getcwd())
+
+        RIGHT (bare-init with tmp_path-derived path, no cwd= or cwd=tmp_path):
+          subprocess.run(['git', 'init', '--bare', str(tmp_path / 'repo.git')])
+          subprocess.run(['git', 'init', '--bare', str(tmp_path)], cwd=tmp_path)
+
+        WRONG (core.bare config with no isolation):
+          subprocess.run(['git', 'config', 'core.bare', 'true'])
+
+        RIGHT (core.bare config scoped via -C flag to tmp_path):
+          subprocess.run(['git', '-C', str(tmp_path), 'config', 'core.bare', 'true'])
+
+        RIGHT (core.bare config scoped via cwd= to tmp_path):
+          subprocess.run(['git', 'config', 'core.bare', 'true'], cwd=str(tmp_path))
+
+        RIGHT (worktree-scoped, always safe):
+          subprocess.run(['git', 'config', '--worktree', 'core.bare', 'true'])
+
+      Reference: CLAUDE.md worktree_config convention (#634 — use --worktree
+      for per-worktree git config to avoid shared .git/config contamination).

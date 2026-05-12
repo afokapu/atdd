@@ -81,6 +81,7 @@ wmbt:
   total: 13
   K001: "minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine"
   D001: "minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries"
+  D002: "minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path"
   E001: "minimize quantity of imperatively-polled-state-transitions-bypassing-watcher-events"
   M001: "minimize quantity of unvalidated-phase-exit-transitions-in-atdd-coach"
   L001: "minimize quantity of uncorrected-agent-violations-during-phase-execution"
