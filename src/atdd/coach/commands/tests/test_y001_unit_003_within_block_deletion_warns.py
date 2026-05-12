@@ -3,9 +3,9 @@
 RED test: atdd sync must print a warning when the newly rendered managed block
 would remove heading lines that existed in the current file's block.
 
-Bug #581: PR #561 added ## Rule-ID grammar and ## bind_rule contract sections
-inside the ATDD:BEGIN/END block; a subsequent atdd sync silently stripped them
-without any warning or diff shown.
+Bug #581: content added inside the ATDD:BEGIN/END block (e.g. via a persona
+template that later changed) was silently stripped on the next atdd sync with
+no diff shown, no warning, no opt-in required.
 """
 from pathlib import Path
 
@@ -13,18 +13,21 @@ import pytest
 
 from atdd.coach.commands.sync import AgentConfigSync
 
+# Headings that will NEVER appear in the real template — so they are guaranteed
+# to be "removed" when sync regenerates the block from the live ATDD.md.
+_PHANTOM_HEADING_1 = "## Phantom-Section-581-Alpha"
+_PHANTOM_HEADING_2 = "## Phantom-Section-581-Beta"
 
-def _build_file_with_extra_sections(block_begin: str, block_end: str, tmp_path: Path) -> Path:
-    """Write a CLAUDE.md whose managed block contains headings not in the template."""
+
+def _build_file_with_phantom_sections(block_begin: str, block_end: str, tmp_path: Path) -> Path:
+    """Write a CLAUDE.md whose managed block contains headings absent from the template."""
     claude_md = tmp_path / "CLAUDE.md"
     content = (
         f"{block_begin}\n"
-        "## Existing Template Section\n\n"
-        "Some template content.\n\n"
-        "## Rule-ID grammar\n\n"
-        "Canonical rule IDs use `<archetype>.<convention_short_name>.<rule_name>`.\n\n"
-        "## bind_rule contract\n\n"
-        "validators MUST call `bind_rule` at module-import time.\n"
+        f"{_PHANTOM_HEADING_1}\n\n"
+        "Content that will not survive the next sync.\n\n"
+        f"{_PHANTOM_HEADING_2}\n\n"
+        "More ephemeral content.\n"
         f"{block_end}\n"
     )
     claude_md.write_text(content)
@@ -35,7 +38,7 @@ def test_y001_unit_003_within_block_deletion_warns(
     tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
     """When sync removes headings from the managed block, stdout must warn about them."""
-    _build_file_with_extra_sections(
+    _build_file_with_phantom_sections(
         AgentConfigSync.BLOCK_BEGIN,
         AgentConfigSync.BLOCK_END,
         tmp_path,
@@ -46,11 +49,11 @@ def test_y001_unit_003_within_block_deletion_warns(
     assert rc == 0  # warning is advisory, sync still writes
 
     out = capsys.readouterr().out
-    assert "## Rule-ID grammar" in out or "Rule-ID grammar" in out, (
-        "Expected a warning mentioning '## Rule-ID grammar' being removed from the "
-        f"managed block, but stdout was:\n{out}"
+    assert _PHANTOM_HEADING_1 in out, (
+        f"Expected a warning mentioning {_PHANTOM_HEADING_1!r} being removed, "
+        f"but stdout was:\n{out}"
     )
-    assert "## bind_rule contract" in out or "bind_rule contract" in out, (
-        "Expected a warning mentioning '## bind_rule contract' being removed from the "
-        f"managed block, but stdout was:\n{out}"
+    assert _PHANTOM_HEADING_2 in out, (
+        f"Expected a warning mentioning {_PHANTOM_HEADING_2!r} being removed, "
+        f"but stdout was:\n{out}"
     )

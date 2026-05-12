@@ -549,7 +549,36 @@ class AgentConfigSync:
         if self.BLOCK_BEGIN in remaining:
             print("Warning: Multiple managed blocks found, updating first only")
 
+        self._warn_on_block_deletions(block, new_block)
+
         return content[:start_idx] + new_block + content[end_idx:]
+
+    def _warn_on_block_deletions(self, old_block: str, new_block: str) -> None:
+        """Warn when headings present in the current managed block are absent from the new one.
+
+        Guards against silent content loss (bug #581): when a template change
+        removes sections that were previously rendered (e.g. via an overlay or
+        persona template), the operator sees exactly which headings disappear.
+        """
+        old_headings = {
+            line.strip()
+            for line in old_block.splitlines()
+            if line.strip().startswith("#")
+            and not line.strip().startswith(self.BLOCK_BEGIN.strip())
+            and not line.strip().startswith(self.BLOCK_END.strip())
+        }
+        new_headings = {
+            line.strip()
+            for line in new_block.splitlines()
+            if line.strip().startswith("#")
+            and not line.strip().startswith(self.BLOCK_BEGIN.strip())
+            and not line.strip().startswith(self.BLOCK_END.strip())
+        }
+        removed = sorted(old_headings - new_headings)
+        if removed:
+            print("Warning: the following headings will be removed from the managed block:")
+            for heading in removed:
+                print(f"  - {heading}")
 
     def _append_managed_block(self, content: str, new_block: str) -> str:
         """
