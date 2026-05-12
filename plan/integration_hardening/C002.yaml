@@ -80,7 +80,7 @@ acceptances:
   - identity:
       urn: "acc:integration-hardening:C002-UNIT-004-commit-msg-allows-explicit-decom"
       id: "AC-UNIT-004"
-      purpose: "pre-commit mass-delete check allows a staged diff with a decommission prefix in the commit message"
+      purpose: "commit-msg mass-delete check allows a staged diff with a decommission prefix in the commit message"
       phase: "GREEN"
     harness:
       type: "unit"
@@ -91,10 +91,57 @@ acceptances:
         - "A staged diff that deletes more than 50 files"
         - "A COMMIT_EDITMSG content beginning with one of chore(decom): refactor(remove): chore(archive): or containing [mass-delete-approved]"
     when:
-      abstract: "The pre-commit hook is executed"
+      abstract: "The commit-msg hook is executed"
     then:
       abstract:
         - "The hook does not fail on the mass-delete check"
+    metadata:
+      author: "atdd:wave-12-incident"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:integration-hardening:C002-SMOKE-001-pre-push-fires-on-real-git-push"
+      id: "AC-SMOKE-001"
+      purpose: "Verify the pre-push hook fires through git's own trigger plumbing — i.e. that an operator running real git push against a worktree with core.bare=true is blocked"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path local git repo with the pre-push hook installed into .git/hooks/ and chmod +x"
+        - "A sibling tmp_path bare remote configured as origin"
+        - "core.bare=true set on the local repo"
+    when:
+      abstract: "An operator runs git push origin <branch> from the local repo"
+    then:
+      abstract:
+        - "git exits non-zero"
+        - "stderr from the push includes the bare-mode contamination error from the hook"
+        - "No refs are advanced on the remote"
+    metadata:
+      author: "atdd:wave-12-incident"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:integration-hardening:C002-SMOKE-002-commit-msg-fires-on-real-git-commit"
+      id: "AC-SMOKE-002"
+      purpose: "Verify the commit-msg hook fires through git's own trigger plumbing on git commit and either blocks (no decom prefix) or allows (decom prefix) the commit per the prefix rule"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path local git repo with the commit-msg hook installed into .git/hooks/ and chmod +x"
+        - "A staged diff that deletes more than 50 files"
+    when:
+      abstract:
+        - "An operator runs git commit -m <message> from the local repo"
+    then:
+      abstract:
+        - "When the message lacks a decommission prefix: git exits non-zero, stderr includes the mass-delete error, no commit is recorded"
+        - "When the message begins with chore(decom): or refactor(remove): or chore(archive): or contains [mass-delete-approved]: git exits zero, the commit is recorded"
     metadata:
       author: "atdd:wave-12-incident"
       created: "2026-05-12"
