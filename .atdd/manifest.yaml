@@ -727,3 +727,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '639'
+  slug: n5-review-gate-per-pr-ci
+  file: null
+  issue_number: 639
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null

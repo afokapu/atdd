@@ -1,0 +1,74 @@
+urn: "wmbt:review-phase-boundaries:E003"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "reviewer-verdict-not-enforced-at-pr-boundary"
+context_clarifier: "when a human opens a PR against the atdd repo, the adversarial reviewer pipeline (#N5 / #624) is not invoked automatically — an operator must remember to run `atdd coach review <N>` manually; without a GitHub Actions workflow wired to PR events, `fail` verdicts are never enforced as merge-blocking status checks and `pass`/`concern` verdicts produce no informational comment, so the reviewer gate provides no actual friction at the point of integration"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of reviewer-verdict-not-enforced-at-pr-boundary by adding a GitHub Actions workflow (.github/workflows/atdd-review.yml) that triggers on PR opened/synchronize/reopened, runs `atdd coach review <PR>` with --report-file, posts the verdict as a PR comment, and exits nonzero on `fail` so branch protection can block merge — while exiting 0 on `pass` or `concern` so informational verdicts do not block"
+acceptances:
+  - identity:
+      urn: "acc:review-phase-boundaries:E003-UNIT-001-workflow-file-exists-with-correct-triggers"
+      id: "AC-UNIT-001"
+      purpose: ".github/workflows/atdd-review.yml is committed, parses as valid YAML, and declares on.pull_request.types: [opened, synchronize, reopened]"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - ".github/workflows/atdd-review.yml exists in the repository"
+    when:
+      abstract: "A structural validator test parses the workflow file with yaml.safe_load"
+    then:
+      abstract:
+        - "The file parses without error"
+        - "on.pull_request.types contains exactly opened, synchronize, reopened"
+        - "At least one job step invokes `atdd coach review` with a --report-file argument"
+        - "At least one job step posts a PR comment (gh pr comment)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:review-phase-boundaries:E003-INTEGRATION-001-block-verdict-fails-the-workflow"
+      id: "AC-INTEGRATION-001"
+      purpose: "When the review-report.json contains verdict=fail, the workflow enforce-verdict step exits nonzero"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixture review-report.json file with verdict=fail is present at /tmp/atdd-test-review.json"
+        - "The workflow's enforce-verdict shell logic is extracted from the YAML"
+    when:
+      abstract: "The enforce-verdict shell fragment is executed via subprocess with the fixture report"
+    then:
+      abstract:
+        - "The subprocess exits with a nonzero return code"
+        - "The exit code signals that the PR should be blocked"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:review-phase-boundaries:E003-INTEGRATION-002-annotate-verdict-passes-with-comment"
+      id: "AC-INTEGRATION-002"
+      purpose: "When the review-report.json contains verdict=pass or verdict=concern, the workflow enforce-verdict step exits 0 (annotate-and-continue)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixture review-report.json file with verdict=pass (and separately verdict=concern) is present at /tmp/atdd-test-review.json"
+        - "The workflow's enforce-verdict shell logic is extracted from the YAML"
+    when:
+      abstract: "The enforce-verdict shell fragment is executed via subprocess with each fixture report"
+    then:
+      abstract:
+        - "For verdict=pass: subprocess exits 0"
+        - "For verdict=concern: subprocess exits 0"
+        - "Neither verdict blocks the PR merge"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"

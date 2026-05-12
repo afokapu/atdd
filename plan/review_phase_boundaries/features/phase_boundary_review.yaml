@@ -2,7 +2,7 @@ urn: "feature:review-phase-boundaries:phase-boundary-review"
 wagon: "wagon:review-phase-boundaries"
 description: "Coach v9 adversarial reviewer surface for every meaningful phase boundary (PLANNED/RED/GREEN/SMOKE/optional REFACTOR): a no-write reviewer persona spawn adapter (#N1), a rule-ID-first review-report schema with hard rules forbidding pass on uncovered acceptances or strict findings (#N2), five per-phase reviewer prompt templates with rule-resolution guidance (#N3), judge call site #2 wiring for concern verdicts with judgments.jsonl audit trail (#N4), the atdd agent review runtime command emitting review_complete events (#N5), and the operator-facing `atdd coach review` trigger (#624)."
 sizing:
-  wmbts: 6
+  wmbts: 7
   footprint_score: 9
   footprint_size: "M"
 wmbts:
@@ -12,6 +12,7 @@ wmbts:
   - "wmbt:review-phase-boundaries:D004"
   - "wmbt:review-phase-boundaries:E001"
   - "wmbt:review-phase-boundaries:E002"
+  - "wmbt:review-phase-boundaries:E003"
 components:
   backend:
     presentation:

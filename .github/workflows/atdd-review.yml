@@ -1,0 +1,60 @@
+# ATDD Review Gate — per-PR adversarial reviewer (#N5 / E003).
+# Triggers on every PR event, runs `atdd coach review <PR>`, posts the verdict
+# as a comment, and exits nonzero on `fail` so branch protection can block merge.
+name: ATDD Review Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install dependencies
+        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
+
+      - name: Install atdd toolkit
+        run: pip3 install -e .
+
+      - name: Run atdd coach review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          atdd coach review ${{ github.event.pull_request.number }} --report-file /tmp/review.json || true
+
+      - name: Post PR comment with verdict
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERDICT=$(jq -r '.verdict // "unknown"' /tmp/review.json 2>/dev/null || echo "unknown")
+          SUMMARY=$(jq -r '.summary // "No summary available."' /tmp/review.json 2>/dev/null || echo "No summary available.")
+          if [ "$VERDICT" = "fail" ]; then EMOJI="FAIL"; elif [ "$VERDICT" = "concern" ]; then EMOJI="CONCERN"; elif [ "$VERDICT" = "pass" ]; then EMOJI="PASS"; else EMOJI="UNKNOWN"; fi
+          printf '%s **ATDD Review Gate**: `%s`\n\n%s\n' "$EMOJI" "$VERDICT" "$SUMMARY" > /tmp/review-comment.txt
+          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/review-comment.txt
+
+      - name: Enforce verdict
+        run: |
+          VERDICT=$(jq -r '.verdict // "fail"' /tmp/review.json 2>/dev/null || echo "fail")
+          if [ "$VERDICT" = "fail" ]; then
+            echo "::error::ATDD review verdict is 'fail' — merge blocked. See PR comment for details."
+            exit 1
+          fi
+          echo "ATDD review gate passed (verdict: $VERDICT)"
