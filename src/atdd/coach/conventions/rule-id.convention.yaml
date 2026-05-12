@@ -342,6 +342,44 @@ rules:
       was deleted post-merge), orphaning the v3.11.0 work. See
       issue #477 and src/atdd/coach/commands/pr.py for the CLI guard
       that catches the same class of mistake at PR-creation time.
+  - id: "coach.pr.mass-delete-guard"
+    severity: 4
+    description: "PRs that delete >100 files or >10,000 lines must carry a decommission escape hatch: title prefix chore(decom, refactor(remove, or chore(archive), OR any commit body containing [mass-delete-approved]"
+    disposition: strict
+    introduced_in: "3.43.0"
+    aliases: []
+    validator: "test_pr_mass_delete_guard::test_no_open_pr_exceeds_mass_delete_thresholds"
+    fix_hint: |
+      A PR exceeded the mass-delete safety thresholds (>100 deleted files or
+      >10,000 deleted lines) without an approved escape hatch. This guard was
+      added after the Wave 12 contamination incident (PRs #625/#627 deleted
+      1,277 files / 220,000 lines by accident).
+
+      To resolve, choose one of:
+
+        A. If the deletion is intentional (decommission / archive):
+           Edit the PR title to begin with one of:
+             chore(decom): ...
+             refactor(remove): ...
+             chore(archive): ...
+           This signals to reviewers and CI that the mass delete is deliberate.
+
+        B. If the deletion is intentional but the title cannot be changed:
+           Add a commit to the PR branch whose body contains the exact token:
+             [mass-delete-approved]
+           Example: git commit --allow-empty -m "approve mass delete" -m "[mass-delete-approved]"
+
+        C. If the deletion is accidental (the Wave 12 class of incident):
+           Audit the diff for contamination from a worktree with core.bare=true.
+           Recovery steps:
+             1. git diff origin/main..HEAD --stat | tail -5   # confirm blast radius
+             2. git reset --soft origin/main                  # un-stage all commits
+             3. git checkout -- .                             # discard working-tree deletes
+             4. Re-apply only the intended changes
+             5. Push the corrected branch
+
+      Source: #629 Layer 3 (CI guard), backed by #630 Layer 1 (pre-push) and
+      #630 Layer 2 (commit-msg). See plan/integration_hardening/C004.yaml.
   - id: "coach.rule-id.fix-hint-completeness"
     severity: 2
     description: "Every fix_hint (convention-declared or CLI-printed) must satisfy the completeness contract C1-C4 in rule_schema.fields.fix_hint.description"

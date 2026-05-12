@@ -1,0 +1,116 @@
+urn: "wmbt:integration-hardening:C004"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "mass-delete-prs-bypassing-ci-guard-and-reaching-merge"
+context_clarifier: "when a PR diff deletes more than 100 files or more than 10,000 lines (the Wave 12 contamination signature: PRs #625 and #627 each deleted 1,277 files / 220,000 lines), the coach validator must block CI unless the PR title carries a decommission escape prefix (chore(decom, refactor(remove, chore(archive)) or any commit body in the PR contains the literal token [mass-delete-approved]; this is the server-side last-resort backstop for Layer 3 of issue #629 — Layers 1 (pre-push bare-mode) and 2 (commit-msg mass-delete) block at the laptop, this guard catches bypass via override env vars or force-push"
+lens: "functional.availability"
+statement: "minimize likelihood of mass-delete-prs-bypassing-ci-guard-and-reaching-merge when a PR diff exceeds 100 deleted files or 10,000 deleted lines, by adding a blocking coach validator that fails CI unless a decommission escape hatch is present in the PR title prefix or any commit message body, catching the Wave 12 contamination signature even when Layers 1 and 2 were bypassed via ATDD_SKIP_MASSDELETE or force-push"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:C004-UNIT-001-validator-fails-on-files-over-threshold"
+      id: "AC-UNIT-001"
+      purpose: "evaluate_mass_delete_violations returns a Violation when deleted_files > 100 and no escape hatch present"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic PR with deleted_files=101, deleted_lines=0, title='feat: normal', commit_bodies=[]"
+    when:
+      abstract: "evaluate_mass_delete_violations is called with that PR data"
+    then:
+      abstract:
+        - "Returns exactly one Violation"
+        - "Violation rule_id is 'coach.pr.mass-delete-guard'"
+        - "Violation detail references the file count"
+    metadata:
+      author: "atdd:629-l3"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:integration-hardening:C004-UNIT-002-validator-fails-on-lines-over-threshold"
+      id: "AC-UNIT-002"
+      purpose: "evaluate_mass_delete_violations returns a Violation when deleted_lines > 10000 and no escape hatch present"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic PR with deleted_files=5, deleted_lines=10001, title='feat: normal', commit_bodies=[]"
+    when:
+      abstract: "evaluate_mass_delete_violations is called with that PR data"
+    then:
+      abstract:
+        - "Returns exactly one Violation"
+        - "Violation rule_id is 'coach.pr.mass-delete-guard'"
+        - "Violation detail references the line count"
+    metadata:
+      author: "atdd:629-l3"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:integration-hardening:C004-UNIT-003-validator-allows-decom-prefix"
+      id: "AC-UNIT-003"
+      purpose: "evaluate_mass_delete_violations returns no violations when PR title starts with a recognized decommission prefix"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Synthetic PRs each with deleted_files=500, deleted_lines=50000, commit_bodies=[]"
+        - "PR titles: 'chore(decom): remove old module', 'refactor(remove): drop legacy code', 'chore(archive): archive unused wagon'"
+    when:
+      abstract: "evaluate_mass_delete_violations is called for each PR"
+    then:
+      abstract:
+        - "All three calls return empty violation lists"
+    metadata:
+      author: "atdd:629-l3"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:integration-hardening:C004-UNIT-004-validator-allows-mass-delete-approved-token"
+      id: "AC-UNIT-004"
+      purpose: "evaluate_mass_delete_violations returns no violations when any commit body contains the literal token [mass-delete-approved]"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic PR with deleted_files=200, deleted_lines=20000, title='feat: normal'"
+        - "commit_bodies=['first commit', 'second commit [mass-delete-approved] intentional cleanup']"
+    when:
+      abstract: "evaluate_mass_delete_violations is called with that PR data"
+    then:
+      abstract:
+        - "Returns an empty violation list"
+    metadata:
+      author: "atdd:629-l3"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:integration-hardening:C004-INTEGRATION-001-replay-wave12-disaster-signature"
+      id: "AC-INTEGRATION-001"
+      purpose: "evaluate_mass_delete_violations catches the exact Wave 12 signature: 1277 deleted files and 220000 deleted lines with no escape hatch"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic PR replicating PRs #625/#627: deleted_files=1277, deleted_lines=220000"
+        - "title='feat(atdd): some feature work', commit_bodies=['normal commit message']"
+    when:
+      abstract: "evaluate_mass_delete_violations is called with that PR data"
+    then:
+      abstract:
+        - "Returns at least one Violation"
+        - "Violation rule_id is 'coach.pr.mass-delete-guard'"
+    metadata:
+      author: "atdd:629-l3"
+      created: "2026-05-13"

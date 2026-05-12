@@ -711,3 +711,11 @@ sessions:
   status: INIT
   created: '2026-05-12'
   archived: null
+- id: '635'
+  slug: ci-mass-delete-guard
+  file: null
+  issue_number: 635
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
