@@ -392,7 +392,6 @@ audits:
     validate_tester: "atdd validate tester"
     validate_coder: "atdd validate coder"
     validate_coach: "atdd validate coach"
-    quick_check: "atdd validate --quick"
     with_coverage: "atdd validate --coverage"
     with_html: "atdd validate --html"
     inventory: "atdd inventory"
@@ -605,6 +604,28 @@ git:
       template: "src/atdd/coach/templates/hooks/claude-pre-tool-use.sh"
       install: "cp src/atdd/coach/templates/hooks/claude-pre-tool-use.sh .claude/hooks/pre_tool_use.sh"
       behavior: "Reminds agent to commit when >5 files modified since last commit"
+
+  # Post-commit hook — blast-radius local validation (#611).
+  # After every commit, derives which files were touched via `git show --name-only HEAD`,
+  # maps them to validator phases, and runs ONLY those phases in parallel.
+  # Always exits 0 (info-only; cannot undo a commit). No-op when CI=true.
+  # Override: ATDD_SKIP_POSTCOMMIT=1 git commit ...
+  post_commit_hook:
+    purpose: "Real-time self-healing — surface validator failures within seconds of introduction"
+    template: "src/atdd/coach/templates/hooks/post-commit"
+    behavior: "Runs only validators in the commit's blast radius, in parallel, never blocks"
+    path_to_phase_mapping:
+      "plan/**":             "atdd repo validate"
+      "contracts/**":        "atdd repo validate + atdd validate tester --local --skip-api"
+      "src/atdd/planner/**": "atdd validate planner --local --skip-api"
+      "src/atdd/tester/**":  "atdd validate tester --local --skip-api"
+      "src/atdd/coder/**":   "atdd validate coder --local --skip-api"
+      "src/atdd/coach/**":   "atdd validate coach --local --skip-api"
+      ".atdd/manifest.yaml": "atdd validate coach --local --skip-api"
+    overrides:
+      ci: "CI=true → exits 0 immediately (CI runs full validate)"
+      skip: "ATDD_SKIP_POSTCOMMIT=1 → exits 0 immediately"
+    first_commit_safe: "Uses `git show --name-only HEAD` (works on first-ever commit, unlike `git diff HEAD~1..HEAD`)"
 
 # Release Gate (MANDATORY - session completion)
 # Every session MUST end with version bump + tag

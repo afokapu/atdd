@@ -29,7 +29,6 @@ Usage:
     atdd validate planner                    # Run planner validators
     atdd validate tester                     # Run tester validators
     atdd validate coder                      # Run coder validators
-    atdd validate --quick                    # Quick smoke test
     atdd validate --coverage                 # With coverage report
     atdd inventory                           # Generate inventory (YAML)
     atdd inventory --format json             # Generate inventory (JSON)
@@ -122,7 +121,6 @@ class ATDDCoach:
         verbose: bool = False,
         coverage: bool = False,
         html: bool = False,
-        quick: bool = False,
         split: bool = True,
         local: bool = False,
         skip_api: bool = False,
@@ -130,9 +128,6 @@ class ATDDCoach:
         no_diagnostics: bool = False,
     ) -> int:
         """Run ATDD validators."""
-        if quick:
-            return self.validator_runner.quick_check()
-
         # Issue #473: --skip-api and --api-only are symmetric counterparts.
         # The argparse layer enforces mutual exclusivity; here we map either
         # flag to the appropriate pytest marker filter.
@@ -256,7 +251,6 @@ Examples:
   %(prog)s validate planner               Run planner validators only
   %(prog)s validate tester                Run tester validators only
   %(prog)s validate coder                 Run coder validators only
-  %(prog)s validate --quick               Quick smoke test
   %(prog)s validate --coverage            With coverage report
   %(prog)s validate --html                With HTML report
   %(prog)s validate -v                    Verbose output
@@ -333,11 +327,6 @@ Phase descriptions:
         default="all",
         choices=["all", "planner", "tester", "coder", "coach"],
         help="Phase to validate (default: all)"
-    )
-    validate_parser.add_argument(
-        "--quick", "-q",
-        action="store_true",
-        help="Quick smoke test (no parallel, no reports)"
     )
     validate_parser.add_argument(
         "--verbose", "-v",
@@ -1799,13 +1788,6 @@ Phase descriptions:
         help=argparse.SUPPRESS  # Hide from help, deprecated
     )
 
-    # DEPRECATED: --quick → atdd validate --quick
-    parser.add_argument(
-        "--quick",
-        action="store_true",
-        help=argparse.SUPPRESS  # Hide from help, deprecated
-    )
-
     # DEPRECATED: --update-registry → atdd registry update
     parser.add_argument(
         "--update-registry",
@@ -1958,7 +1940,6 @@ Phase descriptions:
             verbose=args.verbose,
             coverage=args.coverage,
             html=args.html,
-            quick=args.quick,
             split=not args.no_split and not skip_api and not api_only,
             local=args.local,
             skip_api=skip_api,
@@ -2511,13 +2492,7 @@ Phase descriptions:
             verbose=args.verbose,
             coverage=args.coverage,
             html=args.html,
-            quick=False
         )
-
-    # DEPRECATED: --quick
-    elif args.quick:
-        _deprecation_warning("atdd --quick", "atdd validate --quick")
-        return coach.run_validators(quick=True)
 
     # DEPRECATED: --status
     elif args.status:
