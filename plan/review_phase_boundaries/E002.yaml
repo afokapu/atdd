@@ -1,0 +1,96 @@
+urn: "wmbt:review-phase-boundaries:E002"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "reviewer-pipeline-inaccessible-outside-full-coach-lifecycle"
+context_clarifier: "when an operator wants to run an adversarial reviewer on an arbitrary PR or commit without a full INIT→MERGED coach run, they currently have no surface — `atdd agent review` rejects non-reviewer callers, so dogfooding the reviewer wagon requires orchestrating an entire coach run; the operator-facing `atdd coach review <N|--commit sha>` trigger wraps the same N1+N5 internals while writing a reviewer-persona manifest so the no-write constraint and report schema remain enforced"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of reviewer-pipeline-inaccessible-outside-full-coach-lifecycle by adding an `atdd coach review <N|--commit sha>` operator trigger that resolves the target commit, spawns a reviewer-persona agent, waits for the resulting review-report.json, validates it via the intake gate, and prints the verdict to stdout — exiting 0 on pass and nonzero on fail or concern"
+acceptances:
+  - identity:
+      urn: "acc:review-phase-boundaries:E002-UNIT-001-coach-review-pr-spawns-reviewer-and-exits-on-verdict"
+      id: "AC-UNIT-001"
+      purpose: "atdd coach review <N> spawns a reviewer-persona agent (verifiable via its manifest.json), waits for review-report.json, prints verdict summary to stdout, and exits 0 on pass / nonzero on fail"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path workspace with a .atdd/runtime/ directory"
+        - "A fake spawn seam that writes a reviewer manifest and pre-populates reviews/<review-id>.json with a conforming pass report"
+        - "A fake gh-resolve seam that returns a fixed sha without calling the real `gh` binary"
+    when:
+      abstract: "The operator invokes `atdd coach review <N>` (e.g. N=100)"
+    then:
+      abstract:
+        - "A reviewer-persona manifest.json is present at .atdd/runtime/agents/<reviewer-id>/manifest.json with persona=reviewer"
+        - "The command prints a summary line containing the verdict (pass) to stdout"
+        - "The command exits 0"
+        - "When the report has verdict=fail the command exits nonzero"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:review-phase-boundaries:E002-UNIT-002-commit-variant-skips-gh-resolution"
+      id: "AC-UNIT-002"
+      purpose: "--commit <sha> uses the provided sha directly, bypassing any gh PR resolution, so the command works on arbitrary commits without a GitHub PR"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path workspace with a fake spawn seam and a pre-written pass report"
+        - "The gh resolve seam is configured to raise if called"
+    when:
+      abstract: "The operator invokes `atdd coach review --commit abc1234`"
+    then:
+      abstract:
+        - "The gh resolve seam is never called"
+        - "The reviewer is spawned with target_commit=abc1234"
+        - "The command exits 0 on a pass report"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:review-phase-boundaries:E002-UNIT-003-output-json-flag-returns-report-payload"
+      id: "AC-UNIT-003"
+      purpose: "--output json causes the command to write the validated review-report.json payload to stdout as JSON (instead of the human-readable summary)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path workspace with a fake spawn seam and a pre-written pass report"
+    when:
+      abstract: "The operator invokes `atdd coach review --commit abc1234 --output json`"
+    then:
+      abstract:
+        - "stdout is parseable as JSON"
+        - "The parsed payload contains the review_id, verdict, and phase fields from the original report"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:review-phase-boundaries:E002-UNIT-004-no-llm-registry-exits-nonzero-with-clear-error"
+      id: "AC-UNIT-004"
+      purpose: "When no LLM clients are configured in the registry, `atdd coach review` prints a clear error referencing docs/MODELS.md and exits nonzero without crashing"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "LLM_REGISTRY is empty (no entries registered)"
+    when:
+      abstract: "The operator invokes `atdd coach review --commit abc1234`"
+    then:
+      abstract:
+        - "The command exits nonzero"
+        - "stderr contains 'no LLM clients configured' and references docs/MODELS.md"
+        - "No reviewer agent directory is created"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
