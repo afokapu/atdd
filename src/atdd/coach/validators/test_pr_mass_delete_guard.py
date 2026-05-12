@@ -1,3 +1,8 @@
+# Acceptance: acc:integration-hardening:C004-UNIT-001-validator-fails-on-files-over-threshold
+# Acceptance: acc:integration-hardening:C004-UNIT-002-validator-fails-on-lines-over-threshold
+# Acceptance: acc:integration-hardening:C004-UNIT-003-validator-allows-decom-prefix
+# Acceptance: acc:integration-hardening:C004-UNIT-004-validator-allows-mass-delete-approved-token
+# Acceptance: acc:integration-hardening:C004-INTEGRATION-001-replay-wave12-disaster-signature
 """
 CI mass-delete guard validator (#629 Layer 3).
 
