@@ -81,22 +81,22 @@ if [ "$RUN_REPO" = "1" ]; then
 fi
 
 if [ "$RUN_PLANNER" = "1" ]; then
-    ( atdd validate planner --local -m "not github_api" >&2 2>&1 ) &
+    ( atdd validate planner --local --skip-api >&2 2>&1 ) &
     PIDS="$PIDS $!"
 fi
 
 if [ "$RUN_TESTER" = "1" ]; then
-    ( atdd validate tester --local -m "not github_api" >&2 2>&1 ) &
+    ( atdd validate tester --local --skip-api >&2 2>&1 ) &
     PIDS="$PIDS $!"
 fi
 
 if [ "$RUN_CODER" = "1" ]; then
-    ( atdd validate coder --local -m "not github_api" >&2 2>&1 ) &
+    ( atdd validate coder --local --skip-api >&2 2>&1 ) &
     PIDS="$PIDS $!"
 fi
 
 if [ "$RUN_COACH" = "1" ]; then
-    ( atdd validate coach --local -m "not github_api" >&2 2>&1 ) &
+    ( atdd validate coach --local --skip-api >&2 2>&1 ) &
     PIDS="$PIDS $!"
 fi
 

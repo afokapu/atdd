@@ -306,12 +306,12 @@ git:
     behavior: "Runs only validators in the commit's blast radius, in parallel, never blocks"
     path_to_phase_mapping:
       "plan/**":             "atdd repo validate"
-      "contracts/**":        "atdd repo validate + atdd validate tester --local -m 'not github_api'"
-      "src/atdd/planner/**": "atdd validate planner --local -m 'not github_api'"
-      "src/atdd/tester/**":  "atdd validate tester --local -m 'not github_api'"
-      "src/atdd/coder/**":   "atdd validate coder --local -m 'not github_api'"
-      "src/atdd/coach/**":   "atdd validate coach --local -m 'not github_api'"
-      ".atdd/manifest.yaml": "atdd validate coach --local -m 'not github_api'"
+      "contracts/**":        "atdd repo validate + atdd validate tester --local --skip-api"
+      "src/atdd/planner/**": "atdd validate planner --local --skip-api"
+      "src/atdd/tester/**":  "atdd validate tester --local --skip-api"
+      "src/atdd/coder/**":   "atdd validate coder --local --skip-api"
+      "src/atdd/coach/**":   "atdd validate coach --local --skip-api"
+      ".atdd/manifest.yaml": "atdd validate coach --local --skip-api"
     overrides:
       ci: "CI=true → exits 0 immediately (CI runs full validate)"
       skip: "ATDD_SKIP_POSTCOMMIT=1 → exits 0 immediately"
