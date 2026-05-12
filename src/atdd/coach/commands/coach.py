@@ -67,8 +67,14 @@ __all__ = [
     "build_plan",
     "compute_waves",
     "run",
+    "run_cli",
+    "run_status",
     "main",
 ]
+
+# Re-export run_status so test imports from atdd.coach.commands.coach work.
+# The implementation lives in coach_status.py to satisfy J1 scope constraints.
+from atdd.coach.commands.coach_status import run_status  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +375,42 @@ def run(
 
 def main(argv: Optional[list[str]] = None) -> int:
     cfg = parse_cli(list(sys.argv[1:] if argv is None else argv))
+    return run(
+        issue_numbers=cfg.issue_numbers,
+        max_retries=cfg.max_retries,
+        escalation_channel=cfg.escalation_channel,
+        multiplexer=cfg.multiplexer,
+        multiplexer_mode=cfg.multiplexer_mode,
+        auto_merge=cfg.auto_merge,
+        strict_deps=cfg.strict_deps,
+        llm=cfg.llm,
+        persona_llm=cfg.persona_llm,
+        judge_llm=cfg.judge_llm,
+        require_issue_review=cfg.require_issue_review,
+        review_phases=cfg.review_phases,
+        skip_review=cfg.skip_review,
+        risk_threshold_block=cfg.risk_threshold_block,
+        allow_stale_suppressions=cfg.allow_stale_suppressions,
+        resume=cfg.resume,
+        dry_run=cfg.dry_run,
+    )
+
+
+# ---------------------------------------------------------------------------
+# `atdd coach status` + top-level dispatch (#616 / L001)
+# ---------------------------------------------------------------------------
+
+
+def run_cli(argv: list[str]) -> int:
+    """Top-level entry point forwarded from cli.py.
+
+    Routes ``atdd coach status [...]`` to the status subcommand (coach_status.py)
+    and all other invocations to the existing ``parse_cli`` + ``run`` path.
+    """
+    if argv and argv[0] == "status":
+        from atdd.coach.commands.coach_status import run_status
+        return run_status(argv[1:])
+    cfg = parse_cli(argv)
     return run(
         issue_numbers=cfg.issue_numbers,
         max_retries=cfg.max_retries,
