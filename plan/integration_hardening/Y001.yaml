@@ -1,5 +1,5 @@
 urn: "wmbt:integration-hardening:Y001"
-step: "guard"
+step: "modify"
 direction: "minimize"
 dimension: "quantity"
 object_of_control: "undetected-seam-integration-failures-in-atdd-coach-lifecycle"
