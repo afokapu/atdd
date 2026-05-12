@@ -51,6 +51,7 @@ from atdd.coach.handlers.state_machine import (
     can_transition,
     initialize_state_machine,
 )
+from atdd.coach.utils.escalation_channel import validate_escalation_channel_arg
 
 __all__ = [
     "Phase",
@@ -154,7 +155,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-retries", type=int, default=None, dest="max_retries")
     parser.add_argument(
-        "--escalation-channel", type=str, default=None, dest="escalation_channel"
+        "--escalation-channel",
+        type=validate_escalation_channel_arg,
+        default=None,
+        dest="escalation_channel",
+        help=(
+            "Where to route escalations. Forms: file:<path>, <path>, "
+            "slack-webhook:<https-url>, gh-issue:owner/repo#N, gh-issue:#N."
+        ),
     )
     parser.add_argument(
         "--multiplexer",

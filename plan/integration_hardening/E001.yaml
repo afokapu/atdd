@@ -91,6 +91,27 @@ acceptances:
     metadata:
       author: "atdd:integration-hardening"
       created: "2026-05-11"
+
+  - identity:
+      urn: "acc:integration-hardening:E001-UNIT-001-escalation-channel-value-spec"
+      id: "AC-UNIT-001"
+      purpose: "parse_escalation_channel accepts the documented value set and rejects unknowns"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "parse_escalation_channel is invoked with a CLI string for --escalation-channel"
+    when:
+      abstract: "Parsing the value against the documented enum (stdout, slack:, email:, file:, log:)"
+    then:
+      abstract:
+        - "Documented values parse to an EscalationChannel instance with expected fields"
+        - "Unknown or malformed values raise argparse.ArgumentTypeError with the documented help-epilog"
+    metadata:
+      author: "atdd:integration-hardening"
+      created: "2026-05-12"
   - identity:
       urn: "acc:integration-hardening:E001-SMOKE-001-watcher-real-infrastructure"
       id: "AC-SMOKE-001"

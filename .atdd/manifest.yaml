@@ -703,3 +703,11 @@ sessions:
   feature: coach-single-command-driver
   created: '2026-05-11'
   archived: null
+- id: '619'
+  slug: fix-validator-test-pollution-worktree
+  file: null
+  issue_number: 619
+  type: implementation
+  status: INIT
+  created: '2026-05-12'
+  archived: null

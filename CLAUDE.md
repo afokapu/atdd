@@ -627,6 +627,19 @@ git:
       skip: "ATDD_SKIP_POSTCOMMIT=1 → exits 0 immediately"
     first_commit_safe: "Uses `git show --name-only HEAD` (works on first-ever commit, unlike `git diff HEAD~1..HEAD`)"
 
+# Escalation channel — `atdd coach --escalation-channel <X>` value format (#615).
+# Validated at CLI parse time; malformed values are rejected before coach runs.
+coach_escalation_channel:
+  purpose: "Where atdd coach routes human-escalation events (spec §9)"
+  forms:
+    file: "file:<path>            (e.g. file:./.atdd/escalations.log)"
+    bare_path: "<path>                  (bare relative or absolute path, shortcut for file:)"
+    slack_webhook: "slack-webhook:<https-url>     (e.g. slack-webhook:https://hooks.slack.com/services/X/Y/Z)"
+    gh_issue_full: "gh-issue:owner/repo#N         (e.g. gh-issue:afokapu/atdd#999)"
+    gh_issue_short: "gh-issue:#N                  (e.g. gh-issue:#999 — uses current repo)"
+  validator: "src/atdd/coach/utils/escalation_channel.py::parse_escalation_channel"
+  invalid_values_rejected_at: "argparse parse time (loud error with valid-forms list)"
+
 # Release Gate (MANDATORY - session completion)
 # Every session MUST end with version bump + tag
 release:

@@ -55,6 +55,7 @@ from atdd.coach.commands.gate import ATDDGate
 from atdd.coach.commands.urn import URNCommand
 from atdd.coach.commands.upgrader import Upgrader
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.escalation_channel import validate_escalation_channel_arg
 from atdd.version_check import print_update_notice, print_upgrade_sync_notice
 
 
@@ -978,7 +979,14 @@ Phase descriptions:
     coach_parser.add_argument("issue_numbers", type=int, nargs="+")
     coach_parser.add_argument("--max-retries", type=int, default=None, dest="max_retries")
     coach_parser.add_argument(
-        "--escalation-channel", type=str, default=None, dest="escalation_channel"
+        "--escalation-channel",
+        type=validate_escalation_channel_arg,
+        default=None,
+        dest="escalation_channel",
+        help=(
+            "Where to route escalations. Forms: file:<path>, <path>, "
+            "slack-webhook:<https-url>, gh-issue:owner/repo#N, gh-issue:#N."
+        ),
     )
     coach_parser.add_argument(
         "--multiplexer", type=str, choices=["cmux", "zellij", "tmux"], default=None,
