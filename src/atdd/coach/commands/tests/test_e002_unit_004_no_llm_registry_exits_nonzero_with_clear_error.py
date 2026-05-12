@@ -9,7 +9,7 @@ prints a clear error referencing docs/MODELS.md and exits nonzero without
 crashing.
 
 Given:
-  - LLM_REGISTRY is empty (no entries registered).
+  - ADAPTER_REGISTRY (spawn.py) is empty (no spawn adapters registered).
 
 When:
   - run_coach_review(commit="abc1234") is called with no LLM configured.
@@ -34,7 +34,7 @@ class TestNoLlmRegistry:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         from atdd.coach.commands import coach_review
-        from atdd.coach.commands import judge as judge_mod
+        from atdd.coach.commands import spawn as spawn_mod
 
         runtime_root = tmp_path / ".atdd" / "runtime"
         monkeypatch.setenv("ATDD_RUNTIME_ROOT", str(runtime_root))
@@ -44,14 +44,14 @@ class TestNoLlmRegistry:
         monkeypatch.setattr(coach_review, "_print_err", lambda msg: errors.append(msg))
         monkeypatch.setattr(coach_review, "_print", lambda msg: None)
 
-        original_registry = dict(judge_mod.LLM_REGISTRY)
-        judge_mod.LLM_REGISTRY.clear()
+        original_registry = dict(spawn_mod.ADAPTER_REGISTRY)
+        spawn_mod.ADAPTER_REGISTRY.clear()
         try:
             rc = coach_review.run(commit="abc1234")
         finally:
-            judge_mod.LLM_REGISTRY.update(original_registry)
+            spawn_mod.ADAPTER_REGISTRY.update(original_registry)
 
-        assert rc != 0, "expected nonzero exit when LLM_REGISTRY is empty"
+        assert rc != 0, "expected nonzero exit when ADAPTER_REGISTRY is empty"
         combined = " ".join(errors).lower()
         assert "no llm clients configured" in combined, (
             f"expected 'no LLM clients configured' in error output, got: {errors}"
@@ -64,7 +64,7 @@ class TestNoLlmRegistry:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
         from atdd.coach.commands import coach_review
-        from atdd.coach.commands import judge as judge_mod
+        from atdd.coach.commands import spawn as spawn_mod
 
         runtime_root = tmp_path / ".atdd" / "runtime"
         monkeypatch.setenv("ATDD_RUNTIME_ROOT", str(runtime_root))
@@ -72,12 +72,12 @@ class TestNoLlmRegistry:
         monkeypatch.setattr(coach_review, "_print_err", lambda msg: None)
         monkeypatch.setattr(coach_review, "_print", lambda msg: None)
 
-        original_registry = dict(judge_mod.LLM_REGISTRY)
-        judge_mod.LLM_REGISTRY.clear()
+        original_registry = dict(spawn_mod.ADAPTER_REGISTRY)
+        spawn_mod.ADAPTER_REGISTRY.clear()
         try:
             coach_review.run(commit="abc1234")
         finally:
-            judge_mod.LLM_REGISTRY.update(original_registry)
+            spawn_mod.ADAPTER_REGISTRY.update(original_registry)
 
         agents_dir = runtime_root / "agents"
         reviewer_dirs = list(agents_dir.iterdir()) if agents_dir.exists() else []
