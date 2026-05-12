@@ -1,0 +1,93 @@
+urn: "wmbt:govern-lifecycle:D019"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "silent-stripping-of-externally-added-content-from-managed-files"
+context_clarifier: "when atdd sync re-renders the managed block and the new template output omits lines that were present in the current managed block (e.g. sections added by a prior PR directly to CLAUDE.md), the sync silently overwrites them without warning or requiring --force"
+lens: "functional.reliability"
+statement: "minimize quantity of silent-stripping-of-externally-added-content-from-managed-files when atdd sync would remove lines present in the managed block but absent from the new template"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-001-sync-blocks-on-net-deletion-without-force"
+      id: "AC-UNIT-001"
+      purpose: "sync returns non-zero and does not write the file when the new block would remove lines from the current managed block and --force is not passed"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A managed file (CLAUDE.md) with extra content injected inside the ATDD:BEGIN/END block"
+        - "The extra content is not in the current template or overlay"
+    when:
+      abstract: "atdd sync is called without --force"
+    then:
+      abstract:
+        - "sync returns 1 (non-zero)"
+        - "The extra content is still present in the file (no destructive write)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-002-sync-with-force-allows-removal"
+      id: "AC-UNIT-002"
+      purpose: "sync --force proceeds and removes extra content, returning 0"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A managed file with extra content injected inside the ATDD:BEGIN/END block"
+    when:
+      abstract: "atdd sync --force is called"
+    then:
+      abstract:
+        - "sync returns 0"
+        - "The extra content is removed from the file"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-003-sync-warns-with-removed-line-names"
+      id: "AC-UNIT-003"
+      purpose: "sync prints a warning mentioning the would-be-removed content and the --force flag"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A managed file with externally-added content inside the block"
+    when:
+      abstract: "atdd sync is called without --force"
+    then:
+      abstract:
+        - "stdout includes the name of the extra content or the phrase 'would remove'"
+        - "stdout mentions '--force'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-004-idempotent-sync-proceeds"
+      id: "AC-UNIT-004"
+      purpose: "when no lines would be removed (clean/idempotent sync), sync proceeds without --force"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A managed file that exactly matches the current template output"
+    when:
+      abstract: "atdd sync is called without --force"
+    then:
+      abstract:
+        - "sync returns 0"
+        - "The file is written or reported as up-to-date"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
