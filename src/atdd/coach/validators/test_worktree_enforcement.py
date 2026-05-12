@@ -7,6 +7,11 @@ read template file content and assert structural properties.
 
 Run: PYTHONPATH=src python3 -m pytest -q src/atdd/coach/validators/test_worktree_enforcement.py -v
 """
+# Acceptance: acc:govern-lifecycle:D019-UNIT-001-prepush-template-runs-validate-coder
+# Acceptance: acc:govern-lifecycle:D019-UNIT-002-prepush-template-runs-validate-coach
+# Acceptance: acc:govern-lifecycle:D019-UNIT-003-prepush-skip-env-var
+# Acceptance: acc:govern-lifecycle:D019-UNIT-004-prepush-skipped-in-ci
+# Acceptance: acc:govern-lifecycle:D019-UNIT-005-prepush-chains-existing-git-hook
 import re
 from pathlib import Path
 
