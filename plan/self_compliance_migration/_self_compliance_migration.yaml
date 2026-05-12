@@ -22,7 +22,7 @@ produce:
 consume: []
 
 wmbt:
-  total: 8
+  total: 9
   C001: "Confirm all existing tests pass (baseline lock)"
   D001: "Define wagon manifests for coach, planner, tester, coder"
   D002: "Define feature YAMLs with WMBTs for each wagon"
@@ -31,3 +31,4 @@ wmbt:
   P001: "Define validate lifecycle train"
   R001: "Wire URN traceability across plan, test, code"
   K001: "Both atdd validate and local pytest pass on the toolkit itself"
+  Y001: "atdd sync preserves user content outside managed block and warns on within-block deletions"

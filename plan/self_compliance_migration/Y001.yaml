@@ -1,0 +1,71 @@
+urn: "wmbt:self-compliance-migration:Y001"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "silent-content-loss-during-atdd-sync"
+context_clarifier: "when atdd sync re-renders managed files (CLAUDE.md, AGENTS.md, etc.) and the file contains user-owned content outside the ATDD:BEGIN/END markers, or the managed block would shrink relative to the current file, the sync must never silently remove that content"
+lens: "functional.safety"
+statement: "minimize likelihood of silent-content-loss-during-atdd-sync when atdd sync re-renders managed agent config files that contain user-owned content outside the ATDD:BEGIN/END markers or sections present in the current block but absent from the regenerated template"
+acceptances:
+  - identity:
+      urn: "acc:self-compliance-migration:Y001-UNIT-001-user-content-before-block-preserved"
+      id: "AC-UNIT-001"
+      purpose: "Content appearing before the ATDD:BEGIN marker is preserved unchanged after sync"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A managed file in tmp_path with user-authored content BEFORE the ATDD:BEGIN marker"
+        - "The file also contains a valid managed block between ATDD:BEGIN and ATDD:END"
+    when:
+      abstract: "atdd sync renders a new managed block for that file"
+    then:
+      abstract:
+        - "The content before the ATDD:BEGIN marker is byte-for-byte identical after sync"
+    metadata:
+      author: "atdd:bug-581"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:self-compliance-migration:Y001-UNIT-002-user-content-after-block-preserved"
+      id: "AC-UNIT-002"
+      purpose: "Content appearing after the ATDD:END marker is preserved unchanged after sync"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A managed file in tmp_path with user-authored content AFTER the ATDD:END marker"
+        - "The file also contains a valid managed block between ATDD:BEGIN and ATDD:END"
+    when:
+      abstract: "atdd sync renders a new managed block for that file"
+    then:
+      abstract:
+        - "The content after the ATDD:END marker is byte-for-byte identical after sync"
+    metadata:
+      author: "atdd:bug-581"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:self-compliance-migration:Y001-UNIT-003-within-block-deletion-warns"
+      id: "AC-UNIT-003"
+      purpose: "When the newly rendered managed block removes lines that existed in the current file's block, atdd sync prints a warning listing the deleted heading lines before writing"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A managed file whose current block contains section headings (## Foo, ## Bar) that will NOT appear in the newly rendered block"
+    when:
+      abstract: "atdd sync renders a new managed block for that file"
+    then:
+      abstract:
+        - "stdout contains a warning message that names the headings being removed"
+        - "The file is still updated (warning is advisory, not blocking)"
+    metadata:
+      author: "atdd:bug-581"
+      created: "2026-05-12"
