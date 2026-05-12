@@ -206,8 +206,6 @@ def test_coach_drives_issue_init_to_complete(tmp_path: Path, monkeypatch: pytest
         # Track per-seam results for assertion clarity
         observer_results: list[HandlerResult] = []
         reviewer_results: list[HandlerResult] = []
-        decisions_results: list[HandlerResult] = []
-        spawn_results: list[HandlerResult] = []
         validator_results: list[HandlerResult] = []
         tpc_results: list[HandlerResult] = []
 
@@ -216,11 +214,15 @@ def test_coach_drives_issue_init_to_complete(tmp_path: Path, monkeypatch: pytest
 
             # J3: decision written before any side-effect (durable-before-action)
             dr = decisions_handler.handle(ctx, t)
-            decisions_results.append(dr)
+            assert dr in (HandlerResult.HANDLED, HandlerResult.NOOP), (
+                f"J3: unexpected result for {src}→{dst}: {dr!r}"
+            )
 
             # K1: spawn persona agent at each applicable transition
             sr = spawn_handler.handle(ctx, t)
-            spawn_results.append(sr)
+            assert sr in (HandlerResult.HANDLED, HandlerResult.NOOP), (
+                f"K1: unexpected result for {src}→{dst}: {sr!r}"
+            )
 
             # M3: validate at each phase-exit gate
             vr = validator_dispatch_handler.handle(ctx, t)
@@ -527,27 +529,27 @@ def test_e2e_suite_timing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
         two_phase_commit as tpc_handler,
     )
 
-    issue_number = 617
     runtime_dir = tmp_path / ".atdd" / "runtime"
     runtime_dir.mkdir(parents=True)
     fake_sha = "timing" + "0" * 34
 
-    monkeypatch.setattr(spawn_handler, "_call_spawn", lambda *a, **kw: {"surface_ref": "fake:0"})
+    monkeypatch.setattr(spawn_handler, "_call_spawn", lambda *a, **kw: {"surface_ref": "t"})
     monkeypatch.setattr(spawn_handler, "_load_persona_prompt", lambda p, ph, **kw: "")
     monkeypatch.setattr(spawn_handler, "_resolve_worktree", lambda ctx: tmp_path)
     monkeypatch.setattr(spawn_handler, "_RUNTIME_ROOT", runtime_dir)
 
-    def _fast_dispatch(**kwargs: Any) -> MagicMock:
-        vp = runtime_dir / "validations" / fake_sha / "violations.jsonl"
-        return _make_dispatch_result(vp, [])
-
-    ctx = _make_ctx(issue_number, runtime_dir, auto_merge=True)
+    ctx = _make_ctx(617, runtime_dir, auto_merge=True)
 
     start = time.monotonic()
     with (
         patch("atdd.coach.handlers.validator_dispatch.find_repo_root", return_value=tmp_path),
         patch("atdd.coach.handlers.validator_dispatch._get_head_sha", return_value=fake_sha),
-        patch("atdd.coach.handlers.validator_dispatch.dispatch_validators", side_effect=_fast_dispatch),
+        patch(
+            "atdd.coach.handlers.validator_dispatch.dispatch_validators",
+            side_effect=lambda **kw: _make_dispatch_result(
+                runtime_dir / "validations" / fake_sha / "violations.jsonl", []
+            ),
+        ),
         patch("atdd.coach.handlers.validator_dispatch._resolve_validator_dirs", return_value=[tmp_path]),
         patch("atdd.coach.handlers.two_phase_commit._create_pr", return_value=True),
         patch("atdd.coach.handlers.two_phase_commit._merge_pr", return_value=(True, "")),

@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize quantity of undetected-seam-integration-failures-in-atdd-coach-lifecycle when all eight Wave-10 integration seams are exercised together in a single CI-gated end-to-end pytest drive from INIT to MERGED with mocked external calls"
 acceptances:
   - identity:
-      urn: "acc:integration-hardening:G001-INTEGRATION-001-all-seams-exercised-in-happy-path"
+      urn: "acc:integration-hardening:Y001-INTEGRATION-001-all-seams-exercised-in-happy-path"
       id: "AC-INTEGRATION-001"
       purpose: "A single pytest exercises all eight Wave-10 seams together: K1 spawn, J3 decisions, J5 watcher, M3 validators, L1 observer, N5 reviewer, J4 two-phase-commit, and LLM-registry"
       phase: "GREEN"
@@ -31,7 +31,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-12"
   - identity:
-      urn: "acc:integration-hardening:G001-INTEGRATION-002-decisions-jsonl-has-expected-sequence"
+      urn: "acc:integration-hardening:Y001-INTEGRATION-002-decisions-jsonl-has-expected-sequence"
       id: "AC-INTEGRATION-002"
       purpose: "decisions.jsonl produced by J3 during the drive has one schema-valid entry per transition, in planned-path order, with correct phase pairs"
       phase: "GREEN"
@@ -53,7 +53,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-12"
   - identity:
-      urn: "acc:integration-hardening:G001-INTEGRATION-003-spawn-personas-match-table"
+      urn: "acc:integration-hardening:Y001-INTEGRATION-003-spawn-personas-match-table"
       id: "AC-INTEGRATION-003"
       purpose: "K1 spawn handler fires exactly 5 times with personas matching the spec §4.1 table (planner, tester, coder, tester, coder) across the 5 spawnable transitions"
       phase: "GREEN"
@@ -74,7 +74,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-12"
   - identity:
-      urn: "acc:integration-hardening:G001-INTEGRATION-004-validator-fires-at-each-phase-exit"
+      urn: "acc:integration-hardening:Y001-INTEGRATION-004-validator-fires-at-each-phase-exit"
       id: "AC-INTEGRATION-004"
       purpose: "M3 validator dispatch fires once per non-NOOP phase-exit transition; dispatch_validators is called with a sha and repo_root"
       phase: "GREEN"
@@ -95,7 +95,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-12"
   - identity:
-      urn: "acc:integration-hardening:G001-INTEGRATION-005-j4-merge-fires-on-complete"
+      urn: "acc:integration-hardening:Y001-INTEGRATION-005-j4-merge-fires-on-complete"
       id: "AC-INTEGRATION-005"
       purpose: "J4 two-phase-commit handler fires at COMPLETE→MERGED with auto_merge=True; both atdd pr and gh pr merge are invoked"
       phase: "GREEN"
@@ -118,7 +118,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-12"
   - identity:
-      urn: "acc:integration-hardening:G001-INTEGRATION-006-watcher-event-advances-state"
+      urn: "acc:integration-hardening:Y001-INTEGRATION-006-watcher-event-advances-state"
       id: "AC-INTEGRATION-006"
       purpose: "J5 WatcherEventLoop advances the state machine when a commit_observed event with a Phase trailer is injected into the queue"
       phase: "GREEN"
@@ -141,7 +141,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-12"
   - identity:
-      urn: "acc:integration-hardening:G001-INTEGRATION-007-llm-registry-registers-mock-client"
+      urn: "acc:integration-hardening:Y001-INTEGRATION-007-llm-registry-registers-mock-client"
       id: "AC-INTEGRATION-007"
       purpose: "LLM registry (issue #592) can register a mock client and retrieve it by model-id without raising 'unknown LLM id'"
       phase: "GREEN"
@@ -162,7 +162,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-12"
   - identity:
-      urn: "acc:integration-hardening:G001-INTEGRATION-008-test-completes-under-30s"
+      urn: "acc:integration-hardening:Y001-INTEGRATION-008-test-completes-under-30s"
       id: "AC-INTEGRATION-008"
       purpose: "The complete E2E test suite (all assertions) completes in under 30 seconds with mocked externals"
       phase: "GREEN"
@@ -178,6 +178,29 @@ acceptances:
     then:
       abstract:
         - "Wall time < 30 seconds"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-12"
+  - identity:
+      urn: "acc:integration-hardening:Y001-SMOKE-001-handlers-importable-and-decisions-written-on-real-fs"
+      id: "AC-SMOKE-001"
+      purpose: "All eight handler modules are importable; a full drive (no patch/MagicMock for handlers or filesystem) writes decisions.jsonl to a real tmp_path"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "All eight Wave-10 handler modules are installed and importable"
+        - "Only external service calls (spawn._call_spawn, _create_pr, _merge_pr) are stubbed via monkeypatch"
+        - "No unittest.mock.patch or MagicMock is used for handler logic, state machine, or filesystem"
+    when:
+      abstract: "handle() is called for all PLANNED_PATH transitions using real CoachContext, real DecisionWriter, real CoachEventQueue"
+    then:
+      abstract:
+        - "All eight handler modules import without ImportError"
+        - "decisions.jsonl exists at real tmp_path and contains N valid JSON Lines (N = len(PLANNED_PATH) transitions)"
+        - "Entries match the planned-path sequence"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-12"
