@@ -29,6 +29,7 @@ Convention: tester.test-isolation.no-polluting-patterns
 from __future__ import annotations
 
 import ast
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -256,7 +257,8 @@ def scan_text(code: str, filename: str = "<string>") -> List[PollutionViolation]
     """
     try:
         tree = ast.parse(code, filename=filename)
-    except SyntaxError:
+    except SyntaxError as exc:
+        print(f"meta-validator: parse error in {filename}: {exc}", file=sys.stderr)
         return []
 
     violations: List[PollutionViolation] = []
