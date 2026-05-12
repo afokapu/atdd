@@ -963,76 +963,24 @@ Phase descriptions:
         help="Path to the orchestrate state file (default: .atdd/orchestrate-state.json)",
     )
 
-    # ----- atdd coach <issue-numbers...> -----
-    # J1 (#496): state-machine skeleton + §5.1 CLI surface only.
-    # Watchers/validators/observers/spawn/two-phase-commit/decision-log
-    # writers/resume reconstruction land in adjacent tracks.
+    # ----- atdd coach <issue-numbers...> / atdd coach status ... -----
+    # J1 (#496): state-machine skeleton + §5.1 CLI surface.
+    # #616 (L001): adds `atdd coach status` live-inspection subcommand.
+    # Parsing is forwarded to coach.run_cli() which dispatches between
+    # the status path and the existing issue-numbers path.
     coach_parser = subparsers.add_parser(
         "coach",
-        help="Durable per-issue orchestrator (coach v9 skeleton)",
-        description=(
-            "Initialize a per-issue state machine in INIT and print the "
-            "planned state path. Multi-issue invocations reuse "
-            "compute_waves() from `atdd orchestrate`."
-        ),
-    )
-    coach_parser.add_argument("issue_numbers", type=int, nargs="+")
-    coach_parser.add_argument("--max-retries", type=int, default=None, dest="max_retries")
-    coach_parser.add_argument(
-        "--escalation-channel",
-        type=validate_escalation_channel_arg,
-        default=None,
-        dest="escalation_channel",
         help=(
-            "Where to route escalations. Forms: file:<path>, <path>, "
-            "slack-webhook:<https-url>, gh-issue:owner/repo#N, gh-issue:#N."
+            "Durable per-issue orchestrator (coach v9). "
+            "Inspect a running session: `atdd coach status [--run-id ID]`"
         ),
+        add_help=False,
     )
     coach_parser.add_argument(
-        "--multiplexer", type=str, choices=["cmux", "zellij", "tmux"], default=None,
+        "coach_argv",
+        nargs=argparse.REMAINDER,
+        help="Forwarded to atdd.coach.commands.coach",
     )
-    coach_parser.add_argument(
-        "--multiplexer-mode",
-        type=str,
-        choices=["workspace", "pane"],
-        default="workspace",
-        dest="multiplexer_mode",
-    )
-    coach_parser.add_argument("--auto-merge", action="store_true", dest="auto_merge")
-    coach_parser.add_argument("--strict-deps", action="store_true", dest="strict_deps")
-    coach_parser.add_argument("--llm", type=str, default=None)
-    coach_parser.add_argument(
-        "--persona-llm",
-        type=str,
-        default=None,
-        dest="persona_llm",
-        help="tester=MODEL,coder=MODEL,reviewer=MODEL",
-    )
-    coach_parser.add_argument("--judge-llm", type=str, default=None, dest="judge_llm")
-    coach_parser.add_argument(
-        "--require-issue-review",
-        type=str,
-        choices=["warn", "block", "auto"],
-        default="warn",
-        dest="require_issue_review",
-    )
-    coach_parser.add_argument(
-        "--review-phases", type=str, default=None, dest="review_phases",
-    )
-    coach_parser.add_argument("--skip-review", action="store_true", dest="skip_review")
-    coach_parser.add_argument(
-        "--risk-threshold-block", type=int, default=None, dest="risk_threshold_block",
-    )
-    coach_parser.add_argument(
-        "--allow-stale-suppressions",
-        action="store_true",
-        dest="allow_stale_suppressions",
-    )
-    coach_parser.add_argument(
-        "--resume", type=str, default=None, metavar="RUN_ID",
-        help="Carried for #J6 resume runner; J1 parses but does not reconstruct.",
-    )
-    coach_parser.add_argument("--dry-run", action="store_true", dest="dry_run")
 
     # ----- atdd agent <subcommand> ... (J2 — #497) -----
     # The persona-agent runtime CLI; argparse for sub-subcommands lives in
@@ -2261,34 +2209,10 @@ Phase descriptions:
             issue_numbers=args.issue_numbers,
         )
 
-    # atdd coach <issue-numbers...> (J1 — #496)
+    # atdd coach <issue-numbers...> / atdd coach status ... (J1 — #496 / L001 — #616)
     elif args.command == "coach":
-        from atdd.coach.commands.coach import (
-            _persona_llm_arg, _review_phases_arg, run as run_coach,
-        )
-        persona_raw = getattr(args, "persona_llm", None)
-        persona = _persona_llm_arg(persona_raw) if persona_raw else {}
-        phases_raw = getattr(args, "review_phases", None)
-        phases = _review_phases_arg(phases_raw) if phases_raw else set()
-        return run_coach(
-            issue_numbers=args.issue_numbers,
-            max_retries=getattr(args, "max_retries", None),
-            escalation_channel=getattr(args, "escalation_channel", None),
-            multiplexer=getattr(args, "multiplexer", None),
-            multiplexer_mode=getattr(args, "multiplexer_mode", "workspace"),
-            auto_merge=getattr(args, "auto_merge", False),
-            strict_deps=getattr(args, "strict_deps", False),
-            llm=getattr(args, "llm", None),
-            persona_llm=persona,
-            judge_llm=getattr(args, "judge_llm", None),
-            require_issue_review=getattr(args, "require_issue_review", "warn"),
-            review_phases=phases,
-            skip_review=getattr(args, "skip_review", False),
-            risk_threshold_block=getattr(args, "risk_threshold_block", None),
-            allow_stale_suppressions=getattr(args, "allow_stale_suppressions", False),
-            resume=getattr(args, "resume", None),
-            dry_run=getattr(args, "dry_run", False),
-        )
+        from atdd.coach.commands.coach import run_cli as run_coach_cli
+        return run_coach_cli(list(getattr(args, "coach_argv", []) or []))
 
     # atdd agent <subcommand> ... (J2 — #497)
     elif args.command == "agent":
