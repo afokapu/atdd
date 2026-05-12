@@ -216,7 +216,7 @@ def run(
     elif pr_number is not None:
         try:
             target_commit = _resolve_pr_commit(pr_number)
-        except RuntimeError as exc:
+        except RuntimeError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             _print_err(f"coach review: failed to resolve PR {pr_number}: {exc}")
             return 2
     else:
