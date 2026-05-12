@@ -1,0 +1,109 @@
+#!/bin/sh
+# ATDD post-commit hook — blast-radius local validation.
+# Installed by `atdd init`. Always exits 0 (info-only; cannot undo a commit).
+#
+# Behavior:
+#   1. Determines which files were touched in HEAD via `git show --name-only HEAD`.
+#   2. Maps file paths to validator phases (planner/tester/coder/coach/repo).
+#   3. Runs only the matched phases in parallel via shell backgrounding + wait.
+#   4. Exits 0 always — failures are surfaced via stderr but never block.
+#   5. No-op when CI=true (CI runs full validate; double-run wastes minutes).
+#
+# Override:
+#   ATDD_SKIP_POSTCOMMIT=1 git commit ...   # disable for one commit
+#
+# Path → phase mapping:
+#   plan/**                       → atdd repo validate (sub-second)
+#   contracts/**                  → atdd repo validate + atdd validate tester
+#   src/atdd/planner/**           → atdd validate planner
+#   src/atdd/tester/**            → atdd validate tester
+#   src/atdd/coder/**             → atdd validate coder
+#   src/atdd/coach/**             → atdd validate coach
+#   .atdd/manifest.yaml           → atdd validate coach
+#   (anything else)               → no validators run, silent exit 0
+
+set -u  # no `set -e` — we want to keep going even if a validator fails
+
+# --- CI bypass ---
+if [ "${CI:-}" = "true" ]; then
+    exit 0
+fi
+
+# --- Explicit user override ---
+if [ "${ATDD_SKIP_POSTCOMMIT:-0}" = "1" ]; then
+    exit 0
+fi
+
+# --- Resolve files in HEAD (works on first-ever commit, unlike HEAD~1..HEAD) ---
+FILES=$(git show --pretty=format: --name-only HEAD 2>/dev/null | grep -v '^$' || true)
+
+if [ -z "$FILES" ]; then
+    exit 0
+fi
+
+# --- Map files to validator phases ---
+RUN_REPO=0
+RUN_PLANNER=0
+RUN_TESTER=0
+RUN_CODER=0
+RUN_COACH=0
+
+while IFS= read -r f; do
+    case "$f" in
+        plan/*)                       RUN_REPO=1 ;;
+        contracts/*)                  RUN_REPO=1; RUN_TESTER=1 ;;
+        src/atdd/planner/*)           RUN_PLANNER=1 ;;
+        src/atdd/tester/*)            RUN_TESTER=1 ;;
+        src/atdd/coder/*)             RUN_CODER=1 ;;
+        src/atdd/coach/*)             RUN_COACH=1 ;;
+        .atdd/manifest.yaml)          RUN_COACH=1 ;;
+    esac
+done <<EOF
+$FILES
+EOF
+
+# --- Fast path: nothing to validate ---
+if [ "$RUN_REPO" = "0" ] && [ "$RUN_PLANNER" = "0" ] && [ "$RUN_TESTER" = "0" ] \
+        && [ "$RUN_CODER" = "0" ] && [ "$RUN_COACH" = "0" ]; then
+    exit 0
+fi
+
+echo "ATDD post-commit: running blast-radius validators..." >&2
+
+# --- Fire validators in parallel ---
+# Each non-zero RUN_* triggers an async subprocess. We collect PIDs and wait
+# on them so the hook only returns after every validator has reported.
+PIDS=""
+
+if [ "$RUN_REPO" = "1" ]; then
+    ( atdd repo validate >&2 2>&1 ) &
+    PIDS="$PIDS $!"
+fi
+
+if [ "$RUN_PLANNER" = "1" ]; then
+    ( atdd validate planner --local -m "not github_api" >&2 2>&1 ) &
+    PIDS="$PIDS $!"
+fi
+
+if [ "$RUN_TESTER" = "1" ]; then
+    ( atdd validate tester --local -m "not github_api" >&2 2>&1 ) &
+    PIDS="$PIDS $!"
+fi
+
+if [ "$RUN_CODER" = "1" ]; then
+    ( atdd validate coder --local -m "not github_api" >&2 2>&1 ) &
+    PIDS="$PIDS $!"
+fi
+
+if [ "$RUN_COACH" = "1" ]; then
+    ( atdd validate coach --local -m "not github_api" >&2 2>&1 ) &
+    PIDS="$PIDS $!"
+fi
+
+# Wait for all to finish; we don't propagate their exit codes.
+for pid in $PIDS; do
+    wait "$pid" 2>/dev/null || true
+done
+
+# Always exit 0 — post-commit can't undo, only inform.
+exit 0
