@@ -1,0 +1,125 @@
+urn: "wmbt:integration-hardening:C003"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "validator-failures-reaching-ci-that-could-have-been-caught-at-pre-push"
+context_clarifier: "when an agent pushes a branch that touches ATDD source files (src/atdd/coder/**, src/atdd/coach/**, plan/**, contracts/**, etc.), the pre-push hook must run the blast-radius subset of local validators (--local --skip-api) and block the push on any failure, so that silent-swallow, boundary, and rule-id-coherence violations are caught before CI rather than burning 1-2 CI cycles per PR"
+lens: "functional.availability"
+statement: "minimize likelihood of validator-failures-reaching-ci-that-could-have-been-caught-at-pre-push when a pushed branch contains ATDD source changes, by adding a blocking blast-radius validator pass to the pre-push hook that runs only the phases matched by the changed files (--local --skip-api) and exits non-zero on any failure, with ATDD_SKIP_PREPUSH_VALIDATE=1 as the documented emergency override and CI=true as the automatic bypass"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:C003-UNIT-001-prepush-blocks-on-coder-validator-failure"
+      id: "AC-UNIT-001"
+      purpose: "pre-push hook exits non-zero when a coder-phase file is in the changed set and atdd validate coder --local --skip-api fails; ATDD_SKIP_PREPUSH_VALIDATE=1 overrides"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-push hook template src/atdd/coach/templates/hooks/pre-push installed in a tmp_path git repo"
+        - "A fake atdd binary on PATH that exits non-zero for 'validate coder'"
+        - "A changed file matching src/atdd/coder/** relative to the push base"
+    when:
+      abstract: "The pre-push hook script is executed with a non-main remote ref"
+    then:
+      abstract:
+        - "The hook exits non-zero"
+        - "stderr contains the validator-failure error message and recovery hint"
+        - "Re-running with ATDD_SKIP_PREPUSH_VALIDATE=1 allows the push to proceed"
+    metadata:
+      author: "atdd:issue-583"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:integration-hardening:C003-UNIT-002-prepush-blocks-on-coach-validator-failure"
+      id: "AC-UNIT-002"
+      purpose: "pre-push hook exits non-zero when a coach-phase file is in the changed set and atdd validate coach --local --skip-api fails"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-push hook template installed in a tmp_path git repo"
+        - "A fake atdd binary on PATH that exits non-zero for 'validate coach'"
+        - "A changed file matching src/atdd/coach/** relative to the push base"
+    when:
+      abstract: "The pre-push hook script is executed"
+    then:
+      abstract:
+        - "The hook exits non-zero"
+        - "stderr references the failing validator phase"
+    metadata:
+      author: "atdd:issue-583"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:integration-hardening:C003-UNIT-003-prepush-skipped-in-ci"
+      id: "AC-UNIT-003"
+      purpose: "pre-push validator pass is automatically bypassed when CI=true so the hook does not double-run in GitHub Actions"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-push hook template installed in a tmp_path git repo"
+        - "A changed file matching src/atdd/coder/** in the push diff"
+        - "CI=true in the environment"
+    when:
+      abstract: "The pre-push hook script is executed"
+    then:
+      abstract:
+        - "The validator pass is not executed (no atdd validate calls emitted)"
+        - "The hook does not exit non-zero due to the validator pass"
+    metadata:
+      author: "atdd:issue-583"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:integration-hardening:C003-UNIT-004-prepush-fast-path-no-atdd-files"
+      id: "AC-UNIT-004"
+      purpose: "pre-push hook skips the validator pass when no ATDD source files appear in the blast-radius diff (fast path for non-toolkit pushes)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-push hook template installed in a tmp_path git repo"
+        - "Only non-ATDD files changed (e.g. python/app.py, web/src/index.ts)"
+    when:
+      abstract: "The pre-push hook script is executed"
+    then:
+      abstract:
+        - "No atdd validate calls are emitted"
+        - "The hook exits 0"
+    metadata:
+      author: "atdd:issue-583"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:integration-hardening:C003-SMOKE-001-prepush-validator-fires-via-git-push"
+      id: "AC-SMOKE-001"
+      purpose: "Verify the blocking validator pass fires through git's own push plumbing — i.e. that a real git push with ATDD source changes and a failing validator is blocked"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path local git repo with the pre-push hook installed into .git/hooks/ and chmod +x"
+        - "A sibling bare remote configured as origin"
+        - "A fake atdd binary on PATH that exits non-zero for 'validate coder'"
+        - "A commit that touches src/atdd/coder/some_file.py"
+    when:
+      abstract: "An operator runs git push origin <feature-branch> from the local repo"
+    then:
+      abstract:
+        - "git exits non-zero"
+        - "stderr from the push includes the validator-failure error message"
+        - "No refs are advanced on the remote"
+    metadata:
+      author: "atdd:issue-583"
+      created: "2026-05-12"
