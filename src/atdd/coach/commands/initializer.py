@@ -645,17 +645,33 @@ class ProjectInitializer:
         """
         Create or update .atdd/manifest.yaml.
 
+        When force=True and a manifest already exists, the sessions list is
+        preserved — only schema-level fields (version, created) are refreshed.
+        This mirrors the deep-merge behaviour of _create_config so that a
+        routine `atdd sync && atdd init --force` version-upgrade step never
+        destroys session history (issue #580).
+
         Args:
-            force: If True, overwrite existing manifest.
+            force: If True, refresh schema fields while preserving sessions.
         """
         if self.manifest_file.exists() and not force:
             print(f"Manifest already exists: {self.manifest_file}")
             return
 
+        # Preserve existing sessions when force-reinitialising.
+        existing_sessions: list = []
+        if self.manifest_file.exists():
+            try:
+                with open(self.manifest_file) as f:
+                    existing = yaml.safe_load(f) or {}
+                existing_sessions = existing.get("sessions") or []
+            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+                pass
+
         manifest = {
             "version": "2.0",
             "created": date.today().isoformat(),
-            "sessions": [],
+            "sessions": existing_sessions,
         }
 
         with open(self.manifest_file, "w") as f:
