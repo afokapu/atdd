@@ -1,0 +1,70 @@
+wagon: govern-lifecycle
+urn: "wagon:govern-lifecycle"
+name: "Govern Lifecycle"
+description: "Orchestrates ATDD lifecycle, manages GitHub issues, validates phase transitions, maintains registries"
+theme: commons
+
+subject: "agent:coach"
+context: "in-atdd-lifecycle, phases-require-gates"
+action: "validates compliance and orchestrates phase transitions"
+goal: "ensure all agents follow ATDD conventions and quality gates"
+outcome: "audit-passing repository with traceable plan-test-code graph"
+
+produce:
+  - name: commons:compliance:gate
+    contract: "contract:commons:compliance:gate"
+    telemetry: null
+    to: external
+  - name: commons:compliance:inventory
+    contract: "contract:commons:compliance:inventory"
+    telemetry: null
+    to: external
+
+consume:
+  - name: commons:plan:manifest
+    from: wagon:define-plans
+  - name: commons:contract:schema
+    from: wagon:verify-contracts
+  - name: commons:code:implementation
+    from: wagon:implement-code
+
+features:
+  - urn: "feature:govern-lifecycle:fix-issue-transition-side-effects"
+  - urn: "feature:govern-lifecycle:enforce-orchestrate-ready-lifecycle"
+  - urn: "feature:govern-lifecycle:enforce-issue-label-compliance"
+  - urn: "feature:govern-lifecycle:custom-themes"
+  - urn: "feature:govern-lifecycle:config-driven-code-roots"
+  - urn: "feature:govern-lifecycle:orchestrate-pane-mode"
+  - urn: "feature:govern-lifecycle:detect-stub-presentation-returns"
+  - urn: "feature:govern-lifecycle:enforce-route-train-wagon-coverage"
+  - urn: "feature:govern-lifecycle:blocking-prepush-validator-hook"
+
+wmbt:
+  total: 31
+  R001: "minimize stale local manifest status after a successful GitHub transition"
+  R002: "minimize misleading layout errors during post-transition re-enter"
+  R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
+  D001: "minimize issues created without orchestrate-ready template body"
+  D002: "minimize parent issues without GitHub WMBT sub-issues when plan artifacts exist"
+  D003: "minimize undetected template drift across open issues"
+  D004: "minimize missed parallelization opportunities at issue creation time"
+  D005: "minimize unlabeled open issues invisible to coach validators"
+  D006: "minimize atdd-issues missing required label set (phase/archetype/wagon)"
+  D007: "minimize label drift between issue body metadata and GitHub labels"
+  D008: "minimize pushed commits referencing unlabeled issues"
+  D009: "minimize config files unable to declare domain-specific theme mappings"
+  D010: "minimize duplicated hardcoded theme_map dicts across modules"
+  D011: "minimize hardcoded implementation-root constants in coder validators blocking multi-stack adoption"
+  D012: "minimize toolkit-self features invisible to the hierarchy-coverage validator"
+  D013: "minimize schema drift between documented CLAUDE.md code: contract and enforced config"
+  D014: "minimize multiplexer abstractions that bind the spawn unit to workspace-level only"
+  D015: "minimize cmux pane and surface primitives left unreachable from the multiplexer abstraction"
+  D016: "minimize orchestrate invocations that cannot opt into pane mode without forking"
+  D017: "minimize convention rules whose letter (workspace) hides their intent (one isolated agent context)"
+  D018: "minimize presentation components whose render body is statically empty (jel-app AuthGateShell incident, #318)"
+  L001: "minimize manual theme discovery during atdd init"
+  P001: "minimize blind theme prompts that force game-domain defaults on non-game repos"
+  C001: "minimize invalid custom theme names accepted into config"
+  E001: "minimize schema validation failures on valid custom theme names"
+  M001: "minimize silent commons digit overrides that break cross-repo tooling"
+  D019: "minimize validator violations reaching CI without local pre-push catch (blocking hook adds validate coder + validate coach)"
