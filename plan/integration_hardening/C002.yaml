@@ -1,0 +1,100 @@
+urn: "wmbt:integration-hardening:C002"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "contaminated-worktree-commits-and-pushes-from-bare-mode-or-mass-delete-signature"
+context_clarifier: "when an agent worktree has core.bare=true set (e.g. from a polluting test that escaped the #619/#622 fix, the same path that contaminated main on 2026-05-12) or stages a mass-delete diff matching the Wave 12 contamination signature (PRs #625 and #627 each pushed 220,000-line deletions across 1,277 files), the ATDD pre-push and pre-commit git hooks must block the operation with an explicit error message and a documented override env var"
+lens: "functional.availability"
+statement: "minimize likelihood of contaminated-worktree-commits-and-pushes-from-bare-mode-or-mass-delete-signature when an agent worktree exhibits the bare-mode contamination signature on pre-push or the mass-delete contamination signature on pre-commit, by adding blocking checks to the installed git hooks with documented override env vars (ATDD_SKIP_BARE_CHECK, ATDD_SKIP_MASSDELETE) for the rare legitimate decommission case"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:C002-UNIT-001-pre-push-blocks-bare-mode"
+      id: "AC-UNIT-001"
+      purpose: "pre-push hook exits non-zero with bare-mode error when core.bare=true; ATDD_SKIP_BARE_CHECK=1 overrides"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-push hook template src/atdd/coach/templates/hooks/pre-push installed in a tmp_path git repo"
+        - "core.bare=true is set on that repo via git config core.bare true"
+    when:
+      abstract: "The pre-push hook script is executed"
+    then:
+      abstract:
+        - "The hook exits non-zero"
+        - "stderr contains the documented bare-mode-contamination error message"
+        - "Re-running with ATDD_SKIP_BARE_CHECK=1 in env causes the bare-mode check to pass"
+    metadata:
+      author: "atdd:wave-12-incident"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:integration-hardening:C002-UNIT-002-pre-push-passes-normal"
+      id: "AC-UNIT-002"
+      purpose: "pre-push bare-mode check does not block a normal (non-bare) worktree"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-push hook template src/atdd/coach/templates/hooks/pre-push installed in a tmp_path git repo"
+        - "core.bare is false or unset on that repo (the normal case)"
+    when:
+      abstract: "The pre-push hook bare-mode check runs"
+    then:
+      abstract:
+        - "The bare-mode check does not cause a non-zero exit"
+        - "No bare-mode error message is emitted to stderr"
+
+    metadata:
+      author: "atdd:wave-12-incident"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:integration-hardening:C002-UNIT-003-pre-commit-blocks-mass-delete"
+      id: "AC-UNIT-003"
+      purpose: "pre-commit hook exits non-zero with mass-delete error when staged diff deletes more than 50 files without a decommission-prefix message; ATDD_SKIP_MASSDELETE=1 overrides"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-commit hook template src/atdd/coach/templates/hooks/pre-commit installed in a tmp_path git repo"
+        - "A staged diff that deletes more than 50 files"
+        - "A COMMIT_EDITMSG content without a decommission prefix"
+    when:
+      abstract: "The pre-commit hook is executed"
+    then:
+      abstract:
+        - "The hook exits non-zero"
+        - "stderr contains the documented mass-delete error message"
+        - "Re-running with ATDD_SKIP_MASSDELETE=1 in env causes the mass-delete check to pass"
+    metadata:
+      author: "atdd:wave-12-incident"
+      created: "2026-05-12"
+
+  - identity:
+      urn: "acc:integration-hardening:C002-UNIT-004-pre-commit-allows-explicit-decom"
+      id: "AC-UNIT-004"
+      purpose: "pre-commit mass-delete check allows a staged diff with a decommission prefix in the commit message"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-commit hook template src/atdd/coach/templates/hooks/pre-commit installed in a tmp_path git repo"
+        - "A staged diff that deletes more than 50 files"
+        - "A COMMIT_EDITMSG content beginning with one of chore(decom): refactor(remove): chore(archive): or containing [mass-delete-approved]"
+    when:
+      abstract: "The pre-commit hook is executed"
+    then:
+      abstract:
+        - "The hook does not fail on the mass-delete check"
+    metadata:
+      author: "atdd:wave-12-incident"
+      created: "2026-05-12"
