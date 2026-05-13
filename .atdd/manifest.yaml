@@ -787,3 +787,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '655'
+  slug: coach-spawn-orphan-pane-cleanup
+  file: null
+  issue_number: 655
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
