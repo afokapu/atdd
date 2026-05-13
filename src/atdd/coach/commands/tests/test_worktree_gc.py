@@ -1,3 +1,12 @@
+# URN: test:govern-lifecycle:atdd-issue-canonical-path:E002-UNIT-002-gc-classifier
+# Acceptance: acc:govern-lifecycle:E002-UNIT-002-gc-classifier
+# Acceptance: acc:govern-lifecycle:E002-INTEGRATION-006-gc-lists-orphans
+# Acceptance: acc:govern-lifecycle:E002-INTEGRATION-007-gc-apply-cleans
+# Acceptance: acc:govern-lifecycle:E002-INTEGRATION-008-gc-spares-real-worktrees
+# Acceptance: acc:govern-lifecycle:E002-INTEGRATION-009-gc-spares-non-launch-prompt-dirs
+# WMBT: wmbt:govern-lifecycle:E002
+# Phase: RED
+# Layer: unit
 """
 Tests for Phase 3 of E002: atdd worktree gc orphan detection and cleanup.
 

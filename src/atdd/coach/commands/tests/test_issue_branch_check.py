@@ -1,3 +1,10 @@
+# URN: test:govern-lifecycle:atdd-issue-canonical-path:E002-UNIT-001-branch-check-helper
+# Acceptance: acc:govern-lifecycle:E002-UNIT-001-branch-check-helper
+# Acceptance: acc:govern-lifecycle:E002-INTEGRATION-001-branch-check-rejects-non-main
+# Acceptance: acc:govern-lifecycle:E002-INTEGRATION-002-force-overrides-branch-check
+# WMBT: wmbt:govern-lifecycle:E002
+# Phase: RED
+# Layer: unit
 """
 Tests for Phase 1 of E002: branch-check guard on atdd issue <slug>.
 

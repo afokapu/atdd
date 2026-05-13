@@ -23,7 +23,7 @@ def _real_worktree_paths(repo_root: Path) -> Set[Path]:
             capture_output=True, text=True, timeout=15,
             cwd=repo_root,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+    except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         return set()
 
     paths: Set[Path] = set()

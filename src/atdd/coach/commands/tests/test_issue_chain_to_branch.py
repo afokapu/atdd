@@ -1,3 +1,10 @@
+# URN: test:govern-lifecycle:atdd-issue-canonical-path:E002-INTEGRATION-003-chain-creates-worktree
+# Acceptance: acc:govern-lifecycle:E002-INTEGRATION-003-chain-creates-worktree
+# Acceptance: acc:govern-lifecycle:E002-INTEGRATION-004-no-branch-skips-worktree
+# Acceptance: acc:govern-lifecycle:E002-INTEGRATION-005-output-distinguishes-created-vs-intent
+# WMBT: wmbt:govern-lifecycle:E002
+# Phase: RED
+# Layer: integration
 """
 Tests for Phase 2 of E002: chaining atdd issue <slug> to worktree creation.
 

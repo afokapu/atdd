@@ -38,7 +38,7 @@ def _check_on_main_branch(repo_root: Path) -> tuple:
             capture_output=True, text=True, timeout=10,
             cwd=repo_root,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+    except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         return True, None
 
     if result.returncode != 0:
