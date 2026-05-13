@@ -934,63 +934,19 @@ Phase descriptions:
         ),
     )
 
-    # ----- atdd orchestrate <issue-numbers...> -----
-    orchestrate_parser = subparsers.add_parser(
+    # ----- atdd orchestrate (DEPRECATED — decommissioned in coach v9, spec §11.3) -----
+    # MIGRATION_MESSAGE in orchestrate.py is the source of truth for the canonical
+    # replacement; imported here so cli.py never duplicates the alternatives text.
+    from atdd.coach.commands.orchestrate import MIGRATION_MESSAGE as _ORCHESTRATE_MIGRATION_MSG
+
+    subparsers.add_parser(
         "orchestrate",
-        help="Launch parallel agent sessions for a set of issues",
+        help="[DEPRECATED] removed in coach v9 — use atdd coach <issue-numbers>",
         description=(
-            "Compute dependency waves, create worktrees, generate launch "
-            "scripts, and launch multiplexer sessions for a list of issues."
+            f"DEPRECATED — {_ORCHESTRATE_MIGRATION_MSG}\n\n"
+            "(Original orchestrate help suppressed.)"
         ),
-    )
-    orchestrate_parser.add_argument(
-        "issue_numbers",
-        type=int,
-        nargs="+",
-        help="Issue numbers to orchestrate",
-    )
-    orchestrate_parser.add_argument(
-        "--autonomous",
-        action="store_true",
-        help="Allow sessions to proceed past REFACTOR without user confirmation",
-    )
-    orchestrate_parser.add_argument(
-        "--resume",
-        action="store_true",
-        help="Resume a previous orchestrate run from state file",
-    )
-    orchestrate_parser.add_argument(
-        "--multiplexer",
-        type=str,
-        choices=["cmux", "zellij", "tmux"],
-        default=None,
-        help="Force multiplexer backend (default: auto-detect)",
-    )
-    orchestrate_parser.add_argument(
-        "--multiplexer-mode",
-        type=str,
-        choices=["workspace", "pane"],
-        default="workspace",
-        dest="multiplexer_mode",
-        help=(
-            "Session unit per issue: 'workspace' spawns a new cmux workspace per issue "
-            "(default, back-compat); 'pane' creates a new surface inside the current "
-            "workspace (cmux only — mirrors the project/main + project/feat-* worktree "
-            "sibling layout)"
-        ),
-    )
-    orchestrate_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        dest="dry_run",
-        help="Print waves and planned worktrees without creating anything",
-    )
-    orchestrate_parser.add_argument(
-        "--state-file",
-        type=str,
-        default=".atdd/orchestrate-state.json",
-        dest="state_file",
-        help="Path to the orchestrate state file (default: .atdd/orchestrate-state.json)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     # ----- atdd coach <issue-numbers...> / atdd coach status ... -----
