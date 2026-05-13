@@ -72,10 +72,16 @@ class FakeMultiplexer:
         **_: Any,
     ) -> str:
         persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        # Preserve the persona command: observer surface creation must not
+        # overwrite last_command (which is what tests assert against).
+        saved_command = self.last_command
+        saved_cwd = self.last_cwd
         try:
             self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
         except Exception:
             pass
+        self.last_command = saved_command
+        self.last_cwd = saved_cwd
         return persona_ref
 
 

@@ -100,6 +100,7 @@ def test_cold_start_spawns_planner_and_observer(tmp_path, monkeypatch):
         issue_numbers=[650],
         dry_run=False,
         resume=None,
+        multiplexer_mode="pane",
         _runtime_dir_override=tmp_path / ".atdd" / "runtime",
         _max_loop_events=0,
     )

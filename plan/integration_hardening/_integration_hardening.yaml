@@ -98,4 +98,5 @@ wmbt:
   C004: "minimize likelihood of mass-delete-prs-bypassing-ci-guard-and-reaching-merge"
   E004: "minimize quantity of coach-sessions-with-unsubmitted-rename-or-missing-uuid-persistence"
   Y001: "minimize quantity of undetected-seam-integration-failures-in-atdd-coach-lifecycle"
+  L003: "minimize quantity of persona-spawns-via-entry-points-that-lack-observer-cospawn-due-to-handler-only-wiring"
   Y002: "minimize quantity of validator-tests-that-mutate-the-active-worktree"
