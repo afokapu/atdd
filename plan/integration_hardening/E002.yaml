@@ -1,0 +1,115 @@
+urn: "wmbt:integration-hardening:E002"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "cold-start-driver-invocations-that-exit-without-dispatching-lifecycle-handlers"
+context_clarifier: "when atdd coach <N> is invoked without --resume on a fresh issue, the run() function must wire DecisionWriter, WatcherEventLoop, spawn handler (K1), validator dispatch (M3), observer (L1), reviewer (N5), and two-phase commit (J4) into an event-driven loop per spec §4.4 rather than printing the state path and returning 0"
+lens: "functional.effectiveness"
+statement: "minimize quantity of cold-start-driver-invocations-that-exit-without-dispatching-lifecycle-handlers when atdd coach <N> is invoked without --resume, requiring run() to wire all handler pieces into an event-driven lifecycle loop from INIT to MERGED"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:E002-INTEGRATION-001-cold-start-spawns-planner"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd coach <N> (no --resume) creates exactly one spawn invocation for the planner persona at the INIT→PLANNED transition; the FakeMultiplexer records the call"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "coach.run([N]) is called without --resume and without --dry-run"
+        - "FakeMultiplexer is injected so real cmux panes are not spawned"
+        - "spawn_handler._load_persona_prompt returns a synthetic prompt"
+        - "spawn_handler._resolve_worktree returns a tmp_path directory"
+    when:
+      abstract: "coach.run() executes the cold-start path"
+    then:
+      abstract:
+        - "Exactly one spawn invocation is recorded by FakeMultiplexer with persona=planner"
+        - "No real cmux pane is created"
+        - "decisions.jsonl is written in the runtime_dir"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:E002-INTEGRATION-002-cold-start-writes-decisions-jsonl"
+      id: "AC-INTEGRATION-002"
+      purpose: "After the cold-start path executes the INIT→PLANNED transition, decisions.jsonl contains at least one phase-transition record for INIT→PLANNED"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "coach.run([N]) cold-start path is executed"
+        - "runtime_dir is set to a tmp_path so real .atdd/ is not written"
+    when:
+      abstract: "The INIT→PLANNED transition fires"
+    then:
+      abstract:
+        - ".atdd/runtime/coach/decisions.jsonl exists"
+        - "At least one record has decision_type=phase-transition, inputs.current_phase=INIT, inputs.target_phase=PLANNED"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:E002-INTEGRATION-003-cold-start-then-resume-reconstructs"
+      id: "AC-INTEGRATION-003"
+      purpose: "decisions.jsonl written by the cold-start path is valid input for ResumeRunner; reconstructed state matches the last-written phase"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "coach.run([N]) cold-start executes the INIT→PLANNED transition and writes decisions.jsonl"
+    when:
+      abstract: "ResumeRunner(runtime_dir, run_id, ...).reconstruct() is called with the same run_id"
+    then:
+      abstract:
+        - "reconstruct() returns {N: 'PLANNED'}"
+        - "No KeyError, no json.JSONDecodeError"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:E002-INTEGRATION-004-complete-with-auto-merge"
+      id: "AC-INTEGRATION-004"
+      purpose: "With --auto-merge, an issue reaching COMPLETE state triggers the J4 two-phase commit handler (COMPLETE→MERGED)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "coach.run([N], auto_merge=True) cold-start path is driven to COMPLETE state via injected events"
+        - "two_phase_commit.handle is monkeypatched to record calls and return HANDLED"
+    when:
+      abstract: "The issue state machine reaches Phase.COMPLETE"
+    then:
+      abstract:
+        - "two_phase_commit.handle is called with transition (COMPLETE, MERGED)"
+        - "StateMachine.phase advances to MERGED"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:E002-INTEGRATION-005-refactor-without-auto-merge-escalates"
+      id: "AC-INTEGRATION-005"
+      purpose: "Without --auto-merge, reaching REFACTOR state (the last persona-driven phase) stops the driver and writes an escalation to --escalation-channel"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "coach.run([N], auto_merge=False, escalation_channel='file:<tmp>') cold-start path is driven to REFACTOR state via injected events"
+    when:
+      abstract: "The issue state machine reaches Phase.REFACTOR"
+    then:
+      abstract:
+        - "run() returns 0 with the SM at REFACTOR (waiting for operator)"
+        - "The escalation-channel file exists and contains a REFACTOR-halt notice"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"

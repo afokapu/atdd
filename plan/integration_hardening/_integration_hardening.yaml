@@ -78,7 +78,7 @@ consume:
     from: wagon:integrate-end-to-end
 
 wmbt:
-  total: 15
+  total: 16
   K001: "minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine"
   D001: "minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries"
   D002: "minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path"
@@ -94,3 +94,4 @@ wmbt:
   C004: "minimize likelihood of mass-delete-prs-bypassing-ci-guard-and-reaching-merge"
   Y001: "minimize quantity of undetected-seam-integration-failures-in-atdd-coach-lifecycle"
   Y002: "minimize quantity of validator-tests-that-mutate-the-active-worktree"
+  E002: "minimize quantity of cold-start-driver-invocations-that-exit-without-dispatching-lifecycle-handlers"
