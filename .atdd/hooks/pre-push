@@ -139,7 +139,7 @@ if [ "${ATDD_SKIP_PREPUSH_VALIDATE:-0}" != "1" ] && \
 
     while IFS= read -r _f; do
         case "$_f" in
-            plan/*)              RUN_REPO=1 ;;
+            plan/*)              RUN_REPO=1; RUN_PLANNER=1 ;;
             contracts/*)         RUN_REPO=1; RUN_TESTER=1 ;;
             src/atdd/planner/*)  RUN_PLANNER=1 ;;
             src/atdd/tester/*)   RUN_TESTER=1 ;;

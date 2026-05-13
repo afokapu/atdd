@@ -13,7 +13,7 @@
 #   ATDD_SKIP_POSTCOMMIT=1 git commit ...   # disable for one commit
 #
 # Path → phase mapping:
-#   plan/**                       → atdd repo validate (sub-second)
+#   plan/**                       → atdd repo validate + atdd validate planner --local --skip-api
 #   contracts/**                  → atdd repo validate + atdd validate tester
 #   src/atdd/planner/**           → atdd validate planner
 #   src/atdd/tester/**            → atdd validate tester
@@ -50,7 +50,7 @@ RUN_COACH=0
 
 while IFS= read -r f; do
     case "$f" in
-        plan/*)                       RUN_REPO=1 ;;
+        plan/*)                       RUN_REPO=1; RUN_PLANNER=1 ;;
         contracts/*)                  RUN_REPO=1; RUN_TESTER=1 ;;
         src/atdd/planner/*)           RUN_PLANNER=1 ;;
         src/atdd/tester/*)            RUN_TESTER=1 ;;

@@ -646,7 +646,7 @@ git:
     template: "src/atdd/coach/templates/hooks/post-commit"
     behavior: "Runs only validators in the commit's blast radius, in parallel, never blocks"
     path_to_phase_mapping:
-      "plan/**":             "atdd repo validate"
+      "plan/**":             "atdd repo validate + atdd validate planner --local --skip-api"
       "contracts/**":        "atdd repo validate + atdd validate tester --local --skip-api"
       "src/atdd/planner/**": "atdd validate planner --local --skip-api"
       "src/atdd/tester/**":  "atdd validate tester --local --skip-api"
