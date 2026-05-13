@@ -43,6 +43,15 @@ def test_cold_start_writes_decisions_jsonl(tmp_path, monkeypatch):
             def new_surface(self, **kw):
                 spawned.append(kw)
                 return "surface:1"
+            def new_persona_surface(self, cwd=None, command=None, name=None, *,
+                                    observer_runtime_root="", observer_agent_id="",
+                                    observer_name="", observer_command="", **_):
+                persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+                try:
+                    self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
+                except Exception:
+                    pass
+                return persona_ref
             def rename(self, ref, name): pass
             def read_screen(self, ref, lines=50): return ""
             def send(self, ref, text): pass
@@ -99,6 +108,15 @@ def test_decisions_jsonl_has_required_fields(tmp_path, monkeypatch):
             name = "fake"
             def new_workspace(self, cwd, command, name=None): return "workspace:1"
             def new_surface(self, **kw): return "surface:1"
+            def new_persona_surface(self, cwd=None, command=None, name=None, *,
+                                    observer_runtime_root="", observer_agent_id="",
+                                    observer_name="", observer_command="", **_):
+                persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+                try:
+                    self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
+                except Exception:
+                    pass
+                return persona_ref
             def rename(self, ref, name): pass
             def read_screen(self, ref, lines=50): return ""
             def send(self, ref, text): pass

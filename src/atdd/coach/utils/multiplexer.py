@@ -86,6 +86,42 @@ class MultiplexerBackend(ABC):
     def close(self, ref: MultiplexerRef) -> None:
         """Close/kill the workspace or surface."""
 
+    def new_persona_surface(
+        self,
+        cwd: str,
+        command: str,
+        name: str,
+        observer_runtime_root: str,
+        observer_agent_id: str,
+        observer_name: str,
+        observer_command: str,
+    ) -> MultiplexerRef:
+        """Create persona surface + co-spawn observer surface.
+
+        Default: calls new_surface twice (persona, then observer).
+        Observer failure emits a structured JSON event to stderr but does NOT
+        raise — persona spawn must succeed even if observer fails.
+        Backends that support a dedicated tab-in-pane primitive can override.
+        """
+        import json
+        import sys
+
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        try:
+            self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
+        except Exception as exc:
+            print(
+                json.dumps({
+                    "event": "observer_cospawn_failed",
+                    "persona_name": name,
+                    "observer_name": observer_name,
+                    "observer_agent_id": observer_agent_id,
+                    "error": str(exc),
+                }),
+                file=sys.stderr,
+            )
+        return persona_ref
+
     def rename(self, ref: MultiplexerRef, name: str) -> None:
         """Rename a workspace or surface to ``name``.
 
@@ -443,6 +479,7 @@ class FakeMultiplexer(MultiplexerBackend):
 
     def __init__(self) -> None:
         self.calls: list[dict] = []
+        self.new_persona_surface_calls: list[dict] = []
 
     def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> MultiplexerRef:
         ref = f"workspace:{len(self.calls) + 1}"
@@ -475,6 +512,27 @@ class FakeMultiplexer(MultiplexerBackend):
 
     def close(self, ref: MultiplexerRef) -> None:
         self.calls.append({"op": "close", "ref": ref})
+
+    def new_persona_surface(
+        self,
+        cwd: str,
+        command: str,
+        name: str,
+        observer_runtime_root: str,
+        observer_agent_id: str,
+        observer_name: str,
+        observer_command: str,
+    ) -> MultiplexerRef:
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        observer_ref = self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
+        self.new_persona_surface_calls.append({
+            "persona_ref": persona_ref,
+            "observer_ref": observer_ref,
+            "persona_name": name,
+            "observer_name": observer_name,
+            "observer_agent_id": observer_agent_id,
+        })
+        return persona_ref
 
     def rename(self, ref: MultiplexerRef, name: str) -> None:
         self.calls.append({"op": "rename", "ref": ref, "name": name})

@@ -206,27 +206,44 @@ def _create_surface(
     command: str,
     name: str,
     mode: str = "auto",
+    observer_agent_id: Optional[str] = None,
+    observer_name: Optional[str] = None,
+    observer_command: Optional[str] = None,
+    observer_runtime_root: Optional[str] = None,
 ) -> str:
     """Dispatch to the multiplexer.
 
     ``mode`` controls the surface creation strategy:
-    - ``"pane"`` — always call ``new_surface`` (attaches to the caller's
-      workspace as a new tab/pane; never falls back).
-    - ``"workspace"`` — always call ``new_workspace`` (creates an isolated
-      workspace for the spawned agent; never falls back to ``new_surface``).
-    - ``"auto"`` (default) — try ``new_surface`` first; fall back to
+    - ``"pane"`` — call ``new_persona_surface`` (co-spawns observer; never
+      falls back to workspace).
+    - ``"workspace"`` — call ``new_workspace`` (no observer in workspace mode;
+      observer-as-workspace is handled separately per #658 design).
+    - ``"auto"`` (default) — try ``new_persona_surface``; fall back to
       ``new_workspace`` for tmux/zellij backends that raise
       ``NotImplementedError`` on ``new_surface``.
     """
-    if mode == "pane":
-        return multiplexer.new_surface(cwd=str(worktree), command=command, name=name)
     if mode == "workspace":
         return multiplexer.new_workspace(cwd=str(worktree), command=command, name=name)
-    # "auto" — existing behaviour preserved for callers that don't specify a mode.
+
+    def _pane_spawn() -> str:
+        if observer_agent_id is not None:
+            return multiplexer.new_persona_surface(
+                cwd=str(worktree),
+                command=command,
+                name=name,
+                observer_runtime_root=observer_runtime_root or "",
+                observer_agent_id=observer_agent_id,
+                observer_name=observer_name or "",
+                observer_command=observer_command or "",
+            )
+        return multiplexer.new_surface(cwd=str(worktree), command=command, name=name)
+
+    if mode == "pane":
+        return _pane_spawn()
+
+    # "auto" — try pane spawn; fall back to new_workspace for tmux/zellij.
     try:
-        return multiplexer.new_surface(
-            cwd=str(worktree), command=command, name=name,
-        )
+        return _pane_spawn()
     except NotImplementedError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         # Documented fallback per utils/multiplexer.py: tmux/zellij
         # backends raise NotImplementedError on new_surface; we degrade
@@ -307,9 +324,24 @@ def cmd_spawn(
     canonical_name = compute_canonical_name(repo_short, int(issue), slug)
 
     backend = multiplexer if multiplexer is not None else _resolve_multiplexer()
+    _observer_agent_id = f"{agent_id}-observer"
+    _observer_name = f"ATDD{issue}-observer-{phase or 'agent'}"
+    _observer_command = (
+        f"atdd observer run"
+        f" --agent-id {_observer_agent_id}"
+        f" --runtime-dir {runtime_root}"
+        f" --worktree {worktree}"
+    )
     surface_ref = _create_surface(
-        backend, worktree=worktree, command=command, name=canonical_name,
+        backend,
+        worktree=worktree,
+        command=command,
+        name=canonical_name,
         mode=multiplexer_mode,
+        observer_agent_id=_observer_agent_id,
+        observer_name=_observer_name,
+        observer_command=_observer_command,
+        observer_runtime_root=str(runtime_root),
     )
     apply_canonical_name_and_layout(
         backend=backend,

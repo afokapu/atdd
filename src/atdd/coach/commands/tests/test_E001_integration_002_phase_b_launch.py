@@ -73,6 +73,25 @@ class _FakeBackend(MultiplexerBackend):
     def rename(self, ref, name):
         self.renamed.append((ref, name))
 
+    def new_persona_surface(
+        self,
+        cwd=None,
+        command=None,
+        name=None,
+        *,
+        observer_runtime_root: str = "",
+        observer_agent_id: str = "",
+        observer_name: str = "",
+        observer_command: str = "",
+        **_,
+    ) -> MultiplexerRef:
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        try:
+            self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
+        except Exception:
+            pass
+        return persona_ref
+
 
 def _read_jsonl(path: Path) -> list[dict]:
     if not path.exists():
