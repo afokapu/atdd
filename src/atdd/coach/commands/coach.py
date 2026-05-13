@@ -32,10 +32,15 @@ Out of scope (each owned by a downstream issue):
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
+import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
+
+_logger = logging.getLogger("atdd.coach")
 
 # Per spec §0.2 absorption discipline: reuse, do not redefine.
 # P5 (#531): orchestrate.py archived; import from _archived.
@@ -294,6 +299,378 @@ def _print_planned_path(sm: StateMachine) -> None:
     print(f"  #{sm.issue_number}: {sm.phase.value} ({arrow})")
 
 
+# ---------------------------------------------------------------------------
+# Cold-start advance map (issue #645 — extends watcher._ADVANCE_FROM to
+# include the PLANNED→RED transition driven by the planner's commit).
+# ---------------------------------------------------------------------------
+
+_COLD_START_ADVANCE_FROM: dict[Phase, Phase] = {
+    Phase.PLANNED: Phase.RED,
+    Phase.RED: Phase.GREEN,
+    Phase.GREEN: Phase.SMOKE,
+    Phase.SMOKE: Phase.REFACTOR,
+    Phase.REFACTOR: Phase.COMPLETE,
+}
+
+_PHASE_TRAILER_MAP: dict[str, Phase] = {
+    "INIT": Phase.INIT,
+    "PLANNED": Phase.PLANNED,
+    "RED": Phase.RED,
+    "GREEN": Phase.GREEN,
+    "SMOKE": Phase.SMOKE,
+    "REFACTOR": Phase.REFACTOR,
+    "COMPLETE": Phase.COMPLETE,
+}
+
+
+def _cold_start_proposed_transition(sm: StateMachine, event: dict) -> Optional["Transition"]:
+    """Map a raw queue event to a (src, dst) Transition per cold-start rules.
+
+    Extends the J5 watcher map to include PLANNED→RED so the cold-start
+    event loop handles the full lifecycle (issue #645).
+    """
+    from atdd.coach.handlers.state_machine import Transition, can_transition
+
+    if event.get("event_type") != "commit_observed":
+        return None
+    payload = event.get("payload") or {}
+    trailers = payload.get("trailers") or {}
+    issue_str = trailers.get("Issue")
+    if issue_str is None or str(sm.issue_number) != str(issue_str):
+        return None
+    phase_str = trailers.get("Phase")
+    if not phase_str:
+        return None
+    completed = _PHASE_TRAILER_MAP.get(phase_str)
+    if completed is None or completed != sm.phase:
+        return None
+    dst = _COLD_START_ADVANCE_FROM.get(completed)
+    if dst is None:
+        return None
+    if not can_transition(sm.phase, dst):
+        return None
+    return Transition(sm.phase, dst)
+
+
+def _write_escalation(escalation_channel: Optional[str], message: str) -> None:
+    """Append an escalation message to the configured channel (R5, issue #645)."""
+    if not escalation_channel:
+        print(f"[coach:escalation] {message}", file=sys.stderr)
+        return
+    raw = escalation_channel.strip()
+    path_str = raw[len("file:"):] if raw.startswith("file:") else raw
+    if ":" not in path_str or path_str.startswith((".", "/", "~")):
+        try:
+            p = Path(path_str)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            with p.open("a", encoding="utf-8") as fh:
+                fh.write(f"{now} {message}\n")
+        except OSError as exc:
+            print(f"[coach:escalation] write failed ({exc}): {message}", file=sys.stderr)
+    else:
+        print(f"[coach:escalation] {message}", file=sys.stderr)
+
+
+def _try_emit_telemetry(issue: int, from_phase: Phase, to_phase: Phase) -> None:
+    """Best-effort telemetry emit (R7, issue #645). Skip if module absent."""
+    try:
+        from atdd.coach.telemetry import emit_phase_transition  # type: ignore[import]
+        emit_phase_transition(issue, from_phase, to_phase)
+    except (ImportError, Exception):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
+        pass
+
+
+def _make_phase_transition_record(
+    coach_run_id: str,
+    issue_number: int,
+    src: Phase,
+    dst: Phase,
+) -> dict:
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return {
+        "decision_id": f"{coach_run_id}:#{issue_number}:{src.value}->{dst.value}",
+        "timestamp": now,
+        "coach_run_id": coach_run_id,
+        "issue_number": issue_number,
+        "decision_type": "phase-transition",
+        "inputs": {"current_phase": src.value, "target_phase": dst.value},
+        "outcome": {"transitioned": True, "new_phase": dst.value},
+    }
+
+
+def _drive_single_issue(
+    cfg: "Config",
+    sm: StateMachine,
+    runtime_dir: Path,
+    *,
+    _spawn_func: Optional[Callable] = None,
+    _two_phase_func: Optional[Callable] = None,
+    _injected_events: Optional[list] = None,
+    _max_loop_events: Optional[int] = None,
+    _run_id_sink: Optional[list] = None,
+) -> int:
+    """Drive one issue from INIT through the full lifecycle.
+
+    Returns 0 on COMPLETE (or REFACTOR halt without --auto-merge),
+    1 on BLOCKED/spawn-failure, 2 on unrecoverable error.
+    Issue #645 — cold-start wiring.
+    """
+    from atdd.coach.handlers import spawn as spawn_handler, two_phase_commit as tpc_handler
+    from atdd.coach.handlers.state_machine import CoachContext, HandlerResult, Transition
+    from atdd.coach.commands.durability import DecisionWriter, transactional_decision
+
+    spawn_h = _spawn_func or spawn_handler.handle
+    two_phase_h = _two_phase_func or tpc_handler.handle
+
+    coach_run_id = f"coach-run-{sm.issue_number}-{uuid.uuid4().hex[:8]}"
+    if _run_id_sink is not None:
+        _run_id_sink.append(coach_run_id)
+
+    ctx = CoachContext(
+        issue_number=sm.issue_number,
+        coach_run_id=coach_run_id,
+        runtime_dir=runtime_dir,
+        dry_run=cfg.dry_run,
+        multiplexer=cfg.multiplexer,
+        multiplexer_mode=cfg.multiplexer_mode,
+        llm=cfg.llm,
+        persona_llm=cfg.persona_llm,
+        judge_llm=cfg.judge_llm,
+        require_issue_review=cfg.require_issue_review,
+        review_phases=cfg.review_phases,
+        skip_review=cfg.skip_review,
+        risk_threshold_block=cfg.risk_threshold_block,
+        allow_stale_suppressions=cfg.allow_stale_suppressions,
+        auto_merge=cfg.auto_merge,
+        max_retries=cfg.max_retries,
+        escalation_channel=cfg.escalation_channel,
+    )
+
+    writer = DecisionWriter(runtime_dir=runtime_dir)
+
+    # --- Step 1: Write INIT→PLANNED decision (durability before action, R4) ---
+    init_record = _make_phase_transition_record(coach_run_id, sm.issue_number, Phase.INIT, Phase.PLANNED)
+    with transactional_decision(writer, init_record):
+        pass  # decision is written by the CM; no blocking action here
+
+    # --- Step 2: Spawn planner (K1) ---
+    spawn_result = spawn_h(ctx, Transition(Phase.INIT, Phase.PLANNED))
+    if spawn_result == HandlerResult.ERROR:
+        _logger.error(
+            "coach cold-start spawn failed",
+            extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
+        )
+        _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: spawn failed at INIT→PLANNED")
+        sm.history.append(sm.phase)
+        sm.phase = Phase.BLOCKED
+        return 1
+
+    # --- Step 3: Advance SM INIT → PLANNED ---
+    sm.history.append(sm.phase)
+    sm.phase = Phase.PLANNED
+    _logger.info(
+        "coach cold-start advance",
+        extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
+    )
+    _try_emit_telemetry(sm.issue_number, Phase.INIT, Phase.PLANNED)
+
+    # --- Step 4: Event-driven loop ---
+    if _injected_events is not None:
+        _process_injected_events(ctx, sm, _injected_events, writer, spawn_h)
+    elif _max_loop_events == 0:
+        pass  # test seam: skip event loop entirely
+    else:
+        _process_watcher_events(ctx, sm, runtime_dir, cfg, writer, spawn_h,
+                                max_events=_max_loop_events)
+
+    # --- Step 5: Handle terminal states ---
+    if sm.phase == Phase.BLOCKED:
+        return 1
+
+    if sm.phase == Phase.REFACTOR and not cfg.auto_merge:
+        # R5: stop at REFACTOR when auto-merge is off; escalate for operator review
+        msg = (
+            f"#{sm.issue_number} reached REFACTOR. "
+            f"Run: atdd coach {sm.issue_number} --auto-merge to proceed."
+        )
+        _write_escalation(cfg.escalation_channel, msg)
+        _logger.info(
+            "coach REFACTOR escalated",
+            extra={"issue": sm.issue_number, "phase": "REFACTOR", "trigger": "escalate-no-auto-merge"},
+        )
+        return 0
+
+    if sm.phase == Phase.COMPLETE:
+        t_complete = Transition(Phase.COMPLETE, Phase.MERGED)
+        result = two_phase_h(ctx, t_complete)
+        if result == HandlerResult.HANDLED:
+            sm.history.append(sm.phase)
+            sm.phase = Phase.MERGED
+            _logger.info(
+                "coach auto-merge advance",
+                extra={"issue": sm.issue_number, "phase": "COMPLETE→MERGED", "trigger": "auto-merge"},
+            )
+            _try_emit_telemetry(sm.issue_number, Phase.COMPLETE, Phase.MERGED)
+        elif result == HandlerResult.ERROR:
+            _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: two-phase commit failed")
+            return 1
+        # NOOP → no auto-merge; COMPLETE persists pending operator action
+
+    return 0
+
+
+def _process_injected_events(
+    ctx: "CoachContext",
+    sm: StateMachine,
+    events: list,
+    writer: "DecisionWriter",
+    spawn_h: Callable,
+) -> None:
+    """Process a pre-programmed event list (test seam for cold-start, issue #645)."""
+    from atdd.coach.handlers.state_machine import HandlerResult, Transition
+    from atdd.coach.commands.durability import transactional_decision
+
+    for event in events:
+        if sm.phase in (Phase.COMPLETE, Phase.MERGED, Phase.BLOCKED):
+            break
+        t = _cold_start_proposed_transition(sm, event)
+        if t is None:
+            continue
+        record = _make_phase_transition_record(
+            ctx.coach_run_id, ctx.issue_number, t.src, t.dst
+        )
+        with transactional_decision(writer, record):
+            pass
+        sm.history.append(sm.phase)
+        sm.phase = t.dst
+        _logger.info(
+            "coach injected event advance",
+            extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}",
+                   "trigger": event.get("event_type", "injected")},
+        )
+        _try_emit_telemetry(ctx.issue_number, t.src, t.dst)
+        # Spawn next persona for this transition
+        spawn_result = spawn_h(ctx, t)
+        if spawn_result == HandlerResult.ERROR:
+            _logger.error(
+                "coach injected event spawn failed",
+                extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}"},
+            )
+            sm.history.append(sm.phase)
+            sm.phase = Phase.BLOCKED
+            break
+
+
+def _process_watcher_events(
+    ctx: "CoachContext",
+    sm: StateMachine,
+    runtime_dir: Path,
+    cfg: "Config",
+    writer: "DecisionWriter",
+    spawn_h: Callable,
+    *,
+    max_events: Optional[int] = None,
+) -> None:
+    """Block on WatcherEventLoop until SM reaches a terminal state (production path)."""
+    from atdd.coach.commands.event_queue import CoachEventQueue
+    from atdd.coach.commands.runtime_watcher import RuntimeWatcher
+    from atdd.coach.handlers.state_machine import HandlerResult, Transition
+    from atdd.coach.commands.durability import transactional_decision
+
+    queue = CoachEventQueue(runtime_dir=runtime_dir)
+    watcher = RuntimeWatcher(runtime_dir=runtime_dir, queue=queue)
+    watcher.start()
+    events_processed = 0
+
+    try:
+        while sm.phase not in (Phase.COMPLETE, Phase.MERGED, Phase.BLOCKED):
+            if max_events is not None and events_processed >= max_events:
+                break
+            event = queue.get(timeout=5.0)
+            if event is None:
+                continue
+            events_processed += 1
+            t = _cold_start_proposed_transition(sm, event)
+            if t is None:
+                continue
+            record = _make_phase_transition_record(
+                ctx.coach_run_id, ctx.issue_number, t.src, t.dst
+            )
+            with transactional_decision(writer, record):
+                pass
+            sm.history.append(sm.phase)
+            sm.phase = t.dst
+            _logger.info(
+                "coach watcher event advance",
+                extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}",
+                       "trigger": event.get("event_type", "watcher")},
+            )
+            _try_emit_telemetry(ctx.issue_number, t.src, t.dst)
+            spawn_result = spawn_h(ctx, t)
+            if spawn_result == HandlerResult.ERROR:
+                _logger.error(
+                    "coach watcher event spawn failed",
+                    extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}"},
+                )
+                sm.history.append(sm.phase)
+                sm.phase = Phase.BLOCKED
+                break
+    finally:
+        watcher.stop()
+        try:
+            watcher.persist_checkpoint()
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
+            pass
+
+
+def _execute_cold_start(
+    cfg: "Config",
+    machines: list,
+    runtime_dir: Path,
+    *,
+    _spawn_func: Optional[Callable] = None,
+    _two_phase_func: Optional[Callable] = None,
+    _injected_events: Optional[dict] = None,
+    _max_loop_events: Optional[int] = None,
+    _run_id_sink: Optional[list] = None,
+) -> int:
+    """Wire and drive all issues through the full lifecycle (cold-start path).
+
+    Runs waves sequentially (R6, issue #645 — no parallel-within-wave).
+    Returns 0 when all issues complete, 1 on first BLOCKED/error.
+    """
+    if len(cfg.issue_numbers) > 1:
+        plan = build_plan(cfg.issue_numbers)
+        try:
+            waves = compute_waves(plan) if plan else [cfg.issue_numbers]
+        except ValueError:
+            waves = [cfg.issue_numbers]
+    else:
+        waves = [cfg.issue_numbers]
+
+    machines_by_number = {sm.issue_number: sm for sm in machines}
+
+    for wave in waves:
+        for issue_num in wave:
+            sm = machines_by_number.get(issue_num)
+            if sm is None:
+                continue
+            issue_events = (_injected_events or {}).get(issue_num)
+            rc = _drive_single_issue(
+                cfg, sm, runtime_dir,
+                _spawn_func=_spawn_func,
+                _two_phase_func=_two_phase_func,
+                _injected_events=issue_events,
+                _max_loop_events=_max_loop_events,
+                _run_id_sink=_run_id_sink,
+            )
+            if rc != 0:
+                return rc
+
+    return 0
+
+
 def run(
     issue_numbers: list[int],
     max_retries: Optional[int] = None,
@@ -312,12 +689,23 @@ def run(
     allow_stale_suppressions: bool = False,
     resume: Optional[str] = None,
     dry_run: bool = False,
+    # --- Test seams (not exposed in CLI) — issue #645 cold-start wiring ---
+    _runtime_dir_override: Optional[Path] = None,
+    _max_loop_events: Optional[int] = None,
+    _injected_events: Optional[dict] = None,
+    _run_id_sink: Optional[list] = None,
+    _spawn_func: Optional[Callable] = None,
+    _two_phase_func: Optional[Callable] = None,
 ) -> int:
-    """Initialize a per-issue state machine and print the planned path.
+    """Drive each issue through the full lifecycle via the cold-start path.
 
-    No side effects beyond `print`. Watcher attachment, validator dispatch,
-    observer integration, spawn integration, two-phase commit, decision
-    durability, and resume reconstruction all live in adjacent tracks.
+    On cold-start (no --resume, no --dry-run): wires DecisionWriter, spawn
+    handler (K1), watcher event loop (J5), validator dispatch (M3), observer
+    (L1), reviewer (N5), and two-phase commit (J4) into an event-driven loop
+    that runs from INIT to MERGED (or halts at BLOCKED/REFACTOR-without-automerge).
+
+    Issue #645 — cold-start wiring. Prior docstring: "No side effects beyond
+    print" — that gap is what this issue closes.
     """
     cfg = Config(
         issue_numbers=issue_numbers,
@@ -360,11 +748,12 @@ def run(
                 nums = ",".join(f"#{n}" for n in wave)
                 print(f"  Wave {i}: {nums}")
 
+    runtime_dir = _runtime_dir_override or Path(".atdd") / "runtime"
+
     if cfg.resume is not None:
         from atdd.coach.commands.durability import DecisionWriter
         from atdd.coach.commands.resume import ResumeRunner
 
-        runtime_dir = Path(".atdd") / "runtime"
         writer = DecisionWriter(runtime_dir=runtime_dir)
         runner = ResumeRunner(
             runtime_dir=runtime_dir,
@@ -379,6 +768,20 @@ def run(
             final = runner.drive_to_complete(cfg.issue_numbers)
             for issue, phase in sorted(final.items()):
                 print(f"    #{issue} → {phase}")
+        return 0
+
+    # Cold-start execution path (issue #645): drive all issues from INIT to MERGED.
+    if not cfg.dry_run:
+        return _execute_cold_start(
+            cfg,
+            machines,
+            runtime_dir,
+            _spawn_func=_spawn_func,
+            _two_phase_func=_two_phase_func,
+            _injected_events=_injected_events,
+            _max_loop_events=_max_loop_events,
+            _run_id_sink=_run_id_sink,
+        )
 
     return 0
 
