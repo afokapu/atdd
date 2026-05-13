@@ -78,7 +78,7 @@ consume:
     from: wagon:integrate-end-to-end
 
 wmbt:
-  total: 17
+  total: 18
   K001: "minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine"
   D001: "minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries"
   D002: "minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path"
@@ -88,6 +88,7 @@ wmbt:
   M001: "minimize quantity of unvalidated-phase-exit-transitions-in-atdd-coach"
   M002: "minimize likelihood of plan-directory-changes-that-bypass-planner-validator-suite-at-hook-time"
   L001: "minimize quantity of uncorrected-agent-violations-during-phase-execution"
+  L002: "minimize quantity of persona-spawns-without-co-spawned-observer-surface when atdd coach <N> spawns the planner persona at INIT→PLANNED, requiring the spawn handler to call multiplexer.new_surface a second time with the observer command so that every phase agent has an observer sidecar from the moment it starts"
   R001: "minimize quantity of unreviewed-phase-boundary-transitions-in-atdd-coach"
   P001: "minimize likelihood of incomplete-merge-lifecycle-at-atdd-coach-complete-state"
   C001: "minimize quantity of unregistered-production-llm-clients-at-coach-startup"
