@@ -1,0 +1,198 @@
+urn: "wmbt:integration-hardening:E006"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "agent-operator-bypasses-of-atdd-native-wrappers-via-forbidden-upstream-commands"
+context_clarifier: "when the claude-code pre-tool-use hook lacks a YAML-backed forbidden-command classifier so gh issue create / gh pr create / raw cmux send claude / unsafe git config core.bare without --worktree / and loop-polling gh pr calls reach the shell unblocked and unaudited"
+lens: "functional.effectiveness"
+statement: "minimize quantity of agent-operator-bypasses-of-atdd-native-wrappers-via-forbidden-upstream-commands when the pre-tool-use hook reads forbidden_commands.convention.yaml, hard-blocks gh issue create / gh pr create / raw cmux send claude / git config core.bare without --worktree, loop-blocks gh pr polling calls after the threshold within TTL, and writes every decision to .atdd/runtime/tool_use_audit.jsonl with ts/tool/command/decision/rule_id/reason/alternative"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:E006-UNIT-001-classifier-blocks-gh-issue-create"
+      id: "AC-UNIT-001"
+      purpose: "classify('gh issue create test-slug') returns Decision(action='block', rule_id='ATDD-FORBID-GH-ISSUE-CREATE') with alternative containing 'atdd issue'"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "forbidden_commands.convention.yaml loaded with gh-issue-create hard-block pattern"
+        - "tmp_path used as repo_root to isolate audit log writes"
+    when:
+      abstract: "classify('gh issue create test-slug', repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "Decision.action == 'block'"
+        - "Decision.rule_id == 'ATDD-FORBID-GH-ISSUE-CREATE'"
+        - "Decision.alternative contains 'atdd issue'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E006-UNIT-002-classifier-blocks-gh-pr-create"
+      id: "AC-UNIT-002"
+      purpose: "classify('gh pr create --title x') returns Decision(action='block', rule_id='ATDD-FORBID-GH-PR-CREATE') with alternative containing 'atdd pr'"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "forbidden_commands.convention.yaml loaded with gh-pr-create hard-block pattern"
+    when:
+      abstract: "classify('gh pr create --title x --body y', repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "Decision.action == 'block'"
+        - "Decision.rule_id == 'ATDD-FORBID-GH-PR-CREATE'"
+        - "Decision.alternative contains 'atdd pr'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E006-UNIT-003-classifier-blocks-cmux-send-claude"
+      id: "AC-UNIT-003"
+      purpose: "classify('cmux send surface:1 \"claude -p hello\"') returns Decision(action='block', rule_id='ATDD-FORBID-CMUX-SEND-CLAUDE') with alternative containing 'atdd spawn'"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "forbidden_commands.convention.yaml loaded with cmux-send-claude hard-block pattern"
+    when:
+      abstract: "classify('cmux send surface:1 \"claude -p hello\"', repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "Decision.action == 'block'"
+        - "Decision.rule_id == 'ATDD-FORBID-CMUX-SEND-CLAUDE'"
+        - "Decision.alternative contains 'atdd spawn'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E006-UNIT-004-classifier-blocks-git-config-bare-unscoped"
+      id: "AC-UNIT-004"
+      purpose: "classify('git config core.bare true') returns Decision(action='block', rule_id='ATDD-FORBID-GIT-CONFIG-BARE-UNSCOPED') with alternative containing '--worktree'"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "forbidden_commands.convention.yaml loaded with git-config-bare-unscoped hard-block pattern"
+    when:
+      abstract: "classify('git config core.bare true', repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "Decision.action == 'block'"
+        - "Decision.rule_id == 'ATDD-FORBID-GIT-CONFIG-BARE-UNSCOPED'"
+        - "Decision.alternative contains '--worktree'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E006-UNIT-005-classifier-allows-git-config-worktree-scoped"
+      id: "AC-UNIT-005"
+      purpose: "classify('git config --worktree core.bare true') returns Decision(action='allow') — true negative for the git-config-bare pattern"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "forbidden_commands.convention.yaml loaded with git-config-bare-unscoped pattern"
+    when:
+      abstract: "classify('git config --worktree core.bare true', repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "Decision.action == 'allow'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E006-UNIT-006-classifier-allows-gh-pr-view-oneoff"
+      id: "AC-UNIT-006"
+      purpose: "classify('gh pr view 660') with a fresh state file returns Decision(action='allow') — loop-block one-off passes on first invocation"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "fresh tmp_path with no existing tool_use_counts.json"
+        - "gh-pr-poll pattern has threshold=1"
+    when:
+      abstract: "classify('gh pr view 660', repo_root=tmp_path) is called once"
+    then:
+      abstract:
+        - "Decision.action == 'allow'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E006-UNIT-007-classifier-blocks-loop-construct"
+      id: "AC-UNIT-007"
+      purpose: "classify('while true; do gh pr list; done') returns Decision(action='block') immediately because the command itself is a loop construct, without requiring a prior call to exhaust the threshold"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "fresh tmp_path with no existing tool_use_counts.json"
+    when:
+      abstract: "classify('while true; do gh pr list; done', repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "Decision.action == 'block'"
+        - "Decision.rule_id contains 'LOOP'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E006-UNIT-008-every-decision-written-to-audit-log"
+      id: "AC-UNIT-008"
+      purpose: "every call to classify() appends one JSON record to .atdd/runtime/tool_use_audit.jsonl containing ts, tool, command, decision, rule_id, reason, and alternative fields"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "tmp_path used as repo_root so audit log goes to tmp_path/.atdd/runtime/tool_use_audit.jsonl"
+    when:
+      abstract: "classify('gh issue create foo', repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "tmp_path/.atdd/runtime/tool_use_audit.jsonl exists"
+        - "Last line is valid JSON"
+        - "Record contains keys: ts, tool, command, decision, rule_id, reason, alternative"
+        - "decision == 'block'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E006-INTEGRATION-001-hook-exits-2-for-gh-issue-create"
+      id: "AC-INTEGRATION-001"
+      purpose: "claude-pre-tool-use.sh exits 2 and stderr contains 'atdd issue' when given JSON payload {\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"gh issue create test\"}}"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "claude-pre-tool-use.sh hook script installed"
+        - "forbidden_command_classifier.py accessible at ATDD_REPO_ROOT"
+        - "tmp git repo as CWD (so git rev-parse --show-toplevel resolves)"
+    when:
+      abstract: "hook run with JSON payload {\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"gh issue create test\"}} on stdin"
+    then:
+      abstract:
+        - "exit code is 2"
+        - "stderr contains 'atdd issue'"
+        - "stderr contains rule_id 'ATDD-FORBID-GH-ISSUE-CREATE'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"

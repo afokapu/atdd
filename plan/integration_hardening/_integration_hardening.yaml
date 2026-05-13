@@ -78,7 +78,7 @@ consume:
     from: wagon:integrate-end-to-end
 
 wmbt:
-  total: 22
+  total: 23
   K001: "minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine"
   D001: "minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries"
   D002: "minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path"
@@ -101,3 +101,4 @@ wmbt:
   L003: "minimize quantity of persona-spawns-via-entry-points-that-lack-observer-cospawn-due-to-handler-only-wiring"
   Y002: "minimize quantity of validator-tests-that-mutate-the-active-worktree"
   L004: "minimize quantity of observer-spawns-that-consume-a-separate-pane-slot-in-pane-mode"
+  E006: "minimize quantity of agent-operator-bypasses-of-atdd-native-wrappers-via-forbidden-upstream-commands"

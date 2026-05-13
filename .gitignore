@@ -33,6 +33,10 @@ coverage.xml
 .atdd/worker-state-*.json
 .scratch/
 
+# Forbidden-command classifier runtime state (issue #668)
+.atdd/runtime/tool_use_audit.jsonl
+.atdd/runtime/tool_use_counts.json
+
 # Presentation ratchet smoke evidence — local/CI artifact, not git history.
 # See COACH-RATCHET-PRES-001 (refactor.convention.yaml) and issue #358.
 .atdd/smoke-evidence/
