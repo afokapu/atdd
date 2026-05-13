@@ -842,3 +842,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '668'
+  slug: forbidden-commands-pretooluse-hook
+  file: null
+  issue_number: 668
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
