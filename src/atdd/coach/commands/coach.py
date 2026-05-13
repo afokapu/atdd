@@ -458,8 +458,8 @@ def _drive_single_issue(
     spawn_result = spawn_h(ctx, Transition(Phase.INIT, Phase.PLANNED))
     if spawn_result == HandlerResult.ERROR:
         _logger.error(
-            "coach.issue=%d phase=INIT→PLANNED trigger=cold-start: spawn failed",
-            sm.issue_number,
+            "coach cold-start spawn failed",
+            extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
         )
         _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: spawn failed at INIT→PLANNED")
         sm.history.append(sm.phase)
@@ -470,8 +470,8 @@ def _drive_single_issue(
     sm.history.append(sm.phase)
     sm.phase = Phase.PLANNED
     _logger.info(
-        "coach.issue=%d phase=INIT→PLANNED trigger=cold-start",
-        sm.issue_number,
+        "coach cold-start advance",
+        extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
     )
     _try_emit_telemetry(sm.issue_number, Phase.INIT, Phase.PLANNED)
 
@@ -495,7 +495,10 @@ def _drive_single_issue(
             f"Run: atdd coach {sm.issue_number} --auto-merge to proceed."
         )
         _write_escalation(cfg.escalation_channel, msg)
-        _logger.info("coach.issue=%d phase=REFACTOR trigger=escalate-no-auto-merge", sm.issue_number)
+        _logger.info(
+            "coach REFACTOR escalated",
+            extra={"issue": sm.issue_number, "phase": "REFACTOR", "trigger": "escalate-no-auto-merge"},
+        )
         return 0
 
     if sm.phase == Phase.COMPLETE:
@@ -504,7 +507,10 @@ def _drive_single_issue(
         if result == HandlerResult.HANDLED:
             sm.history.append(sm.phase)
             sm.phase = Phase.MERGED
-            _logger.info("coach.issue=%d phase=COMPLETE→MERGED trigger=auto-merge", sm.issue_number)
+            _logger.info(
+                "coach auto-merge advance",
+                extra={"issue": sm.issue_number, "phase": "COMPLETE→MERGED", "trigger": "auto-merge"},
+            )
             _try_emit_telemetry(sm.issue_number, Phase.COMPLETE, Phase.MERGED)
         elif result == HandlerResult.ERROR:
             _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: two-phase commit failed")
@@ -539,17 +545,17 @@ def _process_injected_events(
         sm.history.append(sm.phase)
         sm.phase = t.dst
         _logger.info(
-            "coach.issue=%d phase=%s→%s trigger=%s",
-            ctx.issue_number, t.src.value, t.dst.value,
-            event.get("event_type", "injected"),
+            "coach injected event advance",
+            extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}",
+                   "trigger": event.get("event_type", "injected")},
         )
         _try_emit_telemetry(ctx.issue_number, t.src, t.dst)
         # Spawn next persona for this transition
         spawn_result = spawn_h(ctx, t)
         if spawn_result == HandlerResult.ERROR:
             _logger.error(
-                "coach.issue=%d phase=%s→%s trigger=spawn: failed",
-                ctx.issue_number, t.src.value, t.dst.value,
+                "coach injected event spawn failed",
+                extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}"},
             )
             sm.history.append(sm.phase)
             sm.phase = Phase.BLOCKED
@@ -596,16 +602,16 @@ def _process_watcher_events(
             sm.history.append(sm.phase)
             sm.phase = t.dst
             _logger.info(
-                "coach.issue=%d phase=%s→%s trigger=%s",
-                ctx.issue_number, t.src.value, t.dst.value,
-                event.get("event_type", "watcher"),
+                "coach watcher event advance",
+                extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}",
+                       "trigger": event.get("event_type", "watcher")},
             )
             _try_emit_telemetry(ctx.issue_number, t.src, t.dst)
             spawn_result = spawn_h(ctx, t)
             if spawn_result == HandlerResult.ERROR:
                 _logger.error(
-                    "coach.issue=%d phase=%s→%s: spawn failed",
-                    ctx.issue_number, t.src.value, t.dst.value,
+                    "coach watcher event spawn failed",
+                    extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}"},
                 )
                 sm.history.append(sm.phase)
                 sm.phase = Phase.BLOCKED
