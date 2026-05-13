@@ -29,7 +29,7 @@ import pytest
 
 # Point subprocess at the source tree so local edits are visible.
 # parents[4] from tests/ → commands/ → coach/ → atdd/ → src/
-SRC_ROOT = Path(__file__).resolve().parents[4]
+_SRC_ROOT = Path(__file__).resolve().parents[4]
 
 pytestmark = [pytest.mark.platform]
 
@@ -114,7 +114,7 @@ def test_graph_helper_output_matches_subprocess(tmp_path: Path) -> None:
     env = os.environ.copy()
     env["ATDD_REPO_ROOT"] = str(repo)
     existing_pp = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = f"{SRC_ROOT}{os.pathsep}{existing_pp}" if existing_pp else str(SRC_ROOT)
+    env["PYTHONPATH"] = f"{_SRC_ROOT}{os.pathsep}{existing_pp}" if existing_pp else str(_SRC_ROOT)
 
     # Get output from the helper function directly
     from atdd.coach.commands.issue_graph import build_issue_architecture_context

@@ -5,7 +5,7 @@ dimension: "time"
 object_of_control: "agent-ramp-up-time-spent-discovering-architectural-context"
 context_clarifier: "when atdd coach <N> spawns a persona agent and the rendered .launch_prompt.txt does not include the wagon URN, train order, sibling WMBTs, or feature summary that the agent would otherwise rediscover via 3-5 atdd repo * commands at session start"
 lens: "functional.effectiveness"
-statement: "minimize time spent on agent-ramp-up-time-spent-discovering-architectural-context when atdd coach <N> spawns a persona agent by pre-injecting an Architecture context section produced by atdd repo graph --issue <N> --format prompt into .launch_prompt.txt before dispatch"
+statement: "minimize time of agent-ramp-up-time-spent-discovering-architectural-context when atdd coach <N> spawns a persona agent and the rendered .launch_prompt.txt does not include the wagon URN, train order, sibling WMBTs, or feature summary that the agent would otherwise rediscover via 3-5 atdd repo * commands at session start"
 acceptances:
   - identity:
       urn: "acc:integration-hardening:E003-UNIT-001-prompt-contains-architecture-section"

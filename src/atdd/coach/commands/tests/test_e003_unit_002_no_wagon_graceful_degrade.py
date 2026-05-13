@@ -4,17 +4,17 @@
 # Phase: RED
 # Layer: unit
 """E003-UNIT-002 — _render_launch_prompt omits the Architecture context section
-and does NOT raise when the issue has no wagon (null wagon field, missing
-manifest entry, or entirely absent .atdd/manifest.yaml).
+and does NOT raise when _build_arch_section returns None (which happens when
+the issue has no wagon assigned).
 
-Three sub-cases:
+Also tests the underlying build_issue_architecture_context() directly with
+explicit repo_root to verify the three no-wagon sub-cases:
   a) wagon: null in manifest
   b) issue not in manifest at all
   c) no .atdd/manifest.yaml at all (empty repo)
 """
 from __future__ import annotations
 
-import os
 import textwrap
 from pathlib import Path
 from typing import Optional
@@ -25,60 +25,57 @@ import pytest
 pytestmark = [pytest.mark.platform]
 
 
-def _minimal_issue_body() -> str:
-    return textwrap.dedent("""\
-        ## Issue Metadata
-
-        | Field | Value |
-        |-------|-------|
-        | Branch | `feat/no-wagon-issue` |
-        | Train | `TBD` |
-        | Feature | none |
-
-        ## Problem
-
-        An issue with no wagon.
-    """)
+# ---------------------------------------------------------------------------
+# Spawn integration tests (patch _build_arch_section → None)
+# ---------------------------------------------------------------------------
 
 
-def _run_render(issue_number: int, repo_root: Path, worktree: Path) -> str:
+def test_spawn_omits_section_when_build_returns_none(tmp_path: Path) -> None:
+    """_render_launch_prompt omits the section when _build_arch_section returns None."""
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+
     from atdd.coach.commands import spawn
     from atdd.coach.commands.session_template import IssueContext
 
     with (
         patch(
             "atdd.coach.commands.session_template.fetch_issue",
-            return_value={"body": _minimal_issue_body(), "title": "No wagon issue"},
+            return_value={"body": "", "title": "No wagon issue"},
         ),
         patch(
             "atdd.coach.commands.session_template.build_context",
             return_value=IssueContext(
-                number=issue_number,
+                number=901,
                 title="No wagon issue",
-                branch="feat/no-wagon-issue",
                 worktree_path=str(worktree),
             ),
         ),
         patch(
             "atdd.coach.commands.session_template.render",
-            return_value=f"# Issue {issue_number}\n\nSome rendered content.\n",
+            return_value="# Issue 901\n\nSome rendered content.\n",
+        ),
+        patch(
+            "atdd.coach.commands.spawn._build_arch_section",
+            return_value=None,
         ),
     ):
-        env_backup = os.environ.get("ATDD_REPO_ROOT")
-        os.environ["ATDD_REPO_ROOT"] = str(repo_root)
-        try:
-            prompt_path = spawn._render_launch_prompt(issue_number, worktree)
-        finally:
-            if env_backup is None:
-                os.environ.pop("ATDD_REPO_ROOT", None)
-            else:
-                os.environ["ATDD_REPO_ROOT"] = env_backup
+        prompt_path = spawn._render_launch_prompt(901, worktree)
 
-    return prompt_path.read_text()
+    content = prompt_path.read_text()
+
+    assert "## Architecture context" not in content, (
+        "Section must be absent when _build_arch_section returns None"
+    )
 
 
-def test_null_wagon_omits_section(tmp_path: Path) -> None:
-    """Case (a): wagon: null in manifest → no section, no exception."""
+# ---------------------------------------------------------------------------
+# build_issue_architecture_context unit tests (explicit repo_root, no env)
+# ---------------------------------------------------------------------------
+
+
+def test_null_wagon_returns_none(tmp_path: Path) -> None:
+    """Case (a): wagon: null in manifest → returns None."""
     manifest = tmp_path / ".atdd" / "manifest.yaml"
     manifest.parent.mkdir(parents=True)
     manifest.write_text(
@@ -98,18 +95,16 @@ def test_null_wagon_omits_section(tmp_path: Path) -> None:
               archived: null
         """)
     )
-    worktree = tmp_path / "worktree"
-    worktree.mkdir()
 
-    content = _run_render(901, tmp_path, worktree)
+    from atdd.coach.commands.issue_graph import build_issue_architecture_context
 
-    assert "## Architecture context" not in content, (
-        "Section must be absent when wagon is null"
-    )
+    result = build_issue_architecture_context(901, repo_root=tmp_path)
+
+    assert result is None, "Expected None when wagon field is null"
 
 
-def test_missing_manifest_entry_omits_section(tmp_path: Path) -> None:
-    """Case (b): issue not in manifest → no section, no exception."""
+def test_missing_manifest_entry_returns_none(tmp_path: Path) -> None:
+    """Case (b): issue not in manifest → returns None."""
     manifest = tmp_path / ".atdd" / "manifest.yaml"
     manifest.parent.mkdir(parents=True)
     manifest.write_text(
@@ -119,23 +114,18 @@ def test_missing_manifest_entry_omits_section(tmp_path: Path) -> None:
             sessions: []
         """)
     )
-    worktree = tmp_path / "worktree"
-    worktree.mkdir()
 
-    content = _run_render(902, tmp_path, worktree)
+    from atdd.coach.commands.issue_graph import build_issue_architecture_context
 
-    assert "## Architecture context" not in content, (
-        "Section must be absent when issue has no manifest entry"
-    )
+    result = build_issue_architecture_context(902, repo_root=tmp_path)
+
+    assert result is None, "Expected None when issue has no manifest entry"
 
 
-def test_absent_manifest_omits_section(tmp_path: Path) -> None:
-    """Case (c): no .atdd/manifest.yaml → no section, no exception."""
-    worktree = tmp_path / "worktree"
-    worktree.mkdir()
+def test_absent_manifest_returns_none(tmp_path: Path) -> None:
+    """Case (c): no .atdd/manifest.yaml → returns None."""
+    from atdd.coach.commands.issue_graph import build_issue_architecture_context
 
-    content = _run_render(903, tmp_path, worktree)
+    result = build_issue_architecture_context(903, repo_root=tmp_path)
 
-    assert "## Architecture context" not in content, (
-        "Section must be absent when manifest file is missing"
-    )
+    assert result is None, "Expected None when manifest file is absent"
