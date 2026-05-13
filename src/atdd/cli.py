@@ -1159,81 +1159,19 @@ Phase descriptions:
         help="Last commit short SHA (default: detected from git)",
     )
 
-    # ----- atdd babysit -----
-    babysit_parser = subparsers.add_parser(
+    # ----- atdd babysit (DEPRECATED — decommissioned in coach v9, spec §11.3) -----
+    # MIGRATION_MESSAGE in babysit.py is the source of truth for canonical
+    # alternatives; imported here so cli.py never duplicates the text.
+    from atdd.coach.commands.babysit import MIGRATION_MESSAGE as _BABYSIT_MIGRATION_MSG
+
+    subparsers.add_parser(
         "babysit",
-        help="Monitor parallel agent sessions and auto-approve known-safe prompts",
+        help="[DEPRECATED] removed in coach v9 — see atdd observer / atdd coach",
         description=(
-            "Periodically read multiplexer screens, auto-approve known-safe "
-            "tool prompts, escalate unknowns, and detect policy violations."
+            f"DEPRECATED — {_BABYSIT_MIGRATION_MSG}\n\n"
+            "(Original babysit help suppressed.)"
         ),
-    )
-    babysit_parser.add_argument(
-        "--interval",
-        type=int,
-        default=60,
-        help="Screen read interval in seconds (default: 60)",
-    )
-    babysit_parser.add_argument(
-        "--workspaces",
-        type=str,
-        default=None,
-        help="Comma-separated workspace refs (default: all known)",
-    )
-    babysit_parser.add_argument(
-        "--stale-warn",
-        type=int,
-        default=15,
-        dest="stale_warn",
-        help="Warn after this many minutes of no screen change (default: 15)",
-    )
-    babysit_parser.add_argument(
-        "--stale-escalate",
-        type=int,
-        default=30,
-        dest="stale_escalate",
-        help="Escalate after this many minutes of no screen change (default: 30)",
-    )
-    babysit_parser.add_argument(
-        "--once",
-        action="store_true",
-        help="Run one screen-read cycle and exit (useful for tests/cron)",
-    )
-    babysit_parser.add_argument(
-        "--multiplexer",
-        type=str,
-        choices=["cmux", "zellij", "tmux"],
-        default=None,
-        help="Force multiplexer backend (default: auto-detect)",
-    )
-    babysit_parser.add_argument(
-        "--dashboard",
-        action="store_true",
-        help=(
-            "Render an aggregate per-surface dashboard each interval "
-            "instead of streaming events to stdout (issue #377)"
-        ),
-    )
-    babysit_parser.add_argument(
-        "--approve-all-safe",
-        action="store_true",
-        dest="approve_all_safe",
-        help=(
-            "Sweep every monitored surface once, auto-approve prompts that "
-            "match the bash allowlist, and exit. Escalations are kept for "
-            "manual review (issue #377)"
-        ),
-    )
-    babysit_parser.add_argument(
-        "--token-alert-threshold",
-        type=int,
-        default=None,
-        dest="token_alert_threshold",
-        help=(
-            "Token-count threshold that triggers an escalate alert (default: "
-            "loaded from .atdd/config.yaml::babysit.token_alert_threshold or "
-            "400000). Source: `claude --print-context-status`. See issue #378."
-        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     # ----- atdd merge-cascade <pr-numbers...> -----
