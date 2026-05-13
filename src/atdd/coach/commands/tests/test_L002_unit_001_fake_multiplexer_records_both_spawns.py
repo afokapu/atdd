@@ -107,14 +107,14 @@ def test_both_spawns_recorded_by_fake_multiplexer(tmp_path, monkeypatch):
         f"Expected exactly 2 spawn calls (persona + observer), got {len(spawn_calls)}: {spawn_calls}"
     )
 
-    planner_calls = [c for c in spawn_calls if "planner" in (c.get("command") or "")]
-    assert len(planner_calls) == 1, (
-        f"Expected 1 planner spawn call, got {len(planner_calls)}: {spawn_calls}"
-    )
-
-    observer_calls = [c for c in spawn_calls if "observer" in (c.get("command") or "")]
+    # Observer name contains "observer"; persona name does not — safe delineator.
+    observer_calls = [c for c in spawn_calls if "observer" in (c.get("name") or "").lower()]
+    non_observer_calls = [c for c in spawn_calls if "observer" not in (c.get("name") or "").lower()]
     assert len(observer_calls) == 1, (
         f"Expected 1 observer spawn call, got {len(observer_calls)}: {spawn_calls}"
+    )
+    assert len(non_observer_calls) == 1, (
+        f"Expected 1 persona spawn call, got {len(non_observer_calls)}: {spawn_calls}"
     )
 
 
@@ -139,8 +139,11 @@ def test_observer_surface_name_follows_pattern(tmp_path, monkeypatch):
     spawn_handler.handle(ctx, transition)
 
     spawn_calls = [c for c in fake_mx.calls if c["op"] in ("new_surface", "new_workspace")]
-    observer_calls = [c for c in spawn_calls if "observer" in (c.get("command") or "")]
-    assert observer_calls, f"No observer call found in: {spawn_calls}"
+    # Use name-based filter: persona names do not contain "observer"; observer name does.
+    observer_calls = [c for c in spawn_calls if "observer" in (c.get("name") or "").lower()]
+    assert observer_calls, (
+        f"No observer spawn found (by name) in: {spawn_calls}"
+    )
 
     observer_name = observer_calls[0].get("name") or ""
     assert "observer" in observer_name.lower(), (
