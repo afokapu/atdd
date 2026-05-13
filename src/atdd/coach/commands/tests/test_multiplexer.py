@@ -419,7 +419,7 @@ def test_cmux_new_surface_creates_pane_then_surface_then_seeds():
     assert calls[1][:2] == ["cmux", "new-surface"]
     assert "pane:42" in calls[1]
     # Call 2 — cmux rpc surface.send_text seeding cwd + command together
-    assert calls[2][:3] == ["cmux", "rpc", "surface.send_text"]
+    assert calls[2][:3] == ["cmux", "send", "--surface"]
     seeded = next(arg for arg in calls[2] if "echo y" in arg)
     assert seeded == "cd /x && echo y\n"
     assert "surface:99" in calls[2]
@@ -471,7 +471,7 @@ def test_cmux_read_screen_dispatches_by_ref_prefix():
     assert "--workspace" in calls[0]
     assert "workspace:5" in calls[0]
 
-    assert calls[1][:3] == ["cmux", "rpc", "surface.read_text"]
+    assert calls[1][:3] == ["cmux", "read-screen", "--surface"]
     assert "surface:31" in calls[1]
 
 
@@ -490,7 +490,7 @@ def test_cmux_send_dispatches_by_ref_prefix():
 
     assert calls[0][:3] == ["cmux", "send", "--workspace"]
     assert "hello" in calls[0]
-    assert calls[1][:3] == ["cmux", "rpc", "surface.send_text"]
+    assert calls[1][:3] == ["cmux", "send", "--surface"]
     assert "surface:31" in calls[1]
     assert "hi" in calls[1]
 

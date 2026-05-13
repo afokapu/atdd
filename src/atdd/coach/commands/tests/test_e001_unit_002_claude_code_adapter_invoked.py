@@ -80,7 +80,11 @@ def test_claude_code_adapter_returns_expected_shell_invocation(tmp_path):
     prompt_path.write_text("body")
     cmd = spawn.ADAPTER_REGISTRY["claude-code"](prompt_path)
     # The exact shell invocation, per spec §5.2 and acceptance E001-UNIT-002.
-    assert cmd == f'claude --dangerously-skip-permissions "$(cat {prompt_path})"'
+    assert cmd == (
+        f'claude --permission-mode acceptEdits '
+        f'--allowedTools "Bash Edit Write Read TodoWrite Glob Grep WebFetch" '
+        f'"$(cat {prompt_path})"'
+    )
 
 
 def test_spawn_dispatches_adapter_off_llm_flag(tmp_path, monkeypatch):
@@ -112,7 +116,8 @@ def test_spawn_dispatches_adapter_off_llm_flag(tmp_path, monkeypatch):
     )
 
     expected = (
-        f'claude --dangerously-skip-permissions '
+        f'claude --permission-mode acceptEdits '
+        f'--allowedTools "Bash Edit Write Read TodoWrite Glob Grep WebFetch" '
         f'"$(cat {worktree / ".launch_prompt.txt"})"'
     )
     assert fake_mx.last_command == expected

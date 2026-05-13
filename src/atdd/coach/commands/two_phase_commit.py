@@ -247,7 +247,8 @@ def phase_b_launch_sessions(
         slug = branch_to_slug(issue.branch) or f"issue-{num}"
         canonical_name = compute_canonical_name(repo_short, num, slug)
         launch_cmd = (
-            "claude --dangerously-skip-permissions "
+            "claude --permission-mode acceptEdits "
+            "--allowedTools \"Bash Edit Write Read TodoWrite Glob Grep WebFetch\" "
             f"\"$(cat {script_path})\""
         )
 
