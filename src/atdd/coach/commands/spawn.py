@@ -48,6 +48,7 @@ from atdd.coach.utils.session_naming import (
 from atdd.coach.utils.session_naming_apply import (
     CANONICAL_SESSION_NAME_RULE_ID,
     apply_canonical_name_and_layout,
+    capture_session_uuid,
 )
 
 # Canonical rule-ID emitted on every spawn (spec §5.2 / §7.1). Observers
@@ -315,6 +316,16 @@ def cmd_spawn(
         ref=surface_ref,
         canonical_name=canonical_name,
         surface_count=1,
+    )
+    capture_session_uuid(
+        backend=backend,
+        ref=surface_ref,
+        issue=int(issue),
+        agent_id=agent_id,
+        canonical_name=canonical_name,
+        persona=persona,
+        phase=phase,
+        runtime_root=runtime_root,
     )
 
     # Emit agent_spawned event via the existing agent.cmd_event primitive

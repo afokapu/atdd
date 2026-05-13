@@ -76,6 +76,7 @@ def run_status(
         derive_issue_phases,
         find_latest_run_id,
         list_run_ids,
+        read_agent_sessions,
         read_decisions,
         read_judgments,
     )
@@ -100,14 +101,23 @@ def run_status(
 
     def _render_once() -> tuple[int, str]:
         run_id = args.run_id if args.run_id is not None else find_latest_run_id(runtime_dir)
+        sessions = read_agent_sessions(runtime_dir)
 
         if run_id is None:
             coach_path = runtime_dir / "coach"
             if args.json_out:
                 return 0, json.dumps(
-                    {"run_id": None, "issues": {}, "decisions": [], "judgments": []},
+                    {"run_id": None, "issues": {}, "decisions": [], "judgments": [],
+                     "sessions": sessions},
                     indent=2,
                 )
+            if sessions:
+                lines = [f"No coach runs found in {coach_path}", "", "Agent sessions:"]
+                for s in sessions:
+                    lines.append(
+                        f"  {s.get('agent_id', '?')}: Resume agent: claude --resume {s.get('claude_resume_uuid', '?')}"
+                    )
+                return 0, "\n".join(lines)
             return 0, f"No coach runs found in {coach_path}"
 
         decisions = read_decisions(run_id, args.decisions, runtime_dir=runtime_dir)
@@ -117,10 +127,12 @@ def run_status(
 
         if args.json_out:
             return 0, render_status_json(
-                run_id, issue_phases, decisions, judgments, start_ts=start_ts,
+                run_id, issue_phases, decisions, judgments,
+                start_ts=start_ts, sessions=sessions,
             )
         return 0, render_status_table(
-            run_id, issue_phases, decisions, judgments, start_ts=start_ts,
+            run_id, issue_phases, decisions, judgments,
+            start_ts=start_ts, sessions=sessions,
         )
 
     if args.watch:

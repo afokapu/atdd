@@ -43,6 +43,7 @@ def render_status_table(
     judgments: list[Judgment],
     *,
     start_ts: Optional[str] = None,
+    sessions: Optional[list[dict]] = None,
 ) -> str:
     lines: list[str] = []
     elapsed = _elapsed(start_ts)
@@ -83,6 +84,14 @@ def render_status_table(
             )
         lines.append("")
 
+    if sessions:
+        lines.append("Agent sessions:")
+        for s in sessions:
+            agent_id = s.get("agent_id", "?")
+            uuid = s.get("claude_resume_uuid", "?")
+            lines.append(f"  {agent_id}: Resume agent: claude --resume {uuid}")
+        lines.append("")
+
     return "\n".join(lines)
 
 
@@ -93,11 +102,13 @@ def render_status_json(
     judgments: list[Judgment],
     *,
     start_ts: Optional[str] = None,
+    sessions: Optional[list[dict]] = None,
 ) -> str:
     payload: dict = {
         "run_id": run_id,
         "started": start_ts,
         "issues": {str(k): v for k, v in sorted(issue_phases.items())},
+        "sessions": sessions or [],
         "decisions": [
             {
                 "decision_id": d.decision_id,

@@ -81,6 +81,12 @@ class FakeMultiplexer:
     def send(self, ref: str, text: str) -> None:
         self.calls.append({"op": "send", "ref": ref, "text": text})
 
+    def send_key(self, ref: str, key: str) -> None:
+        self.calls.append({"op": "send_key", "ref": ref, "key": key})
+
+    def read_screen(self, ref: str, lines: int = 50) -> str:
+        return ""
+
 
 def _spawn(tmp_path: Path, monkeypatch, fake_mx: FakeMultiplexer):
     from atdd.coach.commands import spawn
@@ -131,7 +137,11 @@ def test_spawn_applies_canonical_name_and_injects_rename(tmp_path, monkeypatch):
     ]
     send_calls = [c for c in fake_mx.calls if c["op"] == "send"]
     assert send_calls == [
-        {"op": "send", "ref": result["surface_ref"], "text": f"/rename {canonical_name}\n"}
+        {"op": "send", "ref": result["surface_ref"], "text": f"/rename {canonical_name}"}
+    ]
+    send_key_calls = [c for c in fake_mx.calls if c["op"] == "send_key"]
+    assert send_key_calls == [
+        {"op": "send_key", "ref": result["surface_ref"], "key": "Enter"}
     ]
     assert result["canonical_name"] == canonical_name
     assert result["canonical_rule_id"] == "coach.orchestration.canonical-session-name"
