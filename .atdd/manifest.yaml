@@ -763,3 +763,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '650'
+  slug: coach-observer-cospawn-missing
+  file: null
+  issue_number: 650
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
