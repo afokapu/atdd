@@ -779,3 +779,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '652'
+  slug: coach-auto-rename-claude-session
+  file: null
+  issue_number: 652
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
