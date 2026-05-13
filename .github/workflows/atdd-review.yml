@@ -37,16 +37,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          atdd coach review ${{ github.event.pull_request.number }} --report-file /tmp/review.json || true
+          atdd coach review ${{ github.event.pull_request.number }} \
+            --no-spawn --in-process \
+            --report-file /tmp/review.json
 
       - name: Post PR comment with verdict
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERDICT=$(jq -r '.verdict // "unknown"' /tmp/review.json 2>/dev/null || echo "unknown")
+          VERDICT=$(jq -r '.verdict // "fail"' /tmp/review.json 2>/dev/null || echo "fail")
           SUMMARY=$(jq -r '.summary // "No summary available."' /tmp/review.json 2>/dev/null || echo "No summary available.")
-          if [ "$VERDICT" = "fail" ]; then EMOJI="FAIL"; elif [ "$VERDICT" = "concern" ]; then EMOJI="CONCERN"; elif [ "$VERDICT" = "pass" ]; then EMOJI="PASS"; else EMOJI="UNKNOWN"; fi
+          if [ "$VERDICT" = "fail" ]; then EMOJI="FAIL"
+          elif [ "$VERDICT" = "concern" ]; then EMOJI="CONCERN"
+          elif [ "$VERDICT" = "pass" ]; then EMOJI="PASS"
+          elif [ "$VERDICT" = "review-step-broken" ]; then EMOJI="BROKEN"
+          else EMOJI="UNKNOWN"; fi
           printf '%s **ATDD Review Gate**: `%s`\n\n%s\n' "$EMOJI" "$VERDICT" "$SUMMARY" > /tmp/review-comment.txt
           gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/review-comment.txt
 
@@ -56,5 +62,7 @@ jobs:
           if [ "$VERDICT" = "fail" ]; then
             echo "::error::ATDD review verdict is 'fail' — merge blocked. See PR comment for details."
             exit 1
+          elif [ "$VERDICT" = "review-step-broken" ]; then
+            echo "::warning::ATDD review gate encountered an operational error — treating as advisory."
           fi
           echo "ATDD review gate passed (verdict: $VERDICT)"
