@@ -1,5 +1,7 @@
 # URN: test:integration-hardening:coach-single-command-driver:L003-UNIT-001-multiplexer-abc-supports-new-persona-surface
 # Acceptance: acc:integration-hardening:L003-UNIT-001-multiplexer-abc-supports-new-persona-surface
+# Acceptance: acc:integration-hardening:L003-UNIT-002-spawn-observer-removed-from-handler
+# Acceptance: acc:integration-hardening:L003-UNIT-003-observer-failure-structured-logged
 # WMBT: wmbt:integration-hardening:L003
 # Phase: RED
 # Layer: unit

@@ -1,4 +1,6 @@
 # URN: test:integration-hardening:coach-single-command-driver:L003-INTEGRATION-003-universal-cospawn-test-passes
+# Acceptance: acc:integration-hardening:L003-INTEGRATION-001-spawn-cli-produces-persona-and-observer
+# Acceptance: acc:integration-hardening:L003-INTEGRATION-002-coach-still-cospawns
 # Acceptance: acc:integration-hardening:L003-INTEGRATION-003-universal-cospawn-test-passes
 # WMBT: wmbt:integration-hardening:L003
 # Phase: RED
