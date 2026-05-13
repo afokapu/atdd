@@ -866,3 +866,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '674'
+  slug: fix-integration-hardening-wmbt-total-undercount
+  file: null
+  issue_number: 674
+  type: cleanup
+  status: INIT
+  created: '2026-05-14'
+  archived: null
