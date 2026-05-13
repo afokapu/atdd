@@ -1,0 +1,77 @@
+urn: "wmbt:integration-hardening:E003"
+step: "execute"
+direction: "minimize"
+dimension: "time"
+object_of_control: "agent-ramp-up-time-spent-discovering-architectural-context"
+context_clarifier: "when atdd coach <N> spawns a persona agent and the rendered .launch_prompt.txt does not include the wagon URN, train order, sibling WMBTs, or feature summary that the agent would otherwise rediscover via 3-5 atdd repo * commands at session start"
+lens: "functional.effectiveness"
+statement: "minimize time of agent-ramp-up-time-spent-discovering-architectural-context when atdd coach <N> spawns a persona agent and the rendered .launch_prompt.txt does not include the wagon URN, train order, sibling WMBTs, or feature summary that the agent would otherwise rediscover via 3-5 atdd repo * commands at session start"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:E003-UNIT-001-prompt-contains-architecture-section"
+      id: "AC-UNIT-001"
+      purpose: "A rendered launch prompt for issue N (where N has a wagon assigned in .atdd/manifest.yaml) includes a section starting with '## Architecture context' listing the wagon URN, train, and sibling WMBTs"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A repo with .atdd/manifest.yaml containing an entry for issue N with a wagon field set"
+        - "plan/<wagon>/_<wagon>.yaml exists with name, description, and features"
+        - "plan/<wagon>/*.yaml files exist for sibling WMBTs"
+        - "plan/_trains.yaml contains the train with its wagons list"
+    when:
+      abstract: "_render_launch_prompt(N, worktree) is called in spawn.py"
+    then:
+      abstract:
+        - "The written .launch_prompt.txt contains a section '## Architecture context'"
+        - "The section includes the wagon URN (wagon:<slug>)"
+        - "The section includes the train ID"
+        - "The section lists sibling WMBT URNs from the same wagon"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:E003-UNIT-002-no-wagon-graceful-degrade"
+      id: "AC-UNIT-002"
+      purpose: "If issue N has no wagon yet (still at INIT pre-planner, or wagon field is null), _render_launch_prompt omits the section without raising an exception"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A repo with .atdd/manifest.yaml containing an entry for issue N with wagon: null or no wagon field"
+        - "Or no manifest entry at all for issue N"
+    when:
+      abstract: "_render_launch_prompt(N, worktree) is called in spawn.py"
+    then:
+      abstract:
+        - "The written .launch_prompt.txt does NOT contain '## Architecture context'"
+        - "No exception is raised; the prompt is written successfully"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:E003-INTEGRATION-001-graph-helper-matches-spliced-content"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd repo graph --issue N --format prompt produces the exact text the spawn pipeline splices into the launch prompt, proving the spawn is not re-implementing the graph walk"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A repo with .atdd/manifest.yaml, plan/<wagon>/ files, and plan/_trains.yaml all present"
+        - "Issue N has a wagon assigned in the manifest"
+    when:
+      abstract: "atdd repo graph --issue N --format prompt is invoked via subprocess"
+    then:
+      abstract:
+        - "The stdout begins with '## Architecture context'"
+        - "The output is identical to what _render_launch_prompt would splice into the prompt for issue N"
+        - "Exit code is 0"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
