@@ -187,6 +187,23 @@ def read_agent_state(
     return state
 
 
+def read_agent_sessions(runtime_dir: Path) -> list[dict]:
+    """Return all agent session records from .atdd/runtime/coach/<N>/<id>.session.json files."""
+    coach_dir = runtime_dir / "coach"
+    if not coach_dir.exists():
+        return []
+    sessions: list[dict] = []
+    for issue_dir in sorted(coach_dir.iterdir()):
+        if not issue_dir.is_dir():
+            continue
+        for session_file in sorted(issue_dir.glob("*.session.json")):
+            try:
+                sessions.append(json.loads(session_file.read_text(encoding="utf-8")))
+            except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+                pass
+    return sessions
+
+
 def derive_issue_phases(
     run_id: str,
     *,

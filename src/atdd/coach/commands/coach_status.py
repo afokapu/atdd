@@ -76,6 +76,7 @@ def run_status(
         derive_issue_phases,
         find_latest_run_id,
         list_run_ids,
+        read_agent_sessions,
         read_decisions,
         read_judgments,
     )
@@ -113,14 +114,17 @@ def run_status(
         decisions = read_decisions(run_id, args.decisions, runtime_dir=runtime_dir)
         judgments = read_judgments(args.judgments, runtime_dir=runtime_dir)
         issue_phases = derive_issue_phases(run_id, runtime_dir=runtime_dir)
+        sessions = read_agent_sessions(runtime_dir)
         start_ts = decisions[0].timestamp if decisions else None
 
         if args.json_out:
             return 0, render_status_json(
-                run_id, issue_phases, decisions, judgments, start_ts=start_ts,
+                run_id, issue_phases, decisions, judgments,
+                start_ts=start_ts, sessions=sessions,
             )
         return 0, render_status_table(
-            run_id, issue_phases, decisions, judgments, start_ts=start_ts,
+            run_id, issue_phases, decisions, judgments,
+            start_ts=start_ts, sessions=sessions,
         )
 
     if args.watch:
