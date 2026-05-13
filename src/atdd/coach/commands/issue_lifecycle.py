@@ -52,13 +52,13 @@ def _check_on_main_branch(repo_root: Path) -> tuple:
         return True, None
 
     msg = (
-        f"Error: `atdd issue <slug>` must be run from the 'main' branch.\n"
+        f"Error: `atdd issue` must be run from the 'main' branch.\n"
         f"  Current branch: {branch}\n"
         f"  The manifest commit will land on '{branch}', not main.\n"
         f"  Fix:\n"
         f"    git checkout main\n"
-        f"    atdd issue <slug>\n"
-        f"  Override: atdd issue <slug> --force"
+        f"    atdd issue my-feature   # re-run with your slug\n"
+        f"  Override: atdd issue my-feature --force   # re-run with your slug"
     )
     return False, msg
 
