@@ -428,3 +428,53 @@ def get_multiplexer(preferred: Optional[str] = None) -> MultiplexerBackend:
     raise MultiplexerError(
         "No multiplexer available — install cmux (preferred), zellij, or tmux."
     )
+
+
+class FakeMultiplexer(MultiplexerBackend):
+    """In-memory test double for MultiplexerBackend.
+
+    Records spawn calls so integration tests can assert the
+    phase→persona sequence without requiring a real cmux daemon.
+    Inject via constructor into ColdStartDriver or monkeypatch the
+    spawn module's _resolve_multiplexer in tests (per R1, issue #645).
+    """
+
+    name = "fake"
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> MultiplexerRef:
+        ref = f"workspace:{len(self.calls) + 1}"
+        self.calls.append({"op": "new_workspace", "cwd": cwd, "command": command, "name": name, "ref": ref})
+        return ref
+
+    def new_surface(
+        self,
+        workspace_ref: Optional[MultiplexerRef] = None,
+        pane_ref: Optional[MultiplexerRef] = None,
+        cwd: Optional[str] = None,
+        command: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> MultiplexerRef:
+        ref = f"surface:{len(self.calls) + 1}"
+        self.calls.append({"op": "new_surface", "cwd": cwd, "command": command, "name": name, "ref": ref})
+        return ref
+
+    def read_screen(self, ref: MultiplexerRef, lines: int = 50) -> str:
+        return ""
+
+    def send(self, ref: MultiplexerRef, text: str) -> None:
+        self.calls.append({"op": "send", "ref": ref, "text": text})
+
+    def send_key(self, ref: MultiplexerRef, key: str) -> None:
+        self.calls.append({"op": "send_key", "ref": ref, "key": key})
+
+    def list_workspaces(self) -> list[str]:
+        return [c["ref"] for c in self.calls if c.get("op") in ("new_workspace",)]
+
+    def close(self, ref: MultiplexerRef) -> None:
+        self.calls.append({"op": "close", "ref": ref})
+
+    def rename(self, ref: MultiplexerRef, name: str) -> None:
+        self.calls.append({"op": "rename", "ref": ref, "name": name})
