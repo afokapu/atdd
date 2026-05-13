@@ -826,3 +826,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '665'
+  slug: observer-fires-on-every-entry-point
+  file: null
+  issue_number: 665
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
