@@ -850,3 +850,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '671'
+  slug: atdd-babysit-help-shows-fake-functional-help
+  file: null
+  issue_number: 671
+  type: refactor
+  status: INIT
+  created: '2026-05-13'
+  archived: null
