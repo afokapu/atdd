@@ -795,3 +795,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '656'
+  slug: coach-uses-repo-graph-for-own-decisions
+  file: null
+  issue_number: 656
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
