@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:coach-single-command-driver:L003-INTEGRATION-002-pane-count-unchanged
-# Acceptance: acc:integration-hardening:L003-INTEGRATION-002-pane-count-unchanged
-# WMBT: wmbt:integration-hardening:L003
+# URN: test:integration-hardening:coach-single-command-driver:L004-INTEGRATION-002-pane-count-unchanged
+# Acceptance: acc:integration-hardening:L004-INTEGRATION-002-pane-count-unchanged
+# WMBT: wmbt:integration-hardening:L004
 # Phase: RED
 # Layer: integration
-"""L003-INTEGRATION-002 — 6 agents in pane mode → 6 panes, not 12.
+"""L004-INTEGRATION-002 — 6 agents in pane mode → 6 panes, not 12.
 
 Each of 6 handle(INIT→PLANNED) calls produces 1 new_surface (persona) and
 1 new_surface_in_pane (observer) sharing the same pane_ref. No extra panes.

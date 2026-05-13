@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:coach-single-command-driver:L003-UNIT-001-multiplexer-abc-supports-new-surface-in-pane
-# Acceptance: acc:integration-hardening:L003-UNIT-001-multiplexer-abc-supports-new-surface-in-pane
-# WMBT: wmbt:integration-hardening:L003
+# URN: test:integration-hardening:coach-single-command-driver:L004-UNIT-001-multiplexer-abc-supports-new-surface-in-pane
+# Acceptance: acc:integration-hardening:L004-UNIT-001-multiplexer-abc-supports-new-surface-in-pane
+# WMBT: wmbt:integration-hardening:L004
 # Phase: RED
 # Layer: unit
-"""L003-UNIT-001 — MultiplexerBackend.new_surface_in_pane exists; FakeMultiplexer records (pane_ref, name).
+"""L004-UNIT-001 — MultiplexerBackend.new_surface_in_pane exists; FakeMultiplexer records (pane_ref, name).
 
 Verifies the ABC contract (#658): new_surface_in_pane attaches a surface to an
 existing pane without creating a new grid slot; FakeMultiplexer records the call

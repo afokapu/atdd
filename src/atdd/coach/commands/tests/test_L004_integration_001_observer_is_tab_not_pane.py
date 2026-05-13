@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:coach-single-command-driver:L003-INTEGRATION-001-observer-is-tab-not-pane
-# Acceptance: acc:integration-hardening:L003-INTEGRATION-001-observer-is-tab-not-pane
-# WMBT: wmbt:integration-hardening:L003
+# URN: test:integration-hardening:coach-single-command-driver:L004-INTEGRATION-001-observer-is-tab-not-pane
+# Acceptance: acc:integration-hardening:L004-INTEGRATION-001-observer-is-tab-not-pane
+# WMBT: wmbt:integration-hardening:L004
 # Phase: RED
 # Layer: integration
-"""L003-INTEGRATION-001 — pane mode: observer placed as tab in persona's pane, not a new pane.
+"""L004-INTEGRATION-001 — pane mode: observer placed as tab in persona's pane, not a new pane.
 
 In pane mode, handle(ctx, INIT→PLANNED) must call new_surface (persona) and then
 new_surface_in_pane (observer) sharing the same pane_ref — never a second new_surface

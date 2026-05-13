@@ -1,9 +1,9 @@
-# URN: test:integration-hardening:coach-single-command-driver:L003-INTEGRATION-003-workspace-mode-unaffected
-# Acceptance: acc:integration-hardening:L003-INTEGRATION-003-workspace-mode-unaffected
-# WMBT: wmbt:integration-hardening:L003
+# URN: test:integration-hardening:coach-single-command-driver:L004-INTEGRATION-003-workspace-mode-unaffected
+# Acceptance: acc:integration-hardening:L004-INTEGRATION-003-workspace-mode-unaffected
+# WMBT: wmbt:integration-hardening:L004
 # Phase: RED
 # Layer: integration
-"""L003-INTEGRATION-003 — workspace mode: observer still uses new_surface, not new_surface_in_pane.
+"""L004-INTEGRATION-003 — workspace mode: observer still uses new_surface, not new_surface_in_pane.
 
 The tab-co-location change applies only to --multiplexer-mode pane. In workspace
 mode, the observer must not call new_surface_in_pane (#658 out-of-scope clause).
