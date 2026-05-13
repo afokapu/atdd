@@ -771,3 +771,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '651'
+  slug: coach-persona-prompt-injects-repo-graph
+  file: null
+  issue_number: 651
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
