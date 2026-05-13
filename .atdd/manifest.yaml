@@ -735,3 +735,14 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '651'
+  slug: prompt-injects-graph
+  file: null
+  issue_number: 651
+  type: implementation
+  status: PLANNED
+  train: 0002-coach-drives-lifecycle
+  wagon: integration-hardening
+  feature: coach-single-command-driver
+  created: '2026-05-13'
+  archived: null
