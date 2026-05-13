@@ -80,7 +80,7 @@ def capture_session_uuid(
     time.sleep(delay)
     try:
         screen = backend.read_screen(ref, lines=30)
-    except Exception as exc:  # noqa: BLE001 — best-effort; any backend failure is non-fatal
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         print(
             f"⚠️  read_screen failed for {ref}: {exc} "
             f"({CANONICAL_SESSION_NAME_RULE_ID})",
