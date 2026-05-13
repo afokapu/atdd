@@ -1,0 +1,253 @@
+urn: "wmbt:govern-lifecycle:E002"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "issue-creation-landing-on-wrong-branch-and-leaving-orphan-worktrees"
+context_clarifier: "when atdd issue <slug> is called from a non-main branch the manifest commit lands on that branch instead of main; when the default flow does not chain to atdd branch <N> the operator assumes a worktree exists when it does not; when cancelled coach spawns leave only .launch_prompt.txt at sibling-of-main there is no CLI to detect or clean them"
+lens: "functional.adaptability"
+statement: "minimize likelihood of issue-creation-landing-on-wrong-branch-and-leaving-orphan-worktrees when atdd issue <slug> is called without a branch guard and without automatic worktree chaining"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E002-UNIT-001-branch-check-helper"
+      id: "AC-UNIT-001"
+      purpose: "_check_on_main_branch(repo_root) helper exists, returns (True, None) on main and (False, message) on any other branch"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo initialised via tmp_path with git init + initial commit"
+        - "Current branch is 'main' in one scenario, 'feat/something' in another"
+    when:
+      abstract: "_check_on_main_branch(repo_root) is called"
+    then:
+      abstract:
+        - "Returns (True, None) when current branch is 'main'"
+        - "Returns (False, non-empty-string) when current branch is 'feat/something'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E002-UNIT-002-gc-classifier"
+      id: "AC-UNIT-002"
+      purpose: "_is_orphan(path, worktree_paths) -> bool returns True only for dirs containing only .launch_prompt.txt and not in real worktrees"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp dir containing only .launch_prompt.txt (orphan candidate)"
+        - "A tmp dir containing .launch_prompt.txt AND a python file (operator WIP — NOT orphan)"
+        - "A tmp dir that IS a real worktree path (NOT orphan)"
+        - "An empty tmp dir (NOT orphan — no launch_prompt marker)"
+    when:
+      abstract: "_is_orphan(path, worktree_paths) is called for each case"
+    then:
+      abstract:
+        - "Returns True only for the dir with only .launch_prompt.txt and not in worktree_paths"
+        - "Returns False for the dir with extra files"
+        - "Returns False for the real worktree dir"
+        - "Returns False for the empty dir"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E002-INTEGRATION-001-branch-check-rejects-non-main"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd issue <slug> called from a non-main branch exits non-zero with an educational error message"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo initialised with .atdd/config.yaml and a tracked manifest.yaml"
+        - "Current branch is 'feat/something' (not main)"
+        - "IssueLifecycle.create() is patched to short-circuit GitHub API calls"
+    when:
+      abstract: "lifecycle.create(slug='test-slug', force=False) is called"
+    then:
+      abstract:
+        - "Returns 1"
+        - "Printed output contains a message referencing the current branch and recovery steps"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E002-INTEGRATION-002-force-overrides-branch-check"
+      id: "AC-INTEGRATION-002"
+      purpose: "atdd issue <slug> --force from a non-main branch proceeds past the branch check (does not exit 1 on check alone)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo with current branch 'feat/something'"
+        - "IssueLifecycle.create() GitHub API calls patched to return immediately after the check"
+    when:
+      abstract: "lifecycle.create(slug='test-slug', force=True) is called"
+    then:
+      abstract:
+        - "Does not return 1 due to the branch check alone"
+        - "Printed output contains a warning (not a fatal error) about the non-main branch"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E002-INTEGRATION-003-chain-creates-worktree"
+      id: "AC-INTEGRATION-003"
+      purpose: "atdd issue <slug> from main (default --branch) creates <repo>/../feat-<slug>/ worktree"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo on main with .atdd/config.yaml"
+        - "IssueManager.new() patched to return 0 and write a manifest entry with issue_number=99"
+        - "IssueLifecycle._create_branch() patched to record call and return a mock path"
+    when:
+      abstract: "lifecycle.create(slug='test-slug', no_branch=False) is called"
+    then:
+      abstract:
+        - "IssueLifecycle._create_branch is called with the correct issue_number and slug"
+        - "Output contains '✓ created at' or 'worktree'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E002-INTEGRATION-004-no-branch-skips-worktree"
+      id: "AC-INTEGRATION-004"
+      purpose: "atdd issue <slug> --no-branch creates issue but _create_branch is NOT called"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo on main"
+        - "IssueManager.new() patched"
+        - "_create_branch patched to record calls"
+    when:
+      abstract: "lifecycle.create(slug='test-slug', no_branch=True) is called"
+    then:
+      abstract:
+        - "_create_branch is NOT called"
+        - "Output contains 'not created' or 'atdd branch'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E002-INTEGRATION-005-output-distinguishes-created-vs-intent"
+      id: "AC-INTEGRATION-005"
+      purpose: "Output line clearly says '✓ created at <path>' when worktree is created OR '(not created' when --no-branch"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueManager.new() patched on a main-branch repo"
+    when:
+      abstract:
+        - "Scenario A: lifecycle.create(no_branch=False) called with _create_branch returning a path"
+        - "Scenario B: lifecycle.create(no_branch=True) called"
+    then:
+      abstract:
+        - "Scenario A stdout contains '✓ created at'"
+        - "Scenario B stdout contains '(not created'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E002-INTEGRATION-006-gc-lists-orphans"
+      id: "AC-INTEGRATION-006"
+      purpose: "atdd worktree gc with a fixture orphan dir (only .launch_prompt.txt) lists it"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo whose parent dir contains a sibling dir with only .launch_prompt.txt"
+        - "git worktree list returns only the main worktree"
+    when:
+      abstract: "worktree_gc.gc(repo_root, apply=False) is called"
+    then:
+      abstract:
+        - "Returns a list containing the orphan path"
+        - "The orphan dir still exists (dry-run)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E002-INTEGRATION-007-gc-apply-cleans"
+      id: "AC-INTEGRATION-007"
+      purpose: "atdd worktree gc --apply removes the listed orphan dir"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "Same setup as INTEGRATION-006"
+    when:
+      abstract: "worktree_gc.gc(repo_root, apply=True) is called"
+    then:
+      abstract:
+        - "Returns a list containing the orphan path"
+        - "The orphan dir no longer exists after the call"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E002-INTEGRATION-008-gc-spares-real-worktrees"
+      id: "AC-INTEGRATION-008"
+      purpose: "gc does NOT list dirs that are in git worktree list output"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo with a real linked worktree at a sibling dir containing only .launch_prompt.txt"
+    when:
+      abstract: "worktree_gc.gc(repo_root, apply=False) is called"
+    then:
+      abstract:
+        - "The real worktree dir is NOT in the returned orphan list"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E002-INTEGRATION-009-gc-spares-non-launch-prompt-dirs"
+      id: "AC-INTEGRATION-009"
+      purpose: "gc does NOT list sibling dirs that contain files other than .launch_prompt.txt"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A sibling dir containing .launch_prompt.txt AND a README.md (operator WIP)"
+    when:
+      abstract: "worktree_gc.gc(repo_root, apply=False) is called"
+    then:
+      abstract:
+        - "The dir with extra files is NOT in the returned orphan list"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
