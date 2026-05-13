@@ -735,6 +735,7 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+<<<<<<< HEAD
 - id: '651'
   slug: prompt-injects-graph
   file: null
@@ -744,6 +745,14 @@ sessions:
   train: 0002-coach-drives-lifecycle
   wagon: integration-hardening
   feature: coach-single-command-driver
+=======
+- id: '645'
+  slug: coach-cold-start-doesnt-wire-handlers
+  file: null
+  issue_number: 645
+  type: implementation
+  status: INIT
+>>>>>>> 965498b (chore(coach): register issue #645 in manifest)
   created: '2026-05-13'
   archived: null
 - id: '670'
