@@ -66,6 +66,33 @@ class MultiplexerBackend(ABC):
             f"{self.name} backend does not support pane/surface creation"
         )
 
+    def new_surface_in_pane(
+        self,
+        pane_ref: MultiplexerRef,
+        cwd: Optional[str] = None,
+        command: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> MultiplexerRef:
+        """Create a surface inside an existing pane (tab co-location).
+
+        Unlike new_surface, this never allocates a new pane — it attaches
+        to the pane identified by pane_ref. Used to place the observer tab
+        alongside the persona tab inside the same grid cell (#658).
+        """
+        raise NotImplementedError(
+            f"{self.name} backend does not support new_surface_in_pane"
+        )
+
+    def surface_to_pane(self, surface_ref: MultiplexerRef) -> MultiplexerRef:
+        """Return the pane ref that owns surface_ref.
+
+        Used to resolve the persona's pane before attaching the observer
+        tab to the same pane (#658).
+        """
+        raise NotImplementedError(
+            f"{self.name} backend does not support surface_to_pane"
+        )
+
     @abstractmethod
     def read_screen(self, ref: MultiplexerRef, lines: int = 50) -> str:
         """Capture the last `lines` lines of the workspace or surface screen."""
@@ -248,6 +275,44 @@ class CmuxBackend(MultiplexerBackend):
             )
 
         return surface_ref
+
+    def new_surface_in_pane(
+        self,
+        pane_ref: MultiplexerRef,
+        cwd: Optional[str] = None,
+        command: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> MultiplexerRef:
+        new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
+        if name:
+            new_surface_cmd.extend(["--name", name])
+        surface_result = _run(new_surface_cmd)
+        surface_ref = _extract_ref_token(surface_result.stdout or "", "surface")
+        if not surface_ref:
+            raise MultiplexerError(
+                f"cmux new-surface returned no surface ref: {(surface_result.stdout or '').strip()!r}"
+            )
+        if cwd or command:
+            seed_parts = []
+            if cwd:
+                seed_parts.append(f"cd {cwd}")
+            if command:
+                seed_parts.append(command)
+            seed_text = " && ".join(seed_parts) + "\n"
+            _run(
+                ["cmux", "send", "--surface", surface_ref, seed_text],
+                capture=False,
+            )
+        return surface_ref
+
+    def surface_to_pane(self, surface_ref: MultiplexerRef) -> MultiplexerRef:
+        result = _run(["cmux", "describe-surface", "--surface", surface_ref])
+        pane_ref = _extract_ref_token(result.stdout or "", "pane")
+        if not pane_ref:
+            raise MultiplexerError(
+                f"cmux describe-surface returned no pane ref: {(result.stdout or '').strip()!r}"
+            )
+        return pane_ref
 
     def read_screen(self, ref: MultiplexerRef, lines: int = 50) -> str:
         if _is_surface_ref(ref):
@@ -479,6 +544,7 @@ class FakeMultiplexer(MultiplexerBackend):
 
     def __init__(self) -> None:
         self.calls: list[dict] = []
+        self._surface_pane: dict[str, str] = {}
         self.new_persona_surface_calls: list[dict] = []
 
     def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> MultiplexerRef:
@@ -494,9 +560,26 @@ class FakeMultiplexer(MultiplexerBackend):
         command: Optional[str] = None,
         name: Optional[str] = None,
     ) -> MultiplexerRef:
-        ref = f"surface:{len(self.calls) + 1}"
-        self.calls.append({"op": "new_surface", "cwd": cwd, "command": command, "name": name, "ref": ref})
-        return ref
+        surface_ref = f"surface:{len(self.calls) + 1}"
+        resolved_pane = pane_ref if pane_ref is not None else f"pane:{len(self.calls)}"
+        self._surface_pane[surface_ref] = resolved_pane
+        self.calls.append({"op": "new_surface", "pane_ref": resolved_pane, "cwd": cwd, "command": command, "name": name, "ref": surface_ref})
+        return surface_ref
+
+    def new_surface_in_pane(
+        self,
+        pane_ref: MultiplexerRef,
+        cwd: Optional[str] = None,
+        command: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> MultiplexerRef:
+        surface_ref = f"surface:{len(self.calls) + 1}"
+        self._surface_pane[surface_ref] = pane_ref
+        self.calls.append({"op": "new_surface_in_pane", "pane_ref": pane_ref, "cwd": cwd, "command": command, "name": name, "ref": surface_ref})
+        return surface_ref
+
+    def surface_to_pane(self, surface_ref: MultiplexerRef) -> MultiplexerRef:
+        return self._surface_pane[surface_ref]
 
     def read_screen(self, ref: MultiplexerRef, lines: int = 50) -> str:
         return ""

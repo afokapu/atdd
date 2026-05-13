@@ -208,6 +208,79 @@ def _escalate(ctx: CoachContext, reason: str) -> None:
         )
 
 
+def _spawn_observer(
+    ctx: CoachContext,
+    phase: str,
+    worktree: Path,
+    persona_agent_id: str,
+    runtime_root: Path,
+    persona_surface_ref: Optional[str] = None,
+) -> None:
+    """Co-spawn the observer L1 sidecar alongside the persona agent.
+
+    In pane mode, attaches the observer as a tab inside the persona's pane
+    via new_surface_in_pane, so each grid cell holds both tabs without
+    consuming an extra pane slot (#658). In other modes, falls back to
+    new_surface (creates a new pane/workspace).
+
+    Uses the same multiplexer backend as the persona spawn so that tests
+    can assert both calls via a single FakeMultiplexer injection.
+    Observer is supplementary — callers must catch and warn on any exception.
+    """
+    from atdd.coach.commands import spawn as cmd_spawn_mod
+
+    observer_agent_id = f"{persona_agent_id}-observer"
+    observer_cmd = (
+        f"atdd observer run"
+        f" --agent-id {observer_agent_id}"
+        f" --runtime-dir {runtime_root}"
+        f" --worktree {worktree}"
+    )
+    observer_name = f"ATDD{ctx.issue_number}-observer-{phase}"
+    multiplexer = cmd_spawn_mod._resolve_multiplexer()
+
+    if ctx.multiplexer_mode == "pane" and persona_surface_ref is not None:
+        pane_ref = multiplexer.surface_to_pane(persona_surface_ref)
+        multiplexer.new_surface_in_pane(
+            pane_ref=pane_ref,
+            cwd=str(worktree),
+            command=observer_cmd,
+            name=observer_name,
+        )
+    else:
+        multiplexer.new_surface(
+            cwd=str(worktree),
+            command=observer_cmd,
+            name=observer_name,
+        )
+
+
+def _write_cospawn_decision(
+    ctx: CoachContext,
+    phase: str,
+    runtime_root: Path,
+) -> None:
+    """Append an observer co-spawn decision record to decisions.jsonl."""
+    from datetime import datetime, timezone
+    from atdd.coach.commands.durability import DecisionWriter
+
+    writer = DecisionWriter(runtime_dir=runtime_root)
+    now = (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
+    writer.append({
+        "decision_id": str(uuid.uuid4()),
+        "timestamp": now,
+        "coach_run_id": ctx.coach_run_id,
+        "issue_number": ctx.issue_number,
+        "decision_type": "co_spawn_observer",
+        "inputs": {"phase": phase},
+        "outcome": {"status": "SPAWNED"},
+    })
+
+
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
@@ -274,5 +347,19 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
                 file=sys.stderr,
             )
         return HandlerResult.ERROR
+
+    try:
+        persona_surface_ref = result.get("surface_ref") if result else None
+        _spawn_observer(ctx, phase, worktree, base_agent_id, runtime_root, persona_surface_ref=persona_surface_ref)
+        try:
+            _write_cospawn_decision(ctx, phase, runtime_root)
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            pass
+    except Exception as obs_exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        print(
+            f"⚠ spawn handler: observer co-spawn failed for "
+            f"#{ctx.issue_number} ({phase}): {obs_exc}",
+            file=sys.stderr,
+        )
 
     return HandlerResult.HANDLED

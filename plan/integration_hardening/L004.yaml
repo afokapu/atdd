@@ -1,0 +1,100 @@
+urn: "wmbt:integration-hardening:L004"
+step: "locate"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "observer-spawns-that-consume-a-separate-pane-slot-in-pane-mode"
+context_clarifier: "when atdd coach <N> operates in --multiplexer-mode pane, the observer sidecar must be placed as a tab inside the persona's existing pane via new_surface_in_pane rather than consuming a new grid slot via new_surface, so that N concurrent agents occupy N panes (not 2N)"
+lens: "functional.effectiveness"
+statement: "minimize quantity of observer-spawns-that-consume-a-separate-pane-slot-in-pane-mode when atdd coach <N> operates in --multiplexer-mode pane, requiring the spawn handler to call multiplexer.new_surface_in_pane(pane_ref=persona_pane_ref) for the observer so that each grid cell holds both the persona tab and the observer tab without doubling pane count"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:L004-INTEGRATION-001-observer-is-tab-not-pane"
+      id: "AC-INTEGRATION-001"
+      purpose: "In pane mode, cold-start INIT→PLANNED produces 2 surfaces in 1 pane: one via new_surface (persona) and one via new_surface_in_pane (observer) sharing the persona's pane_ref"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach <N> invoked without --resume on a fresh INIT issue"
+        - "ctx.multiplexer_mode == 'pane'"
+        - "FakeMultiplexer injected so no real cmux pane is spawned"
+        - "spawn_handler._load_persona_prompt returns a synthetic prompt"
+        - "spawn_handler._resolve_worktree returns a tmp_path directory"
+    when:
+      abstract: "handle(ctx, transition=INIT→PLANNED) executes the spawn"
+    then:
+      abstract:
+        - "FakeMultiplexer.calls contains exactly 1 new_surface entry (persona) and 1 new_surface_in_pane entry (observer)"
+        - "The new_surface_in_pane entry's pane_ref matches the pane_ref of the persona's new_surface entry"
+        - "No second new_surface entry is present for the observer"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:L004-INTEGRATION-002-pane-count-unchanged"
+      id: "AC-INTEGRATION-002"
+      purpose: "Spawning 6 agents in pane mode creates 6 new_surface calls and 6 new_surface_in_pane calls — 6 panes total, not 12"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "FakeMultiplexer injected"
+        - "ctx.multiplexer_mode == 'pane'"
+        - "6 INIT→PLANNED transitions are triggered sequentially"
+    when:
+      abstract: "All 6 handle() calls complete"
+    then:
+      abstract:
+        - "FakeMultiplexer.calls has exactly 6 new_surface entries and 6 new_surface_in_pane entries"
+        - "Each new_surface_in_pane entry's pane_ref matches the pane_ref of the corresponding persona new_surface entry"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:L004-INTEGRATION-003-workspace-mode-unaffected"
+      id: "AC-INTEGRATION-003"
+      purpose: "In workspace mode, the observer still uses new_surface (not new_surface_in_pane); workspace-mode behavior is unchanged"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "FakeMultiplexer injected"
+        - "ctx.multiplexer_mode == 'workspace'"
+        - "spawn_handler._load_persona_prompt and _resolve_worktree monkeypatched"
+    when:
+      abstract: "handle(ctx, transition=INIT→PLANNED) executes the spawn"
+    then:
+      abstract:
+        - "FakeMultiplexer.calls contains 0 new_surface_in_pane entries"
+        - "Observer spawn uses new_surface (or new_workspace), not new_surface_in_pane"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:L004-UNIT-001-multiplexer-abc-supports-new-surface-in-pane"
+      id: "AC-UNIT-001"
+      purpose: "MultiplexerBackend.new_surface_in_pane(pane_ref, ...) exists on the ABC; FakeMultiplexer records (pane_ref, name) in calls with op='new_surface_in_pane'"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "FakeMultiplexer instantiated"
+        - "A pane_ref string provided"
+    when:
+      abstract: "fake_mx.new_surface_in_pane(pane_ref='pane:1', cwd='/tmp', command='echo hi', name='test-tab') is called"
+    then:
+      abstract:
+        - "Returns a surface ref string"
+        - "fake_mx.calls has one entry with op='new_surface_in_pane', pane_ref='pane:1', name='test-tab'"
+        - "fake_mx.surface_to_pane(returned_ref) == 'pane:1'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"

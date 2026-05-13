@@ -746,3 +746,11 @@ sessions:
   feature: coach-single-command-driver
   created: '2026-05-13'
   archived: null
+- id: '670'
+  slug: n5-review-gate-spawn-fails-no-multiplexer-on-ci
+  file: null
+  issue_number: 670
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
