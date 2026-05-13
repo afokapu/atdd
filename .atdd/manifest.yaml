@@ -858,3 +858,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '672'
+  slug: n5-review-gate-broken-on-ci-runners
+  file: null
+  issue_number: 672
+  type: refactor
+  status: INIT
+  created: '2026-05-13'
+  archived: null
