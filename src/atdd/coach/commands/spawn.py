@@ -147,12 +147,29 @@ def _render_launch_prompt(
         worktree_path=str(worktree),
     )
     rendered = session_template.render(context)
+
+    # Pre-inject architecture context (E003): splice wagon/train/WMBT section
+    # before rule blocks so the agent has structural context from the start.
+    arch_section = _build_arch_section(issue)
+    if arch_section:
+        rendered = rendered.rstrip() + "\n\n" + arch_section
+
     if rules is not None and phase is not None:
         rendered = _append_spawn_rule_blocks(rendered, rules=rules, coach_phase=phase, persona=persona)
     prompt_path = worktree / ".launch_prompt.txt"
     prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(rendered)
     return prompt_path
+
+
+def _build_arch_section(issue: int) -> Optional[str]:
+    """Return the Architecture context markdown section, or None on any failure."""
+    try:
+        from atdd.coach.commands.issue_graph import build_issue_architecture_context
+
+        return build_issue_architecture_context(issue)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
 
 
 def _append_spawn_rule_blocks(
