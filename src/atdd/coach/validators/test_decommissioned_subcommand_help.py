@@ -1,3 +1,12 @@
+# URN: test:discover-and-decommission:decommissioned-stub-help-showing-functional-options:E003-walker-validator
+# Acceptance: acc:discover-and-decommission:E003-UNIT-001-migration-message-reused
+# Acceptance: acc:discover-and-decommission:E003-INTEGRATION-003-canonical-alternatives-named
+# Acceptance: acc:discover-and-decommission:E003-INTEGRATION-004-walker-test-passes
+# WMBT: wmbt:discover-and-decommission:E003
+# Phase: REFACTOR
+# Layer: backend.integration
+# Assertion: behavioral
+
 """Walker test: every decommissioned-stub subcommand must show DEPRECATED in --help.
 
 acc:discover-and-decommission:E003-UNIT-001-migration-message-reused

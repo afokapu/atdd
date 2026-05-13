@@ -1,0 +1,80 @@
+urn: "wmbt:discover-and-decommission:E003"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "decommissioned-stub-help-showing-functional-options"
+context_clarifier: "when a CLI subcommand is decommissioned (its run() prints a migration message and exits non-zero) but its argparse subparser registration retains the original description and argument list, operators and agents trust the functional-looking --help and plan workflows around the command only to hit the migration error at invoke — the 2026-05-13 incident: an agent recommended `atdd babysit` to an operator based on the functional --help output, which still showed --interval, --stale-warn, and all original flags"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of decommissioned-stub-help-showing-functional-options when a subcommand's run() has been replaced by a migration-message stub but its argparse subparser description and argument list were not updated to reflect the decommissioning"
+acceptances:
+  - identity:
+      urn: "acc:discover-and-decommission:E003-UNIT-001-migration-message-reused"
+      id: "AC-UNIT-001"
+      purpose: "babysit.py::MIGRATION_MESSAGE exists, contains all three canonical alternatives, and is imported by cli.py (not duplicated)"
+      phase: "REFACTOR"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.coach.commands.babysit defines MIGRATION_MESSAGE at module level"
+        - "cli.py imports MIGRATION_MESSAGE from babysit.py for the subparser description"
+    when:
+      abstract: "MIGRATION_MESSAGE is imported from atdd.coach.commands.babysit"
+    then:
+      abstract:
+        - "MIGRATION_MESSAGE is a non-empty string"
+        - "MIGRATION_MESSAGE contains 'atdd observer status'"
+        - "MIGRATION_MESSAGE contains 'atdd observer aggregate-approve'"
+        - "MIGRATION_MESSAGE contains 'atdd coach'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:discover-and-decommission:E003-INTEGRATION-003-canonical-alternatives-named"
+      id: "AC-INTEGRATION-003"
+      purpose: "atdd babysit --help output names all three canonical replacements"
+      phase: "REFACTOR"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd babysit subparser is registered with the DEPRECATED description built from MIGRATION_MESSAGE"
+        - "All original arg registrations (--interval, --stale-warn, etc.) are removed from the subparser"
+    when:
+      abstract: "atdd babysit --help is invoked"
+    then:
+      abstract:
+        - "Output contains 'DEPRECATED'"
+        - "Output contains 'atdd observer status'"
+        - "Output contains 'atdd observer aggregate-approve'"
+        - "Output contains 'atdd coach'"
+        - "Output does NOT contain '--interval' or '--stale-warn' (original arg list suppressed)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:discover-and-decommission:E003-INTEGRATION-004-walker-test-passes"
+      id: "AC-INTEGRATION-004"
+      purpose: "test_decommissioned_subcommand_help.py enumerates ALL stub subcommands and asserts each shows DEPRECATED in --help"
+      phase: "REFACTOR"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.coach.commands.* modules that define MIGRATION_MESSAGE are identified as stubs"
+        - "Currently: babysit.py and orchestrate.py both define MIGRATION_MESSAGE"
+    when:
+      abstract: "pytest parametrizes over all discovered stub subcommand names and calls --help for each"
+    then:
+      abstract:
+        - "At least one stub is enumerated (guard against vacuously-true parametrize)"
+        - "For each stub subcommand, --help output contains 'DEPRECATED'"
+        - "New stubs added in future that forget the DEPRECATED description will cause this test to fail automatically"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
