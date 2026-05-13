@@ -1,0 +1,114 @@
+urn: "wmbt:integration-hardening:E005"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "review-gate-failures-caused-by-missing-in-process-execution-mode-on-ci-runners"
+context_clarifier: "when atdd coach review <N> spawns a reviewer via cmux on a CI runner that has no multiplexer, causing the review step to fail silently and produce mismatched UNKNOWN/fail verdicts in the workflow"
+lens: "functional.effectiveness"
+statement: "minimize quantity of review-gate-failures-caused-by-missing-in-process-execution-mode-on-ci-runners when atdd coach review <N> is invoked in a CI environment without cmux and the --no-spawn/--in-process flag enables direct LLM execution without a multiplexer surface"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:E005-UNIT-001-in-process-flag-parsed"
+      id: "AC-UNIT-001"
+      purpose: "CLI argparse picks up --no-spawn/--in-process flags and routes to in-process execution path"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd coach review CLI is invoked with --no-spawn or --in-process flag"
+    when:
+      abstract: "parse_cli(['N', '--no-spawn']) or parse_cli(['N', '--in-process']) is called"
+    then:
+      abstract:
+        - "The parsed namespace has in_process=True"
+        - "run() is called with in_process=True"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E005-INTEGRATION-001-in-process-mode-works-without-cmux"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd coach review <N> --no-spawn --in-process --report-file <p> exits 0 in an env without cmux, produces report.json with valid verdict"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A test environment where cmux is unavailable (no multiplexer running)"
+        - "A fake LLM client registered in LLM_REGISTRY returning a pass verdict"
+        - "A fake PR commit resolver returning a fixed sha"
+    when:
+      abstract: "run(pr_number=<N>, in_process=True, report_file=<path>) is called"
+    then:
+      abstract:
+        - "Exit code is 0"
+        - "report.json exists at <path>"
+        - "report.json contains verdict in {pass, concern, fail}"
+        - "report.json contains a non-empty summary field"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E005-INTEGRATION-002-workflow-no-swallow"
+      id: "AC-INTEGRATION-002"
+      purpose: ".github/workflows/atdd-review.yml does NOT contain || true on the review step"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - ".github/workflows/atdd-review.yml exists"
+    when:
+      abstract: "The workflow file content is inspected"
+    then:
+      abstract:
+        - "The 'Run atdd coach review' step does not contain '|| true'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E005-INTEGRATION-003-workflow-fallback-consistency"
+      id: "AC-INTEGRATION-003"
+      purpose: "Both jq invocations in atdd-review.yml use the SAME fallback value for .verdict"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - ".github/workflows/atdd-review.yml exists"
+    when:
+      abstract: "All jq calls reading .verdict are inspected"
+    then:
+      abstract:
+        - "All jq fallback values for .verdict are identical (both 'fail')"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+  - identity:
+      urn: "acc:integration-hardening:E005-INTEGRATION-004-review-step-broken-sentinel"
+      id: "AC-INTEGRATION-004"
+      purpose: "When LLM is unavailable in in-process mode, verdict is 'review-step-broken'; workflow comment and enforce steps treat it explicitly"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "In-process mode invoked with no LLM clients in LLM_REGISTRY"
+        - "The --report-file path is specified"
+    when:
+      abstract: "run(pr_number=<N>, in_process=True, report_file=<path>) is called"
+    then:
+      abstract:
+        - "Exit code is 0"
+        - "report.json verdict field is 'review-step-broken'"
+        - ".github/workflows/atdd-review.yml post-comment step handles 'review-step-broken' explicitly (BROKEN emoji)"
+        - ".github/workflows/atdd-review.yml enforce step treats 'review-step-broken' as advisory (exits 0 with warning)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
