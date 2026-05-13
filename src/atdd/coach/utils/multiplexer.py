@@ -545,6 +545,7 @@ class FakeMultiplexer(MultiplexerBackend):
     def __init__(self) -> None:
         self.calls: list[dict] = []
         self._surface_pane: dict[str, str] = {}
+        self.new_persona_surface_calls: list[dict] = []
 
     def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> MultiplexerRef:
         ref = f"workspace:{len(self.calls) + 1}"
