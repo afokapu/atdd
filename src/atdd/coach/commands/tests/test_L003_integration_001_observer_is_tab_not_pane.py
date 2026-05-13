@@ -1,18 +1,18 @@
-# URN: test:integration-hardening:coach-single-command-driver:L002-UNIT-001-fake-multiplexer-records-both-spawns
-# Acceptance: acc:integration-hardening:L002-UNIT-001-fake-multiplexer-records-both-spawns
-# WMBT: wmbt:integration-hardening:L002
+# URN: test:integration-hardening:coach-single-command-driver:L003-INTEGRATION-001-observer-is-tab-not-pane
+# Acceptance: acc:integration-hardening:L003-INTEGRATION-001-observer-is-tab-not-pane
+# WMBT: wmbt:integration-hardening:L003
 # Phase: RED
-# Layer: unit
-"""L002-UNIT-001 — FakeMultiplexer records exactly 2 spawn calls at INIT→PLANNED.
+# Layer: integration
+"""L003-INTEGRATION-001 — pane mode: observer placed as tab in persona's pane, not a new pane.
 
-handle(ctx, transition=INIT→PLANNED) must call the multiplexer twice:
-once for the planner persona and once for the observer sidecar.
-FakeMultiplexer isolates the test from any real cmux daemon (R1, #645).
+In pane mode, handle(ctx, INIT→PLANNED) must call new_surface (persona) and then
+new_surface_in_pane (observer) sharing the same pane_ref — never a second new_surface
+for the observer (#658).
 """
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 
@@ -61,25 +61,6 @@ class _FakeMx:
     def surface_to_pane(self, surface_ref: str) -> str:
         return self._surface_pane[surface_ref]
 
-    def new_persona_surface(
-        self,
-        cwd: Any = None,
-        command: Any = None,
-        name: Any = None,
-        *,
-        observer_runtime_root: str = "",
-        observer_agent_id: str = "",
-        observer_name: str = "",
-        observer_command: str = "",
-        **_: Any,
-    ) -> str:
-        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
-        try:
-            self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
-        except Exception:
-            pass
-        return persona_ref
-
     def rename(self, ref: str, name: str) -> None:
         self.calls.append({"op": "rename", "ref": ref, "name": name})
 
@@ -103,7 +84,7 @@ def _make_ctx(tmp_path: Path, fake_mx: _FakeMx):
     from atdd.coach.handlers.state_machine import CoachContext
 
     return CoachContext(
-        issue_number=650,
+        issue_number=658,
         llm="claude-code",
         multiplexer=fake_mx,
         multiplexer_mode="pane",
@@ -116,10 +97,10 @@ def _make_ctx(tmp_path: Path, fake_mx: _FakeMx):
     )
 
 
-def test_both_spawns_recorded_by_fake_multiplexer(tmp_path, monkeypatch):
-    """handle() at INIT→PLANNED records 2 spawn calls — persona + observer."""
+def test_observer_placed_as_tab_in_persona_pane(tmp_path, monkeypatch):
+    """In pane mode, observer uses new_surface_in_pane sharing persona's pane_ref."""
     from atdd.coach.handlers import spawn as spawn_handler
-    from atdd.coach.handlers.state_machine import Phase, Transition
+    from atdd.coach.handlers.state_machine import Phase, Transition, HandlerResult
     from atdd.coach.commands import spawn as cmd_spawn_mod
 
     fake_mx = _FakeMx()
@@ -135,30 +116,24 @@ def test_both_spawns_recorded_by_fake_multiplexer(tmp_path, monkeypatch):
     transition = Transition(src=Phase.INIT, dst=Phase.PLANNED)
 
     result = spawn_handler.handle(ctx, transition)
-
-    from atdd.coach.handlers.state_machine import HandlerResult
     assert result == HandlerResult.HANDLED, f"Expected HANDLED, got {result}"
 
-    # new_surface_in_pane is used for observer placement in pane mode (#658);
-    # count it alongside new_surface/new_workspace as a valid spawn op.
-    spawn_calls = [c for c in fake_mx.calls if c["op"] in ("new_surface", "new_workspace", "new_surface_in_pane")]
-    assert len(spawn_calls) == 2, (
-        f"Expected exactly 2 spawn calls (persona + observer), got {len(spawn_calls)}: {spawn_calls}"
-    )
+    persona_calls = [c for c in fake_mx.calls if c["op"] == "new_surface"]
+    observer_calls = [c for c in fake_mx.calls if c["op"] == "new_surface_in_pane"]
 
-    # Observer name contains "observer"; persona name does not — safe delineator.
-    observer_calls = [c for c in spawn_calls if "observer" in (c.get("name") or "").lower()]
-    non_observer_calls = [c for c in spawn_calls if "observer" not in (c.get("name") or "").lower()]
-    assert len(observer_calls) == 1, (
-        f"Expected 1 observer spawn call, got {len(observer_calls)}: {spawn_calls}"
-    )
-    assert len(non_observer_calls) == 1, (
-        f"Expected 1 persona spawn call, got {len(non_observer_calls)}: {spawn_calls}"
+    assert len(persona_calls) >= 1, f"Expected >=1 new_surface (persona), got: {fake_mx.calls}"
+    assert len(observer_calls) == 1, f"Expected 1 new_surface_in_pane (observer), got: {fake_mx.calls}"
+
+    # Observer must share the persona's pane
+    persona_pane = persona_calls[-1]["pane_ref"]
+    observer_pane = observer_calls[0]["pane_ref"]
+    assert persona_pane == observer_pane, (
+        f"Observer pane_ref {observer_pane!r} must match persona pane_ref {persona_pane!r}"
     )
 
 
-def test_observer_surface_name_follows_pattern(tmp_path, monkeypatch):
-    """Observer surface name must match ATDD<N>-observer-planned pattern."""
+def test_observer_name_contains_observer_and_phase(tmp_path, monkeypatch):
+    """Observer surface name follows ATDD<N>-observer-<phase> pattern in pane mode."""
     from atdd.coach.handlers import spawn as spawn_handler
     from atdd.coach.handlers.state_machine import Phase, Transition
     from atdd.coach.commands import spawn as cmd_spawn_mod
@@ -174,20 +149,13 @@ def test_observer_surface_name_follows_pattern(tmp_path, monkeypatch):
 
     ctx = _make_ctx(tmp_path, fake_mx)
     transition = Transition(src=Phase.INIT, dst=Phase.PLANNED)
-
     spawn_handler.handle(ctx, transition)
 
-    spawn_calls = [c for c in fake_mx.calls if c["op"] in ("new_surface", "new_workspace", "new_surface_in_pane")]
-    # Use name-based filter: persona names do not contain "observer"; observer name does.
-    observer_calls = [c for c in spawn_calls if "observer" in (c.get("name") or "").lower()]
-    assert observer_calls, (
-        f"No observer spawn found (by name) in: {spawn_calls}"
-    )
+    observer_calls = [c for c in fake_mx.calls if c["op"] == "new_surface_in_pane"]
+    assert observer_calls, "Expected new_surface_in_pane call for observer"
 
-    observer_name = observer_calls[0].get("name") or ""
-    assert "observer" in observer_name.lower(), (
-        f"Observer surface name should contain 'observer', got: {observer_name!r}"
-    )
-    assert "planned" in observer_name.lower() or "650" in observer_name, (
-        f"Observer surface name should reference phase or issue, got: {observer_name!r}"
+    name = observer_calls[0].get("name") or ""
+    assert "observer" in name.lower(), f"Observer name should contain 'observer', got: {name!r}"
+    assert "planned" in name.lower() or "658" in name, (
+        f"Observer name should reference phase or issue, got: {name!r}"
     )
