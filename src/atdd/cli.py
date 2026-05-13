@@ -628,6 +628,30 @@ Phase descriptions:
         help="Override branch prefix (feat, fix, refactor, chore, docs, devops)"
     )
 
+    # ----- atdd worktree <subcommand> -----
+    worktree_parser = subparsers.add_parser(
+        "worktree",
+        help="Worktree utilities",
+        description="Commands for managing git worktrees created by atdd",
+    )
+    worktree_subparsers = worktree_parser.add_subparsers(dest="worktree_command")
+    worktree_gc_parser = worktree_subparsers.add_parser(
+        "gc",
+        help="Detect and clean up orphan worktree directories",
+        description=(
+            "Scan sibling-of-main directories for atdd orphan worktrees\n"
+            "(dirs not in `git worktree list` containing only .launch_prompt.txt).\n\n"
+            "  atdd worktree gc            List orphans (dry-run)\n"
+            "  atdd worktree gc --apply    Remove orphans\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    worktree_gc_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Remove orphan directories (default: list only)",
+    )
+
     # ----- atdd pr <issue_number> -----
     pr_parser = subparsers.add_parser(
         "pr",
@@ -789,6 +813,12 @@ Phase descriptions:
         "--archetypes", "-a",
         type=str,
         help="Comma-separated archetypes on creation (e.g., be,contracts,wmbt)"
+    )
+    issue_parser.add_argument(
+        "--no-branch",
+        action="store_true",
+        dest="no_branch",
+        help="Skip automatic worktree creation on issue creation (bare issue-only mode)"
     )
     # ----- atdd issue review <N> [--passes ...] [--llms ...] (#508) -----
     issue_parser.add_argument(
@@ -2139,6 +2169,8 @@ Phase descriptions:
                 issue_type=getattr(args, 'type', 'implementation'),
                 train=getattr(args, 'train', None),
                 archetypes=getattr(args, 'archetypes', None),
+                no_branch=getattr(args, 'no_branch', False),
+                force=getattr(args, 'force', False),
             )
 
         # Mutations or enter
@@ -2173,6 +2205,24 @@ Phase descriptions:
   # atdd:suppress(coder.logging.coach-silent-swallow)
         # Default: enter existing issue
         return lifecycle.enter(issue_number)
+
+    # atdd worktree <subcommand>
+    elif args.command == "worktree":
+        worktree_cmd = getattr(args, 'worktree_command', None)
+        if worktree_cmd == "gc":
+            from atdd.coach.commands.worktree_gc import gc as worktree_gc
+            orphans = worktree_gc(apply=getattr(args, 'apply', False))
+            if not orphans:
+                print("No orphan worktree directories found.")
+                return 0
+            label = "Removed" if getattr(args, 'apply', False) else "Orphan"
+            for p in orphans:
+                print(f"  {label}: {p}")
+            if not getattr(args, 'apply', False):
+                print(f"\n{len(orphans)} orphan(s) found. Run with --apply to remove.")
+            return 0
+        worktree_parser.print_help()
+        return 1
 
     # atdd color [value]
     elif args.command == "color":
