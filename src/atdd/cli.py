@@ -1312,9 +1312,15 @@ Phase descriptions:
     repo_graph_parser.add_argument(
         "--format", "-f",
         type=str,
-        choices=["json", "dot"],
+        choices=["json", "dot", "prompt"],
         default="json",
-        help="Output format (default: json)"
+        help="Output format (default: json); 'prompt' requires --issue"
+    )
+    repo_graph_parser.add_argument(
+        "--issue",
+        type=int,
+        default=None,
+        help="GitHub issue number; with --format prompt, outputs the Architecture context section"
     )
     repo_graph_parser.add_argument(
         "--root",
@@ -2300,6 +2306,25 @@ Phase descriptions:
         cmd = URNCommand(repo_root=repo_path)
 
         if args.repo_command == "graph":
+            if args.format == "prompt":
+                from atdd.coach.commands.issue_graph import build_issue_architecture_context
+
+                issue_num = getattr(args, "issue", None)
+                if issue_num is None:
+                    print(
+                        "error: --format prompt requires --issue <N>",
+                        file=sys.stderr,
+                    )
+                    return 2
+                section = build_issue_architecture_context(issue_num, repo_root=repo_path)
+                if section is None:
+                    print(
+                        f"error: issue {issue_num} has no wagon assigned in .atdd/manifest.yaml",
+                        file=sys.stderr,
+                    )
+                    return 1
+                print(section, end="")
+                return 0
             return cmd.graph(
                 format=args.format,
                 root=args.root,
