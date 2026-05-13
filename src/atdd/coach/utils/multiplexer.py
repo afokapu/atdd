@@ -207,7 +207,7 @@ class CmuxBackend(MultiplexerBackend):
                 seed_parts.append(command)
             seed_text = " && ".join(seed_parts) + "\n"
             _run(
-                ["cmux", "rpc", "surface.send_text", "--surface", surface_ref, seed_text],
+                ["cmux", "send", "--surface", surface_ref, seed_text],
                 capture=False,
             )
 
@@ -215,12 +215,12 @@ class CmuxBackend(MultiplexerBackend):
 
     def read_screen(self, ref: MultiplexerRef, lines: int = 50) -> str:
         if _is_surface_ref(ref):
-            result = _run(["cmux", "rpc", "surface.read_text", "--surface", ref])
-            out = result.stdout or ""
-            if lines and lines > 0:
-                tail = out.splitlines()[-lines:]
-                return "\n".join(tail) + ("\n" if out.endswith("\n") else "")
-            return out
+            result = _run([
+                "cmux", "read-screen",
+                "--surface", ref,
+                "--lines", str(lines),
+            ])
+            return result.stdout or ""
         result = _run([
             "cmux", "read-screen",
             "--workspace", ref,
@@ -231,7 +231,7 @@ class CmuxBackend(MultiplexerBackend):
     def send(self, ref: MultiplexerRef, text: str) -> None:
         if _is_surface_ref(ref):
             _run(
-                ["cmux", "rpc", "surface.send_text", "--surface", ref, text],
+                ["cmux", "send", "--surface", ref, text],
                 capture=False,
             )
             return

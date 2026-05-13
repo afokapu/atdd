@@ -67,8 +67,20 @@ def _claude_code_adapter(prompt_path: Path) -> str:
     """Spec §5.2: shell out to ``claude`` with the rendered launch prompt
     inlined via ``$(cat <prompt>)``. The shell expands the substitution
     inside the multiplexer surface so claude receives the full prompt as
-    one argv element."""
-    return f'claude --dangerously-skip-permissions "$(cat {prompt_path})"'
+    one argv element.
+
+    Permission policy: ``--permission-mode acceptEdits --allowedTools
+    "Bash Edit Write Read TodoWrite Glob Grep WebFetch"`` is the sanctioned
+    alternative to the forbidden ``bypassPermissions`` (per repo memory
+    rule). Tool-level allowlist gives autonomous flow without skipping
+    the permission system entirely.
+    """
+    allowed_tools = "Bash Edit Write Read TodoWrite Glob Grep WebFetch"
+    return (
+        f'claude --permission-mode acceptEdits '
+        f'--allowedTools "{allowed_tools}" '
+        f'"$(cat {prompt_path})"'
+    )
 
 
 # Open extension point — codex / gemini / glm follow-up issues register

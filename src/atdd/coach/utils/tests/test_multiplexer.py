@@ -156,9 +156,8 @@ class TestCmuxNewSurface:
 
         assert ref == "surface:4"
         seed_call = calls[-1]
-        assert seed_call[:4] == ["cmux", "rpc", "surface.send_text", "--surface"]
-        assert seed_call[4] == "surface:4"
-        assert seed_call[5] == "cd /tmp/wt && claude --dangerously-skip-permissions\n"
+        assert seed_call[:4] == ["cmux", "send", "--surface", "surface:4"]
+        assert seed_call[4] == "cd /tmp/wt && claude --dangerously-skip-permissions\n"
 
     def test_raises_when_pane_ref_cannot_be_extracted(self):
         backend = CmuxBackend()
