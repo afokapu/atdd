@@ -803,3 +803,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '657'
+  slug: agent-behavior-rules-need-repo-enforcement
+  file: null
+  issue_number: 657
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
