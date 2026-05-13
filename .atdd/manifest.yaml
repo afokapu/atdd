@@ -834,3 +834,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '666'
+  slug: atdd-issue-chains-to-branch-and-worktree
+  file: null
+  issue_number: 666
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
