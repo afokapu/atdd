@@ -819,3 +819,11 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '662'
+  slug: reject-raw-cmux-claude-spawn
+  file: null
+  issue_number: 662
+  type: implementation
+  status: INIT
+  created: '2026-05-13'
+  archived: null
