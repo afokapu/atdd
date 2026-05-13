@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import jsonschema
 import pytest
@@ -59,6 +59,25 @@ class FakeMultiplexer:
         direction: Optional[str] = None,
     ) -> str:
         return "surface:1"
+
+    def new_persona_surface(
+        self,
+        cwd: Any = None,
+        command: Any = None,
+        name: Any = None,
+        *,
+        observer_runtime_root: str = "",
+        observer_agent_id: str = "",
+        observer_name: str = "",
+        observer_command: str = "",
+        **_: Any,
+    ) -> str:
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        try:
+            self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
+        except Exception:
+            pass
+        return persona_ref
 
 
 def _spawn(tmp_path: Path, monkeypatch, *, agent_id: str = "coder-358-001"):

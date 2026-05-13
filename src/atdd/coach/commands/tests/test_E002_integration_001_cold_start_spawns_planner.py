@@ -40,6 +40,25 @@ class _FakeMx:
     def rename(self, ref: str, name: str) -> None:
         self.calls.append({"op": "rename", "ref": ref, "name": name})
 
+    def new_persona_surface(
+        self,
+        cwd: Any = None,
+        command: Any = None,
+        name: Any = None,
+        *,
+        observer_runtime_root: str = "",
+        observer_agent_id: str = "",
+        observer_name: str = "",
+        observer_command: str = "",
+        **_: Any,
+    ) -> str:
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        try:
+            self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
+        except Exception:
+            pass
+        return persona_ref
+
     def read_screen(self, ref: str, lines: int = 50) -> str:
         return ""
 

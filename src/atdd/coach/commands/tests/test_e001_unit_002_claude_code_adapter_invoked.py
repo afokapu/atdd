@@ -14,7 +14,7 @@ Issue #499.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pytest
 
@@ -58,6 +58,31 @@ class FakeMultiplexer:
         self.last_cwd = cwd
         self.last_command = command
         return "surface:1"
+
+    def new_persona_surface(
+        self,
+        cwd: Any = None,
+        command: Any = None,
+        name: Any = None,
+        *,
+        observer_runtime_root: str = "",
+        observer_agent_id: str = "",
+        observer_name: str = "",
+        observer_command: str = "",
+        **_: Any,
+    ) -> str:
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        # Preserve the persona command: observer surface creation must not
+        # overwrite last_command (which is what tests assert against).
+        saved_command = self.last_command
+        saved_cwd = self.last_cwd
+        try:
+            self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
+        except Exception:
+            pass
+        self.last_command = saved_command
+        self.last_cwd = saved_cwd
+        return persona_ref
 
 
 def test_adapter_registry_exposes_claude_code():

@@ -14,7 +14,7 @@ Issue #504 — K3 canonical-naming + layout pass at spawn.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pytest
 
@@ -77,6 +77,25 @@ class FakeMultiplexer:
         self.calls.append({"op": "rename", "ref": ref, "name": name})
         if self.fail_rename:
             raise MultiplexerError("rename failed")
+
+    def new_persona_surface(
+        self,
+        cwd: Any = None,
+        command: Any = None,
+        name: Any = None,
+        *,
+        observer_runtime_root: str = "",
+        observer_agent_id: str = "",
+        observer_name: str = "",
+        observer_command: str = "",
+        **_: Any,
+    ) -> str:
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        try:
+            self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
+        except Exception:
+            pass
+        return persona_ref
 
     def send(self, ref: str, text: str) -> None:
         self.calls.append({"op": "send", "ref": ref, "text": text})

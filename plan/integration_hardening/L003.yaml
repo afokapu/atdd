@@ -1,0 +1,133 @@
+urn: "wmbt:integration-hardening:L003"
+step: "locate"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "persona-spawns-via-entry-points-that-lack-observer-cospawn-due-to-handler-only-wiring"
+context_clarifier: "when atdd spawn, atdd orchestrate, or any future dispatch path creates a persona surface without running the coach state-machine handler, the observer sidecar is absent because _spawn_observer only fired from handlers/spawn.py::handle(); lifting the observer co-spawn into Multiplexer.new_persona_surface ensures every entry point co-spawns the observer without coupling to the state machine"
+lens: "functional.effectiveness"
+statement: "minimize quantity of persona-spawns-via-entry-points-that-lack-observer-cospawn-due-to-handler-only-wiring when atdd spawn or orchestrate creates a persona surface outside the coach state machine, requiring Multiplexer.new_persona_surface to atomically co-spawn the observer so that every persona surface has a paired observer regardless of which entry point initiated the spawn"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:L003-INTEGRATION-001-spawn-cli-produces-persona-and-observer"
+      id: "AC-INTEGRATION-001"
+      purpose: "cmd_spawn in pane mode produces 2 new_surface calls (persona + observer) via FakeMultiplexer.new_persona_surface_calls"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "FakeMultiplexer injected so no real cmux pane is spawned"
+        - "cmd_spawn called with multiplexer_mode='pane'"
+    when:
+      abstract: "cmd_spawn(persona='planner', multiplexer_mode='pane', multiplexer=FakeMultiplexer(), ...) is called"
+    then:
+      abstract:
+        - "FakeMultiplexer.new_persona_surface_calls has exactly 1 entry"
+        - "FakeMultiplexer.calls contains 2 new_surface entries (persona + observer)"
+        - "One surface name matches the canonical persona name"
+        - "One surface name matches ATDD<N>-observer-* pattern"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:L003-INTEGRATION-002-coach-still-cospawns"
+      id: "AC-INTEGRATION-002"
+      purpose: "atdd coach <N> in pane mode still produces persona + observer via the new substrate primitive (no regression)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "FakeMultiplexer injected via _resolve_multiplexer monkeypatch"
+        - "handle(ctx, transition=INIT->PLANNED) is called with multiplexer_mode='pane'"
+    when:
+      abstract: "spawn_handler.handle(ctx, Transition(INIT, PLANNED)) executes"
+    then:
+      abstract:
+        - "FakeMultiplexer.new_persona_surface_calls has exactly 1 entry"
+        - "FakeMultiplexer.calls contains 2 new_surface entries (persona + observer)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:L003-UNIT-001-multiplexer-abc-supports-new-persona-surface"
+      id: "AC-UNIT-001"
+      purpose: "MultiplexerBackend.new_persona_surface exists; FakeMultiplexer implements it and records calls in new_persona_surface_calls"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "FakeMultiplexer instantiated"
+    when:
+      abstract: "new_persona_surface(...) is called on FakeMultiplexer"
+    then:
+      abstract:
+        - "Returns a persona surface ref"
+        - "new_persona_surface_calls has 1 entry"
+        - "calls has 2 new_surface entries (persona + observer)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:L003-UNIT-002-spawn-observer-removed-from-handler"
+      id: "AC-UNIT-002"
+      purpose: "_spawn_observer no longer exists in handlers/spawn.py; grep returns 0 hits"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "handlers/spawn.py is the current post-migration version"
+    when:
+      abstract: "grep for _spawn_observer in src/atdd/coach/handlers/spawn.py"
+    then:
+      abstract:
+        - "0 matches — function deleted"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:L003-UNIT-003-observer-failure-structured-logged"
+      id: "AC-UNIT-003"
+      purpose: "When observer co-spawn raises in MultiplexerBackend.new_persona_surface, a structured JSON log event is emitted to stderr and persona spawn still succeeds"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A MultiplexerBackend subclass where new_surface succeeds on call 1 (persona) but raises on call 2 (observer)"
+    when:
+      abstract: "new_persona_surface(...) is called"
+    then:
+      abstract:
+        - "Returns a valid persona surface ref (no exception raised)"
+        - "stderr contains a JSON object with event=observer_cospawn_failed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"
+  - identity:
+      urn: "acc:integration-hardening:L003-INTEGRATION-003-universal-cospawn-test-passes"
+      id: "AC-INTEGRATION-003"
+      purpose: "pytest test_observer_universal_cospawn.py enumerates >= 3 entry points and asserts each calls new_persona_surface (not bare new_surface for the persona)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "All entry points wired through cmd_spawn with FakeMultiplexer injection"
+    when:
+      abstract: "pytest src/atdd/coach/validators/test_observer_universal_cospawn.py -x -q"
+    then:
+      abstract:
+        - "All >= 3 parametrized entry point cases pass"
+        - "Each entry point records at least 1 new_persona_surface_calls entry"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-13"

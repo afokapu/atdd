@@ -5,12 +5,15 @@
 # Layer: integration
 """L002-INTEGRATION-002 — observer spawn failure does not block persona; HANDLED returned.
 
-If _spawn_observer raises an exception, handle() must still return
-HandlerResult.HANDLED (not ERROR). Only a warning is emitted to stderr.
-Observer is supplementary; persona is critical.
+Observer failure is now caught inside Multiplexer.new_persona_surface (the substrate
+primitive). A structured JSON event is emitted to stderr; the persona spawn still
+succeeds and handle() returns HANDLED. _spawn_observer no longer exists in
+handlers/spawn.py — this test validates the new primitive-level failure handling.
 """
 from __future__ import annotations
 
+import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -19,8 +22,12 @@ import pytest
 pytestmark = [pytest.mark.platform]
 
 
-class _FakeMx:
-    name = "fake"
+class _FakeMxFailingObserver:
+    """Fake multiplexer where new_persona_surface succeeds for persona but logs
+    a structured failure event for the observer (simulating the primitive behavior
+    when the observer co-spawn raises)."""
+
+    name = "fake-failing-observer"
 
     def __init__(self) -> None:
         self.calls: list[dict] = []
@@ -43,6 +50,32 @@ class _FakeMx:
         self.calls.append({"op": "new_surface", "cwd": cwd, "command": command, "name": name, "ref": ref})
         return ref
 
+    def new_persona_surface(
+        self,
+        cwd: Any = None,
+        command: Any = None,
+        name: Any = None,
+        *,
+        observer_runtime_root: str = "",
+        observer_agent_id: str = "",
+        observer_name: str = "",
+        observer_command: str = "",
+        **_: Any,
+    ) -> str:
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        exc = RuntimeError("observer unavailable")
+        print(
+            json.dumps({
+                "event": "observer_cospawn_failed",
+                "persona_name": name,
+                "observer_name": observer_name,
+                "observer_agent_id": observer_agent_id,
+                "error": str(exc),
+            }),
+            file=sys.stderr,
+        )
+        return persona_ref
+
     def rename(self, ref: str, name: str) -> None:
         self.calls.append({"op": "rename", "ref": ref, "name": name})
 
@@ -63,14 +96,14 @@ class _FakeMx:
 
 
 def test_observer_failure_does_not_block_persona(tmp_path, monkeypatch, capsys):
-    """If _spawn_observer raises, handle() returns HANDLED and warns only."""
+    """new_persona_surface catches observer failure; handle() still returns HANDLED."""
     from atdd.coach.handlers import spawn as spawn_handler
     from atdd.coach.handlers.state_machine import (
         CoachContext, HandlerResult, Phase, Transition,
     )
     from atdd.coach.commands import spawn as cmd_spawn_mod
 
-    fake_mx = _FakeMx()
+    fake_mx = _FakeMxFailingObserver()
     wt = tmp_path / "wt"
     wt.mkdir()
 
@@ -78,12 +111,6 @@ def test_observer_failure_does_not_block_persona(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(spawn_handler, "_resolve_worktree", lambda ctx: wt)
     monkeypatch.setattr(spawn_handler, "_RUNTIME_ROOT", tmp_path / ".atdd" / "runtime")
     monkeypatch.setattr(cmd_spawn_mod, "_resolve_multiplexer", lambda preferred=None: fake_mx)
-
-    # Force observer spawn to fail
-    def _failing_observer(*args, **kwargs):
-        raise RuntimeError("observer unavailable")
-
-    monkeypatch.setattr(spawn_handler, "_spawn_observer", _failing_observer)
 
     ctx = CoachContext(
         issue_number=650,
@@ -107,10 +134,9 @@ def test_observer_failure_does_not_block_persona(tmp_path, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert "observer" in captured.err.lower(), (
-        f"Expected observer warning in stderr, got: {captured.err!r}"
+        f"Expected observer failure event in stderr, got: {captured.err!r}"
     )
 
-    # Persona spawn must still have occurred (observer failure must not suppress it)
     spawn_calls = [c for c in fake_mx.calls if c["op"] in ("new_surface", "new_workspace")]
     assert len(spawn_calls) >= 1, (
         f"Persona spawn must succeed even if observer fails; calls={fake_mx.calls}"

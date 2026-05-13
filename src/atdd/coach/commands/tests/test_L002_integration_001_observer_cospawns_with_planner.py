@@ -43,6 +43,25 @@ class _FakeMx:
         self.calls.append({"op": "new_surface", "cwd": cwd, "command": command, "name": name, "ref": ref})
         return ref
 
+    def new_persona_surface(
+        self,
+        cwd: Any = None,
+        command: Any = None,
+        name: Any = None,
+        *,
+        observer_runtime_root: str = "",
+        observer_agent_id: str = "",
+        observer_name: str = "",
+        observer_command: str = "",
+        **_: Any,
+    ) -> str:
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        try:
+            self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
+        except Exception:
+            pass
+        return persona_ref
+
     def rename(self, ref: str, name: str) -> None:
         self.calls.append({"op": "rename", "ref": ref, "name": name})
 
@@ -81,6 +100,7 @@ def test_cold_start_spawns_planner_and_observer(tmp_path, monkeypatch):
         issue_numbers=[650],
         dry_run=False,
         resume=None,
+        multiplexer_mode="pane",
         _runtime_dir_override=tmp_path / ".atdd" / "runtime",
         _max_loop_events=0,
     )
