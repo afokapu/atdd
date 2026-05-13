@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:atdd-issue-canonical-path"
+wagon: "wagon:govern-lifecycle"
+description: "Enforces the canonical atdd issue <slug> path: branch-check guard before manifest commit, automatic worktree chaining by default, --no-branch opt-out, and atdd worktree gc for orphan cleanup"
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 2
+        rationale: "Two new CLI surfaces: --no-branch flag on atdd issue <slug>, and atdd worktree gc subcommand"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "Branch-check guard in create(); automatic _create_branch chain; gc orphan detection and cleanup"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts — reuses existing git worktree and manifest primitives"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses existing git CLI and GitHub client"
