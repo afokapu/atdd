@@ -25,6 +25,43 @@ logger = logging.getLogger(__name__)
 _BRANCH_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "BLOCKED"}
 _TERMINAL_STATUSES = {"COMPLETE", "OBSOLETE"}
 
+
+def _check_on_main_branch(repo_root: Path) -> tuple:
+    """Return (True, None) if current branch is main, else (False, error_message).
+
+    Checks via `git rev-parse --abbrev-ref HEAD`. Returns (True, None) when git
+    is unavailable so the check never blocks non-git test fixtures.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+            cwd=repo_root,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return True, None
+
+    if result.returncode != 0:
+        return True, None
+
+    branch = result.stdout.strip()
+    if not branch or branch == "HEAD":
+        return True, None
+
+    if branch == "main":
+        return True, None
+
+    msg = (
+        f"Error: `atdd issue <slug>` must be run from the 'main' branch.\n"
+        f"  Current branch: {branch}\n"
+        f"  The manifest commit will land on '{branch}', not main.\n"
+        f"  Fix:\n"
+        f"    git checkout main\n"
+        f"    atdd issue <slug>\n"
+        f"  Override: atdd issue <slug> --force"
+    )
+    return False, msg
+
 # Statuses from PLANNED onward require a template-compliant issue body.
 _COMPLIANCE_REQUIRED_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"}
 
@@ -449,8 +486,9 @@ class IssueLifecycle:
         return self.enter(issue_number)
 
     def create(self, slug: str, issue_type: str = "implementation",
-               train: Optional[str] = None, archetypes: Optional[str] = None) -> int:
-        """Create a new issue and enter it at INIT.
+               train: Optional[str] = None, archetypes: Optional[str] = None,
+               no_branch: bool = False, force: bool = False) -> int:
+        """Create a new issue, optionally chain to worktree creation, and enter at INIT.
 
         Delegates to IssueManager.new() for creation (slugify, template rendering,
         WMBT sub-issues, Project v2 fields, manifest update), then reads manifest
@@ -461,6 +499,8 @@ class IssueLifecycle:
             issue_type: Issue type (implementation, migration, refactor, etc.).
             train: Optional train ID to assign.
             archetypes: Optional comma-separated archetypes.
+            no_branch: When True, skip worktree creation (bare issue-only mode).
+            force: When True, bypass the main-branch check.
 
         Returns:
             0 on success, 1 on failure.
@@ -468,8 +508,22 @@ class IssueLifecycle:
         import yaml
         from atdd.coach.commands.issue import IssueManager
 
+        # Phase 1: guard — manifest commit must land on main.
+        on_main, branch_error = _check_on_main_branch(self.target_dir)
+        if not on_main:
+            if not force:
+                print(branch_error)
+                return 1
+            print(f"Warning: proceeding off main (--force). {branch_error.splitlines()[0]}")
+
         manager = IssueManager(self.target_dir)
-        rc = manager.new(slug=slug, issue_type=issue_type, train=train, archetypes=archetypes)
+        rc = manager.new(
+            slug=slug,
+            issue_type=issue_type,
+            train=train,
+            archetypes=archetypes,
+            allow_main_commit=True,
+        )
         if rc != 0:
             return rc
 
@@ -483,15 +537,35 @@ class IssueLifecycle:
         sessions = manifest.get("sessions", [])
 
         # Find the entry matching our slug (last match in case of duplicates)
+        from atdd.coach.commands.issue import IssueManager as _IM
+        slugified = _IM(self.target_dir)._slugify(slug)
+
         issue_number = None
         for entry in reversed(sessions):
-            if entry.get("slug") == slug:
+            if entry.get("slug") == slugified:
                 issue_number = entry.get("issue_number")
                 break
 
         if not issue_number:
             print(f"Error: Could not find issue number for slug '{slug}' in manifest.")
             return 1
+
+        # Phase 2: chain to worktree creation (default) or print intent (--no-branch).
+        from atdd.coach.commands.issue import TYPE_TO_PREFIX
+        prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+
+        if not no_branch:
+            worktree_path = self._create_branch(issue_number, slugified, prefix)
+            if worktree_path:
+                print(f"  ✓ created at {worktree_path}")
+            else:
+                print(
+                    f"  (worktree creation failed — run `atdd branch {issue_number}` when ready)"
+                )
+        else:
+            print(
+                f"  (not created — run `atdd branch {issue_number}` when ready)"
+            )
 
         # Enter the newly created issue at INIT
         return self.enter(issue_number)

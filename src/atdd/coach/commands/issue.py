@@ -144,7 +144,7 @@ class IssueManager:
         with open(self.manifest_file, "w") as f:
             yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
 
-    def _commit_manifest_change(self, verb: str, message: str) -> None:
+    def _commit_manifest_change(self, verb: str, message: str, allow_main: bool = False) -> None:
         """Atomically commit the local manifest after a CLI-driven write.
 
         Convention: src/atdd/coach/conventions/issue.convention.yaml
@@ -170,6 +170,7 @@ class IssueManager:
                 message=message,
                 verb=verb,
                 repo_root=self.target_dir,
+                allow_main=allow_main,
             )
         except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"  Warning: manifest not committed — {exc}")
@@ -692,6 +693,7 @@ class IssueManager:
         issue_type: str = "implementation",
         train: Optional[str] = None,
         archetypes: Optional[str] = None,
+        allow_main_commit: bool = False,
     ) -> int:
         """
         Create new issue.
@@ -722,7 +724,10 @@ class IssueManager:
             print("Error: Invalid slug - results in empty string")
             return 1
 
-        return self._new_github_issue(slug, issue_type, train=train, archetypes=archetypes)
+        return self._new_github_issue(
+            slug, issue_type, train=train, archetypes=archetypes,
+            allow_main_commit=allow_main_commit,
+        )
 
     def _new_github_issue(
         self,
@@ -730,6 +735,7 @@ class IssueManager:
         issue_type: str,
         train: Optional[str] = None,
         archetypes: Optional[str] = None,
+        allow_main_commit: bool = False,
     ) -> int:
         """Create a GitHub Issue with WMBT sub-issues."""
         from atdd.coach.github import GitHubClient, ProjectConfig, GitHubClientError
@@ -896,6 +902,7 @@ class IssueManager:
         self._commit_manifest_change(
             verb="atdd issue",
             message=f"chore(coach): register issue #{parent_number} in manifest",
+            allow_main=allow_main_commit,
         )
 
         print(f"\nCreated #{parent_number} with {wmbt_count} WMBTs")
