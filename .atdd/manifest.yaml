@@ -874,3 +874,35 @@ sessions:
   status: INIT
   created: '2026-05-14'
   archived: null
+- id: '686'
+  slug: smoke-backfill-integration-hardening-trivial-tier
+  file: null
+  issue_number: 686
+  type: implementation
+  status: INIT
+  created: '2026-05-14'
+  archived: null
+- id: '688'
+  slug: bump-version-3-51-0-after-682-merge
+  file: null
+  issue_number: 688
+  type: cleanup
+  status: INIT
+  created: '2026-05-14'
+  archived: null
+- id: '690'
+  slug: hermetic-integration-execution-kind-with-fidelity-declaration
+  file: null
+  issue_number: 690
+  type: implementation
+  status: INIT
+  created: '2026-05-15'
+  archived: null
+- id: '691'
+  slug: fix-coach-substrate-bugs-from-2026-05-14-merges
+  file: null
+  issue_number: 691
+  type: cleanup
+  status: INIT
+  created: '2026-05-15'
+  archived: null
