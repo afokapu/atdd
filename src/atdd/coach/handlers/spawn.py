@@ -236,7 +236,10 @@ def _spawn_observer(
         f" --runtime-dir {runtime_root}"
         f" --worktree {worktree}"
     )
-    observer_name = f"ATDD{ctx.issue_number}-observer-{phase}"
+    # Canonical observer naming: <persona-canonical-name>:obs (workspace-mode
+    # fallback uses derived form since canonical_name isn't readily available here).
+    # See #695 for the multiplexer-agnostic naming convention.
+    observer_name = f"ATDD{ctx.issue_number}-{phase}:obs"
     multiplexer = cmd_spawn_mod._resolve_multiplexer()
 
     if ctx.multiplexer_mode == "pane" and persona_surface_ref is not None:
@@ -350,7 +353,12 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
 
     try:
         persona_surface_ref = result.get("surface_ref") if result else None
-        _spawn_observer(ctx, phase, worktree, base_agent_id, runtime_root, persona_surface_ref=persona_surface_ref)
+        # In pane mode, the multiplexer backend's `new_persona_surface` (called
+        # by cmd_spawn) already co-spawns the observer as a tab in the persona's
+        # pane. Calling _spawn_observer here would create a SECOND observer,
+        # causing the over-spawn bug (#695). Skip in pane mode.
+        if ctx.multiplexer_mode != "pane":
+            _spawn_observer(ctx, phase, worktree, base_agent_id, runtime_root, persona_surface_ref=persona_surface_ref)
         try:
             _write_cospawn_decision(ctx, phase, runtime_root)
         except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01

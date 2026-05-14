@@ -29,6 +29,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import subprocess
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -396,6 +397,47 @@ class CmuxBackend(MultiplexerBackend):
             # validator is advisory and babysit retries every tick.
             pass
 
+    def new_persona_surface(
+        self,
+        cwd: str,
+        command: str,
+        name: str,
+        observer_runtime_root: str,
+        observer_agent_id: str,
+        observer_name: str,
+        observer_command: str,
+    ) -> MultiplexerRef:
+        """Cmux-native co-spawn: persona surface + observer as TAB in same pane.
+
+        Override of MultiplexerBackend default (which would create two separate
+        panes). Persona spawn must succeed even if observer co-spawn fails.
+        Both surfaces are renamed canonically so the link is visible in
+        cmux tab list (sort-adjacent + ``:obs`` suffix).
+        """
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        self.rename(persona_ref, name)
+        try:
+            pane_ref = self.surface_to_pane(persona_ref)
+            observer_ref = self.new_surface_in_pane(
+                pane_ref=pane_ref,
+                cwd=cwd,
+                command=observer_command,
+                name=observer_name,
+            )
+            self.rename(observer_ref, observer_name)
+        except Exception as exc:
+            print(
+                json.dumps({
+                    "event": "observer_cospawn_failed",
+                    "persona_name": name,
+                    "observer_name": observer_name,
+                    "observer_agent_id": observer_agent_id,
+                    "error": str(exc),
+                }),
+                file=sys.stderr,
+            )
+        return persona_ref
+
 
 class TmuxBackend(MultiplexerBackend):
     """tmux backend — pane-based fallback.
@@ -430,6 +472,69 @@ class TmuxBackend(MultiplexerBackend):
 
     def close(self, workspace_ref: str) -> None:
         _run(["tmux", "kill-session", "-t", workspace_ref], capture=False)
+
+    def rename(self, ref: MultiplexerRef, name: str) -> None:
+        """Rename a tmux window. Best-effort.
+
+        `tmux rename-window -t <ref> <name>` retitles the window containing
+        ref. If ref is "session" form, renames the active window in that
+        session. If ref is "session:window" form, renames that specific window.
+        """
+        if not name:
+            return
+        try:
+            _run(
+                ["tmux", "rename-window", "-t", ref, name],
+                capture=False,
+            )
+        except MultiplexerError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            # Best-effort: rename failures don't crash spawn flow.
+            pass
+
+    def new_persona_surface(
+        self,
+        cwd: str,
+        command: str,
+        name: str,
+        observer_runtime_root: str,
+        observer_agent_id: str,
+        observer_name: str,
+        observer_command: str,
+    ) -> MultiplexerRef:
+        """Tmux-native co-spawn: persona session + observer as SECOND PANE.
+
+        Override of MultiplexerBackend default. tmux's "tab in pane" equivalent
+        is "split-window" — two panes side-by-side in the same window. The
+        operator cycles between persona and observer via Ctrl-b o.
+
+        Both window names get the canonical ``:obs`` link via rename-window
+        (observer pane title via select-pane -T).
+        """
+        persona_ref = self.new_workspace(cwd=cwd, command=command, name=name)
+        self.rename(persona_ref, name)
+        try:
+            # Split window: observer as new pane on the right.
+            _run(
+                ["tmux", "split-window", "-h", "-t", persona_ref, "-c", cwd, observer_command],
+                capture=False,
+            )
+            # Title the observer pane (tmux pane titles via select-pane -T).
+            _run(
+                ["tmux", "select-pane", "-t", persona_ref, "-T", observer_name],
+                capture=False,
+            )
+        except Exception as exc:
+            print(
+                json.dumps({
+                    "event": "observer_cospawn_failed",
+                    "persona_name": name,
+                    "observer_name": observer_name,
+                    "observer_agent_id": observer_agent_id,
+                    "error": str(exc),
+                }),
+                file=sys.stderr,
+            )
+        return persona_ref
 
 
 class ZellijBackend(MultiplexerBackend):
@@ -505,6 +610,68 @@ class ZellijBackend(MultiplexerBackend):
 
     def close(self, workspace_ref: str) -> None:
         _run(["zellij", "delete-session", "--force", workspace_ref], capture=False)
+
+    def rename(self, ref: MultiplexerRef, name: str) -> None:
+        """Rename the active zellij tab in the given session. Best-effort.
+
+        Targets the session via ZELLIJ_SESSION_NAME env var (per zellij action
+        targeting convention). Renames whichever tab is currently active in
+        that session.
+        """
+        if not name:
+            return
+        env = {**os.environ, "ZELLIJ_SESSION_NAME": ref}
+        try:
+            subprocess.run(
+                ["zellij", "action", "rename-tab", name],
+                check=True, env=env, capture_output=True,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            # Best-effort: rename failures don't crash spawn flow.
+            pass
+
+    def new_persona_surface(
+        self,
+        cwd: str,
+        command: str,
+        name: str,
+        observer_runtime_root: str,
+        observer_agent_id: str,
+        observer_name: str,
+        observer_command: str,
+    ) -> MultiplexerRef:
+        """Zellij-native co-spawn: persona session + observer as SECOND PANE.
+
+        Override of MultiplexerBackend default. zellij's "tab in pane"
+        equivalent is "new-pane in current tab" — two panes side-by-side in the
+        same tab. The operator cycles between panes via Alt-arrows.
+
+        The tab name gets the canonical persona name (zellij rename-tab).
+        Observer pane title is set if the zellij build supports pane naming.
+        """
+        persona_ref = self.new_workspace(cwd=cwd, command=command, name=name)
+        self.rename(persona_ref, name)
+        try:
+            env = {**os.environ, "ZELLIJ_SESSION_NAME": persona_ref}
+            # new-pane in current tab, split right; runs observer_command.
+            # `--` separates zellij args from the command to run.
+            shell_invocation = ["bash", "-c", f"cd {cwd} && {observer_command}"]
+            subprocess.run(
+                ["zellij", "action", "new-pane", "--direction", "right", "--"] + shell_invocation,
+                check=True, env=env, capture_output=True,
+            )
+        except Exception as exc:
+            print(
+                json.dumps({
+                    "event": "observer_cospawn_failed",
+                    "persona_name": name,
+                    "observer_name": observer_name,
+                    "observer_agent_id": observer_agent_id,
+                    "error": str(exc),
+                }),
+                file=sys.stderr,
+            )
+        return persona_ref
 
 
 def detect_multiplexer() -> Optional[str]:

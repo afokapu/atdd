@@ -914,3 +914,11 @@ sessions:
   status: INIT
   created: '2026-05-15'
   archived: null
+- id: '695'
+  slug: persona-observer-cospawn-parity-across-backends
+  file: null
+  issue_number: 695
+  type: implementation
+  status: INIT
+  created: '2026-05-15'
+  archived: null
