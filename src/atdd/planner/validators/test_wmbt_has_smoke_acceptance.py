@@ -1,3 +1,5 @@
+# Acceptance: acc:govern-lifecycle:E003-INTEGRATION-001-planner-validator-fires-on-zero-smoke-urns
+# Acceptance: acc:govern-lifecycle:E003-SMOKE-001-real-validator-suite-includes-this-validator
 """
 planner.wmbt.must-have-smoke-acceptance validator (issue #681).
 

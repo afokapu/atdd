@@ -1,3 +1,5 @@
+# Acceptance: acc:govern-lifecycle:E003-INTEGRATION-002-coach-validator-fires-on-green-label-closes
+# Acceptance: acc:govern-lifecycle:E003-INTEGRATION-003-pr-merge-passes-when-no-closes-reference
 """
 coach.pr.merge-blocks-on-pre-smoke-close validator (issue #681).
 
