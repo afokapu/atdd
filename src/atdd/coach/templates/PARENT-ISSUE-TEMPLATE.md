@@ -48,6 +48,19 @@
 
 ## Architecture
 
+### Graph Context
+
+(graph context will be injected at creation by atdd issue <slug>)
+
+### Mirror Across Agents
+
+| Agent | Current state | Target state | Action |
+|-------|---------------|--------------|--------|
+| planner | (current — observed/missing) | (target — declared rule, validator, etc.) | (action — add/update/none) |
+| tester | (current — observed/missing) | (target) | (action) |
+| coder | (current — observed/missing) | (target) | (action) |
+| coach | (current — observed/missing) | (target) | (action) |
+
 ### Existing Patterns
 
 | Pattern | Example File | Convention |
@@ -73,6 +86,16 @@
 ```
 
 {data_model_section}
+
+---
+
+## Rule Wiring
+
+(OPTIONAL — fill in only when this issue introduces new convention rules. Otherwise leave the table empty or remove this section.)
+
+| rule_id | severity | disposition | bind_to | fix_hint_ref |
+|---------|----------|-------------|---------|--------------|
+| (rule_id) | (1-5) | (strict\|suppress-and-clean\|advisory\|documentation-only) | (validator module::function) | (recipe or convention pointer) |
 
 ---
 

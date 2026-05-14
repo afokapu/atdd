@@ -51,6 +51,35 @@ PLACEHOLDER_STRINGS: tuple[str, ...] = (
     "(none yet)",
     "(Additional context, learnings, or decisions that don't fit elsewhere.)",
     "TBD",
+    # New placeholders for Graph Context + Mirror Across Agents + Rule Wiring
+    # (#682). The literal Graph Context placeholder also drives the planner
+    # `planner.issue-body.graph-context-required` rule.
+    "(graph context will be injected at creation by atdd issue <slug>)",
+    "(current — observed/missing)",
+    "(target — declared rule, validator, etc.)",
+    "(action — add/update/none)",
+    "(action)",
+    "(rule_id)",
+    "(1-5)",
+    "(strict|suppress-and-clean|advisory|documentation-only)",
+    "(validator module::function)",
+    "(recipe or convention pointer)",
+)
+
+# Sections that are present in the template but NOT required for compliance.
+# `## Rule Wiring` is OPTIONAL per #682 — it only applies to issues that
+# introduce new convention rules; trivial issues may leave the section empty
+# or omit it entirely.
+OPTIONAL_SECTIONS: frozenset[str] = frozenset({"## Rule Wiring"})
+
+# Subsections (H3) that ARE required to appear in every issue body. These are
+# not surfaced by `load_required_sections()` (which only scans H2) but are
+# enforced by `check_body_sections()`. Added in #682 to lift the
+# Architecture > Graph Context and Architecture > Mirror Across Agents
+# subsections from advisory to mandatory.
+REQUIRED_SUBSECTIONS: tuple[str, ...] = (
+    "### Graph Context",
+    "### Mirror Across Agents",
 )
 
 
@@ -103,9 +132,16 @@ def check_body_sections(
     body: str,
     required: list[str] | None = None,
 ) -> list[str]:
-    """Return the list of required sections missing from `body`."""
+    """Return the list of required sections missing from `body`.
+
+    Filters out `OPTIONAL_SECTIONS` (e.g. `## Rule Wiring`) and also
+    enforces presence of every entry in `REQUIRED_SUBSECTIONS` (H3 sections
+    under `## Architecture` that #682 lifted from advisory to mandatory).
+    """
     required = required or load_required_sections()
-    return [s for s in required if s not in body]
+    missing = [s for s in required if s not in body and s not in OPTIONAL_SECTIONS]
+    missing.extend(s for s in REQUIRED_SUBSECTIONS if s not in body)
+    return missing
 
 
 def _iter_section_slices(body: str) -> list[tuple[str, str]]:
@@ -136,10 +172,15 @@ def check_placeholders(
 
     Only placeholder strings that *literally* appear in the body are flagged.
     This avoids regex false positives on user content.
+
+    Skips OPTIONAL sections (`## Rule Wiring`) — authors who don't introduce
+    new rules may leave that scaffold's placeholder text intact.
     """
     hits: list[tuple[str, str]] = []
     for heading, text in _iter_section_slices(body):
         if heading == "(preamble)":
+            continue
+        if heading in OPTIONAL_SECTIONS:
             continue
         for placeholder in placeholders:
             if placeholder in text:

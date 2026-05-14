@@ -86,48 +86,45 @@ def _train_wagon_order(train_id: str, repo_root: Path) -> list[str]:
     return []
 
 
-def build_issue_architecture_context(
-    issue_number: int,
+def build_architecture_context_for_wagon(
+    wagon_slug: str,
     *,
+    train_id: Optional[str] = None,
     repo_root: Optional[Path] = None,
 ) -> Optional[str]:
-    """Build the ``## Architecture context`` markdown section for *issue_number*.
+    """Build the ``## Architecture context`` markdown section for *wagon_slug*.
 
-    Returns the section string (starting with ``## Architecture context``) when
-    the issue has a wagon assigned, or ``None`` when it does not (graceful
-    degrade — callers omit the section without erroring).
+    Does NOT consult ``.atdd/manifest.yaml`` — callers pass the wagon slug
+    (and optionally train_id) directly. Returns ``None`` when the wagon
+    directory doesn't exist under ``plan/`` (graceful degrade — caller
+    decides what fallback text to splice).
+
+    Used by ``atdd issue <slug>`` at issue-creation time (#682): the manifest
+    entry doesn't exist yet at that point, so the wagon-by-issue lookup that
+    ``build_issue_architecture_context`` performs is unavailable.
 
     Args:
-        issue_number: GitHub issue number to look up.
+        wagon_slug: Wagon slug (e.g. ``govern-lifecycle``).
+        train_id: Optional train ID to enrich the rendered context.
         repo_root: Repo root (default: auto-detected via find_repo_root()).
 
     Returns:
-        Markdown string or None.
+        Markdown string (starting with ``## Architecture context``) or None
+        when the wagon manifest cannot be located.
     """
     if repo_root is None:
         from atdd.coach.utils.repo import find_repo_root
 
         repo_root = find_repo_root()
 
-    wagon_slug = _wagon_slug_for_issue(issue_number, repo_root)
-    if not wagon_slug:
+    wagon_meta = _read_wagon_meta(wagon_slug, repo_root)
+    if not wagon_meta:
         return None
 
-    wagon_meta = _read_wagon_meta(wagon_slug, repo_root)
     wagon_name = wagon_meta.get("name") or wagon_slug
     wagon_desc = wagon_meta.get("description") or ""
     wagon_urn = wagon_meta.get("urn") or f"wagon:{wagon_slug}"
     features = wagon_meta.get("features") or []
-
-    # Derive train from manifest session
-    manifest_path = repo_root / ".atdd" / "manifest.yaml"
-    train_id: Optional[str] = None
-    if manifest_path.is_file():
-        manifest_data = _load_yaml(manifest_path)
-        for session in manifest_data.get("sessions", []):
-            if str(session.get("issue_number", "")) == str(issue_number):
-                train_id = session.get("train") or None
-                break
 
     wagon_order = _train_wagon_order(train_id, repo_root) if train_id else []
     sibling_wmbts = _read_sibling_wmbts(wagon_slug, repo_root)
@@ -164,3 +161,44 @@ def build_issue_architecture_context(
         lines.append("")
 
     return "\n".join(lines)
+
+
+def build_issue_architecture_context(
+    issue_number: int,
+    *,
+    repo_root: Optional[Path] = None,
+) -> Optional[str]:
+    """Build the ``## Architecture context`` markdown section for *issue_number*.
+
+    Resolves the issue → wagon mapping via ``.atdd/manifest.yaml``, then
+    delegates to :func:`build_architecture_context_for_wagon`. Returns
+    ``None`` when the issue has no wagon assigned (graceful degrade).
+
+    Args:
+        issue_number: GitHub issue number to look up.
+        repo_root: Repo root (default: auto-detected via find_repo_root()).
+
+    Returns:
+        Markdown string or None.
+    """
+    if repo_root is None:
+        from atdd.coach.utils.repo import find_repo_root
+
+        repo_root = find_repo_root()
+
+    wagon_slug = _wagon_slug_for_issue(issue_number, repo_root)
+    if not wagon_slug:
+        return None
+
+    manifest_path = repo_root / ".atdd" / "manifest.yaml"
+    train_id: Optional[str] = None
+    if manifest_path.is_file():
+        manifest_data = _load_yaml(manifest_path)
+        for session in manifest_data.get("sessions", []):
+            if str(session.get("issue_number", "")) == str(issue_number):
+                train_id = session.get("train") or None
+                break
+
+    return build_architecture_context_for_wagon(
+        wagon_slug, train_id=train_id, repo_root=repo_root,
+    )

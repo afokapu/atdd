@@ -1,0 +1,168 @@
+urn: "wmbt:govern-lifecycle:E004"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "newly-filed-issues-shipping-without-graph-context-or-cross-agent-mirror"
+context_clarifier: "when atdd issue <slug> renders a parent body from PARENT-ISSUE-TEMPLATE.md the Architecture > Graph Context subsection ships as an unfilled placeholder; when the operator omits running atdd repo graph the body remains structurally compliant but semantically empty; when an issue introduces new convention rules there is no scaffolded Rule Wiring section to force the author to declare rule_id / disposition / bind_to"
+lens: "functional.adaptability"
+statement: "minimize likelihood of newly-filed-issues-shipping-without-graph-context-or-cross-agent-mirror when atdd issue <slug> auto-injects the graph and the template forces a Mirror Across Agents table"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E004-UNIT-001-template-carries-new-sections"
+      id: "AC-UNIT-001"
+      purpose: "PARENT-ISSUE-TEMPLATE.md has `### Graph Context`, `### Mirror Across Agents`, and `## Rule Wiring` headings"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The bundled PARENT-ISSUE-TEMPLATE.md file"
+    when:
+      abstract: "The template file is read"
+    then:
+      abstract:
+        - "The text contains `### Graph Context`"
+        - "The text contains `### Mirror Across Agents`"
+        - "The text contains `## Rule Wiring`"
+        - "The text contains the literal graph-context placeholder string"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E004-UNIT-002-check-body-sections-enforces-subsections"
+      id: "AC-UNIT-002"
+      purpose: "`check_body_sections` flags missing `### Graph Context` / `### Mirror Across Agents` and does NOT flag missing `## Rule Wiring`"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A body that has every required H2 but lacks `### Graph Context`"
+        - "A body that has every required H2 but lacks `### Mirror Across Agents`"
+        - "A body that has every required H2 and the two required H3s but lacks `## Rule Wiring`"
+    when:
+      abstract: "`check_body_sections(body)` is called for each"
+    then:
+      abstract:
+        - "The returned missing list contains `### Graph Context` (case 1)"
+        - "The returned missing list contains `### Mirror Across Agents` (case 2)"
+        - "The returned missing list does NOT contain `## Rule Wiring` (case 3)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E004-UNIT-003-check-placeholders-ignores-rule-wiring"
+      id: "AC-UNIT-003"
+      purpose: "`check_placeholders` skips placeholders that appear under the OPTIONAL `## Rule Wiring` section"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A body where `## Rule Wiring` still carries its scaffold placeholders (rule_id / 1-5 / disposition)"
+    when:
+      abstract: "`check_placeholders(body)` is called"
+    then:
+      abstract:
+        - "The hits list contains no entries keyed by `## Rule Wiring`"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E004-UNIT-004-build-architecture-context-for-wagon"
+      id: "AC-UNIT-004"
+      purpose: "`build_architecture_context_for_wagon(slug, train_id, repo_root)` reads `plan/<slug>/_<slug>.yaml` and returns a populated string when the wagon manifest exists, or None when absent"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "tmp_path with plan/graph_demo/_graph_demo.yaml containing wagon URN + name + sibling WMBT"
+        - "A separate tmp_path with no plan/ artifacts"
+    when:
+      abstract: "`build_architecture_context_for_wagon('graph-demo', train_id=None, repo_root=tmp_path)` is called"
+    then:
+      abstract:
+        - "Returns a string containing the wagon URN and the sibling WMBT URN"
+        - "Returns None when the wagon manifest is absent"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E004-INTEGRATION-001-issue-creation-injects-graph"
+      id: "AC-INTEGRATION-001"
+      purpose: "`IssueManager._inject_graph_context(body, slug, train)` replaces the literal placeholder with graph content (happy path) or the fallback string (no wagon manifest)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "tmp_path with plan/graph-demo/_graph-demo.yaml (happy path)"
+        - "tmp_path with no plan/ artifacts (fallback path)"
+        - "A body containing the literal graph-context placeholder"
+    when:
+      abstract: "`IssueManager(target_dir=tmp_path)._inject_graph_context(body, slug, train=None)` is called"
+    then:
+      abstract:
+        - "Happy path: returned body does NOT contain the placeholder; contains the wagon URN"
+        - "Fallback path: returned body does NOT contain the placeholder; contains the GRAPH_CONTEXT_UNAVAILABLE string"
+        - "Idempotent: a body whose placeholder is already replaced is returned unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E004-INTEGRATION-002-planner-rule-binding"
+      id: "AC-INTEGRATION-002"
+      purpose: "`planner.issue-body.graph-context-required` rule binds via bind_rule and the validator emits Violations against the rule"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "`src/atdd/planner/conventions/issue-body.convention.yaml` declares the rule"
+        - "`src/atdd/planner/validators/test_issue_body_has_graph_context.py` calls bind_rule at import"
+    when:
+      abstract: "The module is imported"
+    then:
+      abstract:
+        - "Import succeeds (no RuleNotInRegistryError)"
+        - "The rule's disposition is `suppress-and-clean`"
+        - "`check_graph_context(body)` returns None for compliant bodies, non-None for bodies missing the section or carrying the unfilled placeholder"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E004-SMOKE-001-rule-blocks-empty-graph-context"
+      id: "AC-SMOKE-001"
+      purpose: "Against live GitHub: `atdd validate planner` (full mode, no --skip-api) returns non-zero on a post-cutoff issue whose body Graph Context section is missing or still carries the literal placeholder"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real ATDD-labeled GitHub issue created on or after 2026-05-15 whose body lacks `### Graph Context` content (or still carries the unfilled placeholder)"
+        - "`gh` CLI authenticated with the repo's project token; GraphQL rate-limit available"
+    when:
+      abstract: "`atdd validate planner` (no --skip-api) is invoked"
+    then:
+      abstract:
+        - "The `planner.issue-body.graph-context-required` Violation is emitted with `location` of the offending issue (e.g. `github-issue#NNN:body`)"
+        - "Exit code is non-zero"
+        - "When the offending body is edited to contain a populated `### Graph Context` section, re-running the validator passes"
+        - "When the body has an inline `# atdd:suppress(planner.issue-body.graph-context-required) UNTIL=YYYY-MM-DD` marker, the validator passes without modifying Graph Context"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"

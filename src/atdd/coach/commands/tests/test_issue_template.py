@@ -12,6 +12,8 @@ import pytest
 
 from atdd.coach.commands.issue_template import (
     ComplianceReport,
+    OPTIONAL_SECTIONS,
+    REQUIRED_SUBSECTIONS,
     check_body_sections,
     check_issue_compliance,
     check_placeholders,
@@ -29,10 +31,11 @@ pytestmark = [pytest.mark.platform]
 
 def test_load_required_sections_returns_all_h2_headings():
     sections = load_required_sections()
-    # PARENT-ISSUE-TEMPLATE.md has 11 H2 sections (E010).
-    assert len(sections) == 11
+    # PARENT-ISSUE-TEMPLATE.md has 12 H2 sections (E010 + #682 Rule Wiring).
+    assert len(sections) == 12
     assert "## Issue Metadata" in sections
     assert "## Scope" in sections
+    assert "## Rule Wiring" in sections
     assert "## Release Gate" in sections
     assert "## Notes" in sections
     # Order is preserved.
@@ -55,6 +58,8 @@ def test_check_body_sections_flags_missing():
 def test_check_body_sections_empty_when_all_present():
     required = load_required_sections()
     body = "\n\n".join(f"{s}\n\n(real content, no placeholders)" for s in required)
+    # H3 subsections required by #682 must also appear for the body to be clean.
+    body += "\n\n" + "\n\n".join(REQUIRED_SUBSECTIONS)
     assert check_body_sections(body, required=required) == []
 
 
@@ -99,7 +104,9 @@ def test_check_placeholders_none_on_clean_body():
 
 def test_report_compliant_is_true_when_clean():
     required = load_required_sections()
-    body = "\n\n".join(f"{s}\n\nreal content\n" for s in required)
+    parts = [f"{s}\n\nreal content\n" for s in required]
+    parts.extend(f"{s}\n\nreal content\n" for s in REQUIRED_SUBSECTIONS)
+    body = "\n\n".join(parts)
     report = check_issue_compliance(issue_number=1, body=body)
     assert report.compliant
     assert "compliant" in report.format()
@@ -120,7 +127,9 @@ def test_report_non_compliant_lists_missing():
 
 
 def _clean_body() -> str:
-    return "\n\n".join(f"{s}\n\nreal content\n" for s in load_required_sections())
+    sections = [f"{s}\n\nreal content\n" for s in load_required_sections()]
+    sections.extend(f"{s}\n\nreal content\n" for s in REQUIRED_SUBSECTIONS)
+    return "\n\n".join(sections)
 
 
 def _dirty_body() -> str:

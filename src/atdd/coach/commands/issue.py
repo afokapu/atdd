@@ -26,6 +26,16 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+# Literal placeholder splice point in PARENT-ISSUE-TEMPLATE.md (Phase 2 of #682)
+# — `atdd issue <slug>` replaces it with `build_architecture_context_for_wagon`
+# output at creation time. Kept as a module constant so both the template and
+# the splice site stay in lock-step.
+GRAPH_CONTEXT_PLACEHOLDER = "(graph context will be injected at creation by atdd issue <slug>)"
+GRAPH_CONTEXT_UNAVAILABLE = (
+    "(graph unavailable — assign wagon in `plan/<slug>/_<slug>.yaml`, then re-run "
+    "`atdd issue <N> --refresh-graph`)"
+)
+
 # Issue type → conventional commit / branch prefix mapping.
 # Used by `atdd new` (title prefix) and `atdd branch` (worktree prefix).
 TYPE_TO_PREFIX = {
@@ -300,6 +310,42 @@ class IssueManager:
         if rows:
             return "\n".join(rows) + "\n"
         return ""
+
+    def _inject_graph_context(self, body: str, slug: str, train: Optional[str]) -> str:
+        """Replace `GRAPH_CONTEXT_PLACEHOLDER` with the rendered graph section.
+
+        Phase 2 of #682: `atdd issue <slug>` now auto-fills the
+        `### Graph Context` subsection from `plan/<slug>/_<slug>.yaml` so
+        operators stop manually re-running `atdd repo graph`. When the wagon
+        manifest is absent (no plan/ entry yet), splices `GRAPH_CONTEXT_UNAVAILABLE`
+        — a graceful fallback that names the recovery path without erroring.
+        """
+        if GRAPH_CONTEXT_PLACEHOLDER not in body:
+            return body
+        try:
+            from atdd.coach.commands.issue_graph import build_architecture_context_for_wagon
+
+            train_id = train if train and train != "TBD" else None
+            graph = build_architecture_context_for_wagon(
+                slug, train_id=train_id, repo_root=self.target_dir,
+            )
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            graph = None
+
+        if not graph:
+            return body.replace(GRAPH_CONTEXT_PLACEHOLDER, GRAPH_CONTEXT_UNAVAILABLE)
+
+        # `build_architecture_context_for_wagon` returns a block that opens with
+        # `## Architecture context`. We splice INTO an existing `### Graph Context`
+        # H3, so strip the leading H2 heading line + the following blank line to
+        # avoid a nested-heading collision.
+        lines = graph.splitlines()
+        if lines and lines[0].startswith("## "):
+            lines = lines[1:]
+        if lines and lines[0] == "":
+            lines = lines[1:]
+        inner = "\n".join(lines)
+        return body.replace(GRAPH_CONTEXT_PLACEHOLDER, inner)
 
     def _render_parent_body(
         self,
@@ -763,6 +809,12 @@ class IssueManager:
         body = self._render_parent_body(
             slug, issue_type, today, train_display, archetypes_display,
         )
+
+        # Phase 2 of #682 — auto-inject `### Graph Context` from
+        # `plan/<slug>/_<slug>.yaml` so operators stop manually invoking
+        # `atdd repo graph --issue <N>`. Graceful fallback when the wagon
+        # manifest is absent.
+        body = self._inject_graph_context(body, slug, train)
 
         # Determine labels for parent
         parent_labels = ["atdd-issue", "atdd:INIT"]

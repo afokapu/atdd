@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:issue-template-substrate-completeness"
+wagon: "wagon:govern-lifecycle"
+description: "Scaffolds Graph Context + Mirror Across Agents + Rule Wiring sections in PARENT-ISSUE-TEMPLATE.md, auto-injects graph context at atdd issue <slug> creation, and enforces the substrate via the planner.issue-body.graph-context-required rule"
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E004"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — extends the existing atdd issue <slug> renderer in-place"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "_inject_graph_context() splice helper on IssueManager"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Pure helper + convention rule; reuses existing graph-context primitives"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reads plan/<slug>/_<slug>.yaml via existing issue_graph helper"
