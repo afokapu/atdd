@@ -1,0 +1,190 @@
+urn: "wmbt:govern-lifecycle:E003"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "wmbts-without-smoke-acceptance-and-prs-auto-closing-pre-smoke-issues"
+context_clarifier: "when planner authors a WMBT with 0 acceptance URNs spanning the SMOKE harness or coach merges a PR whose Closes/Fixes/Resolves keyword references an ATDD issue still at atdd:RED or atdd:GREEN, bypassing the SMOKE+REFACTOR phase enforcement that the substrate documents in CLAUDE.md but never mechanically enforced (the 2026-05-13 incident where 8 PRs shipped through GREEN-label auto-close)"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of wmbts-without-smoke-acceptance-and-prs-auto-closing-pre-smoke-issues when planner authors a WMBT or coach merges a PR by declaring planner.wmbt.must-have-smoke-acceptance (suppress-and-clean) and coach.pr.merge-blocks-on-pre-smoke-close (strict) rules with paired validators mirroring tester.smoke.pres"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E003-UNIT-001-rules-grep-finds-both-new-rules"
+      id: "AC-UNIT-001"
+      purpose: "atdd rules grep smoke lists both planner.wmbt.must-have-smoke-acceptance and coach.pr.merge-blocks-on-pre-smoke-close so the rules are substrate-discoverable"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/planner/conventions/wmbt.convention.yaml declares planner.wmbt.must-have-smoke-acceptance under rules:"
+        - "src/atdd/coach/conventions/pr.convention.yaml declares coach.pr.merge-blocks-on-pre-smoke-close under rules:"
+    when:
+      abstract: "atdd rules grep smoke is invoked"
+    then:
+      abstract:
+        - "Output contains 'planner.wmbt.must-have-smoke-acceptance'"
+        - "Output contains 'coach.pr.merge-blocks-on-pre-smoke-close'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E003-UNIT-002-rules-show-resolves-each-rule"
+      id: "AC-UNIT-002"
+      purpose: "atdd rules show <rule-id> resolves both new rules via bind_rule(), confirming registry coherence"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Both rules declared in their respective convention YAMLs"
+        - "bind_rule() reads the merged convention registry"
+    when:
+      abstract:
+        - "atdd rules show planner.wmbt.must-have-smoke-acceptance is invoked"
+        - "atdd rules show coach.pr.merge-blocks-on-pre-smoke-close is invoked"
+    then:
+      abstract:
+        - "Each invocation resolves the rule and prints its metadata (severity, disposition, description, fix_hint)"
+        - "Neither invocation raises RuleNotInRegistryError or AmbiguousRuleError"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E003-INTEGRATION-001-planner-validator-fires-on-zero-smoke-urns"
+      id: "AC-INTEGRATION-001"
+      purpose: "The planner validator emits a structured Violation per WMBT whose acceptance URN list contains zero SMOKE-NNN entries (eaten own dog food: this validator is exercised via unit tests with synthetic WMBT dicts)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "evaluate_wmbt_smoke_coverage is the pure evaluator under src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py"
+        - "Synthetic WMBT dicts with mixed acceptance phases are constructed in test_wmbt_has_smoke_acceptance_helpers.py"
+    when:
+      abstract: "evaluate_wmbt_smoke_coverage([(path, wmbt_dict_with_zero_smoke)], tmp_path) is called"
+    then:
+      abstract:
+        - "Returns exactly one Violation whose rule_id is planner.wmbt.must-have-smoke-acceptance"
+        - "Violation.location is path.relative_to(repo):lineno-of-urn (defaults to :1 when not findable)"
+        - "Violation.detail names the WMBT urn and the SMOKE-NNN remedy"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E003-INTEGRATION-002-coach-validator-fires-on-green-label-closes"
+      id: "AC-INTEGRATION-002"
+      purpose: "The coach validator emits a structured Violation for an open PR whose body has Closes #N and whose linked issue has the atdd:GREEN label (the 2026-05-13 incident shape)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "evaluate_pr_merge_violations is the pure evaluator under src/atdd/coach/validators/test_pr_merge_blocks_pre_smoke_close.py"
+        - "A synthetic resolution dict with pr_number=681, phase_label='GREEN', strategy='body'"
+    when:
+      abstract: "evaluate_pr_merge_violations([resolution]) is called"
+    then:
+      abstract:
+        - "Returns exactly one Violation whose rule_id is coach.pr.merge-blocks-on-pre-smoke-close"
+        - "Violation.detail names PR#681, issue #681, and atdd:GREEN"
+        - "The same scenario with phase_label='REFACTOR' or 'COMPLETE' returns []"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E003-INTEGRATION-003-pr-merge-passes-when-no-closes-reference"
+      id: "AC-INTEGRATION-003"
+      purpose: "A PR linked to an issue via weak strategies (manifest/title) does NOT trigger the merge gate even at atdd:GREEN — those linkages do not fire GitHub's auto-close on merge"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "evaluate_pr_merge_violations from test_pr_merge_blocks_pre_smoke_close"
+        - "A synthetic resolution dict with phase_label='GREEN' and strategy='manifest' (or strategy='title')"
+    when:
+      abstract: "evaluate_pr_merge_violations([resolution]) is called"
+    then:
+      abstract:
+        - "Returns [] (no Violation) — weak linkage does not fire auto-close"
+        - "Constants _AUTO_CLOSING_STRATEGIES == frozenset({'api', 'body'}) enforce this"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E003-SMOKE-001-real-validator-suite-includes-this-validator"
+      id: "AC-SMOKE-001"
+      purpose: "Running the real atdd validate planner suite on this repo executes test_wmbt_has_smoke_acceptance::test_every_wmbt_has_smoke_acceptance (eat-own-dog-food: the validator is alive in the real suite, not skipped)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The planner validator is registered under src/atdd/planner/validators/"
+        - "The new convention rule is declared in wmbt.convention.yaml"
+    when:
+      abstract: "atdd validate planner --local --skip-api is invoked on this repo"
+    then:
+      abstract:
+        - "pytest collects test_wmbt_has_smoke_acceptance.py"
+        - "The test runs (not skipped) and reports a pass/fail verdict against real plan/ WMBTs"
+        - "If the verdict is failing, every offender carries a SMOKE-NNN remedy"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E003-SMOKE-002-rules-grep-finds-both-new-rules"
+      id: "AC-SMOKE-002"
+      purpose: "Running atdd rules grep smoke against the real toolkit registry surfaces both new rule_ids (the rules are not orphaned in their YAMLs)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "Both new rules declared in their respective convention YAMLs"
+        - "The convention registry is rebuilt by build_registry()"
+    when:
+      abstract: "atdd rules grep smoke is invoked from the repo root"
+    then:
+      abstract:
+        - "Output lists planner.wmbt.must-have-smoke-acceptance"
+        - "Output lists coach.pr.merge-blocks-on-pre-smoke-close"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E003-SMOKE-003-rules-show-resolves-each-rule"
+      id: "AC-SMOKE-003"
+      purpose: "atdd rules show <rule-id> resolves each new rule against the real merged registry; failure to resolve indicates a YAML drift or shadowed declaration"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The merged registry contains both new rule entries"
+    when:
+      abstract:
+        - "atdd rules show planner.wmbt.must-have-smoke-acceptance is invoked"
+        - "atdd rules show coach.pr.merge-blocks-on-pre-smoke-close is invoked"
+    then:
+      abstract:
+        - "Each invocation exits 0"
+        - "Each invocation prints severity, disposition, description, and fix_hint"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-14"

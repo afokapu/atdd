@@ -1,4 +1,4 @@
-urn: "wmbt:observe-and-correct:M003"
+urn: "wmbt:observe-and-correct:M003"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
 step: "monitor"
 direction: "minimize"
 dimension: "likelihood"

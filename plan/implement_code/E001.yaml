@@ -1,4 +1,4 @@
-urn: "wmbt:implement-code:E001"
+urn: "wmbt:implement-code:E001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
 step: "execute"
 direction: "maximize"
 dimension: "effort"

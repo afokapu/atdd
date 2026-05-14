@@ -1,4 +1,4 @@
-urn: "wmbt:govern-lifecycle:C001"
+urn: "wmbt:govern-lifecycle:C001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
 step: "confirm"
 direction: "minimize"
 dimension: "likelihood"
