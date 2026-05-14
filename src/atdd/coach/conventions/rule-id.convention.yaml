@@ -617,6 +617,8 @@ migration:
     - "src/atdd/planner/conventions/steps.convention.yaml"
     - "src/atdd/planner/conventions/wagon.convention.yaml"
     - "src/atdd/planner/conventions/wmbt.convention.yaml"
+    # Issue #682 — issue-body semantic compliance (graph-context-required)
+    - "src/atdd/planner/conventions/issue-body.convention.yaml"
     # Issue #394 Phase 3 — strict-flip prerequisite registrations
     - "src/atdd/coder/conventions/security.convention.yaml"
     - "src/atdd/tester/conventions/smoke.convention.yaml"
