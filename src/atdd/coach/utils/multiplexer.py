@@ -25,6 +25,7 @@ Auto-detection precedence:
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -306,11 +307,23 @@ class CmuxBackend(MultiplexerBackend):
         return surface_ref
 
     def surface_to_pane(self, surface_ref: MultiplexerRef) -> MultiplexerRef:
-        result = _run(["cmux", "describe-surface", "--surface", surface_ref])
-        pane_ref = _extract_ref_token(result.stdout or "", "pane")
+        # `cmux describe-surface` does not exist; use rpc.surface.read_text which
+        # returns pane_ref in its JSON output (verified at runtime 2026-05-15).
+        result = _run([
+            "cmux", "rpc", "surface.read_text",
+            f'{{"surface":"{surface_ref}"}}',
+        ])
+        try:
+            data = json.loads(result.stdout or "{}")
+        except json.JSONDecodeError as exc:
+            raise MultiplexerError(
+                f"cmux rpc surface.read_text returned invalid JSON for {surface_ref}: {exc}"
+            ) from exc
+        pane_ref = data.get("pane_ref")
         if not pane_ref:
             raise MultiplexerError(
-                f"cmux describe-surface returned no pane ref: {(result.stdout or '').strip()!r}"
+                f"cmux rpc surface.read_text returned no pane_ref for {surface_ref}: "
+                f"{(result.stdout or '').strip()[:200]!r}"
             )
         return pane_ref
 
@@ -339,11 +352,11 @@ class CmuxBackend(MultiplexerBackend):
         _run(["cmux", "send", "--workspace", ref, text], capture=False)
 
     def send_key(self, ref: MultiplexerRef, key: str) -> None:
+        # `cmux rpc surface.send_key` takes JSON params, not CLI flags. Use the
+        # regular `cmux send-key --surface <ref> <key>` CLI for both ref kinds
+        # (verified at runtime 2026-05-15).
         if _is_surface_ref(ref):
-            _run(
-                ["cmux", "rpc", "surface.send_key", "--surface", ref, key],
-                capture=False,
-            )
+            _run(["cmux", "send-key", "--surface", ref, key], capture=False)
             return
         _run(["cmux", "send-key", "--workspace", ref, key], capture=False)
 
