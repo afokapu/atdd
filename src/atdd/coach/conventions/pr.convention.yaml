@@ -1,0 +1,111 @@
+version: "1.0"
+name: "PR Convention"
+description: "Rules that govern PR creation, merge gating, and ATDD lifecycle alignment at the PR boundary"
+
+# =============================================================================
+# Purpose
+# =============================================================================
+# This convention houses PR-scoped rules that enforce ATDD substrate
+# guarantees at the PR boundary — the last point where a human-or-agent
+# decision crosses into shared history. Sibling PR rules also live in
+# rule-id.convention.yaml (coach.pr.base-must-be-default-branch,
+# coach.pr.mass-delete-guard); this file is the canonical home for rules
+# whose only concern is PR/issue lifecycle interlocks. New PR-scoped rules
+# SHOULD be declared here unless they semantically belong elsewhere.
+
+# =============================================================================
+# Structured rules
+# =============================================================================
+rules:
+  - id: "coach.pr.merge-blocks-on-pre-smoke-close"
+    severity: 4
+    description: "Open PRs that auto-close an ATDD issue (via `Closes #N` / `Fixes #N` / `Resolves #N` or the GitHub `closingIssuesReferences` API field) must reference an issue whose phase label is atdd:REFACTOR or atdd:COMPLETE. PRs targeting an issue at atdd:RED or atdd:GREEN are blocked — the issue must transition through SMOKE+REFACTOR before merge, otherwise GitHub's auto-close fires while the lifecycle is still pre-SMOKE (the 2026-05-13 substrate-asymmetry incident). Strict disposition: bypass is forbidden; no inline suppress."
+    disposition: strict
+    introduced_in: "3.50.0"
+    aliases: []
+    validator: "test_pr_merge_blocks_pre_smoke_close::test_no_open_pr_closes_an_issue_in_pre_smoke_phase"
+    fix_hint: |
+      The named open PR references an ATDD issue still at atdd:RED or
+      atdd:GREEN via an auto-closing keyword, so a merge would fire
+      GitHub's auto-close before the issue ever reaches SMOKE+REFACTOR.
+      Repair as follows (run `gh pr view <N>` to inspect the PR body and
+      `gh issue view <issue> --json labels` to inspect labels; for atdd
+      the phase labels live under .atdd/labels.yaml):
+
+        1. Read the violation — it cites "PR#<N>" and names the linked
+           issue number and current phase label
+           (e.g. "PR#681 → issue #681 (phase=GREEN)").
+        2. Drive the issue forward through the state machine — substitute
+           <issue> with the issue number from step 1 (e.g. "681"):
+             atdd issue <issue> --status SMOKE
+             atdd issue <issue> --status REFACTOR
+           This swaps the atdd:GREEN label for atdd:SMOKE then
+           atdd:REFACTOR (the legal exit phases for merge).
+        3. Re-run the validator on the same PR
+           (run pytest src/atdd/coach/validators/test_pr_merge_blocks_pre_smoke_close.py -v).
+        4. If the PR genuinely should NOT close the linked issue (the PR
+           is a partial step, the issue should stay open), edit the PR
+           body and remove the auto-closing keyword
+           (run `gh pr edit <N> --body "<new-body>"`):
+             - <N> = the PR number from step 1, e.g. "681"
+             Replace "Closes #<issue>" with "Refs #<issue>" so GitHub's
+             auto-close does not fire on merge.
+
+      This rule is strict by design — bypass is forbidden. The 2026-05-13
+      incident shipped 8 PRs whose `Closes #N` fired at atdd:GREEN,
+      skipping SMOKE+REFACTOR. See issue #681 and
+      src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001
+      for the template pattern this rule mirrors.
+
+# =============================================================================
+# Lifecycle phases relevant to this convention
+# =============================================================================
+# Phase labels live on GitHub issues as `atdd:<PHASE>` and are managed by
+# `atdd issue <N> --status <PHASE>`. This convention treats the following
+# phases as MERGE-INELIGIBLE for any PR with an auto-close keyword:
+#
+#   atdd:INIT        — planner has not delivered a wagon yet
+#   atdd:PLANNED     — tester has not delivered RED tests yet
+#   atdd:RED         — coder has not turned tests GREEN yet
+#   atdd:GREEN       — tester has not verified against real infra (SMOKE)
+#
+# Merge-eligible phases:
+#
+#   atdd:SMOKE       — real-infra verification in flight (post-GREEN)
+#   atdd:REFACTOR    — clean-architecture pass in flight
+#   atdd:COMPLETE    — already shipped (auto-close is a no-op here)
+#
+# Issues with `atdd:BLOCKED` or `atdd:OBSOLETE` are out of scope (no
+# auto-close should target them anyway).
+phase_labels:
+  merge_blocked: ["INIT", "PLANNED", "RED", "GREEN"]
+  merge_allowed: ["SMOKE", "REFACTOR", "COMPLETE"]
+  out_of_scope: ["BLOCKED", "OBSOLETE"]
+
+# =============================================================================
+# Auto-close keyword set
+# =============================================================================
+# GitHub's auto-close keywords (case-insensitive). The validator considers
+# any of these in the PR body — or the `closingIssuesReferences` GraphQL
+# field — as evidence that merging the PR would close the linked issue.
+auto_close_keywords:
+  - "close"
+  - "closes"
+  - "closed"
+  - "fix"
+  - "fixes"
+  - "fixed"
+  - "resolve"
+  - "resolves"
+  - "resolved"
+
+# =============================================================================
+# Cross-references
+# =============================================================================
+references:
+  template_pattern: "src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001"
+  sibling_pr_rules:
+    - "coach.pr.base-must-be-default-branch (rule-id.convention.yaml)"
+    - "coach.pr.mass-delete-guard (rule-id.convention.yaml)"
+  disposition_gate: "src/atdd/coach/utils/disposition_gate.py::assert_disposition_satisfied"
+  pr_manager: "src/atdd/coach/commands/pr.py::PRManager.resolve_linked_issue"
