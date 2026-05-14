@@ -3,6 +3,7 @@
 # Acceptance: acc:integration-hardening:C004-UNIT-003-validator-allows-decom-prefix
 # Acceptance: acc:integration-hardening:C004-UNIT-004-validator-allows-mass-delete-approved-token
 # Acceptance: acc:integration-hardening:C004-INTEGRATION-001-replay-wave12-disaster-signature
+# Acceptance: acc:integration-hardening:C004-SMOKE-001-validator-via-real-gh-pr-list-against-repo
 """
 CI mass-delete guard validator (#629 Layer 3).
 

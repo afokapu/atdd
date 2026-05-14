@@ -1,6 +1,7 @@
 # Acceptance: acc:integration-hardening:M002-UNIT-001-postcommit-runs-validate-planner-on-plan-changes
 # Acceptance: acc:integration-hardening:M002-UNIT-002-prepush-runs-validate-planner-on-plan-changes
 # Acceptance: acc:integration-hardening:M002-INTEGRATION-001-prepush-blocks-invalid-wmbt-letter
+# Acceptance: acc:integration-hardening:M002-SMOKE-001-prepush-hook-fires-on-real-git-push
 """Unit + integration tests for plan/** → validate planner routing in hooks (#642).
 
 Background: the post-commit and pre-push hooks mapped plan/** to

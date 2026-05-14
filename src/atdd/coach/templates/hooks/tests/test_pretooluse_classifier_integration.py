@@ -1,5 +1,6 @@
 # URN: test:integration-hardening:coach-single-command-driver:E006-INTEGRATION-hook-blocks-forbidden
 # Acceptance: acc:integration-hardening:E006-INTEGRATION-001-hook-exits-2-for-gh-issue-create
+# Acceptance: acc:integration-hardening:E006-SMOKE-001-hook-blocks-real-claude-invocation-against-installed-classifier
 # WMBT: wmbt:integration-hardening:E006
 # Phase: GREEN
 # Layer: integration
