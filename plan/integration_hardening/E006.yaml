@@ -1,4 +1,4 @@
-urn: "wmbt:integration-hardening:E006"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+urn: "wmbt:integration-hardening:E006"
 step: "execute"
 direction: "minimize"
 dimension: "quantity"
@@ -195,4 +195,31 @@ acceptances:
         - "stderr contains rule_id 'ATDD-FORBID-GH-ISSUE-CREATE'"
     metadata:
       author: "atdd:self-compliance"
+      created: "2026-05-14"
+
+  - identity:
+      urn: "acc:integration-hardening:E006-SMOKE-001-hook-blocks-real-claude-invocation-against-installed-classifier"
+      id: "AC-SMOKE-001"
+      purpose: "The on-disk claude-pre-tool-use.sh hook, when triggered by the Claude Code tool-use stdin protocol with a forbidden command payload, exits non-zero against the real forbidden_command_classifier.py module — no mocked classifier, no fake hook stand-in — proving that an actual Claude tool-use event would be blocked by the substrate"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The real hook file at src/atdd/coach/templates/hooks/claude-pre-tool-use.sh (executable, file mode 0755)"
+        - "The real classifier module at src/atdd/coach/utils/forbidden_command_classifier.py"
+        - "The real convention file at src/atdd/coach/conventions/forbidden_commands.convention.yaml"
+        - "A real tmp_path git repo as CWD (so git rev-parse --show-toplevel resolves on the hook's first line)"
+        - "ATDD_REPO_ROOT set to the real repo root so the hook's PYTHONPATH discovers the installed classifier"
+    when:
+      abstract: "subprocess.run([str(hook_path)], input=json.dumps({'tool_name': 'Bash', 'tool_input': {'command': 'gh issue create real-test'}}), text=True, capture_output=True) is invoked — the literal stdin protocol Claude Code uses when firing a PreToolUse event"
+    then:
+      abstract:
+        - "result.returncode == 2 (Claude Code's stop-with-error convention)"
+        - "result.stderr contains the literal string 'ATDD-FORBID-GH-ISSUE-CREATE' (rule_id surfaces verbatim from the real classifier output)"
+        - "result.stderr contains the alternative 'atdd issue' (the substrate's native wrapper is named)"
+        - "An audit row was appended to .atdd/runtime/tool_use_audit.jsonl carrying ts/tool/command/decision/rule_id/reason/alternative (no decision is silent)"
+    metadata:
+      author: "atdd:smoke-backfill-trivial-tier"
       created: "2026-05-14"

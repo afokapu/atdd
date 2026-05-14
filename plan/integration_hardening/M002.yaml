@@ -1,4 +1,4 @@
-urn: "wmbt:integration-hardening:M002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+urn: "wmbt:integration-hardening:M002"
 step: "monitor"
 direction: "minimize"
 dimension: "likelihood"
@@ -75,3 +75,28 @@ acceptances:
     metadata:
       author: "atdd:issue-642"
       created: "2026-05-13"
+
+  - identity:
+      urn: "acc:integration-hardening:M002-SMOKE-001-prepush-hook-fires-on-real-git-push"
+      id: "AC-SMOKE-001"
+      purpose: "The real pre-push hook template, installed in a tmp_path git repo seeded with plan/<wagon>/<bad-letter>.yaml, fires when invoked via the actual git push protocol (stdin lines: '<local_ref> <local_sha> <remote_ref> <remote_sha>') against a fake atdd binary that exits 1 — exercising the same code path the on-disk hook runs in production"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repository initialised via 'git init -q -b main' under tmp_path (no mocks)"
+        - "The actual pre-push hook script at src/atdd/coach/templates/hooks/pre-push (file mode 0755, executable)"
+        - "A fake atdd shim on PATH that exits 1 with stderr containing 'invalid step code' when invoked with 'validate planner'"
+        - "A real commit touching plan/coach_ops/U001.yaml (U is outside [DLPCEMYRK]) made via 'git -C tmp_path commit'"
+    when:
+      abstract: "subprocess.run([str(hook_path), 'origin', remote_url], input='<local_ref> <local_sha> <remote_ref> <remote_sha>') is invoked — the literal stdin protocol git uses when pushing"
+    then:
+      abstract:
+        - "result.returncode != 0 (the real hook script blocks the real push attempt)"
+        - "result.stderr contains 'invalid step code' or 'planner' (proving the fake atdd was invoked through the hook's RUN_PLANNER path, not bypassed)"
+        - "No mocks, no in-memory fakes — the test fails identically to how a production push would fail"
+    metadata:
+      author: "atdd:smoke-backfill-trivial-tier"
+      created: "2026-05-14"

@@ -1,4 +1,4 @@
-urn: "wmbt:integration-hardening:C004"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+urn: "wmbt:integration-hardening:C004"
 step: "confirm"
 direction: "minimize"
 dimension: "likelihood"
@@ -114,3 +114,27 @@ acceptances:
     metadata:
       author: "atdd:629-l3"
       created: "2026-05-13"
+
+  - identity:
+      urn: "acc:integration-hardening:C004-SMOKE-001-validator-via-real-gh-pr-list-against-repo"
+      id: "AC-SMOKE-001"
+      purpose: "scan_open_prs_for_mass_delete_violations executed end-to-end against the real `gh pr list` + `gh pr view` API surface (the same surface that catches Wave-12 contamination at CI time) emits zero violations on the live afokapu/atdd repo's open PRs (or the appropriate Violation when a fixture PR is present)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The installed atdd toolkit on a CI runner with GH_TOKEN populated and gh CLI on PATH"
+        - "The afokapu/atdd repo accessible from the runner (gh pr list returns the real open-PR list)"
+        - "test_pr_mass_delete_guard.py::test_no_open_pr_exceeds_mass_delete_thresholds (marker github_api) is collected"
+    when:
+      abstract: "pytest src/atdd/coach/validators/test_pr_mass_delete_guard.py -m github_api runs (the SMOKE-tier path, gated by github_api marker per smoke.convention.yaml opt-in)"
+    then:
+      abstract:
+        - "The test executes against real gh pr list + gh pr view output (no mocks, no synthetic JSON fixtures)"
+        - "When no open PR exceeds the threshold, assert_disposition_satisfied returns clean"
+        - "If a fixture PR with deleted_files>100 lands without an escape hatch, the validator emits coach.pr.mass-delete-guard"
+    metadata:
+      author: "atdd:smoke-backfill-trivial-tier"
+      created: "2026-05-14"
