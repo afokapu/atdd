@@ -307,25 +307,26 @@ class CmuxBackend(MultiplexerBackend):
         return surface_ref
 
     def surface_to_pane(self, surface_ref: MultiplexerRef) -> MultiplexerRef:
-        # `cmux describe-surface` does not exist; use rpc.surface.read_text which
-        # returns pane_ref in its JSON output (verified at runtime 2026-05-15).
-        result = _run([
-            "cmux", "rpc", "surface.read_text",
-            f'{{"surface":"{surface_ref}"}}',
-        ])
-        try:
-            data = json.loads(result.stdout or "{}")
-        except json.JSONDecodeError as exc:
-            raise MultiplexerError(
-                f"cmux rpc surface.read_text returned invalid JSON for {surface_ref}: {exc}"
-            ) from exc
-        pane_ref = data.get("pane_ref")
-        if not pane_ref:
-            raise MultiplexerError(
-                f"cmux rpc surface.read_text returned no pane_ref for {surface_ref}: "
-                f"{(result.stdout or '').strip()[:200]!r}"
+        # Iterate `cmux list-panes` and find the pane whose `list-pane-surfaces`
+        # output contains the target surface. O(N) for N panes — fine for
+        # typical workspace sizes (<10).
+        #
+        # Why not `cmux describe-surface`? It doesn't exist.
+        # Why not `cmux rpc surface.read_text '{"surface":"..."}'`? Upstream cmux
+        # bug: the rpc ignores the surface param and returns whatever surface is
+        # focused in the operator's view (verified 2026-05-15).
+        panes_result = _run(["cmux", "list-panes"])
+        pane_pattern = re.compile(r"\bpane:(\d+)\b")
+        for match in pane_pattern.finditer(panes_result.stdout or ""):
+            pane_ref = f"pane:{match.group(1)}"
+            surfaces_result = _run(
+                ["cmux", "list-pane-surfaces", "--pane", pane_ref]
             )
-        return pane_ref
+            if surface_ref in (surfaces_result.stdout or ""):
+                return pane_ref
+        raise MultiplexerError(
+            f"surface_to_pane: could not find pane containing {surface_ref}"
+        )
 
     def read_screen(self, ref: MultiplexerRef, lines: int = 50) -> str:
         if _is_surface_ref(ref):

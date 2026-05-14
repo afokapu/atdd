@@ -906,3 +906,11 @@ sessions:
   status: INIT
   created: '2026-05-15'
   archived: null
+- id: '693'
+  slug: surface-to-pane-uses-list-pane-surfaces-iteration
+  file: null
+  issue_number: 693
+  type: cleanup
+  status: INIT
+  created: '2026-05-15'
+  archived: null
