@@ -325,7 +325,10 @@ def cmd_spawn(
 
     backend = multiplexer if multiplexer is not None else _resolve_multiplexer()
     _observer_agent_id = f"{agent_id}-observer"
-    _observer_name = f"ATDD{issue}-observer-{phase or 'agent'}"
+    # Canonical observer naming: <persona-canonical-name>:obs — makes the link
+    # to its persona unmistakable in cmux/tmux/zellij tab/window lists.
+    # Sort-adjacent + ':obs' suffix is multiplexer-agnostic (#695).
+    _observer_name = f"{canonical_name}:obs"
     _observer_command = (
         f"atdd observer run"
         f" --agent-id {_observer_agent_id}"
