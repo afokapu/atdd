@@ -1,4 +1,4 @@
-urn: "wmbt:freeze-runtime-contracts:D004"
+urn: "wmbt:freeze-runtime-contracts:D004"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
 step: "define"
 direction: "minimize"
 dimension: "likelihood"

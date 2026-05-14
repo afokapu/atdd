@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate"
+wagon: "wagon:govern-lifecycle"
+description: "Lifts CLAUDE.md's SMOKE+REFACTOR lifecycle definition from aspirational documentation into mechanical enforcement: planner.wmbt.must-have-smoke-acceptance (suppress-and-clean) blocks WMBT authoring without SMOKE acceptance URNs, and coach.pr.merge-blocks-on-pre-smoke-close (strict) blocks PR merges whose Closes/Fixes/Resolves keyword auto-closes an ATDD issue still at atdd:RED or atdd:GREEN. Mirrors the tester-side TESTER-SMOKE-PRES-001 substrate pattern."
+sizing:
+  wmbts: 1
+  footprint_score: 6
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E003"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — uses existing atdd validate planner / atdd validate coach / atdd rules show / atdd rules grep entry points"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "evaluate_wmbt_smoke_coverage (pure evaluator under planner validators) + evaluate_pr_merge_violations (pure evaluator under coach validators)"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Reuses Violation domain dataclass; no new domain concepts"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses PRManager (gh CLI) and shared_fixtures wmbt_files; no new infra"

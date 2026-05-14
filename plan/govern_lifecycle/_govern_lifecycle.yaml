@@ -38,9 +38,10 @@ features:
   - urn: "feature:govern-lifecycle:detect-stub-presentation-returns"
   - urn: "feature:govern-lifecycle:enforce-route-train-wagon-coverage"
   - urn: "feature:govern-lifecycle:atdd-issue-canonical-path"
+  - urn: "feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate"
 
 wmbt:
-  total: 27
+  total: 28
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -68,3 +69,4 @@ wmbt:
   E001: "minimize schema validation failures on valid custom theme names"
   M001: "minimize silent commons digit overrides that break cross-repo tooling"
   E002: "minimize issue-creation landing on wrong branch and leaving orphan worktrees"
+  E003: "minimize wmbts-without-smoke-acceptance-and-prs-auto-closing-pre-smoke-issues when planner authors a WMBT or coach merges a PR (#681)"
