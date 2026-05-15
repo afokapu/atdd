@@ -12,8 +12,13 @@ reads ``self.agent_dir`` which is built from the observer's OWN agent_id
 The persona agent_id is the observer agent_id with the ``-observer``
 suffix stripped; collect_input must read ``runtime/agents/<persona-id>/``.
 
-RED: these tests fail today because collect_input reads the observer's
-own dir and the constructor does not validate the ``-observer`` suffix.
+The persona-id derivation is asserted directly: a co-spawned observer
+(`-observer` suffix) watches the persona dir; a bare id is the documented
+L1 self-watch fallback. (The original second test asserted a hard
+ValueError on a bare id; that was retargeted under #713 GREEN with user
+authorization because ``Observer`` is dual-use — the co-spawned observer
+AND the L1 generic per-agent watcher — so a bare id is a valid mode, not
+an error.)
 """
 from __future__ import annotations
 
@@ -52,16 +57,30 @@ def test_collect_input_reads_the_persona_output_log(tmp_path: Path):
     )
 
 
-def test_observer_agent_id_without_suffix_is_rejected(tmp_path: Path):
+def test_persona_dir_is_derived_from_the_observer_suffix(tmp_path: Path):
     from atdd.coach.commands import observer
 
     runtime = tmp_path / ".atdd" / "runtime"
-    # An observer agent_id MUST end with `-observer` so the persona id is
-    # derivable. A bare id is ambiguous and must be rejected rather than
-    # silently making the observer read its own dir.
-    with pytest.raises(ValueError):
-        observer.Observer(
-            agent_id="planner-713-abc",
-            runtime_dir=runtime,
-            rules_dir=None,
-        )
+
+    # A co-spawned observer's id ends with `-observer`; the persona id is
+    # that id minus the suffix and the persona dir it watches is NOT the
+    # observer's own dir.
+    obs = observer.Observer(
+        agent_id="planner-713-abc-observer",
+        runtime_dir=runtime,
+        rules_dir=None,
+    )
+    assert obs.persona_agent_id == "planner-713-abc"
+    assert obs.persona_dir.name == "planner-713-abc"
+    assert obs.persona_dir != obs.agent_dir, (
+        "a co-spawned observer must watch the persona dir, not its own"
+    )
+
+    # A bare id is the documented L1 self-watch fallback — it watches that
+    # agent directly and never silently claims a different persona.
+    legacy = observer.Observer(
+        agent_id="agent-A",
+        runtime_dir=runtime,
+        rules_dir=None,
+    )
+    assert legacy.persona_agent_id == "agent-A"
