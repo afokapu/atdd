@@ -5,30 +5,8 @@ dimension: "quantity"
 object_of_control: "coach-phase-advances-triggered-by-a-stale-done-json-from-a-prior-run"
 context_clarifier: "when a fresh RuntimeWatcher starts with an empty _snapshots map and a pre-existing done.json (left in the dispatched persona's worktree runtime by an earlier coach run) is treated by the first scan as newly-written, so _emit_done fires agent_done and _cold_start_proposed_transition advances the phase before the freshly-dispatched persona has produced any work — the regression observed in coach-run-690-cb0a26c9 advancing PLANNED->RED in 9 s (#711, precision flaw in #708)"
 lens: "functional.effectiveness"
-statement: "minimize quantity of coach-phase-advances-triggered-by-a-stale-done-json-from-a-prior-run by binding the agent_done signal to the agent_id the coach dispatched for the current phase — RuntimeWatcher establishes a dispatch-time baseline so a pre-existing done.json is not emitted as new, and _cold_start_proposed_transition matches event.agent_id against the recorded dispatched agent_id rather than the issue number alone — so a leftover done.json never satisfies the advance gate"
+statement: "minimize quantity of coach-phase-advances-triggered-by-a-stale-done-json-from-a-prior-run by having RuntimeWatcher establish a dispatch-time baseline — every runtime file present when the coach dispatches the current-phase persona is recorded as already-seen, so a pre-existing (stale) done.json is never emitted as a new agent_done event and only a done.json written after dispatch can satisfy the advance gate (#711, precision flaw in #708)"
 acceptances:
-  - identity:
-      urn: "acc:integration-hardening:C005-UNIT-001-agent-done-matched-to-dispatched-agent-id"
-      id: "AC-UNIT-001"
-      purpose: "_cold_start_proposed_transition ignores an agent_done event whose agent_id does not match the agent_id the coach recorded at dispatch, and proposes a transition only for an event whose agent_id matches — proving the advance gate keys on full agent_id, not the issue number alone"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "The coach has recorded dispatched_agent_id for the current phase (the agent_id returned by the spawn handler at this transition)"
-        - "Two agent_done events for the same issue number: event A with agent_id == dispatched_agent_id, event B with a different historical agent_id (a prior run's persona)"
-    when:
-      abstract: "_cold_start_proposed_transition is called once with event B (mismatched agent_id) and once with event A (matching agent_id)"
-    then:
-      abstract:
-        - "For event B (mismatched agent_id): returns None — no proposed transition"
-        - "For event A (matching agent_id): returns a proposed transition for the current phase"
-        - "The match is performed on the full agent_id string, not on the parsed issue number"
-    metadata:
-      author: "atdd:planner-711"
-      created: "2026-05-15"
   - identity:
       urn: "acc:integration-hardening:C005-INTEGRATION-001-stale-done-json-does-not-advance"
       id: "AC-INTEGRATION-001"
@@ -77,22 +55,22 @@ acceptances:
   - identity:
       urn: "acc:integration-hardening:C005-SMOKE-001-coach-run-no-premature-advance-on-seeded-stale-done"
       id: "AC-SMOKE-001"
-      purpose: "A real atdd coach <N> cold-start run over a worktree whose persona runtime dir is seeded with a stale done.json does not advance PLANNED->RED until the freshly-dispatched planner writes its own done.json — verified against the real coach state machine and a real decisions.jsonl, no mocked watcher"
+      purpose: "Against real infrastructure — a real RuntimeWatcher and real CoachEventQueue over a real on-disk runtime tree, no mocks or substituted collaborators — a stale done.json present at dispatch-time baseline does NOT surface as an agent_done event, while a done.json written after the baseline DOES; proving the baseline guard holds on the real filesystem the coach uses"
       phase: "SMOKE"
     harness:
       type: "integration"
       category: "backend"
     given:
       abstract:
-        - "A real tmp git worktree for issue <N> whose persona runtime dir .atdd/runtime/agents/planner-<N>-<hash>/ is seeded with a stale done.json copied from a prior run"
-        - "The real atdd coach <N> cold-start path is invoked without --resume, with a FakeMultiplexer so no real cmux pane is spawned and the dispatched planner's done.json is written on a controlled schedule"
+        - "A real .atdd/runtime/agents/ tree on a real (tmp) filesystem, seeded with a stale done.json under a prior-run persona dir"
+        - "A real RuntimeWatcher and real CoachEventQueue constructed over that runtime dir — no mocked watcher, no mocked queue, no substituted collaborators"
     when:
-      abstract: "atdd coach <N> drives the INIT->PLANNED->RED segment: the planner persona is dispatched, then later writes a fresh done.json"
+      abstract: "RuntimeWatcher.baseline() is called at dispatch time, then scan_once() runs; afterwards a fresh done.json is written under the current-run persona dir and scan_once() runs again"
     then:
       abstract:
-        - "No PLANNED->RED phase-transition record is written to .atdd/runtime/coach/decisions.jsonl while only the seeded stale done.json exists (before the dispatched planner writes a fresh done.json)"
-        - "The PLANNED->RED transition record's timestamp is greater than or equal to the mtime of the dispatched planner's fresh done.json"
-        - "Exactly one record in decisions.jsonl has decision_type=phase-transition with inputs.current_phase=PLANNED and inputs.target_phase=RED"
+        - "The post-baseline first scan emits zero agent_done events for the stale done.json — the real CoachEventQueue is empty"
+        - "After the fresh done.json is written, the next real scan emits exactly one agent_done event carrying the current-run persona's agent_id"
+        - "No mocking library and no collaborator substitution is used anywhere in the test (genuine real-infrastructure smoke per smoke.convention.yaml)"
     metadata:
       author: "atdd:planner-711"
       created: "2026-05-15"

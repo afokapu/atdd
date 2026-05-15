@@ -1,4 +1,10 @@
-# URN: component:integration-hardening:coach-cold-start-wiring:test_coach_stale_done_json_baseline:backend:tests
+# URN: test:integration-hardening:coach-cold-start-wiring:C005-INTEGRATION-001-stale-done-json-does-not-advance
+# Acceptance: acc:integration-hardening:C005-INTEGRATION-001-stale-done-json-does-not-advance
+# Acceptance: acc:integration-hardening:C005-INTEGRATION-002-current-persona-done-advances-once
+# Acceptance: acc:integration-hardening:C005-SMOKE-001-coach-run-no-premature-advance-on-seeded-stale-done
+# WMBT: wmbt:integration-hardening:C005
+# Phase: SMOKE
+# Layer: integration
 # Runtime: python
 # Purpose: #711 (WMBT C005) — RuntimeWatcher baseline so a stale done.json does not advance the coach.
 
