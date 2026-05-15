@@ -246,10 +246,13 @@ def phase_b_launch_sessions(
 
         slug = branch_to_slug(issue.branch) or f"issue-{num}"
         canonical_name = compute_canonical_name(repo_short, num, slug)
+        # Bare interactive launch — the prompt is injected post-boot via
+        # paste_text + send_key (#702). Claude Code v2.1.x ignores a
+        # positional prompt arg in interactive mode, so `$(cat ...)` here
+        # silently produced an idle session with no task.
         launch_cmd = (
             "claude --permission-mode acceptEdits "
-            "--allowedTools \"Bash Edit Write Read TodoWrite Glob Grep WebFetch\" "
-            f"\"$(cat {script_path})\""
+            "--allowedTools \"Bash Edit Write Read TodoWrite Glob Grep WebFetch\""
         )
 
         try:
@@ -281,6 +284,23 @@ def phase_b_launch_sessions(
         issue.workspace_ref = ref
         result.refs[num] = ref
         result.launched_issues.append(num)
+
+        # Inject the launch prompt post-boot (#702): claude ignores a
+        # positional prompt arg in interactive mode. paste_text uses
+        # bracketed paste so the multi-line prompt lands as one block;
+        # send_key submits it. NOTE: phase_b is not yet wired into a live
+        # command path — when it is, add a claude-readiness poll before
+        # the paste (unlike cmd_spawn, no /rename injection precedes it
+        # here to prove the surface is ready).
+        try:
+            backend.paste_text(ref, script_path.read_text())
+            backend.send_key(ref, "Enter")
+        except (MultiplexerError, NotImplementedError, OSError, AttributeError) as exc:
+            print(
+                f"⚠️  launch-prompt injection failed for #{num}: {exc}",
+                file=sys.stderr,
+            )
+
         decision_writer.append({
             "decision_id": decision_id,
             "timestamp": _now(),

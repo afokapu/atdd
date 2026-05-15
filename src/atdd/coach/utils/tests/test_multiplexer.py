@@ -223,3 +223,88 @@ class TestCmuxNewSurface:
         # Should NOT call new-pane or list-pane-surfaces in this path
         assert not any(c[:2] == ["cmux", "new-pane"] for c in calls)
         assert not any(c[:2] == ["cmux", "list-pane-surfaces"] for c in calls)
+
+
+class TestPasteText:
+    """#702 — paste_text injects multi-line text as one bracketed-paste
+    block so an interactive TUI receives it without per-line submit."""
+
+    def test_cmux_paste_text_stages_buffer_then_pastes_to_surface(self):
+        backend = CmuxBackend()
+        calls: list[list[str]] = []
+
+        def fake_run(cmd, capture=True):
+            calls.append(cmd)
+            return _ok("")
+
+        prompt = "line one\nline two\nline three"
+        with patch("atdd.coach.utils.multiplexer._run", side_effect=fake_run):
+            backend.paste_text("surface:5", prompt)
+
+        # set-buffer stages the (multi-line) text verbatim ...
+        assert calls[0][:2] == ["cmux", "set-buffer"]
+        assert calls[0][2] == prompt
+        # ... then paste-buffer targets the surface.
+        assert calls[1][:2] == ["cmux", "paste-buffer"]
+        assert "--surface" in calls[1]
+        assert calls[1][calls[1].index("--surface") + 1] == "surface:5"
+
+    def test_cmux_paste_text_workspace_ref(self):
+        backend = CmuxBackend()
+        calls: list[list[str]] = []
+
+        with patch(
+            "atdd.coach.utils.multiplexer._run",
+            side_effect=lambda cmd, capture=True: calls.append(cmd) or _ok(""),
+        ):
+            backend.paste_text("workspace:2", "hello")
+
+        assert calls[1][:2] == ["cmux", "paste-buffer"]
+        assert "--workspace" in calls[1]
+
+    def test_tmux_paste_text_uses_set_buffer_and_bracketed_paste(self):
+        from atdd.coach.utils.multiplexer import TmuxBackend
+
+        backend = TmuxBackend()
+        calls: list[list[str]] = []
+
+        with patch(
+            "atdd.coach.utils.multiplexer._run",
+            side_effect=lambda cmd, capture=True: calls.append(cmd) or _ok(""),
+        ):
+            backend.paste_text("sess:0", "a\nb")
+
+        assert calls[0][:2] == ["tmux", "set-buffer"]
+        assert calls[0][2] == "a\nb"
+        assert calls[1][:2] == ["tmux", "paste-buffer"]
+        # -p = bracketed paste (one block); -t targets the pane.
+        assert "-p" in calls[1]
+        assert "-t" in calls[1]
+        assert calls[1][calls[1].index("-t") + 1] == "sess:0"
+
+    def test_every_backend_implements_paste_text(self):
+        """paste_text is an abstract method — all concrete backends + the
+        FakeMultiplexer must implement it (ratchet for #699 Wave-A adapters
+        and any future backend)."""
+        from atdd.coach.utils.multiplexer import (
+            CmuxBackend,
+            TmuxBackend,
+            ZellijBackend,
+            FakeMultiplexer,
+        )
+
+        for cls in (CmuxBackend, TmuxBackend, ZellijBackend, FakeMultiplexer):
+            assert "paste_text" in cls.__dict__ or any(
+                "paste_text" in base.__dict__
+                for base in cls.__mro__
+                if base.__name__ != "MultiplexerBackend"
+            ), f"{cls.__name__} does not implement paste_text"
+
+    def test_fake_multiplexer_records_paste_text(self):
+        from atdd.coach.utils.multiplexer import FakeMultiplexer
+
+        fake = FakeMultiplexer()
+        fake.paste_text("surface:1", "multi\nline")
+        paste_calls = [c for c in fake.calls if c["op"] == "paste_text"]
+        assert len(paste_calls) == 1
+        assert paste_calls[0]["text"] == "multi\nline"
