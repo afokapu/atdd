@@ -280,12 +280,6 @@ class CmuxBackend(MultiplexerBackend):
                     f"cmux new-pane: no default surface found in {pane_ref}: "
                     f"{(surfaces_result.stdout or '').strip()!r}"
                 )
-            if name:
-                # Rename the default surface to the desired name.
-                _run(
-                    ["cmux", "rename-tab", "--surface", surface_ref, name],
-                    capture=False,
-                )
         else:
             # Existing pane: add a new surface as a tab.
             new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
@@ -298,17 +292,30 @@ class CmuxBackend(MultiplexerBackend):
                     f"cmux new-surface returned no surface ref: {(surface_result.stdout or '').strip()!r}"
                 )
 
-        if cwd or command:
-            seed_parts = []
-            if cwd:
-                seed_parts.append(f"cd {cwd}")
-            if command:
-                seed_parts.append(command)
-            seed_text = " && ".join(seed_parts) + "\n"
-            _run(
-                ["cmux", "send", "--surface", surface_ref, seed_text],
-                capture=False,
-            )
+        # Transactional spawn (#655): the pane/surface now exists. If the
+        # rename or seed step fails, close it before propagating the error so
+        # the failed attempt leaves no orphan pane.
+        try:
+            if creating_new_pane and name:
+                # Rename the default surface to the desired name.
+                _run(
+                    ["cmux", "rename-tab", "--surface", surface_ref, name],
+                    capture=False,
+                )
+            if cwd or command:
+                seed_parts = []
+                if cwd:
+                    seed_parts.append(f"cd {cwd}")
+                if command:
+                    seed_parts.append(command)
+                seed_text = " && ".join(seed_parts) + "\n"
+                _run(
+                    ["cmux", "send", "--surface", surface_ref, seed_text],
+                    capture=False,
+                )
+        except Exception:
+            self._close_quietly(surface_ref)
+            raise
 
         return surface_ref
 
@@ -416,6 +423,20 @@ class CmuxBackend(MultiplexerBackend):
             _run(["cmux", "close-surface", "--surface", ref], capture=False)
             return
         _run(["cmux", "close-workspace", "--workspace", ref], capture=False)
+
+    def _close_quietly(self, ref: MultiplexerRef) -> None:
+        """Close a half-created surface during spawn-failure cleanup (#655).
+
+        Never raises: orphan-pane cleanup must not mask the original spawn
+        error that triggered it.
+        """
+        try:
+            self.close(ref)
+        except MultiplexerError as exc:
+            print(
+                f"⚠️  orphan-pane cleanup could not close {ref}: {exc}",
+                file=sys.stderr,
+            )
 
     def rename(self, ref: MultiplexerRef, name: str) -> None:
         """Rename a cmux surface/workspace tab title (issue #470).
