@@ -1,0 +1,76 @@
+urn: "wmbt:integration-hardening:C005"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "coach-phase-advances-triggered-by-a-stale-done-json-from-a-prior-run"
+context_clarifier: "when a fresh RuntimeWatcher starts with an empty _snapshots map and a pre-existing done.json (left in the dispatched persona's worktree runtime by an earlier coach run) is treated by the first scan as newly-written, so _emit_done fires agent_done and _cold_start_proposed_transition advances the phase before the freshly-dispatched persona has produced any work — the regression observed in coach-run-690-cb0a26c9 advancing PLANNED->RED in 9 s (#711, precision flaw in #708)"
+lens: "functional.effectiveness"
+statement: "minimize quantity of coach-phase-advances-triggered-by-a-stale-done-json-from-a-prior-run by having RuntimeWatcher establish a dispatch-time baseline — every runtime file present when the coach dispatches the current-phase persona is recorded as already-seen, so a pre-existing (stale) done.json is never emitted as a new agent_done event and only a done.json written after dispatch can satisfy the advance gate (#711, precision flaw in #708)"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:C005-INTEGRATION-001-stale-done-json-does-not-advance"
+      id: "AC-INTEGRATION-001"
+      purpose: "A done.json present in the dispatched persona's runtime dir before the current persona is dispatched does NOT cause the coach to advance the phase on the watcher's first scan (finalizes provisional acc:coach:STALEDONE-001)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp runtime dir .atdd/runtime/agents/<agent-id>/ already contains a done.json whose mtime is earlier than the current dispatch time (a stale file left by a prior run)"
+        - "A fresh RuntimeWatcher instance is constructed over that runtime dir with an empty _snapshots map and baselined at dispatch time"
+        - "The coach has dispatched the current-phase persona and recorded its agent_id; the coach StateMachine is at PLANNED"
+    when:
+      abstract: "RuntimeWatcher runs its first scan over the runtime dir before the dispatched persona writes anything"
+    then:
+      abstract:
+        - "Zero agent_done events are emitted for the stale done.json on the first scan"
+        - "_cold_start_proposed_transition either is not invoked or returns without proposing a transition"
+        - "The coach StateMachine.phase is still PLANNED after the scan — unchanged from before the scan"
+    metadata:
+      author: "atdd:planner-711"
+      created: "2026-05-15"
+  - identity:
+      urn: "acc:integration-hardening:C005-INTEGRATION-002-current-persona-done-advances-once"
+      id: "AC-INTEGRATION-002"
+      purpose: "After dispatch, the currently-dispatched persona writing a fresh done.json triggers exactly one agent_done event and exactly one phase advance, even when a stale done.json was also present (finalizes provisional acc:coach:STALEDONE-002)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A RuntimeWatcher baselined at dispatch time over the dispatched persona's runtime dir, which also contains a pre-existing stale done.json"
+        - "The coach has recorded the dispatched persona's agent_id for the current phase; the coach StateMachine is at PLANNED"
+    when:
+      abstract: "The dispatched persona writes a fresh done.json (mtime after the dispatch baseline) and the watcher scans, then the watcher scans a second time with no new done.json"
+    then:
+      abstract:
+        - "Exactly one agent_done event is emitted across both scans, and it carries the dispatched persona's agent_id"
+        - "_cold_start_proposed_transition proposes exactly one phase transition"
+        - "The coach StateMachine.phase advances by exactly one phase (PLANNED -> RED); the second scan emits zero further agent_done events"
+    metadata:
+      author: "atdd:planner-711"
+      created: "2026-05-15"
+  - identity:
+      urn: "acc:integration-hardening:C005-SMOKE-001-coach-run-no-premature-advance-on-seeded-stale-done"
+      id: "AC-SMOKE-001"
+      purpose: "Against real infrastructure — a real RuntimeWatcher and real CoachEventQueue over a real on-disk runtime tree, no mocks or substituted collaborators — a stale done.json present at dispatch-time baseline does NOT surface as an agent_done event, while a done.json written after the baseline DOES; proving the baseline guard holds on the real filesystem the coach uses"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real .atdd/runtime/agents/ tree on a real (tmp) filesystem, seeded with a stale done.json under a prior-run persona dir"
+        - "A real RuntimeWatcher and real CoachEventQueue constructed over that runtime dir — no mocked watcher, no mocked queue, no substituted collaborators"
+    when:
+      abstract: "RuntimeWatcher.baseline() is called at dispatch time, then scan_once() runs; afterwards a fresh done.json is written under the current-run persona dir and scan_once() runs again"
+    then:
+      abstract:
+        - "The post-baseline first scan emits zero agent_done events for the stale done.json — the real CoachEventQueue is empty"
+        - "After the fresh done.json is written, the next real scan emits exactly one agent_done event carrying the current-run persona's agent_id"
+        - "No mocking library and no collaborator substitution is used anywhere in the test (genuine real-infrastructure smoke per smoke.convention.yaml)"
+    metadata:
+      author: "atdd:planner-711"
+      created: "2026-05-15"
