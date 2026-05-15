@@ -112,25 +112,25 @@ def test_real_drive_writes_decisions_jsonl_to_real_path(
     runtime_dir.mkdir(parents=True)
 
     # Stub only genuine external service boundaries (no MagicMock):
-    monkeypatch.setattr(
+    monkeypatch.setattr(  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-15
         spawn_handler,
         "_call_spawn",
         lambda ctx, persona, phase, llm, prompt, wt, agent_id, rr: {"surface_ref": "stub"},
     )
-    monkeypatch.setattr(
+    monkeypatch.setattr(  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-15
         spawn_handler, "_load_persona_prompt", lambda p, ph, **kw: "stub-prompt"
     )
     wt = tmp_path / "worktree"
     wt.mkdir()
-    monkeypatch.setattr(spawn_handler, "_resolve_worktree", lambda ctx: wt)
-    monkeypatch.setattr(spawn_handler, "_RUNTIME_ROOT", runtime_dir)
-    monkeypatch.setattr(
+    monkeypatch.setattr(spawn_handler, "_resolve_worktree", lambda ctx: wt)  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-15
+    monkeypatch.setattr(spawn_handler, "_RUNTIME_ROOT", runtime_dir)  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-15
+    monkeypatch.setattr(  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-15
         tpc_handler, "_create_pr", lambda issue_number: True
     )
-    monkeypatch.setattr(
+    monkeypatch.setattr(  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-15
         tpc_handler, "_merge_pr", lambda: (True, "")
     )
-    monkeypatch.setattr(
+    monkeypatch.setattr(  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-15
         tpc_handler, "_find_worktree_for_issue", lambda n: None
     )
 
@@ -212,7 +212,7 @@ def test_real_watcher_event_loop_with_real_queue(
         def persist_checkpoint(self) -> None:
             pass
 
-    monkeypatch.setattr(
+    monkeypatch.setattr(  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-15
         "atdd.coach.handlers.watcher.RuntimeWatcher", _StubRuntimeWatcher
     )
 
