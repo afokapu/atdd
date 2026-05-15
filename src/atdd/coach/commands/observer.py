@@ -454,9 +454,55 @@ def _make_validator_failure_ignored_predicate() -> Predicate:
     return predicate
 
 
+def _resolve_python_callable(spec: str):
+    """Resolve a ``module:attr`` spec to the referenced object.
+
+    Used by the ``python`` trigger type so absorbed-from-babysit rules
+    (#513) and future python-coded predicates can declare themselves in
+    YAML without re-implementing their logic in regex.
+    """
+    if not isinstance(spec, str) or ":" not in spec:
+        raise ValueError(
+            f"python trigger 'callable' must be 'module:attr', got {spec!r}"
+        )
+    module_path, attr = spec.split(":", 1)
+    import importlib
+
+    module = importlib.import_module(module_path)
+    try:
+        return getattr(module, attr)
+    except AttributeError as exc:
+        raise ValueError(
+            f"python trigger callable {spec!r} not found: {exc}"
+        ) from exc
+
+
 def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
     if not isinstance(payload, dict):
         raise ValueError("rule YAML must be a mapping at the top level")
+
+    trigger = payload.get("trigger") or {}
+    if not isinstance(trigger, dict):
+        raise ValueError("'trigger' must be a mapping")
+    trig_type = trigger.get("type", "log_regex")
+
+    # The 'python' trigger delegates rule construction to the referenced
+    # module's ``build_rule()`` factory, which owns rule_id + predicate +
+    # correction_text. The YAML file is purely a registry pointer.
+    if trig_type == "python":
+        builder_spec = trigger.get("builder")
+        if not isinstance(builder_spec, str) or not builder_spec:
+            raise ValueError("python trigger missing 'builder' (module:attr)")
+        builder = _resolve_python_callable(builder_spec)
+        rule = builder()
+        if not isinstance(rule, ObserverRule):
+            raise ValueError(
+                f"python builder {builder_spec!r} must return ObserverRule, "
+                f"got {type(rule).__name__}"
+            )
+        rule.source_path = source_path
+        return rule
+
     rule_id = payload.get("rule_id")
     if not isinstance(rule_id, str) or not rule_id:
         raise ValueError("rule YAML missing required string field 'rule_id'")
@@ -465,10 +511,6 @@ def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
     if not isinstance(correction_text, str) or not correction_text:
         raise ValueError("rule YAML missing required string 'correction_text'")
 
-    trigger = payload.get("trigger") or {}
-    if not isinstance(trigger, dict):
-        raise ValueError("'trigger' must be a mapping")
-    trig_type = trigger.get("type", "log_regex")
     if trig_type == "log_regex":
         pattern = trigger.get("pattern")
         if not isinstance(pattern, str) or not pattern:
