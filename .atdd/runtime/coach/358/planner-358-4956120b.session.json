@@ -1,0 +1,10 @@
+{
+  "issue": 358,
+  "agent_id": "planner-358-4956120b",
+  "canonical_name": "ATDD358-feat-presentation-ratchet-smoke-gate",
+  "cmux_surface": "OK workspace:30",
+  "claude_resume_uuid": "91a4d4cb-9f05-4ff5-93e7-564d6238906a",
+  "spawned_at": "2026-05-15T02:41:30.138351Z",
+  "persona": "planner",
+  "phase": "planned"
+}
