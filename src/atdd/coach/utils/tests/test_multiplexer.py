@@ -84,9 +84,12 @@ def _ok(stdout: str) -> subprocess.CompletedProcess:
 
 
 class TestCmuxNewSurface:
-    def test_passes_clean_pane_ref_to_new_surface(self):
-        """new_surface must extract `pane:N` from `cmux new-pane` output and
-        pass it (not the full OK-line) to `cmux new-surface --pane ...`.
+    def test_reuses_default_surface_from_new_pane(self):
+        """Bug #5 (#697): new_surface must REUSE the auto-default surface that
+        `cmux new-pane` creates, rather than calling `cmux new-surface` and
+        orphaning the default. Verified via: list-pane-surfaces is queried,
+        rename-tab is called, and `cmux new-surface` is NOT called when
+        creating a new pane.
         """
         backend = CmuxBackend()
         calls: list[list[str]] = []
@@ -95,27 +98,36 @@ class TestCmuxNewSurface:
             calls.append(cmd)
             if cmd[:2] == ["cmux", "new-pane"]:
                 return _ok("OK surface:120 pane:33 workspace:17\n")
-            if cmd[:2] == ["cmux", "new-surface"]:
-                return _ok("OK surface:121 workspace:17\n")
+            if cmd[:2] == ["cmux", "list-pane-surfaces"]:
+                return _ok("OK surface:120 name:Terminal\n")
             return _ok("")
 
         with patch("atdd.coach.utils.multiplexer._run", side_effect=fake_run):
             ref = backend.new_surface(workspace_ref="workspace:17", name="issue-396")
 
-        assert ref == "surface:121"
+        assert ref == "surface:120", (
+            "expected the auto-default surface from new-pane to be reused, "
+            f"got {ref!r}"
+        )
 
         new_pane_call = calls[0]
         assert new_pane_call == ["cmux", "new-pane", "--workspace", "workspace:17"]
 
-        new_surface_call = calls[1]
-        assert "--pane" in new_surface_call
-        pane_arg = new_surface_call[new_surface_call.index("--pane") + 1]
-        assert pane_arg == "pane:33", (
-            f"expected clean `pane:33`, got {pane_arg!r} "
-            "(regression: full OK-line leaked through)"
+        list_call = calls[1]
+        assert list_call[:2] == ["cmux", "list-pane-surfaces"]
+        assert "--pane" in list_call
+        assert list_call[list_call.index("--pane") + 1] == "pane:33"
+
+        rename_call = calls[2]
+        assert rename_call[:2] == ["cmux", "rename-tab"]
+        assert "--surface" in rename_call
+        assert rename_call[rename_call.index("--surface") + 1] == "surface:120"
+        assert "issue-396" in rename_call
+
+        assert not any(c[:2] == ["cmux", "new-surface"] for c in calls), (
+            "Bug #5 regression: cmux new-surface was called for a fresh pane "
+            "(default surface should have been reused)"
         )
-        assert "--name" in new_surface_call
-        assert new_surface_call[new_surface_call.index("--name") + 1] == "issue-396"
 
     def test_uses_provided_pane_ref_without_creating_new_pane(self):
         backend = CmuxBackend()
@@ -143,8 +155,8 @@ class TestCmuxNewSurface:
             calls.append(cmd)
             if cmd[:2] == ["cmux", "new-pane"]:
                 return _ok("OK surface:1 pane:2 workspace:3\n")
-            if cmd[:2] == ["cmux", "new-surface"]:
-                return _ok("OK surface:4 workspace:3\n")
+            if cmd[:2] == ["cmux", "list-pane-surfaces"]:
+                return _ok("OK surface:1 name:Terminal\n")
             return _ok("")
 
         with patch("atdd.coach.utils.multiplexer._run", side_effect=fake_run):
@@ -154,9 +166,9 @@ class TestCmuxNewSurface:
                 command="claude --dangerously-skip-permissions",
             )
 
-        assert ref == "surface:4"
+        assert ref == "surface:1"
         seed_call = calls[-1]
-        assert seed_call[:4] == ["cmux", "send", "--surface", "surface:4"]
+        assert seed_call[:4] == ["cmux", "send", "--surface", "surface:1"]
         assert seed_call[4] == "cd /tmp/wt && claude --dangerously-skip-permissions\n"
 
     def test_raises_when_pane_ref_cannot_be_extracted(self):
@@ -176,11 +188,38 @@ class TestCmuxNewSurface:
 
         def fake_run(cmd, capture=True):
             if cmd[:2] == ["cmux", "new-pane"]:
-                return _ok("OK surface:1 pane:2 workspace:3\n")
-            if cmd[:2] == ["cmux", "new-surface"]:
+                return _ok("OK pane:2 workspace:3\n")
+            if cmd[:2] == ["cmux", "list-pane-surfaces"]:
                 return _ok("ERROR\n")
             return _ok("")
 
         with patch("atdd.coach.utils.multiplexer._run", side_effect=fake_run):
             with pytest.raises(MultiplexerError, match="surface"):
                 backend.new_surface(workspace_ref="workspace:3")
+
+    def test_existing_pane_ref_still_adds_new_surface(self):
+        """When given an existing pane_ref (e.g. observer cospawn via
+        new_surface_in_pane), continue to add a tab via cmux new-surface.
+        The Bug #5 fix only applies to fresh-pane creation.
+        """
+        backend = CmuxBackend()
+        calls: list[list[str]] = []
+
+        def fake_run(cmd, capture=True):
+            calls.append(cmd)
+            if cmd[:2] == ["cmux", "new-surface"]:
+                return _ok("OK surface:42 workspace:3\n")
+            return _ok("")
+
+        with patch("atdd.coach.utils.multiplexer._run", side_effect=fake_run):
+            ref = backend.new_surface(pane_ref="pane:7", name="ATDD999-red:obs")
+
+        assert ref == "surface:42"
+        assert calls[0][:2] == ["cmux", "new-surface"]
+        assert "--pane" in calls[0]
+        assert calls[0][calls[0].index("--pane") + 1] == "pane:7"
+        assert "--name" in calls[0]
+        assert calls[0][calls[0].index("--name") + 1] == "ATDD999-red:obs"
+        # Should NOT call new-pane or list-pane-surfaces in this path
+        assert not any(c[:2] == ["cmux", "new-pane"] for c in calls)
+        assert not any(c[:2] == ["cmux", "list-pane-surfaces"] for c in calls)
