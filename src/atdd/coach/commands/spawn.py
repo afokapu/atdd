@@ -50,6 +50,7 @@ from atdd.coach.utils.session_naming_apply import (
     apply_canonical_name_and_layout,
     capture_session_uuid,
 )
+from atdd.coach.utils.multiplexer import MultiplexerError
 
 # Canonical rule-ID emitted on every spawn (spec §5.2 / §7.1). Observers
 # bind on this anchor to correlate spawn-time decisions with downstream
@@ -65,10 +66,15 @@ PERSONAS: tuple[str, ...] = ("planner", "tester", "coder", "reviewer")
 
 
 def _claude_code_adapter(prompt_path: Path) -> str:
-    """Spec §5.2: shell out to ``claude`` with the rendered launch prompt
-    inlined via ``$(cat <prompt>)``. The shell expands the substitution
-    inside the multiplexer surface so claude receives the full prompt as
-    one argv element.
+    """Spec §5.2: shell out to ``claude`` to start an interactive session.
+
+    The launch prompt is NOT passed as a positional argv element. Claude
+    Code v2.1.x ignores a positional ``prompt`` argument in interactive
+    mode (it is only consumed by ``-p/--print`` headless mode) — passing
+    it produced an idle session with no task (#702). The prompt is instead
+    injected post-boot by ``cmd_spawn`` via ``backend.paste_text`` +
+    ``send_key("Enter")``. ``prompt_path`` is retained in the signature for
+    adapter-registry uniformity.
 
     Permission policy: ``--permission-mode acceptEdits --allowedTools
     "Bash Edit Write Read TodoWrite Glob Grep WebFetch"`` is the sanctioned
@@ -76,11 +82,11 @@ def _claude_code_adapter(prompt_path: Path) -> str:
     rule). Tool-level allowlist gives autonomous flow without skipping
     the permission system entirely.
     """
+    _ = prompt_path  # injected post-boot, not via argv — see docstring
     allowed_tools = "Bash Edit Write Read TodoWrite Glob Grep WebFetch"
     return (
         f'claude --permission-mode acceptEdits '
-        f'--allowedTools "{allowed_tools}" '
-        f'"$(cat {prompt_path})"'
+        f'--allowedTools "{allowed_tools}"'
     )
 
 
@@ -352,6 +358,27 @@ def cmd_spawn(
         canonical_name=canonical_name,
         surface_count=1,
     )
+
+    # Inject the launch prompt as the first interactive message (#702).
+    # Claude Code v2.1.x ignores a positional prompt arg in interactive
+    # mode, so the prompt — rendered to <worktree>/.launch_prompt.txt —
+    # must be pasted post-boot. paste_text uses bracketed paste so the
+    # multi-line prompt lands as ONE input block (newlines stay literal);
+    # send_key submits it. The /rename injection inside
+    # apply_canonical_name_and_layout ran immediately before and reaches
+    # claude reliably, so the surface is ready for the paste.
+    try:
+        backend.paste_text(surface_ref, prompt_path.read_text())
+        backend.send_key(surface_ref, "Enter")
+    except (MultiplexerError, OSError, AttributeError) as exc:
+        # AttributeError tolerates partial backends (test fakes) that do
+        # not implement paste_text — mirrors apply_canonical_name_and_layout.
+        print(
+            f"⚠️  launch-prompt injection failed for {surface_ref}: {exc} "
+            f"({SPAWN_RULE_ID})",
+            file=sys.stderr,
+        )
+
     capture_session_uuid(
         backend=backend,
         ref=surface_ref,

@@ -107,6 +107,24 @@ class MultiplexerBackend(ABC):
     def send_key(self, ref: MultiplexerRef, key: str) -> None:
         """Send a key press (e.g. 'Enter', 'C-c') to the workspace or surface."""
 
+    def paste_text(self, ref: MultiplexerRef, text: str) -> None:
+        """Paste multi-line text as a single input block.
+
+        Unlike ``send``, embedded newlines must stay literal and NOT
+        submit. This is required to inject a multi-line launch prompt
+        into an interactive TUI (e.g. Claude Code) — a plain per-line
+        ``send`` would submit the input box on the first newline.
+        Callers issue a separate ``send_key(ref, "Enter")`` to submit
+        once the full block has landed.
+
+        Default falls back to ``send`` (which does NOT preserve the
+        no-submit semantic). Every concrete backend that drives a real
+        terminal — cmux, tmux, zellij — overrides this with its native
+        bracketed-paste primitive. The fallback exists only so partial
+        test doubles need not implement it.
+        """
+        self.send(ref, text)
+
     @abstractmethod
     def list_workspaces(self) -> list[str]:
         """List all known workspace references."""
@@ -383,6 +401,17 @@ class CmuxBackend(MultiplexerBackend):
             return
         _run(["cmux", "send-key", "--workspace", ref, key], capture=False)
 
+    def paste_text(self, ref: MultiplexerRef, text: str) -> None:
+        # Stage the text in the cmux buffer, then bracketed-paste it into the
+        # surface so multi-line content lands as one input block (newlines
+        # stay literal, no premature submit). Verified end-to-end 2026-05-15
+        # against Claude Code v2.1.142.
+        _run(["cmux", "set-buffer", text], capture=False)
+        if _is_surface_ref(ref):
+            _run(["cmux", "paste-buffer", "--surface", ref], capture=False)
+            return
+        _run(["cmux", "paste-buffer", "--workspace", ref], capture=False)
+
     def list_workspaces(self) -> list[str]:
         result = _run(["cmux", "list-workspaces"])
         return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
@@ -486,6 +515,16 @@ class TmuxBackend(MultiplexerBackend):
 
     def send_key(self, workspace_ref: str, key: str) -> None:
         _run(["tmux", "send-keys", "-t", workspace_ref, key], capture=False)
+
+    def paste_text(self, workspace_ref: str, text: str) -> None:
+        # tmux set-buffer stages the text; paste-buffer -p uses bracketed
+        # paste so a multi-line TUI input box receives it as one block.
+        # -d deletes the buffer after pasting to avoid buffer-stack growth.
+        _run(["tmux", "set-buffer", text], capture=False)
+        _run(
+            ["tmux", "paste-buffer", "-d", "-p", "-t", workspace_ref],
+            capture=False,
+        )
 
     def list_workspaces(self) -> list[str]:
         result = _run(["tmux", "list-sessions", "-F", "#{session_name}"])
@@ -615,6 +654,21 @@ class ZellijBackend(MultiplexerBackend):
 
     def send_key(self, workspace_ref: str, key: str) -> None:
         cmd = ["zellij", "action", "send-keys", key]
+        env = {**os.environ, "ZELLIJ_SESSION_NAME": workspace_ref}
+        try:
+            subprocess.run(cmd, check=True, env=env)
+        except FileNotFoundError as exc:
+            raise MultiplexerError("binary not found: zellij") from exc
+        except subprocess.CalledProcessError as exc:
+            raise MultiplexerError(
+                f"{' '.join(cmd)} failed (exit {exc.returncode})"
+            ) from exc
+
+    def paste_text(self, workspace_ref: str, text: str) -> None:
+        # zellij has no buffer/paste-buffer primitive; `action write-chars`
+        # writes literal characters (newlines included) without submitting,
+        # which is exactly the bracketed-paste semantic paste_text needs.
+        cmd = ["zellij", "action", "write-chars", text]
         env = {**os.environ, "ZELLIJ_SESSION_NAME": workspace_ref}
         try:
             subprocess.run(cmd, check=True, env=env)
@@ -791,6 +845,9 @@ class FakeMultiplexer(MultiplexerBackend):
 
     def send_key(self, ref: MultiplexerRef, key: str) -> None:
         self.calls.append({"op": "send_key", "ref": ref, "key": key})
+
+    def paste_text(self, ref: MultiplexerRef, text: str) -> None:
+        self.calls.append({"op": "paste_text", "ref": ref, "text": text})
 
     def list_workspaces(self) -> list[str]:
         return [c["ref"] for c in self.calls if c.get("op") in ("new_workspace",)]
