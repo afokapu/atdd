@@ -99,6 +99,20 @@ def _agent_dir(agent_id: str, runtime_root: Optional[Path]) -> Path:
     return d
 
 
+def _derive_persona_agent_id(agent_id: str) -> str:
+    """The persona an observer watches: its agent_id minus the
+    ``-observer`` suffix (#713 Layer 1).
+
+    A bare id — the L1 generic per-agent watcher — has no suffix and
+    watches that agent directly, so it is returned unchanged.
+    """
+    if agent_id.endswith(_OBSERVER_SUFFIX) and len(agent_id) > len(
+        _OBSERVER_SUFFIX
+    ):
+        return agent_id[: -len(_OBSERVER_SUFFIX)]
+    return agent_id
+
+
 # ---------------------------------------------------------------------------
 # Correction record
 # ---------------------------------------------------------------------------
@@ -794,15 +808,8 @@ class Observer:
         self.agent_dir = self.runtime_dir / "agents" / agent_id
         self.agent_dir.mkdir(parents=True, exist_ok=True)
         # #713 Layer 1: collect_input must read the PERSONA's runtime dir,
-        # not the observer's own. Derive the persona id by stripping the
-        # `-observer` suffix; a bare id (the L1 generic per-agent watcher)
-        # watches that agent directly.
-        if agent_id.endswith(_OBSERVER_SUFFIX) and len(agent_id) > len(
-            _OBSERVER_SUFFIX
-        ):
-            self.persona_agent_id = agent_id[: -len(_OBSERVER_SUFFIX)]
-        else:
-            self.persona_agent_id = agent_id
+        # not the observer's own.
+        self.persona_agent_id = _derive_persona_agent_id(agent_id)
         self.persona_dir = self.runtime_dir / "agents" / self.persona_agent_id
         self.surface_capture = surface_capture
         self.registry = RuleRegistry()
