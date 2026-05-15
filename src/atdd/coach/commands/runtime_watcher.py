@@ -31,6 +31,7 @@ _RUNTIME_FILES: tuple[str, ...] = (
     "events.jsonl",
     "escalations.jsonl",
     "corrections.jsonl",
+    "done.json",
 )
 
 
@@ -131,7 +132,33 @@ class RuntimeWatcher:
             return self._emit_corrections_jsonl(agent_id, path)
         if path.name == "escalations.jsonl":
             return self._emit_escalations_jsonl(agent_id, path)
+        if path.name == "done.json":
+            return self._emit_done(agent_id, path)
         return 0
+
+    def _emit_done(self, agent_id: str, path: Path) -> int:
+        """Emit an ``agent_done`` event when a persona writes ``done.json``.
+
+        #708: the persona's ``done.json`` is its phase-completion signal.
+        The coach's cold-start loop advances on this event — the
+        ``agent_id`` carries the issue + persona, so no commit trailers
+        are needed (see ``coach.py::_cold_start_proposed_transition``).
+        """
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            data = {}
+        event = {
+            "event_type": "agent_done",
+            "agent_id": agent_id,
+            "timestamp": _now_iso(),
+            "payload": {
+                "summary": data.get("summary"),
+                "done_timestamp": data.get("timestamp"),
+                "source_file": "done.json",
+            },
+        }
+        return 1 if self.queue.put(event) else 0
 
     def _emit_heartbeat(self, agent_id: str, path: Path) -> int:
         try:
