@@ -2,11 +2,12 @@ urn: "feature:observe-and-correct:observer-runtime-and-rules"
 wagon: "wagon:observe-and-correct"
 description: "Event-driven observer sidecar runtime plus the full set of 17 default detection rules from spec §8.3. Delivers `atdd observer run/attach`, three correction injection paths (CLI return-path, multiplexer send-keys, kill-and-respawn), the `.atdd/observer/rules/*.yaml` registry, and the rule implementations for: 01-unstructured-question, 02-token-silence, 03-completion-claim-without-commit, 04-out-of-scope-edit, 05-missed-heartbeat, 06-token-threshold, 08-reviewer-edit-attempt, 09-validator-failure-ignored, 10-stale-suppression-detected, 11-unbound-rule-id-in-validator, 12-rule-id-grammar-violation, 13-bash-auto-approve, 14-canonical-naming-drift, 15-layout-drift, 16-smoke-skip, 17-repo-rule-disposition-declared. Rule failure isolation, alphabetical-but-order-independent loading, and per-rule fault surfacing are first-class."
 sizing:
-  wmbts: 5
-  footprint_score: 18
+  wmbts: 6
+  footprint_score: 22
   footprint_size: "L"
 wmbts:
   - "wmbt:observe-and-correct:P001"
+  - "wmbt:observe-and-correct:P002"
   - "wmbt:observe-and-correct:M001"
   - "wmbt:observe-and-correct:M002"
   - "wmbt:observe-and-correct:M003"
@@ -21,6 +22,9 @@ components:
       - type: "use_cases"
         count: 4
         rationale: "Tail-and-detect loop, correction-injection dispatcher, rule-registry loader with fault isolation, and per-rule evaluation orchestrator"
+      - type: "use_cases"
+        count: 4
+        rationale: "Issue #713 input acquisition: persona-dir resolver, multiplexer surface-capture into output.log, ObservedInput field population (now/last_token_at/heartbeat_mtime), and the universal observer status-line renderer"
     domain:
       - type: "value_objects"
         count: 17
