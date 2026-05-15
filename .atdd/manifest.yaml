@@ -930,3 +930,11 @@ sessions:
   status: INIT
   created: '2026-05-15'
   archived: null
+- id: '699'
+  slug: register-llm-adapter-flavors
+  file: null
+  issue_number: 699
+  type: implementation
+  status: INIT
+  created: '2026-05-15'
+  archived: null
