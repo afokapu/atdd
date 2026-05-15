@@ -864,8 +864,8 @@ class Observer:
             events=(),
             worktree_changes=tuple(self._scan_worktree()),
             now=time.time(),
-            last_token_at=self._persona_last_token_at(),
-            heartbeat_mtime=self._persona_heartbeat_mtime(),
+            last_token_at=self._persona_file_mtime("output.log"),
+            heartbeat_mtime=self._persona_file_mtime("heartbeat.json"),
         )
 
     def _acquire_surface(self) -> None:
@@ -892,19 +892,14 @@ class Observer:
         ) as fh:
             fh.write(captured if captured.endswith("\n") else captured + "\n")
 
-    def _persona_last_token_at(self) -> Optional[float]:
-        """mtime of the persona's output.log — the last time tokens moved."""
-        log_path = self.persona_dir / "output.log"
-        if not log_path.exists():
+    def _persona_file_mtime(self, filename: str) -> Optional[float]:
+        """mtime of a file in the persona's runtime dir, or None when
+        absent — feeds the time/token fields the silence (02) and
+        missed-heartbeat (05) predicates need (#713 Layer 2)."""
+        path = self.persona_dir / filename
+        if not path.exists():
             return None
-        return log_path.stat().st_mtime
-
-    def _persona_heartbeat_mtime(self) -> Optional[float]:
-        """mtime of the persona's heartbeat.json, or None when absent."""
-        hb_path = self.persona_dir / "heartbeat.json"
-        if not hb_path.exists():
-            return None
-        return hb_path.stat().st_mtime
+        return path.stat().st_mtime
 
     def _tail_output_log(self) -> list[str]:
         # #713 Layer 1: read the PERSONA's output.log, not the observer's.
