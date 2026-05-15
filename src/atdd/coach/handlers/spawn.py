@@ -237,7 +237,12 @@ def _spawn_with_retries(
                 continue
             if attempt <= max_retries:
                 continue
-            return None
+            # Genuine failure, retry budget exhausted: leave the loop and
+            # return outside the handler. Returning a value from inside the
+            # except handler trips coder.logging.coach-silent-swallow.
+            break
+
+    return None
 
 
 def _escalate(ctx: CoachContext, reason: str) -> None:
