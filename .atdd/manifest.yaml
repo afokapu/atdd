@@ -938,3 +938,11 @@ sessions:
   status: INIT
   created: '2026-05-15'
   archived: null
+- id: '700'
+  slug: restore-observer-python-trigger-loader
+  file: null
+  issue_number: 700
+  type: cleanup
+  status: INIT
+  created: '2026-05-15'
+  archived: null
