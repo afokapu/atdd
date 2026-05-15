@@ -638,6 +638,12 @@ def _process_watcher_events(
     watch_runtime = _watcher_runtime_dir(ctx, runtime_dir)
     queue = CoachEventQueue(runtime_dir=runtime_dir)
     watcher = RuntimeWatcher(runtime_dir=watch_runtime, queue=queue)
+    # #711: baseline at dispatch time so a stale done.json (or any runtime
+    # file) left by a prior coach run is recorded as already-seen and is not
+    # emitted as new on the first scan — only post-dispatch writes advance
+    # the phase. Without this the coach raced PLANNED→RED in 9 s on a
+    # leftover done.json (coach-run-690-cb0a26c9).
+    watcher.baseline()
     watcher.start()
     events_processed = 0
 
