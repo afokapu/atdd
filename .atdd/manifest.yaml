@@ -922,3 +922,11 @@ sessions:
   status: INIT
   created: '2026-05-15'
   archived: null
+- id: '697'
+  slug: cmux-new-pane-default-surface-reuse
+  file: null
+  issue_number: 697
+  type: cleanup
+  status: INIT
+  created: '2026-05-15'
+  archived: null
