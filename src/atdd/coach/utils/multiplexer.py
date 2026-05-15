@@ -238,7 +238,13 @@ class CmuxBackend(MultiplexerBackend):
         name: Optional[str] = None,
         direction: Optional[str] = None,
     ) -> MultiplexerRef:
-        if pane_ref is None:
+        # Bug #5 fix (#697): `cmux new-pane` ALWAYS creates a default "Terminal"
+        # surface. Previously this code ignored it and added another surface,
+        # leaving 1 unused surface per spawn. Now: when creating a new pane,
+        # reuse its auto-default surface (rename + seed) instead of adding
+        # another. When given an existing pane_ref, add a tab as before.
+        creating_new_pane = pane_ref is None
+        if creating_new_pane:
             new_pane_cmd = ["cmux", "new-pane"]
             if workspace_ref:
                 new_pane_cmd.extend(["--workspace", workspace_ref])
@@ -253,16 +259,31 @@ class CmuxBackend(MultiplexerBackend):
                 raise MultiplexerError(
                     f"cmux new-pane returned no pane ref: {(pane_result.stdout or '').strip()!r}"
                 )
-
-        new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
-        if name:
-            new_surface_cmd.extend(["--name", name])
-        surface_result = _run(new_surface_cmd)
-        surface_ref = _extract_ref_token(surface_result.stdout or "", "surface")
-        if not surface_ref:
-            raise MultiplexerError(
-                f"cmux new-surface returned no surface ref: {(surface_result.stdout or '').strip()!r}"
-            )
+            # Reuse the auto-default surface that `cmux new-pane` creates.
+            surfaces_result = _run(["cmux", "list-pane-surfaces", "--pane", pane_ref])
+            surface_ref = _extract_ref_token(surfaces_result.stdout or "", "surface")
+            if not surface_ref:
+                raise MultiplexerError(
+                    f"cmux new-pane: no default surface found in {pane_ref}: "
+                    f"{(surfaces_result.stdout or '').strip()!r}"
+                )
+            if name:
+                # Rename the default surface to the desired name.
+                _run(
+                    ["cmux", "rename-tab", "--surface", surface_ref, name],
+                    capture=False,
+                )
+        else:
+            # Existing pane: add a new surface as a tab.
+            new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
+            if name:
+                new_surface_cmd.extend(["--name", name])
+            surface_result = _run(new_surface_cmd)
+            surface_ref = _extract_ref_token(surface_result.stdout or "", "surface")
+            if not surface_ref:
+                raise MultiplexerError(
+                    f"cmux new-surface returned no surface ref: {(surface_result.stdout or '').strip()!r}"
+                )
 
         if cwd or command:
             seed_parts = []
