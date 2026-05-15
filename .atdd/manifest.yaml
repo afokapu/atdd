@@ -946,3 +946,11 @@ sessions:
   status: INIT
   created: '2026-05-15'
   archived: null
+- id: '717'
+  slug: coach-new-workspace-ref-parsing
+  file: null
+  issue_number: 717
+  type: cleanup
+  status: INIT
+  created: '2026-05-15'
+  archived: null
