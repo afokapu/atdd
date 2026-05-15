@@ -4,21 +4,31 @@ Public surface:
   ``run_gc(argv)`` — entry point called by ``coach.run_cli``.
 
 Every failed or partial ``atdd coach`` spawn used to strand a cmux pane
-that defaulted its cwd label to ``~/Github/atdd`` and never got reclaimed
-(#655). The transactional spawn pipeline now prevents *new* leaks; this
-command retroactively cleans up the ones already accumulated.
+that defaulted its title to its fallback cwd (``~/Github/atdd``) and never
+got reclaimed (#655). The transactional spawn pipeline now prevents *new*
+leaks; this command retroactively cleans up the ones already accumulated.
 
-It reconciles live cmux surfaces in ``workspace:1`` against the surface
-refs recorded in ``.atdd/runtime/coach/*/decisions.jsonl``. A pane is an
-orphan when it carries the default ``~/Github/atdd`` cwd AND no decision
+It reconciles live cmux surfaces in a workspace against the surface refs
+recorded in ``.atdd/runtime/coach/*/decisions.jsonl``. A pane is an orphan
+when its panel label is the default ``~/Github/atdd`` cwd AND no decision
 references its surface. Conservative by default: ``--dry-run`` lists the
 orphans, ``--apply`` closes them.
 
 CLI examples::
 
-    atdd coach gc                 # list orphan panes (dry-run, default)
-    atdd coach gc --dry-run       # same — explicit
-    atdd coach gc --apply         # close the detected orphan panes
+    atdd coach gc                       # list orphan panes (dry-run, default)
+    atdd coach gc --dry-run             # same — explicit
+    atdd coach gc --apply               # close the detected orphan panes
+    atdd coach gc --workspace workspace:2   # target a non-default workspace
+
+Real cmux contract (cmux 0.63.2, verified #655 SMOKE):
+  ``cmux list-panels --workspace <ws>`` emits one line per surface::
+
+      * surface:511  terminal  [focused]  "/work/feat-x"
+        surface:512  terminal  "~/Github/atdd"
+
+  i.e. ``[*| ] surface:N  <type>  [<flags>...]  "<label>"`` — the cwd/title
+  is a quoted trailing string, NOT a ``cwd:<path>`` token.
 """
 from __future__ import annotations
 
@@ -31,9 +41,9 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-# MVP scope (#655): workspace:1 only.
-_WORKSPACE = "workspace:1"
 _SURFACE_RE = re.compile(r"\bsurface:\d+\b")
+# The panel label (cwd / title) is the quoted trailing string on the line.
+_LABEL_RE = re.compile(r'"([^"]*)"')
 
 
 def _build_gc_parser() -> argparse.ArgumentParser:
@@ -41,8 +51,14 @@ def _build_gc_parser() -> argparse.ArgumentParser:
         prog="atdd coach gc",
         description=(
             "Detect and clean up orphan cmux panes left by failed or partial "
-            "coach spawns in workspace:1."
+            "coach spawns."
         ),
+    )
+    p.add_argument(
+        "--workspace",
+        default="workspace:1",
+        metavar="REF",
+        help="cmux workspace to reconcile (default: workspace:1).",
     )
     group = p.add_mutually_exclusive_group()
     group.add_argument(
@@ -117,29 +133,26 @@ def _referenced_surface_refs(repo_root: Path) -> set[str]:
     return refs
 
 
-def _token_value(line: str, key: str) -> Optional[str]:
-    """Return the value of a ``key:value`` token in a cmux output line."""
-    prefix = f"{key}:"
-    for token in line.split():
-        if token.startswith(prefix):
-            return token[len(prefix):]
-    return None
-
-
-def _is_default_cwd(cwd: Optional[str]) -> bool:
+def _is_default_cwd(label: Optional[str]) -> bool:
     """A pane carries the default fallback cwd (~/Github/atdd) when its seed
-    command never ran. Conservative: an unknown cwd is NOT treated as default.
+    command never ran — its panel label is the bare repo path rather than a
+    canonical session name or worktree path. Conservative: an unknown label
+    is NOT treated as default.
     """
-    if not cwd:
+    if not label:
         return False
-    return cwd.rstrip("/").endswith("Github/atdd")
+    return label.rstrip("/").endswith("Github/atdd")
 
 
-def _list_panes() -> list[dict]:
-    """Live panes in workspace:1, parsed from ``cmux list-panels``."""
+def _list_panes(workspace: str) -> list[dict]:
+    """Live panes in ``workspace``, parsed from real ``cmux list-panels``.
+
+    Each line is ``[*| ] surface:N  <type>  [<flags>...]  "<label>"`` — the
+    label (cwd / title) is the quoted trailing string.
+    """
     try:
         result = subprocess.run(
-            ["cmux", "list-panels", "--workspace", _WORKSPACE],
+            ["cmux", "list-panels", "--workspace", workspace],
             capture_output=True,
             text=True,
         )
@@ -154,7 +167,10 @@ def _list_panes() -> list[dict]:
         match = _SURFACE_RE.search(line)
         if not match:
             continue
-        panes.append({"surface_ref": match.group(0), "cwd": _token_value(line, "cwd")})
+        labels = _LABEL_RE.findall(line)
+        panes.append(
+            {"surface_ref": match.group(0), "cwd": labels[-1] if labels else None}
+        )
     return panes
 
 
@@ -162,21 +178,22 @@ def run_gc(argv: list[str]) -> int:
     """Entry point for ``atdd coach gc`` — forwarded from coach.run_cli."""
     args = _build_gc_parser().parse_args(argv)
     apply = bool(args.apply)
+    workspace = args.workspace
 
     repo_root = _resolve_repo_root()
     referenced = _referenced_surface_refs(repo_root)
     orphans = [
         pane
-        for pane in _list_panes()
+        for pane in _list_panes(workspace)
         if pane["surface_ref"] not in referenced and _is_default_cwd(pane["cwd"])
     ]
 
     if not orphans:
-        print(f"atdd coach gc: no orphan panes found in {_WORKSPACE}.")
+        print(f"atdd coach gc: no orphan panes found in {workspace}.")
         return 0
 
     verb = "closing" if apply else "found"
-    print(f"atdd coach gc: {verb} {len(orphans)} orphan pane(s) in {_WORKSPACE}:")
+    print(f"atdd coach gc: {verb} {len(orphans)} orphan pane(s) in {workspace}:")
     for pane in orphans:
         print(f"  {pane['surface_ref']}  (cwd: {pane['cwd']})")
 
@@ -185,8 +202,14 @@ def run_gc(argv: list[str]) -> int:
         return 0
 
     for pane in orphans:
+        # Scope the surface ref to its workspace — cmux resolves short
+        # `surface:` refs against the selected workspace only (#655).
         subprocess.run(
-            ["cmux", "close-surface", "--surface", pane["surface_ref"]],
+            [
+                "cmux", "close-surface",
+                "--surface", pane["surface_ref"],
+                "--workspace", workspace,
+            ],
             capture_output=True,
             text=True,
         )
