@@ -796,6 +796,22 @@ class Observer:
         self._worktree_baseline_taken = False
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        # Roots excluded from worktree scanning (#706). The observer writes
+        # its own corrections.jsonl / cli-return.jsonl into runtime_dir,
+        # which lives INSIDE the scanned worktree — scanning it makes every
+        # correction-write a detected change, which fires out-of-scope-edit,
+        # which writes another correction: an unbounded self-feedback loop.
+        # Exclude the observer's own runtime tree (resolved relative to the
+        # worktree when given as a relative path).
+        self._scan_skip_roots: list[Path] = []
+        if self.worktree is not None:
+            rt = self.runtime_dir
+            if not rt.is_absolute():
+                rt = self.worktree / rt
+            try:
+                self._scan_skip_roots.append(rt.resolve())
+            except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+                pass
 
     # --- rule loading -----------------------------------------------------
 
@@ -831,12 +847,29 @@ class Observer:
         lines = chunk.splitlines()
         return [ln for ln in lines if ln]
 
+    # Directory components whose subtrees carry no agent work — pruned from
+    # every worktree scan (#706): VCS internals and Python bytecode caches.
+    _SCAN_SKIP_PARTS = frozenset({".git", "__pycache__"})
+
+    def _is_excluded_from_scan(self, path: Path) -> bool:
+        """True when *path* is the observer's own runtime output or VCS/cache
+        noise — excluding it breaks the self-feedback loop (#706)."""
+        if any(part in self._SCAN_SKIP_PARTS for part in path.parts):
+            return True
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        return any(
+            resolved.is_relative_to(root) for root in self._scan_skip_roots
+        )
+
     def _scan_worktree(self) -> list[str]:
         if self.worktree is None or not self.worktree.exists():
             return []
         current: dict[str, float] = {}
         for p in self.worktree.rglob("*"):
-            if p.is_file():
+            if p.is_file() and not self._is_excluded_from_scan(p):
                 try:
                     rel = str(p.relative_to(self.worktree))
                 except ValueError:
