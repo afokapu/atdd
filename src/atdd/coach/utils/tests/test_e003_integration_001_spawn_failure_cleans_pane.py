@@ -40,16 +40,23 @@ def test_failed_seed_command_closes_the_created_pane():
     backend = CmuxBackend()
     calls: list[list[str]] = []
 
+    # Return values below are the REAL cmux 0.63.2 output shapes, captured
+    # live during the #655 SMOKE run (see commit message). cmux emits short
+    # OK-lines; `list-pane-surfaces` lists `surface:N  <cwd>  [selected]`.
     def fake_run(cmd, capture=True):
         calls.append(list(cmd))
         # Pane creation succeeds — the orphan-prone window opens here.
         if cmd[:2] == ["cmux", "new-pane"]:
             return _ok("OK surface:441 pane:77 workspace:1\n")
         if cmd[:2] == ["cmux", "list-pane-surfaces"]:
-            return _ok("OK surface:441 name:Terminal\n")
+            return _ok("* surface:441  /tmp  [selected]\n")
+        if cmd[:2] == ["cmux", "rename-tab"]:
+            return _ok("OK action=rename tab=tab:441 workspace=workspace:1\n")
         # The seed step fails — this is the spawn-step failure being simulated.
         if cmd[:2] == ["cmux", "send"]:
             raise MultiplexerError("simulated failed cmux send")
+        if cmd[:2] == ["cmux", "close-surface"]:
+            return _ok("OK surface:441 workspace:1\n")
         return _ok("")
 
     with patch("atdd.coach.utils.multiplexer._run", side_effect=fake_run):

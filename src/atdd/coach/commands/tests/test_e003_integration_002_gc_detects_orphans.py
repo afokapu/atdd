@@ -14,15 +14,13 @@ Fixture: 3 decisions.jsonl-referenced surfaces (surface:201/202/203) plus
 2 unreferenced default-cwd panes (surface:204/205). `--dry-run` must list
 exactly the 2 unreferenced ones and mutate nothing.
 
-RED: `atdd coach gc` does not exist yet — `coach.run_cli(["gc", ...])`
-does not route to a gc subcommand, so the orphan listing is never produced.
-
 Issue #655 — Layer 2: retroactive garbage collection.
 
-NOTE FOR GREEN: this test assumes `cmux list-panels` emits one `OK ...`
-line per pane carrying `surface:<n>` and `cwd:<path>` tokens, and that
-spawn decisions record the surface ref at `outcome.surface_ref`. Reconcile
-with the real cmux output / decision schema when implementing.
+cmux contract: `_PANELS_STDOUT` below is the REAL `cmux list-panels`
+output shape (cmux 0.63.2), captured live during the #655 SMOKE run and
+realigned from the RED phase's fabricated `cwd:<path>` token guess. Spawn
+decisions record the surface ref at `outcome.surface_ref` (internal
+coach-decision contract).
 """
 from __future__ import annotations
 
@@ -36,13 +34,17 @@ pytestmark = [pytest.mark.platform]
 
 _DEFAULT_CWD = "~/Github/atdd"
 
-# One OK-line per pane in workspace:1 — 3 referenced + 2 orphan.
+# Real `cmux list-panels --workspace <ws>` output shape (cmux 0.63.2,
+# captured live during the #655 SMOKE run): one line per surface,
+# `[*| ] surface:N  <type>  [<flags>]  "<label>"` — the cwd/title is the
+# quoted trailing string. 3 decisions.jsonl-referenced surfaces + 2
+# unreferenced default-cwd orphans.
 _PANELS_STDOUT = "\n".join([
-    f"OK pane:201 surface:201 workspace:1 cwd:/work/feat-coach-655 title:ATDD655-planner",
-    f"OK pane:202 surface:202 workspace:1 cwd:/work/feat-coach-655 title:ATDD655-tester",
-    f"OK pane:203 surface:203 workspace:1 cwd:/work/feat-coach-655 title:ATDD655-coder",
-    f"OK pane:204 surface:204 workspace:1 cwd:{_DEFAULT_CWD} title:{_DEFAULT_CWD}",
-    f"OK pane:205 surface:205 workspace:1 cwd:{_DEFAULT_CWD} title:{_DEFAULT_CWD}",
+    '* surface:201  terminal  [focused]  "/work/feat-coach-655"',
+    '  surface:202  terminal  "ATDD655-tester"',
+    '  surface:203  terminal  "ATDD655-coder"',
+    f'  surface:204  terminal  "{_DEFAULT_CWD}"',
+    f'  surface:205  terminal  "{_DEFAULT_CWD}"',
 ]) + "\n"
 
 
