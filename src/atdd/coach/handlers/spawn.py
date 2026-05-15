@@ -162,6 +162,29 @@ def _call_spawn(
     )
 
 
+# Flaky multiplexer-IPC failures: a transient cmux/tmux socket hiccup recovers
+# on a retry, unlike a genuine spawn failure (bad prompt, missing worktree).
+# Matched case-insensitively against the exception text.
+_TRANSIENT_SPAWN_ERROR_MARKERS = (
+    "broken pipe",
+    "failed to write to socket",
+    "errno 32",
+    "connection reset",
+    "resource temporarily unavailable",
+)
+
+# Extra retries granted to transient IPC failures, *free of* ``max_retries``.
+# A flaky cmux hiccup must never abort the coach (#715).
+_MAX_TRANSIENT_SPAWN_RETRIES = 3
+
+
+def _is_transient_spawn_error(exc: BaseException) -> bool:
+    """True for flaky multiplexer-IPC failures worth retrying regardless of the
+    configured ``max_retries`` budget (broken pipe, socket-write failure)."""
+    text = str(exc).lower()
+    return any(marker in text for marker in _TRANSIENT_SPAWN_ERROR_MARKERS)
+
+
 def _spawn_with_retries(
     ctx: CoachContext,
     transition: Transition,
@@ -173,18 +196,26 @@ def _spawn_with_retries(
     base_agent_id: str,
     runtime_root: Path,
 ) -> Optional[dict]:
-    """Call ``_call_spawn`` up to ``max_retries + 1`` times with exponential backoff.
+    """Call ``_call_spawn``, retrying on failure with exponential backoff.
+
+    Genuine failures honour ``ctx.max_retries`` (``max_retries + 1`` attempts,
+    default 1 — fail fast so real bugs surface). Flaky cmux/tmux IPC failures
+    (broken pipe, socket-write) get up to ``_MAX_TRANSIENT_SPAWN_RETRIES`` extra
+    attempts, *free of* that budget, so a transient multiplexer hiccup never
+    aborts the coach (#715).
 
     Returns the result dict on success, or ``None`` after all attempts fail.
-    Backoff: 1 s, 2 s, 4 s, … (doubles each retry).
+    Backoff: 1 s, 2 s, 4 s, … (doubles each retry, capped at 8 s).
     """
     max_retries = ctx.max_retries or 0
+    transient_budget = _MAX_TRANSIENT_SPAWN_RETRIES
     delay = 1.0
+    attempt = 0
 
-    for attempt in range(max_retries + 1):
+    while True:
         if attempt > 0:
             time.sleep(delay)
-            delay *= 2
+            delay = min(delay * 2, 8.0)
         agent_id = f"{base_agent_id}-{attempt}" if attempt > 0 else base_agent_id
         try:
             return _call_spawn(
@@ -192,12 +223,21 @@ def _spawn_with_retries(
                 persona_prompt_content, worktree, agent_id, runtime_root,
             )
         except Exception as exc:
+            transient = _is_transient_spawn_error(exc) and transient_budget > 0
             print(
-                f"⚠ spawn attempt {attempt + 1}/{max_retries + 1} failed for "
-                f"#{ctx.issue_number} ({persona}/{phase}): {exc}",
+                f"⚠ spawn attempt {attempt + 1} failed for "
+                f"#{ctx.issue_number} ({persona}/{phase})"
+                f"{' [transient cmux IPC — retrying free of budget]' if transient else ''}"
+                f": {exc}",
                 file=sys.stderr,
             )
-    return None
+            attempt += 1
+            if transient:
+                transient_budget -= 1
+                continue
+            if attempt <= max_retries:
+                continue
+            return None
 
 
 def _escalate(ctx: CoachContext, reason: str) -> None:
