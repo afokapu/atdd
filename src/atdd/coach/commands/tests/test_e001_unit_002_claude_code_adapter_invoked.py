@@ -40,6 +40,14 @@ class FakeMultiplexer:
     def __init__(self) -> None:
         self.last_command: Optional[str] = None
         self.last_cwd: Optional[str] = None
+        self.pasted_text: Optional[str] = None
+        self.keys_sent: list[str] = []
+
+    def paste_text(self, ref: Any, text: str) -> None:
+        self.pasted_text = text
+
+    def send_key(self, ref: Any, key: str) -> None:
+        self.keys_sent.append(key)
 
     def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> str:
         self.last_cwd = cwd
@@ -96,20 +104,24 @@ def test_adapter_registry_exposes_claude_code():
     assert callable(spawn.ADAPTER_REGISTRY["claude-code"])
 
 
-def test_claude_code_adapter_returns_expected_shell_invocation(tmp_path):
-    """The claude-code adapter MUST produce the exact spec §5.2 shell
-    invocation against the rendered launch prompt path."""
+def test_claude_code_adapter_returns_bare_interactive_invocation(tmp_path):
+    """The claude-code adapter MUST produce a BARE interactive invocation —
+    no positional prompt arg. Claude Code v2.1.x ignores a positional
+    prompt in interactive mode (#702); the prompt is injected post-boot by
+    cmd_spawn via paste_text + send_key. The adapter must NOT embed
+    `$(cat ...)` or the prompt path as an argv element."""
     from atdd.coach.commands import spawn
 
     prompt_path = tmp_path / ".launch_prompt.txt"
     prompt_path.write_text("body")
     cmd = spawn.ADAPTER_REGISTRY["claude-code"](prompt_path)
-    # The exact shell invocation, per spec §5.2 and acceptance E001-UNIT-002.
     assert cmd == (
-        f'claude --permission-mode acceptEdits '
-        f'--allowedTools "Bash Edit Write Read TodoWrite Glob Grep WebFetch" '
-        f'"$(cat {prompt_path})"'
+        'claude --permission-mode acceptEdits '
+        '--allowedTools "Bash Edit Write Read TodoWrite Glob Grep WebFetch"'
     )
+    # Regression guard (#702): no positional prompt / cat substitution.
+    assert "$(cat" not in cmd
+    assert str(prompt_path) not in cmd
 
 
 def test_spawn_dispatches_adapter_off_llm_flag(tmp_path, monkeypatch):
@@ -141,11 +153,16 @@ def test_spawn_dispatches_adapter_off_llm_flag(tmp_path, monkeypatch):
     )
 
     expected = (
-        f'claude --permission-mode acceptEdits '
-        f'--allowedTools "Bash Edit Write Read TodoWrite Glob Grep WebFetch" '
-        f'"$(cat {worktree / ".launch_prompt.txt"})"'
+        'claude --permission-mode acceptEdits '
+        '--allowedTools "Bash Edit Write Read TodoWrite Glob Grep WebFetch"'
     )
     assert fake_mx.last_command == expected
+
+    # #702: the launch prompt is injected post-boot, not via argv. The
+    # rendered .launch_prompt.txt content must be pasted, then submitted.
+    prompt_file = worktree / ".launch_prompt.txt"
+    assert fake_mx.pasted_text == prompt_file.read_text()
+    assert "Enter" in fake_mx.keys_sent
 
 
 def test_unknown_llm_rejected_with_clear_error(tmp_path, monkeypatch):
