@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:hermetic-integration-execution-kind"
+wagon: "wagon:govern-lifecycle"
+description: "Adds hermetic_integration as a first-class, vocabulary-controlled acceptance execution kind. Extends acceptance.convention.yaml with an orthogonal execution_kinds: / boundary_kinds: vocabulary and a hermetic: metadata block schema, leaving the existing harness_codes: / harness_types: / category: enums and smoke.convention.yaml unchanged. Declares two strict rules in the existing acceptance-violation.* family — tester.acceptance-violation.hermetic-fake-must-declare-contract forces fake-backed hermetic acceptances to declare fidelity and known gaps, and tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance forces any acceptance flagged live_smoke_required to pair with an execution_kind: live_smoke sibling under the same WMBT. Validators reuse _acceptance_walker.py and assert_disposition_satisfied; gives the 125 suppressed-WMBT migration backlog an honest middle tier."
+sizing:
+  wmbts: 1
+  footprint_score: 6
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E005"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — uses existing atdd validate tester / atdd rules show / atdd rules grep entry points"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "evaluate_hermetic_fidelity_declaration (pure evaluator for the fake-contract rule) + evaluate_hermetic_live_smoke_pairing (pure evaluator for the WMBT-scoped live-smoke pairing rule)"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Reuses the Violation domain dataclass; the hermetic: block is a convention-declared schema, not a runtime entity"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses _acceptance_walker.py to walk plan/ acceptance YAML and assert_disposition_satisfied for strict-disposition plumbing; no new infrastructure"
