@@ -103,7 +103,7 @@ def test_loaded_rules_evaluate_and_dispatch_corrections(tmp_path: Path):
             wmbt_target_paths=("src/",),
         )
 
-    obs.collect_input = _synthetic  # type: ignore[assignment]
+    obs.collect_input = _synthetic  # type: ignore[assignment]  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-15  this test is mislabelled SMOKE (bound to a UNIT acceptance); #704 follow-up relabels it
 
     corrections = obs.scan_once()
     fired_ids = {c.rule_id for c in corrections}

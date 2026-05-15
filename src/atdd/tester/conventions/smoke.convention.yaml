@@ -409,3 +409,42 @@ presentation_smoke_rules:
       disposition: documentation-only
       description: "Every web/src/*/presentation/*.tsx must have a sibling smoke test under e2e/*smoke*.spec.ts"
       introduced_in: "1.67.0"
+
+# =============================================================================
+# Collaborator-substitution rule (issue #704, Tier 1)
+# =============================================================================
+# A SMOKE test must exercise the real subject. A test that substitutes one of
+# the subject's collaborators — via monkeypatch.setattr, or by assigning a
+# locally-defined function/lambda over an object attribute — is a unit test
+# wearing a SMOKE label: it passes CI while exercising nothing real. The lived
+# incident is the observer's `obs.collect_input = _synthetic` substitution,
+# which let an unwired observer ship GREEN.
+#
+# A static validator CANNOT certify that a test exercises real infrastructure
+# (a runtime-behaviour property, undecidable from source — Rice's theorem).
+# This rule does only the decidable NEGATIVE check (catch substitution); the
+# positive side is the #704 Tier 2 runtime gate. Scope is Python-only; TS
+# smoke tests (consumer-repo frontend e2e) are a #704 follow-up.
+#
+# Nested under a sibling key — the top-level `rules:` slot holds the legacy
+# must/must_not prose block.
+collaborator_substitution_rules:
+  rules:
+    - id: "tester.smoke.no-collaborator-substitution"
+      severity: 4
+      disposition: suppress-and-clean
+      validator: "test_smoke_no_collaborator_substitution::test_smoke_tests_do_not_substitute_collaborators"
+      description: "A SMOKE-phase test must not substitute a production collaborator (monkeypatch.setattr, or assigning a locally-defined function/lambda over an object attribute) — that turns it into a unit test passing CI while exercising nothing real."
+      fix_hint: |
+        The flagged SMOKE test replaces a collaborator instead of driving the
+        real code path. Choose ONE:
+          - If it was never a smoke test: relabel it — change `# Phase:` and the
+            filename away from SMOKE (it is a unit/integration test, or
+            hermetic_integration per #690).
+          - If it should be smoke: remove the substitution and exercise the real
+            boundary (real subprocess / file / socket / DB).
+        Environment setup is allowed — monkeypatch.setenv / .delenv / .chdir /
+        .syspath_prepend do NOT trigger this rule.
+        Temporary escape: add an inline marker on the offending line:
+          # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=<YYYY-MM-DD>
+      introduced_in: "3.53.0"
