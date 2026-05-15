@@ -562,6 +562,30 @@ def _process_injected_events(
             break
 
 
+def _watcher_runtime_dir(ctx: "CoachContext", fallback: Path) -> Path:
+    """Runtime dir the coach's ``RuntimeWatcher`` must scan (#708 link 3).
+
+    A dispatched persona runs *inside the issue's worktree* and writes its
+    runtime artifacts (``events.jsonl``, ``done.json``, …) to
+    ``<worktree>/.atdd/runtime`` — NOT the coach process's cwd runtime. If
+    the watcher scans the coach's cwd it never sees a persona event and the
+    coach never advances past the first phase. Resolve the issue's worktree
+    and point the watcher at its ``.atdd/runtime``; fall back to
+    ``fallback`` only when the worktree cannot be resolved.
+    """
+    try:
+        from atdd.coach.handlers.spawn import _resolve_worktree
+
+        worktree = _resolve_worktree(ctx)
+    except Exception as exc:  # noqa: BLE001 — best-effort; logged, then fall back
+        _logger.warning(
+            "coach watcher: worktree resolution failed; using fallback runtime dir",
+            extra={"issue": getattr(ctx, "issue_number", "?"), "error": str(exc)},
+        )
+        return fallback
+    return worktree / ".atdd" / "runtime"
+
+
 def _process_watcher_events(
     ctx: "CoachContext",
     sm: StateMachine,
@@ -578,8 +602,13 @@ def _process_watcher_events(
     from atdd.coach.handlers.state_machine import HandlerResult, Transition
     from atdd.coach.commands.durability import transactional_decision
 
+    # #708 link 3: the watcher must scan the dispatched persona's worktree
+    # runtime, not the coach cwd's. The CoachEventQueue stays on the coach's
+    # own runtime_dir (coach-side durability) — only the watcher's scan root
+    # follows the persona.
+    watch_runtime = _watcher_runtime_dir(ctx, runtime_dir)
     queue = CoachEventQueue(runtime_dir=runtime_dir)
-    watcher = RuntimeWatcher(runtime_dir=runtime_dir, queue=queue)
+    watcher = RuntimeWatcher(runtime_dir=watch_runtime, queue=queue)
     watcher.start()
     events_processed = 0
 
