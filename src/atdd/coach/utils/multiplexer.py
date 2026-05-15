@@ -130,8 +130,12 @@ class MultiplexerBackend(ABC):
         """List all known workspace references."""
 
     @abstractmethod
-    def close(self, ref: MultiplexerRef) -> None:
-        """Close/kill the workspace or surface."""
+    def close(self, ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None) -> None:
+        """Close/kill the workspace or surface.
+
+        ``workspace`` scopes a surface ref to its workspace — cmux resolves
+        short ``surface:`` refs against the selected workspace only (#655).
+        """
 
     def new_persona_surface(
         self,
@@ -257,6 +261,9 @@ class CmuxBackend(MultiplexerBackend):
         # reuse its auto-default surface (rename + seed) instead of adding
         # another. When given an existing pane_ref, add a tab as before.
         creating_new_pane = pane_ref is None
+        # Workspace that owns the created surface — needed so the #655
+        # spawn-failure cleanup can scope `cmux close-surface` correctly.
+        resolved_workspace = workspace_ref
         if creating_new_pane:
             new_pane_cmd = ["cmux", "new-pane"]
             if workspace_ref:
@@ -271,6 +278,12 @@ class CmuxBackend(MultiplexerBackend):
             if not pane_ref:
                 raise MultiplexerError(
                     f"cmux new-pane returned no pane ref: {(pane_result.stdout or '').strip()!r}"
+                )
+            # `cmux new-pane` echoes `OK surface:N pane:M workspace:K` — capture
+            # the workspace ref when the caller did not pass one (#655).
+            if not resolved_workspace:
+                resolved_workspace = (
+                    _extract_ref_token(pane_result.stdout or "", "workspace") or None
                 )
             # Reuse the auto-default surface that `cmux new-pane` creates.
             surfaces_result = _run(["cmux", "list-pane-surfaces", "--pane", pane_ref])
@@ -314,7 +327,7 @@ class CmuxBackend(MultiplexerBackend):
                     capture=False,
                 )
         except Exception:
-            self._close_quietly(surface_ref)
+            self._close_quietly(surface_ref, workspace=resolved_workspace)
             raise
 
         return surface_ref
@@ -418,20 +431,28 @@ class CmuxBackend(MultiplexerBackend):
         result = _run(["cmux", "list-workspaces"])
         return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
 
-    def close(self, ref: MultiplexerRef) -> None:
+    def close(self, ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None) -> None:
         if _is_surface_ref(ref):
-            _run(["cmux", "close-surface", "--surface", ref], capture=False)
+            # cmux resolves a short `surface:` ref against the *selected*
+            # workspace only — pass --workspace so the ref resolves no matter
+            # which workspace is focused (#655).
+            cmd = ["cmux", "close-surface", "--surface", ref]
+            if workspace:
+                cmd.extend(["--workspace", workspace])
+            _run(cmd, capture=False)
             return
         _run(["cmux", "close-workspace", "--workspace", ref], capture=False)
 
-    def _close_quietly(self, ref: MultiplexerRef) -> None:
+    def _close_quietly(
+        self, ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
         """Close a half-created surface during spawn-failure cleanup (#655).
 
         Never raises: orphan-pane cleanup must not mask the original spawn
         error that triggered it.
         """
         try:
-            self.close(ref)
+            self.close(ref, workspace=workspace)
         except MultiplexerError as exc:
             print(
                 f"⚠️  orphan-pane cleanup could not close {ref}: {exc}",
