@@ -326,12 +326,41 @@ _PHASE_TRAILER_MAP: dict[str, Phase] = {
 def _cold_start_proposed_transition(sm: StateMachine, event: dict) -> Optional["Transition"]:
     """Map a raw queue event to a (src, dst) Transition per cold-start rules.
 
+    Two triggers advance the cold-start loop:
+
+    * ``agent_done`` (#708) — a dispatched persona wrote ``done.json``,
+      signalling its phase is complete. The event's ``agent_id`` encodes
+      the issue (``<persona>-<issue>-<suffix>``); the SM's current phase
+      determines the next via ``_COLD_START_ADVANCE_FROM``. This is the
+      primary cold-start trigger — it needs no commit trailers and no
+      separate git_watcher process.
+    * ``commit_observed`` — a commit carrying ``Issue``/``Phase`` trailers
+      (the original J5 path; retained for the trailer-driven flow).
+
     Extends the J5 watcher map to include PLANNED→RED so the cold-start
-    event loop handles the full lifecycle (issue #645).
+    event loop handles the full lifecycle (issue #645 / #708).
     """
     from atdd.coach.handlers.state_machine import Transition, can_transition
 
-    if event.get("event_type") != "commit_observed":
+    event_type = event.get("event_type")
+
+    # #708 — persona done-signal: advance one phase from the SM's current
+    # phase. The agent_id form is ``<persona>-<issue>-<suffix>`` (the
+    # observer's ``…-observer`` agent never writes done.json, so only a
+    # real persona triggers this).
+    if event_type == "agent_done":
+        agent_id = event.get("agent_id") or ""
+        parts = agent_id.split("-")
+        if len(parts) < 2 or not parts[1].isdigit():
+            return None
+        if str(sm.issue_number) != parts[1]:
+            return None
+        dst = _COLD_START_ADVANCE_FROM.get(sm.phase)
+        if dst is None or not can_transition(sm.phase, dst):
+            return None
+        return Transition(sm.phase, dst)
+
+    if event_type != "commit_observed":
         return None
     payload = event.get("payload") or {}
     trailers = payload.get("trailers") or {}
