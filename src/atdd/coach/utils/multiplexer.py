@@ -201,14 +201,6 @@ def _is_surface_ref(ref: str) -> bool:
     return ref.startswith("surface:")
 
 
-def _last_nonempty_line(stdout: str) -> str:
-    for line in reversed((stdout or "").splitlines()):
-        s = line.strip()
-        if s:
-            return s
-    return ""
-
-
 def _extract_ref_token(stdout: str, prefix: str) -> str:
     """Extract the first ``<prefix>:<N>`` token from a cmux OK-line.
 
@@ -242,9 +234,12 @@ class CmuxBackend(MultiplexerBackend):
         if name:
             cmd.extend(["--name", name])
         result = _run(cmd)
-        ref = _last_nonempty_line(result.stdout or "")
+        ref = _extract_ref_token(result.stdout or "", "workspace")
         if not ref:
-            ref = name or cwd
+            raise MultiplexerError(
+                f"cmux new-workspace returned no workspace ref: "
+                f"{(result.stdout or '').strip()!r}"
+            )
         return ref
 
     def new_surface(

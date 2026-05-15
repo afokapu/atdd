@@ -308,3 +308,44 @@ class TestPasteText:
         paste_calls = [c for c in fake.calls if c["op"] == "paste_text"]
         assert len(paste_calls) == 1
         assert paste_calls[0]["text"] == "multi\nline"
+
+
+# ─── CmuxBackend.new_workspace integration ────────────────────────────────────
+
+
+class TestCmuxNewWorkspace:
+    """Regression for the new_workspace ref-parsing bug (#717).
+
+    new_workspace previously parsed cmux stdout with _last_nonempty_line(),
+    which returned the whole ``OK workspace:33`` line including the ``OK``
+    prefix. Every other CmuxBackend method uses _extract_ref_token() to strip
+    it. Feeding ``OK workspace:33`` back to ``cmux --workspace`` is rejected,
+    which broke /rename + launch-prompt injection and stalled coach dispatch.
+    """
+
+    def test_returns_bare_workspace_ref_not_ok_line(self):
+        backend = CmuxBackend()
+
+        def fake_run(cmd, capture=True):
+            if cmd[:2] == ["cmux", "new-workspace"]:
+                return _ok("OK workspace:33\n")
+            return _ok("")
+
+        with patch("atdd.coach.utils.multiplexer._run", side_effect=fake_run):
+            ref = backend.new_workspace(cwd="/tmp/wt", command="claude")
+
+        assert ref == "workspace:33", (
+            f"new_workspace must strip the OK prefix; got {ref!r}"
+        )
+
+    def test_raises_when_workspace_ref_cannot_be_extracted(self):
+        backend = CmuxBackend()
+
+        def fake_run(cmd, capture=True):
+            if cmd[:2] == ["cmux", "new-workspace"]:
+                return _ok("ERROR could not create workspace\n")
+            return _ok("")
+
+        with patch("atdd.coach.utils.multiplexer._run", side_effect=fake_run):
+            with pytest.raises(MultiplexerError, match="workspace"):
+                backend.new_workspace(cwd="/tmp/wt", command="claude")
