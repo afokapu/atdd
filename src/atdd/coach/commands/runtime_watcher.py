@@ -98,6 +98,39 @@ class RuntimeWatcher:
 
     # --- one polling pass -------------------------------------------------
 
+    def baseline(self) -> None:
+        """Record every current runtime file as already-seen WITHOUT emitting (#711).
+
+        A `done.json` (or any runtime file) left in a persona's runtime dir
+        by a *prior* coach run would otherwise be treated as newly-written
+        on the first `scan_once` — firing `agent_done` and advancing the
+        phase before the freshly-dispatched persona has produced anything
+        (the coach-run-690-cb0a26c9 regression: PLANNED→RED in 9 s).
+
+        The coach calls `baseline()` once, at dispatch time, before
+        `start()`. After it, only files written or modified *after* the
+        baseline are emitted — the dispatch-time snapshot the WMBT C005
+        plan specifies.
+        """
+        if not self._agents_dir.is_dir():
+            return
+        for agent_dir in sorted(self._agents_dir.iterdir()):
+            if not agent_dir.is_dir():
+                continue
+            for fname in _RUNTIME_FILES:
+                path = agent_dir / fname
+                if not path.exists():
+                    continue
+                try:
+                    stat = path.stat()
+                except FileNotFoundError:
+                    continue
+                self._snapshots[path] = _FileSnapshot(stat.st_mtime_ns, stat.st_size)
+                # jsonl files: also baseline the read offset so pre-existing
+                # lines are not replayed as new events.
+                if fname.endswith(".jsonl"):
+                    self._jsonl_offsets[path] = stat.st_size
+
     def scan_once(self) -> int:
         if not self._agents_dir.is_dir():
             return 0

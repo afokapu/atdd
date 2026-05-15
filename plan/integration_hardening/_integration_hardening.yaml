@@ -12,6 +12,7 @@ outcome: "atdd coach <N> autonomously drives an issue through the full lifecycle
 
 features:
   - urn: "feature:integration-hardening:coach-single-command-driver"
+  - urn: "feature:integration-hardening:coach-cold-start-wiring"
 
 produce:
   - name: commons:coach:spawn-wiring
@@ -78,7 +79,7 @@ consume:
     from: wagon:integrate-end-to-end
 
 wmbt:
-  total: 23
+  total: 24
   K001: "minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine"
   D001: "minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries"
   D002: "minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path"
@@ -102,3 +103,4 @@ wmbt:
   Y002: "minimize quantity of validator-tests-that-mutate-the-active-worktree"
   L004: "minimize quantity of observer-spawns-that-consume-a-separate-pane-slot-in-pane-mode"
   E006: "minimize quantity of agent-operator-bypasses-of-atdd-native-wrappers-via-forbidden-upstream-commands"
+  C005: "minimize quantity of coach-phase-advances-triggered-by-a-stale-done-json-from-a-prior-run when a fresh RuntimeWatcher treats a leftover done.json as new — binding agent_done to the dispatched agent_id and a dispatch-time watcher baseline (#711, precision fix to #708)"
