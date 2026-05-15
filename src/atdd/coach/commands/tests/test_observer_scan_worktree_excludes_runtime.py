@@ -1,8 +1,6 @@
-# URN: test:observe-and-correct:observer-runtime-and-rules:OBSSCAN-001-scan-excludes-own-runtime
-# Acceptance: acc:observe-and-correct:OBSSCAN-001-runtime-excluded
-# WMBT: wmbt:observe-and-correct:M001
-# Phase: RED
-# Layer: integration
+# URN: component:observe-and-correct:observer-runtime-and-rules:test_observer_scan_worktree_excludes_runtime:backend:tests
+# Runtime: python
+# Purpose: Regression tests for #706 — Observer._scan_worktree excludes its own runtime output.
 """Regression tests for #706 — `Observer._scan_worktree` must exclude the
 observer's own runtime output.
 
