@@ -1038,16 +1038,15 @@ def render_status_line(observer: "Observer") -> str:
     )
 
 
-def _emit_observer_status(
-    observer: "Observer", corrections: list[Correction]
-) -> None:
-    """Print the status line plus the per-scan ingest+fired trace so the
-    operator can see what the observer evaluated and which rules fired."""
+def _emit_observer_status(observer: "Observer") -> None:
+    """Print the status line plus the last scan's ingest+fired trace so
+    the operator can see what the observer evaluated and which rules
+    fired. Reads the observer's recorded last-scan state."""
     print(render_status_line(observer))
     if observer.last_input is not None:
         for line in observer.last_input.log_lines:
             print(f"  ingested: {line}")
-    for cor in corrections:
+    for cor in observer.last_corrections:
         print(f"  fired: {cor.rule_id}")
 
 
@@ -1134,8 +1133,8 @@ def cmd_run(
     )
     obs.load_rules()
     if once:
-        corrections = obs.scan_once()
-        _emit_observer_status(obs, corrections)
+        obs.scan_once()
+        _emit_observer_status(obs)
         return 0
     obs.start()
     try:
