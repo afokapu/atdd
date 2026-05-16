@@ -88,6 +88,12 @@ def test_handle_returns_handled_for_each_transition(
         return {"surface_ref": "fake:1", "rule_id": "test"}
 
     monkeypatch.setattr(spawn_handler, "_call_spawn", fake_call_spawn)
+    # handle() also co-spawns an observer (added later by #650). Without this
+    # stub the workspace-mode co-spawn launches a REAL `atdd observer run`
+    # subprocess + cmux surface per parametrized phase — 5 leaked zombies per
+    # suite run. This test asserts persona mapping only; observers are out of
+    # scope of acc:integration-hardening:K001-INTEGRATION-001.
+    monkeypatch.setattr(spawn_handler, "_spawn_observer", lambda *a, **kw: None)
     monkeypatch.setattr(
         spawn_handler, "_load_persona_prompt", lambda p, ph, **kw: "test prompt"
     )
