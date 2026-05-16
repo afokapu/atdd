@@ -260,6 +260,24 @@ def _create_surface(
         )
 
 
+def _close_surface_on_failure(backend: Any, surface_ref: str) -> None:
+    """Close a half-spawned surface so a failed spawn leaves no orphan pane (#655).
+
+    Never raises: cleanup must not mask the original spawn error.
+    """
+    close = getattr(backend, "close", None)
+    if close is None or not surface_ref:
+        return
+    try:
+        close(surface_ref)
+    except Exception as exc:  # noqa: BLE001 — cleanup must not mask the real error
+        print(
+            f"⚠️  orphan-pane cleanup could not close {surface_ref}: {exc} "
+            f"({SPAWN_RULE_ID})",
+            file=sys.stderr,
+        )
+
+
 def cmd_spawn(
     *,
     persona: str,
@@ -352,12 +370,19 @@ def cmd_spawn(
         observer_command=_observer_command,
         observer_runtime_root=str(runtime_root),
     )
-    apply_canonical_name_and_layout(
-        backend=backend,
-        ref=surface_ref,
-        canonical_name=canonical_name,
-        surface_count=1,
-    )
+    # Transactional spawn (#655): the surface exists. If the canonical
+    # naming/layout pass fails, close it before propagating so the failed
+    # spawn attempt leaves no orphan pane.
+    try:
+        apply_canonical_name_and_layout(
+            backend=backend,
+            ref=surface_ref,
+            canonical_name=canonical_name,
+            surface_count=1,
+        )
+    except Exception:
+        _close_surface_on_failure(backend, surface_ref)
+        raise
 
     # Inject the launch prompt as the first interactive message (#702).
     # Claude Code v2.1.x ignores a positional prompt arg in interactive

@@ -87,9 +87,12 @@ class TestCmuxNewSurface:
     def test_reuses_default_surface_from_new_pane(self):
         """Bug #5 (#697): new_surface must REUSE the auto-default surface that
         `cmux new-pane` creates, rather than calling `cmux new-surface` and
-        orphaning the default. Verified via: list-pane-surfaces is queried,
-        rename-tab is called, and `cmux new-surface` is NOT called when
-        creating a new pane.
+        orphaning the default.
+
+        #655: the surface ref is taken straight from the `cmux new-pane`
+        output (`OK surface:N pane:M workspace:K`) — NO `list-pane-surfaces`
+        round-trip (that call needs --workspace and stranded the pane on
+        failure). rename-tab is scoped with --workspace.
         """
         backend = CmuxBackend()
         calls: list[list[str]] = []
@@ -98,8 +101,6 @@ class TestCmuxNewSurface:
             calls.append(cmd)
             if cmd[:2] == ["cmux", "new-pane"]:
                 return _ok("OK surface:120 pane:33 workspace:17\n")
-            if cmd[:2] == ["cmux", "list-pane-surfaces"]:
-                return _ok("OK surface:120 name:Terminal\n")
             return _ok("")
 
         with patch("atdd.coach.utils.multiplexer._run", side_effect=fake_run):
@@ -113,15 +114,20 @@ class TestCmuxNewSurface:
         new_pane_call = calls[0]
         assert new_pane_call == ["cmux", "new-pane", "--workspace", "workspace:17"]
 
-        list_call = calls[1]
-        assert list_call[:2] == ["cmux", "list-pane-surfaces"]
-        assert "--pane" in list_call
-        assert list_call[list_call.index("--pane") + 1] == "pane:33"
+        # #655: no `list-pane-surfaces` round-trip — the surface ref comes
+        # directly from the new-pane output.
+        assert not any(c[:2] == ["cmux", "list-pane-surfaces"] for c in calls), (
+            "#655 regression: new_surface still calls `cmux list-pane-surfaces` "
+            "— the surface ref must be read from the new-pane output instead"
+        )
 
-        rename_call = calls[2]
+        rename_call = calls[1]
         assert rename_call[:2] == ["cmux", "rename-tab"]
         assert "--surface" in rename_call
         assert rename_call[rename_call.index("--surface") + 1] == "surface:120"
+        # #655: rename-tab is scoped to the owning workspace.
+        assert "--workspace" in rename_call
+        assert rename_call[rename_call.index("--workspace") + 1] == "workspace:17"
         assert "issue-396" in rename_call
 
         assert not any(c[:2] == ["cmux", "new-surface"] for c in calls), (
@@ -155,8 +161,6 @@ class TestCmuxNewSurface:
             calls.append(cmd)
             if cmd[:2] == ["cmux", "new-pane"]:
                 return _ok("OK surface:1 pane:2 workspace:3\n")
-            if cmd[:2] == ["cmux", "list-pane-surfaces"]:
-                return _ok("OK surface:1 name:Terminal\n")
             return _ok("")
 
         with patch("atdd.coach.utils.multiplexer._run", side_effect=fake_run):
@@ -169,7 +173,11 @@ class TestCmuxNewSurface:
         assert ref == "surface:1"
         seed_call = calls[-1]
         assert seed_call[:4] == ["cmux", "send", "--surface", "surface:1"]
-        assert seed_call[4] == "cd /tmp/wt && claude --dangerously-skip-permissions\n"
+        # #655: the seed `cmux send` is scoped to the owning workspace; the
+        # seed text is the trailing positional argument.
+        assert "--workspace" in seed_call
+        assert seed_call[seed_call.index("--workspace") + 1] == "workspace:3"
+        assert seed_call[-1] == "cd /tmp/wt && claude --dangerously-skip-permissions\n"
 
     def test_raises_when_pane_ref_cannot_be_extracted(self):
         backend = CmuxBackend()
