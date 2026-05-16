@@ -152,3 +152,75 @@ def test_cli_review_emits_no_prose_or_typeerror_failure(tmp_path: Path):
         "no pass should abort with a `'str' object has no attribute 'get'` "
         "rule-binding crash"
     )
+
+
+# ---------------------------------------------------------------------------
+# Real-infrastructure smoke (issue #721 SMOKE phase)
+#
+# The tests above stub the LLM but exercise the real CLI dispatcher,
+# schemas and filesystem. The tests below additionally exercise the real
+# host-side seams the bug is about — `gh issue view` and the `atdd repo`
+# graph walk — against a real ATDD issue. They `pytest.skip` (never fail)
+# when that infrastructure is unavailable, so CI stays deterministic
+# offline; a maintainer with `gh` auth gets the full real verification.
+#
+# Issue 508 is the permanent (closed) `atdd issue review` feature issue;
+# it is mapped to the `judge-ambiguous-decisions` wagon in the manifest,
+# so the graph walk resolves a real `## Architecture context` section.
+# ---------------------------------------------------------------------------
+
+_REAL_ISSUE = 508
+
+
+def test_real_gh_fetch_returns_issue_body():
+    """`_fetch_issue_body` resolves a real GitHub issue body host-side."""
+    from atdd.coach.commands import issue_review
+
+    body = issue_review._fetch_issue_body(_REAL_ISSUE)
+    if body.startswith("(issue #"):
+        pytest.skip("`gh issue view` unavailable/unauthenticated in this environment")
+
+    assert len(body) > 200, "a real issue body should be substantial"
+    assert "(issue #" not in body[:40], "must be the real body, not the placeholder"
+
+
+def test_real_repo_graph_summary_resolves_for_wagon_mapped_issue():
+    """`build_issue_architecture_context` returns the real graph neighborhood."""
+    from atdd.coach.commands.issue_graph import build_issue_architecture_context
+
+    graph = build_issue_architecture_context(_REAL_ISSUE, repo_root=REPO_ROOT)
+    if graph is None:
+        pytest.skip("issue not mapped to a wagon in this checkout's manifest")
+
+    assert graph.startswith("## Architecture context")
+    assert "wagon:judge-ambiguous-decisions" in graph
+    assert "wmbt:judge-ambiguous-decisions:D006" in graph, (
+        "the graph summary must reflect the live plan/ neighborhood"
+    )
+
+
+def test_real_render_prompt_carries_body_and_graph_inline():
+    """The assembled review prompt carries the real body AND graph summary."""
+    from atdd.coach.commands import issue_review
+    from atdd.coach.commands.issue_graph import build_issue_architecture_context
+
+    body = issue_review._fetch_issue_body(_REAL_ISSUE)
+    if body.startswith("(issue #"):
+        pytest.skip("`gh issue view` unavailable/unauthenticated in this environment")
+    graph = build_issue_architecture_context(_REAL_ISSUE, repo_root=REPO_ROOT)
+    if graph is None:
+        pytest.skip("issue not mapped to a wagon in this checkout's manifest")
+
+    prompt = issue_review._render_prompt(
+        issue_number=_REAL_ISSUE,
+        dimensions=list(issue_review.DIMENSIONS),
+        llm_id="claude-haiku",
+        issue_body=body,
+        graph_context=graph,
+    )
+
+    assert body[:200] in prompt, "the real issue body must be spliced in verbatim"
+    assert "## Architecture context" in prompt, "the repo-graph summary must be inline"
+    assert "ground your verdict" in prompt, (
+        "the systemic dimension must be directed to consume the graph summary"
+    )
