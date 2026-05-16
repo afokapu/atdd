@@ -1,0 +1,94 @@
+urn: "wmbt:coach-wave-orchestration:D001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-08-14
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "indistinguishable-persona-panes"
+context_clarifier: "when coach spawns a fresh per-phase persona pane for an issue and compute_canonical_name at the spawn site omits the optional phase/persona arg, so every pane is named identically ATDD-N-slug and the prior phase's pane is never closed"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of indistinguishable-persona-panes by qualifying each per-phase persona pane's canonical name with a persona/phase segment — so the planner pane and tester pane for the same issue resolve to distinct names — and by reaping (closing) or visibly marking inactive the prior phase's persona pane on each phase transition, so coach never accumulates identically-named idle dead panes that look like duplicate workers"
+acceptances:
+  - identity:
+      urn: "acc:coach-wave-orchestration:D001-UNIT-001-distinct-name-per-persona"
+      id: "AC-UNIT-001"
+      purpose: "compute_canonical_name yields distinct strings for two personas/phases of the same issue"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A repo short name, an issue number, and a slug"
+        - "Two persona/phase inputs for that same issue — e.g. the planner (PLANNED) persona and the tester (RED) persona"
+    when:
+      abstract: "compute_canonical_name is called once per persona/phase for the same issue"
+    then:
+      abstract:
+        - "The two returned canonical names are not equal"
+        - "Each returned name carries a persona/phase-qualified segment (e.g. -planner vs -tester) in addition to the issue number"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:coach-wave-orchestration:D001-UNIT-002-spawn-site-passes-persona"
+      id: "AC-UNIT-002"
+      purpose: "the spawn site passes the persona/phase into compute_canonical_name rather than computing a per-issue-only name"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A spawn invocation for a known issue at a known phase with a known persona"
+        - "compute_canonical_name patched to record the keyword arguments it receives"
+    when:
+      abstract: "the spawn command computes the pane name for the persona launch"
+    then:
+      abstract:
+        - "compute_canonical_name was called with a non-empty persona/phase argument"
+        - "The pane name actually used for the launch matches the persona-qualified return value"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:coach-wave-orchestration:D001-UNIT-003-prior-pane-reaped-on-transition"
+      id: "AC-UNIT-003"
+      purpose: "on a phase transition the spawn handler reaps or marks-inactive the prior phase's persona pane"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An issue whose planner persona pane already exists from the prior phase"
+        - "A multiplexer adapter test double that records close / mark-inactive calls"
+    when:
+      abstract: "the spawn handler is invoked to spawn the next phase's persona pane for that issue"
+    then:
+      abstract:
+        - "The prior phase's persona pane received exactly one reap (close) or mark-inactive call"
+        - "No second pane carrying the prior phase's name is left in an active state"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:coach-wave-orchestration:D001-INTEGRATION-001-no-stale-pane-accumulation"
+      id: "AC-INTEGRATION-001"
+      purpose: "driving one issue across two phase transitions yields distinctly-named panes and at most one live pane per issue"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A multiplexer adapter test double that tracks the set of live panes and their names"
+        - "One issue advanced INIT -> PLANNED -> RED, spawning a planner persona pane then a tester persona pane"
+    when:
+      abstract: "the two persona panes are spawned in sequence through the spawn handler"
+    then:
+      abstract:
+        - "The planner pane name and the tester pane name are distinct, persona/phase-qualified strings"
+        - "After the RED-phase spawn, exactly one pane for the issue is live — the prior planner pane was reaped or marked inactive"
+        - "No two live panes for the issue share an identical name"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"

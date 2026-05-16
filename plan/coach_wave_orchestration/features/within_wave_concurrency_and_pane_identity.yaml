@@ -1,0 +1,24 @@
+urn: "feature:coach-wave-orchestration:within-wave-concurrency-and-pane-identity"
+wagon: "wagon:coach-wave-orchestration"
+description: "Concurrent within-wave cold-start driver plus persona/phase-qualified pane naming and stale-pane reaping for atdd coach."
+sizing:
+  wmbts: 2
+  footprint_score: 8
+  footprint_size: "M"
+wmbts:
+  - "wmbt:coach-wave-orchestration:E001"
+  - "wmbt:coach-wave-orchestration:D001"
+components:
+  backend:
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "concurrent within-wave driver in _execute_cold_start (one _drive_single_issue loop per member, join-per-wave, aggregate rc); persona-qualified pane naming + prior-pane reaping in the spawn handler"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "WaveResult (aggregate rc plus per-member terminal states) and PaneIdentity (issue number plus persona/phase-qualified canonical name)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "multiplexer pane-reaping adapter — closes or marks inactive the prior phase's persona pane on a phase transition"

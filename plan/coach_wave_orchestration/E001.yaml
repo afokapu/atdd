@@ -1,0 +1,95 @@
+urn: "wmbt:coach-wave-orchestration:E001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-08-14
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "within-wave-issues-executing-serially"
+context_clarifier: "when atdd coach drives a dependency-free wave and _execute_cold_start loops serially over members calling blocking _drive_single_issue, so the printed wave plan promises parallelism never delivered and a BLOCKED member aborts unspawned siblings"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of within-wave-issues-executing-serially by driving every issue in a dependency-free wave concurrently — one coach-run id, worker pane, and _drive_single_issue event loop per member alive at once — joining all members before the next wave advances, preserving between-wave dependency ordering from compute_waves, and aggregating per-member rc so a BLOCKED member is reported without the first non-zero rc aborting siblings that already spawned"
+acceptances:
+  - identity:
+      urn: "acc:coach-wave-orchestration:E001-UNIT-001-concurrent-spawn-before-terminal"
+      id: "AC-UNIT-001"
+      purpose: "all members of a single dependency-free wave begin driving before any one of them reaches a terminal phase"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A wave of two issues [#A, #B] with no inter-dependency, as produced by compute_waves"
+        - "A _drive_single_issue test double that records its invocation order and blocks on a release latch instead of returning"
+    when:
+      abstract: "_execute_cold_start is invoked on the single-wave plan"
+    then:
+      abstract:
+        - "_drive_single_issue has been entered for BOTH #A and #B before either invocation has returned a terminal result"
+        - "Each member is driven under its own distinct coach-run id"
+        - "The _execute_cold_start docstring no longer asserts 'no parallel-within-wave'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:coach-wave-orchestration:E001-UNIT-002-wave-joins-before-next-wave"
+      id: "AC-UNIT-002"
+      purpose: "_execute_cold_start does not start any issue of wave N+1 until every member of wave N has reached a terminal state"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A two-wave plan: wave 0 = [#A, #B], wave 1 = [#C]"
+        - "A _drive_single_issue test double that records start and terminal timestamps per issue"
+    when:
+      abstract: "_execute_cold_start is invoked on the two-wave plan"
+    then:
+      abstract:
+        - "The start timestamp of #C is strictly later than the terminal timestamp of BOTH #A and #B"
+        - "No member of wave 1 is entered while any member of wave 0 is still non-terminal"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:coach-wave-orchestration:E001-UNIT-003-blocked-member-not-aborting-siblings"
+      id: "AC-UNIT-003"
+      purpose: "a BLOCKED wave member is surfaced in the aggregate rc without preventing already-spawned siblings from running to completion"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A wave of two issues [#A, #B] with no inter-dependency"
+        - "A _drive_single_issue test double where #A resolves to BLOCKED (non-zero rc) and #B resolves to COMPLETE (rc 0)"
+    when:
+      abstract: "_execute_cold_start is invoked on the single-wave plan"
+    then:
+      abstract:
+        - "#B was driven to its COMPLETE terminal state — it was not un-spawned or skipped by #A's non-zero rc"
+        - "_execute_cold_start did not return early on the first non-zero rc"
+        - "The returned aggregate rc is non-zero and identifies #A as the BLOCKED member"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:coach-wave-orchestration:E001-INTEGRATION-001-between-wave-dependency-order-preserved"
+      id: "AC-INTEGRATION-001"
+      purpose: "when a real inter-issue dependency exists, compute_waves ordering is honoured — the dependent issue runs strictly after its dependency"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "Two issues where #C declares a dependency on #A, so compute_waves emits wave 0 = [#A] and wave 1 = [#C]"
+        - "A _drive_single_issue test double recording per-issue start and terminal timestamps"
+    when:
+      abstract: "_execute_cold_start is invoked on the dependency-ordered wave plan"
+    then:
+      abstract:
+        - "#C is not entered until #A has reached a terminal state"
+        - "Exactly two waves are executed in dependency order — concurrency within a wave does not collapse the between-wave sequencing"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
