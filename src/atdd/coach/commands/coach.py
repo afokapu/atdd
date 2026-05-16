@@ -33,6 +33,8 @@ from __future__ import annotations
 
 import argparse
 import logging
+import shutil
+import subprocess
 import sys
 import uuid
 from dataclasses import dataclass, field
@@ -428,6 +430,97 @@ def _make_phase_transition_record(
     }
 
 
+def _ensure_issue_worktree(ctx) -> Optional[Path]:
+    """Cold-start: ensure the issue's git worktree exists, creating it if absent.
+
+    The spawn handler's ``_resolve_worktree`` only *derives* a path — it never
+    runs ``git worktree add``. ``phase_a_create_worktrees`` was written but
+    never wired into a live command path. Without this step the planner is
+    dispatched into a bare non-git directory and its commits land on protected
+    ``main`` (2026-05-16 incident).
+
+    The worktree path is taken from the spawn handler's ``_resolve_worktree``
+    so creation and dispatch always agree. The branch is read from the issue
+    body's ``Branch:`` metadata, falling back to ``feat/issue-<N>``.
+
+    Idempotent: an existing git worktree is returned unchanged. Returns the
+    worktree ``Path``, or ``None`` if creation failed (caller → BLOCKED).
+    """
+    from atdd.coach.commands import session_template
+    from atdd.coach.handlers.spawn import _resolve_worktree
+
+    worktree = _resolve_worktree(ctx)
+
+    # Idempotent: an existing git worktree is reused unchanged.
+    if (worktree / ".git").exists():
+        return worktree
+
+    # The real `_resolve_worktree` always returns a direct sibling of the
+    # repo root (`Path.cwd().parent / <slug>`). A resolved path that is NOT
+    # such a sibling means `_resolve_worktree` was injected (tests) or the
+    # layout is non-standard — running `git worktree add` there would be
+    # wrong, so the path is taken as-is and no worktree is created.
+    repo_root = Path.cwd()
+    if worktree.parent != repo_root.parent:
+        return worktree
+
+    fetched = session_template.fetch_issue(ctx.issue_number) or {}
+    meta = session_template.parse_metadata(fetched.get("body") or "")
+    branch = (meta.get("Branch") or "").strip()
+    if not branch or branch == "TBD":
+        branch = f"feat/issue-{ctx.issue_number}"
+
+    # A path that exists but is not a git worktree needs triage before
+    # `git worktree add` (which accepts only a missing or empty directory):
+    #  - empty            → fine, git accepts it as-is.
+    #  - atdd-only residue → stale debris from the pre-fix bug; safe to clear.
+    #  - anything else     → hard failure, never silently clobbered.
+    if worktree.exists():
+        entries = {p.name for p in worktree.iterdir()}
+        if not entries:
+            pass  # empty dir — git worktree add accepts it
+        elif entries <= {".atdd", ".launch_prompt.txt", ".DS_Store"}:
+            shutil.rmtree(worktree)
+        else:
+            print(
+                f"❌ #{ctx.issue_number}: worktree path {worktree} exists and is "
+                f"not a git worktree; refusing to overwrite",
+                file=sys.stderr,
+            )
+            return None
+
+    # Attach to an existing remote branch if present, else create a new one.
+    remote = subprocess.run(
+        ["git", "branch", "-r", "--list", f"origin/{branch}"],
+        cwd=str(repo_root), capture_output=True, text=True,
+    )
+    if remote.stdout.strip():
+        add_cmd = ["git", "worktree", "add", str(worktree), f"origin/{branch}"]
+    else:
+        add_cmd = ["git", "worktree", "add", str(worktree), "-b", branch]
+
+    result = subprocess.run(
+        add_cmd, cwd=str(repo_root), capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        print(
+            f"❌ #{ctx.issue_number}: git worktree add failed: "
+            f"{result.stderr.strip()}",
+            file=sys.stderr,
+        )
+        return None
+
+    _logger.info(
+        "coach cold-start worktree created",
+        extra={
+            "issue": ctx.issue_number,
+            "worktree": str(worktree),
+            "branch": branch,
+        },
+    )
+    return worktree
+
+
 def _drive_single_issue(
     cfg: "Config",
     sm: StateMachine,
@@ -482,6 +575,25 @@ def _drive_single_issue(
     init_record = _make_phase_transition_record(coach_run_id, sm.issue_number, Phase.INIT, Phase.PLANNED)
     with transactional_decision(writer, init_record):
         pass  # decision is written by the CM; no blocking action here
+
+    # --- Step 1.5: Ensure the issue's git worktree exists (cold-start) ---
+    # The spawn handler resolves a worktree *path* but never creates the
+    # worktree. Without this, the planner is dispatched into a bare non-git
+    # directory and its commits land on protected `main` (2026-05-16 incident).
+    if not cfg.dry_run:
+        worktree = _ensure_issue_worktree(ctx)
+        if worktree is None:
+            _logger.error(
+                "coach cold-start worktree creation failed",
+                extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
+            )
+            _write_escalation(
+                cfg.escalation_channel,
+                f"#{sm.issue_number}: worktree creation failed at INIT→PLANNED",
+            )
+            sm.history.append(sm.phase)
+            sm.phase = Phase.BLOCKED
+            return 1
 
     # --- Step 2: Spawn planner (K1) ---
     spawn_result = spawn_h(ctx, Transition(Phase.INIT, Phase.PLANNED))
