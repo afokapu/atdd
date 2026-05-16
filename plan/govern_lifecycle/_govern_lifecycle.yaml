@@ -41,12 +41,14 @@ features:
   - urn: "feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate"
   - urn: "feature:govern-lifecycle:issue-template-substrate-completeness"
   - urn: "feature:govern-lifecycle:init-emitted-command-drift-coverage"
+  - urn: "feature:govern-lifecycle:worktree-layout-detects-flat-sibling"
 
 wmbt:
-  total: 30
+  total: 31
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
+  R004: "minimize branch-creation-gate rejections of repos already in flat-sibling worktree layout"
   D001: "minimize issues created without orchestrate-ready template body"
   D002: "minimize parent issues without GitHub WMBT sub-issues when plan artifacts exist"
   D003: "minimize undetected template drift across open issues"

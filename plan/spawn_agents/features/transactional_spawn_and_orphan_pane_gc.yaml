@@ -1,0 +1,35 @@
+urn: "feature:spawn-agents:transactional-spawn-and-orphan-pane-gc"
+wagon: "wagon:spawn-agents"
+description: "Two-layer orphan-pane cleanup for the coach spawn pipeline: Layer 1 wraps pane-creation + seed + apply_canonical_name_and_layout in CmuxBackend.new_surface (and the spawn pipeline that calls it) in a try/except that calls the existing backend close primitive on any post-creation failure before re-raising, so a failed or partial spawn leaves zero orphan panes; Layer 2 adds an atdd coach gc command that reads spawned surface refs from .atdd/runtime/coach/*/decisions.jsonl (the DecisionWriter registry), reads live workspace:1 surfaces via cmux list-panels, and closes only the unreferenced default-cwd orphans — dry-run listing by default, mutation gated behind --apply"
+sizing:
+  wmbts: 1
+  footprint_score: 8
+  footprint_size: "S"
+wmbts:
+  - "wmbt:spawn-agents:E003"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd coach gc subcommand is the single new runtime entry point — parses --apply / --dry-run and prints the orphan list or the close summary; Layer 1 introduces no new controller, it hardens the existing atdd spawn path"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "Transactional spawn-attempt wrapper (Layer 1: create → seed → name/layout with close-on-failure) and orphan-reconciliation use case (Layer 2: cross-reference decisions.jsonl surface refs against live workspace:1 surfaces to classify orphans) are two discrete coach-application use cases"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "Surface ref and decision record shapes are imported from already-shipped multiplexer and durability modules; no new domain primitives are introduced"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "The cmux multiplexer adapter is extended to exercise its existing close primitive on the spawn-failure path and to expose list-panels output for the gc reconciliation read; no new backend adapter is added"
+      - type: "fixtures"
+        count: 1
+        rationale: "A decisions.jsonl + cmux list-panels fixture pairing 3 referenced surfaces with 2 unreferenced default-cwd orphans drives the gc detect/apply integration acceptances"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"
