@@ -222,30 +222,20 @@ def _fetch_issue_body(issue_number: int) -> str:
     return proc.stdout.strip()
 
 
-def _render_prompt(
+def _render_context_sections(
     *,
     issue_number: int,
-    dimensions: List[str],
-    llm_id: str,
     issue_body: str,
-    graph_context: Optional[str] = None,
-) -> str:
-    """Render the per-pass prompt.
+    graph_context: Optional[str],
+) -> List[str]:
+    """Render the host-injected context lines for one review pass (issue #721).
 
-    Per spec §6.10 the per-pass review is bounded by the five fixed
-    dimensions; track owners may evolve the prompt body in conventions,
-    but the contract surface (issue id + dimensions) is owned here.
-
-    Per issue #721 the host injects the issue body inline (the sandboxed
-    review LLM has no ``gh``) and, when available, an ``atdd repo`` graph
-    summary of the issue's neighbourhood so the ``systemic`` dimension is
-    grounded in real architecture rather than the issue text alone.
+    The sandboxed review LLM has no ``gh``, so the host splices the issue
+    body inline and — when the issue maps to a wagon — an ``atdd repo``
+    graph summary the ``systemic`` dimension is directed to consume.
+    Returns the section lines to be joined into the per-pass prompt.
     """
-    dim_list = "\n".join(f"  - {d}" for d in dimensions)
     sections = [
-        f"Review ATDD issue #{issue_number} across these dimensions:",
-        dim_list,
-        "",
         f"--- ISSUE #{issue_number} BODY (verbatim) ---",
         issue_body,
         f"--- END ISSUE #{issue_number} BODY ---",
@@ -260,12 +250,39 @@ def _render_prompt(
             "— not the issue text alone.",
             "",
         ]
-    sections += [
+    return sections
+
+
+def _render_prompt(
+    *,
+    issue_number: int,
+    dimensions: List[str],
+    llm_id: str,
+    issue_body: str,
+    graph_context: Optional[str] = None,
+) -> str:
+    """Render the per-pass prompt.
+
+    Per spec §6.10 the per-pass review is bounded by the five fixed
+    dimensions; track owners may evolve the prompt body in conventions,
+    but the contract surface (issue id + dimensions) is owned here. The
+    host-injected context (issue body + ``atdd repo`` graph summary, per
+    issue #721) is delegated to :func:`_render_context_sections`.
+    """
+    dim_list = "\n".join(f"  - {d}" for d in dimensions)
+    return "\n".join([
+        f"Review ATDD issue #{issue_number} across these dimensions:",
+        dim_list,
+        "",
+        *_render_context_sections(
+            issue_number=issue_number,
+            issue_body=issue_body,
+            graph_context=graph_context,
+        ),
         f"Reviewer LLM: {llm_id}",
         "Return JSON of shape {\"dimensions\": {<dim>: {\"verdict\": "
         "\"pass\"|\"concern\", \"findings\": [...]}}}.",
-    ]
-    return "\n".join(sections)
+    ])
 
 
 # ---------------------------------------------------------------------------
