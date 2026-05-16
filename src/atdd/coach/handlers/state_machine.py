@@ -127,3 +127,7 @@ class CoachContext:
     auto_merge: bool = False
     max_retries: Optional[int] = None
     escalation_channel: Optional[str] = None
+    # Issue #730: the issue's single persistent cmux surface (ATDD<N>),
+    # created at first spawn and reused — persona agent respawned in place —
+    # for every later phase transition. None until the first spawn.
+    issue_surface_ref: Optional[str] = None

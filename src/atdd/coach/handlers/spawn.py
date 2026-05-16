@@ -159,6 +159,10 @@ def _call_spawn(
         phase=phase,
         persona_prompt_content=persona_prompt_content,
         multiplexer_mode=ctx.multiplexer_mode,
+        # Issue #730: reuse the issue's persistent surface if one exists —
+        # cmd_spawn respawns the persona agent in place instead of spawning
+        # a new pane.
+        existing_surface_ref=ctx.issue_surface_ref,
     )
 
 
@@ -398,6 +402,12 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
 
     try:
         persona_surface_ref = result.get("surface_ref") if result else None
+        # Issue #730: remember the issue's persistent surface so the next
+        # phase transition respawns the persona agent in place rather than
+        # creating a new pane. The ctx is per-issue, so this ref survives
+        # across every phase of the issue's lifecycle.
+        if persona_surface_ref is not None:
+            ctx.issue_surface_ref = persona_surface_ref
         # In pane mode, the multiplexer backend's `new_persona_surface` (called
         # by cmd_spawn) already co-spawns the observer as a tab in the persona's
         # pane. Calling _spawn_observer here would create a SECOND observer,

@@ -125,6 +125,23 @@ class MultiplexerBackend(ABC):
         """
         self.send(ref, text)
 
+    def respawn_pane(
+        self, ref: MultiplexerRef, command: Optional[str] = None
+    ) -> None:
+        """Relaunch the process in an existing surface/pane (issue #730).
+
+        Kills the current process in ``ref`` and starts a fresh one running
+        ``command`` — a new process, NOT a conversation reset. The coach uses
+        this to swap the persona agent in place on each phase transition while
+        keeping the issue's single persistent surface.
+
+        Backends without respawn support raise NotImplementedError; callers
+        treat that as 'leave the surface as-is'.
+        """
+        raise NotImplementedError(
+            f"{self.name} backend does not support respawn_pane"
+        )
+
     @abstractmethod
     def list_workspaces(self) -> list[str]:
         """List all known workspace references."""
@@ -410,6 +427,20 @@ class CmuxBackend(MultiplexerBackend):
     def list_workspaces(self) -> list[str]:
         result = _run(["cmux", "list-workspaces"])
         return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+
+    def respawn_pane(
+        self, ref: MultiplexerRef, command: Optional[str] = None
+    ) -> None:
+        """Relaunch the process in an existing cmux surface (issue #730).
+
+        Swaps the persona agent in place — kills the current process and
+        starts a fresh one — so the issue keeps its single persistent surface
+        across phase transitions.
+        """
+        cmd = ["cmux", "respawn-pane", "--surface", ref]
+        if command:
+            cmd.extend(["--command", command])
+        _run(cmd, capture=False)
 
     def close(self, ref: MultiplexerRef) -> None:
         if _is_surface_ref(ref):
