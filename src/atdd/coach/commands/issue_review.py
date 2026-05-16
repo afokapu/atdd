@@ -54,6 +54,7 @@ from typing import Any, Callable, List, Literal, Optional
 import jsonschema
 
 from atdd.coach.commands import judge as judge_mod
+from atdd.coach.commands.issue_graph import build_issue_architecture_context
 from atdd.coach.utils.coach_config import load_coach_config
 from atdd.coach.utils.rule_binding import bind_rule, RuleNotInRegistryError
 
@@ -198,21 +199,73 @@ def parse_cli(argv: List[str]) -> IssueReviewConfig:
 # ---------------------------------------------------------------------------
 
 
-def _render_prompt(*, issue_number: int, dimensions: List[str], llm_id: str) -> str:
+def _fetch_issue_body(issue_number: int) -> str:
+    """Fetch the GitHub issue body host-side via ``gh issue view``.
+
+    Per issue #721: the review LLM runs sandboxed with no ``gh``, so the
+    host resolves the body once and injects it inline into every pass
+    prompt. On any ``gh`` failure this degrades gracefully to a short
+    placeholder rather than aborting the whole review.
+    """
+    try:
+        proc = subprocess.run(
+            ["gh", "issue", "view", str(issue_number),
+             "--json", "body", "--jq", ".body"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return f"(issue #{issue_number} body unavailable — `gh issue view` could not be run)"
+    if proc.returncode != 0:
+        return f"(issue #{issue_number} body unavailable — `gh issue view` exited {proc.returncode})"
+    return proc.stdout.strip()
+
+
+def _render_prompt(
+    *,
+    issue_number: int,
+    dimensions: List[str],
+    llm_id: str,
+    issue_body: str,
+    graph_context: Optional[str] = None,
+) -> str:
     """Render the per-pass prompt.
 
     Per spec §6.10 the per-pass review is bounded by the five fixed
     dimensions; track owners may evolve the prompt body in conventions,
     but the contract surface (issue id + dimensions) is owned here.
+
+    Per issue #721 the host injects the issue body inline (the sandboxed
+    review LLM has no ``gh``) and, when available, an ``atdd repo`` graph
+    summary of the issue's neighbourhood so the ``systemic`` dimension is
+    grounded in real architecture rather than the issue text alone.
     """
     dim_list = "\n".join(f"  - {d}" for d in dimensions)
-    return (
-        f"Review ATDD issue #{issue_number} across these dimensions:\n"
-        f"{dim_list}\n\n"
-        f"Reviewer LLM: {llm_id}\n"
-        f"Return JSON of shape {{\"dimensions\": {{<dim>: {{\"verdict\": "
-        f"\"pass\"|\"concern\", \"findings\": [...]}}}}}}."
-    )
+    sections = [
+        f"Review ATDD issue #{issue_number} across these dimensions:",
+        dim_list,
+        "",
+        f"--- ISSUE #{issue_number} BODY (verbatim) ---",
+        issue_body,
+        f"--- END ISSUE #{issue_number} BODY ---",
+        "",
+    ]
+    if graph_context:
+        sections += [
+            graph_context,
+            "",
+            "For the `systemic` dimension, ground your verdict (one-off "
+            "patch vs systemic pattern) in the Architecture context above "
+            "— not the issue text alone.",
+            "",
+        ]
+    sections += [
+        f"Reviewer LLM: {llm_id}",
+        "Return JSON of shape {\"dimensions\": {<dim>: {\"verdict\": "
+        "\"pass\"|\"concern\", \"findings\": [...]}}}.",
+    ]
+    return "\n".join(sections)
 
 
 # ---------------------------------------------------------------------------
@@ -511,7 +564,16 @@ def run(
         )
         return 2
 
-    # 4. Resolve pass identities and the LLM registry.
+    # 4. Resolve the issue body + repo-graph neighbourhood host-side once
+    #    (issue #721): the sandboxed review LLM has no `gh`, so the host
+    #    fetches the body and the `atdd repo` graph summary and injects
+    #    both inline into every pass prompt.
+    issue_body = _fetch_issue_body(issue_number)
+    graph_context = build_issue_architecture_context(
+        issue_number, repo_root=repo_root
+    )
+
+    # 5. Resolve pass identities and the LLM registry.
     pass_records: list[dict] = []
     for i in range(1, effective_passes + 1):
         llm_id = effective_llms[i - 1]
@@ -536,6 +598,8 @@ def run(
                 issue_number=issue_number,
                 dimensions=effective_dims,
                 llm_id=llm_id,
+                issue_body=issue_body,
+                graph_context=graph_context,
             ))
         except judge_mod.LLMUnavailable as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             _print_error(f"LLM unavailable ({llm_id!r}): {exc}")
@@ -552,14 +616,12 @@ def run(
             _print_error(f"pass {i}/{llm_id} invalid response: {exc}")
             return 4
 
-        # Resolve / scrub finding rule_ids before schema-validating; the
-        # schema admits ``null`` so any unknown id is normalized first.
-        try:
-            _resolve_finding_rule_ids(record)
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-            _print_error(f"pass {i}/{llm_id} rule binding failed: {exc}")
-            return 4
-
+        # Schema-validate the record *before* touching the rule-binding
+        # path (issue #721): a parseable-but-malformed payload — e.g. a
+        # dimension value or `findings` entry that is a `str` where a
+        # dict/array is expected — is rejected here as a clean,
+        # field-naming schema violation instead of crashing
+        # `_resolve_finding_rule_ids` with an unhandled AttributeError.
         try:
             _validate_pass_record(record)
         except jsonschema.ValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
@@ -569,10 +631,19 @@ def run(
             )
             return 4
 
+        # Shape is now schema-guaranteed; resolve / scrub finding rule_ids.
+        # The schema admits ``null`` so any unknown id is normalized in
+        # place without needing re-validation.
+        try:
+            _resolve_finding_rule_ids(record)
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            _print_error(f"pass {i}/{llm_id} rule binding failed: {exc}")
+            return 4
+
         _atomic_write_json(path, record)
         pass_records.append(record)
 
-    # 5. Aggregate.
+    # 6. Aggregate.
     aggregate = _build_aggregate(
         issue_number=issue_number, pass_records=pass_records
     )
@@ -588,7 +659,7 @@ def run(
     aggregate_path = _runtime_dir(repo_root, issue_number) / "aggregate.json"
     _atomic_write_json(aggregate_path, aggregate)
 
-    # 6. --show: surface the aggregate on the GitHub issue.
+    # 7. --show: surface the aggregate on the GitHub issue.
     if show:
         post_issue_comment(
             issue_number=issue_number,
