@@ -205,6 +205,27 @@ def _is_surface_ref(ref: str) -> bool:
     return ref.startswith("surface:")
 
 
+def _ws_flag(workspace: Optional[str]) -> list[str]:
+    """`["--workspace", <ref>]` when a workspace is known, else `[]`.
+
+    cmux resolves short ``surface:``/``pane:`` refs against the *selected*
+    workspace only, so every ref-bearing cmux call must carry --workspace
+    to resolve reliably (#655). Splat into an argv: ``[..., *_ws_flag(ws)]``.
+    """
+    return ["--workspace", workspace] if workspace else []
+
+
+def _target_args(ref: str, workspace: Optional[str] = None) -> list[str]:
+    """cmux argv fragment targeting ``ref``.
+
+    A ``surface:`` ref needs ``--surface`` plus ``--workspace`` to resolve
+    (#655); a ``workspace:`` ref is itself the ``--workspace`` value.
+    """
+    if _is_surface_ref(ref):
+        return ["--surface", ref, *_ws_flag(workspace)]
+    return ["--workspace", ref]
+
+
 def _extract_ref_token(stdout: str, prefix: str) -> str:
     """Extract the first ``<prefix>:<N>`` token from a cmux OK-line.
 
@@ -266,12 +287,9 @@ class CmuxBackend(MultiplexerBackend):
         # against the *selected* workspace only, so an unscoped call silently
         # hits the wrong surface or fails outright (#655 SMOKE).
         resolved_workspace = workspace_ref
-        surface_ref = ""
 
         if creating_new_pane:
-            new_pane_cmd = ["cmux", "new-pane"]
-            if workspace_ref:
-                new_pane_cmd.extend(["--workspace", workspace_ref])
+            new_pane_cmd = ["cmux", "new-pane", *_ws_flag(workspace_ref)]
             if direction:
                 # Issue #470: right-anchored grid layout. cmux new-pane accepts
                 # --direction {right,left,up,down}; default behavior is preserved
@@ -294,9 +312,8 @@ class CmuxBackend(MultiplexerBackend):
                 )
         else:
             # Existing pane: add a new surface as a tab.
-            new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
-            if workspace_ref:
-                new_surface_cmd.extend(["--workspace", workspace_ref])
+            new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref,
+                               *_ws_flag(workspace_ref)]
             if name:
                 new_surface_cmd.extend(["--name", name])
             surface_result = _run(new_surface_cmd)
@@ -312,11 +329,11 @@ class CmuxBackend(MultiplexerBackend):
         try:
             if creating_new_pane and name:
                 # Rename the default surface to the desired name.
-                rename_cmd = ["cmux", "rename-tab", "--surface", surface_ref]
-                if resolved_workspace:
-                    rename_cmd.extend(["--workspace", resolved_workspace])
-                rename_cmd.append(name)
-                _run(rename_cmd, capture=False)
+                _run(
+                    ["cmux", "rename-tab", "--surface", surface_ref,
+                     *_ws_flag(resolved_workspace), name],
+                    capture=False,
+                )
             if cwd or command:
                 seed_parts = []
                 if cwd:
@@ -324,11 +341,11 @@ class CmuxBackend(MultiplexerBackend):
                 if command:
                     seed_parts.append(command)
                 seed_text = " && ".join(seed_parts) + "\n"
-                send_cmd = ["cmux", "send", "--surface", surface_ref]
-                if resolved_workspace:
-                    send_cmd.extend(["--workspace", resolved_workspace])
-                send_cmd.append(seed_text)
-                _run(send_cmd, capture=False)
+                _run(
+                    ["cmux", "send", "--surface", surface_ref,
+                     *_ws_flag(resolved_workspace), seed_text],
+                    capture=False,
+                )
         except Exception:
             self._close_quietly(surface_ref, workspace=resolved_workspace)
             raise
@@ -343,9 +360,8 @@ class CmuxBackend(MultiplexerBackend):
         name: Optional[str] = None,
         workspace: Optional[MultiplexerRef] = None,
     ) -> MultiplexerRef:
-        new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
-        if workspace:
-            new_surface_cmd.extend(["--workspace", workspace])
+        new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref,
+                           *_ws_flag(workspace)]
         if name:
             new_surface_cmd.extend(["--name", name])
         surface_result = _run(new_surface_cmd)
@@ -361,11 +377,11 @@ class CmuxBackend(MultiplexerBackend):
             if command:
                 seed_parts.append(command)
             seed_text = " && ".join(seed_parts) + "\n"
-            send_cmd = ["cmux", "send", "--surface", surface_ref]
-            if workspace:
-                send_cmd.extend(["--workspace", workspace])
-            send_cmd.append(seed_text)
-            _run(send_cmd, capture=False)
+            _run(
+                ["cmux", "send", "--surface", surface_ref,
+                 *_ws_flag(workspace), seed_text],
+                capture=False,
+            )
         return surface_ref
 
     def surface_to_pane(
@@ -382,17 +398,13 @@ class CmuxBackend(MultiplexerBackend):
         # Why not `cmux rpc surface.read_text '{"surface":"..."}'`? Upstream cmux
         # bug: the rpc ignores the surface param and returns whatever surface is
         # focused in the operator's view (verified 2026-05-15).
-        list_panes_cmd = ["cmux", "list-panes"]
-        if workspace:
-            list_panes_cmd.extend(["--workspace", workspace])
-        panes_result = _run(list_panes_cmd)
+        panes_result = _run(["cmux", "list-panes", *_ws_flag(workspace)])
         pane_pattern = re.compile(r"\bpane:(\d+)\b")
         for match in pane_pattern.finditer(panes_result.stdout or ""):
             pane_ref = f"pane:{match.group(1)}"
-            list_surfaces_cmd = ["cmux", "list-pane-surfaces", "--pane", pane_ref]
-            if workspace:
-                list_surfaces_cmd.extend(["--workspace", workspace])
-            surfaces_result = _run(list_surfaces_cmd)
+            surfaces_result = _run(
+                ["cmux", "list-pane-surfaces", "--pane", pane_ref, *_ws_flag(workspace)]
+            )
             if surface_ref in (surfaces_result.stdout or ""):
                 return pane_ref
         raise MultiplexerError(
@@ -405,28 +417,14 @@ class CmuxBackend(MultiplexerBackend):
         lines: int = 50,
         workspace: Optional[MultiplexerRef] = None,
     ) -> str:
-        cmd = ["cmux", "read-screen"]
-        if _is_surface_ref(ref):
-            cmd.extend(["--surface", ref])
-            if workspace:
-                cmd.extend(["--workspace", workspace])
-        else:
-            cmd.extend(["--workspace", ref])
-        cmd.extend(["--lines", str(lines)])
+        cmd = ["cmux", "read-screen", *_target_args(ref, workspace),
+               "--lines", str(lines)]
         return _run(cmd).stdout or ""
 
     def send(
         self, ref: MultiplexerRef, text: str, workspace: Optional[MultiplexerRef] = None
     ) -> None:
-        cmd = ["cmux", "send"]
-        if _is_surface_ref(ref):
-            cmd.extend(["--surface", ref])
-            if workspace:
-                cmd.extend(["--workspace", workspace])
-        else:
-            cmd.extend(["--workspace", ref])
-        cmd.append(text)
-        _run(cmd, capture=False)
+        _run(["cmux", "send", *_target_args(ref, workspace), text], capture=False)
 
     def send_key(
         self, ref: MultiplexerRef, key: str, workspace: Optional[MultiplexerRef] = None
@@ -434,15 +432,7 @@ class CmuxBackend(MultiplexerBackend):
         # `cmux rpc surface.send_key` takes JSON params, not CLI flags. Use the
         # regular `cmux send-key --surface <ref> <key>` CLI for both ref kinds
         # (verified at runtime 2026-05-15).
-        cmd = ["cmux", "send-key"]
-        if _is_surface_ref(ref):
-            cmd.extend(["--surface", ref])
-            if workspace:
-                cmd.extend(["--workspace", workspace])
-        else:
-            cmd.extend(["--workspace", ref])
-        cmd.append(key)
-        _run(cmd, capture=False)
+        _run(["cmux", "send-key", *_target_args(ref, workspace), key], capture=False)
 
     def paste_text(
         self, ref: MultiplexerRef, text: str, workspace: Optional[MultiplexerRef] = None
@@ -452,14 +442,7 @@ class CmuxBackend(MultiplexerBackend):
         # stay literal, no premature submit). Verified end-to-end 2026-05-15
         # against Claude Code v2.1.142.
         _run(["cmux", "set-buffer", text], capture=False)
-        cmd = ["cmux", "paste-buffer"]
-        if _is_surface_ref(ref):
-            cmd.extend(["--surface", ref])
-            if workspace:
-                cmd.extend(["--workspace", workspace])
-        else:
-            cmd.extend(["--workspace", ref])
-        _run(cmd, capture=False)
+        _run(["cmux", "paste-buffer", *_target_args(ref, workspace)], capture=False)
 
     def list_workspaces(self) -> list[str]:
         result = _run(["cmux", "list-workspaces"])
@@ -470,10 +453,10 @@ class CmuxBackend(MultiplexerBackend):
             # cmux resolves a short `surface:` ref against the *selected*
             # workspace only — pass --workspace so the ref resolves no matter
             # which workspace is focused (#655).
-            cmd = ["cmux", "close-surface", "--surface", ref]
-            if workspace:
-                cmd.extend(["--workspace", workspace])
-            _run(cmd, capture=False)
+            _run(
+                ["cmux", "close-surface", "--surface", ref, *_ws_flag(workspace)],
+                capture=False,
+            )
             return
         _run(["cmux", "close-workspace", "--workspace", ref], capture=False)
 
@@ -506,11 +489,11 @@ class CmuxBackend(MultiplexerBackend):
             return
         try:
             if _is_surface_ref(ref):
-                cmd = ["cmux", "rename-tab", "--surface", ref]
-                if workspace:
-                    cmd.extend(["--workspace", workspace])
-                cmd.append(name)
-                _run(cmd, capture=False)
+                _run(
+                    ["cmux", "rename-tab", "--surface", ref,
+                     *_ws_flag(workspace), name],
+                    capture=False,
+                )
             else:
                 _run(
                     ["cmux", "rename-workspace", "--workspace", ref, name],
