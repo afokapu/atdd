@@ -1,0 +1,129 @@
+urn: "wmbt:govern-lifecycle:R004"
+step: "resolve"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "branch-creation-gate-rejections-of-repos-already-in-flat-sibling-worktree-layout"
+context_clarifier: "when detect_worktree_layout is called from inside a linked worktree it returns 'worktree' for any .git-file without resolving git-common-dir, so the atdd branch precondition gate and the atdd issue re-enter _create_branch path abort on a repo whose primary checkout is already main/ with flat sibling worktrees"
+lens: "functional.adaptability"
+statement: "minimize quantity of branch-creation-gate-rejections-of-repos-already-in-flat-sibling-worktree-layout when detect_worktree_layout does not resolve a linked worktree's git-common-dir back to a main/ primary checkout"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:R004-UNIT-001-detector-resolves-linked-worktree-common-dir"
+      id: "AC-UNIT-001"
+      purpose: "detect_worktree_layout classifies a linked worktree whose git-common-dir resolves to a main/ primary checkout as worktree-ready, while genuinely-unmigrated and no-git repos keep their existing classification"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "tmp_path with a primary checkout directory named main/ (.git is a directory)"
+        - "A linked worktree created as a flat sibling of main/ (its .git is a file pointing into main/.git/worktrees/...)"
+        - "A separate tmp_path repo whose single checkout dir is NOT named main (.git is a directory)"
+        - "A tmp_path directory with no .git at all"
+    when:
+      abstract: "detect_worktree_layout(path) is called for each of: the main/ checkout, the linked sibling worktree, the non-main single checkout, and the no-git directory"
+    then:
+      abstract:
+        - "Returns 'worktree-ready' for the main/ primary checkout"
+        - "Returns 'worktree-ready' for the linked sibling worktree (its git-common-dir parent is named main)"
+        - "Returns 'flat' for the non-main single checkout (genuinely unmigrated — unchanged behaviour)"
+        - "Returns 'no-git' for the directory with no .git (unchanged behaviour)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+
+  - identity:
+      urn: "acc:govern-lifecycle:R004-INTEGRATION-001-branch-gate-passes-from-flat-sibling-worktree"
+      id: "AC-INTEGRATION-001"
+      purpose: "BranchManager.branch() does not abort on the worktree-layout precondition when invoked with a target_dir that is a linked worktree of an already flat-sibling layout"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "tmp_path with a main/ primary checkout and a linked sibling worktree on disk"
+        - "BranchManager(target_dir=<linked sibling worktree>) constructed"
+        - "The manifest lookup is patched so the run reaches the layout gate and then stops before any git worktree add"
+    when:
+      abstract: "manager.branch(issue_number) is called from the linked sibling worktree"
+    then:
+      abstract:
+        - "Execution proceeds past the detect_worktree_layout precondition (no early return at the layout check)"
+        - "No 'Repository layout is worktree, expected worktree-ready' message is printed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+
+  - identity:
+      urn: "acc:govern-lifecycle:R004-INTEGRATION-002-init-worktree-layout-noop-on-already-flat"
+      id: "AC-INTEGRATION-002"
+      purpose: "atdd init --worktree-layout on a repo already in flat-sibling layout (main/ primary checkout or a linked sibling worktree) moves zero files and leaves the worktree set intact"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "tmp_path with a main/ primary checkout and at least one linked sibling worktree on disk"
+        - "A recorded snapshot of every path under main/ and the sibling worktree before the call"
+        - "Initializer GitHub-touching steps patched so the run exercises only the layout branch"
+    when:
+      abstract: "Initializer.init(worktree_layout=True) is invoked once with target_dir=main/ and once with target_dir=<linked sibling worktree>"
+    then:
+      abstract:
+        - "Both invocations take the worktree-ready no-op branch (no _migrate_to_worktree_layout call, no shutil.move)"
+        - "The path snapshot under main/ and the sibling worktree is byte-for-byte identical before and after"
+        - "git worktree list still reports the same set of worktrees after the call"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+
+  - identity:
+      urn: "acc:govern-lifecycle:R004-INTEGRATION-003-issue-reenter-create-branch-passes"
+      id: "AC-INTEGRATION-003"
+      purpose: "The atdd issue <N> re-enter lifecycle path (_create_branch -> BranchManager.branch) does not abort on the layout gate when run from a linked worktree of an already flat-sibling repo"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "tmp_path with a main/ primary checkout and a linked sibling worktree on disk"
+        - "IssueLifecycle(target_dir=<linked sibling worktree>) constructed"
+        - "BranchManager.branch patched to record invocation and return 0 so the run reaches it past the layout gate"
+    when:
+      abstract: "lifecycle._create_branch(issue_number, slug, prefix) is called from the linked sibling worktree"
+    then:
+      abstract:
+        - "detect_worktree_layout for the linked worktree resolves to worktree-ready"
+        - "BranchManager.branch is reached and invoked (the layout precondition does not short-circuit the lifecycle path)"
+        - "No 'Repository layout is worktree, expected worktree-ready' message is printed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+
+  - identity:
+      urn: "acc:govern-lifecycle:R004-SMOKE-001-real-linked-worktree-recognized-worktree-ready"
+      id: "AC-SMOKE-001"
+      purpose: "Against real git plumbing: a real on-disk flat-sibling layout (real git init, real git worktree add) is recognised as worktree-ready end-to-end so the real atdd branch precondition does not reject it"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repository created on disk with its primary checkout directory named main/ (real git init + initial commit)"
+        - "A real linked worktree added as a flat sibling via real `git worktree add` (its .git is a real gitfile)"
+        - "The installed atdd CLI available on PATH"
+    when:
+      abstract: "detect_worktree_layout is invoked against the real linked sibling worktree and the real `atdd branch` precondition gate is exercised from inside it"
+    then:
+      abstract:
+        - "Real `git rev-parse --git-common-dir` from the linked worktree resolves to a path whose worktree owner is the main/ checkout"
+        - "detect_worktree_layout returns 'worktree-ready' for the real linked sibling worktree"
+        - "`atdd branch` run from the real linked worktree does not exit on the layout precondition with 'Repository layout is worktree, expected worktree-ready'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
