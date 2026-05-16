@@ -1,27 +1,35 @@
 # URN: component:govern-lifecycle:enforcement-substrate:test_workflow_template_command_drift:backend:domain
 # Runtime: python
-# Purpose: Lock the contract that every `run: atdd ...` line ProjectInitializer writes into consumer workflows parses cleanly under the live argparse.
+# Purpose: Lock the contract that every `run: atdd ...` line ProjectInitializer writes into consumer workflows resolves to a real subcommand and parses cleanly under the live argparse (flag- and subcommand-level drift, #473 + #481).
 
-"""Drift guard for `atdd init` workflow templates vs. the live CLI (issue #473).
+"""Drift guard for `atdd init` workflow templates vs. the live CLI.
 
-The 3.10.0 release dropped `-m FLAG` from `atdd validate`, but
-``ProjectInitializer._write_workflow`` and ``_write_infra_workflow`` kept
-emitting ``atdd validate coach -m "not github_api"`` and
-``atdd validate coach -m github_api`` into every consumer's
-``.github/workflows/atdd-validate*.yml``. Every consumer who ran
-``atdd init --force`` after the upgrade hit ``unrecognized arguments: -m``
-on first push — a required CI gate failing on a hardcoded template,
-before any actual validators ran.
+Two drift classes, two issues:
 
-This validator closes that drift class. It writes the workflow templates
-into a tmp directory via the real initializer, greps every emitted
-``run: atdd ...`` literal back out, and feeds each through the live
-argparse via subprocess. ``--diagnostics-only`` is appended to short-circuit
-after parse — argparse failures still surface as rc=2 + ``unrecognized
-arguments``, so a parse miss is unambiguous.
+#473 — flag-level drift. The 3.10.0 release dropped `-m FLAG` from
+``atdd validate``, but ``ProjectInitializer._write_workflow`` and
+``_write_infra_workflow`` kept emitting ``atdd validate coach -m "not
+github_api"`` into every consumer's ``.github/workflows/atdd-validate*.yml``.
+Every consumer who ran ``atdd init --force`` after the upgrade hit
+``unrecognized arguments: -m`` on first push.
 
-Convention: ``src/atdd/coach/conventions/rule-id.convention.yaml``
-            (rule ``coach.initializer.template-cli-drift``).
+#481 — subcommand-level drift. The initializer also emitted
+``atdd baseline update`` into the (now-retired) ``baseline-sync`` job;
+``baseline`` is not a top-level subcommand, so argparse rejects it with
+``invalid choice`` — a different failure token #473's guard never matched.
+This validator now flags BOTH classes across EVERY emitted ``run: atdd
+...`` line, not just ``atdd validate ...`` lines.
+
+It writes the workflow templates into a tmp directory via the real
+initializer, extracts every emitted ``run: atdd ...`` literal back out,
+and feeds each through the live argparse via subprocess. ``--diagnostics-only``
+is appended to short-circuit after parse on ``atdd validate ...`` lines —
+argparse failures still surface as rc=2 + (``unrecognized arguments`` |
+``invalid choice``), so a parse miss is unambiguous.
+
+Conventions: ``src/atdd/coach/conventions/rule-id.convention.yaml``
+             (rules ``coach.initializer.template-cli-drift`` and
+             ``coach.workflow-template.command-must-parse``).
 """
 
 from __future__ import annotations
@@ -258,14 +266,17 @@ def scan_workflow_templates_for_cli_drift() -> List[Violation]:
 def test_every_run_line_parses_under_live_cli():
     """Every `run: atdd ...` line the initializer emits parses under live argparse.
 
-    SPEC: ``rule-id.convention.yaml::rules[coach.initializer.template-cli-drift]``.
+    SPEC: ``rule-id.convention.yaml::rules[coach.initializer.template-cli-drift,
+          coach.workflow-template.command-must-parse]``.
 
     Given:  Workflow YAMLs written by ``ProjectInitializer._write_workflow``
             and ``_write_infra_workflow`` against a tmp target directory.
-    When:   Every emitted ``run: atdd ...`` line is fed through the live
-            ``python -m atdd`` argparse via subprocess.
-    Then:   No command produces ``rc=2`` + ``unrecognized arguments`` —
-            the templates and the CLI are in sync.
+    When:   Every emitted ``run: atdd ...`` line — validate AND non-validate
+            alike — is fed through the live ``python -m atdd`` argparse via
+            subprocess.
+    Then:   No command produces ``rc=2`` + (``unrecognized arguments`` |
+            ``invalid choice``) — the templates and the CLI are in sync at
+            both flag and subcommand level.
     """
     violations = scan_workflow_templates_for_cli_drift()
     assert_disposition_satisfied(
