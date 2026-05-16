@@ -1,4 +1,4 @@
-# URN: test:govern-lifecycle:E005-UNIT-002-drift-validator-flags-nonexistent-subcommand
+# URN: test:govern-lifecycle:E005-UNIT-002-drift-validator-flags-unknown-subcommand
 # Acceptance: acc:govern-lifecycle:E005-UNIT-002-drift-validator-flags-nonexistent-subcommand
 # WMBT: wmbt:govern-lifecycle:E005
 # Phase: RED
