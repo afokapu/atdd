@@ -56,6 +56,10 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:atdd-cmux-send-shim
+    contract: null
+    telemetry: null
+    to: external
 
 consume:
   - name: commons:coach:runtime-event-schema
@@ -68,10 +72,11 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 6
+  total: 7
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
   P001: "minimize quantity of llm-personas-without-rule-id-aware-convention-file"
   C001: "minimize likelihood of orchestrate-coach-spawn-divergence-shipping-undetected"
   E003: "minimize quantity of orphan-multiplexer-panes-leaked-by-failed-or-partial-coach-spawns"
+  E004: "minimize likelihood of raw-cmux-claude-launches-bypassing-atdd-spawn"
