@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -130,6 +131,20 @@ class Policy:
     """
 
     strict_deps: bool
+
+
+@dataclass
+class ColdStartResult:
+    """Aggregate outcome of a cold-start run (issue #730).
+
+    ``rc`` is the process exit code — 0 when every issue reached a terminal
+    success state, the first non-zero member ``rc`` otherwise. ``blocked``
+    lists the issue numbers that resolved to BLOCKED, so the operator can see
+    which member stalled without that member aborting its siblings.
+    """
+
+    rc: int
+    blocked: list[int] = field(default_factory=list)
 
 
 def _persona_llm_arg(value: str) -> dict[str, str]:
@@ -698,11 +713,18 @@ def _execute_cold_start(
     _injected_events: Optional[dict] = None,
     _max_loop_events: Optional[int] = None,
     _run_id_sink: Optional[list] = None,
-) -> int:
+) -> "ColdStartResult":
     """Wire and drive all issues through the full lifecycle (cold-start path).
 
-    Runs waves sequentially (R6, issue #645 — no parallel-within-wave).
-    Returns 0 when all issues complete, 1 on first BLOCKED/error.
+    Waves run in dependency order (R6, issue #645): wave N+1 does not start
+    until every member of wave N has reached a terminal state. Members WITHIN
+    a single wave are driven concurrently — one worker thread per member, each
+    with its own ``coach-run-*`` id and event loop — so the wave plan's
+    ``Wave 0: #A,#B`` reflects real parallel execution (issue #730).
+
+    A BLOCKED member is surfaced in the returned :class:`ColdStartResult`
+    without aborting siblings that already started (Decision #1). Returns a
+    ``ColdStartResult`` carrying the aggregate ``rc`` and the BLOCKED issues.
     """
     if len(cfg.issue_numbers) > 1:
         plan = build_plan(cfg.issue_numbers)
@@ -714,13 +736,16 @@ def _execute_cold_start(
         waves = [cfg.issue_numbers]
 
     machines_by_number = {sm.issue_number: sm for sm in machines}
+    results_lock = threading.Lock()
+    aggregate_rc = 0
+    blocked: list[int] = []
 
-    for wave in waves:
-        for issue_num in wave:
-            sm = machines_by_number.get(issue_num)
-            if sm is None:
-                continue
-            issue_events = (_injected_events or {}).get(issue_num)
+    def _drive(issue_num: int, sink: dict) -> None:
+        sm = machines_by_number.get(issue_num)
+        if sm is None:
+            return
+        issue_events = (_injected_events or {}).get(issue_num)
+        try:
             rc = _drive_single_issue(
                 cfg, sm, runtime_dir,
                 _spawn_func=_spawn_func,
@@ -729,10 +754,41 @@ def _execute_cold_start(
                 _max_loop_events=_max_loop_events,
                 _run_id_sink=_run_id_sink,
             )
-            if rc != 0:
-                return rc
+        except Exception:  # noqa: BLE001 — a crashed driver must not abort siblings
+            _logger.exception(
+                "coach cold-start: issue driver raised",
+                extra={"issue": issue_num},
+            )
+            rc = 2
+        with results_lock:
+            sink[issue_num] = rc
 
-    return 0
+    for wave in waves:
+        # Drive every member of this wave concurrently; join before the next
+        # wave so between-wave dependency ordering is preserved (issue #730).
+        wave_results: dict[int, int] = {}
+        threads = [
+            threading.Thread(
+                target=_drive, args=(issue_num, wave_results),
+                name=f"coach-issue-{issue_num}",
+            )
+            for issue_num in wave
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # Aggregate this wave's outcomes — a BLOCKED member is recorded, not
+        # fatal: siblings already running are left to finish.
+        for issue_num, rc in wave_results.items():
+            if rc != 0 and aggregate_rc == 0:
+                aggregate_rc = rc
+            sm = machines_by_number.get(issue_num)
+            if sm is not None and sm.phase == Phase.BLOCKED:
+                blocked.append(issue_num)
+
+    return ColdStartResult(rc=aggregate_rc, blocked=blocked)
 
 
 def run(
@@ -836,7 +892,7 @@ def run(
 
     # Cold-start execution path (issue #645): drive all issues from INIT to MERGED.
     if not cfg.dry_run:
-        return _execute_cold_start(
+        result = _execute_cold_start(
             cfg,
             machines,
             runtime_dir,
@@ -846,6 +902,12 @@ def run(
             _max_loop_events=_max_loop_events,
             _run_id_sink=_run_id_sink,
         )
+        if result.blocked:
+            print(
+                f"⚠ BLOCKED: {', '.join(f'#{n}' for n in result.blocked)}",
+                file=sys.stderr,
+            )
+        return result.rc
 
     return 0
 
