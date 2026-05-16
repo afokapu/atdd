@@ -150,6 +150,7 @@ def _list_panes(workspace: str) -> list[dict]:
     Each line is ``[*| ] surface:N  <type>  [<flags>...]  "<label>"`` — the
     label (cwd / title) is the quoted trailing string.
     """
+    result = None
     try:
         result = subprocess.run(
             ["cmux", "list-panels", "--workspace", workspace],
@@ -157,7 +158,10 @@ def _list_panes(workspace: str) -> list[dict]:
             text=True,
         )
     except FileNotFoundError:
+        # cmux is not installed — observably report and fall through; the
+        # return happens outside the handler (coder.logging.coach-silent-swallow).
         print("atdd coach gc: cmux not found — nothing to reconcile.", file=sys.stderr)
+    if result is None:
         return []
     panes: list[dict] = []
     for line in (result.stdout or "").splitlines():
