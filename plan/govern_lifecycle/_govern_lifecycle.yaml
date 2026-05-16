@@ -40,10 +40,11 @@ features:
   - urn: "feature:govern-lifecycle:atdd-issue-canonical-path"
   - urn: "feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate"
   - urn: "feature:govern-lifecycle:issue-template-substrate-completeness"
+  - urn: "feature:govern-lifecycle:init-emitted-command-drift-coverage"
   - urn: "feature:govern-lifecycle:worktree-layout-detects-flat-sibling"
 
 wmbt:
-  total: 30
+  total: 31
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -74,3 +75,4 @@ wmbt:
   E002: "minimize issue-creation landing on wrong branch and leaving orphan worktrees"
   E003: "minimize wmbts-without-smoke-acceptance-and-prs-auto-closing-pre-smoke-issues when planner authors a WMBT or coach merges a PR (#681)"
   E004: "minimize newly-filed-issues shipping without graph context or cross-agent mirror"
+  E005: "minimize init-emitted-atdd-invocations-that-fail-to-parse-under-the-live-cli when atdd init emits workflow templates and the drift-detection self-validate scans them (#481)"

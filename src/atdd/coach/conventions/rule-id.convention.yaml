@@ -309,6 +309,29 @@ rules:
         3. Re-emit by re-running the unit test
            src/atdd/coach/commands/tests/test_initializer_workflow_emission.py
            which feeds every emitted run-line through the live argparse.
+  - id: "coach.workflow-template.command-must-parse"
+    severity: 2
+    description: "Every `run: atdd ...` line (any subcommand) the initializer writes into consumer workflow templates must resolve to a subcommand the live atdd top-level argparse declares"
+    disposition: strict
+    introduced_in: "3.53.6"
+    aliases: []
+    validator: "test_workflow_template_command_drift::test_every_run_line_parses_under_live_cli"
+    fix_hint: |
+      An emitted `run: atdd ...` line names a subcommand the live `atdd`
+      CLI does not declare (argparse `invalid choice`, e.g. the stranded
+      `atdd baseline update` emit), or a flag the subparser rejects
+      (`unrecognized arguments`). This widens #473's flag-only drift guard
+      (coach.initializer.template-cli-drift) to subcommand-level drift
+      across EVERY emitted `run: atdd ...` line, not just `atdd validate
+      ...` (issue #481 — the `baseline update` emit failed silently on
+      every push to main). Repair:
+        1. Run the validator to see the offending workflow file +
+           invocation (run: pytest
+           src/atdd/coach/validators/test_workflow_template_command_drift.py -v).
+        2. Either correct the emit in
+           src/atdd/coach/commands/initializer.py to a real subcommand,
+           or remove the emit if the job is retired.
+        3. Enumerate valid subcommands with `atdd --help`.
   - id: "coach.pr.base-must-be-default-branch"
     severity: 3
     description: "Every PR (open or being created via `atdd pr`) must target the repo's default branch unless --force is set"
