@@ -94,9 +94,12 @@ def _emit_workflow_files(target_dir: Path) -> List[Path]:
 
 
 def _extract_atdd_run_lines(workflow_path: Path) -> List[str]:
-    """Pull every `run: atdd ...` literal out of a generated workflow YAML."""
-    text = workflow_path.read_text()
-    return [m.group(1).strip() for m in _RUN_LINE_RE.finditer(text)]
+    """Pull every `run: atdd ...` literal out of a generated workflow YAML.
+
+    Thin convenience wrapper over :func:`extract_atdd_invocations` — kept as
+    the file-path-oriented entry point; both share one parsing source.
+    """
+    return [inv.raw for inv in extract_atdd_invocations(workflow_path.read_text())]
 
 
 @dataclass(frozen=True)
