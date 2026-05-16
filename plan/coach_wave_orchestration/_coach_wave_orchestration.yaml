@@ -1,14 +1,14 @@
 wagon: coach-wave-orchestration
 urn: "wagon:coach-wave-orchestration"
 name: "Coach Wave Orchestration"
-description: "Within-wave concurrency and per-persona pane identity for atdd coach cold-start. Drives every issue in a dependency-free wave concurrently (one coach-run id, worker pane, and _drive_single_issue loop per member), joins all members before advancing, and aggregates per-member rc so a BLOCKED member is reported without aborting already-spawned siblings. Qualifies each per-phase persona pane's canonical name with a persona/phase segment and reaps the prior phase's pane on transition so coach never accumulates identically-named idle panes."
+description: "Within-wave concurrency and one-persistent-pane-per-issue for atdd coach cold-start. Drives every issue in a dependency-free wave concurrently (one coach-run id, worker pane, and _drive_single_issue loop per member), joins all members before advancing, and aggregates per-member rc so a BLOCKED member is reported without aborting already-spawned siblings. Hosts each issue in a single persistent cmux surface named ATDD<N>, created once and never renamed, and respawns the persona agent in place inside that surface on each phase transition (a fresh claude process via cmux respawn-pane, not /clear) so coach never accumulates a new pane per phase; a BLOCKED phase leaves its pane intact for debugging."
 theme: commons
 
 subject: "agent:coach"
-context: "in-coach-v9-cold-start, _execute_cold_start-loops-wave-members-serially-and-spawn-names-every-persona-pane-identically"
-action: "drives all members of a dependency-free wave concurrently with an aggregate rc, and spawns persona panes under persona/phase-qualified canonical names while reaping the prior phase's pane"
-goal: "make the executor honour the printed wave plan and make per-issue persona panes individually identifiable"
-outcome: "concurrent within-wave driver in _execute_cold_start with between-wave dependency ordering preserved; persona-qualified pane names and prior-phase pane reaping in the spawn path"
+context: "in-coach-v9-cold-start, _execute_cold_start-loops-wave-members-serially-and-the-spawn-path-creates-a-new-pane-per-phase"
+action: "drives all members of a dependency-free wave concurrently with an aggregate rc, and hosts each issue in one persistent cmux surface named ATDD<N>, respawning the persona agent in place each phase"
+goal: "make the executor honour the printed wave plan and give each issue one stable pane for its whole lifecycle"
+outcome: "concurrent within-wave driver in _execute_cold_start with between-wave dependency ordering preserved; one persistent surface per issue with in-place persona respawn in the spawn path"
 
 features:
   - urn: "feature:coach-wave-orchestration:within-wave-concurrency-and-pane-identity"
@@ -18,11 +18,11 @@ produce:
     contract: null
     telemetry: null
     to: external
-  - name: commons:coach:persona-qualified-pane-name
+  - name: commons:coach:persistent-issue-pane
     contract: null
     telemetry: null
     to: external
-  - name: commons:coach:stale-persona-pane-reaping
+  - name: commons:coach:in-place-persona-respawn
     contract: null
     telemetry: null
     to: external
@@ -32,4 +32,4 @@ consume: []
 wmbt:
   total: 2
   E001: "minimize likelihood of within-wave-issues-executing-serially"
-  D001: "minimize likelihood of indistinguishable-persona-panes"
+  D001: "minimize likelihood of per-phase-pane-proliferation"

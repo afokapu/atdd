@@ -1,8 +1,8 @@
 # URN: test:coach-wave-orchestration:d001-anchor
-# Acceptance: acc:coach-wave-orchestration:D001-UNIT-001-distinct-name-per-persona
-# Acceptance: acc:coach-wave-orchestration:D001-UNIT-002-spawn-site-passes-persona
-# Acceptance: acc:coach-wave-orchestration:D001-UNIT-003-prior-pane-reaped-on-transition
-# Acceptance: acc:coach-wave-orchestration:D001-INTEGRATION-001-no-stale-pane-accumulation
+# Acceptance: acc:coach-wave-orchestration:D001-UNIT-001-issue-surface-named-by-issue-identity
+# Acceptance: acc:coach-wave-orchestration:D001-UNIT-002-issue-surface-resolved-or-created-once
+# Acceptance: acc:coach-wave-orchestration:D001-UNIT-003-persona-respawned-in-place-not-cleared
+# Acceptance: acc:coach-wave-orchestration:D001-INTEGRATION-001-one-pane-across-lifecycle-blocked-intact
 # WMBT: wmbt:coach-wave-orchestration:D001
 # Phase: GREEN
 # Layer: assembly
@@ -26,21 +26,21 @@ from __future__ import annotations
 import pytest
 
 
-def test_d001_unit_001_distinct_name_per_persona() -> None:
-    """Anchor stub for acc:coach-wave-orchestration:D001-UNIT-001-distinct-name-per-persona (real test pending implementation)."""
+def test_d001_unit_001_issue_surface_named_by_issue_identity() -> None:
+    """Anchor stub for acc:coach-wave-orchestration:D001-UNIT-001-issue-surface-named-by-issue-identity (real test pending implementation)."""
     pytest.skip("coach v9 anchor stub — real wired test pending implementation")
 
 
-def test_d001_unit_002_spawn_site_passes_persona() -> None:
-    """Anchor stub for acc:coach-wave-orchestration:D001-UNIT-002-spawn-site-passes-persona (real test pending implementation)."""
+def test_d001_unit_002_issue_surface_resolved_or_created_once() -> None:
+    """Anchor stub for acc:coach-wave-orchestration:D001-UNIT-002-issue-surface-resolved-or-created-once (real test pending implementation)."""
     pytest.skip("coach v9 anchor stub — real wired test pending implementation")
 
 
-def test_d001_unit_003_prior_pane_reaped_on_transition() -> None:
-    """Anchor stub for acc:coach-wave-orchestration:D001-UNIT-003-prior-pane-reaped-on-transition (real test pending implementation)."""
+def test_d001_unit_003_persona_respawned_in_place_not_cleared() -> None:
+    """Anchor stub for acc:coach-wave-orchestration:D001-UNIT-003-persona-respawned-in-place-not-cleared (real test pending implementation)."""
     pytest.skip("coach v9 anchor stub — real wired test pending implementation")
 
 
-def test_d001_integration_001_no_stale_pane_accumulation() -> None:
-    """Anchor stub for acc:coach-wave-orchestration:D001-INTEGRATION-001-no-stale-pane-accumulation (real test pending implementation)."""
+def test_d001_integration_001_one_pane_across_lifecycle_blocked_intact() -> None:
+    """Anchor stub for acc:coach-wave-orchestration:D001-INTEGRATION-001-one-pane-across-lifecycle-blocked-intact (real test pending implementation)."""
     pytest.skip("coach v9 anchor stub — real wired test pending implementation")
