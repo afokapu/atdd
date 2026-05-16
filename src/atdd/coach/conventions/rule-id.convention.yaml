@@ -317,14 +317,14 @@ rules:
     aliases: []
     validator: "test_workflow_template_command_drift::test_every_run_line_parses_under_live_cli"
     fix_hint: |
-      An emitted `run: atdd <subcommand> ...` line names a subcommand the
-      live `atdd` CLI does not declare (argparse `invalid choice`), or a
-      flag the subparser rejects (`unrecognized arguments`). This widens
-      #473's flag-only drift guard (coach.initializer.template-cli-drift)
-      to subcommand-level drift across EVERY emitted `run: atdd ...` line,
-      not just `atdd validate ...` (issue #481 — the stranded
-      `atdd baseline update` emit that failed silently on every push to
-      main). Repair:
+      An emitted `run: atdd ...` line names a subcommand the live `atdd`
+      CLI does not declare (argparse `invalid choice`, e.g. the stranded
+      `atdd baseline update` emit), or a flag the subparser rejects
+      (`unrecognized arguments`). This widens #473's flag-only drift guard
+      (coach.initializer.template-cli-drift) to subcommand-level drift
+      across EVERY emitted `run: atdd ...` line, not just `atdd validate
+      ...` (issue #481 — the `baseline update` emit failed silently on
+      every push to main). Repair:
         1. Run the validator to see the offending workflow file +
            invocation (run: pytest
            src/atdd/coach/validators/test_workflow_template_command_drift.py -v).
