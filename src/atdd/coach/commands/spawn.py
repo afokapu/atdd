@@ -464,8 +464,52 @@ def cmd_spawn(
 # ---------------------------------------------------------------------------
 
 
+# Required-flag sets per invocation mode (issue #662). The default mode
+# needs the full six-flag set; the --from-prompt-file convenience variant
+# derives --persona / --llm / --agent-id / --runtime so only three flags
+# (--from-prompt-file, --worktree, --issue) are required.
+_FULL_REQUIRED = ("--persona", "--llm", "--worktree", "--issue", "--agent-id", "--runtime")
+_FROM_PROMPT_FILE_REQUIRED = ("--worktree", "--issue")
+
+# argparse dest names keyed by flag, for the conditional-required check.
+_FLAG_DESTS = {
+    "--persona": "persona",
+    "--llm": "llm",
+    "--worktree": "worktree",
+    "--issue": "issue",
+    "--agent-id": "agent_id",
+    "--runtime": "runtime_root",
+}
+
+
+class _SpawnParser(argparse.ArgumentParser):
+    """argparse parser with conditionally-required flags (issue #662).
+
+    The six launch flags are declared ``required=False`` so the
+    ``--from-prompt-file`` convenience variant can omit four of them. The
+    required-flag set is enforced after parsing: the full six in default
+    mode, only ``--worktree`` / ``--issue`` when ``--from-prompt-file`` is
+    supplied. A missing flag still exits 2 via ``argparse.error``.
+    """
+
+    def parse_known_args(self, args=None, namespace=None):  # noqa: D102
+        ns, extras = super().parse_known_args(args, namespace)
+        if getattr(ns, "from_prompt_file", None) is not None:
+            required = _FROM_PROMPT_FILE_REQUIRED
+        else:
+            required = _FULL_REQUIRED
+        missing = [
+            flag for flag in required if getattr(ns, _FLAG_DESTS[flag], None) is None
+        ]
+        if missing:
+            self.error(
+                "the following arguments are required: " + ", ".join(missing)
+            )
+        return ns, extras
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _SpawnParser(
         prog="atdd spawn",
         description=(
             "Coach v9 K1 spawn skeleton. Single rule-IDed entry point "
@@ -475,34 +519,43 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--persona", required=True, choices=list(PERSONAS),
+        "--persona", choices=list(PERSONAS),
         help="Persona to launch.",
     )
     # --llm intentionally accepts arbitrary strings; adapter validation
     # is deferred to dispatch time so follow-up K-track issues can land
     # codex / gemini / glm adapters without editing this CLI surface.
     parser.add_argument(
-        "--llm", required=True,
+        "--llm",
         help=(
             "LLM adapter id (claude-code shipped in K1; codex / gemini / "
             "glm registered as separate adapters in K-track follow-ups)."
         ),
     )
     parser.add_argument(
-        "--worktree", required=True, type=Path,
+        "--worktree", type=Path,
         help="Path to the worktree (assumed to already exist; #J4 owns creation).",
     )
     parser.add_argument(
-        "--issue", required=True, type=int,
+        "--issue", type=int,
         help="GitHub issue number being launched.",
     )
     parser.add_argument(
-        "--agent-id", required=True, dest="agent_id",
+        "--agent-id", dest="agent_id",
         help="Unique agent id; targets .atdd/runtime/agents/<id>/.",
     )
     parser.add_argument(
-        "--runtime", required=True, type=Path, dest="runtime_root",
+        "--runtime", type=Path, dest="runtime_root",
         help="Path to the runtime root (writes events.jsonl beneath it).",
+    )
+    parser.add_argument(
+        "--from-prompt-file", default=None, dest="from_prompt_file", type=Path,
+        help=(
+            "Path to a launch-prompt file. Convenience variant (#662): "
+            "derives --persona / --llm / --agent-id / --runtime from "
+            "wagon-manifest defaults so only --worktree and --issue are "
+            "required, shrinking the ergonomic gap to the cwd-correct path."
+        ),
     )
     parser.add_argument("--phase", default=None, help="Optional ATDD phase context.")
     parser.add_argument(
@@ -524,9 +577,43 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# Wagon-manifest defaults for the --from-prompt-file convenience variant
+# (#662). Defaults plus per-issue conventions fill the four omitted flags
+# so the cwd-correct path needs only --from-prompt-file / --worktree /
+# --issue. The launched surface's cwd still equals --worktree — the
+# convenience flag never weakens the cwd guarantee.
+_FROM_PROMPT_FILE_DEFAULTS = {"persona": "coder", "llm": "claude-code"}
+
+
+def _apply_from_prompt_file_defaults(args: argparse.Namespace) -> None:
+    """Fill --persona / --llm / --agent-id / --runtime for a 3-flag launch.
+
+    Mutates ``args`` in place. ``--persona`` / ``--llm`` come from
+    wagon-manifest defaults; ``--agent-id`` follows the canonical
+    ``<persona>-<issue>-NNN`` convention; ``--runtime`` defaults to the
+    worktree-local runtime root.
+    """
+    if args.persona is None:
+        args.persona = _FROM_PROMPT_FILE_DEFAULTS["persona"]
+    if args.llm is None:
+        args.llm = _FROM_PROMPT_FILE_DEFAULTS["llm"]
+    if args.agent_id is None:
+        args.agent_id = f"{args.persona}-{args.issue}-001"
+    if args.runtime_root is None:
+        args.runtime_root = Path(args.worktree) / ".atdd" / "runtime"
+
+
 def run(argv: list[str]) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    persona_prompt_content: Optional[str] = None
+    if args.from_prompt_file is not None:
+        _apply_from_prompt_file_defaults(args)
+        try:
+            persona_prompt_content = Path(args.from_prompt_file).read_text()
+        except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            print(f"❌ cannot read --from-prompt-file: {exc}", file=sys.stderr)
+            return 2
     try:
         result = cmd_spawn(
             persona=args.persona,
@@ -544,6 +631,7 @@ def run(argv: list[str]) -> int:
                 if args.multiplexer
                 else None
             ),
+            persona_prompt_content=persona_prompt_content,
         )
     except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         print(f"❌ {exc}", file=sys.stderr)
