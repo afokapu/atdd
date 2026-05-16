@@ -1,35 +1,42 @@
 # URN: test:govern-lifecycle:R004-SMOKE-001-real-linked-worktree-recognized-worktree-ready
 # Acceptance: acc:govern-lifecycle:R004-SMOKE-001-real-linked-worktree-recognized-worktree-ready
 # WMBT: wmbt:govern-lifecycle:R004
-# Phase: RED
+# Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral
-"""RED SMOKE test for #720 — against real git plumbing, a real on-disk
-flat-sibling layout (real `git init`, real `git worktree add`) must be
-recognised as worktree-ready end-to-end so the real `atdd branch` precondition
-does not reject it.
+"""SMOKE test for #720 — against REAL infrastructure, a real on-disk
+flat-sibling layout must be recognised as worktree-ready end-to-end.
 
-This exercises real infrastructure: a real git repository, a real linked
-worktree whose `.git` is a real gitfile, and the real
-`git rev-parse --git-common-dir` plumbing — no stubs, no network.
+No mocks, no stubs, no network:
+  * a real git repository (`git init`, real commit);
+  * a real linked worktree added with real `git worktree add` (its `.git`
+    is a real gitfile);
+  * real `git rev-parse --git-common-dir` plumbing;
+  * the real `detect_worktree_layout` function;
+  * the real `atdd branch` CLI launched as a subprocess.
 
-This test FAILS today: detect_worktree_layout returns "worktree" for the real
-linked sibling worktree and the real BranchManager gate prints the layout
-rejection.
+With no manifest entry the real `atdd branch` run exits past the layout
+gate with "not found in manifest" — proving the gate accepted the repo
+without any stub on the manifest lookup.
+
+The subprocess runs with PYTHONPATH pointed at this worktree's `src/` so
+it exercises the fix under review, not whatever `atdd` is pip-installed.
 """
 from __future__ import annotations
 
-import contextlib
-import io
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from atdd.coach.commands.branch import BranchManager
 from atdd.coach.utils.repo import detect_worktree_layout
 
 pytestmark = [pytest.mark.coach]
+
+# tests -> utils -> coach -> atdd -> src
+_SRC_ROOT = Path(__file__).resolve().parents[4]
 
 
 def _git(*args: str) -> str:
@@ -39,12 +46,12 @@ def _git(*args: str) -> str:
 
 
 def _make_flat_sibling_repo(tmp_path: Path) -> tuple[Path, Path]:
-    """Create a main/ primary checkout plus one real flat sibling worktree."""
+    """Create a real main/ primary checkout plus one real flat sibling worktree."""
     main = tmp_path / "main"
     main.mkdir()
     _git("init", str(main))
-    _git("-C", str(main), "config", "user.email", "t@t.test")
-    _git("-C", str(main), "config", "user.name", "Tester")
+    _git("-C", str(main), "config", "user.email", "smoke@test.invalid")
+    _git("-C", str(main), "config", "user.name", "Smoke Tester")
     (main / "README.md").write_text("seed\n")
     _git("-C", str(main), "add", ".")
     _git("-C", str(main), "commit", "-m", "init")
@@ -58,23 +65,29 @@ def test_r004_smoke_001_real_linked_worktree_recognized_worktree_ready(
 ) -> None:
     main, worktree = _make_flat_sibling_repo(tmp_path)
 
-    # Real git plumbing: the linked worktree's common dir is owned by main/.
+    # 1. Real git plumbing: the linked worktree's common dir is owned by main/.
     common_raw = _git("-C", str(worktree), "rev-parse", "--git-common-dir").strip()
     common_dir = Path(common_raw)
     if not common_dir.is_absolute():
         common_dir = (worktree / common_dir).resolve()
     assert common_dir.parent == main.resolve()
 
-    # RED: the detector must recognise the real linked sibling worktree as
-    # worktree-ready; today it returns "worktree".
+    # 2. The real detector recognises the real linked sibling worktree.
     assert detect_worktree_layout(worktree) == "worktree-ready"
+    assert detect_worktree_layout(main) == "worktree-ready"
 
-    # RED: the real `atdd branch` precondition gate must not reject the real
-    # linked worktree. _find_issue is stubbed to None so branch() stops just
-    # past the gate without any network call.
-    manager = BranchManager(target_dir=worktree)
-    manager._find_issue = lambda issue_number: None  # type: ignore[method-assign]
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        manager.branch(999)
-    assert "Repository layout is" not in buf.getvalue()
+    # 3. The real `atdd branch` CLI, run as a subprocess from inside the real
+    #    linked worktree, must not exit on the layout precondition. With no
+    #    manifest it exits past the gate at the manifest lookup instead.
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(_SRC_ROOT)
+    result = subprocess.run(
+        [sys.executable, "-m", "atdd", "branch", "999"],
+        cwd=worktree, capture_output=True, text=True, timeout=60, env=env,
+    )
+    combined = result.stdout + result.stderr
+
+    assert "Repository layout is" not in combined
+    assert "expected 'worktree-ready'" not in combined
+    # The run reached the manifest lookup — i.e. it got past the layout gate.
+    assert "not found in manifest" in combined
