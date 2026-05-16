@@ -2,7 +2,7 @@ urn: "feature:judge-ambiguous-decisions:judge-and-issue-review"
 wagon: "wagon:judge-ambiguous-decisions"
 description: "Coach v9 LLM-judgment surface plus pre-coach multi-pass cross-LLM issue review: atdd judge core wired to six v1 call sites with structured response schemas, an audit trail in judgments.jsonl, conservative fail-open fallback, a discipline doc gating new call sites, and atdd issue review running N independent passes across distinct LLMs to aggregate dimensions (systemic, ambiguities, gap, regression, comprehensiveness) for the §4.2 pre-coach precondition."
 sizing:
-  wmbts: 5
+  wmbts: 6
   footprint_score: 14
   footprint_size: "M"
 wmbts:
@@ -11,6 +11,7 @@ wmbts:
   - "wmbt:judge-ambiguous-decisions:D003"
   - "wmbt:judge-ambiguous-decisions:D004"
   - "wmbt:judge-ambiguous-decisions:D005"
+  - "wmbt:judge-ambiguous-decisions:D006"
 components:
   backend:
     presentation:
