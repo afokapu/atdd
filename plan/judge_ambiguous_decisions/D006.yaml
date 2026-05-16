@@ -1,0 +1,100 @@
+urn: "wmbt:judge-ambiguous-decisions:D006"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "review-pass-llm-starved-of-issue-and-architecture-context"
+context_clarifier: "when atdd issue review (§5.6, §6.10) must produce a parseable multi-pass verdict before coach starts work — the review framework spawns one LLM per pass and expects structured review JSON, but renders a prompt carrying only the issue number, not the issue body. A sandboxed/non-interactive review LLM has no gh, so it returns a natural-language permission request ('I need permission to fetch issue #N...') and the JSON parser raises LLMUnavailable ('no JSON found in response'). Separately and independently, _resolve_finding_rule_ids runs before schema validation, so a parseable-but-malformed payload (a dimension value or findings entry that is a str, not a dict) crashes the rule-binding path with an unhandled AttributeError ('str' object has no attribute 'get') instead of being rejected cleanly by the per-pass schema validator. And the systemic dimension scores one-off-patch-vs-systemic-pattern against the issue text alone, with no atdd repo graph context for the issue's wagon/feature/URN neighborhood. The sibling atdd judge command does NOT share this flaw — judge accepts a caller-supplied prompt template with key=@file inputs, so context is injected by the caller; the defect is local to issue_review.py rendering its own prompt."
+lens: "functional.availability"
+statement: "minimize likelihood of review-pass-llm-starved-of-issue-and-architecture-context when atdd issue review must produce a parseable multi-pass verdict that the §4.2 pre-coach precondition consumes — by fetching the issue body host-side and injecting it inline into every review pass prompt, hardening the rule-binding path so a malformed-but-parseable payload is rejected by schema validation rather than crashing, and injecting an atdd repo graph summary of the issue's neighborhood so the systemic dimension is grounded in real architecture"
+acceptances:
+  - identity:
+      urn: "acc:judge-ambiguous-decisions:D006-UNIT-001-issue-body-injected-inline"
+      id: "AC-UNIT-001"
+      purpose: "atdd issue review fetches the issue body host-side once and injects it verbatim into every review pass prompt, so the review LLM never needs gh; a sandboxed LLM with no gh access still receives the full issue text and returns structured review JSON instead of a permission-request prose reply"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/issue_review.py exposes the atdd issue review subcommand"
+        - "A stub host-side issue fetcher returns a known issue body for issue N"
+        - "Stub LLM clients capture the prompt string they are invoked with"
+    when:
+      abstract: "atdd issue review N is invoked with stub LLM clients registered for each pass"
+    then:
+      abstract:
+        - "The host fetches the issue body exactly once (one gh issue view resolution), not once per pass"
+        - "Every review pass prompt contains the fetched issue body inline, verbatim"
+        - "No review pass prompt instructs the LLM to fetch the issue itself (no gh issue view directive)"
+        - "Given a stub LLM that errors when handed only an issue number, the body-injected prompt lets it return a structured per-pass response"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:judge-ambiguous-decisions:D006-UNIT-002-rule-binding-survives-malformed-payload"
+      id: "AC-UNIT-002"
+      purpose: "The review rule-binding path no longer crashes with an unhandled AttributeError on a parseable-but-malformed LLM payload; a dimension value or findings entry that is a str where a dict is expected is rejected cleanly by the per-pass schema validator with a rule-ID-bearing error message, not a raw 'str object has no attribute get' TypeError"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A stub LLM returns a payload that parses as JSON and carries a dimensions key but whose dimension value (or findings entry) is a str, not the expected dict"
+    when:
+      abstract: "atdd issue review processes that pass — exercising the previously-crashing input shape"
+    then:
+      abstract:
+        - "_resolve_finding_rule_ids does not raise an unhandled AttributeError ('str' object has no attribute 'get')"
+        - "Schema validation of the per-pass record runs before or guards the rule-binding path, so the malformed shape is caught as a clean schema violation"
+        - "The command exits non-zero with a diagnostic naming the offending field, not a Python traceback"
+        - "A well-formed payload still has its finding rule_ids resolved to canonical ids (or null) unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:judge-ambiguous-decisions:D006-UNIT-003-repo-graph-summary-in-prompt"
+      id: "AC-UNIT-003"
+      purpose: "atdd issue review resolves the issue's atdd repo graph neighborhood (wagon, feature, sibling WMBT URNs, train position) host-side and injects a compact summary into every review pass prompt, and the systemic dimension's prompt section directs the reviewer to score against that summary; when the issue has no wagon the build degrades gracefully with no exception"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "issue_graph builds an Architecture context section for an issue mapped to a wagon in .atdd/manifest.yaml"
+        - "Stub LLM clients capture the prompt string they are invoked with"
+    when:
+      abstract: "atdd issue review N is invoked for an issue that maps to a wagon, and separately for an issue with no wagon"
+    then:
+      abstract:
+        - "Every review pass prompt carries the atdd repo graph summary (wagon, feature, sibling WMBT URNs) for the issue's neighborhood"
+        - "The systemic-dimension portion of the prompt instructs the reviewer to ground its one-off-patch-vs-systemic-pattern verdict in that graph summary"
+        - "When the issue has no wagon, the prompt is rendered without the graph summary and no exception is raised (graceful degrade)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:judge-ambiguous-decisions:D006-SMOKE-001-review-returns-parseable-verdict"
+      id: "AC-SMOKE-001"
+      purpose: "Against real infrastructure — a real GitHub issue and the registered LLM clients — atdd issue review N returns a parseable multi-pass aggregate verdict: exit 0, a schema-valid aggregate.json, no 'no JSON found in response', no rule-binding TypeError"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real ATDD parent issue exists on GitHub with a populated body"
+        - "The LLM registry has the default review clients registered (post-#592)"
+    when:
+      abstract: "atdd issue review N is run end-to-end against that issue"
+    then:
+      abstract:
+        - "The command exits 0"
+        - ".atdd/runtime/issue-reviews/N/aggregate.json is written and validates against issue-review-aggregate.schema.json"
+        - "No pass aborts with 'no JSON found in response' and no pass aborts with a 'str' object has no attribute 'get' rule-binding error"
+        - "The printed aggregate carries a top-level verdict the §4.2 pre-coach precondition can route on"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
