@@ -15,6 +15,7 @@ ATDD_REPO_ROOT to point to the consumer repo being validated.
 """
 
 import os
+import subprocess
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -92,13 +93,40 @@ def find_python_dir(repo_root: Optional[Path] = None) -> Path:
     return python_dir  # default for consumer repos (may not exist yet)
 
 
+def _git_common_dir(root: Path) -> Optional[Path]:
+    """Return the absolute git common dir for a linked worktree, or None.
+
+    For a linked worktree ``.git`` is a gitfile; the common dir is the shared
+    ``.git`` of the primary checkout. Resolving it lets the layout detector
+    tell whether the worktree belongs to a flat-sibling (``main/``) layout.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=root, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+        return None
+    if result.returncode != 0:
+        return None
+    raw = result.stdout.strip()
+    if not raw:
+        return None
+    common = Path(raw)
+    if not common.is_absolute():
+        common = root / common
+    return common.resolve()
+
+
 def detect_worktree_layout(start: Optional[Path] = None) -> str:
     """
     Detect the worktree layout of a repository.
 
     Returns:
-        "worktree-ready" - .git is a dir and parent dir is named "main"
-        "worktree"       - .git is a file (linked worktree)
+        "worktree-ready" - a flat-sibling layout: either the primary checkout
+                           directory is named "main", or a linked worktree
+                           whose git common dir lives under a "main/" checkout
+        "worktree"       - .git is a file (linked worktree) not under "main/"
         "flat"           - .git is a dir but parent dir is not "main"
         "no-git"         - no .git found
     """
@@ -108,6 +136,12 @@ def detect_worktree_layout(start: Optional[Path] = None) -> str:
     git_path = root / ".git"
 
     if git_path.is_file():
+        # A linked worktree. It belongs to a worktree-ready flat-sibling
+        # layout when its common git dir sits inside a "main/" primary
+        # checkout — that repo is already migrated, no re-migration needed.
+        common = _git_common_dir(root)
+        if common is not None and common.parent.name == "main":
+            return "worktree-ready"
         return "worktree"
 
     if git_path.is_dir():
