@@ -1,0 +1,143 @@
+urn: "wmbt:spawn-agents:E006"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "green-to-smoke-spawns-that-create-an-observer-without-a-persona"
+context_clarifier: "when the coach drives an issue GREEN→SMOKE and the spawn path handlers/spawn.py::handle → _spawn_with_retries → _call_spawn → commands/spawn.py::cmd_spawn launches the SMOKE persona (`tester` per _TRANSITION_PERSONA[(GREEN,SMOKE)]) and then co-spawns the observer sidecar; today _spawn_with_retries only treats a *raised exception* as failure, so when cmd_spawn returns a truthy result dict without the persona having materialised (no agent runtime dir, no manifest written at spawn.py:425, no agent_spawned event) — and in pane mode the observer is co-spawned inside new_persona_surface regardless of persona success — handle() proceeds to the observer co-spawn and returns HandlerResult.HANDLED; the coach's RuntimeWatcher then blocks forever on a SMOKE done.json that no persona exists to write, with no BLOCK and no escalation, so a permanently-stalled issue is indistinguishable from a slow one (observed live on #662: tester-662-b5c7029d-observer/ exists, tester-662-b5c7029d/ does not)"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of green-to-smoke-spawns-that-create-an-observer-without-a-persona by gating the observer co-spawn in cmd_spawn on confirmed persona materialisation (multiplexer surface + agent runtime dir + manifest + agent_spawned event) and by mapping any incomplete persona spawn — a cmd_spawn return whose persona did not materialise — to a failure that _spawn_with_retries surfaces as None so handle() returns HandlerResult.ERROR, escalates, and writes a BLOCKED decision, instead of silently co-spawning an orphan observer and returning HANDLED"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E006-UNIT-001-persona-dir-co-created-with-observer"
+      id: "AC-UNIT-001"
+      purpose: "a successful GREEN→SMOKE cmd_spawn creates the persona agent runtime dir, not only the -observer dir"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "cmd_spawn is invoked for a GREEN→SMOKE transition (persona resolves to `tester` via _TRANSITION_PERSONA)"
+        - "A fake multiplexer backend bound via the existing get_multiplexer abstraction that succeeds for both the persona surface and the observer surface"
+        - "A runtime root redirected to a temp directory"
+    when:
+      abstract: "cmd_spawn runs to completion against the fake backend"
+    then:
+      abstract:
+        - "A persona agent runtime dir matching `tester-<issue>-<suffix>/` exists under .atdd/runtime/agents/ (no trailing `-observer`)"
+        - "The persona dir contains a written manifest (the _write_manifest step at spawn.py:425 ran)"
+        - "An observer dir `tester-<issue>-<suffix>-observer/` also exists — the persona dir is present in addition to, never instead of, the observer dir"
+    metadata:
+      author: "atdd:planner-733"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:spawn-agents:E006-UNIT-002-observer-cospawn-gated-on-persona"
+      id: "AC-UNIT-002"
+      purpose: "when the persona spawn step fails, the observer co-spawn is never reached and no orphan observer dir is created"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "cmd_spawn is invoked for a GREEN→SMOKE transition"
+        - "A fake multiplexer backend in which the persona spawn step (persona pane creation / adapter dispatch) fails — no persona surface is produced"
+        - "A runtime root redirected to a temp directory"
+    when:
+      abstract: "cmd_spawn runs against the failing-persona backend"
+    then:
+      abstract:
+        - "No `tester-<issue>-<suffix>-observer/` dir is created (observer co-spawn was not reached)"
+        - "cmd_spawn surfaces the persona-spawn failure to its caller (raises, or returns a result the caller treats as failure) rather than returning a truthy success dict"
+        - "No orphan observer surface call is recorded on the fake multiplexer"
+    metadata:
+      author: "atdd:planner-733"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:spawn-agents:E006-UNIT-003-incomplete-persona-spawn-maps-to-error"
+      id: "AC-UNIT-003"
+      purpose: "an incomplete persona spawn makes handle() return HandlerResult.ERROR, escalate, and write a BLOCKED decision — never HANDLED"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "handle() is invoked for a GREEN→SMOKE Transition with a CoachContext that has an escalation_channel set"
+        - "The spawn path is stubbed so cmd_spawn completes without the persona materialising (no manifest, no agent_spawned event)"
+    when:
+      abstract: "handle(ctx, transition) runs"
+    then:
+      abstract:
+        - "handle() returns HandlerResult.ERROR (not HandlerResult.HANDLED)"
+        - "_escalate is invoked exactly once with a reason naming the issue and persona/phase"
+        - "A BLOCKED decision record is written to the runtime decisions log"
+    metadata:
+      author: "atdd:planner-733"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:spawn-agents:E006-INTEGRATION-001-persona-pane-and-spawned-event"
+      id: "AC-INTEGRATION-001"
+      purpose: "a successful GREEN→SMOKE spawn gives the persona a multiplexer surface and a schema-valid agent_spawned event"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The coach spawn handler is driven end-to-end for a GREEN→SMOKE transition against a fake multiplexer that records every surface created"
+        - "A runtime root redirected to a temp directory"
+    when:
+      abstract: "handle() runs to completion with a persona spawn that materialises"
+    then:
+      abstract:
+        - "Exactly one persona multiplexer surface is recorded for the SMOKE persona, with a returned surface ref"
+        - "An agent_spawned runtime event for the persona is written and round-trips through the runtime-event JSON Schema validator with zero errors"
+        - "Both `tester-<issue>-<suffix>/` and `tester-<issue>-<suffix>-observer/` runtime dirs exist after the call"
+    metadata:
+      author: "atdd:planner-733"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:spawn-agents:E006-INTEGRATION-002-coach-blocks-loudly-on-persona-failure"
+      id: "AC-INTEGRATION-002"
+      purpose: "when every persona-spawn attempt fails to materialise, the coach BLOCKs and escalates instead of staying in SMOKE"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The coach spawn handler is driven for a GREEN→SMOKE transition with ctx.max_retries at its default and an escalation_channel set"
+        - "A fake multiplexer in which every persona-spawn attempt fails to materialise the persona"
+    when:
+      abstract: "the GREEN→SMOKE transition is processed"
+    then:
+      abstract:
+        - "handle() returns HandlerResult.ERROR, which the coach state machine maps to BLOCKED — the issue does not remain in SMOKE"
+        - "An escalation message is emitted on ctx.escalation_channel exactly once"
+        - "No orphan `tester-<issue>-<suffix>-observer/` dir is left behind"
+    metadata:
+      author: "atdd:planner-733"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:spawn-agents:E006-SMOKE-001-real-green-to-smoke-spawn-creates-persona"
+      id: "AC-SMOKE-001"
+      purpose: "a real GREEN→SMOKE spawn against the live multiplexer leaves a persona agent dir alongside the observer dir"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real worktree and runtime directory on a scratch issue, with the coach configured to drive a GREEN→SMOKE transition"
+        - "The real multiplexer backend (cmux/zellij/tmux) available on the host"
+    when:
+      abstract: "the coach drives the GREEN→SMOKE spawn against the real multiplexer backend"
+    then:
+      abstract:
+        - ".atdd/runtime/agents/ contains a persona dir matching `tester-<issue>-<suffix>/` with a written manifest"
+        - ".atdd/runtime/agents/ contains the matching `tester-<issue>-<suffix>-observer/` dir"
+        - "There is no observer dir whose corresponding persona dir is absent — observer-without-persona never occurs"
+    metadata:
+      author: "atdd:planner-733"
+      created: "2026-05-17"

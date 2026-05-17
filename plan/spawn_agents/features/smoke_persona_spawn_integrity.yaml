@@ -1,0 +1,32 @@
+urn: "feature:spawn-agents:smoke-persona-spawn-integrity"
+wagon: "wagon:spawn-agents"
+description: "Hardens the coach GREEN→SMOKE persona spawn so it can never leave an orphan observer. cmd_spawn confirms the SMOKE persona has materialised (multiplexer surface + agent runtime dir + manifest + agent_spawned event) before co-spawning the observer sidecar, and an incomplete persona spawn is surfaced through _spawn_with_retries as a failure so handle() returns HandlerResult.ERROR — the coach BLOCKs and escalates instead of silently returning HANDLED and waiting forever on a SMOKE done.json with no author. Fixes the #662-class stall (observer dir present, persona dir absent). Phase-agnostic: the gate lives in the shared spawn path, so any transition that co-spawns an observer benefits."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:spawn-agents:E005"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new controllers — the fix modifies the existing atdd spawn command surface (cmd_spawn in src/atdd/coach/commands/spawn.py) and the handle() handler in src/atdd/coach/handlers/spawn.py in place"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "A persona-materialisation check (surface + agent dir + manifest + agent_spawned event) that gates the observer co-spawn, and the failure-surfacing mapping that turns an incomplete persona spawn into a None from _spawn_with_retries so handle() escalates and returns ERROR"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "A persona-spawn outcome value distinguishing `materialised` from `incomplete` so cmd_spawn's caller branches on a typed result instead of re-probing the runtime filesystem"
+    integration:
+      - type: "adapters"
+        count: 0
+        rationale: "Reuses the existing multiplexer adapter (get_multiplexer / new_persona_surface / new_surface) — no new external integration surface"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"

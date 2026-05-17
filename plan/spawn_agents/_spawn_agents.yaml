@@ -15,6 +15,7 @@ features:
   - urn: "feature:spawn-agents:orchestrate-parity-and-decommission-gate"
   - urn: "feature:spawn-agents:transactional-spawn-and-orphan-pane-gc"
   - urn: "feature:spawn-agents:persona-agent-id-env-injection"
+  - urn: "feature:spawn-agents:smoke-persona-spawn-integrity"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -65,6 +66,10 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:smoke-persona-spawn-integrity
+    contract: null
+    telemetry: null
+    to: external
 
 consume:
   - name: commons:coach:runtime-event-schema
@@ -77,7 +82,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 8
+  total: 9
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -86,3 +91,4 @@ wmbt:
   E003: "minimize quantity of orphan-multiplexer-panes-leaked-by-failed-or-partial-coach-spawns"
   E004: "minimize likelihood of raw-cmux-claude-launches-bypassing-atdd-spawn"
   E005: "minimize likelihood of coach-spawned-personas-without-atdd-agent-id-in-their-environment"
+  E006: "minimize likelihood of green-to-smoke-spawns-that-create-an-observer-without-a-persona"
