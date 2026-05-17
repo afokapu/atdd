@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import pytest
-import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
@@ -32,6 +31,7 @@ from atdd.coach.validators._violation import Violation
 from atdd.tester.validators._acceptance_walker import (
     acceptance_urn,
     assert_substrate_strict,
+    iter_repo_wmbts,
 )
 
 
@@ -44,11 +44,6 @@ _RULE = bind_rule(
 _VALIDATOR_ID = (
     "test_hermetic_live_smoke_pairing::test_hermetic_live_smoke_required_is_paired"
 )
-
-# WMBT filename grammar — mirrors _acceptance_walker._WMBT_FILE_RE.
-import re as _re
-
-_WMBT_FILE_RE = _re.compile(r"^[DLPCEMYRK]\d{3}\.yaml$")
 
 
 def evaluate_hermetic_live_smoke_pairing(
@@ -112,24 +107,7 @@ def evaluate_hermetic_live_smoke_pairing(
 def collect_violations(repo_root: Optional[Path] = None) -> List[Violation]:
     """Walk plan/ WMBT files and return live-smoke pairing violations."""
     root = Path(repo_root).resolve() if repo_root is not None else find_repo_root()
-    items: List[Tuple[Path, Dict[str, Any]]] = []
-
-    plan_dir = (root / "plan").resolve()
-    if plan_dir.is_dir():
-        for wagon_dir in sorted(plan_dir.iterdir()):
-            if not wagon_dir.is_dir() or wagon_dir.name.startswith("_"):
-                continue
-            for wmbt_file in sorted(wagon_dir.glob("*.yaml")):
-                if not _WMBT_FILE_RE.match(wmbt_file.name):
-                    continue
-                try:
-                    data = yaml.safe_load(wmbt_file.read_text(encoding="utf-8"))
-                except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
-                    # Malformed plan/ YAML is policed by the URN-graph validators.
-                    continue
-                if isinstance(data, dict):
-                    items.append((wmbt_file, data))
-
+    items: List[Tuple[Path, Dict[str, Any]]] = list(iter_repo_wmbts(root))
     return evaluate_hermetic_live_smoke_pairing(items)
 
 
