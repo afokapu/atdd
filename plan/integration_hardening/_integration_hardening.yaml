@@ -14,6 +14,7 @@ features:
   - urn: "feature:integration-hardening:coach-single-command-driver"
   - urn: "feature:integration-hardening:coach-cold-start-wiring"
   - urn: "feature:integration-hardening:coach-graph-aware-orchestration"
+  - urn: "feature:integration-hardening:coach-resume-wiring"
 
 produce:
   - name: commons:coach:spawn-wiring
@@ -52,6 +53,10 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: commons:coach:resume-orchestration-wiring
+    contract: null
+    telemetry: null
+    to: external
 
 consume:
   - name: commons:coach:coach-cli-skeleton
@@ -84,7 +89,7 @@ consume:
     from: wagon:integrate-end-to-end
 
 wmbt:
-  total: 27
+  total: 28
   K001: "minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine"
   D001: "minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries"
   D002: "minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path"
@@ -112,3 +117,4 @@ wmbt:
   E007: "minimize quantity of coach-orchestration-decisions-made-without-consulting-the-repo-urn-graph when atdd coach <N1> <N2> partitions issues into waves and orders merge-cascade commits using only per-issue dependency labels, ignoring the wagon-to-wagon consume graph and train order that atdd repo graph already exposes (#656, symmetric mirror of #651)"
   E008: "minimize quantity of review-gate-failures-caused-by-pr-resolution-errors-bypassing-the-in-process-broken-sentinel when run() step 1 catches a _resolve_pr_commit RuntimeError and, in in-process mode, routes through _write_broken_sentinel instead of returning 2 (#732, residual gap from #672/#673)"
   Y003: "minimize quantity of test-sessions-that-leave-core-bare-mutated-in-the-live-worktree when pytest runs any src/atdd test"
+  E009: "minimize quantity of resume-driver-phase-transitions-recorded-without-dispatching-orchestration when atdd coach --resume <RUN_ID> walks a reconstructed issue — wiring a real transition_action into ResumeRunner and failing loudly when it is absent (#734, resume-path analog of E002/#645)"
