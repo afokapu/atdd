@@ -1,0 +1,23 @@
+urn: "feature:consolidate-coach-workspace:headless-observer"
+wagon: "wagon:consolidate-coach-workspace"
+description: "Phase 2 of issue #736: the per-worker observer is demoted from a co-spawned `…:obs` multiplexer surface to a headless background process, so each worker is one tab instead of two. cmd_spawn (commands/spawn.py) and _spawn_observer (handlers/spawn.py) drop the observer surface and instead run `atdd observer run` as a detached subprocess; the observer keeps writing `agents/<id>/corrections.jsonl` exactly as before — only its UI surface goes away."
+sizing:
+  wmbts: 1
+  footprint_score: 6
+  footprint_size: "S"
+wmbts:
+  - "wmbt:consolidate-coach-workspace:Y002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "commands/spawn.py cmd_spawn — stops co-spawning the observer surface when spawning a persona"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "handlers/spawn.py _spawn_observer — launches the observer headless instead of as a multiplexer surface"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "background-process launcher — runs `atdd observer run` as a detached subprocess with no terminal"

@@ -138,6 +138,27 @@ def compute_issue_surface_name(repo: str, issue_number: int) -> str:
     return f"{(repo or 'REPO').upper()}{issue_number}"
 
 
+def compute_coach_surface_name(
+    config: Optional[Dict[str, Any]],
+    issue_number: Optional[int] = None,
+) -> str:
+    """Build the canonical, singular coach orchestration tab name (#736).
+
+    Unlike :func:`compute_issue_surface_name` (one surface per issue) and
+    :func:`compute_canonical_name` (per-issue, per-phase), this name carries
+    NO issue number: the coach hosts every managed issue in ONE orchestration
+    tab named ``<REPO>-coach``. ``issue_number`` is accepted so issue-context
+    callers may pass it, but it is deliberately ignored — the name is
+    invariant across issues so N coach invocations resolve to one tab.
+
+    >>> compute_coach_surface_name({"repo": {"short_name": "ATDD"}})
+    'ATDD-coach'
+    >>> compute_coach_surface_name({"repo": {"short_name": "ATDD"}}, 601)
+    'ATDD-coach'
+    """
+    return f"{compute_repo_short_name(config)}-coach"
+
+
 def parse_canonical_name(name: str) -> Optional[ParsedName]:
     """Parse a session name into ``(repo, issue, phase, slug)`` or None."""
     if not isinstance(name, str):
@@ -182,11 +203,41 @@ def target_grid_label(active_surface_count: int) -> str:
     return "shell (left) + dense column grid (3+ columns x N rows)"
 
 
+@dataclass(frozen=True)
+class WorkspaceLayout:
+    """Fixed two-pane coach workspace split (#736).
+
+    The coach occupies the left pane and all workers the right pane. Both
+    ratios are a fixed 0.5: workers are added as right-pane surfaces, never
+    new tiled panes, so the coach's half never shrinks regardless of how
+    many workers are in flight.
+    """
+
+    coach_ratio: float = 0.5
+    worker_ratio: float = 0.5
+
+
+def coach_workspace_layout(worker_count: int = 0) -> WorkspaceLayout:
+    """Return the fixed 50/50 coach workspace layout (#736).
+
+    The split is invariant: ``worker_count`` is accepted for call-site
+    symmetry but the ratio never varies with it — workers tile as surfaces
+    inside the right pane, not as panes that re-tile the workspace.
+
+    >>> coach_workspace_layout(20).coach_ratio
+    0.5
+    """
+    return WorkspaceLayout(coach_ratio=0.5, worker_ratio=0.5)
+
+
 __all__ = [
     "CANONICAL_NAME_REGEX",
     "ParsedName",
+    "WorkspaceLayout",
     "branch_to_slug",
+    "coach_workspace_layout",
     "compute_canonical_name",
+    "compute_coach_surface_name",
     "compute_issue_surface_name",
     "compute_repo_short_name",
     "is_canonical_name",

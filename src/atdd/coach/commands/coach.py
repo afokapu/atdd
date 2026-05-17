@@ -80,6 +80,10 @@ __all__ = [
     "run_review",
     "run_watch",
     "run_gc",
+    "resolve_or_create_coach_surface",
+    "build_consolidated_view",
+    "render_consolidated_view",
+    "add_worker_surface",
     "main",
 ]
 
@@ -98,6 +102,17 @@ from atdd.coach.commands.coach_watch import run_watch  # noqa: E402
 # Re-export run_gc so test imports from atdd.coach.commands.coach work.
 # The implementation lives in coach_gc.py (#655).
 from atdd.coach.commands.coach_gc import run_gc  # noqa: E402
+
+
+# Coach workspace layout — single canonical tab + consolidated view (#736).
+# Implementation lives in coach_workspace.py; re-exported here so existing
+# importers (`coach.resolve_or_create_coach_surface`, ...) are unaffected.
+from atdd.coach.commands.coach_workspace import (  # noqa: E402
+    add_worker_surface,
+    build_consolidated_view,
+    render_consolidated_view,
+    resolve_or_create_coach_surface,
+)
 
 
 # ---------------------------------------------------------------------------

@@ -265,46 +265,34 @@ def _spawn_observer(
     runtime_root: Path,
     persona_surface_ref: Optional[str] = None,
 ) -> None:
-    """Co-spawn the observer L1 sidecar alongside the persona agent.
+    """Launch the observer L1 sidecar as a headless background process (#736).
 
-    In pane mode, attaches the observer as a tab inside the persona's pane
-    via new_surface_in_pane, so each grid cell holds both tabs without
-    consuming an extra pane slot (#658). In other modes, falls back to
-    new_surface (creates a new pane/workspace).
+    The observer (`atdd observer run`) is a plain CLI script — it takes
+    ``--agent-id`` / ``--runtime-dir`` / ``--worktree`` and writes
+    ``agents/<id>/corrections.jsonl`` directly. It needs no terminal, so it
+    runs detached with no multiplexer surface: each worker is one tab
+    (persona only), not two (persona + ``:obs``).
 
-    Uses the same multiplexer backend as the persona spawn so that tests
-    can assert both calls via a single FakeMultiplexer injection.
+    ``persona_surface_ref`` is accepted for call-site compatibility and
+    unused — the headless observer is not attached to any surface.
     Observer is supplementary — callers must catch and warn on any exception.
     """
-    from atdd.coach.commands import spawn as cmd_spawn_mod
+    import subprocess
 
     observer_agent_id = f"{persona_agent_id}-observer"
-    observer_cmd = (
-        f"atdd observer run"
-        f" --agent-id {observer_agent_id}"
-        f" --runtime-dir {runtime_root}"
-        f" --worktree {worktree}"
+    observer_cmd = [
+        "atdd", "observer", "run",
+        "--agent-id", observer_agent_id,
+        "--runtime-dir", str(runtime_root),
+        "--worktree", str(worktree),
+    ]
+    subprocess.Popen(
+        observer_cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
     )
-    # Canonical observer naming: <persona-canonical-name>:obs (workspace-mode
-    # fallback uses derived form since canonical_name isn't readily available here).
-    # See #695 for the multiplexer-agnostic naming convention.
-    observer_name = f"ATDD{ctx.issue_number}-{phase}:obs"
-    multiplexer = cmd_spawn_mod._resolve_multiplexer()
-
-    if ctx.multiplexer_mode == "pane" and persona_surface_ref is not None:
-        pane_ref = multiplexer.surface_to_pane(persona_surface_ref)
-        multiplexer.new_surface_in_pane(
-            pane_ref=pane_ref,
-            cwd=str(worktree),
-            command=observer_cmd,
-            name=observer_name,
-        )
-    else:
-        multiplexer.new_surface(
-            cwd=str(worktree),
-            command=observer_cmd,
-            name=observer_name,
-        )
 
 
 def _write_cospawn_decision(

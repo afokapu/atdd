@@ -17,6 +17,7 @@ participants:
   - "wagon:integration-hardening"
   - "wagon:coach-ops"
   - "wagon:coach-wave-orchestration"
+  - "wagon:consolidate-coach-workspace"
   - "system:atdd-cli"
 sequence:
   - step: 1

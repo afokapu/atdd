@@ -1,0 +1,73 @@
+urn: "wmbt:consolidate-coach-workspace:Y001"
+step: "modify"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "coach-orchestration-tabs"
+context_clarifier: "when an operator runs N separate `atdd coach <N>` invocations (or one coach manages N issues) and each invocation currently opens its own `ATDD-coach-<N>` terminal tab, so the coach tab count scales linearly with the number of invocations and a 20-issue session means 20 coach tabs"
+lens: "functional.sustainability"
+statement: "minimize quantity of coach-orchestration-tabs when an operator runs N coach invocations or one coach manages N issues by resolving-or-creating a single canonical coach orchestration surface — named by a canonical-coach-tab rule in session_naming.py with no issue number embedded — so every invocation attaches to or renders inside exactly one tab"
+acceptances:
+  - identity:
+      urn: "acc:consolidate-coach-workspace:Y001-UNIT-001-canonical-coach-tab-name-is-invariant"
+      id: "AC-UNIT-001"
+      purpose: "session_naming.py exposes a canonical coach orchestration tab name that is invariant across issue numbers and embeds no issue number"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An .atdd config dict resolving repo short-name ATDD"
+        - "Two arbitrary issue numbers, 736 and 601"
+    when:
+      abstract: "the canonical coach orchestration tab-name helper in session_naming.py is called once per issue context"
+    then:
+      abstract:
+        - "Both calls return the identical string"
+        - "The returned string contains no issue number (does not match the per-issue `ATDD-coach-<N>` form)"
+        - "The returned string matches the documented canonical coach-tab pattern (e.g. `ATDD-coach`)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:consolidate-coach-workspace:Y001-INTEGRATION-001-two-issues-resolve-to-one-tab"
+      id: "AC-INTEGRATION-001"
+      purpose: "driving two managed issues resolves to exactly one orchestration surface — the second attaches to the existing canonical surface"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A mock multiplexer that records every surface/tab creation"
+        - "Two managed issues, #736 and #601, driven in sequence"
+    when:
+      abstract: "the coach resolves its orchestration surface for issue #736, then again for issue #601"
+    then:
+      abstract:
+        - "Exactly one orchestration surface is created across both resolutions"
+        - "The second resolution returns a reference to the already-created surface (resolve-or-create, not create)"
+        - "That surface's name equals the canonical coach orchestration tab name"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:consolidate-coach-workspace:Y001-SMOKE-001-real-multiplexer-shows-one-coach-tab"
+      id: "AC-SMOKE-001"
+      purpose: "against a real multiplexer, orchestrating two issues produces exactly one coach tab — verified via the backend tab list"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "integration"
+    given:
+      abstract:
+        - "A real cmux (or tmux) session with no existing coach tab"
+    when:
+      abstract: "two coach orchestrations are started, one for each of two issues"
+    then:
+      abstract:
+        - "`cmux tree` (or the backend's tab list) shows exactly one tab matching the canonical coach orchestration name"
+        - "No `ATDD-coach-<N>` per-issue tab is present"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-17"
