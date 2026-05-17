@@ -19,6 +19,7 @@ import pytest
 
 pytestmark = [
     pytest.mark.platform,
+    pytest.mark.smoke,
     pytest.mark.skipif(
         not os.environ.get("ATDD_RUN_SMOKE"),
         reason="opt-in SMOKE test — set ATDD_RUN_SMOKE=1 to run against a real coach",
