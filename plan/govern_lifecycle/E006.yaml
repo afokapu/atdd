@@ -1,0 +1,219 @@
+urn: "wmbt:govern-lifecycle:E006"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "hermetic-acceptances-that-omit-fidelity-declaration-or-skip-required-live-smoke-pairing"
+context_clarifier: "when planner authors an acceptance that declares execution_kind: hermetic_integration with a non-empty permitted_fakes list but no hermetic.fake_contract_fidelity / known_gaps declaration, or declares hermetic.live_smoke_required: true without a paired execution_kind: live_smoke sibling acceptance under the same parent WMBT — the migration of the 125 historically-suppressed WMBTs (#683, c5efd19) needs an honest middle tier between live SMOKE and unit, and without an enforced declaration hermetic tests silently masquerade as SMOKE coverage"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of hermetic-acceptances-that-omit-fidelity-declaration-or-skip-required-live-smoke-pairing when planner authors a hermetic acceptance by adding the orthogonal execution_kinds: / boundary_kinds: / hermetic: schema to acceptance.convention.yaml and declaring tester.acceptance-violation.hermetic-fake-must-declare-contract (strict) and tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance (strict) rules with paired validators reusing _acceptance_walker.py and assert_disposition_satisfied, leaving smoke.convention.yaml / harness_codes: / category: enums unpolluted"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E006-UNIT-001-convention-declares-hermetic-vocabularies"
+      id: "AC-UNIT-001"
+      purpose: "acceptance.convention.yaml declares the orthogonal execution_kinds: and boundary_kinds: vocabularies and the hermetic: block schema, and atdd rules grep hermetic lists both new rule_ids so the substrate is discoverable"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/planner/conventions/acceptance.convention.yaml declares an execution_kinds: vocabulary containing hermetic_integration and live_smoke"
+        - "The same file declares a boundary_kinds: controlled vocabulary containing argv, subprocess, filesystem, git, http_wire, llm_wire, cmux_rpc, env_config, db_wire, event_wire"
+        - "src/atdd/tester/conventions/acceptance-violation.convention.yaml declares tester.acceptance-violation.hermetic-fake-must-declare-contract and tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance under rules:"
+    when:
+      abstract: "atdd rules grep hermetic is invoked from the repo root"
+    then:
+      abstract:
+        - "Output contains 'tester.acceptance-violation.hermetic-fake-must-declare-contract'"
+        - "Output contains 'tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance'"
+        - "acceptance.convention.yaml execution_kinds: and boundary_kinds: keys both resolve and the existing harness_codes: / harness_types: / category: enums are byte-for-byte unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-15"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E006-UNIT-002-rules-show-resolves-each-rule"
+      id: "AC-UNIT-002"
+      purpose: "atdd rules show <rule-id> resolves both new rules via bind_rule() and prints the strict disposition plus the recipe pointer, confirming registry coherence and recipe wiring"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Both new rules are declared in acceptance-violation.convention.yaml with disposition: strict"
+        - "hermetic-integration-contract.recipe.yaml and hermetic-live-smoke-pairing.recipe.yaml exist under src/atdd/tester/conventions/ and each rule's recipe: field points at one of them"
+        - "bind_rule() reads the merged convention registry"
+    when:
+      abstract:
+        - "atdd rules show tester.acceptance-violation.hermetic-fake-must-declare-contract is invoked"
+        - "atdd rules show tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance is invoked"
+    then:
+      abstract:
+        - "Each invocation exits 0 and prints severity, disposition (strict), description, and fix_hint"
+        - "Neither invocation raises RuleNotInRegistryError or AmbiguousRuleError"
+        - "Each printed fix_hint or recipe pointer names a recipe file that exists on disk"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-15"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E006-INTEGRATION-001-fidelity-validator-fires-on-undeclared-fake"
+      id: "AC-INTEGRATION-001"
+      purpose: "The hermetic-fake-must-declare-contract validator emits a structured Violation for an acceptance that declares execution_kind: hermetic_integration with a non-empty hermetic.permitted_fakes list but omits hermetic.fake_contract_fidelity (or omits known_gaps for a listed fake)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "evaluate_hermetic_fidelity_declaration is the pure evaluator under src/atdd/tester/validators/test_hermetic_integration_contract.py"
+        - "A synthetic acceptance dict declares execution_kind: hermetic_integration and hermetic.permitted_fakes: [cassette_http] but has no hermetic.fake_contract_fidelity entry"
+    when:
+      abstract: "evaluate_hermetic_fidelity_declaration([(path, acceptance_dict)]) is called"
+    then:
+      abstract:
+        - "Returns exactly one Violation whose rule_id is tester.acceptance-violation.hermetic-fake-must-declare-contract"
+        - "Violation.detail names the offending acceptance URN and the missing fake_contract_fidelity / known_gaps fields"
+        - "A second synthetic acceptance that DOES declare fake_contract_fidelity with a non-empty known_gaps list for every permitted_fake yields []"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-15"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E006-INTEGRATION-002-fidelity-validator-silent-when-no-fakes"
+      id: "AC-INTEGRATION-002"
+      purpose: "The hermetic-fake-must-declare-contract validator stays silent for hermetic acceptances with an empty (or absent) permitted_fakes list and for any acceptance that does not declare execution_kind — backward-compatible opt-in per Decision #11"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "evaluate_hermetic_fidelity_declaration from test_hermetic_integration_contract"
+        - "Acceptance A declares execution_kind: hermetic_integration with hermetic.permitted_fakes: [] (empty)"
+        - "Acceptance B declares no execution_kind field at all (a pre-existing acceptance)"
+    when:
+      abstract: "evaluate_hermetic_fidelity_declaration([(path, A), (path, B)]) is called"
+    then:
+      abstract:
+        - "Returns [] — the rule fires ONLY when execution_kind == hermetic_integration AND permitted_fakes is non-empty"
+        - "Acceptance B is never inspected; existing acceptances without execution_kind are not retroactively flagged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-15"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E006-INTEGRATION-003-pairing-validator-fires-on-missing-sibling"
+      id: "AC-INTEGRATION-003"
+      purpose: "The hermetic-live-smoke-required-must-have-paired-smoke-acceptance validator emits a Violation when a hermetic acceptance declares hermetic.live_smoke_required: true but no sibling acceptance with execution_kind: live_smoke exists under the same parent WMBT"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "evaluate_hermetic_live_smoke_pairing is the pure evaluator under src/atdd/tester/validators/test_hermetic_live_smoke_pairing.py"
+        - "A synthetic WMBT dict carries one acceptance with execution_kind: hermetic_integration and hermetic.live_smoke_required: true, and zero acceptances with execution_kind: live_smoke"
+    when:
+      abstract: "evaluate_hermetic_live_smoke_pairing([(path, wmbt_dict)]) is called"
+    then:
+      abstract:
+        - "Returns exactly one Violation whose rule_id is tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance"
+        - "Violation.detail names the hermetic acceptance URN, its parent WMBT urn, and the required execution_kind: live_smoke sibling"
+        - "Pairing is scoped to the WMBT only (Decision #5) — a live_smoke acceptance under a DIFFERENT WMBT does not satisfy the rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-15"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E006-INTEGRATION-004-pairing-validator-silent-when-sibling-present"
+      id: "AC-INTEGRATION-004"
+      purpose: "The hermetic-live-smoke-required validator stays silent when a paired execution_kind: live_smoke sibling acceptance exists under the same WMBT, and when live_smoke_required is false or absent"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "evaluate_hermetic_live_smoke_pairing from test_hermetic_live_smoke_pairing"
+        - "WMBT X carries a hermetic acceptance with live_smoke_required: true AND a sibling acceptance with execution_kind: live_smoke"
+        - "WMBT Y carries a hermetic acceptance with hermetic.live_smoke_required: false"
+    when:
+      abstract: "evaluate_hermetic_live_smoke_pairing([(pathX, X), (pathY, Y)]) is called"
+    then:
+      abstract:
+        - "Returns [] — the satisfied pairing in X and the false flag in Y both produce no Violation"
+        - "The rule never fires for acceptances whose execution_kind is not hermetic_integration"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-15"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E006-INTEGRATION-005-unknown-boundary-kind-rejected"
+      id: "AC-INTEGRATION-005"
+      purpose: "An unknown boundary_kind value in hermetic.exercised_boundaries is rejected against the controlled vocabulary so free-text aliases cannot rot the cross-WMBT boundary query surface (Decision #3)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The boundary_kinds: controlled vocabulary in acceptance.convention.yaml is the authoritative enum"
+        - "A synthetic hermetic acceptance declares hermetic.exercised_boundaries: [http_wire, bogus_socket] where bogus_socket is not in boundary_kinds"
+    when:
+      abstract: "the hermetic validator (or schema check) evaluates the acceptance"
+    then:
+      abstract:
+        - "A Violation is emitted that names the unknown value 'bogus_socket' and lists the permitted boundary_kinds vocabulary"
+        - "An acceptance whose exercised_boundaries are all drawn from the vocabulary yields no boundary Violation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-15"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E006-SMOKE-001-real-tester-suite-runs-both-validators"
+      id: "AC-SMOKE-001"
+      purpose: "Running the real atdd validate tester suite on this repo collects and executes both new validators (eat-own-dog-food: the hermetic validators are alive in the real suite, not skipped)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "test_hermetic_integration_contract.py and test_hermetic_live_smoke_pairing.py are registered under src/atdd/tester/validators/"
+        - "Both new rules are declared in acceptance-violation.convention.yaml"
+    when:
+      abstract: "atdd validate tester --local --skip-api is invoked on this repo"
+    then:
+      abstract:
+        - "pytest collects test_hermetic_integration_contract.py and test_hermetic_live_smoke_pairing.py"
+        - "Both validators run (not skipped) and report a pass/fail verdict against the real plan/ acceptances"
+        - "If a verdict is failing, every offender carries a fix_hint naming the hermetic: block field to add"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-15"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E006-SMOKE-002-rules-resolve-against-real-registry"
+      id: "AC-SMOKE-002"
+      purpose: "Running atdd rules grep / atdd rules show against the real rebuilt toolkit registry surfaces and resolves both new rule_ids, proving the rules are not orphaned in their YAML"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "Both new rules are declared in acceptance-violation.convention.yaml"
+        - "The convention registry is rebuilt by build_registry() from the repo root"
+    when:
+      abstract:
+        - "atdd rules grep hermetic is invoked from the repo root"
+        - "atdd rules show tester.acceptance-violation.hermetic-fake-must-declare-contract is invoked"
+    then:
+      abstract:
+        - "rules grep lists both tester.acceptance-violation.hermetic-fake-must-declare-contract and tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance"
+        - "rules show exits 0 and prints the strict disposition and fix_hint for the resolved rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-15"

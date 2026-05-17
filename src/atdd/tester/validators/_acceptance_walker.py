@@ -27,7 +27,7 @@ import re
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Optional, Sequence
+from typing import Iterator, Optional, Sequence, Tuple
 
 import yaml
 
@@ -138,6 +138,40 @@ def _iter_acceptances_in_file(
             body=body,
             location=f"{rel_path}:acceptances[{idx}]",
         )
+
+
+def iter_repo_wmbts(repo_root: Path) -> Iterator[Tuple[Path, dict]]:
+    """Yield ``(path, wmbt_dict)`` for every WMBT file under ``plan/<wagon>/``.
+
+    Unlike :func:`iter_repo_acceptances` (which flattens to individual
+    ``acceptances[]`` entries), this preserves the WMBT-level grouping so
+    callers can reason about sibling acceptances under the same parent WMBT
+    (e.g. live-smoke pairing, issue #690).
+
+    Files that fail to parse, or whose top level is not a dict, are silently
+    skipped — those are policed by the URN-graph validators.
+    """
+    plan_dir = (repo_root / "plan").resolve()
+    if not plan_dir.is_dir():
+        return
+    for wagon_dir in sorted(plan_dir.iterdir()):
+        if not wagon_dir.is_dir() or wagon_dir.name.startswith("_"):
+            continue
+        for wmbt_file in sorted(wagon_dir.glob("*.yaml")):
+            if not _WMBT_FILE_RE.match(wmbt_file.name):
+                continue
+            try:
+                data = yaml.safe_load(wmbt_file.read_text(encoding="utf-8"))
+            except (OSError, yaml.YAMLError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+                # Malformed plan/ YAML is policed by the URN-graph validators.
+                _logger.debug(
+                    "_acceptance_walker: skipping unreadable %s: %s",
+                    wmbt_file, exc,
+                    extra={"path": str(wmbt_file), "error_type": type(exc).__name__},
+                )
+                continue
+            if isinstance(data, dict):
+                yield wmbt_file, data
 
 
 def iter_feature_files(repo_root: Path) -> Iterator[Path]:
@@ -281,5 +315,6 @@ __all__ = [
     "has_signal_metric_and_threshold",
     "iter_feature_files",
     "iter_repo_acceptances",
+    "iter_repo_wmbts",
     "yaml_path_str",
 ]
