@@ -1,0 +1,24 @@
+urn: "feature:coach-wave-orchestration:within-wave-concurrency-and-pane-identity"
+wagon: "wagon:coach-wave-orchestration"
+description: "Concurrent within-wave cold-start driver plus one-persistent-pane-per-issue with in-place persona respawn for atdd coach."
+sizing:
+  wmbts: 2
+  footprint_score: 8
+  footprint_size: "M"
+wmbts:
+  - "wmbt:coach-wave-orchestration:E001"
+  - "wmbt:coach-wave-orchestration:D001"
+components:
+  backend:
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "concurrent within-wave driver in _execute_cold_start (one _drive_single_issue loop per member, join-per-wave, aggregate rc); resolve-or-create the issue's persistent surface + in-place persona respawn in the spawn handler"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "WaveResult (aggregate rc plus per-member terminal states) and IssueSurface (issue number plus its stable ATDD<N> surface name and pane ref)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "multiplexer in-place respawn adapter — respawns the persona agent inside the issue's existing surface via cmux respawn-pane on a phase transition"

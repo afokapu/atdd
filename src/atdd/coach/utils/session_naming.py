@@ -124,6 +124,20 @@ def compute_canonical_name(
     return f"{repo_token}{issue_number}{phase_token}-{slug_token}"
 
 
+def compute_issue_surface_name(repo: str, issue_number: int) -> str:
+    """Build the persistent issue-surface name — issue identity only (#730).
+
+    Unlike :func:`compute_canonical_name`, this carries no slug, persona, or
+    phase segment: the coach hosts each issue in ONE cmux surface named
+    ``<REPO><N>`` for its whole lifecycle, relaunching the persona agent in
+    place on every phase transition. The pane *is* the issue's stable identity.
+
+    >>> compute_issue_surface_name("ATDD", 730)
+    'ATDD730'
+    """
+    return f"{(repo or 'REPO').upper()}{issue_number}"
+
+
 def parse_canonical_name(name: str) -> Optional[ParsedName]:
     """Parse a session name into ``(repo, issue, phase, slug)`` or None."""
     if not isinstance(name, str):
@@ -173,6 +187,7 @@ __all__ = [
     "ParsedName",
     "branch_to_slug",
     "compute_canonical_name",
+    "compute_issue_surface_name",
     "compute_repo_short_name",
     "is_canonical_name",
     "parse_canonical_name",

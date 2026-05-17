@@ -41,8 +41,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
 from atdd.coach.utils.session_naming import (
-    branch_to_slug,
-    compute_canonical_name,
+    compute_issue_surface_name,
     compute_repo_short_name,
 )
 from atdd.coach.utils.session_naming_apply import (
@@ -260,6 +259,29 @@ def _create_surface(
         )
 
 
+def _respawn_persona_in_surface(
+    backend: Any, surface_ref: str, command: str,
+) -> str:
+    """Relaunch a persona agent inside an existing surface (issue #730).
+
+    Issues an in-place respawn against the issue's persistent surface — a
+    fresh process, NOT a ``/clear`` conversation reset (Decision #5) — so the
+    new persona's system prompt, tool config, and cwd apply cleanly. Backends
+    without respawn support leave the surface as-is. Returns ``surface_ref``.
+    """
+    respawn = getattr(backend, "respawn_pane", None) or getattr(
+        backend, "respawn", None
+    )
+    if respawn is None:
+        return surface_ref
+    try:
+        respawn(surface_ref, command=command)
+    except NotImplementedError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
+        # tmux/zellij have no respawn verb — leave the surface as-is.
+        pass
+    return surface_ref
+
+
 def _close_surface_on_failure(backend: Any, surface_ref: str) -> None:
     """Close a half-spawned surface so a failed spawn leaves no orphan pane (#655).
 
@@ -294,9 +316,14 @@ def cmd_spawn(
     rules: Optional[Iterable[Any]] = None,
     persona_prompt_content: Optional[str] = None,
     multiplexer_mode: str = "auto",
+    existing_surface_ref: Optional[str] = None,
 ) -> dict:
     """Render the launch prompt, dispatch the multiplexer, run the
     per-LLM adapter, and emit the ``agent_spawned`` event.
+
+    The coach hosts each issue in ONE persistent surface named ``ATDD<N>``
+    (issue #730). When ``existing_surface_ref`` is given, the persona agent is
+    relaunched IN PLACE in that surface instead of a new pane being created.
 
     Returns a dict with keys ``launch_prompt_path``, ``surface_ref``,
     ``command``, ``rule_id`` for callers that want to log or chain.
@@ -344,12 +371,14 @@ def cmd_spawn(
     from atdd.coach.utils.config import load_atdd_config
 
     repo_short = compute_repo_short_name(load_atdd_config(Path.cwd()))
-    slug = branch_to_slug(worktree.name) or worktree.name or agent_id
-    canonical_name = compute_canonical_name(repo_short, int(issue), slug)
+    # Issue #730: the coach hosts each issue in ONE persistent surface named
+    # ATDD<N> — issue identity, stable across every phase. No slug / persona /
+    # phase segment; the pane *is* the issue's identity.
+    canonical_name = compute_issue_surface_name(repo_short, int(issue))
 
     backend = multiplexer if multiplexer is not None else _resolve_multiplexer()
     _observer_agent_id = f"{agent_id}-observer"
-    # Canonical observer naming: <persona-canonical-name>:obs — makes the link
+    # Canonical observer naming: <issue-surface-name>:obs — makes the link
     # to its persona unmistakable in cmux/tmux/zellij tab/window lists.
     # Sort-adjacent + ':obs' suffix is multiplexer-agnostic (#695).
     _observer_name = f"{canonical_name}:obs"
@@ -359,30 +388,39 @@ def cmd_spawn(
         f" --runtime-dir {runtime_root}"
         f" --worktree {worktree}"
     )
-    surface_ref = _create_surface(
-        backend,
-        worktree=worktree,
-        command=command,
-        name=canonical_name,
-        mode=multiplexer_mode,
-        observer_agent_id=_observer_agent_id,
-        observer_name=_observer_name,
-        observer_command=_observer_command,
-        observer_runtime_root=str(runtime_root),
-    )
-    # Transactional spawn (#655): the surface exists. If the canonical
-    # naming/layout pass fails, close it before propagating so the failed
-    # spawn attempt leaves no orphan pane.
-    try:
-        apply_canonical_name_and_layout(
-            backend=backend,
-            ref=surface_ref,
-            canonical_name=canonical_name,
-            surface_count=1,
+    if existing_surface_ref is not None:
+        # Issue #730: the issue already has its persistent surface — relaunch
+        # the persona agent in place rather than spawning a new pane. No
+        # canonical naming/layout pass is needed: the surface keeps the
+        # ATDD<N> identity it was created with.
+        surface_ref = _respawn_persona_in_surface(
+            backend, existing_surface_ref, command,
         )
-    except Exception:
-        _close_surface_on_failure(backend, surface_ref)
-        raise
+    else:
+        surface_ref = _create_surface(
+            backend,
+            worktree=worktree,
+            command=command,
+            name=canonical_name,
+            mode=multiplexer_mode,
+            observer_agent_id=_observer_agent_id,
+            observer_name=_observer_name,
+            observer_command=_observer_command,
+            observer_runtime_root=str(runtime_root),
+        )
+        # Transactional spawn (#655): the surface exists. If the canonical
+        # naming/layout pass fails, close it before propagating so the failed
+        # spawn attempt leaves no orphan pane.
+        try:
+            apply_canonical_name_and_layout(
+                backend=backend,
+                ref=surface_ref,
+                canonical_name=canonical_name,
+                surface_count=1,
+            )
+        except Exception:
+            _close_surface_on_failure(backend, surface_ref)
+            raise
 
     # Inject the launch prompt as the first interactive message (#702).
     # Claude Code v2.1.x ignores a positional prompt arg in interactive

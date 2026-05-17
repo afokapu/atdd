@@ -27,3 +27,4 @@ trains:
           - integrate-end-to-end
           - integration-hardening
           - coach-ops
+          - coach-wave-orchestration
