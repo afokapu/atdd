@@ -28,3 +28,4 @@ trains:
           - integration-hardening
           - coach-ops
           - coach-wave-orchestration
+          - consolidate-coach-workspace
