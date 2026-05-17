@@ -56,7 +56,7 @@ consume:
     from: wagon:dispatch-validators
 
 wmbt:
-  total: 7
+  total: 8
   D001: "minimize likelihood of write-permission-leak-from-reviewer-agent"
   D002: "minimize likelihood of false-pass-verdict-on-uncovered-or-strict-findings"
   D003: "minimize likelihood of phase-mismatched-reviewer-focus"
@@ -64,3 +64,4 @@ wmbt:
   E001: "minimize likelihood of unrecorded-or-unvalidated-review-outcomes"
   E002: "minimize likelihood of reviewer-pipeline-inaccessible-outside-full-coach-lifecycle"
   E003: "minimize likelihood of reviewer-verdict-not-enforced-at-pr-boundary"
+  E004: "minimize likelihood of coach-integration-tests-spawn-unreaped-cmux-workspaces"

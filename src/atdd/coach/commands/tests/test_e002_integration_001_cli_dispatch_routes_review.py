@@ -69,7 +69,11 @@ class TestCliDispatchRoutesReview:
     ):
         from atdd.coach.commands import coach
 
-        result_code = coach.run_cli(["358"])
+        # --dry-run keeps this routing-only test hermetic: the coach CLI gates
+        # every multiplexer spawn behind `if not cfg.dry_run`, so a bare issue
+        # number still routes to the coach state-machine path (run_cli → 0)
+        # without spawning — and leaking — a real ATDD358 cmux workspace.
+        result_code = coach.run_cli(["358", "--dry-run"])
         assert result_code == 0, (
             f"atdd coach 358 regressed after adding review subcommand, got {result_code}"
         )
