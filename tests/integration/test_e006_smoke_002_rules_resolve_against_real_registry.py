@@ -1,6 +1,6 @@
-# URN: test:govern-lifecycle:hermetic-integration-execution-kind:E005-SMOKE-002-rules-resolve-against-real-registry
-# Acceptance: acc:govern-lifecycle:E005-SMOKE-002-rules-resolve-against-real-registry
-# WMBT: wmbt:govern-lifecycle:E005
+# URN: test:govern-lifecycle:hermetic-integration-execution-kind:E006-SMOKE-002-rules-resolve-against-real-registry
+# Acceptance: acc:govern-lifecycle:E006-SMOKE-002-rules-resolve-against-real-registry
+# WMBT: wmbt:govern-lifecycle:E006
 # Phase: SMOKE
 # Layer: integration
 # Runtime: python
@@ -8,7 +8,7 @@
 # Purpose: Eat-own-dog-food — both #690 rules surface and resolve against the
 #          real rebuilt toolkit convention registry via `atdd rules`.
 
-"""E005-SMOKE-002 — verify the two hermetic rules are not orphaned in their
+"""E006-SMOKE-002 — verify the two hermetic rules are not orphaned in their
 YAML: they surface through ``atdd rules grep`` and resolve through
 ``atdd rules show`` against the *real* rebuilt convention registry.
 

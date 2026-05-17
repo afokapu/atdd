@@ -197,11 +197,20 @@ def test_entry_point_calls_new_persona_surface(
 def test_entry_point_produces_observer_surface(
     entry_point_name, invoke_fn, tmp_path, monkeypatch
 ):
-    """Every entry point must produce a surface with 'observer' in the name."""
+    """Every entry point must produce a surface with the observer link marker.
+
+    Naming convention (#695): persona is `<canonical_name>`, observer is
+    `<canonical_name>:obs` (sort-adjacent + ':obs' link suffix). Accept either
+    the legacy 'observer' substring OR the new ':obs' suffix for backward compat.
+    """
     fake_mx = invoke_fn(tmp_path, monkeypatch)
 
     surface_calls = [c for c in fake_mx.calls if c["op"] == "new_surface"]
-    observer_calls = [c for c in surface_calls if "observer" in (c.get("name") or "").lower()]
+    observer_calls = [
+        c for c in surface_calls
+        if "observer" in (c.get("name") or "").lower()
+        or (c.get("name") or "").lower().endswith(":obs")
+    ]
     assert len(observer_calls) >= 1, (
         f"Entry point '{entry_point_name}' did not produce an observer surface. "
         f"surface_calls={surface_calls}"

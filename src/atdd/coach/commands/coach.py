@@ -33,7 +33,10 @@ from __future__ import annotations
 
 import argparse
 import logging
+import shutil
+import subprocess
 import sys
+import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -76,6 +79,7 @@ __all__ = [
     "run_status",
     "run_review",
     "run_watch",
+    "run_gc",
     "main",
 ]
 
@@ -90,6 +94,10 @@ from atdd.coach.commands.coach_review import run_review  # noqa: E402
 # Re-export run_watch so test imports from atdd.coach.commands.coach work.
 # The implementation lives in coach_watch.py (#628).
 from atdd.coach.commands.coach_watch import run_watch  # noqa: E402
+
+# Re-export run_gc so test imports from atdd.coach.commands.coach work.
+# The implementation lives in coach_gc.py (#655).
+from atdd.coach.commands.coach_gc import run_gc  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +138,20 @@ class Policy:
     """
 
     strict_deps: bool
+
+
+@dataclass
+class ColdStartResult:
+    """Aggregate outcome of a cold-start run (issue #730).
+
+    ``rc`` is the process exit code — 0 when every issue reached a terminal
+    success state, the first non-zero member ``rc`` otherwise. ``blocked``
+    lists the issue numbers that resolved to BLOCKED, so the operator can see
+    which member stalled without that member aborting its siblings.
+    """
+
+    rc: int
+    blocked: list[int] = field(default_factory=list)
 
 
 def _persona_llm_arg(value: str) -> dict[str, str]:
@@ -326,12 +348,41 @@ _PHASE_TRAILER_MAP: dict[str, Phase] = {
 def _cold_start_proposed_transition(sm: StateMachine, event: dict) -> Optional["Transition"]:
     """Map a raw queue event to a (src, dst) Transition per cold-start rules.
 
+    Two triggers advance the cold-start loop:
+
+    * ``agent_done`` (#708) — a dispatched persona wrote ``done.json``,
+      signalling its phase is complete. The event's ``agent_id`` encodes
+      the issue (``<persona>-<issue>-<suffix>``); the SM's current phase
+      determines the next via ``_COLD_START_ADVANCE_FROM``. This is the
+      primary cold-start trigger — it needs no commit trailers and no
+      separate git_watcher process.
+    * ``commit_observed`` — a commit carrying ``Issue``/``Phase`` trailers
+      (the original J5 path; retained for the trailer-driven flow).
+
     Extends the J5 watcher map to include PLANNED→RED so the cold-start
-    event loop handles the full lifecycle (issue #645).
+    event loop handles the full lifecycle (issue #645 / #708).
     """
     from atdd.coach.handlers.state_machine import Transition, can_transition
 
-    if event.get("event_type") != "commit_observed":
+    event_type = event.get("event_type")
+
+    # #708 — persona done-signal: advance one phase from the SM's current
+    # phase. The agent_id form is ``<persona>-<issue>-<suffix>`` (the
+    # observer's ``…-observer`` agent never writes done.json, so only a
+    # real persona triggers this).
+    if event_type == "agent_done":
+        agent_id = event.get("agent_id") or ""
+        parts = agent_id.split("-")
+        if len(parts) < 2 or not parts[1].isdigit():
+            return None
+        if str(sm.issue_number) != parts[1]:
+            return None
+        dst = _COLD_START_ADVANCE_FROM.get(sm.phase)
+        if dst is None or not can_transition(sm.phase, dst):
+            return None
+        return Transition(sm.phase, dst)
+
+    if event_type != "commit_observed":
         return None
     payload = event.get("payload") or {}
     trailers = payload.get("trailers") or {}
@@ -399,6 +450,97 @@ def _make_phase_transition_record(
     }
 
 
+def _ensure_issue_worktree(ctx) -> Optional[Path]:
+    """Cold-start: ensure the issue's git worktree exists, creating it if absent.
+
+    The spawn handler's ``_resolve_worktree`` only *derives* a path — it never
+    runs ``git worktree add``. ``phase_a_create_worktrees`` was written but
+    never wired into a live command path. Without this step the planner is
+    dispatched into a bare non-git directory and its commits land on protected
+    ``main`` (2026-05-16 incident).
+
+    The worktree path is taken from the spawn handler's ``_resolve_worktree``
+    so creation and dispatch always agree. The branch is read from the issue
+    body's ``Branch:`` metadata, falling back to ``feat/issue-<N>``.
+
+    Idempotent: an existing git worktree is returned unchanged. Returns the
+    worktree ``Path``, or ``None`` if creation failed (caller → BLOCKED).
+    """
+    from atdd.coach.commands import session_template
+    from atdd.coach.handlers.spawn import _resolve_worktree
+
+    worktree = _resolve_worktree(ctx)
+
+    # Idempotent: an existing git worktree is reused unchanged.
+    if (worktree / ".git").exists():
+        return worktree
+
+    # The real `_resolve_worktree` always returns a direct sibling of the
+    # repo root (`Path.cwd().parent / <slug>`). A resolved path that is NOT
+    # such a sibling means `_resolve_worktree` was injected (tests) or the
+    # layout is non-standard — running `git worktree add` there would be
+    # wrong, so the path is taken as-is and no worktree is created.
+    repo_root = Path.cwd()
+    if worktree.parent != repo_root.parent:
+        return worktree
+
+    fetched = session_template.fetch_issue(ctx.issue_number) or {}
+    meta = session_template.parse_metadata(fetched.get("body") or "")
+    branch = (meta.get("Branch") or "").strip()
+    if not branch or branch == "TBD":
+        branch = f"feat/issue-{ctx.issue_number}"
+
+    # A path that exists but is not a git worktree needs triage before
+    # `git worktree add` (which accepts only a missing or empty directory):
+    #  - empty            → fine, git accepts it as-is.
+    #  - atdd-only residue → stale debris from the pre-fix bug; safe to clear.
+    #  - anything else     → hard failure, never silently clobbered.
+    if worktree.exists():
+        entries = {p.name for p in worktree.iterdir()}
+        if not entries:
+            pass  # empty dir — git worktree add accepts it
+        elif entries <= {".atdd", ".launch_prompt.txt", ".DS_Store"}:
+            shutil.rmtree(worktree)
+        else:
+            print(
+                f"❌ #{ctx.issue_number}: worktree path {worktree} exists and is "
+                f"not a git worktree; refusing to overwrite",
+                file=sys.stderr,
+            )
+            return None
+
+    # Attach to an existing remote branch if present, else create a new one.
+    remote = subprocess.run(
+        ["git", "branch", "-r", "--list", f"origin/{branch}"],
+        cwd=str(repo_root), capture_output=True, text=True,
+    )
+    if remote.stdout.strip():
+        add_cmd = ["git", "worktree", "add", str(worktree), f"origin/{branch}"]
+    else:
+        add_cmd = ["git", "worktree", "add", str(worktree), "-b", branch]
+
+    result = subprocess.run(
+        add_cmd, cwd=str(repo_root), capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        print(
+            f"❌ #{ctx.issue_number}: git worktree add failed: "
+            f"{result.stderr.strip()}",
+            file=sys.stderr,
+        )
+        return None
+
+    _logger.info(
+        "coach cold-start worktree created",
+        extra={
+            "issue": ctx.issue_number,
+            "worktree": str(worktree),
+            "branch": branch,
+        },
+    )
+    return worktree
+
+
 def _drive_single_issue(
     cfg: "Config",
     sm: StateMachine,
@@ -453,6 +595,25 @@ def _drive_single_issue(
     init_record = _make_phase_transition_record(coach_run_id, sm.issue_number, Phase.INIT, Phase.PLANNED)
     with transactional_decision(writer, init_record):
         pass  # decision is written by the CM; no blocking action here
+
+    # --- Step 1.5: Ensure the issue's git worktree exists (cold-start) ---
+    # The spawn handler resolves a worktree *path* but never creates the
+    # worktree. Without this, the planner is dispatched into a bare non-git
+    # directory and its commits land on protected `main` (2026-05-16 incident).
+    if not cfg.dry_run:
+        worktree = _ensure_issue_worktree(ctx)
+        if worktree is None:
+            _logger.error(
+                "coach cold-start worktree creation failed",
+                extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
+            )
+            _write_escalation(
+                cfg.escalation_channel,
+                f"#{sm.issue_number}: worktree creation failed at INIT→PLANNED",
+            )
+            sm.history.append(sm.phase)
+            sm.phase = Phase.BLOCKED
+            return 1
 
     # --- Step 2: Spawn planner (K1) ---
     spawn_result = spawn_h(ctx, Transition(Phase.INIT, Phase.PLANNED))
@@ -562,6 +723,30 @@ def _process_injected_events(
             break
 
 
+def _watcher_runtime_dir(ctx: "CoachContext", fallback: Path) -> Path:
+    """Runtime dir the coach's ``RuntimeWatcher`` must scan (#708 link 3).
+
+    A dispatched persona runs *inside the issue's worktree* and writes its
+    runtime artifacts (``events.jsonl``, ``done.json``, …) to
+    ``<worktree>/.atdd/runtime`` — NOT the coach process's cwd runtime. If
+    the watcher scans the coach's cwd it never sees a persona event and the
+    coach never advances past the first phase. Resolve the issue's worktree
+    and point the watcher at its ``.atdd/runtime``; fall back to
+    ``fallback`` only when the worktree cannot be resolved.
+    """
+    try:
+        from atdd.coach.handlers.spawn import _resolve_worktree
+
+        worktree = _resolve_worktree(ctx)
+    except Exception as exc:  # noqa: BLE001 — best-effort; logged, then fall back
+        _logger.warning(
+            "coach watcher: worktree resolution failed; using fallback runtime dir",
+            extra={"issue": getattr(ctx, "issue_number", "?"), "error": str(exc)},
+        )
+        return fallback
+    return worktree / ".atdd" / "runtime"
+
+
 def _process_watcher_events(
     ctx: "CoachContext",
     sm: StateMachine,
@@ -578,8 +763,19 @@ def _process_watcher_events(
     from atdd.coach.handlers.state_machine import HandlerResult, Transition
     from atdd.coach.commands.durability import transactional_decision
 
+    # #708 link 3: the watcher must scan the dispatched persona's worktree
+    # runtime, not the coach cwd's. The CoachEventQueue stays on the coach's
+    # own runtime_dir (coach-side durability) — only the watcher's scan root
+    # follows the persona.
+    watch_runtime = _watcher_runtime_dir(ctx, runtime_dir)
     queue = CoachEventQueue(runtime_dir=runtime_dir)
-    watcher = RuntimeWatcher(runtime_dir=runtime_dir, queue=queue)
+    watcher = RuntimeWatcher(runtime_dir=watch_runtime, queue=queue)
+    # #711: baseline at dispatch time so a stale done.json (or any runtime
+    # file) left by a prior coach run is recorded as already-seen and is not
+    # emitted as new on the first scan — only post-dispatch writes advance
+    # the phase. Without this the coach raced PLANNED→RED in 9 s on a
+    # leftover done.json (coach-run-690-cb0a26c9).
+    watcher.baseline()
     watcher.start()
     events_processed = 0
 
@@ -624,6 +820,66 @@ def _process_watcher_events(
             pass
 
 
+def _resolve_waves(cfg: "Config") -> list[list[int]]:
+    """Resolve the dependency-ordered wave plan for a cold-start run.
+
+    A multi-issue run derives waves from the dependency graph via
+    :func:`compute_waves`; a single issue — or a graph that fails to build or
+    resolve — collapses to one wave holding every requested issue number.
+    """
+    if len(cfg.issue_numbers) <= 1:
+        return [cfg.issue_numbers]
+    plan = build_plan(cfg.issue_numbers)
+    if not plan:
+        return [cfg.issue_numbers]
+    try:
+        return compute_waves(plan)
+    except ValueError:
+        _logger.warning(
+            "coach cold-start: compute_waves could not order issues "
+            "(cyclic or unresolvable dependency) — falling back to a single "
+            "wave holding every requested issue",
+            extra={
+                "event": "coach.cold_start.wave_resolution_fallback",
+                "issue_numbers": cfg.issue_numbers,
+                "fallback": "single_wave",
+            },
+        )
+        return [cfg.issue_numbers]
+
+
+def _drive_wave_concurrently(
+    wave: list[int], drive_fn: Callable[[int], int],
+) -> dict[int, int]:
+    """Drive every member of one wave concurrently, joining before returning.
+
+    One worker thread per issue (issue #730) — ``drive_fn(issue_num)`` returns
+    that member's rc. The join over all threads is the barrier that preserves
+    between-wave dependency ordering: the next wave cannot start until every
+    member of this one is terminal. Returns ``{issue_num: rc}``.
+    """
+    results: dict[int, int] = {}
+    results_lock = threading.Lock()
+
+    def _worker(issue_num: int) -> None:
+        rc = drive_fn(issue_num)
+        with results_lock:
+            results[issue_num] = rc
+
+    threads = [
+        threading.Thread(
+            target=_worker, args=(issue_num,),
+            name=f"coach-issue-{issue_num}",
+        )
+        for issue_num in wave
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    return results
+
+
 def _execute_cold_start(
     cfg: "Config",
     machines: list,
@@ -634,41 +890,61 @@ def _execute_cold_start(
     _injected_events: Optional[dict] = None,
     _max_loop_events: Optional[int] = None,
     _run_id_sink: Optional[list] = None,
-) -> int:
+) -> "ColdStartResult":
     """Wire and drive all issues through the full lifecycle (cold-start path).
 
-    Runs waves sequentially (R6, issue #645 — no parallel-within-wave).
-    Returns 0 when all issues complete, 1 on first BLOCKED/error.
-    """
-    if len(cfg.issue_numbers) > 1:
-        plan = build_plan(cfg.issue_numbers)
-        try:
-            waves = compute_waves(plan) if plan else [cfg.issue_numbers]
-        except ValueError:
-            waves = [cfg.issue_numbers]
-    else:
-        waves = [cfg.issue_numbers]
+    Waves run in dependency order (R6, issue #645): wave N+1 does not start
+    until every member of wave N has reached a terminal state. Members WITHIN
+    a single wave are driven concurrently — one worker thread per member, each
+    with its own ``coach-run-*`` id and event loop — so the wave plan's
+    ``Wave 0: #A,#B`` reflects real parallel execution (issue #730).
 
+    A BLOCKED member is surfaced in the returned :class:`ColdStartResult`
+    without aborting siblings that already started (Decision #1). Returns a
+    ``ColdStartResult`` carrying the aggregate ``rc`` and the BLOCKED issues.
+    """
+    waves = _resolve_waves(cfg)
     machines_by_number = {sm.issue_number: sm for sm in machines}
 
-    for wave in waves:
-        for issue_num in wave:
-            sm = machines_by_number.get(issue_num)
-            if sm is None:
-                continue
-            issue_events = (_injected_events or {}).get(issue_num)
-            rc = _drive_single_issue(
+    def _drive_issue(issue_num: int) -> int:
+        """Drive one issue INIT→terminal, returning its rc.
+
+        A crashed driver yields rc 2 rather than propagating, so one member's
+        failure can never abort its siblings (issue #730, Decision #1).
+        """
+        sm = machines_by_number.get(issue_num)
+        if sm is None:
+            return 0
+        try:
+            return _drive_single_issue(
                 cfg, sm, runtime_dir,
                 _spawn_func=_spawn_func,
                 _two_phase_func=_two_phase_func,
-                _injected_events=issue_events,
+                _injected_events=(_injected_events or {}).get(issue_num),
                 _max_loop_events=_max_loop_events,
                 _run_id_sink=_run_id_sink,
             )
-            if rc != 0:
-                return rc
+        except Exception:  # noqa: BLE001 — a crashed driver must not abort siblings
+            _logger.exception(
+                "coach cold-start: issue driver raised",
+                extra={"issue": issue_num},
+            )
+            return 2
 
-    return 0
+    aggregate_rc = 0
+    blocked: list[int] = []
+    for wave in waves:
+        wave_results = _drive_wave_concurrently(wave, _drive_issue)
+        # Aggregate this wave's outcomes — a BLOCKED member is recorded, not
+        # fatal: siblings already running are left to finish.
+        for issue_num, rc in wave_results.items():
+            if rc != 0 and aggregate_rc == 0:
+                aggregate_rc = rc
+            sm = machines_by_number.get(issue_num)
+            if sm is not None and sm.phase == Phase.BLOCKED:
+                blocked.append(issue_num)
+
+    return ColdStartResult(rc=aggregate_rc, blocked=blocked)
 
 
 def run(
@@ -772,7 +1048,7 @@ def run(
 
     # Cold-start execution path (issue #645): drive all issues from INIT to MERGED.
     if not cfg.dry_run:
-        return _execute_cold_start(
+        result = _execute_cold_start(
             cfg,
             machines,
             runtime_dir,
@@ -782,6 +1058,12 @@ def run(
             _max_loop_events=_max_loop_events,
             _run_id_sink=_run_id_sink,
         )
+        if result.blocked:
+            print(
+                f"⚠ BLOCKED: {', '.join(f'#{n}' for n in result.blocked)}",
+                file=sys.stderr,
+            )
+        return result.rc
 
     return 0
 
@@ -826,6 +1108,8 @@ def run_cli(argv: list[str]) -> int:
         return run_review(argv[1:])
     if argv and argv[0] == "watch":
         return run_watch(argv[1:])
+    if argv and argv[0] == "gc":
+        return run_gc(argv[1:])
     cfg = parse_cli(argv)
     return run(
         issue_numbers=cfg.issue_numbers,

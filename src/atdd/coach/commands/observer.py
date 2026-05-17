@@ -67,6 +67,10 @@ from atdd.coach.utils.rule_binding import (
 INJECTION_METHODS: frozenset[str] = frozenset(
     {"cli-return", "multiplexer-send", "respawn"}
 )
+
+# #713 Layer 1: a co-spawned observer's agent_id is the persona's id plus
+# this suffix (e.g. ``planner-42-ab-observer`` watches ``planner-42-ab``).
+_OBSERVER_SUFFIX = "-observer"
 DISPOSITIONS: frozenset[str] = frozenset(
     {"strict", "suppress-and-clean", "advisory", "documentation-only"}
 )
@@ -93,6 +97,20 @@ def _agent_dir(agent_id: str, runtime_root: Optional[Path]) -> Path:
     d = _runtime_root(runtime_root) / "agents" / agent_id
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _derive_persona_agent_id(agent_id: str) -> str:
+    """The persona an observer watches: its agent_id minus the
+    ``-observer`` suffix (#713 Layer 1).
+
+    A bare id — the L1 generic per-agent watcher — has no suffix and
+    watches that agent directly, so it is returned unchanged.
+    """
+    if agent_id.endswith(_OBSERVER_SUFFIX) and len(agent_id) > len(
+        _OBSERVER_SUFFIX
+    ):
+        return agent_id[: -len(_OBSERVER_SUFFIX)]
+    return agent_id
 
 
 # ---------------------------------------------------------------------------
@@ -454,9 +472,55 @@ def _make_validator_failure_ignored_predicate() -> Predicate:
     return predicate
 
 
+def _resolve_python_callable(spec: str):
+    """Resolve a ``module:attr`` spec to the referenced object.
+
+    Used by the ``python`` trigger type so absorbed-from-babysit rules
+    (#513) and future python-coded predicates can declare themselves in
+    YAML without re-implementing their logic in regex.
+    """
+    if not isinstance(spec, str) or ":" not in spec:
+        raise ValueError(
+            f"python trigger 'callable' must be 'module:attr', got {spec!r}"
+        )
+    module_path, attr = spec.split(":", 1)
+    import importlib
+
+    module = importlib.import_module(module_path)
+    try:
+        return getattr(module, attr)
+    except AttributeError as exc:
+        raise ValueError(
+            f"python trigger callable {spec!r} not found: {exc}"
+        ) from exc
+
+
 def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
     if not isinstance(payload, dict):
         raise ValueError("rule YAML must be a mapping at the top level")
+
+    trigger = payload.get("trigger") or {}
+    if not isinstance(trigger, dict):
+        raise ValueError("'trigger' must be a mapping")
+    trig_type = trigger.get("type", "log_regex")
+
+    # The 'python' trigger delegates rule construction to the referenced
+    # module's ``build_rule()`` factory, which owns rule_id + predicate +
+    # correction_text. The YAML file is purely a registry pointer.
+    if trig_type == "python":
+        builder_spec = trigger.get("builder")
+        if not isinstance(builder_spec, str) or not builder_spec:
+            raise ValueError("python trigger missing 'builder' (module:attr)")
+        builder = _resolve_python_callable(builder_spec)
+        rule = builder()
+        if not isinstance(rule, ObserverRule):
+            raise ValueError(
+                f"python builder {builder_spec!r} must return ObserverRule, "
+                f"got {type(rule).__name__}"
+            )
+        rule.source_path = source_path
+        return rule
+
     rule_id = payload.get("rule_id")
     if not isinstance(rule_id, str) or not rule_id:
         raise ValueError("rule YAML missing required string field 'rule_id'")
@@ -465,10 +529,6 @@ def _build_rule_from_yaml(payload: dict, *, source_path: Path) -> ObserverRule:
     if not isinstance(correction_text, str) or not correction_text:
         raise ValueError("rule YAML missing required string 'correction_text'")
 
-    trigger = payload.get("trigger") or {}
-    if not isinstance(trigger, dict):
-        raise ValueError("'trigger' must be a mapping")
-    trig_type = trigger.get("type", "log_regex")
     if trig_type == "log_regex":
         pattern = trigger.get("pattern")
         if not isinstance(pattern, str) or not pattern:
@@ -739,6 +799,7 @@ class Observer:
         worktree: Optional[Path] = None,
         dispatcher: Optional[InjectionDispatcher] = None,
         poll_interval: float = 0.5,
+        surface_capture: Optional[Callable[[], str]] = None,
     ) -> None:
         self.agent_id = agent_id
         self.runtime_dir = Path(runtime_dir)
@@ -746,14 +807,40 @@ class Observer:
         self.worktree = Path(worktree) if worktree else None
         self.agent_dir = self.runtime_dir / "agents" / agent_id
         self.agent_dir.mkdir(parents=True, exist_ok=True)
+        # #713 Layer 1: collect_input must read the PERSONA's runtime dir,
+        # not the observer's own.
+        self.persona_agent_id = _derive_persona_agent_id(agent_id)
+        self.persona_dir = self.runtime_dir / "agents" / self.persona_agent_id
+        self.surface_capture = surface_capture
         self.registry = RuleRegistry()
         self.dispatcher = dispatcher or InjectionDispatcher()
         self.poll_interval = poll_interval
         self._log_offset = 0
+        # #713 Layer 4: live observability state for the operator status line.
+        self.last_input: Optional[ObservedInput] = None
+        self.last_corrections: list[Correction] = []
+        self.last_scan_at: Optional[float] = None
+        self.corrections_issued = 0
         self._worktree_snapshot: dict[str, float] = {}
         self._worktree_baseline_taken = False
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        # Roots excluded from worktree scanning (#706). The observer writes
+        # its own corrections.jsonl / cli-return.jsonl into runtime_dir,
+        # which lives INSIDE the scanned worktree — scanning it makes every
+        # correction-write a detected change, which fires out-of-scope-edit,
+        # which writes another correction: an unbounded self-feedback loop.
+        # Exclude the observer's own runtime tree (resolved relative to the
+        # worktree when given as a relative path).
+        self._scan_skip_roots: list[Path] = []
+        if self.worktree is not None:
+            rt = self.runtime_dir
+            if not rt.is_absolute():
+                rt = self.worktree / rt
+            try:
+                self._scan_skip_roots.append(rt.resolve())
+            except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+                pass
 
     # --- rule loading -----------------------------------------------------
 
@@ -766,15 +853,57 @@ class Observer:
     # --- input collection -------------------------------------------------
 
     def collect_input(self) -> ObservedInput:
+        # #713 Layer 3: acquire the persona output stream before tailing.
+        self._acquire_surface()
+        # #713 Layer 2: populate now / last_token_at / heartbeat_mtime so
+        # the silence (02) and missed-heartbeat (05) predicates evaluate
+        # instead of short-circuiting on None.
         return ObservedInput(
             agent_id=self.agent_id,
             log_lines=tuple(self._tail_output_log()),
             events=(),
             worktree_changes=tuple(self._scan_worktree()),
+            now=time.time(),
+            last_token_at=self._persona_file_mtime("output.log"),
+            heartbeat_mtime=self._persona_file_mtime("heartbeat.json"),
         )
 
+    def _acquire_surface(self) -> None:
+        """#713 Layer 3 — acquire the persona's output stream.
+
+        Planner decision (P002): the co-spawned observer captures the
+        persona's multiplexer surface (``cmux capture-pane`` via the
+        injected ``surface_capture`` callable) and tails the delta into
+        the persona's ``output.log`` so the log-regex rules see real
+        agent output.
+        """
+        if self.surface_capture is None:
+            return
+        try:
+            captured = self.surface_capture()
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # surface capture is best-effort; failure is logged, not fatal
+            print(f"observer: surface capture failed: {exc}", file=sys.stderr)
+            return
+        if not captured:
+            return
+        self.persona_dir.mkdir(parents=True, exist_ok=True)
+        with (self.persona_dir / "output.log").open(
+            "a", encoding="utf-8"
+        ) as fh:
+            fh.write(captured if captured.endswith("\n") else captured + "\n")
+
+    def _persona_file_mtime(self, filename: str) -> Optional[float]:
+        """mtime of a file in the persona's runtime dir, or None when
+        absent — feeds the time/token fields the silence (02) and
+        missed-heartbeat (05) predicates need (#713 Layer 2)."""
+        path = self.persona_dir / filename
+        if not path.exists():
+            return None
+        return path.stat().st_mtime
+
     def _tail_output_log(self) -> list[str]:
-        log_path = self.agent_dir / "output.log"
+        # #713 Layer 1: read the PERSONA's output.log, not the observer's.
+        log_path = self.persona_dir / "output.log"
         if not log_path.exists():
             return []
         size = log_path.stat().st_size
@@ -789,12 +918,29 @@ class Observer:
         lines = chunk.splitlines()
         return [ln for ln in lines if ln]
 
+    # Directory components whose subtrees carry no agent work — pruned from
+    # every worktree scan (#706): VCS internals and Python bytecode caches.
+    _SCAN_SKIP_PARTS = frozenset({".git", "__pycache__"})
+
+    def _is_excluded_from_scan(self, path: Path) -> bool:
+        """True when *path* is the observer's own runtime output or VCS/cache
+        noise — excluding it breaks the self-feedback loop (#706)."""
+        if any(part in self._SCAN_SKIP_PARTS for part in path.parts):
+            return True
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        return any(
+            resolved.is_relative_to(root) for root in self._scan_skip_roots
+        )
+
     def _scan_worktree(self) -> list[str]:
         if self.worktree is None or not self.worktree.exists():
             return []
         current: dict[str, float] = {}
         for p in self.worktree.rglob("*"):
-            if p.is_file():
+            if p.is_file() and not self._is_excluded_from_scan(p):
                 try:
                     rel = str(p.relative_to(self.worktree))
                 except ValueError:
@@ -819,7 +965,11 @@ class Observer:
 
     def scan_once(self) -> list[Correction]:
         ctx = self.collect_input()
+        self.last_input = ctx
+        self.last_scan_at = time.time()
         corrections = self.registry.evaluate(ctx, agent_id=self.agent_id)
+        self.last_corrections = list(corrections)
+        self.corrections_issued += len(corrections)
         for cor in corrections:
             append_correction(self.agent_dir, cor)
             try:
@@ -861,6 +1011,96 @@ class Observer:
 
 
 # ---------------------------------------------------------------------------
+# Operator observability (#713 Layer 4 — OBSINPUT-005 / OBSINPUT-006)
+# ---------------------------------------------------------------------------
+
+
+def render_status_line(observer: "Observer") -> str:
+    """The one operator-interpretable observer status line.
+
+    The single shared mechanism every observer-bearing entry point uses
+    so no observer tab is headless — universal operator-visibility per
+    issue #713 (OBSINPUT-005 / OBSINPUT-006).
+    """
+    if observer.last_scan_at is None:
+        last_scan = "pending"
+    else:
+        last_scan = (
+            datetime.fromtimestamp(observer.last_scan_at, timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z")
+        )
+    return (
+        f"observer | watching {observer.persona_agent_id} "
+        f"| {len(observer.registry.rules)} rules loaded "
+        f"| last scan {last_scan} "
+        f"| {observer.corrections_issued} corrections issued"
+    )
+
+
+def _emit_observer_status(observer: "Observer") -> None:
+    """Print the status line plus the last scan's ingest+fired trace so
+    the operator can see what the observer evaluated and which rules
+    fired. Reads the observer's recorded last-scan state."""
+    print(render_status_line(observer))
+    if observer.last_input is not None:
+        for line in observer.last_input.log_lines:
+            print(f"  ingested: {line}")
+    for cor in observer.last_corrections:
+        print(f"  fired: {cor.rule_id}")
+
+
+# ---------------------------------------------------------------------------
+# Persona heartbeat producer (#713 scope item 2 — P002-INTEGRATION-001)
+# ---------------------------------------------------------------------------
+
+
+class _HeartbeatTicker:
+    """Refreshes ``<agent_dir>/heartbeat.json`` on a timer.
+
+    Co-spawned beside a persona so rule 05 (missed-heartbeat) has a live
+    liveness signal — a running Claude persona does not emit heartbeats
+    on its own.
+    """
+
+    def __init__(self, agent_dir: Path, interval: float) -> None:
+        self.agent_dir = Path(agent_dir)
+        self.interval = interval
+        self._stop = threading.Event()
+        self._thread = threading.Thread(
+            target=self._loop, name="heartbeat", daemon=True
+        )
+
+    def start(self) -> "_HeartbeatTicker":
+        self._thread.start()
+        return self
+
+    def _write(self) -> None:
+        self.agent_dir.mkdir(parents=True, exist_ok=True)
+        (self.agent_dir / "heartbeat.json").write_text(
+            json.dumps({"ts": _now_iso_z(), "pid": os.getpid()}),
+            encoding="utf-8",
+        )
+
+    def _loop(self) -> None:
+        while not self._stop.is_set():
+            self._write()
+            self._stop.wait(self.interval)
+
+    def stop(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=2.0)
+
+
+def start_heartbeat_ticker(
+    *, agent_dir: Path, interval: float = 30.0
+) -> _HeartbeatTicker:
+    """Start a heartbeat producer beside the persona. Returns a handle
+    with ``.stop()``."""
+    return _HeartbeatTicker(agent_dir, interval).start()
+
+
+# ---------------------------------------------------------------------------
 # Subcommand implementations
 # ---------------------------------------------------------------------------
 
@@ -894,11 +1134,15 @@ def cmd_run(
     obs.load_rules()
     if once:
         obs.scan_once()
+        _emit_observer_status(obs)
         return 0
     obs.start()
     try:
         while True:
             time.sleep(0.5)
+            # #713 Layer 4: keep the observer tab interpretable — never a
+            # blank surface after launch.
+            print(render_status_line(obs))
     except KeyboardInterrupt:
         obs.stop()
     return 0

@@ -196,3 +196,14 @@ wagons:
     outcome: "pr_watcher module + coach watch + agent wait-ci CLI; no secondary-rate-limit hits during 8-PR waves"
     path: "plan/coach_ops/"
     manifest: "plan/coach_ops/_coach_ops.yaml"
+
+  - wagon: coach-wave-orchestration
+    description: "Within-wave concurrency and one-persistent-pane-per-issue for atdd coach cold-start: drives every issue in a dependency-free wave concurrently with a join-per-wave and an aggregate rc, and hosts each issue in a single persistent cmux surface named ATDD<N>, respawning the persona agent in place each phase rather than spawning a new pane"
+    theme: commons
+    subject: "agent:coach"
+    context: "in-coach-v9-cold-start, _execute_cold_start-loops-wave-members-serially-and-the-spawn-path-creates-a-new-pane-per-phase"
+    action: "drives all members of a dependency-free wave concurrently with an aggregate rc, and hosts each issue in one persistent cmux surface named ATDD<N>, respawning the persona agent in place each phase"
+    goal: "make the executor honour the printed wave plan and give each issue one stable pane for its whole lifecycle"
+    outcome: "concurrent within-wave driver in _execute_cold_start with between-wave dependency ordering preserved; one persistent surface per issue with in-place persona respawn in the spawn path"
+    path: "plan/coach_wave_orchestration/"
+    manifest: "plan/coach_wave_orchestration/_coach_wave_orchestration.yaml"

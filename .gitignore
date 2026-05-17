@@ -31,6 +31,10 @@ coverage.xml
 .atdd/diagnostics/
 .atdd/orchestration-log.jsonl
 .atdd/worker-state-*.json
+# Per-agent runtime (observer corrections/cli-return, persona events) — pure
+# ephemera; never committed. Without this the observer's runaway corrections
+# (#706) surface as untracked noise in the persona's `git status`.
+.atdd/runtime/agents/
 .scratch/
 
 # Forbidden-command classifier runtime state (issue #668)

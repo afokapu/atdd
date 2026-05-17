@@ -25,9 +25,11 @@ Auto-detection precedence:
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
+import sys
 import subprocess
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -105,13 +107,52 @@ class MultiplexerBackend(ABC):
     def send_key(self, ref: MultiplexerRef, key: str) -> None:
         """Send a key press (e.g. 'Enter', 'C-c') to the workspace or surface."""
 
+    def paste_text(self, ref: MultiplexerRef, text: str) -> None:
+        """Paste multi-line text as a single input block.
+
+        Unlike ``send``, embedded newlines must stay literal and NOT
+        submit. This is required to inject a multi-line launch prompt
+        into an interactive TUI (e.g. Claude Code) — a plain per-line
+        ``send`` would submit the input box on the first newline.
+        Callers issue a separate ``send_key(ref, "Enter")`` to submit
+        once the full block has landed.
+
+        Default falls back to ``send`` (which does NOT preserve the
+        no-submit semantic). Every concrete backend that drives a real
+        terminal — cmux, tmux, zellij — overrides this with its native
+        bracketed-paste primitive. The fallback exists only so partial
+        test doubles need not implement it.
+        """
+        self.send(ref, text)
+
+    def respawn_pane(
+        self, ref: MultiplexerRef, command: Optional[str] = None
+    ) -> None:
+        """Relaunch the process in an existing surface/pane (issue #730).
+
+        Kills the current process in ``ref`` and starts a fresh one running
+        ``command`` — a new process, NOT a conversation reset. The coach uses
+        this to swap the persona agent in place on each phase transition while
+        keeping the issue's single persistent surface.
+
+        Backends without respawn support raise NotImplementedError; callers
+        treat that as 'leave the surface as-is'.
+        """
+        raise NotImplementedError(
+            f"{self.name} backend does not support respawn_pane"
+        )
+
     @abstractmethod
     def list_workspaces(self) -> list[str]:
         """List all known workspace references."""
 
     @abstractmethod
-    def close(self, ref: MultiplexerRef) -> None:
-        """Close/kill the workspace or surface."""
+    def close(self, ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None) -> None:
+        """Close/kill the workspace or surface.
+
+        ``workspace`` scopes a surface ref to its workspace — cmux resolves
+        short ``surface:`` refs against the selected workspace only (#655).
+        """
 
     def new_persona_surface(
         self,
@@ -181,12 +222,25 @@ def _is_surface_ref(ref: str) -> bool:
     return ref.startswith("surface:")
 
 
-def _last_nonempty_line(stdout: str) -> str:
-    for line in reversed((stdout or "").splitlines()):
-        s = line.strip()
-        if s:
-            return s
-    return ""
+def _ws_flag(workspace: Optional[str]) -> list[str]:
+    """`["--workspace", <ref>]` when a workspace is known, else `[]`.
+
+    cmux resolves short ``surface:``/``pane:`` refs against the *selected*
+    workspace only, so every ref-bearing cmux call must carry --workspace
+    to resolve reliably (#655). Splat into an argv: ``[..., *_ws_flag(ws)]``.
+    """
+    return ["--workspace", workspace] if workspace else []
+
+
+def _target_args(ref: str, workspace: Optional[str] = None) -> list[str]:
+    """cmux argv fragment targeting ``ref``.
+
+    A ``surface:`` ref needs ``--surface`` plus ``--workspace`` to resolve
+    (#655); a ``workspace:`` ref is itself the ``--workspace`` value.
+    """
+    if _is_surface_ref(ref):
+        return ["--surface", ref, *_ws_flag(workspace)]
+    return ["--workspace", ref]
 
 
 def _extract_ref_token(stdout: str, prefix: str) -> str:
@@ -222,9 +276,12 @@ class CmuxBackend(MultiplexerBackend):
         if name:
             cmd.extend(["--name", name])
         result = _run(cmd)
-        ref = _last_nonempty_line(result.stdout or "")
+        ref = _extract_ref_token(result.stdout or "", "workspace")
         if not ref:
-            ref = name or cwd
+            raise MultiplexerError(
+                f"cmux new-workspace returned no workspace ref: "
+                f"{(result.stdout or '').strip()!r}"
+            )
         return ref
 
     def new_surface(
@@ -236,43 +293,79 @@ class CmuxBackend(MultiplexerBackend):
         name: Optional[str] = None,
         direction: Optional[str] = None,
     ) -> MultiplexerRef:
-        if pane_ref is None:
-            new_pane_cmd = ["cmux", "new-pane"]
-            if workspace_ref:
-                new_pane_cmd.extend(["--workspace", workspace_ref])
+        # Bug #5 fix (#697): `cmux new-pane` ALWAYS creates a default "Terminal"
+        # surface. Previously this code ignored it and added another surface,
+        # leaving 1 unused surface per spawn. Now: when creating a new pane,
+        # reuse its auto-default surface (rename + seed) instead of adding
+        # another. When given an existing pane_ref, add a tab as before.
+        creating_new_pane = pane_ref is None
+        # Workspace that owns the created surface. EVERY ref-bearing cmux call
+        # must be scoped to it: cmux resolves short `surface:`/`pane:` refs
+        # against the *selected* workspace only, so an unscoped call silently
+        # hits the wrong surface or fails outright (#655 SMOKE).
+        resolved_workspace = workspace_ref
+
+        if creating_new_pane:
+            new_pane_cmd = ["cmux", "new-pane", *_ws_flag(workspace_ref)]
             if direction:
                 # Issue #470: right-anchored grid layout. cmux new-pane accepts
                 # --direction {right,left,up,down}; default behavior is preserved
                 # when callers don't pass it.
                 new_pane_cmd.extend(["--direction", direction])
-            pane_result = _run(new_pane_cmd)
-            pane_ref = _extract_ref_token(pane_result.stdout or "", "pane")
-            if not pane_ref:
+            pane_stdout = _run(new_pane_cmd).stdout or ""
+            # `cmux new-pane` echoes `OK surface:N pane:M workspace:K` — every
+            # ref we need is already here. Reuse that default surface directly
+            # instead of a `cmux list-pane-surfaces --pane` round-trip: that
+            # call needs --workspace, and when it failed it stranded the
+            # just-created pane outside the transactional guard (#655 bug 4).
+            pane_ref = _extract_ref_token(pane_stdout, "pane")
+            surface_ref = _extract_ref_token(pane_stdout, "surface")
+            if not resolved_workspace:
+                resolved_workspace = _extract_ref_token(pane_stdout, "workspace") or None
+            if not pane_ref or not surface_ref:
                 raise MultiplexerError(
-                    f"cmux new-pane returned no pane ref: {(pane_result.stdout or '').strip()!r}"
+                    f"cmux new-pane returned an incomplete ref set "
+                    f"(need surface + pane): {pane_stdout.strip()!r}"
+                )
+        else:
+            # Existing pane: add a new surface as a tab.
+            new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref,
+                               *_ws_flag(workspace_ref)]
+            if name:
+                new_surface_cmd.extend(["--name", name])
+            surface_result = _run(new_surface_cmd)
+            surface_ref = _extract_ref_token(surface_result.stdout or "", "surface")
+            if not surface_ref:
+                raise MultiplexerError(
+                    f"cmux new-surface returned no surface ref: {(surface_result.stdout or '').strip()!r}"
                 )
 
-        new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
-        if name:
-            new_surface_cmd.extend(["--name", name])
-        surface_result = _run(new_surface_cmd)
-        surface_ref = _extract_ref_token(surface_result.stdout or "", "surface")
-        if not surface_ref:
-            raise MultiplexerError(
-                f"cmux new-surface returned no surface ref: {(surface_result.stdout or '').strip()!r}"
-            )
-
-        if cwd or command:
-            seed_parts = []
-            if cwd:
-                seed_parts.append(f"cd {cwd}")
-            if command:
-                seed_parts.append(command)
-            seed_text = " && ".join(seed_parts) + "\n"
-            _run(
-                ["cmux", "send", "--surface", surface_ref, seed_text],
-                capture=False,
-            )
+        # Transactional spawn (#655): the pane/surface now exists. ANY later
+        # step that fails must close it so the failed attempt leaves no orphan
+        # pane — every ref-bearing call below is scoped with --workspace.
+        try:
+            if creating_new_pane and name:
+                # Rename the default surface to the desired name.
+                _run(
+                    ["cmux", "rename-tab", "--surface", surface_ref,
+                     *_ws_flag(resolved_workspace), name],
+                    capture=False,
+                )
+            if cwd or command:
+                seed_parts = []
+                if cwd:
+                    seed_parts.append(f"cd {cwd}")
+                if command:
+                    seed_parts.append(command)
+                seed_text = " && ".join(seed_parts) + "\n"
+                _run(
+                    ["cmux", "send", "--surface", surface_ref,
+                     *_ws_flag(resolved_workspace), seed_text],
+                    capture=False,
+                )
+        except Exception:
+            self._close_quietly(surface_ref, workspace=resolved_workspace)
+            raise
 
         return surface_ref
 
@@ -282,8 +375,10 @@ class CmuxBackend(MultiplexerBackend):
         cwd: Optional[str] = None,
         command: Optional[str] = None,
         name: Optional[str] = None,
+        workspace: Optional[MultiplexerRef] = None,
     ) -> MultiplexerRef:
-        new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
+        new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref,
+                           *_ws_flag(workspace)]
         if name:
             new_surface_cmd.extend(["--name", name])
         surface_result = _run(new_surface_cmd)
@@ -300,76 +395,134 @@ class CmuxBackend(MultiplexerBackend):
                 seed_parts.append(command)
             seed_text = " && ".join(seed_parts) + "\n"
             _run(
-                ["cmux", "send", "--surface", surface_ref, seed_text],
+                ["cmux", "send", "--surface", surface_ref,
+                 *_ws_flag(workspace), seed_text],
                 capture=False,
             )
         return surface_ref
 
-    def surface_to_pane(self, surface_ref: MultiplexerRef) -> MultiplexerRef:
-        result = _run(["cmux", "describe-surface", "--surface", surface_ref])
-        pane_ref = _extract_ref_token(result.stdout or "", "pane")
-        if not pane_ref:
-            raise MultiplexerError(
-                f"cmux describe-surface returned no pane ref: {(result.stdout or '').strip()!r}"
+    def surface_to_pane(
+        self, surface_ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None
+    ) -> MultiplexerRef:
+        # Iterate `cmux list-panes` and find the pane whose `list-pane-surfaces`
+        # output contains the target surface. O(N) for N panes — fine for
+        # typical workspace sizes (<10).
+        #
+        # Both calls are scoped with --workspace: cmux resolves short `pane:`
+        # refs against the *selected* workspace only (#655).
+        #
+        # Why not `cmux describe-surface`? It doesn't exist.
+        # Why not `cmux rpc surface.read_text '{"surface":"..."}'`? Upstream cmux
+        # bug: the rpc ignores the surface param and returns whatever surface is
+        # focused in the operator's view (verified 2026-05-15).
+        panes_result = _run(["cmux", "list-panes", *_ws_flag(workspace)])
+        pane_pattern = re.compile(r"\bpane:(\d+)\b")
+        for match in pane_pattern.finditer(panes_result.stdout or ""):
+            pane_ref = f"pane:{match.group(1)}"
+            surfaces_result = _run(
+                ["cmux", "list-pane-surfaces", "--pane", pane_ref, *_ws_flag(workspace)]
             )
-        return pane_ref
+            if surface_ref in (surfaces_result.stdout or ""):
+                return pane_ref
+        raise MultiplexerError(
+            f"surface_to_pane: could not find pane containing {surface_ref}"
+        )
 
-    def read_screen(self, ref: MultiplexerRef, lines: int = 50) -> str:
-        if _is_surface_ref(ref):
-            result = _run([
-                "cmux", "read-screen",
-                "--surface", ref,
-                "--lines", str(lines),
-            ])
-            return result.stdout or ""
-        result = _run([
-            "cmux", "read-screen",
-            "--workspace", ref,
-            "--lines", str(lines),
-        ])
-        return result.stdout or ""
+    def read_screen(
+        self,
+        ref: MultiplexerRef,
+        lines: int = 50,
+        workspace: Optional[MultiplexerRef] = None,
+    ) -> str:
+        cmd = ["cmux", "read-screen", *_target_args(ref, workspace),
+               "--lines", str(lines)]
+        return _run(cmd).stdout or ""
 
-    def send(self, ref: MultiplexerRef, text: str) -> None:
-        if _is_surface_ref(ref):
-            _run(
-                ["cmux", "send", "--surface", ref, text],
-                capture=False,
-            )
-            return
-        _run(["cmux", "send", "--workspace", ref, text], capture=False)
+    def send(
+        self, ref: MultiplexerRef, text: str, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
+        _run(["cmux", "send", *_target_args(ref, workspace), text], capture=False)
 
-    def send_key(self, ref: MultiplexerRef, key: str) -> None:
-        if _is_surface_ref(ref):
-            _run(
-                ["cmux", "rpc", "surface.send_key", "--surface", ref, key],
-                capture=False,
-            )
-            return
-        _run(["cmux", "send-key", "--workspace", ref, key], capture=False)
+    def send_key(
+        self, ref: MultiplexerRef, key: str, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
+        # `cmux rpc surface.send_key` takes JSON params, not CLI flags. Use the
+        # regular `cmux send-key --surface <ref> <key>` CLI for both ref kinds
+        # (verified at runtime 2026-05-15).
+        _run(["cmux", "send-key", *_target_args(ref, workspace), key], capture=False)
+
+    def paste_text(
+        self, ref: MultiplexerRef, text: str, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
+        # Stage the text in the cmux buffer, then bracketed-paste it into the
+        # surface so multi-line content lands as one input block (newlines
+        # stay literal, no premature submit). Verified end-to-end 2026-05-15
+        # against Claude Code v2.1.142.
+        _run(["cmux", "set-buffer", text], capture=False)
+        _run(["cmux", "paste-buffer", *_target_args(ref, workspace)], capture=False)
 
     def list_workspaces(self) -> list[str]:
         result = _run(["cmux", "list-workspaces"])
         return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
 
-    def close(self, ref: MultiplexerRef) -> None:
+    def respawn_pane(
+        self, ref: MultiplexerRef, command: Optional[str] = None
+    ) -> None:
+        """Relaunch the process in an existing cmux surface (issue #730).
+
+        Swaps the persona agent in place — kills the current process and
+        starts a fresh one — so the issue keeps its single persistent surface
+        across phase transitions.
+        """
+        cmd = ["cmux", "respawn-pane", "--surface", ref]
+        if command:
+            cmd.extend(["--command", command])
+        _run(cmd, capture=False)
+
+    def close(self, ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None) -> None:
         if _is_surface_ref(ref):
-            _run(["cmux", "close-surface", "--surface", ref], capture=False)
+            # cmux resolves a short `surface:` ref against the *selected*
+            # workspace only — pass --workspace so the ref resolves no matter
+            # which workspace is focused (#655).
+            _run(
+                ["cmux", "close-surface", "--surface", ref, *_ws_flag(workspace)],
+                capture=False,
+            )
             return
         _run(["cmux", "close-workspace", "--workspace", ref], capture=False)
 
-    def rename(self, ref: MultiplexerRef, name: str) -> None:
+    def _close_quietly(
+        self, ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
+        """Close a half-created surface during spawn-failure cleanup (#655).
+
+        Never raises: orphan-pane cleanup must not mask the original spawn
+        error that triggered it.
+        """
+        try:
+            self.close(ref, workspace=workspace)
+        except MultiplexerError as exc:
+            print(
+                f"⚠️  orphan-pane cleanup could not close {ref}: {exc}",
+                file=sys.stderr,
+            )
+
+    def rename(
+        self, ref: MultiplexerRef, name: str, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
         """Rename a cmux surface/workspace tab title (issue #470).
 
         Best-effort: failures degrade silently so a missing/renamed cmux
         rename verb does not crash orchestrate. Babysit will retry on
-        the next tick.
+        the next tick. ``workspace`` scopes a surface ref (#655).
         """
         if not name:
             return
         try:
             if _is_surface_ref(ref):
                 _run(
-                    ["cmux", "rename-tab", "--surface", ref, name],
+                    ["cmux", "rename-tab", "--surface", ref,
+                     *_ws_flag(workspace), name],
                     capture=False,
                 )
             else:
@@ -381,6 +534,47 @@ class CmuxBackend(MultiplexerBackend):
             # Best-effort: cmux build may not expose rename verbs; the
             # validator is advisory and babysit retries every tick.
             pass
+
+    def new_persona_surface(
+        self,
+        cwd: str,
+        command: str,
+        name: str,
+        observer_runtime_root: str,
+        observer_agent_id: str,
+        observer_name: str,
+        observer_command: str,
+    ) -> MultiplexerRef:
+        """Cmux-native co-spawn: persona surface + observer as TAB in same pane.
+
+        Override of MultiplexerBackend default (which would create two separate
+        panes). Persona spawn must succeed even if observer co-spawn fails.
+        Both surfaces are renamed canonically so the link is visible in
+        cmux tab list (sort-adjacent + ``:obs`` suffix).
+        """
+        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
+        self.rename(persona_ref, name)
+        try:
+            pane_ref = self.surface_to_pane(persona_ref)
+            observer_ref = self.new_surface_in_pane(
+                pane_ref=pane_ref,
+                cwd=cwd,
+                command=observer_command,
+                name=observer_name,
+            )
+            self.rename(observer_ref, observer_name)
+        except Exception as exc:
+            print(
+                json.dumps({
+                    "event": "observer_cospawn_failed",
+                    "persona_name": name,
+                    "observer_name": observer_name,
+                    "observer_agent_id": observer_agent_id,
+                    "error": str(exc),
+                }),
+                file=sys.stderr,
+            )
+        return persona_ref
 
 
 class TmuxBackend(MultiplexerBackend):
@@ -410,12 +604,85 @@ class TmuxBackend(MultiplexerBackend):
     def send_key(self, workspace_ref: str, key: str) -> None:
         _run(["tmux", "send-keys", "-t", workspace_ref, key], capture=False)
 
+    def paste_text(self, workspace_ref: str, text: str) -> None:
+        # tmux set-buffer stages the text; paste-buffer -p uses bracketed
+        # paste so a multi-line TUI input box receives it as one block.
+        # -d deletes the buffer after pasting to avoid buffer-stack growth.
+        _run(["tmux", "set-buffer", text], capture=False)
+        _run(
+            ["tmux", "paste-buffer", "-d", "-p", "-t", workspace_ref],
+            capture=False,
+        )
+
     def list_workspaces(self) -> list[str]:
         result = _run(["tmux", "list-sessions", "-F", "#{session_name}"])
         return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
 
     def close(self, workspace_ref: str) -> None:
         _run(["tmux", "kill-session", "-t", workspace_ref], capture=False)
+
+    def rename(self, ref: MultiplexerRef, name: str) -> None:
+        """Rename a tmux window. Best-effort.
+
+        `tmux rename-window -t <ref> <name>` retitles the window containing
+        ref. If ref is "session" form, renames the active window in that
+        session. If ref is "session:window" form, renames that specific window.
+        """
+        if not name:
+            return
+        try:
+            _run(
+                ["tmux", "rename-window", "-t", ref, name],
+                capture=False,
+            )
+        except MultiplexerError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            # Best-effort: rename failures don't crash spawn flow.
+            pass
+
+    def new_persona_surface(
+        self,
+        cwd: str,
+        command: str,
+        name: str,
+        observer_runtime_root: str,
+        observer_agent_id: str,
+        observer_name: str,
+        observer_command: str,
+    ) -> MultiplexerRef:
+        """Tmux-native co-spawn: persona session + observer as SECOND PANE.
+
+        Override of MultiplexerBackend default. tmux's "tab in pane" equivalent
+        is "split-window" — two panes side-by-side in the same window. The
+        operator cycles between persona and observer via Ctrl-b o.
+
+        Both window names get the canonical ``:obs`` link via rename-window
+        (observer pane title via select-pane -T).
+        """
+        persona_ref = self.new_workspace(cwd=cwd, command=command, name=name)
+        self.rename(persona_ref, name)
+        try:
+            # Split window: observer as new pane on the right.
+            _run(
+                ["tmux", "split-window", "-h", "-t", persona_ref, "-c", cwd, observer_command],
+                capture=False,
+            )
+            # Title the observer pane (tmux pane titles via select-pane -T).
+            _run(
+                ["tmux", "select-pane", "-t", persona_ref, "-T", observer_name],
+                capture=False,
+            )
+        except Exception as exc:
+            print(
+                json.dumps({
+                    "event": "observer_cospawn_failed",
+                    "persona_name": name,
+                    "observer_name": observer_name,
+                    "observer_agent_id": observer_agent_id,
+                    "error": str(exc),
+                }),
+                file=sys.stderr,
+            )
+        return persona_ref
 
 
 class ZellijBackend(MultiplexerBackend):
@@ -485,12 +752,89 @@ class ZellijBackend(MultiplexerBackend):
                 f"{' '.join(cmd)} failed (exit {exc.returncode})"
             ) from exc
 
+    def paste_text(self, workspace_ref: str, text: str) -> None:
+        # zellij has no buffer/paste-buffer primitive; `action write-chars`
+        # writes literal characters (newlines included) without submitting,
+        # which is exactly the bracketed-paste semantic paste_text needs.
+        cmd = ["zellij", "action", "write-chars", text]
+        env = {**os.environ, "ZELLIJ_SESSION_NAME": workspace_ref}
+        try:
+            subprocess.run(cmd, check=True, env=env)
+        except FileNotFoundError as exc:
+            raise MultiplexerError("binary not found: zellij") from exc
+        except subprocess.CalledProcessError as exc:
+            raise MultiplexerError(
+                f"{' '.join(cmd)} failed (exit {exc.returncode})"
+            ) from exc
+
     def list_workspaces(self) -> list[str]:
         result = _run(["zellij", "list-sessions", "-s", "-n"])
         return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
 
     def close(self, workspace_ref: str) -> None:
         _run(["zellij", "delete-session", "--force", workspace_ref], capture=False)
+
+    def rename(self, ref: MultiplexerRef, name: str) -> None:
+        """Rename the active zellij tab in the given session. Best-effort.
+
+        Targets the session via ZELLIJ_SESSION_NAME env var (per zellij action
+        targeting convention). Renames whichever tab is currently active in
+        that session.
+        """
+        if not name:
+            return
+        env = {**os.environ, "ZELLIJ_SESSION_NAME": ref}
+        try:
+            subprocess.run(
+                ["zellij", "action", "rename-tab", name],
+                check=True, env=env, capture_output=True,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            # Best-effort: rename failures don't crash spawn flow.
+            pass
+
+    def new_persona_surface(
+        self,
+        cwd: str,
+        command: str,
+        name: str,
+        observer_runtime_root: str,
+        observer_agent_id: str,
+        observer_name: str,
+        observer_command: str,
+    ) -> MultiplexerRef:
+        """Zellij-native co-spawn: persona session + observer as SECOND PANE.
+
+        Override of MultiplexerBackend default. zellij's "tab in pane"
+        equivalent is "new-pane in current tab" — two panes side-by-side in the
+        same tab. The operator cycles between panes via Alt-arrows.
+
+        The tab name gets the canonical persona name (zellij rename-tab).
+        Observer pane title is set if the zellij build supports pane naming.
+        """
+        persona_ref = self.new_workspace(cwd=cwd, command=command, name=name)
+        self.rename(persona_ref, name)
+        try:
+            env = {**os.environ, "ZELLIJ_SESSION_NAME": persona_ref}
+            # new-pane in current tab, split right; runs observer_command.
+            # `--` separates zellij args from the command to run.
+            shell_invocation = ["bash", "-c", f"cd {cwd} && {observer_command}"]
+            subprocess.run(
+                ["zellij", "action", "new-pane", "--direction", "right", "--"] + shell_invocation,
+                check=True, env=env, capture_output=True,
+            )
+        except Exception as exc:
+            print(
+                json.dumps({
+                    "event": "observer_cospawn_failed",
+                    "persona_name": name,
+                    "observer_name": observer_name,
+                    "observer_agent_id": observer_agent_id,
+                    "error": str(exc),
+                }),
+                file=sys.stderr,
+            )
+        return persona_ref
 
 
 def detect_multiplexer() -> Optional[str]:
@@ -589,6 +933,9 @@ class FakeMultiplexer(MultiplexerBackend):
 
     def send_key(self, ref: MultiplexerRef, key: str) -> None:
         self.calls.append({"op": "send_key", "ref": ref, "key": key})
+
+    def paste_text(self, ref: MultiplexerRef, text: str) -> None:
+        self.calls.append({"op": "paste_text", "ref": ref, "text": text})
 
     def list_workspaces(self) -> list[str]:
         return [c["ref"] for c in self.calls if c.get("op") in ("new_workspace",)]

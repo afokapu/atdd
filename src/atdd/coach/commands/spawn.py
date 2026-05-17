@@ -41,8 +41,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
 from atdd.coach.utils.session_naming import (
-    branch_to_slug,
-    compute_canonical_name,
+    compute_issue_surface_name,
     compute_repo_short_name,
 )
 from atdd.coach.utils.session_naming_apply import (
@@ -50,6 +49,7 @@ from atdd.coach.utils.session_naming_apply import (
     apply_canonical_name_and_layout,
     capture_session_uuid,
 )
+from atdd.coach.utils.multiplexer import MultiplexerError
 
 # Canonical rule-ID emitted on every spawn (spec §5.2 / §7.1). Observers
 # bind on this anchor to correlate spawn-time decisions with downstream
@@ -65,10 +65,15 @@ PERSONAS: tuple[str, ...] = ("planner", "tester", "coder", "reviewer")
 
 
 def _claude_code_adapter(prompt_path: Path) -> str:
-    """Spec §5.2: shell out to ``claude`` with the rendered launch prompt
-    inlined via ``$(cat <prompt>)``. The shell expands the substitution
-    inside the multiplexer surface so claude receives the full prompt as
-    one argv element.
+    """Spec §5.2: shell out to ``claude`` to start an interactive session.
+
+    The launch prompt is NOT passed as a positional argv element. Claude
+    Code v2.1.x ignores a positional ``prompt`` argument in interactive
+    mode (it is only consumed by ``-p/--print`` headless mode) — passing
+    it produced an idle session with no task (#702). The prompt is instead
+    injected post-boot by ``cmd_spawn`` via ``backend.paste_text`` +
+    ``send_key("Enter")``. ``prompt_path`` is retained in the signature for
+    adapter-registry uniformity.
 
     Permission policy: ``--permission-mode acceptEdits --allowedTools
     "Bash Edit Write Read TodoWrite Glob Grep WebFetch"`` is the sanctioned
@@ -76,11 +81,11 @@ def _claude_code_adapter(prompt_path: Path) -> str:
     rule). Tool-level allowlist gives autonomous flow without skipping
     the permission system entirely.
     """
+    _ = prompt_path  # injected post-boot, not via argv — see docstring
     allowed_tools = "Bash Edit Write Read TodoWrite Glob Grep WebFetch"
     return (
         f'claude --permission-mode acceptEdits '
-        f'--allowedTools "{allowed_tools}" '
-        f'"$(cat {prompt_path})"'
+        f'--allowedTools "{allowed_tools}"'
     )
 
 
@@ -254,6 +259,47 @@ def _create_surface(
         )
 
 
+def _respawn_persona_in_surface(
+    backend: Any, surface_ref: str, command: str,
+) -> str:
+    """Relaunch a persona agent inside an existing surface (issue #730).
+
+    Issues an in-place respawn against the issue's persistent surface — a
+    fresh process, NOT a ``/clear`` conversation reset (Decision #5) — so the
+    new persona's system prompt, tool config, and cwd apply cleanly. Backends
+    without respawn support leave the surface as-is. Returns ``surface_ref``.
+    """
+    respawn = getattr(backend, "respawn_pane", None) or getattr(
+        backend, "respawn", None
+    )
+    if respawn is None:
+        return surface_ref
+    try:
+        respawn(surface_ref, command=command)
+    except NotImplementedError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
+        # tmux/zellij have no respawn verb — leave the surface as-is.
+        pass
+    return surface_ref
+
+
+def _close_surface_on_failure(backend: Any, surface_ref: str) -> None:
+    """Close a half-spawned surface so a failed spawn leaves no orphan pane (#655).
+
+    Never raises: cleanup must not mask the original spawn error.
+    """
+    close = getattr(backend, "close", None)
+    if close is None or not surface_ref:
+        return
+    try:
+        close(surface_ref)
+    except Exception as exc:  # noqa: BLE001 — cleanup must not mask the real error
+        print(
+            f"⚠️  orphan-pane cleanup could not close {surface_ref}: {exc} "
+            f"({SPAWN_RULE_ID})",
+            file=sys.stderr,
+        )
+
+
 def cmd_spawn(
     *,
     persona: str,
@@ -270,9 +316,14 @@ def cmd_spawn(
     rules: Optional[Iterable[Any]] = None,
     persona_prompt_content: Optional[str] = None,
     multiplexer_mode: str = "auto",
+    existing_surface_ref: Optional[str] = None,
 ) -> dict:
     """Render the launch prompt, dispatch the multiplexer, run the
     per-LLM adapter, and emit the ``agent_spawned`` event.
+
+    The coach hosts each issue in ONE persistent surface named ``ATDD<N>``
+    (issue #730). When ``existing_surface_ref`` is given, the persona agent is
+    relaunched IN PLACE in that surface instead of a new pane being created.
 
     Returns a dict with keys ``launch_prompt_path``, ``surface_ref``,
     ``command``, ``rule_id`` for callers that want to log or chain.
@@ -320,35 +371,77 @@ def cmd_spawn(
     from atdd.coach.utils.config import load_atdd_config
 
     repo_short = compute_repo_short_name(load_atdd_config(Path.cwd()))
-    slug = branch_to_slug(worktree.name) or worktree.name or agent_id
-    canonical_name = compute_canonical_name(repo_short, int(issue), slug)
+    # Issue #730: the coach hosts each issue in ONE persistent surface named
+    # ATDD<N> — issue identity, stable across every phase. No slug / persona /
+    # phase segment; the pane *is* the issue's identity.
+    canonical_name = compute_issue_surface_name(repo_short, int(issue))
 
     backend = multiplexer if multiplexer is not None else _resolve_multiplexer()
     _observer_agent_id = f"{agent_id}-observer"
-    _observer_name = f"ATDD{issue}-observer-{phase or 'agent'}"
+    # Canonical observer naming: <issue-surface-name>:obs — makes the link
+    # to its persona unmistakable in cmux/tmux/zellij tab/window lists.
+    # Sort-adjacent + ':obs' suffix is multiplexer-agnostic (#695).
+    _observer_name = f"{canonical_name}:obs"
     _observer_command = (
         f"atdd observer run"
         f" --agent-id {_observer_agent_id}"
         f" --runtime-dir {runtime_root}"
         f" --worktree {worktree}"
     )
-    surface_ref = _create_surface(
-        backend,
-        worktree=worktree,
-        command=command,
-        name=canonical_name,
-        mode=multiplexer_mode,
-        observer_agent_id=_observer_agent_id,
-        observer_name=_observer_name,
-        observer_command=_observer_command,
-        observer_runtime_root=str(runtime_root),
-    )
-    apply_canonical_name_and_layout(
-        backend=backend,
-        ref=surface_ref,
-        canonical_name=canonical_name,
-        surface_count=1,
-    )
+    if existing_surface_ref is not None:
+        # Issue #730: the issue already has its persistent surface — relaunch
+        # the persona agent in place rather than spawning a new pane. No
+        # canonical naming/layout pass is needed: the surface keeps the
+        # ATDD<N> identity it was created with.
+        surface_ref = _respawn_persona_in_surface(
+            backend, existing_surface_ref, command,
+        )
+    else:
+        surface_ref = _create_surface(
+            backend,
+            worktree=worktree,
+            command=command,
+            name=canonical_name,
+            mode=multiplexer_mode,
+            observer_agent_id=_observer_agent_id,
+            observer_name=_observer_name,
+            observer_command=_observer_command,
+            observer_runtime_root=str(runtime_root),
+        )
+        # Transactional spawn (#655): the surface exists. If the canonical
+        # naming/layout pass fails, close it before propagating so the failed
+        # spawn attempt leaves no orphan pane.
+        try:
+            apply_canonical_name_and_layout(
+                backend=backend,
+                ref=surface_ref,
+                canonical_name=canonical_name,
+                surface_count=1,
+            )
+        except Exception:
+            _close_surface_on_failure(backend, surface_ref)
+            raise
+
+    # Inject the launch prompt as the first interactive message (#702).
+    # Claude Code v2.1.x ignores a positional prompt arg in interactive
+    # mode, so the prompt — rendered to <worktree>/.launch_prompt.txt —
+    # must be pasted post-boot. paste_text uses bracketed paste so the
+    # multi-line prompt lands as ONE input block (newlines stay literal);
+    # send_key submits it. The /rename injection inside
+    # apply_canonical_name_and_layout ran immediately before and reaches
+    # claude reliably, so the surface is ready for the paste.
+    try:
+        backend.paste_text(surface_ref, prompt_path.read_text())
+        backend.send_key(surface_ref, "Enter")
+    except (MultiplexerError, OSError, AttributeError) as exc:
+        # AttributeError tolerates partial backends (test fakes) that do
+        # not implement paste_text — mirrors apply_canonical_name_and_layout.
+        print(
+            f"⚠️  launch-prompt injection failed for {surface_ref}: {exc} "
+            f"({SPAWN_RULE_ID})",
+            file=sys.stderr,
+        )
+
     capture_session_uuid(
         backend=backend,
         ref=surface_ref,
@@ -409,8 +502,52 @@ def cmd_spawn(
 # ---------------------------------------------------------------------------
 
 
+# Required-flag sets per invocation mode (issue #662). The default mode
+# needs the full six-flag set; the --from-prompt-file convenience variant
+# derives --persona / --llm / --agent-id / --runtime so only three flags
+# (--from-prompt-file, --worktree, --issue) are required.
+_FULL_REQUIRED = ("--persona", "--llm", "--worktree", "--issue", "--agent-id", "--runtime")
+_FROM_PROMPT_FILE_REQUIRED = ("--worktree", "--issue")
+
+# argparse dest names keyed by flag, for the conditional-required check.
+_FLAG_DESTS = {
+    "--persona": "persona",
+    "--llm": "llm",
+    "--worktree": "worktree",
+    "--issue": "issue",
+    "--agent-id": "agent_id",
+    "--runtime": "runtime_root",
+}
+
+
+class _SpawnParser(argparse.ArgumentParser):
+    """argparse parser with conditionally-required flags (issue #662).
+
+    The six launch flags are declared ``required=False`` so the
+    ``--from-prompt-file`` convenience variant can omit four of them. The
+    required-flag set is enforced after parsing: the full six in default
+    mode, only ``--worktree`` / ``--issue`` when ``--from-prompt-file`` is
+    supplied. A missing flag still exits 2 via ``argparse.error``.
+    """
+
+    def parse_known_args(self, args=None, namespace=None):  # noqa: D102
+        ns, extras = super().parse_known_args(args, namespace)
+        if getattr(ns, "from_prompt_file", None) is not None:
+            required = _FROM_PROMPT_FILE_REQUIRED
+        else:
+            required = _FULL_REQUIRED
+        missing = [
+            flag for flag in required if getattr(ns, _FLAG_DESTS[flag], None) is None
+        ]
+        if missing:
+            self.error(
+                "the following arguments are required: " + ", ".join(missing)
+            )
+        return ns, extras
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _SpawnParser(
         prog="atdd spawn",
         description=(
             "Coach v9 K1 spawn skeleton. Single rule-IDed entry point "
@@ -420,34 +557,43 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--persona", required=True, choices=list(PERSONAS),
+        "--persona", choices=list(PERSONAS),
         help="Persona to launch.",
     )
     # --llm intentionally accepts arbitrary strings; adapter validation
     # is deferred to dispatch time so follow-up K-track issues can land
     # codex / gemini / glm adapters without editing this CLI surface.
     parser.add_argument(
-        "--llm", required=True,
+        "--llm",
         help=(
             "LLM adapter id (claude-code shipped in K1; codex / gemini / "
             "glm registered as separate adapters in K-track follow-ups)."
         ),
     )
     parser.add_argument(
-        "--worktree", required=True, type=Path,
+        "--worktree", type=Path,
         help="Path to the worktree (assumed to already exist; #J4 owns creation).",
     )
     parser.add_argument(
-        "--issue", required=True, type=int,
+        "--issue", type=int,
         help="GitHub issue number being launched.",
     )
     parser.add_argument(
-        "--agent-id", required=True, dest="agent_id",
+        "--agent-id", dest="agent_id",
         help="Unique agent id; targets .atdd/runtime/agents/<id>/.",
     )
     parser.add_argument(
-        "--runtime", required=True, type=Path, dest="runtime_root",
+        "--runtime", type=Path, dest="runtime_root",
         help="Path to the runtime root (writes events.jsonl beneath it).",
+    )
+    parser.add_argument(
+        "--from-prompt-file", default=None, dest="from_prompt_file", type=Path,
+        help=(
+            "Path to a launch-prompt file. Convenience variant (#662): "
+            "derives --persona / --llm / --agent-id / --runtime from "
+            "wagon-manifest defaults so only --worktree and --issue are "
+            "required, shrinking the ergonomic gap to the cwd-correct path."
+        ),
     )
     parser.add_argument("--phase", default=None, help="Optional ATDD phase context.")
     parser.add_argument(
@@ -469,9 +615,43 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# Wagon-manifest defaults for the --from-prompt-file convenience variant
+# (#662). Defaults plus per-issue conventions fill the four omitted flags
+# so the cwd-correct path needs only --from-prompt-file / --worktree /
+# --issue. The launched surface's cwd still equals --worktree — the
+# convenience flag never weakens the cwd guarantee.
+_FROM_PROMPT_FILE_DEFAULTS = {"persona": "coder", "llm": "claude-code"}
+
+
+def _apply_from_prompt_file_defaults(args: argparse.Namespace) -> None:
+    """Fill --persona / --llm / --agent-id / --runtime for a 3-flag launch.
+
+    Mutates ``args`` in place. ``--persona`` / ``--llm`` come from
+    wagon-manifest defaults; ``--agent-id`` follows the canonical
+    ``<persona>-<issue>-NNN`` convention; ``--runtime`` defaults to the
+    worktree-local runtime root.
+    """
+    if args.persona is None:
+        args.persona = _FROM_PROMPT_FILE_DEFAULTS["persona"]
+    if args.llm is None:
+        args.llm = _FROM_PROMPT_FILE_DEFAULTS["llm"]
+    if args.agent_id is None:
+        args.agent_id = f"{args.persona}-{args.issue}-001"
+    if args.runtime_root is None:
+        args.runtime_root = Path(args.worktree) / ".atdd" / "runtime"
+
+
 def run(argv: list[str]) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    persona_prompt_content: Optional[str] = None
+    if args.from_prompt_file is not None:
+        _apply_from_prompt_file_defaults(args)
+        try:
+            persona_prompt_content = Path(args.from_prompt_file).read_text()
+        except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            print(f"❌ cannot read --from-prompt-file: {exc}", file=sys.stderr)
+            return 2
     try:
         result = cmd_spawn(
             persona=args.persona,
@@ -489,6 +669,7 @@ def run(argv: list[str]) -> int:
                 if args.multiplexer
                 else None
             ),
+            persona_prompt_content=persona_prompt_content,
         )
     except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         print(f"❌ {exc}", file=sys.stderr)

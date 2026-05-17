@@ -67,8 +67,9 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
-  total: 8
+  total: 9
   P001: "minimize quantity of observer-runtime-skeleton-gaps"
+  P002: "minimize quantity of observer-input-acquisition-gaps"
   M001: "minimize likelihood of undetected-basic-protocol-violations"
   M002: "minimize likelihood of unflagged-context-window-exhaustion"
   M003: "minimize likelihood of undetected-multiplexer-and-bash-protocol-drift"

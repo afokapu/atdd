@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:init-emitted-command-drift-coverage"
+wagon: "wagon:govern-lifecycle"
+description: "Retires the broken atdd baseline update emit from initializer.py's baseline-sync job and widens the #473-phase-3 drift-detection self-validate from atdd validate ... only to every run: atdd ... line in every init-emitted workflow template, dispatching each through the live top-level argparse under the coach.workflow-template.command-must-parse rule"
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E005"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — fixes an existing init template emit and extends an existing coach validator in place"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "evaluate_template_command_drift generalized from validate-only scope to all-subcommand dispatch via the live top-level argparse"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Pure scan + parse helper plus one convention rule; reuses existing Violation primitive"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reads init-emitted .github/workflows/*.yml templates via the existing initializer template surface"

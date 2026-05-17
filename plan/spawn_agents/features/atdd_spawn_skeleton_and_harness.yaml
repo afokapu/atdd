@@ -1,25 +1,26 @@
 urn: "feature:spawn-agents:atdd-spawn-skeleton-and-harness"
 wagon: "wagon:spawn-agents"
-description: "atdd spawn skeleton wrapping session_template render with multiplexer dispatch (K1), substrate spawn-harness block renderers wmbt_rules/train_rules to parallel the existing render_security_rules_block (K2), absorbed canonical-naming + layout pass calling apply_canonical_name_and_layout post-launch (K3), and per-LLM convention file generators emitting CLAUDE.md/AGENTS.md/GLM.md/GEMINI.md with rule-ID grammar and bind_rule contract via atdd sync (K4)"
+description: "atdd spawn skeleton wrapping session_template render with multiplexer dispatch (K1), substrate spawn-harness block renderers wmbt_rules/train_rules to parallel the existing render_security_rules_block (K2), absorbed canonical-naming + layout pass calling apply_canonical_name_and_layout post-launch (K3), per-LLM convention file generators emitting CLAUDE.md/AGENTS.md/GLM.md/GEMINI.md with rule-ID grammar and bind_rule contract via atdd sync (K4), and the atdd-cmux-send shim whose pre-send classifier rejects raw cmux send \"claude ...\" launch payloads while atdd spawn --from-prompt-file shrinks the ergonomic gap to the cwd-correct path (E004)"
 sizing:
-  wmbts: 4
-  footprint_score: 14
+  wmbts: 5
+  footprint_score: 18
   footprint_size: "M"
 wmbts:
   - "wmbt:spawn-agents:E001"
   - "wmbt:spawn-agents:D001"
   - "wmbt:spawn-agents:E002"
   - "wmbt:spawn-agents:P001"
+  - "wmbt:spawn-agents:E004"
 components:
   backend:
     presentation:
       - type: "controllers"
-        count: 1
-        rationale: "atdd spawn CLI entry at src/atdd/coach/commands/spawn.py is the single rule-IDed launch surface; persona/llm/worktree/issue/agent-id/runtime are parsed here"
+        count: 2
+        rationale: "atdd spawn CLI entry at src/atdd/coach/commands/spawn.py is the single rule-IDed launch surface (persona/llm/worktree/issue/agent-id/runtime parsed here); the atdd-cmux-send shim at src/atdd/coach/wrappers/atdd_cmux_send.py is a second console-script entry that proxies cmux send after pre-send classification (E004)"
     application:
       - type: "use_cases"
-        count: 4
-        rationale: "spawn-session orchestration (K1), harness-block rendering for wmbt/train rule sets (K2), canonical-naming + layout pass (K3), per-LLM convention file generation (K4) — each is a discrete coach-application use case"
+        count: 6
+        rationale: "spawn-session orchestration (K1), harness-block rendering for wmbt/train rule sets (K2), canonical-naming + layout pass (K3), per-LLM convention file generation (K4), pre-send raw-claude-launch classification + rejection (E004 Layer B), and atdd spawn --from-prompt-file manifest-default derivation (E004 Layer C) — each is a discrete coach-application use case"
     domain:
       - type: "value_objects"
         count: 0

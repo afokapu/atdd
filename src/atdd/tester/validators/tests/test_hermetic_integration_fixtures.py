@@ -1,12 +1,12 @@
-# URN: test:govern-lifecycle:hermetic-integration-execution-kind:E005-UNIT-001-convention-declares-hermetic-vocabularies
-# Acceptance: acc:govern-lifecycle:E005-UNIT-001-convention-declares-hermetic-vocabularies
-# Acceptance: acc:govern-lifecycle:E005-UNIT-002-rules-show-resolves-each-rule
-# Acceptance: acc:govern-lifecycle:E005-INTEGRATION-001-fidelity-validator-fires-on-undeclared-fake
-# Acceptance: acc:govern-lifecycle:E005-INTEGRATION-002-fidelity-validator-silent-when-no-fakes
-# Acceptance: acc:govern-lifecycle:E005-INTEGRATION-003-pairing-validator-fires-on-missing-sibling
-# Acceptance: acc:govern-lifecycle:E005-INTEGRATION-004-pairing-validator-silent-when-sibling-present
-# Acceptance: acc:govern-lifecycle:E005-INTEGRATION-005-unknown-boundary-kind-rejected
-# WMBT: wmbt:govern-lifecycle:E005
+# URN: test:govern-lifecycle:hermetic-integration-execution-kind:E006-UNIT-001-convention-declares-hermetic-vocabularies
+# Acceptance: acc:govern-lifecycle:E006-UNIT-001-convention-declares-hermetic-vocabularies
+# Acceptance: acc:govern-lifecycle:E006-UNIT-002-rules-show-resolves-each-rule
+# Acceptance: acc:govern-lifecycle:E006-INTEGRATION-001-fidelity-validator-fires-on-undeclared-fake
+# Acceptance: acc:govern-lifecycle:E006-INTEGRATION-002-fidelity-validator-silent-when-no-fakes
+# Acceptance: acc:govern-lifecycle:E006-INTEGRATION-003-pairing-validator-fires-on-missing-sibling
+# Acceptance: acc:govern-lifecycle:E006-INTEGRATION-004-pairing-validator-silent-when-sibling-present
+# Acceptance: acc:govern-lifecycle:E006-INTEGRATION-005-unknown-boundary-kind-rejected
+# WMBT: wmbt:govern-lifecycle:E006
 # Phase: GREEN
 # Layer: application
 # Runtime: python
@@ -14,7 +14,7 @@
 """RED fixture coverage for the hermetic-integration execution kind (issue #690).
 
 These tests convert the seven GREEN-phase acceptances of
-``wmbt:govern-lifecycle:E005`` into failing RED tests. They prove the
+``wmbt:govern-lifecycle:E006`` into failing RED tests. They prove the
 substrate that issue #690 ships:
 
   - ``acceptance.convention.yaml`` declares the orthogonal ``execution_kinds:``
@@ -38,7 +38,7 @@ RED contract: every test here MUST fail until the coder lands Phase 1
 Imports of the not-yet-existing validator modules are performed *inside*
 the test bodies so pytest can still collect this file without error.
 
-The two SMOKE-phase acceptances (E005-SMOKE-001, E005-SMOKE-002) are
+The two SMOKE-phase acceptances (E006-SMOKE-001, E006-SMOKE-002) are
 verified at the GREEN -> SMOKE transition against the real toolkit
 (gate tests GT-500/510/520/530), not here.
 """
@@ -167,9 +167,9 @@ def _wmbt(urn: str, acceptances: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 # ===========================================================================
-# E005-UNIT-001 — convention declares the hermetic vocabularies
+# E006-UNIT-001 — convention declares the hermetic vocabularies
 # ===========================================================================
-def test_e005_unit_001_convention_declares_hermetic_vocabularies() -> None:
+def test_e006_unit_001_convention_declares_hermetic_vocabularies() -> None:
     """acceptance.convention.yaml declares execution_kinds:/boundary_kinds: and
     rules grep surfaces both new rule_ids; existing enums stay intact."""
     data = yaml.safe_load(_ACCEPTANCE_CONVENTION.read_text(encoding="utf-8"))
@@ -215,7 +215,7 @@ def test_e005_unit_001_convention_declares_hermetic_vocabularies() -> None:
 
 
 # ===========================================================================
-# E005-UNIT-002 — atdd rules show resolves each new rule
+# E006-UNIT-002 — atdd rules show resolves each new rule
 # ===========================================================================
 @pytest.mark.parametrize(
     ("rule_id", "recipe_file"),
@@ -224,7 +224,7 @@ def test_e005_unit_001_convention_declares_hermetic_vocabularies() -> None:
         (_RULE_PAIRING, "hermetic-live-smoke-pairing.recipe.yaml"),
     ],
 )
-def test_e005_unit_002_rules_show_resolves_each_rule(
+def test_e006_unit_002_rules_show_resolves_each_rule(
     rule_id: str, recipe_file: str
 ) -> None:
     """`atdd rules show <rule-id>` resolves each new rule, prints the strict
@@ -246,9 +246,9 @@ def test_e005_unit_002_rules_show_resolves_each_rule(
 
 
 # ===========================================================================
-# E005-INTEGRATION-001 — fidelity validator fires on an undeclared fake
+# E006-INTEGRATION-001 — fidelity validator fires on an undeclared fake
 # ===========================================================================
-def test_e005_integration_001_fidelity_validator_fires_on_undeclared_fake() -> None:
+def test_e006_integration_001_fidelity_validator_fires_on_undeclared_fake() -> None:
     """A hermetic acceptance with a non-empty permitted_fakes list but no
     fake_contract_fidelity declaration yields exactly one Violation."""
     from atdd.tester.validators.test_hermetic_integration_contract import (
@@ -295,9 +295,9 @@ def test_e005_integration_001_fidelity_validator_fires_on_undeclared_fake() -> N
 
 
 # ===========================================================================
-# E005-INTEGRATION-002 — fidelity validator silent when no fakes are permitted
+# E006-INTEGRATION-002 — fidelity validator silent when no fakes are permitted
 # ===========================================================================
-def test_e005_integration_002_fidelity_validator_silent_when_no_fakes() -> None:
+def test_e006_integration_002_fidelity_validator_silent_when_no_fakes() -> None:
     """The rule fires ONLY when execution_kind == hermetic_integration AND
     permitted_fakes is non-empty; pre-existing acceptances are never flagged."""
     from atdd.tester.validators.test_hermetic_integration_contract import (
@@ -323,9 +323,9 @@ def test_e005_integration_002_fidelity_validator_silent_when_no_fakes() -> None:
 
 
 # ===========================================================================
-# E005-INTEGRATION-003 — pairing validator fires on a missing live-smoke sibling
+# E006-INTEGRATION-003 — pairing validator fires on a missing live-smoke sibling
 # ===========================================================================
-def test_e005_integration_003_pairing_validator_fires_on_missing_sibling() -> None:
+def test_e006_integration_003_pairing_validator_fires_on_missing_sibling() -> None:
     """live_smoke_required: true with no execution_kind: live_smoke sibling
     under the SAME WMBT yields exactly one Violation."""
     from atdd.tester.validators.test_hermetic_live_smoke_pairing import (
@@ -370,9 +370,9 @@ def test_e005_integration_003_pairing_validator_fires_on_missing_sibling() -> No
 
 
 # ===========================================================================
-# E005-INTEGRATION-004 — pairing validator silent when the sibling is present
+# E006-INTEGRATION-004 — pairing validator silent when the sibling is present
 # ===========================================================================
-def test_e005_integration_004_pairing_validator_silent_when_sibling_present() -> None:
+def test_e006_integration_004_pairing_validator_silent_when_sibling_present() -> None:
     """No Violation when a paired live_smoke sibling exists under the same WMBT,
     or when live_smoke_required is false."""
     from atdd.tester.validators.test_hermetic_live_smoke_pairing import (
@@ -431,9 +431,9 @@ def test_e005_integration_004_pairing_validator_silent_when_sibling_present() ->
 
 
 # ===========================================================================
-# E005-INTEGRATION-005 — unknown boundary_kind value is rejected
+# E006-INTEGRATION-005 — unknown boundary_kind value is rejected
 # ===========================================================================
-def test_e005_integration_005_unknown_boundary_kind_rejected() -> None:
+def test_e006_integration_005_unknown_boundary_kind_rejected() -> None:
     """An exercised_boundaries value outside the controlled vocabulary is
     rejected; an all-valid boundary list yields no boundary Violation."""
     from atdd.tester.validators.test_hermetic_integration_contract import (
@@ -485,11 +485,11 @@ def test_e005_integration_005_unknown_boundary_kind_rejected() -> None:
 
 
 __all__ = [
-    "test_e005_unit_001_convention_declares_hermetic_vocabularies",
-    "test_e005_unit_002_rules_show_resolves_each_rule",
-    "test_e005_integration_001_fidelity_validator_fires_on_undeclared_fake",
-    "test_e005_integration_002_fidelity_validator_silent_when_no_fakes",
-    "test_e005_integration_003_pairing_validator_fires_on_missing_sibling",
-    "test_e005_integration_004_pairing_validator_silent_when_sibling_present",
-    "test_e005_integration_005_unknown_boundary_kind_rejected",
+    "test_e006_unit_001_convention_declares_hermetic_vocabularies",
+    "test_e006_unit_002_rules_show_resolves_each_rule",
+    "test_e006_integration_001_fidelity_validator_fires_on_undeclared_fake",
+    "test_e006_integration_002_fidelity_validator_silent_when_no_fakes",
+    "test_e006_integration_003_pairing_validator_fires_on_missing_sibling",
+    "test_e006_integration_004_pairing_validator_silent_when_sibling_present",
+    "test_e006_integration_005_unknown_boundary_kind_rejected",
 ]

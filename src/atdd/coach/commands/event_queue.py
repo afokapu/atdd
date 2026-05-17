@@ -19,6 +19,7 @@ from typing import Any, Optional
 # the natural key. Source: ``event-semantics.md`` (#483).
 NATURAL_KEY: dict[str, tuple[str, ...]] = {
     "agent_spawned":       ("agent_id",),
+    "agent_done":          ("agent_id",),
     "heartbeat":           ("agent_id", "payload.observed_at"),
     "commit_observed":     ("payload.sha",),
     "event_emitted":       ("payload.original_event_id", "payload.original_event_type"),
@@ -38,6 +39,7 @@ NATURAL_KEY: dict[str, tuple[str, ...]] = {
 #   "suppressed" — never re-emit on resume
 REPLAY_BEHAVIOR: dict[str, str] = {
     "agent_spawned":       "cached",
+    "agent_done":          "cached",
     "heartbeat":           "suppressed",
     "commit_observed":     "cached",
     "event_emitted":       "cached",

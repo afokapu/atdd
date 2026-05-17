@@ -19,7 +19,7 @@ from typing import Any, Optional
 import pytest
 
 from atdd.coach.utils.multiplexer import MultiplexerError
-from atdd.coach.utils.session_naming import compute_canonical_name, target_grid_label
+from atdd.coach.utils.session_naming import compute_issue_surface_name, target_grid_label
 
 pytestmark = [pytest.mark.platform]
 
@@ -146,9 +146,9 @@ def _spawn(tmp_path: Path, monkeypatch, fake_mx: FakeMultiplexer):
 def test_spawn_applies_canonical_name_and_injects_rename(tmp_path, monkeypatch):
     fake_mx = FakeMultiplexer()
     result = _spawn(tmp_path, monkeypatch, fake_mx)
-    canonical_name = compute_canonical_name(
-        "ATDD", 358, "feat-coach-v9-k3-canonical-naming-pass"
-    )
+    # Issue #730: the spawn surface is named by issue identity only — ATDD<N>,
+    # no slug/persona/phase — so it stays stable across phase transitions.
+    canonical_name = compute_issue_surface_name("ATDD", 358)
 
     rename_calls = [c for c in fake_mx.calls if c["op"] == "rename"]
     assert rename_calls == [

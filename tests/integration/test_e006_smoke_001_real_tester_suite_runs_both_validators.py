@@ -1,6 +1,6 @@
-# URN: test:govern-lifecycle:hermetic-integration-execution-kind:E005-SMOKE-001-real-tester-suite-runs-both-validators
-# Acceptance: acc:govern-lifecycle:E005-SMOKE-001-real-tester-suite-runs-both-validators
-# WMBT: wmbt:govern-lifecycle:E005
+# URN: test:govern-lifecycle:hermetic-integration-execution-kind:E006-SMOKE-001-real-tester-suite-runs-both-validators
+# Acceptance: acc:govern-lifecycle:E006-SMOKE-001-real-tester-suite-runs-both-validators
+# WMBT: wmbt:govern-lifecycle:E006
 # Phase: SMOKE
 # Layer: integration
 # Runtime: python
@@ -8,7 +8,7 @@
 # Purpose: Eat-own-dog-food — the real `atdd validate tester` suite collects and
 #          executes both #690 hermetic validators against this repo's plan/.
 
-"""E005-SMOKE-001 — verify the hermetic-integration substrate is alive in the
+"""E006-SMOKE-001 — verify the hermetic-integration substrate is alive in the
 *real* toolkit, not skipped.
 
 Issue #690 ships two validators under ``src/atdd/tester/validators/``:

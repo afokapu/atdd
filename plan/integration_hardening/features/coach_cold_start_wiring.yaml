@@ -1,0 +1,27 @@
+urn: "feature:integration-hardening:coach-cold-start-wiring"
+wagon: "wagon:integration-hardening"
+description: "Hardens the #708 cold-start advance pipeline so the coach advances a phase only on the done-signal of the persona it dispatched for the current phase. #708's agent_done path (RuntimeWatcher._emit_done -> coach._cold_start_proposed_transition) is matched solely by the agent_id's issue number, so a fresh RuntimeWatcher — which starts with an empty _snapshots map — treats a stale done.json left in the persona worktree runtime by a prior run as newly-written and fires agent_done immediately, advancing the phase before the freshly-dispatched persona has done any work (regression: coach-run-690-cb0a26c9 advanced PLANNED->RED in 9 s). This feature binds the advance gate to the dispatched persona: RuntimeWatcher establishes a dispatch-time baseline so pre-existing done.json files are not emitted as new (#C005), and _cold_start_proposed_transition matches event.agent_id against the agent_id the coach recorded at dispatch rather than the issue number alone (#C005)."
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:integration-hardening:C005"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI or HTTP surface; the fix is internal to the coach cold-start advance path"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "One advance-gate use case: match an agent_done event to the dispatched persona before proposing a phase transition (_cold_start_proposed_transition agent_id check)"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "DispatchedAgentRef — the immutable (phase, agent_id) binding the coach records when it spawns the current-phase persona and matches agent_done events against"
+    integration:
+      - type: "monitors"
+        count: 1
+        rationale: "RuntimeWatcher gains a dispatch-time baseline pass so a done.json present before dispatch seeds _snapshots instead of being emitted as a fresh agent_done"

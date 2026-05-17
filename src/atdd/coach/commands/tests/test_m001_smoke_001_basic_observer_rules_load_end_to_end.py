@@ -30,6 +30,7 @@ RULES_DIR = REPO_ROOT / ".atdd" / "observer" / "rules"
 
 
 EXPECTED_RULE_IDS = {
+    # L2 basic-protocol rules (#506)
     "coach.observer.unstructured-question",
     "coach.observer.token-silence",
     "coach.observer.completion-claim-without-commit",
@@ -37,10 +38,18 @@ EXPECTED_RULE_IDS = {
     "coach.observer.missed-heartbeat",
     "coach.observer.reviewer-edit-attempt",
     "coach.observer.validator-failure-ignored",
+    # M002 — absorbed babysit token-threshold (#507)
+    "coach.orchestration.token-threshold",
+    # L4 — absorbed-from-babysit python-builder rules (#513;
+    # loader regression fixed in #700)
+    "coach.observer.bash-auto-approve",
+    "coach.observer.canonical-naming-drift",
+    "coach.observer.layout-drift",
+    "coach.observer.smoke-skip",
 }
 
 
-def test_observer_loads_all_seven_rules_from_real_fs(tmp_path: Path):
+def test_observer_loads_all_rules_from_real_fs(tmp_path: Path):
     from atdd.coach.commands import observer
 
     runtime = tmp_path / ".atdd" / "runtime"
@@ -94,7 +103,7 @@ def test_loaded_rules_evaluate_and_dispatch_corrections(tmp_path: Path):
             wmbt_target_paths=("src/",),
         )
 
-    obs.collect_input = _synthetic  # type: ignore[assignment]
+    obs.collect_input = _synthetic  # type: ignore[assignment]  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-15  this test is mislabelled SMOKE (bound to a UNIT acceptance); #704 follow-up relabels it
 
     corrections = obs.scan_once()
     fired_ids = {c.rule_id for c in corrections}

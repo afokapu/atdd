@@ -40,13 +40,16 @@ features:
   - urn: "feature:govern-lifecycle:atdd-issue-canonical-path"
   - urn: "feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate"
   - urn: "feature:govern-lifecycle:issue-template-substrate-completeness"
+  - urn: "feature:govern-lifecycle:init-emitted-command-drift-coverage"
+  - urn: "feature:govern-lifecycle:worktree-layout-detects-flat-sibling"
   - urn: "feature:govern-lifecycle:hermetic-integration-execution-kind"
 
 wmbt:
-  total: 30
+  total: 32
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
+  R004: "minimize branch-creation-gate rejections of repos already in flat-sibling worktree layout"
   D001: "minimize issues created without orchestrate-ready template body"
   D002: "minimize parent issues without GitHub WMBT sub-issues when plan artifacts exist"
   D003: "minimize undetected template drift across open issues"
@@ -73,4 +76,5 @@ wmbt:
   E002: "minimize issue-creation landing on wrong branch and leaving orphan worktrees"
   E003: "minimize wmbts-without-smoke-acceptance-and-prs-auto-closing-pre-smoke-issues when planner authors a WMBT or coach merges a PR (#681)"
   E004: "minimize newly-filed-issues shipping without graph context or cross-agent mirror"
-  E005: "minimize hermetic-acceptances-that-omit-fidelity-declaration-or-skip-required-live-smoke-pairing"
+  E005: "minimize init-emitted-atdd-invocations-that-fail-to-parse-under-the-live-cli when atdd init emits workflow templates and the drift-detection self-validate scans them (#481)"
+  E006: "minimize hermetic-acceptances-that-omit-fidelity-declaration-or-skip-required-live-smoke-pairing"
