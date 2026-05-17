@@ -13,6 +13,7 @@ outcome: "`atdd observer run` operates as the coach's standing detect-and-correc
 features:
   - urn: "feature:observe-and-correct:observer-runtime-and-rules"
   - urn: "feature:observe-and-correct:observer-operator-surface"
+  - urn: "feature:observe-and-correct:worker-coach-event-loop"
 
 produce:
   - name: commons:coach:observer-command
@@ -55,6 +56,18 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: commons:coach:observer-worker-heartbeat-emitter
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-blocked-worker-detector
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:observer-ask-answer-roundtrip
+    contract: null
+    telemetry: null
+    to: external
 
 consume:
   - name: commons:coach:correction-schema
@@ -67,13 +80,16 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
-  total: 9
+  total: 12
   P001: "minimize quantity of observer-runtime-skeleton-gaps"
   P002: "minimize quantity of observer-input-acquisition-gaps"
   M001: "minimize likelihood of undetected-basic-protocol-violations"
   M002: "minimize likelihood of unflagged-context-window-exhaustion"
   M003: "minimize likelihood of undetected-multiplexer-and-bash-protocol-drift"
   M004: "minimize likelihood of undetected-substrate-rule-id-and-suppression-violations"
+  M005: "minimize likelihood of live-workers-whose-liveness-never-reaches-the-coach"
+  M006: "minimize likelihood of blocked-workers-whose-need-for-a-decision-never-reaches-the-coach"
+  R001: "minimize likelihood of ask-events-whose-answer-never-reaches-the-waiting-worker"
   L001: "minimize effort of locating-active-coach-surface-state"
   E001: "minimize effort of approving-known-safe-cross-surface-prompts"
   C001: "minimize likelihood of behavioral-regression-against-babysit-baseline"
