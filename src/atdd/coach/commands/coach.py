@@ -719,10 +719,14 @@ def _resolve_waves(cfg: "Config") -> list[list[int]]:
         return compute_waves(plan)
     except ValueError:
         _logger.warning(
-            "coach cold-start: compute_waves could not order issues %s "
+            "coach cold-start: compute_waves could not order issues "
             "(cyclic or unresolvable dependency) — falling back to a single "
             "wave holding every requested issue",
-            cfg.issue_numbers,
+            extra={
+                "event": "coach.cold_start.wave_resolution_fallback",
+                "issue_numbers": cfg.issue_numbers,
+                "fallback": "single_wave",
+            },
         )
         return [cfg.issue_numbers]
 
