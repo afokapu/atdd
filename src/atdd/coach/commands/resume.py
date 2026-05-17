@@ -42,7 +42,7 @@ from atdd.coach.commands.coach import (
     Phase,
     can_transition,
 )
-from atdd.coach.commands.durability import DecisionWriter, transactional_decision
+from atdd.coach.commands.durability import DecisionWriter
 from atdd.coach.commands.event_queue import (
     CoachEventQueue,
     NATURAL_KEY,
@@ -276,6 +276,24 @@ class ResumeRunner:
             "inputs": {"current_phase": src, "target_phase": dst},
             "outcome": {"transitioned": True, "new_phase": dst},
         }
-        with transactional_decision(self.decision_writer, record) as run_action:
-            if run_action and self.transition_action is not None:
-                self.transition_action(issue, src, dst)
+        # Idempotent replay: a transition already in the durable log is a
+        # no-op — the consumer side of P001's idempotency contract.
+        if self.decision_writer.has_decision(record["decision_id"]):
+            return
+        # A resume run with pending phases MUST have a real transition_action.
+        # Without one the runner would paper-stamp the phase to COMPLETE with
+        # no persona spawn and no orchestration — the #734 / #662 paper fast-
+        # forward bug. Fail loudly *before* writing any record.
+        if self.transition_action is None:
+            raise RuntimeError(
+                f"ResumeRunner cannot drive #{issue} {src}->{dst}: no "
+                f"transition_action is wired. A resume run with pending phases "
+                f"requires a transition_action that performs real "
+                f"orchestration; refusing to paper-stamp the transition."
+            )
+        # Run the action FIRST. Only a transition whose orchestration genuinely
+        # completed is durably recorded — a failed phase raises and writes no
+        # record, so the next resume re-runs it instead of skipping past a
+        # paper stamp.
+        self.transition_action(issue, src, dst)
+        self.decision_writer.append(record)
