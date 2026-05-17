@@ -556,6 +556,41 @@ def _ensure_issue_worktree(ctx) -> Optional[Path]:
     return worktree
 
 
+def _make_coach_context(
+    cfg: "Config", issue_number: int, coach_run_id: str, runtime_dir: Path
+) -> "CoachContext":
+    """Build a ``CoachContext`` from the run ``Config`` for one issue.
+
+    Single construction site shared by the cold-start path
+    (``_drive_single_issue``) and the ``--resume`` path
+    (``_make_resume_transition_action``). Decision #1 of issue #734: one
+    orchestration path is less drift-prone than two — both must spawn
+    personas with an identically-shaped context, so the 17-field mapping
+    from ``Config`` lives here once instead of being copied per call site.
+    """
+    from atdd.coach.handlers.state_machine import CoachContext
+
+    return CoachContext(
+        issue_number=issue_number,
+        coach_run_id=coach_run_id,
+        runtime_dir=runtime_dir,
+        dry_run=cfg.dry_run,
+        multiplexer=cfg.multiplexer,
+        multiplexer_mode=cfg.multiplexer_mode,
+        llm=cfg.llm,
+        persona_llm=cfg.persona_llm,
+        judge_llm=cfg.judge_llm,
+        require_issue_review=cfg.require_issue_review,
+        review_phases=cfg.review_phases,
+        skip_review=cfg.skip_review,
+        risk_threshold_block=cfg.risk_threshold_block,
+        allow_stale_suppressions=cfg.allow_stale_suppressions,
+        auto_merge=cfg.auto_merge,
+        max_retries=cfg.max_retries,
+        escalation_channel=cfg.escalation_channel,
+    )
+
+
 def _drive_single_issue(
     cfg: "Config",
     sm: StateMachine,
@@ -574,7 +609,7 @@ def _drive_single_issue(
     Issue #645 — cold-start wiring.
     """
     from atdd.coach.handlers import spawn as spawn_handler, two_phase_commit as tpc_handler
-    from atdd.coach.handlers.state_machine import CoachContext, HandlerResult, Transition
+    from atdd.coach.handlers.state_machine import HandlerResult, Transition
     from atdd.coach.commands.durability import DecisionWriter, transactional_decision
 
     spawn_h = _spawn_func or spawn_handler.handle
@@ -584,25 +619,7 @@ def _drive_single_issue(
     if _run_id_sink is not None:
         _run_id_sink.append(coach_run_id)
 
-    ctx = CoachContext(
-        issue_number=sm.issue_number,
-        coach_run_id=coach_run_id,
-        runtime_dir=runtime_dir,
-        dry_run=cfg.dry_run,
-        multiplexer=cfg.multiplexer,
-        multiplexer_mode=cfg.multiplexer_mode,
-        llm=cfg.llm,
-        persona_llm=cfg.persona_llm,
-        judge_llm=cfg.judge_llm,
-        require_issue_review=cfg.require_issue_review,
-        review_phases=cfg.review_phases,
-        skip_review=cfg.skip_review,
-        risk_threshold_block=cfg.risk_threshold_block,
-        allow_stale_suppressions=cfg.allow_stale_suppressions,
-        auto_merge=cfg.auto_merge,
-        max_retries=cfg.max_retries,
-        escalation_channel=cfg.escalation_channel,
-    )
+    ctx = _make_coach_context(cfg, sm.issue_number, coach_run_id, runtime_dir)
 
     writer = DecisionWriter(runtime_dir=runtime_dir)
 
@@ -987,27 +1004,11 @@ def _make_resume_transition_action(
     stamping the issue to COMPLETE (issue #734).
     """
     from atdd.coach.handlers import spawn as spawn_handler
-    from atdd.coach.handlers.state_machine import CoachContext, HandlerResult, Transition
+    from atdd.coach.handlers.state_machine import HandlerResult, Transition
 
     def _action(issue: int, src: str, dst: str) -> dict:
-        ctx = CoachContext(
-            issue_number=issue,
-            coach_run_id=cfg.resume or f"coach-resume-{issue}",
-            runtime_dir=runtime_dir,
-            dry_run=cfg.dry_run,
-            multiplexer=cfg.multiplexer,
-            multiplexer_mode=cfg.multiplexer_mode,
-            llm=cfg.llm,
-            persona_llm=cfg.persona_llm,
-            judge_llm=cfg.judge_llm,
-            require_issue_review=cfg.require_issue_review,
-            review_phases=cfg.review_phases,
-            skip_review=cfg.skip_review,
-            risk_threshold_block=cfg.risk_threshold_block,
-            allow_stale_suppressions=cfg.allow_stale_suppressions,
-            auto_merge=cfg.auto_merge,
-            max_retries=cfg.max_retries,
-            escalation_channel=cfg.escalation_channel,
+        ctx = _make_coach_context(
+            cfg, issue, cfg.resume or f"coach-resume-{issue}", runtime_dir
         )
         transition = Transition(Phase(src), Phase(dst))
         result = spawn_handler.handle(ctx, transition)
