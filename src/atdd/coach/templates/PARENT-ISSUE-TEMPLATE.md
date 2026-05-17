@@ -146,7 +146,7 @@
 ### Entry 1 ({today})
 
 **Completed:**
-- Issue created via `atdd new {slug}`
+- Issue created via `atdd issue {slug}`
 
 **Next:**
 - Create branch: `atdd branch <N>` (this issue's number)

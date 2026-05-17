@@ -189,7 +189,7 @@ workflow:
 # =============================================================================
 # Issues are now GitHub Issues with Project v2 custom fields.
 # Local session files (atdd-sessions/*.md) are historical only.
-# New issues are created as GitHub Issues via `atdd new`.
+# New issues are created as GitHub Issues via `atdd issue <slug>`.
 #
 # Three-layer architecture:
 #   Layer 1: Parent issue body — human-readable (context, architecture, decisions, log)
@@ -234,7 +234,7 @@ github_issue_tracking:
         pattern: "wagon:{slug}"
         color: "C5DEF5"
         applies_to: "parent"
-        rule: "`atdd new` creates wagon:{slug} if it does not exist"
+        rule: "`atdd issue <slug>` creates wagon:{slug} if it does not exist"
 
   issue_types:
     note: "Org-level feature — requires GitHub org with issue types enabled"
@@ -274,7 +274,7 @@ github_issue_tracking:
   # WMBT Sub-Issue Template (D002)
   # ---------------------------------------------------------------------------
   # Each WMBT becomes a sub-issue of the session parent issue.
-  # The sub-issue body is generated from this template by `atdd new`.
+  # The sub-issue body is generated from this template by `atdd issue <slug>`.
   # Sub-issues carry NO session-level metadata (train, feature, branch, archetypes)
   # — that lives on the parent issue's Project custom fields.
   wmbt_sub_issue_template:
@@ -295,7 +295,7 @@ github_issue_tracking:
         derivation: "D->Define, L->Locate, P->Prepare, C->Confirm, E->Execute, M->Monitor, Y->Modify, R->Resolve, K->Conclude"
       statement:
         source: "WMBT statement from plan YAML"
-        example: "Implement atdd new -> parent issue + WMBT sub-issues"
+        example: "Implement atdd issue -> parent issue + WMBT sub-issues"
       acceptance_criteria:
         source: "WMBT acceptances from plan YAML, rendered as markdown bullet list"
         format: "- {acceptance_text}\\n- {acceptance_text}\\n..."
@@ -337,7 +337,7 @@ github_issue_tracking:
   # ---------------------------------------------------------------------------
   # Parent Issue Template (E010)
   # ---------------------------------------------------------------------------
-  # The parent issue body is generated from a Markdown template by `atdd new`.
+  # The parent issue body is generated from a Markdown template by `atdd issue <slug>`.
   # The template produces 11 structured sections matching the `sections:` spec.
   parent_issue_template:
     file: "atdd/coach/templates/PARENT-ISSUE-TEMPLATE.md"

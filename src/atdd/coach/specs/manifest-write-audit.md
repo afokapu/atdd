@@ -17,7 +17,7 @@ worktree branched from main HEAD.
 
 | Verb                          | Method (issue.py)         | Save call site         | Commit call site         | Commit message                                                          |
 |-------------------------------|---------------------------|------------------------|--------------------------|-------------------------------------------------------------------------|
-| `atdd issue <slug>` / `atdd new` | `_new_github_issue`    | `self._save_manifest`  | `self._commit_manifest_change` | `chore(coach): register issue #{N} in manifest`                       |
+| `atdd issue <slug>`           | `_new_github_issue`       | `self._save_manifest`  | `self._commit_manifest_change` | `chore(coach): register issue #{N} in manifest`                       |
 | `atdd update --status <S>`    | `_update_manifest_status` | `self._save_manifest`  | `self._commit_manifest_change` | `chore(coach): mirror issue #{N} status → {S} in manifest`            |
 | `atdd archive <N>`            | `_archive_github`         | `self._save_manifest`  | `self._commit_manifest_change` | `chore(coach): archive issue #{N} in manifest`                        |
 
