@@ -45,7 +45,9 @@ verified at the GREEN -> SMOKE transition against the real toolkit
 
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -113,13 +115,30 @@ def _flatten_vocab(node: Any) -> set:
     return out
 
 
+def _worktree_env() -> dict:
+    """Environment that pins the ``atdd`` package to this worktree's ``src/``."""
+    env = dict(os.environ)
+    src = str(_REPO_ROOT / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else src
+    return env
+
+
 def _run_atdd(*args: str) -> subprocess.CompletedProcess:
-    """Invoke the real ``atdd`` CLI from the repo root."""
+    """Invoke the real ``atdd`` CLI from the repo root.
+
+    Uses ``[sys.executable, "-m", "atdd", ...]`` rather than a bare ``atdd``
+    so the test is PATH-independent — CI runners do not always expose the
+    console-script shim on ``PATH``. ``PYTHONPATH`` is set to this worktree's
+    ``src/`` so the resolved ``atdd`` package is the branch under test, not a
+    globally installed wheel.
+    """
     return subprocess.run(
-        ["atdd", *args],
+        [sys.executable, "-m", "atdd", *args],
         cwd=str(_REPO_ROOT),
         capture_output=True,
         text=True,
+        env=_worktree_env(),
     )
 
 
