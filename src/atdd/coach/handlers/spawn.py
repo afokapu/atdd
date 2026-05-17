@@ -249,6 +249,32 @@ def _spawn_with_retries(
     return None
 
 
+def _persona_materialised(
+    runtime_root: Path, persona: str, issue: int
+) -> bool:
+    """True when the spawn actually put the persona on disk.
+
+    A complete ``cmd_spawn`` writes ``manifest.json`` into
+    ``<runtime_root>/agents/<persona>-<issue>-<suffix>/``. A truthy
+    ``cmd_spawn`` return whose persona left no such dir is an incomplete
+    spawn (#733): ``_spawn_with_retries`` treats only a raised exception as
+    failure, so without this check an empty spawn slips through to HANDLED
+    and the coach stalls forever on a done.json no persona exists to write.
+    """
+    agents_dir = runtime_root / "agents"
+    if not agents_dir.is_dir():
+        return False
+    prefix = f"{persona}-{issue}-"
+    for entry in agents_dir.iterdir():
+        if not entry.is_dir():
+            continue
+        if not entry.name.startswith(prefix) or entry.name.endswith("-observer"):
+            continue
+        if (entry / "manifest.json").is_file():
+            return True
+    return False
+
+
 def _escalate(ctx: CoachContext, reason: str) -> None:
     if ctx.escalation_channel:
         print(
@@ -377,6 +403,27 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
         reason = (
             f"spawn failed after {attempts} attempt(s) for "
             f"#{ctx.issue_number} ({persona}/{phase})"
+        )
+        _escalate(ctx, reason)
+        try:
+            _write_blocked_decision(ctx, transition, reason, run_id, runtime_root)
+        except Exception as write_exc:
+            print(
+                f"⚠ spawn handler: could not write BLOCKED decision: {write_exc}",
+                file=sys.stderr,
+            )
+        return HandlerResult.ERROR
+
+    # E003 (#733): a truthy _spawn_with_retries result is not proof the
+    # persona materialised — cmd_spawn could have returned without writing a
+    # manifest / agent_spawned event. Verify the persona is actually on disk;
+    # if not, BLOCK + escalate loudly instead of returning HANDLED and
+    # leaving the coach stalled on a done.json no persona exists to write.
+    if not _persona_materialised(runtime_root, persona, ctx.issue_number):
+        reason = (
+            f"persona spawn for #{ctx.issue_number} ({persona}/{phase}) "
+            f"returned but did not materialise — no agent runtime dir / "
+            f"manifest under {runtime_root}/agents/"
         )
         _escalate(ctx, reason)
         try:
