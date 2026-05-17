@@ -23,7 +23,7 @@ acceptances:
       abstract: "The observer loop is advanced until the ask threshold is crossed"
     then:
       abstract:
-        - "Exactly one ask event is appended to the worker's events.jsonl"
+        - "Exactly one ask record is appended to the worker's questions.jsonl (via atdd agent ask)"
         - "The ask event carries the worker's canonical agent_id and the captured decision context"
         - "No ask event is emitted before the ask threshold is crossed"
     metadata:
@@ -45,7 +45,7 @@ acceptances:
       abstract: "The observer loop is advanced until the escalation threshold is crossed"
     then:
       abstract:
-        - "An escalate event is appended to the worker's events.jsonl carrying the worker's agent_id"
+        - "An escalate record is appended to the worker's escalations.jsonl (via atdd agent escalate)"
         - "The escalate event records the blocked duration that crossed the escalation threshold"
     metadata:
       author: "atdd:planner"
@@ -65,8 +65,8 @@ acceptances:
       abstract: "The observer loop is advanced past both the ask and escalation thresholds while the worker keeps progressing"
     then:
       abstract:
-        - "Zero ask events are appended to the worker's events.jsonl"
-        - "Zero escalate events are appended to the worker's events.jsonl"
+        - "Zero ask records are appended to the worker's questions.jsonl"
+        - "Zero escalate records are appended to the worker's escalations.jsonl"
     metadata:
       author: "atdd:planner"
       created: "2026-05-17"
@@ -85,7 +85,7 @@ acceptances:
       abstract: "The worker remains blocked past the ask and escalation thresholds and the worker's events.jsonl plus the coach event surface are inspected"
     then:
       abstract:
-        - "An ask event and then an escalate event appear in the worker's events.jsonl"
+        - "An ask record appears in questions.jsonl and an escalate record in escalations.jsonl"
         - "The coach RuntimeWatcher / CoachEventQueue receives both events with no manual emission"
     metadata:
       author: "atdd:planner"
