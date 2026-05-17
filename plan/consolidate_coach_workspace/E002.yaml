@@ -2,93 +2,72 @@ urn: "wmbt:consolidate-coach-workspace:E002"
 step: "execute"
 direction: "minimize"
 dimension: "quantity"
-object_of_control: "tiled-panes-opened-by-the-worker-spawn-path"
-context_clarifier: "when the coach dispatches N parked issues and `cmd_spawn` (`src/atdd/coach/commands/spawn.py`) plus the spawn handler (`src/atdd/coach/handlers/spawn.py`) still place each worker with `new_persona_surface` / `new_surface` — opening a new tiled pane per worker — because #736's `coach_workspace` layout module (`resolve_or_create_coach_surface`, `add_worker_surface`) shipped in atdd >= 3.56.0 but was never imported or called by the spawn path; only `coach.py` imports it, so the 50/50-split / workers-as-surfaces behavior is dead code and N issues still produce N panes"
+object_of_control: "obs-surfaces-co-spawned-by-cmd-spawn"
+context_clarifier: "#736 made `handlers/spawn.py::_spawn_observer` launch the observer as a headless background process, but `commands/spawn.py::cmd_spawn` — the live `atdd spawn` path the coach uses — still co-spawns the observer as a visible `<issue>:obs` multiplexer surface via `new_persona_surface`. So every issue dispatched on atdd 3.56.0 still gets an `ATDD<N>:obs` tab; each worker is two tabs (persona + `:obs`), not one. The `L003` universal-co-spawn ratchet (`test_observer_universal_cospawn.py`) still enforces the old surface-co-spawn premise for the `cmd_spawn` entry points."
 lens: "functional.sustainability"
-statement: "minimize quantity of tiled-panes-opened-by-the-worker-spawn-path when the coach dispatches N workers by wiring #736's `coach_workspace` layout module into the live spawn path — `cmd_spawn` resolves-or-creates the single right worker pane once via `resolve_or_create_coach_surface` and places every worker through `add_worker_surface` as a surface inside that pane rather than a new tiled pane, routed entirely through the `Multiplexer` abstraction (`get_multiplexer` / the surface/tab primitive, never raw `cmux` calls) so the wiring holds uniformly on cmux, tmux, and zellij — so N workers resolve to one right pane with N surfaces instead of N tiled panes"
+statement: "minimize quantity of obs-surfaces-co-spawned-by-cmd-spawn when the coach spawns a persona by launching the per-worker observer (`atdd observer run`) as a detached headless background process with no multiplexer surface — exactly the way `handlers/spawn.py::_spawn_observer` already does (#736), keeping its `corrections.jsonl` writes unchanged and applied uniformly across cmux, tmux, and zellij — so spawning an issue creates exactly one surface (persona only) and zero `:obs` tabs"
 acceptances:
   - identity:
-      urn: "acc:consolidate-coach-workspace:E002-UNIT-001-cmd-spawn-places-worker-via-add-worker-surface"
+      urn: "acc:consolidate-coach-workspace:E002-UNIT-001-cmd-spawn-runs-observer-headless"
       id: "AC-UNIT-001"
-      purpose: "a single real cmd_spawn invocation places its worker via coach_workspace.add_worker_surface and opens zero new tiled panes"
+      purpose: "a single real cmd_spawn invocation creates exactly one surface, no `:obs` surface, and starts the observer as a detached background subprocess"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "A fake multiplexer that records every call by verb (new_surface, new_persona_surface, new_workspace) and the resolved right-pane surface ref"
-        - "A single cmd_spawn invocation for one worker with no existing_surface_ref"
+        - "A fake multiplexer that records every surface/tab creation by name"
+        - "subprocess.Popen patched to record each detached launch"
+        - "A single cmd_spawn invocation for one persona agent"
     when:
-      abstract: "the real cmd_spawn function runs for that one worker"
+      abstract: "the real cmd_spawn function runs for that one persona"
     then:
       abstract:
-        - "The worker is placed by a call to coach_workspace.add_worker_surface"
-        - "Zero new tiled panes are created by the worker-placement path (no new_persona_surface / new tiled pane call)"
-        - "Every multiplexer interaction goes through the Multiplexer abstraction — zero raw `cmux` subprocess invocations are made"
+        - "Exactly one multiplexer surface is created"
+        - "No created surface has a name ending in `:obs`"
+        - "The observer is started via exactly one detached subprocess (subprocess.Popen), not a multiplexer surface"
     metadata:
       author: "atdd:planner"
       created: "2026-05-18"
   - identity:
-      urn: "acc:consolidate-coach-workspace:E002-INTEGRATION-001-n-workers-resolve-to-one-right-pane"
+      urn: "acc:consolidate-coach-workspace:E002-INTEGRATION-001-headless-observer-uniform-across-backends"
       id: "AC-INTEGRATION-001"
-      purpose: "dispatching N workers through the real cmd_spawn yields exactly one right worker pane holding N surfaces and zero extra panes"
+      purpose: "cmd_spawn runs the observer headless on every multiplexer backend — one persona surface, zero `:obs` surfaces on cmux, tmux, and zellij alike"
       phase: "GREEN"
     harness:
       type: "integration"
       category: "backend"
     given:
       abstract:
-        - "A recording fake multiplexer with an existing canonical coach surface occupying the left pane"
-        - "Five distinct issues queued for dispatch"
+        - "The cmd_spawn path exercised against each of the cmux, tmux, and zellij multiplexer backends (faked per backend)"
+        - "subprocess.Popen patched to record each detached launch"
     when:
-      abstract: "the real cmd_spawn is invoked once per issue, in sequence, for all five issues"
+      abstract: "the real cmd_spawn is invoked for one persona on each of the three backends"
     then:
       abstract:
-        - "After all five spawns the multiplexer holds exactly two panes — the coach (left) pane and one worker (right) pane"
-        - "The worker (right) pane contains exactly five worker surfaces, one per issue"
-        - "resolve_or_create_coach_surface created the right worker pane exactly once across the five spawns (resolve-or-create, not create-per-worker)"
+        - "On every backend cmd_spawn creates exactly one persona surface and zero `:obs` surfaces"
+        - "On every backend the observer is launched as a detached subprocess rather than a multiplexer surface"
     metadata:
       author: "atdd:planner"
       created: "2026-05-18"
   - identity:
-      urn: "acc:consolidate-coach-workspace:E002-INTEGRATION-002-layout-holds-across-all-three-backends"
-      id: "AC-INTEGRATION-002"
-      purpose: "the wired spawn path produces one right pane with N surfaces on every multiplexer backend, using only the abstraction's surface/tab primitive"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "The cmd_spawn path exercised against each of the cmux, tmux, and zellij multiplexer backends (faked per each backend's surface/tab primitive)"
-        - "Three workers to dispatch on each backend"
-    when:
-      abstract: "the real cmd_spawn is invoked for the three workers on each of the three backends"
-    then:
-      abstract:
-        - "On every backend the three workers resolve to exactly one right pane holding three worker surfaces"
-        - "No raw `cmux` command is invoked by the spawn path on any backend — worker placement goes only through the Multiplexer abstraction's surface/tab primitive"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-18"
-  - identity:
-      urn: "acc:consolidate-coach-workspace:E002-SMOKE-001-real-cmux-dispatch-yields-one-worker-pane"
+      urn: "acc:consolidate-coach-workspace:E002-SMOKE-001-real-spawn-yields-one-tab-no-obs"
       id: "AC-SMOKE-001"
-      purpose: "against a real cmux session, dispatching multiple parked issues produces one coach pane and one worker pane, not N panes"
+      purpose: "against a real multiplexer, a cmd_spawn yields exactly one worker tab (no `:obs` tab) and a live headless observer"
       phase: "SMOKE"
     harness:
       type: "smoke"
       category: "integration"
     given:
       abstract:
-        - "A real cmux session with no existing ATDD coach or worker panes"
+        - "A real cmux session and a real cmd_spawn of one persona agent"
     when:
-      abstract: "`atdd coach` dispatches three parked issues"
+      abstract: "the persona is spawned"
     then:
       abstract:
-        - "`cmux list-panes` reports exactly two panes — one coach pane and one worker pane"
-        - "The worker pane holds three worker surfaces, one per dispatched issue"
+        - "The backend tab list shows exactly one tab for that worker, with no `:obs` tab"
+        - "The observer process is running headless (a detached background process, no surface)"
     metadata:
       author: "atdd:planner"
       created: "2026-05-18"
