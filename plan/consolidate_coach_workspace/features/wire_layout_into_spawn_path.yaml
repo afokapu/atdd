@@ -1,0 +1,23 @@
+urn: "feature:consolidate-coach-workspace:wire-layout-into-spawn-path"
+wagon: "wagon:consolidate-coach-workspace"
+description: "Issue #745: wire #736's `coach_workspace` layout module into the live worker-spawn path so it actually takes effect. #736 shipped `coach_workspace.py` (`resolve_or_create_coach_surface`, `add_worker_surface`, `build/render_consolidated_view`) with green unit tests, but `cmd_spawn` was never rewired to call it — so workers still spawn as tiled panes and the 50/50 layout is dead code. `cmd_spawn` (`commands/spawn.py`) and the spawn handler (`handlers/spawn.py`) resolve-or-create the single right worker pane once via `resolve_or_create_coach_surface` and place each worker through `add_worker_surface` as a surface inside it, routed entirely through the `Multiplexer` abstraction (`get_multiplexer`) so it holds uniformly on cmux, tmux, and zellij — never raw `cmux` calls. Purely the wiring; the `coach_workspace.py` functions themselves are unchanged."
+sizing:
+  wmbts: 1
+  footprint_score: 7
+  footprint_size: "S"
+wmbts:
+  - "wmbt:consolidate-coach-workspace:E002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "commands/spawn.py cmd_spawn — imports coach_workspace and routes worker placement through resolve_or_create_coach_surface / add_worker_surface instead of new_persona_surface per worker"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "handlers/spawn.py — routes the spawn handler's worker placement through the layout module rather than the per-worker pane path"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "multiplexer abstraction (get_multiplexer / Multiplexer) — the surface/tab primitive used uniformly across cmux, tmux, and zellij so no raw `cmux` calls leak into the spawn path"

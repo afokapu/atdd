@@ -13,6 +13,7 @@ outcome: "one canonical coach orchestration tab with a consolidated per-issue st
 features:
   - urn: "feature:consolidate-coach-workspace:canonical-coach-surface"
   - urn: "feature:consolidate-coach-workspace:headless-observer"
+  - urn: "feature:consolidate-coach-workspace:wire-layout-into-spawn-path"
 
 produce:
   - name: commons:coach:canonical-coach-surface
@@ -35,8 +36,9 @@ produce:
 consume: []
 
 wmbt:
-  total: 4
+  total: 5
   Y001: "minimize quantity of coach-orchestration-tabs so N issues / N invocations resolve to one canonical tab"
   E001: "increase likelihood of multi-issue-orchestration-state-visibility via a consolidated per-issue status view"
   D001: "minimize quantity of coach-pane-shrinkage-when-workers-are-added via a fixed 50/50 split and workers-as-surfaces"
   Y002: "minimize quantity of surfaces-spawned-per-worker by running the observer headless"
+  E002: "minimize quantity of tiled-panes-opened-by-the-worker-spawn-path by wiring coach_workspace into the live cmd_spawn path"
