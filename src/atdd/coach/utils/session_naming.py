@@ -138,6 +138,56 @@ def compute_issue_surface_name(repo: str, issue_number: int) -> str:
     return f"{(repo or 'REPO').upper()}{issue_number}"
 
 
+# Phase-qualified surface name — ``<REPO><N>·<PHASE>·<persona>`` (issue #746).
+# The coach respawns a fresh worker agent per phase in the issue's persistent
+# surface; this name makes the live phase + persona visible to the operator.
+PHASE_SURFACE_NAME_REGEX = re.compile(
+    r"^([A-Z]{2,8})(\d+)·([A-Z]+)·([a-z][a-z0-9-]*)$"
+)
+
+
+@dataclass(frozen=True)
+class ParsedPhaseName:
+    repo: str
+    issue: int
+    phase: str
+    persona: str
+
+
+def compute_phase_surface_name(
+    repo: str, issue_number: int, phase: str, persona: str
+) -> str:
+    """Build the phase-qualified worker-surface name (issue #746).
+
+    The coach relaunches a fresh agent per phase in the issue's persistent
+    surface; the surface name encodes the live phase and persona so the
+    operator can see which agent is running now. The phase token is
+    uppercased; the persona stays lowercase.
+
+    >>> compute_phase_surface_name("ATDD", 746, "red", "tester")
+    'ATDD746·RED·tester'
+    >>> compute_phase_surface_name("atdd", 746, "GREEN", "coder")
+    'ATDD746·GREEN·coder'
+    """
+    return (
+        f"{(repo or 'REPO').upper()}{issue_number}"
+        f"·{(phase or '').upper()}·{(persona or '').lower()}"
+    )
+
+
+def parse_phase_surface_name(name: str) -> Optional[ParsedPhaseName]:
+    """Parse a phase-qualified surface name into its parts, or ``None``."""
+    if not isinstance(name, str):
+        return None
+    match = PHASE_SURFACE_NAME_REGEX.match(name.strip())
+    if not match:
+        return None
+    repo, issue, phase, persona = match.groups()
+    return ParsedPhaseName(
+        repo=repo, issue=int(issue), phase=phase, persona=persona
+    )
+
+
 def compute_coach_surface_name(
     config: Optional[Dict[str, Any]],
     issue_number: Optional[int] = None,

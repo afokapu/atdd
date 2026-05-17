@@ -684,6 +684,21 @@ class TmuxBackend(MultiplexerBackend):
             )
         return persona_ref
 
+    def respawn_pane(
+        self, ref: MultiplexerRef, command: Optional[str] = None
+    ) -> None:
+        """Relaunch the process in an existing tmux pane (issue #746).
+
+        ``tmux respawn-pane -k`` kills the pane's current process and starts a
+        fresh one in the SAME pane — a new process, not a conversation reset —
+        so the issue keeps its single persistent surface across phase
+        transitions.
+        """
+        cmd = ["tmux", "respawn-pane", "-k", "-t", ref]
+        if command:
+            cmd.append(command)
+        _run(cmd, capture=False)
+
 
 class ZellijBackend(MultiplexerBackend):
     """zellij backend — session-based workspace abstraction.
@@ -835,6 +850,35 @@ class ZellijBackend(MultiplexerBackend):
                 file=sys.stderr,
             )
         return persona_ref
+
+    def respawn_pane(
+        self, ref: MultiplexerRef, command: Optional[str] = None
+    ) -> None:
+        """Relaunch the process in an existing zellij session (issue #746).
+
+        zellij has no single respawn verb — ``close-pane`` kills the focused
+        pane's process and ``new-pane`` opens a fresh one. Both target the SAME
+        session (via ``ZELLIJ_SESSION_NAME``), so the session — the issue's
+        persistent surface — is kept across phase transitions.
+        """
+        env = {**os.environ, "ZELLIJ_SESSION_NAME": ref}
+        try:
+            subprocess.run(
+                ["zellij", "action", "close-pane"],
+                check=True, env=env, capture_output=True,
+            )
+            if command:
+                subprocess.run(
+                    ["zellij", "action", "new-pane", "--",
+                     "bash", "-c", command],
+                    check=True, env=env, capture_output=True,
+                )
+        except FileNotFoundError as exc:
+            raise MultiplexerError("binary not found: zellij") from exc
+        except subprocess.CalledProcessError as exc:
+            raise MultiplexerError(
+                f"zellij respawn-pane failed (exit {exc.returncode})"
+            ) from exc
 
 
 def detect_multiplexer() -> Optional[str]:

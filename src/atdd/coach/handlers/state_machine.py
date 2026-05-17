@@ -117,6 +117,11 @@ class CoachContext:
     multiplexer_mode: str = "workspace"
     llm: Optional[str] = None
     persona_llm: dict[str, str] = field(default_factory=dict)
+    # Per-phase LLM/adapter selection (issue #746), keyed by lowercase phase
+    # label ("planned", "red", "green", "smoke", "refactor"). Takes precedence
+    # over persona_llm so the coach can run, e.g., RED and SMOKE (both tester)
+    # on different models.
+    phase_llm: dict[str, str] = field(default_factory=dict)
     judge_llm: Optional[str] = None
     require_issue_review: str = "warn"
     review_phases: set[str] = field(default_factory=set)

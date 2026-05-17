@@ -84,8 +84,20 @@ def _load_persona_prompt(
     return data.get("prompt") or ""
 
 
-def _resolve_llm(ctx: CoachContext, persona: str) -> str:
-    """Resolve the LLM for this persona: persona_llm map → ctx.llm → default."""
+def _resolve_llm(
+    ctx: CoachContext, persona: str, phase: Optional[str] = None
+) -> str:
+    """Resolve the LLM/adapter for this phase transition (#746).
+
+    Precedence: per-phase selection (``ctx.phase_llm``) → per-persona
+    (``ctx.persona_llm``) → ``ctx.llm`` → ``claude-code``. The per-phase tier
+    lets the coach run two phases of the same persona (e.g. tester at RED and
+    SMOKE) on different models.
+    """
+    if phase:
+        phase_choice = ctx.phase_llm.get(phase)
+        if phase_choice:
+            return phase_choice
     return ctx.persona_llm.get(persona) or ctx.llm or "claude-code"
 
 
@@ -319,7 +331,7 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
         )
         return HandlerResult.HANDLED
 
-    llm = _resolve_llm(ctx, persona)
+    llm = _resolve_llm(ctx, persona, phase)
     worktree = _resolve_worktree(ctx)
     base_agent_id = f"{persona}-{ctx.issue_number}-{uuid.uuid4().hex[:8]}"
 

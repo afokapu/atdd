@@ -43,6 +43,7 @@ from typing import Any, Callable, Iterable, Optional
 
 from atdd.coach.utils.session_naming import (
     compute_issue_surface_name,
+    compute_phase_surface_name,
     compute_repo_short_name,
 )
 from atdd.coach.utils.session_naming_apply import (
@@ -544,6 +545,29 @@ def cmd_spawn(
         except Exception:
             _close_surface_on_failure(backend, surface_ref)
             raise
+        # Issue #745: launch the observer headless (detached, no surface),
+        # mirroring handlers/spawn.py::_spawn_observer (#736). Best-effort —
+        # the observer is supplementary; a failure must not fail the spawn.
+        _launch_headless_observer(_observer_agent_id, runtime_root, worktree)
+
+    # Phase-qualified surface name (#746): rename the worker surface to
+    # ATDD<N>·<PHASE>·<persona> on every transition so the operator can see
+    # which phase/agent is live. The pane is still the issue's persistent
+    # surface — only its label changes. Best-effort: a rename failure must
+    # not abort the spawn.
+    if phase and persona:
+        phase_surface_name = compute_phase_surface_name(
+            repo_short, int(issue), phase, persona,
+        )
+        try:
+            backend.rename(surface_ref, phase_surface_name)
+        except (MultiplexerError, OSError, AttributeError) as exc:
+            print(
+                f"⚠️  phase-qualified rename failed for {surface_ref}: {exc} "
+                f"({SPAWN_RULE_ID})",
+                file=sys.stderr,
+            )
+
     # Inject the launch prompt as the first interactive message (#702).
     # Claude Code v2.1.x ignores a positional prompt arg in interactive
     # mode, so the prompt — rendered to <worktree>/.launch_prompt.txt —
