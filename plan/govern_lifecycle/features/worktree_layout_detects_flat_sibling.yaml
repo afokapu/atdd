@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:worktree-layout-detects-flat-sibling"
+wagon: "wagon:govern-lifecycle"
+description: "Teaches the repo-layout detector to recognise a linked worktree of an already flat-sibling layout (main/ primary checkout + flat sibling worktrees) as worktree-ready by resolving the worktree's git-common-dir, so atdd branch and the atdd issue re-enter path stop falsely rejecting correctly-laid-out repos; atdd init --worktree-layout stays an idempotent no-op on such repos."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:R004"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — atdd branch and atdd init --worktree-layout keep their existing flags"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "The branch precondition and init layout branch already exist; they only consume a corrected detector result"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Worktree layout is a derived string classification, not a domain entity"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "detect_worktree_layout in coach/utils/repo.py grows a git-common-dir resolution step (real git plumbing) to classify linked worktrees of a flat-sibling layout"

@@ -1,0 +1,123 @@
+urn: "wmbt:govern-lifecycle:E005"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "init-emitted-atdd-invocations-that-fail-to-parse-under-the-live-cli"
+context_clarifier: "when atdd init writes run: atdd ... lines into .github/workflows/*.yml templates (initializer.py emits atdd baseline update — a subcommand the 3.x top-level argparse never declares — into the baseline-sync job, failing silently on every push to main) and the #473-phase-3 drift-detection self-validate only scans atdd validate ... invocations, so subcommand-level drift on non-validate lines escapes the validator built to catch this exact class of bug (#481, janetbusiness/jel-ledger PR #7/#8 incident)"
+lens: "functional.effectiveness"
+statement: "minimize quantity of init-emitted-atdd-invocations-that-fail-to-parse-under-the-live-cli when atdd init emits workflow templates and the drift-detection self-validate scans them, by retiring the broken atdd baseline update emit from initializer.py and widening the #473-phase-3 drift validator to dispatch every run: atdd ... line through the live top-level argparse under the coach.workflow-template.command-must-parse rule"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E005-UNIT-001-drift-scan-captures-all-atdd-lines"
+      id: "AC-UNIT-001"
+      purpose: "The drift validator's scan helper captures every run: atdd ... line in an init-emitted workflow template, not only the run: atdd validate ... subset that #473 phase 3 scoped to"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic workflow-template string containing run: atdd validate planner, run: atdd auto-phase \"$PR_NUMBER\", and run: atdd baseline update lines"
+        - "extract_atdd_invocations is the pure scan helper under src/atdd/coach/validators/test_workflow_template_command_drift.py"
+    when:
+      abstract: "extract_atdd_invocations(template_string) is called"
+    then:
+      abstract:
+        - "The returned list contains all three invocations, including the non-validate auto-phase and baseline lines"
+        - "Each entry exposes its subcommand token (validate, auto-phase, baseline) and the remaining argument tokens"
+        - "Non-atdd run: lines (e.g. run: pip3 install atdd) are excluded from the result"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E005-UNIT-002-drift-validator-flags-nonexistent-subcommand"
+      id: "AC-UNIT-002"
+      purpose: "The drift validator dispatches each captured invocation through the live atdd top-level argparse and emits a Violation for any subcommand the CLI does not declare — closing the baseline blind spot"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "evaluate_template_command_drift is the pure evaluator under src/atdd/coach/validators/test_workflow_template_command_drift.py"
+        - "A synthetic init-emitted template containing a deliberately-bogus run: atdd nonexistent-command line"
+    when:
+      abstract: "evaluate_template_command_drift([(path, template_string)]) is called"
+    then:
+      abstract:
+        - "Returns exactly one Violation whose rule_id is coach.workflow-template.command-must-parse"
+        - "Violation.detail names the offending invocation (atdd nonexistent-command) and the workflow file path"
+        - "A template whose every run: atdd ... line parses under the live argparse returns []"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E005-INTEGRATION-001-init-emits-only-parseable-atdd-commands"
+      id: "AC-INTEGRATION-001"
+      purpose: "After atdd init --force in a fixture repo, every run: atdd ... line in every emitted .github/workflows/*.yml file parses under the live top-level argparse — in particular no run: atdd baseline update line survives"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A fresh fixture repository with no .github/workflows/ directory"
+        - "initializer.py emits atdd-validate.yml, atdd-validate-infra.yml, and atdd-auto-phase.yml"
+    when:
+      abstract: "atdd init --force is invoked in the fixture repo and the emitted workflow files are scanned for run: atdd ... lines"
+    then:
+      abstract:
+        - "No emitted workflow file contains the literal line run: atdd baseline update"
+        - "Every run: atdd ... line emitted resolves to a subcommand present in the live CLI top-level argparse choices"
+        - "The baseline-sync job either contains no atdd invocation or has been removed from the atdd-validate.yml template"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E005-INTEGRATION-002-drift-validator-fires-in-validate-coach"
+      id: "AC-INTEGRATION-002"
+      purpose: "The widened drift validator runs inside atdd validate coach and fails the coach suite when an init-emitted template carries a subcommand-level drift the #473-phase-3 validate-only scope would have missed"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixture repo whose .github/workflows/atdd-validate.yml contains a run: atdd baseline update line"
+        - "The extended drift validator is registered under src/atdd/coach/validators/"
+    when:
+      abstract: "atdd validate coach --local --skip-api is invoked against the fixture repo"
+    then:
+      abstract:
+        - "The coach validation exits non-zero"
+        - "The failure message identifies the atdd baseline update invocation and the atdd-validate.yml path"
+        - "The same fixture with the baseline-sync drift removed passes the coach suite"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E005-SMOKE-001-real-validate-coach-runs-extended-drift-validator"
+      id: "AC-SMOKE-001"
+      purpose: "Running the real atdd validate coach suite on this repo executes the extended drift validator (not skipped) against the actual initializer.py-emitted templates and reports a verdict — eat-own-dog-food proof the coverage extension is live"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "test_workflow_template_command_drift.py is registered under src/atdd/coach/validators/"
+        - "coach.workflow-template.command-must-parse is declared in the coach convention registry"
+    when:
+      abstract: "atdd validate coach --local --skip-api is invoked from this repo root"
+    then:
+      abstract:
+        - "pytest collects test_workflow_template_command_drift.py and the drift test runs (not skipped)"
+        - "The validator scans every run: atdd ... line — validate and non-validate alike — emitted by the real initializer.py templates"
+        - "The verdict is reported against the live CLI argparse, and any offender carries the offending invocation and workflow path"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-16"

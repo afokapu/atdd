@@ -147,8 +147,12 @@ class MultiplexerBackend(ABC):
         """List all known workspace references."""
 
     @abstractmethod
-    def close(self, ref: MultiplexerRef) -> None:
-        """Close/kill the workspace or surface."""
+    def close(self, ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None) -> None:
+        """Close/kill the workspace or surface.
+
+        ``workspace`` scopes a surface ref to its workspace — cmux resolves
+        short ``surface:`` refs against the selected workspace only (#655).
+        """
 
     def new_persona_surface(
         self,
@@ -218,6 +222,27 @@ def _is_surface_ref(ref: str) -> bool:
     return ref.startswith("surface:")
 
 
+def _ws_flag(workspace: Optional[str]) -> list[str]:
+    """`["--workspace", <ref>]` when a workspace is known, else `[]`.
+
+    cmux resolves short ``surface:``/``pane:`` refs against the *selected*
+    workspace only, so every ref-bearing cmux call must carry --workspace
+    to resolve reliably (#655). Splat into an argv: ``[..., *_ws_flag(ws)]``.
+    """
+    return ["--workspace", workspace] if workspace else []
+
+
+def _target_args(ref: str, workspace: Optional[str] = None) -> list[str]:
+    """cmux argv fragment targeting ``ref``.
+
+    A ``surface:`` ref needs ``--surface`` plus ``--workspace`` to resolve
+    (#655); a ``workspace:`` ref is itself the ``--workspace`` value.
+    """
+    if _is_surface_ref(ref):
+        return ["--surface", ref, *_ws_flag(workspace)]
+    return ["--workspace", ref]
+
+
 def _extract_ref_token(stdout: str, prefix: str) -> str:
     """Extract the first ``<prefix>:<N>`` token from a cmux OK-line.
 
@@ -274,38 +299,38 @@ class CmuxBackend(MultiplexerBackend):
         # reuse its auto-default surface (rename + seed) instead of adding
         # another. When given an existing pane_ref, add a tab as before.
         creating_new_pane = pane_ref is None
+        # Workspace that owns the created surface. EVERY ref-bearing cmux call
+        # must be scoped to it: cmux resolves short `surface:`/`pane:` refs
+        # against the *selected* workspace only, so an unscoped call silently
+        # hits the wrong surface or fails outright (#655 SMOKE).
+        resolved_workspace = workspace_ref
+
         if creating_new_pane:
-            new_pane_cmd = ["cmux", "new-pane"]
-            if workspace_ref:
-                new_pane_cmd.extend(["--workspace", workspace_ref])
+            new_pane_cmd = ["cmux", "new-pane", *_ws_flag(workspace_ref)]
             if direction:
                 # Issue #470: right-anchored grid layout. cmux new-pane accepts
                 # --direction {right,left,up,down}; default behavior is preserved
                 # when callers don't pass it.
                 new_pane_cmd.extend(["--direction", direction])
-            pane_result = _run(new_pane_cmd)
-            pane_ref = _extract_ref_token(pane_result.stdout or "", "pane")
-            if not pane_ref:
+            pane_stdout = _run(new_pane_cmd).stdout or ""
+            # `cmux new-pane` echoes `OK surface:N pane:M workspace:K` — every
+            # ref we need is already here. Reuse that default surface directly
+            # instead of a `cmux list-pane-surfaces --pane` round-trip: that
+            # call needs --workspace, and when it failed it stranded the
+            # just-created pane outside the transactional guard (#655 bug 4).
+            pane_ref = _extract_ref_token(pane_stdout, "pane")
+            surface_ref = _extract_ref_token(pane_stdout, "surface")
+            if not resolved_workspace:
+                resolved_workspace = _extract_ref_token(pane_stdout, "workspace") or None
+            if not pane_ref or not surface_ref:
                 raise MultiplexerError(
-                    f"cmux new-pane returned no pane ref: {(pane_result.stdout or '').strip()!r}"
-                )
-            # Reuse the auto-default surface that `cmux new-pane` creates.
-            surfaces_result = _run(["cmux", "list-pane-surfaces", "--pane", pane_ref])
-            surface_ref = _extract_ref_token(surfaces_result.stdout or "", "surface")
-            if not surface_ref:
-                raise MultiplexerError(
-                    f"cmux new-pane: no default surface found in {pane_ref}: "
-                    f"{(surfaces_result.stdout or '').strip()!r}"
-                )
-            if name:
-                # Rename the default surface to the desired name.
-                _run(
-                    ["cmux", "rename-tab", "--surface", surface_ref, name],
-                    capture=False,
+                    f"cmux new-pane returned an incomplete ref set "
+                    f"(need surface + pane): {pane_stdout.strip()!r}"
                 )
         else:
             # Existing pane: add a new surface as a tab.
-            new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
+            new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref,
+                               *_ws_flag(workspace_ref)]
             if name:
                 new_surface_cmd.extend(["--name", name])
             surface_result = _run(new_surface_cmd)
@@ -315,17 +340,32 @@ class CmuxBackend(MultiplexerBackend):
                     f"cmux new-surface returned no surface ref: {(surface_result.stdout or '').strip()!r}"
                 )
 
-        if cwd or command:
-            seed_parts = []
-            if cwd:
-                seed_parts.append(f"cd {cwd}")
-            if command:
-                seed_parts.append(command)
-            seed_text = " && ".join(seed_parts) + "\n"
-            _run(
-                ["cmux", "send", "--surface", surface_ref, seed_text],
-                capture=False,
-            )
+        # Transactional spawn (#655): the pane/surface now exists. ANY later
+        # step that fails must close it so the failed attempt leaves no orphan
+        # pane — every ref-bearing call below is scoped with --workspace.
+        try:
+            if creating_new_pane and name:
+                # Rename the default surface to the desired name.
+                _run(
+                    ["cmux", "rename-tab", "--surface", surface_ref,
+                     *_ws_flag(resolved_workspace), name],
+                    capture=False,
+                )
+            if cwd or command:
+                seed_parts = []
+                if cwd:
+                    seed_parts.append(f"cd {cwd}")
+                if command:
+                    seed_parts.append(command)
+                seed_text = " && ".join(seed_parts) + "\n"
+                _run(
+                    ["cmux", "send", "--surface", surface_ref,
+                     *_ws_flag(resolved_workspace), seed_text],
+                    capture=False,
+                )
+        except Exception:
+            self._close_quietly(surface_ref, workspace=resolved_workspace)
+            raise
 
         return surface_ref
 
@@ -335,8 +375,10 @@ class CmuxBackend(MultiplexerBackend):
         cwd: Optional[str] = None,
         command: Optional[str] = None,
         name: Optional[str] = None,
+        workspace: Optional[MultiplexerRef] = None,
     ) -> MultiplexerRef:
-        new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref]
+        new_surface_cmd = ["cmux", "new-surface", "--pane", pane_ref,
+                           *_ws_flag(workspace)]
         if name:
             new_surface_cmd.extend(["--name", name])
         surface_result = _run(new_surface_cmd)
@@ -353,26 +395,32 @@ class CmuxBackend(MultiplexerBackend):
                 seed_parts.append(command)
             seed_text = " && ".join(seed_parts) + "\n"
             _run(
-                ["cmux", "send", "--surface", surface_ref, seed_text],
+                ["cmux", "send", "--surface", surface_ref,
+                 *_ws_flag(workspace), seed_text],
                 capture=False,
             )
         return surface_ref
 
-    def surface_to_pane(self, surface_ref: MultiplexerRef) -> MultiplexerRef:
+    def surface_to_pane(
+        self, surface_ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None
+    ) -> MultiplexerRef:
         # Iterate `cmux list-panes` and find the pane whose `list-pane-surfaces`
         # output contains the target surface. O(N) for N panes — fine for
         # typical workspace sizes (<10).
+        #
+        # Both calls are scoped with --workspace: cmux resolves short `pane:`
+        # refs against the *selected* workspace only (#655).
         #
         # Why not `cmux describe-surface`? It doesn't exist.
         # Why not `cmux rpc surface.read_text '{"surface":"..."}'`? Upstream cmux
         # bug: the rpc ignores the surface param and returns whatever surface is
         # focused in the operator's view (verified 2026-05-15).
-        panes_result = _run(["cmux", "list-panes"])
+        panes_result = _run(["cmux", "list-panes", *_ws_flag(workspace)])
         pane_pattern = re.compile(r"\bpane:(\d+)\b")
         for match in pane_pattern.finditer(panes_result.stdout or ""):
             pane_ref = f"pane:{match.group(1)}"
             surfaces_result = _run(
-                ["cmux", "list-pane-surfaces", "--pane", pane_ref]
+                ["cmux", "list-pane-surfaces", "--pane", pane_ref, *_ws_flag(workspace)]
             )
             if surface_ref in (surfaces_result.stdout or ""):
                 return pane_ref
@@ -380,49 +428,38 @@ class CmuxBackend(MultiplexerBackend):
             f"surface_to_pane: could not find pane containing {surface_ref}"
         )
 
-    def read_screen(self, ref: MultiplexerRef, lines: int = 50) -> str:
-        if _is_surface_ref(ref):
-            result = _run([
-                "cmux", "read-screen",
-                "--surface", ref,
-                "--lines", str(lines),
-            ])
-            return result.stdout or ""
-        result = _run([
-            "cmux", "read-screen",
-            "--workspace", ref,
-            "--lines", str(lines),
-        ])
-        return result.stdout or ""
+    def read_screen(
+        self,
+        ref: MultiplexerRef,
+        lines: int = 50,
+        workspace: Optional[MultiplexerRef] = None,
+    ) -> str:
+        cmd = ["cmux", "read-screen", *_target_args(ref, workspace),
+               "--lines", str(lines)]
+        return _run(cmd).stdout or ""
 
-    def send(self, ref: MultiplexerRef, text: str) -> None:
-        if _is_surface_ref(ref):
-            _run(
-                ["cmux", "send", "--surface", ref, text],
-                capture=False,
-            )
-            return
-        _run(["cmux", "send", "--workspace", ref, text], capture=False)
+    def send(
+        self, ref: MultiplexerRef, text: str, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
+        _run(["cmux", "send", *_target_args(ref, workspace), text], capture=False)
 
-    def send_key(self, ref: MultiplexerRef, key: str) -> None:
+    def send_key(
+        self, ref: MultiplexerRef, key: str, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
         # `cmux rpc surface.send_key` takes JSON params, not CLI flags. Use the
         # regular `cmux send-key --surface <ref> <key>` CLI for both ref kinds
         # (verified at runtime 2026-05-15).
-        if _is_surface_ref(ref):
-            _run(["cmux", "send-key", "--surface", ref, key], capture=False)
-            return
-        _run(["cmux", "send-key", "--workspace", ref, key], capture=False)
+        _run(["cmux", "send-key", *_target_args(ref, workspace), key], capture=False)
 
-    def paste_text(self, ref: MultiplexerRef, text: str) -> None:
+    def paste_text(
+        self, ref: MultiplexerRef, text: str, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
         # Stage the text in the cmux buffer, then bracketed-paste it into the
         # surface so multi-line content lands as one input block (newlines
         # stay literal, no premature submit). Verified end-to-end 2026-05-15
         # against Claude Code v2.1.142.
         _run(["cmux", "set-buffer", text], capture=False)
-        if _is_surface_ref(ref):
-            _run(["cmux", "paste-buffer", "--surface", ref], capture=False)
-            return
-        _run(["cmux", "paste-buffer", "--workspace", ref], capture=False)
+        _run(["cmux", "paste-buffer", *_target_args(ref, workspace)], capture=False)
 
     def list_workspaces(self) -> list[str]:
         result = _run(["cmux", "list-workspaces"])
@@ -442,25 +479,50 @@ class CmuxBackend(MultiplexerBackend):
             cmd.extend(["--command", command])
         _run(cmd, capture=False)
 
-    def close(self, ref: MultiplexerRef) -> None:
+    def close(self, ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None) -> None:
         if _is_surface_ref(ref):
-            _run(["cmux", "close-surface", "--surface", ref], capture=False)
+            # cmux resolves a short `surface:` ref against the *selected*
+            # workspace only — pass --workspace so the ref resolves no matter
+            # which workspace is focused (#655).
+            _run(
+                ["cmux", "close-surface", "--surface", ref, *_ws_flag(workspace)],
+                capture=False,
+            )
             return
         _run(["cmux", "close-workspace", "--workspace", ref], capture=False)
 
-    def rename(self, ref: MultiplexerRef, name: str) -> None:
+    def _close_quietly(
+        self, ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
+        """Close a half-created surface during spawn-failure cleanup (#655).
+
+        Never raises: orphan-pane cleanup must not mask the original spawn
+        error that triggered it.
+        """
+        try:
+            self.close(ref, workspace=workspace)
+        except MultiplexerError as exc:
+            print(
+                f"⚠️  orphan-pane cleanup could not close {ref}: {exc}",
+                file=sys.stderr,
+            )
+
+    def rename(
+        self, ref: MultiplexerRef, name: str, workspace: Optional[MultiplexerRef] = None
+    ) -> None:
         """Rename a cmux surface/workspace tab title (issue #470).
 
         Best-effort: failures degrade silently so a missing/renamed cmux
         rename verb does not crash orchestrate. Babysit will retry on
-        the next tick.
+        the next tick. ``workspace`` scopes a surface ref (#655).
         """
         if not name:
             return
         try:
             if _is_surface_ref(ref):
                 _run(
-                    ["cmux", "rename-tab", "--surface", ref, name],
+                    ["cmux", "rename-tab", "--surface", ref,
+                     *_ws_flag(workspace), name],
                     capture=False,
                 )
             else:

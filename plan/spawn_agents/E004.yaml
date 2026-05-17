@@ -1,0 +1,121 @@
+urn: "wmbt:spawn-agents:E004"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "raw-cmux-claude-launches-bypassing-atdd-spawn"
+context_clarifier: "when an operator or agent dispatches a Claude Code launch by hand-typing raw cmux send <surface> \"claude ...\" instead of routing through atdd spawn — so the pane's existing shell cwd (typically the workspace root, NOT the issue worktree) silently binds the session — the atdd-cmux-send shim runs a pre-send classifier that flags launch-intent claude payloads (^claude , claude\\n, claude --) without false-positiving on incidental mentions (claude.json, claude_code, prose about Claude), exits non-zero with an educational error naming atdd spawn --worktree, passes non-launch payloads through to real cmux send unchanged, and honors a --i-know-what-im-doing escape flag for test scaffolding; the atdd spawn --from-prompt-file convenience variant shrinks the ergonomic gap so the cwd-correct path is the reflex"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of raw-cmux-claude-launches-bypassing-atdd-spawn when an operator or agent would otherwise hand-type cmux send \"claude ...\" — the atdd-cmux-send shim classifies launch-intent payloads, rejects them with an educational exit-2 error pointing at atdd spawn, passes safe payloads through to real cmux send, and the atdd spawn --from-prompt-file convenience flag shrinks the ergonomic gap so the cwd-correct path is the reflex"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E004-UNIT-001-launch-intent-payload-rejected"
+      id: "AC-UNIT-001"
+      purpose: "The atdd-cmux-send shim's pre-send classifier flags a launch-intent claude payload and exits non-zero with an educational error pointing at atdd spawn"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/wrappers/atdd_cmux_send.py exists and exposes the pre-send classifier"
+        - "A curated test corpus of at least 10 true-positive launch-intent payloads is supplied (e.g. 'claude ', a payload starting 'claude\\n', 'claude --permission-mode acceptEdits', 'claude --dangerously-skip-permissions \"$(cat p.md)\"')"
+        - "The real cmux send binary is replaced by a fake that records whether it was invoked"
+    when:
+      abstract: "atdd-cmux-send <surface> <payload> is invoked once per true-positive payload against the fake backend"
+    then:
+      abstract:
+        - "Every true-positive payload is classified as launch-intent (>=10/10 flagged)"
+        - "The shim exits with code 2 for each rejected payload"
+        - "stderr contains an educational message referencing 'atdd spawn --worktree' with a copy-pasteable command"
+        - "The fake cmux send is never invoked for a rejected payload (rejection happens pre-send)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:spawn-agents:E004-UNIT-002-non-launch-payload-passthrough"
+      id: "AC-UNIT-002"
+      purpose: "Non-launch payloads — including incidental 'claude' mentions — pass the classifier and are forwarded to real cmux send unchanged"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A curated test corpus of at least 10 true-negative non-launch payloads is supplied (e.g. 'ls -la', 'cat claude.json', 'grep claude_code src/', 'echo \"ask Claude about it\"', 'git commit -m \"mention claude\"')"
+        - "The real cmux send binary is replaced by a fake that records the forwarded argv"
+    when:
+      abstract: "atdd-cmux-send <surface> <payload> is invoked once per true-negative payload against the fake backend"
+    then:
+      abstract:
+        - "Every true-negative payload is classified as safe (0/10 false positives)"
+        - "The shim exits 0 for each safe payload"
+        - "The fake cmux send receives the surface and the payload argv forwarded unchanged"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:spawn-agents:E004-UNIT-003-escape-flag-bypasses-classifier"
+      id: "AC-UNIT-003"
+      purpose: "The --i-know-what-im-doing escape flag bypasses the classifier so test scaffolding can exercise the otherwise-rejected path"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A launch-intent payload that the classifier would otherwise reject"
+        - "The fake cmux send records whether it was invoked and with what argv"
+    when:
+      abstract: "atdd-cmux-send --i-know-what-im-doing <surface> \"claude --permission-mode acceptEdits\" is invoked"
+    then:
+      abstract:
+        - "The shim exits 0 despite the launch-intent payload"
+        - "The fake cmux send is invoked with the payload forwarded unchanged"
+        - "No educational rejection error is printed to stderr"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:spawn-agents:E004-UNIT-004-from-prompt-file-derives-defaults"
+      id: "AC-UNIT-004"
+      purpose: "atdd spawn --from-prompt-file derives --persona/--llm/--agent-id/--runtime from wagon-manifest defaults so the cwd-correct path needs only 3 flags"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py registers a --from-prompt-file <path> flag"
+        - "A fake multiplexer backend records the cwd of the launched surface"
+        - "A wagon manifest supplying persona/llm/agent-id/runtime defaults is in scope"
+    when:
+      abstract: "atdd spawn --from-prompt-file /tmp/p.md --worktree <wt> --issue 999 is invoked with no other flags"
+    then:
+      abstract:
+        - "The command parses and launches without requiring --persona, --llm, --agent-id, or --runtime"
+        - "The four omitted flags are derived from wagon-manifest defaults plus per-issue conventions"
+        - "The launched surface's cwd equals <wt>, so the cwd-correct guarantee of atdd spawn is preserved"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
+  - identity:
+      urn: "acc:spawn-agents:E004-SMOKE-001-shim-console-script-real-exit-codes"
+      id: "AC-SMOKE-001"
+      purpose: "The installed atdd-cmux-send console script rejects a real claude launch with exit 2 and forwards a real non-launch payload with exit 0 against real cmux"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd-cmux-send is registered as a console script in pyproject.toml and installed on PATH"
+        - "A real cmux surface is available to receive forwarded payloads"
+    when:
+      abstract: "atdd-cmux-send <surface> \"claude --permission-mode acceptEdits\" and atdd-cmux-send <surface> \"ls\" are run as real processes"
+    then:
+      abstract:
+        - "The claude-launch invocation exits 2 with the educational error printed to stderr"
+        - "The 'ls' invocation exits 0 and the text reaches the real cmux pane unchanged"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-16"
