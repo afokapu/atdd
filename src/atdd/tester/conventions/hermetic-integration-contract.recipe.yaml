@@ -1,0 +1,75 @@
+recipe: hermetic-integration-contract
+pattern: "Declare the hermetic fidelity contract for a fake-backed hermetic acceptance"
+category: planner
+source: "Issue #690 — Hermetic Integration Execution Kind With Fidelity Declaration"
+
+applies_when:
+  - "tester.acceptance-violation.hermetic-fake-must-declare-contract fires"
+  - "An acceptance declares execution_kind: hermetic_integration with a non-empty hermetic.permitted_fakes list"
+  - "An exercised_boundaries value is outside the controlled boundary_kinds vocabulary"
+
+explain: |
+  `execution_kind: hermetic_integration` exercises the real subject, real
+  boundary shape, and real integration sequence WITHOUT touching live external
+  infrastructure. When such an acceptance substitutes any fake (cassette,
+  recorded LLM response, in-memory backend), the `hermetic:` block IS the
+  contract: it states honestly what the fake proves and what it does NOT.
+
+  `phase:` (RED/GREEN/SMOKE/REFACTOR) is the lifecycle gate at which this
+  acceptance must pass; it is orthogonal to `execution_kind`, which describes
+  the runtime environment. A `hermetic_integration` acceptance may carry any
+  `phase:` value — including SMOKE — and still never touches live infrastructure.
+
+steps:
+  - step: 1
+    what: "Add execution_kind: hermetic_integration to the acceptance"
+    where: "plan/<wagon>/<WMBT>.yaml"
+    explain: |
+      execution_kind is orthogonal to harness.type / harness.code / harness.category.
+      Keep selecting those as today and ADD execution_kind for the runtime classifier.
+
+  - step: 2
+    what: "Declare the hermetic: block"
+    where: "plan/<wagon>/<WMBT>.yaml — under the failing acceptance"
+    template: |
+      execution_kind: hermetic_integration
+      hermetic:
+        exercised_boundaries: [http_wire]          # controlled vocabulary only
+        permitted_fakes: [cassette_http]
+        fake_contract_fidelity:
+          - name: "cassette_http"
+            fidelity: "Recorded method/path/headers/status/body."
+            known_gaps:
+              - "Does not prove current auth."
+              - "Does not prove provider drift since recording."
+        live_smoke_required: true
+        live_smoke_reason: "Current auth and provider drift require live verification."
+    explain: |
+      Required fields when permitted_fakes is non-empty:
+        - exercised_boundaries  — one or more boundary_kinds
+        - fake_contract_fidelity — one entry per fake, each with required known_gaps
+        - live_smoke_required   — bool
+      `fidelity` is free-text (per-fake nuance); `known_gaps` is free-text but required.
+
+  - step: 3
+    what: "Use only controlled boundary_kinds vocabulary"
+    explain: |
+      Valid boundary_kinds (see acceptance.convention.yaml::boundary_kinds):
+        argv, subprocess, filesystem, git, http_wire, llm_wire,
+        cmux_rpc, env_config, db_wire, event_wire
+      Unknown values rot into incompatible aliases and are rejected.
+
+  - step: 4
+    what: "Re-run the conformance suite"
+    verify:
+      - run: "atdd validate tester --local --skip-api"
+        expect: "the rule no longer fires for this acceptance"
+
+requirements:
+  - "The rule fires ONLY when execution_kind == hermetic_integration AND permitted_fakes is non-empty."
+  - "A hermetic acceptance with permitted_fakes: [] (real subprocess/tmp_path/local_git, no substitute backend) is exempt."
+  - "Existing acceptances without execution_kind are never retroactively flagged (Decision #11)."
+  - "If live_smoke_required is true, see recipe: hermetic-live-smoke-pairing."
+
+final_verify:
+  - "atdd validate tester emits zero tester.acceptance-violation.hermetic-fake-must-declare-contract findings"

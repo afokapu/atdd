@@ -1,0 +1,60 @@
+recipe: hermetic-live-smoke-pairing
+pattern: "Pair a live_smoke_required hermetic acceptance with a sibling live_smoke acceptance"
+category: planner
+source: "Issue #690 — Hermetic Integration Execution Kind With Fidelity Declaration"
+
+applies_when:
+  - "tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance fires"
+  - "A hermetic acceptance declares hermetic.live_smoke_required: true but no sibling execution_kind: live_smoke acceptance exists under the same parent WMBT"
+
+explain: |
+  A fake-backed hermetic acceptance (cassette HTTP, recorded LLM, fake backend)
+  proves the request/response SHAPE and integration sequence — but it cannot
+  prove current auth, rate limits, or provider drift. When the acceptance
+  author declares `hermetic.live_smoke_required: true`, the substrate forces a
+  paired live canary so the live-infrastructure confidence is not silently lost.
+
+  Pairing scope is the parent WMBT only (Decision #5): the live_smoke sibling
+  must live in the SAME WMBT yaml file, not merely the same train.
+
+steps:
+  - step: 1
+    what: "Confirm live_smoke_required is genuinely needed"
+    explain: |
+      live_smoke_required: true is appropriate when the fake cannot prove
+      deployment / auth / config / provider drift. If live verification is NOT
+      needed (purely local boundaries — argv/subprocess/filesystem/local git),
+      set live_smoke_required: false and the rule no longer applies.
+
+  - step: 2
+    what: "Author a sibling live_smoke acceptance under the same WMBT"
+    where: "plan/<wagon>/<WMBT>.yaml — same file as the hermetic acceptance"
+    template: |
+      acceptances:
+        # ... the hermetic acceptance with live_smoke_required: true ...
+        - identity:
+            urn: "acc:<wagon>:<WMBT>-E2E-<NNN>-<slug>-live-smoke"
+            phase: "SMOKE"
+            purpose: "A minimal live canary verifies current auth/provider behavior"
+          harness:
+            type: e2e
+            code: E2E
+            category: backend
+          execution_kind: live_smoke
+    explain: |
+      The live_smoke sibling exercises real infrastructure. It is intentionally
+      minimal — a canary, not a full re-test of the hermetic acceptance's surface.
+
+  - step: 3
+    what: "Re-run the conformance suite"
+    verify:
+      - run: "atdd validate tester --local --skip-api"
+        expect: "the rule no longer fires for this WMBT"
+
+requirements:
+  - "The paired live_smoke acceptance MUST be under the same parent WMBT (not just the same train)."
+  - "The rule never fires when live_smoke_required is false or absent."
+  - "SMOKE remains live-infrastructure verification — do not relax smoke.convention.yaml."
+
+final_verify:
+  - "atdd validate tester emits zero tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance findings"

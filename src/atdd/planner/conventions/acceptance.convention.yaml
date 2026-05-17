@@ -122,6 +122,44 @@ harness_codes:
   realtime: REALTIME
   storage: STORAGE
 
+# -----------------------------------------------------------------------------
+# execution_kind — orthogonal runtime-environment classifier (issue #690)
+# -----------------------------------------------------------------------------
+# `execution_kind` is a NEW orthogonal axis; the existing `harness_codes`,
+# `harness_types`, and `category` enums are unchanged. Authors continue
+# selecting those as today and ADD `execution_kind` for the runtime-environment
+# classifier (live infrastructure vs hermetic).
+execution_kinds:
+  hermetic_integration: "Real subject, real boundary shape, real integration sequence — NO live external infrastructure. Fakes (cassettes, recorded LLM responses) are permitted only with a declared fidelity contract."
+  live_smoke: "Verification against real live infrastructure (HTTP, DB, auth, deployment). SMOKE remains the live-infrastructure confidence tier."
+
+# Controlled vocabulary of named integration surfaces an acceptance exercises.
+# Unknown values are rejected by
+# tester.acceptance-violation.hermetic-fake-must-declare-contract.
+# Note: `golden` is a harness_code, NOT a boundary_kind (Decision #7).
+boundary_kinds:
+  argv: "Command-line argument vector passed to a process."
+  subprocess: "A child process spawned and observed."
+  filesystem: "Files and directories read or written."
+  git: "A local git repository's objects, refs, and config."
+  http_wire: "HTTP request/response envelopes (recorded via cassette when hermetic)."
+  llm_wire: "LLM prompt/response envelopes (recorded or deterministic when hermetic)."
+  cmux_rpc: "cmux RPC request/response messages."
+  env_config: "Environment variables and configuration inputs."
+  db_wire: "Database query/response envelopes."
+  event_wire: "Event-bus publish/consume envelopes."
+
+# Required metadata block when `execution_kind: hermetic_integration` AND
+# `permitted_fakes:` is non-empty. The declaration IS the contract.
+hermetic:
+  required_when: "execution_kind == hermetic_integration AND permitted_fakes is non-empty"
+  fields:
+    exercised_boundaries: "list[boundary_kind] — controlled-vocabulary surfaces this acceptance exercises (required)."
+    permitted_fakes: "list[str] — named fakes/cassettes substituted for live infrastructure (may be empty; when empty the fidelity rule does not apply)."
+    fake_contract_fidelity: "list of { name, fidelity (free-text), known_gaps (list[str], required) } — one entry per permitted fake (required when permitted_fakes is non-empty)."
+    live_smoke_required: "bool — true when a paired execution_kind: live_smoke sibling acceptance must exist under the same WMBT (required)."
+    live_smoke_reason: "str — optional rationale when live_smoke_required is true."
+
 generators:
   id:
     prompt: "Compose the acceptance id with the step code and a zero-padded index (AC-{STEP}-{NNN})."

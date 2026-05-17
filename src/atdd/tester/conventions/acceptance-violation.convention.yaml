@@ -86,3 +86,35 @@ rules:
       and rely on harness mode. The module must export compute(repo_root: Path) -> int|float|bool and
       passes(value, threshold) -> bool (default `value <= threshold` for upper-bound metrics).
     recipe: metric-implementation
+
+  - id: tester.acceptance-violation.hermetic-fake-must-declare-contract
+    severity: 4
+    disposition: strict
+    validator: "test_hermetic_integration_contract::test_no_undeclared_hermetic_fakes"
+    description: "A hermetic_integration acceptance with a non-empty permitted_fakes list must declare its hermetic fidelity contract (exercised_boundaries, fake_contract_fidelity with known_gaps, live_smoke_required) using only controlled boundary_kinds vocabulary"
+    fix_hint: |
+      The acceptance declares execution_kind: hermetic_integration with a non-empty
+      hermetic.permitted_fakes list. Under the acceptance's hermetic: block, declare:
+        exercised_boundaries: [<boundary_kind>, ...]   # controlled vocabulary only
+        fake_contract_fidelity:
+          - name: "<fake-name>"
+            fidelity: "<what the fake faithfully reproduces>"
+            known_gaps: ["<what it does NOT prove>", ...]   # required, non-empty
+        live_smoke_required: <true|false>
+      Every exercised_boundaries value must be one of the boundary_kinds declared in
+      acceptance.convention.yaml. The declaration IS the contract — it cannot be suppressed.
+    recipe: hermetic-integration-contract
+
+  - id: tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance
+    severity: 4
+    disposition: strict
+    validator: "test_hermetic_live_smoke_pairing::test_hermetic_live_smoke_required_is_paired"
+    description: "A hermetic_integration acceptance declaring live_smoke_required: true must have a sibling execution_kind: live_smoke acceptance under the same parent WMBT"
+    fix_hint: |
+      The hermetic acceptance declares hermetic.live_smoke_required: true but its parent
+      WMBT has no sibling acceptance with execution_kind: live_smoke. Either:
+        - Author a paired live_smoke acceptance (a minimal live canary) under the SAME WMBT, or
+        - Set live_smoke_required: false if live verification is genuinely not needed.
+      Pairing scope is the parent WMBT only (Decision #5) — a live_smoke acceptance under a
+      different WMBT does not satisfy the rule.
+    recipe: hermetic-live-smoke-pairing
