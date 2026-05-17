@@ -254,25 +254,19 @@ def _persona_materialised(
 ) -> bool:
     """True when the spawn actually put the persona on disk.
 
-    A complete ``cmd_spawn`` writes ``manifest.json`` into
-    ``<runtime_root>/agents/<persona>-<issue>-<suffix>/``. A truthy
-    ``cmd_spawn`` return whose persona left no such dir is an incomplete
-    spawn (#733): ``_spawn_with_retries`` treats only a raised exception as
-    failure, so without this check an empty spawn slips through to HANDLED
-    and the coach stalls forever on a done.json no persona exists to write.
+    A truthy ``cmd_spawn`` return whose persona left no agent runtime dir is
+    an incomplete spawn (#733): ``_spawn_with_retries`` treats only a raised
+    exception as failure, so without this check an empty spawn slips through
+    to HANDLED and the coach stalls forever on a done.json no persona exists
+    to write.
+
+    Delegates to ``commands.spawn.persona_materialised`` — the module that
+    owns the agent runtime-dir layout cmd_spawn writes — so this reader and
+    that writer can never drift apart.
     """
-    agents_dir = runtime_root / "agents"
-    if not agents_dir.is_dir():
-        return False
-    prefix = f"{persona}-{issue}-"
-    for entry in agents_dir.iterdir():
-        if not entry.is_dir():
-            continue
-        if not entry.name.startswith(prefix) or entry.name.endswith("-observer"):
-            continue
-        if (entry / "manifest.json").is_file():
-            return True
-    return False
+    from atdd.coach.commands.spawn import persona_materialised
+
+    return persona_materialised(runtime_root, persona, issue)
 
 
 def _escalate(ctx: CoachContext, reason: str) -> None:
