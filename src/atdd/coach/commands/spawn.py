@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sys
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
@@ -96,6 +97,21 @@ ADAPTER_REGISTRY: dict[str, Callable[[Path], str]] = {
 }
 
 
+def _inject_agent_env(command: str, agent_id: str) -> str:
+    """Prefix ``ATDD_AGENT_ID=<agent_id>`` onto a persona launch command
+    (#731 Phase 1).
+
+    Adapter-agnostic by construction: it wraps whatever command string the
+    per-LLM adapter produced, so the env var reaches the spawned process
+    regardless of which adapter is in use. ``agent_id`` is shell-quoted
+    defensively even though the canonical ``<persona>-<issue>-<suffix>``
+    shape never needs it.
+    """
+    if not agent_id:
+        return command
+    return f"ATDD_AGENT_ID={shlex.quote(agent_id)} {command}"
+
+
 # ---------------------------------------------------------------------------
 # Multiplexer resolution (split out so tests can inject a fake)
 # ---------------------------------------------------------------------------
@@ -131,6 +147,20 @@ def _write_manifest(
 # ---------------------------------------------------------------------------
 
 
+def _render_agent_identity_block(agent_id: str) -> str:
+    """Belt-and-braces (#731): state the agent's own ``agent_id`` in the
+    launch prompt so a persona can fall back to ``--agent-id`` if the
+    ``ATDD_AGENT_ID`` env var is ever missing."""
+    return (
+        "## Agent Identity\n\n"
+        f"Your ATDD agent id is `{agent_id}`. The coach exports it as the "
+        "`ATDD_AGENT_ID` environment variable in this session, so every "
+        "`atdd agent <subcommand>` (`done`, `heartbeat`, `event`, `ask`, "
+        "`escalate`, …) resolves it automatically. If `ATDD_AGENT_ID` is "
+        f"ever unset, pass `--agent-id {agent_id}` explicitly."
+    )
+
+
 def _render_launch_prompt(
     issue: int,
     worktree: Path,
@@ -138,6 +168,7 @@ def _render_launch_prompt(
     phase: Optional[str] = None,
     rules: Optional[Iterable[Any]] = None,
     persona: str = "",
+    agent_id: str = "",
 ) -> Path:
     """Wrap ``session_template`` to render the launch prompt and write
     it to ``<worktree>/.launch_prompt.txt``. Returns the prompt path."""
@@ -162,6 +193,12 @@ def _render_launch_prompt(
 
     if rules is not None and phase is not None:
         rendered = _append_spawn_rule_blocks(rendered, rules=rules, coach_phase=phase, persona=persona)
+
+    # #731 Phase 1 (belt-and-braces): state the agent's own agent_id so the
+    # persona can fall back to --agent-id if ATDD_AGENT_ID is ever missing.
+    if agent_id:
+        rendered = rendered.rstrip() + "\n\n" + _render_agent_identity_block(agent_id) + "\n"
+
     prompt_path = worktree / ".launch_prompt.txt"
     prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(rendered)
@@ -343,7 +380,9 @@ def cmd_spawn(
     worktree = Path(worktree)
     runtime_root = Path(runtime_root)
 
-    prompt_path = _render_launch_prompt(issue, worktree, phase=phase, rules=rules, persona=persona)
+    prompt_path = _render_launch_prompt(
+        issue, worktree, phase=phase, rules=rules, persona=persona, agent_id=agent_id,
+    )
 
     # Reviewer persona: layer the no-write adapter over the base prompt
     if persona == "reviewer":
@@ -367,6 +406,14 @@ def cmd_spawn(
 
     adapter = ADAPTER_REGISTRY[llm]
     command = adapter(prompt_path)
+
+    # #731 Phase 1: export the canonical ATDD_AGENT_ID into the persona
+    # process environment. Applied here — after the per-LLM adapter — so the
+    # injection is adapter-agnostic: every adapter in ADAPTER_REGISTRY
+    # (claude-code today; codex / gemini / glm later) inherits it for free.
+    # Without this the spawned persona has no ATDD_AGENT_ID and every
+    # `atdd agent` subcommand fails closed, stalling the coach.
+    command = _inject_agent_env(command, agent_id)
 
     from atdd.coach.utils.config import load_atdd_config
 
