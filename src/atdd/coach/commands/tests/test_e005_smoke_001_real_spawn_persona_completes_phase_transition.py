@@ -94,13 +94,15 @@ def _env_from_command(command: str) -> dict[str, str]:
 def test_real_spawn_persona_completes_handshake_without_agent_id_flag(tmp_path, monkeypatch):
     from atdd.coach.commands import session_template, spawn
 
-    monkeypatch.setattr(
+    # The GitHub API is the one boundary a hermetic CI run cannot cross, so
+    # `fetch_issue` is stubbed for the same reason `FakeMultiplexer` stands in
+    # for a GUI multiplexer. Everything else stays real: `compute_repo_short_name`
+    # and `load_atdd_config` run unsubstituted against the real worktree config,
+    # and the unit under test — the spawn-path env/command construction — is
+    # exercised end to end.
+    monkeypatch.setattr(  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-08-01
         session_template, "fetch_issue",
         lambda n: {"number": n, "title": "t", "body": SAMPLE_BODY},
-    )
-    monkeypatch.setattr(spawn, "compute_repo_short_name", lambda config: "ATDD", raising=False)
-    monkeypatch.setattr(
-        spawn, "load_atdd_config", lambda root: {"repo": {"short_name": "ATDD"}}, raising=False,
     )
 
     worktree = tmp_path / "feat-coach-spawned-persona-missing-atdd-agent-id"
