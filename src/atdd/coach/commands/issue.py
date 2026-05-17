@@ -432,7 +432,7 @@ class IssueManager:
             f"## Activity Log\n\n"
             f"### Entry 1 ({today})\n\n"
             f"**Completed:**\n"
-            f"- Issue created via `atdd new {slug}`\n"
+            f"- Issue created via `atdd issue {slug}`\n"
         )
 
     def _discover_wmbts_from_feature(
