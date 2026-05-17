@@ -80,6 +80,10 @@ __all__ = [
     "run_review",
     "run_watch",
     "run_gc",
+    "resolve_or_create_coach_surface",
+    "build_consolidated_view",
+    "render_consolidated_view",
+    "add_worker_surface",
     "main",
 ]
 
@@ -98,6 +102,68 @@ from atdd.coach.commands.coach_watch import run_watch  # noqa: E402
 # Re-export run_gc so test imports from atdd.coach.commands.coach work.
 # The implementation lives in coach_gc.py (#655).
 from atdd.coach.commands.coach_gc import run_gc  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# Coach workspace layout — single canonical tab + consolidated view (#736)
+# ---------------------------------------------------------------------------
+
+
+def resolve_or_create_coach_surface(multiplexer, config, issue_number=None):
+    """Resolve-or-create the singular canonical coach orchestration surface (#736).
+
+    N coach invocations (or one coach driving N issues) must resolve to ONE
+    tab. The first call creates the ``<REPO>-coach`` surface; every later call
+    finds and returns it. ``issue_number`` is accepted for issue-context
+    callers and ignored — the canonical coach surface is issue-number-free.
+    """
+    from atdd.coach.utils.session_naming import compute_coach_surface_name
+
+    name = compute_coach_surface_name(config, issue_number)
+    for pane in multiplexer.list_panes():
+        if pane.get("name") == name:
+            return pane["ref"]
+    return multiplexer.new_workspace(name=name)
+
+
+def build_consolidated_view(records):
+    """Render the consolidated multi-issue coach status view (#736).
+
+    Emits one status row per managed issue — phase, last decision, and
+    worker/agent health — so an operator reads overall orchestration state at
+    a glance instead of one raw coach process terminal per invocation.
+    """
+    lines = [f"Consolidated coach view — {len(records)} issue(s)"]
+    for rec in records:
+        lines.append(
+            f"  #{rec['issue']}  "
+            f"phase={rec['phase']}  "
+            f"last-decision={rec['last_decision']}  "
+            f"worker-health={rec['worker_health']}"
+        )
+    return "\n".join(lines)
+
+
+def render_consolidated_view(multiplexer, config, records):
+    """Render the consolidated view into the canonical coach surface (#736).
+
+    Resolves-or-creates the singular coach tab and sends the multi-issue
+    status view into it — no new surface is created to host the view.
+    Returns the surface ref the view was rendered into.
+    """
+    surface_ref = resolve_or_create_coach_surface(multiplexer, config)
+    multiplexer.send(surface_ref, build_consolidated_view(records))
+    return surface_ref
+
+
+def add_worker_surface(multiplexer, worker_name, *, config=None):
+    """Place a worker as a surface in the coach workspace's right pane (#736).
+
+    A worker is a surface (tab), never a new tiled pane: a new pane re-tiles
+    the workspace and shrinks the coach's half, whereas a surface costs zero
+    space. Returns the new surface ref.
+    """
+    return multiplexer.new_surface(name=worker_name)
 
 
 # ---------------------------------------------------------------------------
