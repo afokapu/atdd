@@ -1,100 +1,145 @@
 urn: "wmbt:spawn-agents:E005"
 step: "execute"
 direction: "minimize"
-dimension: "likelihood"
-object_of_control: "coach-spawned-personas-without-atdd-agent-id-in-their-environment"
-context_clarifier: "when the coach spawns a persona agent (planner/tester/coder/reviewer) via atdd spawn, the _claude_code_adapter launch command currently injects no environment — so the persona inherits only the multiplexer's environment, ATDD_AGENT_ID is unset, and every atdd agent subcommand (done/heartbeat/event/commit/ask/escalate) fails closed with 'agent id required'; the most damaging case is atdd agent done, whose missing done.json leaves the coach RuntimeWatcher blocked at that phase forever (observed live on #730); the fix lives in the spawn path that already knows the canonical agent_id — it must export ATDD_AGENT_ID=<agent_id> into the persona process and, belt-and-braces, state that agent_id in the rendered launch prompt as a --agent-id fallback, while the observer (already launched with explicit --agent-id) stays unaffected"
+dimension: "quantity"
+object_of_control: "phase-transitions-that-reuse-the-prior-phase-worker-process"
+context_clarifier: "when the coach advances an issue across a lifecycle phase boundary (INIT→PLANNED→RED→GREEN→SMOKE→REFACTOR) it currently leaves one continuous worker agent running for the whole lifecycle, so each persona inherits the polluted context of every earlier phase; instead, on every phase transition the coach terminates the current worker process and relaunches a fresh next-phase agent in the SAME surface via the multiplexer abstraction's respawn primitive (cmux respawn-pane, plus tmux/zellij equivalents) — a hard kill loses nothing because the worker's state lives in committed artifacts (plan YAMLs, RED tests, commits, the Activity Log, decisions.jsonl). The terminate must be CLI-agnostic: never a hardcoded CLI-specific quit such as claude's /exit. The respawn command for the next phase is built from the adapter/model selected for THAT phase (so a phase may launch a different model or a different adapter — claude-code/codex/gemini/glm — than the prior phase), and the surface is renamed to a phase-qualified name encoding the live phase and persona (e.g. ATDD746·RED·tester) so the operator can see which agent is running now"
 lens: "functional.effectiveness"
-statement: "minimize likelihood of coach-spawned-personas-without-atdd-agent-id-in-their-environment when the coach launches a persona via atdd spawn — the spawn path exports ATDD_AGENT_ID=<agent_id> into the persona process environment so atdd agent subcommands resolve the agent natively, and the rendered launch prompt states the agent's own agent_id as an explicit --agent-id fallback for the env-loss edge case"
+statement: "minimize quantity of phase-transitions-that-reuse-the-prior-phase-worker-process when the coach advances an issue across a lifecycle phase boundary — the coach terminates the current worker process and relaunches a fresh next-phase agent in the same surface via the multiplexer abstraction's backend-neutral respawn primitive (never a hardcoded CLI-specific quit), builds the relaunch command from the per-phase adapter/model selection, and renames the surface to a phase-qualified name encoding the live phase and persona"
 acceptances:
   - identity:
-      urn: "acc:spawn-agents:E005-UNIT-001-persona-launch-env-carries-agent-id"
+      urn: "acc:spawn-agents:E005-UNIT-001-respawn-primitive-backend-neutral-same-surface"
       id: "AC-UNIT-001"
-      purpose: "The persona launch invocation built by the coach spawn path exports ATDD_AGENT_ID into the spawned process environment, equal to the canonical agent_id"
+      purpose: "The multiplexer abstraction's respawn primitive kills the current process and relaunches a fresh one in the SAME surface, on every concrete backend (cmux, tmux, zellij) — no new surface is allocated"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "src/atdd/coach/commands/spawn.py exposes cmd_spawn and the _claude_code_adapter launch-command builder"
-        - "A known canonical agent_id 'tester-730-43be4d7f' is supplied to cmd_spawn for a persona launch"
-        - "A fake multiplexer backend records the environment of the surface it is asked to launch"
+        - "src/atdd/coach/utils/multiplexer.py exposes a respawn primitive on the MultiplexerBackend abstraction"
+        - "CmuxBackend, TmuxBackend, and ZellijBackend each implement the respawn primitive — none falls through to the base-class NotImplementedError"
+        - "A subprocess recorder captures every backend command argv without spawning real processes"
+        - "An existing surface ref with a running process is supplied for each backend"
     when:
-      abstract: "cmd_spawn is invoked for a claude-code persona with agent_id='tester-730-43be4d7f' against the fake multiplexer backend"
+      abstract: "the respawn primitive is invoked once per backend with a replacement launch command for the next phase"
     then:
       abstract:
-        - "The launched persona surface's environment contains the key ATDD_AGENT_ID"
-        - "ATDD_AGENT_ID equals 'tester-730-43be4d7f' exactly — the canonical agent_id passed to cmd_spawn, byte-for-byte"
-        - "The injected value is non-empty and is never derived by guessing or defaulting"
+        - "Each backend issues its native in-place respawn command (cmux respawn-pane, and the tmux/zellij equivalents) — verified against the recorded argv"
+        - "The surface ref passed in is reused unchanged in the recorded command — no new_surface / new_workspace call is recorded"
+        - "No backend raises NotImplementedError for the respawn primitive"
+        - "The replacement launch command supplied by the caller appears in the recorded argv"
     metadata:
       author: "atdd:planner"
-      created: "2026-05-17"
+      created: "2026-05-18"
   - identity:
-      urn: "acc:spawn-agents:E005-UNIT-002-launch-prompt-states-agent-id-fallback"
+      urn: "acc:spawn-agents:E005-UNIT-002-transition-respawns-no-cli-specific-quit"
       id: "AC-UNIT-002"
-      purpose: "The rendered launch prompt states the agent's own agent_id so a persona can fall back to --agent-id if the ATDD_AGENT_ID env var is ever missing"
+      purpose: "On a phase transition the coach invokes the multiplexer respawn primitive for the worker surface and never sends a hardcoded CLI-specific quit string (/exit, /quit)"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "src/atdd/coach/commands/spawn.py exposes _render_launch_prompt"
-        - "A known canonical agent_id 'planner-731-4a1f4db3' is supplied for the persona being rendered"
+        - "The coach phase-transition path (src/atdd/coach/handlers/spawn.py / src/atdd/coach/commands/spawn.py) is exercised with a FakeMultiplexer that records respawn and send calls"
+        - "A worker surface ref bound to an issue is in scope at a phase boundary"
     when:
-      abstract: "_render_launch_prompt renders the launch prompt for a persona with agent_id='planner-731-4a1f4db3'"
+      abstract: "the coach advances the issue across one phase transition"
     then:
       abstract:
-        - "The rendered prompt text contains the literal string 'planner-731-4a1f4db3'"
-        - "The rendered prompt references the --agent-id flag as the fallback an agent uses when ATDD_AGENT_ID is unset"
-        - "The agent_id stated in the prompt equals the canonical agent_id passed to cmd_spawn for that persona"
+        - "Exactly one respawn primitive call is recorded for the worker surface, targeting the same surface ref the prior phase used"
+        - "No send / send_key call carrying a CLI-specific quit literal ('/exit', '/quit', '/clear') is recorded for the worker surface"
+        - "Static scan of the transition path source confirms no hardcoded '/exit' (or equivalent CLI-specific quit) literal is present"
     metadata:
       author: "atdd:planner"
-      created: "2026-05-17"
+      created: "2026-05-18"
   - identity:
-      urn: "acc:spawn-agents:E005-INTEGRATION-001-atdd-agent-done-resolves-from-injected-env"
+      urn: "acc:spawn-agents:E005-UNIT-003-per-phase-adapter-selection-honored"
+      id: "AC-UNIT-003"
+      purpose: "The relaunch command for the next phase is built from the adapter/model selected for THAT phase, not inherited from the prior phase"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A per-phase adapter/model selection maps at least two phases to two distinct adapters or models (e.g. planner→claude-code/opus, coder→claude-code/sonnet, or one phase→codex)"
+        - "A FakeMultiplexer records the launch command of each respawn"
+    when:
+      abstract: "the coach respawns the worker for two consecutive phases whose per-phase selection differs"
+    then:
+      abstract:
+        - "The launch command recorded for the second phase reflects that phase's selected adapter/model"
+        - "The two recorded launch commands differ exactly where the per-phase selection differs"
+        - "When two phases share the same selection the launch commands match on the adapter/model segment — the selection, not the prior phase, is the source"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-18"
+  - identity:
+      urn: "acc:spawn-agents:E005-UNIT-004-phase-qualified-surface-name"
+      id: "AC-UNIT-004"
+      purpose: "The worker surface is renamed on each transition to a phase-qualified name encoding the live phase and persona"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/utils/session_naming.py exposes a phase-qualified naming helper taking issue number, phase, and persona"
+        - "A FakeMultiplexer records every rename call against the worker surface"
+    when:
+      abstract: "the coach computes the worker surface name for the RED/tester and the GREEN/coder phases of issue 746"
+    then:
+      abstract:
+        - "The RED name encodes issue 746, the RED phase, and the tester persona (e.g. ATDD746·RED·tester)"
+        - "The GREEN name encodes issue 746, the GREEN phase, and the coder persona"
+        - "Each name round-trips: parsing it recovers the issue number, phase, and persona it was built from"
+        - "A rename call to the new phase-qualified name is recorded on the worker surface for each transition"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-18"
+  - identity:
+      urn: "acc:spawn-agents:E005-INTEGRATION-001-multi-phase-run-fresh-process-per-phase"
       id: "AC-INTEGRATION-001"
-      purpose: "A persona whose environment carries the spawn-injected ATDD_AGENT_ID can run atdd agent done with no --agent-id argument, and the done.json the coach polls for is written"
+      purpose: "Across a multi-phase run each phase respawns a fresh process in the same surface with no carried-over conversation, and the surface name reflects the current phase — the issue's RED-first regression test"
       phase: "GREEN"
     harness:
       type: "integration"
       category: "backend"
     given:
       abstract:
-        - "A persona runtime directory exists for a canonical agent_id under the ATDD runtime root"
-        - "ATDD_AGENT_ID is set in the process environment to that canonical agent_id — exactly as the coach spawn path now injects it"
-        - "No --agent-id argument is supplied on the command line"
+        - "A FakeMultiplexer that assigns a fresh process identity (incrementing token / PID) to every launch and exposes the current process identity per surface"
+        - "An issue is driven through a multi-phase lifecycle sequence (planner → tester → coder → tester → coder) via the coach phase-transition path"
     when:
-      abstract: "atdd agent done --summary 'PLANNED: ...' is run as a subprocess inheriting only that environment"
+      abstract: "the coach advances the issue through every phase transition in the sequence"
     then:
       abstract:
-        - "The command exits with code 0"
-        - "agent.py resolves the agent identity from ATDD_AGENT_ID without an explicit --agent-id"
-        - "A done.json is written under the agent's runtime directory"
-        - "The agent_id recorded in done.json equals the value of ATDD_AGENT_ID"
+        - "The worker surface ref is identical at every phase — one surface for the whole run"
+        - "The process identity recorded on the surface changes at every transition — a fresh process per phase, never reused"
+        - "No carried-over conversation marker from a prior phase is present in the freshly launched process"
+        - "The recorded surface name at each phase is the phase-qualified name for that phase's persona"
     metadata:
       author: "atdd:planner"
-      created: "2026-05-17"
+      created: "2026-05-18"
   - identity:
-      urn: "acc:spawn-agents:E005-SMOKE-001-real-spawn-persona-completes-phase-transition"
+      urn: "acc:spawn-agents:E005-SMOKE-001-real-respawn-fresh-process-same-surface"
       id: "AC-SMOKE-001"
-      purpose: "A persona spawned by a real coach run carries ATDD_AGENT_ID and completes a coach phase transition without any manual done.json emission"
+      purpose: "On a real multiplexer backend a respawn kills the running process and a fresh process is observed in the same surface, leaving no orphan"
       phase: "SMOKE"
     harness:
       type: "smoke"
       category: "backend"
     given:
       abstract:
-        - "A real coach spawn launches a persona via atdd spawn against a real multiplexer surface"
-        - "The persona's canonical agent_id is recorded in the spawn manifest and the agent_spawned event"
+        - "A real multiplexer backend (cmux) with a real surface running an observable long-lived process"
     when:
-      abstract: "The launched persona surface's environment is inspected and the persona runs atdd agent done with no --agent-id argument"
+      abstract: "the respawn primitive is invoked on that surface with a replacement command"
     then:
       abstract:
-        - "The persona process environment has ATDD_AGENT_ID set equal to its manifest agent_id"
-        - "atdd agent done exits 0 from the persona with no --agent-id argument supplied"
-        - "The coach RuntimeWatcher observes the written done.json and advances the phase with no manual done.json emission"
+        - "The original process is no longer running after the respawn"
+        - "A fresh process for the replacement command is running in the same surface ref"
+        - "No orphan pane or detached process is left behind by the respawn"
     metadata:
       author: "atdd:planner"
-      created: "2026-05-17"
+      created: "2026-05-18"
