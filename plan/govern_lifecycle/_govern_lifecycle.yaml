@@ -43,9 +43,10 @@ features:
   - urn: "feature:govern-lifecycle:init-emitted-command-drift-coverage"
   - urn: "feature:govern-lifecycle:worktree-layout-detects-flat-sibling"
   - urn: "feature:govern-lifecycle:hermetic-integration-execution-kind"
+  - urn: "feature:govern-lifecycle:reliable-manifest-registration"
 
 wmbt:
-  total: 32
+  total: 33
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -78,3 +79,4 @@ wmbt:
   E004: "minimize newly-filed-issues shipping without graph context or cross-agent mirror"
   E005: "minimize init-emitted-atdd-invocations-that-fail-to-parse-under-the-live-cli when atdd init emits workflow templates and the drift-detection self-validate scans them (#481)"
   E006: "minimize hermetic-acceptances-that-omit-fidelity-declaration-or-skip-required-live-smoke-pairing"
+  E007: "minimize atdd-issue leaving the manifest entry uncommitted when the tree has unrelated staged changes (#738)"

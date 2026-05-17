@@ -1,0 +1,127 @@
+urn: "wmbt:govern-lifecycle:E007"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "atdd-issue-leaving-the-manifest-entry-uncommitted-when-the-tree-has-unrelated-staged-changes"
+context_clarifier: "when atdd issue <slug> writes a session entry into .atdd/manifest.yaml but git_commit_manifest_update refuses the commit because the index already holds unrelated staged changes; when _commit_manifest_change swallows that ManifestCommitError as a printed warning and the verb still exits 0, reporting success with an unregistered issue; when a later atdd issue <N> --status reads the manifest from a sibling checkout and the issue is absent because the registration commit never landed"
+lens: "functional.adaptability"
+statement: "minimize likelihood of atdd-issue-leaving-the-manifest-entry-uncommitted-when-the-tree-has-unrelated-staged-changes when atdd issue <slug> commits .atdd/manifest.yaml through a path-scoped commit that ignores the rest of the index and fails loudly with a non-zero exit when registration genuinely cannot complete"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E007-UNIT-001-path-scoped-commit-isolates-index"
+      id: "AC-UNIT-001"
+      purpose: "git_commit_manifest_update commits .atdd/manifest.yaml even when the index holds unrelated staged changes, and the resulting commit touches only the manifest path"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo initialised via tmp_path with git init + an initial commit, checked out on a non-main branch 'feat/demo'"
+        - ".atdd/manifest.yaml is tracked and has a pending modification (a new session entry)"
+        - "A second tracked file (unrelated.txt) is modified and staged with git add"
+    when:
+      abstract: "git_commit_manifest_update(path=<manifest>, message=..., verb='atdd issue', repo_root=<repo>) is called"
+    then:
+      abstract:
+        - "Returns a non-empty commit SHA (does NOT raise ManifestCommitError due to the other staged change)"
+        - "git show --name-only HEAD lists exactly one path: .atdd/manifest.yaml"
+        - "unrelated.txt is still staged and uncommitted (it appears in git diff --cached --name-only and is absent from HEAD)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-17"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E007-UNIT-002-registration-failure-is-not-swallowed"
+      id: "AC-UNIT-002"
+      purpose: "_commit_manifest_change propagates a genuine manifest-commit failure to its caller for the registration verb, while the status-mirror verb keeps the tolerant warning-and-return behavior"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo where .atdd/manifest.yaml is untracked (a genuine ManifestCommitError condition)"
+        - "Scenario A: _commit_manifest_change is invoked on the issue-registration path (the verb that registers a new parent issue)"
+        - "Scenario B: _commit_manifest_change is invoked on the status-mirror path (atdd issue <N> --status)"
+    when:
+      abstract: "_commit_manifest_change is called for each scenario"
+    then:
+      abstract:
+        - "Scenario A surfaces the failure to its caller (raises, or returns a falsy/failure result that the caller turns into a non-zero exit) — it does NOT silently return after only printing a warning"
+        - "Scenario B prints a warning and returns normally without raising — the tolerant mirror behavior is unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-17"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E007-INTEGRATION-001-issue-creation-commits-manifest-with-dirty-index"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd issue <slug> run with unrelated staged changes still commits the .atdd/manifest.yaml registration entry, and the commit does not bundle the unrelated changes"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo on branch 'feat/demo' with .atdd/config.yaml and a tracked .atdd/manifest.yaml"
+        - "A second tracked file is modified and staged with git add (unrelated work)"
+        - "IssueManager GitHub calls are patched to return a fixed parent issue number (99) with no network"
+    when:
+      abstract: "IssueManager(target_dir=<repo>).new(slug='demo-slug') is called"
+    then:
+      abstract:
+        - "Returns 0"
+        - "git show HEAD:.atdd/manifest.yaml contains a session entry with issue_number 99 (the entry is committed, not merely written)"
+        - "The registration commit (git show --name-only HEAD) touches only .atdd/manifest.yaml"
+        - "The unrelated staged file is still staged and uncommitted"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-17"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E007-INTEGRATION-002-registration-failure-exits-non-zero"
+      id: "AC-INTEGRATION-002"
+      purpose: "When the manifest registration commit genuinely cannot complete, atdd issue exits non-zero with a clear error and never reports success with an unregistered issue"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo set up so the manifest registration commit genuinely fails (e.g. .atdd/manifest.yaml is untracked)"
+        - "IssueManager GitHub calls are patched to return a fixed parent issue number with no network"
+    when:
+      abstract: "IssueManager(target_dir=<repo>).new(slug='demo-slug') is called"
+    then:
+      abstract:
+        - "Returns a non-zero exit code (never 0)"
+        - "Printed output contains an explicit error naming .atdd/manifest.yaml and the failed registration — not a soft 'Warning:' line"
+        - "The output does NOT report the issue as successfully created/registered"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-17"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E007-SMOKE-001-registration-visible-cross-worktree"
+      id: "AC-SMOKE-001"
+      purpose: "Against real git infrastructure, a manifest registration commit made with an unrelated staged change in the index is visible from a separate checkout of the branch and carries only the manifest path"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repository created with the real git CLI (no subprocess mocking): an initial commit on main, then a feature branch checked out"
+        - ".atdd/manifest.yaml tracked and modified with a new session entry; a second tracked file modified and really `git add`-staged"
+        - "A real linked git worktree added at a sibling path tracking the same feature branch"
+    when:
+      abstract: "git_commit_manifest_update runs against the repo via the real git CLI, then the sibling worktree is refreshed to the branch tip"
+    then:
+      abstract:
+        - "From the sibling worktree's checkout, .atdd/manifest.yaml contains the new session entry — the registration is visible cross-checkout"
+        - "git log --name-only on the branch shows the registration commit touching only .atdd/manifest.yaml"
+        - "The unrelated staged file's modification was not committed and is not present in the sibling worktree"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-17"
