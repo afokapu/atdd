@@ -207,3 +207,14 @@ wagons:
     outcome: "concurrent within-wave driver in _execute_cold_start with between-wave dependency ordering preserved; one persistent surface per issue with in-place persona respawn in the spawn path"
     path: "plan/coach_wave_orchestration/"
     manifest: "plan/coach_wave_orchestration/_coach_wave_orchestration.yaml"
+
+  - wagon: consolidate-coach-workspace
+    description: "Coach workspace layout consolidation (issue #736): a fixed 50/50 two-pane split (coach left, all workers right), one canonical coach orchestration tab regardless of how many issues/invocations are in flight, a consolidated multi-issue status view rendered in that tab, workers added as right-pane surfaces rather than tiled panes, and the per-worker observer demoted from a co-spawned :obs surface to a headless background process"
+    theme: commons
+    subject: "agent:coach"
+    context: "in-coach-v9-execution, n-coach-invocations-produce-n-tabs-and-each-worker-spawns-a-persona-plus-an-obs-surface"
+    action: "lays out the coach workspace as a fixed 50/50 split with one canonical coach orchestration tab, renders a consolidated multi-issue status view in it, places workers as right-pane surfaces, and runs the per-worker observer headless"
+    goal: "keep the coach workspace readable and singular regardless of how many issues or workers are in flight"
+    outcome: "one canonical coach orchestration tab with a consolidated per-issue status view, a fixed 50/50 coach/worker split, workers as right-pane surfaces, and a headless observer so each worker is one tab"
+    path: "plan/consolidate_coach_workspace/"
+    manifest: "plan/consolidate_coach_workspace/_consolidate_coach_workspace.yaml"

@@ -1,0 +1,42 @@
+wagon: consolidate-coach-workspace
+urn: "wagon:consolidate-coach-workspace"
+name: "Consolidate Coach Workspace"
+description: "Coach workspace layout consolidation (issue #736): a fixed 50/50 two-pane split (coach left, all workers right), one canonical coach orchestration tab regardless of how many issues/invocations are in flight, a consolidated multi-issue status view rendered in that tab, workers added as right-pane surfaces rather than tiled panes, and the per-worker observer demoted from a co-spawned `:obs` surface to a headless background process. Stops coach-tab count and per-worker tab count from scaling linearly with the wave."
+theme: commons
+
+subject: "agent:coach"
+context: "in-coach-v9-execution, n-coach-invocations-produce-n-tabs-and-each-worker-spawns-a-persona-plus-an-obs-surface"
+action: "lays out the coach workspace as a fixed 50/50 split with one canonical coach orchestration tab, renders a consolidated multi-issue status view in it, places workers as right-pane surfaces, and runs the per-worker observer headless"
+goal: "keep the coach workspace readable and singular regardless of how many issues or workers are in flight"
+outcome: "one canonical coach orchestration tab with a consolidated per-issue status view, a fixed 50/50 coach/worker split, workers as right-pane surfaces, and a headless observer so each worker is one tab"
+
+features:
+  - urn: "feature:consolidate-coach-workspace:canonical-coach-surface"
+  - urn: "feature:consolidate-coach-workspace:headless-observer"
+
+produce:
+  - name: commons:coach:canonical-coach-surface
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:consolidated-coach-view
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:coach-workspace-layout
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:headless-observer
+    contract: null
+    telemetry: null
+    to: external
+
+consume: []
+
+wmbt:
+  total: 4
+  Y001: "minimize quantity of coach-orchestration-tabs so N issues / N invocations resolve to one canonical tab"
+  E001: "increase likelihood of multi-issue-orchestration-state-visibility via a consolidated per-issue status view"
+  D001: "minimize quantity of coach-pane-shrinkage-when-workers-are-added via a fixed 50/50 split and workers-as-surfaces"
+  Y002: "minimize quantity of surfaces-spawned-per-worker by running the observer headless"
