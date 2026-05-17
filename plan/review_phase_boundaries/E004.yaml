@@ -1,0 +1,74 @@
+urn: "wmbt:review-phase-boundaries:E004"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-17
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "coach-integration-tests-spawn-unreaped-cmux-workspaces"
+context_clarifier: "when the coach test suite runs, `test_e002_integration_001_cli_dispatch_routes_review.py::test_existing_coach_number_invocation_not_broken` calls the real `coach.run_cli(['358'])` with no `--dry-run` and no injected stub multiplexer; finding cmux on the environment the real coach spawns an `ATDD358` cmux workspace plus an `atdd observer run` process and nothing tears them down. Active coach workers run this suite every RED/GREEN phase, so ghost `ATDD358` / `ATDD585-*` workspaces and zombie observers accumulate in the operator's session. The coach CLI already gates every multiplexer spawn behind `if not cfg.dry_run` (src/atdd/coach/commands/coach.py), so `coach.run_cli(['358', '--dry-run'])` still exercises bare-number → coach routing without touching the multiplexer; tests that must exercise spawn logic instead inject the stub multiplexer from src/atdd/coach/utils/multiplexer.py. Reaping the already-leaked ghosts is operational cleanup (#724) and out of scope here — this WMBT stops new leaks."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of coach-integration-tests-spawn-unreaped-cmux-workspaces by converting `test_existing_coach_number_invocation_not_broken` and every peer coach test that invokes the real coach/observer/spawn against a live multiplexer to a hermetic invocation — `--dry-run` for routing-only tests, an injected stub multiplexer for spawn-exercising tests — and adding a regression guard that asserts a coach test-suite run creates zero new cmux workspaces and leaves no `atdd observer run` process alive"
+acceptances:
+  - identity:
+      urn: "acc:review-phase-boundaries:E004-UNIT-001-routing-test-is-hermetic-no-multiplexer-spawn"
+      id: "AC-UNIT-001"
+      purpose: "test_existing_coach_number_invocation_not_broken exercises bare-issue-number → coach CLI routing without spawning a real cmux workspace or observer"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path workspace with a spy multiplexer that records every spawn/workspace-create call instead of invoking the real cmux binary"
+        - "The bare issue number 358 is routed through the same CLI dispatch path used by `atdd coach <N>`"
+    when:
+      abstract: "The test invokes `coach.run_cli(['358', '--dry-run'])` (or invokes `coach.run_cli(['358'])` with the spy multiplexer injected)"
+    then:
+      abstract:
+        - "run_cli returns 0 — the bare number still routes to the coach state-machine path, not the review or status subcommand"
+        - "The spy multiplexer records zero workspace-create and zero spawn calls"
+        - "No `ATDD358` directory or runtime artifact is created outside tmp_path"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:review-phase-boundaries:E004-UNIT-002-suite-audit-finds-no-live-multiplexer-callers"
+      id: "AC-UNIT-002"
+      purpose: "A static audit over the coach test suite finds zero tests that invoke the real coach/observer/spawn against a live multiplexer (no `--dry-run`, no injected stub)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The test files under src/atdd/coach/commands/tests/ and src/atdd/coach/handlers/tests/"
+        - "An AST-based scanner that flags a call to `coach.run_cli` / `run_cli` / `atdd spawn` / observer entry points made with a bare issue number and without `--dry-run` and without a stub-multiplexer fixture or monkeypatch in scope"
+    when:
+      abstract: "The audit test runs the scanner over both test directories"
+    then:
+      abstract:
+        - "The scanner returns an empty list of offending call sites"
+        - "The test fails with a list naming file:line of any non-hermetic invocation, so a future regression is pinpointed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:review-phase-boundaries:E004-INTEGRATION-001-coach-suite-run-creates-zero-cmux-workspaces"
+      id: "AC-INTEGRATION-001"
+      purpose: "Running the coach test suite creates zero new cmux workspaces and leaves no observer process alive — the RED-first regression that proves the leak is closed"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The `cmux` executable on PATH is shadowed by a recording shim that appends each invocation to a log file instead of spawning a real workspace"
+        - "A snapshot of running `atdd observer run` processes is captured before the run"
+    when:
+      abstract: "The coach command test module (src/atdd/coach/commands/tests/) is executed under the recording shim"
+    then:
+      abstract:
+        - "The shim log is empty — zero `cmux` workspace-create invocations recorded during the suite run"
+        - "The post-run `atdd observer run` process snapshot equals the pre-run snapshot — no observer process was leaked"
+        - "Before the hermeticity fix this test fails (the shim log records at least one `ATDD358` invocation), proving it is RED-first"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-17"
