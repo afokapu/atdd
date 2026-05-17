@@ -411,6 +411,10 @@ def run(
     in_process: bool = False,
 ) -> int:
     """Execute one `atdd coach review` invocation. Returns the process exit code."""
+    runtime = _runtime_root()
+    pr_slug = str(pr_number) if pr_number is not None else "commit"
+    reviewer_agent_id = f"reviewer-op-{pr_slug}-{uuid.uuid4().hex[:8]}"
+
     # 1. Resolve target commit.
     if commit:
         target_commit = commit
@@ -419,14 +423,22 @@ def run(
             target_commit = _resolve_pr_commit(pr_number)
         except RuntimeError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             _print_err(f"coach review: failed to resolve PR {pr_number}: {exc}")
+            # In-process mode promises "always exits 0; verdict is in the
+            # report file". A PR-resolution failure (gh rate limit, network
+            # error, missing PR) must route through the broken sentinel
+            # rather than escaping with `return 2` and no report file.
+            # The spawn-based path has no exit-0 contract — it keeps return 2.
+            if in_process:
+                return _write_broken_sentinel(
+                    report_file=report_file,
+                    target_commit="unresolved",
+                    reviewer_agent_id=reviewer_agent_id,
+                    reason=f"PR resolution failed: {exc}",
+                )
             return 2
     else:
         _print_err("coach review: must provide a PR number or --commit <sha>")
         return 2
-
-    runtime = _runtime_root()
-    pr_slug = str(pr_number) if pr_number is not None else "commit"
-    reviewer_agent_id = f"reviewer-op-{pr_slug}-{uuid.uuid4().hex[:8]}"
 
     # 2. Dispatch: in-process mode skips cmux spawn entirely.
     if in_process:
