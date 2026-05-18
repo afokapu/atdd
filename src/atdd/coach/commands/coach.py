@@ -135,7 +135,7 @@ class Config:
     persona_llm: dict[str, str] = field(default_factory=dict)
     judge_llm: Optional[str] = None
     require_issue_review: str = "warn"
-    review_phases: set[str] = field(default_factory=set)
+    review_phases: set[str] = field(default_factory=lambda: {"refactor"})
     skip_review: bool = False
     risk_threshold_block: Optional[int] = None
     allow_stale_suppressions: bool = False
@@ -260,7 +260,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--review-phases",
         type=_review_phases_arg,
-        default=set(),
+        default=None,
         dest="review_phases",
     )
     parser.add_argument(
@@ -312,7 +312,7 @@ def parse_cli(argv: list[str]) -> Config:
         persona_llm=ns.persona_llm,
         judge_llm=ns.judge_llm,
         require_issue_review=ns.require_issue_review,
-        review_phases=ns.review_phases,
+        review_phases=ns.review_phases if ns.review_phases is not None else {"refactor"},
         skip_review=ns.skip_review,
         risk_threshold_block=ns.risk_threshold_block,
         allow_stale_suppressions=ns.allow_stale_suppressions,
@@ -1099,7 +1099,7 @@ def run(
         persona_llm=persona_llm or {},
         judge_llm=judge_llm,
         require_issue_review=require_issue_review,
-        review_phases=review_phases or set(),
+        review_phases=review_phases if review_phases is not None else {"refactor"},
         skip_review=skip_review,
         risk_threshold_block=risk_threshold_block,
         allow_stale_suppressions=allow_stale_suppressions,
