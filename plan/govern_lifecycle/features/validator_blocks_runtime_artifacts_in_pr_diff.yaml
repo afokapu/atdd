@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:validator-blocks-runtime-artifacts-in-pr-diff"
+wagon: "wagon:govern-lifecycle"
+description: "Fixes the enforcement gap where .atdd/runtime/ was not fully gitignored, allowing coach session files, decisions.jsonl, and validation logs to ride into PR diffs undetected by CI. Fully gitignores .atdd/runtime/ (replacing partial sub-path entries), untracks all currently-tracked files there, and declares the strict coach.pr.runtime-artifacts-blocked rule in pr.convention.yaml. A new atdd validate coach validator (evaluate_runtime_artifact_violations) scans the branch diff vs the default branch using --diff-filter=d (deletions excluded — removing runtime files is correct behaviour) and emits a Violation for each .atdd/runtime/** path that was added or modified. The rule resolves via atdd rules show coach.pr.runtime-artifacts-blocked."
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:govern-lifecycle:E009"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — validator runs under existing atdd validate coach entry point"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "evaluate_runtime_artifact_violations (pure evaluator — accepts a list of changed file paths, returns Violations for .atdd/runtime/** hits)"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Reuses the Violation domain dataclass; no new domain entities"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reads git diff via subprocess and uses resolve_default_branch + assert_disposition_satisfied; no new infrastructure"
