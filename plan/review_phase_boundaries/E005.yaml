@@ -83,11 +83,11 @@ acceptances:
         - "A CoachContext built from the default parse_cli output (review_phases={\"refactor\"}, skip_review=False)"
         - "A fake _spawn_reviewer that is a no-op and a fake _wait_for_review_report that returns a pass report"
     when:
-      abstract: "reviewer.handle(ctx, Transition(src=Phase.REFACTOR, dst=Phase.COMPLETE)) is called"
+      abstract: "reviewer.handle(ctx, Transition(src=Phase.SMOKE, dst=Phase.REFACTOR)) is called (entering REFACTOR, the last phase before COMPLETE)"
     then:
       abstract:
         - "The result is HandlerResult.HANDLED (the reviewer ran and returned a pass verdict)"
-        - "A reviewer manifest is written under .atdd/runtime/agents/"
+        - "A reviewer manifest is written under .atdd/runtime/agents/ with phase=REFACTOR"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-19"
