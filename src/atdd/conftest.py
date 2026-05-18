@@ -1,6 +1,7 @@
 """
 Root conftest for unified test reporting across all test categories.
 """
+import subprocess
 import pytest
 
 # Activate pytester at the test-root conftest. The substrate plugin's
@@ -16,6 +17,92 @@ try:
     _HAS_PYTEST_HTML = True
 except ImportError:
     _HAS_PYTEST_HTML = False
+
+
+# ---------------------------------------------------------------------------
+# Repo-root core.bare + HEAD pollution guard (issue #771)
+#
+# Covers ALL test dirs under src/atdd — not just validators/.
+# The existing session-scoped guard in coach/validators/conftest.py covers
+# only that sub-directory; tests in commands/, handlers/, utils/, etc. were
+# unguarded and could write core.bare=true to the shared .git/config.
+#
+# Per-test (function) scope lets the teardown name the exact offending test
+# via request.node.nodeid and restore core.bare BEFORE asserting so the
+# rest of the session runs in a clean state.
+# ---------------------------------------------------------------------------
+
+def _repo_git(*args: str) -> str:
+    """Run a git command at the repo root (wherever git resolves .git from cwd)."""
+    result = subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def _restore_core_bare(value: str) -> None:
+    """Restore core.bare to `value` (empty string → unset the key)."""
+    if value:
+        subprocess.run(
+            ["git", "config", "core.bare", value],
+            capture_output=True,
+        )
+    else:
+        subprocess.run(
+            ["git", "config", "--unset", "core.bare"],
+            capture_output=True,
+        )
+
+
+@pytest.fixture(autouse=True)
+def _git_repo_pollution_guard(request):
+    """Per-test guard: snapshot core.bare and HEAD, restore and fail if mutated.
+
+    Snapshots ``git config core.bare`` and ``git rev-parse HEAD`` before the
+    test runs.  After the test:
+
+    1. Reads the current values.
+    2. If core.bare changed: **restores it immediately** (before asserting) so
+       subsequent tests and the developer's repo are not poisoned.
+    3. Asserts both values are unchanged, naming the offending test via
+       ``request.node.nodeid`` so the developer can find and isolate the
+       polluter.
+
+    Any test that calls ``git config core.bare true`` (or equivalent) against
+    the live repo rather than a ``tmp_path`` fixture repo will be caught,
+    named, and cleaned up here (issue #771).
+    """
+    head_before = _repo_git("rev-parse", "HEAD")
+    bare_before = _repo_git("config", "core.bare")
+
+    yield
+
+    bare_after = _repo_git("config", "core.bare")
+    head_after = _repo_git("rev-parse", "HEAD")
+
+    # Restore core.bare FIRST so the session continues clean even if we assert
+    if bare_before != bare_after:
+        _restore_core_bare(bare_before)
+
+    assert bare_before == bare_after, (
+        f"Test {request.node.nodeid!r} mutated core.bare on the active worktree.\n"
+        f"  core.bare before: {bare_before!r}\n"
+        f"  core.bare after:  {bare_after!r}\n"
+        "core.bare has been restored automatically.\n"
+        "Isolate the git config call to tmp_path: use\n"
+        "  subprocess.run(['git', '-C', str(tmp_path), 'config', 'core.bare', 'true'])\n"
+        "or\n"
+        "  subprocess.run(['git', 'config', 'core.bare', 'true'], cwd=str(tmp_path))"
+    )
+    assert head_before == head_after, (
+        f"Test {request.node.nodeid!r} added phantom commits to the active worktree.\n"
+        f"  HEAD before: {head_before}\n"
+        f"  HEAD after:  {head_after}\n"
+        "A test ran git commit against the live repo rather than a tmp_path fixture.\n"
+        "Find it with: git log --oneline HEAD~10..HEAD"
+    )
 
 
 def pytest_configure(config):
