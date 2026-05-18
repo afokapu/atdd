@@ -45,9 +45,10 @@ features:
   - urn: "feature:govern-lifecycle:hermetic-integration-execution-kind"
   - urn: "feature:govern-lifecycle:reliable-manifest-registration"
   - urn: "feature:govern-lifecycle:validator-blocks-runtime-artifacts-in-pr-diff"
+  - urn: "feature:govern-lifecycle:keep-local-main-current-branch-from-origin"
 
 wmbt:
-  total: 34
+  total: 35
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -82,3 +83,4 @@ wmbt:
   E006: "minimize hermetic-acceptances-that-omit-fidelity-declaration-or-skip-required-live-smoke-pairing"
   E008: "minimize atdd-issue leaving the manifest entry uncommitted when the tree has unrelated staged changes (#738)"
   E009: "minimize runtime-artifacts-committed-into-feature-pr-diff when an agent uses git add -A during coach-active development by fully gitignoring .atdd/runtime/ and adding a strict coach.pr.runtime-artifacts-blocked validator to atdd validate coach (#755)"
+  E010: "minimize new-worktree-starts-behind-origin-default-branch by fetching origin/<default> before git worktree add and fast-forwarding the local default-branch worktree after each PR merge (ff-only, skip-with-notice when tracked files are modified, #770)"

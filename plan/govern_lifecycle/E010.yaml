@@ -1,0 +1,104 @@
+urn: "wmbt:govern-lifecycle:E010"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "new-worktree-starts-behind-origin-default-branch"
+context_clarifier: "atdd branch <N> and atdd issue <slug> create worktrees from whatever the local default-branch ref happens to point at; after a session with many merged PRs the local main worktree drifts behind origin/main, and every new worktree inherits that drift — each then needs a rebase and hits avoidable pyproject version conflicts; additionally, after a PR merge origin/main advances but the local main worktree is never fast-forwarded, compounding the drift across sessions"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of new-worktree-starts-behind-origin-default-branch when an agent creates a new branch via atdd branch or atdd issue by (1) having BranchManager.branch() do a targeted git fetch origin <default_branch> and pass origin/<default_branch> as the start-point to git worktree add, and (2) providing a fast_forward_default_branch utility that, after a PR merge, fast-forwards the local default-branch worktree to origin/<default_branch> using git merge --ff-only — skipping silently with a printed notice when tracked files are modified, never creating a merge commit or rebase"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E010-UNIT-001-branch-manager-cuts-from-origin-default"
+      id: "AC-UNIT-001"
+      purpose: "BranchManager.branch() passes origin/<default_branch> as the start-point to git worktree add, ensuring the new branch is cut from a freshly-fetched remote ref rather than stale local main"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A BranchManager is constructed with a tmp_path as target_dir"
+        - "The manifest contains an entry for the issue with slug and type"
+        - "subprocess.run is monkeypatched to record calls and return success"
+        - "resolve_default_branch returns 'main'"
+        - "The worktree layout is 'worktree-ready'"
+    when:
+      abstract: "BranchManager.branch(issue_number) is called for a new branch (no remote exists)"
+    then:
+      abstract:
+        - "A git fetch origin main call was made before git worktree add"
+        - "The git worktree add call includes 'origin/main' as the final positional argument (start-point)"
+        - "The git worktree add call includes '-b' and the branch name"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E010-UNIT-002-ff-default-branch-clean-tree"
+      id: "AC-UNIT-002"
+      purpose: "fast_forward_default_branch runs git merge --ff-only origin/<default_branch> inside the default-branch worktree when its tracked tree is clean"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "fast_forward_default_branch(repo_root, default_branch='main') is imported from atdd.coach.utils.ff_default_branch"
+        - "subprocess.run is monkeypatched to: return the default-branch worktree path from git worktree list; return exit-0 for git diff --quiet HEAD (clean tree); record git merge calls"
+    when:
+      abstract: "fast_forward_default_branch(repo_root, 'main') is called"
+    then:
+      abstract:
+        - "git fetch origin main was called"
+        - "git diff --quiet HEAD was run in the default-branch worktree"
+        - "git merge --ff-only origin/main was run in the default-branch worktree"
+        - "No merge commit or rebase command was issued"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E010-UNIT-003-ff-default-branch-dirty-tree-skipped"
+      id: "AC-UNIT-003"
+      purpose: "fast_forward_default_branch skips the ff and prints a notice when the default-branch worktree has modified tracked files, without clobbering uncommitted work"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "fast_forward_default_branch(repo_root, default_branch='main') is imported"
+        - "subprocess.run is monkeypatched to: return the default-branch worktree path; return exit-1 for git diff --quiet HEAD (dirty tree); record all commands"
+    when:
+      abstract: "fast_forward_default_branch(repo_root, 'main') is called"
+    then:
+      abstract:
+        - "git merge --ff-only was NOT called"
+        - "A notice containing 'skip' or 'modified' is printed to stdout"
+        - "The function returns without error"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E010-SMOKE-001-real-branch-creation-starts-at-origin"
+      id: "AC-SMOKE-001"
+      purpose: "In a real git repo with a simulated stale local default branch, atdd branch creates the new worktree at origin/<default_branch> HEAD, not the stale local ref"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repo with origin remote is created via tmp_path"
+        - "origin/main is at commit C2; local main is at commit C1 (one behind)"
+        - "The .atdd/manifest.yaml and config.yaml are populated"
+    when:
+      abstract: "BranchManager.branch(issue_number) is called for a new branch"
+    then:
+      abstract:
+        - "The new branch's merge-base with origin/main is C2 (not C1)"
+        - "git log --oneline shows the new branch starts from the same commit as origin/main"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"

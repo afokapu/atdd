@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:keep-local-main-current-branch-from-origin"
+wagon: "wagon:govern-lifecycle"
+description: "Ensures new worktrees always start from a freshly-fetched origin/<default-branch> (not stale local main), and fast-forwards the local default-branch worktree to origin/<default-branch> after each PR merge (ff-only, skipped with a printed notice when tracked files are modified). Lived incident 2026-05-18: after 9 PRs merged in one session, main/ was 3 commits behind origin/main; subsequent worktrees inherited the drift and hit pyproject version conflicts on rebase."
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:govern-lifecycle:E010"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — changes to existing atdd branch and atdd pr code paths"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "fetch_and_cut_from_origin (targeted fetch + worktree add from origin/<default>) and fast_forward_default_branch (ff-only update of local default-branch worktree post-merge)"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain entities"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "ff_default_branch utility: locates the default-branch worktree via git worktree list, checks dirty state via git diff --quiet HEAD, runs git merge --ff-only"
