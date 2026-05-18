@@ -154,3 +154,66 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-09"
+  - identity:
+      urn: "acc:observe-and-correct:P001-UNIT-008-cmd-run-exits-when-persona-dir-removed"
+      id: "AC-UNIT-008"
+      purpose: "`cmd_run` exits 0 on its own when its persona runtime dir is deleted while running — no kill signal needed"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "cmd_run started in a background thread with a short poll_interval"
+        - "The persona runtime dir exists at start"
+    when:
+      abstract: "The persona runtime dir is deleted while cmd_run is looping"
+    then:
+      abstract:
+        - "cmd_run returns 0 without receiving SIGINT or SIGTERM"
+        - "The return happens within 3 × poll_interval seconds of deletion"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"
+  - identity:
+      urn: "acc:observe-and-correct:P001-UNIT-009-cmd-run-exits-after-idle-timeout"
+      id: "AC-UNIT-009"
+      purpose: "`cmd_run` exits 0 after a configurable idle timeout with no persona output.log activity"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "cmd_run started with idle_timeout=1.0 and a short poll_interval"
+        - "The persona runtime dir exists but output.log is never written"
+    when:
+      abstract: "idle_timeout seconds elapse with no persona activity"
+    then:
+      abstract:
+        - "cmd_run returns 0 without receiving any signal"
+        - "The function accepts idle_timeout as a keyword argument"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"
+  - identity:
+      urn: "acc:observe-and-correct:P001-UNIT-010-teardown-fixture-reaps-observer-procs"
+      id: "AC-UNIT-010"
+      purpose: "A pytest fixture in conftest.py registers observer subprocesses and terminates them after each test so no orphans remain"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A test uses the observer_proc fixture to spawn a subprocess"
+        - "The subprocess is still alive at the end of the test body"
+    when:
+      abstract: "pytest fixture teardown runs after the test body returns"
+    then:
+      abstract:
+        - "The subprocess is terminated (SIGTERM then SIGKILL if necessary)"
+        - "The process is no longer alive after teardown"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"
