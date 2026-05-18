@@ -1,0 +1,23 @@
+urn: "feature:consolidate-coach-workspace:headless-observer-in-spawn-path"
+wagon: "wagon:consolidate-coach-workspace"
+description: "Issue #745: complete #736's headless-observer work by wiring it into the live `atdd spawn` path. #736 made `handlers/spawn.py::_spawn_observer` launch the observer as a detached headless background process, but `commands/spawn.py::cmd_spawn` — the path the coach actually dispatches through — still co-spawns the observer as a visible `<issue>:obs` multiplexer surface via `new_persona_surface`, so every dispatched issue still gets an `ATDD<N>:obs` tab. `cmd_spawn` is rewired to create the persona surface only and launch the observer headless (`subprocess.Popen`, detached, no surface) — mirroring `_spawn_observer` — applied uniformly across cmux, tmux, and zellij. The `L003` universal-co-spawn ratchet (`test_observer_universal_cospawn.py`) is retired for the `cmd_spawn` entry points, since its surface-co-spawn premise is superseded by the headless-observer architecture. Scope note: the sibling worker-as-surface / 50-50-layout wiring of #736's `coach_workspace.py` is split into a follow-up issue — that module cannot be wired without modifying it (`resolve_or_create_coach_surface` depends on a `list_panes` the real backends do not implement; `add_worker_surface` cannot carry the persona launch command)."
+sizing:
+  wmbts: 1
+  footprint_score: 8
+  footprint_size: "S"
+wmbts:
+  - "wmbt:consolidate-coach-workspace:E002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "commands/spawn.py cmd_spawn — creates the persona surface only and stops co-spawning the observer as a `:obs` multiplexer surface"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "commands/spawn.py headless-observer launcher — runs `atdd observer run` as a detached background subprocess, mirroring handlers/spawn.py::_spawn_observer"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "detached-subprocess launcher — `subprocess.Popen` with no terminal/surface, multiplexer-agnostic so it holds on cmux, tmux, and zellij"

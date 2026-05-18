@@ -1,0 +1,73 @@
+urn: "wmbt:consolidate-coach-workspace:E002"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "obs-surfaces-co-spawned-by-cmd-spawn"
+context_clarifier: "#736 made `handlers/spawn.py::_spawn_observer` launch the observer as a headless background process, but `commands/spawn.py::cmd_spawn` — the live `atdd spawn` path the coach uses — still co-spawns the observer as a visible `<issue>:obs` multiplexer surface via `new_persona_surface`. So every issue dispatched on atdd 3.56.0 still gets an `ATDD<N>:obs` tab; each worker is two tabs (persona + `:obs`), not one. The `L003` universal-co-spawn ratchet (`test_observer_universal_cospawn.py`) still enforces the old surface-co-spawn premise for the `cmd_spawn` entry points."
+lens: "functional.sustainability"
+statement: "minimize quantity of obs-surfaces-co-spawned-by-cmd-spawn when the coach spawns a persona by launching the per-worker observer (`atdd observer run`) as a detached headless background process with no multiplexer surface — exactly the way `handlers/spawn.py::_spawn_observer` already does (#736), keeping its `corrections.jsonl` writes unchanged and applied uniformly across cmux, tmux, and zellij — so spawning an issue creates exactly one surface (persona only) and zero `:obs` tabs"
+acceptances:
+  - identity:
+      urn: "acc:consolidate-coach-workspace:E002-UNIT-001-cmd-spawn-runs-observer-headless"
+      id: "AC-UNIT-001"
+      purpose: "a single real cmd_spawn invocation creates exactly one surface, no `:obs` surface, and starts the observer as a detached background subprocess"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fake multiplexer that records every surface/tab creation by name"
+        - "subprocess.Popen patched to record each detached launch"
+        - "A single cmd_spawn invocation for one persona agent"
+    when:
+      abstract: "the real cmd_spawn function runs for that one persona"
+    then:
+      abstract:
+        - "Exactly one multiplexer surface is created"
+        - "No created surface has a name ending in `:obs`"
+        - "The observer is started via exactly one detached subprocess (subprocess.Popen), not a multiplexer surface"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-18"
+  - identity:
+      urn: "acc:consolidate-coach-workspace:E002-INTEGRATION-001-headless-observer-uniform-across-backends"
+      id: "AC-INTEGRATION-001"
+      purpose: "cmd_spawn runs the observer headless on every multiplexer backend — one persona surface, zero `:obs` surfaces on cmux, tmux, and zellij alike"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The cmd_spawn path exercised against each of the cmux, tmux, and zellij multiplexer backends (faked per backend)"
+        - "subprocess.Popen patched to record each detached launch"
+    when:
+      abstract: "the real cmd_spawn is invoked for one persona on each of the three backends"
+    then:
+      abstract:
+        - "On every backend cmd_spawn creates exactly one persona surface and zero `:obs` surfaces"
+        - "On every backend the observer is launched as a detached subprocess rather than a multiplexer surface"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-18"
+  - identity:
+      urn: "acc:consolidate-coach-workspace:E002-SMOKE-001-real-spawn-yields-one-tab-no-obs"
+      id: "AC-SMOKE-001"
+      purpose: "against a real multiplexer, a cmd_spawn yields exactly one worker tab (no `:obs` tab) and a live headless observer"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "integration"
+    given:
+      abstract:
+        - "A real cmux session and a real cmd_spawn of one persona agent"
+    when:
+      abstract: "the persona is spawned"
+    then:
+      abstract:
+        - "The backend tab list shows exactly one tab for that worker, with no `:obs` tab"
+        - "The observer process is running headless (a detached background process, no surface)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-18"
