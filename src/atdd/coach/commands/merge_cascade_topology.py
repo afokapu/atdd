@@ -20,6 +20,7 @@ happen in callers.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Callable, Optional
 
 
@@ -150,3 +151,33 @@ def compute_merge_order(
     if cycle:
         raise MergeCascadeCycleError(cycle)
     return _kahn(graph)
+
+
+def wagon_extra_deps(
+    pr_to_wagon: dict[int, str],
+    repo_root: Optional[Path] = None,
+) -> dict[int, set[int]]:
+    """Build ``compute_merge_order`` ``extra_deps`` from the wagon graph (#656).
+
+    Each PR is tagged with the wagon it lands in. When a PR's wagon consumes
+    (directly or transitively) from another PR's wagon, that upstream PR must
+    merge first — so ``extra_deps[downstream_pr]`` includes the upstream PR.
+
+    Unlike the file-overlap signal, this is I/O-backed: it reads the wagon
+    consume graph via :mod:`atdd.coach.runtime.graph`.
+    """
+    from atdd.coach.runtime.graph import wagon_deps_transitive
+
+    deps: dict[int, set[int]] = {}
+    for pr, wagon in pr_to_wagon.items():
+        upstream_wagons = wagon_deps_transitive(wagon, repo_root)
+        if not upstream_wagons:
+            continue
+        upstream_prs = {
+            other_pr
+            for other_pr, other_wagon in pr_to_wagon.items()
+            if other_pr != pr and other_wagon in upstream_wagons
+        }
+        if upstream_prs:
+            deps[pr] = upstream_prs
+    return deps

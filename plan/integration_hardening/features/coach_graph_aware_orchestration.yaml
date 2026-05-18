@@ -1,0 +1,27 @@
+urn: "feature:integration-hardening:coach-graph-aware-orchestration"
+wagon: "wagon:integration-hardening"
+description: "Wires the repo URN graph into the coach's own orchestration decisions — the symmetric mirror of #651, which gave AGENT prompts graph context but left the COACH graph-blind. build_plan resolves each issue to its wagon and topo-sorts the wagon consume graph so a downstream-wagon issue is held in a later wave than its upstream; the J4 two-phase-commit merge cascade orders merges by that same wagon topology and runs a pre-merge graph check that blocks any PR whose merge would orphan a URN. Persona-dispatch graph-awareness is explicitly deferred (depends on persona-variant structure)."
+sizing:
+  wmbts: 1
+  footprint_score: 6
+  footprint_size: "S"
+wmbts:
+  - "wmbt:integration-hardening:E007"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI or HTTP surface; build_plan and the two-phase-commit cascade already exist — this feature changes how they decide, not how they are invoked"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "graph-aware wave planning (topo-sort wagon consume graph in build_plan), graph-aware merge-cascade ordering (sort the J4 batch by wagon topology), and the pre-merge orphan guard (block + escalate a PR whose merge would orphan a URN)"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "WagonDependencyGraph (the directed wagon->consumed-wagon graph with topo-sort) and MergeOrder (the topologically ordered PR batch plus per-PR BLOCKED/MERGED disposition)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "coach.runtime.graph adapter — wraps atdd repo graph / plan-tree reads to expose wagon_deps(wagon) and the orphan check, so coach consumes the existing graph substrate rather than re-walking plan/ itself"

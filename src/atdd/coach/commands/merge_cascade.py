@@ -17,8 +17,11 @@ import re
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
+
+import yaml
 
 from atdd.coach.commands.merge_cascade_pyproject import (
     resolve_pyproject_version_conflict,
@@ -40,6 +43,57 @@ class MergeHalt(RuntimeError):
     def __init__(self, result: MergeResult):
         super().__init__(f"merge halted on PR #{result.pr}: {result.status} — {result.detail}")
         self.result = result
+
+
+@dataclass
+class OrphanScreen:
+    """Outcome of the pre-merge graph orphan check (#656).
+
+    ``blocked`` is True when merging the screened tree would leave a declared
+    URN with no resolving artifact; ``orphaned_urns`` names those URNs and
+    ``escalation`` is a human-readable message naming them.
+    """
+    blocked: bool
+    orphaned_urns: list[str] = field(default_factory=list)
+    escalation: Optional[str] = None
+
+
+def screen_merge_for_orphans(repo_root: Path) -> OrphanScreen:
+    """Pre-merge graph check: would the merged tree orphan a URN? (#656)
+
+    Walks ``plan/<wagon>/_<wagon>.yaml`` and, for every declared feature URN,
+    verifies a resolving artifact exists under ``plan/<wagon>/features/``.
+    A declared feature URN with no matching feature file is an orphan: the
+    merge is blocked and an escalation naming the URN is returned.
+    """
+    plan_dir = Path(repo_root) / "plan"
+    orphaned: list[str] = []
+    if plan_dir.is_dir():
+        for wagon_yaml in sorted(plan_dir.glob("*/_*.yaml")):
+            data = yaml.safe_load(wagon_yaml.read_text()) or {}
+            if not isinstance(data, dict):
+                continue
+            resolved: set[str] = set()
+            features_dir = wagon_yaml.parent / "features"
+            if features_dir.is_dir():
+                for feature_file in features_dir.glob("*.yaml"):
+                    fdata = yaml.safe_load(feature_file.read_text()) or {}
+                    if isinstance(fdata, dict) and fdata.get("urn"):
+                        resolved.add(str(fdata["urn"]))
+            for feature in data.get("features") or []:
+                urn = feature.get("urn") if isinstance(feature, dict) else None
+                if urn and str(urn) not in resolved:
+                    orphaned.append(str(urn))
+
+    if not orphaned:
+        return OrphanScreen(blocked=False)
+    escalation = (
+        "merge blocked — would orphan declared URN(s): "
+        + ", ".join(sorted(orphaned))
+    )
+    return OrphanScreen(
+        blocked=True, orphaned_urns=orphaned, escalation=escalation
+    )
 
 
 def _run_gh(args: list[str], check: bool = True) -> subprocess.CompletedProcess:

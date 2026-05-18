@@ -1,0 +1,121 @@
+urn: "wmbt:integration-hardening:E007"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "coach-orchestration-decisions-made-without-consulting-the-repo-urn-graph"
+context_clarifier: "when atdd coach <N1> <N2> partitions issues into waves and orders merge-cascade commits using only per-issue dependency labels, ignoring the wagon-to-wagon consume graph and train order that atdd repo graph already exposes — so a downstream-wagon issue lands in the same wave as its upstream and parallel merges produce cross-wagon URN-orphaning conflicts"
+lens: "functional.effectiveness"
+statement: "minimize quantity of coach-orchestration-decisions-made-without-consulting-the-repo-urn-graph when atdd coach <N1> <N2> partitions issues into waves and orders merge-cascade commits using only per-issue dependency labels, ignoring the wagon-to-wagon consume graph and train order that atdd repo graph already exposes, by resolving each issue to its wagon, topo-sorting the wagon consume graph for wave order, and running a pre-merge graph check that blocks any PR whose merge would orphan a URN"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:E007-UNIT-001-graph-resolves-wagon-deps"
+      id: "AC-UNIT-001"
+      purpose: "The helper coach.runtime.graph.wagon_deps(wagon) returns the list of wagons that the given wagon consumes from, read from plan/<wagon>/_<wagon>.yaml::consume[].from"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A repo with plan/wagon_a/_wagon_a.yaml whose consume list is empty"
+        - "A repo with plan/wagon_b/_wagon_b.yaml whose consume list contains an entry with from: wagon:wagon-a"
+    when:
+      abstract: "wagon_deps('wagon-b') and wagon_deps('wagon-a') are called against that repo"
+    then:
+      abstract:
+        - "wagon_deps('wagon-b') returns ['wagon-a']"
+        - "wagon_deps('wagon-a') returns []"
+        - "The return value is a list of bare wagon slugs (no wagon: URN prefix)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"
+  - identity:
+      urn: "acc:integration-hardening:E007-INTEGRATION-001-wave-planning-uses-graph"
+      id: "AC-INTEGRATION-001"
+      purpose: "build_plan derives wave order from the wagon consume graph: when N1 is in wagon-A and N2 is in wagon-B and wagon-B consumes from wagon-A, the two issues land in separate waves even though no explicit per-issue dependency label exists"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A repo with plan/wagon_a/ and plan/wagon_b/ where wagon-b consumes from wagon-a"
+        - ".atdd/manifest.yaml maps issue N1 to wagon-a and issue N2 to wagon-b"
+        - "Neither issue carries an explicit dependency label"
+    when:
+      abstract: "build_plan([N1, N2]) is invoked and the resulting wave partition is inspected"
+    then:
+      abstract:
+        - "Wave 0 contains exactly [N1]"
+        - "Wave 1 contains exactly [N2]"
+        - "N2 does not appear in Wave 0 (the downstream issue is held back behind its upstream wagon)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"
+  - identity:
+      urn: "acc:integration-hardening:E007-INTEGRATION-002-merge-cascade-topological"
+      id: "AC-INTEGRATION-002"
+      purpose: "The J4 two-phase-commit merge cascade orders merges by wagon topology: an upstream-wagon PR is merged before any PR from a wagon that consumes from it"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "Two completed issues with open PRs: PR-up in wagon-a and PR-down in wagon-b, where wagon-b consumes from wagon-a"
+        - "The two PRs are submitted to the merge cascade in arbitrary (non-topological) input order"
+    when:
+      abstract: "the two-phase-commit merge cascade processes the batch of two PRs"
+    then:
+      abstract:
+        - "PR-up (upstream wagon-a) is merged before PR-down (downstream wagon-b)"
+        - "The merge order recorded by the cascade lists PR-up at an earlier index than PR-down"
+        - "Input order does not affect the resulting merge order"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"
+  - identity:
+      urn: "acc:integration-hardening:E007-INTEGRATION-003-merge-cascade-blocks-orphan-creating-pr"
+      id: "AC-INTEGRATION-003"
+      purpose: "A pre-merge graph check detects a PR whose merge would orphan a URN (leave a feature or WMBT URN with no resolving artifact) and blocks the merge with an escalation instead of completing it"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A PR whose merged tree would leave a declared feature URN referenced only by a not-yet-merged WMBT (an orphan-creating merge)"
+        - "The two-phase-commit cascade is configured with the pre-merge graph check enabled"
+    when:
+      abstract: "the merge cascade reaches the orphan-creating PR"
+    then:
+      abstract:
+        - "The PR is NOT merged (no merge commit is produced for it)"
+        - "An escalation event is emitted naming the orphaned URN"
+        - "The cascade reports the PR as BLOCKED rather than MERGED"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-18"
+  - identity:
+      urn: "acc:integration-hardening:E007-SMOKE-001-wave-plan-against-real-repo-graph"
+      id: "AC-SMOKE-001"
+      purpose: "build_plan derives its wave partition from the real atdd repo graph output — invoked as a subprocess against the real plan/ tree — proving the coach consumes the actual URN graph substrate and does not re-implement or mock the graph walk"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real tmp_path git repo containing plan/wagon_a/ and plan/wagon_b/ with a real consume edge wagon-b -> wagon-a"
+        - "A real .atdd/manifest.yaml mapping two issue numbers to wagon-a and wagon-b"
+        - "The real atdd CLI on PATH so atdd repo graph resolves against the repo"
+    when:
+      abstract: "build_plan is invoked and shells out to atdd repo graph as a subprocess to obtain wagon dependencies"
+    then:
+      abstract:
+        - "The subprocess invocation of atdd repo graph exits 0"
+        - "The wave partition returned by build_plan places the wagon-a issue strictly before the wagon-b issue"
+        - "No mocked or stubbed graph data is consulted — the partition is derived from real subprocess stdout"
+    metadata:
+      author: "atdd:smoke-backfill-trivial-tier"
+      created: "2026-05-18"
