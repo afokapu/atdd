@@ -387,6 +387,12 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
     worktree = _resolve_worktree(ctx)
     base_agent_id = f"{persona}-{ctx.issue_number}-{uuid.uuid4().hex[:8]}"
 
+    # Issue #745: a fresh spawn (no persistent surface yet) goes through
+    # cmd_spawn's `else` branch, which now launches the observer headless
+    # itself. An in-place respawn (existing surface) does not — so capture
+    # whether this is a fresh spawn BEFORE cmd_spawn updates issue_surface_ref.
+    was_fresh_spawn = ctx.issue_surface_ref is None
+
     result = _spawn_with_retries(
         ctx, transition, persona, phase, llm,
         persona_prompt_content, worktree, base_agent_id, runtime_root,
@@ -437,11 +443,13 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
         # across every phase of the issue's lifecycle.
         if persona_surface_ref is not None:
             ctx.issue_surface_ref = persona_surface_ref
-        # In pane mode, the multiplexer backend's `new_persona_surface` (called
-        # by cmd_spawn) already co-spawns the observer as a tab in the persona's
-        # pane. Calling _spawn_observer here would create a SECOND observer,
-        # causing the over-spawn bug (#695). Skip in pane mode.
-        if ctx.multiplexer_mode != "pane":
+        # Issue #745: on a fresh spawn, cmd_spawn now launches the observer
+        # headless itself (its `else` branch, every mode) — calling
+        # _spawn_observer here too would double-spawn it (#695 over-spawn).
+        # Only launch it for an in-place respawn (existing surface), where
+        # cmd_spawn does not; and keep skipping pane mode, where pane-mode
+        # respawns historically carried no observer.
+        if not was_fresh_spawn and ctx.multiplexer_mode != "pane":
             _spawn_observer(ctx, phase, worktree, base_agent_id, runtime_root, persona_surface_ref=persona_surface_ref)
         try:
             _write_cospawn_decision(ctx, phase, runtime_root)

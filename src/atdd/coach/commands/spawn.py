@@ -380,6 +380,45 @@ def _close_surface_on_failure(backend: Any, surface_ref: str) -> None:
         )
 
 
+def _launch_headless_observer(
+    observer_agent_id: str, runtime_root: Path, worktree: Path,
+) -> None:
+    """Launch the per-worker observer as a detached headless background process.
+
+    Issue #745: ``cmd_spawn`` previously co-spawned the observer as a visible
+    ``<issue>:obs`` multiplexer surface via ``new_persona_surface``. The
+    observer (``atdd observer run``) is a plain CLI script that writes
+    ``agents/<id>/corrections.jsonl`` directly — it needs no terminal. It now
+    runs detached with no surface, exactly as ``handlers/spawn.py::
+    _spawn_observer`` already does (#736): each worker is one tab, not two.
+
+    Best-effort: the observer is supplementary, so a launch failure is warned
+    and swallowed — it must never fail the persona spawn.
+    """
+    import subprocess
+
+    observer_cmd = [
+        "atdd", "observer", "run",
+        "--agent-id", observer_agent_id,
+        "--runtime-dir", str(runtime_root),
+        "--worktree", str(worktree),
+    ]
+    try:
+        subprocess.Popen(  # noqa: S603 — fixed argv, no shell
+            observer_cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception as exc:  # noqa: BLE001 — observer is supplementary
+        print(
+            f"⚠️  headless observer launch failed for {observer_agent_id}: "
+            f"{exc} ({SPAWN_RULE_ID})",
+            file=sys.stderr,
+        )
+
+
 def cmd_spawn(
     *,
     persona: str,
@@ -467,17 +506,11 @@ def cmd_spawn(
     canonical_name = compute_issue_surface_name(repo_short, int(issue))
 
     backend = multiplexer if multiplexer is not None else _resolve_multiplexer()
+    # Issue #745: the per-worker observer runs HEADLESS — a detached background
+    # process, no `<issue>:obs` multiplexer surface. cmd_spawn used to co-spawn
+    # it as a visible surface via new_persona_surface; it now mirrors
+    # handlers/spawn.py::_spawn_observer (#736), so each worker is one tab.
     _observer_agent_id = f"{agent_id}{_OBSERVER_SUFFIX}"
-    # Canonical observer naming: <issue-surface-name>:obs — makes the link
-    # to its persona unmistakable in cmux/tmux/zellij tab/window lists.
-    # Sort-adjacent + ':obs' suffix is multiplexer-agnostic (#695).
-    _observer_name = f"{canonical_name}:obs"
-    _observer_command = (
-        f"atdd observer run"
-        f" --agent-id {_observer_agent_id}"
-        f" --runtime-dir {runtime_root}"
-        f" --worktree {worktree}"
-    )
     if existing_surface_ref is not None:
         # Issue #730: the issue already has its persistent surface — relaunch
         # the persona agent in place rather than spawning a new pane. No
@@ -487,16 +520,16 @@ def cmd_spawn(
             backend, existing_surface_ref, command,
         )
     else:
+        # Issue #745: create the persona surface ONLY. Passing no observer_*
+        # arguments routes _create_surface through the plain surface primitive
+        # (new_surface) instead of new_persona_surface — so spawning an issue
+        # is exactly one tab, not a persona + co-spawned `:obs` pair.
         surface_ref = _create_surface(
             backend,
             worktree=worktree,
             command=command,
             name=canonical_name,
             mode=multiplexer_mode,
-            observer_agent_id=_observer_agent_id,
-            observer_name=_observer_name,
-            observer_command=_observer_command,
-            observer_runtime_root=str(runtime_root),
         )
 
     # E006 (#733): gate everything downstream — observer co-spawn, the
@@ -528,6 +561,10 @@ def cmd_spawn(
         except Exception:
             _close_surface_on_failure(backend, surface_ref)
             raise
+        # Issue #745: launch the observer headless (detached, no surface),
+        # mirroring handlers/spawn.py::_spawn_observer (#736). Best-effort —
+        # the observer is supplementary; a failure must not fail the spawn.
+        _launch_headless_observer(_observer_agent_id, runtime_root, worktree)
 
     # Inject the launch prompt as the first interactive message (#702).
     # Claude Code v2.1.x ignores a positional prompt arg in interactive
