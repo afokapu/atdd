@@ -42,7 +42,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional, Sequence
 
 _logger = logging.getLogger("atdd.coach")
 
@@ -360,20 +360,18 @@ def resolve_policy(cfg: Config) -> Policy:
 
 
 def prompt_persona_models(
-    personas: "Iterable[str]",
-    known_models: "Sequence[str]",
+    personas: Iterable[str],
+    known_models: Sequence[str],
     *,
     stdin=None,
     stdout=None,
-) -> "dict[str, str]":
+) -> dict[str, str]:
     """Interactively prompt the operator for a model per persona.
 
     Reads one line per persona from *stdin* (defaults to ``sys.stdin``).
     Rejects unknown model ids and re-prompts until a valid id is entered.
     Returns a dict mapping each persona name to the chosen model id.
     """
-    from typing import Iterable, Sequence  # noqa: F401 — local import avoids cycle
-
     _in = stdin if stdin is not None else sys.stdin
     _out = stdout if stdout is not None else sys.stdout
 
@@ -399,8 +397,8 @@ def prompt_persona_models(
 
 
 def should_prompt_for_models(
-    cfg: "Config",
-    isatty_fn: "Callable[[], bool]" = None,
+    cfg: Config,
+    isatty_fn: Optional[Callable[[], bool]] = None,
 ) -> bool:
     """Return True when the interactive per-persona model prompt should fire.
 
@@ -409,8 +407,6 @@ def should_prompt_for_models(
     - ``cfg.persona_llm`` is empty (``--persona-llm`` was not given)
     - ``cfg.no_prompt`` is False (``--no-prompt`` was not given)
     """
-    from typing import Callable  # noqa: F401
-
     _isatty = isatty_fn if isatty_fn is not None else sys.stdin.isatty
     return bool(_isatty() and not cfg.persona_llm and not cfg.no_prompt)
 
@@ -1334,7 +1330,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     cfg = parse_cli(list(sys.argv[1:] if argv is None else argv))
     if should_prompt_for_models(cfg):
         known = sorted(ADAPTER_REGISTRY)
-        print("Select the LLM adapter for each persona (issue #723):")
+        print("Select the LLM adapter for each persona:")
         cfg.persona_llm = prompt_persona_models(PERSONAS, known)
     return run(
         issue_numbers=cfg.issue_numbers,
@@ -1379,7 +1375,7 @@ def run_cli(argv: list[str]) -> int:
     cfg = parse_cli(argv)
     if should_prompt_for_models(cfg):
         known = sorted(ADAPTER_REGISTRY)
-        print("Select the LLM adapter for each persona (issue #723):")
+        print("Select the LLM adapter for each persona:")
         cfg.persona_llm = prompt_persona_models(PERSONAS, known)
     return run(
         issue_numbers=cfg.issue_numbers,
