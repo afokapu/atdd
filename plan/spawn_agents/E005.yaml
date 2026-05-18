@@ -1,0 +1,100 @@
+urn: "wmbt:spawn-agents:E005"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "coach-spawned-personas-without-atdd-agent-id-in-their-environment"
+context_clarifier: "when the coach spawns a persona agent (planner/tester/coder/reviewer) via atdd spawn, the _claude_code_adapter launch command currently injects no environment — so the persona inherits only the multiplexer's environment, ATDD_AGENT_ID is unset, and every atdd agent subcommand (done/heartbeat/event/commit/ask/escalate) fails closed with 'agent id required'; the most damaging case is atdd agent done, whose missing done.json leaves the coach RuntimeWatcher blocked at that phase forever (observed live on #730); the fix lives in the spawn path that already knows the canonical agent_id — it must export ATDD_AGENT_ID=<agent_id> into the persona process and, belt-and-braces, state that agent_id in the rendered launch prompt as a --agent-id fallback, while the observer (already launched with explicit --agent-id) stays unaffected"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of coach-spawned-personas-without-atdd-agent-id-in-their-environment when the coach launches a persona via atdd spawn — the spawn path exports ATDD_AGENT_ID=<agent_id> into the persona process environment so atdd agent subcommands resolve the agent natively, and the rendered launch prompt states the agent's own agent_id as an explicit --agent-id fallback for the env-loss edge case"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E005-UNIT-001-persona-launch-env-carries-agent-id"
+      id: "AC-UNIT-001"
+      purpose: "The persona launch invocation built by the coach spawn path exports ATDD_AGENT_ID into the spawned process environment, equal to the canonical agent_id"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py exposes cmd_spawn and the _claude_code_adapter launch-command builder"
+        - "A known canonical agent_id 'tester-730-43be4d7f' is supplied to cmd_spawn for a persona launch"
+        - "A fake multiplexer backend records the environment of the surface it is asked to launch"
+    when:
+      abstract: "cmd_spawn is invoked for a claude-code persona with agent_id='tester-730-43be4d7f' against the fake multiplexer backend"
+    then:
+      abstract:
+        - "The launched persona surface's environment contains the key ATDD_AGENT_ID"
+        - "ATDD_AGENT_ID equals 'tester-730-43be4d7f' exactly — the canonical agent_id passed to cmd_spawn, byte-for-byte"
+        - "The injected value is non-empty and is never derived by guessing or defaulting"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:spawn-agents:E005-UNIT-002-launch-prompt-states-agent-id-fallback"
+      id: "AC-UNIT-002"
+      purpose: "The rendered launch prompt states the agent's own agent_id so a persona can fall back to --agent-id if the ATDD_AGENT_ID env var is ever missing"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py exposes _render_launch_prompt"
+        - "A known canonical agent_id 'planner-731-4a1f4db3' is supplied for the persona being rendered"
+    when:
+      abstract: "_render_launch_prompt renders the launch prompt for a persona with agent_id='planner-731-4a1f4db3'"
+    then:
+      abstract:
+        - "The rendered prompt text contains the literal string 'planner-731-4a1f4db3'"
+        - "The rendered prompt references the --agent-id flag as the fallback an agent uses when ATDD_AGENT_ID is unset"
+        - "The agent_id stated in the prompt equals the canonical agent_id passed to cmd_spawn for that persona"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:spawn-agents:E005-INTEGRATION-001-atdd-agent-done-resolves-from-injected-env"
+      id: "AC-INTEGRATION-001"
+      purpose: "A persona whose environment carries the spawn-injected ATDD_AGENT_ID can run atdd agent done with no --agent-id argument, and the done.json the coach polls for is written"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A persona runtime directory exists for a canonical agent_id under the ATDD runtime root"
+        - "ATDD_AGENT_ID is set in the process environment to that canonical agent_id — exactly as the coach spawn path now injects it"
+        - "No --agent-id argument is supplied on the command line"
+    when:
+      abstract: "atdd agent done --summary 'PLANNED: ...' is run as a subprocess inheriting only that environment"
+    then:
+      abstract:
+        - "The command exits with code 0"
+        - "agent.py resolves the agent identity from ATDD_AGENT_ID without an explicit --agent-id"
+        - "A done.json is written under the agent's runtime directory"
+        - "The agent_id recorded in done.json equals the value of ATDD_AGENT_ID"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:spawn-agents:E005-SMOKE-001-real-spawn-persona-completes-phase-transition"
+      id: "AC-SMOKE-001"
+      purpose: "A persona spawned by a real coach run carries ATDD_AGENT_ID and completes a coach phase transition without any manual done.json emission"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real coach spawn launches a persona via atdd spawn against a real multiplexer surface"
+        - "The persona's canonical agent_id is recorded in the spawn manifest and the agent_spawned event"
+    when:
+      abstract: "The launched persona surface's environment is inspected and the persona runs atdd agent done with no --agent-id argument"
+    then:
+      abstract:
+        - "The persona process environment has ATDD_AGENT_ID set equal to its manifest agent_id"
+        - "atdd agent done exits 0 from the persona with no --agent-id argument supplied"
+        - "The coach RuntimeWatcher observes the written done.json and advances the phase with no manual done.json emission"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-17"
