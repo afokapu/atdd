@@ -160,6 +160,18 @@ def build_plan(issue_numbers: list[int]) -> dict[int, PlannedIssue]:
             dependencies=_parse_dep_numbers(body),
             branch=context.branch if context.branch != "TBD" else f"feat/issue-{num}",
         )
+
+    # Graph-aware wave planning (#656): augment the label-derived dependency
+    # edges with the wagon consume graph so a downstream-wagon issue is held
+    # in a later wave than its upstream sibling, even with no explicit label.
+    from atdd.coach.runtime.graph import graph_issue_deps
+
+    graph_deps = graph_issue_deps(list(plan.keys()))
+    for num, issue in plan.items():
+        for dep in sorted(graph_deps.get(num, set())):
+            if dep in plan and dep not in issue.dependencies:
+                issue.dependencies.append(dep)
+
     return plan
 
 
