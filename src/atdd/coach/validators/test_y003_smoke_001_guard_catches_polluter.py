@@ -1,4 +1,5 @@
 # URN: test:integration-hardening:repo-root-bare-guard:Y003-SMOKE-001
+# Acceptance: acc:integration-hardening:Y003-SMOKE-001-guard-catches-real-live-repo-contamination
 # Acceptance: acc:integration-hardening:Y003-UNIT-002-guard-names-offending-test-in-failure
 # Acceptance: acc:integration-hardening:Y003-UNIT-003-guard-restores-core-bare-before-asserting
 # WMBT: wmbt:integration-hardening:Y003

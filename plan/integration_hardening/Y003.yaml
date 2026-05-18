@@ -119,6 +119,29 @@ acceptances:
       created: "2026-05-18"
 
   - identity:
+      urn: "acc:integration-hardening:Y003-SMOKE-001-guard-catches-real-live-repo-contamination"
+      id: "GT-Y003-S01"
+      purpose: "SMOKE: running the guard against real infrastructure leaves core.bare unchanged; an inner pytester session with a deliberate polluter is caught, named, and restored"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The repo-root guard is installed in src/atdd/conftest.py"
+        - "A pytester inner session is crafted with one test that sets core.bare=true on the LIVE repo"
+    when:
+      abstract: "The inner session is run via pytester.runpytest"
+    then:
+      abstract:
+        - "The inner session produces at least one failed or errored outcome (guard caught the mutation)"
+        - "The failure output names the offending test function"
+        - "After the inner session, core.bare on the LIVE repo equals its pre-inner-session value"
+    metadata:
+      author: "atdd:core-bare-contamination-recurs-guard-gap"
+      created: "2026-05-18"
+
+  - identity:
       urn: "acc:integration-hardening:Y003-UNIT-006-known-polluter-uses-dry-run"
       id: "GT-Y003-006"
       purpose: "The test_l001 integration test that calls 'atdd coach 358' must pass --dry-run so it does not spawn real ATDD358 cmux workspaces during CI"
