@@ -499,7 +499,7 @@ def cmd_spawn(
             observer_runtime_root=str(runtime_root),
         )
 
-    # E005 (#733): gate everything downstream — observer co-spawn, the
+    # E006 (#733): gate everything downstream — observer co-spawn, the
     # agent_spawned event, the manifest — on confirmed persona
     # materialisation. A falsy surface_ref means the multiplexer never
     # produced a persona surface (whether freshly created or respawned in
@@ -594,7 +594,7 @@ def cmd_spawn(
     # rejection in agent.py) can read the persona without parsing events.
     _write_manifest(runtime_root, agent_id, persona, issue)
 
-    # E005 (#733): co-spawn the observer runtime dir alongside the now-
+    # E006 (#733): co-spawn the observer runtime dir alongside the now-
     # materialised persona. Reached only after the persona surface, the
     # agent_spawned event, and the manifest are all confirmed above — so the
     # observer dir can never exist without its persona dir.

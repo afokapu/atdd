@@ -6,7 +6,7 @@ sizing:
   footprint_score: 5
   footprint_size: "S"
 wmbts:
-  - "wmbt:spawn-agents:E005"
+  - "wmbt:spawn-agents:E006"
 components:
   backend:
     presentation:

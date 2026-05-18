@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:smoke-persona-spawn-integrity:E005-INTEGRATION-001-persona-pane-and-spawned-event
-# Acceptance: acc:spawn-agents:E005-INTEGRATION-001-persona-pane-and-spawned-event
-# WMBT: wmbt:spawn-agents:E005
+# URN: test:spawn-agents:smoke-persona-spawn-integrity:E006-INTEGRATION-001-persona-pane-and-spawned-event
+# Acceptance: acc:spawn-agents:E006-INTEGRATION-001-persona-pane-and-spawned-event
+# WMBT: wmbt:spawn-agents:E006
 # Phase: RED
 # Layer: integration
-"""E005-INTEGRATION-001 — a successful GREEN→SMOKE spawn gives the persona a
+"""E006-INTEGRATION-001 — a successful GREEN→SMOKE spawn gives the persona a
 multiplexer surface and a schema-valid ``agent_spawned`` event.
 
 Driving the coach spawn handler end-to-end for a GREEN→SMOKE transition

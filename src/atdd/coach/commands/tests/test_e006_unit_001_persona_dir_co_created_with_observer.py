@@ -1,21 +1,23 @@
-# URN: test:spawn-agents:smoke-persona-spawn-integrity:E005-UNIT-002-observer-cospawn-gated-on-persona
-# Acceptance: acc:spawn-agents:E005-UNIT-002-observer-cospawn-gated-on-persona
-# WMBT: wmbt:spawn-agents:E005
+# URN: test:spawn-agents:smoke-persona-spawn-integrity:E006-UNIT-001-persona-dir-co-created-with-observer
+# Acceptance: acc:spawn-agents:E006-UNIT-001-persona-dir-co-created-with-observer
+# WMBT: wmbt:spawn-agents:E006
 # Phase: RED
 # Layer: unit
-"""E005-UNIT-002 — when the persona spawn step fails, the observer co-spawn is
-never reached and no orphan observer is created.
+"""E006-UNIT-001 — a successful GREEN→SMOKE ``cmd_spawn`` creates the persona
+agent runtime dir, not only the ``-observer`` dir.
 
-A GREEN→SMOKE ``cmd_spawn`` against a multiplexer whose persona spawn step
-(persona pane creation / adapter dispatch) fails — no persona surface is
-produced — MUST surface that failure loudly: ``cmd_spawn`` raises rather than
-returning a truthy success dict, the observer co-spawn is never reached, and
-no orphan observer surface or runtime dir is left behind.
+A GREEN→SMOKE spawn resolves the persona to ``tester`` (per
+``_TRANSITION_PERSONA[(GREEN, SMOKE)]``). When ``cmd_spawn`` runs to
+completion against a multiplexer backend that succeeds for both the persona
+surface and the observer surface, the persona agent runtime dir
+(``tester-<issue>-<suffix>/``) MUST exist with a written manifest — *in
+addition to*, never *instead of*, the observer dir
+(``tester-<issue>-<suffix>-observer/``).
 
-RED: today ``cmd_spawn`` continues past a falsy persona ``surface_ref`` —
-running ``cmd_event`` and ``_write_manifest`` and returning a truthy result
-dict — so it does not raise. This test fails until the persona-materialisation
-gate (#733) lands.
+RED: today ``cmd_spawn`` relies on the multiplexer's bundled
+``new_persona_surface`` to co-spawn the observer and never materialises an
+observer agent runtime dir of its own, so the observer dir is absent after
+the call — this test fails until the gated co-spawn (#733) lands.
 """
 from __future__ import annotations
 
@@ -35,8 +37,12 @@ SAMPLE_BODY = """## Issue Metadata
 
 
 class _FakeMultiplexer:
-    """Records every surface call. ``persona_materialises=False`` models a
-    persona spawn step that fails to produce a persona surface (#733)."""
+    """Records every surface call.
+
+    Non-bundling: ``new_persona_surface`` creates ONLY the persona surface.
+    The observer co-spawn is modelled as a separate call that ``cmd_spawn``
+    is expected to make once the persona is confirmed materialised (#733).
+    """
 
     name = "fake"
 
@@ -118,6 +124,8 @@ class _FakeMultiplexer:
 
 
 def _patch_offline(monkeypatch) -> None:
+    """Keep ``cmd_spawn`` off the network and out of the 1.5 s session-uuid
+    capture sleep."""
     from atdd.coach.commands import session_template
     from atdd.coach.commands import spawn as cmd_spawn_mod
 
@@ -129,11 +137,11 @@ def _patch_offline(monkeypatch) -> None:
     monkeypatch.setattr(cmd_spawn_mod, "capture_session_uuid", lambda **kw: None)
 
 
-def test_failed_persona_spawn_is_loud_and_leaves_no_orphan_observer(
+def test_green_to_smoke_cmd_spawn_creates_persona_dir_alongside_observer(
     tmp_path, monkeypatch
 ):
-    """A persona spawn that fails to materialise must raise, never co-spawn the
-    observer, and leave no orphan observer surface or dir."""
+    """A completed GREEN→SMOKE ``cmd_spawn`` leaves a persona agent dir with a
+    manifest *and* the matching observer dir."""
     from atdd.coach.commands import spawn
 
     _patch_offline(monkeypatch)
@@ -141,40 +149,32 @@ def test_failed_persona_spawn_is_loud_and_leaves_no_orphan_observer(
     worktree = tmp_path / "wt"
     worktree.mkdir()
     runtime = tmp_path / "rt"
-    fake = _FakeMultiplexer(persona_materialises=False)
-    agent_id = "tester-733-fail0001"
+    fake = _FakeMultiplexer(persona_materialises=True)
+    agent_id = "tester-733-abcd1234"
 
-    raised = False
-    try:
-        spawn.cmd_spawn(
-            persona="tester",
-            llm="claude-code",
-            worktree=worktree,
-            issue=733,
-            agent_id=agent_id,
-            runtime_root=runtime,
-            phase="smoke",
-            multiplexer=fake,
-        )
-    except Exception:
-        raised = True
-
-    assert raised, (
-        "cmd_spawn must raise loudly when the persona surface fails to "
-        "materialise — returning a truthy success dict silently produces the "
-        "observer-without-persona stall (#733)"
+    spawn.cmd_spawn(
+        persona="tester",
+        llm="claude-code",
+        worktree=worktree,
+        issue=733,
+        agent_id=agent_id,
+        runtime_root=runtime,
+        phase="smoke",
+        multiplexer=fake,
     )
 
+    persona_dir = runtime / "agents" / agent_id
     observer_dir = runtime / "agents" / f"{agent_id}-observer"
-    assert not observer_dir.exists(), (
-        f"observer co-spawn was reached despite a failed persona spawn: "
-        f"{observer_dir}"
-    )
 
-    observer_surfaces = [
-        c for c in fake.calls if "atdd observer run" in (c.get("command") or "")
-    ]
-    assert not observer_surfaces, (
-        f"no observer surface must be created when the persona fails; got "
-        f"{observer_surfaces}"
+    assert persona_dir.is_dir(), f"persona agent runtime dir missing: {persona_dir}"
+    assert not persona_dir.name.endswith("-observer"), (
+        f"persona dir must not carry the -observer suffix: {persona_dir.name}"
+    )
+    assert (persona_dir / "manifest.json").is_file(), (
+        "persona dir must contain a written manifest (the _write_manifest step ran)"
+    )
+    assert observer_dir.is_dir(), (
+        f"observer agent runtime dir missing: {observer_dir} — a GREEN→SMOKE "
+        f"spawn must co-create the persona dir IN ADDITION TO the observer dir, "
+        f"never an observer without a persona (#733)"
     )

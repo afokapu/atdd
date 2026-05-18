@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:smoke-persona-spawn-integrity:E005-UNIT-003-incomplete-persona-spawn-maps-to-error
-# Acceptance: acc:spawn-agents:E005-UNIT-003-incomplete-persona-spawn-maps-to-error
-# WMBT: wmbt:spawn-agents:E005
+# URN: test:spawn-agents:smoke-persona-spawn-integrity:E006-UNIT-003-incomplete-persona-spawn-maps-to-error
+# Acceptance: acc:spawn-agents:E006-UNIT-003-incomplete-persona-spawn-maps-to-error
+# WMBT: wmbt:spawn-agents:E006
 # Phase: RED
 # Layer: unit
-"""E005-UNIT-003 — an incomplete persona spawn makes ``handle()`` return
+"""E006-UNIT-003 — an incomplete persona spawn makes ``handle()`` return
 ``HandlerResult.ERROR``, escalate, and write a BLOCKED decision — never
 ``HANDLED``.
 
