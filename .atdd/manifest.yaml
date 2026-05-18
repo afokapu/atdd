@@ -954,3 +954,14 @@ sessions:
   status: INIT
   created: '2026-05-15'
   archived: null
+- id: '754'
+  slug: coach-single-shared-observer-per-coach
+  file: null
+  issue_number: 754
+  type: implementation
+  status: PLANNED
+  created: '2026-05-18'
+  archived: null
+  wagon: observe-and-correct
+  feature: feature:observe-and-correct:observer-runtime-and-rules
+  train: 0002-coach-drives-lifecycle
