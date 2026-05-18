@@ -1,10 +1,10 @@
-# URN: test:integration-hardening:integration-hardening:E007-SMOKE-001-nonexistent-pr-exits-0-with-broken-verdict
-# Acceptance: acc:integration-hardening:E007-SMOKE-001-nonexistent-pr-exits-0-with-broken-verdict
-# WMBT: wmbt:integration-hardening:E007
+# URN: test:integration-hardening:integration-hardening:E008-SMOKE-001-nonexistent-pr-exits-0-with-broken-verdict
+# Acceptance: acc:integration-hardening:E008-SMOKE-001-nonexistent-pr-exits-0-with-broken-verdict
+# WMBT: wmbt:integration-hardening:E008
 # Phase: SMOKE
 # Layer: smoke
 # Assertion: behavioral
-"""E007-SMOKE-001 — a real non-existent PR exits 0 with a broken verdict.
+"""E008-SMOKE-001 — a real non-existent PR exits 0 with a broken verdict.
 
 Drives the real ``coach_review.run()`` with the real, gh-backed
 ``_resolve_pr_commit`` (no monkeypatch) against a PR number that does not

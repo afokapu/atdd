@@ -1,10 +1,10 @@
-# URN: test:integration-hardening:integration-hardening:E007-UNIT-003-sentinel-summary-names-pr-resolution
-# Acceptance: acc:integration-hardening:E007-UNIT-003-sentinel-summary-names-pr-resolution
-# WMBT: wmbt:integration-hardening:E007
+# URN: test:integration-hardening:integration-hardening:E008-UNIT-003-sentinel-summary-names-pr-resolution
+# Acceptance: acc:integration-hardening:E008-UNIT-003-sentinel-summary-names-pr-resolution
+# WMBT: wmbt:integration-hardening:E008
 # Phase: RED
 # Layer: application
 # Assertion: behavioral
-"""E007-UNIT-003 — the PR-resolution sentinel carries a diagnostic summary.
+"""E008-UNIT-003 — the PR-resolution sentinel carries a diagnostic summary.
 
 When ``run()`` writes a ``review-step-broken`` sentinel for a PR-resolution
 failure, the report must name the *PR-resolution* failure and surface the

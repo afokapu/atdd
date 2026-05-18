@@ -1,10 +1,10 @@
-# URN: test:integration-hardening:integration-hardening:E007-UNIT-002-pr-resolution-failure-spawn-path-still-returns-2
-# Acceptance: acc:integration-hardening:E007-UNIT-002-pr-resolution-failure-spawn-path-still-returns-2
-# WMBT: wmbt:integration-hardening:E007
+# URN: test:integration-hardening:integration-hardening:E008-UNIT-002-pr-resolution-failure-spawn-path-still-returns-2
+# Acceptance: acc:integration-hardening:E008-UNIT-002-pr-resolution-failure-spawn-path-still-returns-2
+# WMBT: wmbt:integration-hardening:E008
 # Phase: RED
 # Layer: application
 # Assertion: behavioral
-"""E007-UNIT-002 — the spawn-based path is unchanged (true negative).
+"""E008-UNIT-002 — the spawn-based path is unchanged (true negative).
 
 The E007 fix routes PR-resolution failures through ``_write_broken_sentinel``
 **only in in-process mode**. The spawn-based path (``in_process=False``) has no

@@ -1,10 +1,10 @@
-# URN: test:integration-hardening:integration-hardening:E007-UNIT-001-pr-resolution-failure-in-process-writes-sentinel
-# Acceptance: acc:integration-hardening:E007-UNIT-001-pr-resolution-failure-in-process-writes-sentinel
-# WMBT: wmbt:integration-hardening:E007
+# URN: test:integration-hardening:integration-hardening:E008-UNIT-001-pr-resolution-failure-in-process-writes-sentinel
+# Acceptance: acc:integration-hardening:E008-UNIT-001-pr-resolution-failure-in-process-writes-sentinel
+# WMBT: wmbt:integration-hardening:E008
 # Phase: RED
 # Layer: application
 # Assertion: behavioral
-"""E007-UNIT-001 — a PR-resolution failure in in-process mode writes a
+"""E008-UNIT-001 — a PR-resolution failure in in-process mode writes a
 ``review-step-broken`` sentinel and exits 0.
 
 ``atdd coach review <N> --no-spawn --in-process --report-file <path>`` promises
