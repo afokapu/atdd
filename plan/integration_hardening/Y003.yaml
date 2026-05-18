@@ -1,0 +1,97 @@
+urn: "wmbt:integration-hardening:Y003"
+step: "modify"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "test-sessions-that-leave-core-bare-mutated-in-the-live-worktree"
+context_clarifier: "when pytest runs any src/atdd test (not just validators/) a polluting test in commands/, handlers/, utils/, or templates/hooks/ can write core.bare=true to the shared .git/config and nothing catches it — the existing session-scoped guard in validators/conftest.py is scoped to that sub-directory only, does not restore core.bare, and cannot name which test caused the mutation"
+lens: "functional.effectiveness"
+statement: "minimize quantity of test-sessions-that-leave-core-bare-mutated-in-the-live-worktree when pytest runs src/atdd tests, by promoting the core.bare+HEAD snapshot/restore guard to a repo-root conftest that covers every test dir under src/atdd, adding per-test restore-before-assert semantics so a polluting test is caught, named, and cleaned up before subsequent tests run"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:Y003-UNIT-001-repo-root-guard-is-function-scoped-autouse"
+      id: "GT-Y003-001"
+      purpose: "src/atdd/conftest.py has a function-scoped autouse guard fixture that snapshots core.bare and HEAD, covers ALL test dirs under src/atdd"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/conftest.py is the pytest root conftest for the src/atdd test tree"
+    when:
+      abstract: "The file is inspected for a guard fixture that monitors core.bare"
+    then:
+      abstract:
+        - "A fixture is defined with autouse=True and scope='function' (or no explicit scope, which defaults to function)"
+        - "The fixture reads git config core.bare before yielding and after yielding"
+        - "The fixture is not scoped to a sub-directory conftest — it lives in src/atdd/conftest.py"
+    metadata:
+      author: "atdd:core-bare-contamination-recurs-guard-gap"
+      created: "2026-05-18"
+
+  - identity:
+      urn: "acc:integration-hardening:Y003-UNIT-002-guard-names-offending-test-in-failure"
+      id: "GT-Y003-002"
+      purpose: "When a test mutates core.bare, the guard's failure message includes the test's full nodeid so the developer knows exactly which test caused the contamination"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The function-scoped guard fixture is active"
+        - "A test writes git config core.bare true against the live repo"
+    when:
+      abstract: "The guard detects core.bare changed after the test returns"
+    then:
+      abstract:
+        - "The assertion error message contains the test's request.node.nodeid (full pytest path)"
+        - "The message indicates the specific config key that changed"
+    metadata:
+      author: "atdd:core-bare-contamination-recurs-guard-gap"
+      created: "2026-05-18"
+
+  - identity:
+      urn: "acc:integration-hardening:Y003-UNIT-003-guard-restores-core-bare-before-asserting"
+      id: "GT-Y003-003"
+      purpose: "The guard restores core.bare to its snapshot value BEFORE asserting, so a polluting test failure does not contaminate the rest of the test session or the developer's real repo"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A test sets core.bare=true on the live repo"
+        - "The function-scoped guard runs teardown for that test"
+    when:
+      abstract: "The guard teardown executes after the polluting test"
+    then:
+      abstract:
+        - "core.bare is restored to its pre-test value before the assertion fires"
+        - "The next test in the session sees core.bare in the restored state"
+        - "The assertion message notes that restoration happened automatically"
+    metadata:
+      author: "atdd:core-bare-contamination-recurs-guard-gap"
+      created: "2026-05-18"
+
+  - identity:
+      urn: "acc:integration-hardening:Y003-UNIT-004-meta-test-run-leaves-core-bare-unchanged"
+      id: "GT-Y003-004"
+      purpose: "A meta-test verifies that running the coach test suite (or any src/atdd subset) leaves core.bare identical to its value before the run"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The repo-root guard is installed in src/atdd/conftest.py"
+        - "No test in src/atdd/coach/ has an unresolved core.bare pollution"
+    when:
+      abstract: "A meta-test reads core.bare before and after invoking the guard's snapshot/restore logic"
+    then:
+      abstract:
+        - "core.bare value is identical before and after"
+        - "The meta-test also verifies the guard fixture is listed in src/atdd/conftest.py (static assertion)"
+    metadata:
+      author: "atdd:core-bare-contamination-recurs-guard-gap"
+      created: "2026-05-18"
