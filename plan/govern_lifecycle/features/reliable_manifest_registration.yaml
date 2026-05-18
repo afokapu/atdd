@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:reliable-manifest-registration"
+wagon: "wagon:govern-lifecycle"
+description: "Make atdd issue <slug> reliably register the new issue in .atdd/manifest.yaml: a path-scoped commit lands the manifest entry regardless of unrelated staged changes, and a genuine registration failure exits non-zero with a clear error instead of a silent warning (closes the #344 gap for a dirty working tree)"
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E008"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — reuses the existing `atdd issue <slug>` command"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "_commit_manifest_change registration-commit orchestration: propagate a genuine failure to the caller for the registration verb (loud, non-zero), keep the tolerant warning for the status-mirror verb"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts — reuses existing git index and manifest primitives"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "git_commit_manifest_update drops the other-staged-changes refusal — the `git commit -- <path>` is already path-scoped, so the precondition guarded against bundling that the path-scope already prevents"

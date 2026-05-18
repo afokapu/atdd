@@ -52,16 +52,6 @@ def _is_tracked(path: Path, repo_root: Path) -> bool:
     return result.returncode == 0
 
 
-def _has_other_staged_changes(path: Path, repo_root: Path) -> bool:
-    """Return True if the index has any staged path other than `path`."""
-    rel = str(path.relative_to(repo_root))
-    result = _git("diff", "--cached", "--name-only", cwd=repo_root)
-    if result.returncode != 0:
-        return False
-    staged = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    return any(p != rel for p in staged)
-
-
 def _path_has_diff(path: Path, repo_root: Path) -> bool:
     """Return True if the manifest path differs from HEAD (worktree or index)."""
     rel = str(path.relative_to(repo_root))
@@ -96,10 +86,15 @@ def git_commit_manifest_update(
         The new commit's SHA, or None when there is nothing to commit
         (manifest matches HEAD already — a legitimate no-op).
 
+    Unrelated staged changes in the index are intentionally left alone: the
+    `git commit -- <path>` below is path-scoped, so it commits only the
+    manifest without bundling other staged work. Refusing to commit when the
+    index was dirty (the pre-#738 behavior) silently skipped issue
+    registration whenever the working tree had unrelated staged files.
+
     Raises:
         ManifestCommitError:
             - on `main` without `allow_main`
-            - other staged changes already in the index (no surprise bundling)
             - path is not tracked by git
             - underlying git command fails
     """
@@ -129,12 +124,8 @@ def git_commit_manifest_update(
             f"Branch off first (e.g. `atdd branch <N>`) or pass allow_main=True."
         )
 
-    # Index-isolation precondition.
-    if _has_other_staged_changes(path, repo_root):
-        raise ManifestCommitError(
-            f"{verb}: refusing to commit — other staged changes exist. "
-            f"Unstage them or commit them separately to avoid bundling."
-        )
+    # No index-isolation precondition: the `git commit -- <rel>` below is
+    # path-scoped, so unrelated staged changes are never bundled in. See #738.
 
     # No-op: manifest matches HEAD already.
     if not _path_has_diff(path, repo_root):
