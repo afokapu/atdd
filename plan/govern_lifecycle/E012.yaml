@@ -1,4 +1,4 @@
-urn: "wmbt:govern-lifecycle:E011"
+urn: "wmbt:govern-lifecycle:E012"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of manifest-registration-commits-blocked-on-main when atdd issue <slug> runs on the main worktree by (1) adding a staged-paths exception to the pre-commit hook that exits 0 when the staged set is exactly .atdd/manifest.yaml, (2) making BranchManager.branch() call _backfill_from_github() before erroring when the manifest entry is missing — fetching the issue via gh CLI, synthesising the sessions entry, and appending it — and (3) verifying the hook still blocks any commit on main touching any path other than the manifest alone"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:E011-UNIT-001-pre-commit-allows-manifest-only-on-main"
+      urn: "acc:govern-lifecycle:E012-UNIT-001-pre-commit-allows-manifest-only-on-main"
       id: "AC-UNIT-001"
       purpose: "The pre-commit hook exits 0 on main when the staged set is exactly .atdd/manifest.yaml"
       phase: "GREEN"
@@ -30,7 +30,7 @@ acceptances:
       created: "2026-05-19"
 
   - identity:
-      urn: "acc:govern-lifecycle:E011-UNIT-002-pre-commit-blocks-manifest-plus-code-on-main"
+      urn: "acc:govern-lifecycle:E012-UNIT-002-pre-commit-blocks-manifest-plus-code-on-main"
       id: "AC-UNIT-002"
       purpose: "The pre-commit hook exits 1 on main when staged includes .atdd/manifest.yaml AND another file"
       phase: "GREEN"
@@ -53,7 +53,7 @@ acceptances:
       created: "2026-05-19"
 
   - identity:
-      urn: "acc:govern-lifecycle:E011-UNIT-003-pre-commit-blocks-code-only-on-main"
+      urn: "acc:govern-lifecycle:E012-UNIT-003-pre-commit-blocks-code-only-on-main"
       id: "AC-UNIT-003"
       purpose: "The pre-commit hook exits 1 on main when only a code file is staged (no manifest)"
       phase: "GREEN"
@@ -75,7 +75,7 @@ acceptances:
       created: "2026-05-19"
 
   - identity:
-      urn: "acc:govern-lifecycle:E011-UNIT-004-branch-self-heals-missing-manifest-entry"
+      urn: "acc:govern-lifecycle:E012-UNIT-004-branch-self-heals-missing-manifest-entry"
       id: "AC-UNIT-004"
       purpose: "BranchManager.branch() does not error 'not found in manifest' when gh CLI can supply the issue"
       phase: "GREEN"
@@ -98,7 +98,7 @@ acceptances:
       created: "2026-05-19"
 
   - identity:
-      urn: "acc:govern-lifecycle:E011-SMOKE-001-pre-commit-hook-installed-allows-manifest-only"
+      urn: "acc:govern-lifecycle:E012-SMOKE-001-pre-commit-hook-installed-allows-manifest-only"
       id: "AC-SMOKE-001"
       purpose: "The installed pre-commit template contains the manifest-only exception and the reconcile hint"
       phase: "SMOKE"
@@ -120,7 +120,7 @@ acceptances:
       created: "2026-05-19"
 
   - identity:
-      urn: "acc:govern-lifecycle:E011-SMOKE-002-issue-reconcile-wired-in-cli"
+      urn: "acc:govern-lifecycle:E012-SMOKE-002-issue-reconcile-wired-in-cli"
       id: "AC-SMOKE-002"
       purpose: "cli.py dispatch routes the 'reconcile' target to IssueManager.reconcile()"
       phase: "SMOKE"

@@ -1,0 +1,55 @@
+urn: "wmbt:govern-lifecycle:Y005"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "issue-reconcile-missing-from-cli"
+context_clarifier: "when issues exist on GitHub but are absent from .atdd/manifest.yaml (due to dropped stashes, atdd init --force, or manual resets) there is no CLI command to bulk-backfill them — 'atdd issue reconcile' must be wired in cli.py and IssueManager must expose a reconcile() method that fetches all open atdd-issues from GitHub and appends missing entries to the manifest"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of issue-reconcile-missing-from-cli when bulk backfill of unregistered open issues is needed by wiring 'atdd issue reconcile' dispatch in cli.py and implementing IssueManager.reconcile() that iterates open GitHub issues labelled 'atdd-issue' and appends any not already in .atdd/manifest.yaml"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:Y005-UNIT-001-issue-reconcile-backfills-unregistered"
+      id: "AC-UNIT-001"
+      purpose: "IssueManager.reconcile() appends manifest entries for GitHub issues absent from the manifest and is idempotent on a second call"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An IssueManager with a manifest that does NOT contain all open GitHub issues"
+        - "subprocess.run is monkeypatched so gh issue list returns a list of open atdd-issues"
+        - "The manifest file exists on disk in a tmp_path"
+    when:
+      abstract: "IssueManager.reconcile() is called (then called again for idempotency check)"
+    then:
+      abstract:
+        - "reconcile() returns 0"
+        - "The manifest now contains entries for the previously-missing issues"
+        - "Calling reconcile() a second time does not duplicate any entries"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:Y005-SMOKE-001-reconcile-wired-in-cli"
+      id: "AC-SMOKE-001"
+      purpose: "cli.py dispatch routes the 'reconcile' target to IssueManager.reconcile() and the method is importable"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/cli.py is readable"
+        - "IssueManager is importable from atdd.coach.commands.issue"
+    when:
+      abstract: "The file content and method existence are checked"
+    then:
+      abstract:
+        - "cli.py contains 'reconcile' as a dispatch target"
+        - "cli.py calls 'manager.reconcile()'"
+        - "IssueManager has a reconcile() attribute"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"

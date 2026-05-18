@@ -2170,7 +2170,7 @@ class IssueManager:
 
         try:
             gh_issues = json.loads(result.stdout) or []
-        except (json.JSONDecodeError, ValueError) as exc:
+        except (json.JSONDecodeError, ValueError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
             print(f"Error: could not parse gh output: {exc}")
             return 1
 
@@ -2219,5 +2219,10 @@ class IssueManager:
 
         manifest["sessions"] = sessions
         self._save_manifest(manifest)
+        self._commit_manifest_change(
+            verb="atdd issue reconcile",
+            message=f"chore(coach): reconcile manifest — backfill {added} unregistered issue(s)",
+            strict=False,
+        )
         print(f"reconcile: added {added} issue(s) to .atdd/manifest.yaml")
         return 0

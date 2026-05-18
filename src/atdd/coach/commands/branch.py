@@ -168,7 +168,7 @@ class BranchManager:
 
         try:
             data = json.loads(result.stdout)
-        except (json.JSONDecodeError, ValueError):
+        except (json.JSONDecodeError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
             return None
 
         # Derive slug from title: strip leading "feat(atdd): " or similar prefix
@@ -211,7 +211,7 @@ class BranchManager:
         try:
             with open(self.manifest_file, "w") as fh:
                 yaml.dump(manifest, fh, default_flow_style=False, sort_keys=False)
-        except OSError:
+        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
             return None
 
         print(f"  Manifest: backfilled entry for #{issue_number} from GitHub (self-heal)")

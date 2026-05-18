@@ -1,5 +1,7 @@
 # Acceptance: acc:govern-lifecycle:E011-SMOKE-001-pre-commit-hook-installed-allows-manifest-only
 # Acceptance: acc:govern-lifecycle:E011-SMOKE-002-issue-reconcile-wired-in-cli
+# Acceptance: acc:govern-lifecycle:Y004-SMOKE-001-pre-commit-template-has-drift-notice
+# Acceptance: acc:govern-lifecycle:Y005-SMOKE-001-reconcile-wired-in-cli
 """SMOKE tests for E011: pre-commit exception and atdd issue reconcile CLI wiring (#775).
 
 These tests verify the integration points work against real infrastructure:
