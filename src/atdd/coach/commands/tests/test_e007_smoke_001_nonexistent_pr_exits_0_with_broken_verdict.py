@@ -43,46 +43,53 @@ def _opt_in_or_skip() -> None:
 class TestNonexistentPrExitsZeroWithBrokenVerdict:
     """Real coach_review.run() against a non-existent PR, in-process mode."""
 
-    def _run(self, tmp_path: Path) -> tuple[int, Path]:
+    def _run(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> tuple[int, Path]:
         _opt_in_or_skip()
         from atdd.coach.commands import coach_review
 
         report_path = tmp_path / "r.json"
-        os.environ["ATDD_RUNTIME_ROOT"] = str(tmp_path / ".atdd" / "runtime")
-        try:
-            rc = coach_review.run(
-                pr_number=_NONEXISTENT_PR,
-                in_process=True,
-                report_file=str(report_path),
-            )
-        finally:
-            os.environ.pop("ATDD_RUNTIME_ROOT", None)
+        monkeypatch.setenv("ATDD_RUNTIME_ROOT", str(tmp_path / ".atdd" / "runtime"))
+        rc = coach_review.run(
+            pr_number=_NONEXISTENT_PR,
+            in_process=True,
+            report_file=str(report_path),
+        )
         return rc, report_path
 
-    def test_exit_code_is_zero(self, tmp_path: Path):
-        rc, _path = self._run(tmp_path)
+    def test_exit_code_is_zero(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        rc, _path = self._run(tmp_path, monkeypatch)
 
         assert rc == 0, (
             "in-process mode must exit 0 against a non-existent PR — the real "
             f"gh pr view failure must route through the sentinel, got {rc}"
         )
 
-    def test_report_file_is_valid_json(self, tmp_path: Path):
-        _rc, report_path = self._run(tmp_path)
+    def test_report_file_is_valid_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        _rc, report_path = self._run(tmp_path, monkeypatch)
 
         assert report_path.exists(), f"report.json not written to {report_path}"
         json.loads(report_path.read_text())  # raises if not valid JSON
 
-    def test_verdict_is_review_step_broken(self, tmp_path: Path):
-        _rc, report_path = self._run(tmp_path)
+    def test_verdict_is_review_step_broken(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        _rc, report_path = self._run(tmp_path, monkeypatch)
 
         data = json.loads(report_path.read_text())
         assert data.get("verdict") == "review-step-broken", (
             f"expected verdict='review-step-broken', got {data.get('verdict')!r}"
         )
 
-    def test_summary_is_non_empty(self, tmp_path: Path):
-        _rc, report_path = self._run(tmp_path)
+    def test_summary_is_non_empty(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        _rc, report_path = self._run(tmp_path, monkeypatch)
 
         data = json.loads(report_path.read_text())
         assert data.get("summary"), "expected a non-empty summary in report.json"
