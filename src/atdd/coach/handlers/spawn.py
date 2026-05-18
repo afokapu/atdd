@@ -394,7 +394,7 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
     # Honor the orchestration context's runtime_dir when set (#734) so the
     # resume/cold-start paths and hermetic tests write decisions where the
     # caller expects; fall back to the module default otherwise.
-    runtime_root = ctx.runtime_dir or _RUNTIME_ROOT
+    runtime_root = Path(ctx.runtime_dir) if ctx.runtime_dir else _RUNTIME_ROOT
 
     try:
         persona_prompt_content = _load_persona_prompt(persona, phase)
