@@ -1,6 +1,7 @@
 """
 Root conftest for unified test reporting across all test categories.
 """
+import re
 import subprocess
 import pytest
 
@@ -103,6 +104,75 @@ def _git_repo_pollution_guard(request):
         "A test ran git commit against the live repo rather than a tmp_path fixture.\n"
         "Find it with: git log --oneline HEAD~10..HEAD"
     )
+
+
+# ---------------------------------------------------------------------------
+# ATDD<N> cmux workspace leak guard (issue #771 — broadened scope)
+#
+# Any test that invokes `atdd coach <N>` without --dry-run will spawn a real
+# ATDD<N> cmux workspace and leave it behind after the session. This session-
+# scoped guard snapshots ATDD<N>-pattern workspaces before the session, detects
+# any new ones after, closes them, and fails so the developer can add --dry-run.
+#
+# Session scope (not function) because cmux list-workspaces takes ~200ms —
+# per-test overhead on 2800+ coach tests would be unacceptable.
+# ---------------------------------------------------------------------------
+
+def _list_atdd_issue_workspaces() -> dict[str, str]:
+    """Return {name: ref} for ATDD<N>-prefixed cmux workspaces (issue-specific).
+
+    Parses `cmux list-workspaces` output lines like:
+      * workspace:1  ATDD  [selected]
+        workspace:5  ✳ ATDD358
+    Only names matching ^ATDD\\d+ are returned (not bare 'ATDD' or 'ATDD-atdd-plan-spec').
+    Returns {} when cmux is unavailable or times out.
+    """
+    try:
+        result = subprocess.run(
+            ["cmux", "list-workspaces"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        workspaces: dict[str, str] = {}
+        for line in result.stdout.splitlines():
+            ref_match = re.search(r"(workspace:\d+)", line)
+            if not ref_match:
+                continue
+            ref = ref_match.group(1)
+            after_ref = line[ref_match.end():].strip()
+            name = re.sub(r"^[*✳\s]+", "", after_ref).strip()
+            name = re.sub(r"\s*\[selected\].*$", "", name).strip()
+            if re.match(r"^ATDD\d+", name):
+                workspaces[name] = ref
+        return workspaces
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+        return {}
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _cmux_workspace_leak_guard():
+    """Session guard: snapshot ATDD<N> cmux workspaces; close+fail on any new ones after.
+
+    Only fires when cmux is available. Gracefully no-ops when cmux is absent
+    (CI without a multiplexer) so the guard never blocks non-local runs.
+    """
+    before = _list_atdd_issue_workspaces()
+    yield
+    after = _list_atdd_issue_workspaces()
+    leaked = {k: v for k, v in after.items() if k not in before}
+    if leaked:
+        for ref in leaked.values():
+            subprocess.run(
+                ["cmux", "close-workspace", "--workspace", ref],
+                capture_output=True,
+            )
+        pytest.fail(
+            f"Test session leaked ATDD cmux workspace(s): {sorted(leaked.keys())}\n"
+            "Each leaked workspace was closed automatically.\n"
+            "Fix: add --dry-run to tests that invoke 'atdd coach <N>' against the live repo,\n"
+            "or tear down workspaces explicitly in test teardown (issue #771)."
+        )
 
 
 def pytest_configure(config):

@@ -1,24 +1,28 @@
-# URN: test:integration-hardening:repo-root-bare-guard:Y003-UNIT-001-004
+# URN: test:integration-hardening:repo-root-bare-guard:Y003-UNIT-001-006
 # Acceptance: acc:integration-hardening:Y003-UNIT-001-repo-root-guard-is-function-scoped-autouse
 # Acceptance: acc:integration-hardening:Y003-UNIT-002-guard-names-offending-test-in-failure
 # Acceptance: acc:integration-hardening:Y003-UNIT-003-guard-restores-core-bare-before-asserting
 # Acceptance: acc:integration-hardening:Y003-UNIT-004-meta-test-run-leaves-core-bare-unchanged
+# Acceptance: acc:integration-hardening:Y003-UNIT-005-session-scoped-workspace-leak-guard
+# Acceptance: acc:integration-hardening:Y003-UNIT-006-known-polluter-uses-dry-run
 # WMBT: wmbt:integration-hardening:Y003
 # Phase: RED
 # Layer: coach.validator
 
-"""Repo-root core.bare guard — regression gate (issue #771).
+"""Repo-root core.bare + workspace hermeticity guard — regression gate (issue #771).
 
 The existing session-scoped guard in src/atdd/coach/validators/conftest.py
 covers only that sub-directory. A polluting test in commands/, handlers/,
 utils/, or templates/hooks/ can write core.bare=true to the shared
-.git/config undetected.
+.git/config undetected — or leave a real ATDD<N> cmux workspace behind.
 
 These tests assert:
   GT-Y003-001 — function-scoped autouse guard is in src/atdd/conftest.py
   GT-Y003-002 — failure message names the offending test via request.node.nodeid
   GT-Y003-003 — guard RESTORES core.bare before asserting (so the session continues clean)
   GT-Y003-004 — meta-test: the guard fixture is present and covers the right scope
+  GT-Y003-005 — session-scoped workspace leak guard is in src/atdd/conftest.py
+  GT-Y003-006 — the known coach-358 polluter test uses --dry-run
 """
 from __future__ import annotations
 
@@ -255,4 +259,117 @@ def test_meta_core_bare_unchanged_by_guard_itself():
         f"  before: {before!r}\n"
         f"  after:  {after!r}\n"
         "This should be impossible — investigation needed."
+    )
+
+
+# ---------------------------------------------------------------------------
+# GT-Y003-005 — session-scoped cmux workspace leak guard
+# ---------------------------------------------------------------------------
+
+
+def _find_workspace_guard_fixture(source: str) -> ast.FunctionDef | None:
+    """Return the fixture definition that monitors cmux workspaces, or None."""
+    for fn in _get_fixture_defs(source):
+        fn_src = ast.unparse(fn)
+        if "workspace" in fn_src.lower() and ("cmux" in fn_src or "ATDD" in fn_src):
+            return fn
+    return None
+
+
+def test_root_conftest_has_workspace_leak_guard():
+    """GT-Y003-005a: src/atdd/conftest.py must have a fixture referencing cmux workspaces."""
+    content = _read_root_conftest()
+    assert "workspace" in content.lower() and ("cmux" in content or "ATDD" in content), (
+        "src/atdd/conftest.py has no cmux workspace guard.\n"
+        "Add a session-scoped autouse fixture that snapshots ATDD<N> workspaces\n"
+        "before the session and closes+fails any that leak (issue #771 broadened scope).\n"
+        f"Path: {_ROOT_CONFTEST}"
+    )
+
+
+def test_root_conftest_workspace_guard_is_session_scoped():
+    """GT-Y003-005b: workspace guard must be session-scoped (cmux list is 200ms; per-test is too slow)."""
+    content = _read_root_conftest()
+    guard = _find_workspace_guard_fixture(content)
+    assert guard is not None, (
+        "No workspace-related @pytest.fixture found in src/atdd/conftest.py"
+    )
+    dec_src = " ".join(ast.unparse(d) for d in guard.decorator_list)
+    assert 'scope="session"' in dec_src or "scope='session'" in dec_src, (
+        f"The workspace leak guard '{guard.name}' must be session-scoped.\n"
+        f"cmux list-workspaces takes ~200ms; per-test would be too slow for 2800+ tests.\n"
+        f"Current decorator(s): {dec_src!r}"
+    )
+
+
+def test_root_conftest_workspace_guard_is_autouse():
+    """GT-Y003-005c: workspace guard must be autouse=True."""
+    content = _read_root_conftest()
+    guard = _find_workspace_guard_fixture(content)
+    assert guard is not None, (
+        "No workspace-related @pytest.fixture found in src/atdd/conftest.py"
+    )
+    dec_src = " ".join(ast.unparse(d) for d in guard.decorator_list)
+    assert "autouse=True" in dec_src or "autouse = True" in dec_src, (
+        f"The workspace leak guard '{guard.name}' must declare autouse=True.\n"
+        f"Current decorator(s): {dec_src!r}"
+    )
+
+
+def test_root_conftest_workspace_guard_closes_leaked_workspaces():
+    """GT-Y003-005d: workspace guard must attempt to close leaked workspaces (not just report)."""
+    content = _read_root_conftest()
+    guard = _find_workspace_guard_fixture(content)
+    assert guard is not None, (
+        "No workspace-related @pytest.fixture found in src/atdd/conftest.py"
+    )
+    fn_src = ast.unparse(guard)
+    assert "close-workspace" in fn_src or "close_workspace" in fn_src, (
+        f"The workspace guard '{guard.name}' must close leaked workspaces on teardown.\n"
+        "Expected: subprocess.run(['cmux', 'close-workspace', ...]) in fixture body.\n"
+        "This prevents workspace accumulation from run to run (issue #771)."
+    )
+
+
+# ---------------------------------------------------------------------------
+# GT-Y003-006 — known polluter test_l001 uses --dry-run
+# ---------------------------------------------------------------------------
+
+_L001_TEST = (
+    _SRC_ATDD
+    / "coach"
+    / "commands"
+    / "tests"
+    / "test_l001_integration_001_cli_dispatch_wires_status.py"
+)
+
+
+def test_l001_coach_358_uses_dry_run():
+    """GT-Y003-006: test_existing_coach_run_not_broken must pass --dry-run to avoid real workspace.
+
+    The test calls _run_atdd('coach', '358') which spawns a real ATDD358 cmux
+    workspace unless --dry-run is included. This verifies the fix is present.
+    """
+    assert _L001_TEST.is_file(), f"Expected test file not found: {_L001_TEST}"
+    source = _L001_TEST.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    # Find test_existing_coach_run_not_broken
+    target_fn: ast.FunctionDef | None = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "test_existing_coach_run_not_broken":
+            target_fn = node
+            break
+
+    assert target_fn is not None, (
+        "test_existing_coach_run_not_broken not found in:\n"
+        f"  {_L001_TEST}\n"
+        "If the test was renamed, update this assertion accordingly."
+    )
+
+    fn_src = ast.unparse(target_fn)
+    assert "--dry-run" in fn_src, (
+        "test_existing_coach_run_not_broken must pass '--dry-run' to _run_atdd('coach', '358').\n"
+        "Without --dry-run, the test spawns a real ATDD358 cmux workspace in CI (issue #771).\n"
+        f"File: {_L001_TEST}"
     )

@@ -95,3 +95,47 @@ acceptances:
     metadata:
       author: "atdd:core-bare-contamination-recurs-guard-gap"
       created: "2026-05-18"
+
+  - identity:
+      urn: "acc:integration-hardening:Y003-UNIT-005-session-scoped-workspace-leak-guard"
+      id: "GT-Y003-005"
+      purpose: "src/atdd/conftest.py has a session-scoped autouse guard that snapshots ATDD<N> cmux workspaces before the session and fails+closes any that remain after the session"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/conftest.py is the pytest root conftest for the src/atdd test tree"
+    when:
+      abstract: "The file is inspected for a workspace leak guard"
+    then:
+      abstract:
+        - "A session-scoped autouse fixture is defined that references cmux workspace listing"
+        - "The fixture matches ATDD<N> workspace names (issue-specific) before and after the session"
+        - "If new ATDD<N> workspaces exist after the session, the fixture closes them and fails"
+    metadata:
+      author: "atdd:core-bare-contamination-recurs-guard-gap"
+      created: "2026-05-18"
+
+  - identity:
+      urn: "acc:integration-hardening:Y003-UNIT-006-known-polluter-uses-dry-run"
+      id: "GT-Y003-006"
+      purpose: "The test_l001 integration test that calls 'atdd coach 358' must pass --dry-run so it does not spawn real ATDD358 cmux workspaces during CI"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/tests/test_l001_integration_001_cli_dispatch_wires_status.py contains test_existing_coach_run_not_broken"
+        - "That test invokes _run_atdd('coach', '358') which spawns a real workspace"
+    when:
+      abstract: "The test source is inspected for the coach invocation"
+    then:
+      abstract:
+        - "The _run_atdd call for 'coach', '358' also passes '--dry-run' as an argument"
+        - "The test does not cause a real ATDD358 cmux workspace to be created"
+    metadata:
+      author: "atdd:core-bare-contamination-recurs-guard-gap"
+      created: "2026-05-18"
