@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:smoke-persona-spawn-integrity:E003-UNIT-001-persona-dir-co-created-with-observer
-# Acceptance: acc:spawn-agents:E003-UNIT-001-persona-dir-co-created-with-observer
-# WMBT: wmbt:spawn-agents:E003
+# URN: test:spawn-agents:smoke-persona-spawn-integrity:E005-UNIT-001-persona-dir-co-created-with-observer
+# Acceptance: acc:spawn-agents:E005-UNIT-001-persona-dir-co-created-with-observer
+# WMBT: wmbt:spawn-agents:E005
 # Phase: RED
 # Layer: unit
-"""E003-UNIT-001 — a successful GREEN→SMOKE ``cmd_spawn`` creates the persona
+"""E005-UNIT-001 — a successful GREEN→SMOKE ``cmd_spawn`` creates the persona
 agent runtime dir, not only the ``-observer`` dir.
 
 A GREEN→SMOKE spawn resolves the persona to ``tester`` (per

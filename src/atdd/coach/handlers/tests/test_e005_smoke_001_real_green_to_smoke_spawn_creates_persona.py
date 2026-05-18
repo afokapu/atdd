@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:smoke-persona-spawn-integrity:E003-SMOKE-001-real-green-to-smoke-spawn-creates-persona
-# Acceptance: acc:spawn-agents:E003-SMOKE-001-real-green-to-smoke-spawn-creates-persona
-# WMBT: wmbt:spawn-agents:E003
+# URN: test:spawn-agents:smoke-persona-spawn-integrity:E005-SMOKE-001-real-green-to-smoke-spawn-creates-persona
+# Acceptance: acc:spawn-agents:E005-SMOKE-001-real-green-to-smoke-spawn-creates-persona
+# WMBT: wmbt:spawn-agents:E005
 # Phase: SMOKE
 # Layer: smoke
-"""E003-SMOKE-001 — a real GREEN→SMOKE spawn against the live multiplexer
+"""E005-SMOKE-001 — a real GREEN→SMOKE spawn against the live multiplexer
 leaves a persona agent dir alongside the observer dir.
 
 Against a real worktree, a real runtime directory, and the real multiplexer

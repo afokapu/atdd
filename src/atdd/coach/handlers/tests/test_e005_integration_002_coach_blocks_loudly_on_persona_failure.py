@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:smoke-persona-spawn-integrity:E003-INTEGRATION-002-coach-blocks-loudly-on-persona-failure
-# Acceptance: acc:spawn-agents:E003-INTEGRATION-002-coach-blocks-loudly-on-persona-failure
-# WMBT: wmbt:spawn-agents:E003
+# URN: test:spawn-agents:smoke-persona-spawn-integrity:E005-INTEGRATION-002-coach-blocks-loudly-on-persona-failure
+# Acceptance: acc:spawn-agents:E005-INTEGRATION-002-coach-blocks-loudly-on-persona-failure
+# WMBT: wmbt:spawn-agents:E005
 # Phase: RED
 # Layer: integration
-"""E003-INTEGRATION-002 — when every persona-spawn attempt fails to
+"""E005-INTEGRATION-002 — when every persona-spawn attempt fails to
 materialise, the coach BLOCKs and escalates instead of staying in SMOKE.
 
 Driving the coach spawn handler for a GREEN→SMOKE transition against a

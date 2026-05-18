@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:smoke-persona-spawn-integrity:E003-UNIT-002-observer-cospawn-gated-on-persona
-# Acceptance: acc:spawn-agents:E003-UNIT-002-observer-cospawn-gated-on-persona
-# WMBT: wmbt:spawn-agents:E003
+# URN: test:spawn-agents:smoke-persona-spawn-integrity:E005-UNIT-002-observer-cospawn-gated-on-persona
+# Acceptance: acc:spawn-agents:E005-UNIT-002-observer-cospawn-gated-on-persona
+# WMBT: wmbt:spawn-agents:E005
 # Phase: RED
 # Layer: unit
-"""E003-UNIT-002 — when the persona spawn step fails, the observer co-spawn is
+"""E005-UNIT-002 — when the persona spawn step fails, the observer co-spawn is
 never reached and no orphan observer is created.
 
 A GREEN→SMOKE ``cmd_spawn`` against a multiplexer whose persona spawn step

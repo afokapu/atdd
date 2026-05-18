@@ -408,7 +408,7 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
             )
         return HandlerResult.ERROR
 
-    # E003 (#733): a truthy _spawn_with_retries result is not proof the
+    # E005 (#733): a truthy _spawn_with_retries result is not proof the
     # persona materialised — cmd_spawn could have returned without writing a
     # manifest / agent_spawned event. Verify the persona is actually on disk;
     # if not, BLOCK + escalate loudly instead of returning HANDLED and
