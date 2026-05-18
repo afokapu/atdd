@@ -1303,8 +1303,8 @@ def cmd_run(
                     if mtime != _last_log_mtime:
                         _last_log_mtime = mtime
                         _idle_reset = time.monotonic()
-                except OSError:
-                    pass
+                except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-18
+                    pass  # log file not yet written — idle timer keeps running
                 if time.monotonic() - _idle_reset >= idle_timeout:
                     obs.stop()
                     return 0
