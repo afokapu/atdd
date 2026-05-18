@@ -38,6 +38,7 @@ Public surface (testable seams):
   ``_get_pr_diff(*, pr_number, target_commit) -> str``
   ``_build_in_process_report(*, response, target_commit, reviewer_agent_id) -> dict``
   ``_write_broken_sentinel(*, report_file, target_commit, reviewer_agent_id, reason) -> int``
+  ``_persist_report(report_file, payload) -> None``  — single report-file write seam
   ``_resolve_pr_commit(pr_number) -> str``
   ``_print(msg)``  — stdout sink (monkeypatchable)
   ``_print_err(msg)``  — stderr sink (monkeypatchable)
@@ -286,6 +287,20 @@ def _build_in_process_report(
     }
 
 
+def _persist_report(report_file: Optional[str], payload: dict) -> None:
+    """Write a review report to ``report_file`` as deterministic JSON; no-op when unset.
+
+    The single seam for honouring the in-process "verdict is in the report
+    file" contract — every path that produces a report (success, sentinel)
+    goes through here so the file is written identically in all cases.
+    """
+    if not report_file:
+        return
+    target = Path(report_file)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True))
+
+
 def _write_broken_sentinel(
     *,
     report_file: Optional[str],
@@ -305,10 +320,7 @@ def _write_broken_sentinel(
         f"coach review: review-step-broken sentinel written "
         f"(commit={target_commit[:12]}, reason={reason!r})"
     )
-    if report_file:
-        target = Path(report_file)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(sentinel, indent=2, sort_keys=True))
+    _persist_report(report_file, sentinel)
     _print(f"coach review verdict: review-step-broken  commit={target_commit[:12]}")
     return 0
 
@@ -376,10 +388,7 @@ def _run_in_process(
             reason=reason,
         )
 
-    if report_file:
-        target = Path(report_file)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(report, indent=2, sort_keys=True))
+    _persist_report(report_file, report)
 
     verdict = report.get("verdict", "fail")
     if output == "json":
@@ -411,6 +420,10 @@ def run(
     in_process: bool = False,
 ) -> int:
     """Execute one `atdd coach review` invocation. Returns the process exit code."""
+    runtime = _runtime_root()
+    pr_slug = str(pr_number) if pr_number is not None else "commit"
+    reviewer_agent_id = f"reviewer-op-{pr_slug}-{uuid.uuid4().hex[:8]}"
+
     # 1. Resolve target commit.
     if commit:
         target_commit = commit
@@ -419,14 +432,22 @@ def run(
             target_commit = _resolve_pr_commit(pr_number)
         except RuntimeError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             _print_err(f"coach review: failed to resolve PR {pr_number}: {exc}")
+            # In-process mode promises "always exits 0; verdict is in the
+            # report file". A PR-resolution failure (gh rate limit, network
+            # error, missing PR) must route through the broken sentinel
+            # rather than escaping with `return 2` and no report file.
+            # The spawn-based path has no exit-0 contract — it keeps return 2.
+            if in_process:
+                return _write_broken_sentinel(
+                    report_file=report_file,
+                    target_commit="unresolved",
+                    reviewer_agent_id=reviewer_agent_id,
+                    reason=f"PR resolution failed: {exc}",
+                )
             return 2
     else:
         _print_err("coach review: must provide a PR number or --commit <sha>")
         return 2
-
-    runtime = _runtime_root()
-    pr_slug = str(pr_number) if pr_number is not None else "commit"
-    reviewer_agent_id = f"reviewer-op-{pr_slug}-{uuid.uuid4().hex[:8]}"
 
     # 2. Dispatch: in-process mode skips cmux spawn entirely.
     if in_process:
@@ -474,10 +495,7 @@ def run(
         return 4
 
     # 7. Persist to --report-file if requested.
-    if report_file:
-        target = Path(report_file)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(report, indent=2, sort_keys=True))
+    _persist_report(report_file, report)
 
     # 8. Output verdict.
     verdict = report.get("verdict", "unknown")
