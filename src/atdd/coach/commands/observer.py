@@ -43,6 +43,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -800,6 +801,8 @@ class Observer:
         dispatcher: Optional[InjectionDispatcher] = None,
         poll_interval: float = 0.5,
         surface_capture: Optional[Callable[[], str]] = None,
+        ask_idle_seconds: float = 600.0,
+        escalate_idle_seconds: float = 1800.0,
     ) -> None:
         self.agent_id = agent_id
         self.runtime_dir = Path(runtime_dir)
@@ -825,6 +828,13 @@ class Observer:
         self._worktree_baseline_taken = False
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        # #731 Phase 2: worker->coach event loop. The observer — a per-worker
+        # LLM-neutral sidecar — emits the worker's heartbeat/ask/escalate
+        # itself, because the worker LLM cannot be relied on to emit them.
+        self._ask_idle_seconds = ask_idle_seconds
+        self._escalate_idle_seconds = escalate_idle_seconds
+        # De-dup: emit ask/escalate once per blocked episode, not every poll.
+        self._block_signalled = False
         # Roots excluded from worktree scanning (#706). The observer writes
         # its own corrections.jsonl / cli-return.jsonl into runtime_dir,
         # which lives INSIDE the scanned worktree — scanning it makes every
@@ -967,6 +977,16 @@ class Observer:
         ctx = self.collect_input()
         self.last_input = ctx
         self.last_scan_at = time.time()
+        # #731 Phase 2/3: drive the worker->coach event loop — emit the
+        # worker's heartbeat and surface a blocked worker as ask/escalate.
+        # Advisory: a failure here must never block rule evaluation.
+        try:
+            self._run_worker_event_loop(ctx)
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31  # event-loop emission is advisory; failure must not block corrections
+            print(
+                f"observer: worker event loop raised {type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
         corrections = self.registry.evaluate(ctx, agent_id=self.agent_id)
         self.last_corrections = list(corrections)
         self.corrections_issued += len(corrections)
@@ -980,6 +1000,122 @@ class Observer:
                     file=sys.stderr,
                 )
         return corrections
+
+    # --- worker -> coach event loop (#731 Phase 2/3) ----------------------
+
+    # A line that signals the worker is awaiting a decision (not merely
+    # quiet). Tuned to fire on real decision/block language but stay silent
+    # on neutral progress text.
+    _DECISION_MARKER = re.compile(
+        r"(?i)(\bdecision\b|\bblocked\b|cannot proceed|\bawaiting\b"
+        r"|need\b.{0,16}\banswer\b|should i\b|\?)"
+    )
+
+    @staticmethod
+    def _agent_module():
+        """Lazy import — the worker->coach event loop emits through the same
+        ``atdd agent`` primitives a worker would, keeping the path LLM-neutral
+        and adapter-agnostic."""
+        from atdd.coach.commands import agent
+
+        return agent
+
+    def _run_worker_event_loop(self, ctx: "ObservedInput") -> None:
+        self._emit_worker_heartbeat()
+        self._evaluate_worker_block(ctx)
+
+    def _emit_worker_heartbeat(self) -> None:
+        """Emit one ``heartbeat`` event for the worker so the coach sees
+        liveness. The worker LLM does not emit these itself (#731)."""
+        self._agent_module().cmd_event(
+            "heartbeat",
+            agent_id=self.persona_agent_id,
+            data={"emitted_by": self.agent_id, "source": "observer"},
+            runtime_root=self.runtime_dir,
+        )
+
+    def _has_decision_marker(self, ctx: "ObservedInput") -> bool:
+        return any(self._DECISION_MARKER.search(line) for line in ctx.log_lines)
+
+    def detect_blocked_worker(self, ctx: "ObservedInput") -> list[str]:
+        """Classify the worker's idle state. Returns any of ``"ask"`` /
+        ``"escalate"`` — empty when the worker is progressing.
+
+        ``ask``      — idle past the ask threshold AND the recent output
+                       shows the worker awaiting a decision.
+        ``escalate`` — idle past the (longer) escalation threshold,
+                       regardless of decision language: a hard block.
+        """
+        last = ctx.last_token_at
+        if last is None:
+            return []  # no output stream yet — not started, not blocked
+        idle = ctx.now - last
+        signals: list[str] = []
+        if idle >= self._ask_idle_seconds and self._has_decision_marker(ctx):
+            signals.append("ask")
+        if idle >= self._escalate_idle_seconds:
+            signals.append("escalate")
+        return signals
+
+    def _evaluate_worker_block(self, ctx: "ObservedInput") -> None:
+        signals = self.detect_blocked_worker(ctx)
+        if not signals:
+            # Worker is progressing — reset so the next block re-signals.
+            self._block_signalled = False
+            return
+        if self._block_signalled:
+            return  # already signalled this blocked episode — no spam
+        agent = self._agent_module()
+        idle = ctx.now - (ctx.last_token_at or ctx.now)
+        if "ask" in signals:
+            agent.cmd_ask(
+                question=self._decision_context(ctx),
+                type="text",
+                agent_id=self.persona_agent_id,
+                runtime_root=self.runtime_dir,
+            )
+        if "escalate" in signals:
+            agent.cmd_escalate(
+                reason=(
+                    f"worker idle {idle:.0f}s with no output — hard-blocked "
+                    f"(observer-detected, {self.agent_id})"
+                ),
+                severity="block",
+                agent_id=self.persona_agent_id,
+                runtime_root=self.runtime_dir,
+            )
+        self._block_signalled = True
+
+    def _decision_context(self, ctx: "ObservedInput") -> str:
+        """The captured decision the worker is stalled on — the last output
+        line carrying decision language, or a generic fallback."""
+        for line in reversed(ctx.log_lines):
+            if self._DECISION_MARKER.search(line):
+                return line.strip()
+        return "worker appears blocked awaiting a decision"
+
+    def deliver_answer(self, question_id: str, answer: str) -> Path:
+        """Round-trip a coach/operator answer back into the worker (#731
+        Phase 3).
+
+        The answer is written to ``<worker>/answers/<question_id>.json`` —
+        exactly where ``agent.read_answer`` reads it — so the worker can
+        pick it up and unblock. Adapter-neutral: it uses the generic
+        runtime tree, no Claude-Code-specific hook.
+        """
+        answers_dir = self.persona_dir / "answers"
+        answers_dir.mkdir(parents=True, exist_ok=True)
+        target = answers_dir / f"{question_id}.json"
+        record = {
+            "question_id": question_id,
+            "answer": answer,
+            "delivered_at": _now_iso_z(),
+            "delivered_by": self.agent_id,
+        }
+        target.write_text(json.dumps(record, sort_keys=True), encoding="utf-8")
+        # A delivered answer resolves the current blocked episode.
+        self._block_signalled = False
+        return target
 
     # --- daemon mode ------------------------------------------------------
 
