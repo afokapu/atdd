@@ -954,6 +954,17 @@ sessions:
   status: INIT
   created: '2026-05-15'
   archived: null
+- id: '734'
+  slug: coach-resume-fast-forwards-phases-without-orchestration
+  file: null
+  issue_number: 734
+  type: implementation
+  status: REFACTOR
+  created: '2026-05-17'
+  archived: null
+  wagon: integration-hardening
+  feature: feature:integration-hardening:coach-resume-wiring
+  train: 0002-coach-drives-lifecycle
 - id: '754'
   slug: coach-single-shared-observer-per-coach
   file: null

@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 
 class HandlerResult(str, Enum):
@@ -136,3 +136,10 @@ class CoachContext:
     # created at first spawn and reused — persona agent respawned in place —
     # for every later phase transition. None until the first spawn.
     issue_surface_ref: Optional[str] = None
+    # Issue #734: explicit orchestration seams so callers (and hermetic
+    # integration tests) inject collaborators by construction instead of
+    # monkeypatching module globals. ``multiplexer_backend`` overrides
+    # ``_resolve_multiplexer()``; ``worktree_override`` overrides the
+    # GitHub-backed ``_resolve_worktree()``. Both None in production.
+    multiplexer_backend: Any = None
+    worktree_override: Optional[Path] = None

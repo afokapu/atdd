@@ -556,6 +556,54 @@ def _ensure_issue_worktree(ctx) -> Optional[Path]:
     return worktree
 
 
+def _make_coach_context(
+    cfg: "Config",
+    issue_number: int,
+    coach_run_id: str,
+    runtime_dir: Path,
+    *,
+    multiplexer_backend: Optional[object] = None,
+    worktree_override: Optional[Path] = None,
+) -> "CoachContext":
+    """Build a ``CoachContext`` from the run ``Config`` for one issue.
+
+    Single construction site shared by the cold-start path
+    (``_drive_single_issue``) and the ``--resume`` path
+    (``_make_resume_transition_action``). Decision #1 of issue #734: one
+    orchestration path is less drift-prone than two — both must spawn
+    personas with an identically-shaped context, so the mapping from
+    ``Config`` lives here once instead of being copied per call site.
+
+    ``multiplexer_backend`` / ``worktree_override`` are explicit
+    orchestration seams (both ``None`` in production): they let a caller
+    inject collaborators by construction so hermetic integration tests
+    need not monkeypatch ``_resolve_multiplexer`` / ``_resolve_worktree``.
+    """
+    from atdd.coach.handlers.state_machine import CoachContext
+
+    return CoachContext(
+        issue_number=issue_number,
+        coach_run_id=coach_run_id,
+        runtime_dir=runtime_dir,
+        dry_run=cfg.dry_run,
+        multiplexer=cfg.multiplexer,
+        multiplexer_mode=cfg.multiplexer_mode,
+        llm=cfg.llm,
+        persona_llm=cfg.persona_llm,
+        judge_llm=cfg.judge_llm,
+        require_issue_review=cfg.require_issue_review,
+        review_phases=cfg.review_phases,
+        skip_review=cfg.skip_review,
+        risk_threshold_block=cfg.risk_threshold_block,
+        allow_stale_suppressions=cfg.allow_stale_suppressions,
+        auto_merge=cfg.auto_merge,
+        max_retries=cfg.max_retries,
+        escalation_channel=cfg.escalation_channel,
+        multiplexer_backend=multiplexer_backend,
+        worktree_override=worktree_override,
+    )
+
+
 def _drive_single_issue(
     cfg: "Config",
     sm: StateMachine,
@@ -574,7 +622,7 @@ def _drive_single_issue(
     Issue #645 — cold-start wiring.
     """
     from atdd.coach.handlers import spawn as spawn_handler, two_phase_commit as tpc_handler
-    from atdd.coach.handlers.state_machine import CoachContext, HandlerResult, Transition
+    from atdd.coach.handlers.state_machine import HandlerResult, Transition
     from atdd.coach.commands.durability import DecisionWriter, transactional_decision
 
     spawn_h = _spawn_func or spawn_handler.handle
@@ -584,25 +632,7 @@ def _drive_single_issue(
     if _run_id_sink is not None:
         _run_id_sink.append(coach_run_id)
 
-    ctx = CoachContext(
-        issue_number=sm.issue_number,
-        coach_run_id=coach_run_id,
-        runtime_dir=runtime_dir,
-        dry_run=cfg.dry_run,
-        multiplexer=cfg.multiplexer,
-        multiplexer_mode=cfg.multiplexer_mode,
-        llm=cfg.llm,
-        persona_llm=cfg.persona_llm,
-        judge_llm=cfg.judge_llm,
-        require_issue_review=cfg.require_issue_review,
-        review_phases=cfg.review_phases,
-        skip_review=cfg.skip_review,
-        risk_threshold_block=cfg.risk_threshold_block,
-        allow_stale_suppressions=cfg.allow_stale_suppressions,
-        auto_merge=cfg.auto_merge,
-        max_retries=cfg.max_retries,
-        escalation_channel=cfg.escalation_channel,
-    )
+    ctx = _make_coach_context(cfg, sm.issue_number, coach_run_id, runtime_dir)
 
     writer = DecisionWriter(runtime_dir=runtime_dir)
 
@@ -975,6 +1005,49 @@ def _execute_cold_start(
     return ColdStartResult(rc=aggregate_rc, blocked=blocked)
 
 
+def _make_resume_transition_action(
+    cfg: "Config",
+    runtime_dir: Path,
+    *,
+    multiplexer_backend: Optional[object] = None,
+    worktree_override: Optional[Path] = None,
+) -> Callable[[int, str, str], dict]:
+    """Build the real per-transition orchestration action for ``--resume``.
+
+    Mirrors the cold-start spawn dispatch (#645): for each pending transition
+    the resumed runner walks, spawn that phase's persona via the same handler
+    ``_drive_single_issue`` uses. A transition whose spawn handler returns
+    ERROR raises, so ``ResumeRunner`` BLOCKs/escalates instead of paper-
+    stamping the issue to COMPLETE (issue #734).
+
+    ``multiplexer_backend`` / ``worktree_override`` are forwarded into every
+    ``CoachContext`` so a caller can inject collaborators by construction
+    (both ``None`` in production).
+    """
+    from atdd.coach.handlers import spawn as spawn_handler
+    from atdd.coach.handlers.state_machine import HandlerResult, Transition
+
+    def _action(issue: int, src: str, dst: str) -> dict:
+        ctx = _make_coach_context(
+            cfg,
+            issue,
+            cfg.resume or f"coach-resume-{issue}",
+            runtime_dir,
+            multiplexer_backend=multiplexer_backend,
+            worktree_override=worktree_override,
+        )
+        transition = Transition(Phase(src), Phase(dst))
+        result = spawn_handler.handle(ctx, transition)
+        if result == HandlerResult.ERROR:
+            raise RuntimeError(
+                f"#{issue}: resume orchestration failed at {src}->{dst} "
+                f"(spawn handler returned ERROR)"
+            )
+        return {"transitioned": True, "new_phase": dst}
+
+    return _action
+
+
 def run(
     issue_numbers: list[int],
     max_retries: Optional[int] = None,
@@ -1000,6 +1073,9 @@ def run(
     _run_id_sink: Optional[list] = None,
     _spawn_func: Optional[Callable] = None,
     _two_phase_func: Optional[Callable] = None,
+    _transition_action_override: Optional[Callable] = None,
+    _multiplexer_backend: Optional[object] = None,
+    _worktree_override: Optional[Path] = None,
 ) -> int:
     """Drive each issue through the full lifecycle via the cold-start path.
 
@@ -1059,17 +1135,38 @@ def run(
         from atdd.coach.commands.resume import ResumeRunner
 
         writer = DecisionWriter(runtime_dir=runtime_dir)
+        # Wire ResumeRunner with a real transition_action so each pending
+        # phase is genuinely orchestrated (persona spawn + work) rather than
+        # paper-stamped to COMPLETE — issue #734.
+        transition_action = _transition_action_override or _make_resume_transition_action(
+            cfg,
+            runtime_dir,
+            multiplexer_backend=_multiplexer_backend,
+            worktree_override=_worktree_override,
+        )
         runner = ResumeRunner(
             runtime_dir=runtime_dir,
             run_id=cfg.resume,
             decision_writer=writer,
+            transition_action=transition_action,
         )
         reconstructed = runner.reconstruct()
         print(f"  --resume={cfg.resume!r}: reconstructed {len(reconstructed)} issue(s)")
         for issue, phase in sorted(reconstructed.items()):
             print(f"    #{issue}: {phase}")
         if not cfg.dry_run:
-            final = runner.drive_to_complete(cfg.issue_numbers)
+            try:
+                final = runner.drive_to_complete(cfg.issue_numbers)
+            except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
+                # A phase the resume run could not legitimately complete must
+                # BLOCK/escalate — never silently fast-forward to COMPLETE.
+                for num in cfg.issue_numbers:
+                    _write_escalation(
+                        cfg.escalation_channel,
+                        f"#{num}: resume blocked — {exc}",
+                    )
+                print(f"❌ resume blocked: {exc}", file=sys.stderr)
+                return 1
             for issue, phase in sorted(final.items()):
                 print(f"    #{issue} → {phase}")
         return 0
