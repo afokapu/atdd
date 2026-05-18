@@ -667,6 +667,8 @@ def _drive_single_issue(
     try:
         _lock.acquire()
     except CoachAlreadyRunning as exc:
+        _logger.warning("coach already running for #%d: %s", sm.issue_number, exc,
+                        extra={"issue": sm.issue_number})
         print(f"❌ #{sm.issue_number}: {exc}", file=sys.stderr)
         _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: {exc}")
         return 1

@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import atexit
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class CoachAlreadyRunning(Exception):
@@ -22,7 +25,8 @@ def _pid_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
         return True
-    except (OSError, ProcessLookupError):
+    except (OSError, ProcessLookupError) as exc:
+        logger.debug("pid %d is not alive: %s", pid, exc)
         return False
 
 
@@ -87,8 +91,8 @@ class CoachLock:
         if self._held:
             try:
                 self._lock_path.unlink(missing_ok=True)
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.debug("coach lock release failed for %s: %s", self._lock_path, exc)
             self._held = False
 
     def _release_atexit(self) -> None:
