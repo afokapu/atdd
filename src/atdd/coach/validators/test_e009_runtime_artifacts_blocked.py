@@ -6,24 +6,19 @@
 Binds ``coach.pr.runtime-artifacts-blocked``.
 
 Agents writing runtime state under .atdd/runtime/ and then running
-``git add -A`` or ``git commit`` will accidentally commit ephemeral per-run
+``git add -A`` or ``git commit`` accidentally commit ephemeral per-run
 artifacts (session JSON, decisions.jsonl, validation logs) into the PR diff.
 This validator fails atdd validate coach when the branch diff vs the default
 branch adds or modifies any path matching ``.atdd/runtime/**``.
 
 ``evaluate_runtime_artifact_violations`` is a pure evaluator: it accepts a
-list of changed file paths (strings) and returns a list of Violations. The
-GitHub I/O helper ``_fetch_pr_changed_files`` retrieves the file set for
-the current open PR via ``gh pr view``.
-
-Phase RED: fails because coach.pr.runtime-artifacts-blocked is not in any
-           convention file; bind_rule() raises RuleNotInRegistryError.
-Phase GREEN: rule declared; evaluator wired; tests pass.
+list of changed file paths (strings) and returns a list of Violations.
+``_fetch_diff_files_via_git`` retrieves the added/modified file set (deletes
+excluded via --diff-filter=d) from ``git diff origin/<default>...HEAD``.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 from pathlib import Path
@@ -31,6 +26,7 @@ from typing import List, Optional
 
 import pytest
 
+from atdd.coach.utils.default_branch import resolve_default_branch
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
@@ -93,80 +89,8 @@ def evaluate_runtime_artifact_violations(
 
 
 # ---------------------------------------------------------------------------
-# GitHub I/O helpers
+# I/O helper
 # ---------------------------------------------------------------------------
-
-
-def _fetch_pr_changed_files(repo_root: Path) -> Optional[dict]:
-    """Return {pr_number, files} for the first open PR from the current branch.
-
-    Returns None on error so the validator stays quiet for unobtainable PRs.
-    """
-    try:
-        list_result = subprocess.run(
-            ["gh", "pr", "list", "--state", "open", "--json", "number,headRefName"],
-            capture_output=True, text=True, timeout=30,
-            cwd=repo_root,
-        )
-    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        logging.getLogger(__name__).warning("gh pr list failed: %s", exc)
-        return None
-    if list_result.returncode != 0:
-        logging.getLogger(__name__).warning(
-            "gh pr list returned %d: %s", list_result.returncode, list_result.stderr.strip()
-        )
-        return None
-    try:
-        prs = json.loads(list_result.stdout) if list_result.stdout.strip() else []
-    except json.JSONDecodeError as exc:
-        logging.getLogger(__name__).warning("gh pr list non-JSON: %s", exc)
-        return None
-
-    # Get current branch
-    try:
-        branch_result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=10,
-            cwd=repo_root,
-        )
-        current_branch = branch_result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        current_branch = ""
-
-    # Find PR for current branch, or fall back to any open PR
-    pr_number = None
-    for pr in prs:
-        if pr.get("headRefName") == current_branch:
-            pr_number = pr["number"]
-            break
-    if pr_number is None and prs:
-        pr_number = prs[0]["number"]
-    if pr_number is None:
-        return None
-
-    try:
-        view_result = subprocess.run(
-            ["gh", "pr", "view", str(pr_number), "--json", "number,files"],
-            capture_output=True, text=True, timeout=30,
-            cwd=repo_root,
-        )
-    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        logging.getLogger(__name__).warning("gh pr view %d failed: %s", pr_number, exc)
-        return None
-    if view_result.returncode != 0:
-        logging.getLogger(__name__).warning(
-            "gh pr view %d returned %d: %s",
-            pr_number, view_result.returncode, view_result.stderr.strip(),
-        )
-        return None
-    try:
-        data = json.loads(view_result.stdout)
-    except json.JSONDecodeError as exc:
-        logging.getLogger(__name__).warning("gh pr view non-JSON: %s", exc)
-        return None
-
-    files = [f["path"] for f in data.get("files", []) if isinstance(f.get("path"), str)]
-    return {"pr_number": data.get("number"), "files": files}
 
 
 def _fetch_diff_files_via_git(repo_root: Path, default_branch: str) -> List[str]:
@@ -264,8 +188,6 @@ def test_real_validate_coach_passes_on_clean_branch() -> None:
     asserts the evaluator returns no violations. This proves .atdd/runtime/ is
     fully gitignored and no runtime artifacts ride the current PR.
     """
-    from atdd.coach.utils.default_branch import resolve_default_branch
-
     default_branch = resolve_default_branch(REPO_ROOT)
     changed_files = _fetch_diff_files_via_git(REPO_ROOT, default_branch)
 
