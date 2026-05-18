@@ -1,0 +1,27 @@
+urn: "feature:integration-hardening:pre-push-version-gate-never-auto-upgrades"
+wagon: "wagon:integration-hardening"
+description: "The pre-push version gate (_gate_main in atdd.version_check) must gate only — never call auto_upgrade() or run pip install from inside a git hook. When atdd is outdated, the gate exits 1 and prints a message instructing the user to run 'atdd upgrade' then retry. Running pip install from a git hook is an unsafe side-effect that can corrupt environments (PEP 668 systems, CI, virtualenvs) and violates the principle that hooks must not mutate the system."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:integration-hardening:Y004"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface; change is inside _gate_main which is called by the pre-push hook"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "One behaviour change: _gate_main exits 1 with upgrade instruction instead of calling auto_upgrade()"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain entities"
+    integration:
+      - type: "adapters"
+        count: 0
+        rationale: "No new adapters; auto_upgrade() call is simply removed"

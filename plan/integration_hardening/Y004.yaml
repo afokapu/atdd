@@ -1,0 +1,141 @@
+urn: "wmbt:integration-hardening:Y004"
+step: "modify"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "git-hooks-that-run-pip-install-during-push"
+context_clarifier: "when the pre-push hook invokes _gate_main and atdd is outdated, the current implementation calls auto_upgrade() which runs pip install --upgrade atdd inside the git hook — this is unsafe on PEP 668 systems, inside virtualenvs, and in CI, and violates the contract that git hooks must not mutate the system environment"
+lens: "functional.effectiveness"
+statement: "minimize quantity of git-hooks-that-run-pip-install-during-push by stripping auto_upgrade() from _gate_main so the version gate only checks and exits 1 with a message telling the user to run 'atdd upgrade' then retry, never spawning pip or any subprocess for installation"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:Y004-UNIT-001-gate-never-calls-auto-upgrade"
+      id: "GT-Y004-001"
+      purpose: "_gate_main must not call auto_upgrade() when atdd is outdated — it must exit 1 immediately"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "is_outdated() returns (True, '3.0.0', '4.0.0')"
+        - "auto_upgrade is monkeypatched and its call is tracked"
+    when:
+      abstract: "_gate_main() is called"
+    then:
+      abstract:
+        - "auto_upgrade() is never called"
+        - "sys.exit(1) is raised (SystemExit with code 1)"
+    metadata:
+      author: "atdd:pre-push-version-gate-must-not-auto-upgrade"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y004-UNIT-002-gate-prints-upgrade-instruction"
+      id: "GT-Y004-002"
+      purpose: "When outdated, _gate_main prints a message telling the user to run 'atdd upgrade' then retry"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "is_outdated() returns (True, '3.0.0', '4.0.0')"
+    when:
+      abstract: "_gate_main() is called (catching SystemExit)"
+    then:
+      abstract:
+        - "The printed output (stdout or stderr) contains 'atdd upgrade'"
+        - "The printed output contains '4.0.0' (the latest version)"
+        - "The printed output does NOT contain 'pip install'"
+    metadata:
+      author: "atdd:pre-push-version-gate-must-not-auto-upgrade"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y004-UNIT-003-gate-allows-when-up-to-date"
+      id: "GT-Y004-003"
+      purpose: "When atdd is up to date, _gate_main exits 0 and prints an up-to-date confirmation"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "is_outdated() returns (False, '4.0.0', '4.0.0')"
+    when:
+      abstract: "_gate_main() is called"
+    then:
+      abstract:
+        - "No SystemExit is raised (or SystemExit code 0)"
+        - "auto_upgrade() is never called"
+    metadata:
+      author: "atdd:pre-push-version-gate-must-not-auto-upgrade"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y004-UNIT-004-gate-skips-when-pypi-unreachable"
+      id: "GT-Y004-004"
+      purpose: "When PyPI is unreachable (latest=''), _gate_main exits 0 with a warning — it must not block the push"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "is_outdated() returns (False, '4.0.0', '') — PyPI unreachable"
+    when:
+      abstract: "_gate_main() is called"
+    then:
+      abstract:
+        - "No SystemExit(1) is raised"
+        - "auto_upgrade() is never called"
+        - "A warning mentioning PyPI or 'skipping' is printed"
+    metadata:
+      author: "atdd:pre-push-version-gate-must-not-auto-upgrade"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y004-UNIT-005-no-pip-subprocess-in-gate-path"
+      id: "GT-Y004-005"
+      purpose: "_gate_main must not spawn any subprocess that contains 'pip' or 'install'"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "is_outdated() returns (True, '3.0.0', '4.0.0')"
+        - "subprocess.run is monkeypatched to track calls"
+    when:
+      abstract: "_gate_main() is called (catching SystemExit)"
+    then:
+      abstract:
+        - "subprocess.run is never called with any command containing 'pip' or 'install'"
+    metadata:
+      author: "atdd:pre-push-version-gate-must-not-auto-upgrade"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y004-SMOKE-001-pre-push-hook-with-outdated-version-exits-1-cleanly"
+      id: "GT-Y004-S01"
+      purpose: "SMOKE: when the pre-push hook is run in a tmp repo with a mocked _gate_main that simulates outdated version, the hook exits 1 and no pip command is found in the hook output"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A fresh tmp git repo is initialised"
+        - "ATDD_SKIP_BARE_CHECK=1 is set (bare check irrelevant to this test)"
+        - "The version gate is invoked via the pre-push hook template"
+        - "The installed atdd is patched via env to simulate an outdated version"
+    when:
+      abstract: "The pre-push hook is executed"
+    then:
+      abstract:
+        - "The hook exits with code 1"
+        - "The hook output contains 'atdd upgrade' (user instruction)"
+        - "The hook output does NOT contain 'pip install' or 'Upgrading'"
+    metadata:
+      author: "atdd:pre-push-version-gate-must-not-auto-upgrade"
+      created: "2026-05-19"
