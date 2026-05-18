@@ -196,9 +196,18 @@ class BranchManager:
             )
             return 1
 
-        # Fetch remote to check for existing remote branch
+        # Targeted fetch: update origin/<default_branch> so new branches start
+        # from the latest remote state, not stale local main (#770).
+        default_branch = resolve_default_branch(self.target_dir)
         subprocess.run(
-            ["git", "fetch", "origin"],
+            ["git", "fetch", "origin", default_branch],
+            capture_output=True, text=True, timeout=30,
+            cwd=self.target_dir,
+        )
+
+        # Also fetch the feature branch ref if it may already exist remotely
+        subprocess.run(
+            ["git", "fetch", "origin", branch_name],
             capture_output=True, text=True, timeout=30,
             cwd=self.target_dir,
         )
@@ -220,10 +229,13 @@ class BranchManager:
             ]
             print(f"Attaching to existing remote branch: {branch_name}")
         else:
+            # Start the new branch from origin/<default_branch> so it begins
+            # at the latest remote commit regardless of local-main staleness.
             cmd = [
                 "git", "worktree", "add",
                 str(worktree_path),
                 "-b", branch_name,
+                f"origin/{default_branch}",
             ]
             print(f"Creating new branch: {branch_name}")
 

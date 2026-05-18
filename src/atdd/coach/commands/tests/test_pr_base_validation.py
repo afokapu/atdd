@@ -48,6 +48,7 @@ def _patch_common(monkeypatch, branch: str = "feat/477-pr-base-validation"):
 
     monkeypatch.setattr(PRManager, "_detect_branch", lambda self: branch)
     monkeypatch.setattr(PRManager, "_existing_pr_for_branch", lambda self, b: None)
+    monkeypatch.setattr(PRManager, "_merged_pr_for_branch", lambda self, b: None)
     monkeypatch.setattr(
         PRManager, "_fetch_issue",
         lambda self, n: {"title": "Test", "number": n, "labels": []},

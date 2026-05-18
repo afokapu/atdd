@@ -128,6 +128,10 @@ def test_fetch_is_targeted_to_default_branch(tmp_path):
     ), patch(
         "atdd.coach.commands.initializer.write_workspace",
         return_value=None,
+    ), patch(
+        "atdd.coach.commands.branch.ProjectConfig",
+    ), patch(
+        "atdd.coach.commands.branch.GitHubClient",
     ):
         mgr = BranchManager(target_dir=tmp_path)
         mgr.branch(issue_number=2)
@@ -158,6 +162,10 @@ def test_fetch_precedes_worktree_add(tmp_path):
     ), patch(
         "atdd.coach.commands.initializer.write_workspace",
         return_value=None,
+    ), patch(
+        "atdd.coach.commands.branch.ProjectConfig",
+    ), patch(
+        "atdd.coach.commands.branch.GitHubClient",
     ):
         mgr = BranchManager(target_dir=tmp_path)
         mgr.branch(issue_number=3)

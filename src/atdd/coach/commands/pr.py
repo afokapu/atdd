@@ -27,6 +27,7 @@ import yaml
 
 from atdd.coach.commands.issue import TYPE_TO_PREFIX
 from atdd.coach.utils.default_branch import resolve_default_branch
+from atdd.coach.utils.ff_default_branch import fast_forward_default_branch
 from atdd.coach.utils.risk_score import (
     compute_risk_breakdown,
     format_risk_breakdown_section,
@@ -126,6 +127,21 @@ class PRManager:
         try:
             result = subprocess.run(
                 ["gh", "pr", "list", "--head", branch,
+                 "--json", "number,url", "--jq", ".[0].url"],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.target_dir,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+            pass
+        return None
+
+    def _merged_pr_for_branch(self, branch: str) -> Optional[str]:
+        """Check if a merged PR exists for the given branch. Returns PR URL or None."""
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "list", "--head", branch, "--state", "merged",
                  "--json", "number,url", "--jq", ".[0].url"],
                 capture_output=True, text=True, timeout=10,
                 cwd=self.target_dir,
@@ -531,17 +547,26 @@ class PRManager:
 
         logger.info("Branch: %s", branch, extra={"branch": branch})
 
-        # 2. Check for existing PR
+        # 2. Resolve default branch early (needed by both merged-PR and empty-branch paths)
+        default_branch = resolve_default_branch(self.target_dir)
+
+        # Check for existing open PR
         existing = self._existing_pr_for_branch(branch)
         if existing:
             print(f"PR already exists for branch '{branch}':")
             print(f"  {existing}")
             return 0
 
+        # Check for already-merged PR — fast-forward local default-branch worktree (#770)
+        merged = self._merged_pr_for_branch(branch)
+        if merged:
+            print(f"PR for branch '{branch}' was already merged: {merged}")
+            fast_forward_default_branch(self.target_dir, default_branch)
+            return 0
+
         # 2b. Empty-branch gate — GitHub rejects createPullRequest when
         # head==base. Print structured Fix hint per #467 contract C1-C4
         # instead of forwarding the GraphQL error.
-        default_branch = resolve_default_branch(self.target_dir)
         rev_count = self._rev_count_past_default(default_branch)
         if rev_count == 0:
             print(
@@ -602,7 +627,6 @@ class PRManager:
         # Override with --force only for legitimate non-default merges
         # (release-train branches, stacked work). #475 was the lived
         # incident that motivated this gate.
-        default_branch = resolve_default_branch(self.target_dir)
         if base != default_branch:
             if force:
                 logger.warning(

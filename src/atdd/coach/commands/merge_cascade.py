@@ -30,6 +30,8 @@ from atdd.coach.commands.merge_cascade_topology import (
     MergeCascadeCycleError,
     compute_merge_order,
 )
+from atdd.coach.utils.default_branch import resolve_default_branch
+from atdd.coach.utils.ff_default_branch import fast_forward_default_branch
 
 
 @dataclass
@@ -345,6 +347,12 @@ def cascade(
         results.append(merged)
         if merged.status != "merged":
             raise MergeHalt(merged)
+
+        # Fast-forward the local default-branch worktree after each merge (#770).
+        repo_root = Path.cwd()
+        default_branch = resolve_default_branch(repo_root)
+        fast_forward_default_branch(repo_root, default_branch)
+
     return results
 
 
