@@ -17,6 +17,7 @@ features:
   - urn: "feature:spawn-agents:persona-agent-id-env-injection"
   - urn: "feature:spawn-agents:smoke-persona-spawn-integrity"
   - urn: "feature:spawn-agents:per-phase-fresh-agent-respawn"
+  - urn: "feature:spawn-agents:interactive-model-selection-at-spawn"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -87,7 +88,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 10
+  total: 11
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -98,3 +99,4 @@ wmbt:
   E005: "minimize likelihood of coach-spawned-personas-without-atdd-agent-id-in-their-environment"
   E006: "minimize likelihood of green-to-smoke-spawns-that-create-an-observer-without-a-persona"
   E007: "minimize quantity of phase-transitions-that-reuse-the-prior-phase-worker-process"
+  E008: "minimize likelihood of coach-runs-where-the-operator-cannot-choose-the-per-persona-model-at-spawn-time"
