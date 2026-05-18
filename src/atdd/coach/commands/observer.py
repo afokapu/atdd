@@ -1026,7 +1026,14 @@ class Observer:
 
     def _emit_worker_heartbeat(self) -> None:
         """Emit one ``heartbeat`` event for the worker so the coach sees
-        liveness. The worker LLM does not emit these itself (#731)."""
+        liveness. The worker LLM does not emit these itself (#731).
+
+        #769: skips emission when the persona dir is gone — the persona has
+        exited and cmd_event would recreate the dir, masking the self-exit
+        signal that cmd_run's loop relies on.
+        """
+        if not self.persona_dir.exists():
+            return
         self._agent_module().cmd_event(
             "heartbeat",
             agent_id=self.persona_agent_id,
@@ -1251,6 +1258,7 @@ def cmd_run(
     poll_interval: float = 0.5,
     multiplexer: Optional[Any] = None,
     respawn_callback: Optional[Callable[[str, str], None]] = None,
+    idle_timeout: float = 300.0,
 ) -> int:
     runtime = _runtime_root(runtime_dir)
     if rules_dir is None:
@@ -1273,12 +1281,39 @@ def cmd_run(
         _emit_observer_status(obs)
         return 0
     obs.start()
+    _idle_reset = time.monotonic()
+    _last_log_mtime: Optional[float] = None
     try:
         while True:
-            time.sleep(0.5)
+            time.sleep(poll_interval)
             # #713 Layer 4: keep the observer tab interpretable — never a
             # blank surface after launch.
             print(render_status_line(obs))
+
+            # (a) #769: exit when persona runtime dir or the root is gone
+            if not obs.persona_dir.exists() or not obs.runtime_dir.exists():
+                obs.stop()
+                return 0
+
+            # (b) #769: exit after idle_timeout with no persona log activity
+            if idle_timeout > 0:
+                log_path = obs.persona_dir / "output.log"
+                try:
+                    mtime = log_path.stat().st_mtime
+                    if mtime != _last_log_mtime:
+                        _last_log_mtime = mtime
+                        _idle_reset = time.monotonic()
+                except OSError:
+                    pass
+                if time.monotonic() - _idle_reset >= idle_timeout:
+                    obs.stop()
+                    return 0
+
+            # (c) #769: exit when parent process is gone (reparented to init)
+            if os.getppid() == 1:
+                obs.stop()
+                return 0
+
     except KeyboardInterrupt:
         obs.stop()
     return 0
