@@ -68,12 +68,17 @@ def test_fix_hint_names_runtime_path() -> None:
 
 
 def test_rules_show_exits_zero() -> None:
-    """atdd rules show coach.pr.runtime-artifacts-blocked must exit 0."""
+    """atdd rules show coach.pr.runtime-artifacts-blocked must exit 0.
+
+    Uses sys.executable -m atdd so the test works both when the 'atdd' CLI
+    is installed (local dev) and when only PYTHONPATH=src is set (CI).
+    """
     import os
+    import sys
 
     env = {**os.environ, "PYTHONPATH": str(REPO_ROOT / "src")}
     result = subprocess.run(
-        ["atdd", "rules", "show", RULE_ID],
+        [sys.executable, "-m", "atdd", "rules", "show", RULE_ID],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
