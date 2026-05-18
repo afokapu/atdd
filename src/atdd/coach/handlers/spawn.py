@@ -175,6 +175,10 @@ def _call_spawn(
         # cmd_spawn respawns the persona agent in place instead of spawning
         # a new pane.
         existing_surface_ref=ctx.issue_surface_ref,
+        # Issue #734: an injected multiplexer backend (None in production)
+        # lets callers/hermetic tests supply a FakeMultiplexer by construction
+        # instead of monkeypatching cmd_spawn._resolve_multiplexer.
+        multiplexer=ctx.multiplexer_backend,
     )
 
 
@@ -289,6 +293,85 @@ def _escalate(ctx: CoachContext, reason: str) -> None:
         )
 
 
+def _spawn_observer(
+    ctx: CoachContext,
+    phase: str,
+    worktree: Path,
+    persona_agent_id: str,
+    runtime_root: Path,
+    persona_surface_ref: Optional[str] = None,
+) -> None:
+    """Co-spawn the observer L1 sidecar alongside the persona agent.
+
+    In pane mode, attaches the observer as a tab inside the persona's pane
+    via new_surface_in_pane, so each grid cell holds both tabs without
+    consuming an extra pane slot (#658). In other modes, falls back to
+    new_surface (creates a new pane/workspace).
+
+    Uses the same multiplexer backend as the persona spawn so that tests
+    can assert both calls via a single FakeMultiplexer injection.
+    Observer is supplementary — callers must catch and warn on any exception.
+    """
+    from atdd.coach.commands import spawn as cmd_spawn_mod
+
+    observer_agent_id = f"{persona_agent_id}-observer"
+    observer_cmd = (
+        f"atdd observer run"
+        f" --agent-id {observer_agent_id}"
+        f" --runtime-dir {runtime_root}"
+        f" --worktree {worktree}"
+    )
+    # Canonical observer naming: <persona-canonical-name>:obs (workspace-mode
+    # fallback uses derived form since canonical_name isn't readily available here).
+    # See #695 for the multiplexer-agnostic naming convention.
+    observer_name = f"ATDD{ctx.issue_number}-{phase}:obs"
+    # #734: same injected backend as the persona spawn so a single
+    # FakeMultiplexer (passed by construction, not monkeypatched) records
+    # both the persona and observer calls.
+    multiplexer = ctx.multiplexer_backend or cmd_spawn_mod._resolve_multiplexer()
+
+    if ctx.multiplexer_mode == "pane" and persona_surface_ref is not None:
+        pane_ref = multiplexer.surface_to_pane(persona_surface_ref)
+        multiplexer.new_surface_in_pane(
+            pane_ref=pane_ref,
+            cwd=str(worktree),
+            command=observer_cmd,
+            name=observer_name,
+        )
+    else:
+        multiplexer.new_surface(
+            cwd=str(worktree),
+            command=observer_cmd,
+            name=observer_name,
+        )
+
+
+def _write_cospawn_decision(
+    ctx: CoachContext,
+    phase: str,
+    runtime_root: Path,
+) -> None:
+    """Append an observer co-spawn decision record to decisions.jsonl."""
+    from datetime import datetime, timezone
+    from atdd.coach.commands.durability import DecisionWriter
+
+    writer = DecisionWriter(runtime_dir=runtime_root)
+    now = (
+        datetime.now(timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
+    writer.append({
+        "decision_id": str(uuid.uuid4()),
+        "timestamp": now,
+        "coach_run_id": ctx.coach_run_id,
+        "issue_number": ctx.issue_number,
+        "decision_type": "co_spawn_observer",
+        "inputs": {"phase": phase},
+        "outcome": {"status": "SPAWNED"},
+    })
+
+
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
@@ -308,7 +391,10 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
 
     phase = _TRANSITION_PHASE[key]
     run_id = f"coach-run-{ctx.issue_number}-{uuid.uuid4().hex[:8]}"
-    runtime_root = _RUNTIME_ROOT
+    # Honor the orchestration context's runtime_dir when set (#734) so the
+    # resume/cold-start paths and hermetic tests write decisions where the
+    # caller expects; fall back to the module default otherwise.
+    runtime_root = ctx.runtime_dir or _RUNTIME_ROOT
 
     try:
         persona_prompt_content = _load_persona_prompt(persona, phase)
@@ -332,7 +418,9 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
         return HandlerResult.HANDLED
 
     llm = _resolve_llm(ctx, persona, phase)
-    worktree = _resolve_worktree(ctx)
+    # #734: an injected worktree_override skips the GitHub-backed resolver so
+    # hermetic tests need not monkeypatch _resolve_worktree.
+    worktree = ctx.worktree_override or _resolve_worktree(ctx)
     base_agent_id = f"{persona}-{ctx.issue_number}-{uuid.uuid4().hex[:8]}"
 
     # Issue #745: a fresh spawn (no persistent surface yet) goes through

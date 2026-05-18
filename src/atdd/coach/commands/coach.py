@@ -557,7 +557,13 @@ def _ensure_issue_worktree(ctx) -> Optional[Path]:
 
 
 def _make_coach_context(
-    cfg: "Config", issue_number: int, coach_run_id: str, runtime_dir: Path
+    cfg: "Config",
+    issue_number: int,
+    coach_run_id: str,
+    runtime_dir: Path,
+    *,
+    multiplexer_backend: Optional[object] = None,
+    worktree_override: Optional[Path] = None,
 ) -> "CoachContext":
     """Build a ``CoachContext`` from the run ``Config`` for one issue.
 
@@ -565,8 +571,13 @@ def _make_coach_context(
     (``_drive_single_issue``) and the ``--resume`` path
     (``_make_resume_transition_action``). Decision #1 of issue #734: one
     orchestration path is less drift-prone than two — both must spawn
-    personas with an identically-shaped context, so the 17-field mapping
-    from ``Config`` lives here once instead of being copied per call site.
+    personas with an identically-shaped context, so the mapping from
+    ``Config`` lives here once instead of being copied per call site.
+
+    ``multiplexer_backend`` / ``worktree_override`` are explicit
+    orchestration seams (both ``None`` in production): they let a caller
+    inject collaborators by construction so hermetic integration tests
+    need not monkeypatch ``_resolve_multiplexer`` / ``_resolve_worktree``.
     """
     from atdd.coach.handlers.state_machine import CoachContext
 
@@ -588,6 +599,8 @@ def _make_coach_context(
         auto_merge=cfg.auto_merge,
         max_retries=cfg.max_retries,
         escalation_channel=cfg.escalation_channel,
+        multiplexer_backend=multiplexer_backend,
+        worktree_override=worktree_override,
     )
 
 
@@ -993,7 +1006,11 @@ def _execute_cold_start(
 
 
 def _make_resume_transition_action(
-    cfg: "Config", runtime_dir: Path
+    cfg: "Config",
+    runtime_dir: Path,
+    *,
+    multiplexer_backend: Optional[object] = None,
+    worktree_override: Optional[Path] = None,
 ) -> Callable[[int, str, str], dict]:
     """Build the real per-transition orchestration action for ``--resume``.
 
@@ -1002,13 +1019,22 @@ def _make_resume_transition_action(
     ``_drive_single_issue`` uses. A transition whose spawn handler returns
     ERROR raises, so ``ResumeRunner`` BLOCKs/escalates instead of paper-
     stamping the issue to COMPLETE (issue #734).
+
+    ``multiplexer_backend`` / ``worktree_override`` are forwarded into every
+    ``CoachContext`` so a caller can inject collaborators by construction
+    (both ``None`` in production).
     """
     from atdd.coach.handlers import spawn as spawn_handler
     from atdd.coach.handlers.state_machine import HandlerResult, Transition
 
     def _action(issue: int, src: str, dst: str) -> dict:
         ctx = _make_coach_context(
-            cfg, issue, cfg.resume or f"coach-resume-{issue}", runtime_dir
+            cfg,
+            issue,
+            cfg.resume or f"coach-resume-{issue}",
+            runtime_dir,
+            multiplexer_backend=multiplexer_backend,
+            worktree_override=worktree_override,
         )
         transition = Transition(Phase(src), Phase(dst))
         result = spawn_handler.handle(ctx, transition)
@@ -1048,6 +1074,8 @@ def run(
     _spawn_func: Optional[Callable] = None,
     _two_phase_func: Optional[Callable] = None,
     _transition_action_override: Optional[Callable] = None,
+    _multiplexer_backend: Optional[object] = None,
+    _worktree_override: Optional[Path] = None,
 ) -> int:
     """Drive each issue through the full lifecycle via the cold-start path.
 
@@ -1111,7 +1139,10 @@ def run(
         # phase is genuinely orchestrated (persona spawn + work) rather than
         # paper-stamped to COMPLETE — issue #734.
         transition_action = _transition_action_override or _make_resume_transition_action(
-            cfg, runtime_dir
+            cfg,
+            runtime_dir,
+            multiplexer_backend=_multiplexer_backend,
+            worktree_override=_worktree_override,
         )
         runner = ResumeRunner(
             runtime_dir=runtime_dir,
