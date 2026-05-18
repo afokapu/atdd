@@ -5,7 +5,7 @@
 # Layer: backend.unit
 # Assertion: structural
 
-"""E007-UNIT-001 — pr.convention.yaml declares coach.pr.runtime-artifacts-blocked
+"""E009-UNIT-001 — pr.convention.yaml declares coach.pr.runtime-artifacts-blocked
 with severity 4, disposition strict, and a fix_hint that names .atdd/runtime/.
 
 Phase RED: fails because the rule has not been added to pr.convention.yaml yet.
@@ -69,11 +69,15 @@ def test_fix_hint_names_runtime_path() -> None:
 
 def test_rules_show_exits_zero() -> None:
     """atdd rules show coach.pr.runtime-artifacts-blocked must exit 0."""
+    import os
+
+    env = {**os.environ, "PYTHONPATH": str(REPO_ROOT / "src")}
     result = subprocess.run(
         ["atdd", "rules", "show", RULE_ID],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
+        env=env,
     )
     assert result.returncode == 0, (
         f"atdd rules show {RULE_ID} exited {result.returncode}.\n"

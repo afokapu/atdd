@@ -170,10 +170,19 @@ def _fetch_pr_changed_files(repo_root: Path) -> Optional[dict]:
 
 
 def _fetch_diff_files_via_git(repo_root: Path, default_branch: str) -> List[str]:
-    """Return files changed vs the default branch using git diff."""
+    """Return added/modified (not deleted) files vs the default branch.
+
+    Uses --diff-filter=d to exclude deleted files — a deletion of a
+    .atdd/runtime/ file is a clean-up action, not a violation.
+    """
     try:
         result = subprocess.run(
-            ["git", "diff", "--name-only", f"origin/{default_branch}...HEAD"],
+            [
+                "git", "diff",
+                "--name-only",
+                "--diff-filter=d",
+                f"origin/{default_branch}...HEAD",
+            ],
             capture_output=True, text=True, timeout=30,
             cwd=repo_root,
         )
@@ -185,7 +194,7 @@ def _fetch_diff_files_via_git(repo_root: Path, default_branch: str) -> List[str]
 
 
 # ---------------------------------------------------------------------------
-# E007-UNIT-002 tests — pure evaluator
+# E009-UNIT-002 tests — pure evaluator
 # ---------------------------------------------------------------------------
 
 
@@ -215,7 +224,7 @@ def test_evaluator_emits_one_violation_per_runtime_path() -> None:
 def test_evaluator_ignores_non_runtime_paths() -> None:
     """Non-.atdd/runtime/ paths produce no Violations."""
     violations = evaluate_runtime_artifact_violations(
-        ["src/atdd/coach/validators/test_foo.py", "plan/govern_lifecycle/E007.yaml"]
+        ["src/atdd/coach/validators/test_foo.py", "plan/govern_lifecycle/E009.yaml"]
     )
     assert violations == [], (
         f"Expected no Violations for non-runtime paths, got {violations}"
@@ -241,7 +250,7 @@ def test_evaluator_empty_diff_is_clean() -> None:
 
 
 # ---------------------------------------------------------------------------
-# E007-SMOKE-001 test — real atdd validate coach
+# E009-SMOKE-001 test — real atdd validate coach
 # ---------------------------------------------------------------------------
 
 
@@ -263,8 +272,6 @@ def test_real_validate_coach_passes_on_clean_branch() -> None:
     violations = evaluate_runtime_artifact_violations(changed_files)
 
     assert_disposition_satisfied(
-        rule=_RULE,
         validator_id=_VALIDATOR_ID,
         violations=violations,
-        suppressed=[],
     )
