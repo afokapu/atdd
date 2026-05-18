@@ -475,17 +475,18 @@ class CmuxBackend(MultiplexerBackend):
         surface tree. Returns ``None`` when the surface is not found (caller
         falls back to the unscoped, selected-workspace behaviour).
         """
+        out = ""
         try:
             out = _run(["cmux", "tree", "--all"]).stdout or ""
         except MultiplexerError as exc:
             # Best-effort: a failed tree read just means the respawn falls back
             # to the unscoped (selected-workspace) path — warn, do not abort.
+            # The empty ``out`` then yields ``None`` via the loop below.
             print(
                 f"⚠️  cmux tree read failed, respawn will not be "
                 f"workspace-scoped: {exc}",
                 file=sys.stderr,
             )
-            return None
         current_ws: Optional[str] = None
         ws_re = re.compile(r"\bworkspace (workspace:\d+)\b")
         surf_re = re.compile(rf"\bsurface {re.escape(surface_ref)}\b")
