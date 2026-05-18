@@ -1,4 +1,4 @@
-urn: "wmbt:integration-hardening:E009"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+urn: "wmbt:integration-hardening:E009"
 step: "execute"
 direction: "minimize"
 dimension: "quantity"
@@ -116,6 +116,29 @@ acceptances:
         - "The recording transition_action is invoked exactly zero times"
         - "No new phase-transition record is appended to decisions.jsonl"
         - "drive_to_complete returns a success/no-op result (rc 0)"
+    metadata:
+      author: "atdd:planner:734"
+      created: "2026-05-17"
+  - identity:
+      urn: "acc:integration-hardening:E009-SMOKE-001-resume-real-orchestration"
+      id: "AC-SMOKE-001"
+      purpose: "atdd coach --resume drives the real transition_action, real spawn handler, and real decisions.jsonl round-trip — proving the #734 fix is not a paper walk and a kill-and-resume cycle completes for real"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real decisions.jsonl on disk reconstructing issue N to phase SMOKE (created by a partial run that logs INIT→PLANNED→RED→GREEN→SMOKE)"
+        - "coach.run invoked with --resume <RUN_ID> using the REAL _make_resume_transition_action (no _transition_action_override seam)"
+        - "FakeMultiplexer injected via multiplexer_backend to record spawns without opening real cmux panes"
+    when:
+      abstract: "The resume path drives the remaining pending phases"
+    then:
+      abstract:
+        - "FakeMultiplexer records at least one spawn invocation — the run is not a paper walk"
+        - "decisions.jsonl contains the expected phase-transition records written by the real DecisionWriter"
+        - "No real cmux pane is created (FakeMultiplexer intercepts all spawn calls)"
     metadata:
       author: "atdd:planner:734"
       created: "2026-05-17"
