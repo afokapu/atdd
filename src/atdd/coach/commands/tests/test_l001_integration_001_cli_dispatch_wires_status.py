@@ -59,10 +59,10 @@ def test_coach_status_no_runs_message(tmp_path: Path):
 
 
 def test_existing_coach_run_not_broken(tmp_path: Path):
-    """`atdd coach 358` still initializes the state machine (backward compat)."""
-    result = _run_atdd("coach", "358")
+    """`atdd coach 358 --dry-run` still initializes the state machine (backward compat)."""
+    result = _run_atdd("coach", "358", "--dry-run")
     # Should exit 0 and print planned path
     assert result.returncode == 0, (
-        f"atdd coach 358 failed:\nstdout={result.stdout}\nstderr={result.stderr}"
+        f"atdd coach 358 --dry-run failed:\nstdout={result.stdout}\nstderr={result.stderr}"
     )
     assert "358" in result.stdout
