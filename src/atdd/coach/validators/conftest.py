@@ -22,17 +22,18 @@ REPO_ROOT = find_repo_root()
 
 @pytest.fixture(scope="session", autouse=True)
 def _worktree_integrity_guard():
-    """Safety net: the active worktree must be unchanged after the validator session.
+    """Session-level fallback: active worktree unchanged after the full validator session.
 
     Snapshots ``git rev-parse HEAD`` and ``git config core.bare`` before the
     session starts.  Asserts both are identical after.
 
-    Any test that accidentally calls ``git commit`` (or ``git config core.bare
-    true``) against the live worktree rather than a ``tmp_path`` fixture repo
-    will be caught here with a clear error message (issue #619).
-
-    The guard runs in ALL worktrees (atdd source and consumer repos) because
-    test pollution is equally harmful in both contexts.
+    NOTE: ``src/atdd/conftest.py`` now has a **function-scoped** autouse guard
+    (_git_repo_pollution_guard) that covers ALL src/atdd test dirs, catches
+    each polluting test individually, names it via request.node.nodeid, and
+    restores core.bare immediately — so per-test isolation is handled upstream
+    (issue #771).  This session guard remains as a belt-and-suspenders check
+    for phantom commits (HEAD drift) that the per-test guard may not surface
+    on its own in a single-assertion stop.
     """
     def _git(*args: str) -> str:
         result = subprocess.run(
