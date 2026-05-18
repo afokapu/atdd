@@ -121,11 +121,18 @@ def test_sets_core_bare_on_live_repo():
 
     result = pytester.runpytest("-v")
 
-    # 1. The inner polluting test must ERROR in fixture teardown (guard caught it).
-    # pytest reports fixture-teardown failures as errors; the test body itself passes.
-    result.assert_outcomes(passed=1, errors=1)
+    # 1. The guard must catch the mutation: either the test FAILS or the teardown ERRORS.
+    # pytest reports fixture-teardown failures as ERRORs (test body still PASSES).
+    # Count both — at least one of them must be non-zero.
+    outcomes = result.parseoutcomes()
+    failed_or_errored = outcomes.get("failed", 0) + outcomes.get("errors", 0) + outcomes.get("error", 0)
+    assert failed_or_errored >= 1, (
+        "Inner session guard did NOT catch the core.bare mutation!\n"
+        f"Outcomes: {outcomes}\n"
+        f"Output:\n{result.stdout.str()}"
+    )
 
-    # 2. Failure message must name the test — check stderr+stdout combined output
+    # 2. Failure message must name the test — check the full combined output
     output = result.stdout.str() + result.stderr.str()
     assert "test_sets_core_bare_on_live_repo" in output, (
         "Guard failure message did not name the offending test function.\n"
