@@ -57,6 +57,30 @@ rules:
       src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001
       for the template pattern this rule mirrors.
 
+  - id: "coach.pr.runtime-artifacts-blocked"
+    severity: 4
+    description: "No PR diff may add or modify paths under .atdd/runtime/**. .atdd/runtime/ is ephemeral per-run state (coach session files, decisions.jsonl, validation logs, agent events). When agents use git add -A or git commit, these files ride into the PR diff silently — PR #749 shipped .atdd/runtime/coach/358/planner-358-e7620840.session.json and 2 appended lines in decisions.jsonl from an unrelated zombie issue (#358). Green CI gave false confidence because no check inspected the diff file set. Strict disposition: bypass is forbidden; runtime artifacts in PRs is never intentional."
+    disposition: strict
+    introduced_in: "3.57.0"
+    aliases: []
+    validator: "test_e009_runtime_artifacts_blocked::test_real_validate_coach_passes_on_clean_branch"
+    fix_hint: |
+      The PR diff contains one or more paths under .atdd/runtime/. These are
+      ephemeral per-run artifacts that must never be committed. Repair:
+
+        1. Add .atdd/runtime/ to .gitignore (the full directory, not sub-paths).
+        2. Untrack any currently-tracked files:
+             git ls-files .atdd/runtime/ | xargs git rm --cached
+        3. Commit the .gitignore change and the rm --cached deletions.
+        4. Verify no .atdd/runtime/ files remain tracked:
+             git ls-files .atdd/runtime/
+           (should print nothing)
+        5. Re-run atdd validate coach to confirm the violation is cleared.
+
+      If decisions.jsonl or other files were committed as intentional state:
+      that content belongs outside .atdd/runtime/ (which is by definition
+      ephemeral). Relocate it to a non-runtime path and re-commit.
+
 # =============================================================================
 # Lifecycle phases relevant to this convention
 # =============================================================================
