@@ -1,12 +1,12 @@
 urn: "feature:spawn-agents:per-phase-fresh-agent-respawn"
 wagon: "wagon:spawn-agents"
-description: "Per-phase fresh worker agent respawn for the coach lifecycle (issue #746, implementing #730's Decision #5): on every phase transition (INIT→PLANNED→RED→GREEN→SMOKE→REFACTOR) the coach terminates the current worker process and relaunches a fresh next-phase agent in the SAME surface via the multiplexer abstraction's backend-neutral respawn primitive — extending respawn coverage from CmuxBackend alone to TmuxBackend and ZellijBackend — never a hardcoded CLI-specific quit such as claude's /exit. The relaunch command is built from the per-phase adapter/model selection so a phase may run a different model or adapter (claude-code/codex/gemini/glm) than the prior phase, and the worker surface is renamed via session_naming to a phase-qualified name encoding the live phase and persona (e.g. ATDD746·RED·tester) so the operator can see which agent is live (E005)"
+description: "Per-phase fresh worker agent respawn for the coach lifecycle (issue #746, implementing #730's Decision #5): on every phase transition (INIT→PLANNED→RED→GREEN→SMOKE→REFACTOR) the coach terminates the current worker process and relaunches a fresh next-phase agent in the SAME surface via the multiplexer abstraction's backend-neutral respawn primitive — extending respawn coverage from CmuxBackend alone to TmuxBackend and ZellijBackend — never a hardcoded CLI-specific quit such as claude's /exit. The relaunch command is built from the per-phase adapter/model selection so a phase may run a different model or adapter (claude-code/codex/gemini/glm) than the prior phase, and the worker surface is renamed via session_naming to a phase-qualified name encoding the live phase and persona (e.g. ATDD746·RED·tester) so the operator can see which agent is live (E007)"
 sizing:
   wmbts: 1
   footprint_score: 9
   footprint_size: "S"
 wmbts:
-  - "wmbt:spawn-agents:E005"
+  - "wmbt:spawn-agents:E007"
 components:
   backend:
     presentation:

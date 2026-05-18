@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E005-UNIT-004-phase-qualified-surface-name
-# Acceptance: acc:spawn-agents:E005-UNIT-004-phase-qualified-surface-name
-# WMBT: wmbt:spawn-agents:E005
+# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E007-UNIT-004-phase-qualified-surface-name
+# Acceptance: acc:spawn-agents:E007-UNIT-004-phase-qualified-surface-name
+# WMBT: wmbt:spawn-agents:E007
 # Phase: RED
 # Layer: integration
 # Runtime: python
 # Assertion: behavioral
-"""E005-UNIT-004 — the worker surface is renamed on each transition to a
+"""E007-UNIT-004 — the worker surface is renamed on each transition to a
 phase-qualified name encoding the live phase and persona (e.g.
 ``ATDD746·RED·tester``).
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from atdd.coach.commands.tests._e005_respawn_harness import (
+from atdd.coach.commands.tests._e007_respawn_harness import (
     FakeRespawnMx,
     patch_spawn_env,
 )

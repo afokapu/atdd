@@ -1,4 +1,4 @@
-"""Shared test harness for the E005 per-phase respawn RED tests (issue #746).
+"""Shared test harness for the E007 per-phase respawn RED tests (issue #746).
 
 Not collected by pytest (no ``test_`` prefix). Provides a multiplexer double
 that tracks surface creation, in-place respawns, per-surface process identity,

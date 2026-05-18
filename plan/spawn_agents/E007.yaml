@@ -1,4 +1,4 @@
-urn: "wmbt:spawn-agents:E005"
+urn: "wmbt:spawn-agents:E007"
 step: "execute"
 direction: "minimize"
 dimension: "quantity"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize quantity of phase-transitions-that-reuse-the-prior-phase-worker-process when the coach advances an issue across a lifecycle phase boundary — the coach terminates the current worker process and relaunches a fresh next-phase agent in the same surface via the multiplexer abstraction's backend-neutral respawn primitive (never a hardcoded CLI-specific quit), builds the relaunch command from the per-phase adapter/model selection, and renames the surface to a phase-qualified name encoding the live phase and persona"
 acceptances:
   - identity:
-      urn: "acc:spawn-agents:E005-UNIT-001-respawn-primitive-backend-neutral-same-surface"
+      urn: "acc:spawn-agents:E007-UNIT-001-respawn-primitive-backend-neutral-same-surface"
       id: "AC-UNIT-001"
       purpose: "The multiplexer abstraction's respawn primitive kills the current process and relaunches a fresh one in the SAME surface, on every concrete backend (cmux, tmux, zellij) — no new surface is allocated"
       phase: "GREEN"
@@ -33,7 +33,7 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-18"
   - identity:
-      urn: "acc:spawn-agents:E005-UNIT-002-transition-respawns-no-cli-specific-quit"
+      urn: "acc:spawn-agents:E007-UNIT-002-transition-respawns-no-cli-specific-quit"
       id: "AC-UNIT-002"
       purpose: "On a phase transition the coach invokes the multiplexer respawn primitive for the worker surface and never sends a hardcoded CLI-specific quit string (/exit, /quit)"
       phase: "GREEN"
@@ -55,7 +55,7 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-18"
   - identity:
-      urn: "acc:spawn-agents:E005-UNIT-003-per-phase-adapter-selection-honored"
+      urn: "acc:spawn-agents:E007-UNIT-003-per-phase-adapter-selection-honored"
       id: "AC-UNIT-003"
       purpose: "The relaunch command for the next phase is built from the adapter/model selected for THAT phase, not inherited from the prior phase"
       phase: "GREEN"
@@ -77,7 +77,7 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-18"
   - identity:
-      urn: "acc:spawn-agents:E005-UNIT-004-phase-qualified-surface-name"
+      urn: "acc:spawn-agents:E007-UNIT-004-phase-qualified-surface-name"
       id: "AC-UNIT-004"
       purpose: "The worker surface is renamed on each transition to a phase-qualified name encoding the live phase and persona"
       phase: "GREEN"
@@ -100,7 +100,7 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-18"
   - identity:
-      urn: "acc:spawn-agents:E005-INTEGRATION-001-multi-phase-run-fresh-process-per-phase"
+      urn: "acc:spawn-agents:E007-INTEGRATION-001-multi-phase-run-fresh-process-per-phase"
       id: "AC-INTEGRATION-001"
       purpose: "Across a multi-phase run each phase respawns a fresh process in the same surface with no carried-over conversation, and the surface name reflects the current phase — the issue's RED-first regression test"
       phase: "GREEN"
@@ -123,7 +123,7 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-18"
   - identity:
-      urn: "acc:spawn-agents:E005-SMOKE-001-real-respawn-fresh-process-same-surface"
+      urn: "acc:spawn-agents:E007-SMOKE-001-real-respawn-fresh-process-same-surface"
       id: "AC-SMOKE-001"
       purpose: "On a real multiplexer backend a respawn kills the running process and a fresh process is observed in the same surface, leaving no orphan"
       phase: "SMOKE"

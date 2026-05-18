@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E005-INTEGRATION-001-multi-phase-run-fresh-process-per-phase
-# Acceptance: acc:spawn-agents:E005-INTEGRATION-001-multi-phase-run-fresh-process-per-phase
-# WMBT: wmbt:spawn-agents:E005
+# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E007-INTEGRATION-001-multi-phase-run-fresh-process-per-phase
+# Acceptance: acc:spawn-agents:E007-INTEGRATION-001-multi-phase-run-fresh-process-per-phase
+# WMBT: wmbt:spawn-agents:E007
 # Phase: RED
 # Layer: integration
 # Runtime: python
 # Assertion: behavioral
-"""E005-INTEGRATION-001 — across a multi-phase run each phase respawns a FRESH
+"""E007-INTEGRATION-001 — across a multi-phase run each phase respawns a FRESH
 process in the SAME surface, and the surface name reflects the current phase.
 
 This is issue #746's RED-first regression test. RED: the coach reuses one
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from atdd.coach.commands.tests._e005_respawn_harness import (
+from atdd.coach.commands.tests._e007_respawn_harness import (
     FakeRespawnMx,
     patch_spawn_env,
 )

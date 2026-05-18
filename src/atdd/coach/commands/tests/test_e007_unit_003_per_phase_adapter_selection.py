@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E005-UNIT-003-per-phase-adapter-selection-honored
-# Acceptance: acc:spawn-agents:E005-UNIT-003-per-phase-adapter-selection-honored
-# WMBT: wmbt:spawn-agents:E005
+# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E007-UNIT-003-per-phase-adapter-selection-honored
+# Acceptance: acc:spawn-agents:E007-UNIT-003-per-phase-adapter-selection-honored
+# WMBT: wmbt:spawn-agents:E007
 # Phase: RED
 # Layer: integration
 # Runtime: python
 # Assertion: behavioral
-"""E005-UNIT-003 — the relaunch command for a phase is built from the
+"""E007-UNIT-003 — the relaunch command for a phase is built from the
 adapter/model selected for THAT phase, not inherited from the prior phase.
 
 RED: the spawn handler resolves the LLM per *persona* (``_resolve_llm`` reads
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from atdd.coach.commands.tests._e005_respawn_harness import (
+from atdd.coach.commands.tests._e007_respawn_harness import (
     FakeRespawnMx,
     patch_spawn_env,
 )

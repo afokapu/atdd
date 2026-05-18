@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E005-UNIT-001-respawn-primitive-backend-neutral-same-surface
-# Acceptance: acc:spawn-agents:E005-UNIT-001-respawn-primitive-backend-neutral-same-surface
-# WMBT: wmbt:spawn-agents:E005
+# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E007-UNIT-001-respawn-primitive-backend-neutral-same-surface
+# Acceptance: acc:spawn-agents:E007-UNIT-001-respawn-primitive-backend-neutral-same-surface
+# WMBT: wmbt:spawn-agents:E007
 # Phase: RED
 # Layer: integration
 # Runtime: python
 # Assertion: behavioral
-"""E005-UNIT-001 — the multiplexer abstraction's respawn primitive kills the
+"""E007-UNIT-001 — the multiplexer abstraction's respawn primitive kills the
 current process and relaunches a fresh one in the SAME surface, on every
 concrete backend (cmux, tmux, zellij).
 

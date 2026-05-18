@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E005-SMOKE-001-real-respawn-fresh-process-same-surface
-# Acceptance: acc:spawn-agents:E005-SMOKE-001-real-respawn-fresh-process-same-surface
-# WMBT: wmbt:spawn-agents:E005
+# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E007-SMOKE-001-real-respawn-fresh-process-same-surface
+# Acceptance: acc:spawn-agents:E007-SMOKE-001-real-respawn-fresh-process-same-surface
+# WMBT: wmbt:spawn-agents:E007
 # Phase: SMOKE
 # Layer: integration
 # Runtime: python
 # Assertion: behavioral
-"""E005-SMOKE-001 — against a real multiplexer, the respawn primitive kills the
+"""E007-SMOKE-001 — against a real multiplexer, the respawn primitive kills the
 running process and a fresh process is observed in the same surface, leaving no
 orphan.
 

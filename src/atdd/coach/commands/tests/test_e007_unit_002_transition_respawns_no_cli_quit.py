@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E005-UNIT-002-transition-respawns-no-cli-specific-quit
-# Acceptance: acc:spawn-agents:E005-UNIT-002-transition-respawns-no-cli-specific-quit
-# WMBT: wmbt:spawn-agents:E005
+# URN: test:spawn-agents:per-phase-fresh-agent-respawn:E007-UNIT-002-transition-respawns-no-cli-specific-quit
+# Acceptance: acc:spawn-agents:E007-UNIT-002-transition-respawns-no-cli-specific-quit
+# WMBT: wmbt:spawn-agents:E007
 # Phase: RED
 # Layer: integration
 # Runtime: python
 # Assertion: behavioral
-"""E005-UNIT-002 — on a phase transition the coach recycles the worker process
+"""E007-UNIT-002 — on a phase transition the coach recycles the worker process
 via the multiplexer abstraction's respawn primitive, never a hardcoded
 CLI-specific quit (``/exit``, ``/quit``, ``/clear``).
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from atdd.coach.commands.tests._e005_respawn_harness import (
+from atdd.coach.commands.tests._e007_respawn_harness import (
     FakeRespawnMx,
     patch_spawn_env,
 )
