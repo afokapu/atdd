@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:validator-blocks-runtime-artifacts-in-pr-diff"
+wagon: "wagon:govern-lifecycle"
+description: "Fully gitignore .atdd/runtime/ and add a strict coach.pr.runtime-artifacts-blocked validator that fails atdd validate coach when the branch diff vs the default branch adds or modifies any .atdd/runtime/** path — preventing ephemeral per-run artifacts from riding a feature PR"
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E009"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — the validator is collected by the existing atdd validate coach runner"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "evaluate_runtime_artifact_violations pure evaluator: accepts changed file paths, returns Violations for .atdd/runtime/** matches"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts — uses existing Violation, bind_rule, and assert_disposition_satisfied primitives"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "_fetch_diff_files_via_git: retrieves the branch diff vs the default branch via git diff --name-only --diff-filter=d"

@@ -31,15 +31,11 @@ coverage.xml
 .atdd/diagnostics/
 .atdd/orchestration-log.jsonl
 .atdd/worker-state-*.json
-# Per-agent runtime (observer corrections/cli-return, persona events) — pure
-# ephemera; never committed. Without this the observer's runaway corrections
-# (#706) surface as untracked noise in the persona's `git status`.
-.atdd/runtime/agents/
+# Per-run runtime state — ephemeral, never committed (#755).
+# Fully ignored so git add -A / git commit -a cannot accidentally pick up
+# coach session files, decisions.jsonl, or any other per-run artifact.
+.atdd/runtime/
 .scratch/
-
-# Forbidden-command classifier runtime state (issue #668)
-.atdd/runtime/tool_use_audit.jsonl
-.atdd/runtime/tool_use_counts.json
 
 # Presentation ratchet smoke evidence — local/CI artifact, not git history.
 # See COACH-RATCHET-PRES-001 (refactor.convention.yaml) and issue #358.

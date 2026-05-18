@@ -44,9 +44,10 @@ features:
   - urn: "feature:govern-lifecycle:worktree-layout-detects-flat-sibling"
   - urn: "feature:govern-lifecycle:hermetic-integration-execution-kind"
   - urn: "feature:govern-lifecycle:reliable-manifest-registration"
+  - urn: "feature:govern-lifecycle:validator-blocks-runtime-artifacts-in-pr-diff"
 
 wmbt:
-  total: 33
+  total: 34
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -80,3 +81,4 @@ wmbt:
   E005: "minimize init-emitted-atdd-invocations-that-fail-to-parse-under-the-live-cli when atdd init emits workflow templates and the drift-detection self-validate scans them (#481)"
   E006: "minimize hermetic-acceptances-that-omit-fidelity-declaration-or-skip-required-live-smoke-pairing"
   E008: "minimize atdd-issue leaving the manifest entry uncommitted when the tree has unrelated staged changes (#738)"
+  E009: "minimize runtime-artifacts-committed-into-feature-pr-diff when an agent uses git add -A during coach-active development by fully gitignoring .atdd/runtime/ and adding a strict coach.pr.runtime-artifacts-blocked validator to atdd validate coach (#755)"
