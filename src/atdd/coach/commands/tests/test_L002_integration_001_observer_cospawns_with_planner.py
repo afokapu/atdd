@@ -1,21 +1,20 @@
 # URN: test:integration-hardening:coach-single-command-driver:L002-INTEGRATION-001-observer-cospawns-with-planner
 # Acceptance: acc:integration-hardening:L002-INTEGRATION-001-observer-cospawns-with-planner
 # WMBT: wmbt:integration-hardening:L002
-# Phase: RED
+# Phase: GREEN
 # Layer: integration
-"""L002-INTEGRATION-001 — cold-start INIT→PLANNED produces a planner surface
-and a headless observer.
+"""L002-INTEGRATION-001 — cold-start INIT→PLANNED produces one planner surface
+and starts a single coach-level MultiAgentObserver.
 
-coach.run([N]) without --resume must spawn the planner persona surface and
-launch its observer sidecar. Issue #745: the observer no longer co-spawns as
-a multiplexer surface — it runs HEADLESS via ``subprocess.Popen`` (`atdd
-observer run`), mirroring ``handlers/spawn.py::_spawn_observer`` (#736). This
-test pins that contract: a planner surface on the multiplexer + a detached
-observer subprocess.
+Issue #754 changed the model: there is no per-worker observer surface.
+Instead, _execute_cold_start starts one MultiAgentObserver that watches all
+agent runtime dirs. This test verifies:
+  - exactly one planner persona surface created
+  - no ':obs' surface created alongside the persona
+  - _execute_cold_start starts and stops exactly one MultiAgentObserver
 """
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -48,24 +47,8 @@ class _FakeMx:
         self.calls.append({"op": "new_surface", "cwd": cwd, "command": command, "name": name, "ref": ref})
         return ref
 
-    def new_persona_surface(
-        self,
-        cwd: Any = None,
-        command: Any = None,
-        name: Any = None,
-        *,
-        observer_runtime_root: str = "",
-        observer_agent_id: str = "",
-        observer_name: str = "",
-        observer_command: str = "",
-        **_: Any,
-    ) -> str:
-        persona_ref = self.new_surface(cwd=cwd, command=command, name=name)
-        try:
-            self.new_surface(cwd=cwd, command=observer_command, name=observer_name)
-        except Exception:
-            pass
-        return persona_ref
+    def surface_to_pane(self, surface_ref: Any) -> str:
+        return "pane:1"
 
     def rename(self, ref: str, name: str) -> None:
         self.calls.append({"op": "rename", "ref": ref, "name": name})
@@ -79,6 +62,9 @@ class _FakeMx:
     def send_key(self, ref: str, key: str) -> None:
         pass
 
+    def paste_text(self, ref: str, text: str) -> None:
+        pass
+
     def list_workspaces(self) -> list[str]:
         return []
 
@@ -86,39 +72,25 @@ class _FakeMx:
         pass
 
 
-class _DummyProc:
-    pid = 4242
-    args: list = []
-    returncode = None
+class _FakeObserver:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.start_calls = 0
+        self.stop_calls = 0
 
-    def __enter__(self):
+    def start(self) -> "_FakeObserver":
+        self.start_calls += 1
         return self
 
-    def __exit__(self, *exc):
-        return False
-
-    def communicate(self, *a, **k):
-        return ("", "")
-
-    def wait(self, *a, **k):
-        return 0
-
-    def poll(self, *a, **k):
-        return None
+    def stop(self) -> None:
+        self.stop_calls += 1
 
 
-def _is_observer_cmd(cmd: Any) -> bool:
-    if isinstance(cmd, (list, tuple)):
-        return "observer" in [str(x) for x in cmd]
-    return isinstance(cmd, str) and "observer" in cmd
-
-
-def test_cold_start_spawns_planner_and_observer(tmp_path, monkeypatch):
-    """coach.run([N]) cold-start spawns the planner surface and launches the
-    observer headless (detached subprocess, no `:obs` surface)."""
+def test_cold_start_spawns_planner_only_no_obs_surface(tmp_path, monkeypatch):
+    """coach.run([N]) cold-start creates one planner surface and no ':obs' surface."""
     from atdd.coach.commands.coach import run
     from atdd.coach.handlers import spawn as spawn_handler
     from atdd.coach.commands import spawn as cmd_spawn_mod
+    import atdd.coach.commands.observer as obs_mod
 
     fake_mx = _FakeMx()
     wt = tmp_path / "wt"
@@ -128,20 +100,7 @@ def test_cold_start_spawns_planner_and_observer(tmp_path, monkeypatch):
     monkeypatch.setattr(spawn_handler, "_resolve_worktree", lambda ctx: wt)
     monkeypatch.setattr(spawn_handler, "_RUNTIME_ROOT", tmp_path / ".atdd" / "runtime")
     monkeypatch.setattr(cmd_spawn_mod, "_resolve_multiplexer", lambda preferred=None: fake_mx)
-
-    # Issue #745: the observer launches headless via subprocess.Popen. Spy
-    # only the observer launch; delegate every other subprocess to the real
-    # Popen so the coach run path is unaffected.
-    popen_calls: list = []
-    real_popen = subprocess.Popen
-
-    def _spy_popen(cmd: Any, *a: Any, **k: Any):
-        if _is_observer_cmd(cmd):
-            popen_calls.append(cmd)
-            return _DummyProc()
-        return real_popen(cmd, *a, **k)
-
-    monkeypatch.setattr(subprocess, "Popen", _spy_popen)
+    monkeypatch.setattr(obs_mod, "MultiAgentObserver", _FakeObserver)
 
     rc = run(
         issue_numbers=[650],
@@ -154,38 +113,62 @@ def test_cold_start_spawns_planner_and_observer(tmp_path, monkeypatch):
 
     assert rc == 0
 
-    # The planner persona is placed as exactly one multiplexer surface.
     spawn_calls = [c for c in fake_mx.calls if c["op"] in ("new_surface", "new_workspace")]
     assert len(spawn_calls) >= 1, (
-        f"Expected the planner persona placed as a multiplexer surface; "
-        f"calls={fake_mx.calls}"
+        f"Expected at least 1 spawn call (planner persona), got {len(spawn_calls)}: {fake_mx.calls}"
     )
 
-    # The observer co-spawns with it — headless, as a detached subprocess.
-    # Its agent-id is derived from the planner agent-id, so the launch argv
-    # carries `planner`, proving the planner's observer (not some other).
-    observer_launches = [c for c in popen_calls if _is_observer_cmd(c)]
-    assert len(observer_launches) >= 1, (
-        f"Expected the observer launched headless via subprocess.Popen "
-        f"(`atdd observer run`); popen_calls={popen_calls}"
-    )
-    planner_observer = [
-        c for c in observer_launches
-        if (isinstance(c, (list, tuple)) and any("planner" in str(x) for x in c))
-        or (isinstance(c, str) and "planner" in c)
-    ]
-    assert len(planner_observer) >= 1, (
-        f"Expected the planner's observer launched headless; "
-        f"observer launches={observer_launches}"
-    )
-
-    # No observer `:obs` multiplexer surface — the observer is headless.
-    obs_surfaces = [
+    observer_surface_calls = [
         c for c in spawn_calls
-        if (c.get("name") or "").endswith(":obs")
-        or "observer" in (c.get("command") or "")
+        if "observer" in (c.get("command") or "").lower()
+        or (c.get("name") or "").lower().endswith(":obs")
     ]
-    assert obs_surfaces == [], (
-        f"Observer co-spawned as a multiplexer surface {obs_surfaces}; it must "
-        f"run headless with no surface"
+    assert observer_surface_calls == [], (
+        f"Per-worker ':obs' surfaces found: {observer_surface_calls}. "
+        f"Issue #754: observer is coach-level, not per-worker."
+    )
+
+
+def test_cold_start_starts_one_coach_level_observer(tmp_path, monkeypatch):
+    """_execute_cold_start starts exactly one MultiAgentObserver."""
+    from atdd.coach.commands.coach import run
+    from atdd.coach.handlers import spawn as spawn_handler
+    from atdd.coach.commands import spawn as cmd_spawn_mod
+    import atdd.coach.commands.observer as obs_mod
+
+    fake_mx = _FakeMx()
+    wt = tmp_path / "wt"
+    wt.mkdir()
+
+    observer_instances: list[_FakeObserver] = []
+
+    def _make_observer(*args: Any, **kwargs: Any) -> _FakeObserver:
+        obs = _FakeObserver(*args, **kwargs)
+        observer_instances.append(obs)
+        return obs
+
+    monkeypatch.setattr(spawn_handler, "_load_persona_prompt", lambda p, ph, **kw: "test prompt")
+    monkeypatch.setattr(spawn_handler, "_resolve_worktree", lambda ctx: wt)
+    monkeypatch.setattr(spawn_handler, "_RUNTIME_ROOT", tmp_path / ".atdd" / "runtime")
+    monkeypatch.setattr(cmd_spawn_mod, "_resolve_multiplexer", lambda preferred=None: fake_mx)
+    monkeypatch.setattr(obs_mod, "MultiAgentObserver", _make_observer)
+
+    run(
+        issue_numbers=[650],
+        dry_run=False,
+        resume=None,
+        multiplexer_mode="pane",
+        _runtime_dir_override=tmp_path / ".atdd" / "runtime",
+        _max_loop_events=0,
+    )
+
+    assert len(observer_instances) == 1, (
+        f"Expected exactly 1 MultiAgentObserver, got {len(observer_instances)}"
+    )
+    obs = observer_instances[0]
+    assert obs.start_calls == 1, (
+        f"observer.start() called {obs.start_calls} times (expected 1)"
+    )
+    assert obs.stop_calls == 1, (
+        f"observer.stop() called {obs.stop_calls} times (expected 1 — should stop after waves)"
     )

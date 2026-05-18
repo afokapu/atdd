@@ -905,6 +905,7 @@ def _execute_cold_start(
     _injected_events: Optional[dict] = None,
     _max_loop_events: Optional[int] = None,
     _run_id_sink: Optional[list] = None,
+    _observer_factory: Optional[Callable] = None,
 ) -> "ColdStartResult":
     """Wire and drive all issues through the full lifecycle (cold-start path).
 
@@ -917,7 +918,16 @@ def _execute_cold_start(
     A BLOCKED member is surfaced in the returned :class:`ColdStartResult`
     without aborting siblings that already started (Decision #1). Returns a
     ``ColdStartResult`` carrying the aggregate ``rc`` and the BLOCKED issues.
+
+    Issue #754: starts exactly one MultiAgentObserver before driving waves;
+    stops it after all waves complete regardless of outcome.
     """
+    from atdd.coach.commands.observer import MultiAgentObserver as _MultiAgentObserver
+
+    factory = _observer_factory or _MultiAgentObserver
+    coach_observer = factory(runtime_dir)
+    coach_observer.start()
+
     waves = _resolve_waves(cfg)
     machines_by_number = {sm.issue_number: sm for sm in machines}
 
@@ -948,16 +958,19 @@ def _execute_cold_start(
 
     aggregate_rc = 0
     blocked: list[int] = []
-    for wave in waves:
-        wave_results = _drive_wave_concurrently(wave, _drive_issue)
-        # Aggregate this wave's outcomes — a BLOCKED member is recorded, not
-        # fatal: siblings already running are left to finish.
-        for issue_num, rc in wave_results.items():
-            if rc != 0 and aggregate_rc == 0:
-                aggregate_rc = rc
-            sm = machines_by_number.get(issue_num)
-            if sm is not None and sm.phase == Phase.BLOCKED:
-                blocked.append(issue_num)
+    try:
+        for wave in waves:
+            wave_results = _drive_wave_concurrently(wave, _drive_issue)
+            # Aggregate this wave's outcomes — a BLOCKED member is recorded, not
+            # fatal: siblings already running are left to finish.
+            for issue_num, rc in wave_results.items():
+                if rc != 0 and aggregate_rc == 0:
+                    aggregate_rc = rc
+                sm = machines_by_number.get(issue_num)
+                if sm is not None and sm.phase == Phase.BLOCKED:
+                    blocked.append(issue_num)
+    finally:
+        coach_observer.stop()
 
     return ColdStartResult(rc=aggregate_rc, blocked=blocked)
 

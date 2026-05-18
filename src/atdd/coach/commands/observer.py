@@ -1735,3 +1735,79 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 def run(argv: list[str]) -> int:
     return main(argv)
+
+
+# ---------------------------------------------------------------------------
+# Single coach-level multi-agent observer (issue #754 / E002)
+# ---------------------------------------------------------------------------
+
+#: Minimum poll interval enforced by MultiAgentObserver.
+#: The observer must not busy-wait — 1.0s is the floor; default is 2.0s.
+MULTI_OBSERVER_MIN_INTERVAL: float = 1.0
+
+
+class MultiAgentObserver:
+    """Single observer per coach that watches all active worker runtime dirs.
+
+    Replaces N per-worker observer processes with one debounced scan loop.
+    The loop discovers agent dirs under ``runtime_root/agents/*``, creates
+    a lightweight per-agent :class:`Observer` on first sight, calls
+    ``scan_once()`` for each, then sleeps for ``poll_interval`` seconds.
+
+    ``poll_interval`` is clamped to :data:`MULTI_OBSERVER_MIN_INTERVAL` so
+    the loop can never busy-wait.
+    """
+
+    def __init__(
+        self,
+        runtime_root: Path,
+        *,
+        rules_dir: Optional[Path] = None,
+        poll_interval: float = 2.0,
+    ) -> None:
+        self.runtime_root = Path(runtime_root)
+        self.rules_dir = rules_dir
+        self.poll_interval = max(MULTI_OBSERVER_MIN_INTERVAL, poll_interval)
+        self._stop = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+        self._per_agent: dict[str, Observer] = {}
+
+    def start(self) -> "MultiAgentObserver":
+        self._stop.clear()
+        self._thread = threading.Thread(
+            target=self._loop,
+            name="coach-observer",
+            daemon=True,
+        )
+        self._thread.start()
+        return self
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    def _discover_agents(self) -> list[str]:
+        agents_dir = self.runtime_root / "agents"
+        if not agents_dir.exists():
+            return []
+        return [d.name for d in agents_dir.iterdir() if d.is_dir()]
+
+    def _loop_once(self) -> None:
+        """Run a single scan pass over all discovered agent dirs."""
+        for agent_id in self._discover_agents():
+            if agent_id not in self._per_agent:
+                obs = Observer(
+                    agent_id=agent_id,
+                    runtime_dir=self.runtime_root,
+                    rules_dir=self.rules_dir,
+                )
+                obs.load_rules()
+                self._per_agent[agent_id] = obs
+            try:
+                self._per_agent[agent_id].scan_once()
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-14
+                pass
+
+    def _loop(self) -> None:
+        while not self._stop.is_set():
+            self._loop_once()
+            self._stop.wait(self.poll_interval)

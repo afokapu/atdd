@@ -277,70 +277,6 @@ def _escalate(ctx: CoachContext, reason: str) -> None:
         )
 
 
-def _spawn_observer(
-    ctx: CoachContext,
-    phase: str,
-    worktree: Path,
-    persona_agent_id: str,
-    runtime_root: Path,
-    persona_surface_ref: Optional[str] = None,
-) -> None:
-    """Launch the observer L1 sidecar as a headless background process (#736).
-
-    The observer (`atdd observer run`) is a plain CLI script — it takes
-    ``--agent-id`` / ``--runtime-dir`` / ``--worktree`` and writes
-    ``agents/<id>/corrections.jsonl`` directly. It needs no terminal, so it
-    runs detached with no multiplexer surface: each worker is one tab
-    (persona only), not two (persona + ``:obs``).
-
-    ``persona_surface_ref`` is accepted for call-site compatibility and
-    unused — the headless observer is not attached to any surface.
-    Observer is supplementary — callers must catch and warn on any exception.
-    """
-    import subprocess
-
-    observer_agent_id = f"{persona_agent_id}-observer"
-    observer_cmd = [
-        "atdd", "observer", "run",
-        "--agent-id", observer_agent_id,
-        "--runtime-dir", str(runtime_root),
-        "--worktree", str(worktree),
-    ]
-    subprocess.Popen(
-        observer_cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-    )
-
-
-def _write_cospawn_decision(
-    ctx: CoachContext,
-    phase: str,
-    runtime_root: Path,
-) -> None:
-    """Append an observer co-spawn decision record to decisions.jsonl."""
-    from datetime import datetime, timezone
-    from atdd.coach.commands.durability import DecisionWriter
-
-    writer = DecisionWriter(runtime_dir=runtime_root)
-    now = (
-        datetime.now(timezone.utc)
-        .isoformat(timespec="seconds")
-        .replace("+00:00", "Z")
-    )
-    writer.append({
-        "decision_id": str(uuid.uuid4()),
-        "timestamp": now,
-        "coach_run_id": ctx.coach_run_id,
-        "issue_number": ctx.issue_number,
-        "decision_type": "co_spawn_observer",
-        "inputs": {"phase": phase},
-        "outcome": {"status": "SPAWNED"},
-    })
-
-
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
@@ -435,31 +371,15 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
             )
         return HandlerResult.ERROR
 
-    try:
-        persona_surface_ref = result.get("surface_ref") if result else None
-        # Issue #730: remember the issue's persistent surface so the next
-        # phase transition respawns the persona agent in place rather than
-        # creating a new pane. The ctx is per-issue, so this ref survives
-        # across every phase of the issue's lifecycle.
-        if persona_surface_ref is not None:
-            ctx.issue_surface_ref = persona_surface_ref
-        # Issue #745: on a fresh spawn, cmd_spawn now launches the observer
-        # headless itself (its `else` branch, every mode) — calling
-        # _spawn_observer here too would double-spawn it (#695 over-spawn).
-        # Only launch it for an in-place respawn (existing surface), where
-        # cmd_spawn does not; and keep skipping pane mode, where pane-mode
-        # respawns historically carried no observer.
-        if not was_fresh_spawn and ctx.multiplexer_mode != "pane":
-            _spawn_observer(ctx, phase, worktree, base_agent_id, runtime_root, persona_surface_ref=persona_surface_ref)
-        try:
-            _write_cospawn_decision(ctx, phase, runtime_root)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-            pass
-    except Exception as obs_exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-        print(
-            f"⚠ spawn handler: observer co-spawn failed for "
-            f"#{ctx.issue_number} ({phase}): {obs_exc}",
-            file=sys.stderr,
-        )
+    persona_surface_ref = result.get("surface_ref") if result else None
+    # Issue #730: remember the issue's persistent surface so the next
+    # phase transition respawns the persona agent in place rather than
+    # creating a new pane. The ctx is per-issue, so this ref survives
+    # across every phase of the issue's lifecycle.
+    if persona_surface_ref is not None:
+        ctx.issue_surface_ref = persona_surface_ref
+    # Issue #754: per-worker observer spawn removed. A single MultiAgentObserver
+    # is started once by _execute_cold_start and watches all agent dirs under
+    # .atdd/runtime/agents/*. No per-worker subprocess or :obs surface.
 
     return HandlerResult.HANDLED

@@ -1,12 +1,14 @@
 # URN: test:integration-hardening:coach-single-command-driver:L004-INTEGRATION-003-workspace-mode-unaffected
 # Acceptance: acc:integration-hardening:L004-INTEGRATION-003-workspace-mode-unaffected
 # WMBT: wmbt:integration-hardening:L004
-# Phase: RED
+# Phase: GREEN
 # Layer: integration
-"""L004-INTEGRATION-003 — workspace mode: observer still uses new_surface, not new_surface_in_pane.
+"""L004-INTEGRATION-003 — workspace mode: no observer surface created per-worker.
 
-The tab-co-location change applies only to --multiplexer-mode pane. In workspace
-mode, the observer must not call new_surface_in_pane (#658 out-of-scope clause).
+Issue #754: per-worker observer removed entirely. In workspace mode,
+handlers/spawn.handle creates one workspace surface for the persona and
+zero observer surfaces. The coach-level MultiAgentObserver is started by
+_execute_cold_start, not by the per-worker spawn path.
 """
 from __future__ import annotations
 
@@ -72,6 +74,9 @@ class _FakeMx:
     def send_key(self, ref: str, key: str) -> None:
         pass
 
+    def paste_text(self, ref: str, text: str) -> None:
+        pass
+
     def list_workspaces(self) -> list[str]:
         return []
 
@@ -79,8 +84,12 @@ class _FakeMx:
         pass
 
 
-def test_workspace_mode_observer_does_not_use_new_surface_in_pane(tmp_path, monkeypatch):
-    """workspace mode: observer must not call new_surface_in_pane."""
+def test_workspace_mode_creates_no_observer_surface(tmp_path, monkeypatch):
+    """workspace mode: spawn creates zero observer surfaces (issue #754).
+
+    Per-worker observer removed — the coach-level MultiAgentObserver is
+    started by _execute_cold_start, not by handlers/spawn.handle.
+    """
     from atdd.coach.handlers import spawn as spawn_handler
     from atdd.coach.handlers.state_machine import CoachContext, Phase, Transition, HandlerResult
     from atdd.coach.commands import spawn as cmd_spawn_mod
@@ -117,9 +126,10 @@ def test_workspace_mode_observer_does_not_use_new_surface_in_pane(tmp_path, monk
 
     observer_spawns = [
         c for c in fake_mx.calls
-        if c["op"] in ("new_surface", "new_workspace")
+        if c["op"] in ("new_surface", "new_workspace", "new_surface_in_pane")
         and "observer" in (c.get("name") or "").lower()
     ]
-    assert len(observer_spawns) >= 1, (
-        f"Expected at least 1 observer spawn in workspace mode; calls={fake_mx.calls}"
+    assert observer_spawns == [], (
+        f"workspace mode must not create per-worker observer surfaces (issue #754); "
+        f"got: {observer_spawns}"
     )
