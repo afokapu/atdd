@@ -1717,6 +1717,12 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--worktree", default=None)
     run_p.add_argument("--once", action="store_true", help="Single pass then exit")
     run_p.add_argument("--poll-interval", type=float, default=0.5)
+    run_p.add_argument(
+        "--idle-timeout",
+        type=float,
+        default=300.0,
+        help="Exit after N seconds of no persona output.log activity (0=disabled)",
+    )
 
     attach_p = sub.add_parser("attach", help="Print recent corrections for an agent")
     attach_p.add_argument("--agent-id", required=True)
@@ -1747,6 +1753,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             worktree=worktree,
             once=args.once,
             poll_interval=args.poll_interval,
+            idle_timeout=args.idle_timeout,
         )
     if args.subcommand == "attach":
         return cmd_attach(

@@ -158,7 +158,7 @@ acceptances:
       urn: "acc:observe-and-correct:P001-UNIT-008-cmd-run-exits-when-persona-dir-removed"
       id: "AC-UNIT-008"
       purpose: "`cmd_run` exits 0 on its own when its persona runtime dir is deleted while running — no kill signal needed"
-      phase: "RED"
+      phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
@@ -179,7 +179,7 @@ acceptances:
       urn: "acc:observe-and-correct:P001-UNIT-009-cmd-run-exits-after-idle-timeout"
       id: "AC-UNIT-009"
       purpose: "`cmd_run` exits 0 after a configurable idle timeout with no persona output.log activity"
-      phase: "RED"
+      phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
@@ -200,7 +200,7 @@ acceptances:
       urn: "acc:observe-and-correct:P001-UNIT-010-teardown-fixture-reaps-observer-procs"
       id: "AC-UNIT-010"
       purpose: "A pytest fixture in conftest.py registers observer subprocesses and terminates them after each test so no orphans remain"
-      phase: "RED"
+      phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
