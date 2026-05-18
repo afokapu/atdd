@@ -1,21 +1,20 @@
 # URN: test:consolidate-coach-workspace:headless-observer:Y002-UNIT-001-persona-spawn-creates-no-obs-surface
 # Acceptance: acc:consolidate-coach-workspace:Y002-UNIT-001-persona-spawn-creates-no-obs-surface
 # WMBT: wmbt:consolidate-coach-workspace:Y002
-# Phase: RED
+# Phase: GREEN
 # Layer: integration
 # Runtime: python
 # Assertion: behavioral
-"""Y002-UNIT-001 — spawning a persona's observer creates no multiplexer
-surface; the observer runs as a detached background subprocess.
+"""Y002-UNIT-001 — spawning a persona via handlers/spawn.handle creates no
+observer surface (issue #754).
 
-RED: ``_spawn_observer`` co-spawns the observer as a visible ``…:obs`` surface
-(``new_surface`` / ``new_surface_in_pane``), so every worker is two tabs. This
-test pins the headless contract — ``_spawn_observer`` launches the observer via
-``subprocess.Popen`` and creates zero multiplexer surfaces.
+Issue #754 removed per-worker observer spawning entirely. The coach-level
+MultiAgentObserver is started once by _execute_cold_start. handlers/spawn.handle
+must create zero observer surfaces — neither ':obs' panes nor any surface
+whose name contains 'observer'.
 """
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -24,65 +23,101 @@ import pytest
 pytestmark = [pytest.mark.platform]
 
 
-class FakeMx:
-    """Multiplexer double — records every surface creation."""
-
+class _FakeMx:
     name = "fake"
 
     def __init__(self) -> None:
-        self.created: list[Any] = []
+        self.calls: list[dict] = []
+        self._surface_pane: dict[str, str] = {}
 
-    def new_surface(self, *a: Any, **k: Any) -> str:
-        self.created.append(k.get("name"))
-        return "surface:obs"
+    def new_workspace(self, cwd: str, command: str, name: Any = None) -> str:
+        ref = f"workspace:{len(self.calls) + 1}"
+        self.calls.append({"op": "new_workspace", "name": name, "ref": ref})
+        return ref
 
-    def new_surface_in_pane(self, *a: Any, **k: Any) -> str:
-        self.created.append(k.get("name"))
-        return "surface:obs"
+    def new_surface(self, workspace_ref: Any = None, pane_ref: Any = None,
+                    cwd: Any = None, command: Any = None, name: Any = None,
+                    direction: Any = None) -> str:
+        ref = f"surface:{len(self.calls) + 1}"
+        self._surface_pane[ref] = pane_ref or f"pane:{len(self.calls)}"
+        self.calls.append({"op": "new_surface", "name": name, "ref": ref})
+        return ref
 
-    def surface_to_pane(self, ref: Any) -> str:
-        return "pane:1"
+    def new_surface_in_pane(self, pane_ref: str, cwd: Any = None,
+                             command: Any = None, name: Any = None) -> str:
+        ref = f"surface:{len(self.calls) + 1}"
+        self._surface_pane[ref] = pane_ref
+        self.calls.append({"op": "new_surface_in_pane", "pane_ref": pane_ref, "name": name, "ref": ref})
+        return ref
+
+    def surface_to_pane(self, surface_ref: str) -> str:
+        return self._surface_pane[surface_ref]
+
+    def rename(self, ref: str, name: str) -> None:
+        self.calls.append({"op": "rename", "ref": ref, "name": name})
+
+    def read_screen(self, ref: str, lines: int = 50) -> str:
+        return ""
+
+    def send(self, ref: str, text: str) -> None:
+        pass
+
+    def send_key(self, ref: str, key: str) -> None:
+        pass
+
+    def paste_text(self, ref: str, text: str) -> None:
+        pass
+
+    def list_workspaces(self) -> list[str]:
+        return []
+
+    def close(self, ref: str) -> None:
+        pass
 
 
-class _DummyProc:
-    pid = 4242
+def test_persona_spawn_creates_no_obs_surface(tmp_path, monkeypatch):
+    """handlers/spawn.handle creates no observer surface (issue #754).
 
-
-def test_persona_spawn_creates_no_obs_surface(monkeypatch):
-    """`_spawn_observer` launches a background subprocess and creates no
-    `:obs` multiplexer surface."""
+    Per-worker observer removed. handle() spawns only the persona surface —
+    zero surfaces whose name contains 'observer' or ends with ':obs'.
+    """
     from atdd.coach.handlers import spawn as spawn_handler
+    from atdd.coach.handlers.state_machine import CoachContext, Phase, Transition, HandlerResult
     from atdd.coach.commands import spawn as cmd_spawn_mod
-    from atdd.coach.handlers.state_machine import CoachContext
 
-    fake_mx = FakeMx()
-    popen_calls: list[tuple] = []
+    fake_mx = _FakeMx()
+    wt = tmp_path / "wt"
+    wt.mkdir()
 
-    def _fake_popen(*args, **kwargs):
-        popen_calls.append((args, kwargs))
-        return _DummyProc()
+    monkeypatch.setattr(spawn_handler, "_load_persona_prompt", lambda p, ph, **kw: "test prompt")
+    monkeypatch.setattr(spawn_handler, "_resolve_worktree", lambda ctx: wt)
+    monkeypatch.setattr(spawn_handler, "_RUNTIME_ROOT", tmp_path / ".atdd" / "runtime")
+    monkeypatch.setattr(cmd_spawn_mod, "_resolve_multiplexer", lambda preferred=None: fake_mx)
 
-    monkeypatch.setattr(cmd_spawn_mod, "_resolve_multiplexer",
-                        lambda preferred=None: fake_mx)
-    monkeypatch.setattr(subprocess, "Popen", _fake_popen)
-
-    ctx = CoachContext(issue_number=736, multiplexer_mode="pane")
-
-    spawn_handler._spawn_observer(
-        ctx, "RED", Path("/tmp/wt-736"),
-        "tester-736-abc", Path("/tmp/rt"), persona_surface_ref="pane:1",
+    ctx = CoachContext(
+        issue_number=736,
+        llm="claude-code",
+        multiplexer=fake_mx,
+        multiplexer_mode="pane",
+        dry_run=False,
+        max_retries=0,
+        escalation_channel=None,
+        persona_llm={},
+        coach_run_id=None,
+        runtime_dir=str(tmp_path / ".atdd" / "runtime"),
     )
+    result = spawn_handler.handle(ctx, Transition(src=Phase.INIT, dst=Phase.PLANNED))
+    assert result == HandlerResult.HANDLED
 
-    obs_surfaces = [n for n in fake_mx.created if isinstance(n, str) and n.endswith(":obs")]
-    assert obs_surfaces == [], (
-        f"observer co-spawned as visible surface(s) {obs_surfaces} — the "
-        f"observer must run headless with no UI surface"
-    )
-    assert fake_mx.created == [], (
-        f"observer launch created multiplexer surface(s) {fake_mx.created}; "
-        f"a headless observer creates none"
-    )
-    assert len(popen_calls) == 1, (
-        f"observer was not started as a detached background subprocess "
-        f"(subprocess.Popen calls: {len(popen_calls)})"
+    observer_surfaces = [
+        c for c in fake_mx.calls
+        if c["op"] in ("new_surface", "new_surface_in_pane", "new_workspace")
+        and (
+            "observer" in (c.get("name") or "").lower()
+            or (c.get("name") or "").lower().endswith(":obs")
+        )
+    ]
+    assert observer_surfaces == [], (
+        f"handle() created observer surface(s) {observer_surfaces}; "
+        f"issue #754: observer is coach-level, not per-worker"
     )
