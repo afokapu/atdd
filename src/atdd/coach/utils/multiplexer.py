@@ -477,7 +477,14 @@ class CmuxBackend(MultiplexerBackend):
         """
         try:
             out = _run(["cmux", "tree", "--all"]).stdout or ""
-        except MultiplexerError:
+        except MultiplexerError as exc:
+            # Best-effort: a failed tree read just means the respawn falls back
+            # to the unscoped (selected-workspace) path — warn, do not abort.
+            print(
+                f"⚠️  cmux tree read failed, respawn will not be "
+                f"workspace-scoped: {exc}",
+                file=sys.stderr,
+            )
             return None
         current_ws: Optional[str] = None
         ws_re = re.compile(r"\bworkspace (workspace:\d+)\b")
