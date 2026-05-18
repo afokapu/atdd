@@ -545,10 +545,6 @@ def cmd_spawn(
         except Exception:
             _close_surface_on_failure(backend, surface_ref)
             raise
-        # Issue #745: launch the observer headless (detached, no surface),
-        # mirroring handlers/spawn.py::_spawn_observer (#736). Best-effort —
-        # the observer is supplementary; a failure must not fail the spawn.
-        _launch_headless_observer(_observer_agent_id, runtime_root, worktree)
 
     # Phase-qualified surface name (#746): rename the worker surface to
     # ATDD<N>·<PHASE>·<persona> on every transition so the operator can see
