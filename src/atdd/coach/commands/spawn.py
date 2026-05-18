@@ -291,19 +291,15 @@ def _create_surface(
     command: str,
     name: str,
     mode: str = "auto",
-    observer_agent_id: Optional[str] = None,
-    observer_name: Optional[str] = None,
-    observer_command: Optional[str] = None,
-    observer_runtime_root: Optional[str] = None,
 ) -> str:
     """Dispatch to the multiplexer.
 
     ``mode`` controls the surface creation strategy:
-    - ``"pane"`` — call ``new_persona_surface`` (co-spawns observer; never
-      falls back to workspace).
-    - ``"workspace"`` — call ``new_workspace`` (no observer in workspace mode;
-      observer-as-workspace is handled separately per #658 design).
-    - ``"auto"`` (default) — try ``new_persona_surface``; fall back to
+    - ``"pane"`` — call ``new_surface`` (single worker surface; no per-worker
+      observer since issue #754 replaced N observers with one coach-level
+      MultiAgentObserver).
+    - ``"workspace"`` — call ``new_workspace``.
+    - ``"auto"`` (default) — try ``new_surface``; fall back to
       ``new_workspace`` for tmux/zellij backends that raise
       ``NotImplementedError`` on ``new_surface``.
     """
@@ -311,16 +307,6 @@ def _create_surface(
         return multiplexer.new_workspace(cwd=str(worktree), command=command, name=name)
 
     def _pane_spawn() -> str:
-        if observer_agent_id is not None:
-            return multiplexer.new_persona_surface(
-                cwd=str(worktree),
-                command=command,
-                name=name,
-                observer_runtime_root=observer_runtime_root or "",
-                observer_agent_id=observer_agent_id,
-                observer_name=observer_name or "",
-                observer_command=observer_command or "",
-            )
         return multiplexer.new_surface(cwd=str(worktree), command=command, name=name)
 
     if mode == "pane":
@@ -506,11 +492,8 @@ def cmd_spawn(
     canonical_name = compute_issue_surface_name(repo_short, int(issue))
 
     backend = multiplexer if multiplexer is not None else _resolve_multiplexer()
-    # Issue #745: the per-worker observer runs HEADLESS — a detached background
-    # process, no `<issue>:obs` multiplexer surface. cmd_spawn used to co-spawn
-    # it as a visible surface via new_persona_surface; it now mirrors
-    # handlers/spawn.py::_spawn_observer (#736), so each worker is one tab.
-    _observer_agent_id = f"{agent_id}{_OBSERVER_SUFFIX}"
+    # Issue #754: per-worker observer removed — a single MultiAgentObserver
+    # is started once by _execute_cold_start and watches all agent dirs.
     if existing_surface_ref is not None:
         # Issue #730: the issue already has its persistent surface — relaunch
         # the persona agent in place rather than spawning a new pane. No
@@ -561,11 +544,6 @@ def cmd_spawn(
         except Exception:
             _close_surface_on_failure(backend, surface_ref)
             raise
-        # Issue #745: launch the observer headless (detached, no surface),
-        # mirroring handlers/spawn.py::_spawn_observer (#736). Best-effort —
-        # the observer is supplementary; a failure must not fail the spawn.
-        _launch_headless_observer(_observer_agent_id, runtime_root, worktree)
-
     # Inject the launch prompt as the first interactive message (#702).
     # Claude Code v2.1.x ignores a positional prompt arg in interactive
     # mode, so the prompt — rendered to <worktree>/.launch_prompt.txt —
@@ -630,13 +608,6 @@ def cmd_spawn(
     # Write manifest.json so downstream guards (e.g., reviewer commit
     # rejection in agent.py) can read the persona without parsing events.
     _write_manifest(runtime_root, agent_id, persona, issue)
-
-    # E006 (#733): co-spawn the observer runtime dir alongside the now-
-    # materialised persona. Reached only after the persona surface, the
-    # agent_spawned event, and the manifest are all confirmed above — so the
-    # observer dir can never exist without its persona dir.
-    observer_dir = _agent_runtime_dir(runtime_root, _observer_agent_id)
-    observer_dir.mkdir(parents=True, exist_ok=True)
 
     return {
         "launch_prompt_path": prompt_path,
