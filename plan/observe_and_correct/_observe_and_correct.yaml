@@ -80,7 +80,7 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
-  total: 12
+  total: 13
   P001: "minimize quantity of observer-runtime-skeleton-gaps"
   P002: "minimize quantity of observer-input-acquisition-gaps"
   M001: "minimize likelihood of undetected-basic-protocol-violations"
@@ -92,4 +92,5 @@ wmbt:
   R001: "minimize likelihood of ask-events-whose-answer-never-reaches-the-waiting-worker"
   L001: "minimize effort of locating-active-coach-surface-state"
   E001: "minimize effort of approving-known-safe-cross-surface-prompts"
+  E002: "minimize quantity of per-worker-observer-processes-spawned-by-coach"
   C001: "minimize likelihood of behavioral-regression-against-babysit-baseline"
