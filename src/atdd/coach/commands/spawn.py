@@ -125,14 +125,57 @@ def _resolve_multiplexer(preferred: Optional[str] = None):
     return get_multiplexer(preferred=preferred)
 
 
+# ---------------------------------------------------------------------------
+# Agent runtime-dir layout — single source of truth (#733)
+#
+# cmd_spawn provisions one dir per agent under <runtime_root>/agents/. Both
+# the writer here and the spawn handler's materialisation guard
+# (handlers/spawn.py::_persona_materialised, which delegates to
+# persona_materialised below) depend on this layout — keeping the literals in
+# one place means the two can never drift apart.
+# ---------------------------------------------------------------------------
+
+_AGENTS_SUBDIR = "agents"
+_MANIFEST_FILENAME = "manifest.json"
+_OBSERVER_SUFFIX = "-observer"
+
+
+def _agent_runtime_dir(runtime_root: Path, agent_id: str) -> Path:
+    """The runtime dir cmd_spawn provisions for one agent id."""
+    return runtime_root / _AGENTS_SUBDIR / agent_id
+
+
+def persona_materialised(runtime_root: Path, persona: str, issue: int) -> bool:
+    """True when a completed ``cmd_spawn`` left a persona agent dir on disk.
+
+    A complete spawn writes ``manifest.json`` into
+    ``<runtime_root>/agents/<persona>-<issue>-<suffix>/``. The spawn handler
+    calls this to reject an incomplete spawn that returned a truthy result
+    without putting the persona on disk (#733) — observer dirs (``-observer``
+    suffix) are excluded so an orphan observer can never satisfy the check.
+    """
+    agents_dir = runtime_root / _AGENTS_SUBDIR
+    if not agents_dir.is_dir():
+        return False
+    prefix = f"{persona}-{issue}-"
+    for entry in agents_dir.iterdir():
+        if not entry.is_dir():
+            continue
+        if not entry.name.startswith(prefix) or entry.name.endswith(_OBSERVER_SUFFIX):
+            continue
+        if (entry / _MANIFEST_FILENAME).is_file():
+            return True
+    return False
+
+
 def _write_manifest(
     runtime_root: Path, agent_id: str, persona: str, issue: int,
 ) -> None:
     """Write ``manifest.json`` to the agent's runtime dir so downstream
     guards can read the persona without parsing events.jsonl."""
-    agent_dir = runtime_root / "agents" / agent_id
+    agent_dir = _agent_runtime_dir(runtime_root, agent_id)
     agent_dir.mkdir(parents=True, exist_ok=True)
-    manifest = agent_dir / "manifest.json"
+    manifest = agent_dir / _MANIFEST_FILENAME
     tmp = manifest.with_suffix(".json.tmp")
     tmp.write_text(json.dumps({
         "persona": persona,
@@ -424,7 +467,7 @@ def cmd_spawn(
     canonical_name = compute_issue_surface_name(repo_short, int(issue))
 
     backend = multiplexer if multiplexer is not None else _resolve_multiplexer()
-    _observer_agent_id = f"{agent_id}-observer"
+    _observer_agent_id = f"{agent_id}{_OBSERVER_SUFFIX}"
     # Canonical observer naming: <issue-surface-name>:obs — makes the link
     # to its persona unmistakable in cmux/tmux/zellij tab/window lists.
     # Sort-adjacent + ':obs' suffix is multiplexer-agnostic (#695).
@@ -455,6 +498,23 @@ def cmd_spawn(
             observer_command=_observer_command,
             observer_runtime_root=str(runtime_root),
         )
+
+    # E006 (#733): gate everything downstream — observer co-spawn, the
+    # agent_spawned event, the manifest — on confirmed persona
+    # materialisation. A falsy surface_ref means the multiplexer never
+    # produced a persona surface (whether freshly created or respawned in
+    # place); raising here (instead of pressing on and returning a truthy
+    # success dict) lets _spawn_with_retries surface it as a failure so the
+    # coach BLOCKs and escalates, rather than leaving an orphan
+    # observer-without-persona behind (observed live on #662).
+    if not surface_ref:
+        raise MultiplexerError(
+            f"persona spawn for {agent_id!r} did not materialise a "
+            f"multiplexer surface — aborting before the observer co-spawn "
+            f"to prevent an orphan observer-without-persona (#733)"
+        )
+
+    if existing_surface_ref is None:
         # Transactional spawn (#655): the surface exists. If the canonical
         # naming/layout pass fails, close it before propagating so the failed
         # spawn attempt leaves no orphan pane.
@@ -533,6 +593,13 @@ def cmd_spawn(
     # Write manifest.json so downstream guards (e.g., reviewer commit
     # rejection in agent.py) can read the persona without parsing events.
     _write_manifest(runtime_root, agent_id, persona, issue)
+
+    # E006 (#733): co-spawn the observer runtime dir alongside the now-
+    # materialised persona. Reached only after the persona surface, the
+    # agent_spawned event, and the manifest are all confirmed above — so the
+    # observer dir can never exist without its persona dir.
+    observer_dir = _agent_runtime_dir(runtime_root, _observer_agent_id)
+    observer_dir.mkdir(parents=True, exist_ok=True)
 
     return {
         "launch_prompt_path": prompt_path,

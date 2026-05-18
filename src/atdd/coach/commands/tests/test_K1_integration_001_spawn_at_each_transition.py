@@ -85,6 +85,10 @@ def test_handle_returns_handled_for_each_transition(
         captured["persona"] = persona
         captured["phase"] = phase
         captured["llm"] = llm
+        # A complete cmd_spawn materialises the persona on disk (#733); the
+        # handler now verifies that before returning HANDLED.
+        from atdd.coach.commands.spawn import _write_manifest
+        _write_manifest(runtime_root, agent_id, persona, ctx.issue_number)
         return {"surface_ref": "fake:1", "rule_id": "test"}
 
     monkeypatch.setattr(spawn_handler, "_call_spawn", fake_call_spawn)
