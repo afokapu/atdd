@@ -64,6 +64,11 @@ STEP_CODES = {
     "K": "Conclude",
 }
 
+# The CLI verb that registers a new parent issue. Manifest-commit failures on
+# this path must fail loudly (#738) — a "success" with an unregistered issue is
+# silently wrong. Other manifest verbs (status mirroring) stay tolerant.
+_MANIFEST_REGISTRATION_VERB = "atdd issue"
+
 # Archetype-specific gate test rows for the Validation table.
 # Each entry: (gate_id, phase, command, validator_path)
 ARCHETYPE_GATES = {
@@ -154,18 +159,41 @@ class IssueManager:
         with open(self.manifest_file, "w") as f:
             yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
 
-    def _commit_manifest_change(self, verb: str, message: str, allow_main: bool = False) -> None:
+    def _commit_manifest_change(
+        self,
+        verb: str,
+        message: str,
+        allow_main: bool = False,
+        strict: Optional[bool] = None,
+    ) -> None:
         """Atomically commit the local manifest after a CLI-driven write.
 
         Convention: src/atdd/coach/conventions/issue.convention.yaml
                     (manifest_write_discipline)
 
         No-ops when ``self.target_dir`` is not a git working tree (e.g. unit
-        tests that supply a bare ``tmp_path`` without ``git init``). Surfaces
-        ``ManifestCommitError`` as a printed warning so the verb's primary
-        work (GitHub mutation, status transition) is not lost: CI's coach
-        validator catches any drift the user fails to resolve.
+        tests that supply a bare ``tmp_path`` without ``git init``).
+
+        Failure handling depends on ``strict`` (#738):
+
+        - ``strict=True`` — issue registration (``atdd issue``). A genuine
+          ``ManifestCommitError`` is re-raised so the caller can fail loudly
+          with a non-zero exit; reporting success with an unregistered issue
+          is silently wrong.
+        - ``strict=False`` — the status-mirror path (``atdd update --status``).
+          A ``ManifestCommitError`` is surfaced as a printed warning so the
+          verb's primary work (the GitHub status transition) is not lost;
+          transitions for issues created outside the CLI are valid.
+
+        When ``strict`` is ``None`` it defaults to whether ``verb`` is the
+        issue-registration verb.
+
+        Raises:
+            ManifestCommitError: when ``strict`` and the commit genuinely
+                cannot complete.
         """
+        if strict is None:
+            strict = verb.strip() == _MANIFEST_REGISTRATION_VERB
         if not (self.target_dir / ".git").exists():
             return
         if not self.manifest_file.exists():
@@ -183,6 +211,9 @@ class IssueManager:
                 allow_main=allow_main,
             )
         except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+            if strict:
+                # Issue registration must never report a silent success.
+                raise
             print(f"  Warning: manifest not committed — {exc}")
             print(
                 "    Run `git add .atdd/manifest.yaml && git commit` once "
@@ -951,11 +982,26 @@ class IssueManager:
             manifest["sessions"] = []
         manifest["sessions"].append(issue_entry)
         self._save_manifest(manifest)
-        self._commit_manifest_change(
-            verb="atdd issue",
-            message=f"chore(coach): register issue #{parent_number} in manifest",
-            allow_main=allow_main_commit,
-        )
+        # Registration must land or fail loudly — never a silent exit-0 with an
+        # unregistered issue (#738). _commit_manifest_change(strict=True) for the
+        # registration verb re-raises a genuine ManifestCommitError.
+        from atdd.coach.utils.git import ManifestCommitError
+        try:
+            self._commit_manifest_change(
+                verb=_MANIFEST_REGISTRATION_VERB,
+                message=f"chore(coach): register issue #{parent_number} in manifest",
+                allow_main=allow_main_commit,
+            )
+        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+            print(
+                f"Error: issue #{parent_number} created on GitHub but its "
+                f".atdd/manifest.yaml registration could not be committed — {exc}"
+            )
+            print(
+                "    The issue is NOT registered. Resolve the cause, then run "
+                "`git add .atdd/manifest.yaml && git commit`."
+            )
+            return 1
 
         print(f"\nCreated #{parent_number} with {wmbt_count} WMBTs")
         print(f"  Repo: {github_config['repo']}")

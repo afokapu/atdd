@@ -14,7 +14,8 @@ Behavioural contract
 --------------------
 1. Stages only the manifest path.
 2. Refuses on main unless allow_main=True (respects on-main-detection rule).
-3. Refuses if any other staged changes exist (no surprise bundling).
+3. Commits only the manifest path — unrelated staged changes are left
+   untouched, never bundled (#738: a path-scoped commit, not a refusal).
 4. Returns the new commit SHA, or None if there is nothing to commit.
 """
 
@@ -211,11 +212,13 @@ class TestMainBranchGuard:
 
 
 class TestStagingIsolation:
-    def test_refuses_when_other_staged_changes_exist(self, tmp_path):
-        from atdd.coach.utils.git import (
-            ManifestCommitError,
-            git_commit_manifest_update,
-        )
+    def test_commits_manifest_despite_other_staged_changes(self, tmp_path):
+        """#738: unrelated staged changes must NOT block manifest registration.
+
+        The `git commit -- <path>` is path-scoped, so it commits only the
+        manifest; the unrelated staged change stays staged and uncommitted.
+        """
+        from atdd.coach.utils.git import git_commit_manifest_update
 
         repo = _git_repo(tmp_path)
         # Stage an unrelated file.
@@ -226,15 +229,24 @@ class TestStagingIsolation:
         _modify_manifest(repo)
         before_sha = _head_sha(repo)
 
-        with pytest.raises(ManifestCommitError, match="staged"):
-            git_commit_manifest_update(
-                path=repo / ".atdd" / "manifest.yaml",
-                message="msg",
-                verb="atdd issue",
-                repo_root=repo,
-            )
+        sha = git_commit_manifest_update(
+            path=repo / ".atdd" / "manifest.yaml",
+            message="msg",
+            verb="atdd issue",
+            repo_root=repo,
+        )
 
-        assert _head_sha(repo) == before_sha
+        # The manifest commit landed.
+        assert sha and sha == _head_sha(repo) != before_sha
+        # Path-scoped: the commit touched only the manifest.
+        changed = _run(
+            "git", "show", "--name-only", "--format=", "HEAD", cwd=repo
+        ).stdout
+        assert [l.strip() for l in changed.splitlines() if l.strip()] == [
+            ".atdd/manifest.yaml"
+        ]
+        # The unrelated change is still staged, never bundled.
+        assert "A  other.txt" in _porcelain(repo)
 
     def test_leaves_other_unstaged_changes_alone(self, tmp_path):
         """An unstaged change to an unrelated tracked file must survive
