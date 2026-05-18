@@ -11,10 +11,13 @@ Usage:
 
 Convention: CLAUDE.md git.branching
 """
+import json
 import logging
+import re
 import subprocess
+from datetime import date
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import yaml
 
@@ -139,6 +142,81 @@ class BranchManager:
                 return entry
         return None
 
+    def _backfill_from_github(self, issue_number: int) -> Optional[Dict[str, Any]]:
+        """Fetch issue #N from GitHub and append a synthesised sessions entry to the manifest.
+
+        Self-heal path (#775): when an issue exists on GitHub but is absent from
+        .atdd/manifest.yaml, synthesise the minimum required fields from `gh issue
+        view` output and append the entry. This unblocks `atdd branch <N>` without
+        requiring the user to manually edit the manifest.
+
+        Returns the new entry dict on success, or None when gh CLI fails or the
+        manifest file cannot be written.
+        """
+        if not self.manifest_file.exists():
+            return None
+
+        result = subprocess.run(
+            [
+                "gh", "issue", "view", str(issue_number),
+                "--json", "number,title,state,createdAt,labels,body",
+            ],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0:
+            return None
+
+        try:
+            data = json.loads(result.stdout)
+        except (json.JSONDecodeError, ValueError):
+            return None
+
+        # Derive slug from title: strip leading "feat(atdd): " or similar prefix
+        title = data.get("title", "")
+        slug_raw = re.sub(r"^\w+(?:\([^)]*\))?:\s*", "", title)
+        slug_raw = re.sub(r"\s*\(#\d+\)\s*$", "", slug_raw)
+        slug = re.sub(r"[^a-z0-9]+", "-", slug_raw.lower()).strip("-") or f"issue-{issue_number}"
+
+        # Derive status from labels
+        status = "INIT"
+        for label in data.get("labels", []):
+            name = label.get("name", "")
+            if name.startswith("atdd:"):
+                status = name[5:]
+                break
+
+        # Derive created date
+        created_raw = data.get("createdAt", "")
+        created = created_raw[:10] if created_raw else str(date.today())
+
+        entry: Dict[str, Any] = {
+            "id": str(issue_number),
+            "slug": slug,
+            "file": None,
+            "issue_number": issue_number,
+            "type": "implementation",
+            "status": status,
+            "created": created,
+            "archived": None,
+        }
+
+        manifest = self._load_manifest()
+        sessions = manifest.get("sessions") or []
+        # Idempotent: do not duplicate
+        if any(s.get("issue_number") == issue_number for s in sessions):
+            return next(s for s in sessions if s.get("issue_number") == issue_number)
+
+        sessions.append(entry)
+        manifest["sessions"] = sessions
+        try:
+            with open(self.manifest_file, "w") as fh:
+                yaml.dump(manifest, fh, default_flow_style=False, sort_keys=False)
+        except OSError:
+            return None
+
+        print(f"  Manifest: backfilled entry for #{issue_number} from GitHub (self-heal)")
+        return entry
+
     def branch(self, issue_number: int, prefix: Optional[str] = None) -> int:
         """Create a worktree branch for the given issue.
 
@@ -160,12 +238,16 @@ class BranchManager:
             )
             return 1
 
-        # Look up issue in manifest
+        # Look up issue in manifest; self-heal from GitHub when absent (#775)
         entry = self._find_issue(issue_number)
         if entry is None:
+            entry = self._backfill_from_github(issue_number)
+        if entry is None:
             print(
-                f"Error: Issue #{issue_number} not found in manifest.\n"
-                f"Create it first with: atdd new <slug>"
+                f"Error: Issue #{issue_number} not found in manifest and could not be "
+                f"fetched from GitHub.\n"
+                f"Create it first with: atdd issue <slug>\n"
+                f"Or backfill all missing issues: atdd issue reconcile"
             )
             return 1
 

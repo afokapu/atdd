@@ -2138,3 +2138,86 @@ class IssueManager:
         print("Sync not needed — GitHub Issues are the source of truth.")
         print("Use `atdd list` to see current issues.")
         return 0
+
+    def reconcile(self) -> int:
+        """Backfill every open GitHub atdd-issue missing from .atdd/manifest.yaml.
+
+        Self-heal path (#775): the manifest is a derived registry; the GitHub
+        issue is the source of truth. Any issue labelled `atdd-issue` that is
+        open on GitHub but absent from the manifest is synthesised and appended.
+        Existing entries are left untouched (idempotent).
+
+        Returns 0 on success, 1 on hard error.
+        """
+        if not self.manifest_file.exists():
+            print("Error: .atdd/manifest.yaml not found. Run `atdd init` first.")
+            return 1
+
+        # Fetch open atdd-issues from GitHub
+        result = subprocess.run(
+            [
+                "gh", "issue", "list",
+                "--label", "atdd-issue",
+                "--state", "open",
+                "--limit", "200",
+                "--json", "number,title,state,createdAt,labels",
+            ],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0:
+            print(f"Error: gh issue list failed: {result.stderr.strip()}")
+            return 1
+
+        try:
+            gh_issues = json.loads(result.stdout) or []
+        except (json.JSONDecodeError, ValueError) as exc:
+            print(f"Error: could not parse gh output: {exc}")
+            return 1
+
+        manifest = self._load_manifest()
+        sessions = manifest.get("sessions") or []
+        registered = {s.get("issue_number") for s in sessions}
+
+        added = 0
+        for issue in gh_issues:
+            number = issue.get("number")
+            if number is None or number in registered:
+                continue
+
+            title = issue.get("title", "")
+            slug_raw = re.sub(r"^\w+(?:\([^)]*\))?:\s*", "", title)
+            slug_raw = re.sub(r"\s*\(#\d+\)\s*$", "", slug_raw)
+            slug = re.sub(r"[^a-z0-9]+", "-", slug_raw.lower()).strip("-") or f"issue-{number}"
+
+            status = "INIT"
+            for label in issue.get("labels", []):
+                name = label.get("name", "")
+                if name.startswith("atdd:"):
+                    status = name[5:]
+                    break
+
+            created_raw = issue.get("createdAt", "")
+            created = created_raw[:10] if created_raw else str(date.today())
+
+            sessions.append({
+                "id": str(number),
+                "slug": slug,
+                "file": None,
+                "issue_number": number,
+                "type": "implementation",
+                "status": status,
+                "created": created,
+                "archived": None,
+            })
+            registered.add(number)
+            added += 1
+            print(f"  Backfilled: #{number} {slug}")
+
+        if added == 0:
+            print("reconcile: manifest is up-to-date — no missing issues found.")
+            return 0
+
+        manifest["sessions"] = sessions
+        self._save_manifest(manifest)
+        print(f"reconcile: added {added} issue(s) to .atdd/manifest.yaml")
+        return 0

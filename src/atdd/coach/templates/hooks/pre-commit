@@ -19,6 +19,13 @@ case "$BRANCH" in
         if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_COMMIT:-0}" = "1" ]; then
             exit 0
         fi
+        # Allow: manifest-only registration commit (atdd issue <slug> runs on main)
+        # A commit whose staged set is exactly .atdd/manifest.yaml cannot cause the
+        # harm this guard exists to prevent (mass code edits, bare-mode contamination).
+        _STAGED=$(git diff --cached --name-only 2>/dev/null)
+        if [ "$_STAGED" = ".atdd/manifest.yaml" ]; then
+            exit 0
+        fi
         cat >&2 <<EOF
 
 ATDD: Commit blocked — you are on $BRANCH.
@@ -62,6 +69,9 @@ if [ -f "$MANIFEST" ]; then
         cat >&2 <<EOF
 
 ATDD: Branch '$BRANCH' is not registered in .atdd/manifest.yaml.
+
+Manifest drift detected — run to self-heal:
+  atdd issue reconcile
 
 Every branch must be created through the ATDD workflow:
   1. atdd issue <slug>    # Create issue first

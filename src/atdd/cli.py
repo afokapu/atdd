@@ -718,6 +718,7 @@ Phase descriptions:
             "  atdd issue my-feature              Create new issue and enter at INIT\n"
             "  atdd issue 126 --status RED        Transition status\n"
             "  atdd issue open                    List open issues\n"
+            "  atdd issue reconcile               Backfill missing issues from GitHub into manifest\n"
             "  atdd issue sync-labels 126         Re-derive labels from body metadata\n"
             "  atdd issue sync-labels --all       Re-derive labels across every atdd-issue\n"
         ),
@@ -2012,6 +2013,11 @@ Phase descriptions:
                 show=getattr(args, 'show', False),
                 force=getattr(args, 'force', False),
             )
+
+        # atdd issue reconcile — backfill every open GitHub atdd-issue missing from manifest
+        if target == "reconcile":
+            manager = IssueManager()
+            return manager.reconcile()
 
         # atdd issue sync-labels [<N>|--all] [--dry-run]
         if target == "sync-labels":
