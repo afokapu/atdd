@@ -1,3 +1,10 @@
+# URN: test:govern-lifecycle:coach-single-instance-lock-and-zombie-reaping:E011-UNIT-006-no-progress-ttl-escalates-and-exits
+# Acceptance: acc:govern-lifecycle:E011-UNIT-006-no-progress-ttl-escalates-and-exits
+# WMBT: wmbt:govern-lifecycle:E011
+# Phase: GREEN
+# Layer: backend.unit
+# Assertion: behavioral
+
 """acc:govern-lifecycle:E011-UNIT-006 — no-progress TTL check escalates and returns True."""
 from __future__ import annotations
 

@@ -1,3 +1,10 @@
+# URN: test:govern-lifecycle:coach-single-instance-lock-and-zombie-reaping:E011-UNIT-005-run-refuses-second-coach-with-clear-message
+# Acceptance: acc:govern-lifecycle:E011-UNIT-005-run-refuses-second-coach-with-clear-message
+# WMBT: wmbt:govern-lifecycle:E011
+# Phase: GREEN
+# Layer: backend.unit
+# Assertion: behavioral
+
 """acc:govern-lifecycle:E011-UNIT-005 — _drive_single_issue returns 1 when live lock held."""
 from __future__ import annotations
 

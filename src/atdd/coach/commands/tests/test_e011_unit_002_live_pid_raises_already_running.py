@@ -1,3 +1,10 @@
+# URN: test:govern-lifecycle:coach-single-instance-lock-and-zombie-reaping:E011-UNIT-002-live-pid-raises-already-running
+# Acceptance: acc:govern-lifecycle:E011-UNIT-002-live-pid-raises-already-running
+# WMBT: wmbt:govern-lifecycle:E011
+# Phase: GREEN
+# Layer: backend.unit
+# Assertion: behavioral
+
 """acc:govern-lifecycle:E011-UNIT-002 — live PID in lockfile raises CoachAlreadyRunning."""
 from __future__ import annotations
 

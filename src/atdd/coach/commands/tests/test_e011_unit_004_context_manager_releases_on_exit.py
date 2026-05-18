@@ -1,3 +1,10 @@
+# URN: test:govern-lifecycle:coach-single-instance-lock-and-zombie-reaping:E011-UNIT-004-context-manager-releases-on-exit
+# Acceptance: acc:govern-lifecycle:E011-UNIT-004-context-manager-releases-on-exit
+# WMBT: wmbt:govern-lifecycle:E011
+# Phase: GREEN
+# Layer: backend.unit
+# Assertion: behavioral
+
 """acc:govern-lifecycle:E011-UNIT-004 — context manager releases lockfile on exit."""
 from __future__ import annotations
 

@@ -1,3 +1,10 @@
+# URN: test:govern-lifecycle:coach-single-instance-lock-and-zombie-reaping:E011-UNIT-003-dead-pid-cleans-stale-lock
+# Acceptance: acc:govern-lifecycle:E011-UNIT-003-dead-pid-cleans-stale-lock
+# WMBT: wmbt:govern-lifecycle:E011
+# Phase: GREEN
+# Layer: backend.unit
+# Assertion: behavioral
+
 """acc:govern-lifecycle:E011-UNIT-003 — dead PID in lockfile is cleaned; new lock created."""
 from __future__ import annotations
 
