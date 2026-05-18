@@ -1,9 +1,9 @@
-# URN: test:govern-lifecycle:reliable-manifest-registration:E007-INTEGRATION-001-issue-creation-commits-manifest-with-dirty-index
-# Acceptance: acc:govern-lifecycle:E007-INTEGRATION-001-issue-creation-commits-manifest-with-dirty-index
-# WMBT: wmbt:govern-lifecycle:E007
+# URN: test:govern-lifecycle:reliable-manifest-registration:E008-INTEGRATION-001-issue-creation-commits-manifest-with-dirty-index
+# Acceptance: acc:govern-lifecycle:E008-INTEGRATION-001-issue-creation-commits-manifest-with-dirty-index
+# WMBT: wmbt:govern-lifecycle:E008
 # Phase: RED
 # Layer: integration
-"""E007-INTEGRATION-001 — `atdd issue <slug>` run with unrelated staged changes
+"""E008-INTEGRATION-001 — `atdd issue <slug>` run with unrelated staged changes
 still commits the .atdd/manifest.yaml registration entry, and the registration
 commit does not bundle the unrelated work.
 

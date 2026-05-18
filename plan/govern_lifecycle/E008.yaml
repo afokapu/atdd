@@ -1,4 +1,4 @@
-urn: "wmbt:govern-lifecycle:E007"
+urn: "wmbt:govern-lifecycle:E008"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.adaptability"
 statement: "minimize likelihood of atdd-issue-leaving-the-manifest-entry-uncommitted-when-the-tree-has-unrelated-staged-changes when atdd issue <slug> commits .atdd/manifest.yaml through a path-scoped commit that ignores the rest of the index and fails loudly with a non-zero exit when registration genuinely cannot complete"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:E007-UNIT-001-path-scoped-commit-isolates-index"
+      urn: "acc:govern-lifecycle:E008-UNIT-001-path-scoped-commit-isolates-index"
       id: "AC-UNIT-001"
       purpose: "git_commit_manifest_update commits .atdd/manifest.yaml even when the index holds unrelated staged changes, and the resulting commit touches only the manifest path"
       phase: "GREEN"
@@ -32,7 +32,7 @@ acceptances:
       created: "2026-05-17"
 
   - identity:
-      urn: "acc:govern-lifecycle:E007-UNIT-002-registration-failure-is-not-swallowed"
+      urn: "acc:govern-lifecycle:E008-UNIT-002-registration-failure-is-not-swallowed"
       id: "AC-UNIT-002"
       purpose: "_commit_manifest_change propagates a genuine manifest-commit failure to its caller for the registration verb, while the status-mirror verb keeps the tolerant warning-and-return behavior"
       phase: "GREEN"
@@ -55,7 +55,7 @@ acceptances:
       created: "2026-05-17"
 
   - identity:
-      urn: "acc:govern-lifecycle:E007-INTEGRATION-001-issue-creation-commits-manifest-with-dirty-index"
+      urn: "acc:govern-lifecycle:E008-INTEGRATION-001-issue-creation-commits-manifest-with-dirty-index"
       id: "AC-INTEGRATION-001"
       purpose: "atdd issue <slug> run with unrelated staged changes still commits the .atdd/manifest.yaml registration entry, and the commit does not bundle the unrelated changes"
       phase: "GREEN"
@@ -80,7 +80,7 @@ acceptances:
       created: "2026-05-17"
 
   - identity:
-      urn: "acc:govern-lifecycle:E007-INTEGRATION-002-registration-failure-exits-non-zero"
+      urn: "acc:govern-lifecycle:E008-INTEGRATION-002-registration-failure-exits-non-zero"
       id: "AC-INTEGRATION-002"
       purpose: "When the manifest registration commit genuinely cannot complete, atdd issue exits non-zero with a clear error and never reports success with an unregistered issue"
       phase: "GREEN"
@@ -103,7 +103,7 @@ acceptances:
       created: "2026-05-17"
 
   - identity:
-      urn: "acc:govern-lifecycle:E007-SMOKE-001-registration-visible-cross-worktree"
+      urn: "acc:govern-lifecycle:E008-SMOKE-001-registration-visible-cross-worktree"
       id: "AC-SMOKE-001"
       purpose: "Against real git infrastructure, a manifest registration commit made with an unrelated staged change in the index is visible from a separate checkout of the branch and carries only the manifest path"
       phase: "SMOKE"

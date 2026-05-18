@@ -79,4 +79,4 @@ wmbt:
   E004: "minimize newly-filed-issues shipping without graph context or cross-agent mirror"
   E005: "minimize init-emitted-atdd-invocations-that-fail-to-parse-under-the-live-cli when atdd init emits workflow templates and the drift-detection self-validate scans them (#481)"
   E006: "minimize hermetic-acceptances-that-omit-fidelity-declaration-or-skip-required-live-smoke-pairing"
-  E007: "minimize atdd-issue leaving the manifest entry uncommitted when the tree has unrelated staged changes (#738)"
+  E008: "minimize atdd-issue leaving the manifest entry uncommitted when the tree has unrelated staged changes (#738)"

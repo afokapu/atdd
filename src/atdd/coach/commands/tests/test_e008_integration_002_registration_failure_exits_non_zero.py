@@ -1,9 +1,9 @@
-# URN: test:govern-lifecycle:reliable-manifest-registration:E007-INTEGRATION-002-registration-failure-exits-non-zero
-# Acceptance: acc:govern-lifecycle:E007-INTEGRATION-002-registration-failure-exits-non-zero
-# WMBT: wmbt:govern-lifecycle:E007
+# URN: test:govern-lifecycle:reliable-manifest-registration:E008-INTEGRATION-002-registration-failure-exits-non-zero
+# Acceptance: acc:govern-lifecycle:E008-INTEGRATION-002-registration-failure-exits-non-zero
+# WMBT: wmbt:govern-lifecycle:E008
 # Phase: RED
 # Layer: integration
-"""E007-INTEGRATION-002 — when the manifest registration commit genuinely cannot
+"""E008-INTEGRATION-002 — when the manifest registration commit genuinely cannot
 complete, `atdd issue` exits non-zero with a clear error and never reports
 success with an unregistered issue.
 

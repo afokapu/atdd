@@ -1,9 +1,9 @@
-# URN: test:govern-lifecycle:reliable-manifest-registration:E007-SMOKE-001-registration-visible-cross-worktree
-# Acceptance: acc:govern-lifecycle:E007-SMOKE-001-registration-visible-cross-worktree
-# WMBT: wmbt:govern-lifecycle:E007
+# URN: test:govern-lifecycle:reliable-manifest-registration:E008-SMOKE-001-registration-visible-cross-worktree
+# Acceptance: acc:govern-lifecycle:E008-SMOKE-001-registration-visible-cross-worktree
+# WMBT: wmbt:govern-lifecycle:E008
 # Phase: SMOKE
 # Layer: smoke
-"""E007-SMOKE-001 — against real git infrastructure, a manifest registration
+"""E008-SMOKE-001 — against real git infrastructure, a manifest registration
 commit made with an unrelated staged change in the index is visible from a
 separate checkout of the branch and carries only the manifest path.
 

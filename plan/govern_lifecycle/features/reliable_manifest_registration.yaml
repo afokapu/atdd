@@ -6,7 +6,7 @@ sizing:
   footprint_score: 2
   footprint_size: "S"
 wmbts:
-  - "wmbt:govern-lifecycle:E007"
+  - "wmbt:govern-lifecycle:E008"
 components:
   backend:
     presentation:

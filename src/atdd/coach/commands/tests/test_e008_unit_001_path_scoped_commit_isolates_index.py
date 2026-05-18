@@ -1,9 +1,9 @@
-# URN: test:govern-lifecycle:reliable-manifest-registration:E007-UNIT-001-path-scoped-commit-isolates-index
-# Acceptance: acc:govern-lifecycle:E007-UNIT-001-path-scoped-commit-isolates-index
-# WMBT: wmbt:govern-lifecycle:E007
+# URN: test:govern-lifecycle:reliable-manifest-registration:E008-UNIT-001-path-scoped-commit-isolates-index
+# Acceptance: acc:govern-lifecycle:E008-UNIT-001-path-scoped-commit-isolates-index
+# WMBT: wmbt:govern-lifecycle:E008
 # Phase: RED
 # Layer: unit
-"""E007-UNIT-001 — git_commit_manifest_update commits .atdd/manifest.yaml even
+"""E008-UNIT-001 — git_commit_manifest_update commits .atdd/manifest.yaml even
 when the index already holds unrelated staged changes, and the resulting commit
 is path-scoped (touches only the manifest).
 

@@ -1,9 +1,9 @@
-# URN: test:govern-lifecycle:reliable-manifest-registration:E007-UNIT-002-registration-failure-is-not-swallowed
-# Acceptance: acc:govern-lifecycle:E007-UNIT-002-registration-failure-is-not-swallowed
-# WMBT: wmbt:govern-lifecycle:E007
+# URN: test:govern-lifecycle:reliable-manifest-registration:E008-UNIT-002-registration-failure-is-not-swallowed
+# Acceptance: acc:govern-lifecycle:E008-UNIT-002-registration-failure-is-not-swallowed
+# WMBT: wmbt:govern-lifecycle:E008
 # Phase: RED
 # Layer: unit
-"""E007-UNIT-002 — _commit_manifest_change propagates a genuine manifest-commit
+"""E008-UNIT-002 — _commit_manifest_change propagates a genuine manifest-commit
 failure to its caller for the issue-registration verb, while the status-mirror
 verb keeps the tolerant warning-and-return behavior.
 
