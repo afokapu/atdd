@@ -22,7 +22,7 @@ case "$BRANCH" in
         # Allow: manifest-only registration commit (atdd issue <slug> runs on main)
         # A commit whose staged set is exactly .atdd/manifest.yaml cannot cause the
         # harm this guard exists to prevent (mass code edits, bare-mode contamination).
-        _STAGED=$(git diff --cached --name-only 2>/dev/null)
+        _STAGED=$(git diff --cached --name-only 2>/dev/null || echo "")
         if [ "$_STAGED" = ".atdd/manifest.yaml" ]; then
             exit 0
         fi
