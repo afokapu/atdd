@@ -465,16 +465,56 @@ class CmuxBackend(MultiplexerBackend):
         result = _run(["cmux", "list-workspaces"])
         return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
 
+    def _surface_workspace(self, surface_ref: str) -> Optional[str]:
+        """Resolve which workspace owns ``surface_ref`` via ``cmux tree --all``.
+
+        cmux resolves a short ``surface:`` ref against the *selected* workspace
+        only — so a ref-bearing call to a surface in any other workspace must
+        carry ``--workspace`` to resolve (#655). cmux exposes no direct
+        surface→workspace query, so the owning workspace is read off the
+        surface tree. Returns ``None`` when the surface is not found (caller
+        falls back to the unscoped, selected-workspace behaviour).
+        """
+        out = ""
+        try:
+            out = _run(["cmux", "tree", "--all"]).stdout or ""
+        except MultiplexerError as exc:
+            # Best-effort: a failed tree read just means the respawn falls back
+            # to the unscoped (selected-workspace) path — warn, do not abort.
+            # The empty ``out`` then yields ``None`` via the loop below.
+            print(
+                f"⚠️  cmux tree read failed, respawn will not be "
+                f"workspace-scoped: {exc}",
+                file=sys.stderr,
+            )
+        current_ws: Optional[str] = None
+        ws_re = re.compile(r"\bworkspace (workspace:\d+)\b")
+        surf_re = re.compile(rf"\bsurface {re.escape(surface_ref)}\b")
+        for line in out.splitlines():
+            ws_match = ws_re.search(line)
+            if ws_match:
+                current_ws = ws_match.group(1)
+            if surf_re.search(line):
+                return current_ws
+        return None
+
     def respawn_pane(
         self, ref: MultiplexerRef, command: Optional[str] = None
     ) -> None:
-        """Relaunch the process in an existing cmux surface (issue #730).
+        """Relaunch the process in an existing cmux surface (issue #730, #746).
 
         Swaps the persona agent in place — kills the current process and
         starts a fresh one — so the issue keeps its single persistent surface
         across phase transitions.
+
+        The respawn is scoped with ``--workspace`` (issue #746): cmux resolves
+        a short ``surface:`` ref only against the *selected* workspace, so an
+        unscoped respawn of a surface in any other workspace fails with
+        "Surface is not a terminal" — exactly the coach's multi-issue case,
+        where each issue owns its own workspace.
         """
-        cmd = ["cmux", "respawn-pane", "--surface", ref]
+        workspace = self._surface_workspace(ref) if _is_surface_ref(ref) else None
+        cmd = ["cmux", "respawn-pane", *_target_args(ref, workspace)]
         if command:
             cmd.extend(["--command", command])
         _run(cmd, capture=False)
@@ -684,6 +724,21 @@ class TmuxBackend(MultiplexerBackend):
             )
         return persona_ref
 
+    def respawn_pane(
+        self, ref: MultiplexerRef, command: Optional[str] = None
+    ) -> None:
+        """Relaunch the process in an existing tmux pane (issue #746).
+
+        ``tmux respawn-pane -k`` kills the pane's current process and starts a
+        fresh one in the SAME pane — a new process, not a conversation reset —
+        so the issue keeps its single persistent surface across phase
+        transitions.
+        """
+        cmd = ["tmux", "respawn-pane", "-k", "-t", ref]
+        if command:
+            cmd.append(command)
+        _run(cmd, capture=False)
+
 
 class ZellijBackend(MultiplexerBackend):
     """zellij backend — session-based workspace abstraction.
@@ -835,6 +890,35 @@ class ZellijBackend(MultiplexerBackend):
                 file=sys.stderr,
             )
         return persona_ref
+
+    def respawn_pane(
+        self, ref: MultiplexerRef, command: Optional[str] = None
+    ) -> None:
+        """Relaunch the process in an existing zellij session (issue #746).
+
+        zellij has no single respawn verb — ``close-pane`` kills the focused
+        pane's process and ``new-pane`` opens a fresh one. Both target the SAME
+        session (via ``ZELLIJ_SESSION_NAME``), so the session — the issue's
+        persistent surface — is kept across phase transitions.
+        """
+        env = {**os.environ, "ZELLIJ_SESSION_NAME": ref}
+        try:
+            subprocess.run(
+                ["zellij", "action", "close-pane"],
+                check=True, env=env, capture_output=True,
+            )
+            if command:
+                subprocess.run(
+                    ["zellij", "action", "new-pane", "--",
+                     "bash", "-c", command],
+                    check=True, env=env, capture_output=True,
+                )
+        except FileNotFoundError as exc:
+            raise MultiplexerError("binary not found: zellij") from exc
+        except subprocess.CalledProcessError as exc:
+            raise MultiplexerError(
+                f"zellij respawn-pane failed (exit {exc.returncode})"
+            ) from exc
 
 
 def detect_multiplexer() -> Optional[str]:
