@@ -1,0 +1,33 @@
+urn: "feature:govern-lifecycle:on-main-manifest-exception-and-self-heal"
+wagon: "wagon:govern-lifecycle"
+description: "Allow manifest-only commits on main by adding a staged-paths exception to the pre-commit hook; self-heal atdd branch <N> when the issue is on GitHub but absent from the manifest; add atdd issue reconcile for bulk backfill; emit a non-blocking drift notice from the hook (#775)"
+sizing:
+  wmbts: 4
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E011"
+  - "wmbt:govern-lifecycle:Y004"
+  - "wmbt:govern-lifecycle:Y005"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd issue reconcile subcommand wired in cli.py dispatch"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "_backfill_from_github in BranchManager (branch self-heal) and reconcile() in IssueManager (bulk backfill)"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts; reuses existing manifest sessions structure"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "GitHubClient.get_issue() used by both self-heal paths to synthesise the manifest entry"
+  hooks:
+    - type: "pre-commit"
+      count: 1
+      rationale: "manifest-only exception + non-blocking drift notice added to pre-commit shell script"

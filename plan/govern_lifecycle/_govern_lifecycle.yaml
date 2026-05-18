@@ -47,9 +47,10 @@ features:
   - urn: "feature:govern-lifecycle:validator-blocks-runtime-artifacts-in-pr-diff"
   - urn: "feature:govern-lifecycle:keep-local-main-current-branch-from-origin"
   - urn: "feature:govern-lifecycle:coach-single-instance-lock-and-zombie-reaping"
+  - urn: "feature:govern-lifecycle:on-main-manifest-exception-and-self-heal"
 
 wmbt:
-  total: 36
+  total: 39
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -86,3 +87,6 @@ wmbt:
   E009: "minimize runtime-artifacts-committed-into-feature-pr-diff when an agent uses git add -A during coach-active development by fully gitignoring .atdd/runtime/ and adding a strict coach.pr.runtime-artifacts-blocked validator to atdd validate coach (#755)"
   E010: "minimize new-worktree-starts-behind-origin-default-branch by fetching origin/<default> before git worktree add and fast-forwarding the local default-branch worktree after each PR merge (ff-only, skip-with-notice when tracked files are modified, #770)"
   E011: "minimize concurrent-coach-processes-for-the-same-issue-and-zombie-coaches-that-never-exit by acquiring a per-issue PID lockfile at .atdd/runtime/coach/<N>/coach.lock on startup (refusing when a live PID holds it, auto-cleaning stale dead-PID locks) and self-terminating the watcher event loop via escalation when elapsed time since the last phase advance exceeds a configurable no-progress TTL (#724)"
+  E012: "minimize manifest-registration-commits-blocked-on-main by adding a manifest-only staged-paths exception to the pre-commit hook, and minimize issues-missing-from-manifest-blocking-worktree-creation by making atdd branch <N> self-heal from GitHub and adding atdd issue reconcile for bulk backfill (#775)"
+  Y004: "minimize pre-commit hook drift-detection that silently omits a notice when the current branch slug is absent from the manifest"
+  Y005: "minimize atdd issue reconcile missing from the CLI when bulk backfill of unregistered open issues is needed"
