@@ -1,17 +1,17 @@
+# URN: test:govern-lifecycle:bulk-suppress-backfill:E013
+# Acceptance: acc:govern-lifecycle:E013-UNIT-001-backfill-inserts-python-marker
+# Acceptance: acc:govern-lifecycle:E013-UNIT-002-backfill-idempotent-on-already-marked
+# Acceptance: acc:govern-lifecycle:E013-UNIT-003-backfill-inserts-typescript-marker
+# Acceptance: acc:govern-lifecycle:E013-UNIT-004-cli-suppress-backfill-exits-0
+# Acceptance: acc:govern-lifecycle:E013-UNIT-005-unknown-rule-exits-nonzero
+# Acceptance: acc:govern-lifecycle:E013-UNIT-006-orphaned-baseline-warning-emitted
+# Acceptance: acc:govern-lifecycle:E013-UNIT-007-no-coder-yaml-returns-empty
+# Acceptance: acc:govern-lifecycle:E013-SMOKE-001-backfill-on-real-fixture-suppresses-violations
+# WMBT: wmbt:govern-lifecycle:E013
+# Phase: GREEN
+# Layer: unit
 """
 Unit and smoke tests for `atdd suppress backfill` (issue #482).
-
-WMBT: wmbt:govern-lifecycle:E013
-
-Acceptance URNs covered:
-  acc:govern-lifecycle:E013-UNIT-001-backfill-inserts-python-marker
-  acc:govern-lifecycle:E013-UNIT-002-backfill-idempotent-on-already-marked
-  acc:govern-lifecycle:E013-UNIT-003-backfill-inserts-typescript-marker
-  acc:govern-lifecycle:E013-UNIT-004-cli-suppress-backfill-exits-0
-  acc:govern-lifecycle:E013-UNIT-005-unknown-rule-exits-nonzero
-  acc:govern-lifecycle:E013-UNIT-006-orphaned-baseline-warning-emitted
-  acc:govern-lifecycle:E013-UNIT-007-no-coder-yaml-returns-empty
-  acc:govern-lifecycle:E013-SMOKE-001-backfill-on-real-fixture-suppresses-violations
 
 Architecture:
   - Pure-logic unit tests exercise suppress_backfill and
