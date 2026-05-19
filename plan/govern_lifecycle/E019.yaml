@@ -1,0 +1,127 @@
+urn: "wmbt:govern-lifecycle:E019"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "issue-author-submits-non-compliant-body-or-triggers-redundant-create-edit-graphql-pair"
+context_clarifier: "atdd issue <slug> currently makes two GraphQL mutations: gh issue create (with a placeholder scaffold) then gh issue edit --body-file (with the real content). The redundant second call consumes the shared 5 000/hr GitHub GraphQL budget which has been exhausted repeatedly, stalling the merge-watcher 30-45 min each time. Separately, no compliance check runs before the body goes live, so non-compliant bodies (missing Graph Context, Mirror Across Agents, etc.) land on GitHub unchecked and fail test_issue_body_has_graph_context inside validate-planner on every unrelated PR's CI — lived example: #768's missing Graph Context blocked #788 and every other open PR until fixed by hand. The fix has two parts: (1) validate the full body locally against the issue-body compliance rules before any GitHub call (refuse to publish on failure, print structured feedback), (2) when the body passes, issue a single gh issue create call that carries the full body — no subsequent gh issue edit needed. The same local gate must re-run on any later body edit."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of issue-author-submits-non-compliant-body-or-triggers-redundant-create-edit-graphql-pair when an operator runs atdd issue <slug> by (1) authoring the complete issue body in a local temp file, (2) running --check (the same validators that back test_issue_body_has_graph_context and sibling body validators) against that local file and refusing to publish + printing structured field-level feedback on failure, (3) on pass, issuing exactly one gh issue create call whose --body-file carries the validated content with no follow-up gh issue edit for body, and (4) re-running the same --check gate on any subsequent atdd issue <N> --body-file edit; a unit test asserts the gh subprocess call count equals 1 for create and a test asserts a non-compliant body never reaches GitHub"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E019-UNIT-001-single-graphql-call-on-create"
+      id: "AC-UNIT-001"
+      purpose: "atdd issue <slug> invokes gh exactly once for issue creation (no second edit call for body replacement)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueManager is constructed with a stub subprocess runner that records gh invocations"
+        - "A fully compliant issue body template is available (all required sections populated)"
+        - "The --check gate is patched to return 'pass' for the body"
+    when:
+      abstract: "IssueManager.create_issue(slug='test-feature') is called"
+    then:
+      abstract:
+        - "The stub records exactly one gh subprocess call"
+        - "That call contains 'issue create' (not 'issue edit')"
+        - "The call's --body or --body-file argument contains the fully rendered body"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E019-UNIT-002-non-compliant-body-refused-before-publish"
+      id: "AC-UNIT-002"
+      purpose: "A body that fails --check is refused before any GitHub call is made"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueManager is constructed with a stub subprocess runner"
+        - "The local body template is missing the required '### Graph Context' section"
+    when:
+      abstract: "IssueManager.create_issue(slug='bad-feature') is called"
+    then:
+      abstract:
+        - "The method raises IssueBodyComplianceError (or returns a non-zero result)"
+        - "The stub records zero gh subprocess calls"
+        - "The error message names the missing section ('Graph Context' or equivalent)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E019-UNIT-003-edit-reruns-check-gate"
+      id: "AC-UNIT-003"
+      purpose: "A subsequent body edit via atdd issue <N> --body-file re-runs --check before sending to GitHub"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueManager is constructed with a stub subprocess runner"
+        - "An existing issue number N is provided"
+        - "The replacement body file is missing '### Mirror Across Agents'"
+    when:
+      abstract: "IssueManager.edit_issue_body(issue_number=N, body_file=path_to_bad_body) is called"
+    then:
+      abstract:
+        - "The method raises IssueBodyComplianceError before calling gh issue edit"
+        - "The stub records zero gh subprocess calls"
+        - "The error output names the failing section"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E019-INTEGRATION-001-published-issue-passes-body-validators"
+      id: "AC-INTEGRATION-001"
+      purpose: "An issue body produced by atdd issue <slug> passes test_issue_body_has_graph_context and sibling body validators"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is installed and importable"
+        - "IssueBodyChecker (the --check implementation) is importable"
+        - "A valid issue body is rendered for slug='integration-test-slug'"
+    when:
+      abstract: "IssueBodyChecker.check(body_text) is called on the rendered body"
+    then:
+      abstract:
+        - "check() returns a passing result (no errors)"
+        - "The rendered body contains '### Graph Context' with non-placeholder content"
+        - "The rendered body contains '### Mirror Across Agents' with non-placeholder content"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E019-SMOKE-001-live-create-zero-edit-calls"
+      id: "AC-SMOKE-001"
+      purpose: "On the live #792 branch, atdd issue create path results in zero gh issue edit calls for body replacement (audit via gh audit-log or subprocess mock at the CLI boundary)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is installed from local source (PYTHONPATH=src)"
+        - "ATDD_DRY_RUN=1 or equivalent is set so no real GitHub issue is filed"
+        - "A fully compliant body template is rendered for a dummy slug"
+    when:
+      abstract: "atdd issue dummy-smoke-slug --dry-run (or equivalent DRY_RUN env) is invoked"
+    then:
+      abstract:
+        - "Output confirms a single issue-create action was prepared"
+        - "No 'issue edit' or 'edit body' action appears in the output"
+        - "The dry-run output contains the full validated body (not a scaffold placeholder)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
