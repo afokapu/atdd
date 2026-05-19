@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:bulk-suppress-backfill"
+wagon: "wagon:govern-lifecycle"
+description: "New CLI verb 'atdd suppress backfill' that bulk-inserts inline suppress markers on pre-existing violation sites to unblock consumer repos during the substrate-v12 disposition-gate cutover; plus orphaned-baseline detection for stale integer-count keys in .atdd/baselines/coder.yaml"
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E016"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "suppress backfill subcommand wired in cli.py dispatch"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "suppress_backfill() (insert markers) and check_orphaned_baseline_keys() (warn on stale counts)"
+    domain:
+      - type: "entities"
+        count: 1
+        rationale: "BackfillResult dataclass capturing edited/skipped/files_touched counts"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "No external I/O beyond filesystem reads/writes"

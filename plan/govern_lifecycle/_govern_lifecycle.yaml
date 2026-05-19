@@ -49,9 +49,10 @@ features:
   - urn: "feature:govern-lifecycle:coach-single-instance-lock-and-zombie-reaping"
   - urn: "feature:govern-lifecycle:on-main-manifest-exception-and-self-heal"
   - urn: "feature:govern-lifecycle:agent-behavior-rules-enforcement"
+  - urn: "feature:govern-lifecycle:bulk-suppress-backfill"
 
 wmbt:
-  total: 42
+  total: 43
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -94,3 +95,4 @@ wmbt:
   E013: "minimize issues-filed-without-duplicate-search when an operator runs atdd issue <slug> by running gh issue list --search before GitHub issue creation and aborting with a warning listing matches unless --no-dup-check is passed (#657)"
   E014: "minimize agent-spawn-commands-containing-dangerously-skip-permissions by detecting the forbidden flag in the adapter command string and raising SpawnPermissionViolation before the multiplexer dispatches (#657)"
   E015: "minimize agent-behavioral-rules-visible-only-in-per-user-memory by committing .atdd/agent-rules.yaml with the portable enforcement subset and injecting it into atdd gate output under an 'Agent Behavioral Rules' section (#657)"
+  E016: "minimize consumer-repos-blocked-on-substrate-v12-cutover-without-a-backfill-tool by implementing atdd suppress backfill --rule <rule_id> --until <date> to bulk-insert inline suppress markers on pre-existing violation sites idempotently, plus orphaned-baseline-key warnings for stale integer-count entries in .atdd/baselines/coder.yaml (#482)"
