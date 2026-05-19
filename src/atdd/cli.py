@@ -962,6 +962,54 @@ Phase descriptions:
         help="Output as JSON for programmatic use"
     )
 
+    # ----- atdd plan <source> ... -----
+    # PLAN-1 (#758): CLI shell for the planning brief entry point.
+    # Single-phase: parse args, classify sources, dispatch to brief renderer.
+    plan_parser = subparsers.add_parser(
+        "plan",
+        help="Render a deterministic planning brief from source material (PLAN-1).",
+        description=(
+            "Render a deterministic planning brief from source material and exit.\n\n"
+            "Source detection:\n"
+            "  --text STR      Raw text inlined directly.\n"
+            "  file.md/.txt/.yaml/.yml/.json  File adapter (PLAN-6 reads content).\n"
+            "  file.pdf/other  Rich document: path referenced, no extraction.\n"
+            "  dir / .         Codebase evidence bundle (PLAN-6 traverses).\n\n"
+            "Exits 2 if no sources are supplied."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    plan_parser.add_argument(
+        "sources",
+        nargs="*",
+        metavar="source",
+        help="Source paths to include in the brief.",
+    )
+    plan_parser.add_argument(
+        "--text",
+        metavar="TEXT",
+        dest="plan_text",
+        help="Raw text to inline as a source.",
+    )
+    plan_parser.add_argument(
+        "--brief-out",
+        metavar="PATH",
+        dest="plan_brief_out",
+        help="Write the rendered brief to PATH (default: stdout).",
+    )
+    plan_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="plan_json",
+        help="Emit a machine-readable JSON summary to stderr.",
+    )
+    plan_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        dest="plan_quiet",
+        help="Suppress informational output.",
+    )
+
     # ----- atdd session-template <issue-number> -----
     session_template_parser = subparsers.add_parser(
         "session-template",
@@ -2337,6 +2385,20 @@ Phase descriptions:
     elif args.command == "spawn":
         from atdd.coach.commands.spawn import run as run_spawn
         return run_spawn(list(getattr(args, "spawn_argv", []) or []))
+
+    # atdd plan <source> ... (PLAN-1 — #758)
+    elif args.command == "plan":
+        import argparse as _argparse
+        from atdd.planner.commands.plan import run as _run_plan
+
+        plan_ns = _argparse.Namespace(
+            sources=list(getattr(args, "sources", []) or []),
+            text=getattr(args, "plan_text", None),
+            brief_out=getattr(args, "plan_brief_out", None),
+            json=getattr(args, "plan_json", False),
+            quiet=getattr(args, "plan_quiet", False),
+        )
+        return _run_plan(plan_ns)
 
     # atdd judge ...  (O1 — #501)
     elif args.command == "judge":
