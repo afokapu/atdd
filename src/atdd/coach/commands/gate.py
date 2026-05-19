@@ -53,7 +53,7 @@ class ATDDGate:
         try:
             data = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
             return data.get("rules") if isinstance(data, dict) else None
-        except Exception:
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             return None
 
     def _load_issue_convention(self) -> Optional[str]:

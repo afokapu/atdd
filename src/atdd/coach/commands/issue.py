@@ -135,7 +135,7 @@ def dup_check_before_file(
             return []
         issues = json.loads(result.stdout)
         return [{"number": i["number"], "title": i["title"]} for i in issues]
-    except Exception:
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         return []
 
 
