@@ -1,0 +1,27 @@
+urn: "feature:integration-hardening:upgrade-messaging-install-method-aware"
+wagon: "wagon:integration-hardening"
+description: "Every upgrade/install instruction atdd emits hardcodes 'pip install --upgrade atdd', which fails on pipx-managed installs (PEP 668 blocked), is wrong for editable dev installs, and gives misleading guidance. This feature adds detect_install_method() and upgrade_command() to version_check.py and replaces all hardcoded pip install strings across the codebase with calls to upgrade_command()."
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:integration-hardening:Y005"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface; changes are in existing message-emission code"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "detect_install_method(): inspect runtime to classify install type; upgrade_command(): return correct upgrade command for detected method"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "InstallMethod literal type ('pipx' | 'pip' | 'editable' | 'unknown')"
+    integration:
+      - type: "adapters"
+        count: 0
+        rationale: "No new adapters; existing message-emission sites are updated in-place"
