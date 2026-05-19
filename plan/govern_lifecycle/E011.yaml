@@ -1,0 +1,168 @@
+urn: "wmbt:govern-lifecycle:E011"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "concurrent-coach-processes-for-the-same-issue-and-zombie-coaches-that-never-exit"
+context_clarifier: "atdd coach <N> has no single-instance guard — any number of concurrent coach processes can run for the same issue, racing on issue state and spawning duplicate observer tabs; additionally a coach with no phase progress runs forever (incident 2026-05-16: three concurrent atdd coach 358 processes plus a 22h atdd coach 700 zombie, all manually killed via ps + kill)"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of concurrent-coach-processes-for-the-same-issue-and-zombie-coaches-that-never-exit when an operator invokes atdd coach <N> by (1) having CoachLock acquire a per-issue PID lockfile at .atdd/runtime/coach/<N>/coach.lock on startup and refuse (exit non-zero + clear stderr message) when a live PID already holds the lock, auto-cleaning stale locks whose PID is dead, releasing the lock on clean or unclean exit, and (2) having the watcher event loop write a coach.heartbeat.json on each idle tick and self-terminate (escalate then return) when the elapsed time since the last phase advance exceeds a configurable no-progress TTL"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E011-UNIT-001-lock-created-on-acquire"
+      id: "AC-UNIT-001"
+      purpose: "CoachLock.acquire() writes a JSON lockfile at .atdd/runtime/coach/<N>/coach.lock containing the current PID and a started_at ISO timestamp"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "CoachLock is imported from atdd.coach.utils.coach_lock"
+        - "runtime_dir is a tmp_path"
+        - "No lockfile exists at runtime_dir/coach/<N>/coach.lock"
+    when:
+      abstract: "CoachLock(runtime_dir, issue_number=42).acquire() is called"
+    then:
+      abstract:
+        - "The lockfile exists at runtime_dir/coach/42/coach.lock"
+        - "The lockfile JSON contains 'pid' equal to os.getpid()"
+        - "The lockfile JSON contains 'started_at' as an ISO 8601 string"
+        - "The lockfile JSON contains 'issue' equal to 42"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E011-UNIT-002-live-pid-raises-already-running"
+      id: "AC-UNIT-002"
+      purpose: "CoachLock.acquire() raises CoachAlreadyRunning with a message naming the PID when an existing lockfile holds a live PID"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "CoachLock and CoachAlreadyRunning are imported from atdd.coach.utils.coach_lock"
+        - "A lockfile exists at runtime_dir/coach/42/coach.lock with pid=os.getpid() (the live test process) and issue=42"
+    when:
+      abstract: "CoachLock(runtime_dir, issue_number=42).acquire() is called"
+    then:
+      abstract:
+        - "CoachAlreadyRunning is raised"
+        - "The exception message contains the PID and the issue number"
+        - "The existing lockfile is NOT removed (the live coach still owns it)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E011-UNIT-003-dead-pid-cleans-stale-lock"
+      id: "AC-UNIT-003"
+      purpose: "CoachLock.acquire() treats a lockfile whose PID no longer exists as stale, removes it, and creates a fresh lock"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A lockfile exists at runtime_dir/coach/42/coach.lock with a PID that is guaranteed never to be alive (e.g. 0 or a sentinel invalid PID, or a PID for which os.kill raises ProcessLookupError)"
+    when:
+      abstract: "CoachLock(runtime_dir, issue_number=42).acquire() is called"
+    then:
+      abstract:
+        - "No exception is raised"
+        - "The lockfile now contains the current process's PID"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E011-UNIT-004-context-manager-releases-on-exit"
+      id: "AC-UNIT-004"
+      purpose: "When CoachLock is used as a context manager, the lockfile is absent after the with block exits (clean exit path)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "runtime_dir is a tmp_path"
+        - "No lockfile exists at runtime_dir/coach/42/coach.lock"
+    when:
+      abstract: "A with CoachLock(runtime_dir, issue_number=42): block completes normally"
+    then:
+      abstract:
+        - "The lockfile does not exist after the with block exits"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E011-UNIT-005-run-refuses-second-coach-with-clear-message"
+      id: "AC-UNIT-005"
+      purpose: "_drive_single_issue returns 1 and writes a clear stderr message when a live lockfile already exists for the issue"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "_drive_single_issue is imported from atdd.coach.commands.coach"
+        - "A lockfile exists at runtime_dir/coach/<N>/coach.lock with pid=os.getpid() (live PID)"
+        - "A Config and StateMachine are constructed for the issue"
+    when:
+      abstract: "_drive_single_issue(cfg, sm, runtime_dir, _max_loop_events=0) is called"
+    then:
+      abstract:
+        - "The return value is 1"
+        - "A message containing 'already running' or 'pid' is written to stderr (via capsys or the escalation channel)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E011-UNIT-006-no-progress-ttl-escalates-and-exits"
+      id: "AC-UNIT-006"
+      purpose: "When the no-progress TTL elapses without a phase advance, the watcher event loop escalates and returns rather than blocking indefinitely"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "_check_no_progress_ttl is importable from atdd.coach.commands.coach (or atdd.coach.utils.coach_lock)"
+        - "last_advance_at is a time.monotonic() value 1000 seconds in the past"
+        - "no_progress_ttl_seconds is 30"
+        - "An escalation log file path is used as escalation_channel"
+    when:
+      abstract: "_check_no_progress_ttl(last_advance_at, no_progress_ttl_seconds=30, escalation_channel=<file_path>, issue_number=42, current_phase=Phase.RED) is called"
+    then:
+      abstract:
+        - "Returns True (TTL exceeded)"
+        - "The escalation log file contains a message with '42' and 'self-terminating' or 'TTL'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E011-SMOKE-001-real-fs-lock-prevents-concurrent-coaches"
+      id: "AC-SMOKE-001"
+      purpose: "In a real filesystem scenario two CoachLock instances for the same issue cannot both be held simultaneously — the second acquire raises CoachAlreadyRunning"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "runtime_dir is a real tmp_path on the filesystem"
+        - "CoachLock is imported from atdd.coach.utils.coach_lock"
+    when:
+      abstract: "lock1 = CoachLock(runtime_dir, 42); lock1.acquire() succeeds; then lock2 = CoachLock(runtime_dir, 42); lock2.acquire() is called"
+    then:
+      abstract:
+        - "lock1.acquire() succeeds (lockfile created with current PID)"
+        - "lock2.acquire() raises CoachAlreadyRunning"
+        - "After lock1.release(), a third CoachLock(runtime_dir, 42).acquire() succeeds"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"

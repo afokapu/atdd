@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:coach-single-instance-lock-and-zombie-reaping"
+wagon: "wagon:govern-lifecycle"
+description: "Prevents concurrent atdd coach <N> processes for the same issue (PID lockfile guard) and self-terminates zombie coaches that have not advanced state within a configurable no-progress TTL. Lived incident 2026-05-16: three concurrent atdd coach 358 processes plus a 22h atdd coach 700 zombie, all manually killed."
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:govern-lifecycle:E011"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface except --no-progress-ttl flag added to existing atdd coach parser"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "CoachLock.acquire/release (per-issue PID lockfile lifecycle) and no-progress TTL check (detect zombie coach, escalate, self-terminate)"
+    domain:
+      - type: "entities"
+        count: 1
+        rationale: "CoachLock entity: holds lock path, PID, started_at; detects stale (dead PID) vs live locks"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "coach_lock.py: reads/writes .atdd/runtime/coach/<N>/coach.lock JSON; checks PID liveness via os.kill(pid, 0)"
