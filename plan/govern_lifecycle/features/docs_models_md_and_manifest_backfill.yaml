@@ -1,0 +1,31 @@
+urn: "feature:govern-lifecycle:docs-models-md-and-manifest-backfill"
+wagon: "wagon:govern-lifecycle"
+description: "Create docs/MODELS.md as the canonical adapter/model reference for the multi-LLM spawn surface, and expose atdd manifest backfill as a named CLI route that delegates to IssueManager.reconcile() — eliminating the documentation gap for operators choosing adapters and providing a discoverable backfill entry point beside the existing atdd issue reconcile path"
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E017"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd manifest backfill dispatches via cli.py manifest subparser → IssueManager.reconcile()"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No new use case — atdd manifest backfill delegates to the existing IssueManager.reconcile() use case"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses the existing gh CLI subprocess integration inside IssueManager.reconcile()"
+  docs:
+    - type: "reference"
+      count: 1
+      rationale: "docs/MODELS.md — adapter/model reference table and extension guide"
