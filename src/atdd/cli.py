@@ -2186,6 +2186,34 @@ Phase descriptions:
             issue_number = int(target)
         except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             # Slug mode — create new issue and enter at INIT
+            dry_run = getattr(args, 'dry_run', False)
+            if dry_run:
+                # E019: dry-run path — validate locally, print rendered body, exit 0
+                from atdd.coach.commands.issue import IssueBodyChecker, IssueBodyComplianceError, IssueManager
+                slug = target
+                manager = IssueManager()
+                issue_type = getattr(args, 'type', 'implementation')
+                train = getattr(args, 'train', None)
+                archetypes = getattr(args, 'archetypes', None)
+                from datetime import date as _date
+                today = _date.today().isoformat()
+                train_display = train or "TBD"
+                archetypes_display = archetypes or "TBD"
+                body = manager._render_parent_body(slug, issue_type, today, train_display, archetypes_display)
+                body = manager._inject_graph_context(body, slug, train)
+                checker = IssueBodyChecker()
+                result = checker.check(body)
+                if not result.passed:
+                    print("[DRY RUN] Body compliance check FAILED:")
+                    for err in result.errors:
+                        print(f"  - {err}")
+                    return 1
+                from atdd.coach.commands.issue import TYPE_TO_PREFIX
+                prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+                title = f"{prefix}(atdd): {slug.replace('-', ' ').title()}"
+                print(f"[DRY RUN] Would create issue: {title}")
+                print(body)
+                return 0
             from atdd.coach.commands.issue_lifecycle import IssueLifecycle
             lifecycle = IssueLifecycle()
             return lifecycle.create(
