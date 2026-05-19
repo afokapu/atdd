@@ -1,7 +1,7 @@
 # URN: test:spawn-agents:worker-launch-prompt-readiness-gate:E010-UNIT-002-wait-for-claude-ready-polls-session-file
 # Acceptance: acc:spawn-agents:E010-UNIT-002-wait-for-claude-ready-polls-session-file
 # WMBT: wmbt:spawn-agents:E010
-# Phase: RED
+# Phase: GREEN
 # Layer: unit
 # Runtime: python
 # Assertion: behavioral

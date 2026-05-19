@@ -1,7 +1,7 @@
 # URN: test:spawn-agents:worker-launch-prompt-readiness-gate:E010-UNIT-001-pre-trust-writes-worktree-entry
 # Acceptance: acc:spawn-agents:E010-UNIT-001-pre-trust-writes-worktree-entry
 # WMBT: wmbt:spawn-agents:E010
-# Phase: RED
+# Phase: GREEN
 # Layer: unit
 # Runtime: python
 # Assertion: behavioral

@@ -1,7 +1,7 @@
 # URN: test:spawn-agents:worker-launch-prompt-readiness-gate:E010-INTEGRATION-001-full-spawn-path-with-readiness-gate
 # Acceptance: acc:spawn-agents:E010-INTEGRATION-001-full-spawn-path-with-readiness-gate
 # WMBT: wmbt:spawn-agents:E010
-# Phase: RED
+# Phase: GREEN
 # Layer: integration
 # Runtime: python
 # Assertion: behavioral

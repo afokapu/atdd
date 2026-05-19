@@ -1,7 +1,7 @@
 # URN: test:spawn-agents:worker-launch-prompt-readiness-gate:E010-UNIT-005-decision-log-gated-on-assertion
 # Acceptance: acc:spawn-agents:E010-UNIT-005-decision-log-gated-on-assertion
 # WMBT: wmbt:spawn-agents:E010
-# Phase: RED
+# Phase: GREEN
 # Layer: unit
 # Runtime: python
 # Assertion: behavioral
