@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:issue-author-validate-locally-publish-once"
+wagon: "wagon:govern-lifecycle"
+description: "Make atdd issue <slug> validate the full body locally (--check gate) before any GitHub call and publish via a single gh issue create — eliminating the redundant create+edit two-mutation pattern and preventing non-compliant bodies from ever reaching GitHub (#792)"
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E019"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "IssueManager.create_issue() and .edit_issue_body() updated to route through --check gate and collapse create+edit into single gh issue create call"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "IssueBodyChecker use case: validates a local body file against all required-section rules before any GitHub mutation"
+    domain:
+      - type: "entities"
+        count: 1
+        rationale: "IssueBodyComplianceError domain exception: raised when --check gate fails, carries structured field-level feedback"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "No new repository abstraction; gh subprocess call count reduced from 2 to 1 within existing adapter"

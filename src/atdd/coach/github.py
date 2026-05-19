@@ -157,6 +157,14 @@ class GitHubClient:
             "--repo", self.repo,
         ])
 
+    def edit_issue(self, issue_number: int, body: str) -> None:
+        """Update the body of an existing GitHub issue."""
+        self._run_gh([
+            "issue", "edit", str(issue_number),
+            "--repo", self.repo,
+            "--body", body,
+        ])
+
     def add_label(self, issue_number: int, labels: List[str]) -> None:
         """Add labels to an issue."""
         self._run_gh([
