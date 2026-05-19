@@ -44,6 +44,61 @@ CACHE_FILE = CACHE_DIR / "version_cache.json"
 PYPI_URL = "https://pypi.org/pypi/atdd/json"
 
 
+def _is_editable_install() -> bool:
+    """Return True if atdd is installed as an editable (dev) install."""
+    try:
+        import importlib.metadata as meta
+        dist = meta.distribution("atdd")
+        direct_url = dist.read_text("direct_url.json")
+        if direct_url:
+            import json as _json
+            data = _json.loads(direct_url)
+            dir_info = data.get("dir_info", {})
+            return bool(dir_info.get("editable", False))
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        pass
+    return False
+
+
+def detect_install_method() -> str:
+    """Detect how atdd was installed: 'pipx', 'editable', 'pip', or 'unknown'.
+
+    Detection order:
+    1. pipx — sys.executable path contains '/pipx/venvs/'
+    2. editable — direct_url.json has dir_info.editable=true
+    3. pip — fallback for all other cases
+    """
+    exe = sys.executable
+    if "/pipx/venvs/" in exe or "\\pipx\\venvs\\" in exe:
+        return "pipx"
+    if _is_editable_install():
+        return "editable"
+    return "pip"
+
+
+def upgrade_command() -> str:
+    """Return the correct upgrade command string for the detected install method."""
+    method = detect_install_method()
+    if method == "pipx":
+        return "pipx upgrade atdd"
+    if method == "editable":
+        try:
+            import importlib.metadata as meta
+            dist = meta.distribution("atdd")
+            direct_url = dist.read_text("direct_url.json")
+            if direct_url:
+                import json as _json
+                data = _json.loads(direct_url)
+                url = data.get("url", "")
+                if url.startswith("file://"):
+                    repo_path = url[len("file://"):]
+                    return f"git -C {repo_path} pull"
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            pass
+        return "git pull  # (in your atdd source checkout)"
+    return "pip install --upgrade atdd"
+
+
 def _parse_version(version: str) -> Tuple[int, ...]:
     """Parse version string into tuple for comparison."""
     try:
@@ -135,7 +190,7 @@ def check_for_updates() -> Optional[str]:
     if latest and _is_newer(latest, __version__):
         return (
             f"\nA new version of atdd is available: {__version__} → {latest}\n"
-            f"Run `pip install --upgrade atdd` to update."
+            f"Run `{upgrade_command()}` to update."
         )
 
     return None

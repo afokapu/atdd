@@ -37,7 +37,7 @@ flowchart LR
 ## Quick Start
 
 ```bash
-pip install atdd                          # Install
+pipx install atdd                         # Install (recommended — isolated venv)
 atdd init                                 # Bootstrap .atdd/ + GitHub infrastructure
 atdd gate                                 # ← START EVERY SESSION WITH THIS
 atdd issue my-new-feature                 # Create parent issue + WMBT sub-issues
@@ -224,7 +224,7 @@ atdd repo viz --mode journey   # Train-step edges from sequence[]
 ### Maintenance
 
 ```bash
-atdd upgrade                   # pip-upgrade → sync → init --force
+atdd upgrade                   # upgrade (pipx/pip-aware) → sync → init --force
 atdd merge-cascade <pr1> ...   # Wave-ordered merge with CI gating
 atdd status                    # Platform status
 atdd registry update           # Update all registries (rules, conventions)
@@ -306,12 +306,22 @@ release:
 
 ## Installation
 
-### Standard
+### Standard (recommended)
 
 ```bash
-pip install atdd                # PyPI
+pipx install atdd               # Install — isolated venv, global on PATH (like gh/railway)
+pipx upgrade atdd               # Upgrade
+pipx install atdd[viz]          # With URN graph UI (Streamlit)
+```
+
+> `pipx` keeps atdd in an isolated venv so it never pollutes your project or system Python.
+> Install pipx: `brew install pipx` / `pip install --user pipx` / [pipx.pypa.io](https://pipx.pypa.io).
+
+### Alternative: plain pip
+
+```bash
+pip install atdd                # PyPI (not recommended on Homebrew/system Python — PEP 668)
 pip install --upgrade atdd      # Upgrade
-pip install atdd[viz]           # With URN graph UI (Streamlit)
 ```
 
 ### Development

@@ -15,7 +15,11 @@ try:
 except ImportError:
     import sys
     print('ATDD: version gate requires a newer atdd package.', file=sys.stderr)
-    print('  Run: pip install --upgrade atdd', file=sys.stderr)
+    try:
+        from atdd.version_check import upgrade_command
+        print('  Run: ' + upgrade_command(), file=sys.stderr)
+    except Exception:
+        print('  Run: pipx upgrade atdd', file=sys.stderr)
     sys.exit(1)
 " 2>&1
     if [ $? -ne 0 ]; then exit 1; fi

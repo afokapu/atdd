@@ -136,15 +136,15 @@ class TestNoHardcodedPipInstall:
     def _read(self, rel_path: str) -> str:
         return (self.REPO_ROOT / rel_path).read_text()
 
-    def _extract_auto_upgrade_body(self, source: str) -> tuple[str, str]:
-        """Return (before_auto_upgrade, auto_upgrade_body) strings."""
-        marker = "def auto_upgrade()"
+    def _extract_function_body(self, source: str, func_name: str) -> tuple[str, str]:
+        """Return (source_without_func, func_body) strings."""
+        marker = f"def {func_name}("
         idx = source.find(marker)
         if idx == -1:
             return source, ""
         before = source[:idx]
         after = source[idx:]
-        # Find next top-level def/class after auto_upgrade
+        # Find next top-level def/class after func
         next_def = re.search(r"\ndef [a-zA-Z_]|\nclass [a-zA-Z_]", after[len(marker):])
         if next_def:
             body = after[: len(marker) + next_def.start()]
@@ -152,13 +152,17 @@ class TestNoHardcodedPipInstall:
             return before + rest, body
         return before, after
 
-    def test_version_check_no_hardcode_outside_auto_upgrade(self):
+    def test_version_check_no_hardcode_outside_allowed_functions(self):
         source = self._read("src/atdd/version_check.py")
-        outside, inside = self._extract_auto_upgrade_body(source)
+        # Remove both auto_upgrade() and upgrade_command() bodies — both are allowed
+        # to contain 'pip install --upgrade atdd' (upgrade_command's pip branch,
+        # auto_upgrade's pip invocation).
+        outside, _ = self._extract_function_body(source, "auto_upgrade")
+        outside, _ = self._extract_function_body(outside, "upgrade_command")
         matches = self.PATTERN.findall(outside)
         assert not matches, (
             f"version_check.py has hardcoded 'pip install --upgrade atdd' outside "
-            f"auto_upgrade(): {matches}"
+            f"auto_upgrade()/upgrade_command(): {matches}"
         )
 
     def test_upgrader_no_hardcoded_pip(self):
@@ -197,13 +201,11 @@ class TestNoHardcodedPipInstall:
 # ---------------------------------------------------------------------------
 class TestCheckForUpdatesUsesUpgradeCommand:
     def test_message_contains_upgrade_command_output(self):
-        with patch("atdd.version_check.is_outdated", return_value=(True, "3.0.0", "4.0.0")), \
-             patch("atdd.version_check.upgrade_command", return_value="pipx upgrade atdd") as mock_cmd, \
-             patch("atdd.version_check._load_cache", return_value=None), \
-             patch("atdd.version_check._fetch_latest_version", return_value="4.0.0"):
-            # check_for_updates may bypass is_outdated; patch _is_newer to trigger update
-            with patch("atdd.version_check._is_newer", return_value=True):
-                result = check_for_updates()
+        with patch("atdd.version_check.upgrade_command", return_value="pipx upgrade atdd"), \
+             patch("atdd.version_check._load_cache", return_value={}), \
+             patch("atdd.version_check._fetch_latest_version", return_value="4.0.0"), \
+             patch("atdd.version_check._is_newer", return_value=True):
+            result = check_for_updates()
         assert result is not None
         assert "pipx upgrade atdd" in result, (
             f"Expected 'pipx upgrade atdd' in check_for_updates() output; got: {result!r}"
@@ -212,7 +214,7 @@ class TestCheckForUpdatesUsesUpgradeCommand:
     def test_message_does_not_hardcode_pip_install(self):
         with patch("atdd.version_check.upgrade_command", return_value="pipx upgrade atdd"), \
              patch("atdd.version_check._is_newer", return_value=True), \
-             patch("atdd.version_check._load_cache", return_value=None), \
+             patch("atdd.version_check._load_cache", return_value={}), \
              patch("atdd.version_check._fetch_latest_version", return_value="4.0.0"):
             result = check_for_updates()
         if result is not None:
