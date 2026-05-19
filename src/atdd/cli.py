@@ -1686,6 +1686,25 @@ Phase descriptions:
         help="List sites that would be marked without editing any files",
     )
 
+    # ----- atdd manifest {backfill} — manifest maintenance (#664) -----
+    manifest_parser = subparsers.add_parser(
+        "manifest",
+        help="Manifest maintenance commands",
+        description="Commands for maintaining .atdd/manifest.yaml.",
+    )
+    manifest_subparsers = manifest_parser.add_subparsers(
+        dest="manifest_command",
+        help="manifest commands",
+    )
+    manifest_subparsers.add_parser(
+        "backfill",
+        help=(
+            "Backfill missing open atdd-issues from GitHub into .atdd/manifest.yaml. "
+            "Idempotent — re-running on a complete manifest is a no-op. "
+            "Equivalent to: atdd issue reconcile"
+        ),
+    )
+
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
 
     # Repository root override (not deprecated - still useful)
@@ -2439,6 +2458,16 @@ Phase descriptions:
                 dry_run=getattr(args, "dry_run", False),
             )
         suppress_parser.print_help()
+        return 0
+
+    elif args.command == "manifest":
+        manifest_command = getattr(args, "manifest_command", None)
+        if manifest_command == "backfill":
+            from atdd.coach.commands.issue import IssueManager
+            repo_root = Path(args.repo) if args.repo else find_repo_root()
+            manager = IssueManager(repo_root)
+            return manager.reconcile()
+        manifest_parser.print_help()
         return 0
 
     # ----- Handle deprecated flag-based commands -----
