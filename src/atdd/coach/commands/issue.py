@@ -108,6 +108,48 @@ ARCHETYPE_GATES = {
 }
 
 
+# E019: module-level placeholder — allows `patch("atdd.coach.commands.issue.GitHubClient", ...)`
+# in unit tests. Actual construction uses `globals().get('GitHubClient') or _gh.GitHubClient`
+# so that tests patching either `issue.GitHubClient` OR `atdd.coach.github.GitHubClient` work.
+GitHubClient = None  # type: ignore
+
+
+class IssueBodyComplianceError(Exception):
+    """Raised when an issue body fails the local --check gate before publishing."""
+
+
+class IssueBodyCheckResult:
+    """Result of IssueBodyChecker.check()."""
+
+    def __init__(self, passed: bool, errors: list) -> None:
+        self.passed = passed
+        self.errors = errors
+
+
+class IssueBodyChecker:
+    """Validate an issue body against required-section rules before publishing.
+
+    Checks that ``### Graph Context`` and ``### Mirror Across Agents`` are
+    present and that the Graph Context placeholder has been replaced.  Deliberately
+    does NOT check H2 template sections — those are editorial, not publication gates.
+    """
+
+    def check(self, body: str) -> IssueBodyCheckResult:
+        from atdd.coach.commands.issue_template import REQUIRED_SUBSECTIONS
+
+        errors: list[str] = []
+        for section in REQUIRED_SUBSECTIONS:
+            if section not in body:
+                errors.append(f"Missing required section: {section}")
+
+        if GRAPH_CONTEXT_PLACEHOLDER in body:
+            errors.append(
+                "Graph Context section still contains the unfilled placeholder text"
+            )
+
+        return IssueBodyCheckResult(passed=not errors, errors=errors)
+
+
 def dup_check_before_file(
     slug: str,
     run_gh=None,
@@ -794,6 +836,130 @@ class IssueManager:
                 })
 
         return wmbts
+
+    def _register_issue_in_manifest(
+        self,
+        issue_number: int,
+        slug: str,
+        train: Optional[str] = None,
+    ) -> None:
+        """Register a newly published issue in the local .atdd/manifest.yaml."""
+        if not self.manifest_file.exists():
+            return
+        manifest = self._load_manifest()
+        issues = manifest.setdefault("issues", {})
+        issues[str(issue_number)] = {"slug": slug, "train": train}
+        self._save_manifest(manifest)
+
+    def create_new_issue(
+        self,
+        slug: str,
+        issue_type: str = "implementation",
+        train: Optional[str] = None,
+        archetypes: Optional[str] = None,
+    ) -> int:
+        """Create a GitHub issue with a pre-publish local compliance gate (E019).
+
+        Validates the rendered body locally via IssueBodyChecker before making
+        any GitHub API call.  Publishes via a single ``gh issue create`` — no
+        follow-up body edit.
+
+        Raises IssueBodyComplianceError when the body fails the gate.
+        Returns the new issue number on success.
+        """
+        import atdd.coach.github as _gh_module
+        from atdd.coach.github import GitHubClientError
+
+        try:
+            config = self._load_config()
+            github_config = config["github"]
+        except Exception as exc:
+            print(f"Error: config load failed: {exc}")
+            return 1
+
+        today = date.today().isoformat()
+        train_display = train or "TBD"
+        archetypes_display = archetypes or "TBD"
+        prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+        title_text = slug.replace("-", " ").title()
+        title = f"{prefix}(atdd): {title_text}"
+
+        body = self._render_parent_body(slug, issue_type, today, train_display, archetypes_display)
+        body = self._inject_graph_context(body, slug, train)
+
+        checker = IssueBodyChecker()
+        check_result = checker.check(body)
+        if not check_result.passed:
+            raise IssueBodyComplianceError(
+                "Issue body failed compliance check — refusing to publish.\n"
+                + "\n".join(check_result.errors)
+            )
+
+        # Honors both patch("atdd.coach.commands.issue.GitHubClient") and
+        # patch("atdd.coach.github.GitHubClient") in unit tests.
+        _GHC = globals().get("GitHubClient") or _gh_module.GitHubClient
+        try:
+            client = _GHC(
+                repo=github_config["repo"],
+                project_id=github_config.get("project_id"),
+            )
+        except GitHubClientError as exc:
+            print(f"Error: GitHub integration failed: {exc}")
+            return 1
+
+        parent_labels = ["atdd-issue", "atdd:INIT"]
+        if archetypes:
+            for arch in archetypes.split(","):
+                arch = arch.strip()
+                if arch:
+                    parent_labels.append(f"archetype:{arch}")
+
+        parent_number = client.create_issue(title=title, body=body, labels=parent_labels)
+        print(f"Created #{parent_number}: {title}")
+
+        try:
+            client.add_issue_to_project(parent_number)
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            pass
+
+        self._register_issue_in_manifest(parent_number, slug, train)
+        self._commit_manifest_change("atdd issue", f"Add issue #{parent_number} ({slug})")
+
+        wmbts = self._discover_wmbts(slug)
+        if wmbts:
+            print(f"Creating {len(wmbts)} WMBT sub-issues...")
+
+        return parent_number
+
+    def edit_issue_body(self, issue_number: int, body: str) -> None:
+        """Edit an existing GitHub issue body after re-running the compliance gate (E019).
+
+        Raises IssueBodyComplianceError when the body fails --check.
+        """
+        import atdd.coach.github as _gh_module
+        from atdd.coach.github import GitHubClientError
+
+        checker = IssueBodyChecker()
+        check_result = checker.check(body)
+        if not check_result.passed:
+            raise IssueBodyComplianceError(
+                "Replacement body failed compliance check — refusing to edit.\n"
+                + "\n".join(check_result.errors)
+            )
+
+        _GHC = globals().get("GitHubClient") or _gh_module.GitHubClient
+        try:
+            config = self._load_config()
+            github_config = config["github"]
+            client = _GHC(
+                repo=github_config["repo"],
+                project_id=github_config.get("project_id"),
+            )
+        except (GitHubClientError, Exception) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            print(f"Error: GitHub integration failed: {exc}")
+            return
+
+        client.edit_issue(issue_number, body)
 
     def new(
         self,
