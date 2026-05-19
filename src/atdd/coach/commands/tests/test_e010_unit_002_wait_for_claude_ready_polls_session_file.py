@@ -5,9 +5,8 @@
 # Layer: unit
 # Runtime: python
 # Assertion: behavioral
-"""E010-UNIT-002 — _wait_for_claude_ready returns only after a .jsonl session
-file newer than spawn_time appears in the project directory, within the
-bounded timeout.
+"""E010-UNIT-002 — _wait_for_claude_ready returns once a .jsonl session
+file appears in the project directory, within the bounded timeout.
 
 RED: _wait_for_claude_ready and WorkerReadinessTimeout do not exist in
 spawn.py yet. The current code puts a 1.5s sleep inside capture_session_uuid
@@ -64,19 +63,17 @@ def test_wait_returns_when_session_file_appears(tmp_path):
     assert elapsed < 1.0
 
 
-def test_wait_does_not_raise_when_file_and_tui_present(tmp_path):
+def test_wait_does_not_raise_when_session_file_present(tmp_path):
     from atdd.coach.commands.spawn import _wait_for_claude_ready, WorkerReadinessTimeout
 
     project_dir = tmp_path / ".claude" / "projects" / "pk"
     project_dir.mkdir(parents=True)
     (project_dir / "uuid.jsonl").write_text("{}")
 
-    spawn_time = time.time() - 1  # file is already newer than spawn_time - 1s
-
     _wait_for_claude_ready(
         surface_ref="surface:1",
         project_key="pk",
-        spawn_time=spawn_time,
+        spawn_time=time.time(),
         claude_projects_dir=tmp_path / ".claude" / "projects",
         multiplexer=_FakeMux(),
         timeout_s=2.0,

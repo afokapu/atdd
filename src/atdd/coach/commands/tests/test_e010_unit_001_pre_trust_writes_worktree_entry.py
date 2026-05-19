@@ -28,15 +28,10 @@ def test_pre_trust_writes_trust_accepted(tmp_path):
     worktree.mkdir()
     claude_json = tmp_path / ".claude.json"
 
-    _pre_trust_worktill(worktree, claude_json)
+    _pre_trust_worktree(worktree, claude_json)
 
     data = json.loads(claude_json.read_text())
     assert data["projects"][str(worktree)]["hasTrustDialogAccepted"] is True
-
-
-def _pre_trust_worktill(worktree: Path, claude_json: Path) -> None:
-    from atdd.coach.commands.spawn import _pre_trust_worktree
-    _pre_trust_worktree(worktree, claude_json)
 
 
 def test_pre_trust_non_destructive_merge(tmp_path):

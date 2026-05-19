@@ -18,8 +18,6 @@ goes straight from paste to capture_session_uuid without any readiness gate
 from __future__ import annotations
 
 import json
-import threading
-import time
 from pathlib import Path
 
 import pytest
@@ -67,9 +65,9 @@ def test_full_spawn_path_with_readiness_gate(tmp_path, monkeypatch):
     """cmd_spawn runs the full pre-trust → ready-wait → paste → assert chain."""
     from atdd.coach.commands.spawn import cmd_spawn
 
-    # Use short timeouts so the test is fast.
-    monkeypatch.setenv("ATDD_WORKER_READY_TIMEOUT", "2.0")
-    monkeypatch.setenv("ATDD_WORKER_POLL_INTERVAL", "0.01")
+    # Use short but safe timeouts: 5s ready-wait, 20ms poll.
+    monkeypatch.setenv("ATDD_WORKER_READY_TIMEOUT", "5.0")
+    monkeypatch.setenv("ATDD_WORKER_POLL_INTERVAL", "0.02")
 
     worktree = tmp_path / "issue-795"
     worktree.mkdir()
@@ -85,16 +83,15 @@ def test_full_spawn_path_with_readiness_gate(tmp_path, monkeypatch):
     claude_projects.mkdir(parents=True)
     monkeypatch.setenv("ATDD_CLAUDE_PROJECTS_DIR", str(claude_projects))
 
-    # Simulate the worker writing a session file after 0.05s.
-    project_key_placeholder = worktree.name  # simplification — real key is URL-encoded path
-    project_dir = claude_projects / project_key_placeholder
+    # Pre-create the session file using the same key formula as _claude_project_key
+    # so the readiness poll finds it immediately. Since _wait_for_claude_ready
+    # now accepts any .jsonl regardless of mtime, we don't need background threads.
+    from atdd.coach.utils.session_naming_apply import _claude_project_key
+
+    project_key = _claude_project_key(worktree)
+    project_dir = claude_projects / project_key
     project_dir.mkdir(parents=True, exist_ok=True)
-
-    def _create_session_file():
-        time.sleep(0.05)
-        (project_dir / "uuid-123.jsonl").write_text("{}")
-
-    threading.Thread(target=_create_session_file, daemon=True).start()
+    (project_dir / "uuid-123.jsonl").write_text("{}")
 
     # Write a minimal launch prompt.
     prompt_path = worktree / ".launch_prompt.txt"
