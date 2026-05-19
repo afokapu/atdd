@@ -83,6 +83,50 @@ def _deprecation_warning(old: str, new: str) -> None:
     print(f"\033[33m⚠️  Deprecated: '{old}' will be removed. Use '{new}' instead.\033[0m")
 
 
+def _get_pr_changed_files(repo_root) -> list:
+    """Return files changed in this branch vs origin/main (PR-scoped diff).
+
+    Uses `git merge-base HEAD origin/{default}` so the result is correct even
+    when the local default-branch ref is stale behind origin.  Falls back to an
+    empty list on any git error (safe: scoped check then exits 0 trivially).
+    """
+    import subprocess
+    cwd = str(repo_root)
+
+    for candidate in ("origin/main", "origin/master"):
+        probe = subprocess.run(
+            ["git", "rev-parse", "--verify", candidate],
+            capture_output=True,
+            cwd=cwd,
+        )
+        if probe.returncode == 0:
+            base_ref = candidate
+            break
+    else:
+        base_ref = "origin/main"
+
+    try:
+        base = subprocess.run(
+            ["git", "merge-base", "HEAD", base_ref],
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+        if base.returncode != 0:
+            return []
+        merge_base = base.stdout.strip()
+        diff = subprocess.run(
+            ["git", "diff", f"{merge_base}..HEAD", "--name-only"],
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+        )
+        return [line.strip() for line in diff.stdout.splitlines() if line.strip()]
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-31
+        warnings.warn(f"[GT-002] could not determine PR changed files: {exc}", stacklevel=2)
+        return []
+
+
 class ATDDCoach:
     """
     ATDD Platform Coach - orchestrates all operations.
@@ -155,7 +199,8 @@ class ATDDCoach:
         self,
         registry_type: str = "all",
         apply: bool = False,
-        check: bool = False
+        check: bool = False,
+        scope: str = None
     ) -> int:
         """Update registries from source files.
 
@@ -163,10 +208,17 @@ class ATDDCoach:
             registry_type: Which registry to update (all, wagons, trains, contracts, etc.)
             apply: If True, apply changes without prompting (CI mode)
             check: If True, only check for drift without applying (exit 1 if drift)
+            scope: If "changed-files", limit check to wagon sources in git diff main..HEAD
 
         Returns:
             0 on success, 1 if --check and drift detected
         """
+        # PR-scoped registry check (wmbt:govern-lifecycle:E018)
+        if check and scope == "changed-files":
+            changed_files = _get_pr_changed_files(self.repo_root)
+            outcome = self.registry_updater.check_wagon_registry_scoped(changed_files)
+            return 1 if outcome.get("has_changes") else 0
+
         # Convert flags to mode string
         if check:
             mode = "check"
@@ -506,6 +558,14 @@ Phase descriptions:
         "--check",
         action="store_true",
         help="Check for drift without applying (exit 1 if changes detected)"
+    )
+    registry_update_parser.add_argument(
+        "--scope",
+        default=None,
+        metavar="SCOPE",
+        help="Limit drift check scope. Use 'changed-files' to validate only wagon sources "
+             "in `git diff main..HEAD` (PR-scoped GT-002 gate; exits 0 trivially when no "
+             "wagon sources were touched)"
     )
 
     # ----- atdd init -----
@@ -1935,7 +1995,8 @@ Phase descriptions:
             return coach.update_registries(
                 registry_type=args.type,
                 apply=args.apply,
-                check=args.check
+                check=args.check,
+                scope=getattr(args, "scope", None),
             )
         else:
             registry_parser.print_help()

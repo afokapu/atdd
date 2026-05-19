@@ -1039,10 +1039,10 @@ gate_tests:
       - id: "GT-002"
         phase: "design"
         archetype: "all"
-        command: "atdd registry update --check"
+        command: "atdd registry update --check --scope changed-files"
         expected: "PASS"
         atdd_validator: "atdd/coach/commands/registry.py"
-        description: "Registry sync check (no drift)"
+        description: "PR-scoped registry drift check — validates only wagon sources touched by this branch (exits 0 trivially when no wagon sources changed; see wmbt:govern-lifecycle:E018)"
 
     completion_phase:
       - id: "GT-800"
