@@ -8,6 +8,7 @@
 """acc:govern-lifecycle:E015-SMOKE-001 — atdd gate on this repo outputs 'Agent Behavioral Rules'."""
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -21,10 +22,17 @@ def test_gate_output_contains_rules_in_live_repo():
     if not rules_path.exists():
         pytest.skip(".atdd/agent-rules.yaml not yet committed — skipping smoke test")
 
+    # Use local src/ so changes are picked up without reinstalling the package.
+    env = os.environ.copy()
+    src_path = str(Path(__file__).parent.parent.parent.parent.parent)  # repo_root/src
+    existing_pp = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{src_path}:{existing_pp}" if existing_pp else src_path
+
     result = subprocess.run(
-        [sys.executable, "-m", "atdd.coach.cli", "gate"],
+        [sys.executable, "-m", "atdd", "gate"],
         capture_output=True,
         text=True,
+        env=env,
     )
 
     assert result.returncode == 0, f"atdd gate exited non-zero: {result.stderr}"
