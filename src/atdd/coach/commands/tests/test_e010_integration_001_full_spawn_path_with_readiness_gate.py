@@ -82,30 +82,39 @@ def test_full_spawn_path_with_readiness_gate(tmp_path, monkeypatch):
     project_dir = claude_projects / project_key
     project_dir.mkdir(parents=True, exist_ok=True)
     jsonl = project_dir / "uuid-123.jsonl"
-    jsonl.write_text("{}\n")  # pre-exist so _wait_for_claude_ready passes
+    jsonl.write_bytes(b"")  # empty file — exists so _wait_for_claude_ready passes
 
-    # Background thread grows the jsonl so _assert_worker_processing passes.
+    # Background thread grows the jsonl continuously so _assert_worker_processing
+    # detects growth regardless of when it samples initial_size.  cmd_spawn takes
+    # ~0.7s before reaching _assert_worker_processing (apply_canonical_name_and_layout),
+    # so we write every 0.1s for 3s to guarantee growth is seen.
+    _stop_event = threading.Event()
+
     def _grow():
-        time.sleep(0.05)
-        with jsonl.open("a") as f:
-            f.write('{"type":"assistant"}\n')
+        while not _stop_event.wait(timeout=0.1):
+            with jsonl.open("ab") as f:
+                f.write(b"x")
 
-    threading.Thread(target=_grow, daemon=True).start()
+    grow_thread = threading.Thread(target=_grow, daemon=True)
+    grow_thread.start()
 
     prompt_path = worktree / ".launch_prompt.txt"
     prompt_path.write_text("You are the planner agent for issue #795.\n")
 
     fake_mux = _MinimalMux()
 
-    cmd_spawn(
-        persona="planner",
-        llm="claude-code",
-        worktree=worktree,
-        issue=795,
-        agent_id="planner-795-001",
-        runtime_root=runtime,
-        multiplexer=fake_mux,
-    )
+    try:
+        cmd_spawn(
+            persona="planner",
+            llm="claude-code",
+            worktree=worktree,
+            issue=795,
+            agent_id="planner-795-001",
+            runtime_root=runtime,
+            multiplexer=fake_mux,
+        )
+    finally:
+        _stop_event.set()
 
     # 1. pre-trust wrote to claude.json.
     data = json.loads(claude_json.read_text())
