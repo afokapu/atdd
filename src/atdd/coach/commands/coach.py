@@ -42,7 +42,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional, Sequence
 
 _logger = logging.getLogger("atdd.coach")
 
@@ -61,6 +61,7 @@ from atdd.coach.handlers.state_machine import (
     initialize_state_machine,
 )
 from atdd.coach.utils.escalation_channel import validate_escalation_channel_arg
+from atdd.coach.commands.spawn import ADAPTER_REGISTRY, PERSONAS
 
 __all__ = [
     "Phase",
@@ -86,6 +87,8 @@ __all__ = [
     "render_consolidated_view",
     "add_worker_surface",
     "main",
+    "prompt_persona_models",
+    "should_prompt_for_models",
 ]
 
 # Re-export run_status so test imports from atdd.coach.commands.coach work.
@@ -144,6 +147,7 @@ class Config:
     dry_run: bool = False
     stale_warn_minutes: Optional[int] = None
     no_progress_ttl: Optional[int] = None
+    no_prompt: bool = False
 
 
 @dataclass
@@ -308,6 +312,15 @@ def _build_parser() -> argparse.ArgumentParser:
             "Escalates to --escalation-channel before exiting."
         ),
     )
+    parser.add_argument(
+        "--no-prompt",
+        action="store_true",
+        dest="no_prompt",
+        help=(
+            "Skip the interactive per-persona model prompt even on a TTY. "
+            "Use this for scripted runs where --persona-llm is not given."
+        ),
+    )
     return parser
 
 
@@ -333,11 +346,69 @@ def parse_cli(argv: list[str]) -> Config:
         dry_run=ns.dry_run,
         stale_warn_minutes=ns.stale_warn_minutes,
         no_progress_ttl=ns.no_progress_ttl,
+        no_prompt=ns.no_prompt,
     )
 
 
 def resolve_policy(cfg: Config) -> Policy:
     return Policy(strict_deps=cfg.strict_deps)
+
+
+# ---------------------------------------------------------------------------
+# Interactive model selection (issue #723 / E008)
+# ---------------------------------------------------------------------------
+
+
+def prompt_persona_models(
+    personas: Iterable[str],
+    known_models: Sequence[str],
+    *,
+    stdin=None,
+    stdout=None,
+) -> dict[str, str]:
+    """Interactively prompt the operator for a model per persona.
+
+    Reads one line per persona from *stdin* (defaults to ``sys.stdin``).
+    Rejects unknown model ids and re-prompts until a valid id is entered.
+    Returns a dict mapping each persona name to the chosen model id.
+    """
+    _in = stdin if stdin is not None else sys.stdin
+    _out = stdout if stdout is not None else sys.stdout
+
+    valid = sorted(known_models)
+    model_list = " / ".join(valid)
+    result: dict[str, str] = {}
+
+    for persona in personas:
+        while True:
+            _out.write(f"  {persona} model [{model_list}]: ")
+            _out.flush()
+            line = _in.readline().strip()
+            if line in valid:
+                result[persona] = line
+                break
+            _out.write(
+                f"  ✗ {line!r} is not a registered model id."
+                f" Valid: {model_list}\n"
+            )
+            _out.flush()
+
+    return result
+
+
+def should_prompt_for_models(
+    cfg: Config,
+    isatty_fn: Optional[Callable[[], bool]] = None,
+) -> bool:
+    """Return True when the interactive per-persona model prompt should fire.
+
+    The prompt fires only when ALL of the following hold:
+    - stdin is a TTY (``isatty_fn()`` returns True)
+    - ``cfg.persona_llm`` is empty (``--persona-llm`` was not given)
+    - ``cfg.no_prompt`` is False (``--no-prompt`` was not given)
+    """
+    _isatty = isatty_fn if isatty_fn is not None else sys.stdin.isatty
+    return bool(_isatty() and not cfg.persona_llm and not cfg.no_prompt)
 
 
 # ---------------------------------------------------------------------------
@@ -1257,6 +1328,10 @@ def run(
 
 def main(argv: Optional[list[str]] = None) -> int:
     cfg = parse_cli(list(sys.argv[1:] if argv is None else argv))
+    if should_prompt_for_models(cfg):
+        known = sorted(ADAPTER_REGISTRY)
+        print("Select the LLM adapter for each persona:")
+        cfg.persona_llm = prompt_persona_models(PERSONAS, known)
     return run(
         issue_numbers=cfg.issue_numbers,
         max_retries=cfg.max_retries,
@@ -1298,6 +1373,10 @@ def run_cli(argv: list[str]) -> int:
     if argv and argv[0] == "gc":
         return run_gc(argv[1:])
     cfg = parse_cli(argv)
+    if should_prompt_for_models(cfg):
+        known = sorted(ADAPTER_REGISTRY)
+        print("Select the LLM adapter for each persona:")
+        cfg.persona_llm = prompt_persona_models(PERSONAS, known)
     return run(
         issue_numbers=cfg.issue_numbers,
         max_retries=cfg.max_retries,

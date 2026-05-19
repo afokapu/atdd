@@ -1,0 +1,170 @@
+urn: "wmbt:spawn-agents:E008"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "coach-runs-where-the-operator-cannot-choose-the-per-persona-model-at-spawn-time"
+context_clarifier: "when `atdd coach <N>` is launched by a human from an interactive terminal (sys.stdin.isatty() is True) with no --persona-llm flag, the operator has no visibility or choice over which model each persona runs on — the run silently uses whatever coach.default_worker_class happens to be configured; the fix is a TTY-gated per-persona model prompt inside coach.py that asks the operator to pick from the registered adapter ids (ADAPTER_REGISTRY.keys() from spawn.py) for each persona before any agent is spawned; non-interactive runs (non-TTY, --persona-llm given, or --no-prompt) skip the prompt entirely so automation and coach-of-coach runs never block; an invalid choice at the prompt is rejected with the list of valid ids and the user is re-prompted"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of coach-runs-where-the-operator-cannot-choose-the-per-persona-model-at-spawn-time when atdd coach is launched interactively — a TTY-gated per-persona model prompt in coach.py asks the operator to pick from the registered adapter ids for each persona before spawn; non-interactive runs (non-TTY, --persona-llm given, or --no-prompt) skip the prompt entirely; invalid choices are rejected with the valid-id list and re-prompted"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E008-UNIT-001-tty-prompt-shown-per-persona"
+      id: "AC-UNIT-001"
+      purpose: "When stdin is a TTY, no --persona-llm is given, and --no-prompt is absent, prompt_persona_models() emits one prompt line per persona and returns the chosen models"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/coach.py exposes prompt_persona_models(personas, known_models, *, stdin, stdout)"
+        - "A fake stdin has valid model ids typed for each of PERSONAS (planner, tester, coder, reviewer)"
+        - "A fake stdout captures all output"
+        - "known_models contains at least two distinct ids"
+    when:
+      abstract: "prompt_persona_models(PERSONAS, known_models, stdin=fake_stdin, stdout=fake_stdout) is called"
+    then:
+      abstract:
+        - "The returned dict maps every persona in PERSONAS to the model the fake stdin typed for it"
+        - "The returned dict contains exactly len(PERSONAS) entries — one per persona"
+        - "The captured stdout contains one prompt mention for each persona name"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E008-UNIT-002-non-tty-no-prompt"
+      id: "AC-UNIT-002"
+      purpose: "When stdin is not a TTY, the interactive prompt is skipped entirely and persona_llm remains unchanged"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/coach.py exposes should_prompt_for_models(cfg, isatty_fn)"
+        - "isatty_fn returns False (simulating a non-TTY environment)"
+        - "cfg.persona_llm is empty and cfg.no_prompt is False"
+    when:
+      abstract: "should_prompt_for_models(cfg, isatty_fn) is called"
+    then:
+      abstract:
+        - "The function returns False — no prompt should be shown"
+        - "prompt_persona_models() is never called on a non-TTY run (verified by the caller logic)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E008-UNIT-003-persona-llm-flag-skips-prompt"
+      id: "AC-UNIT-003"
+      purpose: "When --persona-llm is given on the CLI the interactive prompt is skipped entirely"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/coach.py exposes should_prompt_for_models(cfg, isatty_fn)"
+        - "isatty_fn returns True (TTY)"
+        - "cfg.persona_llm is non-empty (set via --persona-llm tester=claude-code,coder=claude-code)"
+    when:
+      abstract: "should_prompt_for_models(cfg, isatty_fn) is called"
+    then:
+      abstract:
+        - "The function returns False — --persona-llm was already given, no prompt needed"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E008-UNIT-004-no-prompt-flag-skips-prompt"
+      id: "AC-UNIT-004"
+      purpose: "When --no-prompt is passed the interactive prompt is skipped even on a TTY"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/coach.py exposes should_prompt_for_models(cfg, isatty_fn)"
+        - "isatty_fn returns True (TTY)"
+        - "cfg.no_prompt is True (--no-prompt flag passed)"
+        - "cfg.persona_llm is empty"
+    when:
+      abstract: "should_prompt_for_models(cfg, isatty_fn) is called"
+    then:
+      abstract:
+        - "The function returns False — --no-prompt suppresses the interactive prompt"
+        - "parse_cli(['123', '--no-prompt']) sets cfg.no_prompt = True"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E008-UNIT-005-invalid-model-rejected-with-valid-list"
+      id: "AC-UNIT-005"
+      purpose: "An invalid model choice at the prompt is rejected and the list of valid ids is shown, then the user is re-prompted until a valid id is entered"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/coach.py exposes prompt_persona_models(personas, known_models, *, stdin, stdout)"
+        - "A fake stdin types an invalid model id first, then a valid one for the first persona"
+        - "known_models = ['claude-code', 'claude-sonnet']"
+    when:
+      abstract: "prompt_persona_models(['planner'], known_models, stdin=fake_stdin, stdout=fake_stdout) is called"
+    then:
+      abstract:
+        - "The returned dict maps 'planner' to the valid model id (the second choice)"
+        - "The captured stdout contains the invalid id in a rejection message"
+        - "The captured stdout contains the list of valid model ids in the rejection message"
+        - "The returned dict does NOT contain the invalid model id"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E008-INTEGRATION-001-chosen-model-flows-to-spawn"
+      id: "AC-INTEGRATION-001"
+      purpose: "A model chosen via the interactive prompt flows through to the spawn path and the correct adapter is invoked per persona"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer records all surface launches without spawning real processes"
+        - "ADAPTER_REGISTRY has at least two entries (e.g. claude-code and a test-only adapter)"
+        - "A fake stdin supplies different model ids for planner and coder"
+        - "isatty_fn returns True and cfg.persona_llm is empty and cfg.no_prompt is False"
+    when:
+      abstract: "run() is called with the resolved persona_llm (populated from the interactive prompt) and a single issue"
+    then:
+      abstract:
+        - "The planner spawn uses the adapter the fake stdin chose for planner"
+        - "The coder spawn uses the adapter the fake stdin chose for coder"
+        - "No spawn records an adapter from the wrong persona's choice"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E008-SMOKE-001-interactive-tty-prompt-blocks-until-valid-input"
+      id: "AC-SMOKE-001"
+      purpose: "In a real terminal session the prompt blocks for each persona, accepts a valid adapter id, and passes it to the coach run — regression guard against silent config-default bypass"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real terminal session runs atdd coach with no --persona-llm and no --no-prompt"
+        - "stdin.isatty() returns True"
+        - "ADAPTER_REGISTRY contains at least 'claude-code'"
+    when:
+      abstract: "The operator types 'claude-code' at each persona prompt"
+    then:
+      abstract:
+        - "The coach run proceeds with persona_llm mapping every persona to 'claude-code'"
+        - "No prompt is shown again — each persona is prompted exactly once per run"
+        - "The coach run does not block indefinitely — it proceeds after valid input is given"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
