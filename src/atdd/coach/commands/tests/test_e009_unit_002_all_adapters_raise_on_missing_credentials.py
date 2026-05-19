@@ -1,5 +1,11 @@
-# URN: acc:spawn-agents:E009-UNIT-002-all-four-adapters-raise-on-missing-credentials
-"""RED test: each of the four new adapters raises AdapterError when its env var is absent."""
+# URN: test:spawn-agents:register-llm-adapter-flavors:E009-UNIT-002-all-four-adapters-raise-on-missing-credentials
+# Acceptance: acc:spawn-agents:E009-UNIT-002-all-four-adapters-raise-on-missing-credentials
+# WMBT: wmbt:spawn-agents:E009
+# Phase: GREEN
+# Layer: unit
+# Runtime: python
+# Assertion: behavioral
+"""E009-UNIT-002 — each of the four new adapters raises AdapterError when its env var is absent."""
 from __future__ import annotations
 
 import pytest

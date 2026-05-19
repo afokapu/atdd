@@ -1,5 +1,11 @@
-# URN: acc:spawn-agents:E009-UNIT-004-adapter-registry-has-five-entries
-"""RED test: ADAPTER_REGISTRY contains exactly 5 entries after the change."""
+# URN: test:spawn-agents:register-llm-adapter-flavors:E009-UNIT-004-adapter-registry-has-five-entries
+# Acceptance: acc:spawn-agents:E009-UNIT-004-adapter-registry-has-five-entries
+# WMBT: wmbt:spawn-agents:E009
+# Phase: GREEN
+# Layer: unit
+# Runtime: python
+# Assertion: structural
+"""E009-UNIT-004 — ADAPTER_REGISTRY contains exactly 5 entries after the change."""
 from __future__ import annotations
 
 

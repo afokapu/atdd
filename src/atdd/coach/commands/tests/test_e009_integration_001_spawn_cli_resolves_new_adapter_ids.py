@@ -1,5 +1,11 @@
-# URN: acc:spawn-agents:E009-INTEGRATION-001-spawn-cli-resolves-new-adapter-ids
-"""RED test: cmd_spawn resolves all four new adapter ids without error when credentials are present."""
+# URN: test:spawn-agents:register-llm-adapter-flavors:E009-INTEGRATION-001-spawn-cli-resolves-new-adapter-ids
+# Acceptance: acc:spawn-agents:E009-INTEGRATION-001-spawn-cli-resolves-new-adapter-ids
+# WMBT: wmbt:spawn-agents:E009
+# Phase: GREEN
+# Layer: integration
+# Runtime: python
+# Assertion: behavioral
+"""E009-INTEGRATION-001 — cmd_spawn resolves all four new adapter ids without error when credentials are present."""
 from __future__ import annotations
 
 import pytest

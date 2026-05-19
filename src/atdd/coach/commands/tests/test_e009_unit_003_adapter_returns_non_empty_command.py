@@ -1,5 +1,11 @@
-# URN: acc:spawn-agents:E009-UNIT-003-each-adapter-returns-non-empty-command-with-prompt-path
-"""RED test: each adapter returns a non-empty command string when credentials are present."""
+# URN: test:spawn-agents:register-llm-adapter-flavors:E009-UNIT-003-each-adapter-returns-non-empty-command-with-prompt-path
+# Acceptance: acc:spawn-agents:E009-UNIT-003-each-adapter-returns-non-empty-command-with-prompt-path
+# WMBT: wmbt:spawn-agents:E009
+# Phase: GREEN
+# Layer: unit
+# Runtime: python
+# Assertion: behavioral
+"""E009-UNIT-003 — each adapter returns a non-empty command string when credentials are present."""
 from __future__ import annotations
 
 import pytest

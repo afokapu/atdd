@@ -1,5 +1,11 @@
-# URN: acc:spawn-agents:E009-UNIT-001-require-env-raises-adapter-error-on-missing-var
-"""RED test: _require_env raises AdapterError when env var is absent."""
+# URN: test:spawn-agents:register-llm-adapter-flavors:E009-UNIT-001-require-env-raises-adapter-error-on-missing-var
+# Acceptance: acc:spawn-agents:E009-UNIT-001-require-env-raises-adapter-error-on-missing-var
+# WMBT: wmbt:spawn-agents:E009
+# Phase: GREEN
+# Layer: unit
+# Runtime: python
+# Assertion: behavioral
+"""E009-UNIT-001 — _require_env raises AdapterError when env var is absent."""
 from __future__ import annotations
 
 import pytest
