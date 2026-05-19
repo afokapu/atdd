@@ -989,12 +989,15 @@ sessions:
   train: 0002-coach-drives-lifecycle
 - id: '782'
   slug: upgrade-messaging-install-method-aware-pipx
-  file: null
+  file: plan/integration_hardening/Y005.yaml
   issue_number: 782
   type: implementation
   status: RED
   created: '2026-05-19'
   archived: null
+  wagon: integration-hardening
+  feature: feature:integration-hardening:upgrade-messaging-install-method-aware
+  train: 0001-self-compliance-validate
 - id: '766'
   slug: atdd-plan-worked-example
   file: null
