@@ -1,0 +1,31 @@
+urn: "feature:govern-lifecycle:pr-scoped-registry-drift-gate"
+wagon: "wagon:govern-lifecycle"
+description: "Replace the full-repo GT-002 registry regen with a PR-scoped drift check that only validates wagon/train sources changed by the current branch, eliminating unrelated drift absorption; add a separate main-branch CI safety net for repo-wide drift detection (#582)"
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E018"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "One new --scope flag on atdd registry update subcommand (cli.py)"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "check_wagon_registry_scoped() use case on RegistryBuilder"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts; reuses existing wagon manifest scanning"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "git diff main..HEAD is subprocess-level, no new repository abstraction needed"
+  devops:
+    - type: "github_workflow"
+      count: 1
+      rationale: "Separate atdd-registry-main-guard.yml workflow for repo-wide safety net on main pushes"

@@ -1,0 +1,40 @@
+# Registry Main Guard (wmbt:govern-lifecycle:E013 — PR-scoped GT-002 fix)
+# Runs the full-repo registry drift check on every push to main.
+# This is the safety net: the per-PR GT-002 gate is now scoped (--scope changed-files)
+# so it only checks wagon sources the PR touched. This workflow catches any drift
+# that slips through (e.g. a PR that forgot to update its aggregate entry).
+name: Registry Main Guard
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  registry-main-guard:
+    name: "Repo-wide registry drift check"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install atdd
+        run: pip install -e ".[dev]"
+
+      - name: Full-repo registry drift check
+        run: atdd registry update --check
+        # Non-blocking for PRs (this job only runs on main).
+        # If this fails it means a merged PR left aggregate drift — alert only,
+        # does not revert the merge.
+        continue-on-error: true

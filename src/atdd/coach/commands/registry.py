@@ -662,6 +662,68 @@ class RegistryBuilder:
         output = {"wagons": updated_wagons}
         return self._confirm_and_apply(mode, "wagon", registry_path, output, stats)
 
+    def check_wagon_registry_scoped(self, changed_files: List[str]) -> Dict[str, Any]:
+        """PR-scoped registry drift check (wmbt:govern-lifecycle:E018).
+
+        Validates only wagon sources that appear in the PR's changed-files list.
+        If changed_files contains no wagon source paths, returns has_changes=False
+        (trivial pass) regardless of any repo-wide aggregate drift.
+        """
+        wagon_source_pattern = re.compile(r"^plan/[^/]+/_[^/]+\.yaml$")
+        aggregate_name = "_wagons.yaml"
+
+        touched_sources = [
+            f for f in changed_files
+            if wagon_source_pattern.match(f) and not f.endswith(aggregate_name)
+        ]
+
+        if not touched_sources:
+            print("✅ GT-002 scoped check: no wagon sources changed — trivial pass")
+            return {"has_changes": False, "drifted_wagons": []}
+
+        registry_path = self.plan_dir / "_wagons.yaml"
+        if registry_path.exists():
+            with open(registry_path) as f:
+                registry_data = yaml.safe_load(f) or {}
+            existing_wagons = {w.get("wagon"): w for w in registry_data.get("wagons", [])}
+        else:
+            existing_wagons = {}
+
+        drifted: List[str] = []
+
+        for rel_path in touched_sources:
+            manifest_path = self.repo_root / rel_path
+            if not manifest_path.exists():
+                continue
+            try:
+                with open(manifest_path) as f:
+                    manifest = yaml.safe_load(f)
+            except Exception:
+                continue
+
+            slug = manifest.get("wagon", "")
+            if not slug:
+                continue
+
+            current = existing_wagons.get(slug)
+            if current is None:
+                drifted.append(slug)
+                continue
+
+            if manifest.get("description", "") != current.get("description", ""):
+                drifted.append(slug)
+
+        if drifted:
+            for slug in drifted:
+                print(
+                    f"❌ wagon:{slug} source changed but aggregate entry not updated — "
+                    f"run: atdd registry update --scope wagon:{slug}"
+                )
+            return {"has_changes": True, "drifted_wagons": drifted}
+
+        print(f"✅ GT-002 scoped check: {len(touched_sources)} wagon source(s) checked, all in sync")
+        return {"has_changes": False, "drifted_wagons": []}
+
     def update_contract_registry(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
         Update contracts/_artifacts.yaml from contract schema files.

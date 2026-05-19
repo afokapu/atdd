@@ -51,9 +51,10 @@ features:
   - urn: "feature:govern-lifecycle:agent-behavior-rules-enforcement"
   - urn: "feature:govern-lifecycle:bulk-suppress-backfill"
   - urn: "feature:govern-lifecycle:docs-models-md-and-manifest-backfill"
+  - urn: "feature:govern-lifecycle:pr-scoped-registry-drift-gate"
 
 wmbt:
-  total: 44
+  total: 45
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -98,3 +99,4 @@ wmbt:
   E015: "minimize agent-behavioral-rules-visible-only-in-per-user-memory by committing .atdd/agent-rules.yaml with the portable enforcement subset and injecting it into atdd gate output under an 'Agent Behavioral Rules' section (#657)"
   E016: "minimize consumer-repos-blocked-on-substrate-v12-cutover-without-a-backfill-tool by implementing atdd suppress backfill --rule <rule_id> --until <date> to bulk-insert inline suppress markers on pre-existing violation sites idempotently, plus orphaned-baseline-key warnings for stale integer-count entries in .atdd/baselines/coder.yaml (#482)"
   E017: "minimize operators-unable-to-find-adapter-documentation-or-run-manifest-backfill by creating docs/MODELS.md with the adapter table and wiring atdd manifest backfill as a CLI route to IssueManager.reconcile() (#664)"
+  E018: "minimize pr-registry-gate-absorbs-unrelated-repo-wide-drift when a PR runs GT-002 by adding --scope changed-files to atdd registry update --check that limits drift detection to wagon sources in git diff main..HEAD (#582)"

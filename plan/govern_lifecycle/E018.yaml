@@ -1,0 +1,146 @@
+urn: "wmbt:govern-lifecycle:E018"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "pr-registry-gate-absorbs-unrelated-repo-wide-drift"
+context_clarifier: "GT-002 runs `atdd registry update --check` which regenerates the entire wagon/train aggregate and fails if ANY wagon in the repo has drifted — even wagons the current PR never touched; when PR #578 ran the regen to clear GT-002 it produced +957/-175 lines of churn from 16 unrelated wagons it never authored; agents must choose between failing the gate or absorbing unrelated drift, both unacceptable; the invariant GT-002 should enforce is only: 'the wagons this PR touched must be reflected in the aggregate'"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of pr-registry-gate-absorbs-unrelated-repo-wide-drift when a PR runs GT-002 by (1) adding a --scope changed-files flag to `atdd registry update --check` that limits drift detection to wagon/train sources appearing in `git diff main..HEAD`, (2) producing an actionable error naming the specific wagon whose source changed without a corresponding aggregate update (`wagon:X source changed but aggregate entry not updated — run: atdd registry update --scope wagon:X`), (3) exiting 0 trivially when the PR touches no wagon sources, and (4) updating GT-002 in the issue convention to use `--scope changed-files` so the per-PR gate is no longer coupled to repo-wide regen; a separate main-branch CI workflow runs the full-repo check as a safety net"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E018-UNIT-001-scoped-check-exits-zero-no-wagon-sources"
+      id: "AC-UNIT-001"
+      purpose: "check_wagon_registry_scoped exits 0 and prints a trivial-pass notice when the changed-files list contains no wagon source paths, even when the repo has pre-existing aggregate drift"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A RegistryBuilder constructed with a tmp_path repo_root"
+        - "The tmp repo has plan/_wagons.yaml with a stale entry (description differs from manifest)"
+        - "changed_files is an empty list (PR touches no wagon sources)"
+    when:
+      abstract: "RegistryBuilder.check_wagon_registry_scoped(changed_files=[]) is called"
+    then:
+      abstract:
+        - "The method returns a dict with has_changes=False"
+        - "No error or drift message references wagon names"
+        - "The output contains a trivial-pass notice (e.g. 'no wagon sources changed')"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E018-UNIT-002-scoped-check-exits-one-names-drifted-wagon"
+      id: "AC-UNIT-002"
+      purpose: "check_wagon_registry_scoped exits with has_changes=True and names the specific wagon when a changed wagon source diverges from its aggregate entry"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A RegistryBuilder with a tmp repo"
+        - "plan/wagon_x/_wagon_x.yaml has description='new description'"
+        - "plan/_wagons.yaml has description='old description' for wagon:wagon-x"
+        - "changed_files=['plan/wagon_x/_wagon_x.yaml']"
+    when:
+      abstract: "RegistryBuilder.check_wagon_registry_scoped(changed_files=['plan/wagon_x/_wagon_x.yaml']) is called"
+    then:
+      abstract:
+        - "The method returns a dict with has_changes=True"
+        - "The output contains 'wagon:wagon-x' or 'wagon-x'"
+        - "The output contains a remediation hint (e.g. 'run: atdd registry update')"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E018-UNIT-003-pr578-replay-16-drifted-wagons-no-touch"
+      id: "AC-UNIT-003"
+      purpose: "PR-578 replay: 16 wagons have drifted aggregate entries on main but the PR touches none of them — scoped check exits 0 with zero absorption"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A RegistryBuilder with a tmp repo containing 16 wagons whose aggregate entries are stale"
+        - "changed_files is an empty list (the PR touched none of those 16 wagon sources)"
+    when:
+      abstract: "RegistryBuilder.check_wagon_registry_scoped(changed_files=[]) is called"
+    then:
+      abstract:
+        - "has_changes is False"
+        - "The output does not name any wagon"
+        - "No instructions to run atdd registry update are emitted"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E018-INTEGRATION-001-scope-flag-in-cli-help"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd registry update --help output contains --scope as a documented flag"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is installed and importable"
+    when:
+      abstract: "atdd registry update --help is executed"
+    then:
+      abstract:
+        - "The help text contains '--scope'"
+        - "The help text references 'changed-files'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E018-INTEGRATION-002-scope-changed-files-exits-zero-on-clean-branch"
+      id: "AC-INTEGRATION-002"
+      purpose: "atdd registry update --check --scope changed-files exits 0 on a branch that touches no wagon sources"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is installed"
+        - "A tmp git repo is set up with origin/main at HEAD (so git diff main..HEAD is empty)"
+    when:
+      abstract: "ATDDCommandRunner.cmd_registry(check=True, scope='changed-files') is called"
+    then:
+      abstract:
+        - "Return value is 0"
+        - "No error is printed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E018-SMOKE-001-scoped-check-exits-zero-on-this-branch"
+      id: "AC-SMOKE-001"
+      purpose: "atdd registry update --check --scope changed-files exits 0 on the live #582 branch (only govern-lifecycle wagon source changed, aggregate in sync after this PR)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is installed from local source (PYTHONPATH=src)"
+        - "The live #582 branch has govern-lifecycle as the only changed wagon source"
+        - "plan/_wagons.yaml has been updated to reflect the govern-lifecycle changes"
+    when:
+      abstract: "atdd registry update --check --scope changed-files is run from the repo root"
+    then:
+      abstract:
+        - "Exit code is 0"
+        - "Output contains 'trivial pass' or 'in sync'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
