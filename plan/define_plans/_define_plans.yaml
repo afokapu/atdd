@@ -18,5 +18,16 @@ produce:
 
 consume: []
 
+features:
+  - urn: "feature:define-plans:atdd-plan"
+
 wmbt:
-  total: 0
+  total: 8
+  D001: "minimize effort of understanding-atdd-plan-flag-surface — clean argparse surface, no forbidden flags"
+  E001: "minimize likelihood of text-source-misclassification — --text arg yields type=text SourceItem"
+  E002: "minimize likelihood of file-source-misclassification — .md/.txt/.yaml/.yml/.json yields type=file SourceItem"
+  E003: "minimize likelihood of rich-doc-extraction-attempt — .pdf yields type=rich_doc with path only, no extraction"
+  E004: "minimize likelihood of codebase-source-misclassification — directory/. yields type=codebase SourceItem"
+  E005: "minimize likelihood of silent-exit-with-no-positional-args — no sources prints help and exits 2"
+  C001: "minimize likelihood of invalid-json-summary-output — --json emits stderr JSON with sources+brief_out only"
+  C002: "minimize likelihood of forbidden-import-in-plan-module — AST scan confirms no git/gh/coach/issue imports"

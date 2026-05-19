@@ -1,0 +1,49 @@
+urn: "wmbt:define-plans:E005"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-20
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "silent-exit-with-no-positional-args"
+context_clarifier: "when `atdd plan` is invoked with no positional sources and no --text flag the command must print argparse help to stdout and exit with code 2 to prevent a silent no-op"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of silent-exit-with-no-positional-args when atdd plan is invoked with no sources by printing help and exiting with code 2"
+acceptances:
+  - identity:
+      urn: "acc:define-plans:E005-UNIT-001-no-args-exits-2"
+      id: "AC-UNIT-001"
+      purpose: "`atdd plan` with no arguments exits with code 2 and prints help text to stdout"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd plan command is invoked via subprocess or sys.argv=['atdd', 'plan']"
+    when:
+      abstract: "The command runs to completion with no sources provided"
+    then:
+      abstract:
+        - "Process exit code == 2"
+        - "stdout or stderr contains 'usage:' or 'atdd plan'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:define-plans:E005-UNIT-002-text-only-is-not-no-args"
+      id: "AC-UNIT-002"
+      purpose: "`atdd plan --text \"x\"` does NOT exit 2 — a text source counts as a valid input"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd plan command is invoked with ['--text', 'x'] only"
+    when:
+      abstract: "The command parses arguments"
+    then:
+      abstract:
+        - "The command does NOT exit with code 2"
+        - "The text source 'x' is recognised and passed to the downstream handler"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"

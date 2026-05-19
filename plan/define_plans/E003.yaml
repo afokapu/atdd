@@ -1,0 +1,51 @@
+urn: "wmbt:define-plans:E003"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-20
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "rich-doc-extraction-attempt"
+context_clarifier: "when `atdd plan docs/brief.pdf` is invoked the source must be classified as type=rich_doc with the path captured — no Python text extraction is run and no PDF library is imported anywhere in the plan.py module or its transitive imports"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of rich-doc-extraction-attempt when atdd plan receives a .pdf positional arg by classifying it as a rich_doc SourceItem with only the path captured"
+acceptances:
+  - identity:
+      urn: "acc:define-plans:E003-UNIT-001-pdf-classifies-as-rich-doc"
+      id: "AC-UNIT-001"
+      purpose: "`atdd plan docs/brief.pdf` produces a SourceItem with type=rich_doc and path='docs/brief.pdf'"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "parse_args(['docs/brief.pdf']) is called"
+        - "docs/brief.pdf does not need to exist on disk"
+    when:
+      abstract: "The positional argument is classified"
+    then:
+      abstract:
+        - "Exactly one SourceItem is produced"
+        - "SourceItem.type == 'rich_doc'"
+        - "SourceItem.path == 'docs/brief.pdf'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:define-plans:E003-UNIT-002-plan-module-has-no-pdf-import"
+      id: "AC-UNIT-002"
+      purpose: "AST scan of plan.py shows no import of pdf, pdfminer, pypdf, PyPDF2, pdfplumber or any pdf-extraction library"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/planner/commands/plan.py exists and is parseable by ast.parse()"
+    when:
+      abstract: "All import and importfrom nodes are collected from the AST"
+    then:
+      abstract:
+        - "None of the collected module names contains 'pdf' (case-insensitive)"
+        - "No subprocess call opens a pdf-extraction binary"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
