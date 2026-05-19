@@ -1107,7 +1107,7 @@ sessions:
   file: null
   issue_number: 795
   type: implementation
-  status: GREEN
+  status: REFACTOR
   created: '2026-05-20'
   archived: null
   wagon: spawn-agents
