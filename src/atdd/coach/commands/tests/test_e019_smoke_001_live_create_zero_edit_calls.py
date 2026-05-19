@@ -7,9 +7,6 @@
 AC-SMOKE-001: On the live #792 branch, the create_new_issue path results in zero
 gh issue edit calls for body replacement. Exercised via ATDD_DRY_RUN=1 so no
 real GitHub issue is filed.
-
-RED state: IssueBodyChecker and create_new_issue (with dry-run + compliance gate)
-do not yet exist. This test must fail until GREEN.
 """
 from __future__ import annotations
 
@@ -17,6 +14,8 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 
 def _repo_root() -> Path:
@@ -31,6 +30,7 @@ def _src_path() -> str:
     return str(_repo_root() / "src")
 
 
+@pytest.mark.smoke
 def test_dry_run_issue_create_reports_single_action():
     """atdd issue <slug> --dry-run reports a single create action with no body-edit step."""
     root = _repo_root()
@@ -58,6 +58,7 @@ def test_dry_run_issue_create_reports_single_action():
     )
 
 
+@pytest.mark.smoke
 def test_dry_run_output_contains_validated_body_not_placeholder():
     """dry-run output shows the validated body, not the scaffold placeholder."""
     root = _repo_root()
