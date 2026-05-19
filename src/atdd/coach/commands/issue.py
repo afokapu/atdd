@@ -859,13 +859,14 @@ class IssueManager:
         slug: str,
         train: Optional[str] = None,
     ) -> None:
-        """Register a newly published issue in the local .atdd/manifest.yaml."""
+        """Register a newly published issue in the local .atdd/manifest.yaml and commit atomically."""
         if not self.manifest_file.exists():
             return
         manifest = self._load_manifest()
         issues = manifest.setdefault("issues", {})
         issues[str(issue_number)] = {"slug": slug, "train": train}
         self._save_manifest(manifest)
+        self._commit_manifest_change("atdd issue", f"Add issue #{issue_number} ({slug})")
 
     def create_new_issue(
         self,
@@ -888,7 +889,7 @@ class IssueManager:
         try:
             config = self._load_config()
             github_config = config["github"]
-        except Exception as exc:
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             print(f"Error: config load failed: {exc}")
             return 1
 
@@ -912,7 +913,7 @@ class IssueManager:
 
         try:
             client = self._build_github_client(github_config)
-        except GitHubClientError as exc:
+        except GitHubClientError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             print(f"Error: GitHub integration failed: {exc}")
             return 1
 
@@ -932,7 +933,6 @@ class IssueManager:
             pass
 
         self._register_issue_in_manifest(parent_number, slug, train)
-        self._commit_manifest_change("atdd issue", f"Add issue #{parent_number} ({slug})")
 
         wmbts = self._discover_wmbts(slug)
         if wmbts:
