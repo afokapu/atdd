@@ -37,6 +37,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -142,6 +143,7 @@ class Config:
     resume: Optional[str] = None
     dry_run: bool = False
     stale_warn_minutes: Optional[int] = None
+    no_progress_ttl: Optional[int] = None
 
 
 @dataclass
@@ -295,6 +297,17 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="MINUTES",
         help="Emit INFO escalation after MINUTES of no watcher events.",
     )
+    parser.add_argument(
+        "--no-progress-ttl",
+        type=int,
+        default=None,
+        dest="no_progress_ttl",
+        metavar="MINUTES",
+        help=(
+            "Self-terminate after MINUTES of no phase advance (zombie guard, #724). "
+            "Escalates to --escalation-channel before exiting."
+        ),
+    )
     return parser
 
 
@@ -319,6 +332,7 @@ def parse_cli(argv: list[str]) -> Config:
         resume=ns.resume,
         dry_run=ns.dry_run,
         stale_warn_minutes=ns.stale_warn_minutes,
+        no_progress_ttl=ns.no_progress_ttl,
     )
 
 
@@ -436,6 +450,25 @@ def _write_escalation(escalation_channel: Optional[str], message: str) -> None:
             print(f"[coach:escalation] write failed ({exc}): {message}", file=sys.stderr)
     else:
         print(f"[coach:escalation] {message}", file=sys.stderr)
+
+
+def _check_no_progress_ttl(
+    last_advance_at: float,
+    no_progress_ttl_seconds: int,
+    escalation_channel: Optional[str],
+    issue_number: int,
+    current_phase: Phase,
+) -> bool:
+    """Return True and escalate if elapsed time since last phase advance exceeds the TTL."""
+    elapsed = time.monotonic() - last_advance_at
+    if elapsed <= no_progress_ttl_seconds:
+        return False
+    _write_escalation(
+        escalation_channel,
+        f"#{issue_number}: no progress for {int(elapsed)}s (TTL {no_progress_ttl_seconds}s) "
+        f"at phase {current_phase.value}; self-terminating",
+    )
+    return True
 
 
 def _try_emit_telemetry(issue: int, from_phase: Phase, to_phase: Phase) -> None:
@@ -624,106 +657,123 @@ def _drive_single_issue(
     from atdd.coach.handlers import spawn as spawn_handler, two_phase_commit as tpc_handler
     from atdd.coach.handlers.state_machine import HandlerResult, Transition
     from atdd.coach.commands.durability import DecisionWriter, transactional_decision
+    from atdd.coach.utils.coach_lock import CoachAlreadyRunning, CoachLock
 
     spawn_h = _spawn_func or spawn_handler.handle
     two_phase_h = _two_phase_func or tpc_handler.handle
 
-    coach_run_id = f"coach-run-{sm.issue_number}-{uuid.uuid4().hex[:8]}"
-    if _run_id_sink is not None:
-        _run_id_sink.append(coach_run_id)
+    # --- Single-instance guard (E011, issue #724) ---
+    _lock = CoachLock(runtime_dir, issue_number=sm.issue_number)
+    try:
+        _lock.acquire()
+    except CoachAlreadyRunning as exc:
+        _logger.warning("coach already running for #%d: %s", sm.issue_number, exc,
+                        extra={"issue": sm.issue_number})
+        print(f"❌ #{sm.issue_number}: {exc}", file=sys.stderr)
+        _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: {exc}")
+        return 1
 
-    ctx = _make_coach_context(cfg, sm.issue_number, coach_run_id, runtime_dir)
+    try:
+        coach_run_id = f"coach-run-{sm.issue_number}-{uuid.uuid4().hex[:8]}"
+        if _run_id_sink is not None:
+            _run_id_sink.append(coach_run_id)
 
-    writer = DecisionWriter(runtime_dir=runtime_dir)
+        ctx = _make_coach_context(cfg, sm.issue_number, coach_run_id, runtime_dir)
 
-    # --- Step 1: Write INIT→PLANNED decision (durability before action, R4) ---
-    init_record = _make_phase_transition_record(coach_run_id, sm.issue_number, Phase.INIT, Phase.PLANNED)
-    with transactional_decision(writer, init_record):
-        pass  # decision is written by the CM; no blocking action here
+        writer = DecisionWriter(runtime_dir=runtime_dir)
 
-    # --- Step 1.5: Ensure the issue's git worktree exists (cold-start) ---
-    # The spawn handler resolves a worktree *path* but never creates the
-    # worktree. Without this, the planner is dispatched into a bare non-git
-    # directory and its commits land on protected `main` (2026-05-16 incident).
-    if not cfg.dry_run:
-        worktree = _ensure_issue_worktree(ctx)
-        if worktree is None:
+        # --- Step 1: Write INIT→PLANNED decision (durability before action, R4) ---
+        init_record = _make_phase_transition_record(coach_run_id, sm.issue_number, Phase.INIT, Phase.PLANNED)
+        with transactional_decision(writer, init_record):
+            pass  # decision is written by the CM; no blocking action here
+
+        # --- Step 1.5: Ensure the issue's git worktree exists (cold-start) ---
+        # The spawn handler resolves a worktree *path* but never creates the
+        # worktree. Without this, the planner is dispatched into a bare non-git
+        # directory and its commits land on protected `main` (2026-05-16 incident).
+        if not cfg.dry_run:
+            worktree = _ensure_issue_worktree(ctx)
+            if worktree is None:
+                _logger.error(
+                    "coach cold-start worktree creation failed",
+                    extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
+                )
+                _write_escalation(
+                    cfg.escalation_channel,
+                    f"#{sm.issue_number}: worktree creation failed at INIT→PLANNED",
+                )
+                sm.history.append(sm.phase)
+                sm.phase = Phase.BLOCKED
+                return 1
+
+        # --- Step 2: Spawn planner (K1) ---
+        spawn_result = spawn_h(ctx, Transition(Phase.INIT, Phase.PLANNED))
+        if spawn_result == HandlerResult.ERROR:
             _logger.error(
-                "coach cold-start worktree creation failed",
+                "coach cold-start spawn failed",
                 extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
             )
-            _write_escalation(
-                cfg.escalation_channel,
-                f"#{sm.issue_number}: worktree creation failed at INIT→PLANNED",
-            )
+            _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: spawn failed at INIT→PLANNED")
             sm.history.append(sm.phase)
             sm.phase = Phase.BLOCKED
             return 1
 
-    # --- Step 2: Spawn planner (K1) ---
-    spawn_result = spawn_h(ctx, Transition(Phase.INIT, Phase.PLANNED))
-    if spawn_result == HandlerResult.ERROR:
-        _logger.error(
-            "coach cold-start spawn failed",
+        # --- Step 3: Advance SM INIT → PLANNED ---
+        sm.history.append(sm.phase)
+        sm.phase = Phase.PLANNED
+        _logger.info(
+            "coach cold-start advance",
             extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
         )
-        _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: spawn failed at INIT→PLANNED")
-        sm.history.append(sm.phase)
-        sm.phase = Phase.BLOCKED
-        return 1
+        _try_emit_telemetry(sm.issue_number, Phase.INIT, Phase.PLANNED)
 
-    # --- Step 3: Advance SM INIT → PLANNED ---
-    sm.history.append(sm.phase)
-    sm.phase = Phase.PLANNED
-    _logger.info(
-        "coach cold-start advance",
-        extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
-    )
-    _try_emit_telemetry(sm.issue_number, Phase.INIT, Phase.PLANNED)
+        # --- Step 4: Event-driven loop ---
+        if _injected_events is not None:
+            _process_injected_events(ctx, sm, _injected_events, writer, spawn_h)
+        elif _max_loop_events == 0:
+            pass  # test seam: skip event loop entirely
+        else:
+            ttl_secs = cfg.no_progress_ttl * 60 if cfg.no_progress_ttl else None
+            _process_watcher_events(ctx, sm, runtime_dir, cfg, writer, spawn_h,
+                                    max_events=_max_loop_events,
+                                    no_progress_ttl_seconds=ttl_secs)
 
-    # --- Step 4: Event-driven loop ---
-    if _injected_events is not None:
-        _process_injected_events(ctx, sm, _injected_events, writer, spawn_h)
-    elif _max_loop_events == 0:
-        pass  # test seam: skip event loop entirely
-    else:
-        _process_watcher_events(ctx, sm, runtime_dir, cfg, writer, spawn_h,
-                                max_events=_max_loop_events)
-
-    # --- Step 5: Handle terminal states ---
-    if sm.phase == Phase.BLOCKED:
-        return 1
-
-    if sm.phase == Phase.REFACTOR and not cfg.auto_merge:
-        # R5: stop at REFACTOR when auto-merge is off; escalate for operator review
-        msg = (
-            f"#{sm.issue_number} reached REFACTOR. "
-            f"Run: atdd coach {sm.issue_number} --auto-merge to proceed."
-        )
-        _write_escalation(cfg.escalation_channel, msg)
-        _logger.info(
-            "coach REFACTOR escalated",
-            extra={"issue": sm.issue_number, "phase": "REFACTOR", "trigger": "escalate-no-auto-merge"},
-        )
-        return 0
-
-    if sm.phase == Phase.COMPLETE:
-        t_complete = Transition(Phase.COMPLETE, Phase.MERGED)
-        result = two_phase_h(ctx, t_complete)
-        if result == HandlerResult.HANDLED:
-            sm.history.append(sm.phase)
-            sm.phase = Phase.MERGED
-            _logger.info(
-                "coach auto-merge advance",
-                extra={"issue": sm.issue_number, "phase": "COMPLETE→MERGED", "trigger": "auto-merge"},
-            )
-            _try_emit_telemetry(sm.issue_number, Phase.COMPLETE, Phase.MERGED)
-        elif result == HandlerResult.ERROR:
-            _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: two-phase commit failed")
+        # --- Step 5: Handle terminal states ---
+        if sm.phase == Phase.BLOCKED:
             return 1
-        # NOOP → no auto-merge; COMPLETE persists pending operator action
 
-    return 0
+        if sm.phase == Phase.REFACTOR and not cfg.auto_merge:
+            # R5: stop at REFACTOR when auto-merge is off; escalate for operator review
+            msg = (
+                f"#{sm.issue_number} reached REFACTOR. "
+                f"Run: atdd coach {sm.issue_number} --auto-merge to proceed."
+            )
+            _write_escalation(cfg.escalation_channel, msg)
+            _logger.info(
+                "coach REFACTOR escalated",
+                extra={"issue": sm.issue_number, "phase": "REFACTOR", "trigger": "escalate-no-auto-merge"},
+            )
+            return 0
+
+        if sm.phase == Phase.COMPLETE:
+            t_complete = Transition(Phase.COMPLETE, Phase.MERGED)
+            result = two_phase_h(ctx, t_complete)
+            if result == HandlerResult.HANDLED:
+                sm.history.append(sm.phase)
+                sm.phase = Phase.MERGED
+                _logger.info(
+                    "coach auto-merge advance",
+                    extra={"issue": sm.issue_number, "phase": "COMPLETE→MERGED", "trigger": "auto-merge"},
+                )
+                _try_emit_telemetry(sm.issue_number, Phase.COMPLETE, Phase.MERGED)
+            elif result == HandlerResult.ERROR:
+                _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: two-phase commit failed")
+                return 1
+            # NOOP → no auto-merge; COMPLETE persists pending operator action
+
+        return 0
+    finally:
+        _lock.release()
 
 
 def _process_injected_events(
@@ -801,6 +851,7 @@ def _process_watcher_events(
     spawn_h: Callable,
     *,
     max_events: Optional[int] = None,
+    no_progress_ttl_seconds: Optional[int] = None,
 ) -> None:
     """Block on WatcherEventLoop until SM reaches a terminal state (production path)."""
     from atdd.coach.commands.event_queue import CoachEventQueue
@@ -823,6 +874,7 @@ def _process_watcher_events(
     watcher.baseline()
     watcher.start()
     events_processed = 0
+    last_advance_at = time.monotonic()
 
     try:
         while sm.phase not in (Phase.COMPLETE, Phase.MERGED, Phase.BLOCKED):
@@ -830,6 +882,15 @@ def _process_watcher_events(
                 break
             event = queue.get(timeout=5.0)
             if event is None:
+                # Idle tick — check no-progress TTL (E011, issue #724).
+                if no_progress_ttl_seconds and _check_no_progress_ttl(
+                    last_advance_at,
+                    no_progress_ttl_seconds,
+                    cfg.escalation_channel,
+                    ctx.issue_number,
+                    sm.phase,
+                ):
+                    break
                 continue
             events_processed += 1
             t = _cold_start_proposed_transition(sm, event)
@@ -842,6 +903,7 @@ def _process_watcher_events(
                 pass
             sm.history.append(sm.phase)
             sm.phase = t.dst
+            last_advance_at = time.monotonic()
             _logger.info(
                 "coach watcher event advance",
                 extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}",
