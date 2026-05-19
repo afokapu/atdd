@@ -1,0 +1,50 @@
+# Portable agent behavioral rules — enforced subset of memory rules.
+# Loaded by `atdd gate` and injected into gate output for any LLM agent.
+# Source of truth: in-repo (not per-user ~/.claude/memory/).
+# E015: minimize agent-behavioral-rules visible only in per-user memory (#657).
+#
+# Classification key:
+#   enforceable  — mechanically checked by a validator, hook, or CLI guard
+#   partial      — checked at entry point but cannot cover all surfaces
+#   soft-only    — requires human judgment; no automated check possible
+
+rules:
+  - id: "AR-001"
+    rule: "Never pass --dangerously-skip-permissions to the Claude CLI at spawn time"
+    classification: enforceable
+    enforcement: "SpawnPermissionViolation raised in atdd.coach.commands.spawn.cmd_spawn (E014)"
+
+  - id: "AR-002"
+    rule: "Run gh issue list --search before filing a new issue to avoid duplicates"
+    classification: enforceable
+    enforcement: "dup_check_before_file() called in IssueManager.new() (E013); bypass with --no-dup-check"
+
+  - id: "AR-003"
+    rule: "Commit after every completed sub-task; never accumulate more than 5 modified files without committing"
+    classification: partial
+    enforcement: "Advisory warning in claude-pre-tool-use.sh hook when >5 files modified since last commit"
+
+  - id: "AR-004"
+    rule: "Use --worktree flag for per-worktree git config; never run bare git config in a worktree"
+    classification: enforceable
+    enforcement: "pre-push hook Layer 1 guard detects core.bare contamination (Y003/Y002)"
+
+  - id: "AR-005"
+    rule: "All issue and PR operations must go through the atdd CLI, not direct gh commands"
+    classification: partial
+    enforcement: "Forbidden-commands classifier in atdd.coach.validators.test_forbidden_commands (E006)"
+
+  - id: "AR-006"
+    rule: "Do NOT commit anything under .atdd/runtime/ — it is gitignored for a reason"
+    classification: enforceable
+    enforcement: "coach.pr.runtime-artifacts-blocked validator in atdd validate coach (E009)"
+
+  - id: "AR-007"
+    rule: "Do NOT add 'Co-Authored-By: Claude <noreply@anthropic.com>' to commits in this repo"
+    classification: soft-only
+    enforcement: "Documented in CLAUDE.md git.commits.co_authored=false; no automated check"
+
+  - id: "AR-008"
+    rule: "Run atdd gate before starting work on any issue; confirm loaded files and hash"
+    classification: soft-only
+    enforcement: "Protocol documented in CLAUDE.md ATDD Bootstrap Protocol; no automated check"

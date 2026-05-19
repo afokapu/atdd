@@ -1,0 +1,29 @@
+urn: "feature:govern-lifecycle:agent-behavior-rules-enforcement"
+wagon: "wagon:govern-lifecycle"
+description: "Lifts enforceable agent behavioral rules from per-user memory into the repo as validators, CLI guards, and a portable rules file. Addresses 4 violation classes from the 2026-05-13 session: dup-filing, permission bypass, missing graph context (covered by #651), and rules not surviving across machines/agents."
+sizing:
+  wmbts: 3
+  footprint_score: 4
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E013"
+  - "wmbt:govern-lifecycle:E014"
+  - "wmbt:govern-lifecycle:E015"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface; guards are injected into existing atdd issue and atdd spawn entry points"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "dup_check_before_file (slug similarity search), bypass_permissions_guard (spawn arg rejection), portable_rules_gate_injection (load .atdd/agent-rules.yaml and append to gate output)"
+    domain:
+      - type: "entities"
+        count: 1
+        rationale: "AgentRulesFile entity: loads, validates, and serialises .atdd/agent-rules.yaml; provides typed rule list for gate injection"
+    integration:
+      - type: "repositories"
+        count: 2
+        rationale: "gh CLI wrapper for issue search (dup-check) and agent-rules.yaml file I/O"

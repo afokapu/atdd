@@ -821,6 +821,12 @@ Phase descriptions:
         dest="no_branch",
         help="Skip automatic worktree creation on issue creation (bare issue-only mode)"
     )
+    issue_parser.add_argument(
+        "--no-dup-check",
+        action="store_true",
+        dest="no_dup_check",
+        help="Skip duplicate-issue search before filing (use when you have already verified uniqueness)"
+    )
     # ----- atdd issue review <N> [--passes ...] [--llms ...] (#508) -----
     issue_parser.add_argument(
         "--passes",
@@ -2071,6 +2077,7 @@ Phase descriptions:
                 archetypes=getattr(args, 'archetypes', None),
                 no_branch=getattr(args, 'no_branch', False),
                 force=getattr(args, 'force', False),
+                no_dup_check=getattr(args, 'no_dup_check', False),
             )
 
         # Mutations or enter

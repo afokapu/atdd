@@ -108,6 +108,37 @@ ARCHETYPE_GATES = {
 }
 
 
+def dup_check_before_file(
+    slug: str,
+    run_gh=None,
+) -> list:
+    """Search GitHub for open issues matching the slug before filing a new one.
+
+    Returns a list of dicts with 'number' and 'title' for each match.
+    run_gh is injectable for unit tests; defaults to real subprocess call.
+
+    E013: minimize issues filed without dup-check (#657).
+    """
+    if run_gh is None:
+        def run_gh(s):
+            words = s.replace("-", " ")
+            return subprocess.run(
+                ["gh", "issue", "list", "--search", words, "--state", "open",
+                 "--json", "number,title,state", "--limit", "10"],
+                capture_output=True,
+                text=True,
+            )
+
+    try:
+        result = run_gh(slug)
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+        issues = json.loads(result.stdout)
+        return [{"number": i["number"], "title": i["title"]} for i in issues]
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return []
+
+
 class IssueManager:
     """Manage ATDD issues via GitHub Issues and Projects v2."""
 
@@ -771,6 +802,7 @@ class IssueManager:
         train: Optional[str] = None,
         archetypes: Optional[str] = None,
         allow_main_commit: bool = False,
+        no_dup_check: bool = False,
     ) -> int:
         """
         Create new issue.
@@ -782,6 +814,7 @@ class IssueManager:
             issue_type: Type of issue (implementation, migration, etc.).
             train: Optional train ID to assign to the issue.
             archetypes: Optional comma-separated archetype IDs (e.g., "be,contracts,wmbt").
+            no_dup_check: Skip duplicate-check search (use when you've already verified uniqueness).
 
         Returns:
             0 on success, 1 on error.
@@ -800,6 +833,16 @@ class IssueManager:
         if not slug:
             print("Error: Invalid slug - results in empty string")
             return 1
+
+        # E013: dup-check before filing (#657)
+        if not no_dup_check:
+            matches = dup_check_before_file(slug)
+            if matches:
+                print(f"Warning: Found {len(matches)} potentially duplicate issue(s) for '{slug}':")
+                for m in matches:
+                    print(f"  #{m['number']}: {m['title']}")
+                print("To file anyway, pass --no-dup-check to bypass this check.")
+                return 1
 
         return self._new_github_issue(
             slug, issue_type, train=train, archetypes=archetypes,
