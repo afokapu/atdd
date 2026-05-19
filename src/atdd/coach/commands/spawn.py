@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
 import sys
 from pathlib import Path
@@ -66,6 +67,23 @@ PERSONAS: tuple[str, ...] = ("planner", "tester", "coder", "reviewer")
 # ---------------------------------------------------------------------------
 
 
+class AdapterError(RuntimeError):
+    """Raised by _require_env when a required env var is absent."""
+
+
+def _require_env(var_name: str, adapter_id: str) -> str:
+    """Return the value of ``var_name`` or raise AdapterError.
+
+    Callers: each non-default adapter calls this at the top of its body so
+    a missing credential fails loudly before any multiplexer surface is
+    created.
+    """
+    value = os.environ.get(var_name)
+    if not value:
+        raise AdapterError(f"{adapter_id}: missing ${var_name}")
+    return value
+
+
 def _claude_code_adapter(prompt_path: Path) -> str:
     """Spec §5.2: shell out to ``claude`` to start an interactive session.
 
@@ -91,10 +109,66 @@ def _claude_code_adapter(prompt_path: Path) -> str:
     )
 
 
+def _claude_glm_adapter(prompt_path: Path) -> str:
+    """Adapter for claude-glm via z.ai endpoint (requires Z_AI_API_KEY).
+
+    Prompt is injected post-boot (same pattern as claude-code — the
+    --model flag routes to z.ai's GLM-5.1 model via the Claude CLI's
+    custom-endpoint support).
+    """
+    _ = prompt_path  # injected post-boot, not via argv
+    _require_env("Z_AI_API_KEY", "claude-glm")
+    allowed_tools = "Bash Edit Write Read TodoWrite Glob Grep WebFetch"
+    return (
+        f'claude --model glm-5.1 --permission-mode acceptEdits '
+        f'--allowedTools "{allowed_tools}"'
+    )
+
+
+def _claude_gpt_adapter(prompt_path: Path) -> str:
+    """Adapter for claude-gpt via OpenRouter (requires OPENROUTER_API_KEY).
+
+    Prompt is injected post-boot. The --model flag routes through the
+    Claude CLI's OpenRouter endpoint to GPT-5.5.
+    """
+    _ = prompt_path  # injected post-boot, not via argv
+    _require_env("OPENROUTER_API_KEY", "claude-gpt")
+    allowed_tools = "Bash Edit Write Read TodoWrite Glob Grep WebFetch"
+    return (
+        f'claude --model gpt-5.5 --permission-mode acceptEdits '
+        f'--allowedTools "{allowed_tools}"'
+    )
+
+
+def _codex_adapter(prompt_path: Path) -> str:
+    """Adapter for the OpenAI Codex CLI (requires OPENAI_API_KEY).
+
+    Uses --prompt-file to consume the rendered launch prompt by path,
+    consistent with gemini and avoiding shell-quoting edge cases with
+    multi-line prompts.
+    """
+    _require_env("OPENAI_API_KEY", "codex")
+    return f"codex exec --prompt-file {shlex.quote(str(prompt_path))}"
+
+
+def _gemini_adapter(prompt_path: Path) -> str:
+    """Adapter for the Google Gemini CLI (requires GOOGLE_API_KEY).
+
+    Uses --prompt-file to consume the rendered launch prompt by path,
+    consistent with codex.
+    """
+    _require_env("GOOGLE_API_KEY", "gemini")
+    return f"gemini generate --prompt-file {shlex.quote(str(prompt_path))}"
+
+
 # Open extension point — codex / gemini / glm follow-up issues register
 # their adapters here without editing this module's CLI surface.
 ADAPTER_REGISTRY: dict[str, Callable[[Path], str]] = {
     "claude-code": _claude_code_adapter,
+    "claude-glm": _claude_glm_adapter,
+    "claude-gpt": _claude_gpt_adapter,
+    "codex": _codex_adapter,
+    "gemini": _gemini_adapter,
 }
 
 

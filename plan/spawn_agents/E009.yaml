@@ -1,0 +1,145 @@
+urn: "wmbt:spawn-agents:E009"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "atdd-spawn-llm-ids-that-resolve-to-no-registered-adapter-or-fail-silently-on-missing-credentials"
+context_clarifier: "when an operator selects a non-default LLM from the interactive model-selection prompt introduced by E008, the ADAPTER_REGISTRY in spawn.py contains only 'claude-code', so every other choice (claude-glm, claude-gpt, codex, gemini) raises a KeyError or 'unknown adapter' error with no guidance; the fix is to register four additional adapters — claude-glm (requires Z_AI_API_KEY), claude-gpt (requires OPENROUTER_API_KEY), codex (requires OPENAI_API_KEY), gemini (requires GOOGLE_API_KEY) — each with a _require_env preflight that raises AdapterError naming the missing variable before spawning any multiplexer surface, so operators get a clear diagnostic rather than a broken or empty session (issue #699, Wave A of #602)"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of atdd-spawn-llm-ids-that-resolve-to-no-registered-adapter-or-fail-silently-on-missing-credentials when an operator picks claude-glm, claude-gpt, codex, or gemini from the spawn-time model prompt — by registering all four adapters in ADAPTER_REGISTRY with _require_env preflight that raises AdapterError naming the missing env var (Z_AI_API_KEY / OPENROUTER_API_KEY / OPENAI_API_KEY / GOOGLE_API_KEY) and by returning a non-empty shell command string for each adapter when credentials are present"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E009-UNIT-001-require-env-raises-adapter-error-on-missing-var"
+      id: "AC-UNIT-001"
+      purpose: "_require_env raises AdapterError naming the missing variable when the env var is absent from the environment"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py exposes _require_env(var_name: str, adapter_id: str) and AdapterError"
+        - "The environment does not contain the named variable"
+    when:
+      abstract: "_require_env('GOOGLE_API_KEY', 'gemini') is called"
+    then:
+      abstract:
+        - "AdapterError is raised"
+        - "The exception message contains 'gemini' and 'GOOGLE_API_KEY'"
+        - "The exception message matches the pattern: '<adapter_id>: missing $<var_name>'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E009-UNIT-002-all-four-adapters-raise-on-missing-credentials"
+      id: "AC-UNIT-002"
+      purpose: "Each of the four new adapter functions raises AdapterError naming its required env var when that var is absent"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py exposes _claude_glm_adapter, _claude_gpt_adapter, _codex_adapter, _gemini_adapter"
+        - "The environment does not contain Z_AI_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY respectively"
+        - "A dummy prompt_path (tmp_path / 'prompt.txt') is passed to each adapter"
+    when:
+      abstract: "Each adapter is invoked with the dummy prompt_path and its required env var absent"
+    then:
+      abstract:
+        - "_claude_glm_adapter raises AdapterError mentioning 'Z_AI_API_KEY'"
+        - "_claude_gpt_adapter raises AdapterError mentioning 'OPENROUTER_API_KEY'"
+        - "_codex_adapter raises AdapterError mentioning 'OPENAI_API_KEY'"
+        - "_gemini_adapter raises AdapterError mentioning 'GOOGLE_API_KEY'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E009-UNIT-003-each-adapter-returns-non-empty-command-with-prompt-path"
+      id: "AC-UNIT-003"
+      purpose: "When the required env var is present each adapter returns a non-empty string command that references the prompt-file path"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py exposes all four new adapter functions"
+        - "The required env vars are present in the environment (monkeypatched or set)"
+        - "A dummy prompt_path (tmp_path / 'prompt.txt') is passed to each adapter"
+    when:
+      abstract: "Each adapter is called with the dummy prompt_path and its env var present"
+    then:
+      abstract:
+        - "The returned string is non-empty for all four adapters"
+        - "The returned string contains the str(prompt_path) for adapters that consume the file by path (codex, gemini)"
+        - "No adapter raises AdapterError when credentials are present"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E009-UNIT-004-adapter-registry-has-five-entries"
+      id: "AC-UNIT-004"
+      purpose: "After the change ADAPTER_REGISTRY contains exactly five entries: claude-code, claude-glm, claude-gpt, codex, gemini"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py is imported"
+        - "ADAPTER_REGISTRY is a module-level dict"
+    when:
+      abstract: "ADAPTER_REGISTRY.keys() is inspected"
+    then:
+      abstract:
+        - "The registry contains exactly 5 keys: {'claude-code', 'claude-glm', 'claude-gpt', 'codex', 'gemini'}"
+        - "All five values are callable"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E009-INTEGRATION-001-spawn-cli-resolves-new-adapter-ids"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd spawn --llm <new-id> resolves to the corresponding adapter without ImportError or 'unknown adapter' error when credentials are present"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer is bound via _resolve_multiplexer monkeypatch"
+        - "Required env vars are present for the adapter under test"
+        - "A dummy prompt_path exists on disk"
+    when:
+      abstract: "cmd_spawn is called with --llm set to each of the four new adapter ids"
+    then:
+      abstract:
+        - "No KeyError or AdapterError is raised (credentials are present)"
+        - "The fake multiplexer receives a non-empty command string for each adapter id"
+        - "The command differs per adapter id — each adapter produces its own distinct command shape"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E009-SMOKE-001-missing-env-var-produces-clear-adapter-error"
+      id: "AC-SMOKE-001"
+      purpose: "Each non-default adapter invoked without its required env var raises AdapterError naming the missing variable — verified against the real spawn path with env var deliberately absent"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The real spawn.py module is imported (no mocking)"
+        - "The target env var is absent from os.environ (patched out)"
+        - "A dummy prompt_path is passed"
+    when:
+      abstract: "Each of the four new adapters is called directly with its env var absent"
+    then:
+      abstract:
+        - "AdapterError is raised for each adapter"
+        - "The error message names the missing env var"
+        - "No multiplexer surface is created — the error fires before any side-effect"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"
