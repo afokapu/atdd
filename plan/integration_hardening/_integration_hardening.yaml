@@ -17,6 +17,7 @@ features:
   - urn: "feature:integration-hardening:coach-resume-wiring"
   - urn: "feature:integration-hardening:pre-push-version-gate-never-auto-upgrades"
   - urn: "feature:integration-hardening:upgrade-messaging-install-method-aware"
+  - urn: "feature:integration-hardening:init-hookspath-worktree-isolation"
 
 produce:
   - name: commons:coach:spawn-wiring
@@ -91,7 +92,7 @@ consume:
     from: wagon:integrate-end-to-end
 
 wmbt:
-  total: 30
+  total: 31
   K001: "minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine"
   D001: "minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries"
   D002: "minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path"
@@ -122,3 +123,4 @@ wmbt:
   E009: "minimize quantity of resume-driver-phase-transitions-recorded-without-dispatching-orchestration when atdd coach --resume <RUN_ID> walks a reconstructed issue — wiring a real transition_action into ResumeRunner and failing loudly when it is absent (#734, resume-path analog of E002/#645)"
   Y004: "minimize quantity of git-hooks-that-run-pip-install-during-push by stripping auto_upgrade() from _gate_main so the version gate only checks and exits 1 with a message telling the user to run 'atdd upgrade' then retry"
   Y005: "minimize quantity of upgrade-messages-that-hardcode-pip-install-for-pipx-and-editable-installs by adding detect_install_method() and upgrade_command() to version_check.py and replacing every hardcoded 'pip install --upgrade atdd' site with a call to upgrade_command()"
+  Y006: "minimize likelihood of atdd-init-force-writing-core-hookspath-to-shared-git-config-in-worktree by detecting linked-worktree condition and writing 'git config --worktree core.hooksPath' instead of the unscoped form (#793, Wave 12 contamination class, core.hooksPath danger key)"
