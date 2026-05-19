@@ -13,6 +13,8 @@ import json as json_module
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import yaml
+
 from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.utils.repo import detect_worktree_layout
 
@@ -38,6 +40,21 @@ class ATDDGate:
         self.syncer = AgentConfigSync(self.target_dir)
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
         self.issue_convention = self.package_root / "conventions" / "issue.convention.yaml"
+
+    def _load_agent_rules(self) -> Optional[list]:
+        """Load portable agent behavioral rules from .atdd/agent-rules.yaml.
+
+        Returns list of rule dicts, or None if the file does not exist.
+        E015: minimize agent-behavioral-rules visible only in per-user memory (#657).
+        """
+        rules_path = self.target_dir / ".atdd" / "agent-rules.yaml"
+        if not rules_path.exists():
+            return None
+        try:
+            data = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
+            return data.get("rules") if isinstance(data, dict) else None
+        except Exception:
+            return None
 
     def _load_issue_convention(self) -> Optional[str]:
         """
@@ -189,6 +206,19 @@ class ATDDGate:
         print("  atdd rules grep <pattern>       # search rule descriptions and aliases")
         print("\nRun these locally — no network needed. Call before committing to")
         print("catch URN grammar drift and broken references early.")
+
+        # E015: inject portable agent behavioral rules when .atdd/agent-rules.yaml exists (#657).
+        agent_rules = self._load_agent_rules()
+        if agent_rules:
+            print("\n" + "=" * 60)
+            print("Agent Behavioral Rules")
+            print("=" * 60)
+            print("(from .atdd/agent-rules.yaml — enforceable subset, LLM-agnostic)")
+            for rule in agent_rules:
+                rule_id = rule.get("id", "?")
+                rule_text = rule.get("rule", "")
+                classification = rule.get("classification", "")
+                print(f"  [{rule_id}] ({classification}) {rule_text}")
 
         print("\n" + "-" * 60)
         print("Before starting work, confirm you have loaded these rules.")

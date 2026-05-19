@@ -61,6 +61,27 @@ SPAWN_RULE_ID = "coach.spawn.atdd-spawn-cli"
 
 PERSONAS: tuple[str, ...] = ("planner", "tester", "coder", "reviewer")
 
+# E014: forbidden flags that must never appear in a spawn command (#657).
+_FORBIDDEN_SPAWN_FLAGS = ("--dangerously-skip-permissions",)
+
+
+class SpawnPermissionViolation(ValueError):
+    """Raised when a spawn adapter command contains a forbidden permission flag.
+
+    E014: minimize agent-spawn-commands-containing-dangerously-skip-permissions (#657).
+    """
+
+
+def _assert_no_forbidden_flags(command: str) -> None:
+    """Raise SpawnPermissionViolation if command contains any forbidden flag."""
+    for flag in _FORBIDDEN_SPAWN_FLAGS:
+        if flag in command:
+            raise SpawnPermissionViolation(
+                f"Forbidden flag detected in spawn command: {flag!r}. "
+                "Use '--permission-mode acceptEdits --allowedTools ...' instead. "
+                "See spawn.py permission policy doc. (#657)"
+            )
+
 
 # ---------------------------------------------------------------------------
 # Adapter registry — open extension point per acceptance E001-UNIT-002
@@ -549,6 +570,9 @@ def cmd_spawn(
 
     adapter = ADAPTER_REGISTRY[llm]
     command = adapter(prompt_path)
+
+    # E014: guard against forbidden permission flags before any dispatch (#657).
+    _assert_no_forbidden_flags(command)
 
     # #731 Phase 1: export the canonical ATDD_AGENT_ID into the persona
     # process environment. Applied here — after the per-LLM adapter — so the

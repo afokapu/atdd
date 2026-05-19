@@ -487,7 +487,8 @@ class IssueLifecycle:
 
     def create(self, slug: str, issue_type: str = "implementation",
                train: Optional[str] = None, archetypes: Optional[str] = None,
-               no_branch: bool = False, force: bool = False) -> int:
+               no_branch: bool = False, force: bool = False,
+               no_dup_check: bool = False) -> int:
         """Create a new issue, optionally chain to worktree creation, and enter at INIT.
 
         Delegates to IssueManager.new() for creation (slugify, template rendering,
@@ -523,6 +524,7 @@ class IssueLifecycle:
             train=train,
             archetypes=archetypes,
             allow_main_commit=True,
+            no_dup_check=no_dup_check,
         )
         if rc != 0:
             return rc
