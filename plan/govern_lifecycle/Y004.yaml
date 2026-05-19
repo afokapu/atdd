@@ -1,0 +1,52 @@
+urn: "wmbt:govern-lifecycle:Y004"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "pre-commit-drift-detection-silently-omits-notice"
+context_clarifier: "when a branch slug is absent from .atdd/manifest.yaml the pre-commit hook should emit a non-blocking drift notice directing the developer to run 'atdd issue reconcile' — if the notice is absent the developer has no self-heal path and silently commits without the manifest being updated"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of pre-commit-drift-detection-silently-omits-notice when the current branch slug is absent from the manifest by ensuring the hook exits 0 (non-blocking) and prints the drift notice referencing 'atdd issue reconcile' when the slug is missing, while exiting 0 silently when the slug is present"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:Y004-UNIT-001-pre-commit-drift-notice-non-blocking"
+      id: "AC-UNIT-001"
+      purpose: "The pre-commit hook exits 0 (non-blocking) and emits a reconcile hint when the branch slug is absent from the manifest"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A non-bare git repo initialised on a feature branch (not main)"
+        - "A manifest file exists but does NOT contain the branch slug"
+        - "A code file is staged for commit"
+    when:
+      abstract: "The pre-commit hook is executed via sh"
+    then:
+      abstract:
+        - "Hook exits 0 (non-blocking — never blocks developer)"
+        - "stderr contains 'reconcile' (the self-heal hint)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:Y004-SMOKE-001-pre-commit-template-has-drift-notice"
+      id: "AC-SMOKE-001"
+      purpose: "The installed pre-commit hook template references 'reconcile' so the drift notice is present in every repo that runs atdd init"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-commit hook template exists at src/atdd/coach/templates/hooks/pre-commit"
+    when:
+      abstract: "The template file is read"
+    then:
+      abstract:
+        - "The string 'reconcile' appears in the template content"
+        - "The template exits 0 for the unregistered-branch check (non-blocking)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"

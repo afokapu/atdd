@@ -1,0 +1,145 @@
+urn: "wmbt:govern-lifecycle:E012"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "manifest-registration-commits-blocked-on-main"
+context_clarifier: "atdd issue <slug> runs from the main worktree and commits only .atdd/manifest.yaml to register the new issue; the pre-commit hook unconditionally blocked all commits on main/master regardless of what was staged, so the registration commit was always rejected — the manifest entry was left uncommitted and silently lost on the next checkout or pull; additionally, issues already on GitHub but absent from the manifest (due to dropped stashes, atdd init --force, or manual resets) caused atdd branch <N> to error 'not found in manifest' with no self-heal path"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of manifest-registration-commits-blocked-on-main when atdd issue <slug> runs on the main worktree by (1) adding a staged-paths exception to the pre-commit hook that exits 0 when the staged set is exactly .atdd/manifest.yaml, (2) making BranchManager.branch() call _backfill_from_github() before erroring when the manifest entry is missing — fetching the issue via gh CLI, synthesising the sessions entry, and appending it — and (3) verifying the hook still blocks any commit on main touching any path other than the manifest alone"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E012-UNIT-001-pre-commit-allows-manifest-only-on-main"
+      id: "AC-UNIT-001"
+      purpose: "The pre-commit hook exits 0 on main when the staged set is exactly .atdd/manifest.yaml"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A non-bare git repo initialised on branch 'main' with a seed commit"
+        - "Only .atdd/manifest.yaml is staged"
+        - "ATDD_SKIP_MANIFEST_CHECK=1 is set to bypass the unregistered-branch check"
+    when:
+      abstract: "The pre-commit hook is executed via sh"
+    then:
+      abstract:
+        - "Hook exits 0 (allowed)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E012-UNIT-002-pre-commit-blocks-manifest-plus-code-on-main"
+      id: "AC-UNIT-002"
+      purpose: "The pre-commit hook exits 1 on main when staged includes .atdd/manifest.yaml AND another file"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A non-bare git repo initialised on branch 'main'"
+        - "Both .atdd/manifest.yaml and a code file are staged"
+        - "ATDD_SKIP_MANIFEST_CHECK=1 is set"
+    when:
+      abstract: "The pre-commit hook is executed via sh"
+    then:
+      abstract:
+        - "Hook exits 1 (blocked)"
+        - "stderr references 'blocked' or 'main'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E012-UNIT-003-pre-commit-blocks-code-only-on-main"
+      id: "AC-UNIT-003"
+      purpose: "The pre-commit hook exits 1 on main when only a code file is staged (no manifest)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A non-bare git repo initialised on branch 'main'"
+        - "Only a code file is staged (no manifest)"
+        - "ATDD_SKIP_MANIFEST_CHECK=1 is set"
+    when:
+      abstract: "The pre-commit hook is executed via sh"
+    then:
+      abstract:
+        - "Hook exits 1 (blocked)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E012-UNIT-004-branch-self-heals-missing-manifest-entry"
+      id: "AC-UNIT-004"
+      purpose: "BranchManager.branch() does not error 'not found in manifest' when gh CLI can supply the issue"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A BranchManager with a manifest that does NOT contain the target issue number"
+        - "subprocess.run is monkeypatched so gh issue view returns a valid JSON issue"
+        - "detect_worktree_layout is monkeypatched to return 'worktree-ready'"
+    when:
+      abstract: "BranchManager.branch(issue_number) is called"
+    then:
+      abstract:
+        - "The string 'not found in manifest' does NOT appear in stdout"
+        - "BranchManager._backfill_from_github() appends the entry to the manifest"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E012-SMOKE-001-pre-commit-hook-installed-allows-manifest-only"
+      id: "AC-SMOKE-001"
+      purpose: "The installed pre-commit template contains the manifest-only exception and the reconcile hint"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-commit hook template exists at src/atdd/coach/templates/hooks/pre-commit"
+    when:
+      abstract: "The template file is read"
+    then:
+      abstract:
+        - "The string '.atdd/manifest.yaml' appears in the content"
+        - "The string 'exit 0' appears in the content"
+        - "The string 'reconcile' appears in the content"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E012-SMOKE-002-issue-reconcile-wired-in-cli"
+      id: "AC-SMOKE-002"
+      purpose: "cli.py dispatch routes the 'reconcile' target to IssueManager.reconcile()"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/cli.py is read"
+        - "IssueManager.reconcile() method is importable"
+        - "BranchManager._backfill_from_github() method is importable"
+    when:
+      abstract: "The file content and method existence are checked"
+    then:
+      abstract:
+        - "cli.py contains 'reconcile' as a wired target"
+        - "cli.py calls 'manager.reconcile()'"
+        - "IssueManager has a reconcile() attribute"
+        - "BranchManager has a _backfill_from_github() attribute"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
