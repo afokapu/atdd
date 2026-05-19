@@ -33,7 +33,7 @@ rules:
            (substituting <N> for the issue number from the violation).
            If `--refresh-graph` is unavailable in your toolkit version
            (introduced after 3.50.0), re-run with the latest atdd via
-           `pip install -U atdd` and try again.
+           `pipx upgrade atdd` (or the appropriate upgrade command for your install method) and try again.
         2. If the issue genuinely has no wagon mapping yet, assign one in
            `plan/<wagon-slug>/_<wagon-slug>.yaml` (substituting
            <wagon-slug> for the slug you want, e.g. "govern-lifecycle")

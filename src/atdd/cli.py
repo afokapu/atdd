@@ -1263,11 +1263,11 @@ Phase descriptions:
     # ----- atdd upgrade -----
     upgrade_parser = subparsers.add_parser(
         "upgrade",
-        help="Check PyPI, pip-upgrade if needed, then sync + init --force",
+        help="Check PyPI, upgrade if needed (pipx/pip-aware), then sync + init --force",
         description=(
-            "Query PyPI for a newer atdd release and run "
-            "pip install --upgrade if available; otherwise sync the consumer repo "
-            "with the installed version."
+            "Query PyPI for a newer atdd release and run the correct upgrade command "
+            "(pipx upgrade atdd, pip install --upgrade, or git pull) for the detected "
+            "install method; otherwise sync the consumer repo with the installed version."
         ),
     )
     upgrade_parser.add_argument(

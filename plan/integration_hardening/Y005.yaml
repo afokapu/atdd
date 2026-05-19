@@ -1,0 +1,219 @@
+urn: "wmbt:integration-hardening:Y005"
+step: "modify"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "upgrade-messages-that-hardcode-pip-install-for-pipx-and-editable-installs"
+context_clarifier: "every upgrade/install instruction atdd emits hardcodes 'pip install --upgrade atdd', which is wrong for pipx-managed installs (correct: 'pipx upgrade atdd'), blocked by PEP 668 on Homebrew/system Python, and wrong for editable dev installs (correct: 'git pull'); the fix requires detecting the install method at runtime and emitting the correct upgrade command everywhere — version_check.py check_for_updates message, auto_upgrade() fallback message, upgrader.py interactive prompts and failure messages, pre-push/pre-merge-commit hook templates ImportError fallback, planner convention yaml, README, and cli.py help text"
+lens: "functional.effectiveness"
+statement: "minimize quantity of upgrade-messages-that-hardcode-pip-install-for-pipx-and-editable-installs by adding detect_install_method() and upgrade_command() to version_check.py and replacing every hardcoded 'pip install --upgrade atdd' site in the codebase with a call to upgrade_command()"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:Y005-UNIT-001-detect-install-method-pipx"
+      id: "GT-Y005-001"
+      purpose: "detect_install_method() returns 'pipx' when the atdd executable path is under a pipx venv"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "sys.executable is patched to a path containing '/pipx/venvs/atdd/'"
+    when:
+      abstract: "detect_install_method() is called"
+    then:
+      abstract:
+        - "The return value is 'pipx'"
+    metadata:
+      author: "atdd:upgrade-messaging-install-method-aware-pipx"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y005-UNIT-002-detect-install-method-editable"
+      id: "GT-Y005-002"
+      purpose: "detect_install_method() returns 'editable' when the atdd package is installed in editable mode (direct_url.json exists with 'editable: true')"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "importlib.metadata.packages_distributions or direct_url.json for 'atdd' indicates an editable install"
+    when:
+      abstract: "detect_install_method() is called"
+    then:
+      abstract:
+        - "The return value is 'editable'"
+    metadata:
+      author: "atdd:upgrade-messaging-install-method-aware-pipx"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y005-UNIT-003-detect-install-method-pip"
+      id: "GT-Y005-003"
+      purpose: "detect_install_method() returns 'pip' when the executable path does not match pipx or editable patterns"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "sys.executable points to a regular site-packages Python (not under pipx, not editable)"
+    when:
+      abstract: "detect_install_method() is called"
+    then:
+      abstract:
+        - "The return value is 'pip'"
+    metadata:
+      author: "atdd:upgrade-messaging-install-method-aware-pipx"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y005-UNIT-004-upgrade-command-pipx"
+      id: "GT-Y005-004"
+      purpose: "upgrade_command() returns 'pipx upgrade atdd' when detect_install_method() returns 'pipx'"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "detect_install_method is patched to return 'pipx'"
+    when:
+      abstract: "upgrade_command() is called"
+    then:
+      abstract:
+        - "The return value is 'pipx upgrade atdd'"
+    metadata:
+      author: "atdd:upgrade-messaging-install-method-aware-pipx"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y005-UNIT-005-upgrade-command-pip"
+      id: "GT-Y005-005"
+      purpose: "upgrade_command() returns 'pip install --upgrade atdd' when detect_install_method() returns 'pip'"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "detect_install_method is patched to return 'pip'"
+    when:
+      abstract: "upgrade_command() is called"
+    then:
+      abstract:
+        - "The return value is 'pip install --upgrade atdd'"
+    metadata:
+      author: "atdd:upgrade-messaging-install-method-aware-pipx"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y005-UNIT-006-upgrade-command-editable"
+      id: "GT-Y005-006"
+      purpose: "upgrade_command() returns a git pull command when detect_install_method() returns 'editable'"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "detect_install_method is patched to return 'editable'"
+    when:
+      abstract: "upgrade_command() is called"
+    then:
+      abstract:
+        - "The return value contains 'git' and 'pull'"
+    metadata:
+      author: "atdd:upgrade-messaging-install-method-aware-pipx"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y005-UNIT-007-no-hardcoded-pip-in-user-messages"
+      id: "GT-Y005-007"
+      purpose: "No user/agent-facing message in version_check.py, upgrader.py, pre-push, pre-merge-commit, or issue-body.convention.yaml hardcodes 'pip install --upgrade atdd' except in auto_upgrade()'s pip branch"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The source files are read from disk"
+    when:
+      abstract: "Each file is scanned for the literal string 'pip install --upgrade atdd'"
+    then:
+      abstract:
+        - "version_check.py contains 'pip install --upgrade atdd' only inside the auto_upgrade() function body"
+        - "upgrader.py contains no occurrences of 'pip install --upgrade atdd'"
+        - "pre-push hook template contains no occurrences of 'pip install --upgrade atdd'"
+        - "pre-merge-commit hook template contains no occurrences of 'pip install --upgrade atdd'"
+        - "issue-body.convention.yaml contains no occurrences of 'pip install' (-U form or --upgrade form)"
+    metadata:
+      author: "atdd:upgrade-messaging-install-method-aware-pipx"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y005-UNIT-008-check-for-updates-uses-upgrade-command"
+      id: "GT-Y005-008"
+      purpose: "check_for_updates() emits upgrade_command() output in its update notice, not a hardcoded 'pip install' string"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "is_outdated() returns (True, '3.0.0', '4.0.0')"
+        - "upgrade_command is patched to return 'pipx upgrade atdd'"
+    when:
+      abstract: "check_for_updates() is called"
+    then:
+      abstract:
+        - "The returned string contains 'pipx upgrade atdd'"
+        - "The returned string does NOT contain 'pip install --upgrade atdd'"
+    metadata:
+      author: "atdd:upgrade-messaging-install-method-aware-pipx"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y005-UNIT-009-upgrader-uses-upgrade-command"
+      id: "GT-Y005-009"
+      purpose: "Upgrader.run() prompts with and runs upgrade_command() output, not a hardcoded pip string"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "is_outdated() returns (True, '3.0.0', '4.0.0')"
+        - "upgrade_command is patched to return 'pipx upgrade atdd'"
+        - "auto_upgrade() is patched to return True"
+        - "input() is patched to return 'y'"
+    when:
+      abstract: "Upgrader.run() is called with yes=False"
+    then:
+      abstract:
+        - "The printed output contains 'pipx upgrade atdd'"
+        - "The printed output does NOT contain 'pip install --upgrade atdd'"
+    metadata:
+      author: "atdd:upgrade-messaging-install-method-aware-pipx"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:integration-hardening:Y005-SMOKE-001-pipx-install-detection-end-to-end"
+      id: "GT-Y005-S01"
+      purpose: "SMOKE: when atdd is run from a simulated pipx path, detect_install_method() returns 'pipx' and upgrade_command() returns 'pipx upgrade atdd' without any mocking"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "sys.executable is temporarily patched to '/home/user/.local/pipx/venvs/atdd/bin/python'"
+    when:
+      abstract: "detect_install_method() and upgrade_command() are called directly"
+    then:
+      abstract:
+        - "detect_install_method() returns 'pipx'"
+        - "upgrade_command() returns 'pipx upgrade atdd'"
+    metadata:
+      author: "atdd:upgrade-messaging-install-method-aware-pipx"
+      created: "2026-05-19"

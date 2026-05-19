@@ -18,6 +18,7 @@ from atdd.version_check import (
     update_toolkit_version,
     is_outdated,
     auto_upgrade,
+    upgrade_command,
 )
 
 
@@ -50,35 +51,36 @@ class Upgrader:
             outdated, _, latest = is_outdated()
             if latest and outdated:
                 print(f"New version on PyPI: {installed} → {latest}")
+                _cmd = upgrade_command()
                 if not yes:
                     answer = input(
-                        f"Run `pip install --upgrade atdd` now? [Y/n] "
+                        f"Run `{_cmd}` now? [Y/n] "
                     ).strip().lower()
                     if answer and answer != "y":
-                        print("Skipping pip upgrade. Continuing with sync step only.")
+                        print("Skipping upgrade. Continuing with sync step only.")
                     else:
-                        print("Running: pip install --upgrade atdd")
+                        print(f"Running: {_cmd}")
                         if not auto_upgrade():
                             print(
-                                "pip upgrade failed. Run manually: "
-                                "pip install --upgrade atdd"
+                                f"Upgrade failed. Run manually: "
+                                f"{_cmd}"
                             )
                             return 1
                         print(
-                            f"pip upgraded atdd to {latest}. "
+                            f"Upgraded atdd to {latest}. "
                             "Re-run `atdd upgrade` to finish sync with the new version."
                         )
                         return 0
                 else:
-                    print("Running: pip install --upgrade atdd")
+                    print(f"Running: {_cmd}")
                     if not auto_upgrade():
                         print(
-                            "pip upgrade failed. Run manually: "
-                            "pip install --upgrade atdd"
+                            f"Upgrade failed. Run manually: "
+                            f"{_cmd}"
                         )
                         return 1
                     print(
-                        f"pip upgraded atdd to {latest}. "
+                        f"Upgraded atdd to {latest}. "
                         "Re-run `atdd upgrade` to finish sync with the new version."
                     )
                     return 0
