@@ -1,0 +1,32 @@
+urn: "feature:spawn-agents:worker-launch-prompt-readiness-gate"
+wagon: "wagon:spawn-agents"
+description: "Closes the race condition where the coach fires paste + Enter into a multiplexer surface before the Claude Code TUI is ready to receive input (issue #795): introduces (1) a pre-trust step that writes the worktree into ~/.claude.json before _create_surface so the workspace-trust modal is never shown, (2) a _wait_for_claude_ready() helper that polls for a fresh session .jsonl AND a TUI marker in capture-pane before any paste is attempted, (3) a post-paste assertion that confirms the worker is actively processing (thinking indicator or non-empty conversation) before the coach logs a phase transition, and (4) decision-log gating so decisions.jsonl emits 'transitioned:true' only after the post-paste assertion passes — a failing gate escalates loudly instead of logging a phantom transition (E010)"
+sizing:
+  wmbts: 1
+  footprint_score: 8
+  footprint_size: "S"
+wmbts:
+  - "wmbt:spawn-agents:E010"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI entry point — all changes are internal to the existing spawn path in src/atdd/coach/commands/spawn.py and src/atdd/coach/utils/multiplexer.py"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "_pre_trust_worktree (write worktree into ~/.claude.json before surface creation), _wait_for_claude_ready (poll session .jsonl + capture-pane TUI marker before paste), and _assert_worker_processing (post-paste assertion that confirms thinking indicator or non-empty conversation) are three discrete application-layer use cases"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "A WorkerReadinessTimeout value object wrapping the bounded-wait config (poll interval, max attempts, elapsed) used by _wait_for_claude_ready and _assert_worker_processing to report timeouts with full diagnostics rather than a bare TimeoutError"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "The multiplexer capture-pane adapter is extended with a capture_surface_text() method so both CmuxBackend and the FakeMultiplexer test double expose a uniform way to read the TUI content — required by both the readiness poll and the post-paste assertion"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"
