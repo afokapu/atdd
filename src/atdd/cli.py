@@ -1648,6 +1648,44 @@ Phase descriptions:
         help="Output format (default: text)",
     )
 
+    # ----- atdd suppress backfill (issue #482) -----
+    suppress_parser = subparsers.add_parser(
+        "suppress",
+        help="Suppress-marker utilities",
+        description="Commands for managing inline atdd:suppress(...) markers",
+    )
+    suppress_subparsers = suppress_parser.add_subparsers(dest="suppress_command")
+    suppress_backfill_parser = suppress_subparsers.add_parser(
+        "backfill",
+        help="Bulk-insert inline suppress markers on pre-existing violation sites",
+        description=(
+            "Walk the rule's scanner to enumerate current violation sites and\n"
+            "insert a language-appropriate inline suppress comment idempotently.\n\n"
+            "  atdd suppress backfill --rule coder.logging.coach-silent-swallow --until 2026-Q4"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    suppress_backfill_parser.add_argument(
+        "--rule",
+        type=str,
+        required=True,
+        metavar="RULE_ID",
+        help="Rule id to suppress (e.g. coder.logging.coach-silent-swallow)",
+    )
+    suppress_backfill_parser.add_argument(
+        "--until",
+        type=str,
+        required=True,
+        metavar="DATE",
+        help="UNTIL= date for the suppress marker (e.g. 2026-Q4 or 2026-12-31)",
+    )
+    suppress_backfill_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="List sites that would be marked without editing any files",
+    )
+
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
 
     # Repository root override (not deprecated - still useful)
@@ -2386,6 +2424,21 @@ Phase descriptions:
                 format=args.format,
             )
         rules_parser.print_help()
+        return 0
+
+    elif args.command == "suppress":
+        from atdd.coach.commands.suppress import run_suppress_backfill
+        from atdd.coach.utils.repo import find_repo_root
+
+        repo_path = Path(args.repo) if args.repo else find_repo_root()
+        if getattr(args, "suppress_command", None) == "backfill":
+            return run_suppress_backfill(
+                rule_id=args.rule,
+                until=args.until,
+                repo_root=repo_path,
+                dry_run=getattr(args, "dry_run", False),
+            )
+        suppress_parser.print_help()
         return 0
 
     # ----- Handle deprecated flag-based commands -----
