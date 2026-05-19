@@ -453,7 +453,12 @@ def auto_upgrade() -> bool:
 def _gate_main() -> None:
     """CLI entry point for version-gate hook.
 
-    Exit 0 = allow, exit 1 = block (outdated, upgraded, retry needed).
+    Gate only — never runs pip install or auto_upgrade().
+    Exit 0 = allow push, exit 1 = block push (atdd is outdated).
+
+    When outdated the user must run `atdd upgrade` manually and retry.
+    Running pip install from inside a git hook is unsafe on PEP 668
+    systems (Homebrew/Debian Python), inside virtualenvs, and in CI.
     """
     outdated, current, latest = is_outdated()
 
@@ -465,11 +470,11 @@ def _gate_main() -> None:
             print(f"atdd {current} is up to date")
         return  # exit 0
 
-    print(f"atdd {current} is outdated (latest: {latest}). Upgrading...")
-    if auto_upgrade():
-        print(f"Upgraded atdd to {latest}. Please retry your git operation.")
-    else:
-        print(f"Auto-upgrade failed. Run manually: pip install --upgrade atdd")
+    print(
+        f"atdd {current} is outdated (latest: {latest}).\n"
+        f"Run `atdd upgrade` then retry your git operation.",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 
