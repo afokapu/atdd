@@ -135,7 +135,7 @@ class IssueBodyChecker:
     """
 
     def check(self, body: str) -> IssueBodyCheckResult:
-        from atdd.coach.commands.issue_template import REQUIRED_SUBSECTIONS
+        from atdd.coach.commands.issue_template import REQUIRED_SUBSECTIONS  # lazy: avoids circular at import time
 
         errors: list[str] = []
         for section in REQUIRED_SUBSECTIONS:
@@ -837,6 +837,22 @@ class IssueManager:
 
         return wmbts
 
+    def _build_github_client(self, github_config: dict):
+        """Construct a GitHubClient honoring both test patch targets (E019).
+
+        Tests may patch either ``atdd.coach.commands.issue.GitHubClient``
+        (module-level sentinel) or ``atdd.coach.github.GitHubClient`` (the
+        real class).  Checking ``globals()`` first handles the former; falling
+        through to the imported module handles the latter.
+        """
+        import atdd.coach.github as _gh_module
+
+        _GHC = globals().get("GitHubClient") or _gh_module.GitHubClient
+        return _GHC(
+            repo=github_config["repo"],
+            project_id=github_config.get("project_id"),
+        )
+
     def _register_issue_in_manifest(
         self,
         issue_number: int,
@@ -867,7 +883,6 @@ class IssueManager:
         Raises IssueBodyComplianceError when the body fails the gate.
         Returns the new issue number on success.
         """
-        import atdd.coach.github as _gh_module
         from atdd.coach.github import GitHubClientError
 
         try:
@@ -895,14 +910,8 @@ class IssueManager:
                 + "\n".join(check_result.errors)
             )
 
-        # Honors both patch("atdd.coach.commands.issue.GitHubClient") and
-        # patch("atdd.coach.github.GitHubClient") in unit tests.
-        _GHC = globals().get("GitHubClient") or _gh_module.GitHubClient
         try:
-            client = _GHC(
-                repo=github_config["repo"],
-                project_id=github_config.get("project_id"),
-            )
+            client = self._build_github_client(github_config)
         except GitHubClientError as exc:
             print(f"Error: GitHub integration failed: {exc}")
             return 1
@@ -936,9 +945,6 @@ class IssueManager:
 
         Raises IssueBodyComplianceError when the body fails --check.
         """
-        import atdd.coach.github as _gh_module
-        from atdd.coach.github import GitHubClientError
-
         checker = IssueBodyChecker()
         check_result = checker.check(body)
         if not check_result.passed:
@@ -947,15 +953,11 @@ class IssueManager:
                 + "\n".join(check_result.errors)
             )
 
-        _GHC = globals().get("GitHubClient") or _gh_module.GitHubClient
         try:
             config = self._load_config()
             github_config = config["github"]
-            client = _GHC(
-                repo=github_config["repo"],
-                project_id=github_config.get("project_id"),
-            )
-        except (GitHubClientError, Exception) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            client = self._build_github_client(github_config)
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             print(f"Error: GitHub integration failed: {exc}")
             return
 
