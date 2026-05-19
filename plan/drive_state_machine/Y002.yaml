@@ -1,0 +1,77 @@
+urn: "wmbt:drive-state-machine:Y002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "stale-github-label-after-coach-phase-advance"
+context_clarifier: "when the coach SM advances a phase (PLANNED→RED, RED→GREEN, …), it mutates sm.phase and writes a phase-transition decision to decisions.jsonl but does not update the GitHub atdd:<phase> label. GitHub label is the external observable: downstream tooling (atdd babysit, atdd validate coach, operators via gh issue view) reads labels to determine phase. The fix extracts the label-swap logic from atdd issue --status into a shared _swap_phase_label(issue_number, new_phase) helper and wires it after each sm.advance in _process_watcher_events (and the warm-resume dispatch path from Y001). Root: the SM was the coach's internal model; keeping GitHub in sync was out of scope for the #708 MVP."
+lens: "functional.availability"
+statement: "minimize likelihood of stale-github-label-after-coach-phase-advance when the coach SM advances a phase by wiring a shared _swap_phase_label(issue_number, new_phase) helper after each sm.phase mutation in _drive_single_issue and _process_watcher_events, ensuring the GitHub atdd:<phase> label matches the SM's internal state after every advance"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:Y002-UNIT-001-swap-phase-label-helper-exists"
+      id: "AC-UNIT-001"
+      purpose: "_swap_phase_label(issue_number, new_phase) exists, removes all atdd:<phase> labels, and adds atdd:<new_phase>"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "_swap_phase_label is importable from atdd.coach.commands.coach"
+        - "GitHub client methods (remove_label, add_label) are monkeypatched"
+        - "The issue currently has label atdd:PLANNED"
+    when:
+      abstract: "_swap_phase_label(issue_number=690, new_phase=Phase.RED) is called"
+    then:
+      abstract:
+        - "remove_label is called with ['atdd:PLANNED'] (and any other atdd:<phase> labels)"
+        - "add_label is called with ['atdd:RED']"
+        - "No other phase labels remain on the issue"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:drive-state-machine:Y002-UNIT-002-label-swapped-on-each-watcher-advance"
+      id: "AC-UNIT-002"
+      purpose: "_process_watcher_events calls _swap_phase_label after each successful SM advance"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "_swap_phase_label is monkeypatched to record calls"
+        - "_injected_events drives the SM from PLANNED through RED to GREEN"
+    when:
+      abstract: "_process_injected_events (or _process_watcher_events with injected events) processes two advances"
+    then:
+      abstract:
+        - "_swap_phase_label is called once with Phase.RED (after PLANNED→RED)"
+        - "_swap_phase_label is called once with Phase.GREEN (after RED→GREEN)"
+        - "Total: two _swap_phase_label calls, one per advance"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:drive-state-machine:Y002-INTEGRATION-001-github-label-reflects-sm-phase"
+      id: "AC-INTEGRATION-001"
+      purpose: "After _drive_single_issue drives an issue through PLANNED→RED→GREEN with injected events, the GitHub label sequence matches the SM advance sequence"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "_swap_phase_label is a recording stub (monkeypatched)"
+        - "_injected_events drives PLANNED→RED→GREEN"
+        - "_max_loop_events set to consume exactly two advances"
+    when:
+      abstract: "_drive_single_issue runs to completion"
+    then:
+      abstract:
+        - "The stub records _swap_phase_label calls in order: [Phase.RED, Phase.GREEN]"
+        - "Each call's issue_number matches the SM's issue_number"
+        - "The label sequence exactly mirrors the SM's phase history"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"

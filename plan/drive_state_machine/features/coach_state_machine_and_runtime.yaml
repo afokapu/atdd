@@ -2,8 +2,8 @@ urn: "feature:drive-state-machine:coach-state-machine-and-runtime"
 wagon: "wagon:drive-state-machine"
 description: "atdd coach state machine + atdd agent CLI subcommands + durable decisions/judgments + two-phase commit (worktrees, launch) absorbed from orchestrate + runtime/git/liveness watchers + --resume reconstruction. Owns the per-issue lifecycle (INIT → COMPLETE) deterministically with append-only decisions.jsonl as the resume source of truth, replacing atdd orchestrate's polling-and-trust model."
 sizing:
-  wmbts: 7
-  footprint_score: 20
+  wmbts: 10
+  footprint_score: 23
   footprint_size: "L"
 wmbts:
   - "wmbt:drive-state-machine:D001"
@@ -13,6 +13,9 @@ wmbts:
   - "wmbt:drive-state-machine:M001"
   - "wmbt:drive-state-machine:R001"
   - "wmbt:drive-state-machine:L001"
+  - "wmbt:drive-state-machine:Y001"
+  - "wmbt:drive-state-machine:Y002"
+  - "wmbt:drive-state-machine:R002"
 components:
   backend:
     presentation:
