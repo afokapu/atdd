@@ -1,0 +1,32 @@
+urn: "feature:spawn-agents:coach-spawn-step-by-step-verify-each-stage"
+wagon: "wagon:spawn-agents"
+description: "Restructures cmd_spawn from a fire-and-forget pipeline into a verify-or-fail-loud pipeline (issue #799): each stage — claude-up, rename-accepted, paste-landed, prompt-submitted — fires its cmux command(s) then polls capture_pane_text for an explicit success signal within a bounded timeout; on timeout it retries once then raises a stage-specific exception (RenameNotAccepted, PasteDidNotLand, PromptNotSubmitted) that prevents agent_spawned from firing and closes the orphan surface. Adds MultiplexerBackend.capture_pane_text and removes the silent-skip escape hatch in _assert_worker_processing (E011)."
+sizing:
+  wmbts: 1
+  footprint_score: 8
+  footprint_size: "S"
+wmbts:
+  - "wmbt:spawn-agents:E011"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI entry point — all changes are internal to spawn.py, multiplexer.py, and session_naming_apply.py"
+    application:
+      - type: "use_cases"
+        count: 4
+        rationale: "_verify_stage (generic poll-and-raise primitive with stage name), RenameNotAccepted exception, PasteDidNotLand exception, PromptNotSubmitted exception — four discrete application-layer deliverables"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "Reuses WorkerReadinessTimeout pattern from E010; no new value objects needed"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "MultiplexerBackend.capture_pane_text added to base class and implemented on CmuxBackend and FakeMultiplexer; single adapter extension point"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"

@@ -20,6 +20,7 @@ features:
   - urn: "feature:spawn-agents:interactive-model-selection-at-spawn"
   - urn: "feature:spawn-agents:register-llm-adapter-flavors"
   - urn: "feature:spawn-agents:worker-launch-prompt-readiness-gate"
+  - urn: "feature:spawn-agents:coach-spawn-step-by-step-verify-each-stage"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -82,6 +83,10 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:step-by-step-verify-each-stage
+    contract: null
+    telemetry: null
+    to: external
 
 consume:
   - name: commons:coach:runtime-event-schema
@@ -94,7 +99,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 13
+  total: 14
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -108,3 +113,4 @@ wmbt:
   E008: "minimize likelihood of coach-runs-where-the-operator-cannot-choose-the-per-persona-model-at-spawn-time"
   E009: "minimize likelihood of atdd-spawn-llm-ids-that-resolve-to-no-registered-adapter-or-fail-silently-on-missing-credentials"
   E010: "minimize likelihood of coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate"
+  E011: "minimize likelihood of coach-spawn-pipeline-stages-that-silently-fail-without-raising-a-stage-specific-exception"
