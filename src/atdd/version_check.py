@@ -44,19 +44,24 @@ CACHE_FILE = CACHE_DIR / "version_cache.json"
 PYPI_URL = "https://pypi.org/pypi/atdd/json"
 
 
-def _is_editable_install() -> bool:
-    """Return True if atdd is installed as an editable (dev) install."""
+def _read_direct_url() -> Optional[dict]:
+    """Return parsed direct_url.json for the 'atdd' distribution, or None."""
     try:
         import importlib.metadata as meta
-        dist = meta.distribution("atdd")
-        direct_url = dist.read_text("direct_url.json")
-        if direct_url:
+        raw = meta.distribution("atdd").read_text("direct_url.json")
+        if raw:
             import json as _json
-            data = _json.loads(direct_url)
-            dir_info = data.get("dir_info", {})
-            return bool(dir_info.get("editable", False))
+            return _json.loads(raw)
     except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
         pass
+    return None
+
+
+def _is_editable_install() -> bool:
+    """Return True if atdd is installed as an editable (dev) install."""
+    data = _read_direct_url()
+    if data:
+        return bool(data.get("dir_info", {}).get("editable", False))
     return False
 
 
@@ -82,19 +87,11 @@ def upgrade_command() -> str:
     if method == "pipx":
         return "pipx upgrade atdd"
     if method == "editable":
-        try:
-            import importlib.metadata as meta
-            dist = meta.distribution("atdd")
-            direct_url = dist.read_text("direct_url.json")
-            if direct_url:
-                import json as _json
-                data = _json.loads(direct_url)
-                url = data.get("url", "")
-                if url.startswith("file://"):
-                    repo_path = url[len("file://"):]
-                    return f"git -C {repo_path} pull"
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
-            pass
+        data = _read_direct_url()
+        if data:
+            url = data.get("url", "")
+            if url.startswith("file://"):
+                return f"git -C {url[len('file://'):]} pull"
         return "git pull  # (in your atdd source checkout)"
     return "pip install --upgrade atdd"
 
