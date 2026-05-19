@@ -39,6 +39,7 @@ import json
 import os
 import shlex
 import sys
+import time
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
@@ -90,6 +91,193 @@ def _assert_no_forbidden_flags(command: str) -> None:
 
 class AdapterError(RuntimeError):
     """Raised by _require_env when a required env var is absent."""
+
+
+# ---------------------------------------------------------------------------
+# E010 (#795): Worker launch-prompt readiness gate
+# ---------------------------------------------------------------------------
+
+
+class WorkerReadinessTimeout(RuntimeError):
+    """Raised by _wait_for_claude_ready when the worker never comes up within
+    the bounded timeout. Message contains the surface ref, project key, and
+    elapsed time for operator diagnostics."""
+
+
+def _pre_trust_worktree(
+    worktree_path: Path,
+    claude_json_path: Optional[Path] = None,
+) -> None:
+    """Write a hasTrustDialogAccepted entry for *worktree_path* into
+    ~/.claude.json before any surface is created.
+
+    Claude Code only auto-skips the workspace-trust modal in -p/non-interactive
+    mode. Every fresh interactive launch on an untrusted path shows the modal,
+    which absorbs the /rename injection and the pasted launch prompt — the
+    worker then shows "Press up to edit queued messages" with no processed
+    content (#795). Writing the projects entry beforehand eliminates the modal
+    for coach-created worktrees.
+
+    Non-destructive: existing entries in ``~/.claude.json`` are preserved.
+    Never raises (best-effort); callers continue even if the write fails.
+    """
+    if claude_json_path is None:
+        env_override = os.environ.get("ATDD_CLAUDE_JSON_PATH")
+        claude_json_path = Path(env_override) if env_override else Path.home() / ".claude.json"
+
+    try:
+        if claude_json_path.exists():
+            existing = json.loads(claude_json_path.read_text())
+        else:
+            existing = {}
+
+        projects: dict = existing.setdefault("projects", {})
+        key = str(worktree_path.resolve())
+        if key not in projects:
+            projects[key] = {}
+        projects[key]["hasTrustDialogAccepted"] = True
+
+        claude_json_path.write_text(json.dumps(existing, indent=2))
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        print(
+            f"⚠️  _pre_trust_worktree: could not write {claude_json_path}: {exc} "
+            f"({SPAWN_RULE_ID})",
+            file=sys.stderr,
+        )
+
+
+def _wait_for_claude_ready(
+    surface_ref: str,
+    project_key: str,
+    spawn_time: float,
+    *,
+    claude_projects_dir: Optional[Path] = None,
+    multiplexer: Any = None,
+    timeout_s: float = 10.0,
+    poll_interval_s: float = 0.25,
+) -> None:
+    """Poll until a Claude session .jsonl appears for *project_key*.
+
+    The session file (named <uuid>.jsonl) is written by Claude Code at
+    startup; its presence confirms the TUI has booted and is ready for
+    input. Polling is bounded by *timeout_s*; exceeding it raises
+    WorkerReadinessTimeout with full diagnostics (#795).
+
+    ``spawn_time`` is retained in the signature for caller context (error
+    messages). Files are accepted by existence, not mtime, because
+    each worktree has a unique project-key path and _assert_worker_processing
+    is the downstream gate that confirms the worker actually processed input.
+
+    The env vars ATDD_WORKER_READY_TIMEOUT and ATDD_WORKER_POLL_INTERVAL
+    override the defaults so tests can run with tight timings.
+    """
+    env_timeout = os.environ.get("ATDD_WORKER_READY_TIMEOUT")
+    if env_timeout:
+        timeout_s = float(env_timeout)
+    env_poll = os.environ.get("ATDD_WORKER_POLL_INTERVAL")
+    if env_poll:
+        poll_interval_s = float(env_poll)
+
+    if claude_projects_dir is None:
+        env_override = os.environ.get("ATDD_CLAUDE_PROJECTS_DIR")
+        claude_projects_dir = (
+            Path(env_override) if env_override
+            else Path.home() / ".claude" / "projects"
+        )
+
+    project_dir = claude_projects_dir / project_key
+    deadline = time.monotonic() + timeout_s
+    start = time.monotonic()
+
+    while time.monotonic() < deadline:
+        if project_dir.is_dir():
+            for entry in project_dir.iterdir():
+                if entry.suffix == ".jsonl":
+                    return  # session file found — Claude has booted
+        time.sleep(poll_interval_s)
+
+    elapsed = time.monotonic() - start
+    raise WorkerReadinessTimeout(
+        f"Worker on {surface_ref!r} did not boot within {timeout_s:.1f}s "
+        f"(elapsed {elapsed:.1f}s). No session .jsonl found under "
+        f"{project_dir}. project_key={project_key!r}. "
+        f"({SPAWN_RULE_ID})"
+    )
+
+
+_WORKER_PROCESSING_MARKERS = (
+    "⏺ Thinking",
+    "⏺ Writing",
+    "⏺ Reading",
+    "⏺ Bash",
+    "⏺ Running",
+)
+_WORKER_IDLE_MARKERS = (
+    "Press up to edit queued messages",
+    "Press Enter to send",
+)
+
+
+def _assert_worker_processing(
+    surface_ref: str,
+    multiplexer: Any,
+    *,
+    timeout_s: float = 10.0,
+    poll_interval_s: float = 0.25,
+) -> None:
+    """Assert the spawned worker is actively processing after prompt paste.
+
+    Polls ``multiplexer.capture_surface_text()`` until a thinking/working
+    indicator appears in the pane or the conversation is non-empty (i.e.,
+    the launch prompt was accepted and Claude is responding). A timeout
+    raises WorkerReadinessTimeout so the caller can escalate instead of
+    logging a phantom phase transition (#795).
+
+    Best-effort: if the backend does not support ``capture_surface_text``
+    (AttributeError) the assertion is skipped so existing fakes that omit
+    the method are not broken.
+    """
+    env_timeout = os.environ.get("ATDD_WORKER_READY_TIMEOUT")
+    if env_timeout:
+        timeout_s = float(env_timeout)
+    env_poll = os.environ.get("ATDD_WORKER_POLL_INTERVAL")
+    if env_poll:
+        poll_interval_s = float(env_poll)
+
+    if not hasattr(multiplexer, "capture_surface_text"):
+        return  # backend does not support capture — skip assertion
+
+    deadline = time.monotonic() + timeout_s
+    start = time.monotonic()
+
+    while time.monotonic() < deadline:
+        try:
+            text = multiplexer.capture_surface_text(surface_ref)
+        except Exception:
+            time.sleep(poll_interval_s)
+            continue
+
+        if not text:
+            time.sleep(poll_interval_s)
+            continue
+
+        # Any thinking/tool-use marker means Claude is processing.
+        if any(marker in text for marker in _WORKER_PROCESSING_MARKERS):
+            return
+
+        # Non-idle, non-empty content means conversation has content.
+        if text and not any(marker in text for marker in _WORKER_IDLE_MARKERS):
+            return
+
+        time.sleep(poll_interval_s)
+
+    elapsed = time.monotonic() - start
+    raise WorkerReadinessTimeout(
+        f"Worker on {surface_ref!r} did not begin processing within "
+        f"{timeout_s:.1f}s (elapsed {elapsed:.1f}s) after launch prompt was pasted. "
+        f"Surface capture shows no thinking indicator. "
+        f"({SPAWN_RULE_ID})"
+    )
 
 
 def _require_env(var_name: str, adapter_id: str) -> str:
@@ -591,8 +779,17 @@ def cmd_spawn(
     canonical_name = compute_issue_surface_name(repo_short, int(issue))
 
     backend = multiplexer if multiplexer is not None else _resolve_multiplexer()
+
+    # E010 (#795): pre-trust the worktree so the workspace-trust modal is
+    # never shown on the first interactive Claude Code launch. Fresh worktrees
+    # have no entry in ~/.claude.json and always trigger the modal, which
+    # absorbs the /rename injection and the pasted launch prompt before the
+    # worker can act on them. Writing the entry here eliminates the modal.
+    _pre_trust_worktree(worktree)
+
     # Issue #754: per-worker observer removed — a single MultiAgentObserver
     # is started once by _execute_cold_start and watches all agent dirs.
+    spawn_time = time.time()
     if existing_surface_ref is not None:
         # Issue #730: the issue already has its persistent surface — relaunch
         # the persona agent in place rather than spawning a new pane. No
@@ -662,14 +859,39 @@ def cmd_spawn(
                 file=sys.stderr,
             )
 
+    # E010 (#795): wait for Claude's TUI to be ready before pasting.
+    # The surface was just created — the shell is running "cd <cwd> && claude ..."
+    # and Claude Code may still be booting, showing an onboarding modal, or
+    # running workspace-trust checks. Pasting before the TUI is interactive
+    # causes the prompt to be queued unprocessed ("Press up to edit queued
+    # messages"). _wait_for_claude_ready polls ~/.claude/projects/<key>/ for a
+    # fresh .jsonl session file (written by Claude on startup) as the readiness
+    # signal. Timeout raises WorkerReadinessTimeout and is caught below so the
+    # spawn attempt is surfaced as a failure rather than a phantom success.
+    from atdd.coach.utils.session_naming_apply import _claude_project_key
+
+    project_key = _claude_project_key(worktree)
+    try:
+        _wait_for_claude_ready(
+            surface_ref=surface_ref,
+            project_key=project_key,
+            spawn_time=spawn_time,
+            multiplexer=backend,
+        )
+    except WorkerReadinessTimeout as exc:
+        print(
+            f"❌ worker on {surface_ref!r} did not boot in time: {exc} "
+            f"({SPAWN_RULE_ID})",
+            file=sys.stderr,
+        )
+        raise
+
     # Inject the launch prompt as the first interactive message (#702).
     # Claude Code v2.1.x ignores a positional prompt arg in interactive
     # mode, so the prompt — rendered to <worktree>/.launch_prompt.txt —
     # must be pasted post-boot. paste_text uses bracketed paste so the
     # multi-line prompt lands as ONE input block (newlines stay literal);
-    # send_key submits it. The /rename injection inside
-    # apply_canonical_name_and_layout ran immediately before and reaches
-    # claude reliably, so the surface is ready for the paste.
+    # send_key submits it.
     try:
         backend.paste_text(surface_ref, prompt_path.read_text())
         backend.send_key(surface_ref, "Enter")
@@ -681,6 +903,18 @@ def cmd_spawn(
             f"({SPAWN_RULE_ID})",
             file=sys.stderr,
         )
+
+    # E010 (#795): post-paste assertion — confirm the worker is processing
+    # (thinking indicator or non-empty conversation) before the caller logs
+    # a phase transition. A failed assertion raises WorkerReadinessTimeout,
+    # which propagates up through _spawn_with_retries so the spawn handler
+    # returns ERROR and the coach BLOCKs instead of recording a phantom
+    # transitioned:true. Best-effort: if the backend lacks capture_surface_text
+    # the assertion is skipped (no change to existing backends that omit it).
+    _assert_worker_processing(
+        surface_ref=surface_ref,
+        multiplexer=backend,
+    )
 
     capture_session_uuid(
         backend=backend,

@@ -1102,3 +1102,14 @@ sessions:
   status: RED
   created: '2026-05-08'
   archived: null
+- id: '795'
+  slug: coach-spawn-worker-never-processes-launch-prompt
+  file: null
+  issue_number: 795
+  type: implementation
+  status: REFACTOR
+  created: '2026-05-20'
+  archived: null
+  wagon: spawn-agents
+  feature: feature:spawn-agents:worker-launch-prompt-readiness-gate
+  train: 0002-coach-drives-lifecycle
