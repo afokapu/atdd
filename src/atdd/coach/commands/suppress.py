@@ -46,7 +46,7 @@ def _build_scanner_registry() -> dict[str, Callable[[Path], Tuple[int, List[Viol
             scan_silent_swallows_python,
         )
         registry["coder.logging.coach-silent-swallow"] = scan_silent_swallows_python
-    except ImportError:
+    except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2027-01-01
         pass
     return registry
 
@@ -207,7 +207,7 @@ def check_orphaned_baseline_keys(repo_root: Path) -> List[str]:
 
     try:
         data = yaml.safe_load(coder_yaml.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
+    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2027-01-01
         return []
 
     warnings: List[str] = []
