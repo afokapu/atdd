@@ -1118,7 +1118,7 @@ sessions:
   file: null
   issue_number: 793
   type: implementation
-  status: PLANNED
+  status: REFACTOR
   created: '2026-05-20'
   archived: null
   wagon: integration-hardening
