@@ -6,7 +6,7 @@ sizing:
   footprint_score: 3
   footprint_size: "S"
 wmbts:
-  - "wmbt:govern-lifecycle:E011"
+  - "wmbt:govern-lifecycle:E012"
   - "wmbt:govern-lifecycle:Y004"
   - "wmbt:govern-lifecycle:Y005"
 components:

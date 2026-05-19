@@ -1,4 +1,4 @@
-# Acceptance: acc:govern-lifecycle:E011-UNIT-004-branch-self-heals-missing-manifest-entry
+# Acceptance: acc:govern-lifecycle:E012-UNIT-004-branch-self-heals-missing-manifest-entry
 # Acceptance: acc:govern-lifecycle:Y005-UNIT-001-issue-reconcile-backfills-unregistered
 """Unit tests for self-healing manifest backfill in atdd branch and atdd issue reconcile (#775).
 
@@ -51,14 +51,14 @@ def _make_gh_issue_json(number: int, slug: str, status: str = "INIT") -> dict:
 
 
 # ---------------------------------------------------------------------------
-# E011-UNIT-004 — BranchManager self-heals missing manifest entry
+# E012-UNIT-004 — BranchManager self-heals missing manifest entry
 # ---------------------------------------------------------------------------
 
 class TestBranchManagerSelfHeal:
     """BranchManager.branch() must call _backfill_from_github() before erroring."""
 
     def test_backfill_method_exists(self) -> None:
-        """E011-UNIT-004: BranchManager must expose _backfill_from_github(issue_number)."""
+        """E012-UNIT-004: BranchManager must expose _backfill_from_github(issue_number)."""
         from atdd.coach.commands.branch import BranchManager
         manager = BranchManager(Path("/tmp/fake"))
         assert hasattr(manager, "_backfill_from_github"), (
@@ -66,7 +66,7 @@ class TestBranchManagerSelfHeal:
         )
 
     def test_backfill_synthesises_entry_from_gh(self, tmp_path: Path) -> None:
-        """E011-UNIT-004: _backfill_from_github() appends a sessions entry synthesised from gh output."""
+        """E012-UNIT-004: _backfill_from_github() appends a sessions entry synthesised from gh output."""
         manifest_path = tmp_path / ".atdd" / "manifest.yaml"
         _write_manifest(manifest_path, sessions=[])
 
@@ -95,7 +95,7 @@ class TestBranchManagerSelfHeal:
         )
 
     def test_backfill_returns_none_when_gh_fails(self, tmp_path: Path) -> None:
-        """E011-UNIT-004: _backfill_from_github() returns None when gh CLI fails."""
+        """E012-UNIT-004: _backfill_from_github() returns None when gh CLI fails."""
         manifest_path = tmp_path / ".atdd" / "manifest.yaml"
         _write_manifest(manifest_path, sessions=[])
 
@@ -116,7 +116,7 @@ class TestBranchManagerSelfHeal:
     def test_branch_no_longer_errors_when_entry_missing_but_gh_succeeds(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """E011-UNIT-004: branch() must NOT return 1 with 'not found' when gh can supply the issue."""
+        """E012-UNIT-004: branch() must NOT return 1 with 'not found' when gh can supply the issue."""
         manifest_path = tmp_path / ".atdd" / "manifest.yaml"
         _write_manifest(manifest_path, sessions=[])
 

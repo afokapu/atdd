@@ -1,6 +1,6 @@
-# Acceptance: acc:govern-lifecycle:E011-UNIT-001-pre-commit-allows-manifest-only-on-main
-# Acceptance: acc:govern-lifecycle:E011-UNIT-002-pre-commit-blocks-manifest-plus-code-on-main
-# Acceptance: acc:govern-lifecycle:E011-UNIT-003-pre-commit-blocks-code-only-on-main
+# Acceptance: acc:govern-lifecycle:E012-UNIT-001-pre-commit-allows-manifest-only-on-main
+# Acceptance: acc:govern-lifecycle:E012-UNIT-002-pre-commit-blocks-manifest-plus-code-on-main
+# Acceptance: acc:govern-lifecycle:E012-UNIT-003-pre-commit-blocks-code-only-on-main
 # Acceptance: acc:govern-lifecycle:Y004-UNIT-001-pre-commit-drift-notice-non-blocking
 """Unit tests for the pre-commit manifest-only exception and drift notice (#775).
 
@@ -113,11 +113,11 @@ def _run_hook(tmp_path: Path, env: dict | None = None) -> subprocess.CompletedPr
 
 
 # ---------------------------------------------------------------------------
-# E011-UNIT-001 — manifest only on main → allowed
+# E012-UNIT-001 — manifest only on main → allowed
 # ---------------------------------------------------------------------------
 
 def test_pre_commit_allows_manifest_only_on_main(tmp_path: Path) -> None:
-    """E011-UNIT-001: staged = .atdd/manifest.yaml only on main → exit 0."""
+    """E012-UNIT-001: staged = .atdd/manifest.yaml only on main → exit 0."""
     _init_repo(tmp_path, branch="main")
     _stage_manifest_only(tmp_path)
 
@@ -130,7 +130,7 @@ def test_pre_commit_allows_manifest_only_on_main(tmp_path: Path) -> None:
 
 
 def test_pre_commit_allows_manifest_only_on_master(tmp_path: Path) -> None:
-    """E011-UNIT-001 (master): staged = manifest only on master → exit 0."""
+    """E012-UNIT-001 (master): staged = manifest only on master → exit 0."""
     _init_repo(tmp_path, branch="master")
     _stage_manifest_only(tmp_path)
 
@@ -143,11 +143,11 @@ def test_pre_commit_allows_manifest_only_on_master(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# E011-UNIT-002 — manifest + code on main → blocked
+# E012-UNIT-002 — manifest + code on main → blocked
 # ---------------------------------------------------------------------------
 
 def test_pre_commit_blocks_manifest_plus_code_on_main(tmp_path: Path) -> None:
-    """E011-UNIT-002: staged = manifest + code on main → exit 1 (code change must not slip through)."""
+    """E012-UNIT-002: staged = manifest + code on main → exit 1 (code change must not slip through)."""
     _init_repo(tmp_path, branch="main")
     _stage_manifest_plus_code(tmp_path)
 
@@ -163,11 +163,11 @@ def test_pre_commit_blocks_manifest_plus_code_on_main(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# E011-UNIT-003 — code only on main → blocked
+# E012-UNIT-003 — code only on main → blocked
 # ---------------------------------------------------------------------------
 
 def test_pre_commit_blocks_code_only_on_main(tmp_path: Path) -> None:
-    """E011-UNIT-003: staged = code only on main → exit 1."""
+    """E012-UNIT-003: staged = code only on main → exit 1."""
     _init_repo(tmp_path, branch="main")
     _stage_code_only(tmp_path)
 
