@@ -216,6 +216,55 @@ class ProjectInitializer:
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
 
+    def _is_linked_worktree(self) -> bool:
+        """Return True when target_dir is a linked (non-main) git worktree.
+
+        Uses the 'git rev-parse' approach: in a linked worktree --git-dir
+        points to .git/worktrees/<name> while --git-common-dir points to the
+        shared .git.  In the main checkout they are equal.
+        """
+        try:
+            common = subprocess.run(
+                ["git", "rev-parse", "--git-common-dir"],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.target_dir,
+            )
+            git_dir = subprocess.run(
+                ["git", "rev-parse", "--git-dir"],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.target_dir,
+            )
+            if common.returncode != 0 or git_dir.returncode != 0:
+                return False
+            return common.stdout.strip() != git_dir.stdout.strip()
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return False
+
+    def _ensure_worktree_config_extension(self) -> None:
+        """Enable extensions.worktreeConfig idempotently if not already set.
+
+        Required before 'git config --worktree' writes land in the worktree-
+        local config.worktree file.  Has no effect if already true.
+        """
+        try:
+            check = subprocess.run(
+                ["git", "config", "--get", "extensions.worktreeConfig"],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.target_dir,
+            )
+            if check.returncode == 0 and check.stdout.strip().lower() == "true":
+                return  # already enabled — idempotent
+            subprocess.run(
+                ["git", "config", "extensions.worktreeConfig", "true"],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.target_dir,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            logger.warning(
+                "Could not enable extensions.worktreeConfig: %s", exc,
+                extra={"path": str(self.target_dir)},
+            )
+
     def _has_linked_worktrees(self) -> list:
         """Return paths of linked worktrees (excludes the main checkout)."""
         try:
@@ -903,11 +952,21 @@ class ProjectInitializer:
         if installed == 0 and not force:
             print("All hooks already installed.")
 
-        # Point git to the hooks directory (absolute path survives worktrees)
+        # Point git to the hooks directory.
+        # Wave 12 contamination fix (#793): when running inside a linked (non-main)
+        # worktree the unscoped 'git config core.hooksPath' writes to the shared
+        # .git/config, contaminating all sibling worktrees.  Use '--worktree' so
+        # the entry lands in .git/worktrees/<name>/config.worktree only.
         abs_hooks = str(hooks_dir.resolve())
         try:
+            in_linked_worktree = self._is_linked_worktree()
+            if in_linked_worktree:
+                self._ensure_worktree_config_extension()
+                git_config_cmd = ["git", "config", "--worktree", "core.hooksPath", abs_hooks]
+            else:
+                git_config_cmd = ["git", "config", "core.hooksPath", abs_hooks]
             subprocess.run(
-                ["git", "config", "core.hooksPath", abs_hooks],
+                git_config_cmd,
                 capture_output=True, text=True, timeout=10,
                 cwd=self.target_dir,
             )
