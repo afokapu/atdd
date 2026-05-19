@@ -26,7 +26,7 @@ def _pid_alive(pid: int) -> bool:
         os.kill(pid, 0)
         return True
     except (OSError, ProcessLookupError) as exc:
-        logger.debug("pid %d is not alive: %s", pid, exc)
+        logger.debug("pid %d is not alive: %s", pid, exc, extra={"pid": pid})
         return False
 
 
@@ -92,7 +92,8 @@ class CoachLock:
             try:
                 self._lock_path.unlink(missing_ok=True)
             except OSError as exc:
-                logger.debug("coach lock release failed for %s: %s", self._lock_path, exc)
+                logger.debug("coach lock release failed for %s: %s", self._lock_path, exc,
+                             extra={"lock_path": str(self._lock_path)})
             self._held = False
 
     def _release_atexit(self) -> None:
