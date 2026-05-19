@@ -1,13 +1,13 @@
-# URN: test:govern-lifecycle:bulk-suppress-backfill:E013
-# Acceptance: acc:govern-lifecycle:E013-UNIT-001-backfill-inserts-python-marker
-# Acceptance: acc:govern-lifecycle:E013-UNIT-002-backfill-idempotent-on-already-marked
-# Acceptance: acc:govern-lifecycle:E013-UNIT-003-backfill-inserts-typescript-marker
-# Acceptance: acc:govern-lifecycle:E013-UNIT-004-cli-suppress-backfill-exits-0
-# Acceptance: acc:govern-lifecycle:E013-UNIT-005-unknown-rule-exits-nonzero
-# Acceptance: acc:govern-lifecycle:E013-UNIT-006-orphaned-baseline-warning-emitted
-# Acceptance: acc:govern-lifecycle:E013-UNIT-007-no-coder-yaml-returns-empty
-# Acceptance: acc:govern-lifecycle:E013-SMOKE-001-backfill-on-real-fixture-suppresses-violations
-# WMBT: wmbt:govern-lifecycle:E013
+# URN: test:govern-lifecycle:bulk-suppress-backfill:E016
+# Acceptance: acc:govern-lifecycle:E016-UNIT-001-backfill-inserts-python-marker
+# Acceptance: acc:govern-lifecycle:E016-UNIT-002-backfill-idempotent-on-already-marked
+# Acceptance: acc:govern-lifecycle:E016-UNIT-003-backfill-inserts-typescript-marker
+# Acceptance: acc:govern-lifecycle:E016-UNIT-004-cli-suppress-backfill-exits-0
+# Acceptance: acc:govern-lifecycle:E016-UNIT-005-unknown-rule-exits-nonzero
+# Acceptance: acc:govern-lifecycle:E016-UNIT-006-orphaned-baseline-warning-emitted
+# Acceptance: acc:govern-lifecycle:E016-UNIT-007-no-coder-yaml-returns-empty
+# Acceptance: acc:govern-lifecycle:E016-SMOKE-001-backfill-on-real-fixture-suppresses-violations
+# WMBT: wmbt:govern-lifecycle:E016
 # Phase: GREEN
 # Layer: unit
 """
@@ -56,12 +56,12 @@ def _make_scanner(violations: List[Violation]):
 
 
 # ---------------------------------------------------------------------------
-# acc:govern-lifecycle:E013-UNIT-001
+# acc:govern-lifecycle:E016-UNIT-001
 # suppress_backfill inserts python marker on unmarked violation lines
 # ---------------------------------------------------------------------------
 
 def test_backfill_inserts_python_marker(tmp_path: Path):
-    """E013-UNIT-001: python silent-swallow lines get an inline suppress marker."""
+    """E016-UNIT-001: python silent-swallow lines get an inline suppress marker."""
     from atdd.coach.commands.suppress import suppress_backfill, BackfillResult
 
     src = tmp_path / "app.py"
@@ -98,12 +98,12 @@ def test_backfill_inserts_python_marker(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# acc:govern-lifecycle:E013-UNIT-002
+# acc:govern-lifecycle:E016-UNIT-002
 # suppress_backfill is idempotent when markers already present
 # ---------------------------------------------------------------------------
 
 def test_backfill_idempotent_on_already_marked(tmp_path: Path):
-    """E013-UNIT-002: re-running on already-marked file produces edited_count=0."""
+    """E016-UNIT-002: re-running on already-marked file produces edited_count=0."""
     from atdd.coach.commands.suppress import suppress_backfill, BackfillResult
 
     marker = f"# atdd:suppress({_RULE_ID}) UNTIL=2099-01-01"
@@ -132,12 +132,12 @@ def test_backfill_idempotent_on_already_marked(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# acc:govern-lifecycle:E013-UNIT-003
+# acc:govern-lifecycle:E016-UNIT-003
 # suppress_backfill inserts TypeScript // marker
 # ---------------------------------------------------------------------------
 
 def test_backfill_inserts_typescript_marker(tmp_path: Path):
-    """E013-UNIT-003: .ts violation lines get a // inline suppress marker."""
+    """E016-UNIT-003: .ts violation lines get a // inline suppress marker."""
     from atdd.coach.commands.suppress import suppress_backfill, BackfillResult
 
     ts_file = tmp_path / "handler.ts"
@@ -165,12 +165,12 @@ def test_backfill_inserts_typescript_marker(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# acc:govern-lifecycle:E013-UNIT-004
+# acc:govern-lifecycle:E016-UNIT-004
 # CLI suppress backfill exits 0 and prints punch list
 # ---------------------------------------------------------------------------
 
 def test_cli_suppress_backfill_exits_zero(tmp_path: Path, capsys):
-    """E013-UNIT-004: atdd suppress backfill exits 0 with empty punch list."""
+    """E016-UNIT-004: atdd suppress backfill exits 0 with empty punch list."""
     from atdd.coach.commands.suppress import run_suppress_backfill
 
     def _empty_scanner(repo_root: Path) -> Tuple[int, List[Violation]]:  # noqa: ARG001
@@ -189,12 +189,12 @@ def test_cli_suppress_backfill_exits_zero(tmp_path: Path, capsys):
 
 
 # ---------------------------------------------------------------------------
-# acc:govern-lifecycle:E013-UNIT-005
+# acc:govern-lifecycle:E016-UNIT-005
 # Unknown rule_id exits non-zero
 # ---------------------------------------------------------------------------
 
 def test_unknown_rule_exits_nonzero(tmp_path: Path, capsys):
-    """E013-UNIT-005: unknown rule_id prints clear message and returns 1."""
+    """E016-UNIT-005: unknown rule_id prints clear message and returns 1."""
     from atdd.coach.commands.suppress import run_suppress_backfill
 
     rc = run_suppress_backfill(
@@ -210,12 +210,12 @@ def test_unknown_rule_exits_nonzero(tmp_path: Path, capsys):
 
 
 # ---------------------------------------------------------------------------
-# acc:govern-lifecycle:E013-UNIT-006
+# acc:govern-lifecycle:E016-UNIT-006
 # check_orphaned_baseline_keys warns on integer-count keys
 # ---------------------------------------------------------------------------
 
 def test_orphaned_baseline_warning_emitted(tmp_path: Path):
-    """E013-UNIT-006: integer-count keys in coder.yaml generate one warning each."""
+    """E016-UNIT-006: integer-count keys in coder.yaml generate one warning each."""
     from atdd.coach.commands.suppress import check_orphaned_baseline_keys
 
     baselines_dir = tmp_path / ".atdd" / "baselines"
@@ -235,12 +235,12 @@ def test_orphaned_baseline_warning_emitted(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# acc:govern-lifecycle:E013-UNIT-007
+# acc:govern-lifecycle:E016-UNIT-007
 # check_orphaned_baseline_keys returns empty list when file absent
 # ---------------------------------------------------------------------------
 
 def test_no_coder_yaml_returns_empty(tmp_path: Path):
-    """E013-UNIT-007: missing .atdd/baselines/coder.yaml → empty warning list."""
+    """E016-UNIT-007: missing .atdd/baselines/coder.yaml → empty warning list."""
     from atdd.coach.commands.suppress import check_orphaned_baseline_keys
 
     warnings = check_orphaned_baseline_keys(repo_root=tmp_path)
@@ -249,13 +249,13 @@ def test_no_coder_yaml_returns_empty(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# acc:govern-lifecycle:E013-SMOKE-001
+# acc:govern-lifecycle:E016-SMOKE-001
 # End-to-end: real scanner + real file → violations suppressed
 # ---------------------------------------------------------------------------
 
 @pytest.mark.smoke
 def test_backfill_on_real_fixture_suppresses_violations(tmp_path: Path):
-    """E013-SMOKE-001: real scanner + real fixture file → all violations suppressed."""
+    """E016-SMOKE-001: real scanner + real fixture file → all violations suppressed."""
     from atdd.coach.commands.suppress import suppress_backfill, BackfillResult
     from atdd.coder.validators.test_no_silent_exception_swallowing_python import (
         detect_silent_swallows,
