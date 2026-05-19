@@ -1,4 +1,4 @@
-urn: "wmbt:govern-lifecycle:E016"
+urn: "wmbt:govern-lifecycle:E017"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of operators-unable-to-find-adapter-documentation-or-run-manifest-backfill when an operator selects an LLM adapter or needs to backfill the manifest by (1) creating docs/MODELS.md with an adapter table (id, env vars, permission policy, extension recipe) covering every entry in ADAPTER_REGISTRY, and (2) wiring atdd manifest backfill in cli.py as a named subcommand that delegates to IssueManager.reconcile()"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:E016-UNIT-001-docs-models-md-exists-with-adapter-table"
+      urn: "acc:govern-lifecycle:E017-UNIT-001-docs-models-md-exists-with-adapter-table"
       id: "AC-UNIT-001"
       purpose: "docs/MODELS.md exists and contains a table row for every adapter ID registered in ADAPTER_REGISTRY"
       phase: "GREEN"
@@ -33,7 +33,7 @@ acceptances:
       created: "2026-05-19"
 
   - identity:
-      urn: "acc:govern-lifecycle:E016-UNIT-002-atdd-manifest-backfill-routes-to-reconcile"
+      urn: "acc:govern-lifecycle:E017-UNIT-002-atdd-manifest-backfill-routes-to-reconcile"
       id: "AC-UNIT-002"
       purpose: "cli.py dispatch routes 'atdd manifest backfill' to IssueManager.reconcile()"
       phase: "GREEN"
@@ -56,7 +56,7 @@ acceptances:
       created: "2026-05-19"
 
   - identity:
-      urn: "acc:govern-lifecycle:E016-SMOKE-001-docs-models-md-has-valid-structure"
+      urn: "acc:govern-lifecycle:E017-SMOKE-001-docs-models-md-has-valid-structure"
       id: "AC-SMOKE-001"
       purpose: "docs/MODELS.md has valid markdown structure: title, adapter table, env vars section, and extension guide"
       phase: "SMOKE"
@@ -79,7 +79,7 @@ acceptances:
       created: "2026-05-19"
 
   - identity:
-      urn: "acc:govern-lifecycle:E016-SMOKE-002-atdd-manifest-backfill-cli-wired"
+      urn: "acc:govern-lifecycle:E017-SMOKE-002-atdd-manifest-backfill-cli-wired"
       id: "AC-SMOKE-002"
       purpose: "cli.py source registers 'manifest' subparser with 'backfill' subcommand calling manager.reconcile()"
       phase: "SMOKE"
