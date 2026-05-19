@@ -1,0 +1,32 @@
+urn: "feature:spawn-agents:register-llm-adapter-flavors"
+wagon: "wagon:spawn-agents"
+description: "Populate ADAPTER_REGISTRY in spawn.py with four Wave-A adapters (issue #699, Wave A of #602): claude-glm (Z_AI_API_KEY), claude-gpt (OPENROUTER_API_KEY), codex (OPENAI_API_KEY), gemini (GOOGLE_API_KEY). Each adapter is a Callable[[Path], str] with _require_env preflight that raises AdapterError naming the missing credential. Unblocks the E008 interactive model-selection prompt from returning a single-item menu (E009)."
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:spawn-agents:E009"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — adapters register on the existing ADAPTER_REGISTRY open extension point in spawn.py without touching the CLI argument parser"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "_require_env is a single shared application-layer helper; the four adapter functions are thin wrappers that call it and return a shell command string"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "AdapterError — a new exception type raised by _require_env on missing credentials; it is a value object in the domain sense (carries adapter_id + var_name diagnostic)"
+    integration:
+      - type: "adapters"
+        count: 4
+        rationale: "_claude_glm_adapter, _claude_gpt_adapter, _codex_adapter, _gemini_adapter — four new integration adapters registered in ADAPTER_REGISTRY; each wraps a distinct upstream CLI (claude --model, codex exec, gemini generate)"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface"
