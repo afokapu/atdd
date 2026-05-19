@@ -1,4 +1,11 @@
-# URN: component:observe-and-correct:enforcement-substrate:test_smoke_no_collaborator_substitution_helpers:backend:tests
+# URN: test:observe-and-correct:observer-runtime-and-rules:C002-UNIT-001-flags-monkeypatch-setattr
+# Acceptance: acc:observe-and-correct:C002-UNIT-001-flags-monkeypatch-setattr
+# Acceptance: acc:observe-and-correct:C002-UNIT-002-flags-local-def-over-attribute
+# Acceptance: acc:observe-and-correct:C002-UNIT-003-does-not-flag-env-setup
+# Acceptance: acc:observe-and-correct:C002-UNIT-004-phase-scoped-scan
+# WMBT: wmbt:observe-and-correct:C002
+# Phase: GREEN
+# Layer: domain
 # Runtime: python
 # Purpose: Unit tests for the #704 Tier 1 collaborator-substitution detector.
 

@@ -1,4 +1,8 @@
-# URN: component:observe-and-correct:enforcement-substrate:test_smoke_no_collaborator_substitution:backend:tests
+# URN: test:observe-and-correct:observer-runtime-and-rules:C002-UNIT-005-suppress-marker-clears-violation
+# Acceptance: acc:observe-and-correct:C002-UNIT-005-suppress-marker-clears-violation
+# WMBT: wmbt:observe-and-correct:C002
+# Phase: GREEN
+# Layer: integration
 # Runtime: python
 # Purpose: Flag SMOKE-phase tests that substitute a production collaborator (#704 Tier 1).
 
