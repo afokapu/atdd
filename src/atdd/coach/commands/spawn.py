@@ -95,6 +95,7 @@ class AdapterError(RuntimeError):
 
 # ---------------------------------------------------------------------------
 # E010 (#795): Worker launch-prompt readiness gate
+# E011 (#799): Verify-or-fail-loud for every spawn pipeline stage
 # ---------------------------------------------------------------------------
 
 
@@ -102,6 +103,75 @@ class WorkerReadinessTimeout(RuntimeError):
     """Raised by _wait_for_claude_ready when the worker never comes up within
     the bounded timeout. Message contains the surface ref, project key, and
     elapsed time for operator diagnostics."""
+
+
+class RenameNotAccepted(WorkerReadinessTimeout):
+    """Raised when /rename was sent but the canonical name never appeared in
+    capture_pane_text within the bounded timeout (E011, issue #799)."""
+
+
+class PasteDidNotLand(WorkerReadinessTimeout):
+    """Raised when paste_text was called but the paste indicator or prompt
+    prefix never appeared in capture_pane_text within the bounded timeout
+    (E011, issue #799)."""
+
+
+class PromptNotSubmitted(WorkerReadinessTimeout):
+    """Raised when send_key(Enter) was called but no thinking/tool-use marker
+    appeared in capture_pane_text within the bounded timeout. Indicates the
+    swallowed-Enter failure mode (E011, issue #799)."""
+
+
+def _verify_stage(
+    stage_name: str,
+    surface_ref: str,
+    backend: Any,
+    expect_any: tuple[str, ...],
+    *,
+    timeout_s: float = 10.0,
+    poll_interval_s: float = 0.25,
+) -> None:
+    """Poll capture_pane_text until any expected signal appears or the timeout expires.
+
+    Each spawn pipeline stage calls this after firing its cmux command to
+    verify the expected post-condition. On timeout, raises a stage-specific
+    subclass of WorkerReadinessTimeout that includes the stage name and
+    surface ref in the message so callers can log exactly which stage failed.
+
+    Stage-to-exception map (E011, issue #799):
+      - "rename-accepted"  → RenameNotAccepted
+      - "paste-landed"     → PasteDidNotLand
+      - "prompt-submitted" → PromptNotSubmitted
+      - (any other name)   → WorkerReadinessTimeout
+    """
+    _STAGE_EXCEPTIONS: dict[str, type[WorkerReadinessTimeout]] = {
+        "rename-accepted": RenameNotAccepted,
+        "paste-landed": PasteDidNotLand,
+        "prompt-submitted": PromptNotSubmitted,
+    }
+    exc_class = _STAGE_EXCEPTIONS.get(stage_name, WorkerReadinessTimeout)
+
+    deadline = time.monotonic() + timeout_s
+    start = time.monotonic()
+
+    while time.monotonic() < deadline:
+        try:
+            text = backend.capture_pane_text(surface_ref)
+        except Exception:
+            time.sleep(poll_interval_s)
+            continue
+
+        if any(signal in text for signal in expect_any):
+            return
+
+        time.sleep(poll_interval_s)
+
+    elapsed = time.monotonic() - start
+    raise exc_class(
+        f"Stage {stage_name!r} on {surface_ref!r} timed out after {timeout_s:.1f}s "
+        f"(elapsed {elapsed:.1f}s): none of {expect_any!r} appeared in pane capture. "
+        f"({SPAWN_RULE_ID})"
+    )
 
 
 def _pre_trust_worktree(

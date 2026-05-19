@@ -60,7 +60,17 @@ def apply_canonical_name_and_layout(
     ref: str,
     canonical_name: str,
     surface_count: int,
+    *,
+    verify_after_send: bool = False,
+    verify_timeout_s: float = 10.0,
+    verify_poll_s: float = 0.25,
 ) -> None:
+    """Apply canonical name via multiplexer rename + Claude /rename command.
+
+    E011 (#799): When ``verify_after_send=True``, polls ``backend.capture_pane_text``
+    after sending the /rename command and raises ``RenameNotAccepted`` if the
+    canonical name does not appear within ``verify_timeout_s``.
+    """
     if not canonical_name:
         return
     try:
@@ -92,6 +102,18 @@ def apply_canonical_name_and_layout(
             f"({CANONICAL_SESSION_NAME_RULE_ID})",
             file=sys.stderr,
         )
+
+    if verify_after_send:
+        from atdd.coach.commands.spawn import _verify_stage
+        _verify_stage(
+            stage_name="rename-accepted",
+            surface_ref=ref,
+            backend=backend,
+            expect_any=(canonical_name,),
+            timeout_s=verify_timeout_s,
+            poll_interval_s=verify_poll_s,
+        )
+
     layout = target_grid_label(surface_count)
     print(
         f"   layout target ({surface_count} surface[s]): {layout} "
