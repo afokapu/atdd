@@ -1,0 +1,100 @@
+urn: "wmbt:govern-lifecycle:E015"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "agent-behavioral-rules-visible-only-in-per-user-memory-and-invisible-to-other-machines-or-llms"
+context_clarifier: "enforceable agent behavioral rules (e.g. 'never pass --dangerously-skip-permissions', 'search before filing') live only in per-user ~/.claude/memory/ files that are invisible to other machines, other LLMs, and fresh agents; atdd gate does not inject them; the fix is a repo-committed .atdd/agent-rules.yaml that any LLM can load via atdd gate regardless of per-user memory state"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of agent-behavioral-rules-visible-only-in-per-user-memory-and-invisible-to-other-machines-or-llms when an agent runs atdd gate by (1) creating .atdd/agent-rules.yaml with the portable enforcement subset of behavioral rules (LLM-agnostic, no per-user memory references), (2) having ATDDGate.verify() load .atdd/agent-rules.yaml when it exists and append its rules under a 'Agent Behavioral Rules' section in the gate output, and (3) producing docs/agent-rules-audit.md that classifies every current memory entry as enforceable / partial / soft-only with enforcement site when applicable"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E015-UNIT-001-gate-includes-portable-rules-when-yaml-exists"
+      id: "AC-UNIT-001"
+      purpose: "ATDDGate.verify() prints an 'Agent Behavioral Rules' section when .atdd/agent-rules.yaml exists in the target_dir"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDDGate is importable from atdd.coach.commands.gate"
+        - "A temporary target_dir contains .atdd/agent-rules.yaml with at least one rule entry"
+        - "Agent config files are present (or _get_synced_files is patched to return a non-empty dict)"
+    when:
+      abstract: "ATDDGate(target_dir=target_dir).verify() is called"
+    then:
+      abstract:
+        - "stdout contains 'Agent Behavioral Rules' (the section header)"
+        - "stdout contains at least one rule text from agent-rules.yaml"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E015-UNIT-002-gate-silent-when-no-yaml"
+      id: "AC-UNIT-002"
+      purpose: "ATDDGate.verify() does not error and does not print an 'Agent Behavioral Rules' section when .atdd/agent-rules.yaml is absent"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "target_dir has no .atdd/agent-rules.yaml file"
+        - "Agent config files present (or _get_synced_files patched)"
+    when:
+      abstract: "ATDDGate(target_dir=target_dir).verify() is called"
+    then:
+      abstract:
+        - "No exception is raised"
+        - "Return value is 0"
+        - "stdout does NOT contain 'Agent Behavioral Rules'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E015-UNIT-003-agent-rules-yaml-is-valid-yaml"
+      id: "AC-UNIT-003"
+      purpose: "The committed .atdd/agent-rules.yaml parses as valid YAML and has a top-level 'rules' list with at least two entries each having 'id' and 'rule' fields"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Path('.atdd/agent-rules.yaml') is the file committed in this repo"
+    when:
+      abstract: "yaml.safe_load(Path('.atdd/agent-rules.yaml').read_text()) is called"
+    then:
+      abstract:
+        - "No exception is raised"
+        - "Parsed value has key 'rules'"
+        - "len(parsed['rules']) >= 2"
+        - "Each rule has keys 'id' and 'rule'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E015-SMOKE-001-gate-output-contains-rules-in-live-repo"
+      id: "AC-SMOKE-001"
+      purpose: "Running atdd gate in this repo (which has .atdd/agent-rules.yaml) produces output containing 'Agent Behavioral Rules'"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The working directory is the root of this repo"
+        - ".atdd/agent-rules.yaml exists and is valid"
+        - "subprocess.run(['atdd', 'gate'], capture_output=True) is called"
+    when:
+      abstract: "atdd gate runs to completion"
+    then:
+      abstract:
+        - "Process exit code is 0"
+        - "stdout contains 'Agent Behavioral Rules'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"

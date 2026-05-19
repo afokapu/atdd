@@ -1,0 +1,120 @@
+urn: "wmbt:govern-lifecycle:E013"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "issues-filed-without-duplicate-search"
+context_clarifier: "atdd issue <slug> creates a GitHub issue without first checking for similar existing issues; lived incident 2026-05-13: #649 was filed as a duplicate of #601 because no search was performed; the dup-check must warn on matches and offer --no-dup-check to bypass for operators who have already verified uniqueness"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of issues-filed-without-duplicate-search when an operator runs atdd issue <slug> by (1) running gh issue list --search <slug-words> --state open before opening the GitHub issue creation flow, (2) printing any matches with their numbers and titles, (3) prompting the operator to confirm or pass --no-dup-check to bypass, and (4) aborting with exit code 1 and a clear message when matches are found and --no-dup-check is not passed in non-interactive mode"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E013-UNIT-001-dup-check-warns-on-match"
+      id: "AC-UNIT-001"
+      purpose: "dup_check_before_file returns a non-empty list of matches when gh issue list --search finds issues whose titles overlap with the slug"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "dup_check_before_file is importable from atdd.coach.commands.issue"
+        - "A mock gh subprocess returns JSON containing one issue with title 'feat(atdd): Some Similar Title'"
+        - "slug is 'some-similar-title'"
+    when:
+      abstract: "dup_check_before_file(slug='some-similar-title', run_gh=<mock>) is called"
+    then:
+      abstract:
+        - "Returns a non-empty list"
+        - "The first element has key 'number' and key 'title'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E013-UNIT-002-dup-check-returns-empty-on-no-match"
+      id: "AC-UNIT-002"
+      purpose: "dup_check_before_file returns an empty list when gh issue list returns no results"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A mock gh subprocess returns an empty JSON array"
+        - "slug is 'unique-slug-no-match'"
+    when:
+      abstract: "dup_check_before_file(slug='unique-slug-no-match', run_gh=<mock>) is called"
+    then:
+      abstract:
+        - "Returns an empty list"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E013-UNIT-003-new-aborts-on-match-without-no-dup-check"
+      id: "AC-UNIT-003"
+      purpose: "IssueManager.new() returns 1 and prints a warning when dup_check_before_file finds matches and no_dup_check is False"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueManager.new() is called with slug='existing-slug', no_dup_check=False"
+        - "_dup_check is patched to return [{'number': 42, 'title': 'feat(atdd): Existing Slug'}]"
+    when:
+      abstract: "IssueManager.new(slug='existing-slug', no_dup_check=False) is called"
+    then:
+      abstract:
+        - "Return value is 1"
+        - "stdout contains '#42' and 'existing-slug' (or 'Existing Slug')"
+        - "stdout contains '--no-dup-check' (the bypass hint)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E013-UNIT-004-new-proceeds-with-no-dup-check-flag"
+      id: "AC-UNIT-004"
+      purpose: "IssueManager.new() proceeds to issue creation (does not abort) when no_dup_check=True even if dup_check finds matches"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "_dup_check is patched to return [{'number': 42, 'title': 'feat(atdd): Existing Slug'}]"
+        - "_new_github_issue is patched to return 0"
+    when:
+      abstract: "IssueManager.new(slug='existing-slug', no_dup_check=True) is called"
+    then:
+      abstract:
+        - "Return value is 0 (proceeded to creation)"
+        - "_new_github_issue was called"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E013-SMOKE-001-live-gh-search-runs-without-error"
+      id: "AC-SMOKE-001"
+      purpose: "dup_check_before_file runs gh issue list --search against the live repo without raising an exception; returns a list (possibly empty)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "GITHUB_TOKEN is set in the environment"
+        - "dup_check_before_file is imported from atdd.coach.commands.issue"
+        - "slug is 'atdd-smoke-test-unique-slug-xyz'"
+    when:
+      abstract: "dup_check_before_file(slug='atdd-smoke-test-unique-slug-xyz') is called"
+    then:
+      abstract:
+        - "No exception is raised"
+        - "The return value is a list"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
