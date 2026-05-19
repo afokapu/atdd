@@ -1,0 +1,183 @@
+urn: "wmbt:govern-lifecycle:E016"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "consumer-repos-blocked-on-substrate-v12-cutover-without-a-backfill-tool"
+context_clarifier: "when a consumer repo crosses the substrate-v12 disposition-gate cutover, atdd validate coder fails with a full punch list of pre-existing silent-swallow sites even though .atdd/baselines/coder.yaml appeared to track them under the old RatchetBaseline contract; there is no CLI tool to insert inline suppress markers in bulk, and orphaned integer-count keys in .atdd/baselines/coder.yaml continue to exist silently without warning — consumers either hand-edit every site or remain blocked indefinitely (incident: jel-app PR #364 failed validate-coder on 14 sites across 8 files with zero source-code changes)"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of consumer-repos-blocked-on-substrate-v12-cutover-without-a-backfill-tool when atdd suppress backfill --rule <rule_id> --until <date> is run on a consumer repo by (1) walking the rule's scanner to enumerate all current violation sites, (2) inserting a language-appropriate inline suppress comment on each offending line idempotently (skip if already marked), and (3) printing a punch list of paths touched + counts; additionally, during atdd validate, detect orphaned integer-count keys in .atdd/baselines/coder.yaml and print a single WARN: orphaned-baseline-key <name> line per key pointing to substrate spec v12 §4.5"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E016-UNIT-001-backfill-inserts-python-marker"
+      id: "AC-UNIT-001"
+      purpose: "suppress_backfill inserts a Python inline suppress marker on each unmarked violation line and returns counts"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A temporary Python file with two silent-swallow except handlers (no suppress markers)"
+        - "A scanner callable that returns Violation records pointing at those handlers"
+    when:
+      abstract: "suppress_backfill(rule_id='coder.logging.coach-silent-swallow', until='2099-01-01', scanner=mock_scanner, repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "Both handler lines now contain '# atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2099-01-01'"
+        - "The return value contains edited_count=2, skipped_count=0"
+        - "files_touched contains the path to the temp file"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E016-UNIT-002-backfill-idempotent-on-already-marked"
+      id: "AC-UNIT-002"
+      purpose: "suppress_backfill is a no-op (edited_count=0) when every violation line already carries the suppress marker"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A temporary Python file where every violation line already has '# atdd:suppress(coder.logging.coach-silent-swallow)'"
+        - "A scanner callable that returns Violation records pointing at those lines"
+    when:
+      abstract: "suppress_backfill is called again with the same arguments"
+    then:
+      abstract:
+        - "edited_count=0, skipped_count equals the number of violations"
+        - "File content is unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E016-UNIT-003-backfill-inserts-typescript-marker"
+      id: "AC-UNIT-003"
+      purpose: "suppress_backfill inserts a TypeScript // suppress marker on .ts violation lines"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A temporary .ts file with a line at a known line number"
+        - "A scanner callable that returns a Violation with location pointing at that line"
+    when:
+      abstract: "suppress_backfill is called with rule_id and until date"
+    then:
+      abstract:
+        - "The violation line in the .ts file now ends with '// atdd:suppress(<rule_id>) UNTIL=<date>'"
+        - "edited_count=1"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E016-UNIT-004-cli-suppress-backfill-exits-0"
+      id: "AC-UNIT-004"
+      purpose: "atdd suppress backfill --rule <rule_id> --until <date> exits 0 and prints a punch list"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The suppress backfill subcommand is registered in cli.py"
+        - "SCANNER_REGISTRY maps the rule_id to a scanner that returns zero violations"
+    when:
+      abstract: "The CLI is called with suppress backfill --rule coder.logging.coach-silent-swallow --until 2099-01-01"
+    then:
+      abstract:
+        - "Exit code is 0"
+        - "stdout contains 'edited' and 'skipped' counts"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E016-UNIT-005-unknown-rule-exits-nonzero"
+      id: "AC-UNIT-005"
+      purpose: "suppress backfill exits non-zero and prints a clear message when the rule_id is not in the SCANNER_REGISTRY"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The suppress backfill subcommand is registered"
+        - "SCANNER_REGISTRY does not contain the provided rule_id"
+    when:
+      abstract: "atdd suppress backfill --rule unknown.rule.id --until 2099-01-01 is called"
+    then:
+      abstract:
+        - "Exit code is non-zero (1)"
+        - "stderr or stdout contains 'unknown rule' or 'not supported'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E016-UNIT-006-orphaned-baseline-warning-emitted"
+      id: "AC-UNIT-006"
+      purpose: "check_orphaned_baseline_keys warns once per orphaned integer-count key in .atdd/baselines/coder.yaml"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A .atdd/baselines/coder.yaml file containing 'silent_exception_swallowing_python: 161'"
+        - "check_orphaned_baseline_keys is imported from atdd.coach.commands.suppress"
+    when:
+      abstract: "check_orphaned_baseline_keys(repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "Returns a list containing one warning string for 'silent_exception_swallowing_python'"
+        - "The warning string contains 'orphaned-baseline-key' and 'substrate spec v12'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E016-UNIT-007-no-coder-yaml-returns-empty"
+      id: "AC-UNIT-007"
+      purpose: "check_orphaned_baseline_keys returns an empty list when .atdd/baselines/coder.yaml does not exist"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path with no .atdd/baselines/coder.yaml"
+    when:
+      abstract: "check_orphaned_baseline_keys(repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "Returns an empty list"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E016-SMOKE-001-backfill-on-real-fixture-suppresses-violations"
+      id: "AC-SMOKE-001"
+      purpose: "Running suppress_backfill with the real scanner on a fixture file produces a file that passes assert_disposition_satisfied"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real Python fixture file with at least one unsuppressed silent-swallow violation"
+        - "scan_silent_swallows_python from the real validator is used as the scanner"
+    when:
+      abstract: "suppress_backfill is called with the real scanner; then scan_silent_swallows_python is re-run on the same file"
+    then:
+      abstract:
+        - "The second scan finds no unsuppressed violations (all are marked)"
+        - "edited_count >= 1 on the first run; 0 on a second run (idempotency)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-19"
