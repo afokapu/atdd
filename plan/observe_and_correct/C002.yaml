@@ -1,0 +1,108 @@
+urn: "wmbt:observe-and-correct:C002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "smoke-tests-that-pass-ci-while-substituting-their-declared-boundary"
+context_clarifier: "when a test labelled # Phase: SMOKE substitutes a real collaborator — via monkeypatch.setattr or by assigning a locally-defined function/lambda over an object attribute — it is a unit test wearing a SMOKE label: it passes CI while exercising nothing real. The lived incident is the observer's obs.collect_input = _synthetic substitution (#700), which let an unwired observer ship GREEN. The existing test_smoke_coverage.py only checked no-mock-imports and only scanned e2e/ — the toolkit's own src/atdd smoke tests had zero smoke-fidelity validation through that gap. Hard constraint: a static validator cannot certify real-infrastructure use (Rice's theorem); Tier 1 does the decidable NEGATIVE check only. Tier 2 (acceptance-trace + runtime gate) depends on #690 and is tracked on the open issue."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary by adding rule tester.smoke.no-collaborator-substitution (suppress-and-clean) to smoke.convention.yaml, implemented in test_smoke_no_collaborator_substitution.py — an AST-scan of every # Phase: SMOKE Python test repo-wide that flags monkeypatch.setattr(...) and assignment of a locally-defined function/lambda over an object attribute, while allowing monkeypatch env methods (setenv/delenv/chdir/syspath_prepend) and plain data assignments"
+acceptances:
+  - identity:
+      urn: "acc:observe-and-correct:C002-UNIT-001-flags-monkeypatch-setattr"
+      id: "AC-UNIT-001"
+      purpose: "monkeypatch.setattr(mod, attr, fake) in a # Phase: SMOKE test fires the rule"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic Python source string containing monkeypatch.setattr(...)"
+    when:
+      abstract: "detect_substitutions() is called on the source"
+    then:
+      abstract:
+        - "At least one finding is returned"
+        - "The finding detail contains 'monkeypatch.setattr'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:observe-and-correct:C002-UNIT-002-flags-local-def-over-attribute"
+      id: "AC-UNIT-002"
+      purpose: "Assignment of a locally-defined function over an object attribute (the lived obs.collect_input = _synthetic incident) fires the rule"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic source with: def _synthetic(): ... followed by obs.collect_input = _synthetic"
+    when:
+      abstract: "detect_substitutions() is called"
+    then:
+      abstract:
+        - "Exactly one finding at the assignment line"
+        - "The detail names the substituted attribute and the local function"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:observe-and-correct:C002-UNIT-003-does-not-flag-env-setup"
+      id: "AC-UNIT-003"
+      purpose: "monkeypatch.setenv, .delenv, .chdir, .syspath_prepend in a SMOKE test are NOT flagged — they set up environment, not substitute collaborators"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic source using only monkeypatch env methods"
+    when:
+      abstract: "detect_substitutions() is called"
+    then:
+      abstract:
+        - "No findings returned (empty list)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:observe-and-correct:C002-UNIT-004-phase-scoped-scan"
+      id: "AC-UNIT-004"
+      purpose: "collect_violations() scans only # Phase: SMOKE files; a file without the header is out of scope even if it contains a substitution pattern"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path tree with one # Phase: SMOKE file containing a substitution and one # Phase: GREEN file with the identical substitution"
+    when:
+      abstract: "collect_violations(repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - "Exactly one violation — from the SMOKE file only"
+        - "The GREEN file generates no violation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:observe-and-correct:C002-UNIT-005-suppress-marker-clears-violation"
+      id: "AC-UNIT-005"
+      purpose: "An inline # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=<date> marker causes assert_disposition_satisfied to pass (suppress-and-clean disposition)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The observer test file carrying obs.collect_input = _synthetic with a time-boxed suppress marker (UNTIL=2026-08-15) on the offending line"
+    when:
+      abstract: "test_smoke_tests_do_not_substitute_collaborators() is run against the live repo"
+    then:
+      abstract:
+        - "The validator passes (violation suppressed by the inline marker)"
+        - "test_no_stale_suppressions will surface the marker after the UNTIL date for honest reclassification"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
