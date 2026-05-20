@@ -1,0 +1,145 @@
+urn: "wmbt:govern-lifecycle:E021"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "registry-mirror-drift-accumulates-on-main-because-no-push-or-ci-gate-enforces-atdd-registry-update-before-landing"
+context_clarifier: "plan/_wagons.yaml, plan/_trains.yaml, and contracts/_artifacts.yaml are aggregated mirror files that must track per-wagon source-of-truth files (plan/<wagon>/_<wagon>.yaml, contracts/**/*.schema.json). atdd registry update --check is wired into the GT-850 COMPLETE gate but atdd registry update --yes is never run automatically — operators are expected to run it manually before pushing, and they don't. Each merge that adds a WMBT entry or contract schema without running the sync command leaves the mirror behind; drift compounds linearly across merges. As of 2026-05-20 six wagons drift on their wmbt counts, two trains drift, and four new artifact schemas are missing from the index; GT-850 fails on every PR's COMPLETE gate regardless of the PR's content (lived example: #813 needed --force bypass). The fix has two parts: (1) a one-shot chore PR that runs atdd registry update --yes on main and commits the result so the mirror matches source-of-truth; (2) wiring atdd registry update --check into the pre-push hook (fast local feedback, cannot be skipped silently) and as a required CI check on main (authoritative gate that cannot be bypassed with --no-verify). When the check fails, the printed fix-hint must tell the operator exactly which command to run (#817)."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of registry-mirror-drift-accumulates-on-main-because-no-push-or-ci-gate-enforces-atdd-registry-update-before-landing by (1) applying atdd registry update --yes as a one-shot chore commit so plan/_wagons.yaml, plan/_trains.yaml, and contracts/_artifacts.yaml match source-of-truth on main, verified by atdd registry update --check exiting 0 after the commit; (2) extending the pre-push hook to run atdd registry update --check and exit non-zero when drift is detected, printing the fix-hint 'run: atdd registry update --yes && git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml && git commit'; and (3) adding a required CI check (atdd-registry-drift job) that runs atdd registry update --check on every push to main or open PR, failing the check when drift is detected (#817)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E021-UNIT-001-registry-check-exits-zero-after-resync"
+      id: "AC-UNIT-001"
+      purpose: "After applying atdd registry update --yes on the worktree, atdd registry update --check exits 0"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The RegistryBuilder is instantiated pointing at the worktree root"
+        - "atdd registry update --yes has been run and the output committed"
+    when:
+      abstract: "RegistryBuilder.check() is called (the --check mode used by GT-850)"
+    then:
+      abstract:
+        - "check() returns exit code 0"
+        - "No drift is reported for plan/_wagons.yaml, plan/_trains.yaml, or contracts/_artifacts.yaml"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E021-UNIT-002-pre-push-hook-rejects-drift"
+      id: "AC-UNIT-002"
+      purpose: "Pre-push hook running atdd registry update --check rejects a push when mirror is out of sync with source"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A stub RegistryChecker is constructed that simulates drift (returns non-zero exit code)"
+        - "The pre-push hook script invokes RegistryChecker.check() as its registry gate"
+        - "The hook is wired to the git pre-push event"
+    when:
+      abstract: "git push is attempted on a branch whose mirror is out of sync with source"
+    then:
+      abstract:
+        - "The pre-push hook exits non-zero"
+        - "The hook output contains the fix-hint string 'atdd registry update --yes'"
+        - "The push is blocked"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E021-UNIT-003-pre-push-hook-passes-after-resync"
+      id: "AC-UNIT-003"
+      purpose: "Pre-push hook passes after the operator runs atdd registry update --yes and re-stages the mirror files"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A stub RegistryChecker is constructed that returns exit code 0 (no drift)"
+        - "The pre-push hook script invokes RegistryChecker.check() as its registry gate"
+    when:
+      abstract: "git push is attempted on a branch with a synced mirror"
+    then:
+      abstract:
+        - "The pre-push hook exits 0"
+        - "The push is not blocked by the registry gate"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E021-UNIT-004-fix-hint-names-exact-command"
+      id: "AC-UNIT-004"
+      purpose: "When the registry check fails, the printed fix-hint contains the exact remediation command"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "RegistryDriftError is raised with a drift report listing drifted files"
+    when:
+      abstract: "format_fix_hint(drift_report) is called on the error"
+    then:
+      abstract:
+        - "The returned string contains 'atdd registry update --yes'"
+        - "The returned string contains the names of the drifted files"
+        - "The string is suitable for printing directly to stderr in the hook or CI step"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E021-INTEGRATION-001-ci-check-fails-on-drifted-pr"
+      id: "AC-INTEGRATION-001"
+      purpose: "A PR that adds a new WMBT entry to a source wagon file without re-syncing the mirror fails the atdd-registry-drift CI job"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is installed from local source (PYTHONPATH=src)"
+        - "A temporary git repo contains a plan/<wagon>/_<wagon>.yaml with an added WMBT entry"
+        - "plan/_wagons.yaml has NOT been updated to reflect the new WMBT count"
+    when:
+      abstract: "atdd registry update --check is invoked against the temporary repo"
+    then:
+      abstract:
+        - "Exit code is non-zero"
+        - "Output names the drifted wagon and field (e.g. 'wmbt.total mismatch')"
+        - "Output contains the fix-hint string 'atdd registry update --yes'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E021-SMOKE-001-registry-check-passes-on-main-after-chore-pr"
+      id: "AC-SMOKE-001"
+      purpose: "After the one-shot resync chore PR lands on main, atdd registry update --check on main exits 0"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is installed from the merged main branch"
+        - "The chore PR has been merged (plan/_wagons.yaml, plan/_trains.yaml, contracts/_artifacts.yaml updated)"
+    when:
+      abstract: "atdd registry update --check is invoked at the worktree root"
+    then:
+      abstract:
+        - "Exit code is 0"
+        - "Output reports 'No drift detected' or equivalent"
+        - "GT-850 (COMPLETE gate) no longer requires --force to pass"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"

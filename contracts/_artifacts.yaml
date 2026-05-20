@@ -1,0 +1,38 @@
+artifacts:
+- id: commons:compliance:gate
+  urn: contract:commons:compliance:gate
+  version: 1.0.0
+  title: CommonsComplianceGate
+  description: ATDD gate verification output — confirms agent loaded rules correctly
+  path: contracts/commons/compliance/gate.schema.json
+  producer: wagon:govern-lifecycle
+  consumers: []
+- id: commons:compliance:inventory
+  urn: contract:commons:compliance:inventory
+  version: 1.0.0
+  title: CommonsComplianceInventory
+  description: Repository inventory output — catalogs all ATDD artifacts
+  path: contracts/commons/compliance/inventory.schema.json
+  producer: wagon:govern-lifecycle
+  consumers: []
+- id: commons:error:response
+  urn: contract:commons:error:response
+  version: 1.0.0
+  title: CommonsErrorResponse
+  description: Structured error response contract for all HTTP endpoints. All error
+    responses MUST conform to this shape for consistent client-side handling.
+  path: contracts/commons/error/response.schema.json
+  producer: wagon:verify-contracts
+  consumers:
+  - wagon:implement-code
+- id: frontend:train:render-metadata
+  urn: contract:frontend:train:render-metadata
+  version: 1.0.0
+  title: FrontendTrainRenderMetadata
+  description: Optional render-content expectations attached to a train manifest.
+    Consumed by tester validator test_train_renders_content.py to verify that mounting
+    the train produces non-empty, non-stub DOM output. SPEC-CODER-TRAIN-0003.
+  path: contracts/frontend/train/render-metadata.schema.json
+  producer: wagon:govern-lifecycle
+  consumers:
+  - wagon:govern-lifecycle
