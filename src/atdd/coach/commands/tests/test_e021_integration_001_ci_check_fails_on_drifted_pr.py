@@ -81,7 +81,7 @@ def drifted_repo(tmp_path):
     return tmp_path
 
 
-def test_registry_check_exits_nonzero_on_drifted_repo(drifted_repo):
+def test_registry_check_exits_nonzero_on_drifted_repo(drifted_repo, tmp_path):
     """RegistryBuilder.check() returns non-zero when wagon mirror is out of sync."""
     builder = RegistryBuilder(drifted_repo)
     exit_code = builder.check()
@@ -90,7 +90,7 @@ def test_registry_check_exits_nonzero_on_drifted_repo(drifted_repo):
     )
 
 
-def test_registry_check_output_names_drifted_wagon(drifted_repo, capsys):
+def test_registry_check_output_names_drifted_wagon(drifted_repo, capsys, tmp_path):
     """RegistryBuilder check output must name the drifted wagon."""
     builder = RegistryBuilder(drifted_repo)
     builder.check()
@@ -101,7 +101,7 @@ def test_registry_check_output_names_drifted_wagon(drifted_repo, capsys):
     )
 
 
-def test_registry_check_output_contains_fix_hint(drifted_repo, capsys):
+def test_registry_check_output_contains_fix_hint(drifted_repo, capsys, tmp_path):
     """RegistryBuilder check output must include 'atdd registry update --yes' fix-hint."""
     builder = RegistryBuilder(drifted_repo)
     builder.check()

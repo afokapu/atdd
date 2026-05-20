@@ -28,7 +28,6 @@ try:
     from atdd.coach.commands.registry import RegistryDriftChecker  # type: ignore[attr-defined]
     _HAS_DRIFT_CHECKER = True
 except ImportError:
-    RegistryDriftChecker = None  # type: ignore[misc,assignment]
     _HAS_DRIFT_CHECKER = False
 
 

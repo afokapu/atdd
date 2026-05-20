@@ -21,14 +21,12 @@ try:
     from atdd.coach.commands.registry import format_fix_hint  # type: ignore[attr-defined]
     _HAS_FORMAT_FIX_HINT = True
 except ImportError:
-    format_fix_hint = None  # type: ignore[assignment]
     _HAS_FORMAT_FIX_HINT = False
 
 try:
     from atdd.coach.commands.registry import RegistryDriftError  # type: ignore[attr-defined]
     _HAS_DRIFT_ERROR = True
 except ImportError:
-    RegistryDriftError = None  # type: ignore[assignment]
     _HAS_DRIFT_ERROR = False
 
 
