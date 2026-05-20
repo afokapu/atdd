@@ -26,7 +26,7 @@ Out of scope (each owned by an adjacent K-track issue):
 - Substrate spawn-harness blocks ``wmbt_rules`` / ``train_rules`` /
   ``security_rules`` (#K2).
 - Canonical-naming + layout pass post-launch (#K3).
-- Per-LLM convention file generation: CLAUDE.md / AGENTS.md / GLM.md /
+- Per-LLM convention file generation: CLAUDE.md / CONDUCTOR.md / GLM.md /
   GEMINI.md (#K4 + #P3).
 - Codex / gemini / glm adapter implementations (separate K-track).
 - Coach-state-machine integration (#496 + #J4).

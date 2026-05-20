@@ -47,7 +47,7 @@ def test_print_upgrade_sync_notice_does_not_call_agent_sync(
     """`print_upgrade_sync_notice` must not invoke `AgentConfigSync.sync`.
 
     Regression target for #342: previously the function called sync as a
-    side effect of the upgrade banner, mutating CLAUDE.md / AGENTS.md /
+    side effect of the upgrade banner, mutating CLAUDE.md / CONDUCTOR.md /
     `.atdd/config.yaml` on every CLI invocation.
     """
     _seed_stale_repo(tmp_path)

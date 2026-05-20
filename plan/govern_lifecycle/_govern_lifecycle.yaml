@@ -53,9 +53,10 @@ features:
   - urn: "feature:govern-lifecycle:docs-models-md-and-manifest-backfill"
   - urn: "feature:govern-lifecycle:pr-scoped-registry-drift-gate"
   - urn: "feature:govern-lifecycle:issue-author-validate-locally-publish-once"
+  - urn: "feature:govern-lifecycle:rename-codex-conductor-md"
 
 wmbt:
-  total: 46
+  total: 47
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -102,3 +103,4 @@ wmbt:
   E017: "minimize operators-unable-to-find-adapter-documentation-or-run-manifest-backfill by creating docs/MODELS.md with the adapter table and wiring atdd manifest backfill as a CLI route to IssueManager.reconcile() (#664)"
   E018: "minimize pr-registry-gate-absorbs-unrelated-repo-wide-drift when a PR runs GT-002 by adding --scope changed-files to atdd registry update --check that limits drift detection to wagon sources in git diff main..HEAD (#582)"
   E019: "minimize issue-author-submits-non-compliant-body-or-triggers-redundant-create-edit-graphql-pair when an operator runs atdd issue <slug> by validating the full body locally (--check gate) before any GitHub call and publishing via a single gh issue create with no follow-up gh issue edit for body (#792)"
+  E020: "minimize codex-agents-receiving-no-atdd-rules-because-sync-writes-deprecated-agents-md-not-conductor-md by renaming the persona template to CONDUCTOR.md.tmpl, updating AgentConfigSync.AGENT_FILES['codex'] to 'CONDUCTOR.md', and emitting a migration notice when a stale AGENTS.md with managed block is detected (#794)"

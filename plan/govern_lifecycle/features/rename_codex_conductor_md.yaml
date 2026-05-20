@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:rename-codex-conductor-md"
+wagon: "wagon:govern-lifecycle"
+description: "Updates the codex agent sync target from AGENTS.md (deprecated) to CONDUCTOR.md (current OpenAI Codex convention). Renames the persona template from AGENTS.md.tmpl to CONDUCTOR.md.tmpl, updates AgentConfigSync.AGENT_FILES and PERSONA_TEMPLATE_FILES for the codex key, and emits a migration notice when an existing AGENTS.md with a managed ATDD block is detected during sync."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:govern-lifecycle:E020"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface; the change is inside AgentConfigSync constants and sync() logic"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "detect_stale_agents_md: checks for AGENTS.md with managed block during codex sync and emits migration notice"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain types; change is confined to constants and conditional output"
+    integration:
+      - type: "file_writers"
+        count: 1
+        rationale: "AgentConfigSync writes CONDUCTOR.md instead of AGENTS.md for the codex target"

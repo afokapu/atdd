@@ -1,0 +1,140 @@
+urn: "wmbt:govern-lifecycle:E020"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "codex-agents-receiving-no-atdd-rules-because-sync-writes-deprecated-agents-md-not-conductor-md"
+context_clarifier: "OpenAI's Codex agent framework changed its convention filename from AGENTS.md to CONDUCTOR.md. The ATDD toolkit's AgentConfigSync.AGENT_FILES still maps 'codex' → 'AGENTS.md' and PERSONA_TEMPLATE_FILES still maps to 'AGENTS.md.tmpl', so atdd sync continues to write (or update) AGENTS.md while Codex now reads CONDUCTOR.md. Any repo that runs atdd sync after Codex upgraded is left with an AGENTS.md that Codex ignores and no CONDUCTOR.md with ATDD rules, making the entire ATDD constraint set invisible to Codex agents. The fix has three parts: (1) rename the persona template from src/atdd/coach/templates/persona/codex/AGENTS.md.tmpl to CONDUCTOR.md.tmpl, (2) update AGENT_FILES['codex'] to 'CONDUCTOR.md' and PERSONA_TEMPLATE_FILES['codex'] to ('codex', 'CONDUCTOR.md.tmpl') in AgentConfigSync, (3) when atdd sync detects an existing AGENTS.md with a managed ATDD block, emit a migration notice prompting the operator to delete the now-stale AGENTS.md — the old file is not auto-deleted to prevent silent data loss of any user content outside the managed block."
+lens: "functional.effectiveness"
+statement: "minimize quantity of codex-agents-receiving-no-atdd-rules-because-sync-writes-deprecated-agents-md-not-conductor-md by (1) renaming src/atdd/coach/templates/persona/codex/AGENTS.md.tmpl to CONDUCTOR.md.tmpl, (2) updating AgentConfigSync.AGENT_FILES['codex'] to 'CONDUCTOR.md' and PERSONA_TEMPLATE_FILES['codex'] to ('codex', 'CONDUCTOR.md.tmpl'), and (3) emitting a migration notice when an existing AGENTS.md with a managed ATDD block is detected during sync (#794)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E020-UNIT-001-agent-files-maps-codex-to-conductor-md"
+      id: "AC-UNIT-001"
+      purpose: "AgentConfigSync.AGENT_FILES['codex'] resolves to 'CONDUCTOR.md'"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "AgentConfigSync is imported from atdd.coach.commands.sync"
+    when:
+      abstract: "AgentConfigSync.AGENT_FILES['codex'] is read"
+    then:
+      abstract:
+        - "The value equals 'CONDUCTOR.md' (not 'AGENTS.md')"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E020-UNIT-002-persona-template-maps-codex-to-conductor-md-tmpl"
+      id: "AC-UNIT-002"
+      purpose: "AgentConfigSync.PERSONA_TEMPLATE_FILES['codex'] resolves to ('codex', 'CONDUCTOR.md.tmpl')"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "AgentConfigSync is imported from atdd.coach.commands.sync"
+    when:
+      abstract: "AgentConfigSync.PERSONA_TEMPLATE_FILES['codex'] is read"
+    then:
+      abstract:
+        - "The value equals ('codex', 'CONDUCTOR.md.tmpl') (not ('codex', 'AGENTS.md.tmpl'))"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E020-UNIT-003-sync-codex-agent-writes-conductor-md"
+      id: "AC-UNIT-003"
+      purpose: "atdd sync for the codex agent creates CONDUCTOR.md, not AGENTS.md"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "AgentConfigSync is constructed with a tmp_path target directory"
+        - "No prior agent config files exist in tmp_path"
+    when:
+      abstract: "sync.sync(agents=['codex']) is called"
+    then:
+      abstract:
+        - "CONDUCTOR.md exists in tmp_path and contains the ATDD managed block"
+        - "AGENTS.md does NOT exist in tmp_path"
+        - "sync() returns 0"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E020-UNIT-004-conductor-md-tmpl-template-file-exists"
+      id: "AC-UNIT-004"
+      purpose: "The renamed persona template CONDUCTOR.md.tmpl exists in templates/persona/codex/"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "AgentConfigSync is constructed with a tmp_path target directory"
+        - "The atdd package is installed from source (src/ on PYTHONPATH)"
+    when:
+      abstract: "sync.templates_dir / 'persona' / 'codex' / 'CONDUCTOR.md.tmpl' is tested for existence"
+    then:
+      abstract:
+        - "The path exists"
+        - "The old path 'persona/codex/AGENTS.md.tmpl' does NOT exist"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E020-UNIT-005-stale-agents-md-triggers-migration-notice"
+      id: "AC-UNIT-005"
+      purpose: "When AGENTS.md with an ATDD managed block already exists, sync emits a migration notice"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "AgentConfigSync is constructed with a tmp_path that contains AGENTS.md"
+        - "AGENTS.md contains the standard ATDD managed block (BEGIN/END markers)"
+    when:
+      abstract: "sync.sync(agents=['codex']) is called and stdout is captured"
+    then:
+      abstract:
+        - "The captured output contains a migration notice (e.g. 'AGENTS.md is deprecated' or 'migrate to CONDUCTOR.md')"
+        - "CONDUCTOR.md is created in tmp_path with the ATDD managed block"
+        - "sync() returns 0"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E020-SMOKE-001-live-sync-codex-produces-conductor-md"
+      id: "AC-SMOKE-001"
+      purpose: "Running atdd sync --agent codex against a live repo root creates CONDUCTOR.md"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is installed from local source (PYTHONPATH=src or pip install -e .)"
+        - "A temporary directory with .atdd/config.yaml listing codex in sync.agents is available"
+        - "ATDD.md template is accessible via the installed package"
+    when:
+      abstract: "atdd sync --agent codex is invoked targeting the temporary directory"
+    then:
+      abstract:
+        - "Exit code is 0"
+        - "CONDUCTOR.md exists in the directory and contains '# --- ATDD:BEGIN'"
+        - "AGENTS.md does NOT exist in the directory"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
