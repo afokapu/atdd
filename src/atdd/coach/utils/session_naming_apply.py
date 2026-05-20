@@ -88,8 +88,7 @@ def apply_canonical_name_and_layout(
             file=sys.stderr,
         )
     try:
-        backend.send(ref, f"/rename {canonical_name}")
-        backend.send_key(ref, "Enter")
+        backend.paste_text(ref, f"/rename {canonical_name}\n")
     except AttributeError as exc:
         print(
             f"⚠️  /rename injection unavailable for {ref}: {exc} "
@@ -109,7 +108,7 @@ def apply_canonical_name_and_layout(
             stage_name="rename-accepted",
             surface_ref=ref,
             backend=backend,
-            expect_any=(canonical_name,),
+            expect_any=(f"Session renamed to: {canonical_name}",),
             timeout_s=verify_timeout_s,
             poll_interval_s=verify_poll_s,
         )
