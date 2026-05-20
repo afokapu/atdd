@@ -91,6 +91,10 @@ def _spawn_via_cmd_spawn_pane(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
         "atdd.coach.commands.spawn._assert_worker_processing",
         lambda *a, **kw: None,
     )
+    monkeypatch.setattr(
+        "atdd.coach.commands.spawn._verify_stage",
+        lambda *a, **kw: None,
+    )
 
     cmd_spawn_mod.cmd_spawn(
         persona="planner",
@@ -142,6 +146,10 @@ def _spawn_via_cmd_spawn_auto(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
     )
     monkeypatch.setattr(
         "atdd.coach.commands.spawn._assert_worker_processing",
+        lambda *a, **kw: None,
+    )
+    monkeypatch.setattr(
+        "atdd.coach.commands.spawn._verify_stage",
         lambda *a, **kw: None,
     )
 

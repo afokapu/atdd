@@ -95,6 +95,7 @@ class AdapterError(RuntimeError):
 
 # ---------------------------------------------------------------------------
 # E010 (#795): Worker launch-prompt readiness gate
+# E011 (#799): Verify-or-fail-loud for every spawn pipeline stage
 # ---------------------------------------------------------------------------
 
 
@@ -102,6 +103,78 @@ class WorkerReadinessTimeout(RuntimeError):
     """Raised by _wait_for_claude_ready when the worker never comes up within
     the bounded timeout. Message contains the surface ref, project key, and
     elapsed time for operator diagnostics."""
+
+
+class RenameNotAccepted(WorkerReadinessTimeout):
+    """Raised when /rename was sent but the canonical name never appeared in
+    capture_pane_text within the bounded timeout (E011, issue #799)."""
+
+
+class PasteDidNotLand(WorkerReadinessTimeout):
+    """Raised when paste_text was called but the paste indicator or prompt
+    prefix never appeared in capture_pane_text within the bounded timeout
+    (E011, issue #799)."""
+
+
+class PromptNotSubmitted(WorkerReadinessTimeout):
+    """Raised when send_key(Enter) was called but no thinking/tool-use marker
+    appeared in capture_pane_text within the bounded timeout. Indicates the
+    swallowed-Enter failure mode (E011, issue #799)."""
+
+
+def _verify_stage(
+    stage_name: str,
+    surface_ref: str,
+    backend: Any,
+    expect_any: tuple[str, ...],
+    *,
+    timeout_s: float = 10.0,
+    poll_interval_s: float = 0.25,
+) -> None:
+    """Poll capture_pane_text until any expected signal appears or the timeout expires.
+
+    Each spawn pipeline stage calls this after firing its cmux command to
+    verify the expected post-condition. On timeout, raises a stage-specific
+    subclass of WorkerReadinessTimeout that includes the stage name and
+    surface ref in the message so callers can log exactly which stage failed.
+
+    Stage-to-exception map (E011, issue #799):
+      - "rename-accepted"  → RenameNotAccepted
+      - "paste-landed"     → PasteDidNotLand
+      - "prompt-submitted" → PromptNotSubmitted
+      - (any other name)   → WorkerReadinessTimeout
+    """
+    if not hasattr(backend, "capture_pane_text"):
+        return  # backend doesn't support pane capture; skip verification
+
+    _STAGE_EXCEPTIONS: dict[str, type[WorkerReadinessTimeout]] = {
+        "rename-accepted": RenameNotAccepted,
+        "paste-landed": PasteDidNotLand,
+        "prompt-submitted": PromptNotSubmitted,
+    }
+    exc_class = _STAGE_EXCEPTIONS.get(stage_name, WorkerReadinessTimeout)
+
+    deadline = time.monotonic() + timeout_s
+    start = time.monotonic()
+
+    while time.monotonic() < deadline:
+        try:
+            text = backend.capture_pane_text(surface_ref)
+        except Exception:
+            time.sleep(poll_interval_s)
+            continue
+
+        if any(signal in text for signal in expect_any):
+            return
+
+        time.sleep(poll_interval_s)
+
+    elapsed = time.monotonic() - start
+    raise exc_class(
+        f"Stage {stage_name!r} on {surface_ref!r} timed out after {timeout_s:.1f}s "
+        f"(elapsed {elapsed:.1f}s): none of {expect_any!r} appeared in pane capture. "
+        f"({SPAWN_RULE_ID})"
+    )
 
 
 def _pre_trust_worktree(
@@ -821,11 +894,16 @@ def cmd_spawn(
         # naming/layout pass fails, close it before propagating so the failed
         # spawn attempt leaves no orphan pane.
         try:
+            _verify_timeout = float(os.environ.get("ATDD_WORKER_READY_TIMEOUT", "10.0"))
+            _verify_poll = float(os.environ.get("ATDD_WORKER_POLL_INTERVAL", "0.25"))
             apply_canonical_name_and_layout(
                 backend=backend,
                 ref=surface_ref,
                 canonical_name=canonical_name,
                 surface_count=1,
+                verify_after_send=True,
+                verify_timeout_s=_verify_timeout,
+                verify_poll_s=_verify_poll,
             )
         except Exception:
             _close_surface_on_failure(backend, surface_ref)
@@ -893,6 +971,27 @@ def cmd_spawn(
             f"({SPAWN_RULE_ID})",
             file=sys.stderr,
         )
+
+    # E011 (#799): verify paste landed and prompt submitted before continuing.
+    # Backends without capture_pane_text skip these checks (hasattr guard in _verify_stage).
+    _stage_timeout = float(os.environ.get("ATDD_WORKER_READY_TIMEOUT", "10.0"))
+    _stage_poll = float(os.environ.get("ATDD_WORKER_POLL_INTERVAL", "0.25"))
+    _verify_stage(
+        stage_name="paste-landed",
+        surface_ref=surface_ref,
+        backend=backend,
+        expect_any=("paste again to expand", "1 file"),
+        timeout_s=_stage_timeout,
+        poll_interval_s=_stage_poll,
+    )
+    _verify_stage(
+        stage_name="prompt-submitted",
+        surface_ref=surface_ref,
+        backend=backend,
+        expect_any=("⏺ Thinking", "⏺⏺", "esc to interrupt"),
+        timeout_s=_stage_timeout,
+        poll_interval_s=_stage_poll,
+    )
 
     # E010 (#795, #797): post-paste assertion — confirm the worker is
     # processing before the caller logs a phase transition. Polls the session

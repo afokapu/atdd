@@ -200,6 +200,22 @@ class MultiplexerBackend(ABC):
         """
         del ref, name
 
+    def capture_pane_text(self, surface_ref: MultiplexerRef) -> str:
+        """Capture the current visible text content of a surface pane.
+
+        Returns the full visible text of the pane with ANSI escape sequences
+        stripped, suitable for substring-matching against expected TUI markers
+        (e.g. "⏺ Thinking", "paste again to expand", canonical session name).
+
+        E011 (#799): Every spawn pipeline stage calls this after firing its
+        cmux command to verify the expected post-condition. The base class
+        raises NotImplementedError; concrete backends (CmuxBackend) implement
+        via ``cmux capture-pane``. Test doubles override with scripted responses.
+        """
+        raise NotImplementedError(
+            f"{self.name} backend does not support capture_pane_text"
+        )
+
 
 def _run(cmd: list[str], capture: bool = True) -> subprocess.CompletedProcess:
     try:
@@ -574,6 +590,28 @@ class CmuxBackend(MultiplexerBackend):
             # Best-effort: cmux build may not expose rename verbs; the
             # validator is advisory and babysit retries every tick.
             pass
+
+    def capture_pane_text(self, surface_ref: MultiplexerRef) -> str:
+        """Capture visible pane text from a cmux surface (E011, issue #799).
+
+        Runs ``cmux capture-pane --surface <ref>`` and returns the output with
+        ANSI escape sequences stripped. Used by _verify_stage to poll for
+        expected post-condition signals (thinking markers, paste indicators,
+        canonical name suffix) without blocking.
+
+        Returns empty string on any failure so callers retry on next poll
+        rather than raising prematurely.
+        """
+        import re as _re
+
+        try:
+            result = _run(["cmux", "capture-pane", "--surface", surface_ref])
+            raw = result.stdout or ""
+            # Strip ANSI escape sequences (ESC [ ... m and ESC [ ... control codes).
+            ansi_escape = _re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b[@-Z\\-_]")
+            return ansi_escape.sub("", raw)
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
+            return ""
 
     def new_persona_surface(
         self,
@@ -1050,3 +1088,15 @@ class FakeMultiplexer(MultiplexerBackend):
 
     def rename(self, ref: MultiplexerRef, name: str) -> None:
         self.calls.append({"op": "rename", "ref": ref, "name": name})
+
+    def capture_pane_text(self, surface_ref: MultiplexerRef) -> str:
+        """Return the next scripted pane capture from ``_pane_captures``, or empty.
+
+        Tests script responses by setting ``mux._pane_captures = [...]`` before
+        calling code that polls capture_pane_text. Each call pops the front;
+        the empty string is returned once the list is exhausted.
+        """
+        captures: list[str] = getattr(self, "_pane_captures", [])
+        if captures:
+            return captures.pop(0)
+        return ""
