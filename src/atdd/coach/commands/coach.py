@@ -505,7 +505,7 @@ def _cold_start_proposed_transition(sm: StateMachine, event: dict) -> Optional["
 
 
 # ---------------------------------------------------------------------------
-# Issue #712: warm-resume + label-sync helpers (Y001, Y002)
+# Warm-resume + label-sync helpers (Y001, Y002)
 # ---------------------------------------------------------------------------
 
 _PHASE_LABELS_ALL: frozenset[str] = frozenset({
@@ -513,13 +513,15 @@ _PHASE_LABELS_ALL: frozenset[str] = frozenset({
     "atdd:SMOKE", "atdd:REFACTOR", "atdd:COMPLETE", "atdd:BLOCKED",
 })
 
+# Phases for which coach should warm-resume (spawn next persona from current state)
+# rather than restart from INIT. COMPLETE/BLOCKED/OBSOLETE are intentionally excluded.
+_WARM_RESUME_PHASES: frozenset[Phase] = frozenset({
+    Phase.PLANNED, Phase.RED, Phase.GREEN, Phase.SMOKE, Phase.REFACTOR,
+})
+
 
 def _read_current_github_phase(issue_number: int) -> Optional[Phase]:
-    """Read the live atdd:<phase> label from GitHub and return the Phase or None.
-
-    Y001 (issue #712 Edge A): used at _drive_single_issue entry so warm-resume
-    starts from the issue's actual phase rather than hardcoded INIT.
-    """
+    """Return the Phase corresponding to the live atdd:<phase> label, or None."""
     try:
         result = subprocess.run(
             ["gh", "issue", "view", str(issue_number),
@@ -541,7 +543,7 @@ def _read_current_github_phase(issue_number: int) -> Optional[Phase]:
 
 
 def _gh_remove_phase_labels(issue_number: int, labels: list) -> None:
-    """Remove labels from a GitHub issue via gh CLI (Y002, issue #712 Edge B)."""
+    """Remove labels from a GitHub issue via gh CLI."""
     for label in labels:
         try:
             subprocess.run(
@@ -553,7 +555,7 @@ def _gh_remove_phase_labels(issue_number: int, labels: list) -> None:
 
 
 def _gh_add_label(issue_number: int, labels: list) -> None:
-    """Add labels to a GitHub issue via gh CLI (Y002, issue #712 Edge B)."""
+    """Add labels to a GitHub issue via gh CLI."""
     if not labels:
         return
     try:
@@ -566,12 +568,7 @@ def _gh_add_label(issue_number: int, labels: list) -> None:
 
 
 def _swap_phase_label(issue_number: int, new_phase: Phase) -> None:
-    """Swap the atdd:<phase> label to match new_phase after each SM advance.
-
-    Y002 (issue #712 Edge B): reuses the same remove+add pattern as
-    atdd issue --status, extracted into a shared helper so coach and the
-    CLI command stay in sync as the label vocabulary evolves.
-    """
+    """Remove all atdd:<phase> labels and add atdd:<new_phase> on the GitHub issue."""
     _gh_remove_phase_labels(issue_number, list(_PHASE_LABELS_ALL))
     _gh_add_label(issue_number, [f"atdd:{new_phase.value}"])
 
@@ -826,15 +823,11 @@ def _drive_single_issue(
 
         writer = DecisionWriter(runtime_dir=runtime_dir)
 
-        # --- Step 1: Warm-resume or cold-start (Y001, issue #712 Edge A) ---
+        # --- Step 1: Warm-resume or cold-start ---
         current_github_phase = _read_current_github_phase(sm.issue_number)
-        _warm_resume_phases = {Phase.PLANNED, Phase.RED, Phase.GREEN, Phase.SMOKE, Phase.REFACTOR}
-        is_warm_resume = current_github_phase in _warm_resume_phases
+        is_warm_resume = current_github_phase in _WARM_RESUME_PHASES
 
         if is_warm_resume:
-            # Warm resume: start from current GitHub phase, spawn next persona, then
-            # advance SM to next_phase so the event loop starts one step ahead
-            # (mirrors cold-start's INIT→PLANNED write+advance before the event loop).
             sm.history.append(sm.phase)
             sm.phase = current_github_phase
             _logger.info(
@@ -860,11 +853,9 @@ def _drive_single_issue(
                     sm.history.append(sm.phase)
                     sm.phase = Phase.BLOCKED
                     return 1
-                # Advance SM to next_phase: the spawned persona is now running;
-                # the event loop will pick up from next_phase onward.
                 sm.history.append(sm.phase)
                 sm.phase = next_phase
-                _swap_phase_label(sm.issue_number, next_phase)  # Y002: sync GitHub label
+                _swap_phase_label(sm.issue_number, next_phase)
                 _logger.info(
                     "coach warm-resume advance",
                     extra={"issue": sm.issue_number,
@@ -986,7 +977,7 @@ def _process_injected_events(
             pass
         sm.history.append(sm.phase)
         sm.phase = t.dst
-        _swap_phase_label(ctx.issue_number, t.dst)  # Y002: sync GitHub label on advance
+        _swap_phase_label(ctx.issue_number, t.dst)
         _logger.info(
             "coach injected event advance",
             extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}",
@@ -1090,7 +1081,7 @@ def _process_watcher_events(
                 pass
             sm.history.append(sm.phase)
             sm.phase = t.dst
-            _swap_phase_label(ctx.issue_number, t.dst)  # Y002: sync GitHub label on advance
+            _swap_phase_label(ctx.issue_number, t.dst)
             last_advance_at = time.monotonic()
             _logger.info(
                 "coach watcher event advance",
