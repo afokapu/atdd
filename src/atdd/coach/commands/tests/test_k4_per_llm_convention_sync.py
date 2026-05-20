@@ -7,14 +7,14 @@ from atdd.coach.commands.sync import AgentConfigSync
 
 K4_PERSONA_TEMPLATES = {
     "claude-code": "CLAUDE.md.tmpl",
-    "codex": "AGENTS.md.tmpl",
+    "codex": "CONDUCTOR.md.tmpl",
     "gemini": "GEMINI.md.tmpl",
     "glm": "GLM.md.tmpl",
 }
 
 K4_OUTPUTS = {
     "claude": "CLAUDE.md",
-    "codex": "AGENTS.md",
+    "codex": "CONDUCTOR.md",
     "gemini": "GEMINI.md",
     "glm": "GLM.md",
 }
