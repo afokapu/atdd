@@ -1067,9 +1067,12 @@ sessions:
   file: null
   issue_number: 758
   type: implementation
-  status: INIT
-  created: '2026-05-18'
+  status: REFACTOR
+  created: '2026-05-20'
   archived: null
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan
+  train: 0001-self-compliance-validate
 - id: '712'
   slug: coach-cold-start-orchestration-hardening
   file: null
