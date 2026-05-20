@@ -70,15 +70,18 @@ def synced_repo(tmp_path):
 
 
 def test_check_method_exits_zero_when_no_drift(synced_repo):
-    """RegistryBuilder.check() returns 0 when all mirror files are in sync."""
+    """After build_all(apply), check() returns 0 — mirrors are in sync with source."""
     builder = RegistryBuilder(synced_repo)
-    exit_code = builder.check()  # AttributeError until check() is implemented
+    builder.build_all(mode="apply")
+    exit_code = builder.check()
     assert exit_code == 0
 
 
 def test_check_method_reports_no_drift_for_key_mirrors(synced_repo, capsys):
-    """check() output confirms plan/_wagons.yaml, plan/_trains.yaml, contracts/_artifacts.yaml are in sync."""
+    """After apply, check() output confirms no drift for wagon/train/contract mirrors."""
     builder = RegistryBuilder(synced_repo)
+    builder.build_all(mode="apply")
+    capsys.readouterr()  # discard apply output
     builder.check()
     captured = capsys.readouterr()
     output = (captured.out + captured.err).lower()

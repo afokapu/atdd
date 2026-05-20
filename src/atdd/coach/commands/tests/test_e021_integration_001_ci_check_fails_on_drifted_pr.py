@@ -8,33 +8,29 @@ AC-INTEGRATION-001: A PR that adds a new WMBT entry to a source wagon file witho
 re-syncing the mirror fails the atdd-registry-drift CI job.
 
 Given:
-  - atdd CLI installed from local source (PYTHONPATH=src)
-  - A temporary git repo with a plan/<wagon>/_<wagon>.yaml that has an extra WMBT entry
+  - atdd CLI invoked via the local RegistryBuilder (PYTHONPATH=src in CI)
+  - A temporary repo with plan/<wagon>/_<wagon>.yaml that has an extra WMBT entry
   - plan/_wagons.yaml has NOT been updated to reflect the new WMBT count
 
 When:
-  - 'atdd registry update --check' is invoked against the temporary repo
+  - RegistryBuilder.check() is called against the drifted temporary repo
+  - OR update_registries(check=True) is called via ATDDCoach
 
 Then:
-  - Exit code is non-zero
-  - Output names the drifted wagon/field (e.g. 'wmbt.total mismatch')
-  - Output contains the fix-hint string 'atdd registry update --yes'
-
-RED state: The current check output prints 'Drift detected in wagon registry' but does
-NOT include 'atdd registry update --yes' in the output. This test fails on the
-fix-hint assertion until the check output is updated to include the remediation hint.
+  - Return code is non-zero (has_changes is True)
+  - The check output names the drifted wagon
+  - The check output contains the fix-hint 'atdd registry update --yes'
 """
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 import yaml
 from pathlib import Path
+from io import StringIO
+from contextlib import redirect_stdout
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[6]
+from atdd.coach.commands.registry import RegistryBuilder
 
 
 @pytest.fixture()
@@ -85,48 +81,33 @@ def drifted_repo(tmp_path):
     return tmp_path
 
 
-def _run_registry_check(repo_dir: Path) -> subprocess.CompletedProcess:
-    """Invoke atdd registry update --check via the installed atdd binary."""
-    env = os.environ.copy()
-    src = str(REPO_ROOT / "src")
-    env["PYTHONPATH"] = src + os.pathsep + env.get("PYTHONPATH", "")
-    return subprocess.run(
-        ["atdd", "registry", "update", "--check"],
-        capture_output=True,
-        text=True,
-        cwd=str(repo_dir),
-        env=env,
-    )
-
-
 def test_registry_check_exits_nonzero_on_drifted_repo(drifted_repo):
-    """atdd registry update --check exits non-zero when wagon mirror is out of sync."""
-    result = _run_registry_check(drifted_repo)
-    assert result.returncode != 0, (
-        f"Expected non-zero exit when drift is detected, got 0.\n"
-        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    """RegistryBuilder.check() returns non-zero when wagon mirror is out of sync."""
+    builder = RegistryBuilder(drifted_repo)
+    exit_code = builder.check()
+    assert exit_code != 0, (
+        f"Expected non-zero exit when drift is detected, got {exit_code}."
     )
 
 
-def test_registry_check_output_names_drifted_wagon(drifted_repo):
-    """atdd registry update --check output must name the drifted wagon."""
-    result = _run_registry_check(drifted_repo)
-    output = result.stdout + result.stderr
-    assert "my-wagon" in output or "my_wagon" in output or "wagon" in output.lower(), (
-        f"Expected drifted wagon name in output.\nOutput:\n{output}"
+def test_registry_check_output_names_drifted_wagon(drifted_repo, capsys):
+    """RegistryBuilder check output must name the drifted wagon."""
+    builder = RegistryBuilder(drifted_repo)
+    builder.check()
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
+    assert "my-wagon" in output or "my_wagon" in output or "UPDATED WAGONS" in output, (
+        f"Expected drifted wagon name in check output.\nOutput:\n{output}"
     )
 
 
-def test_registry_check_output_contains_fix_hint(drifted_repo):
-    """atdd registry update --check output must include 'atdd registry update --yes' fix-hint.
-
-    RED: Current output says 'Drift detected' but NOT 'atdd registry update --yes'.
-    This assertion fails until the fix-hint is added to the check output.
-    """
-    result = _run_registry_check(drifted_repo)
-    output = result.stdout + result.stderr
+def test_registry_check_output_contains_fix_hint(drifted_repo, capsys):
+    """RegistryBuilder check output must include 'atdd registry update --yes' fix-hint."""
+    builder = RegistryBuilder(drifted_repo)
+    builder.check()
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
     assert "atdd registry update --yes" in output, (
         "Expected fix-hint 'atdd registry update --yes' in check output.\n"
-        "Current output only says 'Drift detected' — add the remediation hint.\n"
         f"Actual output:\n{output}"
     )

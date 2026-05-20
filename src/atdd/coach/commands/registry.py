@@ -17,6 +17,44 @@ Registries:
 
 This command helps maintain coherence between source files and registries.
 """
+
+
+# ============================================================================
+# DOMAIN - Drift error and fix-hint (wmbt:govern-lifecycle:E021)
+# ============================================================================
+
+class RegistryDriftError(Exception):
+    """Raised when registry mirrors are out of sync with source-of-truth files."""
+
+    def __init__(self, message: str, drift_report: dict | None = None) -> None:
+        super().__init__(message)
+        self.drift_report: dict = drift_report or {}
+
+
+def format_fix_hint(drift_report: dict) -> str:
+    """Return an actionable fix-hint for registry drift, suitable for stderr.
+
+    Args:
+        drift_report: dict with optional 'drifted_files' key listing file paths.
+
+    Returns:
+        Multi-line string containing 'atdd registry update --yes' and any drifted files.
+    """
+    lines = [
+        "Registry mirror is out of sync with source-of-truth files.",
+        "Run the following command to resync:",
+        "  atdd registry update --yes",
+    ]
+    drifted_files: list = drift_report.get("drifted_files", [])
+    if drifted_files:
+        lines.append("Drifted files:")
+        for f in drifted_files:
+            lines.append(f"  - {f}")
+    lines.append(
+        "Then re-stage and push: git add plan/_wagons.yaml plan/_trains.yaml "
+        "contracts/_artifacts.yaml && git commit --amend --no-edit"
+    )
+    return "\n".join(lines)
 import yaml
 import json
 import re
@@ -198,6 +236,8 @@ class RegistryBuilder:
         if mode == "check":
             if has_changes:
                 print(f"\n⚠️  Drift detected in {registry_name} registry")
+                hint = format_fix_hint({"drifted_files": [str(registry_path)]})
+                print(hint)
             else:
                 print(f"\n✅ {registry_name.capitalize()} registry is in sync")
             return stats
@@ -1741,6 +1781,24 @@ class RegistryBuilder:
         print(f"  📝 Manifest: {manifest_path}")
 
         return stats
+
+    def check(self) -> int:
+        """Check all registry mirrors for drift without applying any changes.
+
+        Convenience wrapper around build_all(mode="check") that returns an
+        exit code (0 = no drift, 1 = drift detected), matching the GT-850
+        gate contract (wmbt:govern-lifecycle:E021).
+
+        Returns:
+            0 if all mirrors are in sync, 1 if any drift is detected.
+        """
+        results = self.build_all(mode="check")
+        has_drift = any(
+            r.get("has_changes", False) or r.get("new", 0) > 0 or len(r.get("changes", [])) > 0
+            for r in results.values()
+            if isinstance(r, dict)
+        )
+        return 1 if has_drift else 0
 
     def build_all(self, mode: str = "interactive") -> Dict[str, Any]:
         """Build all registries.
