@@ -205,37 +205,23 @@ def _wait_for_claude_ready(
     )
 
 
-_WORKER_PROCESSING_MARKERS = (
-    "⏺ Thinking",
-    "⏺ Writing",
-    "⏺ Reading",
-    "⏺ Bash",
-    "⏺ Running",
-)
-_WORKER_IDLE_MARKERS = (
-    "Press up to edit queued messages",
-    "Press Enter to send",
-)
-
-
 def _assert_worker_processing(
     surface_ref: str,
-    multiplexer: Any,
+    project_key: str,
     *,
+    claude_projects_dir: Optional[Path] = None,
     timeout_s: float = 10.0,
     poll_interval_s: float = 0.25,
 ) -> None:
     """Assert the spawned worker is actively processing after prompt paste.
 
-    Polls ``multiplexer.capture_surface_text()`` until a thinking/working
-    indicator appears in the pane or the conversation is non-empty (i.e.,
-    the launch prompt was accepted and Claude is responding). A timeout
+    Polls the session .jsonl byte size until it grows (proves Claude appended
+    at least one new message after the launch prompt was pasted). A timeout
     raises WorkerReadinessTimeout so the caller can escalate instead of
-    logging a phantom phase transition (#795).
+    logging a phantom phase transition (#795, #797).
 
-    Best-effort: if the backend does not support ``capture_surface_text``
-    (AttributeError) the assertion is skipped so existing fakes that omit
-    the method are not broken.
+    Uses the same session file that _wait_for_claude_ready already confirmed
+    exists — no multiplexer capture needed, so every backend is supported.
     """
     env_timeout = os.environ.get("ATDD_WORKER_READY_TIMEOUT")
     if env_timeout:
@@ -244,39 +230,43 @@ def _assert_worker_processing(
     if env_poll:
         poll_interval_s = float(env_poll)
 
-    if not hasattr(multiplexer, "capture_surface_text"):
-        return  # backend does not support capture — skip assertion
+    if claude_projects_dir is None:
+        env_override = os.environ.get("ATDD_CLAUDE_PROJECTS_DIR")
+        claude_projects_dir = (
+            Path(env_override) if env_override
+            else Path.home() / ".claude" / "projects"
+        )
 
+    project_dir = claude_projects_dir / project_key
+
+    jsonl_path: Optional[Path] = None
+    for entry in project_dir.iterdir():
+        if entry.suffix == ".jsonl":
+            jsonl_path = entry
+            break
+
+    if jsonl_path is None:
+        raise WorkerReadinessTimeout(
+            f"Worker on {surface_ref!r}: no session .jsonl found under "
+            f"{project_dir} to track growth. project_key={project_key!r}. "
+            f"({SPAWN_RULE_ID})"
+        )
+
+    initial_size = jsonl_path.stat().st_size
     deadline = time.monotonic() + timeout_s
     start = time.monotonic()
 
     while time.monotonic() < deadline:
-        try:
-            text = multiplexer.capture_surface_text(surface_ref)
-        except Exception:
-            time.sleep(poll_interval_s)
-            continue
-
-        if not text:
-            time.sleep(poll_interval_s)
-            continue
-
-        # Any thinking/tool-use marker means Claude is processing.
-        if any(marker in text for marker in _WORKER_PROCESSING_MARKERS):
-            return
-
-        # Non-idle, non-empty content means conversation has content.
-        if text and not any(marker in text for marker in _WORKER_IDLE_MARKERS):
-            return
-
+        if jsonl_path.stat().st_size > initial_size:
+            return  # Claude appended at least one new message
         time.sleep(poll_interval_s)
 
     elapsed = time.monotonic() - start
     raise WorkerReadinessTimeout(
         f"Worker on {surface_ref!r} did not begin processing within "
         f"{timeout_s:.1f}s (elapsed {elapsed:.1f}s) after launch prompt was pasted. "
-        f"Surface capture shows no thinking indicator. "
-        f"({SPAWN_RULE_ID})"
+        f"Session .jsonl at {jsonl_path} did not grow (size: {initial_size} bytes). "
+        f"project_key={project_key!r}. ({SPAWN_RULE_ID})"
     )
 
 
@@ -904,16 +894,16 @@ def cmd_spawn(
             file=sys.stderr,
         )
 
-    # E010 (#795): post-paste assertion — confirm the worker is processing
-    # (thinking indicator or non-empty conversation) before the caller logs
-    # a phase transition. A failed assertion raises WorkerReadinessTimeout,
-    # which propagates up through _spawn_with_retries so the spawn handler
-    # returns ERROR and the coach BLOCKs instead of recording a phantom
-    # transitioned:true. Best-effort: if the backend lacks capture_surface_text
-    # the assertion is skipped (no change to existing backends that omit it).
+    # E010 (#795, #797): post-paste assertion — confirm the worker is
+    # processing before the caller logs a phase transition. Polls the session
+    # .jsonl byte size until it grows (proves Claude accepted the prompt and
+    # appended at least one message). A timeout raises WorkerReadinessTimeout
+    # so the spawn handler returns ERROR instead of logging a phantom
+    # transitioned:true. Works across all multiplexer backends (filesystem
+    # only — no capture_surface_text needed).
     _assert_worker_processing(
         surface_ref=surface_ref,
-        multiplexer=backend,
+        project_key=project_key,
     )
 
     capture_session_uuid(

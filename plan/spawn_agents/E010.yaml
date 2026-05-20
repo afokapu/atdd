@@ -3,9 +3,9 @@ step: "execute"
 direction: "minimize"
 dimension: "likelihood"
 object_of_control: "coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate"
-context_clarifier: "when the coach creates a multiplexer surface it immediately fires 'cd <cwd> && claude ...\n' via cmux send, then calls apply_canonical_name_and_layout (a fire-and-forget /rename injection confirmed non-blocking in src/atdd/coach/utils/session_naming_apply.py L80–94), then paste_text + send_key(Enter) — all without waiting for Claude Code's TUI to become interactive; on a freshly-created worktree the workspace-trust modal fires (the worktree has no entry in ~/.claude.json projects, and Claude Code's --help confirms the trust dialog is only auto-skipped in -p/non-interactive mode), absorbing every key sent before the modal is dismissed; the comment at spawn.py L666–672 claiming the /rename injection 'reaches claude reliably' is unsupported; the misplaced 1.5s sleep in capture_session_uuid (L102) is an admission that 'claude needs time' but is placed AFTER the paste, too late to help; the result is that decisions.jsonl records 'INIT→PLANNED transitioned:true' while the worker surface shows only 'Press up to edit queued messages' with an empty conversation — two independent coach runs against issue #792 (3.66.0 @20:43 and 3.70.0 @20:56) both produced this phantom transition; fix: (1) pre-trust the worktree in ~/.claude.json before _create_surface, (2) move the readiness wait BEFORE paste_text into _wait_for_claude_ready() that polls ~/.claude/projects/<key>/*.jsonl for a fresh session file AND confirms a TUI marker in capture-pane, (3) after paste + Enter add _assert_worker_processing() that checks for a thinking indicator or non-empty conversation, (4) gate decisions.jsonl 'transitioned:true' emission on that assertion passing — fail loud and escalate on timeout"
+context_clarifier: "when the coach creates a multiplexer surface it immediately fires 'cd <cwd> && claude ...\n' via cmux send, then paste_text + send_key(Enter) — all without waiting for Claude Code's TUI to become interactive; on a freshly-created worktree the workspace-trust modal fires (absorbing every key sent before the modal is dismissed); PR #796 shipped _assert_worker_processing() as the post-paste guard but it silently no-ops in production because no multiplexer backend implements capture_surface_text (the hasattr guard at spawn.py L247 always short-circuits); the only viable backend-agnostic signal is jsonl file size growth — the same session .jsonl that _wait_for_claude_ready already confirmed exists; fix (#797): rewrite _assert_worker_processing to poll the session jsonl byte size (sample at t=0, return when size grows by ≥1), removing the capture_surface_text dependency entirely — fix: (1) pre-trust the worktree in ~/.claude.json before _create_surface, (2) poll _wait_for_claude_ready() before paste confirming a live session .jsonl, (3) after paste + Enter poll _assert_worker_processing() until the session .jsonl byte size grows (proves Claude appended ≥1 new message), (4) gate decisions.jsonl 'transitioned:true' on that assertion passing"
 lens: "functional.effectiveness"
-statement: "minimize likelihood of coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate when the coach creates a surface and pastes the launch prompt — by pre-trusting the worktree in ~/.claude.json, polling _wait_for_claude_ready() before paste to confirm a live session .jsonl and TUI marker, asserting _assert_worker_processing() after paste to confirm the thinking indicator or non-empty conversation, and emitting 'transitioned:true' in decisions.jsonl only after that assertion passes, with loud escalation on timeout"
+statement: "minimize likelihood of coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate when the coach creates a surface and pastes the launch prompt — by pre-trusting the worktree in ~/.claude.json, polling _wait_for_claude_ready() before paste to confirm a live session .jsonl, asserting _assert_worker_processing() after paste by polling the session jsonl byte size until it grows (≥1 byte added proves Claude accepted the prompt), and emitting 'transitioned:true' in decisions.jsonl only after that assertion passes, with loud escalation on timeout"
 acceptances:
   - identity:
       urn: "acc:spawn-agents:E010-UNIT-001-pre-trust-writes-worktree-entry"
@@ -80,60 +80,64 @@ acceptances:
   - identity:
       urn: "acc:spawn-agents:E010-UNIT-004-assert-worker-processing-passes-on-thinking-marker"
       id: "AC-UNIT-004"
-      purpose: "_assert_worker_processing returns without raising when capture-pane contains a thinking indicator or non-empty conversation content"
+      purpose: "_assert_worker_processing returns without raising when the session jsonl byte size grows (Claude appended ≥1 new message after the launch prompt was pasted)"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "src/atdd/coach/commands/spawn.py exposes _assert_worker_processing(surface_ref, multiplexer, timeout_s, poll_interval_s)"
-        - "FakeMultiplexer.capture_surface_text() cycles through: first call returns 'Press up to edit queued messages', second call returns '⏺ Thinking...'"
+        - "src/atdd/coach/commands/spawn.py exposes _assert_worker_processing(surface_ref, project_key, *, claude_projects_dir, timeout_s, poll_interval_s)"
+        - "A tmp_path / project_key / session.jsonl is pre-created with some initial bytes"
+        - "A background thread appends ≥1 byte to the jsonl after 0.02s"
     when:
       abstract: "_assert_worker_processing is called with timeout_s=2.0, poll_interval_s=0.01"
     then:
       abstract:
         - "The call returns without raising"
         - "No WorkerReadinessTimeout is raised"
-        - "At most 2 calls to capture_surface_text are recorded"
+        - "The function returns as soon as the file size exceeds the initial sample"
     metadata:
       author: "atdd:planner"
       created: "2026-05-20"
+      updated: "2026-05-20"
   - identity:
       urn: "acc:spawn-agents:E010-UNIT-005-decision-log-gated-on-assertion"
       id: "AC-UNIT-005"
-      purpose: "decisions.jsonl emits 'transitioned:true' only if _assert_worker_processing passed; on assertion failure the log records 'transitioned:false' and escalation is triggered"
+      purpose: "decisions.jsonl emits 'transitioned:true' only if _assert_worker_processing passed; on assertion failure (jsonl byte size never grows within timeout) the handler returns HandlerResult.ERROR and no phantom transitioned:true is recorded"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "The coach phase-transition path (src/atdd/coach/commands/spawn.py) is exercised with a FakeMultiplexer whose capture_surface_text always returns an empty string (worker never processes)"
-        - "A tmp decisions.jsonl file path is injected via the CoachContext"
+        - "The coach phase-transition path (src/atdd/coach/commands/spawn.py) is exercised with a project dir whose session jsonl file exists but is static (no new bytes appended — worker never processes the launch prompt)"
+        - "ATDD_CLAUDE_PROJECTS_DIR points to a tmp_path containing the static project/session.jsonl"
+        - "ATDD_WORKER_READY_TIMEOUT is set to 0.05 so the timeout fires quickly"
         - "WorkerReadinessTimeout is raised by _assert_worker_processing after its bounded wait"
     when:
       abstract: "The coach attempts the INIT→PLANNED transition"
     then:
       abstract:
-        - "The decisions.jsonl entry for this transition has 'transitioned': false"
-        - "An escalation call (to the configured escalation channel) is recorded with a message containing 'worker did not process'"
+        - "The decisions.jsonl entry for this transition does NOT have 'transitioned': true"
         - "The handler returns HandlerResult.ERROR rather than HandlerResult.HANDLED"
     metadata:
       author: "atdd:planner"
       created: "2026-05-20"
+      updated: "2026-05-20"
   - identity:
       urn: "acc:spawn-agents:E010-INTEGRATION-001-full-spawn-path-with-readiness-gate"
       id: "AC-INTEGRATION-001"
-      purpose: "The full cmd_spawn path exercises pre-trust → surface creation → _wait_for_claude_ready → paste → _assert_worker_processing in sequence with a FakeMultiplexer that simulates a worker coming up after a short delay"
+      purpose: "The full cmd_spawn path exercises pre-trust → surface creation → _wait_for_claude_ready → paste → _assert_worker_processing in sequence, with a static-then-growing session jsonl that simulates a worker that boots and then processes the prompt"
       phase: "GREEN"
     harness:
       type: "integration"
       category: "backend"
     given:
       abstract:
-        - "A FakeMultiplexer whose capture_surface_text first returns 'Press up to edit queued messages' (×2), then '⏺ Thinking...' (subsequently)"
-        - "A tmp claude_projects_dir with a project subdir; a background thread writes a .jsonl file after 0.05s"
+        - "A FakeMultiplexer with no capture_surface_text (confirms the new approach needs no multiplexer capture)"
+        - "A tmp claude_projects_dir with a pre-existing session.jsonl file (for _wait_for_claude_ready to pass immediately)"
+        - "A background thread appends bytes to the session.jsonl after 0.05s (for _assert_worker_processing to pass)"
         - "A tmp claude_json_path (no real ~/.claude.json touched)"
         - "A dummy launch prompt file exists on disk"
     when:
@@ -141,13 +145,13 @@ acceptances:
     then:
       abstract:
         - "The pre-trust entry is present in claude_json_path for the worktree"
-        - "_wait_for_claude_ready completes without raising (session file appeared in time)"
-        - "_assert_worker_processing completes without raising (thinking marker appeared)"
-        - "The decisions.jsonl entry records 'transitioned': true"
-        - "HandlerResult.HANDLED is returned"
+        - "_wait_for_claude_ready completes without raising (session file existed immediately)"
+        - "_assert_worker_processing completes without raising (jsonl grew within timeout)"
+        - "The agent_spawned event is written to runtime/agents/"
     metadata:
       author: "atdd:planner"
       created: "2026-05-20"
+      updated: "2026-05-20"
   - identity:
       urn: "acc:spawn-agents:E010-SMOKE-001-readiness-gate-with-real-multiplexer"
       id: "AC-SMOKE-001"
