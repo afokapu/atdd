@@ -264,7 +264,7 @@ def find_existing_worktree_for_branch(branch: str, repo_root: Path) -> Optional[
             text=True,
             timeout=15,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
         return None
     if result.returncode != 0:
         return None
