@@ -931,7 +931,7 @@ Phase descriptions:
     sync_parser = subparsers.add_parser(
         "sync",
         help="Sync ATDD rules to agent config files",
-        description="Sync managed ATDD blocks to agent config files (CLAUDE.md, AGENTS.md, etc.)"
+        description="Sync managed ATDD blocks to agent config files (CLAUDE.md, CONDUCTOR.md, etc.)"
     )
     sync_parser.add_argument(
         "--verify",

@@ -1,7 +1,7 @@
 """
 Agent config file sync for ATDD managed blocks.
 
-Syncs ATDD rules to agent config files (CLAUDE.md, AGENTS.md, etc.) using
+Syncs ATDD rules to agent config files (CLAUDE.md, CONDUCTOR.md, etc.) using
 managed blocks that preserve user content while keeping rules in sync.
 
 Block format:
@@ -31,7 +31,7 @@ class AgentConfigSync:
 
     AGENT_FILES = {
         "claude": "CLAUDE.md",
-        "codex": "AGENTS.md",
+        "codex": "CONDUCTOR.md",
         "gemini": "GEMINI.md",
         "qwen": "QWEN.md",
         "glm": "GLM.md",
@@ -40,7 +40,7 @@ class AgentConfigSync:
 
     PERSONA_TEMPLATE_FILES = {
         "claude": ("claude-code", "CLAUDE.md.tmpl"),
-        "codex": ("codex", "AGENTS.md.tmpl"),
+        "codex": ("codex", "CONDUCTOR.md.tmpl"),
         "gemini": ("gemini", "GEMINI.md.tmpl"),
         "glm": ("glm", "GLM.md.tmpl"),
     }
@@ -111,6 +111,17 @@ class AgentConfigSync:
         for agent in agents:
             target_file = self.AGENT_FILES[agent]
             target_path = self.target_dir / target_file
+
+            # Warn when a stale AGENTS.md with a managed block exists for the
+            # codex agent (Codex renamed its convention file to CONDUCTOR.md).
+            if agent == "codex":
+                stale_path = self.target_dir / "AGENTS.md"
+                if stale_path.exists() and self._has_managed_block(stale_path.read_text()):
+                    print(
+                        "Notice: AGENTS.md is deprecated for the codex agent. "
+                        "Codex now reads CONDUCTOR.md. "
+                        "Delete AGENTS.md and commit CONDUCTOR.md instead."
+                    )
 
             # Generate new managed block
             new_block = self._generate_block(agent, base_content)
