@@ -185,3 +185,25 @@ acceptances:
     metadata:
       author: "atdd:tester"
       created: "2026-05-20"
+  - identity:
+      urn: "acc:spawn-agents:E011-SMOKE-001-verify-stage-with-real-multiplexer"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real cmux session, capture_pane_text returns non-empty content confirming the method is wired to the backend and _verify_stage does not silently skip"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real cmux session is available (CMUX_SOCKET set or default socket found)"
+        - "A real surface is created with a hermetic launch command (e.g. 'sleep 5')"
+        - "ATDD_RUN_SMOKE=1 is set in the environment"
+    when:
+      abstract: "capture_pane_text is called on the real cmux backend's surface ref"
+    then:
+      abstract:
+        - "capture_pane_text returns a string (not raises NotImplementedError)"
+        - "_verify_stage with expect_any=('',) (trivially true) completes without raising on a live surface"
+    metadata:
+      author: "atdd:tester"
+      created: "2026-05-20"

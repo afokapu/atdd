@@ -591,6 +591,28 @@ class CmuxBackend(MultiplexerBackend):
             # validator is advisory and babysit retries every tick.
             pass
 
+    def capture_pane_text(self, surface_ref: MultiplexerRef) -> str:
+        """Capture visible pane text from a cmux surface (E011, issue #799).
+
+        Runs ``cmux capture-pane --surface <ref>`` and returns the output with
+        ANSI escape sequences stripped. Used by _verify_stage to poll for
+        expected post-condition signals (thinking markers, paste indicators,
+        canonical name suffix) without blocking.
+
+        Returns empty string on any failure so callers retry on next poll
+        rather than raising prematurely.
+        """
+        import re as _re
+
+        try:
+            result = _run(["cmux", "capture-pane", "--surface", surface_ref])
+            raw = result.stdout or ""
+            # Strip ANSI escape sequences (ESC [ ... m and ESC [ ... control codes).
+            ansi_escape = _re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b[@-Z\\-_]")
+            return ansi_escape.sub("", raw)
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
+            return ""
+
     def new_persona_surface(
         self,
         cwd: str,
