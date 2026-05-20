@@ -57,7 +57,7 @@ def test_pre_push_hook_exits_nonzero_when_registry_drift_detected(tmp_path):
     )
 
     # Patch PATH so the mocked atdd returns non-zero for registry update --check
-    fake_atdd = tmp_path / "fake_atdd.sh"
+    fake_atdd = tmp_path / "atdd"
     fake_atdd.write_text(
         "#!/bin/sh\n"
         "case \"$*\" in\n"
@@ -115,7 +115,7 @@ def test_pre_push_hook_output_contains_fix_hint_on_drift(tmp_path):
         env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"},
     )
 
-    fake_atdd = tmp_path / "fake_atdd.sh"
+    fake_atdd = tmp_path / "atdd"
     fake_atdd.write_text(
         "#!/bin/sh\n"
         "case \"$*\" in\n"

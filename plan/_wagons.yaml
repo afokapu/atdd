@@ -146,7 +146,23 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 0
+    total: 8
+    D001: minimize effort of understanding-atdd-plan-flag-surface — clean argparse
+      surface, no forbidden flags
+    E001: minimize likelihood of text-source-misclassification — --text arg yields
+      type=text SourceItem
+    E002: minimize likelihood of file-source-misclassification — .md/.txt/.yaml/.yml/.json
+      yields type=file SourceItem
+    E003: minimize likelihood of rich-doc-extraction-attempt — .pdf yields type=rich_doc
+      with path only, no extraction
+    E004: minimize likelihood of codebase-source-misclassification — directory/. yields
+      type=codebase SourceItem
+    E005: minimize likelihood of silent-exit-with-no-positional-args — no sources
+      prints help and exits 2
+    C001: minimize likelihood of invalid-json-summary-output — --json emits stderr
+      JSON with sources+brief_out only
+    C002: minimize likelihood of forbidden-import-in-plan-module — AST scan confirms
+      no git/gh/coach/issue imports
   total: 0
   manifest: plan/define_plans/_define_plans.yaml
   path: plan/define_plans/
@@ -423,7 +439,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 7
+    total: 10
     D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
     D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
     P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
@@ -432,6 +448,9 @@ wagons:
     R001: minimize likelihood of duplicate-state-transitions-on-coach-resume
     L001: minimize effort of locating-in-progress-coach-run-state via atdd coach status
       subcommand
+    Y001: minimize likelihood of warm-resume-re-executing-completed-phases
+    Y002: minimize likelihood of stale-github-label-after-coach-phase-advance
+    R002: minimize likelihood of coach-event-loop-aborting-before-complete
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
@@ -546,7 +565,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 43
+    total: 48
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -627,9 +646,29 @@ wagons:
     E015: minimize agent-behavioral-rules-visible-only-in-per-user-memory by committing
       .atdd/agent-rules.yaml with the portable enforcement subset and injecting it
       into atdd gate output under an 'Agent Behavioral Rules' section (#657)
-    E016: minimize pr-registry-gate-absorbs-unrelated-repo-wide-drift when a PR runs
+    E016: minimize consumer-repos-blocked-on-substrate-v12-cutover-without-a-backfill-tool
+      by implementing atdd suppress backfill --rule <rule_id> --until <date> to bulk-insert
+      inline suppress markers on pre-existing violation sites idempotently, plus orphaned-baseline-key
+      warnings for stale integer-count entries in .atdd/baselines/coder.yaml (#482)
+    E017: minimize operators-unable-to-find-adapter-documentation-or-run-manifest-backfill
+      by creating docs/MODELS.md with the adapter table and wiring atdd manifest backfill
+      as a CLI route to IssueManager.reconcile() (#664)
+    E018: minimize pr-registry-gate-absorbs-unrelated-repo-wide-drift when a PR runs
       GT-002 by adding --scope changed-files to atdd registry update --check that
       limits drift detection to wagon sources in git diff main..HEAD (#582)
+    E019: minimize issue-author-submits-non-compliant-body-or-triggers-redundant-create-edit-graphql-pair
+      when an operator runs atdd issue <slug> by validating the full body locally
+      (--check gate) before any GitHub call and publishing via a single gh issue create
+      with no follow-up gh issue edit for body (#792)
+    E020: minimize codex-agents-receiving-no-atdd-rules-because-sync-writes-deprecated-agents-md-not-conductor-md
+      by renaming the persona template to CONDUCTOR.md.tmpl, updating AgentConfigSync.AGENT_FILES['codex']
+      to 'CONDUCTOR.md', and emitting a migration notice when a stale AGENTS.md with
+      managed block is detected (#794)
+    E021: minimize registry-mirror-drift-accumulates-on-main-because-no-push-or-ci-gate-enforces-atdd-registry-update-before-landing
+      by applying a one-shot atdd registry update --yes chore commit, wiring atdd
+      registry update --check into the pre-push hook, and adding a required atdd-registry-drift
+      CI check on main so future WMBT additions cannot land without mirror resync
+      (#817)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -841,7 +880,7 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 29
+    total: 31
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
@@ -891,6 +930,14 @@ wagons:
     Y004: minimize quantity of git-hooks-that-run-pip-install-during-push by stripping
       auto_upgrade() from _gate_main so the version gate only checks and exits 1 with
       a message telling the user to run 'atdd upgrade' then retry
+    Y005: minimize quantity of upgrade-messages-that-hardcode-pip-install-for-pipx-and-editable-installs
+      by adding detect_install_method() and upgrade_command() to version_check.py
+      and replacing every hardcoded 'pip install --upgrade atdd' site with a call
+      to upgrade_command()
+    Y006: minimize likelihood of atdd-init-force-writing-core-hookspath-to-shared-git-config-in-worktree
+      by detecting linked-worktree condition and writing 'git config --worktree core.hooksPath'
+      instead of the unscoped form (#793, Wave 12 contamination class, core.hooksPath
+      danger key)
   total: 0
   manifest: plan/integration_hardening/_integration_hardening.yaml
   path: plan/integration_hardening/
@@ -1053,7 +1100,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 13
+    total: 14
     P001: minimize quantity of observer-runtime-skeleton-gaps
     P002: minimize quantity of observer-input-acquisition-gaps
     M001: minimize likelihood of undetected-basic-protocol-violations
@@ -1067,6 +1114,7 @@ wagons:
     E001: minimize effort of approving-known-safe-cross-surface-prompts
     E002: minimize quantity of per-worker-observer-processes-spawned-by-coach
     C001: minimize likelihood of behavioral-regression-against-babysit-baseline
+    C002: minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary
   total: 0
   manifest: plan/observe_and_correct/_observe_and_correct.yaml
   path: plan/observe_and_correct/
@@ -1283,6 +1331,14 @@ wagons:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:worker-launch-prompt-readiness-gate
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:step-by-step-verify-each-stage
+    contract: null
+    telemetry: null
+    to: external
   consume:
   - name: commons:coach:runtime-event-schema
     from: wagon:freeze-runtime-contracts
@@ -1293,7 +1349,7 @@ wagons:
   - name: commons:coach:decisions-jsonl-writer
     from: wagon:drive-state-machine
   wmbt:
-    total: 12
+    total: 14
     E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
     D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
     E002: minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout
@@ -1306,6 +1362,8 @@ wagons:
     E007: minimize quantity of phase-transitions-that-reuse-the-prior-phase-worker-process
     E008: minimize likelihood of coach-runs-where-the-operator-cannot-choose-the-per-persona-model-at-spawn-time
     E009: minimize likelihood of atdd-spawn-llm-ids-that-resolve-to-no-registered-adapter-or-fail-silently-on-missing-credentials
+    E010: minimize likelihood of coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate
+    E011: minimize likelihood of coach-spawn-pipeline-stages-that-silently-fail-without-raising-a-stage-specific-exception
   total: 0
   manifest: plan/spawn_agents/_spawn_agents.yaml
   path: plan/spawn_agents/

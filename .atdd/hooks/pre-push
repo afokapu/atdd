@@ -193,6 +193,36 @@ VALIDATE_FAIL
     fi
 fi
 
+# --- Registry mirror drift gate (wmbt:govern-lifecycle:E021) ---
+# Runs atdd registry update --check to confirm plan/_wagons.yaml,
+# plan/_trains.yaml, and contracts/_artifacts.yaml are in sync with source.
+#
+# Fails when drift is detected; prints fix-hint with exact remediation command.
+# Auto-skipped: CI=true (CI check is the authoritative gate), ATDD_SKIP_REGISTRY_CHECK=1
+#
+# Override: ATDD_SKIP_REGISTRY_CHECK=1 git push ...
+if [ "${ATDD_SKIP_REGISTRY_CHECK:-0}" != "1" ] && [ "${CI:-}" != "true" ]; then
+    if ! atdd registry update --check >&2 2>&1; then
+        cat >&2 <<'REGISTRY_FAIL'
+
+ATDD: Pre-push blocked — registry mirrors are out of sync with source-of-truth files.
+
+Run the following command to resync, then re-push:
+  atdd registry update --yes
+
+Then re-stage and push:
+  git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml
+  git commit
+  git push
+
+Emergency override:
+  ATDD_SKIP_REGISTRY_CHECK=1 git push ...
+
+REGISTRY_FAIL
+        exit 1
+    fi
+fi
+
 # --- Uncommitted delta warning (advisory only — never blocks) ---
 UNCOMMITTED=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
 UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
