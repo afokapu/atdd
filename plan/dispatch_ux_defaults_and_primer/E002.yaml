@@ -1,0 +1,74 @@
+urn: "wmbt:dispatch-ux-defaults-and-primer:E002"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "atdd-coach-invocations-that-hang-on-persona-prompt-when-stdin-is-not-a-tty"
+context_clarifier: "atdd coach presents an interactive persona/model selection prompt at dispatch time. When invoked from inside a cmux session or from a scripted pipeline, sys.stdin.isatty() is False — yet the coach still blocks on the prompt, causing the session to hang indefinitely. The fix is to auto-enable --no-prompt when sys.stdin.isatty() returns False, so the prompt is never shown in non-interactive contexts. The operator can still force interactive mode by passing --prompt explicitly."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of atdd-coach-invocations-that-hang-on-persona-prompt-when-stdin-is-not-a-tty when atdd coach is invoked in a non-interactive context — by auto-enabling --no-prompt when sys.stdin.isatty() is False and the operator has not passed --prompt explicitly"
+acceptances:
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E002-UNIT-001-no-prompt-auto-enabled-when-not-tty"
+      id: "AC-UNIT-001"
+      purpose: "resolve_no_prompt returns True when isatty is False and explicit_flag is None"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/coach.py exposes resolve_no_prompt(explicit_flag, isatty)"
+    when:
+      abstract: "resolve_no_prompt is called with explicit_flag=None and isatty=False"
+    then:
+      abstract:
+        - "The return value is True (no-prompt enabled)"
+        - "When isatty=True and explicit_flag=None, the return value is False (prompt shown)"
+        - "When explicit_flag=True and isatty=True, the return value is True (explicit wins)"
+        - "When explicit_flag=False and isatty=False, the return value is False (explicit wins)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E002-SMOKE-001-no-prompt-auto-in-piped-invocation"
+      id: "AC-SMOKE-001"
+      purpose: "When atdd coach is piped (stdin not a TTY), it does not block on the persona prompt in a real shell environment"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real shell with ATDD_RUN_SMOKE=1"
+        - "atdd coach is invoked via pipe: echo '' | atdd coach <N>"
+    when:
+      abstract: "atdd coach <N> is invoked with stdin piped (isatty=False)"
+    then:
+      abstract:
+        - "The coach does not print a model/persona selection prompt to stdout"
+        - "The process either proceeds past the prompt stage or exits with a non-prompt error within 5 seconds"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E002-INTEGRATION-001-coach-cli-no-prompt-when-not-tty"
+      id: "AC-INTEGRATION-001"
+      purpose: "The atdd coach CLI entrypoint calls resolve_no_prompt and passes the result to the spawn pipeline; no persona prompt blocks execution when stdin is not a TTY"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A monkeypatched spawn pipeline that records the no_prompt flag it receives"
+        - "sys.stdin.isatty is patched to return False"
+        - "--no-prompt is not passed on the CLI invocation"
+    when:
+      abstract: "atdd coach <N> is invoked programmatically without --no-prompt"
+    then:
+      abstract:
+        - "The recorded no_prompt flag is True"
+        - "The spawn pipeline does not block waiting for user input"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"

@@ -1,0 +1,35 @@
+urn: "feature:dispatch-ux-defaults-and-primer:coach-dispatch-env-aware-defaults"
+wagon: "wagon:dispatch-ux-defaults-and-primer"
+description: "Phases 1 and 2 of the dispatch UX overhaul: flips the multiplexer-mode default to 'pane' when CMUX_WORKSPACE_ID or TMUX is set (E001), auto-enables --no-prompt when stdin is not a TTY (E002), bumps ATDD_WORKER_READY_TIMEOUT from 10s to 30s and advertises it in --help (Y001), and mutes the stale upgrade banner after atdd sync via a marker file (Y002). All four items are pure default/config changes — no new user-visible commands or data structures."
+sizing:
+  wmbts: 4
+  footprint_score: 4
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:dispatch-ux-defaults-and-primer:E001"
+  - "wmbt:dispatch-ux-defaults-and-primer:E002"
+  - "wmbt:dispatch-ux-defaults-and-primer:Y001"
+  - "wmbt:dispatch-ux-defaults-and-primer:Y002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI entry points — all changes are to default-resolution logic in the existing coach.py entrypoint and spawn.py"
+    application:
+      - type: "use_cases"
+        count: 4
+        rationale: "resolve_multiplexer_mode (E001), resolve_no_prompt (E002), _get_worker_ready_timeout (Y001), and should_emit_upgrade_banner (Y002) are four discrete application-layer helpers added to existing modules"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain primitives — all four helpers operate on primitive values (str/bool/int)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "should_emit_upgrade_banner reads and writes a marker file in .atdd/runtime/; a lightweight fs adapter or direct Path I/O handles this"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"

@@ -34,3 +34,4 @@ trains:
       - coach-ops
       - coach-wave-orchestration
       - consolidate-coach-workspace
+      - dispatch-ux-defaults-and-primer

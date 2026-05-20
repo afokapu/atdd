@@ -1,0 +1,122 @@
+urn: "wmbt:dispatch-ux-defaults-and-primer:E005"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "coach-dispatch-sessions-where-operator-encounters-multiplexer-commands-for-the-first-time-without-a-primer"
+context_clarifier: "Operators spend ~5 minutes per cold-start session running 'cmux help | grep ...' to discover the 4-6 commands they will inevitably need if anything goes sideways: cmux tree, cmux send-key Enter, cmux read-screen, cmux close-surface, and paste-buffer ergonomics. The multiplexer primer is a one-screen cheat-sheet of exactly these commands, printed once per session when a known multiplexer is detected (CMUX_WORKSPACE_ID for cmux, TMUX for tmux, ZELLIJ_* for zellij). A marker file under .atdd/runtime/ suppresses re-printing in the same session. A --multiplexer-help flag prints just the primer and exits 0, so docs can link to it."
+lens: "functional.effectiveness"
+statement: "minimize quantity of coach-dispatch-sessions-where-operator-encounters-multiplexer-commands-for-the-first-time-without-a-primer when atdd coach is invoked inside a known multiplexer — by printing a one-screen per-backend primer once per session (marker-gated), providing a --multiplexer-help flag that prints the primer and exits 0"
+acceptances:
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E005-UNIT-001-primer-printed-when-mux-detected"
+      id: "AC-UNIT-001"
+      purpose: "MultiplexerPrimer.should_print returns True when CMUX_WORKSPACE_ID is set and the marker file does not exist"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/utils/multiplexer_primer.py exposes MultiplexerPrimer with should_print(env, marker_dir) and print_primer(backend, out) methods"
+        - "CMUX_WORKSPACE_ID='workspace:1' is set in env"
+        - "marker_dir is a tmp path that does not contain the primer marker file"
+    when:
+      abstract: "should_print is called with the env and marker_dir"
+    then:
+      abstract:
+        - "The return value is True"
+        - "When the marker file exists in marker_dir, should_print returns False"
+        - "When neither CMUX_WORKSPACE_ID nor TMUX nor ZELLIJ_SESSION_NAME is set, should_print returns False"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E005-SMOKE-001-primer-printed-in-real-cmux-session"
+      id: "AC-SMOKE-001"
+      purpose: "atdd coach prints the cmux primer on first dispatch in a real cmux session, and does not reprint it on second dispatch in the same session"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "A real cmux session is active (CMUX_WORKSPACE_ID set)"
+        - "The marker file does not exist (first dispatch in session)"
+    when:
+      abstract: "atdd coach <N> is invoked twice in the same session"
+    then:
+      abstract:
+        - "First invocation: stdout or stderr contains 'cmux tree' (primer text)"
+        - "Second invocation: primer text is NOT reprinted"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E005-UNIT-002-primer-text-contains-key-commands"
+      id: "AC-UNIT-002"
+      purpose: "print_primer writes cmux-specific primer text containing the 5 key command patterns to the output stream and creates the marker file"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "MultiplexerPrimer with backend='cmux' and a StringIO output stream"
+        - "A tmp marker_dir"
+    when:
+      abstract: "print_primer is called with backend='cmux', out=StringIO(), marker_dir=tmp_dir"
+    then:
+      abstract:
+        - "The output contains 'cmux tree'"
+        - "The output contains 'cmux send-key'"
+        - "The output contains 'cmux read-screen'"
+        - "The output contains 'cmux close-surface'"
+        - "The output contains 'paste-buffer' or 'paste_buffer'"
+        - "The marker file is created in marker_dir after print_primer returns"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E005-UNIT-003-multiplexer-help-flag-exits-zero"
+      id: "AC-UNIT-003"
+      purpose: "atdd coach --multiplexer-help prints the primer for the detected backend and exits 0 without running the coach pipeline"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "CMUX_WORKSPACE_ID='workspace:1' is set in env"
+        - "The coach pipeline is monkeypatched to record whether it was called"
+    when:
+      abstract: "atdd coach --multiplexer-help is invoked (via CLI parser or programmatically)"
+    then:
+      abstract:
+        - "Exit code is 0"
+        - "The coach pipeline is NOT called"
+        - "Stdout contains 'cmux tree' (or the backend-appropriate primer)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E005-UNIT-004-primer-not-reprinted-in-same-session"
+      id: "AC-UNIT-004"
+      purpose: "When the marker file already exists, should_print returns False and print_primer is not called on the second dispatch in the same session"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "MultiplexerPrimer with CMUX_WORKSPACE_ID set"
+        - "A marker_dir that already contains the primer marker file (simulating a previous dispatch in the same session)"
+    when:
+      abstract: "should_print is called a second time in the same session"
+    then:
+      abstract:
+        - "should_print returns False"
+        - "print_primer is not called"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
