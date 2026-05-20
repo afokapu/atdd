@@ -1,0 +1,27 @@
+urn: "feature:integration-hardening:init-hookspath-worktree-isolation"
+wagon: "wagon:integration-hardening"
+description: "When 'atdd init --force' is run inside a non-main (linked) worktree, '_install_hooks' must write 'core.hooksPath' via 'git config --worktree' rather than the unscoped form. The unscoped form writes to the shared .git/config, contaminating all sibling worktrees (Wave 12 class: same danger as core.bare/#619/#629/#771). The fix detects the linked-worktree condition using 'git rev-parse --git-common-dir vs --git-dir', enables 'extensions.worktreeConfig=true' idempotently when absent, and then writes the worktree-scoped form so core.hooksPath lands in .git/worktrees/<name>/config.worktree only."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:integration-hardening:Y006"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface; change is inside _install_hooks which is called by ProjectInitializer"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "One behaviour change: _install_hooks detects linked-worktree condition and uses --worktree flag"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain entities"
+    integration:
+      - type: "adapters"
+        count: 0
+        rationale: "No new adapters; only the git config subprocess call is modified"
