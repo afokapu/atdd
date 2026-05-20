@@ -1,19 +1,21 @@
 # URN: test:spawn-agents:worker-launch-prompt-readiness-gate:E010-UNIT-005-decision-log-gated-on-assertion
 # Acceptance: acc:spawn-agents:E010-UNIT-005-decision-log-gated-on-assertion
 # WMBT: wmbt:spawn-agents:E010
-# Phase: GREEN
+# Phase: RED
 # Layer: unit
 # Runtime: python
 # Assertion: behavioral
 """E010-UNIT-005 — decisions.jsonl emits 'transitioned:true' only if
-_assert_worker_processing passed; on assertion failure the log records
-'transitioned:false' and escalation is triggered, with the handler
-returning HandlerResult.ERROR.
+_assert_worker_processing passed; on assertion failure (jsonl never grows)
+the handler returns HandlerResult.ERROR and no phantom transitioned:true is
+recorded.
 
-RED: The current coach.py writes the INIT→PLANNED decision with
-transitioned:True *before* the spawn action — the J3 write-before-action
-pattern — and does not check whether the worker processed the launch prompt
-at all. This test pins the required gating behavior (issue #795).
+RED: The test now sets up ATDD_CLAUDE_PROJECTS_DIR with a static jsonl so
+_wait_for_claude_ready passes but _assert_worker_processing times out. With
+the old capture_surface_text implementation the short timeout fires through
+a different code path (capture_surface_text returns ""), but the desired
+outcome (HandlerResult.ERROR, no transitioned:true) is identical. The new
+path is verified when GREEN lands.
 """
 from __future__ import annotations
 
@@ -30,8 +32,8 @@ from atdd.coach.handlers.state_machine import (
 )
 
 
-class _NeverProcessingMux:
-    """Always returns empty capture — the worker never processes anything."""
+class _MinimalMux:
+    """Minimal fake that satisfies surface-creation without capture_surface_text."""
 
     def __init__(self):
         self.calls: list = []
@@ -53,34 +55,39 @@ class _NeverProcessingMux:
     def list_surfaces(self, **kw):
         return []
 
-    def capture_surface_text(self, surface_ref: str) -> str:
-        return ""  # worker never processes — queue stays backed up
-
 
 def test_decision_records_transitioned_false_when_worker_silent(tmp_path, monkeypatch):
-    """When _assert_worker_processing times out, decisions.jsonl must NOT
+    """When the worker never processes (jsonl static), decisions.jsonl must NOT
     record 'transitioned:true' for the phase transition."""
     from atdd.coach.handlers import spawn as spawn_handler
+    from atdd.coach.utils.session_naming_apply import _claude_project_key
 
     runtime = tmp_path / "runtime"
     runtime.mkdir()
     worktree = tmp_path / "worktree"
     worktree.mkdir()
 
-    # Use a very short readiness-gate timeout so the test is fast.
-    monkeypatch.setenv("ATDD_WORKER_READY_TIMEOUT", "0.05")
+    # Set up a static project dir so _wait_for_claude_ready passes but
+    # _assert_worker_processing times out (no new bytes are ever appended).
+    claude_projects = tmp_path / ".claude" / "projects"
+    claude_projects.mkdir(parents=True)
+    monkeypatch.setenv("ATDD_CLAUDE_PROJECTS_DIR", str(claude_projects))
 
-    escalations: list[str] = []
+    project_key = _claude_project_key(worktree)
+    project_dir = claude_projects / project_key
+    project_dir.mkdir(parents=True)
+    (project_dir / "session.jsonl").write_text("{}\n")  # static — never grows
 
-    class _EscalatingCtx(CoachContext):
-        pass
+    # Short timeout so the test is fast.
+    monkeypatch.setenv("ATDD_WORKER_READY_TIMEOUT", "0.1")
+    monkeypatch.setenv("ATDD_WORKER_POLL_INTERVAL", "0.01")
 
-    ctx = _EscalatingCtx(
+    ctx = CoachContext(
         issue_number=795,
         runtime_dir=runtime,
         multiplexer="cmux",
         multiplexer_mode="pane",
-        multiplexer_backend=_NeverProcessingMux(),
+        multiplexer_backend=_MinimalMux(),
         worktree_override=worktree,
         escalation_channel="file:" + str(tmp_path / "escalations.log"),
     )
@@ -90,8 +97,7 @@ def test_decision_records_transitioned_false_when_worker_silent(tmp_path, monkey
     # The handler MUST return ERROR, not HANDLED.
     assert result == HandlerResult.ERROR
 
-    # The decisions.jsonl MUST NOT contain a transitioned:true entry for
-    # INIT→PLANNED when the worker did not process the launch prompt.
+    # decisions.jsonl must NOT contain a transitioned:true entry for INIT→PLANNED.
     decisions_path = runtime / "coach" / "decisions.jsonl"
     if decisions_path.exists():
         for line in decisions_path.read_text().splitlines():

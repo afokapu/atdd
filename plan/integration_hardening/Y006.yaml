@@ -1,0 +1,105 @@
+urn: "wmbt:integration-hardening:Y006"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "atdd-init-force-writing-core-hookspath-to-shared-git-config-in-worktree"
+context_clarifier: "when 'atdd init --force' is run inside a non-main (linked) worktree the '_install_hooks' step calls 'git config core.hooksPath <abs_path>' without the '--worktree' flag, which writes to the SHARED .git/config — contaminating all sibling worktrees including main with an absolute path that points into the originating worktree; when the originating worktree is later removed hooks silently stop firing everywhere because the path no longer exists; same Wave 12 contamination class as core.bare (#619/#629/#771) but for 'core.hooksPath'; the fix is to detect whether the CWD is a linked worktree using 'git rev-parse --git-common-dir' vs '--git-dir', enable 'extensions.worktreeConfig=true' idempotently when not already set, then write 'git config --worktree core.hooksPath <path>' so the entry lands in .git/worktrees/<name>/config.worktree and does not bleed to siblings"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of atdd-init-force-writing-core-hookspath-to-shared-git-config-in-worktree when 'atdd init --force' is run inside a linked worktree by detecting the linked-worktree condition via 'git rev-parse --git-common-dir != --git-dir', enabling 'extensions.worktreeConfig=true' idempotently, and writing 'git config --worktree core.hooksPath <path>' instead of the unscoped form"
+acceptances:
+  - identity:
+      urn: "acc:integration-hardening:Y006-UNIT-001-install-hooks-uses-worktree-scope-in-linked-worktree"
+      id: "GT-Y006-001"
+      purpose: "When _install_hooks runs inside a linked (non-main) worktree the git config call uses '--worktree' so core.hooksPath lands in config.worktree, not in the shared .git/config"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path git repo with 'extensions.worktreeConfig=true' already set"
+        - "A linked worktree is added at tmp_path/linked via 'git worktree add'"
+        - "ProjectInitializer is instantiated with target_dir=linked worktree path"
+        - "subprocess.run is monkeypatched so calls are captured (no real git writes)"
+    when:
+      abstract: "_install_hooks(force=True) is called"
+    then:
+      abstract:
+        - "At least one captured subprocess.run call contains '--worktree' and 'core.hooksPath'"
+        - "No captured call uses bare 'git config core.hooksPath' (without '--worktree') from the linked worktree"
+    metadata:
+      author: "atdd:init-hookspath-worktree-isolation"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:integration-hardening:Y006-UNIT-002-install-hooks-uses-shared-scope-in-main-worktree"
+      id: "GT-Y006-002"
+      purpose: "When _install_hooks runs in the main worktree (not a linked worktree) it continues to use the unscoped 'git config core.hooksPath' so all linked worktrees inherit hooks from main"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path git repo (no linked worktrees added)"
+        - "ProjectInitializer is instantiated with target_dir=tmp_path"
+        - "subprocess.run is monkeypatched so calls are captured"
+    when:
+      abstract: "_install_hooks(force=True) is called"
+    then:
+      abstract:
+        - "The captured subprocess.run call for git config does NOT include '--worktree'"
+        - "It writes 'core.hooksPath' to the main (shared) config"
+    metadata:
+      author: "atdd:init-hookspath-worktree-isolation"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:integration-hardening:Y006-UNIT-003-worktree-config-extension-enabled-before-worktree-write"
+      id: "GT-Y006-003"
+      purpose: "If 'extensions.worktreeConfig' is not already true when _install_hooks detects a linked worktree, it enables it idempotently before writing 'git config --worktree core.hooksPath'"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path git repo WITHOUT 'extensions.worktreeConfig=true'"
+        - "A linked worktree is added at tmp_path/linked"
+        - "ProjectInitializer is instantiated with target_dir=linked worktree"
+        - "subprocess.run is monkeypatched to capture calls"
+    when:
+      abstract: "_install_hooks(force=True) is called"
+    then:
+      abstract:
+        - "A captured call sets 'extensions.worktreeConfig' to 'true' before the core.hooksPath write"
+        - "The subsequent core.hooksPath call includes '--worktree'"
+    metadata:
+      author: "atdd:init-hookspath-worktree-isolation"
+      created: "2026-05-20"
+
+  - identity:
+      urn: "acc:integration-hardening:Y006-SMOKE-001-init-force-in-linked-worktree-writes-config-worktree-file"
+      id: "GT-Y006-S01"
+      purpose: "SMOKE: running ProjectInitializer._install_hooks against a real tmp_path repo with a real linked worktree results in core.hooksPath appearing in the worktree-local config.worktree file, NOT in the shared .git/config"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real tmp_path git repo initialised with 'git init'"
+        - "extensions.worktreeConfig=true set on the repo"
+        - "A linked worktree added at tmp_path_linked via 'git worktree add'"
+        - "ProjectInitializer instantiated with target_dir=tmp_path_linked (no subprocess mock)"
+    when:
+      abstract: "_install_hooks(force=True) is called against the real linked worktree"
+    then:
+      abstract:
+        - "The shared .git/config does NOT contain 'hooksPath' after the call"
+        - "The worktree-local config.worktree file (at .git/worktrees/<name>/config.worktree) DOES contain 'hooksPath'"
+        - "git -C tmp_path_linked config --get core.hooksPath resolves to the expected path (worktree-local read succeeds)"
+        - "git -C tmp_path config --get core.hooksPath returns empty or error (shared config is clean)"
+    metadata:
+      author: "atdd:init-hookspath-worktree-isolation"
+      created: "2026-05-20"

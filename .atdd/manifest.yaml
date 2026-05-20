@@ -1067,9 +1067,12 @@ sessions:
   file: null
   issue_number: 758
   type: implementation
-  status: INIT
-  created: '2026-05-18'
+  status: REFACTOR
+  created: '2026-05-20'
   archived: null
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan
+  train: 0001-self-compliance-validate
 - id: '712'
   slug: coach-cold-start-orchestration-hardening
   file: null
@@ -1112,4 +1115,15 @@ sessions:
   archived: null
   wagon: spawn-agents
   feature: feature:spawn-agents:worker-launch-prompt-readiness-gate
+  train: 0002-coach-drives-lifecycle
+- id: '793'
+  slug: atdd-init-force-writes-core-hookspath-to-shared-git-config-in-worktree
+  file: null
+  issue_number: 793
+  type: implementation
+  status: REFACTOR
+  created: '2026-05-20'
+  archived: null
+  wagon: integration-hardening
+  feature: feature:integration-hardening:init-hookspath-worktree-isolation
   train: 0002-coach-drives-lifecycle
