@@ -1,0 +1,79 @@
+urn: "wmbt:drive-state-machine:R002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+step: "resolve"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "coach-event-loop-aborting-before-complete"
+context_clarifier: "when the coach event loop drives an issue through GREEN, a defect causes the loop to abort (process exits or enters BLOCKED) before reaching SMOKE→REFACTOR→COMPLETE. The while-guard (while sm.phase not in (COMPLETE, MERGED, BLOCKED)) is correct — GREEN is not a stop state — so the abort originates inside the loop body. Hypothesis from #712: a failed sub-step (spawn_h returning ERROR for the SMOKE persona, or a guard treating GREEN→SMOKE as illegal) sets sm.phase=BLOCKED before the while-guard next runs. Fix: identify and remove the abort trigger; ensure the loop continues through GREEN→SMOKE→REFACTOR→COMPLETE. The lived observation: coach 690 drove INIT→PLANNED→RED→GREEN then process exited without reaching SMOKE."
+lens: "functional.availability"
+statement: "minimize likelihood of coach-event-loop-aborting-before-complete when _process_watcher_events drives an issue through GREEN by identifying and removing the abort trigger that sets sm.phase=BLOCKED or exits the process before the SMOKE persona is spawned, ensuring the loop continues through the full PLANNED→RED→GREEN→SMOKE→REFACTOR→COMPLETE sequence"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:R002-UNIT-001-green-is-not-terminal"
+      id: "AC-UNIT-001"
+      purpose: "The while-guard in _process_watcher_events does not exit on GREEN; the loop body continues and maps GREEN→SMOKE"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "sm.phase = Phase.GREEN"
+        - "_COLD_START_ADVANCE_FROM maps GREEN → SMOKE"
+    when:
+      abstract: "_cold_start_proposed_transition is called with an agent_done event from the GREEN-phase persona"
+    then:
+      abstract:
+        - "The returned Transition has src=GREEN and dst=SMOKE"
+        - "can_transition(Phase.GREEN, Phase.SMOKE) returns True"
+        - "_COLD_START_ADVANCE_FROM[Phase.GREEN] == Phase.SMOKE"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:drive-state-machine:R002-UNIT-002-loop-continues-through-green"
+      id: "AC-UNIT-002"
+      purpose: "With injected events, _process_injected_events (the cold-start injected path used in tests) advances from GREEN to SMOKE without aborting"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "sm starts at Phase.GREEN"
+        - "_injected_events contains one agent_done event from a GREEN-phase persona"
+        - "spawn_h stub returns HandlerResult.HANDLED for Transition(GREEN, SMOKE)"
+    when:
+      abstract: "_process_injected_events processes the agent_done event"
+    then:
+      abstract:
+        - "sm.phase advances to SMOKE"
+        - "spawn_h is called with Transition(GREEN, SMOKE)"
+        - "sm.phase is not BLOCKED (no abort)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:drive-state-machine:R002-INTEGRATION-001-full-lifecycle-no-abort"
+      id: "AC-INTEGRATION-001"
+      purpose: "_drive_single_issue drives a full PLANNED→RED→GREEN→SMOKE→REFACTOR sequence via injected events without aborting at GREEN or any intermediate phase"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "Issue is at PLANNED (warm resume, Y001 in effect)"
+        - "_injected_events contains agent_done events for personas at PLANNED, RED, GREEN, SMOKE phases"
+        - "spawn_h stub returns HandlerResult.HANDLED for all Transitions"
+        - "_swap_phase_label stub does not raise"
+    when:
+      abstract: "_drive_single_issue processes all four injected events"
+    then:
+      abstract:
+        - "sm.phase advances through RED, GREEN, SMOKE, REFACTOR in order"
+        - "sm.phase is never BLOCKED during the run"
+        - "spawn_h is called for each transition: PLANNED→RED, RED→GREEN, GREEN→SMOKE, SMOKE→REFACTOR"
+        - "_drive_single_issue returns 0"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-20"
