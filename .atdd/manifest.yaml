@@ -1127,3 +1127,14 @@ sessions:
   wagon: integration-hardening
   feature: feature:integration-hardening:init-hookspath-worktree-isolation
   train: 0002-coach-drives-lifecycle
+- id: '799'
+  slug: coach-spawn-step-by-step-verify-each-stage
+  file: null
+  issue_number: 799
+  type: implementation
+  status: RED
+  created: '2026-05-20'
+  archived: null
+  wagon: spawn-agents
+  feature: feature:spawn-agents:coach-spawn-step-by-step-verify-each-stage
+  train: 0002-coach-drives-lifecycle
