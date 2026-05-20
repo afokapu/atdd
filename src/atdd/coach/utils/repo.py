@@ -205,6 +205,109 @@ _VENDORED_PATH_MARKERS = frozenset(
 )
 
 
+class NoWorktreeFound(RuntimeError):
+    """Raised by find_worktree_root when no .git directory can be found walking up."""
+
+
+def find_worktree_root(start_path: Path) -> Path:
+    """Walk up from start_path until a .git directory or .git file is found.
+
+    Returns the directory that contains .git.
+    Raises NoWorktreeFound when the filesystem root is reached without finding one.
+    """
+    current = Path(start_path).resolve()
+    while True:
+        if (current / ".git").exists():
+            return current
+        parent = current.parent
+        if parent == current:
+            # Reached filesystem root — build an actionable error listing
+            # the start path's immediate subdirectories as candidate worktrees.
+            start_resolved = Path(start_path).resolve()
+            nearby = [
+                d.name
+                for d in start_resolved.iterdir()
+                if d.is_dir()
+            ] if start_resolved.is_dir() else []
+            hint = (
+                f"Nearby directories: {', '.join(nearby[:5])}" if nearby else ""
+            )
+            raise NoWorktreeFound(
+                f"No git worktree found searching up from {start_path}. "
+                f"{hint} Use --repo PATH to specify the worktree explicitly, "
+                f"or cd into a worktree before running atdd coach."
+            )
+        current = parent
+
+
+def resolve_repo_path(
+    explicit_path: Optional[Path],
+    cwd: Path,
+) -> Path:
+    """Return explicit_path if given; otherwise find the nearest git worktree root."""
+    if explicit_path is not None:
+        return Path(explicit_path)
+    return find_worktree_root(cwd)
+
+
+def find_existing_worktree_for_branch(branch: str, repo_root: Path) -> Optional[Path]:
+    """Return the path of an existing worktree tracking *branch*, or None.
+
+    Parses ``git worktree list --porcelain`` output to detect an existing worktree
+    so the coach can reuse it instead of calling ``git worktree add`` again.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+
+    worktree_path: Optional[str] = None
+    for line in result.stdout.splitlines():
+        if line.startswith("worktree "):
+            worktree_path = line[len("worktree "):].strip()
+        elif line.startswith("branch "):
+            raw_branch = line[len("branch "):].strip()
+            # Normalise refs/heads/feat/slug → feat/slug
+            if raw_branch.startswith("refs/heads/"):
+                raw_branch = raw_branch[len("refs/heads/"):]
+            if raw_branch == branch and worktree_path is not None:
+                return Path(worktree_path)
+    return None
+
+
+def ensure_issue_worktree(
+    branch: str,
+    repo_root: Path,
+    target_path: Path,
+) -> Path:
+    """Ensure a worktree for *branch* exists at *target_path*.
+
+    If a worktree already tracks *branch* (detected via git worktree list),
+    reuse it and log the reuse.  Otherwise call ``git worktree add``.
+    """
+    existing = find_existing_worktree_for_branch(branch, repo_root)
+    if existing is not None:
+        print(
+            f"[coach] Reusing existing worktree at {existing} for branch {branch!r}",
+            flush=True,
+        )
+        return existing
+    subprocess.run(
+        ["git", "worktree", "add", str(target_path), branch],
+        cwd=str(repo_root),
+        check=True,
+    )
+    return target_path
+
+
 def is_atdd_source_repo() -> bool:
     """
     Return True only when running inside the atdd source repo

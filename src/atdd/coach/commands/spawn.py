@@ -219,6 +219,20 @@ def _pre_trust_worktree(
         )
 
 
+def _get_worker_ready_timeout(env=None) -> float:
+    """Return the worker-ready timeout in seconds.
+
+    Reads ATDD_WORKER_READY_TIMEOUT from *env* (or os.environ when None).
+    Defaults to 30.0 — enough for cold-start worktrees that take 20-40s.
+    """
+    if env is None:
+        env = os.environ
+    raw = env.get("ATDD_WORKER_READY_TIMEOUT")
+    if raw:
+        return float(raw)
+    return 30.0
+
+
 def _wait_for_claude_ready(
     surface_ref: str,
     project_key: str,
@@ -228,6 +242,7 @@ def _wait_for_claude_ready(
     multiplexer: Any = None,
     timeout_s: float = 10.0,
     poll_interval_s: float = 0.25,
+    prompt_text: Optional[str] = None,
 ) -> None:
     """Poll until a Claude session .jsonl appears for *project_key*.
 
@@ -240,6 +255,10 @@ def _wait_for_claude_ready(
     messages). Files are accepted by existence, not mtime, because
     each worktree has a unique project-key path and _assert_worker_processing
     is the downstream gate that confirms the worker actually processed input.
+
+    When *prompt_text* is given, this function also pastes the prompt,
+    verifies each stage, and asserts the worker is processing — making the
+    entire "ready-to-process" pipeline patchable as a single call.
 
     The env vars ATDD_WORKER_READY_TIMEOUT and ATDD_WORKER_POLL_INTERVAL
     override the defaults so tests can run with tight timings.
@@ -266,15 +285,58 @@ def _wait_for_claude_ready(
         if project_dir.is_dir():
             for entry in project_dir.iterdir():
                 if entry.suffix == ".jsonl":
-                    return  # session file found — Claude has booted
+                    break  # session file found — Claude has booted
+            else:
+                time.sleep(poll_interval_s)
+                continue
+            break
         time.sleep(poll_interval_s)
+    else:
+        elapsed = time.monotonic() - start
+        raise WorkerReadinessTimeout(
+            f"Worker on {surface_ref!r} did not boot within {timeout_s:.1f}s "
+            f"(elapsed {elapsed:.1f}s). No session .jsonl found under "
+            f"{project_dir}. project_key={project_key!r}. "
+            f"({SPAWN_RULE_ID})"
+        )
 
-    elapsed = time.monotonic() - start
-    raise WorkerReadinessTimeout(
-        f"Worker on {surface_ref!r} did not boot within {timeout_s:.1f}s "
-        f"(elapsed {elapsed:.1f}s). No session .jsonl found under "
-        f"{project_dir}. project_key={project_key!r}. "
-        f"({SPAWN_RULE_ID})"
+    if prompt_text is None:
+        return
+
+    # Paste the launch prompt and verify the full ready-to-process pipeline.
+    try:
+        multiplexer.paste_text(surface_ref, prompt_text)
+        multiplexer.send_key(surface_ref, "Enter")
+    except (MultiplexerError, OSError, AttributeError) as exc:
+        print(
+            f"⚠️  launch-prompt injection failed for {surface_ref}: {exc} "
+            f"({SPAWN_RULE_ID})",
+            file=sys.stderr,
+        )
+
+    _stage_timeout = timeout_s
+    _stage_poll = poll_interval_s
+    _verify_stage(
+        stage_name="paste-landed",
+        surface_ref=surface_ref,
+        backend=multiplexer,
+        expect_any=("paste again to expand", "1 file"),
+        timeout_s=_stage_timeout,
+        poll_interval_s=_stage_poll,
+    )
+    _verify_stage(
+        stage_name="prompt-submitted",
+        surface_ref=surface_ref,
+        backend=multiplexer,
+        expect_any=("⏺ Thinking", "⏺⏺", "esc to interrupt"),
+        timeout_s=_stage_timeout,
+        poll_interval_s=_stage_poll,
+    )
+
+    _assert_worker_processing(
+        surface_ref=surface_ref,
+        project_key=project_key,
+        claude_projects_dir=claude_projects_dir,
     )
 
 
@@ -752,6 +814,64 @@ def _launch_headless_observer(
         )
 
 
+def _spawn_observer_if_configured(
+    agent_id: str,
+    runtime_root: Path,
+    worktree: Path,
+) -> None:
+    """Launch a headless observer if one is configured.
+
+    Currently a no-op: per-worker observers were removed in issue #754.
+    Exists as a named hook so callers can monkeypatch it in tests.
+    """
+    return None
+
+
+def _emit_agent_spawned_event(
+    *,
+    persona: str,
+    llm: str,
+    worktree: Path,
+    issue: int,
+    surface_ref: str,
+    canonical_name: str,
+    agent_id: str,
+    runtime_root: Path,
+    phase: Optional[str] = None,
+    target_commit: Optional[str] = None,
+    prior_attempt: Optional[str] = None,
+    multiplexer_ref: Optional[str] = None,
+) -> None:
+    """Write the ``agent_spawned`` runtime event for this worker."""
+    from atdd.coach.commands import agent as agent_mod
+
+    payload: dict[str, Any] = {
+        "persona": persona,
+        "llm": llm,
+        "worktree": str(worktree),
+        "issue": int(issue),
+        "surface_ref": surface_ref,
+        "rule_id": SPAWN_RULE_ID,
+        "canonical_name": canonical_name,
+        "canonical_rule_id": CANONICAL_SESSION_NAME_RULE_ID,
+    }
+    if phase is not None:
+        payload["phase"] = phase
+    if target_commit is not None:
+        payload["target_commit"] = target_commit
+    if prior_attempt is not None:
+        payload["prior_attempt"] = prior_attempt
+    if multiplexer_ref is not None:
+        payload["multiplexer_ref"] = multiplexer_ref
+
+    agent_mod.cmd_event(
+        "agent_spawned",
+        agent_id=agent_id,
+        data=payload,
+        runtime_root=runtime_root,
+    )
+
+
 def cmd_spawn(
     *,
     persona: str,
@@ -940,11 +1060,16 @@ def cmd_spawn(
 
     project_key = _claude_project_key(worktree)
     try:
+        # E010 (#795) + E011 (#799): wait for Claude's TUI to boot, paste
+        # the launch prompt, verify each readiness stage, and assert the
+        # worker is processing. All post-creation checks are inside one
+        # patchable call so unit tests cover this pipeline with one stub.
         _wait_for_claude_ready(
             surface_ref=surface_ref,
             project_key=project_key,
             spawn_time=spawn_time,
             multiplexer=backend,
+            prompt_text=prompt_path.read_text(),
         )
     except WorkerReadinessTimeout as exc:
         print(
@@ -954,57 +1079,6 @@ def cmd_spawn(
         )
         _close_surface_on_failure(backend, surface_ref)
         raise
-
-    # Inject the launch prompt as the first interactive message (#702).
-    # Claude Code v2.1.x ignores a positional prompt arg in interactive
-    # mode, so the prompt — rendered to <worktree>/.launch_prompt.txt —
-    # must be pasted post-boot. paste_text uses bracketed paste so the
-    # multi-line prompt lands as ONE input block (newlines stay literal);
-    # send_key submits it.
-    try:
-        backend.paste_text(surface_ref, prompt_path.read_text())
-        backend.send_key(surface_ref, "Enter")
-    except (MultiplexerError, OSError, AttributeError) as exc:
-        # AttributeError tolerates partial backends (test fakes) that do
-        # not implement paste_text — mirrors apply_canonical_name_and_layout.
-        print(
-            f"⚠️  launch-prompt injection failed for {surface_ref}: {exc} "
-            f"({SPAWN_RULE_ID})",
-            file=sys.stderr,
-        )
-
-    # E011 (#799): verify paste landed and prompt submitted before continuing.
-    # Backends without capture_pane_text skip these checks (hasattr guard in _verify_stage).
-    _stage_timeout = float(os.environ.get("ATDD_WORKER_READY_TIMEOUT", "10.0"))
-    _stage_poll = float(os.environ.get("ATDD_WORKER_POLL_INTERVAL", "0.25"))
-    _verify_stage(
-        stage_name="paste-landed",
-        surface_ref=surface_ref,
-        backend=backend,
-        expect_any=("paste again to expand", "1 file"),
-        timeout_s=_stage_timeout,
-        poll_interval_s=_stage_poll,
-    )
-    _verify_stage(
-        stage_name="prompt-submitted",
-        surface_ref=surface_ref,
-        backend=backend,
-        expect_any=("⏺ Thinking", "⏺⏺", "esc to interrupt"),
-        timeout_s=_stage_timeout,
-        poll_interval_s=_stage_poll,
-    )
-
-    # E010 (#795, #797): post-paste assertion — confirm the worker is
-    # processing before the caller logs a phase transition. Polls the session
-    # .jsonl byte size until it grows (proves Claude accepted the prompt and
-    # appended at least one message). A timeout raises WorkerReadinessTimeout
-    # so the spawn handler returns ERROR instead of logging a phantom
-    # transitioned:true. Works across all multiplexer backends (filesystem
-    # only — no capture_surface_text needed).
-    _assert_worker_processing(
-        surface_ref=surface_ref,
-        project_key=project_key,
-    )
 
     capture_session_uuid(
         backend=backend,
@@ -1017,34 +1091,25 @@ def cmd_spawn(
         runtime_root=runtime_root,
     )
 
-    # Emit agent_spawned event via the existing agent.cmd_event primitive
-    # so the schema-conforming write path is shared with #J2 (#497).
-    from atdd.coach.commands import agent as agent_mod
-
-    payload: dict[str, Any] = {
-        "persona": persona,
-        "llm": llm,
-        "worktree": str(worktree),
-        "issue": int(issue),
-        "surface_ref": surface_ref,
-        "rule_id": SPAWN_RULE_ID,
-        "canonical_name": canonical_name,
-        "canonical_rule_id": CANONICAL_SESSION_NAME_RULE_ID,
-    }
-    if phase is not None:
-        payload["phase"] = phase
-    if target_commit is not None:
-        payload["target_commit"] = target_commit
-    if prior_attempt is not None:
-        payload["prior_attempt"] = prior_attempt
-    if multiplexer_ref is not None:
-        payload["multiplexer_ref"] = multiplexer_ref
-
-    agent_mod.cmd_event(
-        "agent_spawned",
+    _spawn_observer_if_configured(
         agent_id=agent_id,
-        data=payload,
         runtime_root=runtime_root,
+        worktree=worktree,
+    )
+
+    _emit_agent_spawned_event(
+        persona=persona,
+        llm=llm,
+        worktree=worktree,
+        issue=issue,
+        surface_ref=surface_ref,
+        canonical_name=canonical_name,
+        agent_id=agent_id,
+        runtime_root=runtime_root,
+        phase=phase,
+        target_commit=target_commit,
+        prior_attempt=prior_attempt,
+        multiplexer_ref=multiplexer_ref,
     )
 
     # Write manifest.json so downstream guards (e.g., reviewer commit

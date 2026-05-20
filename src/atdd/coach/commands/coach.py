@@ -163,6 +163,20 @@ class Policy:
 
 
 @dataclass
+class CoachConfig:
+    """Per-issue coach configuration.
+
+    Holds the resolved per-issue settings that the spawn pipeline reads.
+    Distinct from ``Config`` (which is a CLI-level multi-issue bag).
+    """
+
+    issue: int = 0
+    multiplexer_mode: str = "workspace"
+    llm: Optional[str] = None
+    no_prompt: bool = False
+
+
+@dataclass
 class ColdStartResult:
     """Aggregate outcome of a cold-start run (issue #730).
 
@@ -203,6 +217,90 @@ def _review_phases_arg(value: str) -> set[str]:
     return {p.strip() for p in value.split(",") if p.strip()}
 
 
+class _MultiplexerHelpAction(argparse.Action):
+    """Argparse action that prints the multiplexer primer and exits 0.
+
+    Mirrors the ``--help`` pattern so it fires during parse_args before
+    required-argument validation, allowing ``atdd coach --multiplexer-help``
+    without supplying issue numbers.
+    """
+
+    def __init__(self, option_strings, dest=argparse.SUPPRESS, default=argparse.SUPPRESS, help=None):
+        super().__init__(option_strings=option_strings, dest=dest, default=default,
+                         nargs=0, help=help)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        import os as _os
+        from atdd.coach.utils.multiplexer_primer import _BACKEND_FROM_ENV, _PRIMER_TEXT
+
+        _env = _os.environ
+        backend = next(
+            (b for var, b in _BACKEND_FROM_ENV.items() if _env.get(var)),
+            "cmux",
+        )
+        sys.stdout.write(_PRIMER_TEXT.get(backend, _PRIMER_TEXT["cmux"]))
+        parser.exit(0)
+
+
+def resolve_multiplexer_mode(explicit_flag: Optional[str], env: Optional[dict] = None) -> str:
+    """Return the effective multiplexer mode.
+
+    If *explicit_flag* is not None it wins. Otherwise inspect *env* (or
+    os.environ) for CMUX_WORKSPACE_ID / TMUX — both imply 'pane' mode.
+    Falls back to 'workspace'.
+    """
+    import os as _os
+    if explicit_flag is not None:
+        return explicit_flag
+    _env = env if env is not None else _os.environ
+    if _env.get("CMUX_WORKSPACE_ID") or _env.get("TMUX"):
+        return "pane"
+    return "workspace"
+
+
+def resolve_no_prompt(explicit_flag: Optional[bool], isatty: bool) -> bool:
+    """Return the effective no-prompt flag.
+
+    If *explicit_flag* is not None it wins (True = skip prompt, False = force
+    prompt). Otherwise return True (skip prompt) when *isatty* is False so
+    non-interactive invocations never hang on the model-selection prompt.
+    """
+    if explicit_flag is not None:
+        return bool(explicit_flag)
+    return not isatty
+
+
+def _build_coach_config_from_ns(ns: object) -> dict:
+    """Extract the no_prompt resolution from a parsed argparse Namespace.
+
+    Called by parse_cli to wire resolve_no_prompt into CoachConfig construction.
+    Returns a dict of overrides to apply on top of the namespace values.
+    """
+    import sys as _sys
+    explicit_no_prompt = getattr(ns, "no_prompt", None)
+    if explicit_no_prompt is False:
+        explicit_no_prompt = None
+    isatty = _sys.stdin.isatty()
+    return {"no_prompt": resolve_no_prompt(explicit_flag=explicit_no_prompt, isatty=isatty)}
+
+
+def _handle_multiplexer_help(ns: object, env: Optional[dict] = None) -> None:
+    """Print the multiplexer primer and exit 0 when --multiplexer-help is set."""
+    import os as _os
+    from atdd.coach.utils.multiplexer_primer import MultiplexerPrimer, _BACKEND_FROM_ENV, _PRIMER_TEXT
+
+    if not getattr(ns, "multiplexer_help", False):
+        return
+    _env = env if env is not None else _os.environ
+    backend = next(
+        (b for var, b in _BACKEND_FROM_ENV.items() if _env.get(var)),
+        "cmux",
+    )
+    primer_text = _PRIMER_TEXT.get(backend, _PRIMER_TEXT["cmux"])
+    sys.stdout.write(primer_text)
+    sys.exit(0)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="atdd coach",
@@ -211,6 +309,15 @@ def _build_parser() -> argparse.ArgumentParser:
             "machine + CLI surface only; watchers/validators/observers/spawn "
             "live in adjacent tracks."
         ),
+        epilog=(
+            "Environment variables:\n"
+            "  ATDD_WORKER_READY_TIMEOUT  Worker boot timeout in seconds (default: 30).\n"
+            "                             Increase for slow machines or cold worktrees.\n"
+            "\n"
+            "Recovery: cold-start is idempotent — re-run atdd coach <N> after fixing\n"
+            "  the underlying issue (missing multiplexer, wrong --repo path, etc.).\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "issue_numbers",
@@ -239,8 +346,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--multiplexer-mode",
         type=str,
         choices=["workspace", "pane"],
-        default="workspace",
+        default=None,
         dest="multiplexer_mode",
+    )
+    parser.add_argument(
+        "--multiplexer-help",
+        action=_MultiplexerHelpAction,
+        help="Print the multiplexer quick-reference and exit.",
     )
     parser.add_argument(
         "--auto-merge", action="store_true", dest="auto_merge",
@@ -289,7 +401,7 @@ def _build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         metavar="RUN_ID",
-        help="Carried for #J6 resume runner; J1 parses but does not reconstruct.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--dry-run", action="store_true", dest="dry_run",
@@ -325,14 +437,22 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+_make_coach_parser = _build_parser
+
+
 def parse_cli(argv: list[str]) -> Config:
+    import os as _os
     ns = _build_parser().parse_args(argv)
+    _handle_multiplexer_help(ns)
+    _no_prompt_overrides = _build_coach_config_from_ns(ns)
     return Config(
         issue_numbers=ns.issue_numbers,
         max_retries=ns.max_retries,
         escalation_channel=ns.escalation_channel,
         multiplexer=ns.multiplexer,
-        multiplexer_mode=ns.multiplexer_mode,
+        multiplexer_mode=resolve_multiplexer_mode(
+            explicit_flag=ns.multiplexer_mode, env=_os.environ
+        ),
         auto_merge=ns.auto_merge,
         strict_deps=ns.strict_deps,
         llm=ns.llm,
@@ -347,7 +467,7 @@ def parse_cli(argv: list[str]) -> Config:
         dry_run=ns.dry_run,
         stale_warn_minutes=ns.stale_warn_minutes,
         no_progress_ttl=ns.no_progress_ttl,
-        no_prompt=ns.no_prompt,
+        no_prompt=_no_prompt_overrides["no_prompt"],
     )
 
 
@@ -776,6 +896,16 @@ def _make_coach_context(
         multiplexer_backend=multiplexer_backend,
         worktree_override=worktree_override,
     )
+
+
+def _load_issue_context(issue: int, cfg: "Config") -> object:
+    """Load per-issue context (stub — full implementation in downstream track)."""
+    return None
+
+
+def _pre_flight_checks(cfg: "Config") -> None:
+    """Run pre-flight validation (stub — full implementation in downstream track)."""
+    return None
 
 
 def _drive_single_issue(

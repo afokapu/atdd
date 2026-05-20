@@ -530,6 +530,21 @@ def _gate_main() -> None:
     sys.exit(1)
 
 
+def should_emit_upgrade_banner(current_version: str, marker_dir) -> bool:
+    """Return True when the upgrade banner should be shown.
+
+    Returns False when a ``sync_acknowledged_{current_version}`` marker exists,
+    meaning the operator has already run ``atdd sync`` for this version.
+    Returns True when no marker exists or when the marker is for an older version.
+
+    Issue #812 / Y002.
+    """
+    from pathlib import Path as _Path
+
+    marker = _Path(marker_dir) / f"sync_acknowledged_{current_version}"
+    return not marker.exists()
+
+
 if __name__ == "__main__":
     import argparse
 
