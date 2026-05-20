@@ -144,6 +144,9 @@ def _verify_stage(
       - "prompt-submitted" → PromptNotSubmitted
       - (any other name)   → WorkerReadinessTimeout
     """
+    if not hasattr(backend, "capture_pane_text"):
+        return  # backend doesn't support pane capture; skip verification
+
     _STAGE_EXCEPTIONS: dict[str, type[WorkerReadinessTimeout]] = {
         "rename-accepted": RenameNotAccepted,
         "paste-landed": PasteDidNotLand,
@@ -891,11 +894,16 @@ def cmd_spawn(
         # naming/layout pass fails, close it before propagating so the failed
         # spawn attempt leaves no orphan pane.
         try:
+            _verify_timeout = float(os.environ.get("ATDD_WORKER_READY_TIMEOUT", "10.0"))
+            _verify_poll = float(os.environ.get("ATDD_WORKER_POLL_INTERVAL", "0.25"))
             apply_canonical_name_and_layout(
                 backend=backend,
                 ref=surface_ref,
                 canonical_name=canonical_name,
                 surface_count=1,
+                verify_after_send=True,
+                verify_timeout_s=_verify_timeout,
+                verify_poll_s=_verify_poll,
             )
         except Exception:
             _close_surface_on_failure(backend, surface_ref)
@@ -963,6 +971,27 @@ def cmd_spawn(
             f"({SPAWN_RULE_ID})",
             file=sys.stderr,
         )
+
+    # E011 (#799): verify paste landed and prompt submitted before continuing.
+    # Backends without capture_pane_text skip these checks (hasattr guard in _verify_stage).
+    _stage_timeout = float(os.environ.get("ATDD_WORKER_READY_TIMEOUT", "10.0"))
+    _stage_poll = float(os.environ.get("ATDD_WORKER_POLL_INTERVAL", "0.25"))
+    _verify_stage(
+        stage_name="paste-landed",
+        surface_ref=surface_ref,
+        backend=backend,
+        expect_any=("paste again to expand", "1 file"),
+        timeout_s=_stage_timeout,
+        poll_interval_s=_stage_poll,
+    )
+    _verify_stage(
+        stage_name="prompt-submitted",
+        surface_ref=surface_ref,
+        backend=backend,
+        expect_any=("⏺ Thinking", "⏺⏺", "esc to interrupt"),
+        timeout_s=_stage_timeout,
+        poll_interval_s=_stage_poll,
+    )
 
     # E010 (#795, #797): post-paste assertion — confirm the worker is
     # processing before the caller logs a phase transition. Polls the session
