@@ -21,6 +21,7 @@ features:
   - urn: "feature:spawn-agents:register-llm-adapter-flavors"
   - urn: "feature:spawn-agents:worker-launch-prompt-readiness-gate"
   - urn: "feature:spawn-agents:coach-spawn-step-by-step-verify-each-stage"
+  - urn: "feature:spawn-agents:coach-spawn-rename-enter-races-text-send"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -87,6 +88,10 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:atomic-rename-injection-and-orphan-close-on-timeout
+    contract: null
+    telemetry: null
+    to: external
 
 consume:
   - name: commons:coach:runtime-event-schema
@@ -99,7 +104,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 14
+  total: 15
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -114,3 +119,4 @@ wmbt:
   E009: "minimize likelihood of atdd-spawn-llm-ids-that-resolve-to-no-registered-adapter-or-fail-silently-on-missing-credentials"
   E010: "minimize likelihood of coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate"
   E011: "minimize likelihood of coach-spawn-pipeline-stages-that-silently-fail-without-raising-a-stage-specific-exception"
+  E012: "minimize likelihood of coach-spawned-workers-blocked-by-rename-race-false-positive-accepted-gate-and-orphan-pane-on-timeout"
