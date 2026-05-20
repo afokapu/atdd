@@ -537,8 +537,8 @@ def _read_current_github_phase(issue_number: int) -> Optional[Phase]:
                 phase = _PHASE_TRAILER_MAP.get(phase_str)
                 if phase is not None:
                     return phase
-    except Exception:
-        pass
+    except Exception as exc:
+        _logger.warning("_read_current_github_phase failed", extra={"issue": issue_number, "error": str(exc)})
     return None
 
 
@@ -550,8 +550,8 @@ def _gh_remove_phase_labels(issue_number: int, labels: list) -> None:
                 ["gh", "issue", "edit", str(issue_number), "--remove-label", label],
                 capture_output=True, text=True, check=False,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.warning("_gh_remove_phase_labels failed", extra={"issue": issue_number, "label": label, "error": str(exc)})
 
 
 def _gh_add_label(issue_number: int, labels: list) -> None:
@@ -563,8 +563,8 @@ def _gh_add_label(issue_number: int, labels: list) -> None:
             ["gh", "issue", "edit", str(issue_number), "--add-label", ",".join(labels)],
             capture_output=True, text=True, check=False,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        _logger.warning("_gh_add_label failed", extra={"issue": issue_number, "labels": labels, "error": str(exc)})
 
 
 def _swap_phase_label(issue_number: int, new_phase: Phase) -> None:
