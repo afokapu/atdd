@@ -13,29 +13,17 @@ RED until _swap_phase_label is wired into all advance paths.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 pytestmark = [pytest.mark.platform]
 
 
-def _make_cfg(tmp_path: Path, *, dry_run: bool = False):
+def _make_cfg(tmp_path=None, *, issue_numbers=(690,), dry_run: bool = False):
     from atdd.coach.commands.coach import Config
     return Config(
-        issue_numbers=[690],
+        issue_numbers=list(issue_numbers),
         dry_run=dry_run,
-        llm="claude-code",
-        worktree_root=str(tmp_path),
-        no_progress_ttl=None,
-        escalation_channel=None,
         skip_review=True,
-        risk_threshold_block=None,
-        allow_stale_suppressions=False,
-        auto_merge=False,
-        max_retries=0,
-        multiplexer_backend="tmux",
-        worktree_override=str(tmp_path / "worktree"),
     )
 
 
@@ -58,9 +46,11 @@ def test_integration_label_calls_match_sm_history(tmp_path, monkeypatch):
     def stub_spawn(ctx, t):
         return HandlerResult.HANDLED
 
+    # Warm-resume at PLANNED advances to RED (swap #1).
+    # Event1 (RED→GREEN, swap #2). Event2 (GREEN→SMOKE, swap #3).
     events = [
-        {"event_type": "agent_done", "agent_id": "tester-690-aaa"},
-        {"event_type": "agent_done", "agent_id": "coder-690-bbb"},
+        {"event_type": "agent_done", "agent_id": "tester-690-aaa"},   # RED→GREEN
+        {"event_type": "agent_done", "agent_id": "coder-690-bbb"},    # GREEN→SMOKE
     ]
 
     cfg = _make_cfg(tmp_path, dry_run=True)
@@ -74,8 +64,8 @@ def test_integration_label_calls_match_sm_history(tmp_path, monkeypatch):
 
     assert rc == 0
 
-    assert len(swap_log) == 2, (
-        f"Expected 2 label swaps for 2 advances; got {len(swap_log)}: {swap_log}"
+    assert len(swap_log) == 3, (
+        f"Expected 3 label swaps (warm-resume + 2 events); got {len(swap_log)}: {swap_log}"
     )
 
     issue_numbers = [n for n, _ in swap_log]
@@ -84,6 +74,6 @@ def test_integration_label_calls_match_sm_history(tmp_path, monkeypatch):
     )
 
     phases_swapped = [p for _, p in swap_log]
-    assert phases_swapped == [Phase.RED, Phase.GREEN], (
-        f"Label swap order must mirror SM advance order; got {phases_swapped}"
+    assert phases_swapped == [Phase.RED, Phase.GREEN, Phase.SMOKE], (
+        f"Label swap order must mirror SM advance order (warm-resume + 2 events); got {phases_swapped}"
     )

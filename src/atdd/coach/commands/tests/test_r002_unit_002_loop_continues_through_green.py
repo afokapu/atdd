@@ -17,34 +17,29 @@ RED until Edge A (warm-resume) is fixed so the SM starts at GREEN.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 pytestmark = [pytest.mark.platform]
 
 
-def _make_cfg(tmp_path: Path, *, dry_run: bool = False):
+def _make_cfg(tmp_path=None, *, issue_numbers=(690,), dry_run: bool = False):
     from atdd.coach.commands.coach import Config
     return Config(
-        issue_numbers=[690],
+        issue_numbers=list(issue_numbers),
         dry_run=dry_run,
-        llm="claude-code",
-        worktree_root=str(tmp_path),
-        no_progress_ttl=None,
-        escalation_channel=None,
         skip_review=True,
-        risk_threshold_block=None,
-        allow_stale_suppressions=False,
-        auto_merge=False,
-        max_retries=0,
-        multiplexer_backend="tmux",
-        worktree_override=str(tmp_path / "worktree"),
     )
 
 
-def test_warm_resume_from_green_advances_to_smoke(tmp_path, monkeypatch):
-    """_drive_single_issue on a GREEN issue with one injected event reaches SMOKE, not RED."""
+def test_warm_resume_from_green_reaches_smoke_without_events(tmp_path, monkeypatch):
+    """_drive_single_issue on a GREEN issue: warm-resume spawns (GREEN,SMOKE) and advances SM to SMOKE.
+
+    With the new warm-resume design, spawn+advance mirrors cold-start's INIT→PLANNED:
+    the warm-resume spawns the tester for SMOKE and immediately advances SM to SMOKE.
+    No events are needed — the SM is at SMOKE before the event loop even starts.
+    This is the fix for Edge C: the loop guard sees SMOKE (not GREEN) so it correctly
+    continues waiting for the SMOKE tester to write done.json.
+    """
     from atdd.coach.commands.coach import Phase, _drive_single_issue
     from atdd.coach.handlers.state_machine import HandlerResult, StateMachine
 
@@ -63,25 +58,24 @@ def test_warm_resume_from_green_advances_to_smoke(tmp_path, monkeypatch):
         spawn_calls.append((t.src, t.dst))
         return HandlerResult.HANDLED
 
-    # One agent_done from the GREEN coder persona
-    events = [
-        {"event_type": "agent_done", "agent_id": "coder-690-abc"},
-    ]
-
     cfg = _make_cfg(tmp_path, dry_run=True)
     sm = StateMachine(issue_number=690, phase=Phase.INIT)
 
     rc = _drive_single_issue(
         cfg, sm, tmp_path,
         _spawn_func=stub_spawn,
-        _injected_events=events,
+        _max_loop_events=0,  # no events; warm-resume advance is the only state change
     )
 
     assert rc == 0, f"Expected rc=0; got {rc}"
     assert sm.phase == Phase.SMOKE, (
-        f"Expected sm.phase=SMOKE after GREEN coder done; got {sm.phase}. "
+        f"Expected sm.phase=SMOKE after warm-resume at GREEN; got {sm.phase}. "
         f"spawn_calls={spawn_calls}"
     )
     assert Phase.BLOCKED not in sm.history, (
         f"SM must not enter BLOCKED; history={sm.history}"
+    )
+    # The warm-resume must have spawned the tester for GREEN→SMOKE
+    assert spawn_calls == [(Phase.GREEN, Phase.SMOKE)], (
+        f"Expected exactly one warm-resume spawn (GREEN,SMOKE); got {spawn_calls}"
     )

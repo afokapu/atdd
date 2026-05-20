@@ -6,45 +6,36 @@
 """Y002-UNIT-002 — _swap_phase_label called after each SM advance in injected event path.
 
 Issue #712 Edge B. The current code advances sm.phase and writes a decision
-but never calls any label-swap function. This test injects two events
-(PLANNED→RED, RED→GREEN) and verifies _swap_phase_label is called once per
-advance with the new phase.
+but never calls any label-swap function. This test starts at PLANNED (warm-resume)
+and injects two events (RED→GREEN, GREEN→SMOKE). Three _swap_phase_label calls must
+occur: one for the warm-resume advance (PLANNED→RED) plus one per injected event.
 
 RED until _swap_phase_label is wired into the advance path.
 """
 from __future__ import annotations
-
-from pathlib import Path
 
 import pytest
 
 pytestmark = [pytest.mark.platform]
 
 
-def _make_cfg(tmp_path: Path, *, dry_run: bool = False):
+def _make_cfg(tmp_path=None, *, issue_numbers=(690,), dry_run: bool = False):
     from atdd.coach.commands.coach import Config
     return Config(
-        issue_numbers=[690],
+        issue_numbers=list(issue_numbers),
         dry_run=dry_run,
-        llm="claude-code",
-        worktree_root=str(tmp_path),
-        no_progress_ttl=None,
-        escalation_channel=None,
         skip_review=True,
-        risk_threshold_block=None,
-        allow_stale_suppressions=False,
-        auto_merge=False,
-        max_retries=0,
-        multiplexer_backend="tmux",
-        worktree_override=str(tmp_path / "worktree"),
     )
 
 
 def test_two_injected_advances_call_swap_phase_label_twice(tmp_path, monkeypatch):
-    """Two injected events (PLANNED→RED, RED→GREEN) trigger two _swap_phase_label calls."""
-    from atdd.coach.commands.coach import (
-        Phase, _drive_single_issue, _read_current_github_phase,
-    )
+    """Warm-resume at PLANNED + 2 events trigger three _swap_phase_label calls.
+
+    Call sequence: RED (warm-resume PLANNED→RED), GREEN (event1 RED→GREEN),
+    SMOKE (event2 GREEN→SMOKE). Every advance — including the warm-resume
+    advance — must produce exactly one label swap.
+    """
+    from atdd.coach.commands.coach import Phase, _drive_single_issue
     from atdd.coach.handlers.state_machine import HandlerResult, StateMachine
 
     swap_calls: list = []
@@ -63,8 +54,8 @@ def test_two_injected_advances_call_swap_phase_label_twice(tmp_path, monkeypatch
         return HandlerResult.HANDLED
 
     events = [
-        {"event_type": "agent_done", "agent_id": "tester-690-aaa"},   # PLANNED→RED
-        {"event_type": "agent_done", "agent_id": "coder-690-bbb"},    # RED→GREEN
+        {"event_type": "agent_done", "agent_id": "tester-690-aaa"},   # RED→GREEN
+        {"event_type": "agent_done", "agent_id": "coder-690-bbb"},    # GREEN→SMOKE
     ]
 
     cfg = _make_cfg(tmp_path, dry_run=True)
@@ -76,12 +67,15 @@ def test_two_injected_advances_call_swap_phase_label_twice(tmp_path, monkeypatch
         _injected_events=events,
     )
 
-    assert len(swap_calls) == 2, (
-        f"Expected 2 _swap_phase_label calls (one per advance); got {len(swap_calls)}: {swap_calls}"
+    assert len(swap_calls) == 3, (
+        f"Expected 3 _swap_phase_label calls (warm-resume + 2 events); got {len(swap_calls)}: {swap_calls}"
     )
     assert swap_calls[0] == Phase.RED, (
-        f"First swap should be Phase.RED; got {swap_calls[0]}"
+        f"First swap (warm-resume) should be Phase.RED; got {swap_calls[0]}"
     )
     assert swap_calls[1] == Phase.GREEN, (
-        f"Second swap should be Phase.GREEN; got {swap_calls[1]}"
+        f"Second swap (event1) should be Phase.GREEN; got {swap_calls[1]}"
+    )
+    assert swap_calls[2] == Phase.SMOKE, (
+        f"Third swap (event2) should be Phase.SMOKE; got {swap_calls[2]}"
     )

@@ -15,29 +15,17 @@ those symbols don't yet exist, causing ImportError.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 pytestmark = [pytest.mark.platform]
 
 
-def _make_cfg(tmp_path: Path, *, dry_run: bool = False):
+def _make_cfg(tmp_path=None, *, issue_numbers=(690,), dry_run: bool = False):
     from atdd.coach.commands.coach import Config
     return Config(
-        issue_numbers=[690],
+        issue_numbers=list(issue_numbers),
         dry_run=dry_run,
-        llm="claude-code",
-        worktree_root=str(tmp_path),
-        no_progress_ttl=None,
-        escalation_channel=None,
         skip_review=True,
-        risk_threshold_block=None,
-        allow_stale_suppressions=False,
-        auto_merge=False,
-        max_retries=0,
-        multiplexer_backend="tmux",
-        worktree_override=str(tmp_path / "worktree"),
     )
 
 
@@ -61,9 +49,9 @@ def test_full_lifecycle_from_planned_to_refactor(tmp_path, monkeypatch):
         spawn_calls.append((t.src, t.dst))
         return HandlerResult.HANDLED
 
-    # Four agent_done events: tester-RED done, coder-GREEN done, tester-SMOKE done, coder-REFACTOR done
+    # Warm-resume at PLANNED: spawns tester (PLANNED→RED) and advances SM to RED.
+    # Then 3 events drive RED→GREEN→SMOKE→REFACTOR.
     events = [
-        {"event_type": "agent_done", "agent_id": "tester-690-aaa"},   # PLANNED→RED
         {"event_type": "agent_done", "agent_id": "coder-690-bbb"},    # RED→GREEN
         {"event_type": "agent_done", "agent_id": "tester-690-ccc"},   # GREEN→SMOKE
         {"event_type": "agent_done", "agent_id": "coder-690-ddd"},    # SMOKE→REFACTOR
@@ -80,13 +68,14 @@ def test_full_lifecycle_from_planned_to_refactor(tmp_path, monkeypatch):
 
     assert rc == 0, f"Expected rc=0; got {rc}"
     assert sm.phase == Phase.REFACTOR, (
-        f"Expected sm.phase=REFACTOR after four advances; got {sm.phase}. "
+        f"Expected sm.phase=REFACTOR after warm-resume + 3 advances; got {sm.phase}. "
         f"history={sm.history}, spawn_calls={spawn_calls}"
     )
     assert Phase.BLOCKED not in sm.history, (
         f"SM must never enter BLOCKED; history={sm.history}"
     )
 
+    # Warm-resume spawns (PLANNED, RED); then event loop spawns (RED,GREEN), (GREEN,SMOKE), (SMOKE,REFACTOR)
     expected_transitions = [
         (Phase.PLANNED, Phase.RED),
         (Phase.RED, Phase.GREEN),

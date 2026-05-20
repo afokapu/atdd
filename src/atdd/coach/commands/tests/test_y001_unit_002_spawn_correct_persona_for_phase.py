@@ -14,29 +14,17 @@ RED until _drive_single_issue reads the GitHub phase and routes accordingly.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 pytestmark = [pytest.mark.platform]
 
 
-def _make_cfg(tmp_path: Path, *, issue_numbers=(690,), dry_run: bool = False):
+def _make_cfg(tmp_path=None, *, issue_numbers=(690,), dry_run: bool = False):
     from atdd.coach.commands.coach import Config
     return Config(
         issue_numbers=list(issue_numbers),
         dry_run=dry_run,
-        llm="claude-code",
-        worktree_root=str(tmp_path),
-        no_progress_ttl=None,
-        escalation_channel=None,
         skip_review=True,
-        risk_threshold_block=None,
-        allow_stale_suppressions=False,
-        auto_merge=False,
-        max_retries=0,
-        multiplexer_backend="tmux",
-        worktree_override=str(tmp_path / "worktree"),
     )
 
 

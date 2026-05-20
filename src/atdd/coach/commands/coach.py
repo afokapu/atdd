@@ -32,6 +32,7 @@ Out of scope (each owned by a downstream issue):
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import shutil
 import subprocess
@@ -503,6 +504,78 @@ def _cold_start_proposed_transition(sm: StateMachine, event: dict) -> Optional["
     return Transition(sm.phase, dst)
 
 
+# ---------------------------------------------------------------------------
+# Issue #712: warm-resume + label-sync helpers (Y001, Y002)
+# ---------------------------------------------------------------------------
+
+_PHASE_LABELS_ALL: frozenset[str] = frozenset({
+    "atdd:INIT", "atdd:PLANNED", "atdd:RED", "atdd:GREEN",
+    "atdd:SMOKE", "atdd:REFACTOR", "atdd:COMPLETE", "atdd:BLOCKED",
+})
+
+
+def _read_current_github_phase(issue_number: int) -> Optional[Phase]:
+    """Read the live atdd:<phase> label from GitHub and return the Phase or None.
+
+    Y001 (issue #712 Edge A): used at _drive_single_issue entry so warm-resume
+    starts from the issue's actual phase rather than hardcoded INIT.
+    """
+    try:
+        result = subprocess.run(
+            ["gh", "issue", "view", str(issue_number),
+             "--json", "labels", "--jq", "[.labels[].name]"],
+            capture_output=True, text=True, check=False,
+        )
+        if result.returncode != 0:
+            return None
+        labels = json.loads(result.stdout.strip())
+        for label in labels:
+            if label.startswith("atdd:") and label != "atdd-issue":
+                phase_str = label[len("atdd:"):]
+                phase = _PHASE_TRAILER_MAP.get(phase_str)
+                if phase is not None:
+                    return phase
+    except Exception:
+        pass
+    return None
+
+
+def _gh_remove_phase_labels(issue_number: int, labels: list) -> None:
+    """Remove labels from a GitHub issue via gh CLI (Y002, issue #712 Edge B)."""
+    for label in labels:
+        try:
+            subprocess.run(
+                ["gh", "issue", "edit", str(issue_number), "--remove-label", label],
+                capture_output=True, text=True, check=False,
+            )
+        except Exception:
+            pass
+
+
+def _gh_add_label(issue_number: int, labels: list) -> None:
+    """Add labels to a GitHub issue via gh CLI (Y002, issue #712 Edge B)."""
+    if not labels:
+        return
+    try:
+        subprocess.run(
+            ["gh", "issue", "edit", str(issue_number), "--add-label", ",".join(labels)],
+            capture_output=True, text=True, check=False,
+        )
+    except Exception:
+        pass
+
+
+def _swap_phase_label(issue_number: int, new_phase: Phase) -> None:
+    """Swap the atdd:<phase> label to match new_phase after each SM advance.
+
+    Y002 (issue #712 Edge B): reuses the same remove+add pattern as
+    atdd issue --status, extracted into a shared helper so coach and the
+    CLI command stay in sync as the label vocabulary evolves.
+    """
+    _gh_remove_phase_labels(issue_number, list(_PHASE_LABELS_ALL))
+    _gh_add_label(issue_number, [f"atdd:{new_phase.value}"])
+
+
 def _write_escalation(escalation_channel: Optional[str], message: str) -> None:
     """Append an escalation message to the configured channel (R5, issue #645)."""
     if not escalation_channel:
@@ -753,52 +826,94 @@ def _drive_single_issue(
 
         writer = DecisionWriter(runtime_dir=runtime_dir)
 
-        # --- Step 1: Write INIT→PLANNED decision (durability before action, R4) ---
-        init_record = _make_phase_transition_record(coach_run_id, sm.issue_number, Phase.INIT, Phase.PLANNED)
-        with transactional_decision(writer, init_record):
-            pass  # decision is written by the CM; no blocking action here
+        # --- Step 1: Warm-resume or cold-start (Y001, issue #712 Edge A) ---
+        current_github_phase = _read_current_github_phase(sm.issue_number)
+        _warm_resume_phases = {Phase.PLANNED, Phase.RED, Phase.GREEN, Phase.SMOKE, Phase.REFACTOR}
+        is_warm_resume = current_github_phase in _warm_resume_phases
 
-        # --- Step 1.5: Ensure the issue's git worktree exists (cold-start) ---
-        # The spawn handler resolves a worktree *path* but never creates the
-        # worktree. Without this, the planner is dispatched into a bare non-git
-        # directory and its commits land on protected `main` (2026-05-16 incident).
-        if not cfg.dry_run:
-            worktree = _ensure_issue_worktree(ctx)
-            if worktree is None:
+        if is_warm_resume:
+            # Warm resume: start from current GitHub phase, spawn next persona, then
+            # advance SM to next_phase so the event loop starts one step ahead
+            # (mirrors cold-start's INIT→PLANNED write+advance before the event loop).
+            sm.history.append(sm.phase)
+            sm.phase = current_github_phase
+            _logger.info(
+                "coach warm-resume",
+                extra={"issue": sm.issue_number, "phase": current_github_phase.value,
+                       "trigger": "warm-resume"},
+            )
+            next_phase = _COLD_START_ADVANCE_FROM.get(current_github_phase)
+            if next_phase is not None:
+                warm_t = Transition(current_github_phase, next_phase)
+                spawn_result = spawn_h(ctx, warm_t)
+                if spawn_result == HandlerResult.ERROR:
+                    _logger.error(
+                        "coach warm-resume spawn failed",
+                        extra={"issue": sm.issue_number,
+                               "phase": f"{current_github_phase.value}→{next_phase.value}",
+                               "trigger": "warm-resume"},
+                    )
+                    _write_escalation(
+                        cfg.escalation_channel,
+                        f"#{sm.issue_number}: spawn failed at {current_github_phase.value}→{next_phase.value}",
+                    )
+                    sm.history.append(sm.phase)
+                    sm.phase = Phase.BLOCKED
+                    return 1
+                # Advance SM to next_phase: the spawned persona is now running;
+                # the event loop will pick up from next_phase onward.
+                sm.history.append(sm.phase)
+                sm.phase = next_phase
+                _swap_phase_label(sm.issue_number, next_phase)  # Y002: sync GitHub label
+                _logger.info(
+                    "coach warm-resume advance",
+                    extra={"issue": sm.issue_number,
+                           "phase": f"{current_github_phase.value}→{next_phase.value}",
+                           "trigger": "warm-resume"},
+                )
+                _try_emit_telemetry(sm.issue_number, current_github_phase, next_phase)
+        else:
+            # Cold start: write INIT→PLANNED decision, ensure worktree, spawn planner.
+            init_record = _make_phase_transition_record(coach_run_id, sm.issue_number, Phase.INIT, Phase.PLANNED)
+            with transactional_decision(writer, init_record):
+                pass  # decision is written by the CM; no blocking action here
+
+            # Ensure the issue's git worktree exists before spawning (#795 incident).
+            if not cfg.dry_run:
+                worktree = _ensure_issue_worktree(ctx)
+                if worktree is None:
+                    _logger.error(
+                        "coach cold-start worktree creation failed",
+                        extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
+                    )
+                    _write_escalation(
+                        cfg.escalation_channel,
+                        f"#{sm.issue_number}: worktree creation failed at INIT→PLANNED",
+                    )
+                    sm.history.append(sm.phase)
+                    sm.phase = Phase.BLOCKED
+                    return 1
+
+            spawn_result = spawn_h(ctx, Transition(Phase.INIT, Phase.PLANNED))
+            if spawn_result == HandlerResult.ERROR:
                 _logger.error(
-                    "coach cold-start worktree creation failed",
+                    "coach cold-start spawn failed",
                     extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
                 )
-                _write_escalation(
-                    cfg.escalation_channel,
-                    f"#{sm.issue_number}: worktree creation failed at INIT→PLANNED",
-                )
+                _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: spawn failed at INIT→PLANNED")
                 sm.history.append(sm.phase)
                 sm.phase = Phase.BLOCKED
                 return 1
 
-        # --- Step 2: Spawn planner (K1) ---
-        spawn_result = spawn_h(ctx, Transition(Phase.INIT, Phase.PLANNED))
-        if spawn_result == HandlerResult.ERROR:
-            _logger.error(
-                "coach cold-start spawn failed",
+            sm.history.append(sm.phase)
+            sm.phase = Phase.PLANNED
+            _logger.info(
+                "coach cold-start advance",
                 extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
             )
-            _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: spawn failed at INIT→PLANNED")
-            sm.history.append(sm.phase)
-            sm.phase = Phase.BLOCKED
-            return 1
+            _try_emit_telemetry(sm.issue_number, Phase.INIT, Phase.PLANNED)
 
-        # --- Step 3: Advance SM INIT → PLANNED ---
-        sm.history.append(sm.phase)
-        sm.phase = Phase.PLANNED
-        _logger.info(
-            "coach cold-start advance",
-            extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
-        )
-        _try_emit_telemetry(sm.issue_number, Phase.INIT, Phase.PLANNED)
-
-        # --- Step 4: Event-driven loop ---
+        # --- Step 2: Event-driven loop ---
         if _injected_events is not None:
             _process_injected_events(ctx, sm, _injected_events, writer, spawn_h)
         elif _max_loop_events == 0:
@@ -871,6 +986,7 @@ def _process_injected_events(
             pass
         sm.history.append(sm.phase)
         sm.phase = t.dst
+        _swap_phase_label(ctx.issue_number, t.dst)  # Y002: sync GitHub label on advance
         _logger.info(
             "coach injected event advance",
             extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}",
@@ -974,6 +1090,7 @@ def _process_watcher_events(
                 pass
             sm.history.append(sm.phase)
             sm.phase = t.dst
+            _swap_phase_label(ctx.issue_number, t.dst)  # Y002: sync GitHub label on advance
             last_advance_at = time.monotonic()
             _logger.info(
                 "coach watcher event advance",
