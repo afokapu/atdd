@@ -1,0 +1,37 @@
+urn: "feature:govern-lifecycle:systemic-registry-drift-enforcement"
+wagon: "wagon:govern-lifecycle"
+description: "One-shot resync of plan/_wagons.yaml, plan/_trains.yaml, contracts/_artifacts.yaml with source-of-truth files; wire atdd registry update --check into the pre-push hook and as a required CI check so future WMBT additions cannot land without mirror resync (#817)"
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E021"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "Extend pre-push hook script to invoke atdd registry update --check"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No new use cases; atdd registry update --check already exists"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "No new repository abstraction needed"
+  devops:
+    - type: "github_workflow"
+      count: 1
+      rationale: "Add atdd-registry-drift required CI job running atdd registry update --check on every PR and main push"
+    - type: "git_hook"
+      count: 1
+      rationale: "Extend .atdd/hooks/pre-push to run atdd registry update --check with actionable fix-hint on failure"
+    - type: "chore_commit"
+      count: 1
+      rationale: "One-shot atdd registry update --yes commit on main to eliminate existing drift across 6 wagons, 2 trains, 4 artifacts"
