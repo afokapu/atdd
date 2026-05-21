@@ -109,6 +109,18 @@ class TestCheckDepClassificationUnit:
         body = "### Dependencies\n\n- #55 (SIBLING)\n"
         assert check_dep_classification(body) is None
 
+    def test_extended_tag_sibling_open_is_compliant(self):
+        """(sibling, open) counts as classified."""
+        body = "### Dependencies\n\n- **#829** (sibling, open) — desc\n"
+        assert check_dep_classification(body) is None
+
+    def test_prose_sibling_without_parens_is_flagged(self):
+        """'#824 — sibling issue' has no parenthetical tag — flagged."""
+        body = "### Dependencies\n\n- #824 — sibling issue that wires the actual loop\n"
+        result = check_dep_classification(body)
+        assert result is not None
+        assert "824" in result
+
 
 # ---------------------------------------------------------------------------
 # Live GitHub integration (github_api mark — skipped without ATDD_RUN_SMOKE)

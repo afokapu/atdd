@@ -127,3 +127,24 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y004-UNIT-007-planner-validator-flags-bare-deps"
+      id: "AC-UNIT-007"
+      purpose: "check_dep_classification pure function flags bare #N entries and approves classified entries"
+      phase: "SMOKE"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A Dependencies section body with various entry types (classified, bare, none)"
+    when:
+      abstract: "check_dep_classification(body) is called"
+    then:
+      abstract:
+        - "Returns None for bodies with all entries tagged (prereq), (merged), (sibling), (parallel), or extended forms like (sibling, open)"
+        - "Returns a violation detail string for bare #N entries"
+        - "Returns None for non-issue text in the section (e.g. 'None — small fix')"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"

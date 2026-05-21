@@ -66,3 +66,17 @@ def test_tags_case_insensitive():
     by_num = {d.number: d for d in deps}
     assert by_num["#99"].dep_class == "sibling"
     assert by_num["#88"].dep_class == "prereq"
+
+
+def test_extended_tag_format_sibling_open():
+    """(sibling, open) is a valid sibling tag used in existing issue bodies."""
+    body = "### Dependencies\n\n- **#829** (sibling, open) — some desc\n"
+    deps = parse_typed_dependencies(body)
+    assert deps[0].dep_class == "sibling"
+
+
+def test_extended_tag_format_merged_closed():
+    """(merged, closed) is a valid prereq tag."""
+    body = "### Dependencies\n\n- #10 (merged, closed)\n"
+    deps = parse_typed_dependencies(body)
+    assert deps[0].dep_class == "prereq"

@@ -50,8 +50,8 @@ class IssueContext:
 _METADATA_ROW = re.compile(r"\|\s*([A-Za-z ]+?)\s*\|\s*(.+?)\s*\|")
 _DEP_NUMBER = re.compile(r"#(\d+)")
 _GREP_LINE = re.compile(r"`(grep[^`]+)`")
-_SIBLING_TAG = re.compile(r"\(\s*(?:sibling|parallel)\s*\)", re.IGNORECASE)
-_PREREQ_TAG = re.compile(r"\(\s*(?:prereq|merged)\s*\)", re.IGNORECASE)
+_SIBLING_TAG = re.compile(r"\(\s*(?:sibling|parallel)[^)]*\)", re.IGNORECASE)
+_PREREQ_TAG = re.compile(r"\(\s*(?:prereq|merged)[^)]*\)", re.IGNORECASE)
 
 
 def parse_metadata(body: str) -> dict[str, str]:
