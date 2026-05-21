@@ -48,3 +48,37 @@ rules:
            separately by `coach.rule-id.stale-suppression`.
         4. Re-run the validator to confirm clean:
              pytest src/atdd/planner/validators/test_issue_body_has_graph_context.py -v
+  - id: "planner.issue-body.dependency-entries-must-be-classified"
+    severity: 2
+    description: |
+      Every `#N` entry in the `### Dependencies` section of a parent issue body
+      must carry a trailing classification tag: `(prereq)`, `(merged)`, `(sibling)`,
+      or `(parallel)`. Bare `- #N` entries without a tag cause `atdd session-template`
+      to include the dep in the merge-wait loop unconditionally — if the dep is a
+      sibling issue (parallel work in the same wave) the loop will never exit.
+    disposition: advisory
+    introduced_in: "3.81.0"
+    aliases: []
+    validator: "test_issue_deps_have_classification_tags::test_issue_deps_have_classification_tags"
+    suppression_deadline: "2026-12-31"
+    fix_hint: |
+      Tag each bare `#N` entry in the `### Dependencies` section of the named
+      issue with one of the four recognised tags:
+
+        - `#N (prereq)` — this PR must be merged before the current session can start
+        - `#N (merged)` — synonym for prereq; use when the PR is already closed
+        - `#N (sibling)` — parallel work in the same release wave; do NOT block on this
+        - `#N (parallel)` — synonym for sibling
+
+      To determine the correct tag:
+        1. Check whether #N is already merged: `gh pr list --state merged --search "#N"`
+           → merged → use `(merged)` or `(prereq)`
+        2. Check whether #N was filed in the same release wave (same day, same train):
+           → same wave → use `(sibling)`
+        3. Otherwise use `(prereq)`.
+
+      Edit the issue body (e.g. for issue #828, ISSUE_NUMBER=828):
+        gh issue edit <N|828|831> --body "$(gh issue view <N|828|831> --json body --jq .body | sed 's/- #N$/- #N (prereq)/')"
+
+      Re-run the validator to confirm clean:
+        pytest src/atdd/planner/validators/test_issue_deps_have_classification_tags.py -v

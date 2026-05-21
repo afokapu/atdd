@@ -22,18 +22,7 @@ worktree at `{{worktree_path}}` on branch `{{branch}}`.
 
 {{dependencies}}
 
-Before starting, wait for all dependency PRs to merge. Use this loop:
-
-```bash
-while true; do
-  if gh pr list --state merged --search "{{dependency_search}}" --json number --jq 'length' | grep -qv '^0$'; then
-    echo "Dependencies merged — proceeding"
-    break
-  fi
-  echo "Waiting for dependencies..."
-  sleep 60
-done
-```
+{{merge_wait_section}}
 
 ## Grep gates (WMBT acceptance criteria)
 

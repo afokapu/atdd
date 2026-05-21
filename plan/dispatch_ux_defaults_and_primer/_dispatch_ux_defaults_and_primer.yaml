@@ -36,7 +36,7 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
-  total: 9
+  total: 10
   E001: "minimize likelihood of coach-dispatch-sessions-where-workspace-mode-is-selected-despite-cmux-workspace-id-being-set"
   E002: "minimize likelihood of atdd-coach-invocations-that-hang-on-persona-prompt-when-stdin-is-not-a-tty"
   E003: "minimize likelihood of atdd-coach-cold-start-failures-caused-by-invocation-from-outside-a-git-worktree"
@@ -46,3 +46,4 @@ wmbt:
   Y002: "minimize likelihood of stale-upgrade-banner-cluttering-every-atdd-command-after-sync-has-run"
   E006: "minimize quantity of orphan-worker-panes-that-remain-after-a-spawn-failure-path"
   Y003: "minimize likelihood of operators-attempting-resume-via-a-help-advertised-but-unimplemented-resume-flag"
+  Y004: "minimize likelihood of session-template-rendered-merge-wait-loops-blocking-planner-sessions-on-sibling-issues-that-will-never-merge-before-the-session-starts"
