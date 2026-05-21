@@ -14,9 +14,9 @@ to verify the new contract: spawn entry points create one persona surface
 (via new_surface, not new_persona_surface) and zero observer surfaces.
 
 Entry points enumerated (>= 3 required per L003-INTEGRATION-003):
-1. cmd_spawn(multiplexer_mode='pane') — direct API, pane mode
+1. cmd_spawn(multiplexer_mode='surface') — direct API, surface mode (canonical since #830)
 2. cmd_spawn(multiplexer_mode='auto') — direct API, auto mode
-3. handlers/spawn.handle(ctx, INIT->PLANNED) — coach state machine (pane mode)
+3. handlers/spawn.handle(ctx, INIT->PLANNED) — coach state machine (surface mode)
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def _runtime(tmp_path: Path) -> Path:
 
 
 def _spawn_via_cmd_spawn_pane(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
-    """Entry point 1: cmd_spawn with multiplexer_mode='pane'."""
+    """Entry point 1: cmd_spawn with multiplexer_mode='surface' (canonical since #830)."""
     from atdd.coach.commands import spawn as cmd_spawn_mod, session_template
 
     wt = _wt(tmp_path)
@@ -105,7 +105,7 @@ def _spawn_via_cmd_spawn_pane(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
         runtime_root=rt,
         phase="planned",
         multiplexer=fake_mx,
-        multiplexer_mode="pane",
+        multiplexer_mode="surface",
     )
     return fake_mx
 
@@ -168,7 +168,7 @@ def _spawn_via_cmd_spawn_auto(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
 
 
 def _spawn_via_coach_handler(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
-    """Entry point 3: handlers/spawn.handle() (coach state machine, pane mode)."""
+    """Entry point 3: handlers/spawn.handle() (coach state machine, surface mode)."""
     from atdd.coach.handlers import spawn as spawn_handler
     from atdd.coach.handlers.state_machine import CoachContext, Phase, Transition
     from atdd.coach.commands import spawn as cmd_spawn_mod
@@ -196,12 +196,24 @@ def _spawn_via_coach_handler(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
         "atdd.coach.commands.spawn._build_arch_section",
         lambda issue: None,
     )
+    monkeypatch.setattr(
+        "atdd.coach.commands.spawn._pre_trust_worktree",
+        lambda *a, **kw: None,
+    )
+    monkeypatch.setattr(
+        "atdd.coach.commands.spawn._wait_for_claude_ready",
+        lambda *a, **kw: None,
+    )
+    monkeypatch.setattr(
+        "atdd.coach.commands.spawn._verify_stage",
+        lambda *a, **kw: None,
+    )
 
     ctx = CoachContext(
         issue_number=999,
         llm="claude-code",
         multiplexer=fake_mx,
-        multiplexer_mode="pane",
+        multiplexer_mode="surface",
         dry_run=False,
         max_retries=0,
         escalation_channel=None,
@@ -220,9 +232,9 @@ def _spawn_via_coach_handler(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
 
 
 ENTRY_POINTS = [
-    ("cmd_spawn_pane", _spawn_via_cmd_spawn_pane),
+    ("cmd_spawn_surface", _spawn_via_cmd_spawn_pane),
     ("cmd_spawn_auto", _spawn_via_cmd_spawn_auto),
-    ("coach_handler_pane", _spawn_via_coach_handler),
+    ("coach_handler_surface", _spawn_via_coach_handler),
 ]
 
 
@@ -230,14 +242,18 @@ ENTRY_POINTS = [
 def test_entry_point_creates_exactly_one_persona_surface(
     entry_point_name, invoke_fn, tmp_path, monkeypatch
 ):
-    """Every entry point creates exactly one persona surface (new_surface, not new_persona_surface).
+    """Every entry point creates exactly one persona surface via new_surface_in_pane
+    (canonical since #830 — cmux new-surface --pane <ref>), not new_persona_surface.
 
     Issue #754: per-worker observers removed. Entry points no longer call
-    new_persona_surface — they call new_surface for the worker only.
+    new_persona_surface — they call new_surface_in_pane for the worker only.
     """
     fake_mx = invoke_fn(tmp_path, monkeypatch)
 
-    surface_calls = [c for c in fake_mx.calls if c["op"] == "new_surface"]
+    surface_calls = [
+        c for c in fake_mx.calls
+        if c["op"] in ("new_surface", "new_surface_in_pane")
+    ]
     persona_surface_calls = [
         c for c in surface_calls
         if not (
@@ -267,7 +283,10 @@ def test_entry_point_produces_no_observer_surface(
     """
     fake_mx = invoke_fn(tmp_path, monkeypatch)
 
-    surface_calls = [c for c in fake_mx.calls if c["op"] == "new_surface"]
+    surface_calls = [
+        c for c in fake_mx.calls
+        if c["op"] in ("new_surface", "new_surface_in_pane")
+    ]
     observer_calls = [
         c for c in surface_calls
         if "observer" in (c.get("name") or "").lower()

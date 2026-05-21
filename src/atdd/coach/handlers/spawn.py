@@ -303,11 +303,8 @@ def _spawn_observer(
 ) -> None:
     """Co-spawn the observer L1 sidecar alongside the persona agent.
 
-    In pane mode, attaches the observer as a tab inside the persona's pane
-    via new_surface_in_pane, so each grid cell holds both tabs without
-    consuming an extra pane slot (#658). In other modes, falls back to
-    new_surface (creates a new pane/workspace).
-
+    Attaches the observer as a tab inside the persona's surface via
+    new_surface_in_pane (canonical cmux RPC — cmux new-surface --pane <ref>).
     Uses the same multiplexer backend as the persona spawn so that tests
     can assert both calls via a single FakeMultiplexer injection.
     Observer is supplementary — callers must catch and warn on any exception.
@@ -321,29 +318,22 @@ def _spawn_observer(
         f" --runtime-dir {runtime_root}"
         f" --worktree {worktree}"
     )
-    # Canonical observer naming: <persona-canonical-name>:obs (workspace-mode
-    # fallback uses derived form since canonical_name isn't readily available here).
-    # See #695 for the multiplexer-agnostic naming convention.
     observer_name = f"ATDD{ctx.issue_number}-{phase}:obs"
-    # #734: same injected backend as the persona spawn so a single
-    # FakeMultiplexer (passed by construction, not monkeypatched) records
-    # both the persona and observer calls.
     multiplexer = ctx.multiplexer_backend or cmd_spawn_mod._resolve_multiplexer()
 
-    if ctx.multiplexer_mode == "pane" and persona_surface_ref is not None:
+    if persona_surface_ref is not None and hasattr(multiplexer, "surface_to_pane"):
         pane_ref = multiplexer.surface_to_pane(persona_surface_ref)
-        multiplexer.new_surface_in_pane(
-            pane_ref=pane_ref,
-            cwd=str(worktree),
-            command=observer_cmd,
-            name=observer_name,
-        )
+    elif hasattr(multiplexer, "resolve_focused_pane"):
+        pane_ref = multiplexer.resolve_focused_pane()
     else:
-        multiplexer.new_surface(
-            cwd=str(worktree),
-            command=observer_cmd,
-            name=observer_name,
-        )
+        pane_ref = "pane:1"
+
+    multiplexer.new_surface_in_pane(
+        pane_ref=pane_ref,
+        cwd=str(worktree),
+        command=observer_cmd,
+        name=observer_name,
+    )
 
 
 def _write_cospawn_decision(
