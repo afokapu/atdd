@@ -1,0 +1,129 @@
+urn: "wmbt:dispatch-ux-defaults-and-primer:Y004"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "session-template-rendered-merge-wait-loops-blocking-planner-sessions-on-sibling-issues-that-will-never-merge-before-the-session-starts"
+context_clarifier: "atdd session-template <N> renders a launch prompt with a 'while true; do ... sleep 60; done' bash loop whose gh pr list --search filter includes every #N from the ## Dependencies section. When a release wave files sibling issues (designed to run in parallel), those siblings are never merged before the current issue's planner starts — the loop hangs forever. The fix: classify each dep entry by a trailing tag. '(sibling)' or '(parallel)' entries go into a context block with no blocking; '(prereq)' or '(merged)' entries go into the merge-wait loop. Bare #N entries (no tag) default to prereq for backwards compat and emit a warning comment in the rendered output so operators know to add the tag."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of session-template-rendered-merge-wait-loops-blocking-planner-sessions-on-sibling-issues-that-will-never-merge-before-the-session-starts when atdd session-template <N> is run for an issue whose ## Dependencies section mixes prereq and sibling entries — by classifying each dep entry via trailing tag and routing prereqs to the merge-wait loop while siblings appear in a non-blocking context block"
+acceptances:
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y004-UNIT-001-parse-typed-deps-classifies-tagged-entries"
+      id: "AC-UNIT-001"
+      purpose: "parse_typed_dependencies classifies (sibling)/(parallel) tags as 'sibling' and (prereq)/(merged) tags as 'prereq'"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A Dependencies section body contains entries with (sibling), (parallel), (prereq), and (merged) tags"
+    when:
+      abstract: "parse_typed_dependencies(body) is called"
+    then:
+      abstract:
+        - "Entries tagged (sibling) or (parallel) return Dependency with dep_class='sibling'"
+        - "Entries tagged (prereq) or (merged) return Dependency with dep_class='prereq'"
+        - "Each Dependency carries the correct #N number"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y004-UNIT-002-bare-dep-classified-as-prereq-with-warning-flag"
+      id: "AC-UNIT-002"
+      purpose: "A bare #N entry (no tag) is classified as prereq with bare=True"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A Dependencies section body contains '- #100' with no trailing tag"
+    when:
+      abstract: "parse_typed_dependencies(body) is called"
+    then:
+      abstract:
+        - "The returned Dependency has dep_class='prereq' and bare=True"
+        - "The number field is '#100'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y004-UNIT-003-merge-wait-loop-excludes-sibling-deps"
+      id: "AC-UNIT-003"
+      purpose: "render() merge-wait gh pr list search filter includes only prereq dep numbers, not siblings"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueContext has typed_dependencies: [Dependency('#10', 'prereq'), Dependency('#20', 'sibling')]"
+    when:
+      abstract: "render(ctx) is called"
+    then:
+      abstract:
+        - "The rendered output contains '#10' in the gh pr list --search argument"
+        - "The rendered output does NOT contain '#20' inside the merge-wait loop search string"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y004-UNIT-004-render-includes-sibling-context-block"
+      id: "AC-UNIT-004"
+      purpose: "render() includes a 'Parallel siblings (for context)' block listing sibling dep numbers"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueContext has a sibling dep '#20'"
+    when:
+      abstract: "render(ctx) is called"
+    then:
+      abstract:
+        - "The rendered output contains a block referencing '#20' as parallel/sibling context"
+        - "The block does not instruct the agent to wait for '#20' to merge"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y004-UNIT-005-no-prereqs-skips-merge-wait-loop"
+      id: "AC-UNIT-005"
+      purpose: "When all deps are siblings (no prereqs), render() omits the merge-wait loop and emits a begin-immediately note"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueContext has only sibling deps (no prereq deps)"
+    when:
+      abstract: "render(ctx) is called"
+    then:
+      abstract:
+        - "The rendered output does NOT contain 'while true; do'"
+        - "The rendered output contains a note indicating the agent should begin planning immediately"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y004-UNIT-006-render-emits-bare-dep-warning"
+      id: "AC-UNIT-006"
+      purpose: "render() includes a warning comment when any dep entry is bare (no tag)"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueContext has a bare dep (no (prereq)/(sibling) tag)"
+    when:
+      abstract: "render(ctx) is called"
+    then:
+      abstract:
+        - "The rendered output contains a warning noting the bare dep and recommending a tag"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"

@@ -2,14 +2,15 @@ urn: "feature:dispatch-ux-defaults-and-primer:coach-dispatch-env-aware-defaults"
 wagon: "wagon:dispatch-ux-defaults-and-primer"
 description: "Phases 1 and 2 of the dispatch UX overhaul: flips the multiplexer-mode default to 'pane' when CMUX_WORKSPACE_ID or TMUX is set (E001), auto-enables --no-prompt when stdin is not a TTY (E002), bumps ATDD_WORKER_READY_TIMEOUT from 10s to 30s and advertises it in --help (Y001), and mutes the stale upgrade banner after atdd sync via a marker file (Y002). All four items are pure default/config changes — no new user-visible commands or data structures."
 sizing:
-  wmbts: 4
-  footprint_score: 4
+  wmbts: 5
+  footprint_score: 5
   footprint_size: "XS"
 wmbts:
   - "wmbt:dispatch-ux-defaults-and-primer:E001"
   - "wmbt:dispatch-ux-defaults-and-primer:E002"
   - "wmbt:dispatch-ux-defaults-and-primer:Y001"
   - "wmbt:dispatch-ux-defaults-and-primer:Y002"
+  - "wmbt:dispatch-ux-defaults-and-primer:Y004"
 components:
   backend:
     presentation:
