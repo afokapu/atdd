@@ -1,16 +1,14 @@
 # URN: test:dispatch-ux-defaults-and-primer:coach-dispatch-env-aware-defaults:E001-UNIT-001-pane-mode-default-when-cmux-workspace-id-set
 # Acceptance: acc:dispatch-ux-defaults-and-primer:E001-UNIT-001-pane-mode-default-when-cmux-workspace-id-set
 # WMBT: wmbt:dispatch-ux-defaults-and-primer:E001
-# Phase: RED
+# Phase: GREEN
 # Layer: application
 # Runtime: python
-"""E001-UNIT-001 — resolve_multiplexer_mode returns 'pane' when CMUX_WORKSPACE_ID is set.
+"""E001-UNIT-001 — resolve_multiplexer_mode returns 'surface' (not 'pane') in all cases.
 
-RED: resolve_multiplexer_mode does not exist in coach.py yet. The CLI
-unconditionally defaults multiplexer_mode to 'workspace'. This test pins the
-helper contract: env-aware default resolution must return 'pane' when
-CMUX_WORKSPACE_ID is present, 'workspace' when no mux env var is set, and
-respect explicit_flag over any env var.
+GREEN: E007 (#830) superseded E001's 'pane' fix — cmux new-pane is also
+deprecated (Broken pipe on cmux >=0.64.7). The function now unconditionally
+returns 'surface' when no explicit flag is given, regardless of env vars.
 """
 from __future__ import annotations
 
@@ -19,50 +17,43 @@ import pytest
 pytestmark = [pytest.mark.platform]
 
 
-def test_pane_mode_when_cmux_workspace_id_set():
-    """resolve_multiplexer_mode('pane') when CMUX_WORKSPACE_ID set and no explicit flag."""
+def test_surface_mode_when_cmux_workspace_id_set():
+    """resolve_multiplexer_mode returns 'surface' when CMUX_WORKSPACE_ID set."""
     from atdd.coach.commands import coach
 
     fn = getattr(coach, "resolve_multiplexer_mode", None)
-    assert fn is not None, (
-        "coach.resolve_multiplexer_mode is not implemented — "
-        "env-aware multiplexer default resolution is missing (RED)"
-    )
+    assert fn is not None, "coach.resolve_multiplexer_mode is not implemented"
 
     result = fn(explicit_flag=None, env={"CMUX_WORKSPACE_ID": "workspace:1"})
-    assert result == "pane", (
-        f"expected 'pane' when CMUX_WORKSPACE_ID is set, got {result!r}"
+    assert result == "surface", (
+        f"expected 'surface' when CMUX_WORKSPACE_ID is set (E007), got {result!r}"
     )
 
 
-def test_explicit_flag_wins_over_cmux_env():
-    """An explicit --multiplexer-mode='workspace' overrides CMUX_WORKSPACE_ID."""
+def test_explicit_flag_wins_over_env():
+    """An explicit --multiplexer-mode='surface' overrides env vars."""
     from atdd.coach.commands import coach
 
     fn = getattr(coach, "resolve_multiplexer_mode", None)
-    assert fn is not None, (
-        "coach.resolve_multiplexer_mode is not implemented (RED)"
-    )
+    assert fn is not None, "coach.resolve_multiplexer_mode is not implemented"
 
     result = fn(
-        explicit_flag="workspace",
+        explicit_flag="surface",
         env={"CMUX_WORKSPACE_ID": "workspace:1"},
     )
-    assert result == "workspace", (
-        f"explicit_flag='workspace' must override env var; got {result!r}"
+    assert result == "surface", (
+        f"explicit_flag='surface' must override env var; got {result!r}"
     )
 
 
-def test_original_default_when_no_mux_env():
-    """Without CMUX_WORKSPACE_ID or TMUX, the original default ('workspace') is returned."""
+def test_surface_default_when_no_mux_env():
+    """Without any mux env var, 'surface' is the default (E007: workspace/pane both deprecated)."""
     from atdd.coach.commands import coach
 
     fn = getattr(coach, "resolve_multiplexer_mode", None)
-    assert fn is not None, (
-        "coach.resolve_multiplexer_mode is not implemented (RED)"
-    )
+    assert fn is not None, "coach.resolve_multiplexer_mode is not implemented"
 
     result = fn(explicit_flag=None, env={})
-    assert result == "workspace", (
-        f"without any mux env var, default must be 'workspace'; got {result!r}"
+    assert result == "surface", (
+        f"without any mux env var, default must be 'surface'; got {result!r}"
     )

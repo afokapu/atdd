@@ -133,7 +133,7 @@ class Config:
     max_retries: Optional[int] = None
     escalation_channel: Optional[str] = None
     multiplexer: Optional[str] = None
-    multiplexer_mode: str = "workspace"
+    multiplexer_mode: str = "surface"
     auto_merge: bool = False
     strict_deps: bool = False
     llm: Optional[str] = None
@@ -171,7 +171,7 @@ class CoachConfig:
     """
 
     issue: int = 0
-    multiplexer_mode: str = "workspace"
+    multiplexer_mode: str = "surface"
     llm: Optional[str] = None
     no_prompt: bool = False
 
@@ -245,17 +245,14 @@ class _MultiplexerHelpAction(argparse.Action):
 def resolve_multiplexer_mode(explicit_flag: Optional[str], env: Optional[dict] = None) -> str:
     """Return the effective multiplexer mode.
 
-    If *explicit_flag* is not None it wins. Otherwise inspect *env* (or
-    os.environ) for CMUX_WORKSPACE_ID / TMUX — both imply 'pane' mode.
-    Falls back to 'workspace'.
+    If *explicit_flag* is not None it wins. Otherwise always returns
+    ``'surface'`` — the canonical cmux RPC path (issue #830). The
+    legacy ``'pane'`` and ``'workspace'`` modes used cmux new-pane /
+    new-workspace which fail with Broken pipe on cmux >=0.64.7.
     """
-    import os as _os
     if explicit_flag is not None:
         return explicit_flag
-    _env = env if env is not None else _os.environ
-    if _env.get("CMUX_WORKSPACE_ID") or _env.get("TMUX"):
-        return "pane"
-    return "workspace"
+    return "surface"
 
 
 def resolve_no_prompt(explicit_flag: Optional[bool], isatty: bool) -> bool:
@@ -345,9 +342,15 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--multiplexer-mode",
         type=str,
-        choices=["workspace", "pane"],
+        choices=["surface"],
         default=None,
         dest="multiplexer_mode",
+        help=(
+            "Surface creation strategy. Only 'surface' is supported: uses "
+            "cmux new-surface --pane <ref>. The legacy 'workspace' and 'pane' "
+            "modes are removed — they called deprecated cmux RPCs that fail "
+            "with Broken pipe on cmux >=0.64.7 (issue #830)."
+        ),
     )
     parser.add_argument(
         "--multiplexer-help",
@@ -1424,7 +1427,7 @@ def run(
     max_retries: Optional[int] = None,
     escalation_channel: Optional[str] = None,
     multiplexer: Optional[str] = None,
-    multiplexer_mode: str = "workspace",
+    multiplexer_mode: str = "surface",
     auto_merge: bool = False,
     strict_deps: bool = False,
     llm: Optional[str] = None,

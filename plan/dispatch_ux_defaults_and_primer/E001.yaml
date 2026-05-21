@@ -10,8 +10,8 @@ acceptances:
   - identity:
       urn: "acc:dispatch-ux-defaults-and-primer:E001-UNIT-001-pane-mode-default-when-cmux-workspace-id-set"
       id: "AC-UNIT-001"
-      purpose: "multiplexer_mode resolves to 'pane' when CMUX_WORKSPACE_ID is set and --multiplexer-mode was not passed"
-      phase: "RED"
+      purpose: "multiplexer_mode resolves to 'surface' when CMUX_WORKSPACE_ID is set and --multiplexer-mode was not passed (E007 supersedes original 'pane' fix)"
+      phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
@@ -23,17 +23,18 @@ acceptances:
       abstract: "resolve_multiplexer_mode is called with explicit_flag=None and env={'CMUX_WORKSPACE_ID': 'workspace:1'}"
     then:
       abstract:
-        - "The return value is 'pane'"
-        - "When explicit_flag='workspace' and CMUX_WORKSPACE_ID is set, the return value is 'workspace' (explicit override wins)"
-        - "When CMUX_WORKSPACE_ID is absent and explicit_flag is None, the return value is the original default (e.g. 'workspace' or the CLI default)"
+        - "The return value is 'surface' (E007: cmux new-pane is also deprecated; canonical RPC is new-surface)"
+        - "When explicit_flag='surface' and CMUX_WORKSPACE_ID is set, the return value is 'surface' (explicit override wins)"
+        - "When CMUX_WORKSPACE_ID is absent and explicit_flag is None, the return value is 'surface' (unconditional default)"
     metadata:
       author: "atdd:planner"
       created: "2026-05-20"
+      updated: "2026-05-21"
   - identity:
       urn: "acc:dispatch-ux-defaults-and-primer:E001-UNIT-002-pane-mode-default-respects-tmux-env"
       id: "AC-UNIT-002"
-      purpose: "resolve_multiplexer_mode also defaults to 'pane' when TMUX is set in env (for tmux backend parity)"
-      phase: "RED"
+      purpose: "resolve_multiplexer_mode returns 'surface' unconditionally — TMUX env has no special effect (E007)"
+      phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
@@ -45,15 +46,16 @@ acceptances:
       abstract: "resolve_multiplexer_mode is called with explicit_flag=None and env={'TMUX': '/tmp/tmux-socket,12345,0'}"
     then:
       abstract:
-        - "The return value is 'pane'"
-        - "When neither CMUX_WORKSPACE_ID nor TMUX is set and explicit_flag is None, the original default is returned"
+        - "The return value is 'surface' (unconditional default since E007 — pane is also deprecated)"
+        - "When neither CMUX_WORKSPACE_ID nor TMUX is set and explicit_flag is None, the return value is 'surface'"
     metadata:
       author: "atdd:planner"
       created: "2026-05-20"
+      updated: "2026-05-21"
   - identity:
       urn: "acc:dispatch-ux-defaults-and-primer:E001-SMOKE-001-pane-mode-in-real-cmux-session"
       id: "AC-SMOKE-001"
-      purpose: "Against a real cmux session (CMUX_WORKSPACE_ID set), atdd coach resolves pane mode without the operator passing --multiplexer-mode"
+      purpose: "Against a real cmux session (CMUX_WORKSPACE_ID set), atdd coach resolves surface mode without the operator passing --multiplexer-mode"
       phase: "SMOKE"
     harness:
       type: "smoke"
@@ -67,16 +69,18 @@ acceptances:
       abstract: "atdd coach <N> is invoked without --multiplexer-mode from inside the cmux session"
     then:
       abstract:
-        - "The coach log confirms 'pane' mode was selected (not 'workspace')"
+        - "The coach log confirms 'surface' mode was selected (not 'workspace' or 'pane')"
         - "No new cmux workspace (workspace:2+) is created during the dispatch"
+        - "The spawn call uses cmux new-surface --pane <ref>"
     metadata:
       author: "atdd:planner"
       created: "2026-05-20"
+      updated: "2026-05-21"
   - identity:
       urn: "acc:dispatch-ux-defaults-and-primer:E001-INTEGRATION-001-coach-cli-uses-resolve-multiplexer-mode"
       id: "AC-INTEGRATION-001"
-      purpose: "The atdd coach CLI entrypoint calls resolve_multiplexer_mode and passes the result to the spawn pipeline; the mode seen by the spawn call is 'pane' when CMUX_WORKSPACE_ID is set"
-      phase: "RED"
+      purpose: "The atdd coach CLI entrypoint calls resolve_multiplexer_mode and passes the result to the spawn pipeline; the mode seen by the spawn call is 'surface' when CMUX_WORKSPACE_ID is set"
+      phase: "GREEN"
     harness:
       type: "integration"
       category: "backend"
@@ -89,8 +93,9 @@ acceptances:
       abstract: "atdd coach <N> is invoked programmatically (or via subprocess) without --multiplexer-mode"
     then:
       abstract:
-        - "The recorded multiplexer_mode is 'pane'"
+        - "The recorded multiplexer_mode is 'surface'"
         - "No 'workspace:2' or higher workspace is created in the cmux session"
     metadata:
       author: "atdd:planner"
       created: "2026-05-20"
+      updated: "2026-05-21"

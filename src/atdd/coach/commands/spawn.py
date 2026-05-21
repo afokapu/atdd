@@ -122,6 +122,14 @@ class PromptNotSubmitted(WorkerReadinessTimeout):
     swallowed-Enter failure mode (E011, issue #799)."""
 
 
+class DeprecatedMultiplexerModeError(ValueError):
+    """Raised when _create_surface is called with a cmux-deprecated mode.
+
+    cmux >=0.64.7 rejects ``new-workspace`` and ``new-pane`` RPCs with
+    ``Broken pipe (errno 32)``. Use ``mode='surface'`` (issue #830).
+    """
+
+
 def _verify_stage(
     stage_name: str,
     surface_ref: str,
@@ -693,45 +701,61 @@ def _append_spawn_rule_blocks(
     return rendered.rstrip() + "\n\n" + yaml.safe_dump(blocks, sort_keys=False)
 
 
+def _resolve_spawn_pane(backend) -> str:
+    """Return the canonical pane ref for surface-mode spawning (issue #830).
+
+    Calls ``backend.resolve_focused_pane()`` — implemented on CmuxBackend
+    via ``cmux list-panes`` to pick the focused pane. Falls back to
+    ``"pane:1"`` so FakeMultiplexer stubs in tests that omit the method
+    never raise AttributeError.
+    """
+    resolve = getattr(backend, "resolve_focused_pane", None)
+    if resolve is not None:
+        return resolve()
+    return "pane:1"
+
+
 def _create_surface(
     multiplexer,
     *,
     worktree: Path,
     command: str,
     name: str,
-    mode: str = "auto",
+    mode: str = "surface",
 ) -> str:
-    """Dispatch to the multiplexer.
+    """Dispatch to the multiplexer using the canonical surface RPC (issue #830).
 
     ``mode`` controls the surface creation strategy:
-    - ``"pane"`` — call ``new_surface`` (single worker surface; no per-worker
-      observer since issue #754 replaced N observers with one coach-level
-      MultiAgentObserver).
-    - ``"workspace"`` — call ``new_workspace``.
-    - ``"auto"`` (default) — try ``new_surface``; fall back to
-      ``new_workspace`` for tmux/zellij backends that raise
-      ``NotImplementedError`` on ``new_surface``.
+    - ``"surface"`` (default) / ``"auto"`` — call ``new_surface_in_pane``
+      with the focused pane resolved via ``resolve_focused_pane()``. This
+      is the canonical cmux path (``cmux new-surface --pane <ref>``) that
+      works on cmux >=0.64.7 and never calls the deprecated new-workspace
+      or new-pane RPCs.
+    - ``"workspace"`` — raises ``DeprecatedMultiplexerModeError``. cmux
+      0.64.7 rejects ``new-workspace`` with Broken pipe (errno 32).
+    - ``"pane"`` — raises ``DeprecatedMultiplexerModeError``. cmux 0.64.7
+      rejects ``new-pane`` with Broken pipe (errno 32).
     """
     if mode == "workspace":
-        return multiplexer.new_workspace(cwd=str(worktree), command=command, name=name)
-
-    def _pane_spawn() -> str:
-        return multiplexer.new_surface(cwd=str(worktree), command=command, name=name)
-
-    if mode == "pane":
-        return _pane_spawn()
-
-    # "auto" — try pane spawn; fall back to new_workspace for tmux/zellij.
-    try:
-        return _pane_spawn()
-    except NotImplementedError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-        # Documented fallback per utils/multiplexer.py: tmux/zellij
-        # backends raise NotImplementedError on new_surface; we degrade
-        # to new_workspace so spawn works on every backend the
-        # abstraction supports.
-        return multiplexer.new_workspace(
-            cwd=str(worktree), command=command, name=name,
+        raise DeprecatedMultiplexerModeError(
+            "multiplexer-mode='workspace' calls cmux new-workspace which fails with "
+            "Broken pipe on cmux >=0.64.7. Use mode='surface' (the default). "
+            "See issue #830."
         )
+    if mode == "pane":
+        raise DeprecatedMultiplexerModeError(
+            "multiplexer-mode='pane' calls cmux new-pane which fails with "
+            "Broken pipe on cmux >=0.64.7. Use mode='surface' (the default). "
+            "See issue #830."
+        )
+    # "surface" / "auto" — canonical path: new-surface inside the focused pane.
+    pane_ref = _resolve_spawn_pane(multiplexer)
+    return multiplexer.new_surface_in_pane(
+        pane_ref=pane_ref,
+        cwd=str(worktree),
+        command=command,
+        name=name,
+    )
 
 
 def _respawn_persona_in_surface(
@@ -887,7 +911,7 @@ def cmd_spawn(
     multiplexer: Any = None,
     rules: Optional[Iterable[Any]] = None,
     persona_prompt_content: Optional[str] = None,
-    multiplexer_mode: str = "auto",
+    multiplexer_mode: str = "surface",
     existing_surface_ref: Optional[str] = None,
 ) -> dict:
     """Render the launch prompt, dispatch the multiplexer, run the
