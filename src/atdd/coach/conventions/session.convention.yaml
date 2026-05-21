@@ -1,0 +1,60 @@
+version: "1.0"
+name: "Session Convention"
+description: |
+  Rules for coach session management — spawn-time configuration, the
+  freedom-with-a-leash model, and the deny-pattern escalation route.
+  (D002, issue #829.)
+
+# =============================================================================
+# SPAWN-TIME FREEDOM-WITH-A-LEASH MODEL
+# =============================================================================
+# The two-layer model composes: the agent works unattended for the freedom set;
+# the agent is corrected (or in extremis, respawned) for behavior the leash flags.
+# No in-band modal-typing in either layer.
+# =============================================================================
+
+spawn_time:
+  description: |
+    Every persona spawned by atdd spawn must be configured at spawn time to
+    suppress interactive modals for the safe-tool freedom set and to route
+    deny-pattern bashes to the structured escalation channel.
+
+  freedom_layer:
+    description: |
+      Pre-grant the safe-tool allowlist via spawn-time flags so modals never
+      fire for allowed tools. Implemented by ADAPTER_REGISTRY.permission_flags
+      and ADAPTER_REGISTRY.allowed_tools per adapter (E013, issue #829).
+    mechanism: "spawn-time CLI flags (--permission-mode acceptEdits --allowedTools ...)"
+    claude_flags:
+      - "--permission-mode acceptEdits"
+      - "--allowedTools \"Bash Edit Write Read TodoWrite Glob Grep WebFetch\""
+    invariant: "Modals MUST NOT fire for tools in the allowed_tools list."
+
+  leash_layer:
+    description: |
+      Observer rules detect out-of-contract behavior in the agent's output
+      and emit corrections to cli-return.jsonl (issue #824). The leash layer
+      runs independently of the freedom layer: corrections are appended to the
+      inbox file; the shim delivers them as user-turn messages.
+    mechanism: "cli-return.jsonl observer corrections (issue #824)"
+    invariant: "Corrections MUST use cli-return, never multiplexer.send slash-commands."
+
+  deny_pattern_escalation:
+    description: |
+      Bash invocations matching orchestration.convention.yaml::babysit.bash_deny_patterns
+      (rm, mv, pip install, curl, wget, git push --force, etc.) are NEVER
+      auto-approved. When the observer detects a deny-pattern modal, it emits a
+      correction directing the agent to run: atdd agent escalate
+      This routes the invocation to the structured outbound escalation channel
+      (a machine-readable record in the agent's runtime dir) for the babysitter
+      to pick up.
+    command: "atdd agent escalate"
+    invariant: "Deny-pattern bashes MUST route to atdd agent escalate, not to modal typing."
+
+  slash_command_prohibition:
+    description: |
+      Runtime /rename and other slash-command injections via multiplexer.send
+      are forbidden after M001 (issue #829). Session naming is shim-managed
+      via pty metadata (issue #824). Observer corrections MUST use cli-return.
+    prohibited: "multiplexer.send(ref, '/...')"
+    replacement: "cli-return.jsonl + shim-owned pty metadata"
