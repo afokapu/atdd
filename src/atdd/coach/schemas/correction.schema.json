@@ -47,7 +47,8 @@
     },
     "injection_method": {
       "type": "string",
-      "description": "How the correction is delivered to the agent. Frozen at C0 to the three named methods; expansions require a follow-up issue.",
+      "description": "How the correction is delivered to the agent. Frozen at C0 to the three named methods; expansions require a follow-up issue. Note: multiplexer-send is deprecated (#824) — prefer cli-return (consumed by the persona-shim); multiplexer-send retained in enum for C0 backward compatibility.",
+      "$comment": "deprecated: multiplexer-send — use cli-return (persona-shim consumes cli-return.jsonl directly); retained for C0 backward compatibility (#824)",
       "enum": [
         "cli-return",
         "multiplexer-send",

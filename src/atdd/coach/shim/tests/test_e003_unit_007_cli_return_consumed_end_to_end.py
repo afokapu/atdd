@@ -45,6 +45,7 @@ def test_dispatcher_write_reaches_shim_pty(tmp_path):
         agent_id=agent_id,
         rule_id="TEST-LAYOUT-001",
         severity=3,
+        disposition="advisory",
         correction_text="Run atdd validate coder\n",
         injection_method="cli-return",
     )
@@ -87,6 +88,7 @@ def test_loop_closes_with_no_multiplexer_involved(tmp_path):
         agent_id=agent_id,
         rule_id="TEST-LAYOUT-002",
         severity=3,
+        disposition="advisory",
         correction_text="Correction via cli-return\n",
         injection_method="cli-return",
     )

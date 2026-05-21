@@ -100,6 +100,7 @@ def test_correction_loop_closes_under_shim(tmp_path):
         agent_id=agent_id,
         rule_id="LAYOUT-DRIFT-001",
         severity=3,
+        disposition="advisory",
         correction_text="apply canonical layout now\n",
         injection_method="cli-return",
     )

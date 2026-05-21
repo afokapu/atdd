@@ -72,7 +72,7 @@ def test_multiplexer_send_is_annotated_deprecated():
 
 
 def test_cli_return_not_deprecated():
-    """cli-return is NOT deprecated."""
+    """The schema comment says multiplexer-send is deprecated, not cli-return."""
     with _SCHEMA_PATH.open() as f:
         schema = json.load(f)
 
@@ -80,9 +80,15 @@ def test_cli_return_not_deprecated():
     comment = injection_method.get("$comment", "") or ""
     description = injection_method.get("description", "") or ""
 
-    # cli-return should not appear as deprecated
-    assert "cli-return" not in comment.lower().replace("deprecated: multiplexer-send", ""), (
-        "cli-return should not be deprecated"
+    # The deprecation marker must name multiplexer-send specifically
+    combined = (comment + " " + description).lower()
+    assert "multiplexer-send" in combined, (
+        "Expected deprecation to mention 'multiplexer-send'"
+    )
+    # There should be no text saying 'cli-return is deprecated' or
+    # 'deprecated: cli-return'
+    assert "deprecated: cli-return" not in combined, (
+        "cli-return should not appear as the deprecated value"
     )
 
 
@@ -100,7 +106,7 @@ def test_schema_still_validates_multiplexer_send_records():
         "agent_id": "test-agent-001",
         "rule_id": "TEST-001",
         "severity": 3,
-        "disposition": "pending",
+        "disposition": "advisory",
         "correction_text": "test correction",
         "injection_method": "multiplexer-send",
     }

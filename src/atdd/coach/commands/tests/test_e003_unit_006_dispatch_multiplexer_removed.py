@@ -46,6 +46,7 @@ def test_dispatcher_respects_correction_transport_env(tmp_path, monkeypatch):
         agent_id=agent_id,
         rule_id="TEST-REDIRECT-001",
         severity=3,
+        disposition="advisory",
         correction_text="redirected correction\n",
         injection_method="multiplexer-send",
     )
@@ -86,6 +87,7 @@ def test_dispatcher_uses_multiplexer_when_transport_is_multiplexer_send(tmp_path
         agent_id=agent_id,
         rule_id="TEST-MUX-001",
         severity=3,
+        disposition="advisory",
         correction_text="via multiplexer\n",
         injection_method="multiplexer-send",
     )
