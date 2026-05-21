@@ -4,10 +4,10 @@
 # Phase: SMOKE
 # Layer: integration
 # Runtime: python
-"""E001-SMOKE-001 — atdd coach resolves 'pane' mode against a real cmux session.
+"""E001-SMOKE-001 — atdd coach resolves 'surface' mode against a real cmux session.
 
 SMOKE: requires ATDD_RUN_SMOKE=1 and a real cmux session (CMUX_WORKSPACE_ID set).
-Verified: coach log confirms 'pane' mode selected, no workspace:2+ created.
+Verified: resolve_multiplexer_mode returns 'surface' using the live env.
 """
 from __future__ import annotations
 
@@ -23,14 +23,17 @@ pytestmark = [pytest.mark.platform]
     not os.environ.get("ATDD_RUN_SMOKE"),
     reason="SMOKE: set ATDD_RUN_SMOKE=1 to run against real infrastructure",
 )
-def test_pane_mode_in_real_cmux_session():
-    """atdd coach resolves 'pane' mode without --multiplexer-mode inside a cmux session."""
+def test_surface_mode_in_real_cmux_session():
+    """resolve_multiplexer_mode returns 'surface' inside a real cmux session."""
     if not os.environ.get("CMUX_WORKSPACE_ID"):
         pytest.skip("SMOKE requires CMUX_WORKSPACE_ID (must run inside a cmux session)")
     if not shutil.which("cmux"):
         pytest.skip("cmux not installed")
 
-    pytest.fail(
-        "E001-SMOKE-001 not yet implemented — GREEN code needed before SMOKE "
-        "can be verified against real cmux infrastructure"
+    from atdd.coach.commands.coach import resolve_multiplexer_mode
+
+    result = resolve_multiplexer_mode(explicit_flag=None, env=dict(os.environ))
+    assert result == "surface", (
+        f"Inside real cmux session (CMUX_WORKSPACE_ID={os.environ['CMUX_WORKSPACE_ID']!r}), "
+        f"resolve_multiplexer_mode must return 'surface' (E007); got {result!r}"
     )
