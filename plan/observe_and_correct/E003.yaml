@@ -1,0 +1,248 @@
+urn: "wmbt:observe-and-correct:E003"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "observer-correction-loop-activation-gaps"
+context_clarifier: "when 84 agents have emitted 139,896 heartbeats but 0 corrections and 0 rule firings (2026-05-20 measurement) because InjectionDispatcher._dispatch_cli_return already writes cli-return.jsonl but no consumer reads it — the correction channel is write-only. The persona-shim (src/atdd/coach/shim/) closes the loop by owning the agent CLI pty, draining cli-return.jsonl, and writing bytes to the agent stdin; bootstrap inbox priming pre-seeds the launch prompt via the same channel before spawn, eliminating the post-boot paste race (#702 / #795 / #797 / #811)."
+lens: "functional.effectiveness"
+statement: "minimize quantity of observer-correction-loop-activation-gaps by shipping the persona-shim that drains cli-return.jsonl and writes to the agent CLI pty stdin, priming the inbox with the launch prompt before spawn, removing the multiplexer.send dispatch call, and annotating multiplexer-send deprecated in correction.schema.json — closing the loop that has produced 0 corrections in 139,896 heartbeats"
+acceptances:
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-001-shim-spawns-agent-in-pty"
+      id: "AC-UNIT-001"
+      purpose: "The persona-shim spawns the agent CLI as a child process inside a pty it owns; pty output is teed to agents/<id>/output.log and the pane display"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/shim/ exists with a runnable shim entry point (e.g. atdd-shim or shim.main)"
+        - "An adapter spawn command is provided (e.g. 'claude --dangerously-skip-permissions')"
+    when:
+      abstract: "The shim is launched with a given agent_id and spawn command"
+    then:
+      abstract:
+        - "The agent CLI is spawned inside a pty owned by the shim (pty.openpty or equivalent)"
+        - "Pty output is teed to .atdd/runtime/agents/<id>/output.log"
+        - "The shim process exits when the agent CLI process exits"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-002-shim-drains-cli-return"
+      id: "AC-UNIT-002"
+      purpose: "The shim polls cli-return.jsonl for new entries and writes the correction_text bytes to the agent CLI pty master fd, delivering corrections to the agent stdin"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A shim instance is running with a fake pty (bytes captured instead of written to a real fd)"
+        - "agents/<id>/cli-return.jsonl exists and is initially empty"
+    when:
+      abstract: "A correction record is appended to cli-return.jsonl while the shim's poll loop is running"
+    then:
+      abstract:
+        - "The shim detects the new entry within one poll interval"
+        - "The correction_text bytes are written to the pty master fd (captured by the test fake)"
+        - "The entry is marked consumed (offset advances past the record)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-003-bootstrap-inbox-priming"
+      id: "AC-UNIT-003"
+      purpose: "cmd_spawn writes the launch prompt as the first cli-return.jsonl entry before spawning the shim; the shim feeds it to the agent as the first user turn"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "cmd_spawn is invoked for an issue with ATDD_CORRECTION_TRANSPORT=cli-return"
+        - "The launch prompt has been rendered to .launch_prompt.txt"
+    when:
+      abstract: "cmd_spawn creates the agent's runtime dir and prepares to spawn the pane process"
+    then:
+      abstract:
+        - "A cli-return.jsonl entry containing the launch prompt text is written to the agent dir before the shim process starts"
+        - "The shim's first poll iteration delivers that entry to the agent CLI's stdin"
+        - "The post-boot paste_text + send_key calls (spawn.py:964-965) are NOT executed when ATDD_CORRECTION_TRANSPORT=cli-return"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-004-inbox-drain-subcommand"
+      id: "AC-UNIT-004"
+      purpose: "`atdd agent inbox drain` reads unconsumed cli-return.jsonl entries and prints them; marks the file position as consumed"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "cli-return.jsonl contains two entries; one already consumed, one new"
+    when:
+      abstract: "An operator (or the shim) invokes `atdd agent inbox drain --agent-id <id>`"
+    then:
+      abstract:
+        - "Only the unconsumed entry is returned"
+        - "The consumed offset is advanced past the returned entry"
+        - "A subsequent drain returns no entries"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-005-inbox-peek-subcommand"
+      id: "AC-UNIT-005"
+      purpose: "`atdd agent inbox peek` reads unconsumed entries without advancing the consumed offset"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "cli-return.jsonl contains one unconsumed entry"
+    when:
+      abstract: "An operator invokes `atdd agent inbox peek --agent-id <id>` twice"
+    then:
+      abstract:
+        - "Both invocations return the same unconsumed entry"
+        - "The consumed offset is unchanged after either call"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-006-dispatch-multiplexer-removed"
+      id: "AC-UNIT-006"
+      purpose: "`InjectionDispatcher._dispatch_multiplexer` no longer calls multiplexer.send() when ATDD_CORRECTION_TRANSPORT=cli-return; corrections with injection_method='multiplexer-send' are silently dropped or redirected to cli-return"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_CORRECTION_TRANSPORT=cli-return is set"
+        - "A correction with injection_method='multiplexer-send' is dispatched"
+    when:
+      abstract: "InjectionDispatcher.dispatch() is called with a multiplexer-send correction"
+    then:
+      abstract:
+        - "multiplexer.send() is NOT called"
+        - "The correction is written to cli-return.jsonl (redirected) OR logged as a warning and dropped"
+        - "No RuntimeError is raised for a missing multiplexer when using cli-return transport"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-007-cli-return-consumed-end-to-end"
+      id: "AC-UNIT-007"
+      purpose: "A correction written to cli-return.jsonl by InjectionDispatcher._dispatch_cli_return is consumed by the shim and delivered to the agent CLI stdin in a single test fixture"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A shim instance running in test mode (fake pty capturing output bytes)"
+        - "An InjectionDispatcher configured for cli-return transport pointing at the same agent dir"
+    when:
+      abstract: "A correction is dispatched via InjectionDispatcher"
+    then:
+      abstract:
+        - "The shim's poll loop reads the cli-return.jsonl entry"
+        - "The correction_text bytes appear in the fake pty capture buffer"
+        - "The loop closes: dispatcher write → jsonl → shim read → pty bytes"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-008-schema-deprecation"
+      id: "AC-UNIT-008"
+      purpose: "correction.schema.json marks multiplexer-send with deprecated:true and a deprecation comment; the enum value remains valid (C0 frozen) so existing consumers do not break"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "contracts/coach/correction.schema.json is the C0-frozen schema for correction records"
+    when:
+      abstract: "The schema is read and the injection_method enum is inspected"
+    then:
+      abstract:
+        - "multiplexer-send appears in the enum with a $comment or deprecated:true annotation"
+        - "cli-return and respawn remain valid and un-deprecated"
+        - "A JSON Schema validator that ignores deprecated:true still accepts multiplexer-send as valid"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-009-operator-keystrokes-forwarded"
+      id: "AC-UNIT-009"
+      purpose: "The shim forwards keystrokes typed by an operator (stdin) to the agent CLI pty master fd, so a human can still attach to a worker pane and type"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A shim instance running with a fake stdin and a fake pty master"
+        - "No cli-return.jsonl entries pending"
+    when:
+      abstract: "A byte sequence simulating operator keystrokes is written to the shim's stdin"
+    then:
+      abstract:
+        - "The same bytes appear in the fake pty master write buffer"
+        - "No bytes are swallowed or duplicated"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-010-shim-fault-isolation"
+      id: "AC-UNIT-010"
+      purpose: "The shim survives a malformed cli-return.jsonl record (invalid JSON, missing correction_text) without crashing the poll loop; subsequent valid entries are still delivered"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "cli-return.jsonl contains one invalid JSON line followed by one valid correction record"
+        - "A shim instance is running in test mode"
+    when:
+      abstract: "The shim's poll loop processes both entries"
+    then:
+      abstract:
+        - "The invalid line is skipped with a stderr warning identifying the offset"
+        - "The shim does not crash or stop polling"
+        - "The valid correction record after the bad line is delivered to the pty"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:observe-and-correct:E003-SMOKE-001-correction-loop-end-to-end"
+      id: "AC-SMOKE-001"
+      purpose: "End-to-end: a synthetic agent runs under the shim; the observer fires a rule; the correction lands in the agent pty stdin; the drift condition resolves on the observer's next cycle"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic agent process (a Python script) runs under the shim with a real pty"
+        - "The observer is watching the agent's output.log with ATDD_CORRECTION_TRANSPORT=cli-return"
+        - "A layout_drift rule is configured to fire on a known synthetic output pattern"
+    when:
+      abstract: "The synthetic agent emits output that triggers the layout_drift rule"
+    then:
+      abstract:
+        - "The observer fires the rule and dispatches a correction to cli-return.jsonl"
+        - "The shim delivers the correction bytes to the synthetic agent's pty stdin"
+        - "The synthetic agent acknowledges the correction in output.log"
+        - "The observer's next cycle detects that the drift condition is no longer present"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
