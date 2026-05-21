@@ -1,5 +1,3 @@
-# Acceptance: acc:observe-and-correct:P001-SMOKE-002-close-the-loop-smoke-acceptance
-# WMBT: wmbt:observe-and-correct:P001
 # Phase: SMOKE
 # Layer: backend.integration
 """planner.smoke.feedback-loop-close-the-loop validator (issue #825).
