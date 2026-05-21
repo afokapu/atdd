@@ -22,6 +22,7 @@ features:
   - urn: "feature:spawn-agents:worker-launch-prompt-readiness-gate"
   - urn: "feature:spawn-agents:coach-spawn-step-by-step-verify-each-stage"
   - urn: "feature:spawn-agents:coach-spawn-rename-enter-races-text-send"
+  - urn: "feature:spawn-agents:spawn-time-non-interactive-convention"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -104,7 +105,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 15
+  total: 22
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -120,3 +121,10 @@ wmbt:
   E010: "minimize likelihood of coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate"
   E011: "minimize likelihood of coach-spawn-pipeline-stages-that-silently-fail-without-raising-a-stage-specific-exception"
   E012: "minimize likelihood of coach-spawned-workers-blocked-by-rename-race-false-positive-accepted-gate-and-orphan-pane-on-timeout"
+  E013: "minimize likelihood of coach-spawn-adapters-lacking-declared-permission-flags-and-allowed-tools-allowlist"
+  E014: "minimize likelihood of bash-auto-approve-rule-referencing-stale-multiplexer-modal-typing-path"
+  M001: "minimize quantity of coach-spawn-pipelines-that-inject-slash-rename-into-the-running-agent-session"
+  M002: "minimize quantity of observer-correction-code-and-adapter-configs-violating-the-non-interactive-spawn-contract"
+  L001: "minimize likelihood of coach-spawned-agents-that-present-interactive-permission-modals-under-standard-workloads"
+  D002: "minimize likelihood of undocumented-freedom-with-a-leash-spawn-policy"
+  R001: "minimize likelihood of deny-pattern-bash-invocations-handled-via-in-band-modal-or-unrouted-escalation"

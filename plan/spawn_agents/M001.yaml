@@ -1,0 +1,73 @@
+urn: "wmbt:spawn-agents:M001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-21
+step: "monitor"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "coach-spawn-pipelines-that-inject-slash-rename-into-the-running-agent-session"
+context_clarifier: "src/atdd/coach/utils/session_naming_apply.py apply_canonical_name_and_layout (line 91) calls backend.paste_text(ref, f'/rename {canonical_name}\\n') to rename the Claude Code session after spawn; this slash-command injection requires the agent CLI to be in its interactive TUI mode and willing to process /rename — after #824's cli-return shim lands, the pty is named externally by the shim so runtime /rename injection is vestigial and conflicts with the freedom-with-a-leash model where modals/slash-commands are pre-empted at spawn time rather than answered at runtime; additionally the E012 verify-rename-accepted gate blocks the spawn pipeline for up to verify_timeout_s waiting for 'Session renamed to:' which the shim-named pty never emits"
+lens: "functional.effectiveness"
+statement: "minimize quantity of coach-spawn-pipelines-that-inject-slash-rename-into-the-running-agent-session by removing the paste_text /rename injection from apply_canonical_name_and_layout and the associated verify-rename-accepted gate; the backend.rename() multiplexer-level rename (window title, not Claude session name) is retained as a purely cosmetic best-effort; session naming is delegated to shim-owned pty metadata (issue #824)"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:M001-UNIT-001-apply-canonical-name-no-slash-rename-injection"
+      id: "AC-UNIT-001"
+      purpose: "apply_canonical_name_and_layout does NOT call backend.paste_text with a '/rename' payload; a FakeMultiplexer records no paste_text calls containing '/rename'"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/utils/session_naming_apply.py apply_canonical_name_and_layout after M001 changes"
+        - "A FakeMultiplexer that implements paste_text and records calls"
+        - "The backend does NOT implement the native rename() method (falls into the fallback branch)"
+    when:
+      abstract: "apply_canonical_name_and_layout(backend, ref='surface:1', canonical_name='ATDD829', surface_count=1) is called"
+    then:
+      abstract:
+        - "No call to backend.paste_text contains '/rename' anywhere in the text argument"
+        - "No call to backend.send_key contains 'Enter' as a post-rename submit"
+        - "The function returns without raising"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:M001-UNIT-002-multiplexer-level-rename-still-called"
+      id: "AC-UNIT-002"
+      purpose: "The backend.rename() multiplexer-level rename (window/tab title) is still attempted when the backend supports it; only the Claude /rename slash-command injection is removed"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer that implements both rename() and paste_text() and records calls"
+    when:
+      abstract: "apply_canonical_name_and_layout is called with canonical_name='ATDD829'"
+    then:
+      abstract:
+        - "backend.rename is called once with ref and 'ATDD829'"
+        - "No paste_text call with '/rename' is present in the recorded calls"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:M001-UNIT-003-verify-after-send-no-longer-checks-rename-accepted"
+      id: "AC-UNIT-003"
+      purpose: "When verify_after_send=True, apply_canonical_name_and_layout does NOT call _verify_stage with stage_name='rename-accepted'; the rename-accepted gate is removed along with the injection that triggered it"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "apply_canonical_name_and_layout with M001 changes"
+        - "A spy on atdd.coach.commands.spawn._verify_stage"
+    when:
+      abstract: "apply_canonical_name_and_layout(backend, ref, 'ATDD829', surface_count=1, verify_after_send=True) is called"
+    then:
+      abstract:
+        - "_verify_stage is NOT called with stage_name='rename-accepted'"
+        - "The function completes without raising RenameNotAccepted"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"

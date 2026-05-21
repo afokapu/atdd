@@ -1,0 +1,49 @@
+urn: "wmbt:spawn-agents:L001"
+step: "locate"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "coach-spawned-agents-that-present-interactive-permission-modals-under-standard-workloads"
+context_clarifier: "the spawn-time allowlist (--permission-mode acceptEdits --allowedTools Bash Edit Write Read TodoWrite Glob Grep WebFetch) is claimed to pre-empt permission modals for the freedom set; this claim needs a per-adapter smoke validation that spawns the agent against a synthetic workload that would historically have fired a modal (e.g. a Bash read of a file path) and asserts zero modal-class events appear on the pty output — confirming the allowlist works as documented in the operator memory feedback_allowedtools_unblocks_stalls"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of coach-spawned-agents-that-present-interactive-permission-modals-under-standard-workloads by adding a per-adapter non_interactive_smoke callable to ADAPTER_REGISTRY that confirms the freedom-set tool invocations produce no modal events on the pty"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:L001-UNIT-001-adapter-registry-has-non-interactive-smoke"
+      id: "AC-UNIT-001"
+      purpose: "Each ADAPTER_REGISTRY entry carries a non_interactive_smoke callable attribute; the callable is not None"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ADAPTER_REGISTRY imported from spawn.py"
+    when:
+      abstract: "non_interactive_smoke attribute is read from each registered adapter entry"
+    then:
+      abstract:
+        - "Every adapter entry has a non_interactive_smoke attribute that is callable"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:L001-SMOKE-001-claude-code-no-modal-on-bash-read"
+      id: "AC-SMOKE-001"
+      purpose: "claude-code adapter's non_interactive_smoke spawns claude with the declared permission_flags + allowed_tools against a synthetic 'read a file' workload; no '(1) Yes (2) No' or 'Allow this' modal appears in the captured pty output within 30s"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real claude CLI is installed and reachable as 'claude' on PATH"
+        - "ADAPTER_REGISTRY['claude-code'].permission_flags and allowed_tools are set per E013"
+    when:
+      abstract: "non_interactive_smoke() is called on the claude-code adapter entry"
+    then:
+      abstract:
+        - "The smoke function returns without raising"
+        - "The captured pty output does not contain '(1) Yes' or '(2) No' or 'Allow this Bash command'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"

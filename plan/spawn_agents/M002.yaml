@@ -1,0 +1,72 @@
+urn: "wmbt:spawn-agents:M002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-21
+step: "monitor"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "observer-correction-code-and-adapter-configs-violating-the-non-interactive-spawn-contract"
+context_clarifier: "two classes of Layer-B violation must be caught by a new validator: (1) raw multiplexer.send(<ref>, '/...') slash-command injection in observer correction code — after #829 the correction channel is cli-return.jsonl; slash-commands injected via multiplexer.send bypass the freedom-with-a-leash model and risk re-introducing the modal-typing anti-pattern in observer rules; (2) adapter configs in ADAPTER_REGISTRY that declare --permission-mode ask or omit --allowedTools entirely — these configs will cause the spawned agent to show modals for every tool invocation, directly violating the pre-grant contract this issue ships; the Layer-B pattern is established by issue #659 which rejected raw cmux send 'claude ...' launch payloads via an AST scanner in src/atdd/coach/validators/"
+lens: "functional.effectiveness"
+statement: "minimize quantity of observer-correction-code-and-adapter-configs-violating-the-non-interactive-spawn-contract by adding a Layer-B validator that AST-scans observer rules for raw multiplexer.send slash-command calls and inspects ADAPTER_REGISTRY entries for --permission-mode ask or absent allowlist"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:M002-UNIT-001-validator-detects-slash-send-in-observer-rules"
+      id: "AC-UNIT-001"
+      purpose: "The Layer-B validator detects a multiplexer.send call whose text argument starts with '/' in an observer rule file and returns a failure naming the file and the offending call"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic observer rule file containing: multiplexer.send(ref, '/rename foo')"
+        - "The spawn non-interactive validator from src/atdd/coach/validators/test_spawn_non_interactive_validator.py"
+    when:
+      abstract: "The validator is run against the synthetic file"
+    then:
+      abstract:
+        - "The validator reports at least one violation"
+        - "The violation message references the synthetic file path"
+        - "The violation message references 'multiplexer.send' or 'slash-command'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:M002-UNIT-002-validator-detects-permission-mode-ask-in-adapter"
+      id: "AC-UNIT-002"
+      purpose: "The validator detects '--permission-mode ask' anywhere in an adapter's permission_flags or assembled command string and reports it as a non-interactive contract violation"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A patched ADAPTER_REGISTRY with one entry whose permission_flags contains '--permission-mode ask'"
+        - "The spawn non-interactive validator"
+    when:
+      abstract: "The validator is run against the patched registry"
+    then:
+      abstract:
+        - "The validator reports a violation naming the offending adapter"
+        - "The violation message references '--permission-mode ask'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:M002-UNIT-003-current-observer-rules-pass-validator"
+      id: "AC-UNIT-003"
+      purpose: "All current observer rule files in src/atdd/coach/observer_rules/ pass the Layer-B validator with zero violations after the E014 bash_auto_approve fix is applied"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/observer_rules/ with the E014 update applied"
+        - "The spawn non-interactive validator"
+    when:
+      abstract: "The validator scans all files under src/atdd/coach/observer_rules/"
+    then:
+      abstract:
+        - "Zero violations are reported"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
