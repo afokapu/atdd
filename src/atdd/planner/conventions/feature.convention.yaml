@@ -387,3 +387,41 @@ rules:
     disposition: documentation-only
     description: "Each feature is registered under exactly one wagon's _features.yaml manifest"
     introduced_in: "1.67.0"
+
+# =============================================================================
+# Feature kind field (issue #825)
+# =============================================================================
+# Marks the feature's system archetype. Defaults to producer-only if absent.
+# The kind field is optional; validators only activate for explicitly-marked
+# kinds, so existing features without kind: are unaffected.
+# =============================================================================
+feature_kind:
+  description: |
+    Optional field on feature YAMLs that classifies the feature's system
+    archetype for convention enforcement purposes.
+
+  valid_values:
+    feedback-loop:
+      description: |
+        The feature implements a producer→consumer feedback loop where success =
+        (a) the producer detected a condition and emitted a correction,
+        (b) the consumer received and reacted to the correction, AND
+        (c) the producer's predicate no longer fires next cycle (drift resolved).
+      enforcement: |
+        Any feature marked kind: feedback-loop triggers rule
+        planner.smoke.feedback-loop-close-the-loop: the feature's WMBTs must
+        declare at least one SMOKE acceptance with a close_the_loop: block
+        containing consumer_reacted and drift_resolved.
+      example_feature_yaml: |
+        kind: feedback-loop
+      example_acceptance: |
+        - identity:
+            urn: "acc:<wagon>:<wmbt_id>-SMOKE-NNN-close-the-loop"
+            phase: "SMOKE"
+          close_the_loop:
+            consumer_reacted: "shim pty_stdin_bytes contains correction text"
+            drift_resolved: "second scan_once() produces 0 new corrections"
+
+  suppression: |
+    Suppress inline on the kind: line if the feature is docs-only:
+      kind: feedback-loop  # atdd:suppress(planner.smoke.feedback-loop-close-the-loop) UNTIL=YYYY-MM-DD

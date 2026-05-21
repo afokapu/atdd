@@ -448,3 +448,156 @@ collaborator_substitution_rules:
         Temporary escape: add an inline marker on the offending line:
           # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=<YYYY-MM-DD>
       introduced_in: "3.53.0"
+
+# =============================================================================
+# Feedback-loop systems — close-the-loop assertion required (issue #825)
+# =============================================================================
+# The lived incident (2026-05-21): feature:observe-and-correct:observer-runtime-
+# and-rules shipped with all 4 SMOKE tests green. 3+ weeks later: 0 corrections
+# delivered, 139,896 heartbeats into a dead-end channel. Every smoke asserted
+# "producer wrote the artifact" without asserting "consumer received it."
+#
+# Root cause: the convention was written for producer-only features (success =
+# artifact landed). Feedback-loop features (success = consumer reacted AND drift
+# resolved next cycle) inherited that template and shipped with false-positive
+# green CI.
+# =============================================================================
+feedback_loop:
+  description: |
+    A feedback-loop feature is one where success = the producer detected a
+    condition, sent a signal, the consumer reacted, AND the condition is gone
+    next cycle. This is distinct from producer-only features where success =
+    artifact landed in a sink (DB, file, queue).
+
+  classification:
+    producer_only:
+      definition: "Success = artifact persisted to a sink (e.g., POST /users → row in DB)."
+      smoke_shape: "Assert HTTP response AND database state mutation."
+    feedback_loop:
+      definition: |
+        Success = producer detected drift → sent correction → consumer received
+        AND reacted → predicate no longer fires next cycle.
+      smoke_shape: |
+        In addition to producer assertions, the smoke MUST include:
+          (a) consumer_reacted — the correction reached and was processed by the
+              consumer (e.g., text arrived in the agent's pty stdin via shim inbox).
+          (b) drift_resolved — re-running the producer does NOT emit a second
+              correction for the same (rule_id, content-hash); the predicate has
+              flipped to non-firing.
+
+  required_assertions:
+    consumer_reacted:
+      description: "At least one assertion that the consumer received and processed the correction."
+      valid_forms:
+        - "Assert against the shim test double's pty_stdin_bytes (canonical for cli-return path)"
+        - "Assert the agent's output.log contains the consumer's response to the correction"
+        - "Assert per-adapter equivalent consumer-side observable"
+      invalid_forms:
+        - "FakeMultiplexer.send_history — records sends but never delivers them anywhere; was the exact failure mode of P001-SMOKE-001"
+    drift_resolved:
+      description: "At least one assertion that re-running the producer produces 0 new corrections for the same drift."
+      valid_forms:
+        - "Re-run scan_once() after consumer acted; assert corrections list is empty"
+        - "Assert correction record count stays at 1 after a second producer cycle"
+
+  feature_kind_marker:
+    field: "kind"
+    value: "feedback-loop"
+    location: "feature YAML (plan/<wagon>/features/<feature>.yaml)"
+    example: |
+      kind: feedback-loop
+    note: "Features without kind: are assumed producer-only; the validator only fires for kind: feedback-loop."
+
+  close_the_loop_acceptance_block:
+    description: |
+      A SMOKE acceptance on a feedback-loop WMBT declares close_the_loop:
+      with both consumer_reacted and drift_resolved fields. This is a
+      first-class structured field (not string-matching) so tooling can
+      enforce it unambiguously.
+    schema: |
+      - identity:
+          urn: "acc:<wagon>:<wmbt_id>-SMOKE-NNN-close-the-loop"
+          id: "AC-SMOKE-NNN"
+          purpose: "Verify the feedback loop closes: consumer reacted + drift resolved"
+          phase: "SMOKE"
+        harness:
+          type: "integration"
+          category: "backend"
+        close_the_loop:
+          consumer_reacted: "<what the test asserts about the consumer side>"
+          drift_resolved: "<what the test asserts about predicate non-firing next cycle>"
+        given:
+          abstract:
+            - "A synthetic agent seeded with drift visible to the detection rule"
+        when:
+          abstract: "The observer/validator cycle runs once (detect + dispatch)"
+        then:
+          abstract:
+            - "Correction text arrives in the consumer's input channel"
+            - "Re-running the cycle produces 0 new corrections for the same drift"
+
+  example_smoke_test: |
+    # Canonical close-the-loop SMOKE shape — feedback-loop convention (issue #825)
+    def test_observer_self_correcting_loop_closes(tmp_runtime, fake_shim):
+        # 1. Spawn a synthetic agent under the shim with seeded drift.
+        agent = fake_shim.spawn(agent_id="coder-825-test",
+                                cli_stub=BashPromptStub())
+        assert "bash auto-approve candidate" in agent.pty_output
+
+        # 2. Trigger one observer cycle.
+        observer.scan_once(agent_id="coder-825-test")
+
+        # 3. CONSUMER-SIDE assertion: correction reached the agent's pty stdin.
+        assert "1\n" in fake_shim.pty_stdin_bytes("coder-825-test")
+
+        # 4. CONVERGENCE assertion: second cycle produces 0 new corrections.
+        cli_return_log = read_jsonl(tmp_runtime / "agents" /
+                                    "coder-825-test" / "cli-return.jsonl")
+        assert len(cli_return_log) == 1
+        observer.scan_once(agent_id="coder-825-test")
+        assert len(cli_return_log) == 1  # still one — drift resolved
+
+# =============================================================================
+# Feedback-loop close-the-loop rule (issue #825)
+# =============================================================================
+feedback_loop_rules:
+  rules:
+    - id: "planner.smoke.feedback-loop-close-the-loop"
+      severity: 3
+      disposition: suppress-and-clean
+      validator: "test_feedback_loop_smoke_closes_the_loop::test_every_feedback_loop_feature_has_close_the_loop_smoke"
+      description: "A feature marked `kind: feedback-loop` must have at least one smoke acceptance (on any of its WMBTs) whose acceptance block contains a `close_the_loop:` field with both `consumer_reacted` and `drift_resolved` sub-fields. Producer-only smoke assertions (artifact existence, schema validation) are insufficient for feedback-loop features — they produce false-positive green CI while the consumer end of the loop is never exercised."
+      introduced_in: "3.79.0"
+      fix_hint: |
+        The feature is marked `kind: feedback-loop` but none of its WMBT SMOKE
+        acceptances declare a `close_the_loop:` block. This means CI can pass
+        while the consumer end of the loop is never exercised.
+
+        Repair:
+          1. Identify the primary WMBT for this feature in plan/<wagon>/<ID>.yaml.
+          2. Add (or extend) a SMOKE acceptance with a close_the_loop: block:
+
+             - identity:
+                 urn: "acc:<wagon>:<wmbt_id>-SMOKE-NNN-close-the-loop"
+                 id: "AC-SMOKE-NNN"
+                 purpose: "Verify feedback loop closes: consumer reacted + drift resolved"
+                 phase: "SMOKE"
+               harness:
+                 type: "integration"
+                 category: "backend"
+               close_the_loop:
+                 consumer_reacted: "<describe what consumer-side assertion the test makes>"
+                 drift_resolved: "<describe what convergence assertion the test makes>"
+
+          3. The corresponding test must assert:
+             - The consumer received the correction (not FakeMultiplexer.send_history —
+               that records sends without delivering them anywhere).
+             - Re-running the producer produces 0 new corrections for the same drift.
+
+          4. To suppress on a feature with no real infrastructure (docs-only):
+             Add on the feature YAML's kind: line:
+               kind: feedback-loop  # atdd:suppress(planner.smoke.feedback-loop-close-the-loop) UNTIL=YYYY-MM-DD
+
+        See src/atdd/tester/conventions/smoke.convention.yaml::feedback_loop for
+        the canonical example and the definition of valid consumer-side assertions.
+        See issue #825 for the motivating incident.
