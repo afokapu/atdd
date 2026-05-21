@@ -1143,7 +1143,7 @@ sessions:
   file: plan/observe_and_correct/E003.yaml
   issue_number: 824
   type: implementation
-  status: SMOKE
+  status: REFACTOR
   created: '2026-05-21'
   archived: null
   wagon: observe-and-correct
