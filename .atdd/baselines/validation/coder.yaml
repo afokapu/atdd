@@ -1,5 +1,5 @@
 phase: coder
-passed_at: '2026-05-19T23:44:51.315269+00:00'
-source_hash: 1b0c1ac7a13a520f42f513073157f466eba87d000d2b185e07418bf2aa726b08
-atdd_version: 3.71.0
-skipped_api: false
+passed_at: '2026-05-20T21:01:22.275901+00:00'
+source_hash: 6cae9060f4986e78868136c6be429ee9908d80184d318a1a1fc1052a774cdb7f
+atdd_version: 3.77.0
+skipped_api: true

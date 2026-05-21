@@ -56,9 +56,9 @@ class _StageProgressMux:
     def capture_pane_text(self, surface_ref: str) -> str:
         """Return staged captures simulating correct progression."""
         self._call_count += 1
-        # Calls 1-2: rename-accepted check — canonical name visible
+        # Calls 1-2: rename-accepted check — post-submit acknowledgment (E012)
         if self._call_count <= 2:
-            return "ATDD799 · Anthropic"
+            return "Session renamed to: ATDD799"
         # Calls 3-4: paste-landed check
         if self._call_count <= 4:
             return "paste again to expand · 1 line"

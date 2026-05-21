@@ -1,0 +1,32 @@
+urn: "feature:spawn-agents:coach-spawn-rename-enter-races-text-send"
+wagon: "wagon:spawn-agents"
+description: "Fixes the production rename-race regression (issue #811): (1) replaces the two-call backend.send('/rename X') + backend.send_key('Enter') pattern in apply_canonical_name_and_layout with a single atomic paste_text('/rename X\\n') so the rename text and submit land as one cmux input event; (2) tightens _verify_stage('rename-accepted') to require the post-submit acknowledgment 'Session renamed to: <name>' rather than bare canonical-name presence, eliminating the false-positive that caused _wait_for_claude_ready timeouts to mask the actual root cause; (3) extends _close_surface_on_failure coverage to every WorkerReadinessTimeout raise site (post-wait and post-paste verify stages) so no orphan cmux pane survives a failed spawn (E012)"
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:spawn-agents:E012"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI entry point — all changes are internal to session_naming_apply.py and spawn.py"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "Atomic rename injection (replace send+send_key with paste_text trailing-newline) and tightened rename-accepted gate (require 'Session renamed to:' post-submit signal) are two discrete application-layer changes; orphan-close extension is a one-line guard addition to the existing use cases"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain primitives — reuses RenameNotAccepted and WorkerReadinessTimeout already shipped in E011/E010"
+    integration:
+      - type: "adapters"
+        count: 0
+        rationale: "FakeMultiplexer already implements paste_text (added in E011); CmuxBackend already exposes paste_text from the launch-prompt path — no new adapter surface is needed"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"

@@ -1,0 +1,144 @@
+urn: "wmbt:spawn-agents:E012"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "coach-spawned-workers-blocked-by-rename-race-false-positive-accepted-gate-and-orphan-pane-on-timeout"
+context_clarifier: "apply_canonical_name_and_layout (session_naming_apply.py L91-92) issues two separate cmux subprocess calls: backend.send(ref, '/rename X') followed immediately by backend.send_key(ref, 'Enter'); cmux dispatches each as an independent shell invocation and the OS scheduler can deliver Enter before the typed text reaches Claude Code's TUI input buffer — production evidence shows '/rename ATDD794' typed-but-unsubmitted in the pane indefinitely (cmux read-screen confirms text is visible; Enter did not register as a submit). The downstream false-positive: _verify_stage('rename-accepted', expect_any=(canonical_name,)) matches the canonical name string anywhere in the pane capture — including inside the typed-but-unsubmitted '❯ /rename ATDD794' input line — so the rename gate passes even though Claude never processed the command and no jsonl is ever written. The rename failure then surfaces one step later as a _wait_for_claude_ready timeout ('❌ worker on surface:N did not boot in time') which hides the actual root cause. Compound regression: when WorkerReadinessTimeout fires from _wait_for_claude_ready or from any post-paste _verify_stage call, _close_surface_on_failure is NOT called for that failure path — only the apply_canonical_name_and_layout failure path (spawn.py L909) closes the surface. Each failed coach run therefore strands a live cmux pane with Claude running and '/rename X' stuck in the input buffer, requiring manual 'cmux close-surface' before the next retry. Fix: (1) send the /rename command as a single atomic text block with trailing newline (backend.paste_text or backend.send with '\\n' appended) so the rename text and submit land as one input event; (2) tighten _verify_stage('rename-accepted') to require the post-submit acknowledgment 'Session renamed to: <name>' rather than just the canonical name string; (3) extend _close_surface_on_failure coverage to all WorkerReadinessTimeout sites (post-wait and post-paste verify stages)"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of coach-spawned-workers-blocked-by-rename-race-false-positive-accepted-gate-and-orphan-pane-on-timeout when apply_canonical_name_and_layout sends '/rename X' and Enter as two unsynced cmux calls — by replacing the two-call pattern with a single atomic send that includes the trailing newline, tightening the rename-accepted gate to require 'Session renamed to: <name>' rather than bare canonical name presence, and extending orphan-pane close coverage to every WorkerReadinessTimeout raise site so failed spawns leave no live cmux panes"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E012-UNIT-001-atomic-rename-send-no-separate-enter"
+      id: "AC-UNIT-001"
+      purpose: "apply_canonical_name_and_layout sends the /rename command as a single atomic text block with trailing newline rather than two separate send + send_key calls; a FakeMultiplexer confirms paste_text is called with '/rename X\\n' and send_key('Enter') is NOT called for the rename path"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/utils/session_naming_apply.py apply_canonical_name_and_layout with E012 changes"
+        - "A FakeMultiplexer that records paste_text and send_key calls"
+        - "The backend does not implement the native rename() method (falls into the /rename injection branch)"
+    when:
+      abstract: "apply_canonical_name_and_layout(backend, ref, 'ATDD42', surface_count=1) is called"
+    then:
+      abstract:
+        - "backend.paste_text is called exactly once with a text argument containing '/rename ATDD42' and a trailing newline"
+        - "backend.send_key is NOT called with 'Enter' as a standalone follow-up to the rename injection"
+        - "The call does not raise any exception on a FakeMultiplexer that implements paste_text"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:spawn-agents:E012-UNIT-002-rename-accepted-requires-post-submit-signal"
+      id: "AC-UNIT-002"
+      purpose: "_verify_stage('rename-accepted') requires 'Session renamed to: <name>' in the pane capture rather than the bare canonical name; typed-but-unsubmitted '❯ /rename ATDD42' does NOT satisfy the check"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py _verify_stage with E012 changes"
+        - "A fake backend whose capture_pane_text returns '❯ /rename ATDD42' (typed-but-unsubmitted, canonical name present as substring)"
+    when:
+      abstract: "_verify_stage('rename-accepted', surface_ref='surface:1', backend=fake, expect_any=('Session renamed to: ATDD42',), timeout_s=0.1) is called"
+    then:
+      abstract:
+        - "RenameNotAccepted is raised (the canonical name in the input buffer is not the post-submit signal)"
+        - "When capture_pane_text returns 'Session renamed to: ATDD42', _verify_stage returns without raising"
+        - "When capture_pane_text returns a line containing '─── ATDD42 ──' (status bar after rename), _verify_stage raises (that substring alone does not confirm submit)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:spawn-agents:E012-UNIT-003-fake-mux-models-enter-races-text"
+      id: "AC-UNIT-003"
+      purpose: "FakeMultiplexer can model the race where Enter lands before the typed text is registered — the pane shows the canonical name in the input line but 'Session renamed to:' never appears; this scenario triggers RenameNotAccepted under the tightened gate but would have been a false positive under the old gate"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer with _pane_captures scripted to return: first N calls return '❯ /rename ATDD42' (Enter-races-text: text visible, Enter did not submit), subsequent calls return '❯ /rename ATDD42' indefinitely (rename never submitted)"
+        - "This models the production failure: canonical name IS in the pane as a false positive for the old expect_any=(canonical_name,) check"
+    when:
+      abstract: "_verify_stage('rename-accepted', expect_any=('Session renamed to: ATDD42',), timeout_s=0.1) is called against the race-modelling FakeMultiplexer"
+    then:
+      abstract:
+        - "RenameNotAccepted is raised — the new gate correctly rejects the race scenario"
+        - "Had expect_any=('ATDD42',) been used (the old check), no exception would have been raised for the same pane content (demonstrating the false-positive the new check fixes)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:spawn-agents:E012-UNIT-004-orphan-pane-closed-on-readiness-timeout"
+      id: "AC-UNIT-004"
+      purpose: "_close_surface_on_failure is called when WorkerReadinessTimeout fires from _wait_for_claude_ready or from any post-paste _verify_stage so no orphan pane survives a failed spawn"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py cmd_spawn with E012 changes"
+        - "A FakeMultiplexer that records new_surface and close calls"
+        - "The mux is scripted to: (a) return a surface ref from new_surface, (b) trigger a WorkerReadinessTimeout from _wait_for_claude_ready (no session .jsonl appears within timeout)"
+    when:
+      abstract: "cmd_spawn is invoked end-to-end and _wait_for_claude_ready raises WorkerReadinessTimeout"
+    then:
+      abstract:
+        - "close(surface_ref) is called exactly once for the surface ref returned by new_surface"
+        - "WorkerReadinessTimeout still propagates to the caller (the failure is not swallowed)"
+        - "The same close-on-failure behaviour applies when WorkerReadinessTimeout fires from a post-paste _verify_stage call"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:spawn-agents:E012-INTEGRATION-001-full-spawn-atomic-rename-and-orphan-cleanup"
+      id: "AC-INTEGRATION-001"
+      purpose: "Full cmd_spawn integration path: atomic rename paste lands as one input block; rename-accepted gate checks 'Session renamed to:'; WorkerReadinessTimeout from _wait_for_claude_ready triggers surface close before propagating"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer scripted for the happy path: capture_pane_text returns 'Session renamed to: ATDDNNN' after the rename, then paste and thinking indicators for subsequent stages"
+        - "A tmp claude_projects_dir with a pre-created session .jsonl (for _wait_for_claude_ready to pass immediately)"
+        - "A tmp claude_json_path so the real ~/.claude.json is never touched"
+        - "A dummy launch prompt file on disk"
+    when:
+      abstract: "cmd_spawn is called end-to-end against the staged FakeMultiplexer; separately, a 'timeout-mux' scripted so _wait_for_claude_ready always times out"
+    then:
+      abstract:
+        - "Happy path: paste_text is called with '/rename <name>\\n' before any capture probe; agent_spawned event is written to runtime/agents/"
+        - "Timeout path: close(surface_ref) is called; WorkerReadinessTimeout propagates; no agent_spawned event is written"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:spawn-agents:E012-SMOKE-001-atomic-rename-on-real-cmux"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real cmux session the atomic '/rename X\\n' paste-with-newline submits the slash command and the pane reflects 'Session renamed to: X' within the bounded timeout — no orphan pane is left on failure"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real cmux session is available (CMUX_SOCKET set or default socket found)"
+        - "A real surface running a minimal Claude Code TUI (fast-exit or interactive shell acceptable)"
+        - "ATDD_RUN_SMOKE=1 is set in the environment"
+    when:
+      abstract: "apply_canonical_name_and_layout with verify_after_send=True is called against the real backend with a test canonical name"
+    then:
+      abstract:
+        - "No RenameNotAccepted is raised within the bounded timeout (the atomic paste submitted the rename)"
+        - "capture_pane_text of the surface contains 'Session renamed to: <canonical_name>' confirming Claude accepted the command"
+        - "If the rename times out, the surface is closed and no live cmux pane remains"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"

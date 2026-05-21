@@ -952,6 +952,7 @@ def cmd_spawn(
             f"({SPAWN_RULE_ID})",
             file=sys.stderr,
         )
+        _close_surface_on_failure(backend, surface_ref)
         raise
 
     # Inject the launch prompt as the first interactive message (#702).

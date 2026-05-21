@@ -38,14 +38,21 @@ class _NeverShowsRenameMux:
 
 
 class _ShowsRenameAfterSendMux:
-    """Backend whose capture_pane_text shows the canonical name immediately."""
+    """Backend whose capture_pane_text shows the post-submit acknowledgment immediately.
+
+    E012: The gate now requires 'Session renamed to: <name>', not bare canonical name.
+    """
 
     def __init__(self):
+        self.paste_calls = []
         self.sends = []
         self.keys = []
 
     def rename(self, ref, name):
         pass
+
+    def paste_text(self, ref, text):
+        self.paste_calls.append((ref, text))
 
     def send(self, ref, text):
         self.sends.append((ref, text))
@@ -54,7 +61,7 @@ class _ShowsRenameAfterSendMux:
         self.keys.append((ref, key))
 
     def capture_pane_text(self, surface_ref: str) -> str:
-        return "ATDD42 · Press Enter to send"
+        return "Session renamed to: ATDD42"
 
 
 def test_apply_canonical_name_raises_rename_not_accepted_when_verify_after_send_true():
