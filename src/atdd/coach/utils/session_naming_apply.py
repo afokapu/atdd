@@ -65,11 +65,14 @@ def apply_canonical_name_and_layout(
     verify_timeout_s: float = 10.0,
     verify_poll_s: float = 0.25,
 ) -> None:
-    """Apply canonical name via multiplexer rename + Claude /rename command.
+    """Apply canonical name via multiplexer-level rename (tab/window title only).
 
-    E011 (#799): When ``verify_after_send=True``, polls ``backend.capture_pane_text``
-    after sending the /rename command and raises ``RenameNotAccepted`` if the
-    canonical name does not appear within ``verify_timeout_s``.
+    M001 (#829): The Claude /rename slash-command injection is removed. Session
+    naming is delegated to the shim-owned pty metadata (issue #824). Only the
+    multiplexer-level backend.rename() call (which sets the tab/window title) is
+    retained as a best-effort cosmetic. The ``verify_after_send`` parameter is
+    preserved in the signature for call-site compat but is now a no-op since
+    there is no /rename send to verify.
     """
     if not canonical_name:
         return
@@ -86,31 +89,6 @@ def apply_canonical_name_and_layout(
             f"⚠️  rename failed for {ref}: {exc} "
             f"({CANONICAL_SESSION_NAME_RULE_ID})",
             file=sys.stderr,
-        )
-    try:
-        backend.paste_text(ref, f"/rename {canonical_name}\n")
-    except AttributeError as exc:
-        print(
-            f"⚠️  /rename injection unavailable for {ref}: {exc} "
-            f"({CANONICAL_SESSION_NAME_RULE_ID})",
-            file=sys.stderr,
-        )
-    except MultiplexerError as exc:
-        print(
-            f"⚠️  /rename injection failed for {ref}: {exc} "
-            f"({CANONICAL_SESSION_NAME_RULE_ID})",
-            file=sys.stderr,
-        )
-
-    if verify_after_send:
-        from atdd.coach.commands.spawn import _verify_stage
-        _verify_stage(
-            stage_name="rename-accepted",
-            surface_ref=ref,
-            backend=backend,
-            expect_any=(f"Session renamed to: {canonical_name}",),
-            timeout_s=verify_timeout_s,
-            poll_interval_s=verify_poll_s,
         )
 
     layout = target_grid_label(surface_count)
