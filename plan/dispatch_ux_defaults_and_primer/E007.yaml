@@ -1,0 +1,100 @@
+urn: "wmbt:dispatch-ux-defaults-and-primer:E007"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "atdd-coach-cold-starts-that-fail-with-broken-pipe-due-to-deprecated-cmux-rpcs"
+context_clarifier: "coach dispatch calls cmux new-workspace (workspace mode) and cmux new-pane (pane mode) — both deprecated RPCs that cmux 0.64.7 rejects with 'Failed to write to socket (Broken pipe, errno 32)'. The canonical write primitive is cmux new-surface --workspace <ws> --pane <pane>, which maps to CmuxBackend.new_surface_in_pane(). The fix: add a 'surface' mode to _create_surface() that calls new_surface_in_pane(), make 'surface' the default in resolve_multiplexer_mode(), and raise DeprecatedMultiplexerModeError for the workspace and pane modes so all cold-starts route through the working RPC."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of atdd-coach-cold-starts-that-fail-with-broken-pipe-due-to-deprecated-cmux-rpcs when atdd coach drives any issue — by replacing workspace-mode and pane-mode dispatch with surface-mode dispatch via CmuxBackend.new_surface_in_pane, making surface the default resolved mode, and raising DeprecatedMultiplexerModeError on the legacy modes so operators see a clear migration message"
+acceptances:
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E007-UNIT-001-surface-mode-calls-new-surface-in-pane"
+      id: "AC-UNIT-001"
+      purpose: "_create_surface with mode='surface' calls backend.new_surface_in_pane, not new_workspace or new_surface(pane_ref=None)"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer that records every call op in .calls"
+        - "_create_surface is imported from atdd.coach.commands.spawn"
+    when:
+      abstract: "_create_surface is called with mode='surface' and the FakeMultiplexer as backend"
+    then:
+      abstract:
+        - "Exactly one call with op='new_surface_in_pane' appears in FakeMultiplexer.calls"
+        - "No call with op='new_workspace' appears in FakeMultiplexer.calls"
+        - "No call with op='new_surface' appears in FakeMultiplexer.calls"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E007-UNIT-002-resolve-multiplexer-mode-defaults-surface"
+      id: "AC-UNIT-002"
+      purpose: "resolve_multiplexer_mode defaults to 'surface' when CMUX_WORKSPACE_ID is set and no explicit flag is given"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/coach.py exposes resolve_multiplexer_mode(explicit_flag, env)"
+        - "env contains CMUX_WORKSPACE_ID='workspace:1'"
+    when:
+      abstract: "resolve_multiplexer_mode is called with explicit_flag=None and env={'CMUX_WORKSPACE_ID': 'workspace:1'}"
+    then:
+      abstract:
+        - "The return value is 'surface'"
+        - "When explicit_flag='surface' is passed, the return value is 'surface' (explicit wins)"
+        - "When neither CMUX_WORKSPACE_ID nor TMUX is set and explicit_flag is None, the return value is 'surface'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E007-UNIT-003-deprecated-modes-raise-error"
+      id: "AC-UNIT-003"
+      purpose: "_create_surface raises DeprecatedMultiplexerModeError for mode='workspace' and mode='pane'"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer"
+        - "_create_surface is imported from atdd.coach.commands.spawn"
+        - "DeprecatedMultiplexerModeError is importable from atdd.coach.commands.spawn"
+    when:
+      abstract: "_create_surface is called with mode='workspace'"
+    then:
+      abstract:
+        - "DeprecatedMultiplexerModeError is raised"
+        - "The error message references 'cmux new-workspace' and 'surface' mode"
+        - "When called with mode='pane', DeprecatedMultiplexerModeError is also raised"
+        - "The pane-mode error message references 'cmux new-pane' and 'surface' mode"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E007-INTEGRATION-001-cmd-spawn-uses-surface-rpc"
+      id: "AC-INTEGRATION-001"
+      purpose: "cmd_spawn with multiplexer_mode='surface' records new_surface_in_pane in the FakeMultiplexer, not new_workspace or new_pane"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer injected into cmd_spawn as the multiplexer argument"
+        - "cmd_spawn is called with multiplexer_mode='surface'"
+        - "All external I/O (GitHub, file system) is stubbed or uses tmp_path"
+    when:
+      abstract: "cmd_spawn completes successfully"
+    then:
+      abstract:
+        - "FakeMultiplexer.calls contains exactly one entry with op='new_surface_in_pane'"
+        - "FakeMultiplexer.calls contains no entry with op='new_workspace'"
+        - "FakeMultiplexer.calls contains no entry with op='new_surface' (the pane-creating variant)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
