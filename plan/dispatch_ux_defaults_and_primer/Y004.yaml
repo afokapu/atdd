@@ -148,3 +148,25 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y004-SMOKE-001-real-template-render-excludes-sibling-deps-from-merge-wait"
+      id: "AC-SMOKE-001"
+      purpose: "atdd session-template renders a launch prompt where the merge-wait loop contains only prereq refs and sibling refs appear only in the context block"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "A real ATDD-formatted issue body fixture with a ### Dependencies section containing a mix of (prereq) and (sibling) tagged entries"
+    when:
+      abstract: "build_context() + render() are called with that fixture body (exercising the full rendering path)"
+    then:
+      abstract:
+        - "The rendered output contains each sibling ref only inside the 'Parallel siblings (for context)' block"
+        - "The while true; do ... done merge-wait loop's gh pr list --search argument contains only the prereq refs"
+        - "The sibling ref does NOT appear inside the --search argument of the merge-wait loop"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
