@@ -534,6 +534,43 @@ _CLAUDE_ALLOWED_TOOLS = [
     "Bash", "Edit", "Write", "Read", "TodoWrite", "Glob", "Grep", "WebFetch",
 ]
 
+
+def _claude_code_non_interactive_smoke() -> None:
+    """L001-SMOKE-001: confirm the freedom-set flags suppress Bash permission modals.
+
+    Spawns `claude --permission-mode acceptEdits --allowedTools Bash -p ...`
+    and asserts none of the modal-class markers ('(1) Yes', 'Allow this', etc.)
+    appear in the captured output within 30 s.
+
+    Raises RuntimeError if claude is not on PATH or a modal marker is found.
+    """
+    import shutil
+    import subprocess as _subprocess
+
+    if not shutil.which("claude"):
+        raise RuntimeError(
+            "claude not found on PATH — cannot run non_interactive_smoke. "
+            "Install Claude Code CLI first."
+        )
+    allowed_tools = " ".join(_CLAUDE_ALLOWED_TOOLS)
+    cmd = [
+        "claude",
+        "--permission-mode", "acceptEdits",
+        "--allowedTools", allowed_tools,
+        "-p", "Bash('echo smoke-ok')",
+    ]
+    result = _subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    combined = result.stdout + result.stderr
+    modal_markers = ["(1) Yes", "(2) No", "Allow this Bash command", "❯ 1."]
+    for marker in modal_markers:
+        if marker in combined:
+            raise RuntimeError(
+                f"L001-SMOKE-001: modal detected in claude output "
+                f"(marker: {marker!r}). The freedom-set permission_flags are "
+                f"not suppressing permission prompts.\nOutput:\n{combined[:500]}"
+            )
+
+
 # Open extension point — codex / gemini / glm follow-up issues register
 # their adapters here without editing this module's CLI surface.
 # E013 (#829): each entry carries structured permission_flags + allowed_tools
@@ -544,6 +581,7 @@ ADAPTER_REGISTRY: dict[str, AdapterConfig] = {
         build_command=_claude_code_adapter,
         permission_flags=_CLAUDE_PERMISSION_FLAGS,
         allowed_tools=_CLAUDE_ALLOWED_TOOLS,
+        non_interactive_smoke=_claude_code_non_interactive_smoke,
     ),
     "claude-glm": AdapterConfig(
         build_command=_claude_glm_adapter,
