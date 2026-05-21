@@ -22,6 +22,14 @@ TEMPLATE_PATH = Path(__file__).parent.parent / "templates" / "SESSION-LAUNCH-TEM
 
 
 @dataclass
+class Dependency:
+    """A typed dependency entry from a ## Dependencies section."""
+    number: str       # e.g. "#123"
+    dep_class: str    # "prereq" | "sibling"
+    bare: bool = False  # True when no classification tag was present
+
+
+@dataclass
 class IssueContext:
     number: int
     title: str = ""
@@ -29,6 +37,7 @@ class IssueContext:
     train: str = "TBD"
     feature: str = ""
     dependencies: list[str] = field(default_factory=list)
+    typed_dependencies: list[Dependency] = field(default_factory=list)
     grep_gates: list[str] = field(default_factory=list)
     worktree_path: str = ""
     canonical_session_name: str = ""
@@ -41,6 +50,8 @@ class IssueContext:
 _METADATA_ROW = re.compile(r"\|\s*([A-Za-z ]+?)\s*\|\s*(.+?)\s*\|")
 _DEP_NUMBER = re.compile(r"#(\d+)")
 _GREP_LINE = re.compile(r"`(grep[^`]+)`")
+_SIBLING_TAG = re.compile(r"\(\s*(?:sibling|parallel)\s*\)", re.IGNORECASE)
+_PREREQ_TAG = re.compile(r"\(\s*(?:prereq|merged)\s*\)", re.IGNORECASE)
 
 
 def parse_metadata(body: str) -> dict[str, str]:
@@ -116,6 +127,34 @@ def parse_dependencies(body: str) -> list[str]:
     return deps
 
 
+def parse_typed_dependencies(body: str) -> list[Dependency]:
+    """Extract and classify dependency entries from the ### Dependencies section.
+
+    Each line's first #NNN ref is extracted and classified by trailing tag:
+      (sibling) / (parallel) → dep_class="sibling"
+      (prereq)  / (merged)   → dep_class="prereq"
+      no tag                 → dep_class="prereq", bare=True
+    """
+    section = parse_section(body, "### Dependencies")
+    deps: list[Dependency] = []
+    seen: set[str] = set()
+    for line in section.splitlines():
+        match = _DEP_NUMBER.search(line)
+        if not match:
+            continue
+        number = f"#{match.group(1)}"
+        if number in seen:
+            continue
+        seen.add(number)
+        if _SIBLING_TAG.search(line):
+            deps.append(Dependency(number=number, dep_class="sibling"))
+        elif _PREREQ_TAG.search(line):
+            deps.append(Dependency(number=number, dep_class="prereq"))
+        else:
+            deps.append(Dependency(number=number, dep_class="prereq", bare=True))
+    return deps
+
+
 def parse_grep_gates(body: str) -> list[str]:
     """Extract grep commands from the issue body (backtick-delimited)."""
     gates: list[str] = []
@@ -160,6 +199,7 @@ def build_context(
 
     meta = parse_metadata(body)
     deps = parse_dependencies(body)
+    typed_deps = parse_typed_dependencies(body)
     gates = parse_grep_gates(body)
     branch = meta.get("Branch", "TBD") or "TBD"
     # Issue #470: precompute the canonical session name so the launch prompt
@@ -179,20 +219,87 @@ def build_context(
         train=meta.get("Train", "TBD") or "TBD",
         feature=meta.get("Feature", ""),
         dependencies=deps,
+        typed_dependencies=typed_deps,
         grep_gates=gates,
         worktree_path=worktree_path or f"../{meta.get('Branch', '').replace('/', '-')}",
         canonical_session_name=canonical_name,
     )
 
 
+def _render_merge_wait_section(typed_deps: list[Dependency]) -> str:
+    """Render the dependency wait block based on classified dep entries.
+
+    - prereq entries → merge-wait bash loop
+    - sibling entries → "Parallel siblings (for context)" block
+    - bare entries → warning comment prepended
+    - no prereqs → "begin planning immediately" note
+    """
+    prereq_nums = [d.number for d in typed_deps if d.dep_class == "prereq"]
+    sibling_nums = [d.number for d in typed_deps if d.dep_class == "sibling"]
+    bare_nums = [d.number for d in typed_deps if d.bare]
+
+    parts: list[str] = []
+
+    if bare_nums:
+        joined = " ".join(bare_nums)
+        parts.append(
+            f"# WARNING: the following dep(s) have no classification tag: {joined}\n"
+            "# Add (prereq), (merged), (sibling), or (parallel) to each entry\n"
+            "# in ## Dependencies to suppress this warning and avoid future\n"
+            "# infinite merge-wait loops for sibling issues."
+        )
+
+    if prereq_nums:
+        dep_search = " ".join(prereq_nums)
+        parts.append(
+            "Before starting, wait for all prerequisite PRs to merge. Use this loop:\n"
+            "\n"
+            "```bash\n"
+            "while true; do\n"
+            f'  if gh pr list --state merged --search "{dep_search}" --json number --jq \'length\' | grep -qv \'^0$\'; then\n'
+            '    echo "Dependencies merged — proceeding"\n'
+            "    break\n"
+            "  fi\n"
+            '  echo "Waiting for dependencies..."\n'
+            "  sleep 60\n"
+            "done\n"
+            "```"
+        )
+    else:
+        parts.append(
+            "# NOTE (manual dispatch, 2026-05-21): the rendered merge-wait\n"
+            "# loop has been removed because some listed dependencies are open\n"
+            "# sibling issues in the same release wave (per #831 bug). Treat\n"
+            "# them as parallel-work context, not merge-prerequisites.\n"
+            "# No prerequisites — begin planning immediately."
+        )
+
+    if sibling_nums:
+        joined = " ".join(sibling_nums)
+        parts.append(
+            f"**Parallel siblings (for context — do not block):** {joined}\n\n"
+            "These issues are designed to run in parallel in the same release wave.\n"
+            "Do not wait for them to merge before beginning this session."
+        )
+
+    return "\n\n".join(parts)
+
+
 def render(context: IssueContext, template_path: Path = TEMPLATE_PATH) -> str:
     template = template_path.read_text()
-    deps_block = (
-        "\n".join(f"- {d}" for d in context.dependencies)
-        if context.dependencies
-        else "_(no dependencies declared)_"
-    )
-    dep_search = " ".join(context.dependencies) if context.dependencies else ""
+    # deps_block: display list uses typed_dependencies when available, else legacy strings
+    if context.typed_dependencies:
+        def _dep_label(d: Dependency) -> str:
+            tag = f" ({d.dep_class})" if not d.bare else ""
+            return f"- {d.number}{tag}"
+        deps_block = "\n".join(_dep_label(d) for d in context.typed_dependencies)
+    elif context.dependencies:
+        deps_block = "\n".join(f"- {d}" for d in context.dependencies)
+    else:
+        deps_block = "_(no dependencies declared)_"
+
+    merge_wait_section = _render_merge_wait_section(context.typed_dependencies)
+
     gates_block = (
         "\n".join(f"- `{g}`" for g in context.grep_gates)
         if context.grep_gates
@@ -205,7 +312,7 @@ def render(context: IssueContext, template_path: Path = TEMPLATE_PATH) -> str:
         "{{train}}": context.train,
         "{{feature}}": context.feature,
         "{{dependencies}}": deps_block,
-        "{{dependency_search}}": dep_search,
+        "{{merge_wait_section}}": merge_wait_section,
         "{{grep_gates}}": gates_block,
         "{{stop_condition}}": context.stop_condition,
         "{{worktree_path}}": context.worktree_path,

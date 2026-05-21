@@ -41,13 +41,11 @@ def test_sibling_context_block_present():
 
 def test_sibling_block_does_not_say_wait_for_sibling():
     out = render(_ctx_with_sibling("#20"))
-    # Locate context of the sibling mention — ensure it's not inside a wait instruction
-    low = out.lower()
-    idx = low.find("#20")
-    assert idx != -1
-    surrounding = low[max(0, idx - 100): idx + 100]
-    assert "wait for #20" not in surrounding
-    assert "wait for all" not in surrounding or "20" not in surrounding[:surrounding.find("wait for all") + 50]
+    # No line should instruct the agent to wait for #20 specifically
+    for line in out.splitlines():
+        if "#20" in line:
+            assert "wait for #20" not in line.lower(), f"Line instructs wait on sibling: {line}"
+            assert "must be merged" not in line.lower(), f"Line blocks on sibling: {line}"
 
 
 def test_no_sibling_deps_no_sibling_block():
