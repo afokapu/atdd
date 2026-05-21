@@ -130,6 +130,56 @@ wagons:
   total: 0
   manifest: plan/consolidate_coach_workspace/_consolidate_coach_workspace.yaml
   path: plan/consolidate_coach_workspace/
+- wagon: dispatch-ux-defaults-and-primer
+  description: "Closes the 15-minute cold-start gap for first-time atdd coach operators
+    (issue #812): flips multiplexer-mode to pane when CMUX_WORKSPACE_ID is set,
+    auto-enables no-prompt when stdin is not a TTY, bumps ATDD_WORKER_READY_TIMEOUT
+    default from 10s to 30s with help advertising, mutes the stale upgrade banner
+    after atdd sync via a marker file, auto-detects the git worktree by walking up
+    from cwd (or via repo flag), reuses an existing worktree on cold-start instead
+    of failing with already-exists, prints a one-screen multiplexer primer once per
+    session when a known mux is detected, cleans orphan worker panes on all
+    spawn-failure paths, and removes the unimplemented resume flag from help until
+    the J6 runner lands."
+  theme: commons
+  subject: agent:coach
+  context: first-run-ux, operator-friction-inventory, v3.76.0-cold-start-pain
+  action: flips env-aware defaults, adds worktree lifecycle guards, and prints a per-session
+    multiplexer primer
+  goal: "reduce a 15-minute first-dispatch from 5 failed attempts to a single atdd coach <N> with zero extra flags"
+  outcome: "atdd coach <N> just works on first try from inside cmux with no extra flags; multiplexer primer surfaced once per session; orphan panes cleaned on every failure path"
+  produce:
+  - name: coach:dispatch:env-aware-defaults
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:dispatch:worktree-lifecycle
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:dispatch:multiplexer-primer
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: coach:spawn:canonical-naming-and-layout-pass
+    from: wagon:spawn-agents
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  wmbt:
+    total: 9
+    E001: minimize likelihood of coach-dispatch-sessions-where-workspace-mode-is-selected-despite-cmux-workspace-id-being-set
+    E002: minimize likelihood of atdd-coach-invocations-that-hang-on-persona-prompt-when-stdin-is-not-a-tty
+    E003: minimize likelihood of atdd-coach-cold-start-failures-caused-by-invocation-from-outside-a-git-worktree
+    E004: minimize quantity of atdd-coach-cold-starts-that-fail-with-worktree-already-exists-error
+    E005: minimize quantity of coach-dispatch-sessions-where-operator-encounters-multiplexer-commands-for-the-first-time-without-a-primer
+    Y001: minimize likelihood of coach-spawned-workers-timing-out-due-to-a-default-10s-ready-wait-that-is-below-fresh-worktree-boot-time
+    Y002: minimize likelihood of stale-upgrade-banner-cluttering-every-atdd-command-after-sync-has-run
+    E006: minimize quantity of orphan-worker-panes-that-remain-after-a-spawn-failure-path
+    Y003: minimize likelihood of operators-attempting-resume-via-a-help-advertised-but-unimplemented-resume-flag
+  total: 0
+  manifest: plan/dispatch_ux_defaults_and_primer/_dispatch_ux_defaults_and_primer.yaml
+  path: plan/dispatch_ux_defaults_and_primer/
 - wagon: define-plans
   description: Defines what must be built — wagons, features, acceptance criteria,
     and trains

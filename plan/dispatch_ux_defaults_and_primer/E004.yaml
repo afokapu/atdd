@@ -1,0 +1,95 @@
+urn: "wmbt:dispatch-ux-defaults-and-primer:E004"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "atdd-coach-cold-starts-that-fail-with-worktree-already-exists-error"
+context_clarifier: "atdd coach unconditionally runs 'git worktree add' on cold-start even when the issue's worktree already exists (e.g. because the operator previously ran 'atdd issue <slug>' which also creates the worktree). The resulting 'fatal: <path> already exists' from git aborts the coach run before any work happens. The fix is a detect-and-reuse guard: before 'git worktree add', check if a worktree tracking the issue's branch already exists via 'git worktree list --porcelain'; if found, reuse it and log a '[coach] Reusing existing worktree at <path>' message instead of attempting to add."
+lens: "functional.effectiveness"
+statement: "minimize quantity of atdd-coach-cold-starts-that-fail-with-worktree-already-exists-error when atdd issue <slug> + atdd coach <N> are used together — by detecting an existing worktree for the issue's branch via git worktree list and reusing it rather than calling git worktree add"
+acceptances:
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E004-UNIT-001-detect-existing-worktree"
+      id: "AC-UNIT-001"
+      purpose: "find_existing_worktree_for_branch returns the worktree path when a worktree tracking the branch already exists"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/utils/repo.py exposes find_existing_worktree_for_branch(branch, repo_root)"
+        - "'git worktree list --porcelain' is mocked to return output listing a worktree at /projects/feat-slug with branch refs/heads/feat/slug"
+    when:
+      abstract: "find_existing_worktree_for_branch is called with branch='feat/slug' and the mocked git output"
+    then:
+      abstract:
+        - "The return value is Path('/projects/feat-slug')"
+        - "When no worktree matches the branch, the return value is None"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E004-SMOKE-001-worktree-reused-not-duplicated"
+      id: "AC-SMOKE-001"
+      purpose: "When a worktree for the issue branch already exists on disk, atdd coach reuses it instead of failing with a 'worktree already exists' git error"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "A worktree for the issue branch already exists at the expected path (e.g. created by a prior atdd issue command)"
+    when:
+      abstract: "atdd coach <N> is invoked for the same issue"
+    then:
+      abstract:
+        - "The coach does not print a 'fatal: already exists' git error"
+        - "The coach logs 'Reusing existing worktree' (or equivalent)"
+        - "The exit code is not 128 (git failure)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E004-UNIT-002-coach-reuses-existing-worktree"
+      id: "AC-UNIT-002"
+      purpose: "The coach worktree-setup path calls find_existing_worktree_for_branch and skips git worktree add when an existing worktree is found"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A mock that records calls to 'git worktree add'"
+        - "find_existing_worktree_for_branch is patched to return Path('/projects/feat-slug')"
+    when:
+      abstract: "The coach worktree-setup function is called for an issue whose branch is 'feat/slug'"
+    then:
+      abstract:
+        - "'git worktree add' is NOT called"
+        - "The returned worktree path is Path('/projects/feat-slug')"
+        - "A reuse-log message is emitted containing 'Reusing existing worktree'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E004-UNIT-003-coach-adds-worktree-when-none-exists"
+      id: "AC-UNIT-003"
+      purpose: "The coach worktree-setup path calls git worktree add normally when no existing worktree matches the branch"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A mock that records calls to 'git worktree add'"
+        - "find_existing_worktree_for_branch is patched to return None"
+    when:
+      abstract: "The coach worktree-setup function is called for an issue whose branch is 'feat/new-feature'"
+    then:
+      abstract:
+        - "'git worktree add' is called once with arguments including the expected path and branch name"
+        - "No reuse-log message is emitted"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"

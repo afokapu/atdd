@@ -1,0 +1,69 @@
+urn: "wmbt:dispatch-ux-defaults-and-primer:Y003"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "operators-attempting-resume-via-a-help-advertised-but-unimplemented-resume-flag"
+context_clarifier: "atdd coach --help lists '--resume RUN_ID' as an option. The J6 resume runner is documented as 'not implemented per docstring' in the coach codebase. Operators who follow the --help text to recover after a BLOCKED cold-start attempt --resume RUN_ID and receive a misleading 'not implemented' error or silent no-op. The clean fix is to remove --resume from --help until the J6 runner (#712 cluster) lands, and replace it with a 'Recovery: re-run atdd coach <N> (cold-start is idempotent)' note in the epilog."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of operators-attempting-resume-via-a-help-advertised-but-unimplemented-resume-flag when atdd coach --help is consulted for cold-start recovery — by removing --resume from the visible --help output and adding a recovery note to the epilog"
+acceptances:
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y003-UNIT-001-resume-not-in-help-text"
+      id: "AC-UNIT-001"
+      purpose: "atdd coach --help output does not contain '--resume' as a visible option"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd coach CLI parser is instantiated"
+    when:
+      abstract: "The parser's format_help() output is inspected"
+    then:
+      abstract:
+        - "The string '--resume' does NOT appear in the help output"
+        - "The help output DOES contain a note about cold-start recovery (e.g. 're-run atdd coach <N>' or 'Recovery:')"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y003-SMOKE-001-resume-absent-from-real-help-output"
+      id: "AC-SMOKE-001"
+      purpose: "atdd coach --help in a real installed shell does not show --resume in the options section"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "atdd is installed in the real shell"
+    when:
+      abstract: "atdd coach --help is run in the real shell"
+    then:
+      abstract:
+        - "stdout does NOT contain '--resume'"
+        - "stdout DOES contain a note about recovery or re-running atdd coach"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y003-UNIT-002-resume-flag-removed-or-hidden"
+      id: "AC-UNIT-002"
+      purpose: "The --resume argument is either removed from the argparse definition or marked with help=argparse.SUPPRESS so it does not appear in --help"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/coach.py CLI argument parser"
+    when:
+      abstract: "The parser's _actions are inspected for an action with option_string '--resume'"
+    then:
+      abstract:
+        - "Either '--resume' is not in the parser's _option_string_actions, OR its help attribute equals argparse.SUPPRESS"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"

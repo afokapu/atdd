@@ -609,3 +609,13 @@ class AgentConfigSync:
             content += "\n"
 
         return content + new_block + "\n"
+
+
+def write_sync_acknowledged_marker(current_version: str, marker_dir) -> None:
+    """Write a marker file indicating the upgrade banner was acknowledged for *current_version*.
+
+    Called by ``atdd sync`` so that the next dispatch suppresses the upgrade banner.
+    """
+    marker_path = Path(marker_dir) / f"sync_acknowledged_{current_version}"
+    Path(marker_dir).mkdir(parents=True, exist_ok=True)
+    marker_path.touch()

@@ -1,0 +1,33 @@
+urn: "feature:dispatch-ux-defaults-and-primer:multiplexer-primer"
+wagon: "wagon:dispatch-ux-defaults-and-primer"
+description: "Multiplexer primer and --resume cleanup (Phase 3 primer + Phase 5): introduces MultiplexerPrimer in src/atdd/coach/utils/multiplexer_primer.py that detects CMUX_WORKSPACE_ID/TMUX/ZELLIJ_SESSION_NAME, prints a per-backend one-screen cheat-sheet of the 5 commands operators need (cmux tree, send-key, read-screen, close-surface, paste-buffer), and writes a marker file under .atdd/runtime/ so the primer is suppressed on subsequent dispatches in the same session (E005). Also adds a --multiplexer-help flag to atdd coach that prints the primer and exits 0. Removes --resume from --help (Y003) to avoid misleading operators into a not-yet-implemented recovery path."
+sizing:
+  wmbts: 2
+  footprint_score: 5
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:dispatch-ux-defaults-and-primer:E005"
+  - "wmbt:dispatch-ux-defaults-and-primer:Y003"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "--multiplexer-help flag in the coach.py argparse parser is the single new entry point that calls MultiplexerPrimer.print_primer and exits 0"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "MultiplexerPrimer.should_print (marker-file gate + env detection, E005) and MultiplexerPrimer.print_primer (backend-aware text render + marker-write, E005) are two application-layer use cases; Y003 is a pure argparse change with no application logic"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain primitives — MultiplexerPrimer operates on strings and Path objects"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "MultiplexerPrimer reads and writes a marker file in .atdd/runtime/; a Path-based adapter handles this in multiplexer_primer.py"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"

@@ -1,0 +1,72 @@
+urn: "wmbt:dispatch-ux-defaults-and-primer:Y002"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "stale-upgrade-banner-cluttering-every-atdd-command-after-sync-has-run"
+context_clarifier: "Every atdd invocation prints '⚠️  ATDD upgraded (3.42.0 → 3.77.0). Run: atdd sync && atdd init --force' even after the operator has already run atdd sync. Additionally, a buggy '→ 4.0.0' footer line appears (wrong version) on some invocations. The banner should be muted after atdd sync runs by writing a marker file (e.g. .atdd/runtime/sync_acknowledged_{version}) — any subsequent atdd invocation that finds the marker skips the banner. The marker is cleared when the toolkit version bumps again, so operators see the banner exactly once per upgrade."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of stale-upgrade-banner-cluttering-every-atdd-command-after-sync-has-run when atdd sync has been successfully executed — by writing a sync-acknowledged marker file and checking for it before emitting the upgrade banner"
+acceptances:
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y002-UNIT-001-banner-muted-when-marker-exists"
+      id: "AC-UNIT-001"
+      purpose: "should_emit_upgrade_banner returns False when a sync-acknowledged marker file exists for the current version"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/__main__.py or a banner module exposes should_emit_upgrade_banner(current_version, marker_dir)"
+        - "A marker file named 'sync_acknowledged_{current_version}' exists in marker_dir"
+    when:
+      abstract: "should_emit_upgrade_banner is called with the current version and marker_dir"
+    then:
+      abstract:
+        - "The return value is False"
+        - "When no marker file exists, the return value is True"
+        - "When a marker file exists for a DIFFERENT version, the return value is True (new upgrade)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y002-SMOKE-001-banner-absent-after-sync-in-real-env"
+      id: "AC-SMOKE-001"
+      purpose: "After running atdd sync in a real shell, subsequent atdd invocations do not print the upgrade banner"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "atdd sync has been run and the marker file exists on disk"
+    when:
+      abstract: "atdd status (or any atdd subcommand) is run after atdd sync"
+    then:
+      abstract:
+        - "The output does NOT contain the upgrade warning line starting with the warning symbol and 'ATDD upgraded'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y002-UNIT-002-atdd-sync-writes-marker"
+      id: "AC-UNIT-002"
+      purpose: "Running atdd sync writes the sync-acknowledged marker file for the current version"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd sync command (or its main function) is invoked"
+        - "A tmp marker_dir is passed or monkeypatched"
+    when:
+      abstract: "atdd sync completes successfully"
+    then:
+      abstract:
+        - "A marker file named 'sync_acknowledged_{current_version}' exists in marker_dir"
+        - "A subsequent call to should_emit_upgrade_banner returns False"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"

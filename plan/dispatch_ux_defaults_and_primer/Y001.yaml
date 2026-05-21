@@ -1,0 +1,71 @@
+urn: "wmbt:dispatch-ux-defaults-and-primer:Y001"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "coach-spawned-workers-timing-out-due-to-a-default-10s-ready-wait-that-is-below-fresh-worktree-boot-time"
+context_clarifier: "ATDD_WORKER_READY_TIMEOUT defaults to 10 seconds in cmd_spawn. On a fresh worktree the Claude Code TUI needs to download and verify the install (or accept the workspace-trust prompt) before becoming ready — a process that regularly takes 20-40 seconds. The 10s default causes spurious WorkerReadinessTimeout errors on first-run without any indication that the operator can extend the wait. The fix is to bump the default to 30s and advertise the env var in the --help epilog so operators who need longer can self-service without digging through source."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of coach-spawned-workers-timing-out-due-to-a-default-10s-ready-wait-that-is-below-fresh-worktree-boot-time when atdd coach is used on a fresh worktree — by bumping ATDD_WORKER_READY_TIMEOUT default from 10s to 30s and advertising the env var in the coach --help epilog"
+acceptances:
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y001-UNIT-001-default-timeout-is-30s"
+      id: "AC-UNIT-001"
+      purpose: "The default value of ATDD_WORKER_READY_TIMEOUT used in spawn.py is 30 when the env var is not set"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py exposes a _get_worker_ready_timeout(env) function or constant"
+        - "ATDD_WORKER_READY_TIMEOUT is not set in env"
+    when:
+      abstract: "_get_worker_ready_timeout is called with env={} (no var set)"
+    then:
+      abstract:
+        - "The return value is 30 (seconds)"
+        - "When ATDD_WORKER_READY_TIMEOUT='60' is set in env, the return value is 60"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y001-SMOKE-001-help-text-shows-timeout-in-real-shell"
+      id: "AC-SMOKE-001"
+      purpose: "atdd coach --help in a real installed environment shows ATDD_WORKER_READY_TIMEOUT and the default value 30"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "atdd is installed in the shell"
+    when:
+      abstract: "atdd coach --help is run in a real shell"
+    then:
+      abstract:
+        - "stdout contains 'ATDD_WORKER_READY_TIMEOUT'"
+        - "stdout contains '30' near the env var mention"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:Y001-UNIT-002-help-text-advertises-env-var"
+      id: "AC-UNIT-002"
+      purpose: "atdd coach --help output mentions ATDD_WORKER_READY_TIMEOUT in the epilog"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd coach CLI parser is instantiated"
+    when:
+      abstract: "The parser's epilog or description is inspected for the env var name"
+    then:
+      abstract:
+        - "The string 'ATDD_WORKER_READY_TIMEOUT' appears in the parser epilog or a --help-visible argument description"
+        - "The default value '30' or '30s' also appears near the env var mention"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"

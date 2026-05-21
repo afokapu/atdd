@@ -18,6 +18,7 @@ participants:
   - "wagon:coach-ops"
   - "wagon:coach-wave-orchestration"
   - "wagon:consolidate-coach-workspace"
+  - "wagon:dispatch-ux-defaults-and-primer"
   - "system:atdd-cli"
 sequence:
   - step: 1
@@ -75,4 +76,9 @@ sequence:
     from: "wagon:coach-ops"
     to: "system:atdd-cli"
     artifact: "commons:coach:pr-watcher"
+  - step: 12
+    intent: "Flip env-aware dispatch defaults (pane-mode, no-prompt, 30s timeout), auto-detect worktree, reuse existing worktree, print multiplexer primer once per session, clean orphan panes on failure — reduce first-dispatch to single invocation"
+    from: "wagon:dispatch-ux-defaults-and-primer"
+    to: "system:atdd-cli"
+    artifact: "coach:dispatch:env-aware-defaults"
 status: planned

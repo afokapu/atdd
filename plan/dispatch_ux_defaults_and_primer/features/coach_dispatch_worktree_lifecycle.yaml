@@ -1,0 +1,34 @@
+urn: "feature:dispatch-ux-defaults-and-primer:coach-dispatch-worktree-lifecycle"
+wagon: "wagon:dispatch-ux-defaults-and-primer"
+description: "Worktree lifecycle hardening for atdd coach cold-start (Phase 3 partial + Phase 4): adds find_worktree_root() walking from cwd with --repo PATH override and an actionable NoWorktreeFound error (E003), adds find_existing_worktree_for_branch() + reuse-guard so a pre-existing worktree is detected via git worktree list and reused without a duplicate 'git worktree add' (E004), and wraps the post-surface-creation pipeline in a try/finally orphan-cleanup guard so backend.close() is called on every exception path (E006)."
+sizing:
+  wmbts: 3
+  footprint_score: 6
+  footprint_size: "S"
+wmbts:
+  - "wmbt:dispatch-ux-defaults-and-primer:E003"
+  - "wmbt:dispatch-ux-defaults-and-primer:E004"
+  - "wmbt:dispatch-ux-defaults-and-primer:E006"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI entry points — worktree resolution is internal to the existing cold-start path in coach.py"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "find_worktree_root (E003: walk-up + --repo override), coach_worktree_setup (E004: detect-and-reuse guard wrapping git worktree add), and orphan-cleanup guard (E006: try/finally in cmd_spawn post-creation pipeline) are three discrete application-layer use cases"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "NoWorktreeFound exception (E003) is a domain-layer value object wrapping the not-found condition with an actionable message listing sibling directories"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "find_existing_worktree_for_branch (E004) calls 'git worktree list --porcelain' via subprocess; a thin git adapter in src/atdd/coach/utils/repo.py encapsulates the subprocess call"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"

@@ -1,0 +1,96 @@
+urn: "wmbt:dispatch-ux-defaults-and-primer:E003"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "atdd-coach-cold-start-failures-caused-by-invocation-from-outside-a-git-worktree"
+context_clarifier: "atdd coach currently requires the operator to cd into a git worktree before invocation; when called from the worktree-parent directory (the layout convention is project-parent/feat-slug/) it crashes with 'not a git repository' and provides no actionable hint. Operators naturally invoke from the parent after listing sibling worktrees. The fix is a two-stage resolution: (1) if --repo PATH is provided, use it directly; (2) otherwise walk up from cwd until a .git directory or .git file (linked worktree) is found; if nothing is found, print a clear error message listing the sibling directories that look like worktrees."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of atdd-coach-cold-start-failures-caused-by-invocation-from-outside-a-git-worktree when the operator invokes from the worktree-parent — by walking up from cwd to find the nearest git root, honoring --repo PATH as an explicit override, and printing an actionable error when no worktree is found"
+acceptances:
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E003-UNIT-001-find-worktree-root-walks-up"
+      id: "AC-UNIT-001"
+      purpose: "find_worktree_root returns the nearest ancestor that contains a .git directory or .git file"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/utils/repo.py exposes find_worktree_root(start_path)"
+        - "A tmp directory tree: parent/ contains child/.git/ (real worktree) and grandchild/ is a subdirectory of child/"
+    when:
+      abstract: "find_worktree_root is called with start_path=grandchild/"
+    then:
+      abstract:
+        - "The return value is the path of child/ (the nearest ancestor with .git)"
+        - "When called from child/ directly, the return value is child/"
+        - "When no .git is found up to the filesystem root, FileNotFoundError or a custom NoWorktreeFound exception is raised"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E003-SMOKE-001-coach-invoked-from-worktree-parent"
+      id: "AC-SMOKE-001"
+      purpose: "atdd coach invoked from the worktree-parent directory (not inside a worktree) auto-detects the worktree and proceeds past the repo-resolution step"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "cwd is the worktree-parent directory containing the feat-* sibling directories"
+        - "A valid issue number N is provided"
+    when:
+      abstract: "atdd coach <N> is invoked from the worktree-parent with no --repo flag"
+    then:
+      abstract:
+        - "The coach does not print 'not a git repository' and does not exit with code 128"
+        - "The coach resolves the repo root and proceeds to the dispatch phase"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E003-UNIT-002-find-worktree-root-respects-repo-flag"
+      id: "AC-UNIT-002"
+      purpose: "resolve_repo_path returns --repo PATH when provided, without filesystem walking"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/utils/repo.py exposes resolve_repo_path(explicit_path, cwd)"
+        - "explicit_path is an absolute path to a valid git worktree"
+    when:
+      abstract: "resolve_repo_path is called with an explicit_path and a cwd that is outside any worktree"
+    then:
+      abstract:
+        - "The return value is explicit_path (no walking occurs)"
+        - "When explicit_path is None, resolve_repo_path falls back to find_worktree_root(cwd)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E003-UNIT-003-actionable-error-when-no-worktree-found"
+      id: "AC-UNIT-003"
+      purpose: "find_worktree_root raises NoWorktreeFound with a message listing sibling directories that look like worktrees when invoked from a flat project-parent directory"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp directory tree: parent/ contains feat-slug-a/ and feat-slug-b/ directories but no .git at any level"
+        - "cwd is parent/"
+    when:
+      abstract: "find_worktree_root is called from parent/"
+    then:
+      abstract:
+        - "NoWorktreeFound (or equivalent) is raised"
+        - "The exception message contains at least one of the sibling directory names ('feat-slug-a', 'feat-slug-b')"
+        - "The exception message suggests using --repo PATH or cd-ing into a worktree"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-20"
