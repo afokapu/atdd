@@ -56,7 +56,7 @@ rules:
       or `(parallel)`. Bare `- #N` entries without a tag cause `atdd session-template`
       to include the dep in the merge-wait loop unconditionally — if the dep is a
       sibling issue (parallel work in the same wave) the loop will never exit.
-    disposition: warn-and-log
+    disposition: advisory
     introduced_in: "3.81.0"
     aliases: []
     validator: "test_issue_deps_have_classification_tags::test_issue_deps_have_classification_tags"
@@ -77,8 +77,8 @@ rules:
            → same wave → use `(sibling)`
         3. Otherwise use `(prereq)`.
 
-      Edit the issue body:
-        gh issue edit <ISSUE_NUMBER> --body "$(gh issue view <ISSUE_NUMBER> --json body --jq .body | sed 's/- #N$/- #N (prereq)/')"
+      Edit the issue body (e.g. for issue #828, ISSUE_NUMBER=828):
+        gh issue edit <N|828|831> --body "$(gh issue view <N|828|831> --json body --jq .body | sed 's/- #N$/- #N (prereq)/')"
 
       Re-run the validator to confirm clean:
         pytest src/atdd/planner/validators/test_issue_deps_have_classification_tags.py -v
