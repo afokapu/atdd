@@ -42,7 +42,12 @@ class _RecordingMux:
 
 
 def test_apply_canonical_name_uses_paste_text_with_trailing_newline():
-    """paste_text is called with '/rename ATDD42\\n' — rename + newline in one call."""
+    """M001 (#829): /rename injection removed — paste_text must NOT be called with '/rename'.
+
+    Updated from E012: the atomic paste_text('/rename X\\n') fix (E012) is superseded
+    by M001 which removes the entire /rename injection. The invariant is now that
+    paste_text is NOT called with any '/rename' payload at all.
+    """
     from atdd.coach.utils.session_naming_apply import apply_canonical_name_and_layout
 
     mux = _RecordingMux()
@@ -57,17 +62,11 @@ def test_apply_canonical_name_uses_paste_text_with_trailing_newline():
         text for _ref, text in mux.paste_calls
         if "/rename ATDD42" in text
     ]
-    assert rename_pastes, (
-        "paste_text was not called with a '/rename ATDD42' payload; "
-        "apply_canonical_name_and_layout must use paste_text (not send+send_key) "
-        "for atomic rename injection (E012, issue #811)"
+    assert not rename_pastes, (
+        "paste_text was called with a '/rename ATDD42' payload after M001 removal — "
+        "apply_canonical_name_and_layout must NOT inject /rename (M001, issue #829). "
+        f"Got: {rename_pastes}"
     )
-    # The payload must include the trailing newline so the slash command is submitted.
-    for payload in rename_pastes:
-        assert payload.endswith("\n"), (
-            f"paste_text payload {payload!r} does not end with '\\n'; "
-            "the trailing newline is required so the rename submits atomically"
-        )
 
 
 def test_apply_canonical_name_does_not_send_standalone_enter_for_rename():
@@ -118,7 +117,11 @@ def test_apply_canonical_name_does_not_use_send_for_rename():
 
 
 def test_apply_canonical_name_paste_text_called_exactly_once_for_rename():
-    """paste_text is called exactly once for the /rename injection (no duplicates)."""
+    """M001 (#829): /rename injection removed — paste_text must have zero /rename calls.
+
+    Updated from E012: post-M001 there must be zero paste_text calls containing '/rename',
+    not exactly one.
+    """
     from atdd.coach.utils.session_naming_apply import apply_canonical_name_and_layout
 
     mux = _RecordingMux()
@@ -133,7 +136,7 @@ def test_apply_canonical_name_paste_text_called_exactly_once_for_rename():
         text for _ref, text in mux.paste_calls
         if "/rename" in text
     ]
-    assert len(rename_pastes) == 1, (
-        f"Expected exactly one paste_text call for /rename, got {len(rename_pastes)}: "
+    assert len(rename_pastes) == 0, (
+        f"Expected zero paste_text calls for /rename after M001 removal, got {len(rename_pastes)}: "
         f"{rename_pastes}"
     )

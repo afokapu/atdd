@@ -65,20 +65,20 @@ class _ShowsRenameAfterSendMux:
 
 
 def test_apply_canonical_name_raises_rename_not_accepted_when_verify_after_send_true():
-    from atdd.coach.commands.spawn import RenameNotAccepted
+    """M001 (#829): verify_after_send=True is now a no-op; must NOT raise RenameNotAccepted."""
     from atdd.coach.utils.session_naming_apply import apply_canonical_name_and_layout
 
     mux = _NeverShowsRenameMux()
-    with pytest.raises(RenameNotAccepted):
-        apply_canonical_name_and_layout(
-            backend=mux,
-            ref="surface:1",
-            canonical_name="ATDD42",
-            surface_count=1,
-            verify_after_send=True,
-            verify_timeout_s=0.1,
-            verify_poll_s=0.01,
-        )
+    # Post-M001: /rename injection removed; verify_after_send is accepted but ignored.
+    apply_canonical_name_and_layout(
+        backend=mux,
+        ref="surface:1",
+        canonical_name="ATDD42",
+        surface_count=1,
+        verify_after_send=True,
+        verify_timeout_s=0.1,
+        verify_poll_s=0.01,
+    )
 
 
 def test_apply_canonical_name_passes_when_rename_appears_in_capture():
