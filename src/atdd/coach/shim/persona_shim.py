@@ -15,9 +15,8 @@ import os
 import pty
 import select
 import subprocess
-import threading
 from pathlib import Path
-from typing import Callable, IO, List, Optional, Sequence
+from typing import Callable, IO, Optional, Sequence
 
 
 class PersonaShim:
