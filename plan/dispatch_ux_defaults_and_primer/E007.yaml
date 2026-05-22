@@ -11,7 +11,7 @@ acceptances:
       urn: "acc:dispatch-ux-defaults-and-primer:E007-UNIT-001-surface-mode-calls-new-surface-in-pane"
       id: "AC-UNIT-001"
       purpose: "_create_surface with mode='surface' calls backend.new_surface_in_pane, not new_workspace or new_surface(pane_ref=None)"
-      phase: "RED"
+      phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
@@ -33,7 +33,7 @@ acceptances:
       urn: "acc:dispatch-ux-defaults-and-primer:E007-UNIT-002-resolve-multiplexer-mode-defaults-surface"
       id: "AC-UNIT-002"
       purpose: "resolve_multiplexer_mode defaults to 'surface' when CMUX_WORKSPACE_ID is set and no explicit flag is given"
-      phase: "RED"
+      phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
@@ -55,7 +55,7 @@ acceptances:
       urn: "acc:dispatch-ux-defaults-and-primer:E007-UNIT-003-deprecated-modes-raise-error"
       id: "AC-UNIT-003"
       purpose: "_create_surface raises DeprecatedMultiplexerModeError for mode='workspace' and mode='pane'"
-      phase: "RED"
+      phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
@@ -79,7 +79,7 @@ acceptances:
       urn: "acc:dispatch-ux-defaults-and-primer:E007-INTEGRATION-001-cmd-spawn-uses-surface-rpc"
       id: "AC-INTEGRATION-001"
       purpose: "cmd_spawn with multiplexer_mode='surface' records new_surface_in_pane in the FakeMultiplexer, not new_workspace or new_pane"
-      phase: "RED"
+      phase: "GREEN"
     harness:
       type: "integration"
       category: "backend"
@@ -98,3 +98,27 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-21"
+  - identity:
+      urn: "acc:dispatch-ux-defaults-and-primer:E007-SMOKE-001-new-surface-in-pane-no-broken-pipe"
+      id: "AC-SMOKE-001"
+      purpose: "In a real cmux session, CmuxBackend.new_surface_in_pane() succeeds (no Broken pipe) and returns a surface ref"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real cmux session is available (CMUX_WORKSPACE_ID set in env)"
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "cmux binary is on PATH"
+        - "CmuxBackend is importable from atdd.coach.utils.multiplexer"
+    when:
+      abstract: "CmuxBackend.resolve_focused_pane() is called to get the current pane ref, then new_surface_in_pane() is called with that ref and a no-op command"
+    then:
+      abstract:
+        - "resolve_focused_pane() returns a string matching 'pane:N' without raising"
+        - "new_surface_in_pane() returns a surface ref without raising MultiplexerError or OSError"
+        - "No 'Broken pipe' error occurs (the deprecated RPC is not invoked)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-22"
