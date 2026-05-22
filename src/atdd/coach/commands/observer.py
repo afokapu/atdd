@@ -65,6 +65,12 @@ from atdd.coach.utils.rule_binding import (
 # Frozen vocabulary (mirrors correction.schema.json)
 # ---------------------------------------------------------------------------
 
+# Feature flag: ATDD_CORRECTION_TRANSPORT=cli-return overrides per-correction
+# injection_method for multiplexer-send corrections, routing them to
+# cli-return.jsonl instead. Default: multiplexer-send (backward compat) until
+# persona-shim parity is demonstrated (#824).
+CORRECTION_TRANSPORT_ENV = "ATDD_CORRECTION_TRANSPORT"
+
 INJECTION_METHODS: frozenset[str] = frozenset(
     {"cli-return", "multiplexer-send", "respawn"}
 )
@@ -738,7 +744,14 @@ class InjectionDispatcher:
         return ("cli-return", "multiplexer-send", "respawn")
 
     def dispatch(self, correction: Correction, *, agent_dir: Path) -> None:
+        transport = os.environ.get(CORRECTION_TRANSPORT_ENV, "").strip().lower()
         method = correction.injection_method
+
+        # When ATDD_CORRECTION_TRANSPORT=cli-return, redirect multiplexer-send
+        # corrections to cli-return.jsonl so the persona-shim can consume them.
+        if transport == "cli-return" and method == "multiplexer-send":
+            method = "cli-return"
+
         if method == "cli-return":
             self._dispatch_cli_return(correction, agent_dir)
         elif method == "multiplexer-send":

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import secrets
 import subprocess
@@ -36,6 +37,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from atdd.coach.commands import checkpoint as checkpoint_mod
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Frozen enums
@@ -461,6 +464,108 @@ def cmd_commit(
 
 
 # ---------------------------------------------------------------------------
+# Inbox primitive (cli-return.jsonl consume/peek) — #824
+# ---------------------------------------------------------------------------
+
+_CLI_RETURN_OFFSET_KEY = ".cli-return-offset"
+
+
+def _cli_return_path(agent_id: str, runtime_root: Optional[Path]) -> Path:
+    return _agent_dir(agent_id, runtime_root) / "cli-return.jsonl"
+
+
+def _offset_path(agent_id: str, runtime_root: Optional[Path]) -> Path:
+    return _agent_dir(agent_id, runtime_root) / ".cli-return-offset"
+
+
+def _read_consumed_offset(agent_id: str, runtime_root: Optional[Path]) -> int:
+    path = _offset_path(agent_id, runtime_root)
+    if path.exists():
+        try:
+            return int(path.read_text().strip())
+        except (ValueError, OSError) as e:
+            _logger.warning(
+                "cli-return offset file unreadable, resetting to 0",
+                extra={"path": str(path), "error": str(e)},
+            )
+    return 0
+
+
+def _write_consumed_offset(agent_id: str, runtime_root: Optional[Path], offset: int) -> None:
+    path = _offset_path(agent_id, runtime_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(str(offset))
+    tmp.replace(path)
+
+
+def _read_entries_from_offset(
+    cli_return_path: Path, start_offset: int
+) -> tuple[list[dict], int]:
+    """Read JSONL entries from start_offset; return (entries, new_offset).
+
+    Skips invalid JSON lines without crashing.
+    """
+    if not cli_return_path.exists():
+        return [], start_offset
+
+    entries: list[dict] = []
+    new_offset = start_offset
+    with cli_return_path.open("r", encoding="utf-8") as fh:
+        fh.seek(start_offset)
+        while True:
+            line_start = fh.tell()
+            line = fh.readline()
+            if not line:
+                new_offset = fh.tell()
+                break
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                entries.append(json.loads(stripped))
+                new_offset = fh.tell()
+            except json.JSONDecodeError:
+                import sys
+                print(
+                    f"[agent inbox] WARNING: skipping invalid JSON at offset {line_start}",
+                    file=sys.stderr,
+                )
+                new_offset = fh.tell()
+    return entries, new_offset
+
+
+def cmd_inbox_drain(
+    *,
+    agent_id: Optional[str] = None,
+    runtime_root: Optional[Path] = None,
+) -> list[dict]:
+    """Read and mark consumed all new cli-return.jsonl entries."""
+    aid = _resolve_agent_id(agent_id)
+    offset = _read_consumed_offset(aid, runtime_root)
+    path = _cli_return_path(aid, runtime_root)
+
+    entries, new_offset = _read_entries_from_offset(path, offset)
+    if new_offset != offset:
+        _write_consumed_offset(aid, runtime_root, new_offset)
+    return entries
+
+
+def cmd_inbox_peek(
+    *,
+    agent_id: Optional[str] = None,
+    runtime_root: Optional[Path] = None,
+) -> list[dict]:
+    """Read new cli-return.jsonl entries WITHOUT advancing the consumed offset."""
+    aid = _resolve_agent_id(agent_id)
+    offset = _read_consumed_offset(aid, runtime_root)
+    path = _cli_return_path(aid, runtime_root)
+
+    entries, _ = _read_entries_from_offset(path, offset)
+    return entries
+
+
+# ---------------------------------------------------------------------------
 # argparse dispatcher (`atdd agent <subcommand> ...`)
 # ---------------------------------------------------------------------------
 
@@ -536,6 +641,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Poll interval in seconds (default 180, min 60).",
     )
 
+    # inbox — read/consume cli-return.jsonl entries (#824)
+    p_inbox = sub.add_parser("inbox", help="Read cli-return.jsonl inbox (drain/peek)")
+    p_inbox.add_argument(
+        "inbox_action",
+        choices=["drain", "peek"],
+        help="drain: read + mark consumed. peek: read without consuming.",
+    )
+    p_inbox.add_argument("--agent-id", default=None, dest="agent_id")
+
     return parser
 
 
@@ -598,6 +712,15 @@ def run(argv: list[str]) -> int:
             watcher = PRWatcher(repo=args.repo, poll_interval=interval)
             result = watcher.wait_any(prs=[args.pr_number], target_state="CLEAN")
             print(f"CLEAN: #{result}")
+        elif sub == "inbox":
+            if args.inbox_action == "drain":
+                entries = cmd_inbox_drain(agent_id=args.agent_id)
+                for entry in entries:
+                    print(json.dumps(entry))
+            else:  # peek
+                entries = cmd_inbox_peek(agent_id=args.agent_id)
+                for entry in entries:
+                    print(json.dumps(entry))
         else:
             parser.error(f"unknown subcommand: {sub}")
     except (  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01

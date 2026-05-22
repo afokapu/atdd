@@ -621,6 +621,34 @@ def _render_agent_identity_block(agent_id: str) -> str:
     )
 
 
+def _prime_inbox_with_launch_prompt(
+    *,
+    agent_id: str,
+    prompt_text: str,
+    agent_dir: Path,
+) -> Path:
+    """Write the launch prompt as the first cli-return.jsonl entry.
+
+    Called before the shim spawns the agent CLI when
+    ATDD_CORRECTION_TRANSPORT=cli-return. The shim drains this entry
+    and delivers it to the agent's pty stdin as the first user turn,
+    replacing the post-boot paste_text + send_key approach (#702/#824).
+    """
+    import json as _json
+    cli_return = agent_dir / "cli-return.jsonl"
+    cli_return.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "rule_id": "BOOTSTRAP-001",
+        "correction_text": prompt_text,
+        "severity": 0,
+        "issued_at": None,
+        "prompt": prompt_text,
+    }
+    with cli_return.open("a", encoding="utf-8") as fh:
+        fh.write(_json.dumps(record, sort_keys=True) + "\n")
+    return cli_return
+
+
 def _render_launch_prompt(
     issue: int,
     worktree: Path,

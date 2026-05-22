@@ -1138,3 +1138,14 @@ sessions:
   wagon: spawn-agents
   feature: feature:spawn-agents:coach-spawn-step-by-step-verify-each-stage
   train: 0002-coach-drives-lifecycle
+- id: '824'
+  slug: activate-observer-self-correcting-loop-end-to-end
+  file: plan/observe_and_correct/E003.yaml
+  issue_number: 824
+  type: implementation
+  status: REFACTOR
+  created: '2026-05-21'
+  archived: null
+  wagon: observe-and-correct
+  feature: feature:observe-and-correct:observer-runtime-and-rules
+  train: 0002-coach-drives-lifecycle
