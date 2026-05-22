@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atdd"
-version = "3.80.3"
+version = "3.81.0"
 description = "ATDD Platform - Acceptance Test Driven Development toolkit"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -36,6 +36,9 @@ atdd = "atdd.cli:cli"
 # Pre-send classifier shim over `cmux send` — rejects raw `claude ...`
 # launches that bypass `atdd spawn` (issue #662).
 atdd-cmux-send = "atdd.coach.wrappers.atdd_cmux_send:console_main"
+# Pty-owning persona shim — wraps the adapter command, tees output to
+# output.log, drains cli-return.jsonl, and forwards stdin (#841).
+atdd-shim = "atdd.coach.shim.__main__:main"
 
 # Substrate pytest plugin (spec v12 §7.2, §9.3 — issues #411, #415).
 # Auto-loaded by pytest whenever atdd is importable; the plugin itself

@@ -622,6 +622,54 @@ def _inject_agent_env(command: str, agent_id: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# E004 (#841): PersonaShim wiring helpers
+# ---------------------------------------------------------------------------
+
+
+def _correction_transport() -> str:
+    """Return the active correction transport from the environment.
+
+    Returns 'cli-return' when ATDD_CORRECTION_TRANSPORT=cli-return, else ''.
+    """
+    return os.environ.get("ATDD_CORRECTION_TRANSPORT", "").strip().lower()
+
+
+def _build_shim_command(adapter_command: str, agent_id: str, runtime_root: Path) -> str:
+    """Wrap adapter_command with the atdd-shim entry point.
+
+    The shim becomes the pane foreground process; the adapter runs inside the
+    shim-owned pty. ATDD_AGENT_ID has already been injected into adapter_command
+    by _inject_agent_env before this is called.
+
+    Produces:
+      atdd-shim --agent-id <id> --runtime-dir <path> -- <adapter_command>
+    """
+    return (
+        f"atdd-shim"
+        f" --agent-id {shlex.quote(agent_id)}"
+        f" --runtime-dir {shlex.quote(str(runtime_root))}"
+        f" -- {adapter_command}"
+    )
+
+
+def _prime_cli_return_inbox(agent_dir: Path, prompt_text: str) -> None:
+    """Write the launch prompt as the first cli-return.jsonl entry.
+
+    Called by cmd_spawn BEFORE the surface is created so PersonaShim can
+    deliver the prompt as the first agent turn via the pty — eliminating the
+    post-boot paste_text + send_key path (E004 / #841).
+
+    The entry is a minimal correction record: only correction_text is required
+    by PersonaShim._process_cli_return_line().
+    """
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    cli_return_path = agent_dir / "cli-return.jsonl"
+    record = {"correction_text": prompt_text}
+    with cli_return_path.open("w", encoding="utf-8") as fh:
+        fh.write(json.dumps(record) + "\n")
+
+
+# ---------------------------------------------------------------------------
 # Multiplexer resolution (split out so tests can inject a fake)
 # ---------------------------------------------------------------------------
 
@@ -1097,6 +1145,17 @@ def cmd_spawn(
     # `atdd agent` subcommand fails closed, stalling the coach.
     command = _inject_agent_env(command, agent_id)
 
+    # E004 (#841): when ATDD_CORRECTION_TRANSPORT=cli-return, wrap the adapter
+    # command in PersonaShim and prime the inbox with the launch prompt BEFORE
+    # the surface is created. The shim becomes the pane foreground process;
+    # the adapter runs in the shim-owned pty; the launch prompt is delivered
+    # via cli-return.jsonl instead of paste_text + send_key.
+    agent_dir = _agent_runtime_dir(runtime_root, agent_id)
+    using_cli_return = _correction_transport() == "cli-return"
+    if using_cli_return:
+        _prime_cli_return_inbox(agent_dir, prompt_path.read_text())
+        command = _build_shim_command(command, agent_id, runtime_root)
+
     from atdd.coach.utils.config import load_atdd_config
 
     repo_short = compute_repo_short_name(load_atdd_config(Path.cwd()))
@@ -1192,37 +1251,33 @@ def cmd_spawn(
             )
 
     # E010 (#795): wait for Claude's TUI to be ready before pasting.
-    # The surface was just created — the shell is running "cd <cwd> && claude ..."
-    # and Claude Code may still be booting, showing an onboarding modal, or
-    # running workspace-trust checks. Pasting before the TUI is interactive
-    # causes the prompt to be queued unprocessed ("Press up to edit queued
-    # messages"). _wait_for_claude_ready polls ~/.claude/projects/<key>/ for a
-    # fresh .jsonl session file (written by Claude on startup) as the readiness
-    # signal. Timeout raises WorkerReadinessTimeout and is caught below so the
-    # spawn attempt is surfaced as a failure rather than a phantom success.
-    from atdd.coach.utils.session_naming_apply import _claude_project_key
+    # E004 (#841): skip the paste path entirely when ATDD_CORRECTION_TRANSPORT=
+    # cli-return — the shim delivers the launch prompt via cli-return.jsonl
+    # (already primed above); paste_text + send_key must not fire.
+    if not using_cli_return:
+        from atdd.coach.utils.session_naming_apply import _claude_project_key
 
-    project_key = _claude_project_key(worktree)
-    try:
-        # E010 (#795) + E011 (#799): wait for Claude's TUI to boot, paste
-        # the launch prompt, verify each readiness stage, and assert the
-        # worker is processing. All post-creation checks are inside one
-        # patchable call so unit tests cover this pipeline with one stub.
-        _wait_for_claude_ready(
-            surface_ref=surface_ref,
-            project_key=project_key,
-            spawn_time=spawn_time,
-            multiplexer=backend,
-            prompt_text=prompt_path.read_text(),
-        )
-    except WorkerReadinessTimeout as exc:
-        print(
-            f"❌ worker on {surface_ref!r} did not boot in time: {exc} "
-            f"({SPAWN_RULE_ID})",
-            file=sys.stderr,
-        )
-        _close_surface_on_failure(backend, surface_ref)
-        raise
+        project_key = _claude_project_key(worktree)
+        try:
+            # E010 (#795) + E011 (#799): wait for Claude's TUI to boot, paste
+            # the launch prompt, verify each readiness stage, and assert the
+            # worker is processing. All post-creation checks are inside one
+            # patchable call so unit tests cover this pipeline with one stub.
+            _wait_for_claude_ready(
+                surface_ref=surface_ref,
+                project_key=project_key,
+                spawn_time=spawn_time,
+                multiplexer=backend,
+                prompt_text=prompt_path.read_text(),
+            )
+        except WorkerReadinessTimeout as exc:
+            print(
+                f"❌ worker on {surface_ref!r} did not boot in time: {exc} "
+                f"({SPAWN_RULE_ID})",
+                file=sys.stderr,
+            )
+            _close_surface_on_failure(backend, surface_ref)
+            raise
 
     capture_session_uuid(
         backend=backend,

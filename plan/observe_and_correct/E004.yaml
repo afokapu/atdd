@@ -1,0 +1,100 @@
+urn: "wmbt:observe-and-correct:E004"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "persona-shim-spawn-dispatch-wiring-gaps"
+context_clarifier: "when PersonaShim (shipped in #824, v3.80.2) exists in src/atdd/coach/shim/ but is referenced in zero production files — spawn.py, coach.py, handlers/spawn.py all contain zero imports of PersonaShim — so every `atdd coach <N>` / `atdd spawn` run launches a bare adapter command (claude ...) directly inside a cmux surface with no shim. Nothing drains cli-return.jsonl. Observer corrections written by the coach reach no consumer, reproducing exactly the original measurement: 0 corrections in 139,896 heartbeats (2026-05-20). PersonaShim (#824) already owns the pty, polls cli-return.jsonl, and forwards operator stdin; cmd_spawn must wrap the adapter command in the shim and prime cli-return.jsonl with the launch prompt before the shim starts, skipping the post-boot paste_text + send_key path when ATDD_CORRECTION_TRANSPORT=cli-return."
+lens: "functional.effectiveness"
+statement: "minimize quantity of persona-shim-spawn-dispatch-wiring-gaps by routing cmd_spawn's adapter command through PersonaShim — the shim becomes the pane foreground process and the adapter runs in its pty — writing the launch prompt as the first cli-return.jsonl entry before spawn so the shim delivers it as the first agent turn (no post-boot paste_text + send_key when cli-return transport is active), adding a real integration SMOKE test that drives the actual atdd spawn entry point (not a synthetic agent), and retitling test_e003_smoke_001 as a component smoke so it is not mistaken for the wiring guarantee"
+acceptances:
+  - identity:
+      urn: "acc:observe-and-correct:E004-UNIT-001-cmd-spawn-uses-shim-as-surface-command"
+      id: "AC-UNIT-001"
+      purpose: "cmd_spawn passes a PersonaShim wrapper command (not the bare adapter) as the surface/pane command when ATDD_CORRECTION_TRANSPORT=cli-return; the shim is the pane foreground process and the adapter runs in its pty"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_CORRECTION_TRANSPORT=cli-return is set in the process environment"
+        - "cmd_spawn is called with a FakeMultiplexer injected (so no real cmux is needed)"
+        - "A valid persona, llm, worktree, and agent_id are provided"
+    when:
+      abstract: "cmd_spawn executes"
+    then:
+      abstract:
+        - "The command string passed to FakeMultiplexer.new_surface (or new_surface_in_pane) begins with the shim entry point (e.g. 'atdd-shim' or 'python -m atdd.coach.shim') not the bare adapter command"
+        - "The bare adapter command (claude ...) appears as an argument to the shim, not as the top-level command"
+        - "The agent_id is passed to the shim so it can locate .atdd/runtime/agents/<id>/cli-return.jsonl"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-22"
+  - identity:
+      urn: "acc:observe-and-correct:E004-UNIT-002-inbox-priming-before-shim-starts"
+      id: "AC-UNIT-002"
+      purpose: "cmd_spawn writes the launch prompt text as the first cli-return.jsonl entry in the agent runtime dir before the shim process is started; no paste_text + send_key calls are made when ATDD_CORRECTION_TRANSPORT=cli-return"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_CORRECTION_TRANSPORT=cli-return is set"
+        - "A temporary runtime dir is used; the agent dir is created by cmd_spawn"
+        - "A FakeMultiplexer captures surface commands"
+    when:
+      abstract: "cmd_spawn executes and the surface is created"
+    then:
+      abstract:
+        - ".atdd/runtime/agents/<agent_id>/cli-return.jsonl exists and contains exactly one record before the surface command is issued"
+        - "The record's correction_text field equals the rendered launch prompt text"
+        - "FakeMultiplexer.paste_text is NOT called (the prompt is delivered via cli-return.jsonl instead)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-22"
+  - identity:
+      urn: "acc:observe-and-correct:E004-UNIT-003-fallback-to-direct-dispatch-when-no-cli-return"
+      id: "AC-UNIT-003"
+      purpose: "When ATDD_CORRECTION_TRANSPORT is unset or set to any value other than cli-return, cmd_spawn falls back to the existing direct-adapter dispatch path — no shim wrapper, launch prompt delivered via paste_text + send_key as before"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_CORRECTION_TRANSPORT is either unset or set to 'multiplexer-send'"
+        - "cmd_spawn is called with a FakeMultiplexer"
+    when:
+      abstract: "cmd_spawn executes"
+    then:
+      abstract:
+        - "The command string passed to the surface is the bare adapter command (not wrapped in atdd-shim)"
+        - "No cli-return.jsonl priming entry is written before surface creation"
+        - "The existing _wait_for_claude_ready + paste_text path executes as normal"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-22"
+  - identity:
+      urn: "acc:observe-and-correct:E004-SMOKE-001-real-spawn-uses-shim-process-tree"
+      id: "AC-SMOKE-001"
+      purpose: "A real atdd spawn invocation (not a synthetic agent) with ATDD_CORRECTION_TRANSPORT=cli-return spawns PersonaShim as the surface foreground process; a cli-return.jsonl entry written after spawn lands on the agent's pty stdin; output.log is tee'd by the shim"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_CORRECTION_TRANSPORT=cli-return is set"
+        - "atdd spawn is invoked with --persona planner --llm claude-code (or a test-double adapter) against a real temporary worktree"
+        - "The spawned surface runs in a real pty (using cmux or a pty-backed test harness, not a synthetic inline script)"
+    when:
+      abstract: "atdd spawn completes and a correction record is appended to cli-return.jsonl"
+    then:
+      abstract:
+        - "The surface foreground process is PersonaShim (inspectable via process parent-pid: adapter PID's ppid == shim PID)"
+        - "The correction_text from the cli-return.jsonl record appears in the agent's pty stdin capture within one poll interval"
+        - "output.log under .atdd/runtime/agents/<agent_id>/ grows as the agent produces output (shim tees pty output to log)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-22"
