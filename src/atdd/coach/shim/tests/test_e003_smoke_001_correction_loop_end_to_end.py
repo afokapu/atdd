@@ -4,12 +4,27 @@
 # Phase: SMOKE
 # Assertion: behavioral
 # Layer: integration
-"""E003-SMOKE-001 — End-to-end correction loop under a real shim:
+# Scope: COMPONENT SMOKE — synthetic agent only; NOT the wiring guarantee.
+#
+# This test proves PersonaShim's correction loop works in isolation against a
+# synthetic agent script. It does NOT prove that `atdd spawn` (the production
+# entry point) launches the shim as the surface foreground process.
+# The integration wiring guarantee is in E004-SMOKE-001:
+#   src/atdd/coach/commands/tests/test_e004_smoke_001_real_spawn_uses_shim_process_tree.py
+#
+# (#841: re-scoped to component smoke so it is not mistaken for the production wiring guarantee)
+"""E003-SMOKE-001 — Component smoke: PersonaShim correction-loop in isolation.
 
   synthetic agent → output.log → observer rule fires → cli-return.jsonl →
   shim delivers bytes to agent pty stdin → agent acknowledges → drift resolves.
 
-Issue #824. Paired with #825 (close-the-loop SMOKE convention).
+Exercises PersonaShim directly with a synthetic agent — NOT through the `atdd
+spawn` / `cmd_spawn` entry point. This component-level test proves the shim
+works correctly on its own; the production wiring (shim wrapped by cmd_spawn)
+is guarded by E004-SMOKE-001.
+
+Issue #824 (component). Scoped by #841 (wiring integration).
+Paired with #825 (close-the-loop SMOKE convention).
 """
 from __future__ import annotations
 
