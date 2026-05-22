@@ -662,13 +662,11 @@ def _prime_cli_return_inbox(agent_dir: Path, prompt_text: str) -> None:
     The entry is a minimal correction record: only correction_text is required
     by PersonaShim._process_cli_return_line().
     """
-    import json as _json
-
     agent_dir.mkdir(parents=True, exist_ok=True)
     cli_return_path = agent_dir / "cli-return.jsonl"
     record = {"correction_text": prompt_text}
     with cli_return_path.open("w", encoding="utf-8") as fh:
-        fh.write(_json.dumps(record) + "\n")
+        fh.write(json.dumps(record) + "\n")
 
 
 # ---------------------------------------------------------------------------
