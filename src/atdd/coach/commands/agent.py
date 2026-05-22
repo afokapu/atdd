@@ -484,7 +484,10 @@ def _read_consumed_offset(agent_id: str, runtime_root: Optional[Path]) -> int:
         try:
             return int(path.read_text().strip())
         except (ValueError, OSError) as e:
-            _logger.warning("[agent] cli-return offset file unreadable, resetting to 0: %s", e)
+            _logger.warning(
+                "cli-return offset file unreadable, resetting to 0",
+                extra={"path": str(path), "error": str(e)},
+            )
     return 0
 
 

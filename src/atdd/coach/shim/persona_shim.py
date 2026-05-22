@@ -108,7 +108,10 @@ class PersonaShim:
             try:
                 os.close(master_fd)
             except OSError as e:
-                _logger.debug("[shim] master_fd close skipped (already closed or invalid): %s", e)
+                _logger.debug(
+                    "master_fd close skipped",
+                    extra={"master_fd": master_fd, "error": str(e)},
+                )
             self._master_fd = None
 
     def poll_once(self) -> None:
@@ -198,7 +201,7 @@ class PersonaShim:
                     log_fh.write(data)
                     log_fh.flush()
         except OSError as e:
-            _logger.debug("[shim] pty drain stopped (expected EIO on process exit): %s", e)
+            _logger.debug("pty drain stopped on process exit", extra={"error": str(e)})
 
     def _process_cli_return_line(self, line: str) -> None:
         """Parse a single cli-return.jsonl line and deliver to pty."""
@@ -208,16 +211,21 @@ class PersonaShim:
             record = json.loads(line)
         except json.JSONDecodeError as e:
             _logger.warning(
-                "[shim] skipping invalid JSON in cli-return.jsonl at offset %d: %r — %s",
-                self._cli_return_offset, line[:80], e,
+                "skipping invalid JSON in cli-return.jsonl",
+                extra={
+                    "agent_id": self.agent_id,
+                    "offset": self._cli_return_offset,
+                    "line_preview": line[:80],
+                    "error": str(e),
+                },
             )
             return
 
         correction_text = record.get("correction_text")
         if not correction_text or not isinstance(correction_text, str):
             _logger.warning(
-                "[shim] skipping cli-return record missing 'correction_text': keys=%s",
-                list(record.keys()),
+                "skipping cli-return record missing correction_text",
+                extra={"agent_id": self.agent_id, "record_keys": list(record.keys())},
             )
             return
 
@@ -231,4 +239,4 @@ class PersonaShim:
             try:
                 os.write(self._master_fd, data)
             except OSError as e:
-                _logger.debug("[shim] pty write failed (agent may have exited): %s", e)
+                _logger.debug("pty write failed", extra={"agent_id": self.agent_id, "error": str(e)})
