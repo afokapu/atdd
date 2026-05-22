@@ -1,4 +1,4 @@
-urn: "wmbt:spawn-agents:M002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-21
+urn: "wmbt:spawn-agents:M002"
 step: "monitor"
 direction: "minimize"
 dimension: "quantity"
@@ -70,3 +70,23 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:M002-SMOKE-001-live-observer-rules-pass-layer-b-validator"
+      id: "AC-SMOKE-001"
+      purpose: "The deployed observer_rules/ directory passes check_observer_rules_no_slash_send with zero violations; no production observer rule injects slash-commands via multiplexer.send"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/observer_rules/ directory in the deployed codebase"
+        - "check_observer_rules_no_slash_send from test_spawn_non_interactive_validator"
+    when:
+      abstract: "Validator scans all .py files under observer_rules/"
+    then:
+      abstract:
+        - "Zero violations are returned"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-22"

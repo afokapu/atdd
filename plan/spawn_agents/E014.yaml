@@ -1,4 +1,4 @@
-urn: "wmbt:spawn-agents:E014"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-21
+urn: "wmbt:spawn-agents:E014"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -49,3 +49,23 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:E014-SMOKE-001-live-bash-auto-approve-no-stale-modal-reference"
+      id: "AC-SMOKE-001"
+      purpose: "The deployed bash_auto_approve.py source has no stale modal-typing text and the built rule's fix_hint references acceptEdits and atdd agent escalate"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "bash_auto_approve module importable from the deployed codebase"
+    when:
+      abstract: "module source is read and build_rule() is called"
+    then:
+      abstract:
+        - "Source does not contain 'multiplexer separately sends'"
+        - "rule.fix_hint contains 'acceptEdits' and 'atdd agent escalate'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-22"

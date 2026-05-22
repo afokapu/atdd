@@ -1,4 +1,4 @@
-urn: "wmbt:spawn-agents:E013"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-21
+urn: "wmbt:spawn-agents:E013"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -72,3 +72,23 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:E013-SMOKE-001-live-adapter-registry-passes-layer-b-validator"
+      id: "AC-SMOKE-001"
+      purpose: "The live ADAPTER_REGISTRY imported from spawn.py passes check_adapter_registry_fields with zero violations; every registered adapter has non-empty permission_flags and allowed_tools"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ADAPTER_REGISTRY imported from the deployed spawn.py"
+        - "check_adapter_registry_fields from test_spawn_non_interactive_validator"
+    when:
+      abstract: "check_adapter_registry_fields(ADAPTER_REGISTRY) is called"
+    then:
+      abstract:
+        - "Zero violations are returned"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-22"

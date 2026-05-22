@@ -1,4 +1,4 @@
-urn: "wmbt:spawn-agents:R001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-21
+urn: "wmbt:spawn-agents:R001"
 step: "resolve"
 direction: "minimize"
 dimension: "likelihood"
@@ -49,3 +49,23 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:R001-SMOKE-001-live-bash-auto-approve-correction-references-escalate"
+      id: "AC-SMOKE-001"
+      purpose: "The deployed bash_auto_approve.build_rule() returns a rule whose correction_text contains 'atdd agent escalate', confirming deny-pattern escalation is wired in the live codebase"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "bash_auto_approve module importable from the deployed codebase"
+    when:
+      abstract: "build_rule() is called and rule.correction_text is read"
+    then:
+      abstract:
+        - "'atdd agent escalate' appears in correction_text"
+        - "correction_text does not reference modal typing or multiplexer send"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-22"

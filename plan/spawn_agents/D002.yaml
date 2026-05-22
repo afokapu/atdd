@@ -1,4 +1,4 @@
-urn: "wmbt:spawn-agents:D002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-21
+urn: "wmbt:spawn-agents:D002"
 step: "define"
 direction: "minimize"
 dimension: "likelihood"
@@ -47,3 +47,23 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:D002-SMOKE-001-session-convention-committed-and-loadable"
+      id: "AC-SMOKE-001"
+      purpose: "session.convention.yaml is committed on disk, parseable as YAML, and contains the spawn_time section with freedom_layer, leash_layer, deny_pattern_escalation, and slash_command_prohibition subsections"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/conventions/session.convention.yaml on disk"
+    when:
+      abstract: "The file is loaded with yaml.safe_load"
+    then:
+      abstract:
+        - "spawn_time key is present"
+        - "freedom_layer, leash_layer, deny_pattern_escalation, and slash_command_prohibition keys are present under spawn_time"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-22"
