@@ -3,14 +3,14 @@
 # WMBT: wmbt:integration-hardening:E004
 # Phase: RED
 # Layer: application
-"""E004-UNIT-001 — apply_canonical_name_and_layout uses send + send_key (no bare newline).
+"""E004-UNIT-001 — apply_canonical_name_and_layout does NOT use send or send_key for rename.
 
-Asserts that the /rename slash command is split into two multiplexer calls:
-  1. send(ref, "/rename <name>")  — no trailing newline
-  2. send_key(ref, "Enter")       — synthesized key press
+M001 (#829): the /rename slash-command injection has been removed entirely.
+apply_canonical_name_and_layout now calls only backend.rename() for the tab/window
+title and never emits send() or send_key() calls for the rename path.
 
-Regression guard for the bug described in issue #652 where send() was called
-with a literal newline that Claude's REPL does not interpret as Enter.
+Updated from the original E004 guard (issue #652 bare-newline regression) which
+verified the two-call pattern. The two-call pattern is superseded by M001.
 """
 from __future__ import annotations
 
@@ -46,26 +46,30 @@ class _FakeMx:
 
 
 def test_rename_uses_send_then_send_key():
+    """M001 (#829): no send() or send_key() calls for the rename path post-M001."""
     mx = _FakeMx()
     apply_canonical_name_and_layout(mx, SURFACE_REF, CANONICAL_NAME, surface_count=1)
 
     send_ops = [c for c in mx.calls if c["op"] == "send"]
     send_key_ops = [c for c in mx.calls if c["op"] == "send_key"]
 
-    assert len(send_ops) == 1
-    assert send_ops[0]["text"] == f"/rename {CANONICAL_NAME}"
-    assert "\n" not in send_ops[0]["text"], "send() must not contain a literal newline"
-
-    assert len(send_key_ops) == 1
-    assert send_key_ops[0]["key"] == "Enter"
+    assert len(send_ops) == 0, (
+        f"send() must NOT be called after M001 /rename removal. Got: {send_ops}"
+    )
+    assert len(send_key_ops) == 0, (
+        f"send_key() must NOT be called after M001 /rename removal. Got: {send_key_ops}"
+    )
 
 
 def test_send_precedes_send_key():
+    """M001 (#829): no send or send_key operations emitted for the rename path."""
     mx = _FakeMx()
     apply_canonical_name_and_layout(mx, SURFACE_REF, CANONICAL_NAME, surface_count=1)
 
     ops = [c["op"] for c in mx.calls if c["op"] in ("send", "send_key")]
-    assert ops.index("send") < ops.index("send_key")
+    assert not ops, (
+        f"No send/send_key operations should be emitted after M001. Got: {ops}"
+    )
 
 
 def test_send_targets_correct_ref():

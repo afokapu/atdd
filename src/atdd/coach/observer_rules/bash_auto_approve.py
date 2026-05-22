@@ -9,13 +9,15 @@ reads ``orchestration.convention.yaml::babysit.bash_auto_approve_patterns``
 and ``bash_deny_patterns`` via ``babysit._load_bash_patterns`` /
 ``babysit.BashPattern`` — the patterns YAML is unchanged.
 
-Predicate semantics:
+Predicate semantics (E014, M001, R001 — issue #829):
 
   * ``classify_prompt`` returns ``action == "auto_approve"`` → predicate
-    returns ``False`` (no operator-visible correction needed; the
-    multiplexer separately sends ``"1\\n"`` to accept).
+    returns ``False``. The spawn-time allowlist (``--permission-mode
+    acceptEdits --allowedTools "Bash Edit Write Read ..."``) pre-grants
+    the freedom set so this modal never fires for allowed tools.
   * ``classify_prompt`` returns ``action == "escalate"`` → predicate
-    returns ``True`` so the observer writes an escalation correction.
+    returns ``True`` so the observer emits a correction via cli-return
+    directing the agent to run ``atdd agent escalate``.
   * ``classify_prompt`` returns ``action == "idle"`` → predicate returns
     ``False``.
 """
@@ -31,8 +33,18 @@ from atdd.coach.commands._archived.babysit import (
 
 _RULE_ID = "coach.observer.bash-auto-approve"
 _CORRECTION_TEXT = (
-    "Bash prompt did not match an auto-approve pattern — operator review required. "
-    "See orchestration.convention.yaml::babysit.bash_auto_approve_patterns."
+    "Deny-pattern bash detected — run: atdd agent escalate "
+    "to route this invocation to the structured escalation channel. "
+    "The spawn-time allowlist (--permission-mode acceptEdits --allowedTools ...) "
+    "pre-grants safe tools; deny-pattern bashes are not in the freedom set."
+)
+_FIX_HINT = (
+    "Pre-grant the safe-tool freedom set at spawn time using "
+    "--permission-mode acceptEdits --allowedTools \"Bash Edit Write Read TodoWrite Glob Grep WebFetch\" "
+    "so modals never fire for allowed tools. "
+    "For deny-pattern bashes (rm, pip install, curl, etc.), run: atdd agent escalate "
+    "to route the invocation to the structured outbound escalation channel "
+    "(see orchestration.convention.yaml::babysit.bash_deny_patterns)."
 )
 
 
@@ -53,6 +65,7 @@ def build_rule() -> observer.ObserverRule:
         injection_method="cli-return",
         severity=3,
         disposition="advisory",
+        fix_hint=_FIX_HINT,
     )
 
 

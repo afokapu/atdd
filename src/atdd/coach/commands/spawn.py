@@ -41,7 +41,8 @@ import shlex
 import sys
 import time
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional
+from dataclasses import dataclass, field
+from typing import Any, Callable, Iterable, List, Optional
 
 from atdd.coach.utils.session_naming import (
     compute_issue_surface_name,
@@ -413,6 +414,31 @@ def _assert_worker_processing(
     )
 
 
+@dataclass
+class AdapterConfig:
+    """Structured configuration for a per-LLM spawn adapter (E013, issue #829).
+
+    Carries the three spawn-time fields needed for the freedom-with-a-leash model:
+    - ``build_command``: callable that produces the shell command string given the
+      rendered launch-prompt path (preserves backward-compat via ``__call__``).
+    - ``permission_flags``: structured list of CLI flags that pre-grant the freedom
+      set so modals never fire (e.g. ``["--permission-mode", "acceptEdits"]``).
+    - ``allowed_tools``: structured list of tool names included in the allowlist
+      (e.g. ``["Bash", "Edit", "Write", ...]``).
+    - ``non_interactive_smoke``: optional callable that verifies no modal events
+      fire on a synthetic workload (L001).
+    """
+
+    build_command: Callable[[Path], str]
+    permission_flags: List[str]
+    allowed_tools: List[str]
+    non_interactive_smoke: Optional[Callable] = field(default=None)
+
+    def __call__(self, prompt_path: Path) -> str:
+        """Delegate to build_command for backward compat with call-site adapter(prompt_path)."""
+        return self.build_command(prompt_path)
+
+
 def _require_env(var_name: str, adapter_id: str) -> str:
     """Return the value of ``var_name`` or raise AdapterError.
 
@@ -503,14 +529,80 @@ def _gemini_adapter(prompt_path: Path) -> str:
     return f"gemini generate --prompt-file {shlex.quote(str(prompt_path))}"
 
 
+_CLAUDE_PERMISSION_FLAGS = ["--permission-mode", "acceptEdits"]
+_CLAUDE_ALLOWED_TOOLS = [
+    "Bash", "Edit", "Write", "Read", "TodoWrite", "Glob", "Grep", "WebFetch",
+]
+
+
+def _claude_code_non_interactive_smoke() -> None:
+    """L001-SMOKE-001: confirm the freedom-set flags suppress Bash permission modals.
+
+    Spawns `claude --permission-mode acceptEdits --allowedTools Bash -p ...`
+    and asserts none of the modal-class markers ('(1) Yes', 'Allow this', etc.)
+    appear in the captured output within 30 s.
+
+    Raises RuntimeError if claude is not on PATH or a modal marker is found.
+    """
+    import shutil
+    import subprocess as _subprocess
+
+    if not shutil.which("claude"):
+        raise RuntimeError(
+            "claude not found on PATH — cannot run non_interactive_smoke. "
+            "Install Claude Code CLI first."
+        )
+    allowed_tools = " ".join(_CLAUDE_ALLOWED_TOOLS)
+    cmd = [
+        "claude",
+        "--permission-mode", "acceptEdits",
+        "--allowedTools", allowed_tools,
+        "-p", "Bash('echo smoke-ok')",
+    ]
+    result = _subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    combined = result.stdout + result.stderr
+    modal_markers = ["(1) Yes", "(2) No", "Allow this Bash command", "❯ 1."]
+    for marker in modal_markers:
+        if marker in combined:
+            raise RuntimeError(
+                f"L001-SMOKE-001: modal detected in claude output "
+                f"(marker: {marker!r}). The freedom-set permission_flags are "
+                f"not suppressing permission prompts.\nOutput:\n{combined[:500]}"
+            )
+
+
 # Open extension point — codex / gemini / glm follow-up issues register
 # their adapters here without editing this module's CLI surface.
-ADAPTER_REGISTRY: dict[str, Callable[[Path], str]] = {
-    "claude-code": _claude_code_adapter,
-    "claude-glm": _claude_glm_adapter,
-    "claude-gpt": _claude_gpt_adapter,
-    "codex": _codex_adapter,
-    "gemini": _gemini_adapter,
+# E013 (#829): each entry carries structured permission_flags + allowed_tools
+# so validators and the #824 shim can introspect the freedom set without
+# re-parsing the shell command string.
+ADAPTER_REGISTRY: dict[str, AdapterConfig] = {
+    "claude-code": AdapterConfig(
+        build_command=_claude_code_adapter,
+        permission_flags=_CLAUDE_PERMISSION_FLAGS,
+        allowed_tools=_CLAUDE_ALLOWED_TOOLS,
+        non_interactive_smoke=_claude_code_non_interactive_smoke,
+    ),
+    "claude-glm": AdapterConfig(
+        build_command=_claude_glm_adapter,
+        permission_flags=_CLAUDE_PERMISSION_FLAGS,
+        allowed_tools=_CLAUDE_ALLOWED_TOOLS,
+    ),
+    "claude-gpt": AdapterConfig(
+        build_command=_claude_gpt_adapter,
+        permission_flags=_CLAUDE_PERMISSION_FLAGS,
+        allowed_tools=_CLAUDE_ALLOWED_TOOLS,
+    ),
+    "codex": AdapterConfig(
+        build_command=_codex_adapter,
+        permission_flags=["--full-auto"],
+        allowed_tools=["Bash", "Edit", "Write", "Read"],
+    ),
+    "gemini": AdapterConfig(
+        build_command=_gemini_adapter,
+        permission_flags=["--yolo"],
+        allowed_tools=["Bash", "Edit", "Write", "Read"],
+    ),
 }
 
 

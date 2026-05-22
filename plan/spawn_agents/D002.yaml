@@ -1,0 +1,69 @@
+urn: "wmbt:spawn-agents:D002"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "undocumented-freedom-with-a-leash-spawn-policy"
+context_clarifier: "the freedom-with-a-leash model (Layer A: spawn-time allowlist pre-grants the freedom set so modals never fire; Layer B: observer rules detect out-of-contract behavior and emit corrections to cli-return.jsonl) is implemented across spawn.py, observer rules, and the cli-return shim but is not codified in a convention file; without a convention file the policy is invisible to agent reviewers, coach validates fail to check for it, and new contributor spawns may re-introduce --permission-mode ask or inline modal-typing in observer rules"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of undocumented-freedom-with-a-leash-spawn-policy by adding a spawn-time section to src/atdd/coach/conventions/session.convention.yaml (or creating it if absent) that documents the two-layer model, references the allowed-tools list and permission flags per adapter, and specifies that deny-pattern bashes route to atdd agent escalate"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:D002-UNIT-001-session-convention-has-spawn-time-section"
+      id: "AC-UNIT-001"
+      purpose: "src/atdd/coach/conventions/session.convention.yaml exists and contains a top-level 'spawn_time' section with 'freedom_layer' and 'leash_layer' subsections"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/conventions/session.convention.yaml on disk"
+    when:
+      abstract: "The file is read and parsed as YAML"
+    then:
+      abstract:
+        - "The parsed dict contains key 'spawn_time'"
+        - "spawn_time contains 'freedom_layer' describing the allowlist pre-grant"
+        - "spawn_time contains 'leash_layer' referencing cli-return corrections (issue #824)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:D002-UNIT-002-session-convention-references-deny-pattern-escalation"
+      id: "AC-UNIT-002"
+      purpose: "The session.convention.yaml spawn_time section references 'atdd agent escalate' as the deny-pattern bash escalation path"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/conventions/session.convention.yaml parsed as YAML"
+    when:
+      abstract: "The spawn_time section is inspected for escalation reference"
+    then:
+      abstract:
+        - "The string 'atdd agent escalate' appears somewhere in the spawn_time section value"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:D002-SMOKE-001-session-convention-committed-and-loadable"
+      id: "AC-SMOKE-001"
+      purpose: "session.convention.yaml is committed on disk, parseable as YAML, and contains the spawn_time section with freedom_layer, leash_layer, deny_pattern_escalation, and slash_command_prohibition subsections"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/conventions/session.convention.yaml on disk"
+    when:
+      abstract: "The file is loaded with yaml.safe_load"
+    then:
+      abstract:
+        - "spawn_time key is present"
+        - "freedom_layer, leash_layer, deny_pattern_escalation, and slash_command_prohibition keys are present under spawn_time"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-22"

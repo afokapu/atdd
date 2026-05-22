@@ -1,0 +1,71 @@
+urn: "wmbt:spawn-agents:R001"
+step: "resolve"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "deny-pattern-bash-invocations-handled-via-in-band-modal-or-unrouted-escalation"
+context_clarifier: "orchestration.convention.yaml defines bash_deny_patterns — bashes that must never be auto-approved and must be escalated; the current bash_auto_approve rule escalates by writing a correction_text to cli-return.jsonl whose content says 'operator review required'; this message does not invoke the structured atdd agent escalate outbound channel (which writes a machine-readable escalation record to the agent's runtime dir for the babysitter to pick up); the fix_hint on the current rule does not reference atdd agent escalate so operators and the babysitter have no structured signal to act on"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of deny-pattern-bash-invocations-handled-via-in-band-modal-or-unrouted-escalation by rewriting bash_auto_approve rule's escalation path to emit a structured correction whose correction_text invokes 'atdd agent escalate' and whose fix_hint explains the deny-pattern route to operators"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:R001-UNIT-001-escalate-correction-references-atdd-agent-escalate"
+      id: "AC-UNIT-001"
+      purpose: "When predicate() returns True (deny-pattern detected), the ObserverRule's correction_text directs the agent (via cli-return) to run 'atdd agent escalate'; it does not reference modal typing or direct multiplexer send"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "bash_auto_approve.build_rule() after R001 changes"
+    when:
+      abstract: "rule.correction_text is read from the returned ObserverRule"
+    then:
+      abstract:
+        - "'atdd agent escalate' appears in correction_text"
+        - "correction_text does not contain 'send_key' or 'multiplexer'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:R001-UNIT-002-predicate-fires-on-deny-pattern-not-auto-approve"
+      id: "AC-UNIT-002"
+      purpose: "predicate() returns True only for deny-pattern screen content (routes to escalation); it returns False for auto-approve content (freedom set) so the rule does not emit unnecessary corrections for safe tools"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "bash_auto_approve.predicate() after R001 changes"
+        - "Screen content containing a deny-pattern bash (e.g. 'rm -rf')"
+        - "Screen content containing an auto-approve pattern (e.g. a known-safe Bash command)"
+    when:
+      abstract: "predicate(ctx_with_deny) and predicate(ctx_with_auto_approve) are called"
+    then:
+      abstract:
+        - "predicate(ctx_with_deny) returns True"
+        - "predicate(ctx_with_auto_approve) returns False"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-21"
+  - identity:
+      urn: "acc:spawn-agents:R001-SMOKE-001-live-bash-auto-approve-correction-references-escalate"
+      id: "AC-SMOKE-001"
+      purpose: "The deployed bash_auto_approve.build_rule() returns a rule whose correction_text contains 'atdd agent escalate', confirming deny-pattern escalation is wired in the live codebase"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "bash_auto_approve module importable from the deployed codebase"
+    when:
+      abstract: "build_rule() is called and rule.correction_text is read"
+    then:
+      abstract:
+        - "'atdd agent escalate' appears in correction_text"
+        - "correction_text does not reference modal typing or multiplexer send"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-22"

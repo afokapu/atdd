@@ -233,6 +233,7 @@ class ObserverRule:
         severity: int = 3,
         disposition: str = "advisory",
         source_path: Optional[Path] = None,
+        fix_hint: Optional[str] = None,
     ) -> None:
         if injection_method not in INJECTION_METHODS:
             raise ValueError(
@@ -252,6 +253,7 @@ class ObserverRule:
         self.severity = int(severity)
         self.disposition = disposition
         self.source_path = source_path
+        self.fix_hint = fix_hint
 
     def evaluate(self, ctx: ObservedInput, *, agent_id: str) -> Optional[Correction]:
         result = self.predicate(ctx)

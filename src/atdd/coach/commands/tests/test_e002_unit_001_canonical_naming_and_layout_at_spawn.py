@@ -116,18 +116,15 @@ def _spawn(tmp_path: Path, monkeypatch, fake_mx: FakeMultiplexer):
         "fetch_issue",
         lambda n: {"number": n, "title": "t", "body": SAMPLE_BODY},
     )
+    monkeypatch.setattr(spawn, "compute_repo_short_name", lambda config: "ATDD", raising=False)
     monkeypatch.setattr(
-        spawn,
-        "compute_repo_short_name",
-        lambda config: "ATDD",
-        raising=False,
+        spawn, "load_atdd_config", lambda root: {"repo": {"short_name": "ATDD"}}, raising=False,
     )
-    monkeypatch.setattr(
-        spawn,
-        "load_atdd_config",
-        lambda root: {"repo": {"short_name": "ATDD"}},
-        raising=False,
-    )
+    # M001 (#829): readiness gate and session-uuid capture are not under test here;
+    # patch them out so the test does not block on filesystem / real Claude startup.
+    monkeypatch.setattr(spawn, "_wait_for_claude_ready", lambda *a, **kw: None, raising=False)
+    monkeypatch.setattr(spawn, "capture_session_uuid", lambda *a, **kw: None, raising=False)
+    monkeypatch.setenv("ATDD_CLAUDE_JSON_PATH", str(tmp_path / ".claude.json"))
 
     worktree = tmp_path / "feat-coach-v9-k3-canonical-naming-pass"
     worktree.mkdir(exist_ok=True)
@@ -144,6 +141,7 @@ def _spawn(tmp_path: Path, monkeypatch, fake_mx: FakeMultiplexer):
 
 
 def test_spawn_applies_canonical_name_and_injects_rename(tmp_path, monkeypatch):
+    """M001 (#829): backend.rename is called; no send/send_key for /rename injection."""
     fake_mx = FakeMultiplexer()
     result = _spawn(tmp_path, monkeypatch, fake_mx)
     # Issue #730: the spawn surface is named by issue identity only — ATDD<N>,
@@ -154,14 +152,17 @@ def test_spawn_applies_canonical_name_and_injects_rename(tmp_path, monkeypatch):
     assert rename_calls == [
         {"op": "rename", "ref": result["surface_ref"], "name": canonical_name}
     ]
-    send_calls = [c for c in fake_mx.calls if c["op"] == "send"]
-    assert send_calls == [
-        {"op": "send", "ref": result["surface_ref"], "text": f"/rename {canonical_name}"}
+    send_calls = [
+        c for c in fake_mx.calls
+        if c["op"] == "send" and "/rename" in c.get("text", "")
     ]
+    assert send_calls == [], (
+        f"M001 (#829): send('/rename ...') must NOT be called. Got: {send_calls}"
+    )
     send_key_calls = [c for c in fake_mx.calls if c["op"] == "send_key"]
-    assert send_key_calls == [
-        {"op": "send_key", "ref": result["surface_ref"], "key": "Enter"}
-    ]
+    assert send_key_calls == [], (
+        f"M001 (#829): send_key must NOT be called for rename. Got: {send_key_calls}"
+    )
     assert result["canonical_name"] == canonical_name
     assert result["canonical_rule_id"] == "coach.orchestration.canonical-session-name"
 
@@ -176,11 +177,11 @@ def test_spawn_prints_layout_label(tmp_path, monkeypatch, capsys):
 
 
 def test_spawn_rename_failure_is_best_effort(tmp_path, monkeypatch, capsys):
+    """M001 (#829): rename failure is logged; spawn succeeds; no send() for /rename."""
     fake_mx = FakeMultiplexer(fail_rename=True)
     result = _spawn(tmp_path, monkeypatch, fake_mx)
 
     assert result["surface_ref"] == "surface:1"
-    assert any(c["op"] == "send" for c in fake_mx.calls)
     captured = capsys.readouterr()
     assert "coach.orchestration.canonical-session-name" in captured.err
     assert "rename failed" in captured.err
