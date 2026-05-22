@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import secrets
 import subprocess
@@ -36,6 +37,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from atdd.coach.commands import checkpoint as checkpoint_mod
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Frozen enums
@@ -480,8 +483,8 @@ def _read_consumed_offset(agent_id: str, runtime_root: Optional[Path]) -> int:
     if path.exists():
         try:
             return int(path.read_text().strip())
-        except (ValueError, OSError):
-            pass
+        except (ValueError, OSError) as e:
+            _logger.warning("[agent] cli-return offset file unreadable, resetting to 0: %s", e)
     return 0
 
 

@@ -11,12 +11,15 @@ Architectural principle (#824):
 from __future__ import annotations
 
 import json
+import logging
 import os
 import pty
 import select
 import subprocess
 from pathlib import Path
 from typing import Callable, IO, Optional, Sequence
+
+_logger = logging.getLogger(__name__)
 
 
 class PersonaShim:
@@ -104,8 +107,8 @@ class PersonaShim:
         finally:
             try:
                 os.close(master_fd)
-            except OSError:
-                pass
+            except OSError as e:
+                _logger.debug("[shim] master_fd close skipped (already closed or invalid): %s", e)
             self._master_fd = None
 
     def poll_once(self) -> None:
@@ -194,8 +197,8 @@ class PersonaShim:
                 if log_fh is not None:
                     log_fh.write(data)
                     log_fh.flush()
-        except OSError:
-            pass
+        except OSError as e:
+            _logger.debug("[shim] pty drain stopped (expected EIO on process exit): %s", e)
 
     def _process_cli_return_line(self, line: str) -> None:
         """Parse a single cli-return.jsonl line and deliver to pty."""
@@ -203,22 +206,18 @@ class PersonaShim:
             return
         try:
             record = json.loads(line)
-        except json.JSONDecodeError:
-            import sys
-            print(
-                f"[shim] WARNING: skipping invalid JSON in cli-return.jsonl "
-                f"at offset {self._cli_return_offset}: {line[:80]!r}",
-                file=sys.stderr,
+        except json.JSONDecodeError as e:
+            _logger.warning(
+                "[shim] skipping invalid JSON in cli-return.jsonl at offset %d: %r — %s",
+                self._cli_return_offset, line[:80], e,
             )
             return
 
         correction_text = record.get("correction_text")
         if not correction_text or not isinstance(correction_text, str):
-            import sys
-            print(
-                f"[shim] WARNING: skipping cli-return record missing 'correction_text': "
-                f"{list(record.keys())}",
-                file=sys.stderr,
+            _logger.warning(
+                "[shim] skipping cli-return record missing 'correction_text': keys=%s",
+                list(record.keys()),
             )
             return
 
@@ -231,5 +230,5 @@ class PersonaShim:
         elif self._master_fd is not None:
             try:
                 os.write(self._master_fd, data)
-            except OSError:
-                pass
+            except OSError as e:
+                _logger.debug("[shim] pty write failed (agent may have exited): %s", e)
