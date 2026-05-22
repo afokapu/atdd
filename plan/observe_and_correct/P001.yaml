@@ -1,4 +1,4 @@
-urn: "wmbt:observe-and-correct:P001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+urn: "wmbt:observe-and-correct:P001"
 step: "prepare"
 direction: "minimize"
 dimension: "quantity"
@@ -217,3 +217,27 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-18"
+  - identity:
+      urn: "acc:observe-and-correct:P001-SMOKE-002-observer-loop-closes"
+      id: "AC-SMOKE-002"
+      purpose: "Verify the observer feedback loop closes end-to-end: correction text reaches the consumer and the rule stops firing next cycle"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    close_the_loop:
+      consumer_reacted: "cli-return.jsonl entry exists AND the shim inbox (pty_stdin_bytes) contains the correction text — verifies correction was delivered to the consumer, not just written to disk"
+      drift_resolved: "A second observer.scan_once() call after the synthetic worker acknowledges the correction produces 0 new correction records for the same (rule_id, content-hash) — the predicate has flipped to non-firing"
+    given:
+      abstract:
+        - "A synthetic agent spawned under the cli-return shim with seeded drift visible on its pty output (e.g., BANG pattern triggers coach.orchestration.read-only-git-diagnostics)"
+        - "The correction schema is available from wagon:freeze-runtime-contracts"
+    when:
+      abstract: "observer.scan_once() runs twice — first to detect and dispatch, second to verify convergence after the synthetic worker acknowledges"
+    then:
+      abstract:
+        - "The correction text appears in the agent's pty stdin via the shim's inbox drain (not via FakeMultiplexer.send_history which records sends but delivers nothing)"
+        - "A second scan_once() call produces 0 new correction records for the same drift — the rule's predicate no longer fires"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-21"
