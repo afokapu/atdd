@@ -98,7 +98,7 @@ def test_persona_spawn_creates_no_obs_surface(tmp_path, monkeypatch):
         issue_number=736,
         llm="claude-code",
         multiplexer=fake_mx,
-        multiplexer_mode="pane",
+        multiplexer_mode="surface",
         dry_run=False,
         max_retries=0,
         escalation_channel=None,

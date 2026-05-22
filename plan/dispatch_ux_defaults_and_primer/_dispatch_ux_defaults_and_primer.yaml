@@ -1,7 +1,7 @@
 wagon: dispatch-ux-defaults-and-primer
 urn: "wagon:dispatch-ux-defaults-and-primer"
 name: "Dispatch UX Defaults and Primer"
-description: "Closes the 15-minute cold-start gap for first-time atdd coach operators (issue #812): flips multiplexer-mode to pane when CMUX_WORKSPACE_ID is set, auto-enables --no-prompt when stdin is not a TTY, bumps ATDD_WORKER_READY_TIMEOUT default from 10s to 30s with --help advertising, mutes the stale upgrade banner after atdd sync via a marker file, auto-detects the git worktree by walking up from cwd (or via --repo), reuses an existing worktree on cold-start instead of failing with 'already exists', prints a one-screen multiplexer primer once per session when a known mux is detected, cleans orphan worker panes on all spawn-failure paths, and removes the unimplemented --resume flag from --help until the J6 runner lands."
+description: "Closes the 15-minute cold-start gap for first-time atdd coach operators (issue #812): flips multiplexer-mode to pane when CMUX_WORKSPACE_ID is set, auto-enables --no-prompt when stdin is not a TTY, bumps ATDD_WORKER_READY_TIMEOUT default from 10s to 30s with --help advertising, mutes the stale upgrade banner after atdd sync via a marker file, auto-detects the git worktree by walking up from cwd (or via --repo), reuses an existing worktree on cold-start instead of failing with 'already exists', prints a one-screen multiplexer primer once per session when a known mux is detected, cleans orphan worker panes on all spawn-failure paths, removes the unimplemented --resume flag from --help until the J6 runner lands, and replaces deprecated cmux new-workspace/new-pane RPCs with the canonical new-surface RPC (issue #830)."
 theme: commons
 
 subject: "agent:coach"
@@ -36,7 +36,7 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
-  total: 10
+  total: 11
   E001: "minimize likelihood of coach-dispatch-sessions-where-workspace-mode-is-selected-despite-cmux-workspace-id-being-set"
   E002: "minimize likelihood of atdd-coach-invocations-that-hang-on-persona-prompt-when-stdin-is-not-a-tty"
   E003: "minimize likelihood of atdd-coach-cold-start-failures-caused-by-invocation-from-outside-a-git-worktree"
@@ -47,3 +47,4 @@ wmbt:
   E006: "minimize quantity of orphan-worker-panes-that-remain-after-a-spawn-failure-path"
   Y003: "minimize likelihood of operators-attempting-resume-via-a-help-advertised-but-unimplemented-resume-flag"
   Y004: "minimize likelihood of session-template-rendered-merge-wait-loops-blocking-planner-sessions-on-sibling-issues-that-will-never-merge-before-the-session-starts"
+  E007: "minimize likelihood of atdd-coach-cold-starts-that-fail-with-broken-pipe-due-to-deprecated-cmux-rpcs"

@@ -47,6 +47,15 @@ class _FakeMx:
         self.calls.append({"op": "new_surface", "cwd": cwd, "command": command, "name": name, "ref": ref})
         return ref
 
+    def new_surface_in_pane(self, pane_ref: Any = None, cwd: Any = None,
+                             command: Any = None, name: Any = None) -> str:
+        ref = f"surface:{len(self.calls) + 1}"
+        self.calls.append({"op": "new_surface_in_pane", "pane_ref": pane_ref, "cwd": cwd, "command": command, "name": name, "ref": ref})
+        return ref
+
+    def resolve_focused_pane(self, workspace: Any = None) -> str:
+        return "pane:1"
+
     def surface_to_pane(self, surface_ref: Any) -> str:
         return "pane:1"
 
@@ -106,14 +115,14 @@ def test_cold_start_spawns_planner_only_no_obs_surface(tmp_path, monkeypatch):
         issue_numbers=[650],
         dry_run=False,
         resume=None,
-        multiplexer_mode="pane",
+        multiplexer_mode="surface",
         _runtime_dir_override=tmp_path / ".atdd" / "runtime",
         _max_loop_events=0,
     )
 
     assert rc == 0
 
-    spawn_calls = [c for c in fake_mx.calls if c["op"] in ("new_surface", "new_workspace")]
+    spawn_calls = [c for c in fake_mx.calls if c["op"] in ("new_surface", "new_surface_in_pane", "new_workspace")]
     assert len(spawn_calls) >= 1, (
         f"Expected at least 1 spawn call (planner persona), got {len(spawn_calls)}: {fake_mx.calls}"
     )
@@ -157,7 +166,7 @@ def test_cold_start_starts_one_coach_level_observer(tmp_path, monkeypatch):
         issue_numbers=[650],
         dry_run=False,
         resume=None,
-        multiplexer_mode="pane",
+        multiplexer_mode="surface",
         _runtime_dir_override=tmp_path / ".atdd" / "runtime",
         _max_loop_events=0,
     )

@@ -85,6 +85,18 @@ class MultiplexerBackend(ABC):
             f"{self.name} backend does not support new_surface_in_pane"
         )
 
+    def resolve_focused_pane(
+        self, workspace: Optional[MultiplexerRef] = None
+    ) -> MultiplexerRef:
+        """Return the currently-focused pane ref for surface-mode spawning.
+
+        Used by _create_surface('surface') to pick the canonical spawn
+        target without calling the deprecated new-pane RPC (issue #830).
+        """
+        raise NotImplementedError(
+            f"{self.name} backend does not support resolve_focused_pane"
+        )
+
     def surface_to_pane(self, surface_ref: MultiplexerRef) -> MultiplexerRef:
         """Return the pane ref that owns surface_ref.
 
@@ -416,6 +428,22 @@ class CmuxBackend(MultiplexerBackend):
                 capture=False,
             )
         return surface_ref
+
+    def resolve_focused_pane(
+        self, workspace: Optional[MultiplexerRef] = None
+    ) -> MultiplexerRef:
+        # Parse `cmux list-panes` to find the currently-focused pane.
+        # Output format: "* pane:4  [N surfaces]  [focused]"
+        # Returns the first pane ref found — the focused pane in a typical
+        # single-pane workspace is always the only entry.
+        result = _run(["cmux", "list-panes", *_ws_flag(workspace)])
+        pane_pattern = re.compile(r"\bpane:(\d+)\b")
+        for match in pane_pattern.finditer(result.stdout or ""):
+            return f"pane:{match.group(1)}"
+        raise MultiplexerError(
+            f"cmux list-panes returned no pane refs "
+            f"(workspace={workspace!r}): {(result.stdout or '').strip()!r}"
+        )
 
     def surface_to_pane(
         self, surface_ref: MultiplexerRef, workspace: Optional[MultiplexerRef] = None
@@ -1012,6 +1040,10 @@ class FakeMultiplexer(MultiplexerBackend):
         self.calls: list[dict] = []
         self._surface_pane: dict[str, str] = {}
         self.new_persona_surface_calls: list[dict] = []
+        self._focused_pane: str = "pane:1"
+
+    def resolve_focused_pane(self, workspace: Optional[MultiplexerRef] = None) -> MultiplexerRef:
+        return self._focused_pane
 
     def new_workspace(self, cwd: str, command: str, name: Optional[str] = None) -> MultiplexerRef:
         ref = f"workspace:{len(self.calls) + 1}"

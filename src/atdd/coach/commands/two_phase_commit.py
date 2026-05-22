@@ -200,7 +200,7 @@ def phase_b_launch_sessions(
     decision_writer: DecisionWriter,
     run_id: str,
     *,
-    multiplexer_mode: str = "workspace",
+    multiplexer_mode: str = "surface",
     autonomous: bool = False,
 ) -> PhaseBResult:
     """Launch one session per issue with asymmetric rollback semantics.
@@ -256,19 +256,13 @@ def phase_b_launch_sessions(
         )
 
         try:
-            if multiplexer_mode == "pane":
-                ref = backend.new_surface(
-                    cwd=str(worktree_path),
-                    command=launch_cmd,
-                    name=canonical_name,
-                    direction="right",
-                )
-            else:
-                ref = backend.new_workspace(
-                    cwd=str(worktree_path),
-                    command=launch_cmd,
-                    name=canonical_name,
-                )
+            pane_ref = backend.resolve_focused_pane() if hasattr(backend, "resolve_focused_pane") else "pane:1"
+            ref = backend.new_surface_in_pane(
+                pane_ref=pane_ref,
+                cwd=str(worktree_path),
+                command=launch_cmd,
+                name=canonical_name,
+            )
         except (MultiplexerError, NotImplementedError) as exc:
             # Asymmetric rollback per spec §4.6: failed launches are
             # logged but already-launched siblings are NOT undone. No

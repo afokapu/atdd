@@ -53,8 +53,8 @@ def test_multiplexer_parses_choice():
 
 
 def test_multiplexer_mode_parses_choice():
-    cfg = _parse("358", "--multiplexer-mode", "pane")
-    assert cfg.multiplexer_mode == "pane"
+    cfg = _parse("358", "--multiplexer-mode", "surface")
+    assert cfg.multiplexer_mode == "surface"
 
 
 def test_auto_merge_is_boolean_flag():
