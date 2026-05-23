@@ -34,6 +34,9 @@ acceptances:
       id: "AC-UNIT-001"
       purpose: "ATDD_SKIP_ALL_GATES=1 causes the pre-push hook to bypass bare-check, version gate, prepush-validate, and registry-check in one shot"
       phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
     given:
       abstract:
         - "A tmp_path repo with the pre-push hook installed"
@@ -54,6 +57,9 @@ acceptances:
       id: "AC-UNIT-002"
       purpose: "version gate blocks only when installed atdd is older than the repo's declared minimum_version, not PyPI latest"
       phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
     given:
       abstract:
         - "A stub version checker is constructed with installed_version='3.81.1' and pypi_latest='3.81.2'"
@@ -73,6 +79,9 @@ acceptances:
       id: "AC-UNIT-003"
       purpose: "registry check auto-runs atdd registry update --yes and re-stages mirror files in non-CI mode instead of blocking"
       phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
     given:
       abstract:
         - "A stub RegistryChecker that returns drift=True on first call, drift=False on second call"
@@ -96,6 +105,9 @@ acceptances:
       id: "AC-SMOKE-001"
       purpose: "SMOKE: a routine branch push on an up-to-date worktree completes without any env-var bypass"
       phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
     given:
       abstract:
         - "A tmp_path repo with the updated pre-push hook installed"

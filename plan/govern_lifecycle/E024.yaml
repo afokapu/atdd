@@ -35,6 +35,9 @@ acceptances:
       id: "AC-UNIT-001"
       purpose: "atdd-validate.yml does not contain an 'issues' event trigger after the fix"
       phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
     given:
       abstract:
         - ".github/workflows/atdd-validate.yml is read"
@@ -53,6 +56,9 @@ acceptances:
       id: "AC-UNIT-002"
       purpose: "Publish job if-condition explicitly requires head_branch == 'main' for workflow_run triggers"
       phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
     given:
       abstract:
         - ".github/workflows/publish.yml is read"
@@ -73,6 +79,9 @@ acceptances:
       id: "AC-SMOKE-001"
       purpose: "SMOKE: after merging a PR to main, the Publish workflow produces exactly one workflow_run success and zero workflow_run skips in the 5-minute window following the merge"
       phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
     given:
       abstract:
         - "The fix is deployed: atdd-validate.yml has no issues trigger"

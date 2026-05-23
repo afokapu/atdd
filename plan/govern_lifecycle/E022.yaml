@@ -31,6 +31,9 @@ acceptances:
       id: "AC-UNIT-001"
       purpose: "post-commit hook invokes atdd validate coach with a marker expression that excludes tests marked 'slow'"
       phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
     given:
       abstract:
         - "The post-commit hook template at src/atdd/coach/templates/hooks/post-commit is read"
@@ -49,6 +52,9 @@ acceptances:
       id: "AC-UNIT-002"
       purpose: "test_guard_catches_real_live_repo_contamination is marked with pytest.mark.slow so marker-based exclusion works"
       phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
     given:
       abstract:
         - "src/atdd/coach/validators/test_y003_smoke_001_guard_catches_polluter.py is read"
@@ -67,6 +73,9 @@ acceptances:
       id: "AC-UNIT-003"
       purpose: "post-commit hook template has a shell trap that restores core.bare to its pre-hook value even when pytest exits non-zero"
       phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
     given:
       abstract:
         - "The post-commit hook template at src/atdd/coach/templates/hooks/post-commit is read"
@@ -86,6 +95,9 @@ acceptances:
       id: "AC-SMOKE-001"
       purpose: "SMOKE: after committing a coach-path file and waiting for the post-commit hook to complete, core.bare equals its pre-commit value"
       phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
     given:
       abstract:
         - "A fresh tmp_path repo is initialised with the post-commit hook installed"
