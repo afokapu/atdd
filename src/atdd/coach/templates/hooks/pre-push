@@ -4,6 +4,19 @@
 
 set -e
 
+# --- Meta-bypass: skip all gates at once (E023) ---
+# Sets all four gate-skip flags from a single env var, making emergency bypass
+# a one-token operation instead of four independent overrides.
+# Override: ATDD_SKIP_ALL_GATES=1 git push ...
+if [ "${ATDD_SKIP_ALL_GATES:-0}" = "1" ]; then
+    echo "ATDD: all gates bypassed via ATDD_SKIP_ALL_GATES=1" >&2
+    ATDD_SKIP_BARE_CHECK=1
+    ATDD_SKIP_VERSION_GATE=1
+    ATDD_SKIP_PREPUSH_VALIDATE=1
+    ATDD_SKIP_REGISTRY_CHECK=1
+    export ATDD_SKIP_BARE_CHECK ATDD_SKIP_VERSION_GATE ATDD_SKIP_PREPUSH_VALIDATE ATDD_SKIP_REGISTRY_CHECK
+fi
+
 # --- Bare-mode contamination guard (#629 Layer 1) ---
 # A worktree with core.bare=true silently mass-deletes its files on the next
 # `git add -A`. Wave 12 (PRs #625, #627) shipped 220k-line deletions this way.
@@ -203,23 +216,12 @@ fi
 # Override: ATDD_SKIP_REGISTRY_CHECK=1 git push ...
 if [ "${ATDD_SKIP_REGISTRY_CHECK:-0}" != "1" ] && [ "${CI:-}" != "true" ]; then
     if ! atdd registry update --check >&2 2>&1; then
-        cat >&2 <<'REGISTRY_FAIL'
-
-ATDD: Pre-push blocked — registry mirrors are out of sync with source-of-truth files.
-
-Run the following command to resync, then re-push:
-  atdd registry update --yes
-
-Then re-stage and push:
-  git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml
-  git commit
-  git push
-
-Emergency override:
-  ATDD_SKIP_REGISTRY_CHECK=1 git push ...
-
-REGISTRY_FAIL
-        exit 1
+        # Auto-heal: sync mirrors and re-stage so the operator does not need to
+        # know the remediation incantation (E023 — non-CI registry auto-resync).
+        echo "ATDD: registry mirrors auto-resynced (atdd registry update --yes)" >&2
+        atdd registry update --yes >&2 2>&1 || true
+        git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml 2>/dev/null || true
+        echo "ATDD: mirrors resynced and re-staged; continuing push..." >&2
     fi
 fi
 

@@ -1,0 +1,98 @@
+urn: "wmbt:govern-lifecycle:E024"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "publish-workflow-auto-skips-on-every-merge-creating-false-impression-that-auto-publish-is-broken"
+context_clarifier: >
+  The ATDD Validate workflow (.github/workflows/atdd-validate.yml) triggers on three event types: push,
+  pull_request, and issues. The issues trigger fires for every label change, status transition, or issue
+  edit — typically 5-10 times per merge during a release wave (PR closed, issue labeled COMPLETE,
+  activity-log updated, etc.). Each issues-triggered ATDD Validate completion fires the Publish
+  workflow_run event. The Publish job condition checks github.event.workflow_run.event == 'push', which
+  is false for issues-triggered runs, so each Publish instance concludes as 'skipped'. During a 6-issue
+  release wave (v3.79.1 → v3.81.1), this produced 30-50 Publish:skipped entries before each real
+  Publish:success appeared, because the issues-event ATDD Validate runs complete in ~2 min while the
+  push-triggered run (that actually triggers the successful Publish) completes ~2-3 min after the merge.
+  Operators saw only 'skipped' in their GitHub Actions feed and manually dispatched before the
+  successful auto-run appeared. Investigation confirmed: the push-triggered auto-Publish IS working
+  (runs 26334399376 and 26315039987 both succeeded via workflow_run), but the operator UX made it
+  appear broken. The fix: remove the issues trigger from ATDD Validate (issue body validation already
+  runs in the push/pull_request-triggered path via atdd validate coach); this eliminates the noisy
+  skipped runs. Additionally add github.event.workflow_run.head_branch == 'main' as a belt-and-suspenders
+  condition in Publish to make the successful-path semantics explicit in the YAML.
+lens: "functional.effectiveness"
+statement: >
+  minimize likelihood of publish-workflow-auto-skips-on-every-merge-creating-false-impression-that-auto-publish-is-broken
+  by (1) removing the issues event trigger from .github/workflows/atdd-validate.yml so issue label
+  changes no longer spawn ATDD Validate runs (and therefore no longer spawn Publish workflow_run skips);
+  (2) confirming that issue body validation is preserved via the push and pull_request paths (atdd
+  validate coach runs in both CI paths and covers issue-body conformance checks); (3) adding
+  github.event.workflow_run.head_branch == 'main' to the Publish job's if condition as belt-and-suspenders
+  to make the trigger semantics explicit (push to main, not push to any branch)
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E024-UNIT-001-atdd-validate-has-no-issues-trigger"
+      id: "AC-UNIT-001"
+      purpose: "atdd-validate.yml does not contain an 'issues' event trigger after the fix"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - ".github/workflows/atdd-validate.yml is read"
+    when:
+      abstract: "The 'on:' triggers block is inspected"
+    then:
+      abstract:
+        - "The 'issues:' key is absent from the 'on:' block"
+        - "The 'push' and 'pull_request' triggers remain present and unmodified"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E024-UNIT-002-publish-condition-includes-head-branch-main"
+      id: "AC-UNIT-002"
+      purpose: "Publish job if-condition explicitly requires head_branch == 'main' for workflow_run triggers"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - ".github/workflows/publish.yml is read"
+    when:
+      abstract: "The tag-release job's if: condition is inspected"
+    then:
+      abstract:
+        - "The condition contains github.event.workflow_run.head_branch == 'main'"
+        - "The condition retains github.event.workflow_run.event == 'push'"
+        - "The condition retains github.event.workflow_run.conclusion == 'success'"
+        - "The workflow_dispatch path is unchanged"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E024-SMOKE-001-merge-produces-exactly-one-publish-success"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: after merging a PR to main, the Publish workflow produces exactly one workflow_run success and zero workflow_run skips in the 5-minute window following the merge"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The fix is deployed: atdd-validate.yml has no issues trigger"
+        - "A test PR is merged to main (or a push to main is made with a new version bump)"
+    when:
+      abstract: "gh run list --workflow=Publish is polled for 5 minutes after the merge"
+    then:
+      abstract:
+        - "Exactly one Publish run appears with conclusion='success' and event='workflow_run' within 5 minutes"
+        - "Zero Publish runs appear with conclusion='skipped' and event='workflow_run' in the same window"
+        - "The PyPI package is available at the new version within 60 seconds of Publish completion"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"

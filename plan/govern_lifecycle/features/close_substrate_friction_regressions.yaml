@@ -1,0 +1,44 @@
+urn: "feature:govern-lifecycle:close-substrate-friction-regressions"
+wagon: "wagon:govern-lifecycle"
+description: >
+  Closes three independent operator-hostile regressions observed during the cli-return-migration session
+  (2026-05-22/23, issues #824–#843): (A) core.bare=true recurring in the shared .git/config because the
+  post-commit hook runs a SMOKE test that deliberately poisons the live repo and relies on graceful teardown
+  for cleanup; (B) routine branch pushes requiring 4 independent env-var overrides due to a gate stack
+  whose individual members are each justified but whose sum blocks legitimate work; (C) Publish workflow
+  appearing to auto-skip on every merge because issues-event-triggered ATDD Validate runs produce many
+  workflow_run:skipped entries before the push-triggered workflow_run:success appears.
+sizing:
+  wmbts: 3
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E022"
+  - "wmbt:govern-lifecycle:E023"
+  - "wmbt:govern-lifecycle:E024"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — all changes are in hook templates and version_check internals"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "auto-registry-heal (E023: run atdd registry update --yes and re-stage on non-CI push); version-gate-minimum-check (E023: compare against repo minimum_version, not PyPI latest)"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses existing atdd registry update and git config subprocess calls"
+  devops:
+    - type: "ci_workflows"
+      count: 2
+      rationale: "atdd-validate.yml (remove issues trigger, E024); publish.yml (add head_branch==main condition, E024)"
+  hooks:
+    - type: "git_hooks"
+      count: 2
+      rationale: "post-commit (add slow-marker exclusion + core.bare trap, E022); pre-push (add ATDD_SKIP_ALL_GATES + version-gate minimum check, E023)"
