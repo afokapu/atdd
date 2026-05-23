@@ -1160,3 +1160,11 @@ sessions:
   wagon: observe-and-correct
   feature: feature:observe-and-correct:observer-runtime-and-rules
   train: 0002-coach-drives-lifecycle
+- id: '846'
+  slug: red-phase-tests-leak-into-consumer-validator-sweep
+  file: null
+  issue_number: 846
+  type: cleanup
+  status: INIT
+  created: '2026-05-23'
+  archived: null
