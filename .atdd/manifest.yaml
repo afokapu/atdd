@@ -1149,3 +1149,14 @@ sessions:
   wagon: observe-and-correct
   feature: feature:observe-and-correct:observer-runtime-and-rules
   train: 0002-coach-drives-lifecycle
+- id: '843'
+  slug: persona-shim-forwards-pty-output-to-operator-stdout
+  file: plan/observe_and_correct/E003.yaml
+  issue_number: 843
+  type: cleanup
+  status: PLANNED
+  created: '2026-05-23'
+  archived: null
+  wagon: observe-and-correct
+  feature: feature:observe-and-correct:observer-runtime-and-rules
+  train: 0002-coach-drives-lifecycle

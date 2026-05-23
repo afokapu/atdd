@@ -16,6 +16,7 @@ import os
 import pty
 import select
 import subprocess
+import sys
 from pathlib import Path
 from typing import Callable, IO, Optional, Sequence
 
@@ -43,6 +44,10 @@ class PersonaShim:
         Optional test-only object with a ``read(n) -> bytes`` method.
         When provided, operator-forwarding reads from this instead of
         ``sys.stdin.buffer``.
+    stdout_sink:
+        Optional test-only callable. When provided, bytes that would be
+        written to ``sys.stdout.buffer`` are passed to this sink instead.
+        Mirrors ``pty_write_sink`` for testing operator-stdout forwarding.
     """
 
     def __init__(
@@ -53,12 +58,14 @@ class PersonaShim:
         runtime_dir: Optional[Path],
         pty_write_sink: Optional[Callable[[bytes], None]] = None,
         stdin_source: Optional[object] = None,
+        stdout_sink: Optional[Callable[[bytes], None]] = None,
     ) -> None:
         self.agent_id = agent_id
         self.spawn_command = list(spawn_command)
         self.runtime_dir = runtime_dir
         self._pty_write_sink = pty_write_sink
         self._stdin_source = stdin_source
+        self._stdout_sink = stdout_sink
 
         # Per-agent runtime dir: <runtime_dir>/agents/<agent_id>/
         if runtime_dir is not None:
@@ -161,7 +168,6 @@ class PersonaShim:
         timeout: Optional[float],
     ) -> None:
         """Main event loop: tee pty output + poll cli-return + forward stdin."""
-        import sys
         import time
 
         deadline = (time.monotonic() + timeout) if timeout is not None else None
@@ -182,6 +188,7 @@ class PersonaShim:
                         if log_fh is not None:
                             log_fh.write(data)
                             log_fh.flush()
+                        self._write_to_stdout(data)
                 except OSError:
                     break
 
@@ -200,6 +207,7 @@ class PersonaShim:
                 if log_fh is not None:
                     log_fh.write(data)
                     log_fh.flush()
+                self._write_to_stdout(data)
         except OSError as e:
             _logger.debug("pty drain stopped on process exit", extra={"error": str(e)})
 
@@ -240,3 +248,23 @@ class PersonaShim:
                 os.write(self._master_fd, data)
             except OSError as e:
                 _logger.debug("pty write failed", extra={"agent_id": self.agent_id, "error": str(e)})
+
+    def _write_to_stdout(self, data: bytes) -> None:
+        """Forward pty output bytes to operator-visible stdout."""
+        if self._stdout_sink is not None:
+            try:
+                self._stdout_sink(data)
+            except OSError as e:
+                _logger.warning(
+                    "stdout forward failed",
+                    extra={"agent_id": self.agent_id, "error": str(e)},
+                )
+            return
+        try:
+            sys.stdout.buffer.write(data)
+            sys.stdout.buffer.flush()
+        except OSError as e:
+            _logger.warning(
+                "stdout forward failed",
+                extra={"agent_id": self.agent_id, "error": str(e)},
+            )
