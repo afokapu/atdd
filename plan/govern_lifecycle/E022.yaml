@@ -1,0 +1,102 @@
+urn: "wmbt:govern-lifecycle:E022"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "core-bare-true-reappearing-in-shared-git-config-because-post-commit-hook-runs-smoke-test-that-deliberately-poisons-live-repo"
+context_clarifier: >
+  The SMOKE test test_y003_smoke_001_guard_catches_polluter.py::test_guard_catches_real_live_repo_contamination
+  deliberately writes core.bare=true to the LIVE shared .git/config via a pytester inner session (cwd=_REPO_ROOT).
+  The inner conftest restores it — but ONLY if the pytest process terminates normally. The post-commit hook calls
+  atdd validate coach --local --skip-api after every src/atdd/coach/ commit; this blast-radius run includes all
+  coach validators, including the SMOKE test. If the developer Ctrl+C's the hook, hits a timeout, or pytest
+  crashes mid-teardown, the restore never runs and core.bare=true is left in .git/config. The operator then runs
+  git config core.bare false, commits again, triggers the hook again — repeat. Two independent guards already
+  exist (src/atdd/conftest.py function-scoped fixture; src/atdd/coach/validators/conftest.py session-scoped),
+  but both rely on pytest teardown running — a guarantee that fails under SIGKILL or OOM. The fix has two
+  orthogonal parts: (1) exclude SMOKE-tagged tests from the post-commit blast-radius run (SMOKE tests require
+  real network/CI infrastructure; running them in a post-commit hook is the wrong tier); (2) add a shell-level
+  trap in the post-commit hook that snapshots core.bare before invoking pytest and restores it on EXIT, so even
+  SIGKILL cannot leave the live repo contaminated.
+lens: "functional.availability"
+statement: >
+  minimize likelihood of core-bare-true-reappearing-in-shared-git-config-because-post-commit-hook-runs-smoke-test-that-deliberately-poisons-live-repo
+  by (1) modifying the post-commit hook's atdd validate coach invocation to add -m 'not slow' (or equivalent
+  marker expression) so the pytester-based SMOKE test is excluded from post-commit runs while remaining in CI;
+  (2) adding a shell-level core.bare snapshot+restore trap to the post-commit hook template so the live repo
+  is always restored regardless of how pytest exits; and (3) adding a pytest marker 'slow' to
+  test_guard_catches_real_live_repo_contamination so the exclusion is stable across pytest invocations
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E022-UNIT-001-post-commit-hook-excludes-slow-marker"
+      id: "AC-UNIT-001"
+      purpose: "post-commit hook invokes atdd validate coach with a marker expression that excludes tests marked 'slow'"
+      phase: "GREEN"
+    given:
+      abstract:
+        - "The post-commit hook template at src/atdd/coach/templates/hooks/post-commit is read"
+    when:
+      abstract: "The coach validation command in the hook is extracted (the line that invokes atdd validate coach or pytest)"
+    then:
+      abstract:
+        - "The command includes a marker expression that excludes 'slow' (e.g., -m 'not slow', --deselect, or --ignore of the SMOKE test file)"
+        - "The exclusion is explicit and machine-readable, not a comment"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E022-UNIT-002-smoke-test-has-slow-marker"
+      id: "AC-UNIT-002"
+      purpose: "test_guard_catches_real_live_repo_contamination is marked with pytest.mark.slow so marker-based exclusion works"
+      phase: "GREEN"
+    given:
+      abstract:
+        - "src/atdd/coach/validators/test_y003_smoke_001_guard_catches_polluter.py is read"
+    when:
+      abstract: "The pytestmark or mark decorators are inspected"
+    then:
+      abstract:
+        - "test_guard_catches_real_live_repo_contamination has pytest.mark.slow applied (either via pytestmark list or decorator)"
+        - "The 'slow' mark is registered in src/atdd/conftest.py pytest_configure"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E022-UNIT-003-post-commit-restores-core-bare-on-exit"
+      id: "AC-UNIT-003"
+      purpose: "post-commit hook template has a shell trap that restores core.bare to its pre-hook value even when pytest exits non-zero"
+      phase: "GREEN"
+    given:
+      abstract:
+        - "The post-commit hook template at src/atdd/coach/templates/hooks/post-commit is read"
+    when:
+      abstract: "The hook script is inspected for a core.bare snapshot and restore pattern"
+    then:
+      abstract:
+        - "The script snapshots core.bare before invoking pytest (e.g., BARE_BEFORE=$(git config core.bare 2>/dev/null || echo ''))"
+        - "The script registers a trap on EXIT that restores core.bare to BARE_BEFORE"
+        - "The trap fires regardless of whether pytest exited 0 or non-zero"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E022-SMOKE-001-post-commit-leaves-core-bare-unchanged"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: after committing a coach-path file and waiting for the post-commit hook to complete, core.bare equals its pre-commit value"
+      phase: "SMOKE"
+    given:
+      abstract:
+        - "A fresh tmp_path repo is initialised with the post-commit hook installed"
+        - "core.bare is unset (the normal state)"
+        - "A file under src/atdd/coach/ is staged and committed"
+    when:
+      abstract: "The post-commit hook fires and completes (exit code recorded)"
+    then:
+      abstract:
+        - "git config core.bare in the tmp_path repo is still unset (identical to pre-commit value)"
+        - "The result holds regardless of whether the hook's validator sub-run exited 0 or non-zero"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"

@@ -55,9 +55,10 @@ features:
   - urn: "feature:govern-lifecycle:issue-author-validate-locally-publish-once"
   - urn: "feature:govern-lifecycle:rename-codex-conductor-md"
   - urn: "feature:govern-lifecycle:systemic-registry-drift-enforcement"
+  - urn: "feature:govern-lifecycle:close-substrate-friction-regressions"
 
 wmbt:
-  total: 48
+  total: 51
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -106,3 +107,6 @@ wmbt:
   E019: "minimize issue-author-submits-non-compliant-body-or-triggers-redundant-create-edit-graphql-pair when an operator runs atdd issue <slug> by validating the full body locally (--check gate) before any GitHub call and publishing via a single gh issue create with no follow-up gh issue edit for body (#792)"
   E020: "minimize codex-agents-receiving-no-atdd-rules-because-sync-writes-deprecated-agents-md-not-conductor-md by renaming the persona template to CONDUCTOR.md.tmpl, updating AgentConfigSync.AGENT_FILES['codex'] to 'CONDUCTOR.md', and emitting a migration notice when a stale AGENTS.md with managed block is detected (#794)"
   E021: "minimize registry-mirror-drift-accumulates-on-main-because-no-push-or-ci-gate-enforces-atdd-registry-update-before-landing by applying a one-shot atdd registry update --yes chore commit, wiring atdd registry update --check into the pre-push hook, and adding a required atdd-registry-drift CI check on main so future WMBT additions cannot land without mirror resync (#817)"
+  E022: "minimize core-bare-true-reappearing-in-shared-git-config by excluding SMOKE-tagged tests from the post-commit blast-radius run and adding a shell-level core.bare trap to the hook template (#845)"
+  E023: "minimize distinct-environment-variables-required-for-routine-branch-push by adding ATDD_SKIP_ALL_GATES=1 meta-bypass, tightening the version gate to repo minimum_version, and making the registry check auto-heal rather than block (#845)"
+  E024: "minimize publish-workflow-auto-skips-on-every-merge by removing the issues trigger from atdd-validate.yml and adding head_branch==main to the Publish condition (#845)"
