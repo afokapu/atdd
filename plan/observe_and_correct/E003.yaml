@@ -223,6 +223,71 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-21"
   - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-011-pty-output-forwarded-to-operator-stdout"
+      id: "AC-UNIT-011"
+      purpose: "_run_loop writes every pty-output chunk to both log_fh AND sys.stdout.buffer; both writes are flushed; operator-visible stdout receives identical bytes to what was logged"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A PersonaShim instance is constructed with a stdout_sink callable (test-only hook, mirrors pty_write_sink)"
+        - "A synthetic child process writes a known sentinel string to its pty stdout"
+    when:
+      abstract: "The shim's _run_loop processes pty output from the child"
+    then:
+      abstract:
+        - "The sentinel bytes appear in the stdout_sink capture buffer"
+        - "The sentinel bytes also appear in output.log (both sinks receive identical data)"
+        - "Both writes are flushed before the next poll interval"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-23"
+  - identity:
+      urn: "acc:observe-and-correct:E003-UNIT-012-stdout-write-fault-isolation"
+      id: "AC-UNIT-012"
+      purpose: "When writing to stdout raises OSError, _run_loop logs the error with extra= and continues; it does not crash or stop serving log_fh and cli-return"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A PersonaShim instance is constructed with a stdout_sink that raises OSError on first call"
+        - "A synthetic child process emits multiple chunks of output"
+    when:
+      abstract: "The shim's _run_loop encounters the OSError on the stdout write"
+    then:
+      abstract:
+        - "The shim does not crash or raise"
+        - "log_fh still receives all output chunks (log write is not disrupted by stdout error)"
+        - "The loop continues polling cli-return and processing subsequent chunks"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-23"
+  - identity:
+      urn: "acc:observe-and-correct:E003-SMOKE-002-operator-stdout-visible"
+      id: "AC-SMOKE-002"
+      purpose: "Launch atdd-shim wrapping a subprocess that writes a known sentinel to its pty; capture the shim's own stdout (not just output.log); assert the sentinel appears in that stdout within 10 s"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd-shim is installed as a CLI entry point"
+        - "A synthetic agent script writes a known sentinel (STDOUT_SENTINEL) to its pty stdout"
+    when:
+      abstract: "atdd-shim is launched as a subprocess with stdout=PIPE, wrapping the synthetic agent"
+    then:
+      abstract:
+        - "The sentinel bytes appear in the captured subprocess stdout within 10 seconds"
+        - "This confirms pty output reaches the operator-visible terminal in the cmux pane"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-23"
+  - identity:
       urn: "acc:observe-and-correct:E003-SMOKE-001-correction-loop-end-to-end"
       id: "AC-SMOKE-001"
       purpose: "End-to-end: a synthetic agent runs under the shim; the observer fires a rule; the correction lands in the agent pty stdin; the drift condition resolves on the observer's next cycle"
