@@ -1154,7 +1154,7 @@ sessions:
   file: plan/observe_and_correct/E003.yaml
   issue_number: 843
   type: cleanup
-  status: INIT
+  status: PLANNED
   created: '2026-05-23'
   archived: null
   wagon: observe-and-correct
