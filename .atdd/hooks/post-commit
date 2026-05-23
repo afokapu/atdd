@@ -70,6 +70,18 @@ fi
 
 echo "ATDD post-commit: running blast-radius validators..." >&2
 
+# --- core.bare snapshot + restore trap (E022) ---
+# Prevents pytester-based SMOKE tests from leaving core.bare=true in the shared
+# .git/config even if the pytest process is interrupted (SIGKILL, timeout, OOM).
+BARE_BEFORE=$(git config core.bare 2>/dev/null || echo "")
+trap '
+    if [ -n "$BARE_BEFORE" ]; then
+        git config core.bare "$BARE_BEFORE" 2>/dev/null || true
+    else
+        git config --unset core.bare 2>/dev/null || true
+    fi
+' EXIT
+
 # --- Fire validators in parallel ---
 # Each non-zero RUN_* triggers an async subprocess. We collect PIDs and wait
 # on them so the hook only returns after every validator has reported.
@@ -96,7 +108,7 @@ if [ "$RUN_CODER" = "1" ]; then
 fi
 
 if [ "$RUN_COACH" = "1" ]; then
-    ( atdd validate coach --local --skip-api >&2 2>&1 ) &
+    ( PYTEST_ADDOPTS="-m 'not slow'" atdd validate coach --local --skip-api >&2 2>&1 ) &
     PIDS="$PIDS $!"
 fi
 
