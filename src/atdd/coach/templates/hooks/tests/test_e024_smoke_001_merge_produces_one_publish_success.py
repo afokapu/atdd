@@ -27,10 +27,14 @@ PUBLISH_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "publish.yml"
 
 def test_publish_smoke_structural_preconditions():
     """AC-SMOKE-001 (structural): both workflow fixes must be in place for zero-skip merges."""
+    import yaml
+
     validate_text = VALIDATE_WORKFLOW.read_text(encoding="utf-8")
     publish_text = PUBLISH_WORKFLOW.read_text(encoding="utf-8")
 
-    validate_ok = "issues:" not in validate_text
+    doc = yaml.safe_load(validate_text)
+    on_block = doc.get("on", doc.get(True, {}))
+    validate_ok = "issues" not in on_block
     publish_ok = "head_branch == 'main'" in publish_text
 
     errors = []

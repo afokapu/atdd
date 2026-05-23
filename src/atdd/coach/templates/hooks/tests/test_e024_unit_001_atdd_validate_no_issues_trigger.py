@@ -24,10 +24,15 @@ VALIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "atdd-validate.yml"
 
 
 def test_atdd_validate_has_no_issues_trigger():
-    """AC-UNIT-001: atdd-validate.yml must not contain an 'issues' event trigger."""
+    """AC-UNIT-001: atdd-validate.yml must not contain an 'issues' event trigger in the 'on:' block."""
     workflow_text = VALIDATE_WORKFLOW.read_text(encoding="utf-8")
-    assert "issues:" not in workflow_text, (
-        f"{VALIDATE_WORKFLOW} still contains an 'issues:' trigger.\n"
+    # Parse just the 'on:' block to avoid false positives from 'issues: write'
+    # in permissions blocks or 'event_name == issues' in job conditions.
+    import yaml
+    doc = yaml.safe_load(workflow_text)
+    on_block = doc.get("on", doc.get(True, {}))  # YAML 'on:' parses as True
+    assert "issues" not in on_block, (
+        f"{VALIDATE_WORKFLOW} still has an 'issues' event trigger in the 'on:' block.\n"
         "Each issues-triggered ATDD Validate run fires the Publish workflow_run event,\n"
         "which then appears as 'skipped' in GitHub Actions — creating the false impression\n"
         "that auto-publish is broken (issue #845 Item C).\n"
