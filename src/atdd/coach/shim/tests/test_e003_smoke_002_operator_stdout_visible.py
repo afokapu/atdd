@@ -17,14 +17,21 @@ Issue #843.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 import pytest
 
 pytestmark = [pytest.mark.smoke, pytest.mark.platform]
+
+# Resolve worktree src root so the subprocess uses the local persona_shim.py
+# rather than the pipx-installed copy. pytest adds this via pythonpath=[src]
+# but subprocesses need it explicitly.
+_SRC_ROOT = str(Path(__file__).parent.parent.parent.parent.parent)  # …/src
 
 _SYNTHETIC_AGENT = """\
 import sys, time
@@ -42,9 +49,13 @@ def test_shim_stdout_carries_pty_output(tmp_path):
     agent_script = tmp_path / "synthetic_agent_smoke002.py"
     agent_script.write_text(_SYNTHETIC_AGENT)
 
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{_SRC_ROOT}:{existing_pythonpath}" if existing_pythonpath else _SRC_ROOT
+
     proc = subprocess.Popen(
         [
-            "atdd-shim",
+            sys.executable, "-m", "atdd.coach.shim",
             "--agent-id", "smoke-002",
             "--runtime-dir", str(tmp_path),
             "--",
@@ -52,6 +63,7 @@ def test_shim_stdout_carries_pty_output(tmp_path):
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=env,
     )
 
     collected: list[bytes] = []
