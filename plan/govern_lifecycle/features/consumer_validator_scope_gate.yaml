@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:consumer-validator-scope-gate"
+wagon: "wagon:govern-lifecycle"
+description: "Ensure platform-marked RED-phase toolkit tests are excluded from consumer-facing validator sweeps regardless of invocation flags (--skip-api, --no-split). Fixes the split=False bypass that caused v3.81.1 to leak test_custom_themes*.py into every consumer atdd validate planner run (#846)."
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E025"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI commands or flags; the fix is internal to TestRunner"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "TestRunner.run_tests() updated to apply consumer-mode platform-exclusion regardless of split mode"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain objects; marker expression logic is utility-level"
+    integration:
+      - type: "validators"
+        count: 1
+        rationale: "New regression validator test_no_red_phase_tests_in_consumer_entry_points.py: scans planner/tester/coder/coach validator dirs and fails if any Phase:RED test file lacks @pytest.mark.platform"

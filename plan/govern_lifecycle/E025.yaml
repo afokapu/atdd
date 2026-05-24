@@ -1,0 +1,143 @@
+urn: "wmbt:govern-lifecycle:E025"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "red-phase-toolkit-tests-leaking-into-consumer-validator-sweep-because-skip-api-flag-disables-split-mode-and-bypasses-platform-marker-exclusion"
+context_clarifier: "atdd validate planner --local --skip-api (the pre-push hook invocation) sets split=False, bypassing _run_split() entirely. The consumer-mode exclusion ('and not platform') only lives inside _run_split(), so --skip-api causes ALL platform-marked tests — including RED-phase tests designed to fail until the corresponding feature lands — to be included in the consumer sweep. Concrete instance: v3.81.1 ships test_custom_themes.py and test_custom_themes_schema.py, both marked @pytest.mark.platform and Phase: RED. These tests FAIL in any consumer repo because atdd.coach.utils.theme_map does not exist and wagon.schema.json still uses an enum for theme. Every consumer push that touches plan/ is blocked. The root cause is that the platform-exclusion guard is not applied consistently across split=True and split=False paths in TestRunner."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of red-phase-toolkit-tests-leaking-into-consumer-validator-sweep-because-skip-api-flag-disables-split-mode-and-bypasses-platform-marker-exclusion by (1) moving the is_atdd_source_repo() consumer-mode platform-exclusion check from _run_split() into run_tests() so it applies regardless of split mode — when is_atdd_source_repo() returns False, 'not platform' is injected into the effective marker expression before any pytest invocation; (2) adding a unit test that verifies the marker expression is correctly built when split=False and not in the source repo; (3) adding a regression validator (test_no_red_phase_tests_in_consumer_entry_points.py) that scans all consumer-facing validator entry points and fails if any test file whose docstring contains 'Phase: RED' can be collected without the 'not platform' filter"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E025-UNIT-001-platform-excluded-when-not-source-repo-no-split"
+      id: "AC-UNIT-001"
+      purpose: "run_tests() applies 'not platform' marker even when split=False and not in source repo"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "is_atdd_source_repo() is monkeypatched to return False (consumer context)"
+        - "TestRunner.run_tests() is called with phase='planner', split=False, local=True"
+    when:
+      abstract: "The pytest command list is captured (subprocess patched to a no-op)"
+    then:
+      abstract:
+        - "The '-m' argument in the captured command contains 'not platform'"
+        - "No 'platform' tests are scheduled to run"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E025-UNIT-002-platform-excluded-when-not-source-repo-skip-api"
+      id: "AC-UNIT-002"
+      purpose: "The --skip-api CLI invocation does not collect platform-marked tests in consumer context"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "is_atdd_source_repo() is monkeypatched to return False (consumer context)"
+        - "CLI args parsed as: phase='planner', skip_api=True, local=True"
+    when:
+      abstract: "The pytest command list is captured for both stages (or the single stage when split=False)"
+    then:
+      abstract:
+        - "Every '-m' argument in the captured command contains 'not platform'"
+        - "test_custom_themes.py and test_custom_themes_schema.py are not collected"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E025-UNIT-003-platform-tests-run-when-in-source-repo"
+      id: "AC-UNIT-003"
+      purpose: "platform-marked tests are NOT excluded when running inside the ATDD source repo"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "is_atdd_source_repo() is monkeypatched to return True (toolkit dev context)"
+        - "TestRunner.run_tests() is called with phase='planner', split=False, local=True"
+    when:
+      abstract: "The pytest command list is captured"
+    then:
+      abstract:
+        - "The '-m' argument does NOT contain 'not platform'"
+        - "platform-marked tests are included in the sweep (they are the ATDD dogfood tests)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E025-UNIT-004-regression-validator-flags-red-phase-in-consumer-entrypoints"
+      id: "AC-UNIT-004"
+      purpose: "The regression validator fails when a test file marked 'Phase: RED' is reachable from consumer entry points without the platform marker"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic validator directory contains a test file with 'Phase: RED' in its module docstring"
+        - "The test file has NO @pytest.mark.platform decorator"
+        - "The regression validator is invoked against this directory"
+    when:
+      abstract: "scan_for_red_phase_leaks(validator_dir) is called"
+    then:
+      abstract:
+        - "The function returns a non-empty list of violation paths"
+        - "The violation message identifies the file and states it is Phase: RED without a platform guard"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E025-UNIT-005-regression-validator-passes-when-red-phase-has-platform-marker"
+      id: "AC-UNIT-005"
+      purpose: "The regression validator passes when a Phase: RED test file also has @pytest.mark.platform"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic validator directory contains a test file with 'Phase: RED' in its docstring"
+        - "Every test function in the file is decorated with @pytest.mark.platform"
+        - "The regression validator is invoked against this directory"
+    when:
+      abstract: "scan_for_red_phase_leaks(validator_dir) is called"
+    then:
+      abstract:
+        - "The function returns an empty list (no violations)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E025-INTEGRATION-001-consumer-repo-sweep-excludes-custom-themes-tests"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd validate planner --local --skip-api in a consumer repo does not collect test_custom_themes*.py tests"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is installed from local source (PYTHONPATH=src)"
+        - "A temporary directory is configured as a non-ATDD repo (no pyproject.toml with name=atdd)"
+        - "ATDD_REPO_ROOT is set to the temp dir"
+    when:
+      abstract: "atdd validate planner --local --skip-api is invoked (subprocess) or TestRunner.run_tests() is called with skip_api=True from the temp dir"
+    then:
+      abstract:
+        - "test_custom_themes.py tests are not collected"
+        - "test_custom_themes_schema.py tests are not collected"
+        - "The exit code is not caused by failures in those test files"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-24"
