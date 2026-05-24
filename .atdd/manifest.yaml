@@ -1165,7 +1165,7 @@ sessions:
   file: plan/govern_lifecycle/E026.yaml
   issue_number: 851
   type: analysis
-  status: INIT
+  status: PLANNED
   created: '2026-05-24'
   archived: null
   wagon: govern-lifecycle
