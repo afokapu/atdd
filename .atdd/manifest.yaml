@@ -1164,8 +1164,8 @@ sessions:
   slug: audit-and-retire-bypass-flag-proliferation
   file: plan/govern_lifecycle/E026.yaml
   issue_number: 851
-  type: analysis
-  status: PLANNED
+  type: chore
+  status: RED
   created: '2026-05-24'
   archived: null
   wagon: govern-lifecycle
