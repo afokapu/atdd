@@ -1,3 +1,8 @@
+# URN: test:spawn-agents:E016-UNIT-002-build-shim-command-emits-env-flags
+# Acceptance: acc:spawn-agents:E016-UNIT-002-build-shim-command-emits-env-flags
+# WMBT: wmbt:spawn-agents:E016
+# Phase: GREEN
+# Assertion: behavioral
 """E016-UNIT-002 — _build_shim_command emits --env KEY=VALUE flags instead of shell prefix.
 
 RED: fails until _build_shim_command accepts env_overrides and emits --env flags.

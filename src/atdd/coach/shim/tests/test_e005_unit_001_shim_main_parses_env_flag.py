@@ -1,3 +1,8 @@
+# URN: test:observe-and-correct:E005-UNIT-001-shim-main-parses-env-flag
+# Acceptance: acc:observe-and-correct:E005-UNIT-001-shim-main-parses-env-flag
+# WMBT: wmbt:observe-and-correct:E005
+# Phase: GREEN
+# Assertion: behavioral
 """E005-UNIT-001 — atdd-shim __main__ parses --env KEY=VALUE (repeatable).
 
 RED: fails until _build_parser gains --env argument.

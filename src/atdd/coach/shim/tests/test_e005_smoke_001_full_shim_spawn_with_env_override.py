@@ -1,3 +1,8 @@
+# URN: test:observe-and-correct:E005-SMOKE-001-full-shim-spawn-with-env-override
+# Acceptance: acc:observe-and-correct:E005-SMOKE-001-full-shim-spawn-with-env-override
+# WMBT: wmbt:observe-and-correct:E005
+# Phase: SMOKE
+# Assertion: integration
 """E005-SMOKE-001 — atdd-shim with --env delivers env var to spawned process stdout.
 
 End-to-end: the synthetic adapter prints $ATDD_AGENT_ID; captured shim stdout

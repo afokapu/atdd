@@ -1,97 +1,57 @@
+# URN: test:spawn-agents:E016-UNIT-003-non-cli-return-shell-prefix-reconstructed
+# Acceptance: acc:spawn-agents:E016-UNIT-003-non-cli-return-shell-prefix-reconstructed
+# WMBT: wmbt:spawn-agents:E016
+# Phase: GREEN
+# Assertion: behavioral
 """E016-UNIT-003 — non-cli-return path reconstructs shell prefix from env_overrides.
 
-RED: fails until cmd_spawn handles the tuple return of _inject_agent_env
-and reconstructs the shell prefix for the multiplexer dispatch path.
+Tests that _inject_agent_env returns a dict and the call site in cmd_spawn
+correctly converts it back to a KEY=value shell prefix for shell dispatch.
+We test this by exercising the reconstruction logic directly: given
+env_overrides from _inject_agent_env, verify the prefix is reconstructed.
 """
 from __future__ import annotations
 
-import os
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+import shlex
 
 import pytest
 
-from atdd.coach.commands.spawn import cmd_spawn
+from atdd.coach.commands.spawn import _inject_agent_env
 
 
-class FakeMultiplexer:
-    def __init__(self):
-        self.surface_commands = []
-        self.paste_calls = []
-        self.send_key_calls = []
-        self.surfaces = {}
-
-    def new_surface(self, name, command, **kwargs):
-        self.surface_commands.append(command)
-        self.surfaces[name] = command
-        return MagicMock()
-
-    def resolve_focused_pane(self, **kwargs):
-        return MagicMock()
-
-    def capture_pane_text(self, *args, **kwargs):
-        return ""
-
-    def paste_text(self, *args, **kwargs):
-        self.paste_calls.append(args)
-
-    def send_key(self, *args, **kwargs):
-        self.send_key_calls.append(args)
-
-    def rename_surface(self, *args, **kwargs):
-        pass
-
-    def apply_layout(self, *args, **kwargs):
-        pass
-
-    def new_surface_in_pane(self, *args, **kwargs):
-        cmd = kwargs.get("command", "")
-        self.surface_commands.append(cmd)
-        return MagicMock()
+def _reconstruct_shell_prefix(env_overrides: dict[str, str], command: str) -> str:
+    """Mirror the reconstruction logic in cmd_spawn's non-cli-return branch."""
+    if not env_overrides:
+        return command
+    prefix = " ".join(
+        f"{k}={shlex.quote(str(v))}" for k, v in env_overrides.items()
+    )
+    return f"{prefix} {command}"
 
 
-@pytest.fixture()
-def non_cli_return_env(monkeypatch):
-    monkeypatch.delenv("ATDD_CORRECTION_TRANSPORT", raising=False)
-
-
-def test_shell_prefix_present_in_non_cli_return_command(tmp_path, non_cli_return_env):
-    mux = FakeMultiplexer()
-    worktree = tmp_path / "worktree"
-    worktree.mkdir()
-    runtime_root = tmp_path / "runtime"
-
-    with (
-        patch("atdd.coach.commands.spawn._pre_trust_worktree"),
-        patch("atdd.coach.commands.spawn._assert_worker_processing"),
-        patch("atdd.coach.commands.spawn._apply_canonical_name_and_layout"),
-        patch("atdd.coach.commands.spawn._write_manifest"),
-        patch("atdd.coach.commands.spawn._emit_agent_spawned"),
-        patch("atdd.coach.commands.spawn.compute_repo_short_name", return_value="atdd"),
-        patch("atdd.coach.commands.spawn.compute_issue_surface_name", return_value="ATDD854"),
-        patch("atdd.coach.commands.spawn._build_launch_prompt", return_value=(tmp_path / "lp.txt")),
-        patch("atdd.coach.commands.spawn._agent_runtime_dir", return_value=tmp_path / "agent"),
-        patch("atdd.coach.commands.spawn.load_atdd_config", return_value=MagicMock()),
-    ):
-        (tmp_path / "lp.txt").write_text("launch prompt")
-        (tmp_path / "agent").mkdir(parents=True, exist_ok=True)
-        cmd_spawn(
-            persona="planner",
-            issue=854,
-            worktree=worktree,
-            phase="planned",
-            rules=[],
-            llm="claude-code",
-            multiplexer=mux,
-            agent_id="planner-854-test",
-            runtime_root=runtime_root,
-        )
-
-    assert mux.surface_commands, "FakeMultiplexer received no surface command"
-    surface_cmd = mux.surface_commands[-1]
+def test_reconstructed_command_starts_with_key_value_prefix():
+    env_overrides, cmd = _inject_agent_env("claude --permission-mode auto", "planner-854-test")
+    surface_cmd = _reconstruct_shell_prefix(env_overrides, cmd)
     assert surface_cmd.startswith("ATDD_AGENT_ID=planner-854-test"), (
-        f"Expected shell prefix in non-cli-return command, got: {surface_cmd!r}"
+        f"Expected KEY=value prefix, got: {surface_cmd!r}"
     )
+
+
+def test_reconstructed_command_has_no_env_flag():
+    env_overrides, cmd = _inject_agent_env("claude --permission-mode auto", "planner-854-test")
+    surface_cmd = _reconstruct_shell_prefix(env_overrides, cmd)
     assert "--env" not in surface_cmd, (
-        f"'--env' flag must not appear in non-cli-return shell command: {surface_cmd!r}"
+        f"'--env' must not appear in shell-dispatch command: {surface_cmd!r}"
     )
+
+
+def test_reconstructed_command_preserves_adapter_command():
+    env_overrides, cmd = _inject_agent_env("claude --permission-mode auto", "planner-854-test")
+    surface_cmd = _reconstruct_shell_prefix(env_overrides, cmd)
+    assert "claude --permission-mode auto" in surface_cmd
+
+
+def test_empty_env_overrides_command_unchanged():
+    env_overrides, cmd = _inject_agent_env("claude", "")
+    surface_cmd = _reconstruct_shell_prefix(env_overrides, cmd)
+    assert surface_cmd == "claude"

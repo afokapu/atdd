@@ -1,3 +1,8 @@
+# URN: test:observe-and-correct:E005-UNIT-002-persona-shim-applies-env-overrides-to-popen
+# Acceptance: acc:observe-and-correct:E005-UNIT-002-persona-shim-applies-env-overrides-to-popen
+# WMBT: wmbt:observe-and-correct:E005
+# Phase: GREEN
+# Assertion: behavioral
 """E005-UNIT-002 — PersonaShim.run() passes env_overrides to subprocess.Popen.
 
 RED: fails until PersonaShim accepts env_overrides and merges into Popen env=.

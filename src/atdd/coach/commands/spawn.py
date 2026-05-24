@@ -606,19 +606,24 @@ ADAPTER_REGISTRY: dict[str, AdapterConfig] = {
 }
 
 
-def _inject_agent_env(command: str, agent_id: str) -> str:
-    """Prefix ``ATDD_AGENT_ID=<agent_id>`` onto a persona launch command
-    (#731 Phase 1).
+def _inject_agent_env(
+    command: str, agent_id: str
+) -> tuple[dict[str, str], str]:
+    """Return ``(env_overrides, command)`` for ATDD_AGENT_ID injection (#731 / #854).
 
-    Adapter-agnostic by construction: it wraps whatever command string the
-    per-LLM adapter produced, so the env var reaches the spawned process
-    regardless of which adapter is in use. ``agent_id`` is shell-quoted
-    defensively even though the canonical ``<persona>-<issue>-<suffix>``
-    shape never needs it.
+    Shape A fix (#854): previously returned a shell-prefixed string
+    ``ATDD_AGENT_ID=<id> <command>`` which broke ``subprocess.Popen`` when
+    passed through atdd-shim's argv without ``shell=True``.  Now returns a
+    typed ``(dict, str)`` tuple so callers choose the injection mechanism:
+
+    - cli-return path: pass env_overrides via ``--env`` flags to atdd-shim
+      (``_build_shim_command`` handles this).
+    - shell/multiplexer path: reconstruct the ``KEY=value`` prefix from the
+      dict and prepend it to command as before.
     """
     if not agent_id:
-        return command
-    return f"ATDD_AGENT_ID={shlex.quote(agent_id)} {command}"
+        return {}, command
+    return {"ATDD_AGENT_ID": agent_id}, command
 
 
 # ---------------------------------------------------------------------------
@@ -634,20 +639,32 @@ def _correction_transport() -> str:
     return os.environ.get("ATDD_CORRECTION_TRANSPORT", "").strip().lower()
 
 
-def _build_shim_command(adapter_command: str, agent_id: str, runtime_root: Path) -> str:
+def _build_shim_command(
+    adapter_command: str,
+    agent_id: str,
+    runtime_root: Path,
+    env_overrides: dict[str, str] | None = None,
+) -> str:
     """Wrap adapter_command with the atdd-shim entry point.
 
-    The shim becomes the pane foreground process; the adapter runs inside the
-    shim-owned pty. ATDD_AGENT_ID has already been injected into adapter_command
-    by _inject_agent_env before this is called.
+    Shape A fix (#854): env_overrides are passed via ``--env KEY=VALUE`` flags
+    so atdd-shim can apply them via ``subprocess.Popen(env=...)`` rather than
+    relying on shell-style ``KEY=value`` argv[0] prefixes which fail without
+    ``shell=True``.
 
     Produces:
-      atdd-shim --agent-id <id> --runtime-dir <path> -- <adapter_command>
+      atdd-shim --agent-id <id> --runtime-dir <path> [--env K=V ...] -- <adapter_command>
     """
+    env_flags = ""
+    if env_overrides:
+        env_flags = "".join(
+            f" --env {shlex.quote(f'{k}={v}')}" for k, v in env_overrides.items()
+        )
     return (
         f"atdd-shim"
         f" --agent-id {shlex.quote(agent_id)}"
         f" --runtime-dir {shlex.quote(str(runtime_root))}"
+        f"{env_flags}"
         f" -- {adapter_command}"
     )
 
@@ -1143,7 +1160,10 @@ def cmd_spawn(
     # (claude-code today; codex / gemini / glm later) inherits it for free.
     # Without this the spawned persona has no ATDD_AGENT_ID and every
     # `atdd agent` subcommand fails closed, stalling the coach.
-    command = _inject_agent_env(command, agent_id)
+    # #731 / #854 Shape A: _inject_agent_env returns (env_overrides, command).
+    # - cli-return path: env_overrides passed via --env flags to atdd-shim
+    # - shell/multiplexer path: reconstruct KEY=value prefix for shell dispatch
+    env_overrides, command = _inject_agent_env(command, agent_id)
 
     # E004 (#841): when ATDD_CORRECTION_TRANSPORT=cli-return, wrap the adapter
     # command in PersonaShim and prime the inbox with the launch prompt BEFORE
@@ -1154,7 +1174,14 @@ def cmd_spawn(
     using_cli_return = _correction_transport() == "cli-return"
     if using_cli_return:
         _prime_cli_return_inbox(agent_dir, prompt_path.read_text())
-        command = _build_shim_command(command, agent_id, runtime_root)
+        command = _build_shim_command(command, agent_id, runtime_root, env_overrides=env_overrides)
+    elif env_overrides:
+        # Shell/multiplexer dispatch: reconstruct KEY=value prefix so the shell
+        # that runs the surface command sets the env var for the adapter process.
+        prefix = " ".join(
+            f"{k}={shlex.quote(str(v))}" for k, v in env_overrides.items()
+        )
+        command = f"{prefix} {command}"
 
     from atdd.coach.utils.config import load_atdd_config
 

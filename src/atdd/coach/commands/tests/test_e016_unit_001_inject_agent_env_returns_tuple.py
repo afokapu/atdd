@@ -1,3 +1,8 @@
+# URN: test:spawn-agents:E016-UNIT-001-inject-agent-env-returns-tuple
+# Acceptance: acc:spawn-agents:E016-UNIT-001-inject-agent-env-returns-tuple
+# WMBT: wmbt:spawn-agents:E016
+# Phase: GREEN
+# Assertion: behavioral
 """E016-UNIT-001 — _inject_agent_env returns (env_overrides, command) tuple.
 
 RED: fails until _inject_agent_env signature is changed.

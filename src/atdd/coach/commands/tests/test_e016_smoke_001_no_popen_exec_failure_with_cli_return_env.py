@@ -1,3 +1,8 @@
+# URN: test:spawn-agents:E016-SMOKE-001-no-popen-exec-failure-with-cli-return-env
+# Acceptance: acc:spawn-agents:E016-SMOKE-001-no-popen-exec-failure-with-cli-return-env
+# WMBT: wmbt:spawn-agents:E016
+# Phase: SMOKE
+# Assertion: integration
 """E016-SMOKE-001 — installed atdd-shim with --env flag exits 0, no FileNotFoundError.
 
 Smoke test: invokes the real atdd-shim CLI (via subprocess) with --env ATDD_AGENT_ID=...

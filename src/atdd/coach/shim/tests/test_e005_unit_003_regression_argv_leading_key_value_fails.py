@@ -1,3 +1,8 @@
+# URN: test:observe-and-correct:E005-UNIT-003-regression-argv-leading-key-value-fails-without-fix
+# Acceptance: acc:observe-and-correct:E005-UNIT-003-regression-argv-leading-key-value-fails-without-fix
+# WMBT: wmbt:observe-and-correct:E005
+# Phase: GREEN
+# Assertion: behavioral
 """E005-UNIT-003 — regression: PersonaShim with argv-leading KEY=value fails.
 
 Documents the pre-fix behavior: Popen exec treats 'ATDD_AGENT_ID=x' as a
