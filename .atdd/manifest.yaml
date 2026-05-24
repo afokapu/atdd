@@ -1168,3 +1168,11 @@ sessions:
   status: INIT
   created: '2026-05-23'
   archived: null
+- id: '849'
+  slug: surface-smoke-acceptance-rule-in-planner-flow
+  file: null
+  issue_number: 849
+  type: cleanup
+  status: INIT
+  created: '2026-05-24'
+  archived: null
