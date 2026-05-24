@@ -1,0 +1,32 @@
+urn: "feature:spawn-agents:surface-smoke-acceptance-rule-in-planner-flow"
+wagon: "wagon:spawn-agents"
+description: "Surfaces planner.wmbt.must-have-smoke-acceptance at agent-planning time, not at CI time. SESSION-LAUNCH-TEMPLATE.md gains an explicit pre-commit gate section naming the rule and the atdd validate planner --local --skip-api command with zero-violation required before committing PLANNED (E015 AC-UNIT-001). ATDD.md gains a pre_commit_gate key in the INIT phase block that names the rule and annotates the command with a BEFORE-committing timing constraint (E015 AC-UNIT-002). A SMOKE test verifies the installed atdd package templates contain the rule ID (E015 AC-SMOKE-001)."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:spawn-agents:E015"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — changes are template file edits only"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No new application logic — the validator already exists; this feature changes what the templates say"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No domain objects"
+    integration:
+      - type: "adapters"
+        count: 0
+        rationale: "No new external integration surface"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface"
