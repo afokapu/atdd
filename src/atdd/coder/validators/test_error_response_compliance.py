@@ -28,10 +28,14 @@ import pytest
 import yaml
 
 import atdd
+import pytest
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+
+# Phase: RED — exclude from consumer validator sweeps until GREEN (E025 / #846)
+pytestmark = [pytest.mark.platform]
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).

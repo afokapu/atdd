@@ -34,7 +34,10 @@ pytestmark = [pytest.mark.platform]
 # ---------------------------------------------------------------------------
 
 _MODULE = "atdd.coach.commands.test_runner"
-_REPO_MODULE = "atdd.coach.utils.repo"
+# test_runner.py does `from atdd.coach.utils.repo import is_atdd_source_repo`
+# so we must patch the name in the test_runner module's namespace, not the
+# origin module — otherwise the already-bound local reference isn't replaced.
+_IS_SOURCE_REPO_TARGET = "atdd.coach.commands.test_runner.is_atdd_source_repo"
 
 
 def _capture_pytest_cmds(
@@ -59,7 +62,7 @@ def _capture_pytest_cmds(
         result.returncode = 0
         return result
 
-    monkeypatch.setattr(f"{_REPO_MODULE}.is_atdd_source_repo", lambda: is_source)
+    monkeypatch.setattr(_IS_SOURCE_REPO_TARGET, lambda: is_source)
     monkeypatch.setattr("subprocess.run", fake_run)
 
     runner = TestRunner(repo_root=Path("/fake/consumer-repo"))
