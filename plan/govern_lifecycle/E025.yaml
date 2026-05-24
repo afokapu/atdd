@@ -141,3 +141,27 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E025-SMOKE-001-consumer-validator-rejects-toolkit-only-tests"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: in a clean consumer fixture, atdd validate planner --local --skip-api does not collect or fail on any Phase:RED toolkit-internal test"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path directory is initialised as a minimal consumer repo (no pyproject.toml with name=atdd)"
+        - "The atdd package is importable from the source tree (PYTHONPATH=src or installed)"
+        - "is_atdd_source_repo() returns False for the tmp_path (consumer context)"
+    when:
+      abstract: "TestRunner.run_tests(phase='planner', split=False, local=True, markers=['not github_api']) is called with the tmp_path as repo_root and subprocess.run monkeypatched to capture commands"
+    then:
+      abstract:
+        - "Every captured pytest command contains 'not platform' in its -m argument"
+        - "No command would collect test_custom_themes.py or test_custom_themes_schema.py (both @pytest.mark.platform)"
+        - "The scope gate applies regardless of split mode, confirming E025 fix is end-to-end effective"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-24"
