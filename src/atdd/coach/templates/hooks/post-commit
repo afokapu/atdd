@@ -9,8 +9,8 @@
 #   4. Exits 0 always — failures are surfaced via stderr but never block.
 #   5. No-op when CI=true (CI runs full validate; double-run wastes minutes).
 #
-# Override:
-#   ATDD_SKIP_POSTCOMMIT=1 git commit ...   # disable for one commit
+# Bypass flag retired (E026): this hook is advisory (always exits 0);
+# a bypass of a non-blocking hook has no enforcement value.
 #
 # Path → phase mapping:
 #   plan/**                       → atdd repo validate + atdd validate planner --local --skip-api
@@ -26,11 +26,6 @@ set -u  # no `set -e` — we want to keep going even if a validator fails
 
 # --- CI bypass ---
 if [ "${CI:-}" = "true" ]; then
-    exit 0
-fi
-
-# --- Explicit user override ---
-if [ "${ATDD_SKIP_POSTCOMMIT:-0}" = "1" ]; then
     exit 0
 fi
 
