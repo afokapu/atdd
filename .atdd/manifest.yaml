@@ -1192,3 +1192,11 @@ sessions:
   status: INIT
   created: '2026-05-25'
   archived: null
+- id: '855'
+  slug: investigate-smoke-test-systemic-false-greens
+  file: null
+  issue_number: 855
+  type: analysis
+  status: INIT
+  created: '2026-05-25'
+  archived: null
