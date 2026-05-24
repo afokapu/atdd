@@ -171,6 +171,13 @@ class TestRunner:
         if validator_dirs is None:
             return 1
 
+        # E025: consumer-mode platform-exclusion must apply before the split/no-split
+        # branch so that --skip-api (which sets split=False) does not bypass it.
+        # _run_split() historically held this guard; moving it here makes it the
+        # single chokepoint regardless of invocation flags.
+        if not is_atdd_source_repo():
+            markers = list(markers or []) + ["not platform"]
+
         if split:
             return self._run_split(
                 validator_dirs, verbose=verbose, coverage=coverage,
@@ -208,11 +215,9 @@ class TestRunner:
         have no consumer-side fix.
         """
         # Stage 1: all tests except github_api, parallel.
-        # In consumer mode, also exclude `platform`-marked toolkit-self tests.
-        # Multiple -m flags don't AND in pytest — combine into one expression.
+        # Consumer-mode 'not platform' exclusion is injected in run_tests() before
+        # this method is called (E025), so markers already contain it when needed.
         stage1_expr = "not github_api"
-        if not is_atdd_source_repo():
-            stage1_expr += " and not platform"
         fast_markers = list(markers or []) + [stage1_expr]
         fast_cmd = self._build_pytest_cmd(
             validator_dirs, verbose=verbose, coverage=coverage,
