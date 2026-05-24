@@ -4,18 +4,27 @@
 
 set -e
 
-# --- Meta-bypass: skip all gates at once (E023) ---
-# Sets all four gate-skip flags from a single env var, making emergency bypass
-# a one-token operation instead of four independent overrides.
-# Override: ATDD_SKIP_ALL_GATES=1 git push ...
-if [ "${ATDD_SKIP_ALL_GATES:-0}" = "1" ]; then
-    echo "ATDD: all gates bypassed via ATDD_SKIP_ALL_GATES=1" >&2
-    ATDD_SKIP_BARE_CHECK=1
-    ATDD_SKIP_VERSION_GATE=1
-    ATDD_SKIP_PREPUSH_VALIDATE=1
-    ATDD_SKIP_REGISTRY_CHECK=1
-    export ATDD_SKIP_BARE_CHECK ATDD_SKIP_VERSION_GATE ATDD_SKIP_PREPUSH_VALIDATE ATDD_SKIP_REGISTRY_CHECK
-fi
+# --- Bypass audit helper (E026) ---
+# Usage: _emit_bypass_audit ATDD_SKIP_<FLAG> pre-push
+# Warns when ATDD_BYPASS_REASON is absent; logs audit event when present.
+_emit_bypass_audit() {
+    _flag="$1"
+    _hook="$2"
+    _reason="${ATDD_BYPASS_REASON:-}"
+    if [ -z "$_reason" ]; then
+        printf "ATDD WARNING: %s=1 used without ATDD_BYPASS_REASON.\n" "$_flag" >&2
+        printf "  Set ATDD_BYPASS_REASON=<reason> alongside the flag to document this bypass.\n" >&2
+        printf "  Example: ATDD_BYPASS_REASON='stale acceptance' %s=1 git push ...\n" "$_flag" >&2
+    else
+        _repo_root="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+        if [ -n "$_repo_root" ] && [ -d "${_repo_root}/.atdd" ]; then
+            _ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
+            printf '{"timestamp":"%s","flag":"%s","reason":"%s","hook":"%s"}\n' \
+                "$_ts" "$_flag" "${_reason}" "$_hook" \
+                >> "${_repo_root}/.atdd/bypass-audit.jsonl" 2>/dev/null || true
+        fi
+    fi
+}
 
 # --- Bare-mode contamination guard (#629 Layer 1) ---
 # A worktree with core.bare=true silently mass-deletes its files on the next
@@ -41,10 +50,13 @@ Override (use sparingly — only if you intentionally created a bare repo):
 BARE_MSG
     exit 1
 fi
+if [ "${ATDD_SKIP_BARE_CHECK:-0}" = "1" ]; then
+    _emit_bypass_audit "ATDD_SKIP_BARE_CHECK" "pre-push"
+fi
 
 # --- Version gate (skip with ATDD_SKIP_VERSION_GATE=1) ---
 if [ "${ATDD_SKIP_VERSION_GATE:-0}" = "1" ]; then
-    : # bypass
+    _emit_bypass_audit "ATDD_SKIP_VERSION_GATE" "pre-push"
 else
     python3 -c "
 try:
@@ -205,19 +217,18 @@ VALIDATE_FAIL
         fi
     fi
 fi
+if [ "${ATDD_SKIP_PREPUSH_VALIDATE:-0}" = "1" ]; then
+    _emit_bypass_audit "ATDD_SKIP_PREPUSH_VALIDATE" "pre-push"
+fi
 
 # --- Registry mirror drift gate (wmbt:govern-lifecycle:E021) ---
 # Runs atdd registry update --check to confirm plan/_wagons.yaml,
 # plan/_trains.yaml, and contracts/_artifacts.yaml are in sync with source.
-#
-# Fails when drift is detected; prints fix-hint with exact remediation command.
-# Auto-skipped: CI=true (CI check is the authoritative gate), ATDD_SKIP_REGISTRY_CHECK=1
-#
-# Override: ATDD_SKIP_REGISTRY_CHECK=1 git push ...
-if [ "${ATDD_SKIP_REGISTRY_CHECK:-0}" != "1" ] && [ "${CI:-}" != "true" ]; then
+# Auto-skipped: CI=true (CI check is the authoritative gate).
+# Bypass retired (E026): auto-heal covers all non-CI cases.
+if [ "${CI:-}" != "true" ]; then
     if ! atdd registry update --check >&2 2>&1; then
-        # Auto-heal: sync mirrors and re-stage so the operator does not need to
-        # know the remediation incantation (E023 — non-CI registry auto-resync).
+        # Auto-heal: sync mirrors and re-stage (E023 non-CI registry auto-resync).
         echo "ATDD: registry mirrors auto-resynced (atdd registry update --yes)" >&2
         atdd registry update --yes >&2 2>&1 || true
         git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml 2>/dev/null || true

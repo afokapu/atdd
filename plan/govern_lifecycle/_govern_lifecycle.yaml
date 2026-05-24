@@ -59,7 +59,7 @@ features:
   - urn: "feature:govern-lifecycle:consumer-validator-scope-gate"
 
 wmbt:
-  total: 52
+  total: 53
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -112,3 +112,4 @@ wmbt:
   E023: "minimize distinct-environment-variables-required-for-routine-branch-push by adding ATDD_SKIP_ALL_GATES=1 meta-bypass, tightening the version gate to repo minimum_version, and making the registry check auto-heal rather than block (#845)"
   E024: "minimize publish-workflow-auto-skips-on-every-merge by removing the issues trigger from atdd-validate.yml and adding head_branch==main to the Publish condition (#845)"
   E025: "minimize red-phase-toolkit-tests-leaking-into-consumer-validator-sweep-because-skip-api-flag-disables-split-mode-and-bypasses-platform-marker-exclusion by moving the is_atdd_source_repo() consumer-mode platform-exclusion into run_tests() so it applies regardless of split mode, and adding a regression validator that fails if any Phase:RED test file in the validator dirs lacks the platform guard (#846)"
+  E026: "minimize bypass-escape-hatches-without-mandatory-audit-record by auditing the 7-flag bypass set, retiring 3 obsolete flags (ATDD_SKIP_ALL_GATES, ATDD_SKIP_POSTCOMMIT, ATDD_SKIP_REGISTRY_CHECK), requiring ATDD_BYPASS_REASON for the 4 remaining flags with audit-jsonl logging, and adding a meta-guard validator that fails CI when bypass count exceeds the audited baseline (#851)"

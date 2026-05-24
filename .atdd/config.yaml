@@ -30,7 +30,7 @@ route_train_wagon_coverage:
   - web/src/**/App.tsx
   allowlist: []
 toolkit:
-  last_version: 3.42.0
+  last_version: 3.81.1
 github:
   repo: afokapu/atdd
   project_number: 1
