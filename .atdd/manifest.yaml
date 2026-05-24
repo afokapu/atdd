@@ -1184,3 +1184,11 @@ sessions:
   status: INIT
   created: '2026-05-24'
   archived: null
+- id: '854'
+  slug: shim-popen-env-var-prefix-bug
+  file: null
+  issue_number: 854
+  type: cleanup
+  status: INIT
+  created: '2026-05-25'
+  archived: null
