@@ -1200,3 +1200,11 @@ sessions:
   status: INIT
   created: '2026-05-25'
   archived: null
+- id: '857'
+  slug: atdd-coach-spawn-detector-bug
+  file: null
+  issue_number: 857
+  type: cleanup
+  status: INIT
+  created: '2026-05-25'
+  archived: null
