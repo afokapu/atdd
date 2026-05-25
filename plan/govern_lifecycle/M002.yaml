@@ -1,0 +1,42 @@
+urn: "wmbt:govern-lifecycle:M002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-25
+step: "monitor"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "post-smoke-production-bugs-per-release-wave"
+context_clarifier: >
+  Even after the convention tightening (E028) and smoke retrofit (E029), future waves
+  may reintroduce synthetic-fixture smokes through new features or convention drift.
+  A persistent tracking section in docs/smoke-audit.md establishes the measurable
+  baseline: zero post-SMOKE production bugs per wave from v3.83.0 onwards. Without
+  this section the improvement is purely declarative and cannot be verified at a future
+  post-mortem. This WMBT pairs with E027 (which creates docs/smoke-audit.md) and adds
+  the forward-looking regression metric table that makes the change auditable.
+lens: "functional.availability"
+statement: >
+  minimize quantity of post-smoke-production-bugs-per-release-wave by maintaining a
+  Future-Tracking table in docs/smoke-audit.md with columns release-wave,
+  post-SMOKE-bugs, expectation; expectation is zero for all waves >= v3.83.0;
+  any non-zero entry must reference the root-cause issue and the WMBT whose SMOKE
+  test failed to catch it
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:M002-UNIT-001-smoke-audit-has-future-tracking-section"
+      id: "AC-UNIT-001"
+      purpose: "docs/smoke-audit.md has a Future-Tracking section with release-wave tracking columns"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "docs/smoke-audit.md is readable (created by E027)"
+    when:
+      abstract: "The test reads docs/smoke-audit.md and checks for the Future-Tracking section"
+    then:
+      abstract:
+        - "The file contains a section headed '## Future Tracking' or '## Regression Metric'"
+        - "The section contains a table with columns: release-wave, post-SMOKE-bugs, expectation"
+        - "At least one row exists for the v3.83.x wave with expectation=0"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
