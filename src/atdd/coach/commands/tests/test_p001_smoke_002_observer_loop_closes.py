@@ -3,6 +3,9 @@
 # WMBT: wmbt:observe-and-correct:P001
 # Phase: SMOKE
 # Layer: backend.integration
+# atdd:suppress(planner.smoke.synthetic-fixture-bypass) UNTIL=2026-11-25
+# Reason: Uses FakeMultiplexer / fake_shim for the close-the-loop SMOKE; retrofitting to real
+# atdd spawn requires live pty session (tracked by E029 follow-up).
 """P001-SMOKE-002 — close-the-loop verification for the observer feedback system.
 
 This test implements the close-the-loop assertion pair required by

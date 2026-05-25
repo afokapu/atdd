@@ -61,15 +61,16 @@ def test_meta_walker_function_exists_and_classifies(tmp_path):
         )
     )
 
-    bad_wmbt = tmp_path / "E_BAD.yaml"
+    # WMBT filenames must match [DLPCEMYRK]\d{3}.yaml pattern used by the walker
+    bad_wmbt = tmp_path / "E901.yaml"
     bad_wmbt.write_text(
         yaml.dump(
             {
-                "urn": "wmbt:test-wagon:E_BAD",
+                "urn": "wmbt:test-wagon:E901",
                 "acceptances": [
                     {
                         "identity": {
-                            "urn": "acc:test-wagon:E_BAD-SMOKE-001-bad",
+                            "urn": "acc:test-wagon:E901-SMOKE-001-bad",
                             "id": "AC-SMOKE-001",
                             "phase": "SMOKE",
                         },
@@ -83,15 +84,15 @@ def test_meta_walker_function_exists_and_classifies(tmp_path):
         )
     )
 
-    good_wmbt = tmp_path / "E_GOOD.yaml"
+    good_wmbt = tmp_path / "E902.yaml"
     good_wmbt.write_text(
         yaml.dump(
             {
-                "urn": "wmbt:test-wagon:E_GOOD",
+                "urn": "wmbt:test-wagon:E902",
                 "acceptances": [
                     {
                         "identity": {
-                            "urn": "acc:test-wagon:E_GOOD-SMOKE-001-good",
+                            "urn": "acc:test-wagon:E902-SMOKE-001-good",
                             "id": "AC-SMOKE-001",
                             "phase": "SMOKE",
                         },
@@ -106,7 +107,7 @@ def test_meta_walker_function_exists_and_classifies(tmp_path):
     )
 
     def _resolve(urn: str):
-        if "E_BAD" in urn:
+        if "E901" in urn:
             return bad_test
         return good_test
 
@@ -116,9 +117,9 @@ def test_meta_walker_function_exists_and_classifies(tmp_path):
     )
 
     hit_urns = [h[0] for h in hits]
-    assert "acc:test-wagon:E_BAD-SMOKE-001-bad" in hit_urns, (
+    assert "acc:test-wagon:E901-SMOKE-001-bad" in hit_urns, (
         f"Expected synthetic-fixture acceptance in hits, got: {hit_urns}"
     )
-    assert "acc:test-wagon:E_GOOD-SMOKE-001-good" not in hit_urns, (
+    assert "acc:test-wagon:E902-SMOKE-001-good" not in hit_urns, (
         f"Real-entry-point acceptance must NOT appear in hits, got: {hit_urns}"
     )
