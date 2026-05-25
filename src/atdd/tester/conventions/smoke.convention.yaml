@@ -594,6 +594,7 @@ synthetic_fixture_anti_patterns:
     - id: "planner.smoke.synthetic-fixture-bypass"
       severity: 3
       disposition: suppress-and-clean
+      validator: "test_smoke_synthetic_fixture_bypass::test_no_smoke_tests_use_synthetic_fixtures"
       introduced_in: "3.83.0"
       description: |
         A SMOKE-phase test must not drive a synthetic subprocess stub (FakeMultiplexer,
@@ -628,7 +629,7 @@ synthetic_fixture_anti_patterns:
 
     - id: "tester.smoke.operator-observable-assertion"
       severity: 3
-      disposition: suppress-and-clean
+      disposition: documentation-only
       introduced_in: "3.83.0"
       description: |
         The operator-observable-assertion mandate: SMOKE tests MUST assert on
@@ -655,7 +656,7 @@ synthetic_fixture_anti_patterns:
 
     - id: "tester.smoke.cross-component-handoff-gap"
       severity: 3
-      disposition: suppress-and-clean
+      disposition: documentation-only
       introduced_in: "3.83.0"
       description: |
         The cross-component-handoff mandate: when a feature has a producer→consumer
