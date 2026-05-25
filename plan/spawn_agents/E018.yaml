@@ -1,0 +1,124 @@
+urn: "wmbt:spawn-agents:E018"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "coach-spawn-stage-detector-reports-success-when-spawned-process-has-already-crashed"
+context_clarifier: "The stage detector introduced in #799/#806 ('step-by-step verify each stage') checks four observable surface-side conditions: cmux-surface-created, rename-accepted, layout-applied, and paste-landed. All four can pass even when the shim crashes immediately after Popen — the cmux surface was created before the shim ran, the rename and layout are applied by coach independently of shim liveness, and under cli-return mode the launch prompt is delivered via the inbox not via paste so paste-landed may be bypassed entirely. Consequently, when the shim raises FileNotFoundError inside its pty, all stage checks pass, agent_spawned is emitted, and coach proceeds — but no agent process is alive. The operator must manually inspect the worker surface to discover the failure. Reproduced twice on v3.82.3 and v3.82.4 (issue #857, 2026-05-25)."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of coach-spawn-stage-detector-reports-success-when-spawned-process-has-already-crashed by adding a 'process-alive' stage after cmux-surface-created that (a) asserts the shim's pid is alive via proc.poll() and (b) for cli-return mode additionally asserts the shim emitted at least one byte to agents/<id>/output.log — blocking agent_spawned from firing when the process has already exited"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E018-UNIT-001-process-not-alive-exception"
+      id: "AC-UNIT-001"
+      purpose: "A new ProcessNotAlive exception is raised when the shim process exits before the process-alive stage timeout; the exception message identifies the process pid and exit code"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py exposes ProcessNotAlive (subclass of WorkerReadinessTimeout)"
+        - "A fake process object whose poll() immediately returns 1 (process exited)"
+    when:
+      abstract: "_verify_process_alive(proc, agent_id, runtime_dir, transport, timeout_s=0.1) is called"
+    then:
+      abstract:
+        - "ProcessNotAlive is raised"
+        - "ProcessNotAlive is a subclass of WorkerReadinessTimeout"
+        - "The exception message contains the exit code '1'"
+        - "When proc.poll() returns None (process still running), _verify_process_alive returns without raising"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-25"
+  - identity:
+      urn: "acc:spawn-agents:E018-UNIT-002-cli-return-output-log-heartbeat-check"
+      id: "AC-UNIT-002"
+      purpose: "In cli-return mode, _verify_process_alive additionally polls agents/<id>/output.log for at least 1 byte within the timeout; raises ProcessNotAlive if the log remains empty while the process is alive"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_CORRECTION_TRANSPORT=cli-return is set (or transport='cli-return' is passed)"
+        - "A fake proc whose poll() returns None (alive)"
+        - "A tmp runtime_dir where agents/<id>/output.log does not exist (or is empty)"
+    when:
+      abstract: "_verify_process_alive(proc, agent_id, runtime_dir, transport='cli-return', timeout_s=0.1) is called"
+    then:
+      abstract:
+        - "ProcessNotAlive is raised (log never got a heartbeat byte)"
+        - "When agents/<id>/output.log contains at least 1 byte within the timeout, _verify_process_alive returns without raising"
+        - "In non-cli-return mode, absence of output.log does NOT cause ProcessNotAlive (log check is skipped)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-25"
+  - identity:
+      urn: "acc:spawn-agents:E018-UNIT-003-process-alive-stage-sequenced-after-surface-created"
+      id: "AC-UNIT-003"
+      purpose: "cmd_spawn calls _verify_process_alive after the surface is created and the shim Popen returns, but before agent_spawned is emitted; a ProcessNotAlive raised here prevents agent_spawned"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer scripted for surface creation success"
+        - "A fake Popen that immediately returns exit code 1"
+    when:
+      abstract: "cmd_spawn is invoked end-to-end with the failing process"
+    then:
+      abstract:
+        - "ProcessNotAlive (or a superclass thereof) is raised"
+        - "No agent_spawned event exists in runtime/agents/ after the call"
+        - "An escalation event IS emitted identifying the stage as 'process-alive'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-25"
+  - identity:
+      urn: "acc:spawn-agents:E018-INTEGRATION-001-immediately-failing-shim-triggers-escalation"
+      id: "AC-INTEGRATION-001"
+      purpose: "When cmd_spawn is driven with a shim command pointing to an immediately-failing binary (exit 1), coach emits escalation_emitted with stage='process-alive' and does NOT emit agent_spawned"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer that accepts surface creation normally"
+        - "The shim command is replaced with a fixture script that exits 1 immediately (e.g. python3 -c 'import sys; sys.exit(1)')"
+        - "A tmp runtime_dir"
+    when:
+      abstract: "cmd_spawn is invoked end-to-end with the failing shim fixture"
+    then:
+      abstract:
+        - "An exception is raised (ProcessNotAlive or subclass)"
+        - "No agent_spawned event file exists under runtime/agents/<agent_id>/"
+        - "If coach emits an escalation event, its stage field equals 'process-alive'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-25"
+  - identity:
+      urn: "acc:spawn-agents:E018-SMOKE-001-live-spawn-pipeline-detects-dead-shim"
+      id: "AC-SMOKE-001"
+      purpose: "Invoke atdd spawn against a fixture issue where the shim command is a script that exits 1 immediately; assert coach emits escalation_emitted and does NOT report agent_spawned"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixture issue with a known issue number in a tmp runtime context"
+        - "ATDD_SHIM_COMMAND is set to a script that exits 1 immediately (override hook)"
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "A real cmux session is available"
+    when:
+      abstract: "atdd spawn is executed against the fixture issue in cli-return mode"
+    then:
+      abstract:
+        - "The spawn command raises or returns a non-zero exit code"
+        - "No agent_spawned event file exists in runtime/agents/"
+        - "An escalation event exists identifying stage='process-alive'"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-25"

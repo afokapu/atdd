@@ -131,6 +131,8 @@ def test_cli_return_priming_entry_written_before_surface_creation(tmp_path, monk
         patch("atdd.coach.commands.spawn._emit_agent_spawned_event"),
         patch("atdd.coach.commands.spawn._spawn_observer_if_configured"),
         patch("atdd.coach.utils.config.load_atdd_config", return_value=MagicMock()),
+        # E018 (#857): skip process-alive check — this test covers inbox priming, not liveness
+        patch("atdd.coach.commands.spawn._verify_process_alive"),
     ):
         spawn.cmd_spawn(
             persona="coder",
@@ -195,6 +197,8 @@ def test_paste_text_not_called_when_cli_return_transport(tmp_path, monkeypatch):
         patch("atdd.coach.commands.spawn._emit_agent_spawned_event"),
         patch("atdd.coach.commands.spawn._spawn_observer_if_configured"),
         patch("atdd.coach.utils.config.load_atdd_config", return_value=MagicMock()),
+        # E018 (#857): skip process-alive check — this test covers paste_text behavior, not liveness
+        patch("atdd.coach.commands.spawn._verify_process_alive"),
     ):
         spawn.cmd_spawn(
             persona="coder",
@@ -248,6 +252,8 @@ def test_cli_return_file_exists_after_spawn(tmp_path, monkeypatch):
         patch("atdd.coach.commands.spawn._emit_agent_spawned_event"),
         patch("atdd.coach.commands.spawn._spawn_observer_if_configured"),
         patch("atdd.coach.utils.config.load_atdd_config", return_value=MagicMock()),
+        # E018 (#857): skip process-alive check — this test covers file existence, not liveness
+        patch("atdd.coach.commands.spawn._verify_process_alive"),
     ):
         spawn.cmd_spawn(
             persona="coder",
