@@ -1,0 +1,28 @@
+urn: "feature:spawn-agents:shim-popen-env-var-prefix-fix"
+wagon: "wagon:spawn-agents"
+description: "Fixes _inject_agent_env to return (env_overrides: dict, command: str) instead of a shell-prefixed string, and updates _build_shim_command to pass env overrides as --env KEY=VALUE flags to atdd-shim — eliminating the FileNotFoundError that occurs when subprocess.Popen treats 'ATDD_AGENT_ID=<id>' as an executable path (E016)"
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:spawn-agents:E016"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — changes are confined to spawn.py internals"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "_inject_agent_env (return-type change to tuple) and _build_shim_command (new env_overrides param + --env flag emission) — both in src/atdd/coach/commands/spawn.py"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain primitive"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface"
