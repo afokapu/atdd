@@ -1187,7 +1187,7 @@ sessions:
   file: plan/spawn_agents/E019.yaml
   issue_number: 860
   type: cleanup
-  status: INIT
+  status: PLANNED
   created: '2026-05-26'
   archived: null
   wagon: spawn-agents
