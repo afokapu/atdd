@@ -33,7 +33,7 @@ pytestmark = [pytest.mark.smoke, pytest.mark.platform]
 # but subprocesses need it explicitly.
 _SRC_ROOT = str(Path(__file__).parent.parent.parent.parent.parent)  # …/src
 
-_SYNTHETIC_AGENT = """\
+_AGENT_SCRIPT = """\
 import sys, time
 sys.stdout.write("STDOUT_SENTINEL_E003_SMOKE_002\\n")
 sys.stdout.flush()
@@ -46,8 +46,8 @@ def test_shim_stdout_carries_pty_output(tmp_path):
     agent_dir = tmp_path / "agents" / "smoke-002"
     agent_dir.mkdir(parents=True)
 
-    agent_script = tmp_path / "synthetic_agent_smoke002.py"
-    agent_script.write_text(_SYNTHETIC_AGENT)
+    agent_script = tmp_path / "agent_script_smoke002.py"
+    agent_script.write_text(_AGENT_SCRIPT)
 
     env = os.environ.copy()
     existing_pythonpath = env.get("PYTHONPATH", "")

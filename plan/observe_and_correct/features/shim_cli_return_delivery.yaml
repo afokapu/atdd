@@ -1,0 +1,30 @@
+urn: "feature:observe-and-correct:shim-cli-return-delivery"
+wagon: "wagon:observe-and-correct"
+description: "PersonaShim cli-return delivery pipeline: the persona-shim owns the agent's pty, drains cli-return.jsonl, and forwards corrections to the agent's stdin. Delivers E003 (correction-loop wiring), E004 (spawn-dispatch wiring), E006 (wait-for-ready gate — holds poll_once() until claude's TUI ready-marker appears in output.log, preventing startup-race delivery to a pty with no reader), and E007 (submit sentinel — appends adapter-specific \\r to every correction_text so claude's TUI input parser dispatches the message). E006 and E007 together close the two structural defects discovered in the 2026-05-26 #860 test-drive: launch prompt bytes arrived before TUI was ready and sat in a buffer unsubmitted, producing an idle agent despite a correct spawn pipeline."
+sizing:
+  wmbts: 4
+  footprint_score: 12
+  footprint_size: "M"
+wmbts:
+  - "wmbt:observe-and-correct:E003"
+  - "wmbt:observe-and-correct:E004"
+  - "wmbt:observe-and-correct:E006"
+  - "wmbt:observe-and-correct:E007"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd-shim CLI entry point (src/atdd/coach/shim/__main__.py) — the foreground process that wraps the adapter"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "Wait-for-ready gate (E006): scans output.log tail for TUI marker or falls back to bootstrap delay before first poll_once(); Submit sentinel (E007): appends adapter-specific submit byte sequence to every correction_text delivery"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "ATDD_SHIM_READY_MARKER (configurable TUI ready-marker pattern, default `❯`) and submit_sentinel (configurable per-adapter submit byte sequence, default b'\\r' for claude-code)"
+    integration:
+      - type: "test_suites"
+        count: 2
+        rationale: "test_e006_smoke_001_delivery_waits_for_tui.py and test_e007_smoke_001_sentinel_enables_tui_submission.py — synthetic-agent SMOKE tests using a slow-start agent and an echo-on-enter agent respectively; both assert the on/off behavior of the gate and sentinel"
