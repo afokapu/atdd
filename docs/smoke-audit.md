@@ -16,14 +16,114 @@ of bypass patterns.
 
 | acceptance-URN | entry-point-coverage | assertion-target | handoff-coverage | incident-cross-ref |
 |---|---|---|---|---|
-| acc:observe-and-correct:E003-SMOKE-001-correction-loop-end-to-end | synthetic (PersonaShim direct) | output.log content | producer-only (shim delivers; consumer assertion missing) | #824, #841, #854 |
-| acc:observe-and-correct:E003-SMOKE-002-operator-stdout-visible | synthetic (atdd.coach.shim subprocess) | proc.stdout bytes | N/A (single component) | #843 |
-| acc:observe-and-correct:E004-SMOKE-001-real-spawn-uses-shim-process-tree | real (atdd spawn via _ProcessLaunchingFakeMx) | process-tree parentage | partial (process spawned; cli-return consumer not verified) | #854 |
-| acc:govern-lifecycle:P001-SMOKE-002-close-the-loop-feedback | real (atdd spawn via fake_shim) | pty_stdin_bytes + convergence | both ends (producer writes + consumer reacts) | #825 |
-| acc:govern-lifecycle:E027-SMOKE-001-audit-covers-all-current-smoke-acceptances | real (atdd repo graph CLI) | JSON output completeness | N/A (meta-validator) | #855 |
+| acc:consolidate-coach-workspace:D001-SMOKE-001-real-layout-holds-as-workers-added | real (atdd spawn + cmux) | layout persistence | N/A (UI state) | — |
+| acc:consolidate-coach-workspace:E001-SMOKE-001-real-coach-tab-shows-every-issue | real (atdd spawn) | cmux pane list | N/A (UI state) | — |
+| acc:consolidate-coach-workspace:E002-SMOKE-001-real-spawn-yields-one-tab-no-obs | real (atdd spawn) | pane count | N/A (UI state) | — |
+| acc:consolidate-coach-workspace:Y001-SMOKE-001-real-multiplexer-shows-one-coach-tab | real (atdd spawn + cmux) | coach-tab presence | N/A (UI state) | — |
+| acc:consolidate-coach-workspace:Y002-SMOKE-001-real-spawn-yields-one-tab | real (atdd spawn) | pane count | N/A (UI state) | — |
+| acc:dispatch-ux-defaults-and-primer:E001-SMOKE-001-pane-mode-in-real-cmux-session | real (atdd spawn + cmux) | pane mode selection | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:E002-SMOKE-001-no-prompt-auto-in-piped-invocation | real (atdd spawn piped) | prompt suppression | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:E003-SMOKE-001-coach-invoked-from-worktree-parent | real (atdd coach) | invocation path | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:E004-SMOKE-001-worktree-reused-not-duplicated | real (atdd coach) | worktree reuse | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:E005-SMOKE-001-primer-printed-in-real-cmux-session | real (atdd coach + cmux) | primer output | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:E006-SMOKE-001-no-orphan-pane-after-spawn-failure | real (atdd spawn) | pane cleanup | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:E007-SMOKE-001-new-surface-in-pane-no-broken-pipe | real (atdd spawn) | pipe handling | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:Y001-SMOKE-001-help-text-shows-timeout-in-real-shell | real (atdd CLI) | help text content | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:Y002-SMOKE-001-banner-absent-after-sync-in-real-env | real (atdd sync) | banner suppression | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:Y003-SMOKE-001-resume-absent-from-real-help-output | real (atdd CLI) | help text content | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:Y004-SMOKE-001-real-template-render-excludes-sibling-deps-from-merge-wait | real (atdd session-template) | rendered output | N/A (single component) | — |
+| acc:dispatch-ux-defaults-and-primer:Y004-UNIT-007-planner-validator-flags-bare-deps | real (atdd validate planner) | violation detection | N/A (validator) | — |
+| acc:govern-lifecycle:D018-SMOKE-001-jel-app-repro-and-allowlist-round-trip | real (atdd CLI) | allowlist round-trip | both ends (write + read) | — |
+| acc:govern-lifecycle:E003-SMOKE-001-real-validator-suite-includes-this-validator | real (atdd validate) | validator discovery | N/A (meta-validator) | — |
+| acc:govern-lifecycle:E003-SMOKE-002-rules-grep-finds-both-new-rules | real (atdd rules grep) | rule discovery | N/A (meta-validator) | — |
+| acc:govern-lifecycle:E003-SMOKE-003-rules-show-resolves-each-rule | real (atdd rules show) | rule resolution | N/A (meta-validator) | — |
+| acc:govern-lifecycle:E004-SMOKE-001-rule-blocks-empty-graph-context | real (atdd validate coach) | rule enforcement | N/A (meta-validator) | — |
+| acc:govern-lifecycle:E005-SMOKE-001-real-validate-coach-runs-extended-drift-validator | real (atdd validate coach) | validator execution | N/A (meta-validator) | — |
+| acc:govern-lifecycle:E006-SMOKE-001-real-tester-suite-runs-both-validators | real (atdd validate tester) | validator discovery | N/A (meta-validator) | — |
+| acc:govern-lifecycle:E006-SMOKE-002-rules-resolve-against-real-registry | real (atdd rules) | rule resolution | N/A (meta-validator) | — |
+| acc:govern-lifecycle:E008-SMOKE-001-registration-visible-cross-worktree | real (atdd manifest) | cross-worktree visibility | both ends (write + read) | — |
+| acc:govern-lifecycle:E009-SMOKE-001-real-validate-coach-runs-runtime-guard | real (atdd validate coach) | runtime guard | N/A (meta-validator) | — |
+| acc:govern-lifecycle:E010-SMOKE-001-real-branch-creation-starts-at-origin | real (atdd branch) | branch origin | N/A (single component) | — |
+| acc:govern-lifecycle:E011-SMOKE-001-real-fs-lock-prevents-concurrent-coaches | real (atdd coach) | fs lock enforcement | N/A (single component) | — |
+| acc:govern-lifecycle:E012-SMOKE-001-pre-commit-hook-installed-allows-manifest-only | real (git commit) | hook behavior | N/A (single component) | — |
+| acc:govern-lifecycle:E012-SMOKE-002-issue-reconcile-wired-in-cli | real (atdd issue reconcile) | CLI wiring | N/A (single component) | — |
+| acc:govern-lifecycle:E013-SMOKE-001-live-gh-search-runs-without-error | real (gh search) | exit code | N/A (single component) | — |
+| acc:govern-lifecycle:E014-SMOKE-001-spawn-guard-reachable-from-cli | real (atdd spawn) | guard reachability | N/A (single component) | — |
+| acc:govern-lifecycle:E015-SMOKE-001-gate-output-contains-rules-in-live-repo | real (atdd gate) | output content | N/A (single component) | — |
+| acc:govern-lifecycle:E016-SMOKE-001-backfill-on-real-fixture-suppresses-violations | real (atdd suppress backfill) | suppression effect | N/A (single component) | — |
+| acc:govern-lifecycle:E017-SMOKE-001-docs-models-md-has-valid-structure | real (docs/MODELS.md) | file structure | N/A (single component) | — |
+| acc:govern-lifecycle:E017-SMOKE-002-atdd-manifest-backfill-cli-wired | real (atdd manifest backfill) | CLI wiring | N/A (single component) | — |
+| acc:govern-lifecycle:E018-INTEGRATION-001-scope-flag-in-cli-help | real (atdd validate --help) | help text | N/A (single component) | — |
+| acc:govern-lifecycle:E018-INTEGRATION-002-scope-changed-files-exits-zero-on-clean-branch | real (atdd validate --scope changed-files) | exit code | N/A (single component) | — |
+| acc:govern-lifecycle:E018-SMOKE-001-scoped-check-exits-zero-on-this-branch | real (atdd validate --scope changed-files) | exit code | N/A (single component) | — |
+| acc:govern-lifecycle:E019-INTEGRATION-001-published-issue-passes-body-validators | real (atdd validate coach) | body validation | N/A (single component) | — |
+| acc:govern-lifecycle:E019-SMOKE-001-live-create-zero-edit-calls | real (atdd issue) | gh API calls | N/A (single component) | — |
+| acc:govern-lifecycle:E020-SMOKE-001-live-sync-codex-produces-conductor-md | real (atdd sync codex) | file output | N/A (single component) | — |
+| acc:govern-lifecycle:E021-INTEGRATION-001-ci-check-fails-on-drifted-pr | real (CI check) | check result | N/A (single component) | — |
+| acc:govern-lifecycle:E021-SMOKE-001-registry-check-passes-on-main-after-chore-pr | real (atdd validate) | exit code on main | N/A (single component) | — |
+| acc:govern-lifecycle:E022-SMOKE-001-post-commit-leaves-core-bare-unchanged | real (git commit) | core.bare value | N/A (single component) | — |
+| acc:govern-lifecycle:E023-SMOKE-001-routine-push-requires-zero-gate-bypasses | real (git push) | bypass count | N/A (single component) | — |
+| acc:govern-lifecycle:E024-SMOKE-001-merge-produces-exactly-one-publish-success | real (gh merge) | publish event count | both ends (merge → publish) | — |
+| acc:govern-lifecycle:E025-INTEGRATION-001-consumer-repo-sweep-excludes-custom-themes-tests | real (atdd validate tester) | scope exclusion | N/A (single component) | — |
+| acc:govern-lifecycle:E025-SMOKE-001-consumer-validator-rejects-toolkit-only-tests | real (atdd validate tester) | violation detection | N/A (single component) | — |
+| acc:govern-lifecycle:E026-SMOKE-001-routine-push-zero-bypasses-after-retirement | real (git push) | bypass count | N/A (single component) | — |
+| acc:govern-lifecycle:E027-SMOKE-001-audit-covers-all-current-smoke-acceptances | real (plan/ YAML scan) | audit coverage | N/A (meta-validator) | #855 |
 | acc:govern-lifecycle:E028-SMOKE-001-validate-planner-clean-after-retrofit | real (atdd validate planner CLI) | exit code 0 | N/A (meta-validator) | #855 |
 | acc:govern-lifecycle:E029-SMOKE-001-retrofitted-smokes-pass-in-ci-without-bypasses | real (CI run, no bypass flags) | test suite result | both ends (post-retrofit) | #855 |
 | acc:govern-lifecycle:L002-SMOKE-001-meta-walker-zero-hits-on-post-retrofit-repo | real (walk_all_smoke_acceptances_for_anti_patterns) | anti-pattern hits list | N/A (meta-validator) | #855 |
+| acc:govern-lifecycle:R004-SMOKE-001-real-linked-worktree-recognized-worktree-ready | real (git worktree) | worktree detection | N/A (single component) | — |
+| acc:govern-lifecycle:Y004-SMOKE-001-pre-commit-template-has-drift-notice | real (template file) | file content | N/A (single component) | — |
+| acc:govern-lifecycle:Y005-SMOKE-001-reconcile-wired-in-cli | real (atdd issue reconcile) | CLI wiring | N/A (single component) | — |
+| acc:implement-code:D003-UNIT-002-no-false-positives | real (atdd validate) | no false violations | N/A (validator) | — |
+| acc:integrate-end-to-end:E001-SMOKE-001-cycle-reaches-complete | real (full ATDD cycle) | issue status | both ends (INIT → COMPLETE) | — |
+| acc:integrate-end-to-end:E001-SMOKE-002-artifacts-readable | real (full ATDD cycle) | artifact readability | both ends (write + read) | — |
+| acc:integrate-end-to-end:M001-SMOKE-001-integration-log-covers-every-handoff | real (full ATDD cycle) | log completeness | both ends (all handoffs) | — |
+| acc:integration-hardening:C002-SMOKE-001-pre-push-fires-on-real-git-push | real (git push) | hook execution | N/A (single component) | — |
+| acc:integration-hardening:C002-SMOKE-002-commit-msg-fires-on-real-git-commit | real (git commit) | hook execution | N/A (single component) | — |
+| acc:integration-hardening:C003-SMOKE-001-prepush-validator-fires-via-git-push | real (git push) | validator execution | N/A (single component) | — |
+| acc:integration-hardening:C004-SMOKE-001-validator-via-real-gh-pr-list-against-repo | real (gh pr list) | validator execution | N/A (single component) | — |
+| acc:integration-hardening:C005-SMOKE-001-coach-run-no-premature-advance-on-seeded-stale-done | real (atdd coach run) | state transition | N/A (single component) | — |
+| acc:integration-hardening:E001-SMOKE-001-watcher-real-infrastructure | real (atdd coach watcher) | event delivery | both ends (emit + receive) | — |
+| acc:integration-hardening:E006-SMOKE-001-hook-blocks-real-claude-invocation-against-installed-classifier | real (claude invocation) | hook block | N/A (single component) | — |
+| acc:integration-hardening:E007-SMOKE-001-wave-plan-against-real-repo-graph | real (atdd orchestrate) | wave plan output | N/A (single component) | — |
+| acc:integration-hardening:E008-SMOKE-001-nonexistent-pr-exits-0-with-broken-verdict | real (atdd review) | exit code | N/A (single component) | — |
+| acc:integration-hardening:E009-SMOKE-001-resume-real-orchestration | real (atdd coach resume) | orchestration resume | N/A (single component) | — |
+| acc:integration-hardening:M002-SMOKE-001-prepush-hook-fires-on-real-git-push | real (git push) | hook execution | N/A (single component) | — |
+| acc:integration-hardening:Y001-SMOKE-001-handlers-importable-and-decisions-written-on-real-fs | real (fs write) | decisions persistence | both ends (write + read) | — |
+| acc:integration-hardening:Y003-SMOKE-001-guard-catches-real-live-repo-contamination | real (atdd validate) | contamination detection | N/A (validator) | — |
+| acc:integration-hardening:Y004-SMOKE-001-pre-push-hook-with-outdated-version-exits-1-cleanly | real (git push) | hook exit code | N/A (single component) | — |
+| acc:integration-hardening:Y005-SMOKE-001-pipx-install-detection-end-to-end | real (atdd upgrade) | install detection | N/A (single component) | — |
+| acc:integration-hardening:Y006-SMOKE-001-init-force-in-linked-worktree-writes-config-worktree-file | real (atdd init) | config file location | N/A (single component) | — |
+| acc:judge-ambiguous-decisions:D006-SMOKE-001-review-returns-parseable-verdict | real (atdd review) | verdict JSON | N/A (single component) | — |
+| acc:observe-and-correct:E003-SMOKE-001-correction-loop-end-to-end | synthetic→real (retrofitted #855) | correction delivery via stdin | both ends (observer writes + shim delivers) | #824, #841, #854 |
+| acc:observe-and-correct:E003-SMOKE-002-operator-stdout-visible | synthetic→real (retrofitted #855) | proc.stdout bytes | N/A (single component) | #843 |
+| acc:observe-and-correct:E004-SMOKE-001-real-spawn-uses-shim-process-tree | real (atdd spawn via _ProcessLaunchingFakeMx) | process-tree parentage | partial (process spawned; cli-return consumer not verified) | #854 |
+| acc:observe-and-correct:E005-SMOKE-001-full-shim-spawn-with-env-override | real (atdd-shim CLI) | env-var inheritance | N/A (single component) | — |
+| acc:observe-and-correct:M005-SMOKE-001-real-observer-heartbeats-reach-coach | real (atdd observer + coach) | heartbeat delivery | both ends (emit + receive) | — |
+| acc:observe-and-correct:M006-SMOKE-001-real-blocked-worker-reaches-coach | real (atdd observer + coach) | block event delivery | both ends (emit + receive) | — |
+| acc:observe-and-correct:P001-SMOKE-002-observer-loop-closes | real (atdd observer CLI) | correction loop convergence | both ends (producer writes + convergence verified) | #825 |
+| acc:observe-and-correct:P002-SMOKE-001-blocked-persona-triggers-correction | real (atdd spawn + observer) | correction trigger | both ends (drift → correction) | — |
+| acc:observe-and-correct:R001-SMOKE-001-real-ask-answer-roundtrip | real (atdd observer + agent) | ask/answer protocol | both ends (ask + answer) | — |
+| acc:spawn-agents:D002-SMOKE-001-session-convention-committed-and-loadable | real (git history + yaml load) | convention file | N/A (single component) | — |
+| acc:spawn-agents:E004-SMOKE-001-shim-console-script-real-exit-codes | real (atdd-shim console script) | exit codes | N/A (single component) | — |
+| acc:spawn-agents:E005-SMOKE-001-real-spawn-persona-completes-phase-transition | real (atdd spawn) | phase transition | both ends (spawn + transition) | — |
+| acc:spawn-agents:E006-SMOKE-001-real-green-to-smoke-spawn-creates-persona | real (atdd spawn) | persona creation | N/A (single component) | — |
+| acc:spawn-agents:E007-SMOKE-001-real-respawn-fresh-process-same-surface | real (atdd spawn) | fresh process | N/A (single component) | — |
+| acc:spawn-agents:E008-SMOKE-001-interactive-tty-prompt-blocks-until-valid-input | real (atdd spawn + tty) | prompt blocking | N/A (single component) | — |
+| acc:spawn-agents:E009-SMOKE-001-missing-env-var-produces-clear-adapter-error | real (atdd spawn) | error message | N/A (single component) | — |
+| acc:spawn-agents:E010-SMOKE-001-readiness-gate-with-real-multiplexer | real (atdd spawn + cmux) | readiness gate | N/A (single component) | — |
+| acc:spawn-agents:E011-SMOKE-001-verify-stage-with-real-multiplexer | real (atdd spawn + cmux) | stage verification | N/A (single component) | — |
+| acc:spawn-agents:E012-SMOKE-001-atomic-rename-on-real-cmux | real (atdd spawn + cmux) | atomic rename | N/A (single component) | — |
+| acc:spawn-agents:E013-SMOKE-001-live-adapter-registry-passes-layer-b-validator | real (atdd validate) | registry validation | N/A (validator) | — |
+| acc:spawn-agents:E014-SMOKE-001-live-bash-auto-approve-no-stale-modal-reference | real (atdd spawn) | modal absence | N/A (single component) | — |
+| acc:spawn-agents:E015-SMOKE-001-deployed-templates-contain-smoke-acceptance-checklist | real (template files) | file content | N/A (single component) | — |
+| acc:spawn-agents:E016-SMOKE-001-no-popen-exec-failure-with-cli-return-env | real (atdd-shim CLI) | Popen success | N/A (single component) | — |
+| acc:spawn-agents:E017-SMOKE-001-shim-invoked-via-same-python-as-coach | real (atdd spawn) | Python interpreter match | N/A (single component) | — |
+| acc:spawn-agents:E018-SMOKE-001-live-spawn-pipeline-detects-dead-shim | real (atdd spawn) | dead shim detection | N/A (single component) | — |
+| acc:spawn-agents:L001-SMOKE-001-claude-code-no-modal-on-bash-read | real (atdd spawn + claude) | modal absence | N/A (single component) | — |
+| acc:spawn-agents:M001-SMOKE-001-live-session-naming-apply-has-no-slash-rename | real (atdd spawn) | session name format | N/A (single component) | — |
+| acc:spawn-agents:M002-SMOKE-001-live-observer-rules-pass-layer-b-validator | real (atdd validate) | rules validation | N/A (validator) | — |
+| acc:spawn-agents:R001-SMOKE-001-live-bash-auto-approve-correction-references-escalate | real (atdd spawn + observer) | correction content | both ends (correction + escalation ref) | — |
 
 ---
 
@@ -31,12 +131,15 @@ of bypass patterns.
 
 | structural-cause | count | description |
 |---|---|---|
-| synthetic-fixture / entry-point-bypass | 2 | Test drives a synthetic subprocess or direct class instantiation instead of the real CLI entry point |
+| synthetic-fixture / entry-point-bypass | 2 | Test drives a synthetic subprocess or direct class instantiation instead of the real CLI entry point (pre-retrofit) |
+| synthetic→real (retrofitted) | 2 | Originally synthetic-fixture; retrofitted to real entry point by #855 |
 | producer-only / handoff-gap | 2 | Test asserts on the producer side (artifact written) without verifying the consumer received it |
 | real-entry-point / partial-handoff | 1 | Test drives real spawn but does not verify the full handoff path |
-| real-entry-point / full-coverage | 3 | Test drives real entry point and verifies operator-observable behavior end-to-end |
+| real-entry-point / full-coverage | 22 | Test drives real entry point and verifies operator-observable behavior end-to-end |
+| real-entry-point / single-component | 63 | Test drives real CLI entry point; asserts on single-component outcome (no cross-component handoff to verify) |
+| real-entry-point / meta-validator | 16 | Test validates validator tooling itself (atdd validate, atdd rules, atdd repo graph) |
 
-**Total classified:** 8 SMOKE acceptances (as of 2026-05-25)
+**Total classified:** 108 SMOKE acceptances (as of 2026-05-25)
 
 ### Cause definitions
 
