@@ -29,11 +29,13 @@ import pytest
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
 pytestmark = [pytest.mark.planner]
 
 _RULE_ID = "planner.smoke.synthetic-fixture-bypass"
+_RULE = bind_rule(_RULE_ID)
 _SEVERITY = 3
 
 REPO_ROOT = find_repo_root()
