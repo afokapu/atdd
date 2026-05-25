@@ -235,6 +235,7 @@ def walk_all_smoke_acceptances_for_anti_patterns(
 
 def test_no_smoke_tests_use_synthetic_fixtures():
     """No phase:SMOKE acceptance in plan/ resolves to a test file with synthetic fixtures."""
+    bind_rule("planner.smoke.synthetic-fixture-bypass")
     hits = walk_all_smoke_acceptances_for_anti_patterns(PLAN_DIR)
     assert not hits, (
         f"Found {len(hits)} SMOKE acceptance(s) with synthetic-fixture patterns:\n"
