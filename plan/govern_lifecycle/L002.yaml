@@ -1,0 +1,66 @@
+urn: "wmbt:govern-lifecycle:L002"
+step: "locate"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "existing-smoke-acceptances-escaping-the-new-anti-pattern-detector"
+context_clarifier: >
+  The planner-side validator added in E028 scans SMOKE test files for synthetic-fixture
+  patterns. After the E029 retrofit, the two known violators (E003-SMOKE-001 and
+  E003-SMOKE-002) should be clean. But the validator must also be proved correct by
+  confirming it raises no false positives on legitimate real-entry-point SMOKE tests
+  and detects no unnoticed true positives elsewhere in the repo. The meta-SMOKE walker
+  applies the detector exhaustively to every phase:SMOKE acceptance in the current repo
+  and reports any hits — confirming the detector's net is tight enough to catch the
+  E003 false-green pattern while not blocking well-formed smokes.
+lens: "functional.effectiveness"
+statement: >
+  minimize quantity of existing-smoke-acceptances-escaping-the-new-anti-pattern-detector
+  by implementing a meta-walker walk_all_smoke_acceptances_for_anti_patterns(plan_dir)
+  that iterates every phase:SMOKE acceptance URN from plan/ via atdd repo graph, resolves
+  the corresponding test file path, applies the synthetic-fixture-bypass scan from E028,
+  and returns a list of (urn, hit_description) tuples; the SMOKE acceptance verifies
+  that list is empty on the post-retrofit repo
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:L002-UNIT-001-meta-walker-function-exists-and-classifies"
+      id: "AC-UNIT-001"
+      purpose: "walk_all_smoke_acceptances_for_anti_patterns() iterates all SMOKE acceptances and returns hits"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp plan_dir with two WMBT YAMLs: one SMOKE acceptance using FakeMultiplexer, one using atdd spawn"
+        - "The synthetic-fixture scan function from E028 is importable"
+    when:
+      abstract: "walk_all_smoke_acceptances_for_anti_patterns(plan_dir) is called"
+    then:
+      abstract:
+        - "The function returns a non-empty list containing the FakeMultiplexer acceptance URN"
+        - "The real-entry-point acceptance URN is NOT in the returned list"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:L002-SMOKE-001-meta-walker-zero-hits-on-post-retrofit-repo"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: meta-walker returns zero anti-pattern hits when run against the live post-retrofit repo"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "E029 retrofit is committed (E003-SMOKE-001 and E003-SMOKE-002 use real atdd spawn)"
+        - "No other phase:SMOKE acceptance in plan/ resolves to a test file using FakeMultiplexer or a synthetic stub"
+    when:
+      abstract: "walk_all_smoke_acceptances_for_anti_patterns(plan_dir) is invoked against the live repo's plan/ directory"
+    then:
+      abstract:
+        - "The returned list is empty"
+        - "The planner.smoke.synthetic-fixture-bypass validator reports zero violations"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"

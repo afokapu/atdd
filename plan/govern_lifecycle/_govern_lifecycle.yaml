@@ -57,9 +57,10 @@ features:
   - urn: "feature:govern-lifecycle:systemic-registry-drift-enforcement"
   - urn: "feature:govern-lifecycle:close-substrate-friction-regressions"
   - urn: "feature:govern-lifecycle:consumer-validator-scope-gate"
+  - urn: "feature:govern-lifecycle:smoke-false-green-prevention"
 
 wmbt:
-  total: 53
+  total: 58
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -113,3 +114,8 @@ wmbt:
   E024: "minimize publish-workflow-auto-skips-on-every-merge by removing the issues trigger from atdd-validate.yml and adding head_branch==main to the Publish condition (#845)"
   E025: "minimize red-phase-toolkit-tests-leaking-into-consumer-validator-sweep-because-skip-api-flag-disables-split-mode-and-bypasses-platform-marker-exclusion by moving the is_atdd_source_repo() consumer-mode platform-exclusion into run_tests() so it applies regardless of split mode, and adding a regression validator that fails if any Phase:RED test file in the validator dirs lacks the platform guard (#846)"
   E026: "minimize bypass-escape-hatches-without-mandatory-audit-record by auditing the 7-flag bypass set, retiring 3 obsolete flags (ATDD_SKIP_ALL_GATES, ATDD_SKIP_POSTCOMMIT, ATDD_SKIP_REGISTRY_CHECK), requiring ATDD_BYPASS_REASON for the 4 remaining flags with audit-jsonl logging, and adding a meta-guard validator that fails CI when bypass count exceeds the audited baseline (#851)"
+  E027: "minimize quantity of smoke-acceptances-unclassified-by-structural-false-green-cause by classifying every phase:SMOKE acceptance in plan/ and committing docs/smoke-audit.md with a per-cause histogram and Future-Tracking section (#855)"
+  E028: "minimize likelihood of new-smoke-tests-using-synthetic-fixtures-that-bypass-production-wiring by adding three anti-pattern rules to smoke.convention.yaml and implementing the planner.smoke.synthetic-fixture-bypass validator (#855)"
+  E029: "minimize quantity of lived-incident-smoke-tests-asserting-on-synthetic-fixtures-rather-than-real-spawn by retrofitting test_e003_smoke_001 and test_e003_smoke_002 to drive the real atdd spawn entry point and removing the ATDD_RUN_SMOKE opt-in from test_e004_smoke_001 (#855)"
+  L002: "minimize quantity of existing-smoke-acceptances-escaping-the-new-anti-pattern-detector by implementing a meta-walker that exhaustively applies the synthetic-fixture-bypass scan to every phase:SMOKE acceptance in plan/ (#855)"
+  M002: "minimize quantity of post-smoke-production-bugs-per-release-wave by maintaining a Future-Tracking table in docs/smoke-audit.md with expectation=0 for all waves >= v3.83.0 (#855)"

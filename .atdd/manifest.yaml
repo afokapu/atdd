@@ -1171,3 +1171,14 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:close-substrate-friction-regressions
   train: 0001-self-compliance-validate
+- id: '855'
+  slug: investigate-smoke-test-systemic-false-greens
+  file: plan/govern_lifecycle/E027.yaml
+  issue_number: 855
+  type: chore
+  status: PLANNED
+  created: '2026-05-25'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:smoke-false-green-prevention
+  train: 0001-self-compliance-validate
