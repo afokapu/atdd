@@ -35,7 +35,7 @@ from atdd.coach.validators._violation import Violation
 pytestmark = [pytest.mark.planner]
 
 _RULE_ID = "planner.smoke.synthetic-fixture-bypass"
-_RULE = bind_rule(_RULE_ID)
+_RULE = bind_rule("planner.smoke.synthetic-fixture-bypass")
 _SEVERITY = 3
 
 REPO_ROOT = find_repo_root()
