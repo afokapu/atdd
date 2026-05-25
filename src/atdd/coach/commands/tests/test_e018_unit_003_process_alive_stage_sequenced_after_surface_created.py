@@ -26,10 +26,17 @@ class _SurfaceCreatedMux:
     def __init__(self):
         self.surface_calls = 0
 
+    def resolve_focused_pane(self, workspace=None) -> str:
+        return "pane:1"
+
     def new_workspace(self, *a, **kw):
         return "ws-1"
 
     def new_surface(self, *a, **kw):
+        self.surface_calls += 1
+        return "surface:857"
+
+    def new_surface_in_pane(self, pane_ref=None, cwd=None, command=None, name=None, **kw) -> str:
         self.surface_calls += 1
         return "surface:857"
 
