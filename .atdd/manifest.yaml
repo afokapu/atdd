@@ -1206,6 +1206,17 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:smoke-false-green-prevention
   train: 0001-self-compliance-validate
+- id: '860'
+  slug: shim-runtime-dir-relative-path-cwd-bleed
+  file: plan/spawn_agents/E019.yaml
+  issue_number: 860
+  type: cleanup
+  status: PLANNED
+  created: '2026-05-26'
+  archived: null
+  wagon: spawn-agents
+  feature: feature:spawn-agents:shim-runtime-dir-absolute-path
+  train: 0002-coach-drives-lifecycle
 - id: '857'
   slug: atdd-coach-spawn-detector-bug
   file: null

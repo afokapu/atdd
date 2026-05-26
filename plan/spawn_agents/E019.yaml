@@ -1,0 +1,117 @@
+urn: "wmbt:spawn-agents:E019"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "shim-runtime-dir-relative-path-bleeds-into-worktree-cwd-at-build-shim-command"
+context_clarifier: "_build_shim_command passes --runtime-dir as str(runtime_root), which preserves relative paths like '.atdd/runtime'. When the cmux-launched shell cd's into the worktree before exec'ing the shim, the shim resolves that relative path against the worktree CWD. Result: shim writes <worktree>/.atdd/runtime/agents/<id>/output.log while coach polls <main>/.atdd/runtime/agents/<id>/output.log — different files. The _verify_process_alive detector (E018, #857) times out and emits 'shim may have crashed silently' — a false diagnosis. Reproduced 2026-05-26 on v3.83.0 test-drive of issue #828 (#860). Fix: resolve runtime_root to absolute via runtime_root.resolve() in _build_shim_command, and also at the cmd_spawn entry point where Path(runtime_root) is first constructed, so every downstream callee receives an absolute-path invariant regardless of whether the caller supplied a relative or absolute path."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of shim-runtime-dir-relative-path-bleeds-into-worktree-cwd-at-build-shim-command by resolving runtime_root to an absolute path inside _build_shim_command (via runtime_root.resolve()) and at the cmd_spawn entry point where Path(runtime_root) is first materialized, so every downstream callee receives an absolute-path invariant regardless of whether the caller supplied a relative or absolute path"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E019-UNIT-001-build-shim-command-resolves-relative-runtime-dir-to-absolute"
+      id: "AC-UNIT-001"
+      purpose: "_build_shim_command with a relative runtime_root produces a --runtime-dir argument that is an absolute path (starts with /)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py is imported"
+        - "runtime_root is Path('.atdd/runtime') (relative)"
+    when:
+      abstract: "_build_shim_command('claude', 'agent-1', runtime_root) is called"
+    then:
+      abstract:
+        - "The returned command string contains '--runtime-dir' followed by a path starting with '/'"
+        - "The path in the command does not start with a relative prefix (no leading './' or bare directory name)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-26"
+  - identity:
+      urn: "acc:spawn-agents:E019-UNIT-002-build-shim-command-absolute-path-unchanged"
+      id: "AC-UNIT-002"
+      purpose: "_build_shim_command with an already-absolute runtime_root passes the path unchanged (idempotent — resolve() on an absolute path is a no-op)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "runtime_root is Path('/tmp/test-runtime') (absolute)"
+    when:
+      abstract: "_build_shim_command('claude', 'agent-1', runtime_root) is called"
+    then:
+      abstract:
+        - "The returned command string contains '--runtime-dir /tmp/test-runtime'"
+        - "The path value is identical to the input absolute path (no transformation)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-26"
+  - identity:
+      urn: "acc:spawn-agents:E019-UNIT-003-cmd-spawn-materializes-absolute-runtime-root"
+      id: "AC-UNIT-003"
+      purpose: "cmd_spawn resolves runtime_root to absolute at construction time so all downstream callees (including _build_shim_command) receive an absolute Path regardless of what the caller provided"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer scripted for surface creation"
+        - "runtime_root supplied as a relative path string to cmd_spawn"
+        - "_build_shim_command is monkeypatched to capture its runtime_root argument"
+    when:
+      abstract: "cmd_spawn is invoked in cli-return mode with the relative runtime_root"
+    then:
+      abstract:
+        - "_build_shim_command receives a runtime_root whose .is_absolute() is True"
+        - "The absolute path resolves to the expected directory under the actual CWD at the time of the call"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-26"
+  - identity:
+      urn: "acc:spawn-agents:E019-INTEGRATION-001-path-bleed-regression"
+      id: "AC-INTEGRATION-001"
+      purpose: "Regression: a fixture that simulates CWD change between runtime_root construction and shim exec confirms output.log lands at the absolute runtime_root path, not at the CWD-bled relative location"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path-based runtime_root specified as a relative path (e.g. Path('out/runtime'))"
+        - "A fixture that changes CWD to a different tmp directory (simulating the worktree cd)"
+        - "A fake shim fixture that writes one byte to agents/<id>/output.log at its received --runtime-dir"
+    when:
+      abstract: "_build_shim_command is called with the relative runtime_root; the resulting --runtime-dir value is extracted and passed to the fake shim"
+    then:
+      abstract:
+        - "The fake shim writes output.log at the resolved absolute path (constructed before the CWD change)"
+        - "No output.log exists under the CWD-bled directory (changed CWD + relative suffix)"
+        - "_verify_process_alive polled at the absolute path finds the heartbeat byte and does not raise"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-26"
+  - identity:
+      urn: "acc:spawn-agents:E019-SMOKE-001-shim-command-runtime-dir-is-absolute-in-live-spawn"
+      id: "AC-SMOKE-001"
+      purpose: "In the deployed codebase, _build_shim_command always produces a --runtime-dir value that is an absolute path; verified by calling the function with a relative input against the live installed package"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "_build_shim_command is imported from the deployed atdd.coach.commands.spawn"
+        - "runtime_root is Path('.atdd/runtime') (relative)"
+        - "ATDD_RUN_SMOKE=1 is set"
+    when:
+      abstract: "_build_shim_command('claude --no-update', 'smoke-agent-1', runtime_root) is called"
+    then:
+      abstract:
+        - "The returned command string contains '--runtime-dir' followed by a path starting with '/'"
+        - "The absolute path can be constructed with Path(value).is_absolute() == True"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-26"
