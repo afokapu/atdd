@@ -1,10 +1,10 @@
-# URN: test:observe-and-correct:E005-UNIT-002-stdin-not-added-when-not-isatty
-# Acceptance: acc:observe-and-correct:E005-UNIT-002-stdin-not-added-when-not-isatty
-# WMBT: wmbt:observe-and-correct:E005
+# URN: test:observe-and-correct:E006-UNIT-002-stdin-not-added-when-not-isatty
+# Acceptance: acc:observe-and-correct:E006-UNIT-002-stdin-not-added-when-not-isatty
+# WMBT: wmbt:observe-and-correct:E006
 # Phase: RED
 # Assertion: behavioral
 # Layer: application
-"""E005-UNIT-002 — When stdin_source.isatty() returns False (CI / subprocess
+"""E006-UNIT-002 — When stdin_source.isatty() returns False (CI / subprocess
 invocation), _run_loop must NOT include stdin_source.fileno() in the select
 watch list, and the existing cli-return and pty-output paths must be unchanged.
 
@@ -56,7 +56,7 @@ class _FakeStdinNonTTY:
 
 def _write_cli_return(path: Path, correction_text: str) -> None:
     record = {
-        "rule_id": "E005-TEST-RULE",
+        "rule_id": "E006-TEST-RULE",
         "correction_text": correction_text,
         "severity": 3,
         "issued_at": "2026-05-26T00:00:00Z",

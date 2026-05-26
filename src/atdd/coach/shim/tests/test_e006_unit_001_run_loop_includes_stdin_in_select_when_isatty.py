@@ -1,10 +1,10 @@
-# URN: test:observe-and-correct:E005-UNIT-001-run-loop-includes-stdin-in-select-when-isatty
-# Acceptance: acc:observe-and-correct:E005-UNIT-001-run-loop-includes-stdin-in-select-when-isatty
-# WMBT: wmbt:observe-and-correct:E005
+# URN: test:observe-and-correct:E006-UNIT-001-run-loop-includes-stdin-in-select-when-isatty
+# Acceptance: acc:observe-and-correct:E006-UNIT-001-run-loop-includes-stdin-in-select-when-isatty
+# WMBT: wmbt:observe-and-correct:E006
 # Phase: RED
 # Assertion: behavioral
 # Layer: application
-"""E005-UNIT-001 — _run_loop adds sys.stdin.fileno() to the select watch list
+"""E006-UNIT-001 — _run_loop adds sys.stdin.fileno() to the select watch list
 when stdin_source.isatty() is True and calls forward_stdin_once() when stdin
 becomes readable, forwarding operator keystrokes to the wrapped process pty.
 

@@ -1,77 +1,97 @@
 urn: "wmbt:observe-and-correct:E005"
 step: "execute"
 direction: "minimize"
-dimension: "quantity"
-object_of_control: "shim-stdin-forwarding-gaps"
-context_clarifier: "when PersonaShim._run_loop (src/atdd/coach/shim/persona_shim.py:184–204) only watches master_fd in its select.select() call and never includes sys.stdin.fileno() — so operator keystrokes typed into the worker cmux surface reach the shim's own stdin buffer but are never forwarded to the wrapped claude process. forward_stdin_once() already exists at line 153 with a working implementation but has no caller in _run_loop. Discovered live on 2026-05-26 during the #860 test-drive (v3.83.0 + #854/#857/#860 hot-patch): operator typed 'hello, can you confirm you can read this?' into worker surface 236; text appeared in the surface terminal buffer but claude's TUI stayed empty and the status bar showed no 'esc to interrupt'. Combined with #862's auto-submit gap, the cli-return migration is structurally one-way: output from claude reaches the operator, but operator input never reaches claude."
+dimension: "likelihood"
+object_of_control: "atdd-shim-popen-missing-env-kwarg-for-typed-env-override-delivery"
+context_clarifier: "The atdd-shim CLI entry point (src/atdd/coach/shim/__main__.py) currently has no --env flag and PersonaShim has no env_overrides parameter. When _build_shim_command (E016) emits '--env KEY=VALUE' flags, atdd-shim must parse them and PersonaShim.run() must pass them to subprocess.Popen via env= kwarg. Without this, the shim-side half of the Shape-A fix is missing: atdd-shim's argparse rejects --env as unknown, and even if it were accepted, PersonaShim.run() passes no env to Popen so the override is silently dropped."
 lens: "functional.effectiveness"
-statement: "minimize quantity of shim-stdin-forwarding-gaps by adding sys.stdin.fileno() to the select watch list in _run_loop when sys.stdin.isatty() is True and calling forward_stdin_once() when stdin becomes readable — so operator keystrokes typed into the worker cmux surface reach the wrapped claude process, interactive recovery (nudging a silenced agent) is unblocked in cli-return mode, and CI/non-interactive invocations are unchanged"
+statement: "minimize likelihood of atdd-shim-popen-missing-env-kwarg-for-typed-env-override-delivery by adding a repeatable --env KEY=VALUE argument to atdd-shim's argparse, updating PersonaShim.__init__ to accept env_overrides: dict[str, str], and having PersonaShim.run() merge env_overrides on top of os.environ and pass the result to subprocess.Popen via the env= kwarg — completing the Shape-A fix so ATDD_AGENT_ID reaches the spawned adapter process without a shell"
 acceptances:
   - identity:
-      urn: "acc:observe-and-correct:E005-UNIT-001-run-loop-includes-stdin-in-select-when-isatty"
+      urn: "acc:observe-and-correct:E005-UNIT-001-shim-main-parses-env-flag"
       id: "AC-UNIT-001"
-      purpose: "_run_loop adds sys.stdin.fileno() to the select watch list when sys.stdin.isatty() is True, and calls forward_stdin_once() once stdin becomes readable, forwarding operator keystrokes to the wrapped process pty"
+      purpose: "atdd-shim __main__.main parses '--env KEY=VALUE' (repeatable) and builds an env_overrides dict passed to PersonaShim; unknown --env values do not raise SystemExit"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "A PersonaShim instance is constructed with a fake stdin_source that has a .fileno() returning a real fd and isatty() returning True"
-        - "A fake pty_write_sink captures bytes delivered to the pty master fd"
-        - "A synthetic child process that reads from its stdin and echoes back to stdout runs inside the shim"
+        - "A minimal argv: ['--agent-id', 'x-001', '--runtime-dir', '/tmp/r', '--env', 'ATDD_AGENT_ID=x-001', '--', 'true']"
     when:
-      abstract: "Bytes simulating operator keystrokes are written to the fake stdin_source before the shim's _run_loop tick"
+      abstract: "atdd-shim.__main__._build_parser().parse_args(argv) is called"
     then:
       abstract:
-        - "The same bytes appear in the pty_write_sink capture buffer within one select poll interval"
-        - "No bytes are swallowed, duplicated, or reordered"
-        - "The child process's pty output (the echo) also reaches the stdout_sink"
+        - "args.env equals ['ATDD_AGENT_ID=x-001']"
+        - "No SystemExit or argparse error is raised"
+        - "When '--env' appears twice, both values appear in args.env"
     metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-26"
+      author: "atdd:planner"
+      created: "2026-05-25"
   - identity:
-      urn: "acc:observe-and-correct:E005-UNIT-002-stdin-not-added-when-not-isatty"
+      urn: "acc:observe-and-correct:E005-UNIT-002-persona-shim-applies-env-overrides-to-popen"
       id: "AC-UNIT-002"
-      purpose: "When sys.stdin.isatty() returns False (CI / subprocess invocation), _run_loop does NOT include sys.stdin.fileno() in the select watch list; existing cli-return and pty-output behavior is unchanged"
+      purpose: "PersonaShim constructed with env_overrides={'ATDD_AGENT_ID': 'x-001'} passes a merged env to subprocess.Popen that contains ATDD_AGENT_ID=x-001; the spawned process can read the variable"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "A PersonaShim instance is constructed with a fake stdin_source where isatty() returns False"
-        - "A fake pty_write_sink and a cli-return.jsonl with one pending correction record are set up"
+        - "A PersonaShim instance with spawn_command=['python3', '-c', 'import os,sys; sys.exit(0 if os.environ.get(\"ATDD_AGENT_ID\")==\"x-001\" else 1)']"
+        - "env_overrides={'ATDD_AGENT_ID': 'x-001'}"
+        - "A real temporary runtime_dir"
     when:
-      abstract: "The shim's _run_loop executes one full tick"
+      abstract: "shim.run() is called"
     then:
       abstract:
-        - "The correction from cli-return.jsonl is delivered to the pty_write_sink (existing path unaffected)"
-        - "No read is attempted from the stdin_source (stdin fd is absent from the select call)"
-        - "The shim does not crash or raise when stdin is not a TTY"
+        - "The spawned Python process exits with code 0 (env var present and correct)"
+        - "subprocess.Popen was called with an env dict containing 'ATDD_AGENT_ID': 'x-001'"
     metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-26"
+      author: "atdd:planner"
+      created: "2026-05-25"
   - identity:
-      urn: "acc:observe-and-correct:E005-SMOKE-001-stdin-bytes-reach-wrapped-subprocess"
+      urn: "acc:observe-and-correct:E005-UNIT-003-regression-argv-leading-key-value-fails-without-fix"
+      id: "AC-UNIT-003"
+      purpose: "A unit test calling atdd-shim with argv ['--agent-id', 'x', '--runtime-dir', '/tmp', '--', 'ATDD_AGENT_ID=x', 'python3', '-c', 'pass'] (old broken path) would raise FileNotFoundError; with the fix in place, this argv is never produced by _build_shim_command"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A PersonaShim instance with spawn_command=['ATDD_AGENT_ID=x', 'python3', '-c', 'pass'] (simulates old broken argv)"
+        - "env_overrides={} (no override)"
+        - "A real temporary runtime_dir"
+    when:
+      abstract: "shim.run() is called"
+    then:
+      abstract:
+        - "subprocess.Popen raises FileNotFoundError (exec of 'ATDD_AGENT_ID=x' fails)"
+        - "This documents the bug and confirms the fix prevents it via _build_shim_command always using --env flags"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-25"
+  - identity:
+      urn: "acc:observe-and-correct:E005-SMOKE-001-full-shim-spawn-with-env-override"
       id: "AC-SMOKE-001"
-      purpose: "End-to-end round-trip: launch PersonaShim wrapping a real subprocess that echoes stdin (e.g. 'cat' or 'python -c import sys; sys.stdout.write(sys.stdin.read(1024)); sys.stdout.flush()'); write bytes to the shim's stdin; assert those exact bytes appear in the shim's pty output (and stdout_sink) within a 5-second timeout — proving the full operator-keystroke → shim → pty → subprocess → pty-output path"
+      purpose: "End-to-end: invoke the installed atdd-shim binary with --env ATDD_AGENT_ID=smoke-test-001 wrapping a synthetic adapter that echoes $ATDD_AGENT_ID; assert the sentinel value appears in the shim output within 10 s"
       phase: "SMOKE"
     harness:
-      type: "integration"
+      type: "smoke"
       category: "backend"
     given:
       abstract:
-        - "PersonaShim is instantiated with a real pty (not a fake pty_write_sink) wrapping an echo-subprocess"
-        - "The shim's stdin is connected to a pipe that the test controls"
-        - "sys.stdin.isatty() returns True for the connected pipe (or the shim uses a pty for its own stdin to satisfy the TTY check)"
+        - "atdd-shim is installed as a CLI entry point"
+        - "A temporary runtime-dir exists"
+        - "A synthetic adapter script that prints the value of ATDD_AGENT_ID to stdout"
     when:
-      abstract: "A known sentinel byte sequence is written to the shim's stdin pipe"
+      abstract: "atdd-shim --agent-id smoke-test-001 --runtime-dir <tmp> --env ATDD_AGENT_ID=smoke-test-001 -- <synthetic_script> is invoked as a subprocess with stdout=PIPE"
     then:
       abstract:
-        - "The sentinel bytes appear in the shim's pty output (captured via stdout_sink or output.log) within 5 seconds"
-        - "The round-trip proves: shim stdin → forward_stdin_once() → pty master fd → subprocess stdin → subprocess stdout → pty master fd → shim stdout"
-        - "No bytes are lost or duplicated"
+        - "The sentinel string 'smoke-test-001' appears in captured stdout within 10 s"
+        - "The shim process exits with return code 0"
+        - "output.log in the agent dir contains the sentinel string"
     metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-26"
+      author: "atdd:planner"
+      created: "2026-05-25"

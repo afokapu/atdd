@@ -16,7 +16,7 @@ of bypass patterns.
 
 | acceptance-URN | entry-point-coverage | assertion-target | handoff-coverage | incident-cross-ref |
 |---|---|---|---|---|
-| acc:observe-and-correct:E005-SMOKE-001-stdin-bytes-reach-wrapped-subprocess | synthetic (cat subprocess) | stdin bytes round-trip | single direction | #861; flagged for retrofit per #855 (synthetic-fixture-bypass) |
+| acc:observe-and-correct:E006-SMOKE-001-stdin-bytes-reach-wrapped-subprocess | synthetic (cat subprocess) | stdin bytes round-trip | single direction | #861; flagged for retrofit per #855 (synthetic-fixture-bypass) |
 | acc:consolidate-coach-workspace:D001-SMOKE-001-real-layout-holds-as-workers-added | real (atdd spawn + cmux) | layout persistence | N/A (UI state) | — |
 | acc:consolidate-coach-workspace:E001-SMOKE-001-real-coach-tab-shows-every-issue | real (atdd spawn) | cmux pane list | N/A (UI state) | — |
 | acc:consolidate-coach-workspace:E002-SMOKE-001-real-spawn-yields-one-tab-no-obs | real (atdd spawn) | pane count | N/A (UI state) | — |

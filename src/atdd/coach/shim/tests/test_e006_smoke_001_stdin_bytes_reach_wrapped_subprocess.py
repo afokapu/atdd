@@ -1,10 +1,10 @@
-# URN: test:observe-and-correct:E005-SMOKE-001-stdin-bytes-reach-wrapped-subprocess
-# Acceptance: acc:observe-and-correct:E005-SMOKE-001-stdin-bytes-reach-wrapped-subprocess
-# WMBT: wmbt:observe-and-correct:E005
+# URN: test:observe-and-correct:E006-SMOKE-001-stdin-bytes-reach-wrapped-subprocess
+# Acceptance: acc:observe-and-correct:E006-SMOKE-001-stdin-bytes-reach-wrapped-subprocess
+# WMBT: wmbt:observe-and-correct:E006
 # Phase: SMOKE
 # Assertion: behavioral
 # Layer: integration
-"""E005-SMOKE-001 — End-to-end round-trip: PersonaShim wrapping a real
+"""E006-SMOKE-001 — End-to-end round-trip: PersonaShim wrapping a real
 echo subprocess receives operator keystrokes from its stdin_source and the
 subprocess echoes them back through the pty output chain.
 
@@ -72,7 +72,7 @@ def test_stdin_bytes_reach_wrapped_subprocess(tmp_path):
     """
     from atdd.coach.shim import PersonaShim
 
-    sentinel = b"ATDD_E005_SENTINEL\n"
+    sentinel = b"ATDD_E006_SENTINEL\n"
     r_fd, w_fd = os.pipe()
 
     stdout_captured: list[bytes] = []
@@ -114,9 +114,9 @@ def test_stdin_bytes_reach_wrapped_subprocess(tmp_path):
         f"Sentinel bytes did not complete the operator→shim→subprocess→stdout "
         f"round-trip within 5 seconds. "
         f"stdout_sink content: {captured!r}. "
-        f"This confirms E005: stdin fd is absent from _run_loop's select() watch list."
+        f"This confirms E006: stdin fd is absent from _run_loop's select() watch list."
     )
-    assert b"ATDD_E005_SENTINEL" in captured, (
+    assert b"ATDD_E006_SENTINEL" in captured, (
         f"'GOT:' marker present but sentinel payload missing. Got: {captured!r}"
     )
 
@@ -131,7 +131,7 @@ def test_no_bytes_lost_or_duplicated_in_round_trip(tmp_path):
     """
     from atdd.coach.shim import PersonaShim
 
-    sentinel = b"UNIQUE_PAYLOAD_E005\n"
+    sentinel = b"UNIQUE_PAYLOAD_E006\n"
     r_fd, w_fd = os.pipe()
 
     stdout_captured: list[bytes] = []
@@ -170,7 +170,7 @@ def test_no_bytes_lost_or_duplicated_in_round_trip(tmp_path):
         f"No 'GOT:' echo lines found. Forwarding did not occur. "
         f"Full output: {captured!r}"
     )
-    payload_count = sum(1 for line in got_lines if b"UNIQUE_PAYLOAD_E005" in line)
+    payload_count = sum(1 for line in got_lines if b"UNIQUE_PAYLOAD_E006" in line)
     assert payload_count == 1, (
         f"Sentinel payload appeared in {payload_count} 'GOT:' lines (expected 1). "
         f"GOT lines: {got_lines!r}"

@@ -1,0 +1,77 @@
+urn: "wmbt:observe-and-correct:E006"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "shim-stdin-forwarding-gaps"
+context_clarifier: "when PersonaShim._run_loop (src/atdd/coach/shim/persona_shim.py:184–204) only watches master_fd in its select.select() call and never includes sys.stdin.fileno() — so operator keystrokes typed into the worker cmux surface reach the shim's own stdin buffer but are never forwarded to the wrapped claude process. forward_stdin_once() already exists at line 153 with a working implementation but has no caller in _run_loop. Discovered live on 2026-05-26 during the #860 test-drive (v3.83.0 + #854/#857/#860 hot-patch): operator typed 'hello, can you confirm you can read this?' into worker surface 236; text appeared in the surface terminal buffer but claude's TUI stayed empty and the status bar showed no 'esc to interrupt'. Combined with #862's auto-submit gap, the cli-return migration is structurally one-way: output from claude reaches the operator, but operator input never reaches claude."
+lens: "functional.effectiveness"
+statement: "minimize quantity of shim-stdin-forwarding-gaps by adding sys.stdin.fileno() to the select watch list in _run_loop when sys.stdin.isatty() is True and calling forward_stdin_once() when stdin becomes readable — so operator keystrokes typed into the worker cmux surface reach the wrapped claude process, interactive recovery (nudging a silenced agent) is unblocked in cli-return mode, and CI/non-interactive invocations are unchanged"
+acceptances:
+  - identity:
+      urn: "acc:observe-and-correct:E006-UNIT-001-run-loop-includes-stdin-in-select-when-isatty"
+      id: "AC-UNIT-001"
+      purpose: "_run_loop adds sys.stdin.fileno() to the select watch list when sys.stdin.isatty() is True, and calls forward_stdin_once() once stdin becomes readable, forwarding operator keystrokes to the wrapped process pty"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A PersonaShim instance is constructed with a fake stdin_source that has a .fileno() returning a real fd and isatty() returning True"
+        - "A fake pty_write_sink captures bytes delivered to the pty master fd"
+        - "A synthetic child process that reads from its stdin and echoes back to stdout runs inside the shim"
+    when:
+      abstract: "Bytes simulating operator keystrokes are written to the fake stdin_source before the shim's _run_loop tick"
+    then:
+      abstract:
+        - "The same bytes appear in the pty_write_sink capture buffer within one select poll interval"
+        - "No bytes are swallowed, duplicated, or reordered"
+        - "The child process's pty output (the echo) also reaches the stdout_sink"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-26"
+  - identity:
+      urn: "acc:observe-and-correct:E006-UNIT-002-stdin-not-added-when-not-isatty"
+      id: "AC-UNIT-002"
+      purpose: "When sys.stdin.isatty() returns False (CI / subprocess invocation), _run_loop does NOT include sys.stdin.fileno() in the select watch list; existing cli-return and pty-output behavior is unchanged"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A PersonaShim instance is constructed with a fake stdin_source where isatty() returns False"
+        - "A fake pty_write_sink and a cli-return.jsonl with one pending correction record are set up"
+    when:
+      abstract: "The shim's _run_loop executes one full tick"
+    then:
+      abstract:
+        - "The correction from cli-return.jsonl is delivered to the pty_write_sink (existing path unaffected)"
+        - "No read is attempted from the stdin_source (stdin fd is absent from the select call)"
+        - "The shim does not crash or raise when stdin is not a TTY"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-26"
+  - identity:
+      urn: "acc:observe-and-correct:E006-SMOKE-001-stdin-bytes-reach-wrapped-subprocess"
+      id: "AC-SMOKE-001"
+      purpose: "End-to-end round-trip: launch PersonaShim wrapping a real subprocess that echoes stdin (e.g. 'cat' or 'python -c import sys; sys.stdout.write(sys.stdin.read(1024)); sys.stdout.flush()'); write bytes to the shim's stdin; assert those exact bytes appear in the shim's pty output (and stdout_sink) within a 5-second timeout — proving the full operator-keystroke → shim → pty → subprocess → pty-output path"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "PersonaShim is instantiated with a real pty (not a fake pty_write_sink) wrapping an echo-subprocess"
+        - "The shim's stdin is connected to a pipe that the test controls"
+        - "sys.stdin.isatty() returns True for the connected pipe (or the shim uses a pty for its own stdin to satisfy the TTY check)"
+    when:
+      abstract: "A known sentinel byte sequence is written to the shim's stdin pipe"
+    then:
+      abstract:
+        - "The sentinel bytes appear in the shim's pty output (captured via stdout_sink or output.log) within 5 seconds"
+        - "The round-trip proves: shim stdin → forward_stdin_once() → pty master fd → subprocess stdin → subprocess stdout → pty master fd → shim stdout"
+        - "No bytes are lost or duplicated"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-26"
