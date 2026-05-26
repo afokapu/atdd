@@ -46,7 +46,7 @@ def _find_repo_root(start: Path | None = None) -> Path | None:
             check=True,
         )
         return Path(result.stdout.strip())
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         return None
 
 
@@ -143,7 +143,7 @@ def run_cli(argv: list[str]) -> int:
 
     try:
         cmd_emergency(reason=args.reason)
-    except ValueError as exc:
+    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         print(f"ATDD: {exc}", file=sys.stderr)
         return 1
 

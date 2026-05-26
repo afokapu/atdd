@@ -1,5 +1,6 @@
 # URN: test:govern-lifecycle:close-substrate-friction-regressions:E031-UNIT-001-emergency-command-creates-bypass-file
 # Acceptance: acc:govern-lifecycle:E031-UNIT-001-emergency-command-creates-bypass-file
+# Acceptance: acc:govern-lifecycle:E031-UNIT-004-emergency-audit-jsonl-appended
 # WMBT: wmbt:govern-lifecycle:E031
 # Phase: RED
 # Layer: backend.unit
