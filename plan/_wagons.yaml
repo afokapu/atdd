@@ -130,56 +130,6 @@ wagons:
   total: 0
   manifest: plan/consolidate_coach_workspace/_consolidate_coach_workspace.yaml
   path: plan/consolidate_coach_workspace/
-- wagon: dispatch-ux-defaults-and-primer
-  description: "Closes the 15-minute cold-start gap for first-time atdd coach operators
-    (issue #812): flips multiplexer-mode to pane when CMUX_WORKSPACE_ID is set,
-    auto-enables no-prompt when stdin is not a TTY, bumps ATDD_WORKER_READY_TIMEOUT
-    default from 10s to 30s with help advertising, mutes the stale upgrade banner
-    after atdd sync via a marker file, auto-detects the git worktree by walking up
-    from cwd (or via repo flag), reuses an existing worktree on cold-start instead
-    of failing with already-exists, prints a one-screen multiplexer primer once per
-    session when a known mux is detected, cleans orphan worker panes on all
-    spawn-failure paths, and removes the unimplemented resume flag from help until
-    the J6 runner lands."
-  theme: commons
-  subject: agent:coach
-  context: first-run-ux, operator-friction-inventory, v3.76.0-cold-start-pain
-  action: flips env-aware defaults, adds worktree lifecycle guards, and prints a per-session
-    multiplexer primer
-  goal: "reduce a 15-minute first-dispatch from 5 failed attempts to a single atdd coach <N> with zero extra flags"
-  outcome: "atdd coach <N> just works on first try from inside cmux with no extra flags; multiplexer primer surfaced once per session; orphan panes cleaned on every failure path"
-  produce:
-  - name: coach:dispatch:env-aware-defaults
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:dispatch:worktree-lifecycle
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:dispatch:multiplexer-primer
-    contract: null
-    telemetry: null
-    to: external
-  consume:
-  - name: coach:spawn:canonical-naming-and-layout-pass
-    from: wagon:spawn-agents
-  - name: commons:coach:runtime-event-schema
-    from: wagon:freeze-runtime-contracts
-  wmbt:
-    total: 9
-    E001: minimize likelihood of coach-dispatch-sessions-where-workspace-mode-is-selected-despite-cmux-workspace-id-being-set
-    E002: minimize likelihood of atdd-coach-invocations-that-hang-on-persona-prompt-when-stdin-is-not-a-tty
-    E003: minimize likelihood of atdd-coach-cold-start-failures-caused-by-invocation-from-outside-a-git-worktree
-    E004: minimize quantity of atdd-coach-cold-starts-that-fail-with-worktree-already-exists-error
-    E005: minimize quantity of coach-dispatch-sessions-where-operator-encounters-multiplexer-commands-for-the-first-time-without-a-primer
-    Y001: minimize likelihood of coach-spawned-workers-timing-out-due-to-a-default-10s-ready-wait-that-is-below-fresh-worktree-boot-time
-    Y002: minimize likelihood of stale-upgrade-banner-cluttering-every-atdd-command-after-sync-has-run
-    E006: minimize quantity of orphan-worker-panes-that-remain-after-a-spawn-failure-path
-    Y003: minimize likelihood of operators-attempting-resume-via-a-help-advertised-but-unimplemented-resume-flag
-  total: 0
-  manifest: plan/dispatch_ux_defaults_and_primer/_dispatch_ux_defaults_and_primer.yaml
-  path: plan/dispatch_ux_defaults_and_primer/
 - wagon: define-plans
   description: Defines what must be built — wagons, features, acceptance criteria,
     and trains
@@ -316,6 +266,62 @@ wagons:
   total: 0
   manifest: plan/discover_and_decommission/_discover_and_decommission.yaml
   path: plan/discover_and_decommission/
+- wagon: dispatch-ux-defaults-and-primer
+  description: 'Closes the 15-minute cold-start gap for first-time atdd coach operators
+    (issue #812): flips multiplexer-mode to pane when CMUX_WORKSPACE_ID is set, auto-enables
+    --no-prompt when stdin is not a TTY, bumps ATDD_WORKER_READY_TIMEOUT default from
+    10s to 30s with --help advertising, mutes the stale upgrade banner after atdd
+    sync via a marker file, auto-detects the git worktree by walking up from cwd (or
+    via --repo), reuses an existing worktree on cold-start instead of failing with
+    ''already exists'', prints a one-screen multiplexer primer once per session when
+    a known mux is detected, cleans orphan worker panes on all spawn-failure paths,
+    removes the unimplemented --resume flag from --help until the J6 runner lands,
+    and replaces deprecated cmux new-workspace/new-pane RPCs with the canonical new-surface
+    RPC (issue #830).'
+  theme: commons
+  subject: agent:coach
+  context: first-run-ux, operator-friction-inventory, v3.76.0-cold-start-pain
+  action: flips env-aware defaults, adds worktree lifecycle guards, and prints a per-session
+    multiplexer primer
+  goal: reduce a 15-minute first-dispatch from 5 failed attempts to a single atdd
+    coach <N> with zero extra flags
+  outcome: 'atdd coach <N> just works on first try from inside cmux with no extra
+    flags (assuming #811 fixed); multiplexer primer surfaced once per session; orphan
+    panes cleaned on every failure path'
+  produce:
+  - name: coach:dispatch:env-aware-defaults
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:dispatch:worktree-lifecycle
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:dispatch:multiplexer-primer
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: coach:spawn:canonical-naming-and-layout-pass
+    from: wagon:spawn-agents
+  - name: commons:coach:runtime-event-schema
+    from: wagon:freeze-runtime-contracts
+  wmbt:
+    total: 11
+    E001: minimize likelihood of coach-dispatch-sessions-where-workspace-mode-is-selected-despite-cmux-workspace-id-being-set
+    E002: minimize likelihood of atdd-coach-invocations-that-hang-on-persona-prompt-when-stdin-is-not-a-tty
+    E003: minimize likelihood of atdd-coach-cold-start-failures-caused-by-invocation-from-outside-a-git-worktree
+    E004: minimize quantity of atdd-coach-cold-starts-that-fail-with-worktree-already-exists-error
+    E005: minimize quantity of coach-dispatch-sessions-where-operator-encounters-multiplexer-commands-for-the-first-time-without-a-primer
+    Y001: minimize likelihood of coach-spawned-workers-timing-out-due-to-a-default-10s-ready-wait-that-is-below-fresh-worktree-boot-time
+    Y002: minimize likelihood of stale-upgrade-banner-cluttering-every-atdd-command-after-sync-has-run
+    E006: minimize quantity of orphan-worker-panes-that-remain-after-a-spawn-failure-path
+    Y003: minimize likelihood of operators-attempting-resume-via-a-help-advertised-but-unimplemented-resume-flag
+    Y004: minimize likelihood of session-template-rendered-merge-wait-loops-blocking-planner-sessions-on-sibling-issues-that-will-never-merge-before-the-session-starts
+    E007: minimize likelihood of atdd-coach-cold-starts-that-fail-with-broken-pipe-due-to-deprecated-cmux-rpcs
+  total: 0
+  manifest: plan/dispatch_ux_defaults_and_primer/_dispatch_ux_defaults_and_primer.yaml
+  path: plan/dispatch_ux_defaults_and_primer/
 - wagon: dispatch-validators
   description: 'Implements coach v9''s real-time tier-1 validator pipeline (spec §6.4–§6.6,
     §6.8): a git watcher emits commit_observed events with parsed Phase/WMBT-Urn/Agent-Id
@@ -1150,7 +1156,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 14
+    total: 17
     P001: minimize quantity of observer-runtime-skeleton-gaps
     P002: minimize quantity of observer-input-acquisition-gaps
     M001: minimize likelihood of undetected-basic-protocol-violations
@@ -1163,6 +1169,9 @@ wagons:
     L001: minimize effort of locating-active-coach-surface-state
     E001: minimize effort of approving-known-safe-cross-surface-prompts
     E002: minimize quantity of per-worker-observer-processes-spawned-by-coach
+    E003: minimize quantity of observer-correction-loop-activation-gaps
+    E004: minimize quantity of persona-shim-spawn-dispatch-wiring-gaps
+    E005: minimize quantity of shim-stdin-forwarding-gaps
     C001: minimize likelihood of behavioral-regression-against-babysit-baseline
     C002: minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary
   total: 0
@@ -1389,6 +1398,10 @@ wagons:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:atomic-rename-injection-and-orphan-close-on-timeout
+    contract: null
+    telemetry: null
+    to: external
   consume:
   - name: commons:coach:runtime-event-schema
     from: wagon:freeze-runtime-contracts
@@ -1399,7 +1412,7 @@ wagons:
   - name: commons:coach:decisions-jsonl-writer
     from: wagon:drive-state-machine
   wmbt:
-    total: 14
+    total: 22
     E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
     D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
     E002: minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout
@@ -1414,6 +1427,14 @@ wagons:
     E009: minimize likelihood of atdd-spawn-llm-ids-that-resolve-to-no-registered-adapter-or-fail-silently-on-missing-credentials
     E010: minimize likelihood of coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate
     E011: minimize likelihood of coach-spawn-pipeline-stages-that-silently-fail-without-raising-a-stage-specific-exception
+    E012: minimize likelihood of coach-spawned-workers-blocked-by-rename-race-false-positive-accepted-gate-and-orphan-pane-on-timeout
+    E013: minimize likelihood of coach-spawn-adapters-lacking-declared-permission-flags-and-allowed-tools-allowlist
+    E014: minimize likelihood of bash-auto-approve-rule-referencing-stale-multiplexer-modal-typing-path
+    M001: minimize quantity of coach-spawn-pipelines-that-inject-slash-rename-into-the-running-agent-session
+    M002: minimize quantity of observer-correction-code-and-adapter-configs-violating-the-non-interactive-spawn-contract
+    L001: minimize likelihood of coach-spawned-agents-that-present-interactive-permission-modals-under-standard-workloads
+    D002: minimize likelihood of undocumented-freedom-with-a-leash-spawn-policy
+    R001: minimize likelihood of deny-pattern-bash-invocations-handled-via-in-band-modal-or-unrouted-escalation
   total: 0
   manifest: plan/spawn_agents/_spawn_agents.yaml
   path: plan/spawn_agents/
