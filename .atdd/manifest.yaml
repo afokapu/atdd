@@ -1226,7 +1226,6 @@ sessions:
   status: INIT
   created: '2026-05-25'
   archived: null
-<<<<<<< HEAD
 - id: '861'
   slug: shim-stdin-not-forwarded-to-claude
   file: null
@@ -1238,5 +1237,3 @@ sessions:
   wagon: observe-and-correct
   feature: null
   train: 0002-coach-drives-lifecycle
-=======
->>>>>>> origin/main

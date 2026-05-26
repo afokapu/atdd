@@ -1192,7 +1192,6 @@ wagons:
     E003: minimize quantity of observer-correction-loop-activation-gaps
     E004: minimize quantity of persona-shim-spawn-dispatch-wiring-gaps
     E005: minimize quantity of shim-stdin-forwarding-gaps
->>>>>>> origin/main
     C001: minimize likelihood of behavioral-regression-against-babysit-baseline
     C002: minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary
     E005: minimize likelihood of atdd-shim-popen-missing-env-kwarg-for-typed-env-override-delivery
@@ -1434,9 +1433,7 @@ wagons:
   - name: commons:coach:decisions-jsonl-writer
     from: wagon:drive-state-machine
   wmbt:
-<<<<<<< HEAD
     total: 22
-=======
     total: 24
     E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
     D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
@@ -1460,11 +1457,8 @@ wagons:
     L001: minimize likelihood of coach-spawned-agents-that-present-interactive-permission-modals-under-standard-workloads
     D002: minimize likelihood of undocumented-freedom-with-a-leash-spawn-policy
     R001: minimize likelihood of deny-pattern-bash-invocations-handled-via-in-band-modal-or-unrouted-escalation
-<<<<<<< HEAD
-=======
     E015: minimize likelihood of planner-agent-commits-planned-without-verifying-smoke-acceptance-coverage
     E016: minimize likelihood of shell-style-env-prefix-injected-into-shim-argv-causing-popen-exec-failure
->>>>>>> origin/main
   total: 0
   manifest: plan/spawn_agents/_spawn_agents.yaml
   path: plan/spawn_agents/
