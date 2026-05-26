@@ -1,22 +1,26 @@
-# Bypass Flag Audit — E026
+# Bypass Flag Audit — E026 + E030
 
 **Issue:** #851 — Audit And Retire Bypass Flag Proliferation  
-**Audit date:** 2026-05-24  
-**WMBT:** wmbt:govern-lifecycle:E026  
-**Baseline after audit:** 5 irreducible flags
+**E026 audit date:** 2026-05-24 (partial retirement: 3 flags, 5 kept with ATDD_BYPASS_REASON)  
+**E030 full retirement date:** 2026-05-26 (all remaining flags retired unconditionally)  
+**WMBT:** wmbt:govern-lifecycle:E026, wmbt:govern-lifecycle:E030  
+**Baseline after E030:** 0 ATDD_SKIP_* flags in hooks (meta-guard enforces zero)
 
 ---
 
 ## Problem Summary
 
-As of v3.82.1, every gate ATDD adds has shipped with its own `ATDD_SKIP_*`
-escape hatch. Across 10 issues dispatched 2026-05-21 → 2026-05-24, routine push
-operations required a 2–4 env-var bypass cocktail per push — ~30+ documented
-bypass invocations, none of which were emergencies. The issue #845 added
-`ATDD_SKIP_ALL_GATES` as a "consolidation" that was actually additive: the
-individual flags still worked independently. This audit retires 3 flags, locks
-4 remaining flags behind a mandatory `ATDD_BYPASS_REASON`, and adds a regression
-guard that prevents silent future proliferation.
+As of v3.82.1, every gate ATDD adds had its own `ATDD_SKIP_*` escape hatch.
+E026 (2026-05-24) retired 3 flags and locked 5 others behind `ATDD_BYPASS_REASON`
+with audit-jsonl logging. E030 (2026-05-26) fully retires the remaining 5 flags
+after a lived incident confirmed that audit-logged bypasses are no-different from
+un-audited ones in practice: an ATDD861 worker chained `ATDD_SKIP_POSTCOMMIT=1`
+and `ATDD_SKIP_PREPUSH_VALIDATE=1` to push, staging ~30 `.atdd/` deletions that
+the bypassed gates would have caught. Operator directive (2026-05-26):
+"the skip are the issues — they were useful when fixing coach but shouldn't exist at all."
+
+**Emergency bypass (only sanctioned escape):** `atdd emergency --reason "<reason>"`
+Creates `.atdd/EMERGENCY_BYPASS` for 5 minutes. Not an env var; not chainable.
 
 ---
 
@@ -28,21 +32,20 @@ Flags audited: all `ATDD_SKIP_*` vars found in
 Advisory threshold vars (`ATDD_MAX_*`) and CI-only main-branch guards
 (`ATDD_ALLOW_MAIN_*`) are **excluded** — they are not enforcement bypasses.
 
-| Flag | Hook file | Gate bypassed | Introduced | Decision |
-|------|-----------|---------------|------------|----------|
-| `ATDD_MAX_UNCOMMITTED` | `pre-push` | Advisory uncommitted-file threshold (never blocks) | older | **KEEP (advisory)** |
-| `ATDD_SKIP_ALL_GATES` | `pre-push` | Meta-bypass: sets all 4 pre-push flags at once | #845 | **RETIRE** |
-| `ATDD_SKIP_BARE_CHECK` | `pre-push` | core.bare contamination guard (Wave 12) | #629 | **KEEP** |
-| `ATDD_SKIP_MANIFEST_CHECK` | `pre-commit` | Branch-in-manifest registration check | older | **KEEP** |
-| `ATDD_SKIP_MASSDELETE` | `commit-msg` | Mass-delete guard (>100 files / >10k lines) | #629 | **KEEP** |
-| `ATDD_SKIP_POSTCOMMIT` | `post-commit` | Blast-radius validator (advisory, never blocks) | #611 | **RETIRE** |
-| `ATDD_SKIP_PREPUSH_VALIDATE` | `pre-push` | Blast-radius validator sweep | older | **KEEP** |
-| `ATDD_SKIP_REGISTRY_CHECK` | `pre-push` | Registry mirror drift gate | E021 | **RETIRE** |
-| `ATDD_SKIP_VERSION_GATE` | `pre-push`, `pre-merge-commit` | Installed-vs-required version gate | #776 | **KEEP** |
+| Flag | Hook file | Gate bypassed | Introduced | E026 decision | E030 decision |
+|------|-----------|---------------|------------|---------------|---------------|
+| `ATDD_MAX_UNCOMMITTED` | `pre-push` | Advisory threshold (never blocks) | older | **KEEP (advisory)** | **KEEP (advisory)** |
+| `ATDD_SKIP_ALL_GATES` | `pre-push` | Meta-bypass for all pre-push flags | #845 | **RETIRE** | — |
+| `ATDD_SKIP_BARE_CHECK` | `pre-push` | core.bare contamination guard (Wave 12) | #629 | KEEP (audited) | **RETIRE (E030)** |
+| `ATDD_SKIP_MANIFEST_CHECK` | `pre-commit` | Branch-in-manifest registration check | older | KEEP (audited) | **RETIRE (E030)** |
+| `ATDD_SKIP_MASSDELETE` | `commit-msg` | Mass-delete guard (>50 files / >10k lines) | #629 | KEEP (audited) | **RETIRE (E030)** |
+| `ATDD_SKIP_POSTCOMMIT` | `post-commit` | Blast-radius validator (advisory, never blocks) | #611 | **RETIRE** | — |
+| `ATDD_SKIP_PREPUSH_VALIDATE` | `pre-push` | Blast-radius validator sweep | older | KEEP (audited) | **RETIRE (E030)** |
+| `ATDD_SKIP_REGISTRY_CHECK` | `pre-push` | Registry mirror drift gate | E021 | **RETIRE** | — |
+| `ATDD_SKIP_VERSION_GATE` | `pre-push`, `pre-merge-commit` | Version gate | #776 | KEEP (audited) | **RETIRE (E030)** |
 
-**Additional flags discovered during audit (not in original issue inventory):**
-- `ATDD_SKIP_MASSDELETE` — discovered in `commit-msg`; kept (load-bearing safety guard)
-- `ATDD_SKIP_REGISTRY_CHECK` — was bundled inside `ATDD_SKIP_ALL_GATES`'s expansion; retired alongside the meta-bypass
+**E026 audit outcome (2026-05-24):** Retired 3 flags; kept 5 with mandatory ATDD_BYPASS_REASON.  
+**E030 full retirement (2026-05-26):** Retired all remaining 5 flags. Zero ATDD_SKIP_* in hooks.
 
 ---
 
@@ -167,24 +170,29 @@ just released a new version but haven't yet installed it locally.
 
 A meta-guard validator (`src/atdd/coach/validators/test_e026_bypass_inventory_guard.py`)
 scans all hook source files for `ATDD_SKIP_*` vars and fails if the count exceeds
-the **audited baseline of 5**. The count excludes `ATDD_MAX_*` advisory thresholds
-and `ATDD_ALLOW_MAIN_*` CI-only guards.
+the **audited baseline of 0** (updated from 5 → 0 by E030). The count excludes
+`ATDD_MAX_*` advisory thresholds and `ATDD_ALLOW_MAIN_*` CI-only guards.
 
-**To add a new bypass flag legitimately:**
-1. File a bypass-audit issue documenting the justification.
-2. Audit whether the underlying gate can be improved to eliminate the bypass need.
-3. Update `_AUDITED_BASELINE` in the meta-guard with a reference to the audit issue.
-4. Add a row to this table.
+**There are no legitimate new bypass flags.** If a gate is too strict, fix the gate
+predicate. For genuine one-off emergencies: `atdd emergency --reason "<reason>"`.
 
 ---
 
 ## Audit Outcome
 
+### E026 (2026-05-24)
 - **Flags before audit:** 8 (7 from issue inventory + ATDD_SKIP_MASSDELETE discovered)
 - **Flags retired:** 3 (ATDD_SKIP_ALL_GATES, ATDD_SKIP_POSTCOMMIT, ATDD_SKIP_REGISTRY_CHECK)
-- **Flags kept:** 5 (all now require ATDD_BYPASS_REASON with audit-jsonl logging)
+- **Flags kept with ATDD_BYPASS_REASON:** 5
 - **Net reduction:** 37.5% (8 → 5)
-- **Behavioral enforcement improvement:** Zero-bypass routine push now possible; all remaining bypasses emit audit events
+
+### E030 (2026-05-26)
+- **Flags before retirement:** 5 (ATDD_SKIP_BARE_CHECK, ATDD_SKIP_MANIFEST_CHECK, ATDD_SKIP_MASSDELETE, ATDD_SKIP_PREPUSH_VALIDATE, ATDD_SKIP_VERSION_GATE)
+- **Flags retired:** 5 (all remaining)
+- **Bypass mechanism removed:** ATDD_BYPASS_REASON + bypass-audit.jsonl (no longer needed)
+- **Emergency path added:** `atdd emergency --reason "<reason>"` (single-use, not an env var)
+- **Total reduction (E026+E030):** 100% (8 → 0)
+- **Behavioral outcome:** No env-var bypass path exists; every gate is unconditional
 
 ---
 
