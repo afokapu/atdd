@@ -227,7 +227,7 @@ class PersonaShim:
                         content = output_log_path.read_bytes()
                         if ready_marker in content:
                             ready_gate_open = True
-                    except OSError:
+                    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
                         pass
 
             # Drain cli-return inbox (only after gate opens)
