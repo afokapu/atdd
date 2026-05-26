@@ -4,6 +4,8 @@ Classification of `# Phase: SMOKE` acceptance tests against real-infrastructure 
 
 | acceptance-URN | entry-point-coverage | assertion-target | handoff-coverage | incident-cross-ref |
 |---|---|---|---|---|
+| acc:observe-and-correct:E006-SMOKE-001-delivery-waits-for-tui | synthetic (Python slow-start subprocess) | TUI ready-marker gate timing | single direction | #862; flagged for retrofit per #855 (synthetic-fixture-bypass + timing-flaky risk) |
+| acc:observe-and-correct:E007-SMOKE-001-sentinel-enables-tui-submission | synthetic (Python echo-on-enter subprocess in raw termios) | submit sentinel (CR) delivery | single direction | #862; flagged for retrofit per #855 (synthetic-fixture-bypass) |
 | acc:observe-and-correct:E003-SMOKE-001 | atdd-shim CLI subprocess | output.log contains CORRECTION_RECEIVED | dispatcher.dispatch → cli-return.jsonl → shim → agent stdin | #862 (rewritten from PersonaShim direct) |
 | acc:observe-and-correct:E003-SMOKE-002 | atdd-shim CLI subprocess (`python -m atdd.coach.shim`) | captured stdout contains STDOUT_SENTINEL_E003_SMOKE_002 | shim pty → sys.stdout.buffer → operator-visible terminal | #843 (stdout forwarding) |
 | acc:observe-and-correct:E004-SMOKE-001 | atdd spawn / cmd_spawn | shim is surface foreground process (ppid check), output.log grows | cmd_spawn → PersonaShim (via atdd-shim) → agent pty | #841 (spawn dispatch wiring) |
