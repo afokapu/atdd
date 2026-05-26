@@ -33,13 +33,11 @@ _HOOK_FILES = [
     "pre-merge-commit",
 ]
 
-# Audited baseline from E026 bypass-audit.md.
+# E030 (2026-05-26): all remaining ATDD_SKIP_* flags retired unconditionally.
 # Advisory-only flags (ATDD_MAX_*) and CI-only flags (ATDD_ALLOW_MAIN_*) are
 # excluded: they are not enforcement bypasses.
-# Kept flags after E026 audit:
-#   ATDD_SKIP_BARE_CHECK, ATDD_SKIP_MANIFEST_CHECK, ATDD_SKIP_PREPUSH_VALIDATE,
-#   ATDD_SKIP_VERSION_GATE, ATDD_SKIP_MASSDELETE (discovered during audit, kept)
-_AUDITED_BASELINE = 5
+# Baseline after E030 full retirement: ZERO ATDD_SKIP_* flags permitted in hooks.
+_AUDITED_BASELINE = 0
 _ADVISORY_PATTERN = re.compile(r"ATDD_MAX_\w+")
 _CI_ONLY_PATTERN = re.compile(r"ATDD_ALLOW_MAIN_\w+")
 _BYPASS_PATTERN = re.compile(r"ATDD_SKIP_\w+")
@@ -65,51 +63,39 @@ def count_bypass_flags_in_hooks(hooks_dir: Path) -> set[str]:
 
 def test_count_bypass_flags_function_exists():
     """AC-UNIT-005: count_bypass_flags_in_hooks() is importable and callable."""
-    # This test verifies the implementation exists.
-    # In RED state this passes (function defined above), but it also checks
-    # that the function is available from the canonical import location once
-    # the implementation is committed to the validators.
     result = count_bypass_flags_in_hooks(HOOKS_DIR)
     assert isinstance(result, set), "count_bypass_flags_in_hooks must return a set"
 
 
 def test_current_hook_bypass_count_at_baseline():
-    """AC-UNIT-005: bypass-flag count in current hooks must equal the audited baseline of 4."""
+    """E030: bypass-flag count in current hooks must equal 0 (all flags retired)."""
     found = count_bypass_flags_in_hooks(HOOKS_DIR)
     count = len(found)
-    assert count <= _AUDITED_BASELINE, (
-        f"Bypass flag count ({count}) exceeds audited baseline ({_AUDITED_BASELINE}).\n"
+    assert count == _AUDITED_BASELINE, (
+        f"Bypass flag count ({count}) != audited baseline ({_AUDITED_BASELINE}).\n"
         f"Flags found: {sorted(found)}\n"
-        "To add a new bypass flag:\n"
-        "  1. File a bypass-audit issue documenting the justification.\n"
-        "  2. Update _AUDITED_BASELINE in this guard.\n"
-        "  3. Add a row to docs/bypass-audit.md.\n"
-        "Do NOT simply increase the baseline without the audit issue."
+        "E030 requires ALL ATDD_SKIP_* flags to be unconditionally removed.\n"
+        "Remove each listed flag from the hook source files.\n"
+        "For genuine emergencies: atdd emergency --reason '<reason>'"
     )
 
 
 def test_synthetic_excess_count_triggers_guard(tmp_path: Path):
-    """AC-UNIT-005: guard detects when a synthetic hook introduces a 5th bypass flag."""
-    # Create a synthetic hooks dir with one extra flag beyond the baseline
+    """AC-UNIT-005: guard detects when a synthetic hook introduces any bypass flag (baseline=0)."""
     hooks_dir = tmp_path / "hooks"
     hooks_dir.mkdir()
 
-    # Write a pre-push with the 5 approved flags + 1 new unapproved one
+    # Any ATDD_SKIP_* in a hook should exceed the zero baseline
     (hooks_dir / "pre-push").write_text(
         "#!/bin/sh\n"
-        'if [ "${ATDD_SKIP_BARE_CHECK:-0}" = "1" ]; then : ; fi\n'
-        'if [ "${ATDD_SKIP_VERSION_GATE:-0}" = "1" ]; then : ; fi\n'
-        'if [ "${ATDD_SKIP_PREPUSH_VALIDATE:-0}" = "1" ]; then : ; fi\n'
-        'if [ "${ATDD_SKIP_MANIFEST_CHECK:-0}" = "1" ]; then : ; fi\n'
-        'if [ "${ATDD_SKIP_MASSDELETE:-0}" = "1" ]; then : ; fi\n'
         'if [ "${ATDD_SKIP_UNAPPROVED_NEW_FLAG:-0}" = "1" ]; then : ; fi\n',
         encoding="utf-8",
     )
 
     found = count_bypass_flags_in_hooks(hooks_dir)
     assert len(found) > _AUDITED_BASELINE, (
-        f"Synthetic hooks with 5 flags should exceed baseline {_AUDITED_BASELINE}, "
-        f"but only found {len(found)}: {sorted(found)}"
+        f"Synthetic hook with 1 flag should exceed baseline {_AUDITED_BASELINE}, "
+        f"but found {len(found)}: {sorted(found)}"
     )
 
 

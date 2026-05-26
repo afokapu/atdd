@@ -4,12 +4,10 @@
 # Phase: RED
 # Layer: backend.unit
 """
-AC-UNIT-003: A remaining bypass flag used without ATDD_BYPASS_REASON prints a
-mandatory warning to stderr. The hook must not block (exits 0), but the warning
-must name the flag and instruct operators to set ATDD_BYPASS_REASON.
-
-RED state: The pre-push and pre-commit hooks do not yet check for ATDD_BYPASS_REASON.
-Tests fail because the warning mechanism has not been implemented.
+AC-UNIT-003 (superseded by E030): E026 required ATDD_BYPASS_REASON in hooks.
+E030 (2026-05-26 full retirement) removes all bypass flags AND the bypass-reason
+mechanism. These tests are updated to assert ABSENCE of ATDD_BYPASS_REASON —
+serving as regression guards against re-introduction.
 """
 from __future__ import annotations
 
@@ -55,59 +53,38 @@ def _run_pre_push(tmp_path: Path, extra_env: dict) -> subprocess.CompletedProces
     )
 
 
-def test_hook_source_contains_bypass_reason_logic():
-    """AC-UNIT-003: pre-push hook source must reference ATDD_BYPASS_REASON."""
+def test_hook_source_does_not_contain_bypass_reason():
+    """E030 regression guard: pre-push hook must NOT reference ATDD_BYPASS_REASON."""
     text = HOOK_PATH.read_text(encoding="utf-8")
-    assert "ATDD_BYPASS_REASON" in text, (
-        "pre-push hook does not reference ATDD_BYPASS_REASON.\n"
-        "Add a block for each remaining flag that checks ATDD_BYPASS_REASON and "
-        "warns when it is absent: "
-        "'ATDD WARNING: ATDD_SKIP_<X>=1 used without ATDD_BYPASS_REASON. "
-        "Set ATDD_BYPASS_REASON=<reason> to suppress this warning.'"
+    assert "ATDD_BYPASS_REASON" not in text, (
+        "pre-push hook still references ATDD_BYPASS_REASON.\n"
+        "E030 retires all ATDD_SKIP_* flags; ATDD_BYPASS_REASON has no callers. "
+        "Remove _emit_bypass_audit and all ATDD_BYPASS_REASON references."
     )
 
 
-def test_pre_commit_source_contains_bypass_reason_logic():
-    """AC-UNIT-003: pre-commit hook source must reference ATDD_BYPASS_REASON."""
+def test_pre_commit_source_does_not_contain_bypass_reason():
+    """E030 regression guard: pre-commit hook must NOT reference ATDD_BYPASS_REASON."""
     text = PRE_COMMIT_PATH.read_text(encoding="utf-8")
-    assert "ATDD_BYPASS_REASON" in text, (
-        "pre-commit hook does not reference ATDD_BYPASS_REASON.\n"
-        "Add ATDD_BYPASS_REASON check to the ATDD_SKIP_MANIFEST_CHECK block."
+    assert "ATDD_BYPASS_REASON" not in text, (
+        "pre-commit hook still references ATDD_BYPASS_REASON.\n"
+        "E030 retires ATDD_SKIP_MANIFEST_CHECK; remove the ATDD_BYPASS_REASON block."
     )
 
 
-def test_skip_bare_check_without_reason_warns(tmp_path: Path):
-    """AC-UNIT-003: ATDD_SKIP_BARE_CHECK without ATDD_BYPASS_REASON prints a warning."""
-    if "ATDD_BYPASS_REASON" not in HOOK_PATH.read_text():
-        pytest.skip("ATDD_BYPASS_REASON not yet implemented — RED")
-
-    result = _run_pre_push(tmp_path, {"ATDD_SKIP_BARE_CHECK": "1"})
-    assert result.returncode == 0, (
-        f"Hook must not block when reason is missing; got exit {result.returncode}.\n"
-        f"stderr: {result.stderr}"
-    )
-    assert "ATDD_BYPASS_REASON" in result.stderr, (
-        "Expected a warning referencing ATDD_BYPASS_REASON in stderr, got:\n"
-        f"{result.stderr}"
-    )
-    assert "ATDD_SKIP_BARE_CHECK" in result.stderr, (
-        "Warning must name the flag being bypassed (ATDD_SKIP_BARE_CHECK).\n"
-        f"stderr: {result.stderr}"
+def test_skip_bare_check_env_var_has_no_effect(tmp_path: Path):
+    """E030 regression guard: ATDD_SKIP_BARE_CHECK env var must not be recognised by hook."""
+    hook_text = HOOK_PATH.read_text(encoding="utf-8")
+    assert "ATDD_SKIP_BARE_CHECK" not in hook_text, (
+        "pre-push hook still checks ATDD_SKIP_BARE_CHECK.\n"
+        "E030 retires this flag unconditionally; remove the env-var check block."
     )
 
 
-def test_skip_bare_check_with_reason_no_warning(tmp_path: Path):
-    """AC-UNIT-003: ATDD_SKIP_BARE_CHECK + ATDD_BYPASS_REASON suppresses the reason warning."""
-    if "ATDD_BYPASS_REASON" not in HOOK_PATH.read_text():
-        pytest.skip("ATDD_BYPASS_REASON not yet implemented — RED")
-
-    result = _run_pre_push(
-        tmp_path,
-        {"ATDD_SKIP_BARE_CHECK": "1", "ATDD_BYPASS_REASON": "manual test"},
-    )
-    assert result.returncode == 0
-    # The bypass-reason warning should not appear when reason is provided
-    assert "Set ATDD_BYPASS_REASON" not in result.stderr, (
-        "Reason warning should be suppressed when ATDD_BYPASS_REASON is set.\n"
-        f"stderr: {result.stderr}"
+def test_skip_prepush_validate_env_var_has_no_effect(tmp_path: Path):
+    """E030 regression guard: ATDD_SKIP_PREPUSH_VALIDATE must not be in hook source."""
+    hook_text = HOOK_PATH.read_text(encoding="utf-8")
+    assert "ATDD_SKIP_PREPUSH_VALIDATE" not in hook_text, (
+        "pre-push hook still checks ATDD_SKIP_PREPUSH_VALIDATE.\n"
+        "E030 retires this flag unconditionally; remove the env-var check block."
     )
