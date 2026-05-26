@@ -181,15 +181,33 @@ class PersonaShim:
         deadline = (time.monotonic() + timeout) if timeout is not None else None
         poll_interval = 0.1
 
+        # Include stdin fd in select only when stdin is a real TTY (E005).
+        stdin_source = self._stdin_source or sys.stdin.buffer
+        try:
+            stdin_is_tty = hasattr(stdin_source, "isatty") and stdin_source.isatty()
+            stdin_fd = stdin_source.fileno() if stdin_is_tty else None
+        except Exception:
+            stdin_fd = None
+
         while proc.poll() is None:
             if deadline is not None and time.monotonic() > deadline:
                 proc.terminate()
                 proc.wait(timeout=2.0)
                 break
 
+            # Build select watch list: always watch pty output; add stdin when TTY.
+            watch = [master_fd]
+            if stdin_fd is not None:
+                watch.append(stdin_fd)
+
+            rlist, _, _ = select.select(watch, [], [], poll_interval)
+
+            # Forward operator keystrokes to the pty when stdin becomes readable.
+            if stdin_fd is not None and stdin_fd in rlist:
+                self.forward_stdin_once()
+
             # Read pty output (non-blocking)
-            rlist, _, _ = select.select([master_fd], [], [], poll_interval)
-            if rlist:
+            if master_fd in rlist:
                 try:
                     data = os.read(master_fd, 4096)
                     if data:
