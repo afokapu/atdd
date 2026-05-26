@@ -70,12 +70,12 @@ class PersonaShim:
         self._stdin_source = stdin_source
         self._stdout_sink = stdout_sink
 
-        # E007: submit sentinel — constructor kwarg > env var > b""
+        # E007: submit sentinel — constructor kwarg > env var > b"\n" (line terminator)
         if submit_sentinel is not _UNSET:
             self._submit_sentinel: bytes = submit_sentinel  # type: ignore[assignment]
         else:
             env_val = os.environ.get("ATDD_SHIM_SUBMIT_SENTINEL", "")
-            self._submit_sentinel = env_val.encode("utf-8") if env_val else b""
+            self._submit_sentinel = env_val.encode("utf-8") if env_val else b"\n"
 
         # Per-agent runtime dir: <runtime_dir>/agents/<agent_id>/
         if runtime_dir is not None:
