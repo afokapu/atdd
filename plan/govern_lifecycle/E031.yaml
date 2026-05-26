@@ -115,3 +115,25 @@ acceptances:
     metadata:
       author: "atdd:bypass-retire-all"
       created: "2026-05-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E031-SMOKE-001-emergency-cli-wired-in-atdd"
+      id: "AC-SMOKE-001"
+      purpose: "atdd emergency --reason <text> is wired in the live CLI and creates EMERGENCY_BYPASS + audit-jsonl"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is importable (python3 -m atdd.cli)"
+        - "A real git repo with .atdd/ directory exists in tmp_path"
+    when:
+      abstract: "atdd emergency --reason 'smoke test bypass' is invoked via the real CLI entry point"
+    then:
+      abstract:
+        - ".atdd/EMERGENCY_BYPASS exists and contains the reason string"
+        - ".atdd/emergency-audit.jsonl exists and the last JSON line has reason='smoke test bypass'"
+    metadata:
+      author: "atdd:bypass-retire-all"
+      created: "2026-05-26"
