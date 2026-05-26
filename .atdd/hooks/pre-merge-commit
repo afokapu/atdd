@@ -1,33 +1,29 @@
 #!/bin/sh
 # ATDD pre-merge-commit hook — version gate + main-merge protection.
-# Installed by `atdd init`. Bypasses require CI=true.
+# Installed by `atdd init`.
+#
+# All ATDD_SKIP_* bypass env vars have been retired (E030, 2026-05-26).
+# For genuine emergencies: atdd emergency --reason "<reason>"
 
 set -e
 
-# --- Bypass audit helper (E026) ---
-_emit_bypass_audit() {
-    _flag="$1"
-    _hook="$2"
-    _reason="${ATDD_BYPASS_REASON:-}"
-    if [ -z "$_reason" ]; then
-        printf "ATDD WARNING: %s=1 used without ATDD_BYPASS_REASON.\n" "$_flag" >&2
-        printf "  Set ATDD_BYPASS_REASON=<reason> alongside the flag to document this bypass.\n" >&2
-    else
-        _repo_root="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
-        if [ -n "$_repo_root" ] && [ -d "${_repo_root}/.atdd" ]; then
-            _ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
-            printf '{"timestamp":"%s","flag":"%s","reason":"%s","hook":"%s"}\n' \
-                "$_ts" "$_flag" "${_reason}" "$_hook" \
-                >> "${_repo_root}/.atdd/bypass-audit.jsonl" 2>/dev/null || true
+# --- Emergency bypass check (E031) ---
+_REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+if [ -n "$_REPO_ROOT" ]; then
+    _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
+    if [ -f "$_BYPASS_FILE" ]; then
+        if find "$_BYPASS_FILE" -mmin -5 2>/dev/null | grep -q .; then
+            printf "ATDD: Emergency bypass active (pre-merge-commit). Reason: %s\n" \
+                "$(head -1 "$_BYPASS_FILE" 2>/dev/null | sed 's/^reason=//' || echo 'see .atdd/EMERGENCY_BYPASS')" >&2
+            exit 0
+        else
+            printf "ATDD: Emergency bypass file found but expired (> 5 min). Ignored.\n" >&2
         fi
     fi
-}
+fi
 
-# --- Version gate (CI can skip with ATDD_SKIP_VERSION_GATE=1) ---
-if [ "${CI:-}" = "true" ] && [ "${ATDD_SKIP_VERSION_GATE:-0}" = "1" ]; then
-    : # CI bypass
-else
-    python3 -c "
+# --- Version gate ---
+python3 -c "
 try:
     from atdd.version_check import _gate_main
     _gate_main()
@@ -41,8 +37,7 @@ except ImportError:
         print('  Run: pipx upgrade atdd', file=sys.stderr)
     sys.exit(1)
 " 2>&1
-    if [ $? -ne 0 ]; then exit 1; fi
-fi
+if [ $? -ne 0 ]; then exit 1; fi
 
 # --- Block merges into main/master ---
 BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")

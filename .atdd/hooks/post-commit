@@ -1,4 +1,32 @@
 #!/bin/sh
+
+# === #867 hot-patch: agent-ineligible bypass guard (top of hook) ===
+# Any ATDD_SKIP_* env var set AND not from interactive TTY → abort the bypass.
+# Operator gets to keep the override (TTY + ATDD_EMERGENCY_OPERATOR=1).
+_atdd_867_guard() {
+    local skip_set=0
+    for v in $(env | grep -oE '^ATDD_SKIP_[A-Z_]+' || true); do
+        if [ -n "${!v:-}" ] && [ "${!v}" != "0" ]; then
+            skip_set=1
+            break
+        fi
+    done
+    if [ "$skip_set" = "1" ]; then
+        if [ -t 0 ] && [ "${ATDD_EMERGENCY_OPERATOR:-0}" = "1" ]; then
+            echo "[#867 emergency bypass: operator-acknowledged]" >&2
+            return 0
+        fi
+        echo "[#867 hot-patch: ATDD_SKIP_* ignored — not interactive operator" >&2
+        echo "  (TTY=$([ -t 0 ] && echo yes || echo no), ATDD_EMERGENCY_OPERATOR=${ATDD_EMERGENCY_OPERATOR:-0})" >&2
+        echo "  → unsetting all ATDD_SKIP_* env vars for this hook]" >&2
+        for v in $(env | grep -oE '^ATDD_SKIP_[A-Z_]+'); do
+            unset "$v"
+        done
+    fi
+}
+_atdd_867_guard
+# === #867 end ===
+
 # ATDD post-commit hook — blast-radius local validation.
 # Installed by `atdd init`. Always exits 0 (info-only; cannot undo a commit).
 #

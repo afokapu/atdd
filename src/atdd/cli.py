@@ -1794,6 +1794,28 @@ Phase descriptions:
         help="List sites that would be marked without editing any files",
     )
 
+    # ----- atdd emergency — single-use hook bypass (E031) -----
+    emergency_parser = subparsers.add_parser(
+        "emergency",
+        help="Create a single-use 5-minute hook bypass for genuine emergencies",
+        description=(
+            "Create .atdd/EMERGENCY_BYPASS so ATDD hook gates allow ONE git operation.\n"
+            "\n"
+            "All ATDD_SKIP_* env-var bypasses were retired (E030, 2026-05-26).\n"
+            "This is the ONLY sanctioned bypass path.\n"
+            "\n"
+            "Example:\n"
+            "  atdd emergency --reason 'validator outage; fix tracked in #999'\n"
+            "  git push   # bypass valid for 5 minutes\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    emergency_parser.add_argument(
+        "--reason",
+        required=True,
+        help="Why the bypass is needed (logged to .atdd/emergency-audit.jsonl)",
+    )
+
     # ----- atdd manifest {backfill} — manifest maintenance (#664) -----
     manifest_parser = subparsers.add_parser(
         "manifest",
@@ -2595,6 +2617,11 @@ Phase descriptions:
             )
         rules_parser.print_help()
         return 0
+
+    elif args.command == "emergency":
+        from atdd.coach.commands.emergency import run_cli as emergency_run_cli
+
+        return emergency_run_cli(sys.argv[2:])
 
     elif args.command == "suppress":
         from atdd.coach.commands.suppress import run_suppress_backfill
