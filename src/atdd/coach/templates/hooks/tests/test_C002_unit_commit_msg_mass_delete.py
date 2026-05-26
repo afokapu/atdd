@@ -125,15 +125,21 @@ def test_pre_commit_blocks_mass_delete_without_prefix(tmp_path: Path) -> None:
 
 
 def test_pre_commit_skip_env_overrides_mass_delete(tmp_path: Path) -> None:
-    """C002-UNIT-003 (override): ATDD_SKIP_MASSDELETE=1 lets the commit through the mass-delete check."""
+    """C002-UNIT-003 (E030 regression): ATDD_SKIP_MASSDELETE=1 is retired; hook blocks regardless."""
     _init_repo_with_files(tmp_path)
     _stage_mass_delete(tmp_path)
     msg = _write_commit_msg(tmp_path, "fix: unrelated bugfix\n")
 
     result = _run_hook(tmp_path, msg, env={"ATDD_SKIP_MASSDELETE": "1"})
 
-    assert "mass-delete" not in result.stderr.lower(), (
-        f"ATDD_SKIP_MASSDELETE=1 must suppress the mass-delete block; got:\n{result.stderr}"
+    # E030 (2026-05-26): ATDD_SKIP_MASSDELETE retired unconditionally.
+    # The env var is ignored; the mass-delete gate must still fire.
+    assert result.returncode != 0, (
+        f"ATDD_SKIP_MASSDELETE=1 must be ignored (E030); hook must still block; "
+        f"rc={result.returncode}\nstderr={result.stderr}"
+    )
+    assert "mass-delete" in result.stderr.lower() or "delete" in result.stderr.lower(), (
+        f"mass-delete error must still appear when env var is set; got:\n{result.stderr}"
     )
 
 
