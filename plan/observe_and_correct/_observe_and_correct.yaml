@@ -98,7 +98,7 @@ wmbt:
   E002: "minimize quantity of per-worker-observer-processes-spawned-by-coach"
   E003: "minimize quantity of observer-correction-loop-activation-gaps"
   E004: "minimize quantity of persona-shim-spawn-dispatch-wiring-gaps"
-  E006: "minimize quantity of launch-prompt-delivery-races-before-tui-is-ready"
+  E008: "minimize quantity of launch-prompt-delivery-races-before-tui-is-ready"
   E007: "minimize quantity of cli-return-corrections-missing-submit-sentinel"
   C001: "minimize likelihood of behavioral-regression-against-babysit-baseline"
   C002: "minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary"
