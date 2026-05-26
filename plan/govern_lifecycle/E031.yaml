@@ -1,0 +1,117 @@
+urn: "wmbt:govern-lifecycle:E031"
+step: "execute"
+direction: "ensure"
+dimension: "existence"
+object_of_control: "structured-single-use-emergency-bypass-command-replacing-seven-env-vars"
+context_clarifier: >
+  After E030 retires all ATDD_SKIP_* env vars, no escape exists for genuine emergency
+  scenarios (e.g. a pre-push validator fails due to a transient infra outage and the fix
+  is time-critical). The 2026-05-26 directive names one carve-out: a structured
+  `atdd emergency --reason "<text>"` command that is NOT an env var, NOT chainable, NOT
+  silenceable, and disables every blocking hook gate for ONE git operation within a 5-minute
+  window. It writes an audit record to .atdd/emergency-audit.jsonl so the bypass is always
+  visible to reviewers. The hooks check for a .atdd/EMERGENCY_BYPASS file (TTL: 5 min)
+  created by this command before enforcing their gates — if the file is fresh, the gate
+  is skipped and the file's use is logged. This makes emergency bypass a deliberate,
+  auditable, single-operation act rather than a persistent env-var side-channel.
+lens: "functional.effectiveness"
+statement: >
+  ensure existence of structured-single-use-emergency-bypass-command-replacing-seven-env-vars
+  by (1) implementing `atdd emergency --reason "<text>"` CLI command that writes
+  .atdd/EMERGENCY_BYPASS with a timestamp and reason and appends to .atdd/emergency-audit.jsonl;
+  (2) adding an emergency-bypass check at the top of pre-push, pre-commit, and commit-msg
+  hooks that reads .atdd/EMERGENCY_BYPASS, verifies its mtime is within 5 minutes, allows
+  the operation with a visible stderr notice, and does NOT delete the file;
+  (3) gitignoring .atdd/EMERGENCY_BYPASS and .atdd/emergency-audit.jsonl
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E031-UNIT-001-emergency-command-creates-bypass-file"
+      id: "AC-UNIT-001"
+      purpose: "atdd emergency --reason text creates .atdd/EMERGENCY_BYPASS with timestamp and reason"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path with a .atdd/ directory"
+        - "ATDD_REPO_ROOT is set to tmp_path"
+    when:
+      abstract: "atdd.coach.commands.emergency.cmd_emergency(reason='test', repo_root=tmp_path) is called"
+    then:
+      abstract:
+        - ".atdd/EMERGENCY_BYPASS exists"
+        - "The file contains the reason string"
+        - "The file contains a timestamp in ISO 8601 format"
+        - ".atdd/emergency-audit.jsonl exists and contains a JSON line with reason and timestamp"
+    metadata:
+      author: "atdd:bypass-retire-all"
+      created: "2026-05-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E031-UNIT-002-hook-skips-gate-when-bypass-file-is-fresh"
+      id: "AC-UNIT-002"
+      purpose: "pre-push hook exits 0 when .atdd/EMERGENCY_BYPASS exists with mtime within 5 minutes"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path repo with the pre-push hook installed"
+        - ".atdd/EMERGENCY_BYPASS exists in the tmp_path with a current timestamp"
+        - "core.bare is false; no ATDD_SKIP_* env vars set"
+    when:
+      abstract: "The pre-push hook is invoked (non-main branch push)"
+    then:
+      abstract:
+        - "The hook exits 0"
+        - "stderr contains a notice that emergency bypass is active"
+    metadata:
+      author: "atdd:bypass-retire-all"
+      created: "2026-05-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E031-UNIT-003-hook-ignores-stale-bypass-file"
+      id: "AC-UNIT-003"
+      purpose: "pre-push hook does NOT skip gate when .atdd/EMERGENCY_BYPASS is older than 5 minutes"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path repo with the pre-push hook installed"
+        - ".atdd/EMERGENCY_BYPASS exists but has mtime 10 minutes in the past"
+        - "core.bare=true (would normally block)"
+    when:
+      abstract: "The pre-push hook is invoked"
+    then:
+      abstract:
+        - "The hook exits 1 (stale bypass ignored; bare-mode guard fires)"
+        - "stderr mentions the expired bypass"
+    metadata:
+      author: "atdd:bypass-retire-all"
+      created: "2026-05-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E031-UNIT-004-emergency-audit-jsonl-appended"
+      id: "AC-UNIT-004"
+      purpose: "atdd emergency appends a valid JSON line to .atdd/emergency-audit.jsonl"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path with a .atdd/ directory"
+    when:
+      abstract: "cmd_emergency is called with reason='infra outage'"
+    then:
+      abstract:
+        - ".atdd/emergency-audit.jsonl exists"
+        - "Each line is valid JSON with fields: timestamp, reason, pid, cwd"
+        - "The reason field equals 'infra outage'"
+    metadata:
+      author: "atdd:bypass-retire-all"
+      created: "2026-05-26"
