@@ -32,7 +32,7 @@ and record the in-repo enforcement site when applicable.
 | Do NOT add `Co-Authored-By: Claude <noreply@anthropic.com>` to commits | **soft-only** | Documented in CLAUDE.md `git.commits.co_authored=false`; no automated check | CLAUDE.md |
 | Run `atdd gate` before starting work; confirm loaded files and hash | **soft-only** | Protocol documented in CLAUDE.md ATDD Bootstrap Protocol; gate output is informational | CLAUDE.md |
 | Prefer terse responses; no trailing summaries | **soft-only** | User tone preference; no automated check possible | User memory only |
-| Y002: always use `ATDD_SKIP_POSTCOMMIT=1` when committing; coach validators create commits in active worktree | **partial** | ATDD post-commit hook exits early when `ATDD_SKIP_POSTCOMMIT=1`; requires operator discipline | `src/atdd/coach/templates/hooks/post-commit` |
+| Y002: (retired E026/E030 2026-05-26) ATDD_SKIP_POSTCOMMIT was retired; post-commit hook is advisory-only (always exits 0) — no bypass needed | **retired** | ATDD_SKIP_POSTCOMMIT env var removed in E026; post-commit never blocked, so no bypass was ever necessary | `docs/bypass-audit.md` |
 | Validate-coach `--skip-api` skips the repo-wide pre-smoke-close PR gate | **partial** | Known gap; check CI `validate-coach`; documented in memory | Coach validator gap — see issue backlog |
 
 ---

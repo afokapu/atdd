@@ -34,6 +34,26 @@ These must all return a positive count before the session can report GREEN:
 
 {{stop_condition}}
 
+## Planner pre-commit gate (INIT → PLANNED)
+
+If this session is the PLANNER phase (issue is in INIT state), you MUST run
+this gate **before** committing PLANNED:
+
+```
+atdd validate planner --local --skip-api
+```
+
+**Rule enforced:** `planner.wmbt.must-have-smoke-acceptance` (sev 3, suppress-and-clean)
+
+Every WMBT you author MUST declare at least one acceptance URN matching:
+`acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]` with `phase: SMOKE`
+
+Zero violations required before committing. If the validator reports a
+`planner.wmbt.must-have-smoke-acceptance` violation, add the missing SMOKE
+acceptance to the offending WMBT YAML and re-run until clean. Only then commit
+PLANNED. Docs-only WMBTs with no real infrastructure to verify can suppress
+inline: `# atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=YYYY-MM-DD`
+
 ## Workflow
 
 Follow the ATDD lifecycle strictly:

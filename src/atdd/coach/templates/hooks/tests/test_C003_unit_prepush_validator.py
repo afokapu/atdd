@@ -155,7 +155,7 @@ def test_prepush_skip_env_overrides_validator_block(
     tmp_path: Path,
     fake_atdd_failing_coder: Path,
 ) -> None:
-    """C003-UNIT-001 (override): ATDD_SKIP_PREPUSH_VALIDATE=1 bypasses the blocking check."""
+    """C003-UNIT-001 (E030 regression): ATDD_SKIP_PREPUSH_VALIDATE=1 is retired; hook blocks regardless."""
     _init_repo(tmp_path)
     base_sha = _add_and_commit(tmp_path, "README.md", "seed")
     tip_sha = _add_and_commit(
@@ -172,10 +172,10 @@ def test_prepush_skip_env_overrides_validator_block(
         extra_env={"ATDD_SKIP_PREPUSH_VALIDATE": "1"},
     )
 
-    # Hook may still run the uncommitted-delta advisory, but must not block
-    # because of the validator when ATDD_SKIP_PREPUSH_VALIDATE=1.
-    assert result.returncode == 0, (
-        f"ATDD_SKIP_PREPUSH_VALIDATE=1 must suppress the validator block; "
+    # E030 (2026-05-26): ATDD_SKIP_PREPUSH_VALIDATE retired unconditionally.
+    # The env var is ignored; the blocking validator must still fire.
+    assert result.returncode != 0, (
+        f"ATDD_SKIP_PREPUSH_VALIDATE=1 must be ignored (E030); hook must still block; "
         f"rc={result.returncode}\nstderr={result.stderr}"
     )
 

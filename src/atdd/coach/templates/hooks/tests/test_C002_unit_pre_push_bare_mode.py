@@ -87,7 +87,7 @@ def test_pre_push_blocks_when_core_bare_true(tmp_path: Path) -> None:
 
 
 def test_pre_push_skip_env_overrides_bare_block(tmp_path: Path) -> None:
-    """C002-UNIT-001 (override): ATDD_SKIP_BARE_CHECK=1 lets the push proceed past the bare check."""
+    """C002-UNIT-001 (E030 regression): ATDD_SKIP_BARE_CHECK=1 is retired; hook blocks regardless."""
     _init_repo(tmp_path)
     subprocess.run(
         ["git", "-C", str(tmp_path), "config", "core.bare", "true"],
@@ -97,10 +97,14 @@ def test_pre_push_skip_env_overrides_bare_block(tmp_path: Path) -> None:
 
     result = _run_hook(tmp_path, env={"ATDD_SKIP_BARE_CHECK": "1"})
 
-    # Hook may still fail downstream checks (main-block, etc.), but the bare-mode
-    # error specifically must NOT be emitted when the override is set.
-    assert "core.bare" not in result.stderr or "skipped" in result.stderr.lower(), (
-        f"ATDD_SKIP_BARE_CHECK=1 must suppress the bare-mode block; got:\n{result.stderr}"
+    # E030 (2026-05-26): ATDD_SKIP_BARE_CHECK retired unconditionally.
+    # The env var is ignored; the bare-mode gate must still fire.
+    assert result.returncode != 0, (
+        f"ATDD_SKIP_BARE_CHECK=1 must be ignored (E030); hook must still block; "
+        f"rc={result.returncode}\nstderr={result.stderr}"
+    )
+    assert "core.bare" in result.stderr, (
+        f"bare-mode error must still appear when env var is set; got:\n{result.stderr}"
     )
 
 

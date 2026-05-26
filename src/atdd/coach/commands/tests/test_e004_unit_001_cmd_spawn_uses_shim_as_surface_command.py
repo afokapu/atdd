@@ -121,6 +121,8 @@ def test_cmd_spawn_uses_shim_command_when_cli_return_transport(tmp_path, monkeyp
         patch("atdd.coach.commands.spawn._emit_agent_spawned_event"),
         patch("atdd.coach.commands.spawn._spawn_observer_if_configured"),
         patch("atdd.coach.utils.config.load_atdd_config", return_value=MagicMock()),
+        # E018 (#857): skip process-alive check — this test covers shim dispatch, not liveness
+        patch("atdd.coach.commands.spawn._verify_process_alive"),
     ):
         spawn.cmd_spawn(
             persona="coder",
@@ -184,6 +186,8 @@ def test_cmd_spawn_shim_command_includes_agent_id_and_runtime(tmp_path, monkeypa
         patch("atdd.coach.commands.spawn._emit_agent_spawned_event"),
         patch("atdd.coach.commands.spawn._spawn_observer_if_configured"),
         patch("atdd.coach.utils.config.load_atdd_config", return_value=MagicMock()),
+        # E018 (#857): skip process-alive check — this test covers shim command args, not liveness
+        patch("atdd.coach.commands.spawn._verify_process_alive"),
     ):
         spawn.cmd_spawn(
             persona="coder",

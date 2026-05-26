@@ -1,0 +1,28 @@
+urn: "feature:observe-and-correct:shim-popen-env-var-prefix-fix"
+wagon: "wagon:observe-and-correct"
+description: "Adds --env KEY=VALUE (repeatable) to atdd-shim's argparse and env_overrides parameter to PersonaShim, merging env overrides into subprocess.Popen's env= kwarg — completing the Shape-A fix so ATDD_AGENT_ID reaches the spawned adapter process without a shell (E005)"
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:observe-and-correct:E005"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd-shim __main__.py (CLI entry point) gains --env argument parsing"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "PersonaShim.run() gains env= kwarg in Popen call"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain primitive"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface"

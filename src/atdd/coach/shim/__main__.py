@@ -2,7 +2,7 @@
 
 Usage (invoked by cmd_spawn when ATDD_CORRECTION_TRANSPORT=cli-return):
 
-  atdd-shim --agent-id <id> --runtime-dir <path> -- <adapter_command...>
+  atdd-shim --agent-id <id> --runtime-dir <path> [--env KEY=VALUE ...] -- <adapter_command...>
 
 The shim spawns <adapter_command> inside a pty it owns, tees output to
 <runtime_dir>/agents/<id>/output.log, polls cli-return.jsonl, and writes
@@ -29,6 +29,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Root runtime directory (e.g. .atdd/runtime).",
     )
     p.add_argument(
+        "--env",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Set an environment variable in the spawned process (repeatable). "
+        "Shape A fix (#854): env vars are passed via this flag rather than as "
+        "shell-style KEY=value argv prefixes which fail without shell=True.",
+    )
+    p.add_argument(
         "adapter_command",
         nargs=argparse.REMAINDER,
         help="The adapter command to spawn (everything after --).",
@@ -49,12 +58,20 @@ def main(argv: list[str] | None = None) -> int:
         print("atdd-shim: error: adapter command is required", file=sys.stderr)
         return 2
 
+    # Parse --env KEY=VALUE flags into a dict.
+    env_overrides: dict[str, str] = {}
+    for kv in args.env:
+        k, _, v = kv.partition("=")
+        if k:
+            env_overrides[k] = v
+
     from atdd.coach.shim.persona_shim import PersonaShim
 
     shim = PersonaShim(
         agent_id=args.agent_id,
         spawn_command=cmd_tokens,
         runtime_dir=args.runtime_dir,
+        env_overrides=env_overrides,
     )
     return shim.run()
 

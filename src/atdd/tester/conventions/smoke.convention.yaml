@@ -560,6 +560,125 @@ feedback_loop:
 # =============================================================================
 # Feedback-loop close-the-loop rule (issue #825)
 # =============================================================================
+# =============================================================================
+# Synthetic-fixture anti-patterns (issue #855)
+# =============================================================================
+# Four production bugs shipped through green-SMOKE in the 2026-05-21 → 2026-05-24
+# session because the SMOKE tests exercised synthetic fixtures that bypassed the
+# load-bearing wiring under test. These three rules codify the structural causes
+# found in the audit (docs/smoke-audit.md).
+#
+# Rule 1 — real-entry-point mandate: The test must drive the same production entry
+#   point that operators use (atdd spawn, atdd coach, the rendered launch prompt).
+#   Driving a synthetic subprocess stub — cat, sleep, a hardcoded Python script
+#   embedded as a string constant, FakeMultiplexer — is NOT a SMOKE test; it is a
+#   unit test wearing a SMOKE label and produces false-positive CI green.
+#
+# Rule 2 — operator-observable-assertion mandate: The assertion must be on behavior
+#   visible to the operator (captured stdout, exit code, rendered cmux pane content,
+#   persistent DB row). Asserting solely on intermediate-artifact-write events —
+#   output.log existence, cli-return.jsonl file write, output.log line count — means
+#   the test passes even when the consumer of that artifact is completely unwired.
+#
+# Rule 3 — cross-component-handoff mandate: When the feature under test has a
+#   producer→consumer handoff (component A produces an artifact, component B consumes
+#   it), the SMOKE must exercise BOTH the producer and the consumer in a single test.
+#   A producer-only test cannot detect bugs at the seam between producer and consumer.
+# =============================================================================
+synthetic_fixture_anti_patterns:
+  description: |
+    Three anti-pattern rules that prevent SMOKE tests from becoming false-green
+    due to synthetic fixtures that bypass production wiring.
+
+  rules:
+    - id: "planner.smoke.synthetic-fixture-bypass"
+      severity: 3
+      disposition: suppress-and-clean
+      validator: "test_smoke_synthetic_fixture_bypass::test_no_smoke_tests_use_synthetic_fixtures"
+      introduced_in: "3.83.0"
+      description: |
+        A SMOKE-phase test must not drive a synthetic subprocess stub (FakeMultiplexer,
+        subprocess.Popen of cat/sleep/python-stub) as the primary production wiring.
+        The real-entry-point mandate: SMOKE tests MUST drive the real CLI entry point
+        (atdd spawn, atdd coach, the rendered launch prompt), not a synthetic fixture
+        that bypasses _inject_agent_env, PersonaShim, or the full command-construction
+        path. The lived incident: #854 Popen crash (shell=True missing on the adapter
+        command tuple) was invisible because E003-SMOKE tests used a Python stub that
+        never exercised the real command-construction path. Planner-side validator:
+        src/atdd/planner/validators/test_smoke_synthetic_fixture_bypass.py
+      anti_patterns:
+        - pattern: "FakeMultiplexer"
+          description: "Synthetic multiplexer that bypasses the real surface-dispatch path"
+        - pattern: "subprocess.Popen(['cat', ...])"
+          description: "cat stub — exercises the pty wrapper but not the real agent command"
+        - pattern: "subprocess.Popen(['sleep', ...])"
+          description: "sleep stub — proves process lifecycle, not agent behavior"
+        - pattern: "subprocess.Popen(['python', '-c', ...])"
+          description: "inline Python script stub — bypasses adapter command construction"
+        - pattern: "_SYNTHETIC_AGENT"
+          description: "Embedded Python script constant replacing the real adapter command"
+      fix_hint: |
+        Replace the synthetic fixture with the real CLI entry point:
+          - Use atdd spawn (subprocess.run([sys.executable, "-m", "atdd.cli", "spawn", ...]))
+            or invoke_atdd_spawn helper instead of PersonaShim( direct instantiation.
+          - Use subprocess.Popen([sys.executable, "-m", "atdd.coach.shim", ...]) instead of
+            Popen(["cat", ...]) or Popen(["python", "-c", ...]).
+          - Write agent scripts to tmp_path files; do not embed them as string constants.
+        To suppress (pre-existing test during transition window):
+          # atdd:suppress(planner.smoke.synthetic-fixture-bypass) UNTIL=YYYY-MM-DD
+
+    - id: "tester.smoke.operator-observable-assertion"
+      severity: 3
+      disposition: documentation-only
+      introduced_in: "3.83.0"
+      description: |
+        The operator-observable-assertion mandate: SMOKE tests MUST assert on
+        operator-observable behavior — captured stdout, exit code, rendered pane
+        content, persistent DB row — not on intermediate-artifact-write events such
+        as output.log existence, output.log line content, or cli-return.jsonl file
+        write. The lived incident: #843 PersonaShim swallowed pty output; E003-SMOKE
+        asserted on output.log content, which was written before the pty forwarding
+        path was ever exercised. The test passed; the operator saw nothing.
+        Tests that assert solely on output.log or other intermediate artifacts without
+        a paired assertion on the operator-visible channel produce false-positive green.
+      anti_patterns:
+        - pattern: "assert.*output.log"
+          description: "Asserting solely on output.log content without a paired stdout assertion"
+        - pattern: "assert.*cli-return.jsonl"
+          description: "Asserting on the cli-return file existence without verifying the consumer received the bytes"
+      fix_hint: |
+        Add an assertion on the operator-visible channel alongside the artifact assertion:
+          - Capture proc.stdout (stdout=subprocess.PIPE) and assert the sentinel appears.
+          - Assert exit code == 0 (operator can see the process succeeded).
+          - Query the DB if the feature writes to a database.
+        The artifact assertion (output.log) may be retained as a secondary assertion;
+        it must not be the ONLY assertion.
+
+    - id: "tester.smoke.cross-component-handoff-gap"
+      severity: 3
+      disposition: documentation-only
+      introduced_in: "3.83.0"
+      description: |
+        The cross-component-handoff mandate: when a feature has a producer→consumer
+        handoff, the SMOKE MUST exercise both the producer and the consumer in a single
+        test. A producer-only SMOKE test cannot detect bugs at the seam between the
+        producer and the consumer components. The lived incident: #824 cli-return
+        consumer was never wired; the producer wrote cli-return.jsonl entries and the
+        SMOKE passed green. No consumer drained the file — the handoff gap was invisible.
+        Features with a producer that writes to a queue, file, or channel that is
+        consumed by a separate component must have a single SMOKE that verifies both
+        ends of the handoff.
+      handoff_detection:
+        producer: "component that writes to a shared artifact (cli-return.jsonl, output.log, queue)"
+        consumer: "component that reads and acts on that shared artifact"
+        required: "single SMOKE test that asserts on both producer write AND consumer reaction"
+      fix_hint: |
+        Extend the SMOKE to include a consumer-side assertion:
+          - If the feature writes to cli-return.jsonl, assert that the shim's pty stdin
+            received the correction bytes (not just that the file was written).
+          - If the feature writes to a queue, assert that the queue consumer processed it.
+        See smoke.convention.yaml::feedback_loop for the canonical close-the-loop shape.
+
 feedback_loop_rules:
   rules:
     - id: "planner.smoke.feedback-loop-close-the-loop"

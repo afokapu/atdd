@@ -58,6 +58,7 @@ class PersonaShim:
         agent_id: str,
         spawn_command: Sequence[str],
         runtime_dir: Optional[Path],
+        env_overrides: Optional[dict[str, str]] = None,
         pty_write_sink: Optional[Callable[[bytes], None]] = None,
         stdin_source: Optional[object] = None,
         stdout_sink: Optional[Callable[[bytes], None]] = None,
@@ -66,6 +67,7 @@ class PersonaShim:
         self.agent_id = agent_id
         self.spawn_command = list(spawn_command)
         self.runtime_dir = runtime_dir
+        self.env_overrides: dict[str, str] = env_overrides or {}
         self._pty_write_sink = pty_write_sink
         self._stdin_source = stdin_source
         self._stdout_sink = stdout_sink
@@ -102,12 +104,18 @@ class PersonaShim:
         self._master_fd = master_fd
 
         try:
+            # Shape A fix (#854): merge env_overrides on top of os.environ so
+            # env vars like ATDD_AGENT_ID reach the process via the env= kwarg
+            # rather than through shell-style KEY=value argv[0] prefixes (which
+            # fail without shell=True in Popen).
+            popen_env = {**os.environ, **self.env_overrides} if self.env_overrides else None
             proc = subprocess.Popen(
                 self.spawn_command,
                 stdin=slave_fd,
                 stdout=slave_fd,
                 stderr=slave_fd,
                 close_fds=True,
+                env=popen_env,
             )
             os.close(slave_fd)
 
