@@ -13,7 +13,8 @@ from __future__ import annotations
 import re
 
 _CONFLICT_RE = re.compile(
-    r"<<<<<<< [^\n]*\n(?P<a>.*?)\n=======\n(?P<b>.*?)\n    re.DOTALL,
+    r"<<<<<<< [^\n]*\n(?P<a>.*?)\n=======\n(?P<b>.*?)\n>>>>>>> [^\n]*",
+    re.DOTALL,
 )
 _VERSION_LINE_RE = re.compile(r'^(\s*version\s*=\s*)"(\d+)\.(\d+)\.(\d+)"\s*$')
 

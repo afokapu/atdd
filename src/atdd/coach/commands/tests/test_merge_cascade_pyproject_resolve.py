@@ -36,10 +36,12 @@ def test_resolves_simple_version_conflict_takes_higher():
         """\
         [project]
         name = "atdd"
-                version = "1.62.4"
+        <<<<<<< HEAD
+        version = "1.62.4"
         =======
         version = "1.62.2"
-                description = "test"
+        >>>>>>> feature
+        description = "test"
         """
     )
     resolved = resolve_pyproject_version_conflict(text)
@@ -53,10 +55,12 @@ def test_resolves_simple_version_conflict_takes_higher():
 def test_resolves_when_lower_is_first():
     text = textwrap.dedent(
         """\
-                version = "1.62.1"
+        <<<<<<< HEAD
+        version = "1.62.1"
         =======
         version = "1.62.5"
-                """
+        >>>>>>> branch
+        """
     )
     resolved = resolve_pyproject_version_conflict(text)
     assert resolved is not None
@@ -72,12 +76,14 @@ def test_returns_none_when_conflict_is_not_version_only():
     """If the conflict block contains anything other than a version line, abort."""
     text = textwrap.dedent(
         """\
-                version = "1.62.1"
+        <<<<<<< HEAD
+        version = "1.62.1"
         description = "old"
         =======
         version = "1.62.5"
         description = "new"
-                """
+        >>>>>>> branch
+        """
     )
     assert resolve_pyproject_version_conflict(text) is None
 
@@ -86,10 +92,12 @@ def test_returns_none_when_versions_have_different_minor():
     """We only auto-resolve PATCH bumps; MINOR/MAJOR diffs need human review."""
     text = textwrap.dedent(
         """\
-                version = "1.62.1"
+        <<<<<<< HEAD
+        version = "1.62.1"
         =======
         version = "1.63.0"
-                """
+        >>>>>>> branch
+        """
     )
     assert resolve_pyproject_version_conflict(text) is None
 
@@ -98,14 +106,18 @@ def test_handles_multiple_conflict_blocks_only_if_all_version_only():
     """If there are multiple conflicts and they're all version-only, still resolves."""
     text = textwrap.dedent(
         """\
-                version = "1.62.1"
+        <<<<<<< HEAD
+        version = "1.62.1"
         =======
         version = "1.62.3"
-                [tool.poetry]
-                version = "1.62.1"
+        >>>>>>> branch
+        [tool.poetry]
+        <<<<<<< HEAD
+        version = "1.62.1"
         =======
         version = "1.62.3"
-                """
+        >>>>>>> branch
+        """
     )
     resolved = resolve_pyproject_version_conflict(text)
     assert resolved is not None
