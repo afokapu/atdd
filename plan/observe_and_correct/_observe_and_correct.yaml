@@ -96,7 +96,7 @@ wmbt:
   E002: "minimize quantity of per-worker-observer-processes-spawned-by-coach"
   E003: "minimize quantity of observer-correction-loop-activation-gaps"
   E004: "minimize quantity of persona-shim-spawn-dispatch-wiring-gaps"
-  E005: "minimize quantity of shim-stdin-forwarding-gaps"
   C001: "minimize likelihood of behavioral-regression-against-babysit-baseline"
   C002: "minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary"
   E005: "minimize likelihood of atdd-shim-popen-missing-env-kwarg-for-typed-env-override-delivery"
+  E006: "minimize quantity of shim-stdin-forwarding-gaps"
