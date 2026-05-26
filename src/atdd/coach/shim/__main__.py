@@ -48,6 +48,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    args.runtime_dir = args.runtime_dir.resolve()
 
     # Strip leading '--' separator if present.
     cmd_tokens = args.adapter_command
