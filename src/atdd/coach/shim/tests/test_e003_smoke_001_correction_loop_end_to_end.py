@@ -4,7 +4,6 @@
 # Phase: SMOKE
 # Assertion: behavioral
 # Layer: integration
-<<<<<<< HEAD
 # Scope: COMPONENT SMOKE — atdd-shim CLI wrapping a synthetic agent script.
 #
 # Routes through the real atdd-shim entry point (python -m atdd.coach.shim)
@@ -24,7 +23,6 @@ not via direct class instantiation. Proves the correction loop closes end-to-end
 
 Issue #824 (component). Scoped by #841 (wiring). #862 (real entry point).
 Paired with #825 (close-the-loop SMOKE convention).
-=======
 # Scope: SMOKE — drives real atdd spawn path via atdd-shim CLI entry point.
 #
 # Retrofit (#855): replaced direct shim class instantiation with invoke_atdd_spawn
@@ -43,7 +41,6 @@ which is the command built by ``_build_shim_command`` and launched by
 path, not a direct shim class instantiation.
 
 Issue #824 (original). Retrofit by #855 (real-entry-point mandate).
->>>>>>> origin/main
 """
 from __future__ import annotations
 
@@ -57,17 +54,14 @@ import pytest
 
 pytestmark = [pytest.mark.smoke, pytest.mark.platform]
 
-<<<<<<< HEAD
 # Resolve worktree src root so the subprocess uses the local persona_shim.py
 # rather than the pipx-installed copy.
 _SRC_ROOT = str(Path(__file__).parent.parent.parent.parent.parent)  # …/src
 
 _AGENT_SCRIPT = """
 import sys, time, os, json
-=======
 _DRIFT_AGENT = """
 import sys, time, os
->>>>>>> origin/main
 
 runtime_dir = sys.argv[1]
 agent_id = sys.argv[2]
@@ -91,13 +85,11 @@ sys.exit(1)
 """
 
 
-<<<<<<< HEAD
 def test_correction_loop_closes_under_shim(tmp_path):
     """A synthetic agent emits drift; InjectionDispatcher fires; atdd-shim delivers bytes."""
     from atdd.coach.commands.observer import (
         InjectionDispatcher,
         Correction,
-=======
 def invoke_atdd_spawn(agent_id: str, runtime_dir: Path, adapter_command: list) -> subprocess.Popen:
     """Invoke the real atdd spawn path via the atdd-shim CLI entry point.
 
@@ -112,7 +104,6 @@ def invoke_atdd_spawn(agent_id: str, runtime_dir: Path, adapter_command: list) -
          *adapter_command],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
->>>>>>> origin/main
     )
 
 
@@ -124,7 +115,6 @@ def test_correction_loop_closes_under_shim(tmp_path):
     agent_dir = tmp_path / "agents" / agent_id
     agent_dir.mkdir(parents=True)
 
-<<<<<<< HEAD
     agent_script = tmp_path / "agent_script.py"
     agent_script.write_text(_AGENT_SCRIPT)
 
@@ -143,7 +133,6 @@ def test_correction_loop_closes_under_shim(tmp_path):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=env,
-=======
     agent_script = tmp_path / "drift_agent.py"
     agent_script.write_text(_DRIFT_AGENT)
 
@@ -151,7 +140,6 @@ def test_correction_loop_closes_under_shim(tmp_path):
         agent_id,
         tmp_path,
         [sys.executable, str(agent_script), str(tmp_path), agent_id],
->>>>>>> origin/main
     )
 
     output_log = agent_dir / "output.log"
@@ -163,17 +151,14 @@ def test_correction_loop_closes_under_shim(tmp_path):
             break
         time.sleep(0.1)
     else:
-<<<<<<< HEAD
         proc.terminate()
         pytest.fail("Synthetic agent did not emit DRIFT_TRIGGER in time")
 
     # Inject a correction via InjectionDispatcher (writes to cli-return.jsonl)
-=======
         shim_proc.terminate()
         pytest.fail("Agent did not emit DRIFT_TRIGGER within 10s")
 
     dispatcher = InjectionDispatcher()
->>>>>>> origin/main
     correction = Correction(
         agent_id=agent_id,
         rule_id="LAYOUT-DRIFT-001",
@@ -191,25 +176,19 @@ def test_correction_loop_closes_under_shim(tmp_path):
             break
         time.sleep(0.2)
     else:
-<<<<<<< HEAD
         proc.terminate()
-=======
         shim_proc.terminate()
->>>>>>> origin/main
         pytest.fail(
             "Agent did not receive correction via shim within 15s. "
             f"output.log: {output_log.read_text() if output_log.exists() else '(missing)'}"
         )
 
-<<<<<<< HEAD
     proc.wait(timeout=5.0)
-=======
     try:
         shim_proc.wait(timeout=5.0)
     except subprocess.TimeoutExpired:
         shim_proc.terminate()
 
->>>>>>> origin/main
     log_content = output_log.read_text()
     assert "CORRECTION_RECEIVED" in log_content
     assert "apply canonical layout now" in log_content

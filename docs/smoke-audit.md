@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # SMOKE Test Audit
 
 Classification of `# Phase: SMOKE` acceptance tests against real-infrastructure criteria.
@@ -28,7 +27,6 @@ Post-SMOKE regression metric — tracks bugs discovered after SMOKE passed CI.
 |---|---|---|
 | v3.83.x | 2 (startup race #862, no-submit #862) | 0 |
 | v3.84.x | TBD | 0 |
-=======
 # SMOKE Acceptance Audit
 
 **Created:** 2026-05-25
@@ -237,4 +235,3 @@ tighten the coverage.
 | E029 GREEN | Retrofit test_e003_smoke_002 to remove _SYNTHETIC_AGENT | wmbt:govern-lifecycle:E029 |
 | E029 GREEN | Remove ATDD_RUN_SMOKE=1 opt-in gate from test_e004_smoke_001 | wmbt:govern-lifecycle:E029 |
 | L002 GREEN | Implement walk_all_smoke_acceptances_for_anti_patterns meta-walker | wmbt:govern-lifecycle:L002 |
->>>>>>> origin/main

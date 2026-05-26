@@ -1178,14 +1178,12 @@ sessions:
   archived: null
 - id: '851'
   slug: audit-and-retire-bypass-flag-proliferation
-<<<<<<< HEAD
   file: null
   issue_number: 851
   type: analysis
   status: INIT
   created: '2026-05-24'
   archived: null
-=======
   file: plan/govern_lifecycle/E026.yaml
   issue_number: 851
   type: chore
@@ -1195,7 +1193,6 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:close-substrate-friction-regressions
   train: 0001-self-compliance-validate
->>>>>>> origin/main
 - id: '854'
   slug: shim-popen-env-var-prefix-bug
   file: null
@@ -1206,14 +1203,12 @@ sessions:
   archived: null
 - id: '855'
   slug: investigate-smoke-test-systemic-false-greens
-<<<<<<< HEAD
   file: null
   issue_number: 855
   type: analysis
   status: INIT
   created: '2026-05-25'
   archived: null
-=======
   file: plan/govern_lifecycle/E027.yaml
   issue_number: 855
   type: chore
@@ -1223,7 +1218,6 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:smoke-false-green-prevention
   train: 0001-self-compliance-validate
->>>>>>> origin/main
 - id: '857'
   slug: atdd-coach-spawn-detector-bug
   file: null
@@ -1232,7 +1226,6 @@ sessions:
   status: INIT
   created: '2026-05-25'
   archived: null
-<<<<<<< HEAD
 - id: '862'
   slug: shim-cli-return-launch-prompt-race-and-no-submit
   file: null
@@ -1243,5 +1236,3 @@ sessions:
   train: 0002-coach-drives-lifecycle
   created: '2026-05-26'
   archived: null
-=======
->>>>>>> origin/main
