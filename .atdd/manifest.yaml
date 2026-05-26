@@ -194,7 +194,7 @@ sessions:
   file: null
   issue_number: 420
   type: feature
-  status: RED
+  status: GREEN
   created: '2026-05-06'
   archived: null
   wagon: govern-lifecycle
@@ -205,7 +205,7 @@ sessions:
   file: null
   issue_number: 421
   type: chore
-  status: RED
+  status: GREEN
   created: '2026-05-06'
   archived: null
   wagon: govern-lifecycle
@@ -216,7 +216,7 @@ sessions:
   file: null
   issue_number: 414
   type: feature
-  status: RED
+  status: GREEN
   created: '2026-05-06'
   archived: null
   wagon: govern-lifecycle
@@ -227,7 +227,7 @@ sessions:
   file: null
   issue_number: 417
   type: feature
-  status: RED
+  status: GREEN
   created: '2026-05-06'
   archived: null
   wagon: govern-lifecycle
@@ -238,7 +238,7 @@ sessions:
   file: null
   issue_number: 423
   type: feature
-  status: RED
+  status: GREEN
   created: '2026-05-06'
   archived: null
   wagon: govern-lifecycle
@@ -323,7 +323,7 @@ sessions:
   file: null
   issue_number: 466
   type: fix
-  status: RED
+  status: GREEN
   created: '2026-05-07'
   archived: null
   wagon: null
@@ -334,7 +334,7 @@ sessions:
   file: null
   issue_number: 473
   type: fix
-  status: RED
+  status: GREEN
   created: '2026-05-07'
   archived: null
   wagon: null
@@ -345,7 +345,7 @@ sessions:
   file: null
   issue_number: 473
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-07'
   archived: null
   wagon: null
@@ -356,7 +356,7 @@ sessions:
   file: null
   issue_number: 478
   type: cleanup
-  status: RED
+  status: GREEN
   created: '2026-05-07'
   archived: null
   wagon: null
@@ -378,7 +378,7 @@ sessions:
   file: null
   issue_number: 493
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: discover-and-decommission
@@ -389,7 +389,7 @@ sessions:
   file: null
   issue_number: 494
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: discover-and-decommission
@@ -400,7 +400,7 @@ sessions:
   file: null
   issue_number: 495
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: discover-and-decommission
@@ -411,7 +411,7 @@ sessions:
   file: null
   issue_number: 496
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: drive-state-machine
@@ -422,7 +422,7 @@ sessions:
   file: null
   issue_number: 497
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: drive-state-machine
@@ -433,7 +433,7 @@ sessions:
   file: null
   issue_number: 498
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: drive-state-machine
@@ -444,7 +444,7 @@ sessions:
   file: null
   issue_number: 499
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: spawn-agents
@@ -455,7 +455,7 @@ sessions:
   file: null
   issue_number: 501
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: judge-ambiguous-decisions
@@ -466,7 +466,7 @@ sessions:
   file: null
   issue_number: 508
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: judge-ambiguous-decisions
@@ -477,7 +477,7 @@ sessions:
   file: null
   issue_number: 510
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: drive-state-machine
@@ -488,7 +488,7 @@ sessions:
   file: null
   issue_number: 511
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: drive-state-machine
@@ -499,7 +499,7 @@ sessions:
   file: null
   issue_number: 514
   type: feat
-  status: RED
+  status: GREEN
   created: '2026-05-09'
   archived: null
   wagon: observe-and-correct
@@ -992,7 +992,7 @@ sessions:
   file: plan/integration_hardening/Y005.yaml
   issue_number: 782
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-05-19'
   archived: null
   wagon: integration-hardening
@@ -1102,7 +1102,7 @@ sessions:
   file: null
   issue_number: 482
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-05-08'
   archived: null
 - id: '795'
@@ -1132,7 +1132,7 @@ sessions:
   file: null
   issue_number: 799
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-05-20'
   archived: null
   wagon: spawn-agents
@@ -1184,6 +1184,15 @@ sessions:
   status: INIT
   created: '2026-05-24'
   archived: null
+  file: plan/govern_lifecycle/E026.yaml
+  issue_number: 851
+  type: chore
+  status: REFACTOR
+  created: '2026-05-24'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:close-substrate-friction-regressions
+  train: 0001-self-compliance-validate
 - id: '854'
   slug: shim-popen-env-var-prefix-bug
   file: null
@@ -1200,6 +1209,15 @@ sessions:
   status: INIT
   created: '2026-05-25'
   archived: null
+  file: plan/govern_lifecycle/E027.yaml
+  issue_number: 855
+  type: chore
+  status: PLANNED
+  created: '2026-05-25'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:smoke-false-green-prevention
+  train: 0001-self-compliance-validate
 - id: '857'
   slug: atdd-coach-spawn-detector-bug
   file: null
@@ -1208,6 +1226,7 @@ sessions:
   status: INIT
   created: '2026-05-25'
   archived: null
+<<<<<<< HEAD
 - id: '861'
   slug: shim-stdin-not-forwarded-to-claude
   file: null
@@ -1219,3 +1238,5 @@ sessions:
   wagon: observe-and-correct
   feature: null
   train: 0002-coach-drives-lifecycle
+=======
+>>>>>>> origin/main

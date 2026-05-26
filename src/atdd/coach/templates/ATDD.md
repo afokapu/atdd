@@ -101,7 +101,7 @@ audits:
     status: "atdd status"
 
   workflow:
-    after_planner: "atdd validate planner   # Before transitioning to RED"
+    after_planner: "atdd validate planner --local --skip-api  # BEFORE committing PLANNED (not just before RED transition)"
     after_tester: "atdd validate tester     # Before transitioning to GREEN"
     after_coder: "atdd validate coder       # Before transitioning to SMOKE"
     after_coach: "atdd validate coach       # Train + body section enforcement"
@@ -142,6 +142,12 @@ atdd_cycle:
       audits: "src/atdd/planner/validators/*.py"
       deliverables: ["train_path", "wagon_path", "wmbt_path", "feature_path"]
       transitions: "INIT → PLANNED"
+      pre_commit_gate:
+        rule: "planner.wmbt.must-have-smoke-acceptance"
+        command: "atdd validate planner --local --skip-api"
+        when: "BEFORE committing PLANNED — not after"
+        requirement: "Every authored WMBT needs ≥1 acceptance with phase: SMOKE"
+        fix: "Add acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>] acceptance to the WMBT YAML"
 
     - name: PLANNED
       agent: tester
@@ -343,7 +349,8 @@ git:
   # After every commit, derives which files were touched via `git show --name-only HEAD`,
   # maps them to validator phases, and runs ONLY those phases in parallel.
   # Always exits 0 (info-only; cannot undo a commit). No-op when CI=true.
-  # Override: ATDD_SKIP_POSTCOMMIT=1 git commit ...
+  # ATDD_SKIP_POSTCOMMIT was retired (E026/E030, 2026-05-26). No env-var bypass exists.
+  # For genuine emergencies: atdd emergency --reason "<reason>"
   post_commit_hook:
     purpose: "Real-time self-healing — surface validator failures within seconds of introduction"
     template: "src/atdd/coach/templates/hooks/post-commit"
@@ -358,7 +365,7 @@ git:
       ".atdd/manifest.yaml": "atdd validate coach --local --skip-api"
     overrides:
       ci: "CI=true → exits 0 immediately (CI runs full validate)"
-      skip: "ATDD_SKIP_POSTCOMMIT=1 → exits 0 immediately"
+      emergency: "atdd emergency --reason '<reason>' → creates .atdd/EMERGENCY_BYPASS (5 min TTL)"
     first_commit_safe: "Uses `git show --name-only HEAD` (works on first-ever commit, unlike `git diff HEAD~1..HEAD`)"
 
 # Escalation channel — `atdd coach --escalation-channel <X>` value format (#615).

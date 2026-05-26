@@ -103,7 +103,7 @@ audits:
     status: "atdd status"
 
   workflow:
-    after_planner: "atdd validate planner   # Before transitioning to RED"
+    after_planner: "atdd validate planner --local --skip-api  # BEFORE committing PLANNED (not just before RED transition)"
     after_tester: "atdd validate tester     # Before transitioning to GREEN"
     after_coder: "atdd validate coder       # Before transitioning to SMOKE"
     after_coach: "atdd validate coach       # Train + body section enforcement"
@@ -144,6 +144,12 @@ atdd_cycle:
       audits: "src/atdd/planner/validators/*.py"
       deliverables: ["train_path", "wagon_path", "wmbt_path", "feature_path"]
       transitions: "INIT → PLANNED"
+      pre_commit_gate:
+        rule: "planner.wmbt.must-have-smoke-acceptance"
+        command: "atdd validate planner --local --skip-api"
+        when: "BEFORE committing PLANNED — not after"
+        requirement: "Every authored WMBT needs ≥1 acceptance with phase: SMOKE"
+        fix: "Add acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>] acceptance to the WMBT YAML"
 
     - name: PLANNED
       agent: tester
@@ -351,7 +357,7 @@ git:
     template: "src/atdd/coach/templates/hooks/post-commit"
     behavior: "Runs only validators in the commit's blast radius, in parallel, never blocks"
     path_to_phase_mapping:
-      "plan/**":             "atdd repo validate"
+      "plan/**":             "atdd repo validate + atdd validate planner --local --skip-api"
       "contracts/**":        "atdd repo validate + atdd validate tester --local --skip-api"
       "src/atdd/planner/**": "atdd validate planner --local --skip-api"
       "src/atdd/tester/**":  "atdd validate tester --local --skip-api"

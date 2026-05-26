@@ -62,6 +62,7 @@ def test_guard_is_active_and_core_bare_unchanged_after_validators_run():
     )
 
 
+@pytest.mark.slow
 def test_guard_catches_real_live_repo_contamination(pytester: pytest.Pytester):
     """SMOKE GT-Y003-S02: guard fires, names test, restores core.bare in a live inner session.
 

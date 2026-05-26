@@ -1,8 +1,26 @@
 #!/bin/sh
 # ATDD pre-commit hook — blocks commits on main/master and unregistered branches.
-# Installed by `atdd init`. Bypasses require CI=true.
+# Installed by `atdd init`.
+#
+# All ATDD_SKIP_* bypass env vars have been retired (E030, 2026-05-26).
+# For genuine emergencies: atdd emergency --reason "<reason>"
 
 set -e
+
+# --- Emergency bypass check (E031) ---
+_REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+if [ -n "$_REPO_ROOT" ]; then
+    _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
+    if [ -f "$_BYPASS_FILE" ]; then
+        if find "$_BYPASS_FILE" -mmin -5 2>/dev/null | grep -q .; then
+            printf "ATDD: Emergency bypass active (pre-commit). Reason: %s\n" \
+                "$(head -1 "$_BYPASS_FILE" 2>/dev/null | sed 's/^reason=//' || echo 'see .atdd/EMERGENCY_BYPASS')" >&2
+            exit 0
+        else
+            printf "ATDD: Emergency bypass file found but expired (> 5 min). Ignored.\n" >&2
+        fi
+    fi
+fi
 
 # --- Resolve current branch ---
 BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
@@ -51,11 +69,6 @@ EOF
 esac
 
 # --- Verify branch is registered in manifest ---
-# Skip if bypass is set (e.g. bootstrap commits before atdd init)
-if [ "${ATDD_SKIP_MANIFEST_CHECK:-0}" = "1" ]; then
-    exit 0
-fi
-
 # Extract slug from branch name (strip prefix: feat/my-slug → my-slug)
 SLUG=$(echo "$BRANCH" | sed 's|^[^/]*/||')
 
@@ -80,8 +93,7 @@ Every branch must be created through the ATDD workflow:
 This ensures issues use the standard template, are tracked in
 the manifest, and have Project v2 fields set up correctly.
 
-Bypass (bootstrap only):
-  ATDD_SKIP_MANIFEST_CHECK=1 git commit ...
+For genuine emergencies: atdd emergency --reason "<reason>"
 
 EOF
         exit 1
@@ -94,7 +106,6 @@ MAX_STAGED=${ATDD_MAX_STAGED:-20}
 
 if [ "$STAGED" -gt "$MAX_STAGED" ]; then
     echo "ATDD WARNING: $STAGED files staged. Consider splitting into smaller commits." >&2
-    echo "Override: ATDD_MAX_STAGED=999 git commit" >&2
 fi
 
 exit 0

@@ -1,0 +1,175 @@
+urn: "wmbt:govern-lifecycle:E026"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "bypass-escape-hatches-without-mandatory-audit-record"
+context_clarifier: >
+  As of v3.82.1 the bypass inventory has grown to 7+ distinct ATDD_SKIP_* flags.
+  Across 10 issues dispatched 2026-05-21 → 2026-05-24, routine push operations
+  required a 2–4 env-var bypass cocktail per push — ~30+ documented bypass invocations,
+  none of which were emergencies. #845 added ATDD_SKIP_ALL_GATES as a 'consolidation'
+  but it was structurally additive: individual flags still work independently, the
+  meta-bypass just lowered the typing cost of bypassing everything. The enforcement
+  system has inverted: gates exist but their behavioral cost is zero.
+  Three flags are demonstrably obsolete: ATDD_SKIP_POSTCOMMIT (post-commit hook never
+  blocks — advisory only), ATDD_SKIP_REGISTRY_CHECK (E023 auto-heal is live), and
+  ATDD_SKIP_ALL_GATES (additive consolidation that makes mass-bypass cheaper without
+  retiring individual escapes). Four flags are load-bearing and must be kept but
+  locked behind a mandatory ATDD_BYPASS_REASON env var that (1) prints a visible
+  warning and (2) appends a JSON audit event to .atdd/bypass-audit.jsonl. A meta-guard
+  validator prevents silent future proliferation by failing CI when the bypass-flag
+  count in hook source exceeds the audited baseline without a ledger entry.
+lens: "functional.effectiveness"
+statement: >
+  minimize quantity of bypass-escape-hatches-without-mandatory-audit-record by
+  (1) committing an audit table to docs/bypass-audit.md with a retire/keep decision
+  for each of the 7 flags; (2) removing the 3 obsolete flags (ATDD_SKIP_ALL_GATES,
+  ATDD_SKIP_POSTCOMMIT, ATDD_SKIP_REGISTRY_CHECK) from all hook source files; (3)
+  requiring ATDD_BYPASS_REASON="<reason>" alongside any of the 4 remaining flags
+  and logging each bypass use as a JSON event to .atdd/bypass-audit.jsonl; (4)
+  adding a Python meta-guard validator that fails CI when the bypass-flag count in
+  hook source files exceeds the audited baseline of 4
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E026-UNIT-001-bypass-audit-table-committed"
+      id: "AC-UNIT-001"
+      purpose: "docs/bypass-audit.md exists and documents all 7 original flags with retire/keep decisions"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The repo root is accessible"
+        - "docs/bypass-audit.md either does not exist (RED) or has been created (GREEN)"
+    when:
+      abstract: "The test checks for docs/bypass-audit.md existence and required sections"
+    then:
+      abstract:
+        - "The file exists at docs/bypass-audit.md"
+        - "The file contains a table row for each of the 7 original flags from the issue inventory"
+        - "Each row has a retire or keep decision column"
+        - "The file contains a section documenting the 3 retired flags"
+        - "The file contains a section documenting the 4 kept flags"
+    metadata:
+      author: "atdd:bypass-audit"
+      created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E026-UNIT-002-retired-flags-absent-from-hook-source"
+      id: "AC-UNIT-002"
+      purpose: "ATDD_SKIP_ALL_GATES, ATDD_SKIP_POSTCOMMIT, ATDD_SKIP_REGISTRY_CHECK are absent from all hook source files"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The hook template files at src/atdd/coach/templates/hooks/ are readable"
+    when:
+      abstract: "The test scans all hook files for the three retired flag names"
+    then:
+      abstract:
+        - "ATDD_SKIP_ALL_GATES does not appear in pre-push, pre-commit, post-commit, commit-msg, or pre-merge-commit"
+        - "ATDD_SKIP_POSTCOMMIT does not appear in any hook file"
+        - "ATDD_SKIP_REGISTRY_CHECK does not appear in any hook file"
+    metadata:
+      author: "atdd:bypass-audit"
+      created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E026-UNIT-003-bypass-reason-warning-without-reason"
+      id: "AC-UNIT-003"
+      purpose: "A remaining bypass flag used without ATDD_BYPASS_REASON prints a mandatory warning to stderr"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path repo with the pre-push hook installed"
+        - "ATDD_SKIP_BARE_CHECK=1 is set but ATDD_BYPASS_REASON is not set"
+    when:
+      abstract: "The pre-push hook is invoked with a dummy stdin payload"
+    then:
+      abstract:
+        - "The hook exits 0 (warning does not block)"
+        - "stderr contains a warning referencing ATDD_BYPASS_REASON"
+        - "stderr contains the name of the flag being bypassed (ATDD_SKIP_BARE_CHECK)"
+    metadata:
+      author: "atdd:bypass-audit"
+      created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E026-UNIT-004-bypass-audit-jsonl-written"
+      id: "AC-UNIT-004"
+      purpose: "ATDD_BYPASS_REASON set alongside a remaining flag appends a JSON event to .atdd/bypass-audit.jsonl"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path repo with the pre-push hook installed"
+        - "A .atdd/ directory exists in the tmp_path"
+        - "ATDD_SKIP_PREPUSH_VALIDATE=1 and ATDD_BYPASS_REASON='local stale acceptance' are set"
+    when:
+      abstract: "The pre-push hook is invoked with a dummy stdin payload"
+    then:
+      abstract:
+        - "The hook exits 0"
+        - ".atdd/bypass-audit.jsonl exists in the repo root"
+        - "The file contains a valid JSON line with fields: timestamp, flag, reason, caller, hook"
+        - "The 'flag' field is 'ATDD_SKIP_PREPUSH_VALIDATE'"
+        - "The 'reason' field is 'local stale acceptance'"
+    metadata:
+      author: "atdd:bypass-audit"
+      created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E026-UNIT-005-meta-guard-fails-when-bypass-count-grows"
+      id: "AC-UNIT-005"
+      purpose: "Meta-guard validator fails when bypass-flag count in hook source exceeds the audited baseline of 4"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A synthetic hooks directory is created with a pre-push file containing 5 distinct ATDD_SKIP_* vars"
+        - "The audited baseline is 4"
+    when:
+      abstract: "count_bypass_flags_in_hooks(hooks_dir) is called and compared to baseline"
+    then:
+      abstract:
+        - "The function returns a count of 5"
+        - "A guard check raises or returns an error indicating the count exceeds the baseline"
+    metadata:
+      author: "atdd:bypass-audit"
+      created: "2026-05-24"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E026-SMOKE-001-routine-push-zero-bypasses-after-retirement"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: routine branch push on a clean worktree completes without any bypass env var"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path repo with the updated pre-push hook installed (retired flags removed)"
+        - "core.bare is unset"
+        - "Installed atdd >= minimum_version (or version gate is not triggered)"
+        - "Registry mirrors are in sync"
+        - "No ATDD source files changed in the pushed commit"
+        - "No bypass env vars set"
+    when:
+      abstract: "git push to a non-main branch is simulated (hook invoked with dummy stdin)"
+    then:
+      abstract:
+        - "The hook exits 0"
+        - "No gate-bypass env var was needed"
+    metadata:
+      author: "atdd:bypass-audit"
+      created: "2026-05-24"

@@ -1,0 +1,31 @@
+urn: "feature:govern-lifecycle:smoke-false-green-prevention"
+wagon: "wagon:govern-lifecycle"
+description: "Audit every phase:SMOKE acceptance by structural false-green cause, extend smoke.convention.yaml with three anti-pattern rules, implement a planner-side synthetic-fixture-bypass validator, and retrofit the two lived-incident SMOKE tests (test_e003_smoke_001, test_e003_smoke_002) to drive the real atdd spawn entry point. Addresses the systemic pattern identified in #855 where four production bugs shipped through green-SMOKE during 2026-05-21 → 2026-05-24."
+sizing:
+  wmbts: 5
+  footprint_score: 7
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E027"
+  - "wmbt:govern-lifecycle:E028"
+  - "wmbt:govern-lifecycle:E029"
+  - "wmbt:govern-lifecycle:L002"
+  - "wmbt:govern-lifecycle:M002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI commands; changes are to convention YAML and validators"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "walk_all_smoke_acceptances_for_anti_patterns() meta-walker function"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain objects; scan logic is utility-level"
+    integration:
+      - type: "validators"
+        count: 1
+        rationale: "test_smoke_synthetic_fixture_bypass.py: scans SMOKE test files for FakeMultiplexer and stub commands"

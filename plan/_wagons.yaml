@@ -621,7 +621,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 48
+    total: 53
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -725,6 +725,26 @@ wagons:
       registry update --check into the pre-push hook, and adding a required atdd-registry-drift
       CI check on main so future WMBT additions cannot land without mirror resync
       (#817)
+    E022: minimize core-bare-true-reappearing-in-shared-git-config by excluding SMOKE-tagged
+      tests from the post-commit blast-radius run and adding a shell-level core.bare
+      trap to the hook template (#845)
+    E023: minimize distinct-environment-variables-required-for-routine-branch-push
+      by adding ATDD_SKIP_ALL_GATES=1 meta-bypass, tightening the version gate to
+      repo minimum_version, and making the registry check auto-heal rather than block
+      (#845)
+    E024: minimize publish-workflow-auto-skips-on-every-merge by removing the issues
+      trigger from atdd-validate.yml and adding head_branch==main to the Publish condition
+      (#845)
+    E025: minimize red-phase-toolkit-tests-leaking-into-consumer-validator-sweep-because-skip-api-flag-disables-split-mode-and-bypasses-platform-marker-exclusion
+      by moving the is_atdd_source_repo() consumer-mode platform-exclusion into run_tests()
+      so it applies regardless of split mode, and adding a regression validator that
+      fails if any Phase:RED test file in the validator dirs lacks the platform guard
+      (#846)
+    E026: minimize bypass-escape-hatches-without-mandatory-audit-record by auditing
+      the 7-flag bypass set, retiring 3 obsolete flags (ATDD_SKIP_ALL_GATES, ATDD_SKIP_POSTCOMMIT,
+      ATDD_SKIP_REGISTRY_CHECK), requiring ATDD_BYPASS_REASON for the 4 remaining
+      flags with audit-jsonl logging, and adding a meta-guard validator that fails
+      CI when bypass count exceeds the audited baseline (#851)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -1172,8 +1192,10 @@ wagons:
     E003: minimize quantity of observer-correction-loop-activation-gaps
     E004: minimize quantity of persona-shim-spawn-dispatch-wiring-gaps
     E005: minimize quantity of shim-stdin-forwarding-gaps
+>>>>>>> origin/main
     C001: minimize likelihood of behavioral-regression-against-babysit-baseline
     C002: minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary
+    E005: minimize likelihood of atdd-shim-popen-missing-env-kwarg-for-typed-env-override-delivery
   total: 0
   manifest: plan/observe_and_correct/_observe_and_correct.yaml
   path: plan/observe_and_correct/
@@ -1412,7 +1434,10 @@ wagons:
   - name: commons:coach:decisions-jsonl-writer
     from: wagon:drive-state-machine
   wmbt:
+<<<<<<< HEAD
     total: 22
+=======
+    total: 24
     E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
     D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
     E002: minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout
@@ -1435,6 +1460,11 @@ wagons:
     L001: minimize likelihood of coach-spawned-agents-that-present-interactive-permission-modals-under-standard-workloads
     D002: minimize likelihood of undocumented-freedom-with-a-leash-spawn-policy
     R001: minimize likelihood of deny-pattern-bash-invocations-handled-via-in-band-modal-or-unrouted-escalation
+<<<<<<< HEAD
+=======
+    E015: minimize likelihood of planner-agent-commits-planned-without-verifying-smoke-acceptance-coverage
+    E016: minimize likelihood of shell-style-env-prefix-injected-into-shim-argv-causing-popen-exec-failure
+>>>>>>> origin/main
   total: 0
   manifest: plan/spawn_agents/_spawn_agents.yaml
   path: plan/spawn_agents/

@@ -23,6 +23,9 @@ features:
   - urn: "feature:spawn-agents:coach-spawn-step-by-step-verify-each-stage"
   - urn: "feature:spawn-agents:coach-spawn-rename-enter-races-text-send"
   - urn: "feature:spawn-agents:spawn-time-non-interactive-convention"
+  - urn: "feature:spawn-agents:surface-smoke-acceptance-rule-in-planner-flow"
+  - urn: "feature:spawn-agents:shim-popen-env-var-prefix-fix"
+  - urn: "feature:spawn-agents:coach-spawn-detector-process-alive"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -93,6 +96,10 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:spawn-detector-process-alive-stage
+    contract: null
+    telemetry: null
+    to: external
 
 consume:
   - name: commons:coach:runtime-event-schema
@@ -105,7 +112,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 22
+  total: 26
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -128,3 +135,7 @@ wmbt:
   L001: "minimize likelihood of coach-spawned-agents-that-present-interactive-permission-modals-under-standard-workloads"
   D002: "minimize likelihood of undocumented-freedom-with-a-leash-spawn-policy"
   R001: "minimize likelihood of deny-pattern-bash-invocations-handled-via-in-band-modal-or-unrouted-escalation"
+  E015: "minimize likelihood of planner-agent-commits-planned-without-verifying-smoke-acceptance-coverage"
+  E016: "minimize likelihood of shell-style-env-prefix-injected-into-shim-argv-causing-popen-exec-failure"
+  E017: "minimize likelihood of coach-spawn-shim-command-resolves-to-wrong-atdd-installation-on-multi-install-hosts"
+  E018: "minimize likelihood of coach-spawn-stage-detector-reports-success-when-spawned-process-has-already-crashed"

@@ -1,0 +1,117 @@
+urn: "wmbt:govern-lifecycle:E030"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "operator-skip-env-vars-remaining-in-hook-source-after-2026-05-26-directive"
+context_clarifier: >
+  E026 (v3.82.3) retired 3 of the original 8 bypass flags and locked the remaining 5
+  (ATDD_SKIP_BARE_CHECK, ATDD_SKIP_VERSION_GATE, ATDD_SKIP_PREPUSH_VALIDATE,
+  ATDD_SKIP_MANIFEST_CHECK, ATDD_SKIP_MASSDELETE) behind a mandatory ATDD_BYPASS_REASON
+  with audit-jsonl logging. The 2026-05-26 lived incident (ATDD861 worker chaining
+  ATDD_SKIP_POSTCOMMIT + ATDD_SKIP_PREPUSH_VALIDATE to push, incidentally staging ~30
+  .atdd/ deletions that the bypassed gates would have caught) demonstrated that audit-logged
+  bypasses are not materially different from un-audited ones: agents and operators reach for
+  them on any friction, not only on genuine emergencies. The operator directive on 2026-05-26
+  closes the loop: "the skip are the issues — they were useful when fixing coach but shouldn't
+  exist at all." The 5 remaining ATDD_SKIP_* vars must be unconditionally removed from all
+  hook source files. The _emit_bypass_audit helper and ATDD_BYPASS_REASON companion var are
+  removed alongside them. If a gate is too strict for a legitimate flow, the fix is to soften
+  the gate predicate, not to add an escape hatch.
+lens: "functional.effectiveness"
+statement: >
+  minimize quantity of operator-skip-env-vars-remaining-in-hook-source-after-2026-05-26-directive
+  by (1) removing all 5 remaining ATDD_SKIP_* blocks (ATDD_SKIP_BARE_CHECK,
+  ATDD_SKIP_VERSION_GATE, ATDD_SKIP_PREPUSH_VALIDATE, ATDD_SKIP_MANIFEST_CHECK,
+  ATDD_SKIP_MASSDELETE) from every hook template source file; (2) removing the
+  _emit_bypass_audit helper and all ATDD_BYPASS_REASON references from hooks;
+  (3) updating the meta-guard validator (test_e026_bypass_inventory_guard.py)
+  to set _AUDITED_BASELINE = 0, so CI fails if any ATDD_SKIP_* var lands in a hook;
+  (4) updating docs/bypass-audit.md to document the full retirement
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E030-UNIT-001-all-skip-flags-absent-from-hooks"
+      id: "AC-UNIT-001"
+      purpose: "All 5 remaining ATDD_SKIP_* flags absent from every hook template source file"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The hook template files at src/atdd/coach/templates/hooks/ are readable"
+    when:
+      abstract: "The test scans all hook files for each of the 5 remaining flag names"
+    then:
+      abstract:
+        - "ATDD_SKIP_BARE_CHECK does not appear in any hook file"
+        - "ATDD_SKIP_VERSION_GATE does not appear in any hook file"
+        - "ATDD_SKIP_PREPUSH_VALIDATE does not appear in any hook file"
+        - "ATDD_SKIP_MANIFEST_CHECK does not appear in any hook file"
+        - "ATDD_SKIP_MASSDELETE does not appear in any hook file"
+    metadata:
+      author: "atdd:bypass-retire-all"
+      created: "2026-05-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E030-UNIT-002-bypass-reason-absent-from-hooks"
+      id: "AC-UNIT-002"
+      purpose: "ATDD_BYPASS_REASON and _emit_bypass_audit no longer appear in any hook source"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The hook template files at src/atdd/coach/templates/hooks/ are readable"
+    when:
+      abstract: "The test scans all hook files for ATDD_BYPASS_REASON and _emit_bypass_audit"
+    then:
+      abstract:
+        - "ATDD_BYPASS_REASON does not appear in any hook file"
+        - "_emit_bypass_audit does not appear in any hook file"
+    metadata:
+      author: "atdd:bypass-retire-all"
+      created: "2026-05-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E030-UNIT-003-meta-guard-baseline-is-zero"
+      id: "AC-UNIT-003"
+      purpose: "Meta-guard validator _AUDITED_BASELINE is updated to 0"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/validators/test_e026_bypass_inventory_guard.py is readable"
+    when:
+      abstract: "The test reads the meta-guard source and checks the baseline constant"
+    then:
+      abstract:
+        - "_AUDITED_BASELINE is set to 0 in the meta-guard validator"
+        - "count_bypass_flags_in_hooks(HOOKS_DIR) returns an empty set"
+    metadata:
+      author: "atdd:bypass-retire-all"
+      created: "2026-05-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E030-SMOKE-001-grep-returns-zero-matches"
+      id: "AC-SMOKE-001"
+      purpose: "grep -rE ATDD_SKIP_[A-Z_]+ src/atdd/coach/templates/hooks/ returns zero matches"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The hook template directory exists at src/atdd/coach/templates/hooks/"
+        - "All hook source files are updated per E030"
+    when:
+      abstract: "grep -rE 'ATDD_SKIP_[A-Z_]+' is run against the hooks directory"
+    then:
+      abstract:
+        - "The grep exits 1 (no matches)"
+        - "No ATDD_SKIP_* pattern appears in any hook template file"
+    metadata:
+      author: "atdd:bypass-retire-all"
+      created: "2026-05-26"

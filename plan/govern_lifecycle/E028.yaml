@@ -1,0 +1,179 @@
+urn: "wmbt:govern-lifecycle:E028"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "new-smoke-tests-using-synthetic-fixtures-that-bypass-production-wiring"
+context_clarifier: >
+  The smoke.convention.yaml (as of v3.82.4) already forbids mock imports and collaborator
+  substitution (severity 4) and requires close-the-loop blocks for feedback-loop features.
+  It has no rule against the most pervasive false-green pattern: driving a synthetic
+  subprocess stub (FakeMultiplexer, 'cat', 'sleep', a hardcoded Python script) rather
+  than the real CLI entry point. The #843 shim tests passed because they wrapped a
+  synthetic agent that wrote sentinel bytes to a tmp file — not the real atdd spawn path
+  that uses _inject_agent_env and PersonaShim. The #854 Popen crash (shell=True missing
+  on the adapter command tuple) was invisible to those tests because they never called
+  into the real command-construction path. A planner-side validator that classifies SMOKE
+  test files at plan-time closes the earliest possible feedback loop: before a Tester
+  writes the test, the Planner acceptance shape signals whether the harness type will
+  exercise a real entry point.
+lens: "functional.effectiveness"
+statement: >
+  minimize likelihood of new-smoke-tests-using-synthetic-fixtures-that-bypass-production-wiring
+  by (1) adding three explicit anti-pattern rules to smoke.convention.yaml: real-entry-point
+  mandate, operator-observable-assertion mandate, cross-component-handoff mandate;
+  (2) implementing src/atdd/planner/validators/test_smoke_synthetic_fixture_bypass.py that
+  scans resolved SMOKE test files for FakeMultiplexer instantiation, subprocess.Popen
+  with cat/sleep/python stub arguments, and output.log-only assertions without a paired
+  consumer-observable assertion; (3) binding the rule as planner.smoke.synthetic-fixture-bypass
+  at severity 3
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E028-UNIT-001-convention-has-real-entry-point-rule"
+      id: "AC-UNIT-001"
+      purpose: "smoke.convention.yaml contains the real-entry-point anti-pattern rule"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/tester/conventions/smoke.convention.yaml is readable"
+    when:
+      abstract: "The test reads smoke.convention.yaml and searches for the real-entry-point rule"
+    then:
+      abstract:
+        - "The file contains a rule block with an id or name matching 'real-entry-point' or 'synthetic-fixture-bypass'"
+        - "The rule body states that SMOKE tests MUST drive the real CLI entry point, not a synthetic subprocess stub"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E028-UNIT-002-convention-has-producer-only-rule"
+      id: "AC-UNIT-002"
+      purpose: "smoke.convention.yaml contains the producer-only-assertion anti-pattern rule"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/tester/conventions/smoke.convention.yaml is readable"
+    when:
+      abstract: "The test reads smoke.convention.yaml and searches for the producer-only-assertion rule"
+    then:
+      abstract:
+        - "The file contains a rule stating SMOKE tests MUST assert on operator-observable behavior"
+        - "The rule explicitly names intermediate-artifact-write events (output.log existence, file write) as insufficient assertions"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E028-UNIT-003-convention-has-handoff-coverage-rule"
+      id: "AC-UNIT-003"
+      purpose: "smoke.convention.yaml contains the cross-component handoff-coverage anti-pattern rule"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/tester/conventions/smoke.convention.yaml is readable"
+    when:
+      abstract: "The test reads smoke.convention.yaml and searches for the cross-component handoff rule"
+    then:
+      abstract:
+        - "The file contains a rule stating that when a feature has a producer→consumer handoff, the SMOKE MUST exercise both producer and consumer in a single test"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E028-UNIT-004-validator-detects-fakemultiplexer"
+      id: "AC-UNIT-004"
+      purpose: "Validator emits a violation when the resolved SMOKE test file imports FakeMultiplexer"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path WMBT YAML with one phase:SMOKE acceptance"
+        - "The acceptance's resolved test file contains 'from atdd... import FakeMultiplexer' or 'FakeMultiplexer()'"
+    when:
+      abstract: "scan_for_synthetic_fixture_bypass(wmbt_files, repo_root) is called with that WMBT"
+    then:
+      abstract:
+        - "The function returns exactly one Violation"
+        - "The violation rule_id is 'planner.smoke.synthetic-fixture-bypass'"
+        - "The violation detail mentions 'FakeMultiplexer'"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E028-UNIT-005-validator-detects-stub-popen-command"
+      id: "AC-UNIT-005"
+      purpose: "Validator emits a violation when the resolved SMOKE test uses subprocess.Popen with a cat/sleep/python stub"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path WMBT YAML with one phase:SMOKE acceptance"
+        - "The acceptance's resolved test file contains subprocess.Popen(['cat', ...])"
+    when:
+      abstract: "scan_for_synthetic_fixture_bypass(wmbt_files, repo_root) is called with that WMBT"
+    then:
+      abstract:
+        - "The function returns exactly one Violation"
+        - "The violation rule_id is 'planner.smoke.synthetic-fixture-bypass'"
+        - "The violation detail mentions the stub command name ('cat', 'sleep', or 'python')"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E028-INTEGRATION-001-no-false-positive-on-real-entry-point"
+      id: "AC-INTEGRATION-001"
+      purpose: "Validator emits no violation when the SMOKE test drives atdd spawn as a real subprocess"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path WMBT YAML with one phase:SMOKE acceptance"
+        - "The acceptance's resolved test file calls subprocess.run(['atdd', 'spawn', ...]) with no FakeMultiplexer import"
+    when:
+      abstract: "scan_for_synthetic_fixture_bypass(wmbt_files, repo_root) is called with that WMBT"
+    then:
+      abstract:
+        - "The function returns an empty violation list"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E028-SMOKE-001-validate-planner-clean-after-retrofit"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: atdd validate planner --local --skip-api exits 0 on the post-retrofit repo"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The repo is at the post-retrofit commit (E029 smokes rewritten to use real entry point)"
+        - "No unsuppressed SMOKE acceptances use FakeMultiplexer or synthetic stubs"
+    when:
+      abstract: "atdd validate planner --local --skip-api is invoked at repo root"
+    then:
+      abstract:
+        - "The command exits 0"
+        - "No planner.smoke.synthetic-fixture-bypass violations are reported"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"

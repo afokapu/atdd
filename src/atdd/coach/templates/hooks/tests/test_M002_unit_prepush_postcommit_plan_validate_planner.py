@@ -274,7 +274,7 @@ def test_prepush_skip_env_overrides_planner_block(
     tmp_path: Path,
     fake_atdd_failing_planner: Path,
 ) -> None:
-    """M002-UNIT-002 (override): ATDD_SKIP_PREPUSH_VALIDATE=1 bypasses planner block."""
+    """M002-UNIT-002 (E030 regression): ATDD_SKIP_PREPUSH_VALIDATE=1 is retired; hook blocks regardless."""
     _init_repo(tmp_path)
     base_sha = _add_and_commit(tmp_path, "README.md", "seed")
     tip_sha = _add_and_commit(tmp_path, "plan/coach_ops/M001.yaml", "add plan file")
@@ -287,8 +287,10 @@ def test_prepush_skip_env_overrides_planner_block(
         extra_env={"ATDD_SKIP_PREPUSH_VALIDATE": "1"},
     )
 
-    assert result.returncode == 0, (
-        f"ATDD_SKIP_PREPUSH_VALIDATE=1 must suppress the planner block; "
+    # E030 (2026-05-26): ATDD_SKIP_PREPUSH_VALIDATE retired unconditionally.
+    # The env var is ignored; the blocking planner validator must still fire.
+    assert result.returncode != 0, (
+        f"ATDD_SKIP_PREPUSH_VALIDATE=1 must be ignored (E030); hook must still block; "
         f"rc={result.returncode}\nstderr={result.stderr}"
     )
 

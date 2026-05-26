@@ -1,15 +1,35 @@
 #!/bin/sh
 # ATDD pre-push hook — version gate + branch protection + blocking validators.
 # Installed by `atdd init`.
+#
+# All ATDD_SKIP_* bypass env vars have been retired (E030, 2026-05-26).
+# For genuine emergencies: atdd emergency --reason "<reason>"
 
 set -e
+
+# --- Emergency bypass check (E031) ---
+# atdd emergency --reason "<text>" creates .atdd/EMERGENCY_BYPASS with a TTL of 5 min.
+# If the file is fresh, all hook gates are skipped for this one operation.
+_REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+if [ -n "$_REPO_ROOT" ]; then
+    _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
+    if [ -f "$_BYPASS_FILE" ]; then
+        # find -mmin -5: matches if file was modified less than 5 minutes ago
+        if find "$_BYPASS_FILE" -mmin -5 2>/dev/null | grep -q .; then
+            printf "ATDD: Emergency bypass active (pre-push). Reason: %s\n" \
+                "$(head -1 "$_BYPASS_FILE" 2>/dev/null | sed 's/^reason=//' || echo 'see .atdd/EMERGENCY_BYPASS')" >&2
+            printf "  Remove .atdd/EMERGENCY_BYPASS when the emergency is resolved.\n" >&2
+            exit 0
+        else
+            printf "ATDD: Emergency bypass file found but expired (> 5 min). Ignored.\n" >&2
+        fi
+    fi
+fi
 
 # --- Bare-mode contamination guard (#629 Layer 1) ---
 # A worktree with core.bare=true silently mass-deletes its files on the next
 # `git add -A`. Wave 12 (PRs #625, #627) shipped 220k-line deletions this way.
-# Override (use sparingly): ATDD_SKIP_BARE_CHECK=1 git push ...
-if [ "${ATDD_SKIP_BARE_CHECK:-0}" != "1" ] && \
-        [ "$(git config --get core.bare 2>/dev/null)" = "true" ]; then
+if [ "$(git config --get core.bare 2>/dev/null)" = "true" ]; then
     cat >&2 <<'BARE_MSG'
 
 ATDD: Pre-push blocked — this worktree has core.bare=true.
@@ -22,18 +42,14 @@ Recovery:
   2. git log --oneline -5         # audit recent commits for surprise deletions
   3. git show --stat HEAD         # confirm last commit's diff is sane
 
-Override (use sparingly — only if you intentionally created a bare repo):
-  ATDD_SKIP_BARE_CHECK=1 git push ...
+For genuine emergencies: atdd emergency --reason "<reason>"
 
 BARE_MSG
     exit 1
 fi
 
-# --- Version gate (skip with ATDD_SKIP_VERSION_GATE=1) ---
-if [ "${ATDD_SKIP_VERSION_GATE:-0}" = "1" ]; then
-    : # bypass
-else
-    python3 -c "
+# --- Version gate ---
+python3 -c "
 try:
     from atdd.version_check import _gate_main
     _gate_main()
@@ -47,8 +63,7 @@ except ImportError:
         print('  Run: pipx upgrade atdd', file=sys.stderr)
     sys.exit(1)
 " 2>&1
-    if [ $? -ne 0 ]; then exit 1; fi
-fi
+if [ $? -ne 0 ]; then exit 1; fi
 
 REMOTE="$1"
 URL="$2"
@@ -105,13 +120,8 @@ done
 #
 # Auto-skipped when:
 #   CI=true                        — CI runs the full suite; no double-run
-#   ATDD_SKIP_PREPUSH_VALIDATE=1   — emergency override
 #   No ATDD source files changed   — fast path for non-toolkit pushes
-#
-# Override: ATDD_SKIP_PREPUSH_VALIDATE=1 git push ...
-if [ "${ATDD_SKIP_PREPUSH_VALIDATE:-0}" != "1" ] && \
-        [ "${CI:-}" != "true" ] && \
-        [ -n "$LAST_LOCAL_SHA" ]; then
+if [ "${CI:-}" != "true" ] && [ -n "$LAST_LOCAL_SHA" ]; then
 
     # Compute the set of files changed in this push.
     NULL_SHA="0000000000000000000000000000000000000000"
@@ -184,8 +194,7 @@ ATDD: Pre-push blocked — one or more local validators failed (see above).
 These validators catch violations that burn CI cycles when pushed.
 Fix the issues above, then retry your push.
 
-Emergency override (records bypass in git log):
-  ATDD_SKIP_PREPUSH_VALIDATE=1 git push ...
+For genuine emergencies: atdd emergency --reason "<reason>"
 
 VALIDATE_FAIL
             exit 1
@@ -196,30 +205,14 @@ fi
 # --- Registry mirror drift gate (wmbt:govern-lifecycle:E021) ---
 # Runs atdd registry update --check to confirm plan/_wagons.yaml,
 # plan/_trains.yaml, and contracts/_artifacts.yaml are in sync with source.
-#
-# Fails when drift is detected; prints fix-hint with exact remediation command.
-# Auto-skipped: CI=true (CI check is the authoritative gate), ATDD_SKIP_REGISTRY_CHECK=1
-#
-# Override: ATDD_SKIP_REGISTRY_CHECK=1 git push ...
-if [ "${ATDD_SKIP_REGISTRY_CHECK:-0}" != "1" ] && [ "${CI:-}" != "true" ]; then
+# Auto-skipped: CI=true (CI check is the authoritative gate).
+# Auto-heal covers all non-CI cases (E023 registry auto-resync).
+if [ "${CI:-}" != "true" ]; then
     if ! atdd registry update --check >&2 2>&1; then
-        cat >&2 <<'REGISTRY_FAIL'
-
-ATDD: Pre-push blocked — registry mirrors are out of sync with source-of-truth files.
-
-Run the following command to resync, then re-push:
-  atdd registry update --yes
-
-Then re-stage and push:
-  git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml
-  git commit
-  git push
-
-Emergency override:
-  ATDD_SKIP_REGISTRY_CHECK=1 git push ...
-
-REGISTRY_FAIL
-        exit 1
+        echo "ATDD: registry mirrors auto-resynced (atdd registry update --yes)" >&2
+        atdd registry update --yes >&2 2>&1 || true
+        git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml 2>/dev/null || true
+        echo "ATDD: mirrors resynced and re-staged; continuing push..." >&2
     fi
 fi
 
@@ -239,8 +232,6 @@ Large uncommitted deltas risk losing work if a hook blocks.
 
   git add -p    # Stage incrementally
   git commit    # Commit frequently
-
-Override: ATDD_MAX_UNCOMMITTED=999 git push
 
 WARN
 fi

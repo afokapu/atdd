@@ -502,16 +502,42 @@ def auto_upgrade() -> bool:
         return False
 
 
-def _gate_main() -> None:
+def _gate_main(minimum_version: Optional[str] = None) -> None:
     """CLI entry point for version-gate hook.
 
     Gate only — never runs pip install or auto_upgrade().
     Exit 0 = allow push, exit 1 = block push (atdd is outdated).
 
-    When outdated the user must run `atdd upgrade` manually and retry.
-    Running pip install from inside a git hook is unsafe on PEP 668
-    systems (Homebrew/Debian Python), inside virtualenvs, and in CI.
+    When minimum_version is provided (or read from .atdd/config.yaml under
+    release.minimum_version), the gate compares installed vs that floor rather
+    than PyPI latest. This prevents a patch release made seconds ago from
+    blocking the operator who authored it.
     """
+    if minimum_version is None:
+        config, _ = _load_repo_config()
+        if config:
+            release_cfg = config.get("release", {}) or {}
+            minimum_version = (
+                release_cfg.get("minimum_version")
+                or config.get("minimum_version")
+                or (config.get("toolkit", {}) or {}).get("minimum_version")
+            )
+
+    if minimum_version is not None:
+        current = __version__
+        if current == "0.0.0":
+            return  # dev install always passes
+        if _parse_version(current) >= _parse_version(minimum_version):
+            print(f"atdd {current} meets minimum_version {minimum_version}")
+            return
+        print(
+            f"atdd {current} is below minimum_version {minimum_version}.\n"
+            f"Run `atdd upgrade` then retry your git operation.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+        return
+
     outdated, current, latest = is_outdated()
 
     if not outdated:
