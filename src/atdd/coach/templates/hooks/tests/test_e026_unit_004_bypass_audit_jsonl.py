@@ -4,11 +4,10 @@
 # Phase: RED
 # Layer: backend.unit
 """
-AC-UNIT-004: ATDD_BYPASS_REASON set alongside a remaining flag appends a JSON
-event to .atdd/bypass-audit.jsonl with fields: timestamp, flag, reason, hook.
-
-RED state: The hooks do not yet write bypass-audit.jsonl. Tests fail because
-the audit-logging mechanism has not been implemented.
+AC-UNIT-004 (superseded by E030): E026 required hooks to write bypass-audit.jsonl.
+E030 (2026-05-26) retires all bypass flags; bypass-audit.jsonl is no longer written
+by hooks. These tests are updated to assert ABSENCE of bypass-audit.jsonl writing
+— serving as regression guards against re-introduction of the audit mechanism.
 """
 from __future__ import annotations
 
@@ -65,105 +64,28 @@ def _run_hook_with_bypass(tmp_path: Path, flag: str, reason: str) -> Path:
     return atdd_dir / "bypass-audit.jsonl"
 
 
-def test_hook_source_contains_jsonl_write_logic():
-    """AC-UNIT-004: pre-push hook source must write to bypass-audit.jsonl."""
+def test_hook_source_does_not_contain_bypass_audit_jsonl():
+    """E030 regression guard: pre-push hook must NOT reference bypass-audit.jsonl."""
     text = HOOK_PATH.read_text(encoding="utf-8")
-    assert "bypass-audit.jsonl" in text, (
-        "pre-push hook does not write to .atdd/bypass-audit.jsonl.\n"
-        "Add a block that appends a JSON line when a remaining flag + ATDD_BYPASS_REASON are set."
+    assert "bypass-audit.jsonl" not in text, (
+        "pre-push hook still references bypass-audit.jsonl.\n"
+        "E030 retires all bypass flags; bypass-audit.jsonl writing must be removed."
     )
 
 
-def test_bypass_audit_jsonl_created_on_bypass(tmp_path: Path):
-    """AC-UNIT-004: .atdd/bypass-audit.jsonl is created when ATDD_SKIP_PREPUSH_VALIDATE + reason used."""
-    if "bypass-audit.jsonl" not in HOOK_PATH.read_text():
-        pytest.skip("bypass-audit.jsonl not yet implemented — RED")
-
-    jsonl_path = _run_hook_with_bypass(tmp_path, "ATDD_SKIP_PREPUSH_VALIDATE", "local stale acceptance")
-    assert jsonl_path.exists(), (
-        f".atdd/bypass-audit.jsonl was not created at {jsonl_path}.\n"
-        "The hook must write an audit event when a bypass flag + ATDD_BYPASS_REASON are used."
+def test_commit_msg_hook_does_not_reference_bypass_audit_jsonl():
+    """E030 regression guard: commit-msg hook must NOT reference bypass-audit.jsonl."""
+    text = (HOOKS_DIR / "commit-msg").read_text(encoding="utf-8")
+    assert "bypass-audit.jsonl" not in text, (
+        "commit-msg hook still references bypass-audit.jsonl.\n"
+        "E030 retires ATDD_SKIP_MASSDELETE; remove the bypass-audit.jsonl write."
     )
 
 
-def test_bypass_audit_jsonl_contains_valid_json(tmp_path: Path):
-    """AC-UNIT-004: each line in bypass-audit.jsonl is valid JSON."""
-    if "bypass-audit.jsonl" not in HOOK_PATH.read_text():
-        pytest.skip("bypass-audit.jsonl not yet implemented — RED")
-
-    jsonl_path = _run_hook_with_bypass(tmp_path, "ATDD_SKIP_PREPUSH_VALIDATE", "test reason")
-    if not jsonl_path.exists():
-        pytest.skip("jsonl not created — implementation not yet green")
-
-    for i, line in enumerate(jsonl_path.read_text().splitlines(), 1):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            json.loads(line)
-        except json.JSONDecodeError as exc:
-            pytest.fail(f"Line {i} is not valid JSON: {exc}\nContent: {line!r}")
-
-
-def test_bypass_audit_jsonl_has_required_fields(tmp_path: Path):
-    """AC-UNIT-004: each audit event has timestamp, flag, reason, hook fields."""
-    if "bypass-audit.jsonl" not in HOOK_PATH.read_text():
-        pytest.skip("bypass-audit.jsonl not yet implemented — RED")
-
-    jsonl_path = _run_hook_with_bypass(tmp_path, "ATDD_SKIP_PREPUSH_VALIDATE", "stale acceptance test")
-    if not jsonl_path.exists():
-        pytest.skip("jsonl not created — implementation not yet green")
-
-    events = [
-        json.loads(line)
-        for line in jsonl_path.read_text().splitlines()
-        if line.strip()
-    ]
-    assert events, "No events written to bypass-audit.jsonl"
-
-    for event in events:
-        missing = _REQUIRED_JSONL_FIELDS - set(event.keys())
-        assert not missing, (
-            f"Bypass audit event is missing required fields: {missing}\n"
-            f"Event: {event}"
-        )
-
-
-def test_bypass_audit_jsonl_records_correct_flag(tmp_path: Path):
-    """AC-UNIT-004: the 'flag' field in the audit event matches the bypass flag used."""
-    if "bypass-audit.jsonl" not in HOOK_PATH.read_text():
-        pytest.skip("bypass-audit.jsonl not yet implemented — RED")
-
-    jsonl_path = _run_hook_with_bypass(tmp_path, "ATDD_SKIP_PREPUSH_VALIDATE", "unit test")
-    if not jsonl_path.exists():
-        pytest.skip("jsonl not created — implementation not yet green")
-
-    events = [
-        json.loads(line)
-        for line in jsonl_path.read_text().splitlines()
-        if line.strip()
-    ]
-    flags_recorded = [e.get("flag", "") for e in events]
-    assert "ATDD_SKIP_PREPUSH_VALIDATE" in flags_recorded, (
-        f"Expected 'ATDD_SKIP_PREPUSH_VALIDATE' in recorded flags, got: {flags_recorded}"
-    )
-
-
-def test_bypass_audit_jsonl_records_correct_reason(tmp_path: Path):
-    """AC-UNIT-004: the 'reason' field in the audit event matches ATDD_BYPASS_REASON."""
-    if "bypass-audit.jsonl" not in HOOK_PATH.read_text():
-        pytest.skip("bypass-audit.jsonl not yet implemented — RED")
-
-    jsonl_path = _run_hook_with_bypass(tmp_path, "ATDD_SKIP_PREPUSH_VALIDATE", "unique-test-reason-xyz")
-    if not jsonl_path.exists():
-        pytest.skip("jsonl not created — implementation not yet green")
-
-    events = [
-        json.loads(line)
-        for line in jsonl_path.read_text().splitlines()
-        if line.strip()
-    ]
-    reasons = [e.get("reason", "") for e in events]
-    assert "unique-test-reason-xyz" in reasons, (
-        f"Expected reason 'unique-test-reason-xyz' in audit events, got: {reasons}"
+def test_pre_commit_hook_does_not_reference_bypass_audit_jsonl():
+    """E030 regression guard: pre-commit hook must NOT reference bypass-audit.jsonl."""
+    text = (HOOKS_DIR / "pre-commit").read_text(encoding="utf-8")
+    assert "bypass-audit.jsonl" not in text, (
+        "pre-commit hook still references bypass-audit.jsonl.\n"
+        "E030 retires ATDD_SKIP_MANIFEST_CHECK; remove the bypass-audit.jsonl write."
     )

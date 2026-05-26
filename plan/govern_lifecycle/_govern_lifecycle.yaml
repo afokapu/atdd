@@ -60,7 +60,7 @@ features:
   - urn: "feature:govern-lifecycle:smoke-false-green-prevention"
 
 wmbt:
-  total: 58
+  total: 60
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -119,3 +119,5 @@ wmbt:
   E029: "minimize quantity of lived-incident-smoke-tests-asserting-on-synthetic-fixtures-rather-than-real-spawn by retrofitting test_e003_smoke_001 and test_e003_smoke_002 to drive the real atdd spawn entry point and removing the ATDD_RUN_SMOKE opt-in from test_e004_smoke_001 (#855)"
   L002: "minimize quantity of existing-smoke-acceptances-escaping-the-new-anti-pattern-detector by implementing a meta-walker that exhaustively applies the synthetic-fixture-bypass scan to every phase:SMOKE acceptance in plan/ (#855)"
   M002: "minimize quantity of post-smoke-production-bugs-per-release-wave by maintaining a Future-Tracking table in docs/smoke-audit.md with expectation=0 for all waves >= v3.83.0 (#855)"
+  E030: "minimize quantity of operator-skip-env-vars-remaining-in-hook-source-after-2026-05-26-directive by removing all 5 remaining ATDD_SKIP_* blocks from every hook template and setting meta-guard baseline to 0 (#851)"
+  E031: "maximize quantity of structured-single-use-emergency-bypass-command-replacing-seven-env-vars by implementing atdd emergency --reason CLI command with EMERGENCY_BYPASS file and audit-jsonl logging (#851)"
