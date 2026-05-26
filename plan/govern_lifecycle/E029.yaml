@@ -1,0 +1,136 @@
+urn: "wmbt:govern-lifecycle:E029"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "lived-incident-smoke-tests-asserting-on-synthetic-fixtures-rather-than-real-spawn"
+context_clarifier: >
+  test_e003_smoke_001_correction_loop_end_to_end.py and test_e003_smoke_002_operator_stdout_visible.py
+  (both under src/atdd/coach/shim/tests/) currently wrap synthetic agents — hardcoded Python
+  scripts embedded in the test file — and assert on bytes in output.log or on the shim's
+  synthetic stdout pipe. They do not call atdd spawn, do not exercise _inject_agent_env,
+  and do not verify that PersonaShim constructed from a real adapter command can survive
+  subprocess.Popen. The #854 Popen crash (shell=True missing on the adapter command tuple)
+  was invisible to these tests precisely because they never called into the real
+  command-construction path. test_e004_smoke_001_real_spawn_uses_shim_process_tree.py
+  does use real spawn wiring but is gated behind ATDD_RUN_SMOKE=1 — an opt-in that is
+  never set in normal CI runs. Retrofitting E003-SMOKE-001 and E003-SMOKE-002 to drive
+  the real atdd spawn entry point and removing the ATDD_RUN_SMOKE opt-in from E004-SMOKE-001
+  is the minimum change that would have caught #854 at SMOKE phase instead of production.
+lens: "functional.effectiveness"
+statement: >
+  minimize quantity of lived-incident-smoke-tests-asserting-on-synthetic-fixtures-rather-than-real-spawn
+  by (1) rewriting test_e003_smoke_001 to invoke atdd spawn as a real subprocess with
+  ATDD_CORRECTION_TRANSPORT=cli-return and assert that the correction record reaches the
+  agent's stdin (operator-observable behavior, not output.log content); (2) rewriting
+  test_e003_smoke_002 to capture the shim's real stdout pipe and assert the sentinel
+  appears in the operator's terminal stream within the timeout; (3) removing the
+  ATDD_RUN_SMOKE=1 opt-in gate from test_e004_smoke_001 so real-spawn verification
+  runs in CI by default
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E029-UNIT-001-e003-smoke-001-has-no-fakemultiplexer"
+      id: "AC-UNIT-001"
+      purpose: "test_e003_smoke_001 source does not import or instantiate FakeMultiplexer"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/shim/tests/test_e003_smoke_001_correction_loop_end_to_end.py is readable"
+    when:
+      abstract: "The test reads the file and scans for FakeMultiplexer"
+    then:
+      abstract:
+        - "The string 'FakeMultiplexer' does not appear anywhere in the file"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E029-UNIT-002-e003-smoke-002-asserts-on-stdout-not-only-log"
+      id: "AC-UNIT-002"
+      purpose: "test_e003_smoke_002 asserts on captured stdout stream, not solely on output.log content"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/shim/tests/test_e003_smoke_002_operator_stdout_visible.py is readable"
+    when:
+      abstract: "The test reads the file and checks for a stdout-capture assertion pattern"
+    then:
+      abstract:
+        - "The file contains an assertion on a stdout stream (e.g. proc.stdout, captured_output, stdout_data) not exclusively on an output.log path"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E029-UNIT-003-e003-smoke-001-uses-real-spawn-entrypoint"
+      id: "AC-UNIT-003"
+      purpose: "test_e003_smoke_001 launches via atdd spawn subprocess, not a hand-rolled Popen of a synthetic command"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/shim/tests/test_e003_smoke_001_correction_loop_end_to_end.py is readable"
+    when:
+      abstract: "The test reads the file and checks for the real atdd spawn invocation pattern"
+    then:
+      abstract:
+        - "The file contains a subprocess call with 'atdd' and 'spawn' as arguments (or an invoke_atdd_spawn helper wrapping them)"
+        - "The file does not contain Popen(['cat', ...]) or Popen(['python', '-c', ...]) as the primary spawn target"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E029-INTEGRATION-001-retrofitted-smoke-tests-pass"
+      id: "AC-INTEGRATION-001"
+      purpose: "Both retrofitted smoke tests execute and pass using real spawn wiring without ATDD_RUN_SMOKE"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd CLI is installed and functional"
+        - "ATDD_CORRECTION_TRANSPORT=cli-return is set in the test environment"
+        - "ATDD_RUN_SMOKE is NOT set"
+    when:
+      abstract: "pytest is invoked targeting test_e003_smoke_001 and test_e003_smoke_002 in shim/tests/"
+    then:
+      abstract:
+        - "Both tests collect and pass"
+        - "Neither test body imports or instantiates FakeMultiplexer"
+        - "test_e004_smoke_001 also passes without requiring ATDD_RUN_SMOKE=1"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E029-SMOKE-001-retrofitted-smokes-pass-in-ci-without-bypasses"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: retrofitted E003-SMOKE tests pass in CI with no bypass env vars"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "CI environment with atdd installed"
+        - "No ATDD_RUN_SMOKE, ATDD_SKIP_*, or bypass env vars are set"
+    when:
+      abstract: "CI runs pytest on shim/tests/ and commands/tests/ directories"
+    then:
+      abstract:
+        - "test_e003_smoke_001_correction_loop_end_to_end passes"
+        - "test_e003_smoke_002_operator_stdout_visible passes"
+        - "test_e004_smoke_001_real_spawn_uses_shim_process_tree passes without ATDD_RUN_SMOKE=1"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"

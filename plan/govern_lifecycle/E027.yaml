@@ -1,0 +1,74 @@
+urn: "wmbt:govern-lifecycle:E027"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "smoke-acceptances-unclassified-by-structural-false-green-cause"
+context_clarifier: >
+  Four production bugs shipped through green-SMOKE during 2026-05-21 → 2026-05-24:
+  #824 (cli-return consumer not wired), #843 (shim swallows pty output), #846 (RED
+  tests in consumer sweep), #854 (shim crashes on real adapter command). In each case
+  the SMOKE test was technically passing — the assertion it made was true under the
+  conditions it set up. The conditions were not representative of production. Before
+  convention tightening can be precisely targeted, every phase:SMOKE acceptance in
+  the codebase must be classified by structural bypass cause: (a) drives real entry
+  point, (b) uses synthetic fixture, (c) asserts on producer artifact only, (d) has
+  no cross-component handoff coverage. Without this inventory the convention extension
+  has no empirical basis and risks being over-broad or missing the real failure modes.
+lens: "functional.effectiveness"
+statement: >
+  minimize quantity of smoke-acceptances-unclassified-by-structural-false-green-cause
+  by (1) enumerating every phase:SMOKE acceptance in plan/ via atdd repo graph;
+  (2) classifying each by structural bypass type: entry-point-coverage /
+  synthetic-fixture / producer-only / handoff-gap; (3) cross-referencing against the
+  four known-false-green incidents (#824, #843, #846, #854); (4) committing the
+  classification table to docs/smoke-audit.md with a per-cause histogram and a
+  Future-Tracking section
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E027-UNIT-001-audit-doc-exists-with-required-structure"
+      id: "AC-UNIT-001"
+      purpose: "docs/smoke-audit.md exists with required columns and rows for the four lived-incident acceptances"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The repo root is accessible"
+        - "docs/smoke-audit.md either does not exist (RED) or has been created (GREEN)"
+    when:
+      abstract: "The test checks for docs/smoke-audit.md existence and required table structure"
+    then:
+      abstract:
+        - "The file exists at docs/smoke-audit.md"
+        - "The file contains a Markdown table with columns: acceptance-URN, entry-point-coverage, assertion-target, handoff-coverage, incident-cross-ref"
+        - "The table includes a row for acc:observe-and-correct:E003-SMOKE-001 (incidents #824 and #843)"
+        - "The table includes a row for acc:observe-and-correct:E003-SMOKE-002 (incident #843)"
+        - "The table includes a row for acc:observe-and-correct:E004-SMOKE-001 (incident #854)"
+        - "A histogram section groups rows by structural-bypass cause with per-cause counts"
+        - "A Future-Tracking section exists with columns: release-wave, post-SMOKE-bugs, expectation"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E027-SMOKE-001-audit-covers-all-current-smoke-acceptances"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: docs/smoke-audit.md has a row for every phase:SMOKE acceptance returned by atdd repo graph"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "docs/smoke-audit.md is committed to HEAD"
+        - "atdd repo graph is callable and returns JSON with an acc family"
+    when:
+      abstract: "The test runs atdd repo graph, extracts all SMOKE acceptance URNs, and checks docs/smoke-audit.md for each"
+    then:
+      abstract:
+        - "Every SMOKE acceptance URN returned by atdd repo graph has a corresponding row in docs/smoke-audit.md"
+        - "The histogram section's total equals the count of phase:SMOKE acceptances in the graph"
+    metadata:
+      author: "atdd:smoke-false-green"
+      created: "2026-05-25"

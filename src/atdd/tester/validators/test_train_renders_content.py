@@ -57,6 +57,8 @@ from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
+# Phase: RED — exclude from consumer validator sweeps until GREEN (E025 / #846)
+pytestmark = [pytest.mark.platform]
 
 REPO_ROOT = find_repo_root()
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "train_renders_content"

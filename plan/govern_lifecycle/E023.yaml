@@ -1,0 +1,128 @@
+urn: "wmbt:govern-lifecycle:E023"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "distinct-environment-variables-required-for-routine-branch-push"
+context_clarifier: >
+  A routine branch push during a release wave requires stacking up to four independent env-var overrides:
+  ATDD_SKIP_BARE_CHECK=1 (if core.bare was contaminated by the SMOKE test — see E022),
+  ATDD_SKIP_VERSION_GATE=1 (the operator just released a new version; their installed atdd is one patch behind),
+  ATDD_SKIP_PREPUSH_VALIDATE=1 (a blast-radius validator fails on an unrelated stale acceptance),
+  ATDD_SKIP_REGISTRY_CHECK=1 (WMBTs were added mid-branch; registry mirrors not yet resynced).
+  Each gate was introduced for a legitimate reason, but the cumulative operator experience is four retry cycles
+  per push — roughly 24 retries per 6-push issue lifecycle. The gate stack does not protect against the bugs
+  it claims to catch if routine development requires bypassing all four. The fix: (1) add ATDD_SKIP_ALL_GATES=1
+  as a single bypass that sets all four flags and prints a one-line "gates bypassed" warning to stderr, making
+  the bypass cost visible but not onerous; (2) tighten the version gate so it only blocks when the installed
+  atdd is behind the repo's declared minimum_version (in .atdd/config.yaml), not behind PyPI latest — a patch
+  bump released seconds ago should never block the operator who authored it; (3) make the registry check
+  self-heal on non-CI pushes by running atdd registry update --yes automatically and re-staging the mirror
+  files, rather than blocking and requiring a manual remediation loop.
+lens: "functional.efficiency"
+statement: >
+  minimize quantity of distinct-environment-variables-required-for-routine-branch-push by (1) adding
+  ATDD_SKIP_ALL_GATES=1 to the pre-push hook template as a single bypass that sets ATDD_SKIP_BARE_CHECK,
+  ATDD_SKIP_VERSION_GATE, ATDD_SKIP_PREPUSH_VALIDATE, and ATDD_SKIP_REGISTRY_CHECK simultaneously while
+  printing a one-line bypass notice to stderr; (2) changing the version gate to compare installed atdd
+  against repo_minimum_version from .atdd/config.yaml (defaulting to 0.0.0 when absent) rather than PyPI
+  latest, so a patch bump released during the session does not block the operator; (3) changing the
+  registry check in non-CI mode to auto-run atdd registry update --yes and re-stage mirror files rather
+  than blocking — operators should not need to know the registry-sync incantation to push a branch
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E023-UNIT-001-skip-all-gates-sets-all-four-flags"
+      id: "AC-UNIT-001"
+      purpose: "ATDD_SKIP_ALL_GATES=1 causes the pre-push hook to bypass bare-check, version gate, prepush-validate, and registry-check in one shot"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path repo with the pre-push hook installed"
+        - "ATDD_SKIP_ALL_GATES=1 is set in the hook's environment"
+    when:
+      abstract: "git push is simulated (hook is invoked directly with dummy stdin payload)"
+    then:
+      abstract:
+        - "The hook exits 0"
+        - "None of the four gate checks execute (verified by absence of their output strings in stderr)"
+        - "The hook prints a one-line bypass notice to stderr (e.g., 'ATDD: all gates bypassed via ATDD_SKIP_ALL_GATES')"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E023-UNIT-002-version-gate-uses-repo-minimum-not-pypi"
+      id: "AC-UNIT-002"
+      purpose: "version gate blocks only when installed atdd is older than the repo's declared minimum_version, not PyPI latest"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A stub version checker is constructed with installed_version='3.81.1' and pypi_latest='3.81.2'"
+        - ".atdd/config.yaml declares minimum_version: '3.80.0'"
+    when:
+      abstract: "_gate_main() is called with the stub checker"
+    then:
+      abstract:
+        - "_gate_main() exits 0 (installed 3.81.1 >= minimum 3.80.0 — no block)"
+        - "The gate does NOT block even though installed is behind PyPI latest (3.81.2)"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E023-UNIT-003-registry-check-auto-heals-in-non-ci"
+      id: "AC-UNIT-003"
+      purpose: "registry check auto-runs atdd registry update --yes and re-stages mirror files in non-CI mode instead of blocking"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A stub RegistryChecker that returns drift=True on first call, drift=False on second call"
+        - "CI env var is unset (non-CI mode)"
+        - "ATDD_SKIP_REGISTRY_CHECK is unset"
+        - "The pre-push hook invokes the registry check"
+    when:
+      abstract: "git push is simulated"
+    then:
+      abstract:
+        - "The hook invokes atdd registry update --yes automatically (captured via stub)"
+        - "The hook re-stages the mirror files (git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml)"
+        - "The hook exits 0 (push is not blocked)"
+        - "The hook prints a notice: 'ATDD: registry mirrors auto-resynced (atdd registry update --yes)'"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E023-SMOKE-001-routine-push-requires-zero-gate-bypasses"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: a routine branch push on an up-to-date worktree completes without any env-var bypass"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp_path repo with the updated pre-push hook installed"
+        - "Installed atdd version >= minimum_version in .atdd/config.yaml"
+        - "core.bare is unset"
+        - "Registry mirrors are in sync"
+        - "No ATDD source files changed in the pushed commit (blast-radius = empty)"
+        - "No env-var overrides set"
+    when:
+      abstract: "git push to a non-main branch is simulated (hook invoked with dummy stdin)"
+    then:
+      abstract:
+        - "The hook exits 0"
+        - "No gate-bypass env-var was needed"
+        - "The push completes in under 5 seconds"
+    metadata:
+      author: "atdd:substrate-friction-investigation"
+      created: "2026-05-23"

@@ -1,0 +1,33 @@
+urn: "feature:spawn-agents:coach-spawn-detector-process-alive"
+wagon: "wagon:spawn-agents"
+description: "Extends the spawn-stage detector (#799/#806) with two robustness fixes (issue #857): (1) _build_shim_command switches from a bare 'atdd-shim' token to a module-invocation form '[sys.executable, \"-m\", \"atdd.coach.shim\", ...]' eliminating PATH resolution on multi-install hosts (E017); (2) a new 'process-alive' stage is inserted after surface creation that asserts the shim pid is alive and, in cli-return mode, that agents/<id>/output.log received at least one byte — preventing agent_spawned from firing when the shim has already crashed (E018)."
+sizing:
+  wmbts: 2
+  footprint_score: 5
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:spawn-agents:E017"
+  - "wmbt:spawn-agents:E018"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — changes are confined to spawn.py internals"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "_build_shim_command (module-invocation refactor for E017), _verify_process_alive (new poll-and-raise primitive for E018), ProcessNotAlive exception (new subclass of WorkerReadinessTimeout for E018)"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "Reuses WorkerReadinessTimeout hierarchy from E010/E011; no new domain primitives"
+    integration:
+      - type: "adapters"
+        count: 0
+        rationale: "No new adapter surface — _verify_process_alive reads proc.poll() (stdlib) and agents/<id>/output.log (filesystem); both already accessible via runtime_dir"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"

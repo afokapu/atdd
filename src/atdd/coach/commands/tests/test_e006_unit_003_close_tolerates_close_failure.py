@@ -66,7 +66,7 @@ def test_original_exception_propagates_when_close_also_raises(tmp_path):
               side_effect=WorkerReadinessTimeout("original-timeout")),
         patch("atdd.coach.commands.spawn._pre_trust_worktree"),
         patch("atdd.coach.commands.spawn._assert_no_forbidden_flags"),
-        patch("atdd.coach.commands.spawn._inject_agent_env", side_effect=lambda cmd, _: cmd),
+        patch("atdd.coach.commands.spawn._inject_agent_env", side_effect=lambda cmd, _: ({}, cmd)),
         patch("atdd.coach.commands.spawn.compute_repo_short_name", return_value="test"),
         patch("atdd.coach.commands.spawn.compute_issue_surface_name", return_value="ATDD999"),
         patch("atdd.coach.utils.config.load_atdd_config", return_value=MagicMock()),

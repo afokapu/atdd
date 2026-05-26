@@ -123,6 +123,12 @@ class PromptNotSubmitted(WorkerReadinessTimeout):
     swallowed-Enter failure mode (E011, issue #799)."""
 
 
+class ProcessNotAlive(WorkerReadinessTimeout):
+    """Raised by _verify_process_alive when the spawned shim process has already
+    exited before the process-alive stage timeout, or when cli-return mode is
+    active and agents/<id>/output.log never received a heartbeat byte (E018, #857)."""
+
+
 class DeprecatedMultiplexerModeError(ValueError):
     """Raised when _create_surface is called with a cmux-deprecated mode.
 
@@ -183,6 +189,58 @@ def _verify_stage(
         f"Stage {stage_name!r} on {surface_ref!r} timed out after {timeout_s:.1f}s "
         f"(elapsed {elapsed:.1f}s): none of {expect_any!r} appeared in pane capture. "
         f"({SPAWN_RULE_ID})"
+    )
+
+
+def _verify_process_alive(
+    proc: Any,
+    agent_id: str,
+    runtime_dir: Path,
+    transport: str,
+    *,
+    timeout_s: float = 5.0,
+    poll_interval_s: float = 0.1,
+) -> None:
+    """Assert the shim process is still running after surface creation (E018, #857).
+
+    Two-part check:
+    1. proc.poll() must return None (process has not exited).
+    2. In cli-return mode only: agents/<id>/output.log must contain at least
+       1 byte within *timeout_s* — proof that the shim got past Popen and is
+       tee-ing the pty output. A crashed shim leaves surface artifacts intact
+       (rename, layout, tab title) but never writes output.log.
+
+    Raises ProcessNotAlive on any failure so callers can escalate rather than
+    proceeding to agent_spawned with a dead worker.
+    """
+    if proc is not None:
+        rc = proc.poll()
+        if rc is not None:
+            raise ProcessNotAlive(
+                f"Shim process for {agent_id!r} exited with code {rc} before "
+                f"process-alive stage completed. ({SPAWN_RULE_ID})"
+            )
+
+    if transport != "cli-return":
+        return
+
+    output_log = runtime_dir / "output.log"
+    start = time.monotonic()
+    while time.monotonic() - start < timeout_s:
+        if output_log.exists() and output_log.stat().st_size > 0:
+            return
+        if proc is not None and proc.poll() is not None:
+            rc = proc.poll()
+            raise ProcessNotAlive(
+                f"Shim process for {agent_id!r} exited with code {rc} while "
+                f"waiting for output.log heartbeat. ({SPAWN_RULE_ID})"
+            )
+        time.sleep(poll_interval_s)
+
+    raise ProcessNotAlive(
+        f"Shim process for {agent_id!r} is alive but {output_log} never received "
+        f"a heartbeat byte within {timeout_s:.1f}s — shim may have crashed silently "
+        f"inside its pty. ({SPAWN_RULE_ID})"
     )
 
 
@@ -606,19 +664,24 @@ ADAPTER_REGISTRY: dict[str, AdapterConfig] = {
 }
 
 
-def _inject_agent_env(command: str, agent_id: str) -> str:
-    """Prefix ``ATDD_AGENT_ID=<agent_id>`` onto a persona launch command
-    (#731 Phase 1).
+def _inject_agent_env(
+    command: str, agent_id: str
+) -> tuple[dict[str, str], str]:
+    """Return ``(env_overrides, command)`` for ATDD_AGENT_ID injection (#731 / #854).
 
-    Adapter-agnostic by construction: it wraps whatever command string the
-    per-LLM adapter produced, so the env var reaches the spawned process
-    regardless of which adapter is in use. ``agent_id`` is shell-quoted
-    defensively even though the canonical ``<persona>-<issue>-<suffix>``
-    shape never needs it.
+    Shape A fix (#854): previously returned a shell-prefixed string
+    ``ATDD_AGENT_ID=<id> <command>`` which broke ``subprocess.Popen`` when
+    passed through atdd-shim's argv without ``shell=True``.  Now returns a
+    typed ``(dict, str)`` tuple so callers choose the injection mechanism:
+
+    - cli-return path: pass env_overrides via ``--env`` flags to atdd-shim
+      (``_build_shim_command`` handles this).
+    - shell/multiplexer path: reconstruct the ``KEY=value`` prefix from the
+      dict and prepend it to command as before.
     """
     if not agent_id:
-        return command
-    return f"ATDD_AGENT_ID={shlex.quote(agent_id)} {command}"
+        return {}, command
+    return {"ATDD_AGENT_ID": agent_id}, command
 
 
 # ---------------------------------------------------------------------------
@@ -634,20 +697,38 @@ def _correction_transport() -> str:
     return os.environ.get("ATDD_CORRECTION_TRANSPORT", "").strip().lower()
 
 
-def _build_shim_command(adapter_command: str, agent_id: str, runtime_root: Path) -> str:
+def _build_shim_command(
+    adapter_command: str,
+    agent_id: str,
+    runtime_root: Path,
+    env_overrides: dict[str, str] | None = None,
+) -> str:
     """Wrap adapter_command with the atdd-shim entry point.
 
-    The shim becomes the pane foreground process; the adapter runs inside the
-    shim-owned pty. ATDD_AGENT_ID has already been injected into adapter_command
-    by _inject_agent_env before this is called.
+    E017 fix (#857): uses module-invocation form (sys.executable -m atdd.coach.shim)
+    instead of a bare 'atdd-shim' token so PATH resolution is eliminated entirely.
+    On multi-install hosts (e.g. homebrew 3.81.1 + pipx 3.82.4) the bare token
+    resolves to whichever installation $PATH finds first, which may be stale.
+    The module form routes through the SAME Python that is running coach.
+
+    Shape A fix (#854): env_overrides are passed via ``--env KEY=VALUE`` flags
+    so atdd-shim can apply them via ``subprocess.Popen(env=...)`` rather than
+    relying on shell-style ``KEY=value`` argv[0] prefixes which fail without
+    ``shell=True``.
 
     Produces:
-      atdd-shim --agent-id <id> --runtime-dir <path> -- <adapter_command>
+      <sys.executable> -m atdd.coach.shim --agent-id <id> --runtime-dir <path> [--env K=V ...] -- <adapter_command>
     """
+    env_flags = ""
+    if env_overrides:
+        env_flags = "".join(
+            f" --env {shlex.quote(f'{k}={v}')}" for k, v in env_overrides.items()
+        )
     return (
-        f"atdd-shim"
+        f"{shlex.quote(sys.executable)} -m atdd.coach.shim"
         f" --agent-id {shlex.quote(agent_id)}"
         f" --runtime-dir {shlex.quote(str(runtime_root))}"
+        f"{env_flags}"
         f" -- {adapter_command}"
     )
 
@@ -1143,7 +1224,10 @@ def cmd_spawn(
     # (claude-code today; codex / gemini / glm later) inherits it for free.
     # Without this the spawned persona has no ATDD_AGENT_ID and every
     # `atdd agent` subcommand fails closed, stalling the coach.
-    command = _inject_agent_env(command, agent_id)
+    # #731 / #854 Shape A: _inject_agent_env returns (env_overrides, command).
+    # - cli-return path: env_overrides passed via --env flags to atdd-shim
+    # - shell/multiplexer path: reconstruct KEY=value prefix for shell dispatch
+    env_overrides, command = _inject_agent_env(command, agent_id)
 
     # E004 (#841): when ATDD_CORRECTION_TRANSPORT=cli-return, wrap the adapter
     # command in PersonaShim and prime the inbox with the launch prompt BEFORE
@@ -1154,7 +1238,14 @@ def cmd_spawn(
     using_cli_return = _correction_transport() == "cli-return"
     if using_cli_return:
         _prime_cli_return_inbox(agent_dir, prompt_path.read_text())
-        command = _build_shim_command(command, agent_id, runtime_root)
+        command = _build_shim_command(command, agent_id, runtime_root, env_overrides=env_overrides)
+    elif env_overrides:
+        # Shell/multiplexer dispatch: reconstruct KEY=value prefix so the shell
+        # that runs the surface command sets the env var for the adapter process.
+        prefix = " ".join(
+            f"{k}={shlex.quote(str(v))}" for k, v in env_overrides.items()
+        )
+        command = f"{prefix} {command}"
 
     from atdd.coach.utils.config import load_atdd_config
 
@@ -1249,6 +1340,32 @@ def cmd_spawn(
                 f"({SPAWN_RULE_ID})",
                 file=sys.stderr,
             )
+
+    # E018 (#857): verify the spawned process is alive after surface creation.
+    # In cli-return mode, also wait for agents/<id>/output.log to receive at
+    # least one heartbeat byte — proof the shim got past Popen and is running.
+    # A shim that crashes silently leaves all surface artifacts intact (rename,
+    # layout, tab title) but never writes output.log, so this is the only
+    # reliable liveness signal available without a direct process object.
+    process_alive_timeout = float(
+        os.environ.get("ATDD_PROCESS_ALIVE_TIMEOUT", "5.0")
+    )
+    try:
+        _verify_process_alive(
+            proc=None,
+            agent_id=agent_id,
+            runtime_dir=agent_dir,
+            transport=_correction_transport(),
+            timeout_s=process_alive_timeout,
+        )
+    except ProcessNotAlive as exc:
+        print(
+            f"❌ spawned process for {agent_id!r} is not alive: {exc} "
+            f"({SPAWN_RULE_ID})",
+            file=sys.stderr,
+        )
+        _close_surface_on_failure(backend, surface_ref)
+        raise
 
     # E010 (#795): wait for Claude's TUI to be ready before pasting.
     # E004 (#841): skip the paste path entirely when ATDD_CORRECTION_TRANSPORT=
