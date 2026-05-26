@@ -1,5 +1,4 @@
 #!/bin/sh
-
 # ATDD post-commit hook — blast-radius local validation.
 # Installed by `atdd init`. Always exits 0 (info-only; cannot undo a commit).
 #
