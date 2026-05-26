@@ -10,13 +10,24 @@
 #   - the commit message does not have one of the recognised
 #     decommission prefixes / explicit allow tokens.
 #
-# Override (use sparingly): ATDD_SKIP_MASSDELETE=1 git commit ...
+# All ATDD_SKIP_* bypass env vars have been retired (E030, 2026-05-26).
+# For genuine emergencies: atdd emergency --reason "<reason>"
 
 set -e
 
-# --- Skip if explicit override requested ---
-if [ "${ATDD_SKIP_MASSDELETE:-0}" = "1" ]; then
-    exit 0
+# --- Emergency bypass check (E031) ---
+_REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+if [ -n "$_REPO_ROOT" ]; then
+    _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
+    if [ -f "$_BYPASS_FILE" ]; then
+        if find "$_BYPASS_FILE" -mmin -5 2>/dev/null | grep -q .; then
+            printf "ATDD: Emergency bypass active (commit-msg). Reason: %s\n" \
+                "$(head -1 "$_BYPASS_FILE" 2>/dev/null | sed 's/^reason=//' || echo 'see .atdd/EMERGENCY_BYPASS')" >&2
+            exit 0
+        else
+            printf "ATDD: Emergency bypass file found but expired (> 5 min). Ignored.\n" >&2
+        fi
+    fi
 fi
 
 # --- Count staged deletions ---
@@ -70,8 +81,7 @@ If this deletion is intentional, prefix the commit message with one of:
   chore(archive):
 ... or include the literal token [mass-delete-approved] anywhere in the body.
 
-Override (use sparingly):
-  ATDD_SKIP_MASSDELETE=1 git commit ...
+For genuine emergencies: atdd emergency --reason "<reason>"
 
 MASSDELETE_MSG
 exit 1

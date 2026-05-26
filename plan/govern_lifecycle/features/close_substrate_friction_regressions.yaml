@@ -9,14 +9,16 @@ description: >
   appearing to auto-skip on every merge because issues-event-triggered ATDD Validate runs produce many
   workflow_run:skipped entries before the push-triggered workflow_run:success appears.
 sizing:
-  wmbts: 4
-  footprint_score: 4
-  footprint_size: "M"
+  wmbts: 6
+  footprint_score: 6
+  footprint_size: "L"
 wmbts:
   - "wmbt:govern-lifecycle:E022"
   - "wmbt:govern-lifecycle:E023"
   - "wmbt:govern-lifecycle:E024"
   - "wmbt:govern-lifecycle:E026"
+  - "wmbt:govern-lifecycle:E030"
+  - "wmbt:govern-lifecycle:E031"
 components:
   backend:
     presentation:

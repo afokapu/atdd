@@ -31,6 +31,11 @@ coverage.xml
 .atdd/diagnostics/
 .atdd/orchestration-log.jsonl
 .atdd/worker-state-*.json
+# Emergency bypass (E031): single-use file created by `atdd emergency --reason`
+.atdd/EMERGENCY_BYPASS
+.atdd/emergency-audit.jsonl
+# Legacy bypass audit log (E026, superseded by E030)
+.atdd/bypass-audit.jsonl
 # Per-run runtime state — ephemeral, never committed (#755).
 # Fully ignored so git add -A / git commit -a cannot accidentally pick up
 # coach session files, decisions.jsonl, or any other per-run artifact.
