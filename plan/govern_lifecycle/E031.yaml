@@ -1,7 +1,7 @@
 urn: "wmbt:govern-lifecycle:E031"
 step: "execute"
-direction: "ensure"
-dimension: "existence"
+direction: "maximize"
+dimension: "quantity"
 object_of_control: "structured-single-use-emergency-bypass-command-replacing-seven-env-vars"
 context_clarifier: >
   After E030 retires all ATDD_SKIP_* env vars, no escape exists for genuine emergency
@@ -16,7 +16,7 @@ context_clarifier: >
   auditable, single-operation act rather than a persistent env-var side-channel.
 lens: "functional.effectiveness"
 statement: >
-  ensure existence of structured-single-use-emergency-bypass-command-replacing-seven-env-vars
+  maximize quantity of structured-single-use-emergency-bypass-command-replacing-seven-env-vars
   by (1) implementing `atdd emergency --reason "<text>"` CLI command that writes
   .atdd/EMERGENCY_BYPASS with a timestamp and reason and appends to .atdd/emergency-audit.jsonl;
   (2) adding an emergency-bypass check at the top of pre-push, pre-commit, and commit-msg
