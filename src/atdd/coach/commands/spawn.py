@@ -237,10 +237,20 @@ def _verify_process_alive(
             )
         time.sleep(poll_interval_s)
 
+    bleed_candidate = (
+        Path.cwd() / ".atdd" / "runtime" / "agents" / agent_id / "output.log"
+    )
+    if bleed_candidate.exists() and bleed_candidate.stat().st_size > 0:
+        raise ProcessNotAlive(
+            f"Shim process for {agent_id!r} path-mismatch: "
+            f"polled {output_log} but bleed candidate found at alternate path "
+            f"{bleed_candidate} — shim wrote output to CWD-relative path instead of "
+            f"the absolute runtime-dir. ({SPAWN_RULE_ID})"
+        )
     raise ProcessNotAlive(
         f"Shim process for {agent_id!r} is alive but {output_log} never received "
-        f"a heartbeat byte within {timeout_s:.1f}s — shim may have crashed silently "
-        f"inside its pty. ({SPAWN_RULE_ID})"
+        f"a heartbeat byte within {timeout_s:.1f}s — no bleed candidate found at alternate path. "
+        f"({SPAWN_RULE_ID})"
     )
 
 
@@ -727,7 +737,7 @@ def _build_shim_command(
     return (
         f"{shlex.quote(sys.executable)} -m atdd.coach.shim"
         f" --agent-id {shlex.quote(agent_id)}"
-        f" --runtime-dir {shlex.quote(str(runtime_root))}"
+        f" --runtime-dir {shlex.quote(str(runtime_root.resolve()))}"
         f"{env_flags}"
         f" -- {adapter_command}"
     )
@@ -1186,7 +1196,7 @@ def cmd_spawn(
         )
 
     worktree = Path(worktree)
-    runtime_root = Path(runtime_root)
+    runtime_root = Path(runtime_root).resolve()
 
     prompt_path = _render_launch_prompt(
         issue, worktree, phase=phase, rules=rules, persona=persona, agent_id=agent_id,

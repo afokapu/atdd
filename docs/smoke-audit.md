@@ -123,6 +123,10 @@ of bypass patterns.
 | acc:spawn-agents:E016-SMOKE-001-no-popen-exec-failure-with-cli-return-env | real (atdd-shim CLI) | Popen success | N/A (single component) | — |
 | acc:spawn-agents:E017-SMOKE-001-shim-invoked-via-same-python-as-coach | real (atdd spawn) | Python interpreter match | N/A (single component) | — |
 | acc:spawn-agents:E018-SMOKE-001-live-spawn-pipeline-detects-dead-shim | real (atdd spawn) | dead shim detection | N/A (single component) | — |
+| acc:spawn-agents:E019-SMOKE-001-shim-command-runtime-dir-is-absolute-in-live-spawn | real (_build_shim_command) | absolute path in --runtime-dir | N/A (single component) | — |
+| acc:spawn-agents:E020-SMOKE-001-deployed-shim-resolves-relative-runtime-dir | real (atdd.coach.shim.__main__) | absolute path after normalization | N/A (single component) | — |
+| acc:spawn-agents:E021-SMOKE-001-live-process-alive-message-names-polled-path | real (_verify_process_alive) | message content | N/A (single component) | — |
+| acc:spawn-agents:L002-SMOKE-001-relative-runtime-root-output-log-at-absolute-path | real (cmd_spawn + fixture shim) | output.log location | N/A (single component) | — |
 | acc:spawn-agents:L001-SMOKE-001-claude-code-no-modal-on-bash-read | real (atdd spawn + claude) | modal absence | N/A (single component) | — |
 | acc:spawn-agents:M001-SMOKE-001-live-session-naming-apply-has-no-slash-rename | real (atdd spawn) | session name format | N/A (single component) | — |
 | acc:spawn-agents:M002-SMOKE-001-live-observer-rules-pass-layer-b-validator | real (atdd validate) | rules validation | N/A (validator) | — |

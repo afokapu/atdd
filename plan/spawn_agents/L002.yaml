@@ -1,0 +1,35 @@
+urn: "wmbt:spawn-agents:L002"
+step: "locate"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "relative-runtime-root-causes-output-log-to-land-at-worktree-path-instead-of-coach-polled-path"
+context_clarifier: "The three-phase fix (E019: _build_shim_command resolution, E020: shim argparse normalization, E021: improved failure message) eliminates the relative-path CWD bleed identified in issue #860. An end-to-end SMOKE test closes the validation loop by reproducing the exact setup that caused the 2026-05-26 false-crash incident: runtime_root supplied as a relative path, CWD changed to a worktree directory before shim exec, then asserting output.log lands at the resolved absolute path — not at the worktree-relative candidate. This SMOKE test is the definitive regression gate: any future change that reintroduces relative-path bleed will cause _verify_process_alive to raise in this test before it causes a false-crash in production."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of relative-runtime-root-causes-output-log-to-land-at-worktree-path-instead-of-coach-polled-path by adding an end-to-end SMOKE test that invokes cmd_spawn with a relative runtime_root, asserts output.log exists at the resolved absolute path after the shim runs, and asserts no output.log exists at any worktree-relative CWD-bleed candidate"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:L002-SMOKE-001-relative-runtime-root-output-log-at-absolute-path"
+      id: "AC-SMOKE-001"
+      purpose: "End-to-end: with runtime_root specified as a relative path, the shim writes output.log at the resolved absolute path and no output.log appears at any CWD-bled worktree-relative location; _verify_process_alive does not raise"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_CORRECTION_TRANSPORT=cli-return is set"
+        - "A fixture issue with a known agent_id is available in a tmp_path context"
+        - "runtime_root is supplied as a relative path (e.g. '.atdd/runtime') to cmd_spawn"
+        - "A FakeMultiplexer is scripted for surface creation success"
+        - "A fixture shim command (e.g. python3 -c 'open(path, \"w\").write(\"x\")') writes one byte to its received --runtime-dir agents/<id>/output.log"
+        - "ATDD_RUN_SMOKE=1 is set"
+    when:
+      abstract: "cmd_spawn is invoked; the fixture shim runs and writes its output.log"
+    then:
+      abstract:
+        - "agents/<id>/output.log exists at <resolved_abs_runtime_root>/agents/<id>/output.log (non-empty)"
+        - "No output.log exists under any worktree-relative or alternative CWD directory for this agent_id"
+        - "_verify_process_alive does NOT raise ProcessNotAlive (heartbeat byte visible at the polled absolute path)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-26"
