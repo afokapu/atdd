@@ -1,6 +1,6 @@
-# URN: test:observe-and-correct:E006-SMOKE-001-delivery-waits-for-tui
-# Acceptance: acc:observe-and-correct:E006-SMOKE-001-delivery-waits-for-tui
-# WMBT: wmbt:observe-and-correct:E006
+# URN: test:observe-and-correct:E008-SMOKE-001-delivery-waits-for-tui
+# Acceptance: acc:observe-and-correct:E008-SMOKE-001-delivery-waits-for-tui
+# WMBT: wmbt:observe-and-correct:E008
 # Phase: SMOKE
 # Assertion: behavioral
 # Layer: integration
@@ -10,7 +10,7 @@
 # delivery is visible at check-time. Without the wait-for-ready gate the shim
 # delivers the correction within ~0.1s (before the 0.5s early-check), making
 # the "RECV: NOT present at 0.5s" assertion fail.
-"""E006-SMOKE-001 — With a synthetic slow-start agent, cli-return.jsonl entries
+"""E008-SMOKE-001 — With a synthetic slow-start agent, cli-return.jsonl entries
 are not delivered to the agent's stdin until after the ready-marker appears in
 output.log.
 
@@ -19,7 +19,7 @@ The synthetic agent:
   2. After 1.0s, writes the ready-marker to stdout (teed to output.log by shim).
   3. Echoes any received stdin bytes as RECV:<text> to output.log.
 
-Without the E006 gate: shim delivers correction at ~0.1s → agent reads at
+Without the E008 gate: shim delivers correction at ~0.1s → agent reads at
 ~0.1s → RECV:WAIT_GATE_TEST appears by 0.5s → assertion FAILS (RED).
 
 With the gate: shim waits for marker (at 1s) → delivery after marker → RECV:
@@ -91,7 +91,7 @@ sys.exit(0)
 
 def _append_cli_return(path: Path, correction_text: str) -> None:
     record = {
-        "rule_id": "TEST-E006-SMOKE-001",
+        "rule_id": "TEST-E008-SMOKE-001",
         "correction_text": correction_text,
         "severity": 3,
         "issued_at": "2026-05-26T00:00:00Z",

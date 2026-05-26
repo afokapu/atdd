@@ -1,10 +1,10 @@
-# URN: test:observe-and-correct:E006-UNIT-003-ready-marker-configurable
-# Acceptance: acc:observe-and-correct:E006-UNIT-003-ready-marker-configurable
-# WMBT: wmbt:observe-and-correct:E006
+# URN: test:observe-and-correct:E008-UNIT-003-ready-marker-configurable
+# Acceptance: acc:observe-and-correct:E008-UNIT-003-ready-marker-configurable
+# WMBT: wmbt:observe-and-correct:E008
 # Phase: RED
 # Assertion: behavioral
 # Layer: application
-"""E006-UNIT-003 — The TUI ready-marker pattern is configurable via
+"""E008-UNIT-003 — The TUI ready-marker pattern is configurable via
 ATDD_SHIM_READY_MARKER (default: ❯); the shim scans the tail of output.log
 for the marker byte string.
 
@@ -24,7 +24,7 @@ pytestmark = [pytest.mark.platform]
 
 def _append_cli_return(path: Path, correction_text: str) -> None:
     record = {
-        "rule_id": "TEST-E006-003",
+        "rule_id": "TEST-E008-003",
         "correction_text": correction_text,
         "severity": 3,
         "issued_at": "2026-05-26T00:00:00Z",

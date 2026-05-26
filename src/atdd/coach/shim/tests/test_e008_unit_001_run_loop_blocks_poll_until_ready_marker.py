@@ -1,10 +1,10 @@
-# URN: test:observe-and-correct:E006-UNIT-001-run-loop-blocks-poll-until-ready-marker
-# Acceptance: acc:observe-and-correct:E006-UNIT-001-run-loop-blocks-poll-until-ready-marker
-# WMBT: wmbt:observe-and-correct:E006
+# URN: test:observe-and-correct:E008-UNIT-001-run-loop-blocks-poll-until-ready-marker
+# Acceptance: acc:observe-and-correct:E008-UNIT-001-run-loop-blocks-poll-until-ready-marker
+# WMBT: wmbt:observe-and-correct:E008
 # Phase: RED
 # Assertion: behavioral
 # Layer: application
-"""E006-UNIT-001 — _run_loop does not call poll_once() until the TUI ready-marker
+"""E008-UNIT-001 — _run_loop does not call poll_once() until the TUI ready-marker
 appears in output.log; once the marker appears, subsequent cli-return.jsonl entries
 are delivered normally.
 
@@ -24,7 +24,7 @@ pytestmark = [pytest.mark.platform]
 
 def _append_cli_return(path: Path, correction_text: str) -> None:
     record = {
-        "rule_id": "TEST-E006-001",
+        "rule_id": "TEST-E008-001",
         "correction_text": correction_text,
         "severity": 3,
         "issued_at": "2026-05-26T00:00:00Z",

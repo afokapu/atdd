@@ -1,10 +1,10 @@
-# URN: test:observe-and-correct:E006-UNIT-002-bootstrap-delay-fallback
-# Acceptance: acc:observe-and-correct:E006-UNIT-002-bootstrap-delay-fallback
-# WMBT: wmbt:observe-and-correct:E006
+# URN: test:observe-and-correct:E008-UNIT-002-bootstrap-delay-fallback
+# Acceptance: acc:observe-and-correct:E008-UNIT-002-bootstrap-delay-fallback
+# WMBT: wmbt:observe-and-correct:E008
 # Phase: RED
 # Assertion: behavioral
 # Layer: application
-"""E006-UNIT-002 — When the TUI ready-marker never appears in output.log, the
+"""E008-UNIT-002 — When the TUI ready-marker never appears in output.log, the
 shim falls back to starting cli-return delivery after ATDD_SHIM_BOOTSTRAP_DELAY_S
 seconds have elapsed since process spawn.
 
@@ -23,7 +23,7 @@ pytestmark = [pytest.mark.platform]
 
 def _append_cli_return(path: Path, correction_text: str) -> None:
     record = {
-        "rule_id": "TEST-E006-002",
+        "rule_id": "TEST-E008-002",
         "correction_text": correction_text,
         "severity": 3,
         "issued_at": "2026-05-26T00:00:00Z",
