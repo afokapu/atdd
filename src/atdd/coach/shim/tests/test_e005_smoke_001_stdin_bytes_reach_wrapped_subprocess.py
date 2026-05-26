@@ -1,10 +1,10 @@
-# URN: test:observe-and-correct:E005-INTEGRATION-001-stdin-bytes-reach-wrapped-subprocess
-# Acceptance: acc:observe-and-correct:E005-INTEGRATION-001-stdin-bytes-reach-wrapped-subprocess
+# URN: test:observe-and-correct:E005-SMOKE-001-stdin-bytes-reach-wrapped-subprocess
+# Acceptance: acc:observe-and-correct:E005-SMOKE-001-stdin-bytes-reach-wrapped-subprocess
 # WMBT: wmbt:observe-and-correct:E005
 # Phase: SMOKE
 # Assertion: behavioral
 # Layer: integration
-"""E005-INTEGRATION-001 — End-to-end round-trip: PersonaShim wrapping a real
+"""E005-SMOKE-001 — End-to-end round-trip: PersonaShim wrapping a real
 echo subprocess receives operator keystrokes from its stdin_source and the
 subprocess echoes them back through the pty output chain.
 

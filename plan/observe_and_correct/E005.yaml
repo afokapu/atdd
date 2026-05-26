@@ -53,7 +53,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-26"
   - identity:
-      urn: "acc:observe-and-correct:E005-INTEGRATION-001-stdin-bytes-reach-wrapped-subprocess"
+      urn: "acc:observe-and-correct:E005-SMOKE-001-stdin-bytes-reach-wrapped-subprocess"
       id: "AC-SMOKE-001"
       purpose: "End-to-end round-trip: launch PersonaShim wrapping a real subprocess that echoes stdin (e.g. 'cat' or 'python -c import sys; sys.stdout.write(sys.stdin.read(1024)); sys.stdout.flush()'); write bytes to the shim's stdin; assert those exact bytes appear in the shim's pty output (and stdout_sink) within a 5-second timeout — proving the full operator-keystroke → shim → pty → subprocess → pty-output path"
       phase: "SMOKE"
