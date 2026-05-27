@@ -47,6 +47,27 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-27"
   - identity:
+      urn: "acc:spawn-agents:E022-UNIT-003-upgrade-banner-does-not-suggest-force"
+      id: "AC-UNIT-003"
+      purpose: "check_upgrade_sync_needed() returns a banner that contains 'atdd sync' but does NOT contain '--force', so agents reading the banner cannot discover the destructive 'atdd init --force' flag"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.version_check is importable"
+        - "check_upgrade_sync_needed() is patched to return a synthetic banner string"
+    when:
+      abstract: "check_upgrade_sync_needed() is called (or the banner string is inspected directly)"
+    then:
+      abstract:
+        - "The returned string contains 'atdd sync'"
+        - "The returned string does NOT contain '--force'"
+    metadata:
+      author: "atdd:coder"
+      created: "2026-05-28"
+  - identity:
       urn: "acc:spawn-agents:E022-SMOKE-001-live-claude-md-contains-no-atdd-skip-references"
       id: "AC-SMOKE-001"
       purpose: "The deployed CLAUDE.md in the live repo root contains zero ATDD_SKIP_* tokens; confirmed against the real filesystem after merge"
