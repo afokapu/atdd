@@ -904,6 +904,23 @@ def _render_launch_prompt(
     )
     rendered = session_template.render(context)
 
+    # E023: inject wagon-graph section before the Workflow section so the agent
+    # has structural context before reading the workflow steps.  Graceful degrade
+    # when _build_wagon_graph_section raises (unknown wagon, subprocess failure,
+    # etc.) — the prompt is still written and dispatch continues.
+    try:
+        wagon_graph_section = _build_wagon_graph_section(context.wagon)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        wagon_graph_section = None
+    if wagon_graph_section:
+        marker = "\n## Workflow"
+        if marker in rendered:
+            idx = rendered.find(marker)
+            pre = rendered[:idx].rstrip()
+            rendered = pre + "\n\n" + wagon_graph_section.rstrip() + "\n" + rendered[idx:]
+        else:
+            rendered = rendered.rstrip() + "\n\n" + wagon_graph_section
+
     # Pre-inject architecture context (E003): splice wagon/train/WMBT section
     # before rule blocks so the agent has structural context from the start.
     arch_section = _build_arch_section(issue)
@@ -930,6 +947,23 @@ def _build_arch_section(issue: int) -> Optional[str]:
         from atdd.coach.commands.issue_graph import build_issue_architecture_context
 
         return build_issue_architecture_context(issue)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+
+def _build_wagon_graph_section(wagon_slug: str, *, repo_root: Optional[Path] = None) -> Optional[str]:
+    """Return the wagon-scoped launch-prompt section, or None on any failure.
+
+    E023: called by _render_launch_prompt to inject wagon architecture context
+    before the Workflow section.  Returns None when wagon_slug is empty or
+    the wagon has no manifest; never raises.
+    """
+    try:
+        from atdd.coach.commands.issue_graph import build_wagon_launch_prompt
+
+        if not wagon_slug:
+            return None
+        return build_wagon_launch_prompt(wagon_slug, repo_root=repo_root)
     except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         return None
 
