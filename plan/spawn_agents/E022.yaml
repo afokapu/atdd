@@ -1,0 +1,69 @@
+urn: "wmbt:spawn-agents:E022"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "claude-md-advertising-atdd-skip-bypass-env-vars-to-dispatched-agents"
+context_clarifier: "CLAUDE.md is the primary context file read by every dispatched worker agent. Lines 643 and 658 (pre-#867) explicitly document ATDD_SKIP_POSTCOMMIT=1 as a routine operator override inside the post_commit_hook.overrides block. Agents (including ATDD860, ATDD861, ATDD862, ATDD851) self-discover this documentation and apply the bypass without operator instruction — 76 invocations across 4 workers in a single session (2026-05-26). The bypass-discovery vector is the project's own context file, not an external doc site. Fix: remove every ATDD_SKIP_* reference from CLAUDE.md and replace with a pointer to docs/operator-emergency-bypass.md, which is operator-only and excluded from agent context loads."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-to-dispatched-agents by stripping all ATDD_SKIP_* env-var references from CLAUDE.md and replacing with a single pointer to docs/operator-emergency-bypass.md (operator-only, not loaded by agents)"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E022-UNIT-001-claude-md-contains-no-atdd-skip-references"
+      id: "AC-UNIT-001"
+      purpose: "The literal grep `grep -E 'ATDD_SKIP_[A-Z_]+' CLAUDE.md` returns 0 matching lines — no bypass env-var token is present anywhere in the file"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "CLAUDE.md in the repo root after #867 edits are applied"
+    when:
+      abstract: "grep -E 'ATDD_SKIP_[A-Z_]+' CLAUDE.md is executed"
+    then:
+      abstract:
+        - "Exit code is 1 (no matches found)"
+        - "Zero lines of output are produced"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+  - identity:
+      urn: "acc:spawn-agents:E022-UNIT-002-claude-md-references-operator-emergency-bypass-doc"
+      id: "AC-UNIT-002"
+      purpose: "CLAUDE.md contains the string 'docs/operator-emergency-bypass.md' so agents are directed to the correct operator-only reference rather than being left with no information about emergency overrides"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "CLAUDE.md in the repo root after #867 edits"
+    when:
+      abstract: "grep 'docs/operator-emergency-bypass.md' CLAUDE.md is executed"
+    then:
+      abstract:
+        - "At least one line matches, confirming the operator-only doc is referenced"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+  - identity:
+      urn: "acc:spawn-agents:E022-SMOKE-001-live-claude-md-contains-no-atdd-skip-references"
+      id: "AC-SMOKE-001"
+      purpose: "The deployed CLAUDE.md in the live repo root contains zero ATDD_SKIP_* tokens; confirmed against the real filesystem after merge"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "CLAUDE.md at the repository root after PR #867 is merged"
+        - "ATDD_RUN_SMOKE=1 is set"
+    when:
+      abstract: "grep -E 'ATDD_SKIP_[A-Z_]+' CLAUDE.md is run in the repo root"
+    then:
+      abstract:
+        - "Exit code is 1 (grep found no matches)"
+        - "Zero output lines produced"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"

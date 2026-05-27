@@ -27,6 +27,7 @@ features:
   - urn: "feature:spawn-agents:shim-popen-env-var-prefix-fix"
   - urn: "feature:spawn-agents:coach-spawn-detector-process-alive"
   - urn: "feature:spawn-agents:shim-runtime-dir-absolute-path"
+  - urn: "feature:spawn-agents:claude-md-slim-and-debanner"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -105,6 +106,22 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:claude-md-sanitized-context-file
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:operator-emergency-bypass-doc
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:claude-md-size-budget-validator
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:claude-md-no-bypass-advertising-validator
+    contract: null
+    telemetry: null
+    to: external
 
 consume:
   - name: commons:coach:runtime-event-schema
@@ -117,7 +134,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 30
+  total: 36
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -148,3 +165,9 @@ wmbt:
   E020: "minimize likelihood of persona-shim-operates-with-relative-runtime-dir-if-future-caller-bypasses-primary-fix"
   E021: "minimize likelihood of process-alive-timeout-mislabels-cwd-bleed-path-mismatch-as-silent-shim-crash"
   L002: "minimize likelihood of relative-runtime-root-causes-output-log-to-land-at-worktree-path-instead-of-coach-polled-path"
+  E022: "minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-to-dispatched-agents"
+  E023: "minimize quantity of claude-md-lines-exceeding-worker-context-budget"
+  E024: "minimize likelihood of operator-emergency-bypass-mechanism-documented-as-copy-pasteable-env-var-in-agent-readable-context"
+  L003: "minimize likelihood of dispatched-workers-that-self-discover-and-apply-atdd-skip-bypass-env-vars"
+  R002: "minimize likelihood of claude-md-context-budget-violations-going-undetected-in-ci"
+  R003: "minimize likelihood of bypass-token-reintroduction-to-agent-context-going-undetected-in-ci"
