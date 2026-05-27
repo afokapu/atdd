@@ -1,0 +1,34 @@
+urn: "feature:spawn-agents:launch-prompt-wagon-graph-context"
+wagon: "wagon:spawn-agents"
+description: "Closes the architectural blind-spot that caused four spawn-pipeline bugs in two days (#860/#861/#862/#863): workers were dispatched into wagon:spawn-agents without ever seeing its features, WMBT IDs, produces/consumes contracts, or sibling wagons. Adds `--wagon <wagon> --format launch-prompt` to `atdd repo graph` (E022), embeds the wagon-scoped graph view between the issue body and the persona instructions in every rendered launch prompt via SESSION-LAUNCH-TEMPLATE.md and `_render_launch_prompt` (E023), and adds a `coach.launch-prompt.must-include-wagon-graph` convention rule (sev 3) in session.convention.yaml to prevent future template edits from silently dropping the section (E024)."
+sizing:
+  wmbts: 3
+  footprint_score: 4
+  footprint_size: "S"
+wmbts:
+  - "wmbt:spawn-agents:E022"
+  - "wmbt:spawn-agents:E023"
+  - "wmbt:spawn-agents:E024"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "One new sub-mode flag pair (`--wagon` + `--format launch-prompt`) added to the existing `atdd repo graph` CLI entry point in src/atdd/coach/commands/repo.py (or the file that currently owns `atdd repo graph`)"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "(1) `_build_wagon_launch_prompt_view(wagon_id)` — queries the plan/ YAML files for the given wagon and renders the focused markdown view capped at 2KB; (2) `_inject_wagon_graph_section(prompt, wagon_id)` — called by `_render_launch_prompt` to run `atdd repo graph --wagon <wagon> --format launch-prompt` and splice the result into the prompt between issue body and persona instructions"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain objects — the wagon manifest is already a domain artifact; this feature reads it, does not redefine it"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "One convention-file adapter: session.convention.yaml gains a new rule entry. The validator that reads it (atdd validate coach) requires no new adapter code — it discovers rules by convention-file scanning"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"

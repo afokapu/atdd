@@ -1457,7 +1457,7 @@ wagons:
   - name: commons:coach:decisions-jsonl-writer
     from: wagon:drive-state-machine
   wmbt:
-    total: 18
+    total: 21
     E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
     D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
     E002: minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout
@@ -1488,6 +1488,9 @@ wagons:
     E020: minimize likelihood of persona-shim-operates-with-relative-runtime-dir-if-future-caller-bypasses-primary-fix
     E021: minimize likelihood of process-alive-timeout-mislabels-cwd-bleed-path-mismatch-as-silent-shim-crash
     L002: minimize likelihood of relative-runtime-root-causes-output-log-to-land-at-worktree-path-instead-of-coach-polled-path
+    E022: minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode
+    E023: minimize likelihood of launch-prompts-emitted-without-wagon-scoped-graph-context-section
+    E024: minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section
   total: 0
   manifest: plan/spawn_agents/_spawn_agents.yaml
   path: plan/spawn_agents/
