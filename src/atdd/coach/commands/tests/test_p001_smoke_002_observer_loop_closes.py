@@ -3,6 +3,7 @@
 # WMBT: wmbt:observe-and-correct:P001
 # Phase: SMOKE
 # Layer: backend.integration
+# atdd:suppress(planner.smoke.synthetic-fixture-bypass) UNTIL=2026-11-14
 # atdd:suppress(planner.smoke.synthetic-fixture-bypass) UNTIL=2026-11-25
 # Reason: Uses FakeMultiplexer / fake_shim for the close-the-loop SMOKE; retrofitting to real
 # atdd spawn requires live pty session (tracked by E029 follow-up).

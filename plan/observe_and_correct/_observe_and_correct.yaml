@@ -14,6 +14,7 @@ features:
   - urn: "feature:observe-and-correct:observer-runtime-and-rules"
   - urn: "feature:observe-and-correct:observer-operator-surface"
   - urn: "feature:observe-and-correct:worker-coach-event-loop"
+  - urn: "feature:observe-and-correct:shim-cli-return-delivery"
   - urn: "feature:observe-and-correct:shim-popen-env-var-prefix-fix"
 
 produce:
@@ -81,7 +82,7 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
-  total: 18
+  total: 20
   P001: "minimize quantity of observer-runtime-skeleton-gaps"
   P002: "minimize quantity of observer-input-acquisition-gaps"
   M001: "minimize likelihood of undetected-basic-protocol-violations"
@@ -96,6 +97,8 @@ wmbt:
   E002: "minimize quantity of per-worker-observer-processes-spawned-by-coach"
   E003: "minimize quantity of observer-correction-loop-activation-gaps"
   E004: "minimize quantity of persona-shim-spawn-dispatch-wiring-gaps"
+  E008: "minimize quantity of launch-prompt-delivery-races-before-tui-is-ready"
+  E007: "minimize quantity of cli-return-corrections-missing-submit-sentinel"
   C001: "minimize likelihood of behavioral-regression-against-babysit-baseline"
   C002: "minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary"
   E005: "minimize likelihood of atdd-shim-popen-missing-env-kwarg-for-typed-env-override-delivery"

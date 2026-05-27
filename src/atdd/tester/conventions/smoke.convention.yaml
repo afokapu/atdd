@@ -720,3 +720,32 @@ feedback_loop_rules:
         See src/atdd/tester/conventions/smoke.convention.yaml::feedback_loop for
         the canonical example and the definition of valid consumer-side assertions.
         See issue #825 for the motivating incident.
+
+# =============================================================================
+# ANTI-PATTERN RULES (planner.smoke.synthetic-fixture-bypass — issue #860/#862)
+# =============================================================================
+#
+# Three synthetic-fixture anti-patterns MUST NOT appear in SMOKE test files:
+#
+# 1. real-entry-point rule: SMOKE tests MUST drive the real CLI entry point
+#    (atdd spawn / atdd-shim), NOT a synthetic subprocess stub (cat, sleep,
+#    FakeMultiplexer, or direct PersonaShim() instantiation).
+#    Reason: synthetic stubs bypass production wiring (_inject_agent_env,
+#    PersonaShim via cmd_spawn) and produce false-green coverage.
+#
+# 2. operator-observable assertion rule: SMOKE tests MUST assert on
+#    operator-observable behavior (captured stdout, output.log content,
+#    cli-return.jsonl delivery), NOT on intermediate-artifact-write events
+#    (file exists, write call made, stub method invoked).
+#    Reason: asserting only that a file was written does not prove the
+#    correction reached the agent's stdin or the operator's terminal.
+#
+# 3. cross-component handoff rule: when a feature has a producer→consumer
+#    handoff (e.g. shim writes cli-return.jsonl, agent reads stdin), the
+#    SMOKE MUST exercise both ends in a single test — not just the producer
+#    or just the consumer in isolation.
+#    Reason: end-to-end handoff gaps (the startup race in #862) are only
+#    visible when both sides of the handoff run in the same test.
+#
+# Rule ID: planner.smoke.synthetic-fixture-bypass (severity 3)
+# Inline suppression: # atdd:suppress(planner.smoke.synthetic-fixture-bypass) UNTIL=YYYY-MM-DD

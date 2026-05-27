@@ -1237,6 +1237,16 @@ sessions:
   status: INIT
   created: '2026-05-25'
   archived: null
+- id: '862'
+  slug: shim-cli-return-launch-prompt-race-and-no-submit
+  file: null
+  issue_number: 862
+  type: cleanup
+  status: PLANNED
+  wagon: observe-and-correct
+  train: 0002-coach-drives-lifecycle
+  created: '2026-05-26'
+  archived: null
 - id: '861'
   slug: shim-stdin-not-forwarded-to-claude
   file: null

@@ -22,6 +22,8 @@ from typing import Callable, IO, Optional, Sequence
 
 _logger = logging.getLogger(__name__)
 
+_UNSET = object()  # sentinel for unset submit_sentinel kwarg
+
 
 class PersonaShim:
     """Pty-owning wrapper for an agent CLI process.
@@ -60,6 +62,7 @@ class PersonaShim:
         pty_write_sink: Optional[Callable[[bytes], None]] = None,
         stdin_source: Optional[object] = None,
         stdout_sink: Optional[Callable[[bytes], None]] = None,
+        submit_sentinel: object = _UNSET,
     ) -> None:
         self.agent_id = agent_id
         self.spawn_command = list(spawn_command)
@@ -68,6 +71,13 @@ class PersonaShim:
         self._pty_write_sink = pty_write_sink
         self._stdin_source = stdin_source
         self._stdout_sink = stdout_sink
+
+        # E007: submit sentinel — constructor kwarg > env var > b"\n" (line terminator)
+        if submit_sentinel is not _UNSET:
+            self._submit_sentinel: bytes = submit_sentinel  # type: ignore[assignment]
+        else:
+            env_val = os.environ.get("ATDD_SHIM_SUBMIT_SENTINEL", "")
+            self._submit_sentinel = env_val.encode("utf-8") if env_val else b"\n"
 
         # Per-agent runtime dir: <runtime_dir>/agents/<agent_id>/
         if runtime_dir is not None:
@@ -181,6 +191,12 @@ class PersonaShim:
         deadline = (time.monotonic() + timeout) if timeout is not None else None
         poll_interval = 0.1
 
+        # E006: wait-for-ready gate
+        ready_marker = os.environ.get("ATDD_SHIM_READY_MARKER", "❯").encode("utf-8")
+        bootstrap_delay = float(os.environ.get("ATDD_SHIM_BOOTSTRAP_DELAY_S", "3.0"))
+        spawn_time = time.monotonic()
+        ready_gate_open = False
+        output_log_path = (self._agent_dir / "output.log") if self._agent_dir else None
         # Include stdin fd in select only when stdin is a real TTY (E005).
         stdin_source = self._stdin_source or sys.stdin.buffer
         try:
@@ -218,8 +234,22 @@ class PersonaShim:
                 except OSError:
                     break
 
-            # Drain cli-return inbox
-            self.poll_once()
+            # E006: open the gate when ready-marker seen or bootstrap delay elapsed
+            if not ready_gate_open:
+                elapsed = time.monotonic() - spawn_time
+                if elapsed >= bootstrap_delay:
+                    ready_gate_open = True
+                elif output_log_path is not None and output_log_path.exists():
+                    try:
+                        content = output_log_path.read_bytes()
+                        if ready_marker in content:
+                            ready_gate_open = True
+                    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+                        pass
+
+            # Drain cli-return inbox (only after gate opens)
+            if ready_gate_open:
+                self.poll_once()
 
         # Drain remaining output after process exits
         try:
@@ -263,7 +293,8 @@ class PersonaShim:
             )
             return
 
-        self._write_to_pty(correction_text.encode("utf-8"))
+        payload = correction_text.encode("utf-8") + self._submit_sentinel
+        self._write_to_pty(payload)
 
     def _write_to_pty(self, data: bytes) -> None:
         """Write bytes to the pty master fd (or the test sink)."""
