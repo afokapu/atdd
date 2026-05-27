@@ -23,6 +23,16 @@ pytestmark = [pytest.mark.smoke]
     reason="E022-SMOKE-001 requires ATDD_RUN_SMOKE=1",
 )
 def test_live_adapter_registry_claude_code_has_surface_marker_probe():
-    pytest.fail(
-        "RED: Deployed ADAPTER_REGISTRY claude-code entry has SurfaceMarkerProbe with '❯' in markers — pending E022 GREEN phase"
+    from atdd.coach.commands.spawn import (  # ImportError until GREEN
+        ADAPTER_REGISTRY,
+        SurfaceMarkerProbe,
+    )
+
+    probe = ADAPTER_REGISTRY["claude-code"].readiness_probe
+
+    assert isinstance(probe, SurfaceMarkerProbe), (
+        f"claude-code readiness_probe is {type(probe)!r}, expected SurfaceMarkerProbe"
+    )
+    assert "❯" in probe.markers, (
+        f"claude-code SurfaceMarkerProbe.markers={probe.markers!r} — '❯' must be present"
     )

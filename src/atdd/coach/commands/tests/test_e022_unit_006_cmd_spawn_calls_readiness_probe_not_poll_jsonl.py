@@ -7,14 +7,27 @@
 # Assertion: behavioral
 """E022-UNIT-006 — cmd_spawn calls adapter.readiness_probe.wait_for_ready not _poll_for_session_jsonl before paste
 
-RED: fails until cmd_spawn readiness_probe dispatch is implemented — pending E022 GREEN phase.
+RED: fails with AssertionError — cmd_spawn source still calls _wait_for_claude_ready (JSONL-based),
+not readiness_probe.wait_for_ready, until E022 GREEN phase.
 """
 from __future__ import annotations
 
-import pytest
+import inspect
+
+import atdd.coach.commands.spawn as spawn_mod
 
 
 def test_cmd_spawn_calls_readiness_probe_not_poll_jsonl():
-    pytest.fail(
-        "RED: cmd_spawn calls adapter.readiness_probe.wait_for_ready not _poll_for_session_jsonl before paste — pending E022 GREEN phase"
+    source = inspect.getsource(spawn_mod.cmd_spawn)
+
+    # The JSONL-based boot wait (_wait_for_claude_ready) must be retired from cmd_spawn body
+    assert "_wait_for_claude_ready" not in source, (
+        "cmd_spawn still calls _wait_for_claude_ready (JSONL-based boot wait) — "
+        "E022 fix replaces it with adapter.readiness_probe.wait_for_ready"
+    )
+
+    # The adapter-agnostic readiness probe must be invoked before the paste
+    assert "readiness_probe" in source, (
+        "cmd_spawn does not reference readiness_probe — "
+        "E022 fix must add adapter.readiness_probe.wait_for_ready call"
     )
