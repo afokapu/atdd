@@ -1258,3 +1258,14 @@ sessions:
   wagon: observe-and-correct
   feature: null
   train: 0002-coach-drives-lifecycle
+- id: '863'
+  slug: boot-detector-adapter-agnostic-readiness
+  file: null
+  issue_number: 863
+  type: cleanup
+  status: PLANNED
+  wagon: spawn-agents
+  feature: boot-detector-adapter-agnostic-readiness
+  train: 0002-coach-drives-lifecycle
+  created: '2026-05-26'
+  archived: null

@@ -1,0 +1,28 @@
+# URN: test:spawn-agents:E022-SMOKE-001-live-adapter-registry-claude-code-has-surface-marker-probe
+# Acceptance: acc:spawn-agents:E022-SMOKE-001-live-adapter-registry-claude-code-has-surface-marker-probe
+# WMBT: wmbt:spawn-agents:E022
+# Phase: SMOKE
+# Layer: backend.smoke
+# Runtime: python
+# Assertion: behavioral
+"""E022-SMOKE-001 — Deployed ADAPTER_REGISTRY claude-code entry has SurfaceMarkerProbe with '❯' in markers
+
+RED: fails until SurfaceMarkerProbe is implemented — pending E022 GREEN phase.
+"""
+from __future__ import annotations
+
+import os
+
+import pytest
+
+pytestmark = [pytest.mark.smoke]
+
+
+@pytest.mark.skipif(
+    not os.environ.get("ATDD_RUN_SMOKE"),
+    reason="E022-SMOKE-001 requires ATDD_RUN_SMOKE=1",
+)
+def test_live_adapter_registry_claude_code_has_surface_marker_probe():
+    pytest.fail(
+        "RED: Deployed ADAPTER_REGISTRY claude-code entry has SurfaceMarkerProbe with '❯' in markers — pending E022 GREEN phase"
+    )
