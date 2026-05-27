@@ -79,7 +79,7 @@ def test_session_jsonl_appears_after_launch_prompt_paste(tmp_path, monkeypatch):
         pytest.skip(f"L003-SMOKE-001: no real multiplexer available — {exc}")
 
     _real_paste = backend.paste_text
-    backend.paste_text = _timing_paste  # type: ignore[method-assign]
+    backend.paste_text = _timing_paste  # type: ignore[method-assign]  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-12-31
 
     cmd_spawn(
         persona="planner",
