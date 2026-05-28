@@ -35,11 +35,16 @@ def _get_banner_string() -> str:
     """
     from atdd.version_check import check_upgrade_sync_needed  # noqa: PLC0415
 
-    # Patch the two private helpers that gate the banner:
-    #   _load_repo_config → returns a fake config dict + path
+    # Patch all gatekeepers so the function runs in a controlled environment:
+    #   __version__              → non-"0.0.0" so the dev-install early-return is skipped
+    #                              (CI uses PYTHONPATH=src without installing the package,
+    #                              so importlib.metadata raises PackageNotFoundError → "0.0.0")
+    #   _load_repo_config        → returns a fake config dict + path
     #   _get_last_toolkit_version → returns an older version so upgrade is detected
+    #   _is_newer                → unconditionally True
     fake_config = {"toolkit": {"last_version": "3.0.0"}}
     with (
+        patch("atdd.version_check.__version__", "3.1.0"),
         patch(
             "atdd.version_check._load_repo_config",
             return_value=(fake_config, None),
