@@ -1178,12 +1178,6 @@ sessions:
   archived: null
 - id: '851'
   slug: audit-and-retire-bypass-flag-proliferation
-  file: null
-  issue_number: 851
-  type: analysis
-  status: INIT
-  created: '2026-05-24'
-  archived: null
   file: plan/govern_lifecycle/E026.yaml
   issue_number: 851
   type: chore
@@ -1203,12 +1197,6 @@ sessions:
   archived: null
 - id: '855'
   slug: investigate-smoke-test-systemic-false-greens
-  file: null
-  issue_number: 855
-  type: analysis
-  status: INIT
-  created: '2026-05-25'
-  archived: null
   file: plan/govern_lifecycle/E027.yaml
   issue_number: 855
   type: chore
@@ -1258,3 +1246,11 @@ sessions:
   wagon: observe-and-correct
   feature: null
   train: 0002-coach-drives-lifecycle
+- id: '876'
+  slug: e023-split-managed-vs-consumer-budget
+  file: null
+  issue_number: 876
+  type: implementation
+  status: INIT
+  created: '2026-05-28'
+  archived: null
