@@ -46,7 +46,7 @@ audits:
   workflow:
     after_planner: "atdd validate planner --local --skip-api  # BEFORE committing PLANNED"
     after_tester: "atdd validate tester"
-    after_coder: "atdd validate coder"
+    after_coder: "atdd validate coder       # Before transitioning to SMOKE"
     full_suite: "atdd validate"
   audit_scope:
     planner: "src/atdd/planner/validators/*.py"

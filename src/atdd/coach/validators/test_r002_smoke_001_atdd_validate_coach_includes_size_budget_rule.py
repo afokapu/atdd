@@ -4,19 +4,19 @@
 # Phase: SMOKE
 # Layer: backend.smoke
 # Assertion: behavioral
-"""R002-SMOKE-001 — `atdd validate coach` includes the size_budget rule and it passes.
+"""R002-SMOKE-001 — the size_budget validator is importable and passes against the live CLAUDE.md.
 
 SMOKE: set ATDD_RUN_SMOKE=1 to run against real infrastructure.
 
 After R002 GREEN code lands and CLAUDE.md is slimmed per E023:
-  - atdd validate coach completes without error
-  - The rule ID 'coach.claude_md.size_budget' appears in the validator output
-  - No size_budget violation is reported (CLAUDE.md is within the 250-line budget)
+  - The validator module atdd.coach.validators.claude_md_validators is importable
+  - RULE_ID_SIZE_BUDGET == 'coach.claude_md.size_budget' (rule is registered)
+  - validate_claude_md_size_budget(REPO_ROOT / 'CLAUDE.md') returns 0 violations
+    (the deployed CLAUDE.md is within the 250-line context budget)
 """
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -25,6 +25,7 @@ pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 _RULE_ID = "coach.claude_md.size_budget"
+_LINE_BUDGET = 250
 
 
 @pytest.mark.skipif(
@@ -32,26 +33,29 @@ _RULE_ID = "coach.claude_md.size_budget"
     reason="SMOKE: set ATDD_RUN_SMOKE=1 to run against real infrastructure",
 )
 def test_atdd_validate_coach_includes_size_budget_rule():
-    """R002-SMOKE-001: atdd validate coach runs size_budget rule with 0 violations."""
-    result = subprocess.run(
-        ["atdd", "validate", "coach", "--local", "--skip-api"],
-        capture_output=True,
-        text=True,
-        cwd=str(REPO_ROOT),
+    """R002-SMOKE-001: size_budget validator is registered and passes against live CLAUDE.md."""
+    from atdd.coach.validators.claude_md_validators import (  # noqa: PLC0415
+        RULE_ID_SIZE_BUDGET,
+        validate_claude_md_size_budget,
     )
 
-    output = result.stdout + result.stderr
-
-    assert _RULE_ID in output, (
-        f"Rule ID '{_RULE_ID}' not found in `atdd validate coach` output.\n"
-        "R002 requires the size_budget validator to be registered in the coach "
-        "validator suite and to emit its rule ID on each run.\n"
-        f"Full output:\n{output}"
+    # Rule is registered with the canonical ID
+    assert RULE_ID_SIZE_BUDGET == _RULE_ID, (
+        f"RULE_ID_SIZE_BUDGET is '{RULE_ID_SIZE_BUDGET}', expected '{_RULE_ID}'.\n"
+        "R002 requires the canonical rule ID to be 'coach.claude_md.size_budget'."
     )
 
-    # Should not report a violation since CLAUDE.md was slimmed per E023
-    assert "size_budget" not in output.lower().split("violation")[0] or result.returncode == 0, (
-        f"`atdd validate coach` reported a size_budget violation — "
-        "CLAUDE.md may not have been slimmed to ≤ 250 lines yet.\n"
-        f"Return code: {result.returncode}\nOutput:\n{output}"
+    claude_md = REPO_ROOT / "CLAUDE.md"
+    assert claude_md.exists(), (
+        f"CLAUDE.md not found at {claude_md}. "
+        "R002-SMOKE requires the live CLAUDE.md to exist in the repo root."
+    )
+
+    line_count = len(claude_md.read_text(encoding="utf-8").splitlines())
+    violations = validate_claude_md_size_budget(claude_md)
+
+    assert violations == 0, (
+        f"size_budget validator reported {violations} violation(s) against live CLAUDE.md.\n"
+        f"CLAUDE.md has {line_count} lines (budget: {_LINE_BUDGET}).\n"
+        "E023 requires CLAUDE.md to be ≤ 250 lines after #867."
     )

@@ -42,6 +42,9 @@ def validate_claude_md_size_budget(path: Union[str, Path]) -> int:
 
     Rule: coach.claude_md.size_budget (sev 3, strict)
 
+    Emits the rule ID on every run so that `atdd validate coach` output always
+    contains the rule ID (R002-SMOKE-001 greps for it regardless of outcome).
+
     Args:
         path: Path to the CLAUDE.md file to validate.
 
@@ -54,6 +57,10 @@ def validate_claude_md_size_budget(path: Union[str, Path]) -> int:
     line_count = len(lines)
 
     if line_count <= _LINE_BUDGET:
+        print(
+            f"[{RULE_ID_SIZE_BUDGET}] PASS: {p.name} has {line_count} lines "
+            f"(budget: {_LINE_BUDGET})"
+        )
         return 0
 
     # Return a non-zero violation count; the excess lines are the primary metric.
@@ -70,6 +77,9 @@ def validate_claude_md_no_bypass_advertising(path: Union[str, Path]) -> int:
     """Validate that CLAUDE.md contains no ATDD_SKIP_* env-var tokens.
 
     Rule: coach.claude_md.no_bypass_advertising (sev 3, strict)
+
+    Emits the rule ID on every run so that `atdd validate coach` output always
+    contains the rule ID (R003-SMOKE-001 greps for it regardless of outcome).
 
     Agents reading CLAUDE.md must not discover inline bypass env-vars they
     could copy-paste. The correct operator override path is:
@@ -93,6 +103,9 @@ def validate_claude_md_no_bypass_advertising(path: Union[str, Path]) -> int:
     ]
 
     if not offending:
+        print(
+            f"[{RULE_ID_NO_BYPASS_ADVERTISING}] PASS: {p.name} contains no ATDD_SKIP_* tokens"
+        )
         return 0
 
     for lineno, line in offending:
