@@ -35,22 +35,25 @@ def test_deployed_cmd_spawn_order_is_probe_then_paste_then_jsonl():
         "E023 fix must retire this pre-paste JSONL check"
     )
 
-    # Adapter-agnostic readiness probe must appear before paste
+    # Adapter-agnostic readiness probe must appear before the actual paste call.
     probe_idx = -1
-    paste_idx = -1
     for kw in ("readiness_probe", "wait_for_ready"):
         idx = source.find(kw)
         if idx != -1 and (probe_idx == -1 or idx < probe_idx):
             probe_idx = idx
-    paste_idx = source.find("paste_text")
+
+    # Search for the actual backend.paste_text( invocation, not comment mentions.
+    # source.find("paste_text") finds comment occurrences earlier in the function body;
+    # only the actual call `backend.paste_text(` establishes the ordering gate.
+    paste_idx = source.find("backend.paste_text(")
 
     assert probe_idx != -1, (
         "Deployed cmd_spawn source does not call readiness_probe / wait_for_ready — "
         "E023 fix must add the adapter-agnostic probe call"
     )
-    assert paste_idx != -1, "paste_text not found in cmd_spawn source"
+    assert paste_idx != -1, "backend.paste_text( call not found in cmd_spawn source"
     assert probe_idx < paste_idx, (
-        f"readiness_probe (pos {probe_idx}) does not appear before paste_text (pos {paste_idx}) "
+        f"readiness_probe (pos {probe_idx}) does not appear before backend.paste_text( (pos {paste_idx}) "
         "in cmd_spawn source — E023 fix must ensure probe gates the paste"
     )
 

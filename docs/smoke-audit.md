@@ -162,6 +162,9 @@ of bypass patterns.
 | acc:spawn-agents:M001-SMOKE-001-live-session-naming-apply-has-no-slash-rename | real (atdd spawn) | session name format | N/A (single component) | — |
 | acc:spawn-agents:M002-SMOKE-001-live-observer-rules-pass-layer-b-validator | real (atdd validate) | rules validation | N/A (validator) | — |
 | acc:spawn-agents:R001-SMOKE-001-live-bash-auto-approve-correction-references-escalate | real (atdd spawn + observer) | correction content | both ends (correction + escalation ref) | — |
+| acc:spawn-agents:E022-SMOKE-001-live-adapter-registry-claude-code-has-surface-marker-probe | real (ADAPTER_REGISTRY import) | probe type + markers | N/A (single component) | #863 |
+| acc:spawn-agents:E023-SMOKE-001-deployed-cmd-spawn-order-is-probe-then-paste-then-jsonl | real (inspect.getsource) | source ordering | N/A (single component) | #863 |
+| acc:spawn-agents:L003-SMOKE-001-session-jsonl-appears-after-launch-prompt-paste | real (cmux + claude) | JSONL mtime vs paste time | both ends (paste + JSONL write) | #863 |
 
 ---
 

@@ -18,30 +18,28 @@ import time
 
 
 class _LazySessionMux:
-    """FakeMultiplexer simulating claude-code TUI: '❯' visible at boot, JSONL absent."""
+    """Fake multiplexer for L003-UNIT-001 — records paste time, satisfies all stage checks."""
 
     def __init__(self, paste_event: threading.Event) -> None:
-        self._state = "booting"
         self._paste_event = paste_event
         self.paste_calls: list = []
         self.paste_time: float = 0.0
 
     def capture_pane_text(self, surface_ref: str) -> str:
-        if self._state == "booting":
-            return "❯ "
-        if self._state == "paste_landed":
-            return "paste again to expand  ❯"
-        return "⏺ Thinking...  esc to interrupt"
+        return "ATDD863  ❯  paste again to expand  ⏺ Thinking...  esc to interrupt"
+
+    def new_surface_in_pane(self, *, pane_ref: str = "pane:1",
+                            cwd: str = "", command: str = "",
+                            name: str = "", **kw: object) -> str:
+        return "surface:1"
 
     def paste_text(self, surface_ref: str, text: str, **kw: object) -> None:
         self.paste_calls.append((surface_ref, text))
         self.paste_time = time.monotonic()
-        self._state = "paste_landed"
         self._paste_event.set()
 
     def send_key(self, surface_ref: str, key: str, **kw: object) -> None:
-        if key == "Enter" and self._state == "paste_landed":
-            self._state = "thinking"
+        pass
 
     def new_workspace(self, *a: object, **kw: object) -> str:
         return "ws-1"

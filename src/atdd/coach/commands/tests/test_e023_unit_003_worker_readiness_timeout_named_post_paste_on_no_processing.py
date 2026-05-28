@@ -18,14 +18,15 @@ import pytest
 
 
 class _BootReadyMux:
-    """FakeMultiplexer that signals TUI ready but never shows 'paste again to expand'.
-
-    Returns '❯' so SurfaceMarkerProbe passes, then holds on Thinking indicator
-    so any retained _verify_stage('paste-landed') passes quickly too.
-    """
+    """Fake multiplexer for E023-UNIT-003 — TUI ready, satisfies all stage checks."""
 
     def capture_pane_text(self, surface_ref: str) -> str:
-        return "❯  paste again to expand  ⏺ Thinking...  esc to interrupt"
+        return "ATDD863  ❯  paste again to expand  ⏺ Thinking...  esc to interrupt"
+
+    def new_surface_in_pane(self, *, pane_ref: str = "pane:1",
+                            cwd: str = "", command: str = "",
+                            name: str = "", **kw: object) -> str:
+        return "surface:1"
 
     def paste_text(self, surface_ref: str, text: str, **kw: object) -> None:
         pass
