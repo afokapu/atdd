@@ -1254,3 +1254,11 @@ sessions:
   status: INIT
   created: '2026-05-28'
   archived: null
+- id: '877'
+  slug: coach-api-milestone-rate-limiting
+  file: null
+  issue_number: 877
+  type: implementation
+  status: INIT
+  created: '2026-05-28'
+  archived: null
