@@ -1,0 +1,69 @@
+urn: "wmbt:spawn-agents:E023"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "claude-md-lines-exceeding-worker-context-budget"
+context_clarifier: "CLAUDE.md is 854 lines (wc -l, 2026-05-26). Every dispatched worker processes the entire file before doing real work. The signal-to-noise ratio is low: large sections are detailed implementation notes (git incident narratives, ATDD lifecycle scaffolding) that belong in loadable conventions files, not in the always-loaded worker context. The high-signal core (lifecycle skeleton, persona deliverables, how to call atdd subcommands) is buried. Cost-per-line = dispatched_workers × tokens. Target: ≤ 250 lines of high-signal skeleton. Detailed rule content stays in conventions files and is loaded on-demand via atdd gate / atdd repo rules / atdd repo wmbt-rules."
+lens: "functional.effectiveness"
+statement: "minimize quantity of claude-md-lines-exceeding-worker-context-budget by trimming CLAUDE.md to ≤ 250 lines, retaining only the ATDD lifecycle skeleton, persona deliverable summaries, atdd command invocations, and pointers to conventions; moving all detailed implementation notes to conventions files or docs/"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E023-UNIT-001-claude-md-is-at-most-250-lines"
+      id: "AC-UNIT-001"
+      purpose: "wc -l CLAUDE.md reports ≤ 250 lines after the trim — the worker context budget is met"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "CLAUDE.md in the repo root after #867 slim edits are applied"
+    when:
+      abstract: "wc -l CLAUDE.md is executed and the integer line count is extracted"
+    then:
+      abstract:
+        - "The reported line count is ≤ 250"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+  - identity:
+      urn: "acc:spawn-agents:E023-UNIT-002-claude-md-retains-atdd-lifecycle-and-command-pointers"
+      id: "AC-UNIT-002"
+      purpose: "The slimmed CLAUDE.md still contains the core lifecycle phase names (INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR), the atdd gate invocation, and a pointer to conventions so workers can orient themselves at session start without being lost"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "CLAUDE.md after slim edits"
+    when:
+      abstract: "The file content is read and searched for lifecycle phase markers and atdd gate reference"
+    then:
+      abstract:
+        - "File contains 'atdd gate'"
+        - "File contains the phases INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR (as text)"
+        - "File contains a reference to conventions directory path (e.g. 'src/atdd')"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+  - identity:
+      urn: "acc:spawn-agents:E023-SMOKE-001-live-claude-md-line-count-within-budget"
+      id: "AC-SMOKE-001"
+      purpose: "The deployed CLAUDE.md in the live repo root is ≤ 250 lines after PR #867 merges; confirmed against the real filesystem"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "CLAUDE.md at the repository root after PR #867 is merged"
+        - "ATDD_RUN_SMOKE=1 is set"
+    when:
+      abstract: "wc -l CLAUDE.md is run and the integer count is read"
+    then:
+      abstract:
+        - "Line count is ≤ 250"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
