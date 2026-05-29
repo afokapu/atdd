@@ -1,0 +1,34 @@
+urn: "feature:spawn-agents:boot-detector-adapter-agnostic-readiness"
+wagon: "wagon:spawn-agents"
+description: "Replaces the claude-code-specific, JSONL-based TUI boot detector with an adapter-agnostic ReadinessProbe abstraction (issue #863). The existing _poll_for_session_jsonl deadlocked on claude-code 2.1.150 (session JSONL is lazy-created on first backend round-trip, not at TUI boot) and silently unsupported every non-claude-code adapter in ADAPTER_REGISTRY. Fix extends AdapterSpec with a readiness_probe: ReadinessProbe field; implements SurfaceMarkerProbe (tails surface for adapter-specific text — most robust) and ProcessAlivePlusDelayProbe (proc-alive + fixed delay — generic fallback); registers SurfaceMarkerProbe(markers=['❯', '◆']) for claude-code and ProcessAlivePlusDelayProbe(min_delay_s=3.0) for claude-glm, claude-gpt, codex, and gemini; and reorders cmd_spawn so the probe gates the paste (E022/E023). The session JSONL is retained as backend-round-trip proof in _assert_worker_processing (post-paste) — semantically correct and unchanged. Extends: worker-launch-prompt-readiness-gate (E010 feature), register-llm-adapter-flavors (E009 feature)."
+sizing:
+  wmbts: 3
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:spawn-agents:E022"
+  - "wmbt:spawn-agents:E023"
+  - "wmbt:spawn-agents:L003"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — all changes are confined to spawn.py internals and ADAPTER_REGISTRY entries"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "SurfaceMarkerProbe.wait_for_ready (new probe type), ProcessAlivePlusDelayProbe.wait_for_ready (new probe type), and the reordered cmd_spawn gate sequence (probe → paste → _assert_worker_processing) are three discrete application-layer changes"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "ReadinessProbe (abstract base / protocol), SurfaceMarkerProbe, and ProcessAlivePlusDelayProbe are value objects in the domain sense — they carry configuration (markers list, min_delay_s) and are immutable; WorkerReadinessTimeout hierarchy is already present from E010/E017"
+    integration:
+      - type: "adapters"
+        count: 5
+        rationale: "Each of the five registered ADAPTER_REGISTRY entries (claude-code, claude-glm, claude-gpt, codex, gemini) is updated to carry a readiness_probe field — five integration adapters updated in place"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — coach is a CLI-only orchestrator"

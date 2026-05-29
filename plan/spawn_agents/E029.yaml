@@ -1,0 +1,98 @@
+urn: "wmbt:spawn-agents:E029"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "launch-prompt-paste-gated-behind-session-jsonl-that-appears-only-after-first-user-message"
+context_clarifier: "Current order in cmd_spawn (v3.83.0): (1) create surface, (2) _pre_trust_worktree, (3) _poll_for_session_jsonl [WAITS FOR JSONL], (4) apply_canonical_name_and_layout, (5) paste launch prompt, (6) _assert_worker_processing [WAITS FOR JSONL GROWTH]. Steps 3 and 5 are inverted from what the data requires: the session JSONL in step 3 can only appear AFTER step 5 because claude-code 2.1.150 writes the JSONL on its first backend round-trip, not on TUI boot. The E022 adapter-agnostic probe replaces the JSONL-based boot wait (step 3) with a surface-marker probe. This WMBT covers the ORDER FIX: after the probe passes (E022), the launch prompt must be pasted BEFORE any JSONL-based signal is awaited. The session JSONL is correctly preserved as backend-round-trip proof in _assert_worker_processing (step 6, post-paste), which has always been the right semantic for it. The net gate sequence after this fix: (1) create surface, (2) pre-trust, (3) readiness probe [E022 surface marker], (4) apply canonical name + layout, (5) paste launch prompt, (6) _assert_worker_processing [JSONL growth — proves claude received and processed the message]. This ordering eliminates the deadlock while preserving the meaningful end-to-end verification. E023 and E022 are delivered together; neither is shipped without the other."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of launch-prompt-paste-gated-behind-session-jsonl-that-appears-only-after-first-user-message by reordering cmd_spawn so the adapter readiness probe (E022) gates the paste — not a JSONL-based wait — and the session JSONL is then used exclusively in _assert_worker_processing (post-paste) as proof of backend round-trip, with _poll_for_session_jsonl retired from the pre-paste position entirely"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E029-UNIT-001-paste-precedes-jsonl-based-wait"
+      id: "AC-UNIT-001"
+      purpose: "In cmd_spawn's execution order, the launch-prompt paste call happens before any poll that checks for JSONL file existence — i.e., the pre-paste gate is adapter.readiness_probe.wait_for_ready only (E022), not a JSONL presence check"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/commands/spawn.py source is on disk"
+        - "The module is inspectable via AST parse or source analysis"
+    when:
+      abstract: "The call sequence in cmd_spawn is analysed from surface creation through to the paste and _assert_worker_processing"
+    then:
+      abstract:
+        - "No call to _poll_for_session_jsonl (or any glob/stat of *.jsonl) exists between surface creation and the launch-prompt paste"
+        - "A call to readiness_probe.wait_for_ready (or adapter.readiness_probe.wait_for_ready) appears before the paste"
+        - "_assert_worker_processing is called after the paste"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+  - identity:
+      urn: "acc:spawn-agents:E029-UNIT-002-assert-worker-processing-called-after-paste"
+      id: "AC-UNIT-002"
+      purpose: "_assert_worker_processing is invoked after the launch-prompt paste and uses the session JSONL path to confirm byte-size growth — this gate is preserved and kept in its correct post-paste position"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer whose capture_surface_text returns '❯'"
+        - "A tmp project dir where the session JSONL is absent before paste and written by a background thread 0.05s after the paste mock is called"
+        - "The claude-code adapter is selected"
+    when:
+      abstract: "cmd_spawn is invoked with the fake multiplexer; the paste call triggers the background thread to write the JSONL"
+    then:
+      abstract:
+        - "_assert_worker_processing is called after the paste call returns"
+        - "_assert_worker_processing returns without raising (JSONL grew post-paste)"
+        - "The agent_spawned event is emitted"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+  - identity:
+      urn: "acc:spawn-agents:E029-UNIT-003-worker-readiness-timeout-named-post-paste-on-no-processing"
+      id: "AC-UNIT-003"
+      purpose: "When the readiness probe passes (TUI visible) but _assert_worker_processing times out (JSONL never grows — worker received launch prompt but did not process it), WorkerReadinessTimeout is raised with a message that distinguishes 'TUI booted but backend round-trip did not complete' from a boot failure"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer returning '❯' (probe passes)"
+        - "A tmp project dir with a static session JSONL (no bytes ever appended) to simulate a worker that never processes the launch prompt"
+        - "ATDD_WORKER_READY_TIMEOUT=0.05 so the timeout fires quickly"
+    when:
+      abstract: "cmd_spawn is invoked; readiness probe passes, paste is sent, _assert_worker_processing polls the static JSONL"
+    then:
+      abstract:
+        - "WorkerReadinessTimeout is raised by _assert_worker_processing"
+        - "str(exception) indicates the paste was sent (phase 'post-paste' or 'processing' language, not 'boot' language)"
+        - "str(exception) contains the surface_ref for operator diagnostics"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+  - identity:
+      urn: "acc:spawn-agents:E029-SMOKE-001-deployed-cmd-spawn-order-is-probe-then-paste-then-jsonl"
+      id: "AC-SMOKE-001"
+      purpose: "The deployed spawn.py source has no JSONL-based call (glob for *.jsonl, stat of session.jsonl, or _poll_for_session_jsonl invocation) between the surface creation and the launch-prompt paste call — confirmed by source inspection under ATDD_RUN_SMOKE=1"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "The installed atdd package is importable (pip install -e . or live install)"
+    when:
+      abstract: "import inspect; import atdd.coach.commands.spawn as m; source = inspect.getsource(m.cmd_spawn) is executed"
+    then:
+      abstract:
+        - "The substring '_poll_for_session_jsonl' does NOT appear in the cmd_spawn source body"
+        - "The substring 'readiness_probe' or 'wait_for_ready' DOES appear in the cmd_spawn source body before any 'paste_text' call"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"

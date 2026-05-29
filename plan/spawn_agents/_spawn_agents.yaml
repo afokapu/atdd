@@ -147,7 +147,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 39
+  total: 42
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -187,3 +187,6 @@ wmbt:
   E025: "minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode"
   E026: "minimize likelihood of launch-prompts-emitted-without-wagon-scoped-graph-context-section"
   E027: "minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section"
+  E028: "minimize likelihood of adapter-specific-hardcoded-session-jsonl-boot-wait-deadlocking-coach-on-lazy-session-creation"
+  E029: "minimize likelihood of launch-prompt-paste-gated-behind-session-jsonl-that-appears-only-after-first-user-message"
+  L004: "minimize likelihood of spawn-pipeline-regression-to-jsonl-boot-wait-deadlock-on-lazy-session-creation"
