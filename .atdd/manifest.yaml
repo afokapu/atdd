@@ -1284,3 +1284,11 @@ sessions:
   status: INIT
   created: '2026-05-28'
   archived: null
+- id: '881'
+  slug: make-atdd-init-incremental-on-existing-repos
+  file: null
+  issue_number: 881
+  type: implementation
+  status: INIT
+  created: '2026-05-29'
+  archived: null
