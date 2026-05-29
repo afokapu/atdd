@@ -1309,3 +1309,11 @@ sessions:
   train: 0001-self-compliance-validate
   created: '2026-05-20'
   archived: null
+- id: '885'
+  slug: bump-version-to-3-84-0
+  file: null
+  issue_number: 885
+  type: implementation
+  status: INIT
+  created: '2026-05-30'
+  archived: null
