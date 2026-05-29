@@ -1,0 +1,120 @@
+urn: "wmbt:govern-lifecycle:E032"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "gh-issue-create-calls-reaching-real-gh-from-any-shell-in-the-worktree"
+context_clarifier: "when an operator or a non-Claude-Code harness types gh issue create directly in a worktree shell where the L1 PreToolUse hook (#668) does not fire, so the call reaches the real gh binary unblocked and bypasses atdd manifest registration"
+lens: "functional.effectiveness"
+statement: "minimize quantity of gh-issue-create-calls-reaching-real-gh-from-any-shell-in-the-worktree by installing a direnv-scoped PATH shim at .atdd/bin/gh that blocks `gh issue create` with an educational error pointing at `atdd issue`, forwards every other gh subcommand (view/list/comment/edit/close/...) unchanged, and execs the next gh in PATH without infinite-looping on itself (#816)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E032-UNIT-001-shim-classifier-precise"
+      id: "AC-UNIT-001"
+      purpose: "The shim's argv classifier blocks `gh issue create` and `gh issue create --title x` (exit 1) but NOT `gh issuecreate`, `gh issue createfoo`, or `gh issue create_thing` (the real gh is invoked for those)"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The gh.shim template at src/atdd/coach/templates/bin/gh.shim is installed and executable"
+        - "A stub `gh` placed earlier-on-PATH-removed so the shim's exec resolves to a recording stub that prints its argv"
+    when:
+      abstract: "the shim is invoked with each argv: `issue create`, `issue create --title x`, `issuecreate`, `issue createfoo`, `issue create_thing`"
+    then:
+      abstract:
+        - "`issue create` and `issue create --title x` exit 1 and never call the recording stub"
+        - "`issuecreate`, `issue createfoo`, `issue create_thing` exit 0 and DO call the recording stub (forwarded unchanged)"
+        - "The block message names `atdd issue` as the alternative"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"
+  - identity:
+      urn: "acc:govern-lifecycle:E032-INTEGRATION-001-shim-blocks-create"
+      id: "AC-INTEGRATION-001"
+      purpose: "`gh issue create --title x` invoked through the installed shim inside a worktree exits 1 and the real gh is never invoked"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp worktree with .atdd/bin/gh installed from the gh.shim template (mode 0755)"
+        - "A recording stub `gh` on PATH after the shim dir, so a forwarded call would be observable"
+        - "PATH set so .atdd/bin precedes the stub gh"
+    when:
+      abstract: "subprocess `gh issue create --title x --body y` is run with cwd inside the worktree"
+    then:
+      abstract:
+        - "exit code is 1"
+        - "stderr names `atdd issue` as the alternative"
+        - "the recording stub gh was never invoked (no record file written)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"
+  - identity:
+      urn: "acc:govern-lifecycle:E032-INTEGRATION-002-shim-allows-other"
+      id: "AC-INTEGRATION-002"
+      purpose: "`gh issue view`, `gh issue list`, and `gh issue comment` pass through the shim unchanged and reach the next gh on PATH"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp worktree with .atdd/bin/gh installed from the gh.shim template"
+        - "A recording stub `gh` on PATH after the shim dir that records argv and exits 0"
+    when:
+      abstract: "subprocess runs `gh issue view 668`, `gh issue list`, and `gh issue comment 668 -b x` through the shim"
+    then:
+      abstract:
+        - "each invocation exits 0"
+        - "the recording stub gh received the forwarded argv for each (issue view 668, issue list, issue comment 668 -b x)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"
+  - identity:
+      urn: "acc:govern-lifecycle:E032-INTEGRATION-003-shim-resolves-real-gh"
+      id: "AC-INTEGRATION-003"
+      purpose: "The shim's exec resolves to the NEXT gh in PATH (not itself), so repeated invocation does not infinite-loop"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp worktree with .atdd/bin/gh installed from the gh.shim template"
+        - "A recording stub `gh` on PATH after the shim dir"
+        - "PWD/.atdd/bin is prepended to PATH (the direnv arrangement)"
+    when:
+      abstract: "subprocess `gh issue list` is run twice in succession through the shim"
+    then:
+      abstract:
+        - "both invocations exit 0 within a bounded timeout (no infinite loop / no recursion-depth error)"
+        - "the recording stub gh was invoked exactly twice"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"
+  - identity:
+      urn: "acc:govern-lifecycle:E032-SMOKE-001-installed-shim-blocks-in-real-worktree"
+      id: "AC-SMOKE-001"
+      purpose: "The on-disk gh.shim template, installed to .atdd/bin/gh in a real git worktree with a real PATH arrangement, blocks `gh issue create` against the real shell PATH-resolution mechanism — no recording stub, proving an actual operator shell call is intercepted"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The real gh.shim file at src/atdd/coach/templates/bin/gh.shim (executable, mode 0755)"
+        - "A real tmp_path git repo with the shim copied to .atdd/bin/gh"
+        - "A real second `gh` executable on PATH after the shim directory"
+    when:
+      abstract: "subprocess.run(['gh', 'issue', 'create', '--title', 'real-smoke'], env=PATH-with-shim-first) is invoked from inside the worktree"
+    then:
+      abstract:
+        - "result.returncode == 1 (the shim's hard block)"
+        - "result.stderr contains the literal `atdd issue`"
+        - "no GitHub issue is created and the downstream gh is never reached"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"

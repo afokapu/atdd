@@ -1,0 +1,97 @@
+urn: "wmbt:govern-lifecycle:E033"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "committed-scripts-that-bake-in-gh-issue-create-calls"
+context_clarifier: "when an automation script containing gh issue create is staged for commit and the staging session bypassed the L1 PreToolUse hook (#668), so the forbidden call lands in the repo and runs later unblocked"
+lens: "functional.effectiveness"
+statement: "minimize quantity of committed-scripts-that-bake-in-gh-issue-create-calls by installing a pre-commit hook that greps the staged diff for added lines matching `^\\+.*\\bgh\\s+issue\\s+create\\b`, rejects the commit with an educational error pointing at `atdd issue`, and exempts *.md files so documentation about the rule still commits (#816)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E033-UNIT-001-precommit-regex-precise"
+      id: "AC-UNIT-001"
+      purpose: "The pre-commit regex matches added lines `+gh issue create x` and `+    gh issue create x` (indented) but NOT `+gh issuecreated` or context/removed lines"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-commit hook template at src/atdd/coach/templates/hooks/pre-commit-gh-issue-create.sh is installed and executable"
+        - "Sample staged-diff lines are fed to the hook's matcher in isolation"
+    when:
+      abstract: "the matcher classifies each line: `+gh issue create x`, `+    gh issue create x`, `+gh issuecreated`, ` gh issue create x` (context), `-gh issue create x` (removed)"
+    then:
+      abstract:
+        - "`+gh issue create x` and `+    gh issue create x` are flagged as violations"
+        - "`+gh issuecreated` is NOT flagged (word boundary)"
+        - "context lines (leading space) and removed lines (leading -) are NOT flagged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"
+  - identity:
+      urn: "acc:govern-lifecycle:E033-INTEGRATION-001-precommit-blocks-staged"
+      id: "AC-INTEGRATION-001"
+      purpose: "Staging a .sh file containing `gh issue create` and running the pre-commit hook exits 1 with an educational error pointing at `atdd issue`"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp git repo with the pre-commit-gh-issue-create.sh hook installed at .git/hooks/pre-commit (mode 0755)"
+        - "A file automation.sh containing a line `gh issue create --title x` is `git add`-ed"
+    when:
+      abstract: "the pre-commit hook is run (as `git commit` would invoke it) against the staged diff"
+    then:
+      abstract:
+        - "exit code is 1"
+        - "stderr/stdout names `atdd issue` as the alternative"
+        - "the commit is rejected"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"
+  - identity:
+      urn: "acc:govern-lifecycle:E033-INTEGRATION-002-precommit-allows-md-docs"
+      id: "AC-INTEGRATION-002"
+      purpose: "A staged markdown file containing `gh issue create` inside a code fence passes the pre-commit hook (exit 0) because *.md is exempt"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp git repo with the pre-commit-gh-issue-create.sh hook installed"
+        - "A file docs/rule.md containing a fenced code block with `gh issue create` is `git add`-ed (and no non-md file carries the pattern)"
+    when:
+      abstract: "the pre-commit hook is run against the staged diff"
+    then:
+      abstract:
+        - "exit code is 0"
+        - "the commit is allowed (the .md path is exempt from the grep)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"
+  - identity:
+      urn: "acc:govern-lifecycle:E033-SMOKE-001-real-commit-rejects-staged-create"
+      id: "AC-SMOKE-001"
+      purpose: "A real `git commit` in a real repo with the on-disk hook installed is rejected when a staged .sh file contains `gh issue create` — driving the actual git pre-commit invocation path, not a direct hook call"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The real hook file at src/atdd/coach/templates/hooks/pre-commit-gh-issue-create.sh (executable, mode 0755)"
+        - "A real tmp_path git repo (git init) with the hook copied to .git/hooks/pre-commit"
+        - "A real automation.sh staged via `git add` containing `gh issue create --title smoke`"
+    when:
+      abstract: "subprocess.run(['git', 'commit', '-m', 'add automation']) is invoked in the real repo"
+    then:
+      abstract:
+        - "result.returncode != 0 (git aborts the commit because the hook exited non-zero)"
+        - "result.stderr/stdout contains the literal `atdd issue`"
+        - "no commit object is created (git log is empty / unchanged)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"

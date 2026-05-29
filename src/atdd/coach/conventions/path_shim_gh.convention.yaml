@@ -1,0 +1,68 @@
+version: "1.0"
+name: "Path Shim & Pre-Commit gh-issue-create Registry"
+description: |
+  YAML-backed registry of the gh-issue-create enforcement patterns used by the
+  L3a direnv PATH shim (.atdd/bin/gh) and the L3b pre-commit hook (issue #816).
+
+  This convention mirrors forbidden_commands.convention.yaml (#668, L1) but
+  targets two harness-agnostic enforcement sites instead of the Claude Code
+  PreToolUse hook:
+
+    L3a (shim)        — .atdd/bin/gh wraps the gh binary at PATH precedence
+                        inside the worktree. Blocks `gh issue create` for ANY
+                        shell process (any harness, operator-typed), forwards
+                        every other gh subcommand unchanged.
+    L3b (pre-commit)  — greps the staged diff for added lines that bake a
+                        `gh issue create` call into a committed script,
+                        rejecting the commit. *.md paths are exempt so docs
+                        about the rule still commit.
+
+  match spec fields (within each pattern's "match:" key):
+    argv_prefix    — list of argv tokens that must appear in order at the
+                     start of the gh argument vector (shim, exact-token match
+                     so `issuecreate` / `createfoo` are NOT matched)
+    regex          — Python/grep -E pattern applied to a staged-diff line
+                     (pre-commit)
+    path_exempt    — list of glob suffixes whose staged changes are skipped
+
+  Both enforcement sites fail SAFE in opposite directions:
+    shim         — on its own load/exec failure it forwards to the real gh
+                   (never strands the operator's read-path commands).
+    pre-commit   — runs locally with no network; a missing hook simply means
+                   no L3b coverage (L1/L4 still apply).
+
+# Shim forwards to the real gh on any internal failure (read-path must survive).
+fail_behavior: fail_open_forward
+
+patterns:
+  - id: ATDD-SHIM-GH-ISSUE-CREATE
+    enforcement: path_shim
+    match_type: hard_block
+    description: "gh issue create typed in any worktree shell bypasses atdd manifest registration; the L1 PreToolUse hook only fires inside Claude Code"
+    match:
+      argv_prefix: ["issue", "create"]
+    reason: >
+      gh issue create bypasses atdd manifest registration, WMBT sub-issue
+      generation, and Project v2 field setup. The L1 PreToolUse hook (#668)
+      only fires inside the Claude Code Bash tool — operators in raw shells,
+      other LLM harnesses, and cmux panes reach the real gh unblocked. The
+      .atdd/bin/gh shim closes that gap for every shell process inside the
+      worktree while forwarding all other gh subcommands unchanged.
+    alternative: "atdd issue <slug>"
+
+  - id: ATDD-PRECOMMIT-GH-ISSUE-CREATE
+    enforcement: pre_commit
+    match_type: hard_block
+    description: "a committed script that bakes in gh issue create slips past live L1/L3a enforcement and runs later unblocked"
+    match:
+      regex: "^\\+.*\\bgh\\s+issue\\s+create\\b"
+      path_exempt: ["*.md"]
+    reason: >
+      An automation script with gh issue create baked in slips through if the
+      staging session bypassed L1 and the operator's shell lacked the L3a
+      shim. The pre-commit grep rejects added lines matching
+      ^\\+.*\\bgh\\s+issue\\s+create\\b in the staged diff, keeping the
+      forbidden call out of the repo. Word boundaries prevent matching
+      `gh issuecreate` / `gh issue createfoo`; *.md paths are exempt so
+      documentation about the rule (including this reason) still commits.
+    alternative: "atdd issue <slug>  (or, if documenting the rule, put the example in a *.md file)"

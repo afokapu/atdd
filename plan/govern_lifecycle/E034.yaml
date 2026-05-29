@@ -1,0 +1,55 @@
+urn: "wmbt:govern-lifecycle:E034"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "fresh-worktrees-missing-the-gh-shim-envrc-and-precommit-hook-after-atdd-init"
+context_clarifier: "when atdd init runs on a consumer repo or fresh worktree and must install .atdd/bin/gh, .envrc, and the pre-commit hook idempotently, soft-failing with a notice when direnv is not on PATH rather than erroring or clobbering operator edits"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of fresh-worktrees-missing-the-gh-shim-envrc-and-precommit-hook-after-atdd-init by making atdd init write .atdd/bin/gh (from the gh.shim template), .envrc (PATH_add .atdd/bin), and .git/hooks/pre-commit idempotently without clobbering operator edits, and emit a warning (not an error) when direnv is absent from PATH (#816)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E034-INTEGRATION-001-init-installs-three"
+      id: "AC-INTEGRATION-001"
+      purpose: "Running atdd init on a fresh worktree writes .atdd/bin/gh (executable), .envrc (with PATH_add .atdd/bin), and a pre-commit hook; re-running is idempotent and does not duplicate or clobber operator edits"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A fresh tmp git repo with no .atdd/bin/gh, no .envrc, and no gh-issue-create pre-commit hook"
+        - "The atdd initializer is importable and runs against the tmp repo root"
+    when:
+      abstract: "the gh-shim install step of atdd init is invoked against the tmp repo, then invoked a second time"
+    then:
+      abstract:
+        - ".atdd/bin/gh exists and is executable after the first run"
+        - ".envrc contains the line `PATH_add .atdd/bin`"
+        - "a pre-commit hook enforcing gh-issue-create is installed under .git/hooks"
+        - "the second run leaves exactly one PATH_add line (idempotent, no duplication)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"
+  - identity:
+      urn: "acc:govern-lifecycle:E034-SMOKE-001-real-init-installs-and-warns"
+      id: "AC-SMOKE-001"
+      purpose: "A real `atdd init` invocation in a real tmp repo installs the three artifacts on disk and, when direnv is not on PATH, prints a warning and still exits 0 — driving the actual CLI entry point, not a mocked initializer"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real tmp_path git repo (git init)"
+        - "The atdd CLI installed from local source (PYTHONPATH=src) and runnable as a subprocess"
+        - "An env where `direnv` is removed from PATH to exercise the soft-fail path"
+    when:
+      abstract: "subprocess.run(['atdd', 'init']) is invoked with cwd at the tmp repo root and a PATH that lacks direnv"
+    then:
+      abstract:
+        - "result.returncode == 0 (soft-fail: missing direnv warns, does not error)"
+        - ".atdd/bin/gh, .envrc, and the pre-commit hook exist on disk afterwards"
+        - "result.stdout/stderr contains a direnv warning naming `direnv allow` or `direnv not found`"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-29"
