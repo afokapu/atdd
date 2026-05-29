@@ -27,8 +27,8 @@ features:
   - urn: "feature:spawn-agents:shim-popen-env-var-prefix-fix"
   - urn: "feature:spawn-agents:coach-spawn-detector-process-alive"
   - urn: "feature:spawn-agents:shim-runtime-dir-absolute-path"
-- urn: "feature:spawn-agents:claude-md-slim-and-debanner"
-- urn: "feature:spawn-agents:launch-prompt-wagon-graph-context"
+  - urn: "feature:spawn-agents:claude-md-slim-and-debanner"
+  - urn: "feature:spawn-agents:launch-prompt-wagon-graph-context"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -107,7 +107,7 @@ produce:
     contract: null
     telemetry: null
     to: external
-- name: coach:spawn:claude-md-sanitized-context-file
+  - name: coach:spawn:claude-md-sanitized-context-file
     contract: null
     telemetry: null
     to: external
@@ -120,7 +120,10 @@ produce:
     telemetry: null
     to: external
   - name: coach:spawn:claude-md-no-bypass-advertising-validator
-- name: coach:spawn:wagon-scoped-graph-sub-mode
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:wagon-scoped-graph-sub-mode
     contract: null
     telemetry: null
     to: external
@@ -144,7 +147,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-total: 39
+  total: 39
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
