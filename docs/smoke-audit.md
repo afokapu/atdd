@@ -104,6 +104,9 @@ of bypass patterns.
 | acc:govern-lifecycle:E029-SMOKE-001-retrofitted-smokes-pass-in-ci-without-bypasses | real (CI run, no bypass flags) | test suite result | both ends (post-retrofit) | #855 |
 | acc:govern-lifecycle:E030-SMOKE-001-grep-returns-zero-matches | real (grep CLI on hook template files) | zero ATDD_SKIP_* matches | N/A (single component) | — |
 | acc:govern-lifecycle:E031-SMOKE-001-emergency-cli-wired-in-atdd | real (python3 -m atdd.cli emergency) | EMERGENCY_BYPASS + audit-jsonl creation | N/A (single component) | — |
+| acc:govern-lifecycle:E032-SMOKE-001-installed-shim-blocks-in-real-worktree | real (atdd init + gh issue create) | shim blocks command in live worktree | N/A (single component) | #816 |
+| acc:govern-lifecycle:E033-SMOKE-001-real-commit-rejects-staged-create | real (git commit with pre-commit hook) | pre-commit rejects staged gh issue create | N/A (single component) | #816 |
+| acc:govern-lifecycle:E034-SMOKE-001-real-init-installs-and-warns | real (atdd init) | init installs shim + envrc entry | N/A (single component) | #816 |
 | acc:govern-lifecycle:L002-SMOKE-001-meta-walker-zero-hits-on-post-retrofit-repo | real (walk_all_smoke_acceptances_for_anti_patterns) | anti-pattern hits list | N/A (meta-validator) | #855 |
 | acc:govern-lifecycle:R004-SMOKE-001-real-linked-worktree-recognized-worktree-ready | real (git worktree) | worktree detection | N/A (single component) | — |
 | acc:govern-lifecycle:Y004-SMOKE-001-pre-commit-template-has-drift-notice | real (template file) | file content | N/A (single component) | — |
