@@ -3,14 +3,13 @@
 # WMBT: wmbt:coach-ops:M001
 # Phase: RED
 # Layer: integration
-"""M001-INTEGRATION-001 — 403 abuse response triggers exponential backoff 60s→120s→300s.
+"""M001-INTEGRATION-001 — 403 abuse response triggers exponential backoff 30s→60s→120s.
 
 When gh returns a secondary rate-limit / 403-abuse error, pr_watcher must
-back off exponentially: first failure → 60s sleep, second → 120s, third → 300s,
+back off exponentially: first failure → 30s sleep, second → 60s, third → 120s,
 then recover to normal on next success.
 
-Backoff starts at 60s (not 600s) so the operator gets feedback quickly and
-can intervene; previous 600s/1200s values extended blockades unnecessarily.
+Backoff starts at 30s so the operator gets feedback quickly and can intervene.
 """
 from __future__ import annotations
 
@@ -67,8 +66,8 @@ def test_backoff_sequence_on_secondary_limit():
             result2 = watcher.poll(prs=[10])
             result3 = watcher.poll(prs=[10])
 
-    assert sleep_calls[0] == 60, f"First backoff should be 60s, got {sleep_calls[0]}"
-    assert sleep_calls[1] == 120, f"Second backoff should be 120s, got {sleep_calls[1]}"
+    assert sleep_calls[0] == 30, f"First backoff should be 30s, got {sleep_calls[0]}"
+    assert sleep_calls[1] == 60, f"Second backoff should be 60s, got {sleep_calls[1]}"
     assert result3 == {10: "CLEAN"}
 
 
@@ -96,9 +95,9 @@ def test_backoff_resets_after_successful_poll():
 
     with patch("atdd.coach.runtime.pr_watcher.subprocess.run", side_effect=fake_run):
         with patch("atdd.coach.runtime.pr_watcher.time.sleep", side_effect=lambda s: sleep_calls.append(s)):
-            watcher.poll(prs=[10])  # triggers first backoff (60s)
+            watcher.poll(prs=[10])  # triggers first backoff (30s)
             watcher.poll(prs=[10])  # succeeds — resets backoff
             watcher.poll(prs=[10])  # another success, no extra sleep
 
-    # First failure → 60s. After reset, no additional backoff sleeps.
-    assert sleep_calls == [60], f"Expected only one backoff sleep, got {sleep_calls}"
+    # First failure → 30s. After reset, no additional backoff sleeps.
+    assert sleep_calls == [30], f"Expected only one backoff sleep, got {sleep_calls}"

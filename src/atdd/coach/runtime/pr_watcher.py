@@ -7,9 +7,9 @@ Design:
 - PRWatcher class carries per-instance backoff state and budget-warning flag.
 
 Backoff sequence on secondary rate-limit (403 abuse):
-  1st failure →  60s sleep
-  2nd failure → 120s sleep
-  3rd failure → 300s sleep
+  1st failure →  30s sleep
+  2nd failure →  60s sleep
+  3rd failure → 120s sleep
   Recovery: reset to normal interval on next success
 
 Pre-flight: gh api rate_limit is checked before each poll cycle.
@@ -43,7 +43,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 BUDGET_THRESHOLD = 500
-_BACKOFF_STEPS = [60, 120, 300]
+_BACKOFF_STEPS = [30, 60, 120]
 _SECONDARY_LIMIT_MARKERS = ("secondary rate limit", "abuse", "403")
 
 
