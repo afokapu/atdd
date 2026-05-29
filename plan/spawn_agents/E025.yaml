@@ -1,4 +1,4 @@
-urn: "wmbt:spawn-agents:E022"
+urn: "wmbt:spawn-agents:E025"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -25,7 +25,7 @@ statement: >
   features, WMBT IDs, produces/consumes contracts, and sibling wagons in the same train
 acceptances:
   - identity:
-      urn: "acc:spawn-agents:E022-UNIT-001-graph-launch-prompt-emits-required-sections"
+      urn: "acc:spawn-agents:E025-UNIT-001-graph-launch-prompt-emits-required-sections"
       id: "AC-UNIT-001"
       purpose: "atdd repo graph --wagon <id> --format launch-prompt outputs a markdown string containing all five required sections: wagon description, features list, WMBT IDs, produces/consumes contracts, and sibling wagons"
       phase: "GREEN"
@@ -50,7 +50,7 @@ acceptances:
       created: "2026-05-27"
 
   - identity:
-      urn: "acc:spawn-agents:E022-UNIT-002-graph-launch-prompt-output-under-2kb"
+      urn: "acc:spawn-agents:E025-UNIT-002-graph-launch-prompt-output-under-2kb"
       id: "AC-UNIT-002"
       purpose: "The wagon-scoped launch-prompt output for the real spawn-agents wagon is ≤ 2048 bytes, confirming the format stays within launch-prompt budget"
       phase: "GREEN"
@@ -71,7 +71,7 @@ acceptances:
       created: "2026-05-27"
 
   - identity:
-      urn: "acc:spawn-agents:E022-SMOKE-001-real-wagon-graph-output-present-and-well-formed"
+      urn: "acc:spawn-agents:E025-SMOKE-001-real-wagon-graph-output-present-and-well-formed"
       id: "AC-SMOKE-001"
       purpose: "SMOKE: `atdd repo graph --wagon spawn-agents --format launch-prompt` against the live installed package emits a well-formed, non-empty markdown string that is ≤ 2KB and contains the wagon name"
       phase: "SMOKE"

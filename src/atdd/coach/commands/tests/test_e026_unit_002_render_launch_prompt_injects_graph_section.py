@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:E023-UNIT-002-render-launch-prompt-injects-graph-section
-# Acceptance: acc:spawn-agents:E023-UNIT-002-render-launch-prompt-injects-graph-section
-# WMBT: wmbt:spawn-agents:E023
+# URN: test:spawn-agents:E026-UNIT-002-render-launch-prompt-injects-graph-section
+# Acceptance: acc:spawn-agents:E026-UNIT-002-render-launch-prompt-injects-graph-section
+# WMBT: wmbt:spawn-agents:E026
 # Phase: RED
 # Layer: unit
-"""E023-UNIT-002 — _render_launch_prompt injects the wagon-scoped graph output
+"""E026-UNIT-002 — _render_launch_prompt injects the wagon-scoped graph output
 between the issue body section and the persona instructions section of the
 rendered prompt.
 
@@ -34,8 +34,8 @@ pytestmark = [pytest.mark.spawn_agents]
 _FIXTURE_GRAPH = (
     "## Wagon Architecture\n\n"
     "**Wagon:** `wagon:spawn-agents` — Spawn Agents\n"
-    "> Fixture graph section for E023 unit test.\n\n"
-    "**WMBTs:** E022, E023, E024\n\n"
+    "> Fixture graph section for E026 unit test.\n\n"
+    "**WMBTs:** E025, E026, E027\n\n"
 )
 
 _ISSUE_BODY_MARKER = "## Issue context"
@@ -84,7 +84,7 @@ def test_render_launch_prompt_contains_graph_section(tmp_path: Path) -> None:
 
     content = prompt_path.read_text()
     assert "## Wagon Architecture" in content, (
-        "Expected '## Wagon Architecture' in rendered prompt after E023 injection. "
+        "Expected '## Wagon Architecture' in rendered prompt after E026 injection. "
         f"Got:\n{content}"
     )
 

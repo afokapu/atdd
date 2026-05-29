@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:E022-UNIT-001-graph-launch-prompt-emits-required-sections
-# Acceptance: acc:spawn-agents:E022-UNIT-001-graph-launch-prompt-emits-required-sections
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:spawn-agents:E025-UNIT-001-graph-launch-prompt-emits-required-sections
+# Acceptance: acc:spawn-agents:E025-UNIT-001-graph-launch-prompt-emits-required-sections
+# WMBT: wmbt:spawn-agents:E025
 # Phase: RED
 # Layer: unit
-"""E022-UNIT-001 — build_wagon_launch_prompt outputs all five required sections.
+"""E025-UNIT-001 — build_wagon_launch_prompt outputs all five required sections.
 
 Given a minimal fixture wagon (2 features, 3 WMBTs, 1 produce, 1 consume,
 1 sibling in the same train), build_wagon_launch_prompt must return a markdown
@@ -36,7 +36,7 @@ _WAGON_YAML = textwrap.dedent("""\
     wagon: test-wagon
     urn: "wagon:test-wagon"
     name: "Test Wagon"
-    description: "A minimal wagon for E022 fixture tests"
+    description: "A minimal wagon for E025 fixture tests"
     features:
       - urn: "feature:test-wagon:alpha-feature"
         description: "Alpha feature description"

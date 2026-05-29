@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:E024-UNIT-003-wagon-graph-rule-passes-on-compliant-template
-# Acceptance: acc:spawn-agents:E024-UNIT-003-wagon-graph-rule-passes-on-compliant-template
-# WMBT: wmbt:spawn-agents:E024
+# URN: test:spawn-agents:E027-UNIT-003-wagon-graph-rule-passes-on-compliant-template
+# Acceptance: acc:spawn-agents:E027-UNIT-003-wagon-graph-rule-passes-on-compliant-template
+# WMBT: wmbt:spawn-agents:E027
 # Phase: RED
 # Layer: unit
-"""E024-UNIT-003 — The coach.launch-prompt.must-include-wagon-graph validator
+"""E027-UNIT-003 — The coach.launch-prompt.must-include-wagon-graph validator
 reports zero violations when SESSION-LAUNCH-TEMPLATE.md contains the
 wagon-graph section marker.
 
@@ -67,7 +67,7 @@ def test_validator_passes_on_compliant_template() -> None:
 
 def test_validator_passes_on_actual_template_after_e023() -> None:
     """check_wagon_graph_rule() must pass on the actual SESSION-LAUNCH-TEMPLATE.md
-    after E023 has been applied (i.e. the real template contains the section marker).
+    after E026 has been applied (i.e. the real template contains the section marker).
     """
     from atdd.coach.validators.launch_prompt_wagon_graph_guard import (  # type: ignore[import]
         check_wagon_graph_rule,
@@ -86,5 +86,5 @@ def test_validator_passes_on_actual_template_after_e023() -> None:
         f"Expected zero violations on SESSION-LAUNCH-TEMPLATE.md but got "
         f"{len(violations)} violation(s):\n"
         + "\n".join(str(v) for v in violations)
-        + "\nE023: add the '## Wagon Architecture' section to the template."
+        + "\nE026: add the '## Wagon Architecture' section to the template."
     )

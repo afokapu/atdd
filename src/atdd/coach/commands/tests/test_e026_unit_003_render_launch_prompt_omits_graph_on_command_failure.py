@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:E023-UNIT-003-render-launch-prompt-omits-graph-on-command-failure
-# Acceptance: acc:spawn-agents:E023-UNIT-003-render-launch-prompt-omits-graph-on-command-failure
-# WMBT: wmbt:spawn-agents:E023
+# URN: test:spawn-agents:E026-UNIT-003-render-launch-prompt-omits-graph-on-command-failure
+# Acceptance: acc:spawn-agents:E026-UNIT-003-render-launch-prompt-omits-graph-on-command-failure
+# WMBT: wmbt:spawn-agents:E026
 # Phase: RED
 # Layer: unit
-"""E023-UNIT-003 — _render_launch_prompt gracefully omits the wagon-graph section
+"""E026-UNIT-003 — _render_launch_prompt gracefully omits the wagon-graph section
 when `atdd repo graph --wagon <wagon> --format launch-prompt` fails (non-zero
 exit or subprocess exception), rather than raising or blocking dispatch.
 
@@ -145,5 +145,5 @@ def test_prompt_has_no_traceback_when_graph_command_fails(tmp_path: Path) -> Non
     content = prompt_path.read_text()
     assert "Traceback (most recent call last)" not in content, (
         "Rendered prompt contains a Python traceback. "
-        "E023: exceptions in _build_wagon_graph_section must be swallowed silently."
+        "E026: exceptions in _build_wagon_graph_section must be swallowed silently."
     )

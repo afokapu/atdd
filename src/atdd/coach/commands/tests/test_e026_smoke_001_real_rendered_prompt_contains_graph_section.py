@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:E023-SMOKE-001-real-rendered-prompt-contains-graph-section
-# Acceptance: acc:spawn-agents:E023-SMOKE-001-real-rendered-prompt-contains-graph-section
-# WMBT: wmbt:spawn-agents:E023
+# URN: test:spawn-agents:E026-SMOKE-001-real-rendered-prompt-contains-graph-section
+# Acceptance: acc:spawn-agents:E026-SMOKE-001-real-rendered-prompt-contains-graph-section
+# WMBT: wmbt:spawn-agents:E026
 # Phase: SMOKE
 # Layer: smoke
-"""E023-SMOKE-001 — Rendering a launch prompt for a real issue whose wagon is
+"""E026-SMOKE-001 — Rendering a launch prompt for a real issue whose wagon is
 spawn-agents produces a prompt containing the wagon-graph section (non-empty,
 well-formed markdown).
 
@@ -55,7 +55,7 @@ def test_real_wagon_launch_prompt_positioned_before_persona_section(tmp_path: Pa
 
     This test uses _render_launch_prompt with all GitHub I/O patched out so it
     can run in SMOKE without network access.  The wagon graph section is NOT
-    patched — it must be populated by the real E023 implementation.
+    patched — it must be populated by the real E026 implementation.
     """
     from unittest.mock import patch
 

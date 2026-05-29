@@ -1,16 +1,16 @@
-# URN: test:spawn-agents:E024-SMOKE-001-atdd-validate-coach-passes-with-graph-section-present
-# Acceptance: acc:spawn-agents:E024-SMOKE-001-atdd-validate-coach-passes-with-graph-section-present
-# WMBT: wmbt:spawn-agents:E024
+# URN: test:spawn-agents:E027-SMOKE-001-atdd-validate-coach-passes-with-graph-section-present
+# Acceptance: acc:spawn-agents:E027-SMOKE-001-atdd-validate-coach-passes-with-graph-section-present
+# WMBT: wmbt:spawn-agents:E027
 # Phase: SMOKE
 # Layer: smoke
-"""E024-SMOKE-001 — `atdd validate coach --local --skip-api` on the live repo after
-E023 ships reports zero coach.launch-prompt.must-include-wagon-graph violations.
+"""E027-SMOKE-001 — `atdd validate coach --local --skip-api` on the live repo after
+E026 ships reports zero coach.launch-prompt.must-include-wagon-graph violations.
 
 Phase RED: fails because:
   (a) SESSION-LAUNCH-TEMPLATE.md lacks '## Wagon Architecture' → validator fires, or
   (b) The rule is not yet registered in session.convention.yaml → validate coach may
       fail to discover it.
-Phase GREEN/SMOKE: E023 has added the section marker and E024 has registered the
+Phase GREEN/SMOKE: E026 has added the section marker and E027 has registered the
 rule; `atdd validate coach` exits 0 with no wagon-graph violations.
 """
 from __future__ import annotations
@@ -55,8 +55,8 @@ def test_validate_coach_reports_no_wagon_graph_violations() -> None:
     assert not violation_lines, (
         f"atdd validate coach reported violations for '{_RULE_ID}':\n"
         + "\n".join(violation_lines)
-        + "\n\nE023: add '## Wagon Architecture' to SESSION-LAUNCH-TEMPLATE.md.\n"
-        "E024: ensure the rule is registered in session.convention.yaml."
+        + "\n\nE026: add '## Wagon Architecture' to SESSION-LAUNCH-TEMPLATE.md.\n"
+        "E027: ensure the rule is registered in session.convention.yaml."
     )
 
 

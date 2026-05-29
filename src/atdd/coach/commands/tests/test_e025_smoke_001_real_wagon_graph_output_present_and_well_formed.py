@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:E022-SMOKE-001-real-wagon-graph-output-present-and-well-formed
-# Acceptance: acc:spawn-agents:E022-SMOKE-001-real-wagon-graph-output-present-and-well-formed
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:spawn-agents:E025-SMOKE-001-real-wagon-graph-output-present-and-well-formed
+# Acceptance: acc:spawn-agents:E025-SMOKE-001-real-wagon-graph-output-present-and-well-formed
+# WMBT: wmbt:spawn-agents:E025
 # Phase: SMOKE
 # Layer: smoke
-"""E022-SMOKE-001 — `atdd repo graph --wagon spawn-agents --format launch-prompt`
+"""E025-SMOKE-001 — `atdd repo graph --wagon spawn-agents --format launch-prompt`
 against the live installed package emits a well-formed, non-empty markdown string
 that is ≤ 2 KB and contains the wagon name.
 

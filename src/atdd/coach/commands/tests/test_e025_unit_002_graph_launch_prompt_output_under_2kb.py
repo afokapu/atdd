@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:E022-UNIT-002-graph-launch-prompt-output-under-2kb
-# Acceptance: acc:spawn-agents:E022-UNIT-002-graph-launch-prompt-output-under-2kb
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:spawn-agents:E025-UNIT-002-graph-launch-prompt-output-under-2kb
+# Acceptance: acc:spawn-agents:E025-UNIT-002-graph-launch-prompt-output-under-2kb
+# WMBT: wmbt:spawn-agents:E025
 # Phase: RED
 # Layer: unit
-"""E022-UNIT-002 — wagon-scoped launch-prompt output for spawn-agents is ≤ 2 KB.
+"""E025-UNIT-002 — wagon-scoped launch-prompt output for spawn-agents is ≤ 2 KB.
 
 Invokes build_wagon_launch_prompt("spawn-agents") against the real plan/
 directory (the test runner's working directory must include the repo root)

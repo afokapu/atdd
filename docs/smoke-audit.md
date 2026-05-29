@@ -162,9 +162,9 @@ of bypass patterns.
 | acc:spawn-agents:M001-SMOKE-001-live-session-naming-apply-has-no-slash-rename | real (atdd spawn) | session name format | N/A (single component) | — |
 | acc:spawn-agents:M002-SMOKE-001-live-observer-rules-pass-layer-b-validator | real (atdd validate) | rules validation | N/A (validator) | — |
 | acc:spawn-agents:R001-SMOKE-001-live-bash-auto-approve-correction-references-escalate | real (atdd spawn + observer) | correction content | both ends (correction + escalation ref) | — |
-| acc:spawn-agents:E022-SMOKE-001-real-wagon-graph-output-present-and-well-formed | real (atdd repo graph --format launch-prompt) | exit 0, ≤2KB, wagon name, no traceback | N/A (single component) | — |
-| acc:spawn-agents:E023-SMOKE-001-real-rendered-prompt-contains-graph-section | real (build_wagon_launch_prompt + _render_launch_prompt) | ## Wagon Architecture present, before ## Workflow | N/A (single component) | — |
-| acc:spawn-agents:E024-SMOKE-001-atdd-validate-coach-passes-with-graph-section-present | real (atdd validate coach --local --skip-api) | zero coach.launch-prompt.must-include-wagon-graph violations | N/A (validator) | — |
+| acc:spawn-agents:E025-SMOKE-001-real-wagon-graph-output-present-and-well-formed | real (atdd repo graph --format launch-prompt) | exit 0, ≤2KB, wagon name, no traceback | N/A (single component) | — |
+| acc:spawn-agents:E026-SMOKE-001-real-rendered-prompt-contains-graph-section | real (build_wagon_launch_prompt + _render_launch_prompt) | ## Wagon Architecture present, before ## Workflow | N/A (single component) | — |
+| acc:spawn-agents:E027-SMOKE-001-atdd-validate-coach-passes-with-graph-section-present | real (atdd validate coach --local --skip-api) | zero coach.launch-prompt.must-include-wagon-graph violations | N/A (validator) | — |
 
 ---
 

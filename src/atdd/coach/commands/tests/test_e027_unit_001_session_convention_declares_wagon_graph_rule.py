@@ -1,9 +1,9 @@
-# URN: test:spawn-agents:E024-UNIT-001-session-convention-declares-wagon-graph-rule
-# Acceptance: acc:spawn-agents:E024-UNIT-001-session-convention-declares-wagon-graph-rule
-# WMBT: wmbt:spawn-agents:E024
+# URN: test:spawn-agents:E027-UNIT-001-session-convention-declares-wagon-graph-rule
+# Acceptance: acc:spawn-agents:E027-UNIT-001-session-convention-declares-wagon-graph-rule
+# WMBT: wmbt:spawn-agents:E027
 # Phase: RED
 # Layer: unit
-"""E024-UNIT-001 — src/atdd/coach/conventions/session.convention.yaml declares
+"""E027-UNIT-001 — src/atdd/coach/conventions/session.convention.yaml declares
 a rule whose id is 'coach.launch-prompt.must-include-wagon-graph' with
 severity 3 and suppress_mode 'suppress-and-clean'.
 
@@ -52,7 +52,7 @@ def test_convention_file_contains_rule_id() -> None:
     text = _CONVENTION_PATH.read_text(encoding="utf-8") if _CONVENTION_PATH.exists() else ""
     assert _RULE_ID in text, (
         f"Rule '{_RULE_ID}' not found in {_CONVENTION_PATH}. "
-        "E024: add the rule under the 'rules:' section with "
+        "E027: add the rule under the 'rules:' section with "
         "severity: 3 and suppress_mode: suppress-and-clean."
     )
 
@@ -63,11 +63,11 @@ def test_rule_has_correct_severity() -> None:
     rule = _find_rule(data, _RULE_ID)
     assert rule is not None, (
         f"Rule '{_RULE_ID}' not found in parsed convention data. "
-        "E024: add the rule to session.convention.yaml."
+        "E027: add the rule to session.convention.yaml."
     )
     assert rule.get("severity") == _EXPECTED_SEVERITY, (
         f"Expected severity {_EXPECTED_SEVERITY}, got {rule.get('severity')!r}. "
-        "E024: set severity: 3 on the coach.launch-prompt.must-include-wagon-graph rule."
+        "E027: set severity: 3 on the coach.launch-prompt.must-include-wagon-graph rule."
     )
 
 
@@ -81,20 +81,20 @@ def test_rule_has_correct_suppress_mode() -> None:
     assert rule.get("suppress_mode") == _EXPECTED_SUPPRESS_MODE, (
         f"Expected suppress_mode '{_EXPECTED_SUPPRESS_MODE}', "
         f"got {rule.get('suppress_mode')!r}. "
-        "E024: set suppress_mode: suppress-and-clean."
+        "E027: set suppress_mode: suppress-and-clean."
     )
 
 
 def test_rule_description_references_wagon_graph_or_e022_e023() -> None:
-    """Rule description must reference the wagon-graph section or E022/E023."""
+    """Rule description must reference the wagon-graph section or E025/E026."""
     data = _load_convention()
     rule = _find_rule(data, _RULE_ID)
     assert rule is not None, f"Rule '{_RULE_ID}' not found in parsed convention data."
     desc = (rule.get("description") or rule.get("detail") or "").lower()
     assert any(kw in desc for kw in ("wagon", "e022", "e023", "graph")), (
-        "Rule description must reference 'wagon', 'E022', 'E023', or 'graph'. "
+        "Rule description must reference 'wagon', 'E025', 'E026', or 'graph'. "
         f"Got description: {rule.get('description') or rule.get('detail')!r}. "
-        "E024: the description must explain why the rule exists."
+        "E027: the description must explain why the rule exists."
     )
 
 
@@ -107,7 +107,7 @@ def test_bind_rule_resolves_wagon_graph_rule() -> None:
     except RuleNotInRegistryError as exc:
         pytest.fail(
             f"bind_rule('{_RULE_ID}') raised RuleNotInRegistryError: {exc}. "
-            "E024: add the rule to session.convention.yaml so bind_rule() can find it."
+            "E027: add the rule to session.convention.yaml so bind_rule() can find it."
         )
     assert rule.rule_id == _RULE_ID, f"Expected rule_id {_RULE_ID!r}, got {rule.rule_id!r}"
     assert rule.severity == _EXPECTED_SEVERITY, (

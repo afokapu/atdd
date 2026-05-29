@@ -904,7 +904,7 @@ def _render_launch_prompt(
     )
     rendered = session_template.render(context)
 
-    # E023: inject wagon-graph section before the Workflow section so the agent
+    # E026: inject wagon-graph section before the Workflow section so the agent
     # has structural context before reading the workflow steps.  Graceful degrade
     # when _build_wagon_graph_section raises (unknown wagon, subprocess failure,
     # etc.) — the prompt is still written and dispatch continues.
@@ -954,7 +954,7 @@ def _build_arch_section(issue: int) -> Optional[str]:
 def _build_wagon_graph_section(wagon_slug: str, *, repo_root: Optional[Path] = None) -> Optional[str]:
     """Return the wagon-scoped launch-prompt section, or None on any failure.
 
-    E023: called by _render_launch_prompt to inject wagon architecture context
+    E026: called by _render_launch_prompt to inject wagon architecture context
     before the Workflow section.  Returns None when wagon_slug is empty or
     the wagon has no manifest; never raises.
     """
