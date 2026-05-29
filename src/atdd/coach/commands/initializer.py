@@ -550,6 +550,11 @@ class ProjectInitializer:
             # Install git hooks (pre-commit worktree enforcement)
             self._install_hooks(force)
 
+            # Install the gh-issue-create L3 enforcement layer: PATH shim,
+            # .envrc PATH_add, and pre-commit grep (#816). Soft-fails on
+            # missing direnv.
+            self.install_path_shim_enforcement(force)
+
             # Install train-render harness when consumer repo has a frontend (#335)
             self._install_harness(force)
 
@@ -973,6 +978,71 @@ class ProjectInitializer:
             print(f"Set git core.hooksPath → {abs_hooks}")
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
             logger.warning("Could not set core.hooksPath: %s", exc, extra={"path": str(abs_hooks)})
+
+    def install_path_shim_enforcement(self, force: bool = False) -> None:
+        """Install the gh-issue-create L3 enforcement layer (issue #816).
+
+        Three idempotent installs that block ``gh issue create`` outside the
+        Claude Code PreToolUse hook (#668, L1):
+
+          * ``.atdd/bin/gh`` — the L3a PATH shim (executable) that intercepts
+            ``gh issue create`` in any worktree shell and forwards every other
+            gh subcommand to the next real gh on PATH.
+          * ``.envrc`` — a ``PATH_add .atdd/bin`` line so direnv puts the shim
+            first on PATH. Appended only when absent (operator edits preserved).
+          * ``.atdd/hooks/pre-commit-gh-issue-create.sh`` — the L3b pre-commit
+            hook that greps the staged diff for baked-in ``gh issue create``
+            calls (``*.md`` exempt).
+
+        Soft-fails (warns, never raises) when ``direnv`` is not on PATH — the
+        shim is installed but inert until the operator installs/hooks direnv.
+
+        Convention: src/atdd/coach/conventions/path_shim_gh.convention.yaml
+        """
+        templates = self.package_root / "templates"
+
+        # --- L3a: PATH shim → .atdd/bin/gh ---
+        shim_src = templates / "bin" / "gh.shim"
+        bin_dir = self.atdd_config_dir / "bin"
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        if shim_src.exists():
+            shim_dst = bin_dir / "gh"
+            shutil.copy2(shim_src, shim_dst)
+            os.chmod(shim_dst, shim_dst.stat().st_mode | 0o111)
+            print(f"Installed: {shim_dst}")
+        else:
+            logger.warning("gh shim template not found: %s", shim_src, extra={"path": str(shim_src)})
+
+        # --- .envrc: PATH_add .atdd/bin (idempotent append) ---
+        envrc = self.target_dir / ".envrc"
+        path_add_line = "PATH_add .atdd/bin"
+        existing = envrc.read_text() if envrc.is_file() else ""
+        if not any(ln.strip() == path_add_line for ln in existing.splitlines()):
+            if existing and not existing.endswith("\n"):
+                existing += "\n"
+            envrc.write_text(f"{existing}{path_add_line}\n")
+            print(f"Added '{path_add_line}' to .envrc")
+
+        # --- L3b: pre-commit hook → .atdd/hooks/ ---
+        hook_src = templates / "hooks" / "pre-commit-gh-issue-create.sh"
+        hooks_dir = self.atdd_config_dir / "hooks"
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+        if hook_src.exists():
+            hook_dst = hooks_dir / "pre-commit-gh-issue-create.sh"
+            shutil.copy2(hook_src, hook_dst)
+            os.chmod(hook_dst, hook_dst.stat().st_mode | 0o111)
+            print(f"Installed: {hook_dst}")
+        else:
+            logger.warning("gh pre-commit hook template not found: %s", hook_src, extra={"path": str(hook_src)})
+
+        # --- direnv soft-fail notice ---
+        if shutil.which("direnv") is None:
+            print(
+                "Warning: direnv not found on PATH — the .atdd/bin/gh shim is "
+                "installed but will not take effect until you install direnv "
+                "and run `direnv allow`. (gh issue create stays blocked by the "
+                "L1 hook and L3b pre-commit in the meantime.)"
+            )
 
     def _install_harness(self, force: bool = False) -> None:
         """Install train-render harness templates into ``.atdd/harness/``.
