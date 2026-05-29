@@ -1300,3 +1300,11 @@ sessions:
   status: INIT
   created: '2026-05-29'
   archived: null
+- id: '816'
+  slug: block-gh-issue-create-dev-and-commit-time
+  file: null
+  issue_number: 816
+  type: implementation
+  status: PLANNED
+  created: '2026-05-20'
+  archived: null
