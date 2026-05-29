@@ -127,27 +127,38 @@ class TestCheckDepClassificationUnit:
 # ---------------------------------------------------------------------------
 
 def _open_atdd_issues() -> List[Dict[str, Any]]:
-    from atdd.coach.github import GitHubClient
-    from atdd.coach.utils.config import load_atdd_config
+    """Fetch open issues with the ``atdd-issue`` label via the REST API.
+
+    Uses GET /repos/{owner}/{repo}/issues (REST, 0 GraphQL pts) rather than
+    ``gh issue list --json`` (GraphQL, ~100 pts/call) — see issue #877.
+    REST field ``created_at`` is normalised to ``createdAt`` so callers are
+    unchanged.
+    """
     import json
+    import subprocess
+    from atdd.coach.utils.config import load_atdd_config
 
     repo_root = find_repo_root()
     try:
         config = load_atdd_config(repo_root)
-        github_config = config.get("github") or {}
+        github_config = (config.get("github") or {})
         repo = github_config.get("repo")
         if not repo:
             pytest.skip("No github.repo configured in .atdd/config.yaml")
-        client = GitHubClient(repo=repo)
-        output = client._run_gh([
-            "issue", "list",
-            "--repo", repo,
-            "--label", "atdd-issue",
-            "--state", "open",
-            "--json", "number,title,labels,state,body,createdAt",
-            "--limit", "100",
-        ])
-        return json.loads(output) if output else []
+        r = subprocess.run(
+            [
+                "gh", "api",
+                f"repos/{repo}/issues?labels=atdd-issue&state=open&per_page=100",
+            ],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode != 0:
+            pytest.skip(f"Cannot query GitHub issues: {r.stderr}")
+        issues = json.loads(r.stdout) if r.stdout else []
+        for issue in issues:
+            if "created_at" in issue and "createdAt" not in issue:
+                issue["createdAt"] = issue["created_at"]
+        return issues
     except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         pytest.skip(f"Cannot query GitHub issues: {e}")
 
