@@ -255,12 +255,12 @@ def check_upgrade_sync_needed() -> Optional[str]:
     if last_version is None:
         # First run or old config without toolkit.last_version
         # Treat as needing sync
-        return f"ATDD upgraded to {__version__}. Run: atdd sync"
+        return f"ATDD upgraded to {__version__}. Run: atdd sync && atdd init"
 
     # Compare versions
     if _is_newer(__version__, last_version):
         notes = get_upgrade_notes(last_version, __version__)
-        msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync"
+        msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync && atdd init"
         if notes:
             msg += "\n" + "\n".join(f"  → {v}: {note}" for v, note in notes)
         return msg
