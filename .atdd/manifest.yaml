@@ -1306,6 +1306,6 @@ sessions:
   issue_number: 816
   type: implementation
   status: SMOKE
-  train: 0002-coach-drives-lifecycle
+  train: 0001-self-compliance-validate
   created: '2026-05-20'
   archived: null
