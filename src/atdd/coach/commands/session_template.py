@@ -45,6 +45,7 @@ class IssueContext:
         "Stop at the REFACTOR boundary. Do not proceed past REFACTOR "
         "without user confirmation unless --autonomous was set."
     )
+    wagon: str = ""
 
 
 _METADATA_ROW = re.compile(r"\|\s*([A-Za-z ]+?)\s*\|\s*(.+?)\s*\|")

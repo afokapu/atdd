@@ -28,6 +28,7 @@ features:
   - urn: "feature:spawn-agents:coach-spawn-detector-process-alive"
   - urn: "feature:spawn-agents:shim-runtime-dir-absolute-path"
   - urn: "feature:spawn-agents:claude-md-slim-and-debanner"
+  - urn: "feature:spawn-agents:launch-prompt-wagon-graph-context"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -122,6 +123,18 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:wagon-scoped-graph-sub-mode
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:launch-prompt-wagon-graph-section
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:launch-prompt-wagon-graph-convention-rule
+    contract: null
+    telemetry: null
+    to: external
 
 consume:
   - name: commons:coach:runtime-event-schema
@@ -134,7 +147,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 36
+  total: 39
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -171,3 +184,6 @@ wmbt:
   L003: "minimize likelihood of dispatched-workers-that-self-discover-and-apply-atdd-skip-bypass-env-vars"
   R002: "minimize likelihood of claude-md-context-budget-violations-going-undetected-in-ci"
   R003: "minimize likelihood of bypass-token-reintroduction-to-agent-context-going-undetected-in-ci"
+  E025: "minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode"
+  E026: "minimize likelihood of launch-prompts-emitted-without-wagon-scoped-graph-context-section"
+  E027: "minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section"
