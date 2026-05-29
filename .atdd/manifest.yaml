@@ -1292,3 +1292,11 @@ sessions:
   status: INIT
   created: '2026-05-29'
   archived: null
+- id: '882'
+  slug: fix-project-v2-status-field-not-synced-on-issue-close
+  file: null
+  issue_number: 882
+  type: implementation
+  status: INIT
+  created: '2026-05-29'
+  archived: null
