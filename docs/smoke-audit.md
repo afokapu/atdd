@@ -171,6 +171,9 @@ of bypass patterns.
 | acc:spawn-agents:E025-SMOKE-001-real-wagon-graph-output-present-and-well-formed | real (atdd repo graph --format launch-prompt) | exit 0, ≤2KB, wagon name, no traceback | N/A (single component) | — |
 | acc:spawn-agents:E026-SMOKE-001-real-rendered-prompt-contains-graph-section | real (build_wagon_launch_prompt + _render_launch_prompt) | ## Wagon Architecture present, before ## Workflow | N/A (single component) | — |
 | acc:spawn-agents:E027-SMOKE-001-atdd-validate-coach-passes-with-graph-section-present | real (atdd validate coach --local --skip-api) | zero coach.launch-prompt.must-include-wagon-graph violations | N/A (validator) | — |
+| acc:spawn-agents:E028-SMOKE-001-live-adapter-registry-claude-code-has-surface-marker-probe | real (ADAPTER_REGISTRY inspection) | claude-code adapter has SurfaceMarkerProbe | N/A (single component) | #863 |
+| acc:spawn-agents:E029-SMOKE-001-deployed-cmd-spawn-order-is-probe-then-paste-then-jsonl | real (cmd_spawn source inspection) | probe before paste before jsonl-wait | N/A (single component) | #863 |
+| acc:spawn-agents:L004-SMOKE-001-session-jsonl-appears-after-launch-prompt-paste | real (cmd_spawn smoke) | session JSONL appears after paste | N/A (single component) | #863 |
 
 ---
 

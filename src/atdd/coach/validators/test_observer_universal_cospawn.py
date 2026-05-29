@@ -84,8 +84,8 @@ def _spawn_via_cmd_spawn_pane(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
         lambda *a, **kw: None,
     )
     monkeypatch.setattr(
-        "atdd.coach.commands.spawn._wait_for_claude_ready",
-        lambda *a, **kw: None,
+        "atdd.coach.commands.spawn.SurfaceMarkerProbe.wait_for_ready",
+        lambda self, *a, **kw: None,
     )
     monkeypatch.setattr(
         "atdd.coach.commands.spawn._assert_worker_processing",
@@ -141,8 +141,8 @@ def _spawn_via_cmd_spawn_auto(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
         lambda *a, **kw: None,
     )
     monkeypatch.setattr(
-        "atdd.coach.commands.spawn._wait_for_claude_ready",
-        lambda *a, **kw: None,
+        "atdd.coach.commands.spawn.SurfaceMarkerProbe.wait_for_ready",
+        lambda self, *a, **kw: None,
     )
     monkeypatch.setattr(
         "atdd.coach.commands.spawn._assert_worker_processing",
@@ -201,8 +201,8 @@ def _spawn_via_coach_handler(tmp_path: Path, monkeypatch) -> FakeMultiplexer:
         lambda *a, **kw: None,
     )
     monkeypatch.setattr(
-        "atdd.coach.commands.spawn._wait_for_claude_ready",
-        lambda *a, **kw: None,
+        "atdd.coach.commands.spawn.SurfaceMarkerProbe.wait_for_ready",
+        lambda self, *a, **kw: None,
     )
     monkeypatch.setattr(
         "atdd.coach.commands.spawn._verify_stage",

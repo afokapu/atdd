@@ -427,13 +427,18 @@ def _assert_worker_processing(
 ) -> None:
     """Assert the spawned worker is actively processing after prompt paste.
 
-    Polls the session .jsonl byte size until it grows (proves Claude appended
-    at least one new message after the launch prompt was pasted). A timeout
-    raises WorkerReadinessTimeout so the caller can escalate instead of
-    logging a phantom phase transition (#795, #797).
+    Phase 1 — wait for a session .jsonl to appear (lazy creation, #863):
+    On claude-code 2.1.150 the session JSONL is written on the FIRST BACKEND
+    ROUND-TRIP, which occurs after the launch prompt is pasted — not at TUI
+    boot.  Polling here covers both eager creation (JSONL already exists) and
+    lazy creation (JSONL appears shortly after paste).
 
-    Uses the same session file that _wait_for_claude_ready already confirmed
-    exists — no multiplexer capture needed, so every backend is supported.
+    Phase 2 — poll for byte-size growth: once the JSONL is found, wait until
+    Claude appends at least one new message, proving the worker is processing
+    the injected launch prompt.
+
+    A timeout in either phase raises WorkerReadinessTimeout so the caller can
+    escalate instead of logging a phantom phase transition (#795, #797, #863).
     """
     env_timeout = os.environ.get("ATDD_WORKER_READY_TIMEOUT")
     if env_timeout:
@@ -450,24 +455,32 @@ def _assert_worker_processing(
         )
 
     project_dir = claude_projects_dir / project_key
-
-    jsonl_path: Optional[Path] = None
-    for entry in project_dir.iterdir():
-        if entry.suffix == ".jsonl":
-            jsonl_path = entry
-            break
-
-    if jsonl_path is None:
-        raise WorkerReadinessTimeout(
-            f"Worker on {surface_ref!r}: no session .jsonl found under "
-            f"{project_dir} to track growth. project_key={project_key!r}. "
-            f"({SPAWN_RULE_ID})"
-        )
-
-    initial_size = jsonl_path.stat().st_size
     deadline = time.monotonic() + timeout_s
     start = time.monotonic()
 
+    # Phase 1: poll until a .jsonl appears (tolerates lazy session creation).
+    jsonl_path: Optional[Path] = None
+    while time.monotonic() < deadline:
+        if project_dir.is_dir():
+            for entry in project_dir.iterdir():
+                if entry.suffix == ".jsonl":
+                    jsonl_path = entry
+                    break
+        if jsonl_path is not None:
+            break
+        time.sleep(poll_interval_s)
+
+    if jsonl_path is None:
+        elapsed = time.monotonic() - start
+        raise WorkerReadinessTimeout(
+            f"Worker on {surface_ref!r} did not begin processing within "
+            f"{timeout_s:.1f}s (elapsed {elapsed:.1f}s) after launch prompt "
+            f"was pasted — no session .jsonl appeared under {project_dir}. "
+            f"project_key={project_key!r}. ({SPAWN_RULE_ID})"
+        )
+
+    # Phase 2: poll for size growth (confirms worker is processing input).
+    initial_size = jsonl_path.stat().st_size
     while time.monotonic() < deadline:
         if jsonl_path.stat().st_size > initial_size:
             return  # Claude appended at least one new message
@@ -480,6 +493,118 @@ def _assert_worker_processing(
         f"Session .jsonl at {jsonl_path} did not grow (size: {initial_size} bytes). "
         f"project_key={project_key!r}. ({SPAWN_RULE_ID})"
     )
+
+
+# ---------------------------------------------------------------------------
+# E022 (#863): Adapter-agnostic readiness probes
+# ---------------------------------------------------------------------------
+
+
+class ReadinessProbe:
+    """Abstract base for adapter-specific TUI readiness detection (E022, #863).
+
+    Implementations poll a backend-observable signal to confirm the spawned
+    agent process has completed its boot sequence and is ready to accept input.
+    Replaces the claude-code-specific JSONL-based ``_poll_for_session_jsonl``
+    pre-paste gate in ``cmd_spawn``.
+    """
+
+    def wait_for_ready(
+        self,
+        surface_ref: str,
+        multiplexer: Any,
+        *,
+        timeout_s: float = 10.0,
+        poll_interval_s: float = 0.25,
+        **kw: Any,
+    ) -> None:
+        raise NotImplementedError(
+            f"{type(self).__name__}.wait_for_ready not implemented"
+        )
+
+
+class SurfaceMarkerProbe(ReadinessProbe):
+    """Polls capture_pane_text until any configured marker appears (E022, #863).
+
+    Robust for TUI-based agents: the claude-code TUI renders '❯' or '◆' in
+    the prompt area as soon as the TUI is ready, before any user message.
+    Uses ``backend.capture_pane_text(surface_ref)`` — the same multiplexer
+    method used by ``_verify_stage`` — so every backend that supports pane
+    capture automatically supports this probe.
+
+    Raises ``WorkerReadinessTimeout`` with the surface_ref and marker list
+    if none of the configured markers appear within ``timeout_s``.
+    """
+
+    def __init__(self, markers: List[str]) -> None:
+        self.markers = list(markers)
+
+    def wait_for_ready(
+        self,
+        surface_ref: str,
+        multiplexer: Any,
+        *,
+        timeout_s: float = 10.0,
+        poll_interval_s: float = 0.25,
+        **kw: Any,
+    ) -> None:
+        deadline = time.monotonic() + timeout_s
+        start = time.monotonic()
+
+        while time.monotonic() < deadline:
+            try:
+                text = multiplexer.capture_pane_text(surface_ref)
+            except Exception:
+                time.sleep(poll_interval_s)
+                continue
+            if any(marker in text for marker in self.markers):
+                return
+            time.sleep(poll_interval_s)
+
+        elapsed = time.monotonic() - start
+        raise WorkerReadinessTimeout(
+            f"SurfaceMarkerProbe: {surface_ref!r} did not show any of "
+            f"{self.markers!r} within {timeout_s:.1f}s (elapsed {elapsed:.1f}s). "
+            f"({SPAWN_RULE_ID})"
+        )
+
+
+class ProcessAlivePlusDelayProbe(ReadinessProbe):
+    """Proc-alive check followed by a minimum delay — generic fallback (E022, #863).
+
+    Used for adapters that do not expose pane-capture (codex, gemini, glm).
+    Verifies the process has not exited, then waits ``min_delay_s`` before
+    returning — a conservative best-effort signal that the adapter process
+    has had time to initialise its readline loop.
+
+    If ``proc`` is None (multiplexer-mode spawns have no direct process
+    handle), the alive check is skipped and only the minimum delay is enforced.
+
+    Raises ``WorkerReadinessTimeout`` if the process exits before or during
+    the delay.
+    """
+
+    def __init__(self, min_delay_s: float = 3.0) -> None:
+        self.min_delay_s = min_delay_s
+
+    def wait_for_ready(
+        self,
+        surface_ref: str,
+        multiplexer: Any = None,
+        *,
+        proc: Any = None,
+        timeout_s: float = 10.0,
+        **kw: Any,
+    ) -> None:
+        # Pre-delay alive check
+        if proc is not None:
+            rc = proc.poll()
+            if rc is not None:
+                raise WorkerReadinessTimeout(
+                    f"ProcessAlivePlusDelayProbe: process for {surface_ref!r} "
+                    f"exited with code {rc} before readiness delay. ({SPAWN_RULE_ID})"
+                )
+        time.sleep(self.min_delay_s)
 
 
 @dataclass
@@ -495,12 +620,15 @@ class AdapterConfig:
       (e.g. ``["Bash", "Edit", "Write", ...]``).
     - ``non_interactive_smoke``: optional callable that verifies no modal events
       fire on a synthetic workload (L001).
+    - ``readiness_probe``: adapter-agnostic TUI boot detector (E022, #863).
+      Replaces the claude-code-specific JSONL-based pre-paste gate.
     """
 
     build_command: Callable[[Path], str]
     permission_flags: List[str]
     allowed_tools: List[str]
     non_interactive_smoke: Optional[Callable] = field(default=None)
+    readiness_probe: Optional[ReadinessProbe] = field(default=None)
 
     def __call__(self, prompt_path: Path) -> str:
         """Delegate to build_command for backward compat with call-site adapter(prompt_path)."""
@@ -650,26 +778,31 @@ ADAPTER_REGISTRY: dict[str, AdapterConfig] = {
         permission_flags=_CLAUDE_PERMISSION_FLAGS,
         allowed_tools=_CLAUDE_ALLOWED_TOOLS,
         non_interactive_smoke=_claude_code_non_interactive_smoke,
+        readiness_probe=SurfaceMarkerProbe(markers=["❯", "◆"]),
     ),
     "claude-glm": AdapterConfig(
         build_command=_claude_glm_adapter,
         permission_flags=_CLAUDE_PERMISSION_FLAGS,
         allowed_tools=_CLAUDE_ALLOWED_TOOLS,
+        readiness_probe=ProcessAlivePlusDelayProbe(min_delay_s=3.0),
     ),
     "claude-gpt": AdapterConfig(
         build_command=_claude_gpt_adapter,
         permission_flags=_CLAUDE_PERMISSION_FLAGS,
         allowed_tools=_CLAUDE_ALLOWED_TOOLS,
+        readiness_probe=ProcessAlivePlusDelayProbe(min_delay_s=3.0),
     ),
     "codex": AdapterConfig(
         build_command=_codex_adapter,
         permission_flags=["--full-auto"],
         allowed_tools=["Bash", "Edit", "Write", "Read"],
+        readiness_probe=ProcessAlivePlusDelayProbe(min_delay_s=3.0),
     ),
     "gemini": AdapterConfig(
         build_command=_gemini_adapter,
         permission_flags=["--yolo"],
         allowed_tools=["Bash", "Edit", "Write", "Read"],
+        readiness_probe=ProcessAlivePlusDelayProbe(min_delay_s=3.0),
     ),
 }
 
@@ -1411,7 +1544,7 @@ def cmd_spawn(
         _close_surface_on_failure(backend, surface_ref)
         raise
 
-    # E010 (#795): wait for Claude's TUI to be ready before pasting.
+    # E022 (#863): adapter-agnostic readiness probe → paste → assert processing.
     # E004 (#841): skip the paste path entirely when ATDD_CORRECTION_TRANSPORT=
     # cli-return — the shim delivers the launch prompt via cli-return.jsonl
     # (already primed above); paste_text + send_key must not fire.
@@ -1419,17 +1552,64 @@ def cmd_spawn(
         from atdd.coach.utils.session_naming_apply import _claude_project_key
 
         project_key = _claude_project_key(worktree)
+        _stage_timeout = float(os.environ.get("ATDD_WORKER_READY_TIMEOUT", "10.0"))
+        _stage_poll = float(os.environ.get("ATDD_WORKER_POLL_INTERVAL", "0.25"))
+        _env_projects = os.environ.get("ATDD_CLAUDE_PROJECTS_DIR")
+        _claude_projects_dir: Path = (
+            Path(_env_projects) if _env_projects
+            else Path.home() / ".claude" / "projects"
+        )
         try:
-            # E010 (#795) + E011 (#799): wait for Claude's TUI to boot, paste
-            # the launch prompt, verify each readiness stage, and assert the
-            # worker is processing. All post-creation checks are inside one
-            # patchable call so unit tests cover this pipeline with one stub.
-            _wait_for_claude_ready(
+            # E022 (#863): adapter-agnostic readiness probe replaces the
+            # JSONL-based pre-paste boot gate (retired).  The probe checks a
+            # backend-observable signal (surface marker or proc alive) confirming
+            # TUI boot WITHOUT requiring a session JSONL (which on claude-code
+            # 2.1.150 is only created on the first backend round-trip, i.e.
+            # after the launch prompt is pasted — too late for a pre-paste gate).
+            adapter.readiness_probe.wait_for_ready(
+                surface_ref,
+                backend,
+                timeout_s=_stage_timeout,
+                poll_interval_s=_stage_poll,
+            )
+
+            # Inject the launch prompt POST-probe (E023 ordering fix, #863).
+            # paste_text + send_key fire only after the probe confirms readiness.
+            try:
+                backend.paste_text(surface_ref, prompt_path.read_text())
+                backend.send_key(surface_ref, "Enter")
+            except (MultiplexerError, OSError, AttributeError) as exc:
+                print(
+                    f"⚠️  launch-prompt injection failed for {surface_ref}: {exc} "
+                    f"({SPAWN_RULE_ID})",
+                    file=sys.stderr,
+                )
+
+            _verify_stage(
+                stage_name="paste-landed",
+                surface_ref=surface_ref,
+                backend=backend,
+                expect_any=("paste again to expand", "1 file"),
+                timeout_s=_stage_timeout,
+                poll_interval_s=_stage_poll,
+            )
+            _verify_stage(
+                stage_name="prompt-submitted",
+                surface_ref=surface_ref,
+                backend=backend,
+                expect_any=("⏺ Thinking", "⏺⏺", "esc to interrupt"),
+                timeout_s=_stage_timeout,
+                poll_interval_s=_stage_poll,
+            )
+
+            # E023 (#863): JSONL-growth check fires AFTER paste — confirming
+            # the first backend round-trip occurred (lazy session creation).
+            # This is the only correct position: the JSONL may not exist until
+            # after the paste, so polling for it before paste is a deadlock.
+            _assert_worker_processing(
                 surface_ref=surface_ref,
                 project_key=project_key,
-                spawn_time=spawn_time,
-                multiplexer=backend,
-                prompt_text=prompt_path.read_text(),
+                claude_projects_dir=_claude_projects_dir,
             )
         except WorkerReadinessTimeout as exc:
             print(
