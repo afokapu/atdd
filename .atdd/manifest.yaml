@@ -1305,6 +1305,7 @@ sessions:
   file: null
   issue_number: 816
   type: implementation
-  status: PLANNED
+  status: SMOKE
+  train: 0002-coach-drives-lifecycle
   created: '2026-05-20'
   archived: null
