@@ -34,7 +34,7 @@ UPGRADE_NOTES: dict = {
     "1.16.1": "New: init.skip_workflows config flag prevents workflow overwrite",
     "1.16.2": "Fixed: contract path-to-URN conversion, WMBT acceptances, 14 Phase 2 warnings resolved",
     "1.16.3": "Fixed: kebab-case contract $id now normalizes correctly to PascalCase",
-    "1.16.4": "New: publish workflow auto-generates GitHub Release notes. Run atdd init --force to update consumer workflow",
+    "1.16.4": "New: publish workflow auto-generates GitHub Release notes. Run atdd init to update consumer workflow",
 }
 
 # Check once per day (86400 seconds)
@@ -255,12 +255,12 @@ def check_upgrade_sync_needed() -> Optional[str]:
     if last_version is None:
         # First run or old config without toolkit.last_version
         # Treat as needing sync
-        return f"ATDD upgraded to {__version__}. Run: atdd sync && atdd init --force"
+        return f"ATDD upgraded to {__version__}. Run: atdd sync"
 
     # Compare versions
     if _is_newer(__version__, last_version):
         notes = get_upgrade_notes(last_version, __version__)
-        msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync && atdd init --force"
+        msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync"
         if notes:
             msg += "\n" + "\n".join(f"  → {v}: {note}" for v, note in notes)
         return msg

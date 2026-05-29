@@ -1,0 +1,96 @@
+urn: "wmbt:spawn-agents:E025"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode"
+context_clarifier: >
+  The `atdd repo graph` command outputs a full JSON tree of ~1850 nodes / ~2067 edges in
+  the repo — too noisy to embed in a launch prompt. No wagon-scoped sub-mode exists.
+  Workers dispatched to `wagon:spawn-agents` have no quick way to see the wagon's features,
+  WMBT IDs, component coverage, produces/consumes contracts, or sibling wagons without
+  reading many YAML files manually. This blind spot was the proximate cause of four
+  spawn-pipeline bugs filed in two days (#860/#861/#862/#863): each worker unknowingly
+  duplicated or broke an abstraction that a five-second focused graph view would have
+  surfaced. Fix: add `--wagon <wagon> --format launch-prompt` to `atdd repo graph`. The
+  sub-mode emits a markdown-formatted, ≤ 2KB view containing: (1) wagon description
+  one-liner, (2) feature names + one-line descriptions, (3) WMBT IDs with their direction
+  + dimension, (4) produces:/consumes: contract names, (5) sibling wagons in the same
+  train. This output is safe to embed directly in a launch prompt without exceeding
+  context budgets.
+lens: "functional.effectiveness"
+statement: >
+  minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode
+  by adding `--wagon <wagon> --format launch-prompt` to `atdd repo graph` so the sub-mode
+  emits a wagon-scoped, prompt-sized markdown view (≤ 2KB) containing wagon description,
+  features, WMBT IDs, produces/consumes contracts, and sibling wagons in the same train
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E025-UNIT-001-graph-launch-prompt-emits-required-sections"
+      id: "AC-UNIT-001"
+      purpose: "atdd repo graph --wagon <id> --format launch-prompt outputs a markdown string containing all five required sections: wagon description, features list, WMBT IDs, produces/consumes contracts, and sibling wagons"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A test repo fixture with a minimal wagon YAML containing 2 features, 3 WMBTs, 1 produce item, 1 consume item, and 1 sibling wagon in the same train"
+        - "atdd repo graph --wagon <fixture-wagon-id> --format launch-prompt is invoked against the fixture"
+    when:
+      abstract: "The command runs to completion (exit 0)"
+    then:
+      abstract:
+        - "stdout contains a wagon-description header (e.g. '## Wagon' or the wagon name)"
+        - "stdout contains both feature names"
+        - "stdout contains all 3 WMBT IDs"
+        - "stdout contains the produce contract name"
+        - "stdout contains the sibling wagon name"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+
+  - identity:
+      urn: "acc:spawn-agents:E025-UNIT-002-graph-launch-prompt-output-under-2kb"
+      id: "AC-UNIT-002"
+      purpose: "The wagon-scoped launch-prompt output for the real spawn-agents wagon is ≤ 2048 bytes, confirming the format stays within launch-prompt budget"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The real plan/spawn_agents/ directory is accessible from the test runner's working directory"
+        - "atdd repo graph --wagon spawn-agents --format launch-prompt is invoked"
+    when:
+      abstract: "The command runs to completion and its stdout is captured"
+    then:
+      abstract:
+        - "len(output.encode('utf-8')) <= 2048"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+
+  - identity:
+      urn: "acc:spawn-agents:E025-SMOKE-001-real-wagon-graph-output-present-and-well-formed"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: `atdd repo graph --wagon spawn-agents --format launch-prompt` against the live installed package emits a well-formed, non-empty markdown string that is ≤ 2KB and contains the wagon name"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is installed in the current Python environment"
+        - "plan/spawn_agents/ is present in the repo root"
+    when:
+      abstract: "`atdd repo graph --wagon spawn-agents --format launch-prompt` is executed from the repo root"
+    then:
+      abstract:
+        - "Exit code is 0"
+        - "stdout is non-empty"
+        - "len(stdout.encode('utf-8')) <= 2048"
+        - "stdout contains 'spawn-agents' or 'Spawn Agents'"
+        - "stdout is valid markdown (no YAML parse errors or Python tracebacks present)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"

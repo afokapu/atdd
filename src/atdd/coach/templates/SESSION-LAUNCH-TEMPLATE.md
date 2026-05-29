@@ -9,6 +9,11 @@ worktree at `{{worktree_path}}` on branch `{{branch}}`.
 2. Run `atdd gate` to confirm ATDD rules are loaded (output includes available diagnostic commands).
 3. Run `atdd repo validate` to check URN traceability — fix any errors before writing code.
 4. Run `gh issue view {{issue_number}} --json body --jq '.body'` to see the full issue body.
+5. Run `atdd repo graph --wagon {{wagon}} --format launch-prompt` to see the wagon architecture (re-run before committing PLANNED to catch architectural drift).
+
+## Wagon Architecture
+
+{{wagon_graph_section}}
 
 ## Issue context
 

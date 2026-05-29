@@ -1351,15 +1351,21 @@ Phase descriptions:
     repo_graph_parser.add_argument(
         "--format", "-f",
         type=str,
-        choices=["json", "dot", "prompt"],
+        choices=["json", "dot", "prompt", "launch-prompt"],
         default="json",
-        help="Output format (default: json); 'prompt' requires --issue"
+        help="Output format (default: json); 'prompt' requires --issue; 'launch-prompt' requires --wagon"
     )
     repo_graph_parser.add_argument(
         "--issue",
         type=int,
         default=None,
         help="GitHub issue number; with --format prompt, outputs the Architecture context section"
+    )
+    repo_graph_parser.add_argument(
+        "--wagon",
+        type=str,
+        default=None,
+        help="Wagon slug; with --format launch-prompt, outputs the wagon-scoped launch-prompt section"
     )
     repo_graph_parser.add_argument(
         "--root",
@@ -2493,6 +2499,25 @@ Phase descriptions:
         cmd = URNCommand(repo_root=repo_path)
 
         if args.repo_command == "graph":
+            if args.format == "launch-prompt":
+                from atdd.coach.commands.issue_graph import build_wagon_launch_prompt
+
+                wagon_slug = getattr(args, "wagon", None)
+                if not wagon_slug:
+                    print(
+                        "error: --format launch-prompt requires --wagon <slug>",
+                        file=sys.stderr,
+                    )
+                    return 2
+                section = build_wagon_launch_prompt(wagon_slug, repo_root=repo_path)
+                if section is None:
+                    print(
+                        f"error: wagon '{wagon_slug}' not found in plan/ directory",
+                        file=sys.stderr,
+                    )
+                    return 1
+                print(section, end="")
+                return 0
             if args.format == "prompt":
                 from atdd.coach.commands.issue_graph import build_issue_architecture_context
 
