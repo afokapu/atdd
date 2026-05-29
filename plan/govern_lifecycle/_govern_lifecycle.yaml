@@ -58,9 +58,10 @@ features:
   - urn: "feature:govern-lifecycle:close-substrate-friction-regressions"
   - urn: "feature:govern-lifecycle:consumer-validator-scope-gate"
   - urn: "feature:govern-lifecycle:smoke-false-green-prevention"
+  - urn: "feature:govern-lifecycle:gh-issue-create-block-l3"
 
 wmbt:
-  total: 60
+  total: 63
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -121,3 +122,6 @@ wmbt:
   M002: "minimize quantity of post-smoke-production-bugs-per-release-wave by maintaining a Future-Tracking table in docs/smoke-audit.md with expectation=0 for all waves >= v3.83.0 (#855)"
   E030: "minimize quantity of operator-skip-env-vars-remaining-in-hook-source-after-2026-05-26-directive by removing all 5 remaining ATDD_SKIP_* blocks from every hook template and setting meta-guard baseline to 0 (#851)"
   E031: "maximize quantity of structured-single-use-emergency-bypass-command-replacing-seven-env-vars by implementing atdd emergency --reason CLI command with EMERGENCY_BYPASS file and audit-jsonl logging (#851)"
+  E032: "minimize quantity of gh-issue-create-calls-reaching-real-gh-from-any-shell-in-the-worktree by installing a direnv-scoped PATH shim at .atdd/bin/gh that blocks gh issue create, forwards every other gh subcommand, and execs the next gh without looping on itself (#816)"
+  E033: "minimize quantity of committed-scripts-that-bake-in-gh-issue-create-calls by installing a pre-commit hook that greps the staged diff for added gh issue create lines, rejects with an educational error, and exempts *.md docs (#816)"
+  E034: "minimize likelihood of fresh-worktrees-missing-the-gh-shim-envrc-and-precommit-hook-after-atdd-init by making atdd init install .atdd/bin/gh, .envrc, and the pre-commit hook idempotently with a direnv soft-fail notice (#816)"

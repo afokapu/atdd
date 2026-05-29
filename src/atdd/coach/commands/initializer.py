@@ -550,6 +550,11 @@ class ProjectInitializer:
             # Install git hooks (pre-commit worktree enforcement)
             self._install_hooks(force)
 
+            # Install the gh-issue-create L3 enforcement layer: PATH shim,
+            # .envrc PATH_add, and pre-commit grep (#816). Soft-fails on
+            # missing direnv.
+            self.install_path_shim_enforcement(force)
+
             # Install train-render harness when consumer repo has a frontend (#335)
             self._install_harness(force)
 
@@ -973,6 +978,85 @@ class ProjectInitializer:
             print(f"Set git core.hooksPath → {abs_hooks}")
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
             logger.warning("Could not set core.hooksPath: %s", exc, extra={"path": str(abs_hooks)})
+
+    def install_path_shim_enforcement(self, force: bool = False) -> None:
+        """Install the gh-issue-create L3 enforcement layer (issue #816).
+
+        Three idempotent installs that block ``gh issue create`` outside the
+        Claude Code PreToolUse hook (#668, L1):
+
+          * ``.atdd/bin/gh`` — the L3a PATH shim (executable) that intercepts
+            ``gh issue create`` in any worktree shell and forwards every other
+            gh subcommand to the next real gh on PATH.
+          * ``.envrc`` — a ``PATH_add .atdd/bin`` line so direnv puts the shim
+            first on PATH. Appended only when absent (operator edits preserved).
+          * ``.atdd/hooks/pre-commit-gh-issue-create.sh`` — the L3b pre-commit
+            hook that greps the staged diff for baked-in ``gh issue create``
+            calls (``*.md`` exempt).
+
+        Soft-fails (warns, never raises) when ``direnv`` is not on PATH — the
+        shim is installed but inert until the operator installs/hooks direnv.
+
+        Convention: src/atdd/coach/conventions/path_shim_gh.convention.yaml
+        """
+        templates = self.package_root / "templates"
+        self._install_executable_template(
+            templates / "bin" / "gh.shim",
+            self.atdd_config_dir / "bin" / "gh",
+            missing_label="gh shim",
+        )
+        self._append_envrc_path_add()
+        self._install_executable_template(
+            templates / "hooks" / "pre-commit-gh-issue-create.sh",
+            self.atdd_config_dir / "hooks" / "pre-commit-gh-issue-create.sh",
+            missing_label="gh pre-commit hook",
+        )
+        self._warn_if_direnv_missing()
+
+    def _install_executable_template(
+        self, src: Path, dst: Path, *, missing_label: str
+    ) -> None:
+        """Copy *src* → *dst* (creating parents) and mark it executable.
+
+        Logs a warning and no-ops when the template is absent so a partial
+        package install degrades gracefully rather than raising.
+        """
+        if not src.exists():
+            logger.warning(
+                "%s template not found: %s", missing_label, src,
+                extra={"path": str(src)},
+            )
+            return
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        os.chmod(dst, dst.stat().st_mode | 0o111)
+        print(f"Installed: {dst}")
+
+    def _append_envrc_path_add(self) -> None:
+        """Append ``PATH_add .atdd/bin`` to ``.envrc`` if not already present.
+
+        Idempotent: a re-run never duplicates the line, and existing operator
+        edits to ``.envrc`` are preserved (the line is appended, not rewritten).
+        """
+        envrc = self.target_dir / ".envrc"
+        path_add_line = "PATH_add .atdd/bin"
+        existing = envrc.read_text() if envrc.is_file() else ""
+        if any(ln.strip() == path_add_line for ln in existing.splitlines()):
+            return
+        if existing and not existing.endswith("\n"):
+            existing += "\n"
+        envrc.write_text(f"{existing}{path_add_line}\n")
+        print(f"Added '{path_add_line}' to .envrc")
+
+    def _warn_if_direnv_missing(self) -> None:
+        """Print a soft-fail notice when ``direnv`` is absent from PATH."""
+        if shutil.which("direnv") is None:
+            print(
+                "Warning: direnv not found on PATH — the .atdd/bin/gh shim is "
+                "installed but will not take effect until you install direnv "
+                "and run `direnv allow`. (gh issue create stays blocked by the "
+                "L1 hook and L3b pre-commit in the meantime.)"
+            )
 
     def _install_harness(self, force: bool = False) -> None:
         """Install train-render harness templates into ``.atdd/harness/``.

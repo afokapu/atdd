@@ -1284,3 +1284,28 @@ sessions:
   status: INIT
   created: '2026-05-28'
   archived: null
+- id: '881'
+  slug: make-atdd-init-incremental-on-existing-repos
+  file: null
+  issue_number: 881
+  type: implementation
+  status: INIT
+  created: '2026-05-29'
+  archived: null
+- id: '882'
+  slug: fix-project-v2-status-field-not-synced-on-issue-close
+  file: null
+  issue_number: 882
+  type: implementation
+  status: INIT
+  created: '2026-05-29'
+  archived: null
+- id: '816'
+  slug: block-gh-issue-create-dev-and-commit-time
+  file: null
+  issue_number: 816
+  type: implementation
+  status: SMOKE
+  train: 0001-self-compliance-validate
+  created: '2026-05-20'
+  archived: null

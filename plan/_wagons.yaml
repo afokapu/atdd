@@ -621,7 +621,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 60
+    total: 63
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -767,6 +767,16 @@ wagons:
     E031: maximize quantity of structured-single-use-emergency-bypass-command-replacing-seven-env-vars
       by implementing atdd emergency --reason CLI command with EMERGENCY_BYPASS file
       and audit-jsonl logging (#851)
+    E032: minimize quantity of gh-issue-create-calls-reaching-real-gh-from-any-shell-in-the-worktree
+      by installing a direnv-scoped PATH shim at .atdd/bin/gh that blocks gh issue
+      create, forwards every other gh subcommand, and execs the next gh without looping
+      on itself (#816)
+    E033: minimize quantity of committed-scripts-that-bake-in-gh-issue-create-calls
+      by installing a pre-commit hook that greps the staged diff for added gh issue
+      create lines, rejects with an educational error, and exempts *.md docs (#816)
+    E034: minimize likelihood of fresh-worktrees-missing-the-gh-shim-envrc-and-precommit-hook-after-atdd-init
+      by making atdd init install .atdd/bin/gh, .envrc, and the pre-commit hook idempotently
+      with a direnv soft-fail notice (#816)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -1455,6 +1465,34 @@ wagons:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:claude-md-sanitized-context-file
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:operator-emergency-bypass-doc
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:claude-md-size-budget-validator
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:claude-md-no-bypass-advertising-validator
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:wagon-scoped-graph-sub-mode
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:launch-prompt-wagon-graph-section
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:launch-prompt-wagon-graph-convention-rule
+    contract: null
+    telemetry: null
+    to: external
   consume:
   - name: commons:coach:runtime-event-schema
     from: wagon:freeze-runtime-contracts
@@ -1465,7 +1503,7 @@ wagons:
   - name: commons:coach:decisions-jsonl-writer
     from: wagon:drive-state-machine
   wmbt:
-    total: 33
+    total: 42
     E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
     D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
     E002: minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout
@@ -1496,9 +1534,18 @@ wagons:
     E020: minimize likelihood of persona-shim-operates-with-relative-runtime-dir-if-future-caller-bypasses-primary-fix
     E021: minimize likelihood of process-alive-timeout-mislabels-cwd-bleed-path-mismatch-as-silent-shim-crash
     L002: minimize likelihood of relative-runtime-root-causes-output-log-to-land-at-worktree-path-instead-of-coach-polled-path
+    E022: minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-to-dispatched-agents
+    E023: minimize quantity of claude-md-lines-exceeding-worker-context-budget
+    E024: minimize likelihood of operator-emergency-bypass-mechanism-documented-as-copy-pasteable-env-var-in-agent-readable-context
+    L003: minimize likelihood of dispatched-workers-that-self-discover-and-apply-atdd-skip-bypass-env-vars
+    R002: minimize likelihood of claude-md-context-budget-violations-going-undetected-in-ci
+    R003: minimize likelihood of bypass-token-reintroduction-to-agent-context-going-undetected-in-ci
     E025: minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode
     E026: minimize likelihood of launch-prompts-emitted-without-wagon-scoped-graph-context-section
     E027: minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section
+    E028: minimize likelihood of adapter-specific-hardcoded-session-jsonl-boot-wait-deadlocking-coach-on-lazy-session-creation
+    E029: minimize likelihood of launch-prompt-paste-gated-behind-session-jsonl-that-appears-only-after-first-user-message
+    L004: minimize likelihood of spawn-pipeline-regression-to-jsonl-boot-wait-deadlock-on-lazy-session-creation
   total: 0
   manifest: plan/spawn_agents/_spawn_agents.yaml
   path: plan/spawn_agents/

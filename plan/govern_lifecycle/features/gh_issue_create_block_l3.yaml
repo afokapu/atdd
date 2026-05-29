@@ -1,0 +1,29 @@
+urn: "feature:govern-lifecycle:gh-issue-create-block-l3"
+wagon: "wagon:govern-lifecycle"
+description: "Extend gh-issue-create enforcement beyond the L1 PreToolUse hook (#668) with two harness-agnostic layers: an L3a direnv-scoped PATH shim at .atdd/bin/gh that blocks `gh issue create` in any worktree shell while forwarding every other gh subcommand, and an L3b pre-commit hook that greps the staged diff for baked-in `gh issue create` calls (exempting *.md). atdd init installs the shim, .envrc, and the hook idempotently, soft-failing when direnv is absent (#816)."
+sizing:
+  wmbts: 3
+  footprint_score: 5
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E032"
+  - "wmbt:govern-lifecycle:E033"
+  - "wmbt:govern-lifecycle:E034"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd init (initializer) gains a gh-shim install step that writes .atdd/bin/gh, .envrc, and .git/hooks/pre-commit idempotently with a direnv soft-fail notice (E034)"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "install-gh-shim-enforcement use case: composes the three template installs (shim, envrc, pre-commit) behind idempotent file-write helpers (E034)"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain types; the shim and pre-commit hook are shell templates, classification is argv/regex matching"
+    integration:
+      - type: "wiring_modules"
+        count: 3
+        rationale: "src/atdd/coach/templates/bin/gh.shim (L3a PATH shim), src/atdd/coach/templates/hooks/pre-commit-gh-issue-create.sh (L3b staged-diff grep), src/atdd/coach/conventions/path_shim_gh.convention.yaml (pattern registry mirroring forbidden_commands.convention.yaml from #668)"
