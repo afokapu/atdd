@@ -1,0 +1,115 @@
+urn: "wmbt:spawn-agents:E027"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section"
+context_clarifier: >
+  Once E025 (graph sub-mode) and E026 (template + render injection) are shipped, the
+  wagon-graph section in launch prompts is a load-bearing requirement: workers depend on
+  it for architectural orientation. Without a convention rule, a future edit to
+  SESSION-LAUNCH-TEMPLATE.md or a refactor of `_render_launch_prompt` could silently
+  remove or gate out the wagon-graph section — it happened with the smoke-acceptance
+  rule (issue #849: the rule existed in convention YAML but was absent from templates,
+  so agents committed PLANNED without it for several releases).
+  Fix: `src/atdd/coach/conventions/session.convention.yaml` gains a rule
+  `coach.launch-prompt.must-include-wagon-graph` (sev 3, suppress-and-clean) that fires
+  when a rendered launch prompt (or the template itself) lacks the wagon-graph section
+  marker. `atdd validate coach` runs this rule. Compliant prompts contain at least one
+  instance of the section marker; non-compliant prompts or templates are flagged with
+  a clear remediation message pointing to E025/E026.
+lens: "functional.effectiveness"
+statement: >
+  minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section
+  by adding a `coach.launch-prompt.must-include-wagon-graph` rule (sev 3,
+  suppress-and-clean) to src/atdd/coach/conventions/session.convention.yaml and wiring
+  it to `atdd validate coach` so any SESSION-LAUNCH-TEMPLATE.md or rendered prompt that
+  lacks the wagon-graph section marker is flagged with a clear remediation message
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E027-UNIT-001-session-convention-declares-wagon-graph-rule"
+      id: "AC-UNIT-001"
+      purpose: "src/atdd/coach/conventions/session.convention.yaml declares a rule whose id is 'coach.launch-prompt.must-include-wagon-graph' with severity 3 and suppress_mode 'suppress-and-clean'"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/conventions/session.convention.yaml is read from the filesystem"
+    when:
+      abstract: "The file content is parsed and the rule list is inspected"
+    then:
+      abstract:
+        - "A rule with id 'coach.launch-prompt.must-include-wagon-graph' is present"
+        - "The rule's severity is 3"
+        - "The rule's suppress_mode is 'suppress-and-clean'"
+        - "The rule description references the wagon-graph section or E025/E026"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+
+  - identity:
+      urn: "acc:spawn-agents:E027-UNIT-002-wagon-graph-rule-fires-on-template-missing-section"
+      id: "AC-UNIT-002"
+      purpose: "The coach.launch-prompt.must-include-wagon-graph validator fires (reports a violation) when SESSION-LAUNCH-TEMPLATE.md lacks the wagon-graph section marker"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A patched copy of SESSION-LAUNCH-TEMPLATE.md from which the wagon-graph section marker has been removed"
+        - "The coach.launch-prompt.must-include-wagon-graph validator is invoked against the patched copy"
+    when:
+      abstract: "The validator runs"
+    then:
+      abstract:
+        - "At least one violation is reported"
+        - "The violation message references 'coach.launch-prompt.must-include-wagon-graph'"
+        - "The violation message contains a remediation hint (e.g. references E025 or E026)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+
+  - identity:
+      urn: "acc:spawn-agents:E027-UNIT-003-wagon-graph-rule-passes-on-compliant-template"
+      id: "AC-UNIT-003"
+      purpose: "The coach.launch-prompt.must-include-wagon-graph validator passes (zero violations) when SESSION-LAUNCH-TEMPLATE.md contains the wagon-graph section marker"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The actual SESSION-LAUNCH-TEMPLATE.md after E026 is applied (contains the wagon-graph section marker)"
+        - "The validator is invoked against the actual template"
+    when:
+      abstract: "The validator runs"
+    then:
+      abstract:
+        - "Zero violations are reported"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+
+  - identity:
+      urn: "acc:spawn-agents:E027-SMOKE-001-atdd-validate-coach-passes-with-graph-section-present"
+      id: "AC-SMOKE-001"
+      purpose: "SMOKE: `atdd validate coach` (with --local --skip-api) on the live repo after E026 ships reports zero coach.launch-prompt.must-include-wagon-graph violations"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd package is installed and E026 changes (wagon-graph section in template) are present"
+        - "The rule coach.launch-prompt.must-include-wagon-graph is registered in session.convention.yaml"
+    when:
+      abstract: "`atdd validate coach --local --skip-api` is executed from the repo root"
+    then:
+      abstract:
+        - "The command exits 0 or exits with no violations attributed to 'coach.launch-prompt.must-include-wagon-graph'"
+        - "No lines mentioning 'coach.launch-prompt.must-include-wagon-graph' appear in the violations output"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"

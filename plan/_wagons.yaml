@@ -621,7 +621,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 58
+    total: 60
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -761,6 +761,12 @@ wagons:
     M002: minimize quantity of post-smoke-production-bugs-per-release-wave by maintaining
       a Future-Tracking table in docs/smoke-audit.md with expectation=0 for all waves
       >= v3.83.0 (#855)
+    E030: minimize quantity of operator-skip-env-vars-remaining-in-hook-source-after-2026-05-26-directive
+      by removing all 5 remaining ATDD_SKIP_* blocks from every hook template and
+      setting meta-guard baseline to 0 (#851)
+    E031: maximize quantity of structured-single-use-emergency-bypass-command-replacing-seven-env-vars
+      by implementing atdd emergency --reason CLI command with EMERGENCY_BYPASS file
+      and audit-jsonl logging (#851)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -1192,7 +1198,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 17
+    total: 20
     P001: minimize quantity of observer-runtime-skeleton-gaps
     P002: minimize quantity of observer-input-acquisition-gaps
     M001: minimize likelihood of undetected-basic-protocol-violations
@@ -1207,10 +1213,12 @@ wagons:
     E002: minimize quantity of per-worker-observer-processes-spawned-by-coach
     E003: minimize quantity of observer-correction-loop-activation-gaps
     E004: minimize quantity of persona-shim-spawn-dispatch-wiring-gaps
-    E005: minimize quantity of shim-stdin-forwarding-gaps
+    E008: minimize quantity of launch-prompt-delivery-races-before-tui-is-ready
+    E007: minimize quantity of cli-return-corrections-missing-submit-sentinel
     C001: minimize likelihood of behavioral-regression-against-babysit-baseline
     C002: minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary
     E005: minimize likelihood of atdd-shim-popen-missing-env-kwarg-for-typed-env-override-delivery
+    E006: minimize quantity of shim-stdin-forwarding-gaps
   total: 0
   manifest: plan/observe_and_correct/_observe_and_correct.yaml
   path: plan/observe_and_correct/
@@ -1457,7 +1465,7 @@ wagons:
   - name: commons:coach:decisions-jsonl-writer
     from: wagon:drive-state-machine
   wmbt:
-    total: 18
+    total: 33
     E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
     D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
     E002: minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout
@@ -1488,6 +1496,9 @@ wagons:
     E020: minimize likelihood of persona-shim-operates-with-relative-runtime-dir-if-future-caller-bypasses-primary-fix
     E021: minimize likelihood of process-alive-timeout-mislabels-cwd-bleed-path-mismatch-as-silent-shim-crash
     L002: minimize likelihood of relative-runtime-root-causes-output-log-to-land-at-worktree-path-instead-of-coach-polled-path
+    E025: minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode
+    E026: minimize likelihood of launch-prompts-emitted-without-wagon-scoped-graph-context-section
+    E027: minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section
   total: 0
   manifest: plan/spawn_agents/_spawn_agents.yaml
   path: plan/spawn_agents/
