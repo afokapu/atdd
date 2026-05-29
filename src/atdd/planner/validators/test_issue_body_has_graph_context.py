@@ -88,12 +88,15 @@ def _body_carries_suppression(body: str, rule_id: str) -> bool:
 
 
 def _open_atdd_issues() -> List[Dict[str, Any]]:
-    """Fetch open issues with the ``atdd-issue`` label via the gh CLI.
+    """Fetch open issues with the ``atdd-issue`` label via the REST API.
 
-    Includes the ``createdAt`` field so the cutoff filter (`_RULE_CUTOFF`)
-    can exempt pre-#682 issues without listing each by number.
+    Uses GET /repos/{owner}/{repo}/issues (REST, 0 GraphQL pts) rather than
+    ``gh issue list --json`` (GraphQL, ~100 pts/call) — see issue #877.
+    REST field ``created_at`` is normalised to ``createdAt`` so the cutoff
+    filter is unchanged.
     """
-    from atdd.coach.github import GitHubClient
+    import json
+    import subprocess
     from atdd.coach.utils.config import load_atdd_config
 
     repo_root = find_repo_root()
@@ -103,19 +106,21 @@ def _open_atdd_issues() -> List[Dict[str, Any]]:
         repo = github_config.get("repo")
         if not repo:
             pytest.skip("No github.repo configured in .atdd/config.yaml")
-        client = GitHubClient(repo=repo)
-        # Inline the gh call so we can ask for createdAt without changing the
-        # shared client method's default field set.
-        import json
-        output = client._run_gh([
-            "issue", "list",
-            "--repo", repo,
-            "--label", "atdd-issue",
-            "--state", "open",
-            "--json", "number,title,labels,state,body,createdAt",
-            "--limit", "100",
-        ])
-        return json.loads(output) if output else []
+        r = subprocess.run(
+            [
+                "gh", "api",
+                f"repos/{repo}/issues?labels=atdd-issue&state=open&per_page=100",
+            ],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode != 0:
+            pytest.skip(f"Cannot query GitHub issues: {r.stderr}")
+        items = json.loads(r.stdout) if r.stdout else []
+        # REST uses snake_case; normalise so the cutoff filter is unchanged.
+        for item in items:
+            if "created_at" in item and "createdAt" not in item:
+                item["createdAt"] = item["created_at"]
+        return items
     except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         pytest.skip(f"Cannot query GitHub issues: {e}")
 
