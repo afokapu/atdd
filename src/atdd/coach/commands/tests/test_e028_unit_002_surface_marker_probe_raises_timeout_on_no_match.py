@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:E022-UNIT-002-surface-marker-probe-raises-timeout-on-no-match
-# Acceptance: acc:spawn-agents:E022-UNIT-002-surface-marker-probe-raises-timeout-on-no-match
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:spawn-agents:E028-UNIT-002-surface-marker-probe-raises-timeout-on-no-match
+# Acceptance: acc:spawn-agents:E028-UNIT-002-surface-marker-probe-raises-timeout-on-no-match
+# WMBT: wmbt:spawn-agents:E028
 # Phase: GREEN
 # Layer: backend.unit
 # Runtime: python
 # Assertion: behavioral
-"""E022-UNIT-002 — SurfaceMarkerProbe.wait_for_ready raises WorkerReadinessTimeout when no marker appears
+"""E028-UNIT-002 — SurfaceMarkerProbe.wait_for_ready raises WorkerReadinessTimeout when no marker appears
 
 RED: fails with ImportError — SurfaceMarkerProbe does not exist until E022 GREEN phase.
 """

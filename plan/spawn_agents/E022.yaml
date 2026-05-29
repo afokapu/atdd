@@ -2,186 +2,89 @@ urn: "wmbt:spawn-agents:E022"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
-object_of_control: "adapter-specific-hardcoded-session-jsonl-boot-wait-deadlocking-coach-on-lazy-session-creation"
-context_clarifier: "_poll_for_session_jsonl in cmd_spawn polls ~/.claude/projects/<project_key>/*.jsonl as proof the TUI has booted. On claude-code 2.1.150 this deadlocks: the session JSONL is only created on first backend round-trip (first user message), but the launch prompt that triggers that message is pasted AFTER the detector passes — chicken-and-egg. Five live dispatch attempts on 2026-05-26 v3.83.0 all timed out at this gate (ATDD_WORKER_READY_TIMEOUT=10–90s) while the Claude TUI was visibly healthy. Additionally the detector hardcodes claude-code filesystem semantics (~/.claude/projects/), silently unsupporting every non-claude-code adapter in ADAPTER_REGISTRY (claude-glm, claude-gpt, codex, gemini — each registered through E009 but without a readiness_probe). Fix: extend AdapterSpec with a readiness_probe: ReadinessProbe field; implement SurfaceMarkerProbe (tails surface output for adapter-specific marker text — most robust), ProcessAlivePlusDelayProbe (proc-alive + fixed minimum delay — generic fallback), and HealthCommandProbe (invokes adapter --health/--doctor — optional); replace the _poll_for_session_jsonl call with adapter.readiness_probe.wait_for_ready(surface_ref, timeout_s). The claude-code adapter uses SurfaceMarkerProbe(markers=['❯', '◆']) — both chars reliably appear in the claude-code prompt area as soon as the TUI renders, before any user message. Other adapters (claude-glm, claude-gpt, codex, gemini) use ProcessAlivePlusDelayProbe(min_delay_s=3.0) as a conservative fallback until per-adapter surface markers are characterised. _poll_for_session_jsonl is retired; _assert_worker_processing (JSONL growth after paste) is RETAINED and UNCHANGED as proof of backend round-trip — it was always correctly positioned post-paste."
+object_of_control: "claude-md-advertising-atdd-skip-bypass-env-vars-to-dispatched-agents"
+context_clarifier: "CLAUDE.md is the primary context file read by every dispatched worker agent. Lines 643 and 658 (pre-#867) explicitly document ATDD_SKIP_POSTCOMMIT=1 as a routine operator override inside the post_commit_hook.overrides block. Agents (including ATDD860, ATDD861, ATDD862, ATDD851) self-discover this documentation and apply the bypass without operator instruction — 76 invocations across 4 workers in a single session (2026-05-26). The bypass-discovery vector is the project's own context file, not an external doc site. Fix: remove every ATDD_SKIP_* reference from CLAUDE.md and replace with a pointer to docs/operator-emergency-bypass.md, which is operator-only and excluded from agent context loads."
 lens: "functional.effectiveness"
-statement: "minimize likelihood of adapter-specific-hardcoded-session-jsonl-boot-wait-deadlocking-coach-on-lazy-session-creation by extending AdapterSpec with a readiness_probe: ReadinessProbe field, implementing SurfaceMarkerProbe (surface text polling) and ProcessAlivePlusDelayProbe (proc-alive + min delay) probe types, registering SurfaceMarkerProbe(markers=['❯', '◆']) on the claude-code adapter and ProcessAlivePlusDelayProbe(min_delay_s=3.0) on the other four registered adapters, and replacing the _poll_for_session_jsonl call in cmd_spawn with adapter.readiness_probe.wait_for_ready(surface_ref, timeout_s)"
+statement: "minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-to-dispatched-agents by stripping all ATDD_SKIP_* env-var references from CLAUDE.md and replacing with a single pointer to docs/operator-emergency-bypass.md (operator-only, not loaded by agents)"
 acceptances:
   - identity:
-      urn: "acc:spawn-agents:E022-UNIT-001-surface-marker-probe-returns-on-marker-match"
+      urn: "acc:spawn-agents:E022-UNIT-001-claude-md-contains-no-atdd-skip-references"
       id: "AC-UNIT-001"
-      purpose: "SurfaceMarkerProbe.wait_for_ready returns without error when the multiplexer surface text contains any of the configured marker strings within the timeout"
+      purpose: "The literal grep `grep -E 'ATDD_SKIP_[A-Z_]+' CLAUDE.md` returns 0 matching lines — no bypass env-var token is present anywhere in the file"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "src/atdd/coach/commands/spawn.py exposes SurfaceMarkerProbe(markers: list[str])"
-        - "A FakeMultiplexer whose capture_surface_text() returns '❯ ' (prompt area)"
-        - "probe = SurfaceMarkerProbe(markers=['❯', '◆'])"
+        - "CLAUDE.md in the repo root after #867 edits are applied"
     when:
-      abstract: "probe.wait_for_ready(surface_ref='surface:1', multiplexer=fake_mux, timeout_s=2.0, poll_interval_s=0.01) is called"
+      abstract: "grep -E 'ATDD_SKIP_[A-Z_]+' CLAUDE.md is executed"
     then:
       abstract:
-        - "The call returns without raising"
-        - "Elapsed time is less than 1.0s (marker was found on first poll)"
+        - "Exit code is 1 (no matches found)"
+        - "Zero lines of output are produced"
     metadata:
       author: "atdd:planner"
       created: "2026-05-27"
   - identity:
-      urn: "acc:spawn-agents:E022-UNIT-002-surface-marker-probe-raises-timeout-on-no-match"
+      urn: "acc:spawn-agents:E022-UNIT-002-claude-md-references-operator-emergency-bypass-doc"
       id: "AC-UNIT-002"
-      purpose: "SurfaceMarkerProbe.wait_for_ready raises WorkerReadinessTimeout when no configured marker ever appears in the surface text within the bounded wait"
+      purpose: "CLAUDE.md contains the string 'docs/operator-emergency-bypass.md' so agents are directed to the correct operator-only reference rather than being left with no information about emergency overrides"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "A FakeMultiplexer whose capture_surface_text() always returns an empty string (TUI not ready)"
-        - "probe = SurfaceMarkerProbe(markers=['❯', '◆'])"
+        - "CLAUDE.md in the repo root after #867 edits"
     when:
-      abstract: "probe.wait_for_ready(surface_ref='surface:1', multiplexer=fake_mux, timeout_s=0.05, poll_interval_s=0.01) is called"
+      abstract: "grep 'docs/operator-emergency-bypass.md' CLAUDE.md is executed"
     then:
       abstract:
-        - "WorkerReadinessTimeout is raised"
-        - "str(exception) contains the surface_ref identifier"
-        - "str(exception) names the markers that were awaited"
+        - "At least one line matches, confirming the operator-only doc is referenced"
     metadata:
       author: "atdd:planner"
       created: "2026-05-27"
   - identity:
-      urn: "acc:spawn-agents:E022-UNIT-003-process-alive-delay-probe-returns-after-min-delay"
+      urn: "acc:spawn-agents:E022-UNIT-003-upgrade-banner-does-not-suggest-force"
       id: "AC-UNIT-003"
-      purpose: "ProcessAlivePlusDelayProbe.wait_for_ready returns without error after min_delay_s if the process is still alive at that point"
+      purpose: "check_upgrade_sync_needed() returns a banner that contains 'atdd sync' but does NOT contain '--force', so agents reading the banner cannot discover the destructive 'atdd init --force' flag"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "src/atdd/coach/commands/spawn.py exposes ProcessAlivePlusDelayProbe(min_delay_s: float)"
-        - "A fake proc whose poll() returns None (alive) throughout the call"
-        - "probe = ProcessAlivePlusDelayProbe(min_delay_s=0.05)"
+        - "atdd.version_check is importable"
+        - "check_upgrade_sync_needed() is patched to return a synthetic banner string"
     when:
-      abstract: "probe.wait_for_ready(surface_ref='surface:1', proc=fake_proc, timeout_s=2.0) is called"
+      abstract: "check_upgrade_sync_needed() is called (or the banner string is inspected directly)"
     then:
       abstract:
-        - "The call returns without raising"
-        - "Elapsed time is at least 0.05s (min_delay enforced)"
-        - "Elapsed time is less than 1.0s (no spurious extra wait)"
+        - "The returned string contains 'atdd sync'"
+        - "The returned string does NOT contain '--force'"
     metadata:
-      author: "atdd:planner"
-      created: "2026-05-27"
+      author: "atdd:coder"
+      created: "2026-05-28"
   - identity:
-      urn: "acc:spawn-agents:E022-UNIT-004-process-alive-delay-probe-raises-if-proc-dies"
-      id: "AC-UNIT-004"
-      purpose: "ProcessAlivePlusDelayProbe.wait_for_ready raises WorkerReadinessTimeout when the process exits (poll() returns non-None) before min_delay_s elapses"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A fake proc whose poll() immediately returns 1 (process died on start)"
-        - "probe = ProcessAlivePlusDelayProbe(min_delay_s=5.0)"
-    when:
-      abstract: "probe.wait_for_ready(surface_ref='surface:1', proc=fake_proc, timeout_s=2.0) is called"
-    then:
-      abstract:
-        - "WorkerReadinessTimeout is raised"
-        - "str(exception) contains the surface_ref and indicates the process exited"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-27"
-  - identity:
-      urn: "acc:spawn-agents:E022-UNIT-005-adapter-spec-readiness-probe-populated"
-      id: "AC-UNIT-005"
-      purpose: "Every AdapterSpec in ADAPTER_REGISTRY carries a non-None readiness_probe; the claude-code adapter's probe is a SurfaceMarkerProbe with markers including '❯'"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "ADAPTER_REGISTRY imported from src/atdd/coach/commands/spawn.py"
-    when:
-      abstract: "Each AdapterSpec in ADAPTER_REGISTRY.values() is inspected"
-    then:
-      abstract:
-        - "adapter.readiness_probe is not None for every registered adapter"
-        - "ADAPTER_REGISTRY['claude-code'].readiness_probe is an instance of SurfaceMarkerProbe"
-        - "'❯' appears in ADAPTER_REGISTRY['claude-code'].readiness_probe.markers"
-        - "Every non-claude-code adapter (claude-glm, claude-gpt, codex, gemini) has a readiness_probe that is an instance of ProcessAlivePlusDelayProbe"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-27"
-  - identity:
-      urn: "acc:spawn-agents:E022-UNIT-006-cmd-spawn-calls-readiness-probe-not-poll-jsonl"
-      id: "AC-UNIT-006"
-      purpose: "cmd_spawn calls adapter.readiness_probe.wait_for_ready and does NOT call _poll_for_session_jsonl before the launch-prompt paste"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py is importable"
-        - "_poll_for_session_jsonl may be absent (retired) or present but uncalled at this stage"
-    when:
-      abstract: "The module is inspected (AST parse or source grep) for the pre-paste call sequence"
-    then:
-      abstract:
-        - "There is no call to _poll_for_session_jsonl between surface creation and the launch-prompt paste in cmd_spawn's main flow"
-        - "There IS a call to readiness_probe.wait_for_ready (or adapter.readiness_probe.wait_for_ready) before the paste"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-27"
-  - identity:
-      urn: "acc:spawn-agents:E022-INTEGRATION-001-cmd-spawn-with-surface-marker-probe-no-jsonl-needed"
-      id: "AC-INTEGRATION-001"
-      purpose: "Full cmd_spawn path succeeds with a FakeMultiplexer that returns '❯' in capture_surface_text and NO session JSONL file in the project dir — confirming the readiness gate no longer requires JSONL at boot time"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A FakeMultiplexer with capture_surface_text returning '❯ ' and a background thread that writes bytes to the session.jsonl after 0.1s (simulating post-paste JSONL creation for _assert_worker_processing)"
-        - "NO session JSONL file exists in the project dir at the time the readiness probe runs"
-        - "The claude-code adapter is selected (SurfaceMarkerProbe)"
-        - "A dummy launch prompt file exists on disk"
-    when:
-      abstract: "cmd_spawn is invoked end-to-end with the FakeMultiplexer and tmp paths injected"
-    then:
-      abstract:
-        - "The readiness probe passes (surface text contained '❯')"
-        - "The launch prompt is pasted"
-        - "_assert_worker_processing passes (JSONL grew after paste)"
-        - "No WorkerReadinessTimeout is raised at the readiness-probe stage"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-27"
-  - identity:
-      urn: "acc:spawn-agents:E022-SMOKE-001-live-adapter-registry-claude-code-has-surface-marker-probe"
+      urn: "acc:spawn-agents:E022-SMOKE-001-live-claude-md-contains-no-atdd-skip-references"
       id: "AC-SMOKE-001"
-      purpose: "The deployed ADAPTER_REGISTRY's claude-code entry has a SurfaceMarkerProbe with '❯' in its markers list — confirming the fix is installed in the live package"
+      purpose: "The deployed CLAUDE.md in the live repo root contains zero ATDD_SKIP_* tokens; confirmed against the real filesystem after merge"
       phase: "SMOKE"
     harness:
       type: "smoke"
       category: "backend"
     given:
       abstract:
+        - "CLAUDE.md at the repository root after PR #867 is merged"
         - "ATDD_RUN_SMOKE=1 is set"
-        - "The installed atdd package is importable (pip install -e . or live install)"
     when:
-      abstract: "from atdd.coach.commands.spawn import ADAPTER_REGISTRY, SurfaceMarkerProbe is executed; ADAPTER_REGISTRY['claude-code'] is inspected"
+      abstract: "grep -E 'ATDD_SKIP_[A-Z_]+' CLAUDE.md is run in the repo root"
     then:
       abstract:
-        - "ADAPTER_REGISTRY['claude-code'].readiness_probe is an instance of SurfaceMarkerProbe"
-        - "'❯' is in ADAPTER_REGISTRY['claude-code'].readiness_probe.markers"
-        - "No ImportError or KeyError is raised"
+        - "Exit code is 1 (grep found no matches)"
+        - "Zero output lines produced"
     metadata:
       author: "atdd:planner"
       created: "2026-05-27"

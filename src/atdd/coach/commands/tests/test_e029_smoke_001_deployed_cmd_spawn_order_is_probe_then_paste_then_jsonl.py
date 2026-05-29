@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:E023-SMOKE-001-deployed-cmd-spawn-order-is-probe-then-paste-then-jsonl
-# Acceptance: acc:spawn-agents:E023-SMOKE-001-deployed-cmd-spawn-order-is-probe-then-paste-then-jsonl
-# WMBT: wmbt:spawn-agents:E023
+# URN: test:spawn-agents:E029-SMOKE-001-deployed-cmd-spawn-order-is-probe-then-paste-then-jsonl
+# Acceptance: acc:spawn-agents:E029-SMOKE-001-deployed-cmd-spawn-order-is-probe-then-paste-then-jsonl
+# WMBT: wmbt:spawn-agents:E029
 # Phase: SMOKE
 # Layer: backend.smoke
 # Runtime: python
 # Assertion: behavioral
-"""E023-SMOKE-001 — Deployed cmd_spawn has no JSONL-based call between surface creation and launch-prompt paste
+"""E029-SMOKE-001 — Deployed cmd_spawn has no JSONL-based call between surface creation and launch-prompt paste
 
 RED: fails until E023 is implemented — pending E023 GREEN phase.
 """
@@ -20,7 +20,7 @@ pytestmark = [pytest.mark.smoke]
 
 @pytest.mark.skipif(
     not os.environ.get("ATDD_RUN_SMOKE"),
-    reason="E023-SMOKE-001 requires ATDD_RUN_SMOKE=1",
+    reason="E029-SMOKE-001 requires ATDD_RUN_SMOKE=1",
 )
 def test_deployed_cmd_spawn_order_is_probe_then_paste_then_jsonl():
     import inspect

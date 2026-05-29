@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:L003-UNIT-001-regression-lazy-jsonl-creation-pipeline-completes
-# Acceptance: acc:spawn-agents:L003-UNIT-001-regression-lazy-jsonl-creation-pipeline-completes
-# WMBT: wmbt:spawn-agents:L003
+# URN: test:spawn-agents:L004-UNIT-001-regression-lazy-jsonl-creation-pipeline-completes
+# Acceptance: acc:spawn-agents:L004-UNIT-001-regression-lazy-jsonl-creation-pipeline-completes
+# WMBT: wmbt:spawn-agents:L004
 # Phase: GREEN
 # Layer: backend.unit
 # Runtime: python
 # Assertion: behavioral
-"""L003-UNIT-001 — Regression: lazy JSONL creation (probe passes on surface marker, JSONL absent before paste, written after paste) — pipeline completes
+"""L004-UNIT-001 — Regression: lazy JSONL creation (probe passes on surface marker, JSONL absent before paste, written after paste) — pipeline completes
 
 RED: WorkerReadinessTimeout raised by _wait_for_claude_ready (no JSONL before paste).
      This confirms the deadlock scenario. GREEN: SurfaceMarkerProbe gates on '❯' (no JSONL needed);
@@ -18,7 +18,7 @@ import time
 
 
 class _LazySessionMux:
-    """Fake multiplexer for L003-UNIT-001 — records paste time, satisfies all stage checks."""
+    """Fake multiplexer for L004-UNIT-001 — records paste time, satisfies all stage checks."""
 
     def __init__(self, paste_event: threading.Event) -> None:
         self._paste_event = paste_event

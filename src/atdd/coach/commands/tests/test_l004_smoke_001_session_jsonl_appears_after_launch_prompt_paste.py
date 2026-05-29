@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:L003-SMOKE-001-session-jsonl-appears-after-launch-prompt-paste
-# Acceptance: acc:spawn-agents:L003-SMOKE-001-session-jsonl-appears-after-launch-prompt-paste
-# WMBT: wmbt:spawn-agents:L003
+# URN: test:spawn-agents:L004-SMOKE-001-session-jsonl-appears-after-launch-prompt-paste
+# Acceptance: acc:spawn-agents:L004-SMOKE-001-session-jsonl-appears-after-launch-prompt-paste
+# WMBT: wmbt:spawn-agents:L004
 # Phase: SMOKE
 # Layer: backend.smoke
 # Runtime: python
 # Assertion: behavioral
-"""L003-SMOKE-001 — End-to-end SMOKE: session JSONL timestamp is newer than wall-clock time after launch-prompt paste
+"""L004-SMOKE-001 — End-to-end SMOKE: session JSONL timestamp is newer than wall-clock time after launch-prompt paste
 
 RED: fails until L003 is implemented — pending L003 GREEN phase.
 """
@@ -20,7 +20,7 @@ pytestmark = [pytest.mark.smoke]
 
 @pytest.mark.skipif(
     not os.environ.get("ATDD_RUN_SMOKE"),
-    reason="L003-SMOKE-001 requires ATDD_RUN_SMOKE=1",
+    reason="L004-SMOKE-001 requires ATDD_RUN_SMOKE=1",
 )
 def test_session_jsonl_appears_after_launch_prompt_paste(tmp_path, monkeypatch):
     """End-to-end SMOKE: session JSONL mtime is strictly newer than wall-clock time after paste.
@@ -76,7 +76,7 @@ def test_session_jsonl_appears_after_launch_prompt_paste(tmp_path, monkeypatch):
     try:
         backend = spawn_mod._resolve_multiplexer()  # type: ignore[attr-defined]
     except Exception as exc:
-        pytest.skip(f"L003-SMOKE-001: no real multiplexer available — {exc}")
+        pytest.skip(f"L004-SMOKE-001: no real multiplexer available — {exc}")
 
     _real_paste = backend.paste_text
     backend.paste_text = _timing_paste  # type: ignore[method-assign]  # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=2026-12-31
@@ -112,7 +112,7 @@ def test_session_jsonl_appears_after_launch_prompt_paste(tmp_path, monkeypatch):
                     f"This is the L003 regression gate."
                 ) from exc
             pytest.skip(
-                f"L003-SMOKE-001: paste-landed signal not seen in real pane — "
+                f"L004-SMOKE-001: paste-landed signal not seen in real pane — "
                 f"claude-code paste feedback strings may differ in this environment. "
                 f"Regression gate passed: no pre-paste JSONL found. "
                 f"Original error: {exc}"

@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:E022-UNIT-003-process-alive-delay-probe-returns-after-min-delay
-# Acceptance: acc:spawn-agents:E022-UNIT-003-process-alive-delay-probe-returns-after-min-delay
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:spawn-agents:E028-UNIT-003-process-alive-delay-probe-returns-after-min-delay
+# Acceptance: acc:spawn-agents:E028-UNIT-003-process-alive-delay-probe-returns-after-min-delay
+# WMBT: wmbt:spawn-agents:E028
 # Phase: GREEN
 # Layer: backend.unit
 # Runtime: python
 # Assertion: behavioral
-"""E022-UNIT-003 — ProcessAlivePlusDelayProbe.wait_for_ready returns after min_delay_s if proc alive
+"""E028-UNIT-003 — ProcessAlivePlusDelayProbe.wait_for_ready returns after min_delay_s if proc alive
 
 RED: fails with ImportError — ProcessAlivePlusDelayProbe does not exist until E022 GREEN phase.
 """

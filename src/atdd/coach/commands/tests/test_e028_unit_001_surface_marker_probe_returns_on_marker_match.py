@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:E022-UNIT-001-surface-marker-probe-returns-on-marker-match
-# Acceptance: acc:spawn-agents:E022-UNIT-001-surface-marker-probe-returns-on-marker-match
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:spawn-agents:E028-UNIT-001-surface-marker-probe-returns-on-marker-match
+# Acceptance: acc:spawn-agents:E028-UNIT-001-surface-marker-probe-returns-on-marker-match
+# WMBT: wmbt:spawn-agents:E028
 # Phase: GREEN
 # Layer: backend.unit
 # Runtime: python
 # Assertion: behavioral
-"""E022-UNIT-001 — SurfaceMarkerProbe.wait_for_ready returns without error when marker in surface text
+"""E028-UNIT-001 — SurfaceMarkerProbe.wait_for_ready returns without error when marker in surface text
 
 RED: fails with ImportError — SurfaceMarkerProbe does not exist until E022 GREEN phase.
 """

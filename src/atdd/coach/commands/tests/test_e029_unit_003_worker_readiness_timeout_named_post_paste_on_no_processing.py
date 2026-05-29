@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:E023-UNIT-003-worker-readiness-timeout-named-post-paste-on-no-processing
-# Acceptance: acc:spawn-agents:E023-UNIT-003-worker-readiness-timeout-named-post-paste-on-no-processing
-# WMBT: wmbt:spawn-agents:E023
+# URN: test:spawn-agents:E029-UNIT-003-worker-readiness-timeout-named-post-paste-on-no-processing
+# Acceptance: acc:spawn-agents:E029-UNIT-003-worker-readiness-timeout-named-post-paste-on-no-processing
+# WMBT: wmbt:spawn-agents:E029
 # Phase: GREEN
 # Layer: backend.unit
 # Runtime: python
 # Assertion: behavioral
-"""E023-UNIT-003 — WorkerReadinessTimeout on _assert_worker_processing timeout has post-paste language not boot language
+"""E029-UNIT-003 — WorkerReadinessTimeout on _assert_worker_processing timeout has post-paste language not boot language
 
 RED: WorkerReadinessTimeout raised by _wait_for_claude_ready (boot-failure language: "No session .jsonl found")
      not by _assert_worker_processing (post-paste language: "did not begin processing"),
@@ -18,7 +18,7 @@ import pytest
 
 
 class _BootReadyMux:
-    """Fake multiplexer for E023-UNIT-003 — TUI ready, satisfies all stage checks."""
+    """Fake multiplexer for E029-UNIT-003 — TUI ready, satisfies all stage checks."""
 
     def capture_pane_text(self, surface_ref: str) -> str:
         return "ATDD863  ❯  paste again to expand  ⏺ Thinking...  esc to interrupt"

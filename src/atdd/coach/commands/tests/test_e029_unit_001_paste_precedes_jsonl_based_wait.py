@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:E023-UNIT-001-paste-precedes-jsonl-based-wait
-# Acceptance: acc:spawn-agents:E023-UNIT-001-paste-precedes-jsonl-based-wait
-# WMBT: wmbt:spawn-agents:E023
+# URN: test:spawn-agents:E029-UNIT-001-paste-precedes-jsonl-based-wait
+# Acceptance: acc:spawn-agents:E029-UNIT-001-paste-precedes-jsonl-based-wait
+# WMBT: wmbt:spawn-agents:E029
 # Phase: GREEN
 # Layer: backend.unit
 # Runtime: python
 # Assertion: behavioral
-"""E023-UNIT-001 — cmd_spawn paste happens before any JSONL-based wait between surface creation and paste
+"""E029-UNIT-001 — cmd_spawn paste happens before any JSONL-based wait between surface creation and paste
 
 RED: AssertionError — cmd_spawn source still calls _wait_for_claude_ready (JSONL-based gate)
 before paste; readiness_probe not present until E023 GREEN phase.

@@ -162,9 +162,12 @@ of bypass patterns.
 | acc:spawn-agents:M001-SMOKE-001-live-session-naming-apply-has-no-slash-rename | real (atdd spawn) | session name format | N/A (single component) | — |
 | acc:spawn-agents:M002-SMOKE-001-live-observer-rules-pass-layer-b-validator | real (atdd validate) | rules validation | N/A (validator) | — |
 | acc:spawn-agents:R001-SMOKE-001-live-bash-auto-approve-correction-references-escalate | real (atdd spawn + observer) | correction content | both ends (correction + escalation ref) | — |
-| acc:spawn-agents:E022-SMOKE-001-live-adapter-registry-claude-code-has-surface-marker-probe | real (ADAPTER_REGISTRY import) | probe type + markers | N/A (single component) | #863 |
-| acc:spawn-agents:E023-SMOKE-001-deployed-cmd-spawn-order-is-probe-then-paste-then-jsonl | real (inspect.getsource) | source ordering | N/A (single component) | #863 |
-| acc:spawn-agents:L003-SMOKE-001-session-jsonl-appears-after-launch-prompt-paste | real (cmux + claude) | JSONL mtime vs paste time | both ends (paste + JSONL write) | #863 |
+| acc:spawn-agents:E022-SMOKE-001-live-claude-md-contains-no-atdd-skip-references | real (filesystem grep on CLAUDE.md) | ATDD_SKIP_* absent | N/A (single component) | #867 |
+| acc:spawn-agents:E023-SMOKE-001-live-claude-md-line-count-within-budget | real (line count on filesystem CLAUDE.md) | ≤250 lines | N/A (single component) | #867 |
+| acc:spawn-agents:E024-SMOKE-001-live-operator-emergency-bypass-doc-present-and-correct | real (filesystem read of docs/operator-emergency-bypass.md) | doc present + atdd emergency wording | N/A (single component) | #867 |
+| acc:spawn-agents:R002-SMOKE-001-atdd-validate-coach-includes-size-budget-rule | real (direct import + call on live CLAUDE.md) | 0 size_budget violations, rule registered | N/A (meta-validator) | #867 |
+| acc:spawn-agents:R003-SMOKE-001-atdd-validate-coach-includes-no-bypass-advertising-rule | real (direct import + call on live CLAUDE.md) | 0 no_bypass_advertising violations, rule registered | N/A (meta-validator) | #867 |
+| acc:spawn-agents:L003-SMOKE-001-dispatched-agent-bash-log-contains-no-atdd-skip-invocations | real (agent bash log scan via ATDD_SMOKE_BASH_LOG) | ATDD_SKIP_* absent at runtime | N/A (single component) | #867 |
 
 ---
 
@@ -180,7 +183,7 @@ of bypass patterns.
 | real-entry-point / single-component | 64 | Test drives real CLI entry point; asserts on single-component outcome (no cross-component handoff to verify) |
 | real-entry-point / meta-validator | 16 | Test validates validator tooling itself (atdd validate, atdd rules, atdd repo graph) |
 
-**Total classified:** 110 SMOKE acceptances (as of 2026-05-26)
+**Total classified:** 116 SMOKE acceptances (as of 2026-05-28)
 
 ### Cause definitions
 

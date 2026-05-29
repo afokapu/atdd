@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:E022-UNIT-004-process-alive-delay-probe-raises-if-proc-dies
-# Acceptance: acc:spawn-agents:E022-UNIT-004-process-alive-delay-probe-raises-if-proc-dies
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:spawn-agents:E028-UNIT-004-process-alive-delay-probe-raises-if-proc-dies
+# Acceptance: acc:spawn-agents:E028-UNIT-004-process-alive-delay-probe-raises-if-proc-dies
+# WMBT: wmbt:spawn-agents:E028
 # Phase: GREEN
 # Layer: backend.unit
 # Runtime: python
 # Assertion: behavioral
-"""E022-UNIT-004 — ProcessAlivePlusDelayProbe.wait_for_ready raises WorkerReadinessTimeout if proc dies
+"""E028-UNIT-004 — ProcessAlivePlusDelayProbe.wait_for_ready raises WorkerReadinessTimeout if proc dies
 
 RED: fails with ImportError — ProcessAlivePlusDelayProbe does not exist until E022 GREEN phase.
 """

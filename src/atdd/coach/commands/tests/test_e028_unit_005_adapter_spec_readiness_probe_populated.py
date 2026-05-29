@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:E022-UNIT-005-adapter-spec-readiness-probe-populated
-# Acceptance: acc:spawn-agents:E022-UNIT-005-adapter-spec-readiness-probe-populated
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:spawn-agents:E028-UNIT-005-adapter-spec-readiness-probe-populated
+# Acceptance: acc:spawn-agents:E028-UNIT-005-adapter-spec-readiness-probe-populated
+# WMBT: wmbt:spawn-agents:E028
 # Phase: GREEN
 # Layer: backend.unit
 # Runtime: python
 # Assertion: behavioral
-"""E022-UNIT-005 — Every AdapterSpec in ADAPTER_REGISTRY has readiness_probe; claude-code uses SurfaceMarkerProbe with '❯'
+"""E028-UNIT-005 — Every AdapterSpec in ADAPTER_REGISTRY has readiness_probe; claude-code uses SurfaceMarkerProbe with '❯'
 
 RED: fails with ImportError (SurfaceMarkerProbe) then AttributeError (readiness_probe field) until E022 GREEN phase.
 """

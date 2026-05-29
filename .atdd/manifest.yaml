@@ -1269,3 +1269,14 @@ sessions:
   train: 0002-coach-drives-lifecycle
   created: '2026-05-26'
   archived: null
+- id: '867'
+  slug: claude-md-slim-and-debanner
+  file: plan/spawn_agents/E022.yaml
+  issue_number: 867
+  type: chore
+  status: PLANNED
+  created: '2026-05-27'
+  archived: null
+  wagon: spawn-agents
+  feature: feature:spawn-agents:claude-md-slim-and-debanner
+  train: 0002-coach-drives-lifecycle

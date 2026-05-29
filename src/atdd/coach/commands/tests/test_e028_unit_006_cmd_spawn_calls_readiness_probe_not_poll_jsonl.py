@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:E022-UNIT-006-cmd-spawn-calls-readiness-probe-not-poll-jsonl
-# Acceptance: acc:spawn-agents:E022-UNIT-006-cmd-spawn-calls-readiness-probe-not-poll-jsonl
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:spawn-agents:E028-UNIT-006-cmd-spawn-calls-readiness-probe-not-poll-jsonl
+# Acceptance: acc:spawn-agents:E028-UNIT-006-cmd-spawn-calls-readiness-probe-not-poll-jsonl
+# WMBT: wmbt:spawn-agents:E028
 # Phase: GREEN
 # Layer: backend.unit
 # Runtime: python
 # Assertion: behavioral
-"""E022-UNIT-006 — cmd_spawn calls adapter.readiness_probe.wait_for_ready not _poll_for_session_jsonl before paste
+"""E028-UNIT-006 — cmd_spawn calls adapter.readiness_probe.wait_for_ready not _poll_for_session_jsonl before paste
 
 RED: fails with AssertionError — cmd_spawn source still calls _wait_for_claude_ready (JSONL-based),
 not readiness_probe.wait_for_ready, until E022 GREEN phase.

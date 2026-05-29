@@ -1,11 +1,11 @@
-# URN: test:spawn-agents:L003-UNIT-002-regression-old-jsonl-boot-wait-would-have-deadlocked
-# Acceptance: acc:spawn-agents:L003-UNIT-002-regression-old-jsonl-boot-wait-would-have-deadlocked
-# WMBT: wmbt:spawn-agents:L003
+# URN: test:spawn-agents:L004-UNIT-002-regression-old-jsonl-boot-wait-would-have-deadlocked
+# Acceptance: acc:spawn-agents:L004-UNIT-002-regression-old-jsonl-boot-wait-would-have-deadlocked
+# WMBT: wmbt:spawn-agents:L004
 # Phase: GREEN
 # Layer: backend.unit
 # Runtime: python
 # Assertion: behavioral
-"""L003-UNIT-002 — Negative regression: old JSONL-based boot wait would have deadlocked in lazy-session scenario
+"""L004-UNIT-002 — Negative regression: old JSONL-based boot wait would have deadlocked in lazy-session scenario
 
 This test ALWAYS PASSES once implemented — it is a negative regression that documents the deadlock
 the fix resolves. In the lazy-JSONL scenario, _wait_for_claude_ready raises WorkerReadinessTimeout
@@ -43,7 +43,7 @@ def test_regression_old_jsonl_boot_wait_would_have_deadlocked(tmp_path, monkeypa
     project_dir.mkdir(parents=True, exist_ok=True)
 
     # KEY: NO JSONL created — this is the lazy-session scenario
-    # The background thread in L003-UNIT-001 writes it post-paste; here we never write it
+    # The background thread in L004-UNIT-001 writes it post-paste; here we never write it
     # at all, simulating the old flow where the boot gate fires BEFORE paste.
 
     import time
@@ -52,7 +52,7 @@ def test_regression_old_jsonl_boot_wait_would_have_deadlocked(tmp_path, monkeypa
 
     with pytest.raises(WorkerReadinessTimeout) as exc_info:
         _wait_for_claude_ready(
-            surface_ref="surface:L003-U002",
+            surface_ref="surface:L004-U002",
             project_key=project_key,
             spawn_time=spawn_time,
             timeout_s=0.05,
