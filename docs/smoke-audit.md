@@ -168,6 +168,9 @@ of bypass patterns.
 | acc:spawn-agents:R002-SMOKE-001-atdd-validate-coach-includes-size-budget-rule | real (direct import + call on live CLAUDE.md) | 0 size_budget violations, rule registered | N/A (meta-validator) | #867 |
 | acc:spawn-agents:R003-SMOKE-001-atdd-validate-coach-includes-no-bypass-advertising-rule | real (direct import + call on live CLAUDE.md) | 0 no_bypass_advertising violations, rule registered | N/A (meta-validator) | #867 |
 | acc:spawn-agents:L003-SMOKE-001-dispatched-agent-bash-log-contains-no-atdd-skip-invocations | real (agent bash log scan via ATDD_SMOKE_BASH_LOG) | ATDD_SKIP_* absent at runtime | N/A (single component) | #867 |
+| acc:spawn-agents:E028-SMOKE-001-live-adapter-registry-claude-code-has-surface-marker-probe | real (ADAPTER_REGISTRY inspection) | claude-code adapter has SurfaceMarkerProbe | N/A (single component) | #863 |
+| acc:spawn-agents:E029-SMOKE-001-deployed-cmd-spawn-order-is-probe-then-paste-then-jsonl | real (cmd_spawn source inspection) | probe before paste before jsonl-wait | N/A (single component) | #863 |
+| acc:spawn-agents:L004-SMOKE-001-session-jsonl-appears-after-launch-prompt-paste | real (cmd_spawn smoke) | session JSONL appears after paste | N/A (single component) | #863 |
 
 ---
 
