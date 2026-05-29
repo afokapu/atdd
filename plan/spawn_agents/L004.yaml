@@ -1,0 +1,83 @@
+urn: "wmbt:spawn-agents:L004"
+step: "locate"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "spawn-pipeline-regression-to-jsonl-boot-wait-deadlock-on-lazy-session-creation"
+context_clarifier: "The E022/E023 fixes replace the JSONL-based boot wait with a surface-marker probe and invert the paste order. Without a regression gate, any future change that re-introduces a JSONL check before the paste (or removes the SurfaceMarkerProbe from the claude-code adapter) would silently recreate the claude-code 2.1.150 deadlock. Two complementary regression tests close this loop: (1) a unit-level regression that simulates lazy session creation — the FakeMultiplexer returns '❯' immediately (TUI ready), no JSONL file exists at probe time, a background thread writes the JSONL 0.1s after paste to simulate the 'first-message triggers JSONL write' semantics — and asserts the pipeline completes end-to-end without any WorkerReadinessTimeout; (2) a SMOKE test that drives a minimal real atdd coach spawn against the real claude binary and asserts the session JSONL file timestamp is newer than the wall-clock time recorded immediately after the launch-prompt paste (i.e., the JSONL appeared AFTER the paste, not before). The SMOKE test is the definitive regression gate: any future change that reverts to JSONL-based boot detection will cause the session JSONL to appear before paste and FAIL this test at the SMOKE phase before it ships to production. Note: the SMOKE test depends on ATDD_RUN_SMOKE=1 and a live cmux session; it is gated accordingly and is allowed to be skipped in CI if the integration fixture is unavailable — but MUST pass on the operator's machine before REFACTOR."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of spawn-pipeline-regression-to-jsonl-boot-wait-deadlock-on-lazy-session-creation by (1) adding a unit regression test that simulates lazy JSONL creation (surface marker satisfies probe, JSONL absent at probe time, written by background thread post-paste) and asserts pipeline completes end-to-end, and (2) adding a SMOKE test that drives a real atdd coach spawn and asserts the session JSONL timestamp is strictly newer than the wall-clock time captured immediately after the launch-prompt paste"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:L004-UNIT-001-regression-lazy-jsonl-creation-pipeline-completes"
+      id: "AC-UNIT-001"
+      purpose: "Regression: with a FakeMultiplexer returning '❯' (probe passes), NO JSONL before paste, and a background thread writing the JSONL 0.1s after paste (simulating lazy session creation), the full cmd_spawn pipeline completes without WorkerReadinessTimeout"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeMultiplexer with capture_surface_text() returning '❯ ' (claude-code prompt present, TUI ready)"
+        - "A tmp project dir (claude_projects_dir / project_key) with NO *.jsonl file initially"
+        - "A background thread that writes a fresh session.jsonl with 50 bytes exactly 0.1s after the FakeMultiplexer.paste_text() is first called"
+        - "The claude-code adapter is selected (SurfaceMarkerProbe configured)"
+        - "ATDD_WORKER_READY_TIMEOUT=5.0"
+    when:
+      abstract: "cmd_spawn is invoked end-to-end with the fake multiplexer and tmp paths injected"
+    then:
+      abstract:
+        - "No WorkerReadinessTimeout is raised at the readiness-probe stage (probe saw '❯' immediately)"
+        - "The paste call was made before the JSONL file existed"
+        - "_assert_worker_processing passes (JSONL appeared post-paste, byte size grew)"
+        - "The agent_spawned event file exists in the runtime dir after completion"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+  - identity:
+      urn: "acc:spawn-agents:L004-UNIT-002-regression-old-jsonl-boot-wait-would-have-deadlocked"
+      id: "AC-UNIT-002"
+      purpose: "Negative regression: confirm that the old JSONL-based boot wait WOULD have deadlocked in the same lazy-JSONL scenario — i.e., the test setup correctly represents the deadlock condition and the fix is what resolved it"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The same setup as L003-UNIT-001 but cmd_spawn is monkey-patched to call a mock _poll_for_session_jsonl BEFORE the paste (simulating the old pre-fix flow)"
+        - "The mock _poll_for_session_jsonl polls for the JSONL file and raises WorkerReadinessTimeout after timeout_s because no JSONL appears before the paste"
+        - "ATDD_WORKER_READY_TIMEOUT=0.05 (short timeout to avoid test slowness)"
+    when:
+      abstract: "The patched cmd_spawn is invoked"
+    then:
+      abstract:
+        - "WorkerReadinessTimeout is raised (confirms the deadlock the fix resolves)"
+        - "The launch-prompt paste was NOT called before the timeout (the old gate blocked it)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
+  - identity:
+      urn: "acc:spawn-agents:L004-SMOKE-001-session-jsonl-appears-after-launch-prompt-paste"
+      id: "AC-SMOKE-001"
+      purpose: "End-to-end SMOKE: atdd coach spawn drives a real claude binary; the session JSONL file creation timestamp is strictly later than the wall-clock time sampled immediately after the launch-prompt paste — confirming the JSONL is a backend-round-trip artifact, not a boot artifact"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 is set"
+        - "A real cmux session is available (CMUX_SOCKET set or default socket found)"
+        - "The real claude binary is on PATH (claude --version returns successfully)"
+        - "A fixture issue with a known project_key is used; any prior session JSONL for that project_key is removed before the test"
+        - "ATDD_WORKER_READY_TIMEOUT=30.0 to allow real TUI boot time"
+    when:
+      abstract: "A fixture atdd coach spawn is driven; paste_time is sampled immediately after the launch-prompt paste call returns"
+    then:
+      abstract:
+        - "A session JSONL file appears under ~/.claude/projects/<project_key>/ within 30s"
+        - "os.path.getmtime(jsonl_path) > paste_time (JSONL was created AFTER the paste)"
+        - "No WorkerReadinessTimeout is raised during the spawn"
+        - "The worker's surface shows active processing output (thinking indicator or initial response) within 30s of the paste"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-27"
