@@ -1317,3 +1317,11 @@ sessions:
   status: INIT
   created: '2026-05-30'
   archived: null
+- id: '887'
+  slug: decompose-coach-into-policy-workflow-runtime-integrations-validators
+  file: null
+  issue_number: 887
+  type: implementation
+  status: INIT
+  created: '2026-05-30'
+  archived: null
