@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Version** | 1.0 |
-| **Status** | RATIFIED — ready for execution |
+| **Version** | 1.2-train-amended-swept |
+| **Status** | RATIFIED — train-native correction applied; sweep complete; ready for execution |
 | **Date** | 2026-05-30 |
 | **Owner** | Operator (acts as coach); worker agents execute children |
-| **Scope** | Decompose `atdd.coach.commands.coach` into 7 layered modules; preserve all incident-hardened behavior; close issues #840, #871, #872, #882 along the way |
+| **Scope** | Decompose `atdd.coach.commands.coach` into train-native layers; preserve all incident-hardened behavior; close issues #840, #871, #872, #882 along the way |
 | **Non-goals** | Adopt Temporal or LangGraph as a premise; delete behavior; change the public CLI surface |
 | **Replaces** | Ad-hoc orchestration code in `atdd.coach.commands.coach` |
 | **Convention markers** | "MUST", "MUST NOT", "SHOULD" used per RFC 2119 |
@@ -49,11 +49,11 @@ The operator's role is **coach** (orchestrates, reviews, decides). Worker agents
 
 ## 1. Executive summary
 
-`atdd.coach.commands.coach` today mixes five distinct responsibilities: ATDD phase policy, stateful workflow orchestration, runtime execution, agent control, and external integrations. This coupling causes brittle screen-scraping (#840), shim gaps (#871, #872), broken Project v2 board sync (#882), and tests that have to mock half the world.
+`atdd.coach.commands.coach` today mixes five distinct responsibilities: ATDD phase policy, stateful train-runner orchestration, runtime execution, agent control, and external integrations. This coupling causes brittle screen-scraping (#840), shim gaps (#871, #872), broken Project v2 board sync (#882), and tests that have to mock half the world.
 
-We decompose Coach into **7 layers** with strict, validator-enforced dependency rules. **Coach-core becomes pure policy** (no I/O, no subprocess, no `gh`, no cmux, no threading) — importable as a library, table-testable in milliseconds. State, execution, integration, and agent IO live in separate layers behind typed contracts. The CLI surface is unchanged.
+We decompose Coach into **ATDD-native train layers** with strict, validator-enforced dependency rules. **Coach-core becomes pure policy** (no I/O, no subprocess, no `gh`, no cmux, no threading) — importable as a library, table-testable in milliseconds. State, execution, integration, and agent IO live in separate layers behind typed contracts. The CLI surface is unchanged.
 
-A `WorkflowRunner` protocol is defined now; **the JSONL runner ships as the first and only implementation**. Temporal and LangGraph are reserved as future backends behind the same seam — not built until a concrete operational need surfaces.
+A `TrainRunner` protocol is defined now; **the JSONL-backed train runner ships as the first and only implementation**. Temporal and LangGraph are reserved as future backends behind the same seam — not built until a concrete operational need surfaces.
 
 The migration is sequenced as **10 child issues across 6 waves**, gated by two non-negotiable CI tests (lifecycle parity + import discipline). Substantial gradual benefit lands at the end of Wave B (safety net) and Wave C (cli-return becomes the default control plane, closing the entire #840 cluster).
 
@@ -101,16 +101,16 @@ Each of these evolves on a different cadence with different concerns. Coupling t
                                   │ invokes
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ WORKFLOW (stateful runner; orchestrates phases over time)                    │
-│   atdd.workflow.runner_iface          WorkflowRunner protocol                │
-│   atdd.workflow.jsonl_runner          JsonlWorkflowRunner (default)          │
-│   atdd.workflow.temporal_runner       reserved name; not implemented         │
-│   atdd.workflow.langgraph_runner      reserved name; not implemented         │
-│   atdd.workflow.issue_runner          drive_single_issue, event loop         │
-│   atdd.workflow.wave_runner           concurrent wave execution              │
-│   atdd.workflow.events                event types, dispatch                  │
-│   atdd.workflow.resume                replay + reconcile                     │
-│   atdd.workflow.persistence           PersistenceStore impl;                 │
+│ TRAIN RUNNER (stateful runner; orchestrates phases over time)                    │
+│   atdd.train.runner_iface          TrainRunner protocol                │
+│   atdd.train.runners.jsonl          JsonlTrainRunner (default)          │
+│   atdd.train.runners.temporal       reserved name; not implemented         │
+│   atdd.train.runners.langgraph_review      reserved name; not implemented         │
+│   atdd.train.issue_runner          drive_single_issue, event loop         │
+│   atdd.train.wave_runner           concurrent wave execution              │
+│   atdd.train.events                event types, dispatch                  │
+│   atdd.train.resume                replay + reconcile                     │
+│   atdd.train.persistence           PersistenceStore impl;                 │
 │                                       materializes Evidence for Coach        │
 └───────┬──────────────┬──────────────────┬─────────────────────┬─────────────┘
         │ calls (pure) │ calls            │ calls               │ calls
@@ -141,12 +141,27 @@ Each of these evolves on a different cadence with different concerns. Coupling t
                 └─────────────────────────────────────────┘
 ```
 
+### 3.1.1 ATDD-native naming correction
+
+This document uses **Train** and **TrainRunner** as the canonical ATDD vocabulary:
+
+| Term | Meaning |
+|---|---|
+| **Train** | Domain route: phase machine, WMBT/claim dependency graph, acceptance path, evidence requirements, persona/prompt mapping. It is data/policy input, not an execution engine. |
+| **Coach-core** | Pure policy authority: decides whether a train may advance, block, stay, escalate, or merge. |
+| **TrainRunner** | Stateful execution layer: creates runs, materializes evidence, records events, dispatches agents, waits, resumes, runs waves, and calls runtime/integration adapters. |
+| **JsonlTrainRunner** | The first/default TrainRunner implementation. It is the local JSONL-backed runner. |
+| **TemporalTrainRunner** | Reserved future TrainRunner backend, only if JSONL durability/concurrency proves insufficient. |
+| **LangGraphReviewRunner** | Reserved future review/judge subgraph, not the whole lifecycle runner. |
+
+Rule: **Train is not the Temporal/LangGraph-equivalent. TrainRunner is the equivalent layer/interface.**
+
 ### 3.2 Layer responsibilities
 
 | Layer | Owns | Does NOT own |
 |---|---|---|
 | **`atdd.coach.core`** | Phase machine, transition rules, evidence-evaluation rules, persona/prompt-template mapping, merge-readiness rules, escalation policy. Pure functions of (Evidence, Conventions). | Any I/O, any state, any subprocess, any external API |
-| **`atdd.workflow`** | Stateful orchestration: sessions, retries, event loop, wave concurrency, resume, persistence reads/writes, conventions loading | Phase semantics, persona mapping, spawn mechanics, GitHub API calls |
+| **`atdd.train`** | Stateful orchestration: sessions, retries, event loop, wave concurrency, resume, persistence reads/writes, conventions loading | Phase semantics, persona mapping, spawn mechanics, GitHub API calls |
 | **`atdd.runtime.worktree`** | git worktree create/remove, branch safety, working-tree invariants | Phase decisions, GitHub label state |
 | **`atdd.runtime.multiplexer`** | cmux/tmux/zellij surface CREATE / ATTACH / CLOSE for **observability only** | Prompt delivery, ready detection, stdin forwarding |
 | **`atdd.runtime.agent_control`** | Worker spawn (shim), prompt delivery, ready detection, correction inbox, stdin forwarding, agent done signals, transport selection | Phase decisions, terminal rendering |
@@ -158,14 +173,14 @@ Each of these evolves on a different cadence with different concerns. Coupling t
 
 | Layer | MAY import | MUST NOT import |
 |---|---|---|
-| `atdd.coach.core` | stdlib only; `dataclasses`, `typing`, `enum`, `pathlib` (types only, no opens) | `subprocess`, `os.system`, `requests`, `urllib`, `gh`, `git`, `cmux`, `time.sleep`, `threading`, `multiprocessing`, `asyncio`, `atdd.runtime.*`, `atdd.integrations.*`, `atdd.workflow.*`, `atdd.observer`, any I/O |
-| `atdd.workflow.*` | `atdd.coach.core`, `atdd.runtime.*`, `atdd.integrations.*`, `atdd.validators` (for type imports), stdlib | `atdd.cli` (cycle), `atdd.observer` |
-| `atdd.runtime.worktree` | stdlib, `subprocess`, `pathlib` | `atdd.coach.*`, `atdd.workflow.*`, `atdd.integrations.*`, `atdd.runtime.agent_control`, `atdd.runtime.multiplexer` |
-| `atdd.runtime.multiplexer` | stdlib, `subprocess` (cmux CLI) | `atdd.coach.*`, `atdd.workflow.*`, `atdd.integrations.*`, `atdd.runtime.agent_control` |
-| `atdd.runtime.agent_control` | stdlib, `subprocess`, `pathlib` | `atdd.coach.*`, `atdd.workflow.*`, `atdd.integrations.*`, `atdd.runtime.multiplexer` |
-| `atdd.integrations.github.*` | stdlib, `subprocess` (gh CLI), `json` | `atdd.coach.*`, `atdd.workflow.*`, `atdd.runtime.*` |
+| `atdd.coach.core` | stdlib only; `dataclasses`, `typing`, `enum`, `pathlib` (types only, no opens) | `subprocess`, `os.system`, `requests`, `urllib`, `gh`, `git`, `cmux`, `time.sleep`, `threading`, `multiprocessing`, `asyncio`, `atdd.runtime.*`, `atdd.integrations.*`, `atdd.train.*`, `atdd.observer`, any I/O |
+| `atdd.train.*` | `atdd.coach.core`, `atdd.runtime.*`, `atdd.integrations.*`, `atdd.validators` (for type imports), stdlib | `atdd.cli` (cycle), `atdd.observer` |
+| `atdd.runtime.worktree` | stdlib, `subprocess`, `pathlib` | `atdd.coach.*`, `atdd.train.*`, `atdd.integrations.*`, `atdd.runtime.agent_control`, `atdd.runtime.multiplexer` |
+| `atdd.runtime.multiplexer` | stdlib, `subprocess` (cmux CLI) | `atdd.coach.*`, `atdd.train.*`, `atdd.integrations.*`, `atdd.runtime.agent_control` |
+| `atdd.runtime.agent_control` | stdlib, `subprocess`, `pathlib` | `atdd.coach.*`, `atdd.train.*`, `atdd.integrations.*`, `atdd.runtime.multiplexer` |
+| `atdd.integrations.github.*` | stdlib, `subprocess` (gh CLI), `json` | `atdd.coach.*`, `atdd.train.*`, `atdd.runtime.*` |
 | `atdd.validators` | stdlib, target subject under test, `atdd.coach.conventions` (yaml load for rule lookup) | orchestration layers |
-| `atdd.observer` | stdlib, `atdd.workflow.persistence` (read-only API) | any writer |
+| `atdd.observer` | stdlib, `atdd.train.persistence` (read-only API) | any writer |
 
 These rules are enforced by `tests/architecture/test_layer_imports.py` (see [Appendix A](#appendix-a-import-discipline-test)).
 
@@ -173,12 +188,12 @@ These rules are enforced by `tests/architecture/test_layer_imports.py` (see [App
 
 | Command | Behavior |
 |---|---|
-| `atdd coach <N>` | Drive issue #N through its lifecycle (now via WorkflowRunner) |
+| `atdd coach <N>` | Drive issue #N through its lifecycle (now via TrainRunner) |
 | `atdd issue <slug \| N>` | Create / enter an issue (unchanged) |
 | `atdd pr <N>` | Open / view PR for issue #N (unchanged) |
 | `atdd validate [phase]` | Run validators (unchanged surface; emission format changes per Child 3) |
 | `atdd agent done` | Worker signals completion (unchanged surface; internal channel changes per Child 9) |
-| `atdd resume <run_id>` | **NEW** — replay a workflow run (added in Child 9) |
+| `atdd resume <run_id>` | **NEW** — replay a train run (added in Child 9) |
 | `atdd observer` | Live event-stream view (unchanged surface; promoted to first-class in Child 10) |
 
 Operator-facing behavior MUST be invariant from Child 1 through Child 10 except where a child explicitly adds a new command (only Child 9 adds `atdd resume`).
@@ -275,7 +290,7 @@ class Review:
 
 @dataclass(frozen=True)
 class Evidence:
-    """Everything Coach needs to decide, materialized by workflow.persistence at one instant."""
+    """Everything Coach needs to decide, materialized by train.persistence at one instant."""
     issue_number: int
     issue_type: IssueType
     current_phase: Phase
@@ -305,7 +320,7 @@ class TransitionDecision:
     persona: Persona | None      # who runs next; None when not PROCEED
     prompt_template_id: str | None
     evidence_keys_required: tuple[str, ...]  # what evidence the worker will need
-    verdict: Verdict             # PROCEED ⇒ dispatch; others ⇒ workflow surfaces
+    verdict: Verdict             # PROCEED ⇒ dispatch; others ⇒ train runner surfaces
 
 @dataclass(frozen=True)
 class MergeVerdict:
@@ -329,7 +344,7 @@ class RuleSpec:
 
 @dataclass(frozen=True)
 class Conventions:
-    """The frozen policy bundle Coach-core needs. Loaded by workflow.persistence."""
+    """The frozen policy bundle Coach-core needs. Loaded by train.persistence."""
     phase_machine: Mapping[Phase, PhaseSpec]
     rules: Mapping[str, RuleSpec]
     prompt_templates: Mapping[str, str]   # template_id → fully rendered text
@@ -387,10 +402,10 @@ def escalation_for(
 
 ### 4.4 Conventions snapshot
 
-Conventions are **loaded once per run** by `workflow.persistence.load_conventions()` and frozen for the run's duration. The snapshot's hash is recorded in the run's first event so replay produces identical decisions.
+Conventions are **loaded once per run** by `train.persistence.load_conventions()` and frozen for the run's duration. The snapshot's hash is recorded in the run's first event so replay produces identical decisions.
 
 ```python
-# atdd/workflow/persistence.py
+# atdd/train/persistence.py
 def load_conventions(repo_root: Path) -> Conventions:
     """Load + normalize conventions YAML files, compute snapshot hash, freeze."""
 ```
@@ -439,7 +454,7 @@ The existing duplicate in `CLAUDE.md::state_machine.transitions` MUST be removed
 ### 4.6 PersistenceStore protocol
 
 ```python
-# atdd/workflow/persistence.py
+# atdd/train/persistence.py
 
 class PersistenceStore(Protocol):
     # --- run lifecycle ---
@@ -447,9 +462,9 @@ class PersistenceStore(Protocol):
     def load_run(self, run_id: RunId) -> RunState: ...
     def list_runs(self, *, status: RunStatus | None = None) -> list[RunSummary]: ...
 
-    # --- events (single-writer: workflow) ---
-    def append_event(self, run_id: RunId, event: WorkflowEvent) -> None: ...
-    def replay_events(self, run_id: RunId) -> Iterator[WorkflowEvent]: ...
+    # --- events (single-writer: train runner) ---
+    def append_event(self, run_id: RunId, event: TrainEvent) -> None: ...
+    def replay_events(self, run_id: RunId) -> Iterator[TrainEvent]: ...
 
     # --- decisions (audit trail for every Coach Verdict) ---
     def append_decision(self, run_id: RunId, decision: TransitionDecision, *, evidence_hash: str) -> None: ...
@@ -472,12 +487,12 @@ Implementations:
 | `JsonlPersistenceStore` | Ships in Child 7 | Default; backs to filesystem under `runtime/runs/<run_id>/` |
 | `InMemoryPersistenceStore` | Ships in Child 2 | Test fixture for parity test |
 
-### 4.7 WorkflowRunner protocol
+### 4.7 TrainRunner protocol
 
 ```python
-# atdd/workflow/runner_iface.py
+# atdd/train/runner_iface.py
 
-class WorkflowRunner(Protocol):
+class TrainRunner(Protocol):
     def start_issue(
         self,
         issue_number: int,
@@ -494,7 +509,7 @@ class WorkflowRunner(Protocol):
         concurrency: int = 1,
     ) -> WaveResult: ...
 
-    def handle_event(self, run_id: RunId, event: WorkflowEvent) -> None: ...
+    def handle_event(self, run_id: RunId, event: TrainEvent) -> None: ...
 
     def status(self, run_id: RunId) -> RunStatus: ...
 
@@ -509,8 +524,8 @@ class PolicyHandle:
 
 # --- supporting types referenced by the protocol ---
 # (Shown together for protocol-readability. Physical location:
-#   RunId, RunStatus, RunSummary, RunState, WaveResult, WorkflowEvent → atdd/workflow/types.py
-#   IssueRecord → atdd/workflow/persistence.py
+#   RunId, RunStatus, RunSummary, RunState, WaveResult, TrainEvent → atdd/train/types.py
+#   IssueRecord → atdd/train/persistence.py
 #   MergeResult → atdd/integrations/github/types.py
 #   AgentHandle → atdd/runtime/agent_control.py — also referenced from §4.8)
 
@@ -549,7 +564,7 @@ class WaveResult:
     failed_to_start: tuple[tuple[int, str], ...]  # (issue_number, reason)
 
 @dataclass(frozen=True)
-class WorkflowEvent:
+class TrainEvent:
     """Unified shape for events appended to events.jsonl (see §5.2)."""
     schema_version: str
     ts: str
@@ -593,8 +608,8 @@ Implementations:
 
 | Class | Status | When to add |
 |---|---|---|
-| `JsonlWorkflowRunner` | Ships in Child 8 | **Default** — wraps current durable JSONL behavior |
-| `TemporalWorkflowRunner` | Reserved name only | Add only when a concrete operational deficit forces it (see [§7.2](#72-temporal-runner-deferred)) |
+| `JsonlTrainRunner` | Ships in Child 8 | **Default** — wraps current durable JSONL behavior |
+| `TemporalTrainRunner` | Reserved name only | Add only when a concrete operational deficit forces it (see [§7.2](#72-temporal-runner-deferred)) |
 | `LangGraphReviewRunner` | Reserved name only | Add when judge/reviewer becomes a real multi-step graph (see [§7.3](#73-langgraph-review-subgraph-deferred-scoped)) |
 | `LocalDryRunRunner` | Ships in Child 2 | Used by parity test |
 
@@ -605,13 +620,13 @@ Implementations:
 
 @dataclass(frozen=True)
 class DispatchSpec:
-    """The typed handoff between workflow (decided what) and runtime (do it).
+    """The typed handoff between train runner (decided what) and runtime (do it).
     Workflow constructs this from a TransitionDecision; runtime executes it.
     """
     agent_id: str                # e.g. "tester-816-a81b0d90"
     persona: Persona
     worktree_path: Path
-    prompt_text: str             # FULLY RENDERED — workflow did template substitution
+    prompt_text: str             # FULLY RENDERED — train runner did template substitution
     correction_inbox: Path       # cli-return.jsonl
     output_log: Path
     runtime_dir: Path
@@ -731,7 +746,7 @@ def read_check_runs(sha: str) -> tuple[CheckRun, ...]: ...
 def trigger_rerun(run_id: int) -> None: ...
 ```
 
-Every integration call returns plain data (no Coach types). `workflow.persistence.materialize_evidence()` translates GitHub responses into `Evidence`.
+Every integration call returns plain data (no Coach types). `train.persistence.materialize_evidence()` translates GitHub responses into `Evidence`.
 
 ### 4.11 Validator emission contract
 
@@ -769,14 +784,14 @@ def test_my_validator(...):
 ```
 <repo-root>/
 ├── .atdd/
-│   ├── manifest.yaml                 # issue registry (read by workflow.persistence)
+│   ├── manifest.yaml                 # issue registry (read by train.persistence)
 │   ├── config.yaml                   # repo-level config
 │   ├── EMERGENCY_BYPASS              # ephemeral (5-min TTL)
 │   ├── emergency-audit.jsonl         # append-only
 │   └── runtime/
 │       ├── runs/
 │       │   └── <run_id>/
-│       │       ├── events.jsonl              # single-writer: workflow
+│       │       ├── events.jsonl              # single-writer: train runner
 │       │       ├── decisions.jsonl           # every Coach Verdict + evidence hash
 │       │       ├── conventions.snapshot.yaml # frozen Conventions for this run
 │       │       ├── conventions.hash          # sha256 of the snapshot
@@ -793,7 +808,7 @@ def test_my_validator(...):
 
 ### 5.2 events.jsonl schema
 
-Single-writer (workflow). Schema-versioned. Append-only.
+Single-writer (train runner). Schema-versioned. Append-only.
 
 ```jsonc
 // Every line is a JSON object with these required fields:
@@ -807,27 +822,27 @@ Single-writer (workflow). Schema-versioned. Append-only.
 }
 ```
 
-**Single-writer rule:** the **workflow layer** is the sole writer to `events.jsonl`. Specifically, `workflow.issue_runner` and `workflow.resume` are the only modules that call `persistence.append_event()`. Runtime and integrations *produce* events but never persist them directly — they emit via callbacks/iterators that workflow drains and appends. This single-writer invariant is what makes replay deterministic.
+**Single-writer rule:** the **train-runner layer** is the sole writer to `events.jsonl`. Specifically, `train.issue_runner` and `train.resume` are the only modules that call `persistence.append_event()`. Runtime and integrations *produce* events but never persist them directly — they emit via callbacks/iterators that train runner drains and appends. This single-writer invariant is what makes replay deterministic.
 
 **Event types (initial set):**
 
 | `type` | Required payload fields | Sourced from |
 |---|---|---|
-| `RunStarted` | `conventions_hash`, `conventions_snapshot_ref`, `policy_handle_id` | workflow.issue_runner (self) |
-| `EvidenceMaterialized` | `evidence_hash`, `current_phase` | workflow.issue_runner (calling persistence.materialize_evidence) |
-| `DecisionMade` | `verdict_kind`, `from_phase`, `to_phase`, `persona`, `rule_ids` | workflow.issue_runner (calling coach.core.next_transition) |
-| `DispatchEmitted` | `dispatch_spec` (full DispatchSpec serialized) | workflow.issue_runner (self) |
-| `AgentSpawned` | `agent_id`, `transport`, `surface_ref` | workflow.issue_runner (after runtime.agent_control.spawn returns) |
-| `AgentReady` | `agent_id`, `transport_signal`, `elapsed_seconds` | workflow.issue_runner (after runtime.agent_control.wait_ready returns) |
-| `AgentEventReceived` | `agent_id`, `agent_event` | workflow.issue_runner (draining runtime.agent_control.stream_events) |
-| `AgentDone` | `agent_id`, `summary`, `exit_code` | workflow.issue_runner (on `atdd agent done` signal arrival) |
-| `PhaseAdvanced` | `from_phase`, `to_phase`, `commit_sha` | workflow.issue_runner (after integrations.github.issue_state.transition_phase) |
-| `PrOpened` | `pr_number`, `branch` | workflow.issue_runner (after integrations.github.pr.open_pr) |
-| `PrMerged` | `pr_number`, `merge_commit_sha` | workflow.issue_runner (after integrations.github.pr.merge_pr) |
-| `RunBlocked` | `verdict` (full Verdict serialized) | workflow.issue_runner (self) |
-| `RunEscalated` | `verdict`, `notification_channel` | workflow.issue_runner (self) |
-| `RunCompleted` | `final_phase`, `total_duration_seconds` | workflow.issue_runner (self) |
-| `RunResumed` | `from_event_seq`, `resume_reason` | workflow.resume (self) |
+| `RunStarted` | `conventions_hash`, `conventions_snapshot_ref`, `policy_handle_id` | train.issue_runner (self) |
+| `EvidenceMaterialized` | `evidence_hash`, `current_phase` | train.issue_runner (calling persistence.materialize_evidence) |
+| `DecisionMade` | `verdict_kind`, `from_phase`, `to_phase`, `persona`, `rule_ids` | train.issue_runner (calling coach.core.next_transition) |
+| `DispatchEmitted` | `dispatch_spec` (full DispatchSpec serialized) | train.issue_runner (self) |
+| `AgentSpawned` | `agent_id`, `transport`, `surface_ref` | train.issue_runner (after runtime.agent_control.spawn returns) |
+| `AgentReady` | `agent_id`, `transport_signal`, `elapsed_seconds` | train.issue_runner (after runtime.agent_control.wait_ready returns) |
+| `AgentEventReceived` | `agent_id`, `agent_event` | train.issue_runner (draining runtime.agent_control.stream_events) |
+| `AgentDone` | `agent_id`, `summary`, `exit_code` | train.issue_runner (on `atdd agent done` signal arrival) |
+| `PhaseAdvanced` | `from_phase`, `to_phase`, `commit_sha` | train.issue_runner (after integrations.github.issue_state.transition_phase) |
+| `PrOpened` | `pr_number`, `branch` | train.issue_runner (after integrations.github.pr.open_pr) |
+| `PrMerged` | `pr_number`, `merge_commit_sha` | train.issue_runner (after integrations.github.pr.merge_pr) |
+| `RunBlocked` | `verdict` (full Verdict serialized) | train.issue_runner (self) |
+| `RunEscalated` | `verdict`, `notification_channel` | train.issue_runner (self) |
+| `RunCompleted` | `final_phase`, `total_duration_seconds` | train.issue_runner (self) |
+| `RunResumed` | `from_event_seq`, `resume_reason` | train.resume (self) |
 
 `policy_handle_id` is `sha256(coach_module.__name__ + conventions.snapshot_hash)` — uniquely identifies the policy that produced every decision in the run.
 
@@ -841,7 +856,7 @@ Resume reads the snapshot from disk; it does NOT re-read source conventions (whi
 
 ### 5.4 Manifest
 
-Existing format preserved. `workflow.persistence.get_issue()` and `upsert_issue()` are the only modifiers. Existing pre-commit and pre-push hooks continue to gate manifest writes.
+Existing format preserved. `train.persistence.get_issue()` and `upsert_issue()` are the only modifiers. Existing pre-commit and pre-push hooks continue to gate manifest writes.
 
 ---
 
@@ -856,10 +871,10 @@ operator ─► atdd coach 816
         cli.coach_cmd
               │
               ▼
-        workflow.persistence.load_conventions()  ─► Conventions(hash=sha256:abc…)
+        train.persistence.load_conventions()  ─► Conventions(hash=sha256:abc…)
               │
               ▼
-        WorkflowRunner.start_issue(816, PolicyHandle(coach, conventions))
+        TrainRunner.start_issue(816, PolicyHandle(coach, conventions))
               │
               ├─► persistence.create_run() ─► run_id, writes RunStarted event
               │
@@ -880,7 +895,7 @@ operator ─► atdd coach 816
         │  ┌─────────────────┬────────────────────┬─────────────────────┐ │
         │  │ PROCEED         │ STAY               │ BLOCKED/ESCALATE    │ │
         │  ▼                 ▼                    ▼                     │ │
-        │ workflow.dispatch  workflow.wait        workflow.surface      │ │
+        │ train.dispatch     train.wait           train.surface         │ │
         │   build DispatchSpec  schedule next     verdict to operator   │ │
         │   write Dispatch-    materialization    write RunBlocked or   │ │
         │     Emitted event    after backoff      RunEscalated event    │ │
@@ -922,13 +937,13 @@ operator ─► atdd coach 816
         integrations.github.pr.merge_pr(883, strategy="squash")
         integrations.github.issue_state.transition_phase(816, COMPLETE)
           └─ ATOMICALLY label swap + projects_v2.sync_status_field
-        workflow.cleanup: worktree, surfaces, run dir snapshot
+        train.cleanup: worktree, surfaces, run dir snapshot
         write PrMerged + PhaseAdvanced + RunCompleted events
 ```
 
 ### 6.2 BLOCKED / ESCALATE handling
 
-| Verdict | Workflow action | Operator visibility |
+| Verdict | TrainRunner action | Operator visibility |
 |---|---|---|
 | `PROCEED` | Build DispatchSpec, spawn agent | Normal stream |
 | `STAY` | Schedule next materialization after `retry_after_seconds` (default 60s) | Normal stream |
@@ -953,8 +968,8 @@ Determinism guarantee: given identical `(events.jsonl, conventions.snapshot.yaml
 
 | Runner | Mechanism |
 |---|---|
-| `JsonlWorkflowRunner` | Worker writes a sentinel line to the agent's `events.jsonl`; runtime.agent_control detects via file watcher and forwards to workflow event loop |
-| `TemporalWorkflowRunner` (future) | Worker sends a Temporal Signal to the workflow handle |
+| `JsonlTrainRunner` | Worker writes a sentinel line to the agent's `events.jsonl`; runtime.agent_control detects via file watcher and forwards to train-runner event loop |
+| `TemporalTrainRunner` (future) | Worker sends a Temporal Signal to the workflow handle |
 
 The CLI surface (`atdd agent done --summary "..."`) is unchanged; the internal channel is selected by the active runner.
 
@@ -964,13 +979,13 @@ The CLI surface (`atdd agent done --summary "..."`) is unchanged; the internal c
 
 ### 7.1 JSONL runner (default, ships first)
 
-`JsonlWorkflowRunner` IS the migration's only runner. It wraps today's behavior with the typed contracts:
+`JsonlTrainRunner` IS the migration's only runner. It wraps today's behavior with the typed contracts:
 
 - Single-host execution
 - Durable via `events.jsonl` + `decisions.jsonl` (append-only)
 - Crash-recovery via `atdd resume <run_id>`
 - File-watcher-based event detection (`atdd agent done`, CI webhook polling)
-- Per-host concurrency limit (config: `workflow.concurrency.max_parallel_issues`)
+- Per-host concurrency limit (config: `train.concurrency.max_parallel_issues`)
 
 Failure modes and how they're handled:
 
@@ -983,12 +998,12 @@ Failure modes and how they're handled:
 
 ### 7.2 Temporal runner (deferred)
 
-Reserved name: `atdd.workflow.temporal_runner.TemporalWorkflowRunner`. **Not implemented.** Add only when a concrete operational deficit forces it. Gating criterion: a documented JSONL crash-recovery failure that Temporal's exactly-once activity semantics would prevent.
+Reserved name: `atdd.train.runners.temporal.TemporalTrainRunner`. **Not implemented.** Add only when a concrete operational deficit forces it. Gating criterion: a documented JSONL crash-recovery failure that Temporal's exactly-once activity semantics would prevent.
 
-Design constraints captured for future implementation:
+Design constraints captured for future implementation. (Note: in this section the word "workflow" refers to **Temporal's own** `@workflow.defn` decorator and its `workflow.patched`/`workflow.wait_condition` API — Temporal's vocabulary, not ours. Our equivalent is `TrainRunner`.)
 
 - Coach-core stays pure; Temporal does not see Coach types.
-- Workflow function is deterministic; `coach.core.next_transition` is called from inside the workflow (it's pure, so safe).
+- TrainRunner function is deterministic; `coach.core.next_transition` is called from inside the Temporal workflow (it's pure, so safe).
 - Activities (non-deterministic): `materialize_evidence`, `build_dispatch_spec`, `dispatch_agent`, `merge_pr`, etc.
 - `dispatch_agent` activity returns FAST after spawning; workflow `await workflow.wait_condition(lambda: state.agent_done)` until signal arrives. `atdd agent done` sends a Temporal Signal.
 - Workflow versioning policy: every workflow function change MUST use `workflow.patched()` or new workflow name.
@@ -996,9 +1011,9 @@ Design constraints captured for future implementation:
 
 ### 7.3 LangGraph review subgraph (deferred, scoped)
 
-Reserved name: `atdd.workflow.langgraph_runner.LangGraphReviewRunner`. **Not implemented.**
+Reserved name: `atdd.train.runners.langgraph_review.LangGraphReviewRunner`. **Not implemented.**
 
-Scope (when added): the **judge/reviewer** subgraph only. Plugs into the active outer runner (JsonlWorkflowRunner or TemporalWorkflowRunner) as an embedded reasoning step that produces a `Verdict`. Does NOT replace the outer lifecycle.
+Scope (when added): the **judge/reviewer** subgraph only. Plugs into the active outer TrainRunner (JsonlTrainRunner or TemporalTrainRunner) as an embedded reasoning step that produces a `Verdict`. Does NOT replace the outer lifecycle.
 
 ### 7.4 CLI + config surface
 
@@ -1017,7 +1032,7 @@ atdd resume <run_id>
 
 ```yaml
 # .atdd/config.yaml
-workflow:
+train:
   runner: jsonl                  # jsonl | temporal | langgraph
   concurrency:
     max_parallel_issues: 4
@@ -1033,7 +1048,7 @@ workflow:
 
 `atdd.observer` becomes a **first-class read-only consumer**:
 
-- Reads `events.jsonl` (single-writer: workflow) and per-agent `output.log` (single-writer: agent_control)
+- Reads `events.jsonl` (single-writer: train runner) and per-agent `output.log` (single-writer: agent_control)
 - NEVER writes to either
 - Surfaces a live stream in CLI/TUI
 - Aggregates across active runs
@@ -1050,16 +1065,16 @@ These behaviors MUST be preserved at the same defense layer they currently sit. 
 |---|---|---|---|---|
 | I-1 | No bare-directory worktree dispatch | Dispatching to a worktree that's not a valid working tree | `runtime.worktree.ensure_issue_worktree` | `tests/runtime/test_worktree_safety::test_refuses_bare_dispatch` |
 | I-2 | No protected-main commits | Direct commits to `main` from a stash recovery | `runtime.worktree` (pre-flight check) | `tests/runtime/test_worktree_safety::test_blocks_main_commit` |
-| I-3 | Stale `done.json` baseline detection | Acting on a previous run's done signal | `workflow.events` (event id matching) | `tests/workflow/test_event_replay::test_rejects_stale_done` |
+| I-3 | Stale `done.json` baseline detection | Acting on a previous run's done signal | `train.events` (event id matching) | `tests/train/test_event_replay::test_rejects_stale_done` |
 | I-4 | cmux broken-pipe retry on >=0.64.7 | Lost connection to multiplexer mid-spawn | `runtime.agent_control` (retry policy) | `tests/runtime/test_agent_control::test_broken_pipe_retries` |
-| I-5 | Persona materialization check | Spawning the wrong persona for the phase | `coach.core.next_transition` (returns Persona) + `workflow.dispatch` (asserts spec.persona matches decision.persona) | `tests/coach/test_next_transition::test_persona_matches_phase` |
+| I-5 | Persona materialization check | Spawning the wrong persona for the phase | `coach.core.next_transition` (returns Persona) + `train.dispatch` (asserts spec.persona matches decision.persona) | `tests/coach/test_next_transition::test_persona_matches_phase` |
 | I-6 | Single observer lifecycle | Multiple observers writing the same log | `observer` (singleton enforced) | `tests/observer/test_singleton` |
-| I-7 | No-progress TTL | Stuck workflow burns infinite time | `workflow.issue_runner` (configurable TTL → `escalation_for` returns ESCALATE) | `tests/workflow/test_ttl_escalation` |
-| I-8 | Durable decision-before-action | Side-effect happens before decision is persisted; resume loses ground | `workflow.issue_runner` (persistence.append_decision before any side effect) | `tests/workflow/test_decision_durability` |
+| I-7 | No-progress TTL | Stuck run burns infinite time | `train.issue_runner` (configurable TTL → `escalation_for` returns ESCALATE) | `tests/train/test_ttl_escalation` |
+| I-8 | Durable decision-before-action | Side-effect happens before decision is persisted; resume loses ground | `train.issue_runner` (persistence.append_decision before any side effect) | `tests/train/test_decision_durability` |
 | I-9 | `core.bare=false` per-worktree on creation | Shared `core.bare=true` cascades | `runtime.worktree.ensure_issue_worktree` (sets `--worktree core.bare false`) | `tests/runtime/test_worktree_safety::test_sets_per_worktree_core_bare` |
 | I-10 | Forbidden-command guard (PATH shim) | Unguarded `git config core.bare true` | `runtime.agent_control` (DispatchSpec.env_overrides puts `.atdd/bin` first on PATH); covered by #884 once shipped | `tests/integrations/test_path_shim` |
 | I-11 | Emergency bypass 5-min TTL + audit log | Permanent bypasses | `atdd.coach.commands.emergency` (unchanged) | Existing test |
-| I-12 | Issue advancement BEFORE partial-PR merge | Post-merge race causes stale CI to fail `test_issue_advancement` | `workflow.issue_runner` (transition_phase before merge_pr) | `tests/workflow/test_advancement_before_merge` |
+| I-12 | Issue advancement BEFORE partial-PR merge | Post-merge race causes stale CI to fail `test_issue_advancement` | `train.issue_runner` (transition_phase before merge_pr) | `tests/train/test_advancement_before_merge` |
 | I-13 | Pre-push blocks `core.bare=true` worktrees | Mass-deletion PRs from bare-mode contamination | `.atdd/hooks/pre-push` (unchanged) | Existing test |
 
 Tests I-1 through I-13 form the "incident-defenses suite." Each child PR's description MUST identify which subset it preserves.
@@ -1081,7 +1096,7 @@ def test_full_lifecycle_init_to_complete(tmp_repo, fake_github, fake_agent, fake
     persistence = InMemoryPersistenceStore()
     conventions = load_conventions(tmp_repo)
     policy = PolicyHandle(coach_module=coach_core, conventions=conventions)
-    runner = JsonlWorkflowRunner(persistence=persistence,
+    runner = JsonlTrainRunner(persistence=persistence,
                                  github=fake_github,
                                  agent=fake_agent)
 
@@ -1116,11 +1131,11 @@ Location: `tests/architecture/test_layer_imports.py`. See [Appendix A](#appendix
 
 ### 10.3 Crash-recovery test (added in Child 9)
 
-Location: `tests/workflow/test_jsonl_crash_recovery.py`
+Location: `tests/train/test_jsonl_crash_recovery.py`
 
 ```python
 def test_kill_mid_wave_then_resume_identical_decisions(tmp_repo, fake_github, fake_agent):
-    """Crash JsonlWorkflowRunner mid-wave; verify atdd resume produces identical decisions."""
+    """Crash JsonlTrainRunner mid-wave; verify atdd resume produces identical decisions."""
     # ... start a run, drive it 3 phases in, kill -9 ...
     # ... resume ...
     # assert: same decisions written, no double-execution
@@ -1157,8 +1172,8 @@ Compatibility shim removal cadence:
 1. `from atdd.coach.core import next_transition, evaluate_evidence, review_phase_output, merge_readiness, escalation_for` succeeds without importing any I/O module (enforced by [Appendix A test](#appendix-a-import-discipline-test)).
 2. `tests/lifecycle/test_full_issue_parity.py` passes in CI on every PR.
 3. `tests/architecture/test_layer_imports.py` passes in CI on every PR.
-4. `tests/workflow/test_jsonl_crash_recovery.py` passes (added at Child 9).
-5. `atdd coach <N>` end-to-end uses `WorkflowRunner` → `coach.core` → `runtime` → `integrations` with no direct `coach.commands.coach.*` private calls.
+4. `tests/train/test_jsonl_crash_recovery.py` passes (added at Child 9).
+5. `atdd coach <N>` end-to-end uses `TrainRunner` → `coach.core` → `runtime` → `integrations` with no direct `coach.commands.coach.*` private calls.
 6. Issues #840, #871, #872, #882 all closed by the migration (not separately).
 7. All 13 incident defenses (I-1 through I-13) have explicit tests in `tests/incident_defenses/`.
 8. CLAUDE.md no longer contains a duplicate phase machine (it loads from `phase_machine.convention.yaml`).
@@ -1173,7 +1188,7 @@ Compatibility shim removal cadence:
 | **B** | 2, 3 | 2 | 0.5–1 day | Required-CI parity + import tests; ValidatorReport schema; persistence Protocol |
 | **C** | 4, 5, 6 | **3** | 2–3 days | GitHub adapter + #882; worktree extract; **agent_control + #840/#871/#872 closure** |
 | **D** | 7 | 1 | 1 day | `JsonlPersistenceStore` + `load_conventions` + `materialize_evidence` |
-| **E** | 8 | 1 | 1 day | `WorkflowRunner` Protocol + `JsonlWorkflowRunner` + `_drive_single_issue` move |
+| **E** | 8 | 1 | 1 day | `TrainRunner` Protocol + `JsonlTrainRunner` + `_drive_single_issue` move |
 | **F** | 9, 10 | **2** | 1–1.5 days | `run_wave` + `atdd resume` + crash-recovery test; spawn split + final purity sweep + observer first-class |
 
 Max parallelism is **3 agents** (Wave C). Realistic total: **~7–9 working days; ~2 weeks calendar** with review.
@@ -1184,7 +1199,7 @@ Max parallelism is **3 agents** (Wave C). Realistic total: **~7–9 working days
 - **B(2) ∥ B(3):** parity-test fixtures (2) and validator/persistence contracts (3) touch disjoint files.
 - **C(4) ∥ C(5) ∥ C(6):** GitHub adapter, worktree, and agent_control share no source files and have no inter-dependency. Each depends only on Child 1 (types) + Child 2 (gates).
 - **C → D:** Child 7's `materialize_evidence` calls Child 4's GitHub adapter and Child 5's worktree helpers; it must wait for both.
-- **D → E:** Child 8's `JsonlWorkflowRunner` consumes Child 7's `PersistenceStore` and Child 6's `AgentController`.
+- **D → E:** Child 8's `JsonlTrainRunner` consumes Child 7's `PersistenceStore` and Child 6's `AgentController`.
 - **E → F:** Child 9 (`run_wave` + `atdd resume`) and Child 10 (spawn split + purity sweep) both depend on Child 8's runner. They can run in parallel because Child 9 adds new code (wave_runner, resume CLI) while Child 10 cleans up old code (spawn.py split, coach.py shrink); they touch different files.
 
 ### 12.3 Per-PR requirements
@@ -1213,6 +1228,10 @@ If a child PR introduces a regression after merge:
 ## 13. Sequenced children (10)
 
 Each child below is a separate GitHub issue. The body of each issue extracts its section verbatim plus an issue-body metadata header (Branch, Train, Graph Context). All children belong to umbrella issue. Acceptance criteria are testable; dependencies are absolute (do not start a child before its dependencies merge).
+
+### Slug-vs-module-name divergence (intentional)
+
+Children #894, #895, and #896 carry historical slugs that include `workflow` (e.g. `extract-workflow-persistence-and-events-schema`). The slugs were minted before the §3.1.1 train-native naming correction. Renaming the slugs would force re-creation of the issues + worktrees + branches, which is churn for no functional gain. The **destination modules are `atdd.train.*` per §3.1.1 and the scope sections below.** Workers MUST follow the scope (creates `src/atdd/train/...`), not the slug. The slug is a stable identifier for the work item, not a destination path.
 
 ### 13.1 Child 1 — Freeze Coach-core typed API + phase machine YAML
 
@@ -1285,7 +1304,7 @@ Each child below is a separate GitHub issue. The body of each issue extracts its
 - Freeze the `ValidatorReport` type (defined in §4.2; already in `atdd.coach.core.types`).
 - Create `src/atdd/validators/emit.py` with `emit_reports(reports: tuple[ValidatorReport, ...]) -> None`.
 - Migrate existing validators to call `emit_reports`. Either inline OR via a small adapter on `assert_disposition_satisfied`.
-- Create `src/atdd/workflow/persistence.py` with the `PersistenceStore` Protocol (signatures only; first impl ships in Child 7).
+- Create `src/atdd/train/persistence.py` with the `PersistenceStore` Protocol (signatures only; first impl ships in Child 7).
 - Specify the conventions snapshot contract: define `load_conventions(repo_root) -> Conventions` signature; first impl in Child 7.
 - Specify the events.jsonl schema with `schema_version: "1.0"`; document event types from §5.2.
 
@@ -1296,7 +1315,7 @@ Each child below is a separate GitHub issue. The body of each issue extracts its
 **Acceptance:**
 - Every validator currently in the repo emits `ValidatorReport` rows (verifiable by running validators with `--collect-reports` and inspecting output).
 - `PersistenceStore` Protocol has every method from §4.6.
-- `from atdd.workflow.persistence import PersistenceStore, load_conventions` succeeds.
+- `from atdd.train.persistence import PersistenceStore, load_conventions` succeeds.
 - Parity test still green.
 
 **Closes:** none yet (contract for downstream).
@@ -1325,7 +1344,7 @@ Each child below is a separate GitHub issue. The body of each issue extracts its
 **Acceptance:**
 - `atdd issue <N> --status COMPLETE` updates BOTH the label AND the Projects v2 Status field (closes #882).
 - Lifecycle parity test still green.
-- `tests/integrations/github/` has fixture-based tests for each function.
+- Each of the 4 modules (`issue_state`, `projects_v2`, `pr`, `checks`) has at least one fixture-based integration test under `tests/integrations/github/` — verifiable by `pytest tests/integrations/github/ --collect-only` listing ≥1 test per module file (≥4 total).
 - The 13-incident defense table still preserved (specifically I-12: advancement before merge).
 
 **Closes:** **#882** ("Project v2 board status-field sync gap").
@@ -1338,7 +1357,7 @@ Each child below is a separate GitHub issue. The body of each issue extracts its
 **Type:** `implementation`
 **Train:** `0001-self-compliance-validate`
 **Depends on:** Child 1, Child 2
-**Blocks:** Child 7 (workflow uses worktree)
+**Blocks:** Child 7 (train runner uses worktree)
 
 **Scope:**
 - Create `src/atdd/runtime/worktree.py` with `ensure_issue_worktree`, `remove_worktree`, branch safety helpers.
@@ -1380,7 +1399,7 @@ Each child below is a separate GitHub issue. The body of each issue extracts its
 - Add `runtime.agent_control` tests including a real-shim integration test that asserts `deliver_prompt` actually submits.
 
 **Out of scope:**
-- The actual workflow runner (Child 8).
+- The actual train runner (Child 8).
 
 **Acceptance:**
 - `atdd coach <N>` boots via cli-return transport by default; **no `paste-landed` errors** in a 100-iteration stress test.
@@ -1394,7 +1413,7 @@ Each child below is a separate GitHub issue. The body of each issue extracts its
 
 ---
 
-### 13.7 Child 7 — Extract workflow.persistence + events schema
+### 13.7 Child 7 — Extract train.persistence + events schema
 
 **Slug:** `extract-workflow-persistence-and-events-schema`
 **Type:** `implementation`
@@ -1423,7 +1442,7 @@ Each child below is a separate GitHub issue. The body of each issue extracts its
 
 ---
 
-### 13.8 Child 8 — Extract workflow.issue_runner + WorkflowRunner protocol
+### 13.8 Child 8 — Extract train.issue_runner + TrainRunner protocol
 
 **Slug:** `extract-workflow-issue-runner-and-workflow-runner-protocol`
 **Type:** `implementation`
@@ -1432,18 +1451,18 @@ Each child below is a separate GitHub issue. The body of each issue extracts its
 **Blocks:** Child 9
 
 **Scope:**
-- Create `src/atdd/workflow/runner_iface.py` with `WorkflowRunner` Protocol and `PolicyHandle` per §4.7.
-- Implement `JsonlWorkflowRunner.start_issue`, `handle_event`, `status`, `cancel`.
+- Create `src/atdd/train/runner_iface.py` with `TrainRunner` Protocol and `PolicyHandle` per §4.7.
+- Implement `JsonlTrainRunner.start_issue`, `handle_event`, `status`, `cancel`.
 - Move from `coach.py`: `_drive_single_issue` (main entry), `_process_watcher_events`, `_process_injected_events`, `_make_resume_transition_action`. The old function names remain as `@deprecated` compatibility shims that call into the new runner.
-- Wire `atdd coach <N>` CLI to instantiate `JsonlWorkflowRunner` + `PolicyHandle` and call `start_issue`.
+- Wire `atdd coach <N>` CLI to instantiate `JsonlTrainRunner` + `PolicyHandle` and call `start_issue`.
 - Reserve `--runner temporal` and `--runner langgraph` CLI flags (raise `NotImplementedError("see docs/coach-decomposition.md §7.2/§7.3")`).
-- Reserve `workflow.runner` config key.
+- Reserve `train.runner` config key.
 
 **Out of scope:**
 - `run_wave` and `resume` (Child 9).
 
 **Acceptance:**
-- `atdd coach <N>` end-to-end runs via `WorkflowRunner` — no direct `coach.commands.coach.*` private calls remain.
+- `atdd coach <N>` end-to-end runs via `TrainRunner` — no direct `coach.commands.coach.*` private calls remain.
 - Adding a new event type requires only an `events.jsonl` schema bump; no Coach-core change.
 - Parity test still green.
 
@@ -1451,7 +1470,7 @@ Each child below is a separate GitHub issue. The body of each issue extracts its
 
 ---
 
-### 13.9 Child 9 — Extract workflow.wave_runner + `atdd resume` CLI
+### 13.9 Child 9 — Extract train.wave_runner + `atdd resume` CLI
 
 **Slug:** `extract-workflow-wave-runner-and-atdd-resume-cli`
 **Type:** `implementation`
@@ -1460,11 +1479,11 @@ Each child below is a separate GitHub issue. The body of each issue extracts its
 **Blocks:** Child 10
 
 **Scope:**
-- Implement `JsonlWorkflowRunner.run_wave` with `workflow.concurrency.max_parallel_issues` config.
+- Implement `JsonlTrainRunner.run_wave` with `train.concurrency.max_parallel_issues` config.
 - Move from `coach.py`: `_resolve_waves`, `_drive_wave_concurrently`, `_execute_cold_start`.
-- Implement `JsonlWorkflowRunner.resume(run_id)` per §6.3.
+- Implement `JsonlTrainRunner.resume(run_id)` per §6.3.
 - Add `atdd resume <run_id>` CLI command (new public surface).
-- Add `tests/workflow/test_jsonl_crash_recovery.py` per §10.3 — gate test for any future Temporal adoption.
+- Add `tests/train/test_jsonl_crash_recovery.py` per §10.3 — gate test for any future Temporal adoption.
 
 **Out of scope:**
 - Spawn split (Child 10).
@@ -1533,7 +1552,7 @@ Total LOC: ~15–25k (40–50% tests).
 | **A** | Coach decision logic table-testable in 30ms. Phase machine is data. |
 | **B** | Required-CI parity + import gates protect every subsequent PR. Validators emit uniform reports → observer output improves today. |
 | **C** | **`atdd coach` becomes reliable**: cli-return is default, paste-landed is gone, Project v2 board syncs. The 4 most painful operator issues (#840/#871/#872/#882) all close. Worktree + GitHub adapters reusable from other commands. |
-| **D** | `WorkflowRunner` seam exists; ready for Temporal/LangGraph if/when needed. Coach.py visibly smaller. |
+| **D** | `TrainRunner` seam exists; ready for Temporal/LangGraph if/when needed. Coach.py visibly smaller. |
 | **E** | `atdd resume <run_id>` ships. Crashes become recoverable. Waves are properly isolated. |
 | **F** | Final architecture realized. Observer first-class. Coach-core verifiably pure. Ready to plug in Temporal/LangGraph behind the seam. |
 
@@ -1563,19 +1582,20 @@ Highest-leverage waves for operator experience: **B** and **C**. After Wave C al
 | Term | Meaning |
 |---|---|
 | **Coach-core** | The pure-policy module `atdd.coach.core`; no I/O |
-| **Workflow** | Stateful orchestration layer `atdd.workflow.*` |
+| **Train** | The domain route a Coach drives an issue along: phase machine, WMBT / claim dependency graph, acceptance path, evidence requirements, persona/prompt mapping. Data/policy input, **not** an execution engine. (Per §3.1.1.) |
+| **TrainRunner** | The stateful execution layer (`atdd.train.*`). Creates runs, materializes evidence, records events, dispatches agents, waits, resumes, runs waves, calls runtime/integration adapters. **This** is the Temporal/LangGraph-equivalent — not Train. (Per §3.1.1.) |
 | **Runtime** | Execution layer (worktree, multiplexer, agent_control) |
 | **Integrations** | External-system adapters (GitHub) |
 | **Validators** | Test-shaped checks that emit `ValidatorReport` |
-| **DispatchSpec** | Typed handoff from workflow to runtime to spawn a worker |
+| **DispatchSpec** | Typed handoff from train runner to runtime to spawn a worker |
 | **PolicyHandle** | Frozen bundle of (coach_module, conventions) passed to the runner |
 | **Evidence** | Frozen snapshot of everything Coach needs to decide |
 | **Verdict** | Coach's decision (PROCEED/STAY/BLOCKED/ESCALATE) with rule references |
 | **Conventions snapshot** | Frozen conventions YAML for a single run; guarantees replay determinism |
-| **events.jsonl** | Single-writer (workflow) append-only event log |
+| **events.jsonl** | Single-writer (train runner) append-only event log |
 | **cli-return.jsonl** | Correction inbox the shim drains to deliver prompts |
 | **output.log** | tee'd output from a wrapped agent; observer reads it |
-| **Run** | One execution of `WorkflowRunner.start_issue`; identified by `run_id` |
+| **Run** | One execution of `TrainRunner.start_issue`; identified by `run_id` |
 | **Wave** | A batch of issues run concurrently |
 | **Incident defense** | A specific behavior in the current code that prevents a past incident; numbered I-1 through I-13 in §9 |
 | **Parity test** | The end-to-end test in `tests/lifecycle/test_full_issue_parity.py` that gates every PR |
@@ -1601,25 +1621,25 @@ FORBIDDEN_BY_LAYER = {
     "atdd.coach.core": {
         "subprocess", "os.system", "requests", "urllib.request", "urllib3",
         "git", "gh", "cmux", "threading", "multiprocessing", "asyncio",
-        "atdd.runtime", "atdd.integrations", "atdd.workflow", "atdd.observer",
+        "atdd.runtime", "atdd.integrations", "atdd.train", "atdd.observer",
     },
-    "atdd.workflow": {
+    "atdd.train": {
         "atdd.cli", "atdd.observer",
     },
     "atdd.runtime.worktree": {
-        "atdd.coach", "atdd.workflow", "atdd.integrations",
+        "atdd.coach", "atdd.train", "atdd.integrations",
         "atdd.runtime.agent_control", "atdd.runtime.multiplexer",
     },
     "atdd.runtime.multiplexer": {
-        "atdd.coach", "atdd.workflow", "atdd.integrations",
+        "atdd.coach", "atdd.train", "atdd.integrations",
         "atdd.runtime.agent_control",
     },
     "atdd.runtime.agent_control": {
-        "atdd.coach", "atdd.workflow", "atdd.integrations",
+        "atdd.coach", "atdd.train", "atdd.integrations",
         "atdd.runtime.multiplexer",
     },
     "atdd.integrations.github": {
-        "atdd.coach", "atdd.workflow", "atdd.runtime",
+        "atdd.coach", "atdd.train", "atdd.runtime",
     },
 }
 
@@ -1678,8 +1698,8 @@ def test_multiplexer_protocol_has_no_control_methods():
 # tests/lifecycle/test_full_issue_parity.py
 import pytest
 from atdd.coach.core.types import Phase, IssueType, PolicyHandle
-from atdd.workflow.jsonl_runner import JsonlWorkflowRunner
-from atdd.workflow.persistence import InMemoryPersistenceStore, load_conventions
+from atdd.train.runners.jsonl import JsonlTrainRunner
+from atdd.train.persistence import InMemoryPersistenceStore, load_conventions
 from atdd.coach import core as coach_core
 from tests.fixtures import FakeGitHub, FakeAgent, FakeObserver, tmp_repo
 
@@ -1688,7 +1708,7 @@ def test_full_lifecycle_init_to_complete(tmp_repo, fake_github, fake_agent):
     persistence = InMemoryPersistenceStore()
     conventions = load_conventions(tmp_repo)
     policy = PolicyHandle(coach_module=coach_core, conventions=conventions)
-    runner = JsonlWorkflowRunner(persistence=persistence,
+    runner = JsonlTrainRunner(persistence=persistence,
                                  github=fake_github,
                                  agent=fake_agent)
 
@@ -1709,7 +1729,7 @@ def test_full_lifecycle_init_to_complete(tmp_repo, fake_github, fake_agent):
     # Replay determinism
     replay_persistence = InMemoryPersistenceStore.from_events(
         persistence.replay_events(run_id))
-    replay_runner = JsonlWorkflowRunner(persistence=replay_persistence,
+    replay_runner = JsonlTrainRunner(persistence=replay_persistence,
                                         github=fake_github,
                                         agent=fake_agent)
     replay_runner.resume(run_id)
@@ -1882,8 +1902,8 @@ The following artifacts are stable and survive across sessions:
 | **This document** | `docs/coach-decomposition.md` on the umbrella's branch (lands on main via #887's PR) | Coach (operator) + any child PR that changes a contract |
 | **Umbrella body** | `gh issue view 887` | Coach (operator) when wave state changes |
 | **Child bodies** | `gh issue view 888..897` | Coach at filing; updated only if scope genuinely changes |
-| **Per-run events** | `.atdd/runtime/runs/<run_id>/events.jsonl` (after #894) | Workflow runner (single-writer) |
-| **Conventions snapshot** | `.atdd/runtime/runs/<run_id>/conventions.snapshot.yaml` (after #894) | Workflow at run start |
+| **Per-run events** | `.atdd/runtime/runs/<run_id>/events.jsonl` (after #894) | TrainRunner (single-writer) |
+| **Conventions snapshot** | `.atdd/runtime/runs/<run_id>/conventions.snapshot.yaml` (after #894) | TrainRunner at run start |
 | **Manifest** | `.atdd/manifest.yaml` | `atdd issue` and child PRs |
 | **Auto-memory** | `/Users/alecfokapu/.claude/projects/-Users-alecfokapu-Github-atdd/memory/` | Session-end snapshots + project/reference entries |
 | **Git log on main** | `git log origin/main` | Merged PRs only |
