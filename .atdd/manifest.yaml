@@ -1325,3 +1325,12 @@ sessions:
   status: INIT
   created: '2026-05-30'
   archived: null
+- id: '888'
+  slug: freeze-coach-core-typed-api-and-phase-machine
+  file: null
+  issue_number: 888
+  type: implementation
+  status: INIT
+  train: 0001-self-compliance-validate
+  created: '2026-05-30'
+  archived: null

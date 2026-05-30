@@ -59,9 +59,10 @@ features:
   - urn: "feature:govern-lifecycle:consumer-validator-scope-gate"
   - urn: "feature:govern-lifecycle:smoke-false-green-prevention"
   - urn: "feature:govern-lifecycle:gh-issue-create-block-l3"
+  - urn: "feature:govern-lifecycle:freeze-coach-core-typed-api-and-phase-machine"
 
 wmbt:
-  total: 63
+  total: 64
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -125,3 +126,4 @@ wmbt:
   E032: "minimize quantity of gh-issue-create-calls-reaching-real-gh-from-any-shell-in-the-worktree by installing a direnv-scoped PATH shim at .atdd/bin/gh that blocks gh issue create, forwards every other gh subcommand, and execs the next gh without looping on itself (#816)"
   E033: "minimize quantity of committed-scripts-that-bake-in-gh-issue-create-calls by installing a pre-commit hook that greps the staged diff for added gh issue create lines, rejects with an educational error, and exempts *.md docs (#816)"
   E034: "minimize likelihood of fresh-worktrees-missing-the-gh-shim-envrc-and-precommit-hook-after-atdd-init by making atdd init install .atdd/bin/gh, .envrc, and the pre-commit hook idempotently with a direnv soft-fail notice (#816)"
+  E035: "minimize likelihood of coach-core-policy-surface-and-phase-machine-drifting-or-duplicating-across-modules by freezing the typed contracts in atdd.coach.core.types, the five pure policy functions in atdd.coach.core, and the phase machine in phase_machine.convention.yaml while removing the duplicate transition table from the CLAUDE.md managed block (#888)"
