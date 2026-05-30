@@ -107,6 +107,7 @@ of bypass patterns.
 | acc:govern-lifecycle:E032-SMOKE-001-installed-shim-blocks-in-real-worktree | real (atdd init + gh issue create) | shim blocks command in live worktree | N/A (single component) | #816 |
 | acc:govern-lifecycle:E033-SMOKE-001-real-commit-rejects-staged-create | real (git commit with pre-commit hook) | pre-commit rejects staged gh issue create | N/A (single component) | #816 |
 | acc:govern-lifecycle:E034-SMOKE-001-real-init-installs-and-warns | real (atdd init) | init installs shim + envrc entry | N/A (single component) | #816 |
+| acc:govern-lifecycle:E035-SMOKE-001-real-import-purity-and-yaml-load | real (child interpreter subprocess imports atdd.coach.core + on-disk YAML load) | fresh import leaks no subprocess; phase_machine.convention.yaml parses to 9 phases | N/A (single component) | #888 |
 | acc:govern-lifecycle:L002-SMOKE-001-meta-walker-zero-hits-on-post-retrofit-repo | real (walk_all_smoke_acceptances_for_anti_patterns) | anti-pattern hits list | N/A (meta-validator) | #855 |
 | acc:govern-lifecycle:R004-SMOKE-001-real-linked-worktree-recognized-worktree-ready | real (git worktree) | worktree detection | N/A (single component) | — |
 | acc:govern-lifecycle:Y004-SMOKE-001-pre-commit-template-has-drift-notice | real (template file) | file content | N/A (single component) | — |

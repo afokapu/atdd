@@ -1,0 +1,79 @@
+urn: "wmbt:govern-lifecycle:E035"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "coach-core-policy-surface-and-phase-machine-drifting-or-duplicating-across-modules"
+context_clarifier: "when the Coach decomposition (docs/coach-decomposition.md, umbrella #887) freezes the pure-policy layer as Child 1 — defining every typed contract in atdd.coach.core.types, the five pure policy functions in atdd.coach.core (next_transition, evaluate_evidence, review_phase_output, merge_readiness, escalation_for) as placeholder implementations that read only from a frozen Conventions bundle, and the phase machine as data in src/atdd/coach/conventions/phase_machine.convention.yaml — so every downstream child consumes one frozen surface rather than a transition table duplicated between Python and CLAUDE.md"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of coach-core-policy-surface-and-phase-machine-drifting-or-duplicating-across-modules by freezing the §4.1/§4.2 typed contracts in atdd.coach.core.types, the five §4.3 pure policy functions in atdd.coach.core, and the §4.5 phase machine in phase_machine.convention.yaml while removing the duplicate transition table from the CLAUDE.md managed block (#888)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E035-UNIT-001-pure-functions-importable-and-deterministic"
+      id: "AC-UNIT-001"
+      purpose: "The five pure policy functions are importable from atdd.coach.core and return the correct Verdict / TransitionDecision / MergeVerdict for a table of (Evidence, Conventions) inputs, with no I/O and no mocking — same inputs always produce the same output"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.coach.core exposes next_transition, evaluate_evidence, review_phase_output, merge_readiness, escalation_for"
+        - "A frozen Conventions bundle is constructed in-memory from the phase_machine data (no file reads in the test body)"
+        - "A table of hand-built frozen Evidence inputs spanning each phase (INIT..REFACTOR) plus blocked / escalation cases"
+    when:
+      abstract: "each pure function is called twice with identical (Evidence, Conventions) inputs"
+    then:
+      abstract:
+        - "next_transition returns a TransitionDecision whose persona matches the phase_machine agent for the current phase (PROCEED case)"
+        - "evaluate_evidence returns a Verdict whose kind is one of PROCEED/STAY/BLOCKED/ESCALATE with non-empty rule_ids"
+        - "merge_readiness returns a MergeVerdict and escalation_for returns either a Verdict or None"
+        - "every function returns an equal result on the second identical call (purity / determinism)"
+        - "no call imports subprocess, gh, cmux, threading, or any atdd.runtime/atdd.integrations/atdd.train module"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E035-UNIT-002-phase-machine-yaml-is-canonical"
+      id: "AC-UNIT-002"
+      purpose: "phase_machine.convention.yaml is the canonical phase-transition source matching §4.5, and the CLAUDE.md managed block no longer carries a duplicate state_machine transition table"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/coach/conventions/phase_machine.convention.yaml exists and parses as YAML"
+        - "The repo's CLAUDE.md (and the ATDD.md template it is generated from) are readable"
+    when:
+      abstract: "the YAML is loaded and the CLAUDE.md / ATDD.md managed block is scanned for a state_machine.transitions mapping"
+    then:
+      abstract:
+        - "the YAML declares all nine phases INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, COMPLETE, BLOCKED, OBSOLETE"
+        - "each phase carries an agent (persona or null) and a transitions_to list exactly matching §4.5"
+        - "INIT carries pre_commit_gate 'atdd validate planner --local --skip-api'"
+        - "neither CLAUDE.md nor the ATDD.md template contains a state_machine.transitions mapping block"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E035-SMOKE-001-real-import-purity-and-yaml-load"
+      id: "AC-SMOKE-001"
+      purpose: "A real interpreter subprocess importing atdd.coach.core does not pull subprocess into sys.modules, and the real phase_machine.convention.yaml on disk loads into the typed phase-machine mapping — exercising the actual package and filesystem, not an in-memory stub"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd package importable from local source (PYTHONPATH=src) and runnable as a subprocess"
+        - "src/atdd/coach/conventions/phase_machine.convention.yaml present on disk"
+    when:
+      abstract: "subprocess.run([sys.executable, '-c', 'import atdd.coach.core; import sys; assert \"subprocess\" not in sys.modules']) is invoked, and the on-disk YAML is loaded and parsed"
+    then:
+      abstract:
+        - "the fresh-import subprocess exits 0 (coach.core leaks no I/O module at import time)"
+        - "the import line `from atdd.coach.core import next_transition, evaluate_evidence, review_phase_output, merge_readiness, escalation_for` succeeds in the subprocess"
+        - "loading the on-disk phase_machine.convention.yaml yields a mapping with all nine phases and their §4.5 transitions"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"

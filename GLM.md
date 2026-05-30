@@ -187,19 +187,12 @@ issues:
     - "gh issue create    → use: atdd issue <slug>"
     - "gh pr create       → use: atdd pr <N>"
 
-# State Machine
-state_machine:
-  transitions:
-    INIT: [PLANNED, BLOCKED, OBSOLETE]
-    PLANNED: [RED, BLOCKED, OBSOLETE]
-    RED: [GREEN, BLOCKED, OBSOLETE]
-    GREEN: [SMOKE, BLOCKED, OBSOLETE]
-    SMOKE: [REFACTOR, BLOCKED, OBSOLETE]
-    REFACTOR: [COMPLETE, BLOCKED, OBSOLETE]
-    BLOCKED: [INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, OBSOLETE]
-    COMPLETE: []
-    OBSOLETE: []
-  command: "atdd issue <N> --status <STATUS>"
+# Phase transitions (state machine) are defined canonically in
+# src/atdd/coach/conventions/phase_machine.convention.yaml — the single source of
+# truth (docs/coach-decomposition.md §4.5). The duplicate transition table that
+# used to live here was removed in #888. To change a phase, edit the convention
+# YAML; do not re-add a transition table to this managed block.
+# Status command: atdd issue <N> --status <STATUS>
 
 # Conventions Registry
 conventions:

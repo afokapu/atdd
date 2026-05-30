@@ -1,0 +1,47 @@
+# Phase Machine Convention — canonical ATDD lifecycle state machine.
+#
+# Single source of truth for per-issue phase transitions
+# (docs/coach-decomposition.md §4.5). Coach-core loads this (via
+# train.persistence.load_conventions) into Conventions.phase_machine as a
+# mapping of Phase -> PhaseSpec. The duplicate state_machine table that used to
+# live in the CLAUDE.md managed block / ATDD.md template was removed in Child 1
+# (#888); add or change a phase HERE, never in Python and never in CLAUDE.md.
+schema_version: "1.0.0"
+convention_id: "coach.phase-machine"
+name: "Phase Machine Convention"
+description: |
+  The ATDD per-issue lifecycle as data. Each phase declares the persona that
+  drives it (agent), the phases it may transition to (transitions_to), and an
+  optional pre_commit_gate CLI command run before committing the produced
+  artifact. Adding a new phase is a YAML edit here plus (optionally) new rules —
+  no Coach-core code change (§4.3 property 4).
+
+phases:
+  INIT:
+    agent: planner
+    transitions_to: [PLANNED, BLOCKED, OBSOLETE]
+    pre_commit_gate: "atdd validate planner --local --skip-api"
+  PLANNED:
+    agent: tester
+    transitions_to: [RED, BLOCKED, OBSOLETE]
+  RED:
+    agent: coder
+    transitions_to: [GREEN, BLOCKED, OBSOLETE]
+  GREEN:
+    agent: tester
+    transitions_to: [SMOKE, BLOCKED, OBSOLETE]
+  SMOKE:
+    agent: coder
+    transitions_to: [REFACTOR, BLOCKED, OBSOLETE]
+  REFACTOR:
+    agent: coder
+    transitions_to: [COMPLETE, BLOCKED, OBSOLETE]
+  COMPLETE:
+    agent: null
+    transitions_to: []
+  BLOCKED:
+    agent: null
+    transitions_to: [INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, OBSOLETE]
+  OBSOLETE:
+    agent: null
+    transitions_to: []

@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:freeze-coach-core-typed-api-and-phase-machine"
+wagon: "wagon:govern-lifecycle"
+description: "Child 1 of the Coach decomposition (docs/coach-decomposition.md §13.1, umbrella #887): freeze the pure-policy layer. Create atdd.coach.core.types with every typed contract from §4.1/§4.2 (frozen dataclasses + StrEnums), atdd.coach.core exposing the five §4.3 pure policy functions (next_transition, evaluate_evidence, review_phase_output, merge_readiness, escalation_for) as placeholder implementations that read only from a frozen Conventions bundle (no I/O, no subprocess, no gh/cmux/threading), and src/atdd/coach/conventions/phase_machine.convention.yaml carrying the §4.5 phase machine as data. Remove the duplicate state_machine transition table from the CLAUDE.md managed block so the YAML is the single source of phase transitions (#888)."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E035"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No CLI surface change; the public command surface is unchanged (decomposition doc §3.4). This child only freezes library types + data."
+    application:
+      - type: "use_cases"
+        count: 5
+        rationale: "The five pure policy functions in atdd.coach.core (next_transition, evaluate_evidence, review_phase_output, merge_readiness, escalation_for) — placeholder implementations of (Evidence, Conventions) → Verdict/TransitionDecision/MergeVerdict (E035)"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "atdd.coach.core.types: the frozen dataclasses and StrEnums from §4.1/§4.2 (Phase, Persona, IssueType, CiState, VerdictKind, WmbtRef, ValidatorReport, PrState, CheckRun, Review, Evidence, Verdict, TransitionDecision, MergeVerdict, PhaseSpec, RuleSpec, Conventions) (E035)"
+    integration:
+      - type: "wiring_modules"
+        count: 1
+        rationale: "src/atdd/coach/conventions/phase_machine.convention.yaml — the §4.5 phase machine as the single canonical transition source, replacing the CLAUDE.md duplicate (E035)"
