@@ -212,6 +212,21 @@ def test_evaluate_evidence_stays_when_ci_not_ready(ci: CiState):
     assert verdict.retry_after_seconds is not None
 
 
+def test_evaluate_evidence_stays_on_ci_failure():
+    conv = _build_conventions()
+    verdict = evaluate_evidence(_evidence(Phase.GREEN, ci_state=CiState.FAILURE), conv)
+    assert verdict.kind is VerdictKind.STAY
+    assert verdict.retry_after_seconds is not None
+
+
+@pytest.mark.parametrize("phase", [Phase.COMPLETE, Phase.OBSOLETE])
+def test_evaluate_evidence_terminal_phase_stays(phase: Phase):
+    conv = _build_conventions()
+    verdict = evaluate_evidence(_evidence(phase), conv)
+    assert verdict.kind is VerdictKind.STAY
+    assert verdict.rule_ids
+
+
 # --------------------------------------------------------------------------- #
 # review_phase_output                                                        #
 # --------------------------------------------------------------------------- #
@@ -266,6 +281,36 @@ def test_merge_readiness_false_early_phase():
     assert verdict.can_merge is False
 
 
+def test_merge_readiness_false_when_pr_not_open():
+    conv = _build_conventions()
+    pr = PrState(number=1, state="MERGED", mergeable="MERGEABLE", merge_state="CLEAN",
+                 head_sha="b" * 40, check_runs=(), reviews=(), closes_issues=())
+    verdict = merge_readiness(_evidence(Phase.REFACTOR, pr_state=pr), conv)
+    assert verdict.can_merge is False
+    assert any("OPEN" in b for b in verdict.blockers)
+
+
+def test_merge_readiness_false_when_conflicting():
+    conv = _build_conventions()
+    pr = PrState(number=1, state="OPEN", mergeable="CONFLICTING", merge_state="DIRTY",
+                 head_sha="c" * 40, check_runs=(), reviews=(), closes_issues=())
+    verdict = merge_readiness(_evidence(Phase.REFACTOR, pr_state=pr), conv)
+    assert verdict.can_merge is False
+    assert "PR is CONFLICTING" in verdict.blockers
+
+
+def test_merge_readiness_lists_blocking_validator_and_bad_ci():
+    conv = _build_conventions()
+    pr = PrState(number=1, state="OPEN", mergeable="MERGEABLE", merge_state="CLEAN",
+                 head_sha="d" * 40, check_runs=(), reviews=(), closes_issues=())
+    ev = _evidence(Phase.REFACTOR, pr_state=pr, ci_state=CiState.FAILURE,
+                   validator_reports=(_blocking_report(),))
+    verdict = merge_readiness(ev, conv)
+    assert verdict.can_merge is False
+    assert "example_validator" in verdict.blockers
+    assert verdict.required_label is Phase.REFACTOR
+
+
 # --------------------------------------------------------------------------- #
 # escalation_for                                                            #
 # --------------------------------------------------------------------------- #
@@ -282,6 +327,17 @@ def test_escalation_for_escalates_on_no_progress_ttl():
     verdict = escalation_for(ev, conv)
     assert verdict is not None
     assert verdict.kind is VerdictKind.ESCALATE
+
+
+def test_escalation_for_escalates_on_complete_pr_mismatch():
+    conv = _build_conventions()
+    pr = PrState(number=1, state="OPEN", mergeable="MERGEABLE", merge_state="CLEAN",
+                 head_sha="e" * 40, check_runs=(), reviews=(), closes_issues=())
+    ev = _evidence(Phase.COMPLETE, pr_state=pr, elapsed_in_phase_seconds=5)
+    verdict = escalation_for(ev, conv)
+    assert verdict is not None
+    assert verdict.kind is VerdictKind.ESCALATE
+    assert "coach.core.complete-pr-mismatch" in verdict.rule_ids
 
 
 # --------------------------------------------------------------------------- #

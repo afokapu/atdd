@@ -492,18 +492,14 @@ issues:
     REFACTOR: "Clean architecture, 4-layer compliance"
 
 # State Machine (issue lifecycle transitions)
+# Phase transitions are defined canonically in
+# src/atdd/coach/conventions/phase_machine.convention.yaml — the single source of
+# truth (docs/coach-decomposition.md §4.5). The duplicate transition table that
+# used to live here was removed in #888. To change a phase, edit the convention
+# YAML; do not re-add a transition table to this managed block.
 state_machine:
-  transitions:
-    INIT: [PLANNED, BLOCKED, OBSOLETE]
-    PLANNED: [RED, BLOCKED, OBSOLETE]
-    RED: [GREEN, BLOCKED, OBSOLETE]
-    GREEN: [SMOKE, BLOCKED, OBSOLETE]
-    SMOKE: [REFACTOR, BLOCKED, OBSOLETE]
-    REFACTOR: [COMPLETE, BLOCKED, OBSOLETE]
-    BLOCKED: [INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, OBSOLETE]
-    COMPLETE: []
-    OBSOLETE: []
   command: "atdd issue <N> --status <STATUS>"
+  transitions_source: "src/atdd/coach/conventions/phase_machine.convention.yaml"
   rules:
     - "Train field required past PLANNED (enforced by CLI + validator)"
     - "Labels swapped automatically (atdd:RED → atdd:GREEN)"
