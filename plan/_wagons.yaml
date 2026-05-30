@@ -621,7 +621,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 63
+    total: 64
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -777,6 +777,11 @@ wagons:
     E034: minimize likelihood of fresh-worktrees-missing-the-gh-shim-envrc-and-precommit-hook-after-atdd-init
       by making atdd init install .atdd/bin/gh, .envrc, and the pre-commit hook idempotently
       with a direnv soft-fail notice (#816)
+    E035: minimize likelihood of coach-core-policy-surface-and-phase-machine-drifting-or-duplicating-across-modules
+      by freezing the typed contracts in atdd.coach.core.types, the five pure policy
+      functions in atdd.coach.core, and the phase machine in phase_machine.convention.yaml
+      while removing the duplicate transition table from the CLAUDE.md managed block
+      (#888)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
