@@ -1361,3 +1361,11 @@ sessions:
   train: 0001-self-compliance-validate
   created: '2026-05-31'
   archived: null
+- id: '905'
+  slug: resolve-pre-existing-467-broken-urn-refs-post-decomposition-cleanup
+  file: null
+  issue_number: 905
+  type: implementation
+  status: INIT
+  created: '2026-05-31'
+  archived: null
