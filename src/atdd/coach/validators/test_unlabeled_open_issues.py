@@ -83,6 +83,7 @@ def _find_unlabeled_open_issues(issues: List[Dict]) -> List[str]:
 
 
 @pytest.mark.coach
+@pytest.mark.github_api  # consumes live `all_open_issues_unfiltered` — offline gate must skip (#932)
 def test_no_open_issues_lack_atdd_issue_label(all_open_issues_unfiltered):
     """D005: Every open repo issue must carry the ``atdd-issue`` label so
     it is visible to every coach validator.

@@ -207,6 +207,12 @@ def test_release_version_file_and_tag_on_head():
         pytest.skip("Tag check skipped on PR branches (tag created post-merge)")
     if is_ci and github_ref == "refs/heads/main":
         pytest.skip("Tag check skipped on main push in CI (tag-release job handles tagging)")
+    if not is_ci:
+        # Release tagging is a CI/release-time concern. In a local run (e.g. the
+        # `atdd validate ... --local` pre-push gate) HEAD is a feature branch
+        # with no release tag, so this would always fail on state unrelated to
+        # the diff. Skip locally; CI is the authoritative tag gate (#932).
+        pytest.skip("Release-tag check is CI/release-time only; skipped in local runs (#932)")
 
     config = _load_config()
     version_file, tag_prefix = _get_release_config(config)

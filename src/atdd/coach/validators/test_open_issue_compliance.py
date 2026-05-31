@@ -66,6 +66,7 @@ def _find_drift(issues: List[Dict]) -> List[str]:
 
 
 @pytest.mark.coach
+@pytest.mark.github_api  # consumes live `github_issues` — offline gate must skip (#932)
 def test_open_issues_are_orchestrate_ready(github_issues):
     """SPEC-GOVERN-ORCH-D003: Every open parent issue must be template-compliant
     and expose a ``### Dependencies`` heading so ``atdd orchestrate`` can walk
