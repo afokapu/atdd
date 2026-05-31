@@ -712,6 +712,27 @@ Phase descriptions:
         help="Remove orphan directories (default: list only)",
     )
 
+    # ----- atdd cleanup -----
+    # #928 Gap 2: remove merged-but-not-removed worktrees + orphan branches.
+    # Complements `atdd worktree gc` (which only removes non-git scratch dirs).
+    cleanup_parser = subparsers.add_parser(
+        "cleanup",
+        help="Remove merged worktrees + orphan branches (post-merge cleanup)",
+        description=(
+            "Detect worktrees whose branch has merged (ancestor of origin/main "
+            "OR a merged PR — catches squash-merges) and orphan merged branches.\n\n"
+            "  atdd cleanup        List what would be removed (dry-run)\n"
+            "  atdd cleanup --yes  Remove worktrees + prune their branches\n\n"
+            "main is never touched; worktrees with uncommitted changes are skipped."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    cleanup_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Apply the cleanup (default: dry-run list only)",
+    )
+
     # ----- atdd pr <issue_number> -----
     pr_parser = subparsers.add_parser(
         "pr",
@@ -2541,6 +2562,10 @@ Phase descriptions:
     elif args.command == "doctor":
         from atdd.doctor import run_doctor
         return run_doctor()
+
+    elif args.command == "cleanup":
+        from atdd.coach.commands.cleanup import run_cleanup
+        return run_cleanup(apply=getattr(args, "yes", False))
 
     elif args.command == "upgrade":
         upgrader = Upgrader()
