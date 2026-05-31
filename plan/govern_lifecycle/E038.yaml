@@ -1,0 +1,116 @@
+urn: "wmbt:govern-lifecycle:E038"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "agent-control-and-prompt-delivery-staying-coupled-to-coach-via-screen-scrape-so-paste-landed-submit-and-stdin-gaps-keep-regressing"
+context_clarifier: "when the Coach decomposition (docs/coach-decomposition.md, umbrella #887) extracts the runtime agent-control layer as Child 6 — creating atdd.runtime.agent_control (AgentController Protocol, DispatchSpec, ReadyResult, AgentEvent, AgentSignal, AgentHandle per §4.8) with ShimAgentController (pty shim + cli-return.jsonl priming + output.log heartbeat ready detection) as the DEFAULT control plane, TuiScrapeAgentController as the deprecated screen-scrape fallback behind ATDD_USE_LEGACY_SPAWN=1, and HeadlessPrintController for non-interactive runs; creating the view-only atdd.runtime.multiplexer Protocol (§4.9) with the paste_text/send_key/capture_pane_text control methods stripped; and migrating atdd.coach.commands.spawn to dispatch through ShimAgentController by default — making cli-return the default transport closes the #840/#871/#872 cluster (paste-landed race, shim submit gap, shim stdin/INTERRUPT gap)"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of agent-control-and-prompt-delivery-staying-coupled-to-coach-via-screen-scrape-so-paste-landed-submit-and-stdin-gaps-keep-regressing by extracting atdd.runtime.agent_control with cli-return as the default control plane (ShimAgentController whose deliver_prompt injects AND submits, and whose signal(INTERRUPT) terminates the wrapped agent), shipping the view-only atdd.runtime.multiplexer Protocol with control methods stripped, providing the ATDD_USE_LEGACY_SPAWN=1 kill switch, and routing spawn dispatch through the controller while keeping coach.core import-free of runtime (#893, closes #840/#871/#872)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E038-UNIT-001-agent-control-typed-surface"
+      id: "AC-UNIT-001"
+      purpose: "atdd.runtime.agent_control exposes the §4.8 typed surface and atdd.runtime.multiplexer exposes the §4.9 view-only Protocol with no control methods, and neither layer imports atdd.coach / atdd.train / atdd.integrations / the sibling runtime layer"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.runtime.agent_control defines AgentController (a typing.Protocol), DispatchSpec, ReadyResult, AgentEvent, AgentSignal, and AgentHandle per §4.8"
+        - "atdd.runtime.multiplexer defines the view-only Multiplexer Protocol per §4.9"
+    when:
+      abstract: "the agent_control and multiplexer modules are imported and their public surfaces are introspected"
+    then:
+      abstract:
+        - "from atdd.runtime.agent_control import AgentController, DispatchSpec, ReadyResult, AgentEvent, AgentSignal, AgentHandle succeeds"
+        - "AgentController declares spawn, deliver_prompt, wait_ready, stream_events, signal, and stop"
+        - "AgentSignal carries INTERRUPT, DONE_ACK, and PROMPT_ADDITIONAL members"
+        - "the Multiplexer Protocol exposes no paste_text, send_key, or capture_pane_text method"
+        - "static import-discipline (§3.3) reports zero forbidden imports for either runtime layer"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E038-UNIT-002-deliver-prompt-injects-and-submits"
+      id: "AC-UNIT-002"
+      purpose: "ShimAgentController.deliver_prompt writes the prompt to the cli-return.jsonl correction inbox AND the running shim drains it and appends the submit sentinel — closing the #872 submit gap; the check drains cli-return.jsonl directly rather than via cmux paste"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a ShimAgentController and a DispatchSpec whose correction_inbox points at a per-agent cli-return.jsonl path"
+        - "the pty engine is driven with a write sink so delivered bytes are captured without a real terminal"
+    when:
+      abstract: "deliver_prompt is called with a prompt and the shim drains the cli-return.jsonl inbox once"
+    then:
+      abstract:
+        - "deliver_prompt appends exactly one JSON row carrying the prompt as correction_text to cli-return.jsonl"
+        - "draining the inbox delivers the prompt bytes followed by the submit sentinel (default newline) — the prompt is both injected and submitted"
+        - "a prompt is never delivered without its submit sentinel"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E038-UNIT-003-signal-interrupt-terminates"
+      id: "AC-UNIT-003"
+      purpose: "AgentController.signal(handle, AgentSignal.INTERRUPT) reaches the wrapped agent and terminates it — closing the #871 stdin/INTERRUPT gap"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a ShimAgentController spawn produced an AgentHandle wrapping a live child process"
+    when:
+      abstract: "signal(handle, AgentSignal.INTERRUPT) is invoked"
+    then:
+      abstract:
+        - "the wrapped agent process receives the interrupt and terminates"
+        - "the handle reports the agent as no longer running afterwards"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E038-UNIT-004-cli-return-default-legacy-kill-switch"
+      id: "AC-UNIT-004"
+      purpose: "cli-return is the default control plane and ATDD_USE_LEGACY_SPAWN=1 routes spawn dispatch back to the pre-extraction TUI-scrape path (kill switch, §12.4 R-4)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "the spawn dispatch path selects a transport from the environment"
+    when:
+      abstract: "the transport is resolved with no override set, and again with ATDD_USE_LEGACY_SPAWN=1"
+    then:
+      abstract:
+        - "with no override the resolved transport is cli-return (the default control plane) and the adapter command is wrapped by the agent-control shim"
+        - "with ATDD_USE_LEGACY_SPAWN=1 the resolved transport is the legacy tui-scrape paste path and the adapter command is NOT shim-wrapped"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E038-SMOKE-001-real-shim-deliver-and-interrupt"
+      id: "AC-SMOKE-001"
+      purpose: "A real ShimAgentController in a real process wraps a real child agent in a real pty, delivers a prompt that is observably injected-and-submitted into the agent's output within 5s, and an INTERRUPT signal terminates the real wrapped process — exercising the actual pty/cli-return/output.log path, not an in-memory stub (closes #871/#872 end to end)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "a real child agent script that echoes each submitted line to its stdout and otherwise blocks"
+        - "ShimAgentController spawns it under a real pty with a real per-agent runtime dir on disk"
+    when:
+      abstract: "deliver_prompt delivers a unique prompt string, then signal(INTERRUPT) is sent"
+    then:
+      abstract:
+        - "within 5s the agent's output.log contains the delivered prompt as a completed (submitted) line — proving inject+submit over the real pty"
+        - "after the INTERRUPT signal the real wrapped process is no longer alive"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"

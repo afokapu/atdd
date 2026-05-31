@@ -1343,3 +1343,13 @@ sessions:
   train: 0001-self-compliance-validate
   created: '2026-05-31'
   archived: null
+- id: '893'
+  slug: extract-runtime-agent-control-and-close-spawn-cluster
+  file: null
+  issue_number: 893
+  type: implementation
+  status: PLANNED
+  train: 0001-self-compliance-validate
+  created: '2026-05-31'
+  archived: null
+  wagon: govern-lifecycle
