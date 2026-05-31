@@ -30,6 +30,42 @@ def _xdist_available() -> bool:
         return False
 
 
+# Git injects these into the environment of its hooks (pre-push, pre-commit,
+# pre-merge-commit). They redirect git's notion of the repo/index/worktree to
+# the in-progress operation. If they leak into the validator subprocess, every
+# validator that shells out to `git` (commit-trailer checks, "leaves tree
+# clean" readonly-command checks, core.bare baseline, manifest-write
+# discipline, …) sees the WRONG git context and fails — deterministically, on
+# state unrelated to the diff. This was a dominant reason `atdd validate` run
+# from a pre-push hook blocked every push while a standalone run was green
+# (#932). Scrub them so validators rediscover git context from cwd (repo_root).
+_GIT_HOOK_ENV_VARS = (
+    "GIT_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_WORK_TREE",
+    "GIT_PREFIX",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR",
+    "GIT_NAMESPACE",
+    "GIT_INDEX_VERSION",
+    "GIT_REFLOG_ACTION",
+    "GIT_QUARANTINE_PATH",
+    "GIT_PUSH_CERT",
+)
+
+
+def _scrub_git_hook_env(env: dict) -> dict:
+    """Return *env* with git-hook-injected redirection vars removed.
+
+    No-op outside a git hook (these vars are unset in a normal shell), so it is
+    safe for every `atdd validate` invocation; inside a hook it restores the
+    repo-at-cwd git context for validator subprocesses.
+    """
+    for var in _GIT_HOOK_ENV_VARS:
+        env.pop(var, None)
+    return env
+
+
 class TestRunner:
     """Run ATDD validators with various configurations."""
 
@@ -117,7 +153,7 @@ class TestRunner:
     def _run_pytest(self, cmd: list) -> int:
         """Run a pytest command and return exit code."""
         import os
-        env = os.environ.copy()
+        env = _scrub_git_hook_env(os.environ.copy())
         env["ATDD_REPO_ROOT"] = str(self.repo_root)
 
         print(f"  Running: {' '.join(cmd)}")

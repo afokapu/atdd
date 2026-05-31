@@ -73,6 +73,14 @@ def test_guard_catches_real_live_repo_contamination(pytester: pytest.Pytester):
       2. The failure message names the offending test.
       3. After the inner session, core.bare on the live repo is restored.
     """
+    import os
+    if os.environ.get("CI", "").lower() != "true":
+        # This smoke mutates core.bare on the LIVE shared .git/config to exercise
+        # the contamination guard. It is slow and unsafe to run in a local
+        # `atdd validate --local` pre-push gate (env-sensitive, touches real git
+        # config). CI is the authoritative home for it (#932).
+        pytest.skip("Destructive live-repo git smoke; CI-only — skipped in local runs (#932)")
+
     bare_before = _git_core_bare()
 
     # Craft an inner conftest that mimics the repo-root guard but points at

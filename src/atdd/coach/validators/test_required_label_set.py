@@ -102,6 +102,7 @@ def _find_issues_missing_required_labels(issues: List[Dict]) -> List[str]:
 
 
 @pytest.mark.coach
+@pytest.mark.github_api  # consumes live `github_issues` — offline gate must skip (#932)
 def test_atdd_issues_have_required_label_triplet(github_issues):
     """D006: Every ``atdd-issue``-labeled open issue must carry one
     ``atdd:<PHASE>`` label, at least one ``archetype:*`` label, and at
