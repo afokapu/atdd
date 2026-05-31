@@ -33,17 +33,11 @@ def test_issue_convention_workflow_includes_smoke():
     assert workflow == "Full ATDD cycle: Plan \u2192 Test (RED) \u2192 Code (GREEN) \u2192 Test (SMOKE) \u2192 Refactor"
 
 
-def test_atdd_template_after_coder_points_to_smoke():
-    """
-    SPEC-COACH-WORKFLOW-0004: ATDD template guidance points coder validation to SMOKE.
-    """
-    content = ATDD_TEMPLATE.read_text()
-    assert 'after_coder: "atdd validate coder       # Before transitioning to SMOKE"' in content
-
-
-def test_claude_after_coder_points_to_smoke():
-    """
-    SPEC-COACH-WORKFLOW-0005: CLAUDE guidance mirrors the SMOKE transition.
-    """
-    content = CLAUDE_MD.read_text()
-    assert 'after_coder: "atdd validate coder       # Before transitioning to SMOKE"' in content
+# SPEC-COACH-WORKFLOW-0004 / 0005 (test_atdd_template_after_coder_points_to_smoke,
+# test_claude_after_coder_points_to_smoke) removed in #919 Section B. Both asserted
+# a hard-coded prose string from the `audits.workflow.after_coder` block in
+# CONDUCTOR.md — the entire `audits:` block was deleted in Section B as forbidden
+# duplication (canonical home: `atdd validate --help`). The operator-facing
+# "validate coder before SMOKE" guidance now lives where it belongs (the CLI help
+# surface); the template-prose assertions had nothing to assert against and no
+# canonical home to migrate to.
