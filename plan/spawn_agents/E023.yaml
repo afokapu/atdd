@@ -29,7 +29,7 @@ acceptances:
   - identity:
       urn: "acc:spawn-agents:E023-UNIT-002-claude-md-retains-atdd-lifecycle-and-command-pointers"
       id: "AC-UNIT-002"
-      purpose: "The slimmed CLAUDE.md still contains the core lifecycle phase names (INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR), the atdd gate invocation, and a pointer to conventions so workers can orient themselves at session start without being lost"
+      purpose: "The slimmed CLAUDE.md still contains every lifecycle phase declared in src/atdd/coach/conventions/phase_machine.convention.yaml (loaded dynamically per #929, so new phases auto-extend the regression guard and removed phases auto-narrow it), the atdd gate invocation, and a pointer to conventions so workers can orient themselves at session start without being lost"
       phase: "GREEN"
     harness:
       type: "unit"
@@ -37,13 +37,14 @@ acceptances:
     given:
       abstract:
         - "CLAUDE.md after slim edits"
+        - "src/atdd/coach/conventions/phase_machine.convention.yaml declares the canonical phase set"
     when:
-      abstract: "The file content is read and searched for lifecycle phase markers and atdd gate reference"
+      abstract: "The convention YAML is loaded for its phase keys; CLAUDE.md content is read and searched for each phase name plus the bootstrap markers ('atdd gate' and 'src/atdd')"
     then:
       abstract:
         - "File contains 'atdd gate'"
-        - "File contains the phases INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR (as text)"
-        - "File contains a reference to conventions directory path (e.g. 'src/atdd')"
+        - "File contains a reference to the conventions directory path (e.g. 'src/atdd')"
+        - "File contains every phase NAME declared in phase_machine.convention.yaml (currently INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, COMPLETE, BLOCKED, OBSOLETE — but the test does NOT hard-code this list; it reads phases.keys() from the convention)"
     metadata:
       author: "atdd:planner"
       created: "2026-05-27"
