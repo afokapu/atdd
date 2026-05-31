@@ -38,10 +38,13 @@ def test_persistence_store_protocol_has_every_4_6_method():
     assert not missing, f"PersistenceStore missing §4.6 methods: {sorted(missing)}"
 
 
-def test_load_conventions_is_signature_only():
-    # Importable (acceptance) but unimplemented until Child 7 (§4.4).
-    with pytest.raises(NotImplementedError):
-        load_conventions(pathlib.Path("."))
+def test_load_conventions_is_importable():
+    # Child 3 froze the signature as NotImplementedError; Child 7 (#894) ships the
+    # body (§4.4). The contract this acceptance guards is that the symbol is
+    # importable from atdd.train.persistence — now backed by a real loader.
+    assert callable(load_conventions)
+    conventions = load_conventions(pathlib.Path("."))
+    assert conventions.snapshot_hash
 
 
 def test_train_value_types_are_importable():
