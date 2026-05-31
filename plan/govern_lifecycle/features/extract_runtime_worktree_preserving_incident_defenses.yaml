@@ -1,0 +1,7 @@
+feature: extract-runtime-worktree-preserving-incident-defenses
+wagon: govern-lifecycle
+urn: "feature:govern-lifecycle:extract-runtime-worktree-preserving-incident-defenses"
+wmbts:
+  - "wmbt:govern-lifecycle:E038"
+references:
+  - "docs/coach-decomposition.md"

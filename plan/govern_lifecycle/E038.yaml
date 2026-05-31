@@ -1,0 +1,99 @@
+urn: "wmbt:govern-lifecycle:E038"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "worktree-creation-and-its-incident-defenses-being-duplicated-or-bypassed-across-coach-command-modules"
+context_clarifier: "when the Coach decomposition (docs/coach-decomposition.md, umbrella #887) extracts the runtime worktree layer as Child 5 (#892, §13.5) — moving ensure_issue_worktree, remove_worktree, and the branch-safety helpers out of the coach command modules into a pure atdd.runtime.worktree module that may import only stdlib + subprocess + pathlib (§3.3), routing coach.commands.coach, coach.commands.branch, and coach.commands.issue_lifecycle through it via shims so there is exactly one worktree-creation path and the three worktree incident defenses (I-1 no bare-directory dispatch, I-2 no protected-main commits, I-9 git config --worktree core.bare false on creation) live in one place"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of worktree-creation-and-its-incident-defenses-being-duplicated-or-bypassed-across-coach-command-modules by extracting ensure_issue_worktree, remove_worktree, and branch-safety helpers into the pure atdd.runtime.worktree layer that sets git config --worktree core.bare false on creation (I-9), refuses bare/foreign-directory dispatch (I-1), and blocks protected-main worktrees (I-2), and routing every coach worktree call site through it via compatibility shims (#892)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E038-UNIT-001-ensure-issue-worktree-creates-idempotent-core-bare"
+      id: "AC-UNIT-001"
+      purpose: "atdd.runtime.worktree.ensure_issue_worktree creates a real git worktree, is idempotent on re-call, and sets git config --worktree core.bare false on every new worktree (incident defense I-9 — the canonical fix for the bare-mode config bleed)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repository with one seed commit on its default branch"
+        - "atdd.runtime.worktree exposes ensure_issue_worktree(worktree_path, branch, repo_root)"
+        - "The target worktree path does not yet exist"
+    when:
+      abstract: "ensure_issue_worktree is called once to create the worktree, then a second time with identical arguments"
+    then:
+      abstract:
+        - "the first call returns the worktree path and the path is a real git worktree (its .git link exists and git worktree list includes it)"
+        - "the new worktree's per-worktree config reports core.bare == false (git config --worktree core.bare resolves to false) — I-9"
+        - "the second call is idempotent: it returns the same path without raising and without creating a duplicate worktree"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E038-UNIT-002-incident-defenses-bare-dispatch-and-protected-main"
+      id: "AC-UNIT-002"
+      purpose: "ensure_issue_worktree preserves incident defense I-1 (refuses to dispatch into a path that exists but is not a valid git working tree) and I-2 (refuses to create a worktree on a protected branch such as main/master, which would land commits on protected main)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repository with one seed commit"
+        - "A target path that already exists and contains foreign (non-atdd) content"
+        - "atdd.runtime.worktree exposes a branch-safety predicate (is_protected_branch) and ensure_issue_worktree"
+    when:
+      abstract: "ensure_issue_worktree is invoked against the foreign-content path, and separately invoked with branch='main'"
+    then:
+      abstract:
+        - "the foreign-content path is refused (returns None, never silently overwritten) and no git worktree is registered for it — I-1"
+        - "is_protected_branch('main') and is_protected_branch('master') are True while is_protected_branch('feat/x') is False"
+        - "invoking ensure_issue_worktree with a protected branch raises ProtectedBranchError before any git worktree add runs — I-2"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E038-UNIT-003-import-discipline-and-call-site-routing"
+      id: "AC-UNIT-003"
+      purpose: "atdd.runtime.worktree obeys the §3.3 dependency rules (imports no orchestration/integration/sibling-runtime layer) and the three coach worktree call sites route through it so no second worktree-creation path exists"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.runtime.worktree source parsed for its import set"
+        - "atdd.coach.commands.coach._ensure_issue_worktree, atdd.coach.commands.branch, and atdd.coach.commands.issue_lifecycle source modules"
+    when:
+      abstract: "the runtime.worktree import set is checked against the forbidden set and the coach call-site sources are inspected for raw git-worktree-add invocations"
+    then:
+      abstract:
+        - "atdd.runtime.worktree imports none of: atdd.coach, atdd.train, atdd.integrations, atdd.runtime.agent_control, atdd.runtime.multiplexer (§3.3)"
+        - "coach._ensure_issue_worktree delegates the git worktree creation to atdd.runtime.worktree.ensure_issue_worktree"
+        - "the migrated coach call sites perform no raw 'git worktree add' subprocess of their own — creation is owned by atdd.runtime.worktree"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E038-SMOKE-001-real-worktree-core-bare-false-on-disk"
+      id: "AC-SMOKE-001"
+      purpose: "In a real process against a real on-disk git repository, a worktree created through atdd.runtime.worktree carries a per-worktree core.bare=false override — exercising the real git CLI and filesystem, the canonical I-9 fix proof, not an in-memory stub"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd is importable from local source and a real git repository exists on disk with a seed commit"
+        - "extensions.worktreeConfig is not assumed pre-enabled on the repository"
+    when:
+      abstract: "a real (non-mocked) call to atdd.runtime.worktree.ensure_issue_worktree creates a new worktree on a feature branch, then git config --worktree core.bare is read from inside the created worktree via the real git CLI"
+    then:
+      abstract:
+        - "the created worktree exists on disk and is listed by git worktree list"
+        - "reading git config --worktree core.bare from the new worktree returns false (the per-worktree override is materialized in the on-disk config.worktree, not merely the shared config)"
+        - "the shared repository config is not left as core.bare=true by the creation path"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"

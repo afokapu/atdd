@@ -1343,3 +1343,12 @@ sessions:
   train: 0001-self-compliance-validate
   created: '2026-05-31'
   archived: null
+- id: '892'
+  slug: extract-runtime-worktree-preserving-incident-defenses
+  file: null
+  issue_number: 892
+  type: implementation
+  status: INIT
+  train: 0001-self-compliance-validate
+  created: '2026-05-31'
+  archived: null
