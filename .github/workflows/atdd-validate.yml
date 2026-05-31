@@ -250,7 +250,9 @@ jobs:
           key: ${{ runner.os }}-pip-atdd-toolkit
 
       - name: Install dependencies
-        run: pip3 install pytest pyyaml
+        # jsonschema is required by atdd.coach.commands.durability, which the
+        # I-8 decision-durability incident test imports (#897).
+        run: pip3 install pytest pyyaml jsonschema
 
       - name: Configure git identity (real-git worktree tests)
         run: |

@@ -1,8 +1,5 @@
-# URN: test:govern-lifecycle:split-spawn-and-final-purity-sweep:E042-UNIT-003-observer-singleton
-# Acceptance: acc:govern-lifecycle:E042-UNIT-003-single-observer-lifecycle-i6
-# WMBT: wmbt:govern-lifecycle:E042
-# Phase: RED
-# Layer: backend.application
+# URN: test:govern-lifecycle:split-spawn-and-final-purity-sweep:observer-singleton-i6
+# Source of truth: docs/coach-decomposition.md §8, §9 (I-6), §13.10 (umbrella #887)
 """I-6 — single observer lifecycle. Only one ObserverSession may be active."""
 from __future__ import annotations
 

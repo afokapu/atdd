@@ -1,8 +1,5 @@
-# URN: test:govern-lifecycle:split-spawn-and-final-purity-sweep:E042-UNIT-002-observer-read-only-consumer
-# Acceptance: acc:govern-lifecycle:E042-UNIT-002-atdd-observer-never-writes-events-or-output-log
-# WMBT: wmbt:govern-lifecycle:E042
-# Phase: RED
-# Layer: backend.application
+# URN: test:govern-lifecycle:split-spawn-and-final-purity-sweep:observer-read-only-consumer
+# Source of truth: docs/coach-decomposition.md §8, §13.10 (umbrella #887)
 """``atdd.observer`` is a first-class READ-ONLY consumer (§8, #897).
 
 Acceptance (§13.10): "``atdd observer`` runs without ever writing to

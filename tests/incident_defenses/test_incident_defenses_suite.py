@@ -1,8 +1,5 @@
-# URN: test:govern-lifecycle:split-spawn-and-final-purity-sweep:E042-UNIT-001-incident-defenses-suite-i3-to-i13
-# Acceptance: acc:govern-lifecycle:E042-UNIT-001-all-thirteen-incident-defenses-have-explicit-tests
-# WMBT: wmbt:govern-lifecycle:E042
-# Phase: RED
-# Layer: backend.application
+# URN: test:govern-lifecycle:split-spawn-and-final-purity-sweep:incident-defenses-suite-i3-to-i13
+# Source of truth: docs/coach-decomposition.md §9, §13.10 (umbrella #887)
 """Consolidated incident-defense suite — Coach Decomposition §9 / §13.10 (#897).
 
 The closing child (Child 10) requires that **all 13 incident defenses
