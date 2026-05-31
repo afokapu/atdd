@@ -152,6 +152,86 @@ def detect_worktree_layout(start: Optional[Path] = None) -> str:
     return "no-git"
 
 
+def _read_core_bare(root: Path) -> Optional[str]:
+    """Return the effective ``core.bare`` value for *root*, or None on failure."""
+    try:
+        result = subprocess.run(
+            ["git", "config", "--get", "core.bare"],
+            cwd=root, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def ensure_repo_not_falsely_bare(root: Optional[Path] = None) -> bool:
+    """Self-heal a working-tree checkout falsely marked ``core.bare=true`` (#917).
+
+    A normal checkout (``.git`` is a directory) and a linked worktree
+    (``.git`` is a *file*) both ALWAYS have a working tree and must carry
+    ``core.bare=false``. ``core.bare`` is a *shared/common* config key, so a
+    single stray unscoped ``git config core.bare true`` — from a SMOKE test
+    run in the wrong cwd, a crashed/killed run, or an xdist worker — bleeds
+    into the common ``.git/config`` and every linked worktree then reads
+    ``core.bare=true``. The next ``git add -A`` treats the checkout as bare
+    (no working tree) and stages the entire tree as deleted: the #629/#917
+    phantom-mass-deletion incident (Wave 12 shipped 220k-line deletions this
+    way; this session nearly shipped 323k-line deletions twice).
+
+    This guard runs at ATDD command entry: if it finds a working-tree
+    checkout reporting ``core.bare=true``, it resets it to ``false`` BEFORE
+    any later git operation can act on the poisoned value. Preventive and
+    harness-agnostic — unlike the test-only conftest guards, it protects the
+    production ``atdd`` flows (validate / pr / issue / coach).
+
+    Args:
+        root: checkout to inspect (defaults to cwd).
+
+    Returns:
+        True if it healed a contaminated config; False otherwise (no ``.git``,
+        legitimately not bare, or git unavailable). Never raises.
+    """
+    import logging
+
+    try:
+        root = (root or Path.cwd()).resolve()
+    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+        return False
+
+    git_path = root / ".git"
+    # A bare repo has no ``.git`` entry (it IS the git dir). If ``.git`` exists
+    # as a file or directory, this is a working-tree checkout that must never
+    # be bare. If it is absent, there is nothing here for us to protect.
+    if not git_path.exists():
+        return False
+
+    if _read_core_bare(root) != "true":
+        return False
+
+    # Working-tree checkout reporting bare=true → contamination. Reset it.
+    # ``core.bare`` is not worktree-scoped, so this writes the shared
+    # ``.git/config`` and heals every linked worktree at once.
+    try:
+        result = subprocess.run(
+            ["git", "config", "core.bare", "false"],
+            cwd=root, capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+        return False
+    if result.returncode != 0:
+        return False
+
+    logging.getLogger(__name__).warning(
+        "atdd: healed core.bare=true on working-tree checkout %s — reset to "
+        "false to prevent phantom mass-deletion (#917).",
+        root,
+        extra={"root": str(root), "guard": "core-bare-self-heal", "issue": 917},
+    )
+    return True
+
+
 def require_repo_root(start: Optional[Path] = None) -> Path:
     """
     Find repo root, raising RuntimeError if no markers found.

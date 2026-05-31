@@ -2752,6 +2752,17 @@ Phase descriptions:
 
 def cli() -> int:
     """CLI entry point with version and upgrade checks."""
+    # #917: self-heal a worktree falsely marked core.bare=true BEFORE doing any
+    # work. A stray unscoped `git config core.bare true` (SMOKE test in the
+    # wrong cwd, crashed run, xdist worker) bleeds into the shared .git/config
+    # and the next `git add -A` mass-deletes the working tree. Reset it here so
+    # no atdd command operates on a poisoned config. Never fatal.
+    try:
+        from atdd.coach.utils.repo import ensure_repo_not_falsely_bare
+        ensure_repo_not_falsely_bare()
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+        pass
+
     # Check if repo needs sync after ATDD upgrade (at startup)
     # Skip if running 'atdd upgrade' — it handles its own messaging
     if not (len(sys.argv) > 1 and sys.argv[1] == "upgrade"):
