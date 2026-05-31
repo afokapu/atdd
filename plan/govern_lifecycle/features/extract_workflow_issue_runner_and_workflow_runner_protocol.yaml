@@ -1,0 +1,7 @@
+feature: extract-workflow-issue-runner-and-workflow-runner-protocol
+wagon: govern-lifecycle
+urn: "feature:govern-lifecycle:extract-workflow-issue-runner-and-workflow-runner-protocol"
+wmbts:
+  - "wmbt:govern-lifecycle:E041"
+references:
+  - "docs/coach-decomposition.md"

@@ -1,4 +1,15 @@
 version: '1.0'
+# TrainRunner backend selection (docs/coach-decomposition.md §7.4, Child 8 #895).
+# Only `jsonl` is implemented; `temporal`/`langgraph` are reserved names that
+# raise NotImplementedError until §7.2/§7.3 land.
+train:
+  runner: jsonl                   # jsonl | temporal | langgraph
+  concurrency:
+    max_parallel_issues: 4
+  resume:
+    auto_resume_on_start: false   # if true, atdd coach <N> resumes existing run for N
+  conventions:
+    snapshot_on_run_start: true   # always true; here for visibility
 release:
   version_file: pyproject.toml
   tag_prefix: v

@@ -1,0 +1,115 @@
+urn: "wmbt:govern-lifecycle:E041"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-stateful-per-issue-orchestration-loop-staying-fused-into-coach-py-so-there-is-no-trainrunner-seam-and-atdd-coach-drives-issues-via-private-coach-internals-instead-of-a-typed-runner"
+context_clarifier: "when the Coach decomposition (docs/coach-decomposition.md, umbrella #887) lands Child 8 — the train-runner seam that sits above the Child 7 PersistenceStore and the Child 6 AgentController, turning today's coach.py drive loop into the typed TrainRunner Protocol + PolicyHandle (§4.7), shipping JsonlTrainRunner as the first/default runner, moving _drive_single_issue / _process_watcher_events / _process_injected_events / _make_resume_transition_action into atdd.train.issue_runner behind @deprecated compatibility shims, and rewiring atdd coach <N> to instantiate JsonlTrainRunner + PolicyHandle and call start_issue with the temporal/langgraph runner names reserved-but-unimplemented"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the-stateful-per-issue-orchestration-loop-staying-fused-into-coach-py-so-there-is-no-trainrunner-seam-and-atdd-coach-drives-issues-via-private-coach-internals-instead-of-a-typed-runner by defining the TrainRunner Protocol + PolicyHandle in atdd.train.runner_iface (§4.7), implementing JsonlTrainRunner.start_issue/handle_event/status/cancel against the Child 7 JsonlPersistenceStore, moving _drive_single_issue / _process_watcher_events / _process_injected_events / _make_resume_transition_action into atdd.train.issue_runner while leaving @deprecated(removal=3.87.0) compatibility shims in coach.py, wiring atdd coach <N> to instantiate JsonlTrainRunner + PolicyHandle and call start_issue so no coach.commands.coach._drive_* private call remains outside the shim, reserving the --runner temporal / --runner langgraph CLI flags (raise NotImplementedError pointing to §7.2/§7.3) and the train.runner config key, and proving a new event type needs only an events.jsonl schema bump with no Coach-core change (#895)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E041-UNIT-001-trainrunner-protocol-and-policy-handle"
+      id: "AC-UNIT-001"
+      purpose: "atdd.train.runner_iface defines the §4.7 TrainRunner Protocol (start_issue, resume, run_wave, handle_event, status, cancel) and the frozen PolicyHandle bundle (coach_module + conventions) the CLI constructs"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "the atdd.train.runner_iface module is importable and the train layer stays within the §3.3 dependency rules"
+    when:
+      abstract: "TrainRunner and PolicyHandle are imported from atdd.train.runner_iface and a PolicyHandle is constructed from the real coach.core module + a frozen Conventions bundle"
+    then:
+      abstract:
+        - "TrainRunner is a typing.Protocol exposing start_issue, resume, run_wave, handle_event, status and cancel with the §4.7 signatures"
+        - "PolicyHandle is a frozen dataclass carrying coach_module (a ModuleType) and conventions (a Conventions); the supporting RunId/RunStatus/RunSummary/RunState/WaveResult/TrainEvent types are reachable from the train layer"
+        - "importing the module pulls in no atdd.cli / atdd.observer dependency (the §3.3 train-layer prohibition the import-discipline test enforces)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E041-UNIT-002-jsonl-train-runner-lifecycle"
+      id: "AC-UNIT-002"
+      purpose: "JsonlTrainRunner implements the Child-8 surface of the TrainRunner Protocol — start_issue creates a durable run and drives the issue via atdd.train.issue_runner; status/cancel operate on the persisted run; the Child-9 surface (resume/run_wave) is reserved with NotImplementedError"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a JsonlTrainRunner constructed over a temp repo with a JsonlPersistenceStore, a PolicyHandle, and the per-issue drive delegated to a stubbed atdd.train.issue_runner.drive_single_issue"
+    when:
+      abstract: "start_issue(issue_number, policy=...) is called, then status(run_id), then cancel(run_id, reason=...); and resume(run_id) / run_wave([...]) are called"
+    then:
+      abstract:
+        - "start_issue returns a RunId, creates runs/<run_id>/ with a RunStarted event, and invokes atdd.train.issue_runner.drive_single_issue exactly once for the issue"
+        - "status(run_id) returns a RunStatus whose run_id/issue_number/current_phase reflect the persisted run and whose state derives from the event log (RUNNING by default)"
+        - "cancel(run_id, reason=...) appends a RunCancelled event and status(run_id).state becomes CANCELLED"
+        - "resume(run_id) and run_wave([...]) raise NotImplementedError (deferred to Child 9 / #896)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E041-UNIT-003-cli-routes-via-trainrunner-and-reserved-flags"
+      id: "AC-UNIT-003"
+      purpose: "atdd coach <N> instantiates JsonlTrainRunner + PolicyHandle and drives through start_issue; --runner defaults to jsonl and reserves temporal/langgraph as NotImplementedError; the train.runner config key is recognized"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "the atdd coach argparse surface and the run() cold-start path with the per-issue drive observable via the runner seam"
+    when:
+      abstract: "parse_cli parses --runner jsonl/temporal/langgraph; and run() drives a single issue cold-start with the drive delegated through the runner"
+    then:
+      abstract:
+        - "parse_cli accepts --runner with choices jsonl|temporal|langgraph defaulting to jsonl, and resolving a temporal/langgraph runner raises NotImplementedError whose message points to docs/coach-decomposition.md §7.2/§7.3"
+        - "the cold-start path constructs a JsonlTrainRunner + PolicyHandle and reaches the per-issue drive via JsonlTrainRunner.start_issue rather than a direct coach.commands.coach._drive_* call"
+        - "get_train_runner_config(repo_root) reads the reserved train.runner key, defaulting to jsonl when absent"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E041-UNIT-004-issue-runner-move-and-deprecated-shims"
+      id: "AC-UNIT-004"
+      purpose: "The four orchestration functions live in atdd.train.issue_runner; coach.py keeps @deprecated(removal=3.87.0) compatibility shims that delegate; adding a new event type is a pure events.jsonl schema bump with no Coach-core change"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.train.issue_runner exposing drive_single_issue / _process_watcher_events / _process_injected_events / make_resume_transition_action, and the coach.py compatibility shims of the same names"
+    when:
+      abstract: "the moved functions are imported from atdd.train.issue_runner; a coach.py shim is called; and atdd.train.events is inspected for a newly-added event type"
+    then:
+      abstract:
+        - "drive_single_issue / _process_watcher_events / _process_injected_events / make_resume_transition_action are defined in atdd.train.issue_runner"
+        - "coach.py still exposes _drive_single_issue / _process_watcher_events / _process_injected_events / _make_resume_transition_action; calling one emits a DeprecationWarning naming the 3.87.0 removal target and delegates to the train.issue_runner implementation"
+        - "the RunCancelled event type added to atdd.train.events.EVENT_TYPES validates via validate_event_dict, and atdd.coach.core needs no change to support it (the event schema lives entirely in the train layer)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E041-SMOKE-001-coach-end-to-end-via-trainrunner"
+      id: "AC-SMOKE-001"
+      purpose: "A real atdd coach <N> invocation drives one issue end-to-end through the TrainRunner seam against a real temp repo, and a repo grep confirms no coach.commands.coach._drive_* private call remains outside the deprecated shim"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "a real temp directory initialized as an ATDD repo (real .atdd/manifest.yaml + phase_machine.convention.yaml) with the GitHub/spawn side effects driven through injected hermetic doubles"
+    when:
+      abstract: "coach.run([N]) is invoked cold-start so the issue is driven through JsonlTrainRunner.start_issue, then the src tree is grepped for coach.commands.coach._drive_ references"
+    then:
+      abstract:
+        - "the run reaches the per-issue drive through JsonlTrainRunner.start_issue and a real runs/<run_id>/ scaffold with a RunStarted event is written to disk"
+        - "grepping src/ for 'coach.commands.coach._drive_' (and qualified coach._drive_* calls) matches only the deprecated shim definitions / their tests — the CLI no longer calls the private drive internals directly"
+        - "atdd.train.runner_iface and atdd.train.issue_runner import nothing forbidden by §3.3 (no atdd.cli / atdd.observer)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
