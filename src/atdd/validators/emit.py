@@ -82,7 +82,10 @@ def emit_reports(reports: Iterable[ValidatorReport]) -> None:
     except OSError as exc:
         # Emission is best-effort and env-gated: never break a validator gate,
         # but surface why the sink write failed instead of swallowing silently.
-        _log.warning("validator-report emission failed: %s", exc)
+        _log.warning(
+            "validator-report emission failed",
+            extra={"error": str(exc), "error_type": type(exc).__name__},
+        )
         return
 
 
