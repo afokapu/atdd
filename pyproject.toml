@@ -84,4 +84,5 @@ markers = [
     "locale: marks tests as localization validators (Localization Manifest Spec v1)",
     "coder: marks tests as coder phase validators",
     "smoke: marks SMOKE-phase tests that verify against real infrastructure",
+    "parity: marks the lifecycle parity gate (required-CI; docs/coach-decomposition.md §10.1)",
 ]

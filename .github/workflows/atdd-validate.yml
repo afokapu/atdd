@@ -167,6 +167,63 @@ jobs:
         if: env.SMOKE_BASE_URL != ''
         run: npx playwright test "e2e/**/*smoke*.spec.ts"
 
+  # --- Coach decomposition gates (docs/coach-decomposition.md §10, §12.3) ---
+  # These two tests are required-CI from #889 onward and gate EVERY PR in the
+  # migration. The import-discipline test enforces the §3.3 layer dependency
+  # rules; the lifecycle parity test proves INIT→COMPLETE behavior with all
+  # externals mocked. Failing either blocks merge via the validate-gate fan-in.
+  import-discipline-test:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install dependencies
+        run: pip3 install pytest pyyaml
+
+      - name: Run import-discipline test (§10.2)
+        run: PYTHONPATH=src python3 -m pytest tests/architecture/test_layer_imports.py -v --tb=short
+
+  parity-test:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install dependencies
+        run: pip3 install pytest pyyaml
+
+      - name: Run lifecycle parity test (§10.1)
+        run: PYTHONPATH=src python3 -m pytest tests/lifecycle/test_full_issue_parity.py -v --tb=short
+
   # Note: the pre-merge `version-bump` PR check was removed in #462 phase 2.
   # Version is now bumped automatically on main by the bump-on-merge step in
   # `.github/workflows/post-merge-lifecycle.yml` (branch-prefix → semver
@@ -175,7 +232,7 @@ jobs:
   # check that no longer reports.
 
   validate-gate:
-    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-smoke]
+    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-smoke, import-discipline-test, parity-test]
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -187,7 +244,9 @@ jobs:
                         "tester:${{ needs.validate-tester.result }}" \
                         "coder:${{ needs.validate-coder.result }}" \
                         "coach:${{ needs.validate-coach.result }}" \
-                        "smoke:${{ needs.validate-smoke.result }}"; do
+                        "smoke:${{ needs.validate-smoke.result }}" \
+                        "import-discipline:${{ needs.import-discipline-test.result }}" \
+                        "parity:${{ needs.parity-test.result }}"; do
             phase="${result%%:*}"
             status="${result##*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then

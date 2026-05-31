@@ -1334,3 +1334,12 @@ sessions:
   train: 0001-self-compliance-validate
   created: '2026-05-30'
   archived: null
+- id: '889'
+  slug: add-lifecycle-parity-and-import-discipline-tests
+  file: null
+  issue_number: 889
+  type: implementation
+  status: INIT
+  train: 0001-self-compliance-validate
+  created: '2026-05-31'
+  archived: null
