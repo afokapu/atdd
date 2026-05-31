@@ -36,6 +36,7 @@
 18. [Appendix](#18-appendix)
 19. [Coach operating manual](#19-coach-operating-manual)
 20. [Session handoff protocol](#20-session-handoff-protocol)
+21. [Follow-up tasks (out of scope for the migration)](#21-follow-up-tasks-out-of-scope-for-the-migration)
 
 ---
 
@@ -1929,6 +1930,18 @@ The decomposition itself is a one-time project. The **patterns** it establishes 
 - **New phases** are YAML edits to `phase_machine.convention.yaml`; the existing tests catch hard-coded transitions.
 - **New incident defenses** add a row to §9's table + a test under `tests/incident_defenses/`.
 - **The doc itself** evolves with `docs/coach-decomposition-v2.md` when the next architectural shift comes; never delete v1 (it's the historical record of why we did things this way).
+
+---
+
+## 21. Follow-up tasks (out of scope for the migration)
+
+Tracked work items that surface DURING the decomposition but are explicitly **NOT in scope for any child** (#888–#897). These exist to keep child PR scope clean (§12.3 requirement 5) while still preserving the finding. Each row links to a GitHub issue that owns the follow-up.
+
+| Item | Issue | Why deferred | Suggested timing |
+|---|---|---|---|
+| Pre-existing ~467 broken URN refs reported by `atdd repo broken` | [#905](https://github.com/afokapu/atdd/issues/905) (subsumes closed [#817](https://github.com/afokapu/atdd/issues/817), whose work shipped via merged [PR #823](https://github.com/afokapu/atdd/pull/823)) | Surfaced during #893 (Child 6); not introduced by any child. Some refs are "decomposition-deferred" (resolve when later children ship their target layers), others are orthogonal. Fixing in any child PR would breach §12.3 single-thing rule and create scope creep. | After Wave F (#897) merges — at that point the "decomposition-deferred" bucket should be empty; remaining orthogonal refs get one cleanup PR (or a small set). |
+
+**Convention for adding new rows:** when a worker surfaces a substrate/repo-wide finding that's pre-existing AND would breach §12.3 if fixed inline, the coach files a tracking issue (labelled `tracking`) and appends a row to this table in the same coach-side PR. Worker references the row from their PR body under a `## Substrate / pre-existing findings` section. After-migration follow-up PRs reference the row to confirm closure.
 
 ---
 
