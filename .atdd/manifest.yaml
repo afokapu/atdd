@@ -1442,3 +1442,21 @@ sessions:
   created: '2026-05-31'
   archived: null
   wagon: govern-lifecycle
+- id: '917'
+  slug: path-shim-leaks-via-atdd-validate-during-rebase
+  file: null
+  issue_number: 917
+  type: tracking
+  status: INIT
+  created: '2026-05-31'
+  archived: null
+  wagon: govern-lifecycle
+- id: '916'
+  slug: ship-atdd-release-versioning-toolkit
+  file: null
+  issue_number: 916
+  type: tracking
+  status: INIT
+  created: '2026-05-31'
+  archived: null
+  wagon: govern-lifecycle
