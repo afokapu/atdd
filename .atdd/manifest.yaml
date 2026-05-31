@@ -1469,3 +1469,12 @@ sessions:
   created: '2026-05-31'
   archived: null
   wagon: govern-lifecycle
+- id: '921'
+  slug: move-rule-id-assertion-from-template-test-to-convention-reader
+  file: null
+  issue_number: 921
+  type: tracking
+  status: INIT
+  created: '2026-05-31'
+  archived: null
+  wagon: govern-lifecycle
