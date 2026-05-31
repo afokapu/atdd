@@ -48,7 +48,7 @@ acceptances:
       abstract:
         - "from atdd.train.persistence import PersistenceStore, load_conventions succeeds"
         - "PersistenceStore declares every §4.6 method: create_run, load_run, list_runs, append_event, replay_events, append_decision, get_issue, upsert_issue, materialize_evidence"
-        - "load_conventions raises NotImplementedError (signature only; the body ships in Child 7) and the §4.7 train value types are importable"
+        - "load_conventions is importable from atdd.train.persistence (Child 3 froze it as a NotImplementedError signature; Child 7 / #894 ships the real loader body) and the §4.7 train value types are importable"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-31"
