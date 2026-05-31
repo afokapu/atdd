@@ -650,6 +650,12 @@ class JsonlPersistenceStore:
         try:
             return self.get_issue(issue_number).status
         except KeyError:
+            # Issue not yet in the manifest — seed a fresh run at INIT, but make
+            # the fallback observable rather than silently assuming success.
+            _log.info(
+                "create_run: issue absent from manifest; seeding run at INIT",
+                extra={"issue": issue_number},
+            )
             return Phase.INIT
 
     def _latest_run_dir_for_issue(self, issue_number: int) -> Path | None:
