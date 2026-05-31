@@ -1496,3 +1496,12 @@ sessions:
   created: '2026-05-31'
   archived: null
   wagon: govern-lifecycle
+- id: '929'
+  slug: migrate-e023-lifecycle-test-to-read-phases-from-convention
+  file: null
+  issue_number: 929
+  type: tracking
+  status: INIT
+  created: '2026-05-31'
+  archived: null
+  wagon: govern-lifecycle
