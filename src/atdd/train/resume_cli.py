@@ -96,7 +96,11 @@ def run_args(*, run_id: str, repo_root: Path | None = None) -> int:
 
     try:
         before = store.load_run(run_id)
-    except KeyError:
+    except KeyError as exc:
+        _log.warning(
+            "resume: run has no event log",
+            extra={"run_id": run_id_value, "error": str(exc), "error_type": type(exc).__name__},
+        )
         print(f"❌ resume: run {run_id_value!r} has no event log", file=_stderr())
         return 1
 

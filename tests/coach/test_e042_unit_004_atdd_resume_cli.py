@@ -67,6 +67,30 @@ def test_resume_args_unknown_run_returns_nonzero(tmp_path, monkeypatch):
     assert rc == 1
 
 
+def test_resume_args_empty_run_dir_logs_keyerror_not_silent(tmp_path, monkeypatch, caplog):
+    """A run dir with no event log must observably react (log), never silently swallow.
+
+    Pins coder.logging.coach-silent-swallow: the ``store.load_run`` KeyError handler
+    logs a WARNING (not a bare print/return) so the rule stays green.
+    """
+    import logging
+
+    monkeypatch.setattr(issue_state, "read_phase", lambda issue: None)
+    build_temp_repo(tmp_path, issue_number=ISSUE, status="GREEN")
+    # A run dir that exists but holds no events → store.load_run raises KeyError.
+    run_id = "run-884-20260531-deadbeef"
+    (tmp_path / ".atdd" / "runtime" / "runs" / run_id).mkdir(parents=True)
+
+    with caplog.at_level(logging.WARNING, logger="atdd.train.resume"):
+        rc = resume_cli.run_args(run_id=run_id, repo_root=tmp_path)
+
+    assert rc == 1
+    assert any(
+        r.levelno == logging.WARNING and "no event log" in r.getMessage()
+        for r in caplog.records
+    ), "the KeyError handler must log, not silently swallow"
+
+
 def test_resume_run_help_exits_zero():
     """The standalone resume_cli.run argv wrapper also documents the command."""
     import pytest
