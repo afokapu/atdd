@@ -68,7 +68,7 @@ features:
   - urn: "feature:govern-lifecycle:extract-workflow-wave-runner-and-atdd-resume-cli"
 
 wmbt:
-  total: 70
+  total: 71
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
