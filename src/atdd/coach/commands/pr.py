@@ -347,6 +347,36 @@ class PRManager:
             logger.debug("Failed to list merged PRs: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
             return []
 
+    def fetch_pr_commits(self, pr_number: int) -> List[dict]:
+        """Fetch the commits on a PR as ``{"sha", "message"}`` dicts.
+
+        ``message`` concatenates the commit's headline and body — GitHub's
+        auto-close parser scans the whole commit message, so the validator
+        for ``coach.pr.closes-keyword-discipline`` must see both. Returns an
+        empty list on any failure (mirrors the other fetch_* helpers).
+        """
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "view", str(pr_number), "--json", "commits"],
+                capture_output=True, text=True, timeout=15,
+                cwd=self.target_dir,
+            )
+            if result.returncode != 0:
+                logger.debug("gh pr view %d commits failed: %s", pr_number, result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+                return []
+            data = json.loads(result.stdout) or {}
+            commits: List[dict] = []
+            for c in data.get("commits", []) or []:
+                sha = c.get("oid") or c.get("sha") or ""
+                headline = c.get("messageHeadline") or ""
+                body = c.get("messageBody") or ""
+                message = "\n".join(part for part in (headline, body) if part)
+                commits.append({"sha": sha, "message": message})
+            return commits
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
+            logger.debug("Failed to fetch PR #%d commits: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+            return []
+
     def fetch_pr_changed_files(self, pr_number: int) -> List[str]:
         """Fetch the list of files changed in a PR."""
         try:
