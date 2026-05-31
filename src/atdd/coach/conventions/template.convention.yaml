@@ -1,0 +1,78 @@
+schema_version: "1.0.0"
+convention_id: "coach.template"
+name: "Conductor Template Convention"
+description: |
+  The ``coach.template.*`` rule family enforces what may and may not
+  appear in the ATDD base instruction template
+  (``src/atdd/coach/templates/CONDUCTOR.md``). The template ships into
+  every consumer repo via ``atdd sync`` and is the agent-facing
+  bootstrap surface — its job is to point at canonical sources, NOT to
+  be a second copy of them.
+
+  Background (#919): the Coach Decomposition (#887) has been actively
+  removing duplicated convention content from the template. The
+  ``state_machine`` block was excised in #888; the
+  ``atdd_cycle.phases`` table is canonical in
+  ``phase_machine.convention.yaml``; the ``audits.*`` surface is
+  printable via ``atdd validate --help`` / ``atdd repo --help``. Without
+  a substrate rule, future PRs can quietly re-introduce the bloat that
+  prior PRs removed. This convention closes that gap.
+
+rationale: |
+  "Memory is weak" (operator, #919): anything code-enforceable belongs
+  in the toolkit, not in agent-facing prose or operator memory. This
+  rule turns the no-duplicated-convention invariant into a CI gate that
+  fails strictly when CONDUCTOR.md re-introduces a forbidden
+  top-level section.
+
+  Defense in depth: the validator runs as part of the coach-archetype
+  validate suite (substrate); its rule_id is bound via ``bind_rule`` so
+  ``test_repo_validator_binding`` enforces the bidirectional binding
+  contract (#921 pattern).
+
+rules:
+  - id: "coach.template.no-duplicated-convention"
+    name: "no-duplicated-convention"
+    description: |
+      ``src/atdd/coach/templates/CONDUCTOR.md`` MUST NOT carry any of
+      the following top-level YAML sections, each of which has a
+      canonical home elsewhere:
+
+      * ``manifest:``     → derivable from the filesystem / ``atdd gate``
+      * ``tests:``        → pytest collection discovers test paths
+      * ``audits:``       → printable via ``atdd validate --help`` and ``atdd repo --help``
+      * ``atdd_cycle:``   → canonical in ``phase_machine.convention.yaml`` (§4.5; already excised in #888)
+      * ``infrastructure:`` → convention pointers belong in the conventions themselves
+      * ``architecture:`` → ``coder/conventions/{backend,boundaries}.convention.yaml``
+      * ``testing:``      → ``tester/conventions/``
+      * ``agents:``       → archetype convention YAMLs
+      * ``conventions:``  → derivable from ``ls src/atdd/*/conventions/``
+
+      The release: block is permitted until #916 ships the
+      ``release.convention.yaml`` migration.
+    severity: 4
+    disposition: strict
+    validator: "test_conductor_md_no_duplicated_convention::test_conductor_md_does_not_duplicate_convention_content"
+    detection: |
+      The validator opens
+      ``src/atdd/coach/templates/CONDUCTOR.md`` and scans for
+      column-0 occurrences of the forbidden section headers listed
+      above. Each match emits one ``Violation`` whose location is
+      ``CONDUCTOR.md:<line>``.
+    rationale: |
+      Without this rule, future contributors can re-add the
+      ``audits.commands.*`` listing (or any other duplicate) and
+      ship it through review unchecked. The Coach Decomposition has
+      already paid the cost of removing these sections — this rule
+      keeps them removed.
+    fix_hint: |
+      Delete the offending section from
+      ``src/atdd/coach/templates/CONDUCTOR.md``. The canonical home is
+      named in the violation detail. If agents need a breadcrumb,
+      replace the deleted section with a single-line comment pointing
+      at the canonical source (see the
+      ``phase_machine.convention.yaml`` pointer block already present
+      in CONDUCTOR.md for the pattern).
+
+      To DETECT before pushing:
+        pytest src/atdd/coach/validators/test_conductor_md_no_duplicated_convention.py -v
