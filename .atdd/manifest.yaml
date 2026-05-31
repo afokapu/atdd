@@ -1387,7 +1387,7 @@ sessions:
   file: null
   issue_number: 895
   type: implementation
-  status: PLANNED
+  status: REFACTOR
   train: 0001-self-compliance-validate
   created: '2026-05-31'
   archived: null
