@@ -1422,3 +1422,23 @@ sessions:
   created: '2026-05-31'
   archived: null
   wagon: govern-lifecycle
+- id: '897'
+  slug: split-spawn-and-final-purity-sweep
+  file: null
+  issue_number: 897
+  type: implementation
+  status: REFACTOR
+  train: 0001-self-compliance-validate
+  created: '2026-05-31'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:split-spawn-and-final-purity-sweep
+- id: '914'
+  slug: coach-thin-shell-slim-and-spawn-split-deferred-from-897
+  file: null
+  issue_number: 914
+  type: implementation
+  status: INIT
+  created: '2026-05-31'
+  archived: null
+  wagon: govern-lifecycle

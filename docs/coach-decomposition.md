@@ -1535,11 +1535,51 @@ Children #894, #895, and #896 carry historical slugs that include `workflow` (e.
 **Acceptance:**
 - `tests/architecture/test_layer_imports.py` passes with the strictest version: no forbidden imports anywhere in `atdd.coach.core`.
 - `atdd observer` runs without ever writing to events.jsonl or output.log (file-watcher only).
-- `atdd.coach.commands.coach` is reduced to a thin CLI shell (target: ≤300 LOC).
+- `atdd.coach.commands.coach`: structural slim **deferred to follow-up** — see §21 (Children 7-9 introduced train↔coach module-level coupling + ~20 monkeypatch-bound tests that block in-PR re-architecture without risking the parity/import-discipline gates). What this PR DOES deliver under the "final purity sweep" banner: `coach.core` verified pure (A1), `atdd.observer` first-class read-only (A2), parity green (A4), incident-defenses I-1..I-13 explicit (A5).
 - Parity test still green.
 - All 13 incident defenses (I-1 through I-13) have explicit tests in `tests/incident_defenses/`.
 
 **Closes:** the migration. Mark the umbrella issue COMPLETE.
+
+#### Closing-child realization note (#897, 2026-05-31)
+
+The closing PR delivers the **architectural** acceptance in full and defers the
+two **mechanical-LOC-reduction** items to a tracked follow-up (operator-approved
+2026-05-31). What landed vs. what moved out:
+
+**Delivered and gate-green:**
+- Final purity sweep — `atdd.coach.core` carries zero forbidden imports; the
+  strictest `tests/architecture/test_layer_imports.py` (incl.
+  `test_coach_core_has_no_io_at_import_time`) is green. `coach.core` is two pure
+  files (`types.py`, `__init__.py`).
+- `atdd.observer` promoted to a first-class **read-only** consumer (§8) — opens
+  `events.jsonl` / `output.log` in read mode only; proven by a runtime
+  `open()`-guard, a static AST no-write test, and byte-identical-after-view
+  assertions. Singleton lifecycle (I-6) enforced. `atdd observer view` surfaces
+  the aggregated stream.
+- **All 13 incident defenses (I-1 … I-13)** have explicit tests in
+  `tests/incident_defenses/` (worktree trio + the consolidated suite).
+- Lifecycle parity test stays green.
+
+**Deferred to follow-up (tracked, see §21):**
+- Reducing `atdd.coach.commands.coach` to ≤300 LOC and splitting
+  `coach.commands.spawn` into a runtime-owned `cmd_spawn`.
+- **Why deferred (structural):** Children 7–9 wired `atdd.train.issue_runner` to
+  import `atdd.coach.commands.coach` at module level and call its orchestration
+  helpers through the `_coach.<name>` *module object* (a deliberate seam so the
+  ~20 tests that `monkeypatch.setattr(coach, "_helper", …)` keep intercepting).
+  The helpers also close over coach-local session types (`Config`,
+  `StateMachine`, `CoachContext`). Hitting ≤300 means relocating those helpers
+  **and** the session types into the train layer, inverting that seam, and
+  migrating the coupled tests — a cross-cutting re-architecture whose blast
+  radius reaches the non-negotiable parity + import-discipline gates (§20.3). It
+  is genuinely separable cleanup, not part of the "purity" guarantee (the CLI
+  shell is *permitted* I/O; only `coach.core` must be pure), so it is safer as a
+  dedicated PR than rushed into the closing migration PR.
+
+The umbrella's architectural goals (pure core, extracted layers, incident
+defenses, first-class observer, green gates) are met by this PR; the residual is
+mechanical LOC reduction.
 
 ---
 
@@ -1954,6 +1994,8 @@ Tracked work items that surface DURING the decomposition but are explicitly **NO
 |---|---|---|---|
 | Pre-existing **484** broken URN refs reported by `atdd repo broken` (verified 2026-05-31 post-Wave-C; the original #905 file used the worker's "~467" estimate, which was off) | [#905](https://github.com/afokapu/atdd/issues/905) (subsumes closed [#817](https://github.com/afokapu/atdd/issues/817), whose work shipped via merged [PR #823](https://github.com/afokapu/atdd/pull/823)) | Surfaced during #893 (Child 6); not introduced by any child. Some refs are "decomposition-deferred" (resolve when later children ship their target layers), others are orthogonal. Fixing in any child PR would breach §12.3 single-thing rule and create scope creep. | After Wave F (#897) merges — at that point the "decomposition-deferred" bucket should be empty; remaining orthogonal refs get one cleanup PR (or a small set). |
 | Post-commit blast-radius hook poisons shared `.git/config` → **phantom mass-deletions**. When `git commit` fires `.atdd/hooks/post-commit` → `atdd validate coach`, some validator path writes `core.bare=true` without `--worktree`, which lands in shared `main/.git/config`. The next `git status` sees the worktree as bare and stages **~2097 phantom deletions**. Workers and coach have been bypassing every commit this session via `CI=true git commit` (the hook's documented escape), making the post-commit blast-radius validators a **no-op for every wave** — so the fast-feedback loop they exist for (catch a coder violation in 30s post-commit, not 3min in CI) has been dormant. | [#884](https://github.com/afokapu/atdd/issues/884) — canonical fix: PATH-shim on `git` (`.atdd/bin/git`) blocks unscoped `core.bare`/`core.worktree`/`core.hooksPath` writes for ANY agent + adds CI validator + session-bootstrap self-heal. Complements the merged pre-push guard from #629 and the docs convention from #634. | The trigger vector (`atdd validate coach` running inside the post-commit hook) lives on the existing coach surface; #884's PATH-shim addresses it at a deeper layer than any decomposition child touches. Patching the symptom in a decomposition child PR would breach §12.3 single-thing scope. | After Wave F (#897) merges, OR sooner if #884's PATH-shim ships independently — it is not gated by the decomposition. Once #884 lands, the post-commit hook can stop being bypassed and the blast-radius loop comes back online. |
+
+| `coach.py` thin-shell slim + spawn split (the §13.10 **A3** acceptance: reduce `atdd.coach.commands.coach` to ≤300 LOC + move `cmd_spawn` mechanics into `atdd.runtime`) | [#914](https://github.com/afokapu/atdd/issues/914) | Deferred from #897 per §20.3 (reality-vs-doc). Blocked structurally by Children 7-9 coupling: `train.issue_runner` imports `coach` at module level and calls helpers via the `_coach.<name>` module object, a seam ~20 monkeypatch-bound tests depend on; helpers also close over coach-local session types (`Config`/`StateMachine`/`CoachContext`). Slimming = relocate helpers + session types to the train layer + migrate the coupled tests — blast radius reaches the never-skip parity/import-discipline gates, so it is unsafe to rush into the closing migration PR. It is mechanical LOC reduction, NOT a purity guarantee (the CLI shell is permitted I/O; only `coach.core` must be pure, which #897 verified). | A dedicated refactor PR after #897 merges, respecting the three never-skip gates; pure refactor, no behavior change. |
 
 **Convention for adding new rows:** when a worker surfaces a substrate/repo-wide finding that's pre-existing AND would breach §12.3 if fixed inline, the coach files a tracking issue (labelled `tracking`) and appends a row to this table in the same coach-side PR. Worker references the row from their PR body under a `## Substrate / pre-existing findings` section. After-migration follow-up PRs reference the row to confirm closure.
 
