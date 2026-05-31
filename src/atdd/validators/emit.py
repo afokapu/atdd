@@ -21,11 +21,14 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Iterable
 
 from atdd.coach.core.types import ValidatorReport
+
+_log = logging.getLogger(__name__)
 
 ENV_REPORTS_PATH = "ATDD_VALIDATOR_REPORTS_PATH"
 ENV_RUN_DIR = "ATDD_RUN_DIR"
@@ -76,7 +79,10 @@ def emit_reports(reports: Iterable[ValidatorReport]) -> None:
             for report in rows:
                 handle.write(json.dumps(dataclasses.asdict(report), sort_keys=True))
                 handle.write("\n")
-    except OSError:
+    except OSError as exc:
+        # Emission is best-effort and env-gated: never break a validator gate,
+        # but surface why the sink write failed instead of swallowing silently.
+        _log.warning("validator-report emission failed: %s", exc)
         return
 
 
