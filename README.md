@@ -2,22 +2,56 @@
 
 [![PyPI](https://img.shields.io/pypi/v/atdd.svg)](https://pypi.org/project/atdd/) [![CI](https://github.com/afokapu/atdd/actions/workflows/atdd-validate.yml/badge.svg)](https://github.com/afokapu/atdd/actions) [![License](https://img.shields.io/badge/license-MIT-green.svg)](#license)
 
-> **Acceptance Test Driven Development toolkit** — turns a job-to-be-done into deterministic requirements, validates them with tests, and drives implementation through a structured agent lifecycle.
+> **Agentic Train Driven Development** — a toolkit for turning intent into evidence-gated trains of work, then using agents to plan, test, implement, validate, review, and merge one safe step at a time.
+
+ATDD gives AI agents a track. Instead of asking an agent to “build the feature,” ATDD turns the work into a train: a route, stops, evidence gates, validation rules, and clear handoffs between planning, testing, implementation, smoke verification, refactor, and merge.
 
 ```mermaid
 flowchart LR
-    A[Job to be Done] --> B[Wagon + Acceptance]
-    B --> C[RED Tests]
-    C --> D[GREEN Code]
-    D --> F[SMOKE Tests]
-    F --> E[REFACTOR]
-    E --> COMPLETE[COMPLETE → MERGED]
-    E -.->|feedback| B
+    A[Intent / Job to be Done] --> P[atdd plan<br/>planning brief]
+    P --> T[Train<br/>wagon + WMBTs + acceptance]
+    T --> I[atdd issue<br/>register approved work]
+    I --> C[atdd coach<br/>supervise execution]
+    C --> R[RED Tests]
+    R --> G[GREEN Code]
+    G --> S[SMOKE Evidence]
+    S --> F[REFACTOR]
+    F --> M[COMPLETE → MERGED]
+    F -.->|feedback| T
     classDef phase fill:#1f2937,color:#fff,stroke:#3b82f6,stroke-width:2px
-    class B,C,D,F,E,COMPLETE phase
+    class P,T,I,C,R,G,S,F,M phase
 ```
 
-**Jump to:** [Quick Start](#quick-start) · [Lifecycle](#the-atdd-lifecycle) · [Multi-agent orchestration](#multi-agent-orchestration) · [Commands](#commands) · [Validators](#validators) · [Installation](#installation)
+**Jump to:** [What ATDD means](#what-atdd-means) · [Quick Start](#quick-start) · [Core concepts](#core-concepts) · [Consumer repos](#consumer-repos) · [Commands](#commands) · [Lifecycle](#the-atdd-lifecycle) · [Architecture direction](#architecture-direction) · [Validators](#validators) · [Installation](#installation)
+
+---
+
+## What ATDD means
+
+ATDD now means **Agentic Train Driven Development**.
+
+For a layperson:
+
+- **Agentic** means AI agents do real work, but inside clear boundaries.
+- **Train** means the work has a route: phases, dependencies, evidence, gates, and a definition of done.
+- **Development** means the route ends in shipped, reviewed, validated changes.
+
+A train is not just a list of tasks. It is the structured path from intent to merged work.
+
+| Train metaphor | ATDD meaning |
+|---|---|
+| Route | planned path from intent to implementation |
+| Stations | phases such as PLANNED, RED, GREEN, SMOKE, REFACTOR |
+| Cargo | the feature, fix, refactor, or planning artifact being delivered |
+| Tickets | WMBTs, acceptance claims, rule IDs, and evidence requirements |
+| Signals | validators, CI, review verdicts, smoke evidence |
+| Conductor | Coach / operator supervision |
+| Train runner | the execution engine that drives the train over time |
+| Logbook | events.jsonl, decisions.jsonl, validator reports |
+
+In short:
+
+> ATDD turns ambiguous work into an evidence-gated train, then lets agents move through that train safely.
 
 ---
 
@@ -26,27 +60,161 @@ flowchart LR
 | You want to… | ATDD gives you… |
 |---|---|
 | stop agents skipping instructions | `atdd gate` — coercive mandatory tool-output bootstrap |
-| keep planning, testing, and code in lock-step | a deterministic state machine: `INIT → PLANNED → RED → GREEN → SMOKE → REFACTOR → COMPLETE → MERGED` |
-| run 5+ agents in parallel without merge chaos | `atdd coach` + worktrees + per-issue cmux/tmux/zellij panes |
-| catch regressions before review | 4 validator phases + per-rule disposition gates + rule-ID binding |
+| turn vague intent into executable structure | `atdd plan` — a read-only planning/decomposition brief surface *(planned track)* |
+| keep planning, testing, and code in lock-step | a deterministic lifecycle: `INIT → PLANNED → RED → GREEN → SMOKE → REFACTOR → COMPLETE → MERGED` |
+| run multiple agents without merge chaos | `atdd coach` + worktrees + per-issue runtime isolation |
+| recover from interrupted work | JSONL event logs and resumable train runs *(decomposition target)* |
+| catch regressions before review | validators + per-rule dispositions + rule-ID binding |
 | sync rules across Claude, Codex, Gemini, GLM | `atdd sync` — managed blocks that preserve user content |
-| treat issues, PRs, and releases as one artifact | GitHub Issues + Project v2 fields + auto-tag publish.yml |
+| treat issues, PRs, plan artifacts, and releases as one system | GitHub Issues + Project v2 fields + manifest + release gates |
 
 ---
 
 ## Quick Start
 
 ```bash
-pipx install atdd                         # Install (recommended — isolated venv)
+pipx install atdd                         # Install, isolated from project Python
 atdd init                                 # Bootstrap .atdd/ + GitHub infrastructure
-atdd gate                                 # ← START EVERY SESSION WITH THIS
+atdd gate                                 # Start every agent session with this
+
+# Current registration/execution flow
 atdd issue my-new-feature                 # Create parent issue + WMBT sub-issues
 atdd branch <N>                           # Create worktree + draft PR
-atdd coach <N>                            # Drive INIT → MERGED via state machine
-atdd validate                             # Run all validators
+atdd coach <N>                            # Drive issue through the lifecycle
+atdd validate                             # Run validators
 ```
 
-> **Mandatory:** all issue & PR creation goes through `atdd`. `gh issue create` / `gh pr create` are blocked by convention. Reason: bypass loses manifest registration, WMBT sub-issues, Project v2 fields, and the `--base default-branch` orphan-merge guard.
+Planning-first flow, as the `atdd plan` track lands:
+
+```bash
+atdd plan ./docs/spec.md ./src --brief-out planning-brief.md
+# operator reviews / revises the proposal
+atdd issue my-new-feature --type planning
+atdd branch <N>
+# agent lands approved plan artifacts in the issue worktree
+atdd validate planner
+atdd pr <N>
+```
+
+> **Mandatory:** issue and PR creation go through `atdd`. Direct `gh issue create` / `gh pr create` bypass manifest registration, WMBT sub-issues, Project v2 fields, and branch/merge guards.
+
+---
+
+## Core concepts
+
+### Plan
+
+`atdd plan` is the planning/decomposition surface.
+
+It should answer:
+
+> Given this source material and current repo context, what train should we propose?
+
+It is intentionally read-only:
+
+- it may read text, files, rich-doc paths, and codebase context;
+- it may render a deterministic planning brief;
+- it may propose wagons, WMBTs, risks, questions, and a train shape;
+- it must not create issues, branches, PRs, worktrees, or plan artifacts.
+
+The approved plan is landed later through the normal issue/branch/PR lifecycle.
+
+### Train
+
+A train is the durable domain route for work.
+
+It contains:
+
+- wagon and feature scope;
+- WMBTs and acceptance claims;
+- phase evidence requirements;
+- dependencies and ordering;
+- validator expectations;
+- the path from planning to merge.
+
+The train is **what should happen**.
+
+### Coach
+
+Coach is the supervision and policy surface.
+
+It decides whether the train may advance, whether evidence is sufficient, whether a run should block, and whether the operator must intervene.
+
+Coach should not be a giant runtime process. In the decomposition target, Coach-core becomes pure policy.
+
+### TrainRunner
+
+The TrainRunner is the execution engine.
+
+It drives a train over time:
+
+- creates a run;
+- materializes evidence;
+- asks Coach-core for a decision;
+- dispatches worker agents;
+- records events;
+- resumes after interruption;
+- handles waves and concurrency.
+
+The first runner is local and JSONL-backed. Temporal or LangGraph are optional future backends behind the same seam, not prerequisites.
+
+### Runtime
+
+Runtime is where execution happens:
+
+- worktrees;
+- agent control;
+- prompt delivery;
+- correction inboxes;
+- output logs;
+- optional multiplexer views.
+
+The multiplexer is for observability, not control. Agent control should go through structured channels such as cli-return.
+
+---
+
+## Consumer repos
+
+A consumer repo should experience ATDD as a stable command surface, not as internal orchestration machinery.
+
+Typical structure after `atdd init`:
+
+```text
+your-project/
+├── your-project.code-workspace
+├── main/
+├── feat-some-feature/
+├── CLAUDE.md
+├── AGENTS.md
+└── .atdd/
+    ├── manifest.yaml
+    ├── config.yaml
+    ├── hooks/
+    └── runtime/        # train-run events, agent logs, status snapshots
+```
+
+Typical consumer flow:
+
+```bash
+atdd gate
+atdd plan ./docs/spec.md ./src --brief-out planning-brief.md   # read-only proposal
+atdd issue my-feature --type planning                          # register approved planning work
+atdd branch <N>
+atdd coach <N>
+atdd observer
+atdd validate
+atdd pr <N>
+```
+
+For the consumer, the benefit is simple:
+
+- safer worktrees;
+- less fragile agent launching;
+- clearer planning before issue creation;
+- resumable runs;
+- event logs for debugging;
+- GitHub issue / PR / Project v2 sync;
+- evidence-based phase advancement.
 
 ---
 
@@ -61,65 +229,28 @@ stateDiagram-v2
     GREEN --> SMOKE: tester persona
     SMOKE --> REFACTOR: coder persona
     REFACTOR --> COMPLETE: reviewer persona
-    COMPLETE --> MERGED: two-phase commit
+    COMPLETE --> MERGED: merge gate
     PLANNED --> BLOCKED
     RED --> BLOCKED
     GREEN --> BLOCKED
     SMOKE --> BLOCKED
     REFACTOR --> BLOCKED
-    BLOCKED --> [*]: OBSOLETE
+    BLOCKED --> INIT: resume / repair
+    BLOCKED --> OBSOLETE
     MERGED --> [*]
+    OBSOLETE --> [*]
 ```
 
 | State | Persona | Deliverable | Validator phase |
 |---|---|---|---|
-| `INIT` | planner | wagon + acceptance + WMBT | `atdd validate planner` |
+| `INIT` | planner | wagon + WMBTs + acceptance | `atdd validate planner` |
 | `PLANNED` | tester | RED tests from acceptance | `atdd validate tester` |
-| `RED` | coder | GREEN implementation | `atdd validate coder` (green) |
-| `GREEN` | tester | SMOKE tests vs real infra | `atdd validate tester` (smoke) |
-| `SMOKE` | coder | REFACTOR to 4-layer arch | `atdd validate coder` (architecture) |
-| `REFACTOR` | reviewer | review-report.json pass | `atdd validate coach` |
+| `RED` | coder | GREEN implementation | `atdd validate coder` |
+| `GREEN` | tester | SMOKE evidence against real wiring | `atdd validate tester` |
+| `SMOKE` | coder | refactor to intended architecture | `atdd validate coder` |
+| `REFACTOR` | reviewer | review verdict / merge readiness | `atdd validate coach` |
 | `COMPLETE` | — | PR open + CI clean | gate validators |
-| `MERGED` | — | release tag + cleanup | publish.yml |
-
----
-
-## Multi-agent orchestration
-
-```mermaid
-flowchart TB
-    coach["atdd coach &lt;N&gt;"] --> SM{state machine}
-    SM --> SP[spawn handler]
-    SM --> DEC[decisions.jsonl]
-    SM --> WATCH[runtime watcher]
-    SM --> VAL[validator dispatch]
-    SP --> AGENT[per-phase agent<br/>planner/tester/coder]
-    AGENT --> OBS[observer co-spawn]
-    AGENT --> REV[reviewer agent]
-    REV --> JUDGE{verdict}
-    JUDGE -->|pass| SM
-    JUDGE -->|concern| ATDDJUDGE[atdd judge]
-    JUDGE -->|fail| SP
-    SM --> TPC[two-phase commit<br/>PR → merge → tag → cleanup]
-    classDef shipped fill:#10b981,color:#fff,stroke:#065f46
-    classDef wip fill:#f59e0b,color:#fff,stroke:#92400e
-    class AGENT,OBS,REV,JUDGE,ATDDJUDGE,TPC,DEC,WATCH,VAL,SP shipped
-    class SM,coach wip
-```
-
-**Components:** all shipped via the coach-v9 train (42/42 issues closed, May 2026):
-
-| Component | CLI | Role |
-|---|---|---|
-| State machine | `atdd coach <N>` | drives `INIT → MERGED` per issue; supports `--persona-llm`, `--review-phases`, `--resume`, `--dry-run` |
-| Spawn | `atdd spawn --persona <p>` | renders launch prompt + creates worktree + opens multiplexer pane with canonical naming |
-| Observer | `atdd observer run --agent-id <id>` | watches agent screen, auto-approves safe prompts, escalates unknowns (absorbed legacy `babysit`) |
-| Reviewer | `atdd agent review --target-commit <sha> --report-file <p>` | emits review-report.json with hard rules (no-pass-with-not-covered, severity-matches-registry) |
-| Judge | `atdd judge --prompt-template <p> --schema <s>` | LLM tiebreaker for ambiguous routing (6 call sites, spec §6.9) |
-| Issue review | `atdd issue review <N> --passes 2` | multi-pass cross-LLM critique of an issue body across 5 dimensions |
-| Status | `atdd observer status` | dashboard of running agents per workspace |
-
-> Legacy `atdd orchestrate` and `atdd babysit` were decommissioned (May 2026, PRs #577 / #579). Their machinery lives under `commands/_archived/` for the parity test suites; the public CLI prints a migration message and exits non-zero.
+| `MERGED` | — | release tag + cleanup | publish workflow |
 
 ---
 
@@ -129,76 +260,84 @@ flowchart TB
 
 ```bash
 atdd init                          # Bootstrap .atdd/ + GitHub labels + Project v2 fields
-atdd init --force                  # Reinitialize (overwrites managed blocks)
-atdd init --worktree-layout        # Migrate repo to flat-sibling worktree layout
-atdd init --export-schemas         # Also export convention schemas to consumer repo
+atdd init --force                  # Reinitialize managed blocks
+atdd init --worktree-layout        # Migrate to flat-sibling worktree layout
+atdd init --export-schemas         # Export convention schemas to consumer repo
 ```
 
-After `atdd init`, your project structure looks like:
+### Planning
 
+```bash
+atdd plan <source> [<source> ...] --brief-out planning-brief.md
+atdd plan --text "raw idea" --json
+atdd plan docs/spec.md src/
+atdd plan .
 ```
-your-project/
-├── your-project.code-workspace   # VS Code multi-root (open this, not main/)
-├── main/                         # Primary checkout
-├── feat-some-feature/            # git worktree per branch
-├── CLAUDE.md                     # Managed by atdd sync
-├── AGENTS.md                     # Managed by atdd sync (optional)
-└── .atdd/
-    ├── manifest.yaml             # Issue tracking
-    ├── config.yaml               # Sync agents, release, code roots
-    └── hooks/                    # Pre-commit / pre-push hooks
-```
+
+`atdd plan` is a read-only planning surface. It should render a deterministic brief and propose a train. It should not mutate GitHub, git, the manifest, or `plan/` artifacts.
 
 ### Issue & PR
 
 ```bash
 atdd issue <slug>                       # Create parent issue + WMBT sub-issues
-atdd issue <slug> --archetypes be,fe    # Archetypes: db, be, fe, contracts, wmbt, wagon, train, telemetry, coach
-atdd issue <N>                          # Enter issue (state-driven context)
+atdd issue <slug> --type planning       # Register approved planning work
+atdd issue <slug> --archetypes be,fe    # Scope touched archetypes
+atdd issue <N>                          # Enter issue context
 atdd issue <N> --status <STATUS>        # Transition state; auto-swaps labels
 atdd issue <N> --check                  # Template compliance feedback
 atdd issue <N> --sync-wmbts             # Backfill missing WMBT sub-issues
-atdd issue review <N> --passes 2        # Multi-pass cross-LLM review (5 dimensions)
+atdd issue review <N> --passes 2        # Multi-pass cross-LLM issue review
 
 atdd branch <N>                         # Create worktree + draft PR
-atdd pr <N>                             # Open / promote PR (closing keywords + base-branch guard)
-atdd pr <N> --auto --merge-strategy squash  # Auto-merge after CI
+atdd pr <N>                             # Open / promote PR
+atdd pr <N> --auto --merge-strategy squash
 ```
 
-### Coach (single-command lifecycle)
+### Coach / train execution
 
 ```bash
-atdd coach <N>                                 # Drive issue from INIT to MERGED
+atdd coach <N>                                 # Drive issue through lifecycle
 atdd coach <N1> <N2> ...                       # Wave-ordered parallel run
 atdd coach <N> --persona-llm tester=glm-5.1,coder=claude-sonnet-4-6
 atdd coach <N> --review-phases planned,red,green,smoke
-atdd coach <N> --skip-review                   # Bypass reviewer agent spawns
-atdd coach <N> --auto-merge                    # Merge on CI clean
-atdd coach <N> --resume <run-id>               # Resume from decisions.jsonl
-atdd coach <N> --multiplexer-mode pane         # Tabs in current workspace
-atdd coach <N> --dry-run                       # Print planned state path, no side-effects
+atdd coach <N> --skip-review
+atdd coach <N> --auto-merge
+atdd coach <N> --resume <run-id>
+atdd coach <N> --multiplexer-mode pane
+atdd coach <N> --dry-run
 ```
+
+As the TrainRunner decomposition lands, `atdd resume <run-id>` becomes the explicit resume surface.
+
+### Observer
+
+```bash
+atdd observer
+atdd observer status
+```
+
+Observer is the read-only visibility surface for train events, agent output logs, and active runs.
 
 ### Validation
 
 ```bash
-atdd validate                  # All validators, two-stage (fast → platform)
-atdd validate planner          # Wagons, trains, URNs, WMBTs
-atdd validate tester           # Test naming, contracts, telemetry, SMOKE coverage
-atdd validate coder            # Architecture, boundaries, dead code, complexity (see below)
-atdd validate coach            # Issues, registries, release gate, label compliance
-atdd validate --quick          # Fast smoke pass
-atdd validate --coverage       # With coverage report
-atdd validate --verify-baseline  # Pass-record check, skip full re-run
+atdd validate
+atdd validate planner
+atdd validate tester
+atdd validate coder
+atdd validate coach
+atdd validate --quick
+atdd validate --coverage
+atdd validate --verify-baseline
 ```
 
 ### Agent config sync
 
 ```bash
-atdd sync                  # Sync all enabled agents from config
-atdd sync --agent claude   # Sync specific
-atdd sync --verify         # CI check
-atdd sync --status         # Status across agents
+atdd sync
+atdd sync --agent claude
+atdd sync --verify
+atdd sync --status
 ```
 
 | Agent | Managed file |
@@ -212,61 +351,94 @@ atdd sync --status         # Status across agents
 ### Discovery & visualization
 
 ```bash
-atdd rules show <rule_id>      # Show a rule definition (bind_rule contract)
-atdd rules where <rule_id>     # Where is rule fired/bound
-atdd rules grep <pattern>      # Search rule registry
-atdd inventory                 # Artifact inventory
-atdd inventory --trace         # Unified URN traceability matrix
-atdd repo viz                  # Interactive URN graph (pip install atdd[viz])
-atdd repo viz --mode journey   # Train-step edges from sequence[]
+atdd rules show <rule_id>
+atdd rules where <rule_id>
+atdd rules grep <pattern>
+atdd inventory
+atdd inventory --trace
+atdd repo viz
+atdd repo viz --mode journey
 ```
 
 ### Maintenance
 
 ```bash
-atdd upgrade                   # upgrade (pipx/pip-aware) → sync → init --force
-atdd merge-cascade <pr1> ...   # Wave-ordered merge with CI gating
-atdd status                    # Platform status
-atdd registry update           # Update all registries (rules, conventions)
+atdd upgrade
+atdd merge-cascade <pr1> ...
+atdd status
+atdd registry update
 ```
+
+---
+
+## Architecture direction
+
+ATDD is moving toward a layered train architecture:
+
+```mermaid
+flowchart TB
+    CLI[CLI<br/>atdd cli + command shells] --> TR[TrainRunner<br/>stateful execution]
+    TR --> PERSIST[train.persistence<br/>events + evidence]
+    PERSIST --> CORE[Coach-core<br/>pure policy]
+    TR --> RUNTIME[Runtime<br/>worktree + agent_control]
+    TR --> GH[Integrations<br/>GitHub issue / PR / checks / Projects v2]
+    TR --> VAL[Validators<br/>ValidatorReport]
+    OBS[Observer<br/>read-only event stream] --> PERSIST
+    RUNTIME --> AGENT[worker agents]
+```
+
+Layer responsibilities:
+
+| Layer | Owns | Does not own |
+|---|---|---|
+| `atdd.plan` | source ingestion, planning brief, train proposal | issue creation, branches, PRs, artifact landing |
+| `atdd.train` | train model, run state, persistence, events, TrainRunner | phase policy, low-level runtime control |
+| `atdd.coach.core` | pure policy: advance/block/escalate/merge readiness | I/O, subprocess, GitHub, cmux, worktrees |
+| `atdd.runtime` | worktrees, agent control, multiplexer views | ATDD phase decisions |
+| `atdd.integrations.github` | labels, Projects v2, PRs, checks | ATDD policy |
+| `atdd.validators` | validation reports | orchestration decisions |
+| `atdd.observer` | read-only visibility | writing orchestration state |
+
+Temporal and LangGraph are not required to use ATDD.
+
+- JSONL-backed TrainRunner is the default local runner.
+- Temporal may become a future TrainRunner backend for cross-machine durable orchestration.
+- LangGraph may become a future review/judge subgraph backend, not necessarily the whole lifecycle runner.
 
 ---
 
 ## Validators
 
-Four phase validators map to the lifecycle. Each rule declares a **rule-ID** (canonical `<archetype>.<convention_short_name>.<rule_name>`) bound via `bind_rule()` at module-import time. Per-rule **dispositions** drive CI behavior:
+Validators map evidence to rule-bound reports. Each rule declares a canonical rule ID and disposition.
 
 | Disposition | CI behavior |
 |---|---|
 | `strict` | any violation fails CI |
-| `suppress-and-clean` | pre-existing sites carry `# atdd:suppress(<id>) UNTIL=<YYYY-MM-DD>`; new violations fail |
-| `advisory` | warnings only, never fails CI |
+| `suppress-and-clean` | pre-existing sites may carry deadline suppressions; new violations fail |
+| `advisory` | warnings only |
 
-### Coder validator coverage (the strictest CI job)
+Phase coverage:
 
-| Domain | Checks |
+| Phase | Checks |
 |---|---|
-| Architecture | 4-layer (domain/application/integration/presentation), wagon boundaries, qualified imports |
-| Design system | Hierarchy, token, adoption (frontend) |
-| Quality | Cognitive complexity, dead code (Python + TypeScript), code duplication |
-| Logging | Structured logging, no silent exception swallowing |
-| Security | Pattern-based checks, error response compliance |
-| Cross-stack | Contract-driven HTTP (no raw `fetch()`), train-driven frontend composition |
-
-> **CI two-stage execution:** fast file-parsing tests run in parallel, then API-bound platform tests run sequentially with shared fixtures. Override with `--no-split`.
+| planner | wagons, WMBTs, acceptance, train shape, URNs |
+| tester | RED tests, naming, contracts, telemetry, SMOKE coverage |
+| coder | architecture, boundaries, dead code, complexity, implementation evidence |
+| coach | issues, registries, lifecycle, release gates, label compliance |
 
 ---
 
 ## Conventions registry
 
-YAML conventions per phase, each declaring rules with rule_id + disposition:
+YAML conventions declare rule IDs, severities, dispositions, and fix hints.
 
-| Phase | Conventions |
+| Domain | Conventions |
 |---|---|
-| planner | wagon, acceptance, wmbt, feature, artifact |
+| planner | wagon, acceptance, WMBT, feature, artifact, decomposition protocol |
 | tester | red, filename, contract, artifact, smoke |
 | coder | green, refactor, boundaries, backend, frontend, design |
-| coach | issue, orchestration, persona-prompts, judge call-sites |
+| coach | issue, orchestration, persona prompts, judge call-sites |
+| train | phase machine, run evidence, runner events *(decomposition target)* |
 
 Browse: `src/atdd/<phase>/conventions/*.convention.yaml`.
 
@@ -280,17 +452,11 @@ flowchart LR
     B -->|CI clean| C[merge to main]
     C -->|workflow_run| D[publish.yml]
     D -->|read version| E[git tag vX.Y.Z]
-    E -->|softprops/action-gh-release| F[release notes]
-    F -->|PyPI Trusted Publishing| G[pypi.org/atdd]
+    E -->|release notes| F[GitHub Release]
+    F -->|trusted publishing| G[pypi.org/atdd]
 ```
 
-`atdd init` ships 3 workflows:
-
-| Workflow | Trigger | Purpose |
-|---|---|---|
-| `atdd-validate.yml` | push, PR, issues | Run validators |
-| `publish.yml` | `workflow_run` after validate success on main | Tag + publish (rate-limit retries, body-shape preserved) |
-| `post-merge-lifecycle.yml` | PR merged | Auto-close WMBT sub-issues, transition parent to COMPLETE |
+`atdd init` ships workflows for validation, release publishing, and post-merge lifecycle management.
 
 Configure release in `.atdd/config.yaml`:
 
@@ -300,28 +466,25 @@ release:
   tag_prefix: "v"
 ```
 
-`atdd validate coach` enforces: version file exists, git tag on HEAD matches `{tag_prefix}{version}`.
-
 ---
 
 ## Installation
 
-### Standard (recommended)
+### Standard
 
 ```bash
-pipx install atdd               # Install — isolated venv, global on PATH (like gh/railway)
-pipx upgrade atdd               # Upgrade
-pipx install atdd[viz]          # With URN graph UI (Streamlit)
+pipx install atdd
+pipx upgrade atdd
+pipx install atdd[viz]
 ```
 
-> `pipx` keeps atdd in an isolated venv so it never pollutes your project or system Python.
-> Install pipx: `brew install pipx` / `pip install --user pipx` / [pipx.pypa.io](https://pipx.pypa.io).
+`pipx` keeps ATDD isolated from project Python.
 
-### Alternative: plain pip
+### Alternative
 
 ```bash
-pip install atdd                # PyPI (not recommended on Homebrew/system Python — PEP 668)
-pip install --upgrade atdd      # Upgrade
+pip install atdd
+pip install --upgrade atdd
 ```
 
 ### Development
@@ -332,51 +495,65 @@ cd atdd && pip install -e ".[dev]"
 atdd --help
 ```
 
-### Uninstall (consumer repo)
+### Uninstall from a consumer repo
 
 ```bash
 python -m pip uninstall atdd
-# Then manually delete: .atdd/, managed blocks in CLAUDE.md / AGENTS.md / etc.
+# Then manually delete .atdd/ and managed blocks in CLAUDE.md / AGENTS.md / etc.
 ```
 
 ---
 
 ## Project structure
 
-```
+Target structure as the train decomposition lands:
+
+```text
 src/atdd/
-├── cli.py                    # Entry point
+├── cli.py
+├── plan/ or planner/
+│   ├── commands/              # atdd plan
+│   ├── sources/               # text/file/richdoc/codebase source adapters
+│   ├── brief/                 # deterministic planning brief renderer
+│   ├── prompts/               # reusable planner fragments
+│   ├── conventions/
+│   ├── schemas/
+│   └── validators/
+├── train/
+│   ├── runner_iface.py        # TrainRunner protocol
+│   ├── jsonl_runner.py        # default local runner
+│   ├── persistence.py         # evidence + events + resume state
+│   ├── events.py
+│   └── wave_runner.py
 ├── coach/
-│   ├── commands/             # coach, spawn, observer, judge, agent (review), sync, gate, init…
-│   │   └── _archived/        # decommissioned: orchestrate.py, babysit.py
-│   ├── handlers/             # state_machine + 7 per-concern handlers (spawn, decisions, watcher, …)
-│   ├── conventions/          # issue, orchestration, persona prompts
-│   ├── prompts/              # per-persona × per-phase reviewer prompts
-│   ├── runtime/              # risk_score, integration_logger, suppression_filter
-│   ├── observer_rules/       # absorbed-from-babysit rules
-│   ├── schemas/              # review-report, runtime-event, coach-decision, judge schemas
-│   ├── plugins/              # pytest violation_collector
-│   └── validators/           # coach validators
-├── planner/
-│   ├── conventions/  schemas/  validators/
+│   ├── core/                  # pure policy functions
+│   ├── commands/              # thin public command shells
+│   ├── conventions/
+│   └── validators/
+├── runtime/
+│   ├── worktree.py
+│   ├── agent_control.py
+│   └── multiplexer.py
+├── integrations/
+│   └── github/
 ├── tester/
-│   ├── conventions/  schemas/  validators/
 └── coder/
-    ├── conventions/  schemas/  validators/
 ```
+
+Current releases may still carry some of these responsibilities under `coach/commands`; the decomposition is migrating them behind typed seams.
 
 ---
 
 ## Worker model selection
 
-Worker agents can run on any wrapper. See [`docs/MODELS.md`](docs/MODELS.md) for the full table and when to prefer each. Tldr:
+Worker agents can run on any wrapper. See `docs/MODELS.md` when available.
 
-| Class | Wrapper | When to use |
-|---|---|---|
-| **compliant** (small, instruction-following) | `claude --model claude-sonnet-4-6`, `claude-haiku` | ATDD lifecycle work — structured prompts, fixed states |
-| **frontier** (large, reasoning) | `claude` (Opus 4.7), `claude-glm`, `claude-gpt` | Novel design, ambiguous spec, hard refactors |
+| Class | When to use |
+|---|---|
+| compliant | lifecycle work with structured prompts and fixed states |
+| frontier | ambiguous design, novel planning, hard refactors |
 
-Configure default in `.atdd/config.yaml::coach.default_worker_class`. Override per invocation with `atdd coach <N> --persona-llm tester=...,coder=...`.
+Configure defaults in `.atdd/config.yaml`; override per invocation with `atdd coach <N> --persona-llm tester=...,coder=...`.
 
 ---
 
@@ -386,44 +563,40 @@ Configure default in `.atdd/config.yaml::coach.default_worker_class`. Override p
 |---|---|
 | Python | 3.10+ |
 | Runtime deps | pyyaml, jsonschema |
-| GitHub CLI | `gh` authenticated with `project` scope |
-| Multiplexer | one of `cmux`, `zellij`, `tmux` (only needed for `atdd coach` parallel runs) |
+| GitHub CLI | `gh` authenticated with required project/repo scopes |
+| Multiplexer | cmux, zellij, or tmux for visual parallel runs |
 | Dev deps | pytest, pytest-xdist, pytest-html |
 
-**Optional env vars:**
+Optional environment variables:
 
-| Var | Default | Effect |
-|---|---|---|
-| `ATDD_MAX_UNCOMMITTED` | 10 | Pre-push micro-commit warning threshold |
-| `ATDD_MAX_STAGED` | 20 | Pre-commit micro-commit warning threshold |
-| `ATDD_SKIP_PREPUSH_VALIDATE` | unset | Bypass pre-push validator hook (when shipped) |
+| Var | Effect |
+|---|---|
+| `ATDD_MAX_UNCOMMITTED` | pre-push micro-commit warning threshold |
+| `ATDD_MAX_STAGED` | pre-commit micro-commit warning threshold |
+| `ATDD_SKIP_PREPUSH_VALIDATE` | bypass pre-push validator hook when needed |
 
 ---
 
 ## Development
 
 ```bash
-# Run all validators from source
 PYTHONPATH=src python3 -m pytest src/atdd/ -v
-
-# Run a specific phase
 PYTHONPATH=src python3 -m pytest src/atdd/coder/validators/ -v
-
-# With coverage + HTML
 PYTHONPATH=src python3 -m pytest --cov=atdd --cov-report=html
 ```
 
-### Adding a validator
+Adding a validator:
 
-1. Create `src/atdd/<phase>/validators/test_<name>.py`
-2. Call `bind_rule("<canonical_id>")` at module-import; declare the rule in the matching `*.convention.yaml`
-3. `pytest` markers `@pytest.mark.<phase>` keep two-stage CI fast
+1. Create `src/atdd/<phase>/validators/test_<name>.py`.
+2. Bind a canonical rule ID at module import.
+3. Declare the rule in the matching convention YAML.
+4. Emit normalized validator reports as the train architecture lands.
 
-### Adding a convention
+Adding a convention:
 
-1. Create `src/atdd/<phase>/conventions/<name>.convention.yaml`
-2. Declare each rule with: `id`, `severity`, `disposition`, `description`, optional `fix_hint`
-3. Reference from validators via `Path(__file__).parent.parent / "conventions" / "..."`
+1. Create `src/atdd/<phase>/conventions/<name>.convention.yaml`.
+2. Declare `id`, `severity`, `disposition`, `description`, and optional `fix_hint`.
+3. Reference it from validators and planning briefs.
 
 ---
 
@@ -431,11 +604,14 @@ PYTHONPATH=src python3 -m pytest --cov=atdd --cov-report=html
 
 | Doc | Purpose |
 |---|---|
-| `atdd-coach-spec-v9.md` | Single-command lifecycle spec (states, persona prompts, judge call sites, §11.6 integration-hardening) |
-| `atdd-repo-substrate-spec-v12.md` | Repo archetype + risk score + uniform-strict repo rules |
-| `docs/coach-worked-example.md` | E2E worked example with artifact inventory |
-| `docs/MODELS.md` | Worker-model selection (planned — see issue tracker) |
-| Convention files | `src/atdd/<phase>/conventions/*.convention.yaml` — machine-readable rule definitions |
+| `docs/coach-decomposition.md` | source of truth for Coach → TrainRunner / runtime / integrations decomposition |
+| `docs/plan-decomposition.md` | proposed source of truth for standalone `atdd plan` capability |
+| `atdd-plan-spec-v11.md` | planning command and brief-renderer track |
+| `atdd-coach-spec-v9.md` | single-command lifecycle spec |
+| `atdd-repo-substrate-spec-v12.md` | repo archetype + rule substrate |
+| `docs/coach-worked-example.md` | end-to-end worked example |
+| `docs/MODELS.md` | worker-model selection |
+| Convention files | machine-readable rule definitions |
 
 ---
 
