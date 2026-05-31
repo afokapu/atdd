@@ -1401,3 +1401,13 @@ sessions:
   status: INIT
   created: '2026-05-31'
   archived: null
+- id: '884'
+  slug: agnostic-git-config-bare-guard-via-path-shim
+  file: null
+  issue_number: 884
+  type: implementation
+  status: COMPLETE
+  train: 0001-self-compliance-validate
+  created: '2026-05-31'
+  archived: null
+  wagon: govern-lifecycle

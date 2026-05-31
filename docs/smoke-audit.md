@@ -9,6 +9,7 @@ Classification of `# Phase: SMOKE` acceptance tests against real-infrastructure 
 | acc:observe-and-correct:E003-SMOKE-001 | atdd-shim CLI subprocess | output.log contains CORRECTION_RECEIVED | dispatcher.dispatch → cli-return.jsonl → shim → agent stdin | #862 (rewritten from PersonaShim direct) |
 | acc:observe-and-correct:E003-SMOKE-002 | atdd-shim CLI subprocess (`python -m atdd.coach.shim`) | captured stdout contains STDOUT_SENTINEL_E003_SMOKE_002 | shim pty → sys.stdout.buffer → operator-visible terminal | #843 (stdout forwarding) |
 | acc:observe-and-correct:E004-SMOKE-001 | atdd spawn / cmd_spawn | shim is surface foreground process (ppid check), output.log grows | cmd_spawn → PersonaShim (via atdd-shim) → agent pty | #841 (spawn dispatch wiring) |
+| acc:govern-lifecycle:E036-SMOKE-001-installed-shim-blocks-and-forwards-in-real-worktree | real (on-disk .atdd/bin/git installed in a real `git init` repo, real system git downstream, real shell PATH resolution) | block exits 1 + shared core.bare not poisoned; real `git status` forwards exit 0 | shell PATH → .atdd/bin/git shim → real git binary | #884 (agent-agnostic git-config bare guard; real binary, no synthetic stub) |
 
 ## Histogram
 

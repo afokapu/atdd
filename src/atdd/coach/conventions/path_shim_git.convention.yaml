@@ -1,0 +1,67 @@
+version: "1.0"
+name: "Path Shim git-config-bare Registry"
+description: |
+  YAML-backed registry of the git-config danger-key patterns enforced by the
+  agent-agnostic PATH shim (.atdd/bin/git, issue #884).
+
+  This convention mirrors path_shim_gh.convention.yaml (#816) and reuses the
+  danger keys of the ATDD-FORBID-GIT-CONFIG-BARE-UNSCOPED rule from
+  forbidden_commands.convention.yaml (#668, the L1 PreToolUse hook). It targets
+  the harness-agnostic PATH layer instead of the Claude-Code-only PreToolUse
+  hook:
+
+    shim  — .atdd/bin/git wraps the git binary at PATH precedence inside the
+            worktree. Blocks unscoped WRITES to the danger keys for ANY shell
+            process (Claude, GLM, Codex, Gemini, operator-typed), and forwards
+            every other git invocation unchanged by exec-ing the next git on
+            PATH (argv, exit code, stdin/stdout/stderr preserved).
+
+  Why a shim and not a commit/push hook: the damage happens at config-write
+  time, which is outside any commit/push flow. Once core.bare=true, `git commit`
+  itself fails BEFORE a pre-commit hook can fire — the hook is locked out by the
+  very state it would detect. The merged pre-push guard (#629) can only react
+  (block the bad push) after the local config is already poisoned. The shim
+  PREVENTS the write. A CI validator (coach.git-config.shared-bare-baseline) and
+  an `atdd gate` session self-heal provide defense-in-depth detection + repair.
+
+  Forwarding correctness is the main risk (git is hotter-path than gh): the
+  shim MUST preserve exit codes, stdin/stdout/stderr, and argv exactly. The
+  forward uses `exec`, so the kernel inherits all three; the gh shim from #816
+  already proves the pattern.
+
+  match spec fields:
+    danger_keys    — config keys (case-insensitive) whose unscoped SET is blocked
+    safe_scope     — the flag that makes a write safe (scoped to this worktree)
+    write_only     — true: only SETs (key followed by a value) are blocked;
+                     reads (--get / bare key) and removals (--unset) forward
+    linked_only    — keys blocked ONLY inside a linked worktree (atdd init
+                     legitimately sets these unscoped in the main repo)
+
+# Shim forwards to the real git on any non-matching invocation (read-path and
+# every non-config subcommand must survive untouched).
+fail_behavior: fail_open_forward
+
+patterns:
+  - id: ATDD-SHIM-GIT-CONFIG-BARE-UNSCOPED
+    enforcement: path_shim
+    match_type: hard_block
+    description: "git config core.bare/core.worktree (or core.hooksPath in a linked worktree) set without --worktree contaminates the shared .git/config for every worktree; the L1 PreToolUse hook only fires inside Claude Code"
+    match:
+      danger_keys: ["core.bare", "core.worktree", "core.hooksPath"]
+      safe_scope: "--worktree"
+      write_only: true
+      linked_only: ["core.hooksPath"]
+    reason: >
+      git config core.bare (or core.worktree, or core.hooksPath inside a linked
+      worktree) without --worktree writes to the SHARED .git/config,
+      contaminating all worktrees. Incident 2026-05-12: an agent ran
+      git config core.bare=true inside a worktree, which leaked to main and
+      sibling worktrees, breaking git status/commit/push everywhere until
+      manually repaired. The L1 PreToolUse hook (#668) only fires inside the
+      Claude Code Bash tool — operators in raw shells, other LLM harnesses
+      (GLM/Codex/Gemini), and any manually-launched session reach the real git
+      unblocked. The .atdd/bin/git shim closes that gap for every shell process
+      inside the worktree while forwarding all other git invocations unchanged.
+      core.hooksPath is exempt in the main repo because `atdd init` sets it
+      unscoped there by design (#793).
+    alternative: "git config --worktree core.bare <value>"

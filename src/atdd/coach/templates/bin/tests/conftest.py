@@ -79,3 +79,97 @@ def shim_worktree(tmp_path: Path):
     real_bin = tmp_path / "realbin"
     record = make_recording_gh(real_bin)
     return worktree, real_bin, record
+
+
+# ---------------------------------------------------------------------------
+# git PATH-shim helpers (issue #884)
+#
+# Mirror the gh helpers above for the agent-agnostic `git` shim. The shim
+# source lives at src/atdd/coach/templates/bin/git.shim and is installed to
+# ``.atdd/bin/git`` by ``atdd init``. These helpers install the on-disk shim
+# into a tmp worktree and stage a *recording* / *forwarding* git stub later on
+# PATH so a forwarded call is observable (argv) and a blocked call leaves no
+# trace. RED state: the template does not exist yet, so each test asserts
+# ``GIT_SHIM_TEMPLATE.exists()`` for a clean RED FAIL.
+# ---------------------------------------------------------------------------
+GIT_SHIM_TEMPLATE = REPO_ROOT / "src" / "atdd" / "coach" / "templates" / "bin" / "git.shim"
+
+
+def install_git_shim(worktree: Path) -> Path | None:
+    """Copy the git.shim template to <worktree>/.atdd/bin/git (mode 0755).
+
+    Best-effort: when the template does not exist yet (RED), the bin dir is
+    still created (empty) and None is returned, so the fixture never errors in
+    setup — each test asserts ``GIT_SHIM_TEMPLATE.exists()`` for a clean RED FAIL.
+    """
+    bin_dir = worktree / ".atdd" / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    if not GIT_SHIM_TEMPLATE.exists():
+        return None
+    dst = bin_dir / "git"
+    shutil.copy(GIT_SHIM_TEMPLATE, dst)
+    dst.chmod(0o755)
+    return dst
+
+
+def make_recording_git(bin_dir: Path) -> Path:
+    """Create a recording ``git`` stub in *bin_dir* that logs argv and exits 0.
+
+    Returns the path to the call-log file (one line of "$*" per invocation).
+    """
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    record = bin_dir / "git_calls.log"
+    git = bin_dir / "git"
+    git.write_text(
+        "#!/bin/sh\n"
+        f'printf "%s\\n" "$*" >> "{record}"\n'
+        "exit 0\n"
+    )
+    git.chmod(0o755)
+    return record
+
+
+def make_forwarding_git(bin_dir: Path, exit_code: int = 42) -> Path:
+    """Create a ``git`` stub that emits known stdout+stderr markers, logs argv, exits *exit_code*.
+
+    Lets a test assert byte-for-byte forwarding correctness: the shim must
+    relay the stub's stdout, stderr, and exit code unchanged.
+    """
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    record = bin_dir / "git_calls.log"
+    git = bin_dir / "git"
+    git.write_text(
+        "#!/bin/sh\n"
+        f'printf "%s\\n" "$*" >> "{record}"\n'
+        'printf "OUT:%s" "$*"\n'
+        'printf "ERR:%s" "$*" >&2\n'
+        f"exit {int(exit_code)}\n"
+    )
+    git.chmod(0o755)
+    return record
+
+
+def run_git_via_shim(worktree: Path, real_bin_dir: Path, args: list[str]) -> subprocess.CompletedProcess:
+    """Invoke ``git <args>`` with PATH=<worktree>/.atdd/bin:<real_bin_dir>:... and cwd=worktree."""
+    env = {**os.environ}
+    shim_dir = worktree / ".atdd" / "bin"
+    env["PATH"] = f"{shim_dir}:{real_bin_dir}:{env.get('PATH', '')}"
+    return subprocess.run(
+        ["git", *args],
+        cwd=str(worktree),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+
+
+@pytest.fixture()
+def git_shim_worktree(tmp_path: Path):
+    """Return (worktree, real_bin_dir, record_path) with the git shim installed and a recording git staged."""
+    worktree = tmp_path / "gitwt"
+    worktree.mkdir()
+    install_git_shim(worktree)
+    real_bin = tmp_path / "gitrealbin"
+    record = make_recording_git(real_bin)
+    return worktree, real_bin, record

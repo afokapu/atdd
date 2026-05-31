@@ -988,6 +988,11 @@ class ProjectInitializer:
           * ``.atdd/bin/gh`` — the L3a PATH shim (executable) that intercepts
             ``gh issue create`` in any worktree shell and forwards every other
             gh subcommand to the next real gh on PATH.
+          * ``.atdd/bin/git`` — the agent-agnostic git shim (#884) that blocks
+            unscoped ``git config core.bare``/``core.worktree`` (and
+            ``core.hooksPath`` in a linked worktree) writes which would poison
+            the shared .git/config, forwarding every other git invocation
+            unchanged to the next real git on PATH.
           * ``.envrc`` — a ``PATH_add .atdd/bin`` line so direnv puts the shim
             first on PATH. Appended only when absent (operator edits preserved).
           * ``.atdd/hooks/pre-commit-gh-issue-create.sh`` — the L3b pre-commit
@@ -1004,6 +1009,14 @@ class ProjectInitializer:
             templates / "bin" / "gh.shim",
             self.atdd_config_dir / "bin" / "gh",
             missing_label="gh shim",
+        )
+        # Agent-agnostic git shim (#884): blocks unscoped core.bare/core.worktree
+        # (and core.hooksPath in a linked worktree) writes that poison the shared
+        # .git/config, forwarding every other git invocation unchanged.
+        self._install_executable_template(
+            templates / "bin" / "git.shim",
+            self.atdd_config_dir / "bin" / "git",
+            missing_label="git shim",
         )
         self._append_envrc_path_add()
         self._install_executable_template(
