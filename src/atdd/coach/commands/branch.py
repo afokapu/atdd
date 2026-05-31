@@ -320,6 +320,10 @@ class BranchManager:
                 start_point=f"origin/{default_branch}",
             )
         except runtime_worktree.ProtectedBranchError as exc:
+            logger.warning(
+                "refused worktree on protected branch",
+                extra={"issue": issue_number, "error": str(exc)},
+            )
             print(f"Error: {exc}")
             return 1
         if created is None:

@@ -811,6 +811,10 @@ def _ensure_issue_worktree(ctx) -> Optional[Path]:
             worktree, branch, repo_root, issue_number=ctx.issue_number,
         )
     except runtime_worktree.ProtectedBranchError as exc:
+        _logger.warning(
+            "coach cold-start refused worktree on protected branch",
+            extra={"issue": ctx.issue_number, "error": str(exc)},
+        )
         print(
             f"❌ #{ctx.issue_number}: {exc}",
             file=sys.stderr,

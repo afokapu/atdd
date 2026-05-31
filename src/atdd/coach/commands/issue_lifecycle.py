@@ -241,6 +241,10 @@ class IssueLifecycle:
                 issue_number=issue_number,
             )
         except runtime_worktree.ProtectedBranchError as exc:
+            logger.warning(
+                "refused worktree on protected branch",
+                extra={"issue": issue_number, "error": str(exc)},
+            )
             print(f"Error: {exc}")
             return None
         if created is None:
