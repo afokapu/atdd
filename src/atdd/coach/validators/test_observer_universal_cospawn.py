@@ -30,6 +30,19 @@ from atdd.coach.utils.multiplexer import FakeMultiplexer
 pytestmark = [pytest.mark.platform]
 
 
+@pytest.fixture(autouse=True)
+def _legacy_spawn_transport(monkeypatch):
+    """Child 6 (#893, docs/coach-decomposition.md §13.6) flipped the spawn
+    dispatch default to cli-return. These entry-point tests assert the legacy
+    tui-scrape surface/observer behaviour against a FakeMultiplexer (no real
+    shim heartbeat), so they run under the ATDD_USE_LEGACY_SPAWN=1 kill switch
+    (§12.4 R-4), which reproduces the pre-extraction path byte-for-byte. Scoped
+    to this module so the delicate Y003 core.bare guard self-test elsewhere in
+    this directory is untouched."""
+    monkeypatch.setenv("ATDD_USE_LEGACY_SPAWN", "1")
+    yield
+
+
 # ---------------------------------------------------------------------------
 # Shared setup helpers
 # ---------------------------------------------------------------------------
