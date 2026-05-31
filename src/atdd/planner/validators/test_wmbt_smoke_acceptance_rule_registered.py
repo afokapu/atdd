@@ -1,7 +1,13 @@
-# Acceptance: acc:govern-lifecycle:E921-UNIT-001-wmbt-smoke-acceptance-rule-registered-in-convention
 """
 Asserts the rule ``planner.wmbt.must-have-smoke-acceptance`` is registered in
 its canonical home: ``src/atdd/planner/conventions/wmbt.convention.yaml``.
+
+This validator-test is intentionally unanchored (no ``# Acceptance:`` URN
+header). #921 is a small test-repair tracking issue with no planned WMBT in
+``plan/govern_lifecycle/``, so a bidirectional acceptance binding would be
+artificial. The pattern mirrors ``test_hierarchy_coverage.py`` (also
+unanchored). If #919 Section B later wants to formalize this binding, it can
+file a WMBT and add the ``# Acceptance:`` line.
 
 Background (#921 — split from #919 Section A discussion): the prior
 template-reader test (``test_e015_unit_002::test_atdd_md_names_must_have_smoke_acceptance_rule``)
