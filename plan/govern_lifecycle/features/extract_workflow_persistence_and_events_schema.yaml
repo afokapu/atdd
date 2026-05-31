@@ -1,0 +1,7 @@
+feature: extract-workflow-persistence-and-events-schema
+wagon: govern-lifecycle
+urn: "feature:govern-lifecycle:extract-workflow-persistence-and-events-schema"
+wmbts:
+  - "wmbt:govern-lifecycle:E040"
+references:
+  - "docs/coach-decomposition.md"

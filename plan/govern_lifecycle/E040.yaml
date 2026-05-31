@@ -1,0 +1,115 @@
+urn: "wmbt:govern-lifecycle:E040"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-jsonl-backed-persistence-store-load-conventions-snapshot-and-evidence-materialization-being-implemented-ad-hoc-or-drifting-from-the-frozen-child-3-contracts"
+context_clarifier: "when the Coach decomposition (docs/coach-decomposition.md, umbrella #887) lands Child 7 — the first concrete PersistenceStore implementation that the train runner (Child 8) builds on, turning the signatures-only seam frozen in Child 3 into durable on-disk runs under .atdd/runtime/runs/<run_id>/, a real load_conventions snapshot loader, and the materialize_evidence bridge that aggregates the manifest, the Child 4 GitHub adapter, the Child 3 validator reports, and filesystem artifacts into the frozen Evidence Coach-core decides on"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the-jsonl-backed-persistence-store-load-conventions-snapshot-and-evidence-materialization-being-implemented-ad-hoc-or-drifting-from-the-frozen-child-3-contracts by implementing JsonlPersistenceStore against the §4.6 Protocol (durable events.jsonl/decisions.jsonl under runs/<run_id>/, a RunStarted event carrying conventions_hash + conventions_snapshot_ref, and conventions.snapshot.yaml + conventions.hash written at create_run), implementing load_conventions(repo_root) to freeze the phase-machine snapshot under a deterministic sha256, and implementing materialize_evidence(issue_number) to aggregate the manifest + GitHub adapter + validator reports + filesystem artifacts into a frozen Evidence whose conventions_hash matches the active Conventions — with replay determinism guaranteed by the single-writer event log (#894)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E040-UNIT-001-jsonl-persistence-store-run-lifecycle"
+      id: "AC-UNIT-001"
+      purpose: "JsonlPersistenceStore fulfils the §4.6 PersistenceStore Protocol with durable on-disk runs: create_run writes the run scaffold (RunStarted event, conventions.snapshot.yaml, conventions.hash, status.json); events and decisions append and replay deterministically; load_run reconstructs RunState; the manifest round-trips through get_issue/upsert_issue"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.train.persistence.JsonlPersistenceStore is constructed against a temporary repo root containing an .atdd/manifest.yaml issue registry"
+        - "a frozen Conventions bundle is available from load_conventions(repo_root)"
+    when:
+      abstract: "create_run(issue_number, conventions=...) is called, then append_event / append_decision are invoked, then a RunState is loaded via load_run, and an IssueRecord is upserted then read back via get_issue"
+    then:
+      abstract:
+        - "isinstance(store, PersistenceStore) is True (the runtime_checkable §4.6 Protocol) and every §4.6 method is callable"
+        - "create_run writes runs/<run_id>/conventions.snapshot.yaml, a matching runs/<run_id>/conventions.hash, and an events.jsonl whose first line is a schema_version 1.0 RunStarted event carrying conventions_hash + conventions_snapshot_ref + policy_handle_id"
+        - "append_event then replay_events yields the appended TrainEvents in monotonic seq order; append_decision persists a decisions.jsonl row carrying the evidence_hash"
+        - "load_run reconstructs a RunState whose current_phase, conventions_hash and last_event_seq match the event log; upsert_issue followed by get_issue round-trips the IssueRecord"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E040-UNIT-002-load-conventions-snapshot-hash"
+      id: "AC-UNIT-002"
+      purpose: "load_conventions loads + normalizes the phase-machine convention YAML, freezes it into a Conventions bundle, and computes a deterministic sha256 snapshot hash over the normalized snapshot bytes — the body that replaces the Child 3 NotImplementedError signature"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a repo root whose src/atdd/coach/conventions/phase_machine.convention.yaml is the canonical §4.5 phase machine"
+    when:
+      abstract: "load_conventions(repo_root) is called twice against the same source"
+    then:
+      abstract:
+        - "it returns a frozen Conventions whose phase_machine contains every §4.5 Phase with the right agent and transitions_to, and whose snapshot_paths name the contributing source file(s)"
+        - "snapshot_hash is a 64-char sha256 hex digest over the normalized snapshot bytes and is byte-stable across the two loads"
+        - "load_conventions no longer raises NotImplementedError (the Child 3 signature-only behavior is replaced)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E040-UNIT-003-materialize-evidence-aggregation"
+      id: "AC-UNIT-003"
+      purpose: "materialize_evidence(issue_number) aggregates the manifest + GitHub adapter + validator reports + filesystem artifacts into a frozen Evidence whose conventions_hash matches the active Conventions, degrading gracefully when GitHub data is unavailable (§7.1)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a JsonlPersistenceStore over a temp repo whose manifest has an entry for the issue (type, status/phase, train) and whose run dir holds a validator-reports.jsonl with one ValidatorReport row"
+        - "an injected GitHub adapter double returning a known phase, ci_state and PrState for the issue"
+    when:
+      abstract: "materialize_evidence(issue_number) is called once with the adapter present and once with the adapter raising (GitHub unavailable)"
+    then:
+      abstract:
+        - "the returned Evidence is frozen and carries issue_type + current_phase + train_id + branch from the manifest/adapter, the validator_reports read back from validator-reports.jsonl, and a conventions_hash equal to the active Conventions.snapshot_hash"
+        - "ci_state and pr_state reflect the injected adapter's response, mapped from the integration plain-data types onto the Coach-core CiState/PrState types"
+        - "when the adapter raises, materialize_evidence degrades to ci_state=NONE and pr_state=None rather than propagating the error (§7.1 GitHub-down handling)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E040-UNIT-004-replay-determinism"
+      id: "AC-UNIT-004"
+      purpose: "Replay is deterministic: reconstructing a store mid-loop from the persisted event log and re-running the pure Coach-core decisions over the materialized phases reproduces the identical decision list (§6.3)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a JsonlPersistenceStore that has driven a run several phases in, appending an EvidenceMaterialized + DecisionMade pair per phase and a decisions.jsonl row per decision"
+    when:
+      abstract: "the store is dropped and recreated against the same run dir (the pickle-mid-loop / recreate scenario), then the event log is replayed and coach.core.next_transition is re-run over the replayed materialized phases"
+    then:
+      abstract:
+        - "replay_events on the recreated store yields the identical TrainEvent stream in the identical seq order"
+        - "the decision list reconstructed from replay equals the decision list the original store recorded — same TransitionDecisions, same order"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E040-SMOKE-001-real-fs-run-roundtrip"
+      id: "AC-SMOKE-001"
+      purpose: "A real JsonlPersistenceStore rooted at a real temp repo writes real run files to disk and a second, independently-constructed store reading the same run dir replays the identical events and reconstructs the same RunState — exercising the real filesystem, not an in-memory stub"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "a real temp directory initialized as an ATDD repo (real .atdd/manifest.yaml, real phase_machine.convention.yaml resolvable for load_conventions)"
+    when:
+      abstract: "one JsonlPersistenceStore creates a run and appends events/decisions on disk, then a separately-constructed JsonlPersistenceStore is pointed at the same repo root and asked to load_run / replay_events for that run_id"
+    then:
+      abstract:
+        - "the on-disk runs/<run_id>/ directory really contains events.jsonl, decisions.jsonl, conventions.snapshot.yaml and conventions.hash"
+        - "the second store's replay_events yields the same event stream and load_run reconstructs a RunState equal to the first store's view — proving durability across process/instance boundaries"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
