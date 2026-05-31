@@ -1,0 +1,185 @@
+urn: "wmbt:govern-lifecycle:E036"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "unscoped-git-config-bare-writes-poisoning-shared-git-config-from-any-shell-in-the-worktree"
+context_clarifier: "when an operator, a non-Claude-Code harness (GLM/Codex/Gemini), or any manually-launched session runs git config core.bare/core.worktree (or core.hooksPath in a linked worktree) WITHOUT --worktree, writing to the SHARED main/.git/config so every linked worktree instantly reports 'fatal: this operation must be run in a work tree' — the recurring 2026-05-12 worktree-config-bleed incident that the Claude-Code-only PreToolUse hook (#668) cannot prevent for non-Claude agents"
+lens: "functional.effectiveness"
+statement: "minimize quantity of unscoped-git-config-bare-writes-poisoning-shared-git-config-from-any-shell-in-the-worktree by installing an agent-agnostic direnv-scoped PATH shim at .atdd/bin/git that blocks `git config core.bare`/`core.worktree` (and `core.hooksPath` inside a linked worktree) writes lacking --worktree with an educational error pointing at `git config --worktree core.bare <value>`, forwards every other git invocation unchanged (preserving argv, exit code, stdin/stdout/stderr) by exec-ing the next git on PATH without looping on itself, and complements it with a CI validator that fails on a poisoned core.bare=true baseline plus an `atdd gate` session self-heal that scopes core.bare=false back to the worktree (#884)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E036-UNIT-001-shim-classifier-precise"
+      id: "AC-UNIT-001"
+      purpose: "The .atdd/bin/git shim's argv classifier blocks unscoped WRITES to danger keys (git config core.bare true, git config --local core.worktree x) with exit 1, but ALLOWS scoped writes (git config --worktree core.bare true), reads (git config --get core.bare, git config core.bare), repairs (git config --unset core.bare), the ephemeral override (git -c core.bare=false status), and every non-config subcommand — forwarding each unchanged to the next git on PATH"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The git.shim template at src/atdd/coach/templates/bin/git.shim is installed to .atdd/bin/git and executable"
+        - "A recording `git` stub placed later on PATH that logs its argv and exits 0, so a forwarded call is observable and a blocked call leaves no record"
+    when:
+      abstract: "the shim is invoked with each argv: `config core.bare true`, `config --local core.worktree /tmp`, `config --worktree core.bare true`, `config --get core.bare`, `config core.bare`, `config --unset core.bare`, `-c core.bare=false status`, `status`"
+    then:
+      abstract:
+        - "`config core.bare true` and `config --local core.worktree /tmp` exit 1 and never call the recording stub"
+        - "the block message names `git config --worktree core.bare <value>` as the scoped alternative"
+        - "`config --worktree core.bare true`, `config --get core.bare`, `config core.bare`, `config --unset core.bare`, `-c core.bare=false status`, and `status` all exit 0 and DO call the recording stub with their argv intact"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E036-INTEGRATION-001-shim-blocks-unscoped-bare"
+      id: "AC-INTEGRATION-001"
+      purpose: "`git config core.bare true` invoked through the installed shim inside a worktree exits 1 and the real git is never invoked, with stderr naming the --worktree alternative"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp worktree with .atdd/bin/git installed from the git.shim template (mode 0755)"
+        - "A recording stub `git` on PATH after the shim dir, so a forwarded write would be observable"
+        - "PATH set so .atdd/bin precedes the stub git"
+    when:
+      abstract: "subprocess `git config core.bare true` is run with cwd inside the worktree"
+    then:
+      abstract:
+        - "exit code is 1"
+        - "stderr names `git config --worktree` as the scoped alternative"
+        - "the recording stub git was never invoked (no record file written) — the poison write never reached real git"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E036-INTEGRATION-002-shim-forwards-exactly"
+      id: "AC-INTEGRATION-002"
+      purpose: "Forwarding correctness (the main risk): non-blocked git invocations reach the next git on PATH with argv, exit code, stdout, and stderr preserved byte-for-byte"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp worktree with .atdd/bin/git installed from the git.shim template"
+        - "A stub `git` on PATH after the shim dir that echoes a known marker to stdout AND stderr, records its argv, and exits with a known non-zero code"
+    when:
+      abstract: "subprocess runs `git status`, `git config --worktree core.bare true`, and `git rev-parse HEAD` through the shim"
+    then:
+      abstract:
+        - "the stub git received the exact forwarded argv for each invocation"
+        - "the shim's stdout and stderr equal the stub's stdout and stderr exactly"
+        - "the shim's exit code equals the stub's exit code exactly (non-zero preserved)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E036-INTEGRATION-003-shim-resolves-real-git"
+      id: "AC-INTEGRATION-003"
+      purpose: "The shim's exec resolves to the NEXT git in PATH (not itself), so repeated invocation does not infinite-loop"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp worktree with .atdd/bin/git installed from the git.shim template"
+        - "A recording stub `git` on PATH after the shim dir"
+        - "PWD/.atdd/bin is prepended to PATH (the direnv arrangement)"
+    when:
+      abstract: "subprocess `git status` is run twice in succession through the shim"
+    then:
+      abstract:
+        - "both invocations exit 0 within a bounded timeout (no infinite loop / no recursion-depth error)"
+        - "the recording stub git was invoked exactly twice"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E036-UNIT-002-init-installs-git-shim"
+      id: "AC-UNIT-002"
+      purpose: "atdd init's install_path_shim_enforcement installs .atdd/bin/git from the git.shim template (executable) alongside the existing gh shim and .envrc PATH_add"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp target dir initialized as a git repo"
+        - "An Initializer pointed at the target dir"
+    when:
+      abstract: "install_path_shim_enforcement() is invoked"
+    then:
+      abstract:
+        - ".atdd/bin/git exists and is executable (mode includes 0o111)"
+        - "its contents match the src/atdd/coach/templates/bin/git.shim template"
+        - ".envrc contains the `PATH_add .atdd/bin` line (shared with the gh shim wiring)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E036-UNIT-003-validate-fails-on-poisoned-baseline"
+      id: "AC-UNIT-003"
+      purpose: "A coach validator (run by atdd validate) fails when the effective git core.bare is true — catching a poisoned shared baseline regardless of which agent wrote it, while a worktree-scoped core.bare=false override (effective false) passes"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A helper that reads the effective `git config --get core.bare` for a given repo dir"
+        - "A tmp repo whose shared .git/config has core.bare=true (poisoned), and a second tmp repo with core.bare=false"
+    when:
+      abstract: "the validator's check is run against each repo"
+    then:
+      abstract:
+        - "the poisoned repo (effective core.bare=true) fails the check with a message pointing at `git config --worktree core.bare false`"
+        - "the clean repo (effective core.bare=false) passes the check"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E036-UNIT-004-gate-self-heals-poisoned-worktree"
+      id: "AC-UNIT-004"
+      purpose: "atdd gate self-heals a poisoned worktree at session bootstrap: when effective core.bare is true it scopes core.bare=false back via git config --worktree (enabling extensions.worktreeConfig as needed), best-effort and never raising"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp git repo whose effective core.bare has been set to true"
+        - "An ATDDGate pointed at the repo"
+    when:
+      abstract: "the gate's self-heal step runs"
+    then:
+      abstract:
+        - "after self-heal the effective `git config --get core.bare` is false (worktree repaired)"
+        - "the self-heal never raises even when --worktree is unsupported (best-effort: warns and continues)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E036-SMOKE-001-installed-shim-blocks-and-forwards-in-real-worktree"
+      id: "AC-SMOKE-001"
+      purpose: "The on-disk git.shim, installed to .atdd/bin/git in a real git worktree with a real PATH arrangement, blocks unscoped `git config core.bare true` against the real shell PATH-resolution mechanism AND forwards a real `git status` to the real git — proving an actual operator/agent shell call is intercepted while the hot read-path survives"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The real git.shim file at src/atdd/coach/templates/bin/git.shim (executable, mode 0755)"
+        - "A real tmp_path git repo with the shim copied to .atdd/bin/git"
+        - "PATH arranged with the shim dir first, then the real system git"
+    when:
+      abstract: "subprocess.run(['git', 'config', 'core.bare', 'true']) and subprocess.run(['git', 'status']) are invoked from inside the worktree with the shim-first PATH"
+    then:
+      abstract:
+        - "the `git config core.bare true` call exits 1 (the shim's hard block) and the shared .git/config core.bare is NOT set to true"
+        - "the block message contains the literal `--worktree`"
+        - "the `git status` call exits 0 — forwarded to the real git binary unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"

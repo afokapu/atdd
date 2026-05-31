@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:agnostic-git-config-bare-guard-via-path-shim"
+wagon: "wagon:govern-lifecycle"
+description: "Close the asymmetry left by the Claude-Code-only PreToolUse hook (#668): ship an agent-agnostic prevention layer that stops unscoped `git config core.bare`/`core.worktree` (and `core.hooksPath` in a linked worktree) writes from poisoning the SHARED .git/config for ANY shell — Claude, GLM, Codex, Gemini, or a human. The fix mirrors the gh PATH shim from #816: a direnv-scoped .atdd/bin/git shim blocks the danger writes with an educational message and forwards every other git invocation unchanged (argv, exit code, stdin/stdout/stderr preserved by exec). Defense-in-depth: a CI validator fails on a poisoned core.bare=true baseline, and `atdd gate` self-heals a poisoned worktree by scoping core.bare=false back via --worktree. Complements the merged pre-push guard (#629) at the prevention layer (#884)."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E036"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 2
+        rationale: "atdd init (initializer) install_path_shim_enforcement gains a git-shim install step writing .atdd/bin/git idempotently (E036-UNIT-002); atdd gate (ATDDGate.verify) gains a session-bootstrap self-heal step that scopes core.bare=false via --worktree when a worktree is poisoned (E036-UNIT-004)"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "coach validator use case: detect a poisoned core.bare=true baseline via the effective `git config --get core.bare` and fail atdd validate with a repair pointer (E036-UNIT-003)"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "No new domain types; the shim is a shell template and classification is argv matching that mirrors the ATDD-FORBID-GIT-CONFIG-BARE-UNSCOPED rule"
+    integration:
+      - type: "wiring_modules"
+        count: 2
+        rationale: "src/atdd/coach/templates/bin/git.shim (the agent-agnostic PATH shim that blocks unscoped core.bare/core.worktree/core.hooksPath writes and forwards everything else by exec); src/atdd/coach/conventions/path_shim_git.convention.yaml (pattern registry mirroring path_shim_gh.convention.yaml and reusing the ATDD-FORBID-GIT-CONFIG-BARE-UNSCOPED danger keys from forbidden_commands.convention.yaml #668)"

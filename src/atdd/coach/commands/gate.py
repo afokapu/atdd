@@ -10,6 +10,8 @@ Usage:
 """
 import hashlib
 import json as json_module
+import logging
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -17,6 +19,8 @@ import yaml
 
 from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.utils.repo import detect_worktree_layout
+
+_log = logging.getLogger(__name__)
 
 
 class ATDDGate:
@@ -40,6 +44,48 @@ class ATDDGate:
         self.syncer = AgentConfigSync(self.target_dir)
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
         self.issue_convention = self.package_root / "conventions" / "issue.convention.yaml"
+
+    def _git(self, *args: str, timeout: int = 10) -> subprocess.CompletedProcess:
+        """Run a git command in target_dir, capturing output (never raises on exit code)."""
+        return subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(self.target_dir),
+        )
+
+    def self_heal_core_bare(self) -> None:
+        """Repair a poisoned worktree at session bootstrap (issue #884).
+
+        When the effective ``git config --get core.bare`` is ``true`` the shared
+        .git/config has been poisoned and every worktree reports
+        "fatal: this operation must be run in a work tree". This scopes
+        ``core.bare=false`` back via ``git config --worktree`` (enabling
+        extensions.worktreeConfig as needed) so the worktree repairs itself
+        rather than just blocking — the operator never hand-edits .git/config.
+
+        Best-effort: never raises. Any git failure (no repo, --worktree
+        unsupported, timeout) is logged and swallowed so the gate still runs.
+        """
+        try:
+            current = self._git("config", "--get", "core.bare")
+            if current.stdout.strip().lower() != "true":
+                return  # not poisoned — nothing to heal
+
+            # extensions.worktreeConfig must be enabled before `--worktree`
+            # writes land in the per-worktree config (#793).
+            self._git("config", "extensions.worktreeConfig", "true")
+            self._git("config", "--worktree", "core.bare", "false")
+            _log.info(
+                "atdd gate self-healed a poisoned worktree (core.bare scoped back to false)",
+                extra={"target_dir": str(self.target_dir)},
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Self-heal is best-effort; failure must not block the gate
+            _log.warning(
+                "atdd gate core.bare self-heal skipped",
+                extra={"error": str(exc), "error_type": type(exc).__name__, "target_dir": str(self.target_dir)},
+            )
 
     def _load_agent_rules(self) -> Optional[list]:
         """Load portable agent behavioral rules from .atdd/agent-rules.yaml.
@@ -130,6 +176,10 @@ class ATDDGate:
         Returns:
             0 on success, 1 if no synced files found.
         """
+        # Session-bootstrap self-heal (#884): repair a worktree poisoned by an
+        # unscoped core.bare=true write before doing anything else.
+        self.self_heal_core_bare()
+
         files = self._get_synced_files()
 
         if not files:
