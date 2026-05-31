@@ -81,6 +81,54 @@ rules:
       that content belongs outside .atdd/runtime/ (which is by definition
       ephemeral). Relocate it to a non-runtime path and re-commit.
 
+  - id: "coach.pr.closes-keyword-discipline"
+    severity: 4
+    description: "Auto-close intent on a PR must be declared exclusively and unambiguously in the PR BODY, and must match exactly what GitHub will actually auto-close (`closingIssuesReferences` from the GraphQL API). Two divergences are forbidden, because GitHub's closing-keyword parser is silently buggy in both: (1) NEGATED/QUALIFIED body keyword — a body phrase like `Does NOT close #N` still fires auto-close, because the parser ignores negation; use `Refs #N` instead. (2) COMMIT-INJECTED close not declared in the body — an issue appears in `closingIssuesReferences` (so it WILL auto-close on merge) but the PR body carries no affirmative `Closes #N`; the close is being injected by an immutable commit message (e.g. commit body `Closes #919 Sections B and C` while the PR body uses `Refs #919` — the #927 incident) outside the editable PR-body control point. This bit ATDD's multi-section umbrella deliveries repeatedly (#920, #927). Strict disposition: bypass is forbidden; the PR body is the single source of truth for auto-close intent."
+    disposition: strict
+    introduced_in: "3.87.0"
+    aliases: []
+    validator: "test_pr_closes_keyword_discipline::test_no_unintended_closes_keyword_in_open_prs"
+    fix_hint: |
+      A PR's effective auto-close set (GitHub `closingIssuesReferences`)
+      diverges from what its BODY affirmatively declares, OR the body
+      contains a negated/qualified closing keyword the GitHub parser
+      ignores. The PR body is the single, editable source of truth for
+      auto-close intent — repair so the two agree:
+
+        1. Read the violation — it cites "PR#<N>" (e.g. "927") and the issue
+           number, and says which divergence fired. Throughout this hint <N>
+           is that PR number and #N is that issue number:
+
+           (a) COMMIT-INJECTED — GitHub will auto-close #N but the body has
+               no affirmative `Closes #N`. The keyword lives in a commit
+               message (the violation names the offending commit sha).
+                 • If this PR genuinely fully closes #N: add `Closes #N` to
+                   the PR body (`gh pr edit <N> --body "<new-body>"`) AND
+                   advance the issue label first
+                   (`atdd issue <N> --status SMOKE` → `--status REFACTOR`),
+                   per coach.pr.merge-blocks-on-pre-smoke-close.
+                 • If this PR is a PARTIAL/umbrella step (the issue stays
+                   open): amend the commit message to use `Refs #N` instead
+                   of `Closes #N` so GitHub's auto-close does not fire:
+                     git rebase -i origin/main   # reword the named commit
+                   (in this environment, edit the commit body so it reads
+                   `Refs #N`, then force-push the branch).
+
+           (b) NEGATED-BODY — the body contains `Closes #N` (or fix/resolve)
+               inside a negation like "Does NOT close #N". GitHub ignores
+               the negation and closes #N anyway. Replace the whole phrase
+               with `Refs #N`:
+                 gh pr edit <N> --body "<body with Refs #N>"
+
+        2. Re-run the validator on the same PR:
+             pytest src/atdd/coach/validators/test_pr_closes_keyword_discipline.py -v
+
+      Rule of thumb (also in CONDUCTOR.md / memory): use `Closes #N` ONLY
+      in the PR body and ONLY when you mean a full close; everywhere else
+      (commit messages, partial deliveries, negated mentions) use `Refs #N`.
+      This rule is strict by design — bypass is forbidden. See issue #928
+      Gap 3 and the #927 incident.
+
 # =============================================================================
 # Lifecycle phases relevant to this convention
 # =============================================================================
