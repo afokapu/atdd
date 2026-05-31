@@ -227,19 +227,28 @@ class IssueLifecycle:
         )
         remote_exists = bool(result.stdout.strip())
 
+        # Creation + I-1/I-2/I-9 incident defenses are owned by the runtime
+        # layer (docs/coach-decomposition.md §13.5).
+        from atdd.runtime import worktree as runtime_worktree
         if remote_exists:
-            cmd = ["git", "worktree", "add", str(worktree_path), f"origin/{branch_name}"]
             print(f"Attaching to existing remote branch: {branch_name}")
         else:
-            cmd = ["git", "worktree", "add", str(worktree_path), "-b", branch_name]
             print(f"Creating new branch: {branch_name}")
 
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=30,
-            cwd=self.target_dir,
-        )
-        if result.returncode != 0:
-            print(f"Error: git worktree add failed:\n{result.stderr.strip()}")
+        try:
+            created = runtime_worktree.ensure_issue_worktree(
+                worktree_path, branch_name, self.target_dir,
+                issue_number=issue_number,
+            )
+        except runtime_worktree.ProtectedBranchError as exc:
+            logger.warning(
+                "refused worktree on protected branch",
+                extra={"issue": issue_number, "error": str(exc)},
+            )
+            print(f"Error: {exc}")
+            return None
+        if created is None:
+            print("Error: git worktree add failed")
             return None
 
         print(f"  Worktree: {worktree_path}")
