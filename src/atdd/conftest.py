@@ -1,9 +1,36 @@
 """
 Root conftest for unified test reporting across all test categories.
 """
+import os
 import re
 import subprocess
 import pytest
+
+
+# ---------------------------------------------------------------------------
+# Spawn transport default for the in-repo test suite (Child 6, #893)
+#
+# docs/coach-decomposition.md §13.6 flipped the spawn dispatch default to the
+# cli-return control plane. The existing cmd_spawn tests across src/atdd
+# (commands/, handlers/, validators/) assert the legacy tui-scrape (paste +
+# readiness probe) path, which is now reached only under the
+# ``ATDD_USE_LEGACY_SPAWN=1`` kill switch (§12.4 R-4). ``ATDD_USE_LEGACY_SPAWN=1``
+# reproduces the pre-extraction default behavior byte-for-byte, so defaulting it
+# ON for this suite keeps those tests exercising the path they were written for.
+#
+# Tests that target the new cli-return default set
+# ``ATDD_CORRECTION_TRANSPORT=cli-return`` (which wins by precedence in
+# atdd.runtime.agent_control.resolve_transport). The default-is-cli-return
+# contract itself is covered by tests/runtime (E039-UNIT-004 + E039-SMOKE-001),
+# which live OUTSIDE src/atdd and are therefore unaffected by this fixture.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _default_legacy_spawn_transport(monkeypatch):
+    if "ATDD_USE_LEGACY_SPAWN" not in os.environ:
+        monkeypatch.setenv("ATDD_USE_LEGACY_SPAWN", "1")
+    yield
 
 # Activate pytester at the test-root conftest. The substrate plugin's
 # integration tests (issue #411) spin up an inner pytest session via

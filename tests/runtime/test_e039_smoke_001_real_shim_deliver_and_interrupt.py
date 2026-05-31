@@ -66,52 +66,40 @@ def _read(p: Path) -> str:
         return ""
 
 
-def test_real_shim_delivers_submitted_prompt_and_interrupts(tmp_path):
+def test_real_shim_delivers_submitted_prompt_and_interrupts(tmp_path, monkeypatch):
     from atdd.runtime.agent_control import AgentSignal, ShimAgentController
 
     # Open the ready gate immediately so the delivery is not held behind the
-    # bootstrap delay during the test.
-    import os
+    # bootstrap delay during the test (monkeypatch keeps env isolation clean).
+    monkeypatch.setenv("ATDD_SHIM_BOOTSTRAP_DELAY_S", "0")
 
-    monkey = {
-        "ATDD_SHIM_BOOTSTRAP_DELAY_S": "0",
-    }
-    saved = {k: os.environ.get(k) for k in monkey}
-    os.environ.update(monkey)
+    controller = ShimAgentController()
+    spec = _spec(tmp_path, "coder-smoke-a")
+    handle = controller.spawn(
+        spec, agent_command=[sys.executable, "-u", "-c", _FAKE_AGENT]
+    )
     try:
-        controller = ShimAgentController()
-        spec = _spec(tmp_path, "coder-smoke-a")
-        handle = controller.spawn(
-            spec, agent_command=[sys.executable, "-u", "-c", _FAKE_AGENT]
+        ready = controller.wait_ready(handle, timeout_s=5.0)
+        assert ready.is_ready
+
+        controller.deliver_prompt(handle, "PING-7e3f")
+
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            if "GOT:PING-7e3f" in _read(spec.output_log):
+                break
+            time.sleep(0.1)
+        assert "GOT:PING-7e3f" in _read(spec.output_log), (
+            "delivered prompt was not injected-and-submitted into the real "
+            f"agent within 5s; output.log={_read(spec.output_log)!r}"
         )
-        try:
-            ready = controller.wait_ready(handle, timeout_s=5.0)
-            assert ready.is_ready
 
-            controller.deliver_prompt(handle, "PING-7e3f")
-
-            deadline = time.monotonic() + 5.0
-            while time.monotonic() < deadline:
-                if "GOT:PING-7e3f" in _read(spec.output_log):
-                    break
-                time.sleep(0.1)
-            assert "GOT:PING-7e3f" in _read(spec.output_log), (
-                "delivered prompt was not injected-and-submitted into the real "
-                f"agent within 5s; output.log={_read(spec.output_log)!r}"
-            )
-
-            controller.signal(handle, AgentSignal.INTERRUPT)
-            deadline = time.monotonic() + 5.0
-            while time.monotonic() < deadline:
-                if not controller.is_alive(handle):
-                    break
-                time.sleep(0.1)
-            assert not controller.is_alive(handle), "agent survived INTERRUPT"
-        finally:
-            controller.stop(handle, reason="test-teardown")
+        controller.signal(handle, AgentSignal.INTERRUPT)
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            if not controller.is_alive(handle):
+                break
+            time.sleep(0.1)
+        assert not controller.is_alive(handle), "agent survived INTERRUPT"
     finally:
-        for k, v in saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
+        controller.stop(handle, reason="test-teardown")
