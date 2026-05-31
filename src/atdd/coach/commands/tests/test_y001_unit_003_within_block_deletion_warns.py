@@ -14,7 +14,7 @@ import pytest
 from atdd.coach.commands.sync import AgentConfigSync
 
 # Headings that will NEVER appear in the real template — so they are guaranteed
-# to be "removed" when sync regenerates the block from the live ATDD.md.
+# to be "removed" when sync regenerates the block from the live CONDUCTOR.md.
 _PHANTOM_HEADING_1 = "## Phantom-Section-581-Alpha"
 _PHANTOM_HEADING_2 = "## Phantom-Section-581-Beta"
 

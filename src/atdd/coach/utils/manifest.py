@@ -6,7 +6,7 @@ feature definitions inside ``plan/<wagon>/features/``.
 
 Background
 ----------
-The ATDD convention (see ``coach/templates/ATDD.md``) declares the wagon
+The ATDD convention (see ``coach/templates/CONDUCTOR.md``) declares the wagon
 feature manifest at ``plan/*/_features.yaml``. The shared ``feature_files``
 fixture (``coach/validators/shared_fixtures.py``) globs ``*.yaml`` inside
 each ``features/`` directory and yields every match — including

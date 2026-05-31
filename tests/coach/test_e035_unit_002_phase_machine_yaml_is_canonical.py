@@ -5,11 +5,11 @@
 # Layer: backend.integration
 """AC-UNIT-002 — ``phase_machine.convention.yaml`` is the canonical source of
 phase transitions (matching docs/coach-decomposition.md §4.5), and the CLAUDE.md
-managed block (and the ATDD.md template it is generated from) no longer carry a
+managed block (and the CONDUCTOR.md template it is generated from) no longer carry a
 duplicate ``state_machine.transitions`` mapping.
 
 RED state: ``src/atdd/coach/conventions/phase_machine.convention.yaml`` does not
-exist yet, and the ATDD.md template still contains a ``state_machine:`` block.
+exist yet, and the CONDUCTOR.md template still contains a ``state_machine:`` block.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ pytestmark = pytest.mark.coach
 REPO_ROOT = find_repo_root()
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 PHASE_MACHINE_YAML = ATDD_PKG_DIR / "coach" / "conventions" / "phase_machine.convention.yaml"
-ATDD_TEMPLATE = ATDD_PKG_DIR / "coach" / "templates" / "ATDD.md"
+ATDD_TEMPLATE = ATDD_PKG_DIR / "coach" / "templates" / "CONDUCTOR.md"
 
 # §4.5 canonical data.
 EXPECTED = {
@@ -85,6 +85,6 @@ def test_claude_md_has_no_duplicate_state_machine_block():
 def test_atdd_template_has_no_duplicate_state_machine_block():
     text = ATDD_TEMPLATE.read_text()
     assert "state_machine:" not in text, (
-        "ATDD.md template still contains a state_machine transition table; "
+        "CONDUCTOR.md template still contains a state_machine transition table; "
         "remove it so CLAUDE.md regenerates without the duplicate (§4.5)."
     )
