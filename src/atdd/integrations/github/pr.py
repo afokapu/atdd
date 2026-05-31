@@ -110,6 +110,10 @@ def merge_pr(
     try:
         _gh.run_gh(["pr", "merge", str(pr), f"--{strategy}"])
     except GitHubIntegrationError as exc:
+        _log.warning(
+            "PR merge did not land; surfacing as lifecycle blocker",
+            extra={"pr": pr, "strategy": strategy, "error": str(exc)},
+        )
         return MergeResult(merged=False, reason=str(exc))
     sha = None
     try:

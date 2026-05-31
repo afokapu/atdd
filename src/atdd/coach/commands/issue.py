@@ -2230,7 +2230,11 @@ class IssueManager:
                 )
                 synced_via_pat = True
             except _NoProjectToken:
-                pass  # no PAT → fall back to ambient client below
+                logger.debug(
+                    "PROJECT_TOKEN not set; using ambient client for "
+                    "Projects v2 status sync",
+                    extra={"issue": issue_number},
+                )  # fall back to ambient client path below
             except _GhError as exc:
                 logger.warning(
                     "Projects v2 status sync via PROJECT_TOKEN failed; "
