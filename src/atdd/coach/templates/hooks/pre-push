@@ -50,17 +50,15 @@ fi
 
 # --- Version gate ---
 python3 -c "
+import sys
 try:
     from atdd.version_check import _gate_main
     _gate_main()
 except ImportError:
-    import sys
-    print('ATDD: version gate requires a newer atdd package.', file=sys.stderr)
-    try:
-        from atdd.version_check import upgrade_command
-        print('  Run: ' + upgrade_command(), file=sys.stderr)
-    except Exception:
-        print('  Run: pipx upgrade atdd', file=sys.stderr)
+    print('ATDD: the python3 running this hook (' + sys.executable + ') cannot import atdd.', file=sys.stderr)
+    print('  This is an environment/path problem, NOT a stale package: atdd is', file=sys.stderr)
+    print('  likely installed in an isolated venv (pipx) that is not on the path', file=sys.stderr)
+    print('  of this interpreter. Diagnose and fix:  atdd doctor', file=sys.stderr)
     sys.exit(1)
 " 2>&1
 if [ $? -ne 0 ]; then exit 1; fi

@@ -962,6 +962,21 @@ Phase descriptions:
         help="Output as JSON for programmatic use"
     )
 
+    # ----- atdd doctor -----
+    # Environment self-diagnosis (#928 Gap 4): flags the source-repo /
+    # foreign-install mismatch that silently makes `atdd validate` test the
+    # released wheel instead of the working tree, and the git-hook python3
+    # that cannot import atdd (the misleading "requires a newer atdd" gate).
+    subparsers.add_parser(
+        "doctor",
+        help="Diagnose the atdd install/environment (source-repo & hook interpreter)",
+        description=(
+            "Detect when atdd is imported from a foreign install while you are "
+            "in the source checkout (so validators test stale released code), "
+            "or when the git hooks' python3 cannot import atdd."
+        ),
+    )
+
     # ----- atdd plan <source> ... -----
     # PLAN-1 (#758): CLI shell for the planning brief entry point.
     # Single-phase: parse args, classify sources, dispatch to brief renderer.
@@ -2522,6 +2537,10 @@ Phase descriptions:
     elif args.command == "gate":
         gate = ATDDGate()
         return gate.verify(json=args.json)
+
+    elif args.command == "doctor":
+        from atdd.doctor import run_doctor
+        return run_doctor()
 
     elif args.command == "upgrade":
         upgrader = Upgrader()
