@@ -1382,6 +1382,17 @@ sessions:
   archived: null
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:extract-workflow-persistence-and-events-schema
+- id: '895'
+  slug: extract-workflow-issue-runner-and-workflow-runner-protocol
+  file: null
+  issue_number: 895
+  type: implementation
+  status: PLANNED
+  train: 0001-self-compliance-validate
+  created: '2026-05-31'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:extract-workflow-issue-runner-and-workflow-runner-protocol
 - id: '905'
   slug: resolve-pre-existing-467-broken-urn-refs-post-decomposition-cleanup
   file: null
