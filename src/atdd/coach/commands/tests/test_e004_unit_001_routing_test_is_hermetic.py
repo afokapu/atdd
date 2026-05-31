@@ -108,10 +108,10 @@ _SPAWN_OPS = ("new_workspace", "new_surface", "new_surface_in_pane", "new_person
 
 def test_routing_test_exercises_dispatch_without_multiplexer_spawn(tmp_path, monkeypatch):
     """Running the bare-number routing test must create zero real workspaces."""
-    from atdd.coach.commands import coach as coach_mod
     from atdd.coach.commands import spawn as cmd_spawn_mod
     from atdd.coach.handlers import spawn as spawn_handler
     from atdd.coach.utils import multiplexer as mux_mod
+    from atdd.train import issue_runner as issue_runner_mod
 
     spy = _SpyMultiplexer()
 
@@ -130,8 +130,10 @@ def test_routing_test_exercises_dispatch_without_multiplexer_spawn(tmp_path, mon
 
     # The cold-start watcher loop blocks until a terminal state is reached; the
     # routing test only asserts CLI dispatch, so neutralize the event loop to
-    # keep this test bounded.
-    monkeypatch.setattr(coach_mod, "_process_watcher_events", lambda *a, **k: None)
+    # keep this test bounded. Patch at the canonical home
+    # (atdd.train.issue_runner) rather than the deprecated coach.py shim
+    # being removed in #923.
+    monkeypatch.setattr(issue_runner_mod, "_process_watcher_events", lambda *a, **k: None)
 
     # Keep all coach runtime artifacts (.atdd/runtime) inside tmp_path.
     monkeypatch.chdir(tmp_path)
@@ -174,10 +176,10 @@ def test_routing_test_exercises_dispatch_without_multiplexer_spawn(tmp_path, mon
 
 def test_routing_test_creates_no_atdd_workspace_outside_tmp_path(tmp_path, monkeypatch):
     """No ATDD<issue> directory or runtime artifact escapes the test sandbox."""
-    from atdd.coach.commands import coach as coach_mod
     from atdd.coach.commands import spawn as cmd_spawn_mod
     from atdd.coach.handlers import spawn as spawn_handler
     from atdd.coach.utils import multiplexer as mux_mod
+    from atdd.train import issue_runner as issue_runner_mod
 
     spy = _SpyMultiplexer()
     monkeypatch.setattr(cmd_spawn_mod, "_resolve_multiplexer", lambda preferred=None: spy)
@@ -189,7 +191,9 @@ def test_routing_test_creates_no_atdd_workspace_outside_tmp_path(tmp_path, monke
     monkeypatch.setattr(spawn_handler, "_resolve_worktree", lambda ctx: worktree)
     monkeypatch.setattr(spawn_handler, "_load_persona_prompt", lambda p, ph, **kw: "stub prompt")
     monkeypatch.setattr(spawn_handler, "_RUNTIME_ROOT", tmp_path / ".atdd" / "runtime")
-    monkeypatch.setattr(coach_mod, "_process_watcher_events", lambda *a, **k: None)
+    # Patch at the canonical home (atdd.train.issue_runner) rather than the
+    # deprecated coach.py shim being removed in #923.
+    monkeypatch.setattr(issue_runner_mod, "_process_watcher_events", lambda *a, **k: None)
     monkeypatch.chdir(tmp_path)
 
     from atdd.coach.commands.tests import (

@@ -1285,12 +1285,15 @@ def run(
     if cfg.resume is not None:
         from atdd.coach.commands.durability import DecisionWriter
         from atdd.coach.commands.resume import ResumeRunner
+        from atdd.train import issue_runner as _issue_runner
 
         writer = DecisionWriter(runtime_dir=runtime_dir)
         # Wire ResumeRunner with a real transition_action so each pending
         # phase is genuinely orchestrated (persona spawn + work) rather than
         # paper-stamped to COMPLETE — issue #734.
-        transition_action = _transition_action_override or _make_resume_transition_action(
+        # Calls the canonical home directly (atdd.train.issue_runner) rather
+        # than the deprecated coach.py shim that will be removed in #923.
+        transition_action = _transition_action_override or _issue_runner.make_resume_transition_action(
             cfg,
             runtime_dir,
             multiplexer_backend=_multiplexer_backend,
