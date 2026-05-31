@@ -2,7 +2,7 @@
 
 ---
 missions:
-  orchestrate_atdd: "ATDD lifecycle (planner → tester RED → coder GREEN → tester SMOKE → coder REFACTOR)"
+  orchestrate_atdd: "ATDD lifecycle (planner INIT → tester PLANNED → coder RED → tester GREEN → coder SMOKE → coder REFACTOR)"
   validate_phase_transitions: "Phase transitions and quality gates per conventions and schemas"
   required: true
 
