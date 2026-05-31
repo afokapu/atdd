@@ -2211,8 +2211,39 @@ class IssueManager:
                 client.remove_label(issue_number, phase_labels)
             client.add_label(issue_number, [f"atdd:{status}"])
 
-            # Update Project field
-            if "ATDD Status" in fields:
+            # Update Projects v2 Status field. Prefer the dedicated
+            # PROJECT_TOKEN-backed adapter (docs/coach-decomposition.md §4.10,
+            # closes #882: the default GITHUB_TOKEN cannot write Projects v2,
+            # #404). When no PAT is configured the adapter raises
+            # MissingProjectTokenError and we fall back to the ambient-auth
+            # client path below — preserving the #384 label-only behaviour.
+            from atdd.integrations.github import projects_v2
+            from atdd.integrations.github.types import (
+                GitHubIntegrationError as _GhError,
+                MissingProjectTokenError as _NoProjectToken,
+            )
+
+            synced_via_pat = False
+            try:
+                projects_v2.sync_status_field(
+                    issue_number, status, repo_root=self.target_dir
+                )
+                synced_via_pat = True
+            except _NoProjectToken:
+                logger.debug(
+                    "PROJECT_TOKEN not set; using ambient client for "
+                    "Projects v2 status sync",
+                    extra={"issue": issue_number},
+                )  # fall back to ambient client path below
+            except _GhError as exc:
+                logger.warning(
+                    "Projects v2 status sync via PROJECT_TOKEN failed; "
+                    "falling back to label/ambient sync. "
+                    "See docs/operator-projects-v2-token.md",
+                    extra={"issue": issue_number, "error": str(exc)},
+                )
+
+            if not synced_via_pat and "ATDD Status" in fields:
                 options = fields["ATDD Status"].get("options", {})
                 if status in options:
                     client.set_project_field_select(

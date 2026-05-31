@@ -1343,6 +1343,24 @@ sessions:
   train: 0001-self-compliance-validate
   created: '2026-05-31'
   archived: null
+- id: '891'
+  slug: extract-github-integrations-and-ship-projects-v2-sync
+  file: null
+  issue_number: 891
+  type: implementation
+  status: REFACTOR
+  train: 0001-self-compliance-validate
+  created: '2026-05-31'
+  archived: null
+- id: '892'
+  slug: extract-runtime-worktree-preserving-incident-defenses
+  file: null
+  issue_number: 892
+  type: implementation
+  status: REFACTOR
+  train: 0001-self-compliance-validate
+  created: '2026-05-31'
+  archived: null
 - id: '893'
   slug: extract-runtime-agent-control-and-close-spawn-cluster
   file: null
