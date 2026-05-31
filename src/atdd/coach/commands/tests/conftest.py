@@ -51,6 +51,19 @@ class _ObserverProcFactory:
 
 
 @pytest.fixture(autouse=True)
+def _default_legacy_spawn_transport(monkeypatch) -> Iterator[None]:
+    """Child 6 (#893, docs/coach-decomposition.md §13.6) flipped the spawn
+    dispatch default to cli-return. The cmd_spawn tests in this directory assert
+    the legacy tui-scrape (paste + readiness probe) path, reached only under the
+    ATDD_USE_LEGACY_SPAWN=1 kill switch (§12.4 R-4), which reproduces the
+    pre-extraction default byte-for-byte. Tests targeting the new cli-return
+    default set ATDD_CORRECTION_TRANSPORT=cli-return (wins by precedence)."""
+    if "ATDD_USE_LEGACY_SPAWN" not in os.environ:
+        monkeypatch.setenv("ATDD_USE_LEGACY_SPAWN", "1")
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _reap_leaked_observers() -> Iterator[None]:
     """Autouse guard: kill any orphaned 'atdd observer run' processes after each test."""
     yield

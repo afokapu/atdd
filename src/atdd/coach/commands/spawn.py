@@ -832,10 +832,24 @@ def _inject_agent_env(
 # ---------------------------------------------------------------------------
 
 
-def _correction_transport() -> str:
-    """Return the active correction transport from the environment.
+def _resolve_transport(env: dict[str, str] | None = None) -> str:
+    """Resolve the dispatch transport (Child 6, docs/coach-decomposition.md §13.6).
 
-    Returns 'cli-return' when ATDD_CORRECTION_TRANSPORT=cli-return, else ''.
+    cli-return is the DEFAULT control plane; ``ATDD_USE_LEGACY_SPAWN=1`` (the
+    §12.4 R-4 kill switch) routes back to the pre-extraction tui-scrape path.
+    Delegates to ``atdd.runtime.agent_control.resolve_transport`` so the policy
+    lives in one place.
+    """
+    from atdd.runtime.agent_control import resolve_transport
+
+    return resolve_transport(env)
+
+
+def _correction_transport() -> str:
+    """DEPRECATED back-compat alias of the legacy opt-in transport read.
+
+    Retained so any external caller keeps working; new dispatch logic uses
+    ``_resolve_transport`` (cli-return by default). Removal target: 3.87.0.
     """
     return os.environ.get("ATDD_CORRECTION_TRANSPORT", "").strip().lower()
 
@@ -1412,7 +1426,7 @@ def cmd_spawn(
     # the adapter runs in the shim-owned pty; the launch prompt is delivered
     # via cli-return.jsonl instead of paste_text + send_key.
     agent_dir = _agent_runtime_dir(runtime_root, agent_id)
-    using_cli_return = _correction_transport() == "cli-return"
+    using_cli_return = _resolve_transport() == "cli-return"
     if using_cli_return:
         _prime_cli_return_inbox(agent_dir, prompt_path.read_text())
         command = _build_shim_command(command, agent_id, runtime_root, env_overrides=env_overrides)
@@ -1532,7 +1546,7 @@ def cmd_spawn(
             proc=None,
             agent_id=agent_id,
             runtime_dir=agent_dir,
-            transport=_correction_transport(),
+            transport=_resolve_transport(),
             timeout_s=process_alive_timeout,
         )
     except ProcessNotAlive as exc:
