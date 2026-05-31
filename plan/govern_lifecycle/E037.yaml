@@ -1,0 +1,96 @@
+urn: "wmbt:govern-lifecycle:E037"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "validator-report-and-persistence-contracts-drifting-or-being-defined-ad-hoc-across-the-coach-decomposition-layers"
+context_clarifier: "when the Coach decomposition (docs/coach-decomposition.md, umbrella #887) freezes the validator-emission and persistence contracts as Child 3 — re-exporting the frozen §4.2 ValidatorReport from atdd.validators, shipping atdd.validators.emit.emit_reports that appends run-scoped JSONL, migrating the per-persona disposition gate to emit ValidatorReport rows, and defining the §4.6 PersistenceStore Protocol, the §4.4 load_conventions signature, and the §5.2 events.jsonl schema (schema_version 1.0) as the typed seam Children 7 and 8 build against"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of validator-report-and-persistence-contracts-drifting-or-being-defined-ad-hoc-across-the-coach-decomposition-layers by re-exporting the §4.2 ValidatorReport from atdd.validators, shipping atdd.validators.emit.emit_reports (run-scoped JSONL, best-effort), routing the disposition gate through it, and freezing the §4.6 PersistenceStore Protocol, the §4.4 load_conventions signature, and the §5.2 events.jsonl schema as signatures-only contracts for Children 7 and 8 (#890)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E037-UNIT-001-validator-report-emit-contract"
+      id: "AC-UNIT-001"
+      purpose: "The frozen §4.2 ValidatorReport is re-exported from atdd.validators, and atdd.validators.emit.emit_reports appends one JSONL row per report to the active run sink while staying a safe no-op when no run context is configured"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.coach.core.types.ValidatorReport is a frozen dataclass carrying the §4.2 fields (validator_id, rule_id, severity, disposition, unsuppressed_count, location, detail, fix_hint_ref)"
+        - "atdd.validators re-exports ValidatorReport and emit_reports as the stable validator-emission import location"
+        - "A temporary reports sink is selected via the ATDD_VALIDATOR_REPORTS_PATH environment variable"
+    when:
+      abstract: "emit_reports is called once with a tuple of ValidatorReport rows while the sink env var is set, and once while no run-context env var is set"
+    then:
+      abstract:
+        - "with the sink configured, the file contains exactly one JSON object per emitted report, each round-tripping every §4.2 field"
+        - "with no run context configured, emit_reports is a no-op and writes nothing"
+        - "ValidatorReport is frozen — attempting to mutate a field raises"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E037-UNIT-002-persistence-store-protocol"
+      id: "AC-UNIT-002"
+      purpose: "atdd.train.persistence exposes the §4.6 PersistenceStore Protocol with every method, the §4.4 load_conventions signature, and IssueRecord, and atdd.train.types exposes the §4.7 run/event value types — the typed seam Children 7 and 8 import"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.train.persistence defines PersistenceStore (a typing.Protocol), IssueRecord, and load_conventions"
+        - "atdd.train.types defines RunId, RunStatus, RunSummary, RunState, WaveResult, and TrainEvent"
+    when:
+      abstract: "the PersistenceStore Protocol members are introspected and load_conventions is invoked"
+    then:
+      abstract:
+        - "from atdd.train.persistence import PersistenceStore, load_conventions succeeds"
+        - "PersistenceStore declares every §4.6 method: create_run, load_run, list_runs, append_event, replay_events, append_decision, get_issue, upsert_issue, materialize_evidence"
+        - "load_conventions raises NotImplementedError (signature only; the body ships in Child 7) and the §4.7 train value types are importable"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E037-UNIT-003-events-jsonl-schema"
+      id: "AC-UNIT-003"
+      purpose: "atdd.train.events freezes the §5.2 events.jsonl schema at schema_version 1.0, enumerates the initial event types with their required payload keys, and validates event dicts purely"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.train.events exposes SCHEMA_VERSION, REQUIRED_EVENT_FIELDS, EVENT_TYPES, and validate_event_dict"
+    when:
+      abstract: "the constants are inspected and validate_event_dict is called with a well-formed event and with malformed events"
+    then:
+      abstract:
+        - "SCHEMA_VERSION == '1.0' and REQUIRED_EVENT_FIELDS includes schema_version, ts, run_id, issue_number, type, payload, seq"
+        - "EVENT_TYPES contains the §5.2 initial set (RunStarted, EvidenceMaterialized, DecisionMade, DispatchEmitted, AgentSpawned, AgentReady, AgentEventReceived, AgentDone, PhaseAdvanced, PrOpened, PrMerged, RunBlocked, RunEscalated, RunCompleted, RunResumed)"
+        - "validate_event_dict returns an empty tuple for a valid event and a non-empty tuple naming the problem for a missing field, an unknown type, or an unsupported schema major"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E037-SMOKE-001-real-collect-reports-emission"
+      id: "AC-SMOKE-001"
+      purpose: "A real disposition-gate invocation in a real process, with a real run sink on disk, emits a real ValidatorReport row — exercising the actual gate adapter and filesystem, not an in-memory stub"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd package is importable from local source and runnable as a subprocess"
+        - "ATDD_VALIDATOR_REPORTS_PATH points at a real temp file the subprocess may write"
+    when:
+      abstract: "a subprocess imports atdd.coach.utils.disposition_gate and calls assert_disposition_satisfied with a structured violation for an unknown rule_id (strict tier)"
+    then:
+      abstract:
+        - "the on-disk validator-reports.jsonl contains at least one ValidatorReport row whose rule_id matches the violation and whose disposition is 'block' (strict gate tier mapped to the §4.2 vocabulary)"
+        - "emission occurs whether or not the gate ultimately fails, and never alters the gate verdict"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-05-31"
