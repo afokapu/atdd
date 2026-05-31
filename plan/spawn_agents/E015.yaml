@@ -47,28 +47,12 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-24"
 
-  - identity:
-      urn: "acc:spawn-agents:E015-UNIT-002-atdd-md-init-phase-instructs-pre-commit-validate-planner"
-      id: "AC-UNIT-002"
-      purpose: "ATDD.md template INIT phase block contains a pre_commit_gate key naming planner.wmbt.must-have-smoke-acceptance and the validate command with a 'BEFORE committing PLANNED' timing annotation"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/templates/ATDD.md is read from the filesystem"
-    when:
-      abstract: "The file content is inspected for the pre_commit_gate block in the INIT phase section"
-    then:
-      abstract:
-        - "The string 'planner.wmbt.must-have-smoke-acceptance' appears in the file"
-        - "The string 'atdd validate planner --local --skip-api' appears in the INIT phase context"
-        - "A 'before committing' timing annotation accompanies the validate command reference"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-24"
-
+  # AC-UNIT-002 (acc:spawn-agents:E015-UNIT-002-atdd-md-init-phase-instructs-pre-commit-validate-planner)
+  # removed in #925 — the assertion that the INIT phase carries a pre_commit_gate
+  # invoking `atdd validate planner` is now anchored to the canonical convention,
+  # not the template (see test_phase_machine_init_pre_commit_gate.py). The
+  # 'before committing' timing semantic is encoded by the field name
+  # (pre_commit_gate) — no separate prose assertion needed.
   - identity:
       urn: "acc:spawn-agents:E015-SMOKE-001-deployed-templates-contain-smoke-acceptance-checklist"
       id: "AC-SMOKE-001"
