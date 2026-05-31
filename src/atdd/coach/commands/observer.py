@@ -1720,10 +1720,17 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="atdd observer",
         description=(
             "Coach v9 detect-and-correct sidecar (issue #500). Subcommands: "
-            "run / attach / status / aggregate-approve."
+            "view / run / attach / status / aggregate-approve."
         ),
     )
     sub = parser.add_subparsers(dest="subcommand", required=True)
+
+    # First-class READ-ONLY consumer (§8, #897). Surfaces the live event
+    # stream without ever writing events.jsonl / output.log.
+    view_p = sub.add_parser("view", help="Read-only live view of the train event stream (§8)")
+    view_p.add_argument("--repo-root", default=".")
+    view_p.add_argument("--limit", type=int, default=None)
+    view_p.add_argument("--output-log", default=None)
 
     run_p = sub.add_parser("run", help="Tail an agent and dispatch corrections")
     run_p.add_argument("--agent-id", required=True)
@@ -1757,6 +1764,15 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.subcommand == "view":
+        # Delegate to the first-class read-only consumer (§8, #897).
+        from atdd.observer import run as _observer_view
+        view_argv = ["--repo-root", args.repo_root]
+        if args.limit is not None:
+            view_argv += ["--limit", str(args.limit)]
+        if args.output_log:
+            view_argv += ["--output-log", args.output_log]
+        return _observer_view(view_argv)
     runtime = Path(args.runtime_dir) if getattr(args, "runtime_dir", None) else None
     if args.subcommand == "run":
         rules = Path(args.rules_dir) if args.rules_dir else None

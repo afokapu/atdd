@@ -161,6 +161,25 @@ def test_i5_persona_matches_phase_machine_agent():
 
 
 # --------------------------------------------------------------------------- #
+# I-6 — Single observer lifecycle (atdd.observer singleton)
+#       Two observers can never disagree about / race on the surfaced stream.
+# --------------------------------------------------------------------------- #
+def test_i6_observer_session_is_singleton(tmp_path):
+    from atdd.observer import ObserverAlreadyRunningError, ObserverSession
+
+    ObserverSession._active = None
+    try:
+        first = ObserverSession(tmp_path).start()
+        with pytest.raises(ObserverAlreadyRunningError):
+            ObserverSession(tmp_path).start()
+        first.stop()
+        # slot released → a fresh session may start
+        ObserverSession(tmp_path).start().stop()
+    finally:
+        ObserverSession._active = None
+
+
+# --------------------------------------------------------------------------- #
 # I-7 — No-progress TTL escalation (train.issue_runner helper)
 # --------------------------------------------------------------------------- #
 def test_i7_no_progress_ttl_escalates(tmp_path, monkeypatch):
