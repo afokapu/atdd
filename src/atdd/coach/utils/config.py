@@ -157,6 +157,36 @@ def get_validation_config(repo_root: Path) -> Dict[str, Any]:
     return validation_config
 
 
+def get_train_runner_config(repo_root: Path) -> Dict[str, Any]:
+    """Get the TrainRunner configuration (docs/coach-decomposition.md §7.4).
+
+    Reads the reserved ``train:`` block of ``.atdd/config.yaml``. Only the
+    ``jsonl`` runner is implemented in Child 8 (#895); ``temporal``/``langgraph``
+    are reserved names (§7.2/§7.3). Defaults are applied when the block — or the
+    whole file — is absent.
+
+    Returns:
+        Dict with at least ``runner`` (default ``"jsonl"``) and the reserved
+        ``concurrency`` / ``resume`` / ``conventions`` sub-blocks.
+    """
+    config = load_atdd_config(repo_root)
+    train_config = config.get("train", {})
+    if not isinstance(train_config, dict):
+        train_config = {}
+
+    defaults = {
+        "runner": "jsonl",
+        "concurrency": {"max_parallel_issues": 4},
+        "resume": {"auto_resume_on_start": False},
+        "conventions": {"snapshot_on_run_start": True},
+    }
+    for key, default_value in defaults.items():
+        if key not in train_config:
+            train_config[key] = default_value
+
+    return train_config
+
+
 def is_feature_enabled(repo_root: Path, feature: str) -> bool:
     """
     Check if a specific feature is enabled in config.
