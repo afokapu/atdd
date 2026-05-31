@@ -161,6 +161,24 @@ def _normalized_snapshot(phase_machine: dict[Phase, PhaseSpec]) -> str:
     return yaml.safe_dump({"phases": phases}, sort_keys=True, default_flow_style=False)
 
 
+def _freeze(phase_machine: dict[Phase, PhaseSpec], source: Path) -> Conventions:
+    """Normalize + hash a phase machine into a frozen :class:`Conventions`.
+
+    Shared by :func:`load_conventions` (reads source conventions) and
+    :func:`load_conventions_for_run` (reads a run's frozen snapshot) so the hash
+    is computed identically in both directions.
+    """
+    snapshot_text = _normalized_snapshot(phase_machine)
+    snapshot_hash = hashlib.sha256(snapshot_text.encode("utf-8")).hexdigest()
+    return Conventions(
+        phase_machine=phase_machine,
+        rules={},
+        prompt_templates={},
+        snapshot_hash=snapshot_hash,
+        snapshot_paths=(str(source),),
+    )
+
+
 def load_conventions(repo_root: Path) -> Conventions:
     """Load + normalize the convention YAML, compute the snapshot hash, freeze it.
 
@@ -170,16 +188,7 @@ def load_conventions(repo_root: Path) -> Conventions:
     """
     path = _phase_machine_path(repo_root)
     data = yaml.safe_load(path.read_text()) or {}
-    phase_machine = _phase_machine_from_data(data)
-    snapshot_text = _normalized_snapshot(phase_machine)
-    snapshot_hash = hashlib.sha256(snapshot_text.encode("utf-8")).hexdigest()
-    return Conventions(
-        phase_machine=phase_machine,
-        rules={},
-        prompt_templates={},
-        snapshot_hash=snapshot_hash,
-        snapshot_paths=(str(path),),
-    )
+    return _freeze(_phase_machine_from_data(data), path)
 
 
 # --------------------------------------------------------------------------- #
@@ -726,16 +735,7 @@ def load_conventions_for_run(run_dir: Path) -> Conventions:
     """
     snapshot = run_dir / "conventions.snapshot.yaml"
     data = yaml.safe_load(snapshot.read_text()) or {}
-    phase_machine = _phase_machine_from_data(data)
-    snapshot_text = _normalized_snapshot(phase_machine)
-    snapshot_hash = hashlib.sha256(snapshot_text.encode("utf-8")).hexdigest()
-    return Conventions(
-        phase_machine=phase_machine,
-        rules={},
-        prompt_templates={},
-        snapshot_hash=snapshot_hash,
-        snapshot_paths=(str(snapshot),),
-    )
+    return _freeze(_phase_machine_from_data(data), snapshot)
 
 
 __all__ = [
