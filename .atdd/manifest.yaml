@@ -1516,6 +1516,8 @@ sessions:
   wagon: govern-lifecycle
 - id: '928-gap2'
   slug: atdd-cleanup-command
+- id: '928-graphctx'
+  slug: graph-context-wagonless-compliance
   file: null
   issue_number: 928
   type: tracking
