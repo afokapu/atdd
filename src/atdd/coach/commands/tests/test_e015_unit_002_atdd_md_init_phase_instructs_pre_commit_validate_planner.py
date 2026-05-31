@@ -1,16 +1,15 @@
 # Acceptance: acc:spawn-agents:E015-UNIT-002-atdd-md-init-phase-instructs-pre-commit-validate-planner
 """
-E015 AC-UNIT-002: CONDUCTOR.md template INIT phase block contains a pre_commit_gate
-key naming planner.wmbt.must-have-smoke-acceptance and the validate command with
-a 'BEFORE committing PLANNED' timing annotation.
+E015 AC-UNIT-002: CONDUCTOR.md template INIT phase block surfaces the
+pre-commit validate command and its 'BEFORE committing PLANNED' timing.
 
 CONDUCTOR.md is the persistent instruction file installed in every worktree via
-atdd sync. Augmenting the INIT phase with an explicit pre_commit_gate ensures
-any agent that reads the worktree CLAUDE.md sees the gate requirement, not just
-agents reading the spawn-time SESSION-LAUNCH-TEMPLATE.md.
-
-Convention: src/atdd/planner/conventions/wmbt.convention.yaml
-            (rule planner.wmbt.must-have-smoke-acceptance)
+atdd sync. The INIT phase block carries operator-facing instructions that
+belong in the template (the command name + the timing annotation). It does NOT
+carry the planner.wmbt.must-have-smoke-acceptance rule id itself — that rule's
+canonical home is src/atdd/planner/conventions/wmbt.convention.yaml, and the
+rule-registration assertion lives in src/atdd/planner/validators/
+test_wmbt_smoke_acceptance_rule_registered.py (#921).
 """
 from __future__ import annotations
 
@@ -26,7 +25,6 @@ _TEMPLATE_PATH = (
     / "CONDUCTOR.md"
 )
 
-RULE_ID = "planner.wmbt.must-have-smoke-acceptance"
 VALIDATE_CMD = "atdd validate planner --local --skip-api"
 
 
@@ -52,15 +50,6 @@ def _init_phase_section(content: str) -> str:
         if in_section:
             out.append(line)
     return "\n".join(out)
-
-
-def test_atdd_md_names_must_have_smoke_acceptance_rule() -> None:
-    """CONDUCTOR.md contains the rule ID 'planner.wmbt.must-have-smoke-acceptance'."""
-    content = _read_template()
-    assert RULE_ID in content, (
-        f"CONDUCTOR.md does not contain the rule ID '{RULE_ID}'. "
-        "Add a pre_commit_gate key to the INIT phase block in the atdd_cycle.phases section."
-    )
 
 
 def test_atdd_md_init_phase_includes_validate_planner_command() -> None:
