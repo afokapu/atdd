@@ -2,6 +2,6 @@ feature: extract-runtime-agent-control-and-close-spawn-cluster
 wagon: govern-lifecycle
 urn: "feature:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster"
 wmbts:
-  - "wmbt:govern-lifecycle:E038"
+  - "wmbt:govern-lifecycle:E039"
 references:
   - "docs/coach-decomposition.md"

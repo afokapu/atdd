@@ -1,4 +1,4 @@
-urn: "wmbt:govern-lifecycle:E038"
+urn: "wmbt:govern-lifecycle:E039"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of agent-control-and-prompt-delivery-staying-coupled-to-coach-via-screen-scrape-so-paste-landed-submit-and-stdin-gaps-keep-regressing by extracting atdd.runtime.agent_control with cli-return as the default control plane (ShimAgentController whose deliver_prompt injects AND submits, and whose signal(INTERRUPT) terminates the wrapped agent), shipping the view-only atdd.runtime.multiplexer Protocol with control methods stripped, providing the ATDD_USE_LEGACY_SPAWN=1 kill switch, and routing spawn dispatch through the controller while keeping coach.core import-free of runtime (#893, closes #840/#871/#872)"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:E038-UNIT-001-agent-control-typed-surface"
+      urn: "acc:govern-lifecycle:E039-UNIT-001-agent-control-typed-surface"
       id: "AC-UNIT-001"
       purpose: "atdd.runtime.agent_control exposes the §4.8 typed surface and atdd.runtime.multiplexer exposes the §4.9 view-only Protocol with no control methods, and neither layer imports atdd.coach / atdd.train / atdd.integrations / the sibling runtime layer"
       phase: "GREEN"
@@ -32,7 +32,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-31"
   - identity:
-      urn: "acc:govern-lifecycle:E038-UNIT-002-deliver-prompt-injects-and-submits"
+      urn: "acc:govern-lifecycle:E039-UNIT-002-deliver-prompt-injects-and-submits"
       id: "AC-UNIT-002"
       purpose: "ShimAgentController.deliver_prompt writes the prompt to the cli-return.jsonl correction inbox AND the running shim drains it and appends the submit sentinel — closing the #872 submit gap; the check drains cli-return.jsonl directly rather than via cmux paste"
       phase: "GREEN"
@@ -54,7 +54,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-31"
   - identity:
-      urn: "acc:govern-lifecycle:E038-UNIT-003-signal-interrupt-terminates"
+      urn: "acc:govern-lifecycle:E039-UNIT-003-signal-interrupt-terminates"
       id: "AC-UNIT-003"
       purpose: "AgentController.signal(handle, AgentSignal.INTERRUPT) reaches the wrapped agent and terminates it — closing the #871 stdin/INTERRUPT gap"
       phase: "GREEN"
@@ -74,7 +74,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-31"
   - identity:
-      urn: "acc:govern-lifecycle:E038-UNIT-004-cli-return-default-legacy-kill-switch"
+      urn: "acc:govern-lifecycle:E039-UNIT-004-cli-return-default-legacy-kill-switch"
       id: "AC-UNIT-004"
       purpose: "cli-return is the default control plane and ATDD_USE_LEGACY_SPAWN=1 routes spawn dispatch back to the pre-extraction TUI-scrape path (kill switch, §12.4 R-4)"
       phase: "GREEN"
@@ -94,7 +94,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-31"
   - identity:
-      urn: "acc:govern-lifecycle:E038-SMOKE-001-real-shim-deliver-and-interrupt"
+      urn: "acc:govern-lifecycle:E039-SMOKE-001-real-shim-deliver-and-interrupt"
       id: "AC-SMOKE-001"
       purpose: "A real ShimAgentController in a real process wraps a real child agent in a real pty, delivers a prompt that is observably injected-and-submitted into the agent's output within 5s, and an INTERRUPT signal terminates the real wrapped process — exercising the actual pty/cli-return/output.log path, not an in-memory stub (closes #871/#872 end to end)"
       phase: "SMOKE"

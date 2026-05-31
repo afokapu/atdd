@@ -1,10 +1,10 @@
-# URN: test:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster:E038-UNIT-001-agent-control-typed-surface
-# Acceptance: acc:govern-lifecycle:E038-UNIT-001-agent-control-typed-surface
-# WMBT: wmbt:govern-lifecycle:E038
+# URN: test:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster:E039-UNIT-001-agent-control-typed-surface
+# Acceptance: acc:govern-lifecycle:E039-UNIT-001-agent-control-typed-surface
+# WMBT: wmbt:govern-lifecycle:E039
 # Phase: RED
 # Assertion: behavioral
 # Layer: runtime
-"""E038-UNIT-001 — typed surface of the extracted runtime agent-control layer.
+"""E039-UNIT-001 — typed surface of the extracted runtime agent-control layer.
 
 docs/coach-decomposition.md §4.8 (AgentController + DispatchSpec), §4.9
 (view-only Multiplexer Protocol), §3.3 (dependency rules). Child 6 ships

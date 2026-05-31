@@ -5,12 +5,15 @@
 # Layer: application
 # Runtime: python
 # Assertion: behavioral
-"""E004-UNIT-003 — when ATDD_CORRECTION_TRANSPORT is unset or not 'cli-return',
-cmd_spawn falls back to the existing direct-adapter dispatch path: no shim
-wrapping, launch prompt via paste_text + send_key as before.
+"""E004-UNIT-003 — fallback to the direct (tui-scrape) dispatch path.
 
-This is a regression guard: the shim opt-in path must not change behavior for
-all existing callers that don't set ATDD_CORRECTION_TRANSPORT=cli-return.
+NOTE (Child 6, #893, docs/coach-decomposition.md §13.6): cli-return is now the
+DEFAULT control plane. The direct paste path (no shim wrapping; launch prompt via
+paste_text + send_key) is the LEGACY fallback, reached only under the
+``ATDD_USE_LEGACY_SPAWN=1`` kill switch (§12.4 R-4) or an explicit
+``ATDD_CORRECTION_TRANSPORT`` override that is not ``cli-return``. This test now
+guards that fallback path; the default-is-cli-return contract is covered by
+E038-UNIT-004.
 """
 from __future__ import annotations
 
@@ -110,6 +113,12 @@ def _run_cmd_spawn(tmp_path, multiplexer, monkeypatch):
         patch("atdd.coach.commands.spawn._emit_agent_spawned_event"),
         patch("atdd.coach.commands.spawn._spawn_observer_if_configured"),
         patch("atdd.coach.utils.config.load_atdd_config", return_value=MagicMock()),
+        # The legacy (tui-scrape) path runs an adapter readiness probe + stage
+        # verifications that a FakeMultiplexer can't satisfy; isolate the
+        # surface-command / priming assertions under test by no-op'ing them.
+        patch("atdd.coach.commands.spawn.SurfaceMarkerProbe.wait_for_ready"),
+        patch("atdd.coach.commands.spawn._verify_stage"),
+        patch("atdd.coach.commands.spawn._assert_worker_processing"),
     ):
         spawn.cmd_spawn(
             persona="coder",
@@ -123,12 +132,10 @@ def _run_cmd_spawn(tmp_path, multiplexer, monkeypatch):
     return runtime
 
 
-def test_no_shim_when_transport_is_not_set(tmp_path, monkeypatch):
-    """When ATDD_CORRECTION_TRANSPORT is unset, the bare adapter command is used.
-
-    This is a backward-compat guard: changing to cli-return must be opt-in only.
-    """
+def test_no_shim_under_legacy_spawn_kill_switch(tmp_path, monkeypatch):
+    """ATDD_USE_LEGACY_SPAWN=1 routes back to the direct (no-shim) paste path."""
     monkeypatch.delenv("ATDD_CORRECTION_TRANSPORT", raising=False)
+    monkeypatch.setenv("ATDD_USE_LEGACY_SPAWN", "1")
     fake_mx = _FakeMultiplexer()
     _run_cmd_spawn(tmp_path, fake_mx, monkeypatch)
 
@@ -136,18 +143,19 @@ def test_no_shim_when_transport_is_not_set(tmp_path, monkeypatch):
     surface_cmd = fake_mx.surface_commands[-1]
 
     assert not surface_cmd.startswith("atdd-shim"), (
-        f"Without ATDD_CORRECTION_TRANSPORT=cli-return, the command must NOT be "
-        f"wrapped with atdd-shim. Got: {surface_cmd!r}"
+        f"Under ATDD_USE_LEGACY_SPAWN=1 the command must NOT be wrapped with "
+        f"atdd-shim. Got: {surface_cmd!r}"
     )
-    assert "atdd.coach.shim" not in surface_cmd, (
-        f"Without ATDD_CORRECTION_TRANSPORT=cli-return, the command must NOT "
-        f"reference atdd.coach.shim. Got: {surface_cmd!r}"
+    assert "atdd.coach.shim" not in surface_cmd and "atdd.runtime.agent_control" not in surface_cmd, (
+        f"Under ATDD_USE_LEGACY_SPAWN=1 the command must NOT reference the shim. "
+        f"Got: {surface_cmd!r}"
     )
 
 
 def test_no_shim_when_transport_is_multiplexer_send(tmp_path, monkeypatch):
-    """When ATDD_CORRECTION_TRANSPORT=multiplexer-send, the existing direct path
-    is used (no shim wrapping)."""
+    """An explicit ATDD_CORRECTION_TRANSPORT=multiplexer-send override uses the
+    direct path (no shim wrapping)."""
+    monkeypatch.delenv("ATDD_USE_LEGACY_SPAWN", raising=False)
     monkeypatch.setenv("ATDD_CORRECTION_TRANSPORT", "multiplexer-send")
     fake_mx = _FakeMultiplexer()
     _run_cmd_spawn(tmp_path, fake_mx, monkeypatch)
@@ -161,10 +169,11 @@ def test_no_shim_when_transport_is_multiplexer_send(tmp_path, monkeypatch):
     )
 
 
-def test_no_cli_return_priming_when_transport_not_cli_return(tmp_path, monkeypatch):
-    """When ATDD_CORRECTION_TRANSPORT is unset, no cli-return.jsonl inbox priming
-    entry is written before the surface is created."""
+def test_no_cli_return_priming_under_legacy_spawn(tmp_path, monkeypatch):
+    """Under ATDD_USE_LEGACY_SPAWN=1, no cli-return.jsonl inbox priming entry is
+    written before the surface is created."""
     monkeypatch.delenv("ATDD_CORRECTION_TRANSPORT", raising=False)
+    monkeypatch.setenv("ATDD_USE_LEGACY_SPAWN", "1")
     fake_mx = _FakeMultiplexer()
     runtime = _run_cmd_spawn(tmp_path, fake_mx, monkeypatch)
 

@@ -1,10 +1,10 @@
-# URN: test:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster:E038-UNIT-002-deliver-prompt-injects-and-submits
-# Acceptance: acc:govern-lifecycle:E038-UNIT-002-deliver-prompt-injects-and-submits
-# WMBT: wmbt:govern-lifecycle:E038
+# URN: test:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster:E039-UNIT-002-deliver-prompt-injects-and-submits
+# Acceptance: acc:govern-lifecycle:E039-UNIT-002-deliver-prompt-injects-and-submits
+# WMBT: wmbt:govern-lifecycle:E039
 # Phase: RED
 # Assertion: behavioral
 # Layer: runtime
-"""E038-UNIT-002 — deliver_prompt injects AND submits (closes #872).
+"""E039-UNIT-002 — deliver_prompt injects AND submits (closes #872).
 
 docs/coach-decomposition.md §4.8: ``deliver_prompt`` "MUST inject AND submit".
 The proper integration check drains cli-return.jsonl directly (NOT cmux paste):

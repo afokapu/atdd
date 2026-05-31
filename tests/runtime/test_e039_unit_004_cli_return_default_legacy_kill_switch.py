@@ -1,10 +1,10 @@
-# URN: test:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster:E038-UNIT-004-cli-return-default-legacy-kill-switch
-# Acceptance: acc:govern-lifecycle:E038-UNIT-004-cli-return-default-legacy-kill-switch
-# WMBT: wmbt:govern-lifecycle:E038
+# URN: test:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster:E039-UNIT-004-cli-return-default-legacy-kill-switch
+# Acceptance: acc:govern-lifecycle:E039-UNIT-004-cli-return-default-legacy-kill-switch
+# WMBT: wmbt:govern-lifecycle:E039
 # Phase: RED
 # Assertion: behavioral
 # Layer: runtime
-"""E038-UNIT-004 — cli-return is the default; ATDD_USE_LEGACY_SPAWN=1 kill switch.
+"""E039-UNIT-004 — cli-return is the default; ATDD_USE_LEGACY_SPAWN=1 kill switch.
 
 docs/coach-decomposition.md §13.6 ("cli-return is the default control plane") and
 §12.4 R-4 (``ATDD_USE_LEGACY_SPAWN=1`` routes back to the pre-extraction path).

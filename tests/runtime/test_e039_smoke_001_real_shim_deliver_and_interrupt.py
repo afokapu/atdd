@@ -1,10 +1,10 @@
-# URN: test:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster:E038-SMOKE-001-real-shim-deliver-and-interrupt
-# Acceptance: acc:govern-lifecycle:E038-SMOKE-001-real-shim-deliver-and-interrupt
-# WMBT: wmbt:govern-lifecycle:E038
+# URN: test:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster:E039-SMOKE-001-real-shim-deliver-and-interrupt
+# Acceptance: acc:govern-lifecycle:E039-SMOKE-001-real-shim-deliver-and-interrupt
+# WMBT: wmbt:govern-lifecycle:E039
 # Phase: SMOKE
 # Assertion: behavioral
 # Layer: runtime
-"""E038-SMOKE-001 — real ShimAgentController over a real pty (closes #871/#872).
+"""E039-SMOKE-001 — real ShimAgentController over a real pty (closes #871/#872).
 
 docs/coach-decomposition.md §13.6 acceptance:
   * "A test asserts the prompt primed via cli-return.jsonl is observable in the
@@ -31,6 +31,8 @@ pytestmark = [pytest.mark.platform, pytest.mark.smoke]
 # regression would fail this test.
 _FAKE_AGENT = (
     "import sys\n"
+    "sys.stdout.write('READY\\n')\n"  # boot heartbeat, like a real TUI banner
+    "sys.stdout.flush()\n"
     "for line in sys.stdin:\n"
     "    sys.stdout.write('GOT:' + line)\n"
     "    sys.stdout.flush()\n"

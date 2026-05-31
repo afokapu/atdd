@@ -624,7 +624,7 @@ class DispatchSpec:
     Workflow constructs this from a TransitionDecision; runtime executes it.
     """
     agent_id: str                # e.g. "tester-816-a81b0d90"
-    persona: Persona
+    persona: str                 # carries a Persona value; typed str (see note)
     worktree_path: Path
     prompt_text: str             # FULLY RENDERED — train runner did template substitution
     correction_inbox: Path       # cli-return.jsonl
@@ -634,8 +634,21 @@ class DispatchSpec:
     transport: Literal["cli-return", "tui-scrape", "headless-print"]
     permission_mode: Literal["acceptEdits", "default", "plan"]
     allowed_tools: tuple[str, ...]
+```
 
+> **§3.3 import-discipline note (Child 6, #893):** `DispatchSpec.persona` is
+> typed `str` rather than `Persona`. `Persona` lives in `atdd.coach.core.types`,
+> and `atdd.runtime.agent_control` MUST NOT import `atdd.coach.*` (§3.3, enforced
+> by `tests/architecture/test_layer_imports.py`). `Persona` is a `StrEnum`, so a
+> `Persona` value is a valid `str` and flows through unchanged. For the same
+> reason `Multiplexer.attach_view(handle)` (§4.9) types its handle argument
+> structurally (`object`) instead of importing `AgentHandle` from the sibling
+> runtime layer. The actual adapter argv is passed to
+> `ShimAgentController.spawn(spec, *, agent_command=...)` (the production cmux
+> path uses `build_dispatch_command` + `prepare`); `DispatchSpec` itself is
+> unchanged from this contract.
 
+```python
 @dataclass(frozen=True)
 class ReadyResult:
     is_ready: bool

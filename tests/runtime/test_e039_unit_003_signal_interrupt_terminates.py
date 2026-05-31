@@ -1,10 +1,10 @@
-# URN: test:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster:E038-UNIT-003-signal-interrupt-terminates
-# Acceptance: acc:govern-lifecycle:E038-UNIT-003-signal-interrupt-terminates
-# WMBT: wmbt:govern-lifecycle:E038
+# URN: test:govern-lifecycle:extract-runtime-agent-control-and-close-spawn-cluster:E039-UNIT-003-signal-interrupt-terminates
+# Acceptance: acc:govern-lifecycle:E039-UNIT-003-signal-interrupt-terminates
+# WMBT: wmbt:govern-lifecycle:E039
 # Phase: RED
 # Assertion: behavioral
 # Layer: runtime
-"""E038-UNIT-003 — signal(INTERRUPT) terminates the wrapped agent (closes #871).
+"""E039-UNIT-003 — signal(INTERRUPT) terminates the wrapped agent (closes #871).
 
 docs/coach-decomposition.md §4.8: ``signal`` "Including stdin forwarding for
 INTERRUPT (closes #871 — stdin gap)". A real child process is wrapped in a real
