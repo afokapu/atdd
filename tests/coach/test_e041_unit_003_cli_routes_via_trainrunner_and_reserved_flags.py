@@ -70,6 +70,9 @@ def test_execute_cold_start_reaches_drive_via_runner_not_private_call(tmp_path, 
         def bind_state_machines(self, machines):
             self._machines = machines
 
+        def bind_drive_context(self, **kwargs):
+            self._ctx = kwargs
+
         def start_issue(self, issue_number, *, policy):
             started.append(issue_number)
             return f"run-{issue_number}"

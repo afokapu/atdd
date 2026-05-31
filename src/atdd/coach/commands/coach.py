@@ -148,6 +148,10 @@ class Config:
     stale_warn_minutes: Optional[int] = None
     no_progress_ttl: Optional[int] = None
     no_prompt: bool = False
+    # TrainRunner backend (docs/coach-decomposition.md §7.4, Child 8). Only
+    # "jsonl" is implemented; "temporal"/"langgraph" are reserved names that
+    # raise NotImplementedError until §7.2/§7.3 land.
+    runner: str = "jsonl"
 
 
 @dataclass
@@ -436,6 +440,18 @@ def _build_parser() -> argparse.ArgumentParser:
             "Use this for scripted runs where --persona-llm is not given."
         ),
     )
+    parser.add_argument(
+        "--runner",
+        type=str,
+        choices=["jsonl", "temporal", "langgraph"],
+        default="jsonl",
+        dest="runner",
+        help=(
+            "TrainRunner backend (docs/coach-decomposition.md §7.4). Only 'jsonl' "
+            "is implemented; 'temporal'/'langgraph' are reserved and raise "
+            "NotImplementedError until §7.2/§7.3 land."
+        ),
+    )
     return parser
 
 
@@ -470,11 +486,80 @@ def parse_cli(argv: list[str]) -> Config:
         stale_warn_minutes=ns.stale_warn_minutes,
         no_progress_ttl=ns.no_progress_ttl,
         no_prompt=_no_prompt_overrides["no_prompt"],
+        runner=getattr(ns, "runner", "jsonl"),
     )
 
 
 def resolve_policy(cfg: Config) -> Policy:
     return Policy(strict_deps=cfg.strict_deps)
+
+
+# ---------------------------------------------------------------------------
+# TrainRunner selection (docs/coach-decomposition.md §7.4, Child 8 / #895)
+# ---------------------------------------------------------------------------
+
+_DOC_REF = "docs/coach-decomposition.md"
+
+
+def _require_supported_runner(runner: str) -> str:
+    """Return ``runner`` when implemented; raise for the reserved backends.
+
+    Only the default JSONL runner ships (§7.1). ``temporal`` and ``langgraph``
+    are reserved names (§7.2/§7.3) — selecting them raises ``NotImplementedError``
+    with a message pointing at this document, per R-9.
+    """
+    if runner == "jsonl":
+        return runner
+    if runner == "temporal":
+        raise NotImplementedError(
+            "the Temporal TrainRunner backend is reserved but not implemented; "
+            f"see {_DOC_REF} §7.2"
+        )
+    if runner == "langgraph":
+        raise NotImplementedError(
+            "the LangGraph review subgraph is reserved but not implemented; "
+            f"see {_DOC_REF} §7.3"
+        )
+    raise NotImplementedError(
+        f"unknown TrainRunner backend {runner!r}; only 'jsonl' is implemented "
+        f"(see {_DOC_REF} §7.4)"
+    )
+
+
+def _repo_root_for(runtime_dir: Path) -> Path:
+    """Resolve the repo root the persistence store + conventions load against.
+
+    Production ``runtime_dir`` is ``<repo>/.atdd/runtime``; a test override is an
+    arbitrary tmp dir, in which case the current working directory is the repo.
+    """
+    rt = Path(runtime_dir).resolve()
+    if rt.name == "runtime" and rt.parent.name == ".atdd":
+        return rt.parent.parent
+    return Path.cwd()
+
+
+def _build_train_runner(cfg: "Config", runtime_dir: Path):
+    """Instantiate the configured TrainRunner (Child 8, §7.1/§7.4).
+
+    Only ``jsonl`` is implemented; ``_require_supported_runner`` has already
+    rejected the reserved backends by the time this is called.
+    """
+    from atdd.train.persistence import JsonlPersistenceStore
+    from atdd.train.runners.jsonl import JsonlTrainRunner
+
+    repo_root = _repo_root_for(runtime_dir)
+    store = JsonlPersistenceStore(repo_root)
+    return JsonlTrainRunner(persistence=store, cfg=cfg, runtime_dir=runtime_dir)
+
+
+def _build_policy_handle(runtime_dir: Path):
+    """Construct the PolicyHandle the runner drives with (coach-core + frozen conventions)."""
+    from atdd.coach import core as coach_core
+    from atdd.train.persistence import load_conventions
+    from atdd.train.runner_iface import PolicyHandle
+
+    repo_root = _repo_root_for(runtime_dir)
+    return PolicyHandle(coach_module=coach_core, conventions=load_conventions(repo_root))
 
 
 # ---------------------------------------------------------------------------
@@ -891,168 +976,30 @@ def _drive_single_issue(
     _max_loop_events: Optional[int] = None,
     _run_id_sink: Optional[list] = None,
 ) -> int:
-    """Drive one issue from INIT through the full lifecycle.
+    """DEPRECATED shim — moved to atdd.train.issue_runner.drive_single_issue (Child 8, #895).
 
-    Returns 0 on COMPLETE (or REFACTOR halt without --auto-merge),
-    1 on BLOCKED/spawn-failure, 2 on unrecoverable error.
-    Issue #645 — cold-start wiring.
+    Removal target: 3.87.0 (§11 deprecation cadence). New code drives an issue via
+    ``JsonlTrainRunner.start_issue``; this name is kept so existing internal/test
+    callers keep working through the soak.
     """
-    from atdd.coach.handlers import spawn as spawn_handler, two_phase_commit as tpc_handler
-    from atdd.coach.handlers.state_machine import HandlerResult, Transition
-    from atdd.coach.commands.durability import DecisionWriter, transactional_decision
-    from atdd.coach.utils.coach_lock import CoachAlreadyRunning, CoachLock
+    import warnings
+    from atdd.train import issue_runner as _issue_runner
 
-    spawn_h = _spawn_func or spawn_handler.handle
-    two_phase_h = _two_phase_func or tpc_handler.handle
-
-    # --- Single-instance guard (E011, issue #724) ---
-    _lock = CoachLock(runtime_dir, issue_number=sm.issue_number)
-    try:
-        _lock.acquire()
-    except CoachAlreadyRunning as exc:
-        _logger.warning("coach already running for #%d: %s", sm.issue_number, exc,
-                        extra={"issue": sm.issue_number})
-        print(f"❌ #{sm.issue_number}: {exc}", file=sys.stderr)
-        _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: {exc}")
-        return 1
-
-    try:
-        coach_run_id = f"coach-run-{sm.issue_number}-{uuid.uuid4().hex[:8]}"
-        if _run_id_sink is not None:
-            _run_id_sink.append(coach_run_id)
-
-        ctx = _make_coach_context(cfg, sm.issue_number, coach_run_id, runtime_dir)
-
-        writer = DecisionWriter(runtime_dir=runtime_dir)
-
-        # --- Step 1: Warm-resume or cold-start ---
-        current_github_phase = _read_current_github_phase(sm.issue_number)
-        is_warm_resume = current_github_phase in _WARM_RESUME_PHASES
-
-        if is_warm_resume:
-            sm.history.append(sm.phase)
-            sm.phase = current_github_phase
-            _logger.info(
-                "coach warm-resume",
-                extra={"issue": sm.issue_number, "phase": current_github_phase.value,
-                       "trigger": "warm-resume"},
-            )
-            next_phase = _COLD_START_ADVANCE_FROM.get(current_github_phase)
-            if next_phase is not None:
-                warm_t = Transition(current_github_phase, next_phase)
-                spawn_result = spawn_h(ctx, warm_t)
-                if spawn_result == HandlerResult.ERROR:
-                    _logger.error(
-                        "coach warm-resume spawn failed",
-                        extra={"issue": sm.issue_number,
-                               "phase": f"{current_github_phase.value}→{next_phase.value}",
-                               "trigger": "warm-resume"},
-                    )
-                    _write_escalation(
-                        cfg.escalation_channel,
-                        f"#{sm.issue_number}: spawn failed at {current_github_phase.value}→{next_phase.value}",
-                    )
-                    sm.history.append(sm.phase)
-                    sm.phase = Phase.BLOCKED
-                    return 1
-                sm.history.append(sm.phase)
-                sm.phase = next_phase
-                _swap_phase_label(sm.issue_number, next_phase)
-                _logger.info(
-                    "coach warm-resume advance",
-                    extra={"issue": sm.issue_number,
-                           "phase": f"{current_github_phase.value}→{next_phase.value}",
-                           "trigger": "warm-resume"},
-                )
-                _try_emit_telemetry(sm.issue_number, current_github_phase, next_phase)
-        else:
-            # Cold start: write INIT→PLANNED decision, ensure worktree, spawn planner.
-            init_record = _make_phase_transition_record(coach_run_id, sm.issue_number, Phase.INIT, Phase.PLANNED)
-            with transactional_decision(writer, init_record):
-                pass  # decision is written by the CM; no blocking action here
-
-            # Ensure the issue's git worktree exists before spawning (#795 incident).
-            if not cfg.dry_run:
-                worktree = _ensure_issue_worktree(ctx)
-                if worktree is None:
-                    _logger.error(
-                        "coach cold-start worktree creation failed",
-                        extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
-                    )
-                    _write_escalation(
-                        cfg.escalation_channel,
-                        f"#{sm.issue_number}: worktree creation failed at INIT→PLANNED",
-                    )
-                    sm.history.append(sm.phase)
-                    sm.phase = Phase.BLOCKED
-                    return 1
-
-            spawn_result = spawn_h(ctx, Transition(Phase.INIT, Phase.PLANNED))
-            if spawn_result == HandlerResult.ERROR:
-                _logger.error(
-                    "coach cold-start spawn failed",
-                    extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
-                )
-                _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: spawn failed at INIT→PLANNED")
-                sm.history.append(sm.phase)
-                sm.phase = Phase.BLOCKED
-                return 1
-
-            sm.history.append(sm.phase)
-            sm.phase = Phase.PLANNED
-            _logger.info(
-                "coach cold-start advance",
-                extra={"issue": sm.issue_number, "phase": "INIT→PLANNED", "trigger": "cold-start"},
-            )
-            _try_emit_telemetry(sm.issue_number, Phase.INIT, Phase.PLANNED)
-
-        # --- Step 2: Event-driven loop ---
-        if _injected_events is not None:
-            _process_injected_events(ctx, sm, _injected_events, writer, spawn_h)
-        elif _max_loop_events == 0:
-            pass  # test seam: skip event loop entirely
-        else:
-            ttl_secs = cfg.no_progress_ttl * 60 if cfg.no_progress_ttl else None
-            _process_watcher_events(ctx, sm, runtime_dir, cfg, writer, spawn_h,
-                                    max_events=_max_loop_events,
-                                    no_progress_ttl_seconds=ttl_secs)
-
-        # --- Step 5: Handle terminal states ---
-        if sm.phase == Phase.BLOCKED:
-            return 1
-
-        if sm.phase == Phase.REFACTOR and not cfg.auto_merge:
-            # R5: stop at REFACTOR when auto-merge is off; escalate for operator review
-            msg = (
-                f"#{sm.issue_number} reached REFACTOR. "
-                f"Run: atdd coach {sm.issue_number} --auto-merge to proceed."
-            )
-            _write_escalation(cfg.escalation_channel, msg)
-            _logger.info(
-                "coach REFACTOR escalated",
-                extra={"issue": sm.issue_number, "phase": "REFACTOR", "trigger": "escalate-no-auto-merge"},
-            )
-            return 0
-
-        if sm.phase == Phase.COMPLETE:
-            t_complete = Transition(Phase.COMPLETE, Phase.MERGED)
-            result = two_phase_h(ctx, t_complete)
-            if result == HandlerResult.HANDLED:
-                sm.history.append(sm.phase)
-                sm.phase = Phase.MERGED
-                _logger.info(
-                    "coach auto-merge advance",
-                    extra={"issue": sm.issue_number, "phase": "COMPLETE→MERGED", "trigger": "auto-merge"},
-                )
-                _try_emit_telemetry(sm.issue_number, Phase.COMPLETE, Phase.MERGED)
-            elif result == HandlerResult.ERROR:
-                _write_escalation(cfg.escalation_channel, f"#{sm.issue_number}: two-phase commit failed")
-                return 1
-            # NOOP → no auto-merge; COMPLETE persists pending operator action
-
-        return 0
-    finally:
-        _lock.release()
+    warnings.warn(
+        "atdd.coach.commands.coach._drive_single_issue is deprecated; the per-issue "
+        "drive moved to atdd.train.issue_runner.drive_single_issue (Child 8). "
+        "Removal target: 3.87.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _issue_runner.drive_single_issue(
+        cfg, sm, runtime_dir,
+        _spawn_func=_spawn_func,
+        _two_phase_func=_two_phase_func,
+        _injected_events=_injected_events,
+        _max_loop_events=_max_loop_events,
+        _run_id_sink=_run_id_sink,
+    )
 
 
 def _process_injected_events(
@@ -1062,40 +1009,20 @@ def _process_injected_events(
     writer: "DecisionWriter",
     spawn_h: Callable,
 ) -> None:
-    """Process a pre-programmed event list (test seam for cold-start, issue #645)."""
-    from atdd.coach.handlers.state_machine import HandlerResult, Transition
-    from atdd.coach.commands.durability import transactional_decision
+    """DEPRECATED shim — moved to atdd.train.issue_runner._process_injected_events (Child 8, #895).
 
-    for event in events:
-        if sm.phase in (Phase.COMPLETE, Phase.MERGED, Phase.BLOCKED):
-            break
-        t = _cold_start_proposed_transition(sm, event)
-        if t is None:
-            continue
-        record = _make_phase_transition_record(
-            ctx.coach_run_id, ctx.issue_number, t.src, t.dst
-        )
-        with transactional_decision(writer, record):
-            pass
-        sm.history.append(sm.phase)
-        sm.phase = t.dst
-        _swap_phase_label(ctx.issue_number, t.dst)
-        _logger.info(
-            "coach injected event advance",
-            extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}",
-                   "trigger": event.get("event_type", "injected")},
-        )
-        _try_emit_telemetry(ctx.issue_number, t.src, t.dst)
-        # Spawn next persona for this transition
-        spawn_result = spawn_h(ctx, t)
-        if spawn_result == HandlerResult.ERROR:
-            _logger.error(
-                "coach injected event spawn failed",
-                extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}"},
-            )
-            sm.history.append(sm.phase)
-            sm.phase = Phase.BLOCKED
-            break
+    Removal target: 3.87.0 (§11).
+    """
+    import warnings
+    from atdd.train import issue_runner as _issue_runner
+
+    warnings.warn(
+        "atdd.coach.commands.coach._process_injected_events is deprecated; moved to "
+        "atdd.train.issue_runner (Child 8). Removal target: 3.87.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _issue_runner._process_injected_events(ctx, sm, events, writer, spawn_h)
 
 
 def _watcher_runtime_dir(ctx: "CoachContext", fallback: Path) -> Path:
@@ -1133,79 +1060,24 @@ def _process_watcher_events(
     max_events: Optional[int] = None,
     no_progress_ttl_seconds: Optional[int] = None,
 ) -> None:
-    """Block on WatcherEventLoop until SM reaches a terminal state (production path)."""
-    from atdd.coach.commands.event_queue import CoachEventQueue
-    from atdd.coach.commands.runtime_watcher import RuntimeWatcher
-    from atdd.coach.handlers.state_machine import HandlerResult, Transition
-    from atdd.coach.commands.durability import transactional_decision
+    """DEPRECATED shim — moved to atdd.train.issue_runner._process_watcher_events (Child 8, #895).
 
-    # #708 link 3: the watcher must scan the dispatched persona's worktree
-    # runtime, not the coach cwd's. The CoachEventQueue stays on the coach's
-    # own runtime_dir (coach-side durability) — only the watcher's scan root
-    # follows the persona.
-    watch_runtime = _watcher_runtime_dir(ctx, runtime_dir)
-    queue = CoachEventQueue(runtime_dir=runtime_dir)
-    watcher = RuntimeWatcher(runtime_dir=watch_runtime, queue=queue)
-    # #711: baseline at dispatch time so a stale done.json (or any runtime
-    # file) left by a prior coach run is recorded as already-seen and is not
-    # emitted as new on the first scan — only post-dispatch writes advance
-    # the phase. Without this the coach raced PLANNED→RED in 9 s on a
-    # leftover done.json (coach-run-690-cb0a26c9).
-    watcher.baseline()
-    watcher.start()
-    events_processed = 0
-    last_advance_at = time.monotonic()
+    Removal target: 3.87.0 (§11).
+    """
+    import warnings
+    from atdd.train import issue_runner as _issue_runner
 
-    try:
-        while sm.phase not in (Phase.COMPLETE, Phase.MERGED, Phase.BLOCKED):
-            if max_events is not None and events_processed >= max_events:
-                break
-            event = queue.get(timeout=5.0)
-            if event is None:
-                # Idle tick — check no-progress TTL (E011, issue #724).
-                if no_progress_ttl_seconds and _check_no_progress_ttl(
-                    last_advance_at,
-                    no_progress_ttl_seconds,
-                    cfg.escalation_channel,
-                    ctx.issue_number,
-                    sm.phase,
-                ):
-                    break
-                continue
-            events_processed += 1
-            t = _cold_start_proposed_transition(sm, event)
-            if t is None:
-                continue
-            record = _make_phase_transition_record(
-                ctx.coach_run_id, ctx.issue_number, t.src, t.dst
-            )
-            with transactional_decision(writer, record):
-                pass
-            sm.history.append(sm.phase)
-            sm.phase = t.dst
-            _swap_phase_label(ctx.issue_number, t.dst)
-            last_advance_at = time.monotonic()
-            _logger.info(
-                "coach watcher event advance",
-                extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}",
-                       "trigger": event.get("event_type", "watcher")},
-            )
-            _try_emit_telemetry(ctx.issue_number, t.src, t.dst)
-            spawn_result = spawn_h(ctx, t)
-            if spawn_result == HandlerResult.ERROR:
-                _logger.error(
-                    "coach watcher event spawn failed",
-                    extra={"issue": ctx.issue_number, "phase": f"{t.src.value}→{t.dst.value}"},
-                )
-                sm.history.append(sm.phase)
-                sm.phase = Phase.BLOCKED
-                break
-    finally:
-        watcher.stop()
-        try:
-            watcher.persist_checkpoint()
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
-            pass
+    warnings.warn(
+        "atdd.coach.commands.coach._process_watcher_events is deprecated; moved to "
+        "atdd.train.issue_runner (Child 8). Removal target: 3.87.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _issue_runner._process_watcher_events(
+        ctx, sm, runtime_dir, cfg, writer, spawn_h,
+        max_events=max_events,
+        no_progress_ttl_seconds=no_progress_ttl_seconds,
+    )
 
 
 def _resolve_waves(cfg: "Config") -> list[list[int]]:
@@ -1279,6 +1151,8 @@ def _execute_cold_start(
     _max_loop_events: Optional[int] = None,
     _run_id_sink: Optional[list] = None,
     _observer_factory: Optional[Callable] = None,
+    runner: Optional[object] = None,
+    policy: Optional[object] = None,
 ) -> "ColdStartResult":
     """Wire and drive all issues through the full lifecycle (cold-start path).
 
@@ -1294,6 +1168,13 @@ def _execute_cold_start(
 
     Issue #754: starts exactly one MultiAgentObserver before driving waves;
     stops it after all waves complete regardless of outcome.
+
+    Child 8 (#895): when ``runner`` (a :class:`~atdd.train.runner_iface.TrainRunner`)
+    and ``policy`` are supplied, each issue is driven through
+    ``runner.start_issue`` — the TrainRunner seam — instead of the deprecated
+    ``_drive_single_issue`` private call. The legacy direct-drive path is kept
+    only as the ``runner is None`` fallback so the existing wave-orchestration
+    tests, which inject a fake ``_drive_single_issue``, keep working.
     """
     from atdd.coach.commands.observer import MultiAgentObserver as _MultiAgentObserver
 
@@ -1303,6 +1184,20 @@ def _execute_cold_start(
 
     waves = _resolve_waves(cfg)
     machines_by_number = {sm.issue_number: sm for sm in machines}
+    if runner is not None:
+        # Drive the same StateMachine objects the wave bookkeeping inspects, and
+        # thread the cold-start drive seams through the runner so start_issue
+        # reproduces the previous _drive_single_issue call exactly.
+        runner.bind_state_machines(machines_by_number)
+        runner.bind_drive_context(
+            cfg=cfg,
+            runtime_dir=runtime_dir,
+            spawn_func=_spawn_func,
+            two_phase_func=_two_phase_func,
+            max_loop_events=_max_loop_events,
+            run_id_sink=_run_id_sink,
+            injected_events=_injected_events,
+        )
 
     def _drive_issue(issue_num: int) -> int:
         """Drive one issue INIT→terminal, returning its rc.
@@ -1314,6 +1209,9 @@ def _execute_cold_start(
         if sm is None:
             return 0
         try:
+            if runner is not None:
+                run_id = runner.start_issue(issue_num, policy=policy)
+                return runner.rc_for(run_id)
             return _drive_single_issue(
                 cfg, sm, runtime_dir,
                 _spawn_func=_spawn_func,
@@ -1355,40 +1253,25 @@ def _make_resume_transition_action(
     multiplexer_backend: Optional[object] = None,
     worktree_override: Optional[Path] = None,
 ) -> Callable[[int, str, str], dict]:
-    """Build the real per-transition orchestration action for ``--resume``.
+    """DEPRECATED shim — moved to atdd.train.issue_runner.make_resume_transition_action (Child 8, #895).
 
-    Mirrors the cold-start spawn dispatch (#645): for each pending transition
-    the resumed runner walks, spawn that phase's persona via the same handler
-    ``_drive_single_issue`` uses. A transition whose spawn handler returns
-    ERROR raises, so ``ResumeRunner`` BLOCKs/escalates instead of paper-
-    stamping the issue to COMPLETE (issue #734).
-
-    ``multiplexer_backend`` / ``worktree_override`` are forwarded into every
-    ``CoachContext`` so a caller can inject collaborators by construction
-    (both ``None`` in production).
+    Removal target: 3.87.0 (§11).
     """
-    from atdd.coach.handlers import spawn as spawn_handler
-    from atdd.coach.handlers.state_machine import HandlerResult, Transition
+    import warnings
+    from atdd.train import issue_runner as _issue_runner
 
-    def _action(issue: int, src: str, dst: str) -> dict:
-        ctx = _make_coach_context(
-            cfg,
-            issue,
-            cfg.resume or f"coach-resume-{issue}",
-            runtime_dir,
-            multiplexer_backend=multiplexer_backend,
-            worktree_override=worktree_override,
-        )
-        transition = Transition(Phase(src), Phase(dst))
-        result = spawn_handler.handle(ctx, transition)
-        if result == HandlerResult.ERROR:
-            raise RuntimeError(
-                f"#{issue}: resume orchestration failed at {src}->{dst} "
-                f"(spawn handler returned ERROR)"
-            )
-        return {"transitioned": True, "new_phase": dst}
-
-    return _action
+    warnings.warn(
+        "atdd.coach.commands.coach._make_resume_transition_action is deprecated; moved "
+        "to atdd.train.issue_runner.make_resume_transition_action (Child 8). "
+        "Removal target: 3.87.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _issue_runner.make_resume_transition_action(
+        cfg, runtime_dir,
+        multiplexer_backend=multiplexer_backend,
+        worktree_override=worktree_override,
+    )
 
 
 def run(
@@ -1409,6 +1292,7 @@ def run(
     allow_stale_suppressions: bool = False,
     resume: Optional[str] = None,
     dry_run: bool = False,
+    runner: str = "jsonl",
     # --- Test seams (not exposed in CLI) — issue #645 cold-start wiring ---
     _runtime_dir_override: Optional[Path] = None,
     _max_loop_events: Optional[int] = None,
@@ -1448,8 +1332,11 @@ def run(
         allow_stale_suppressions=allow_stale_suppressions,
         resume=resume,
         dry_run=dry_run,
+        runner=runner,
     )
     policy = resolve_policy(cfg)
+    # Fail fast on a reserved-but-unimplemented runner backend (§7.4 / R-9).
+    _require_supported_runner(cfg.runner)
 
     print(f"atdd coach: {len(cfg.issue_numbers)} issue(s); strict_deps={policy.strict_deps}")
 
@@ -1516,6 +1403,11 @@ def run(
 
     # Cold-start execution path (issue #645): drive all issues from INIT to MERGED.
     if not cfg.dry_run:
+        # Child 8 (#895): drive each issue through the TrainRunner seam. The CLI
+        # instantiates JsonlTrainRunner + PolicyHandle here and hands them to the
+        # cold-start loop, which calls runner.start_issue per issue — no direct
+        # coach.commands.coach._drive_* private call remains in the CLI path.
+        train_runner = _build_train_runner(cfg, runtime_dir)
         result = _execute_cold_start(
             cfg,
             machines,
@@ -1525,6 +1417,8 @@ def run(
             _injected_events=_injected_events,
             _max_loop_events=_max_loop_events,
             _run_id_sink=_run_id_sink,
+            runner=train_runner,
+            policy=_build_policy_handle(runtime_dir),
         )
         if result.blocked:
             print(
@@ -1560,6 +1454,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         allow_stale_suppressions=cfg.allow_stale_suppressions,
         resume=cfg.resume,
         dry_run=cfg.dry_run,
+        runner=cfg.runner,
     )
 
 
@@ -1605,4 +1500,5 @@ def run_cli(argv: list[str]) -> int:
         allow_stale_suppressions=cfg.allow_stale_suppressions,
         resume=cfg.resume,
         dry_run=cfg.dry_run,
+        runner=cfg.runner,
     )

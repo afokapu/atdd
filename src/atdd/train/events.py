@@ -45,6 +45,10 @@ EVENT_TYPES: dict[str, tuple[str, ...]] = {
     "RunEscalated": ("verdict", "notification_channel"),
     "RunCompleted": ("final_phase", "total_duration_seconds"),
     "RunResumed": ("from_event_seq", "resume_reason"),
+    # Added in Child 8 (#895): the TrainRunner.cancel control event. Demonstrates
+    # that a new event type is a pure events.jsonl schema bump — no Coach-core
+    # change (Coach-core never imports atdd.train.events).
+    "RunCancelled": ("reason",),
 }
 
 
