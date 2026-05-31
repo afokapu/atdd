@@ -1,7 +1,7 @@
 # Acceptance: acc:spawn-agents:E015-SMOKE-001-deployed-templates-contain-smoke-acceptance-checklist
 """
 E015 AC-SMOKE-001: The installed atdd package templates (SESSION-LAUNCH-TEMPLATE.md
-and ATDD.md) both contain the rule ID 'planner.wmbt.must-have-smoke-acceptance',
+and CONDUCTOR.md) both contain the rule ID 'planner.wmbt.must-have-smoke-acceptance',
 confirming the checklist shipped in the installed distribution.
 
 This SMOKE test reads the templates from the actual installed package path (not the
@@ -44,13 +44,13 @@ def test_installed_session_launch_template_has_rule_id() -> None:
 
 
 def test_installed_atdd_md_has_rule_id() -> None:
-    """ATDD.md from installed package contains the rule ID."""
+    """CONDUCTOR.md from installed package contains the rule ID."""
     templates_dir = _installed_templates_dir()
-    template_path = templates_dir / "ATDD.md"
-    assert template_path.exists(), f"Installed ATDD.md not found: {template_path}"
+    template_path = templates_dir / "CONDUCTOR.md"
+    assert template_path.exists(), f"Installed CONDUCTOR.md not found: {template_path}"
     content = template_path.read_text()
     assert RULE_ID in content, (
-        f"Installed ATDD.md does not contain '{RULE_ID}'. "
+        f"Installed CONDUCTOR.md does not contain '{RULE_ID}'. "
         "The fix did not ship into the installed distribution."
     )
 

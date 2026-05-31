@@ -4,7 +4,7 @@
 # (docs/coach-decomposition.md §4.5). Coach-core loads this (via
 # train.persistence.load_conventions) into Conventions.phase_machine as a
 # mapping of Phase -> PhaseSpec. The duplicate state_machine table that used to
-# live in the CLAUDE.md managed block / ATDD.md template was removed in Child 1
+# live in the CLAUDE.md managed block / CONDUCTOR.md template was removed in Child 1
 # (#888); add or change a phase HERE, never in Python and never in CLAUDE.md.
 schema_version: "1.0.0"
 convention_id: "coach.phase-machine"

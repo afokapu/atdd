@@ -18,7 +18,7 @@ from atdd.coach.utils.repo import find_repo_root
 REPO_ROOT = find_repo_root()
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 ISSUE_CONVENTION = ATDD_PKG_DIR / "coach" / "conventions" / "issue.convention.yaml"
-ATDD_TEMPLATE = ATDD_PKG_DIR / "coach" / "templates" / "ATDD.md"
+ATDD_TEMPLATE = ATDD_PKG_DIR / "coach" / "templates" / "CONDUCTOR.md"
 CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
 
 

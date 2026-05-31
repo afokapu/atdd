@@ -6,7 +6,7 @@ managed blocks that preserve user content while keeping rules in sync.
 
 Block format:
     # --- ATDD:BEGIN (managed by atdd, do not edit) ---
-    <content from ATDD.md>
+    <content from CONDUCTOR.md>
     <optional overlay for that agent>
     # --- ATDD:END ---
 
@@ -63,7 +63,7 @@ class AgentConfigSync:
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
         self.templates_dir = self.package_root / "templates"
         self.overlays_dir = self.package_root / "overlays"
-        self.atdd_template = self.templates_dir / "ATDD.md"
+        self.atdd_template = self.templates_dir / "CONDUCTOR.md"
 
     def sync(self, agents: Optional[List[str]] = None) -> int:
         """
@@ -379,10 +379,10 @@ class AgentConfigSync:
 
     def _load_base_content(self) -> Optional[str]:
         """
-        Read ATDD.md from package.
+        Read CONDUCTOR.md from package.
 
         Returns:
-            Content of ATDD.md or None if not found.
+            Content of CONDUCTOR.md or None if not found.
         """
         if not self.atdd_template.exists():
             return None
@@ -423,7 +423,7 @@ class AgentConfigSync:
 
         Args:
             agent: Agent name.
-            base_content: Content from ATDD.md.
+            base_content: Content from CONDUCTOR.md.
 
         Returns:
             Complete managed block with markers.
