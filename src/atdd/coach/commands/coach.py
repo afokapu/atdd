@@ -1081,63 +1081,46 @@ def _process_watcher_events(
 
 
 def _resolve_waves(cfg: "Config") -> list[list[int]]:
-    """Resolve the dependency-ordered wave plan for a cold-start run.
+    """DEPRECATED shim — moved to atdd.train.wave_runner.resolve_waves (Child 9, #896).
 
-    A multi-issue run derives waves from the dependency graph via
-    :func:`compute_waves`; a single issue — or a graph that fails to build or
-    resolve — collapses to one wave holding every requested issue number.
+    Removal target: 3.87.0 (§11 deprecation cadence). New code resolves the wave
+    plan via the train layer; this name is kept so existing internal/test callers
+    keep working through the soak.
     """
-    if len(cfg.issue_numbers) <= 1:
-        return [cfg.issue_numbers]
-    plan = build_plan(cfg.issue_numbers)
-    if not plan:
-        return [cfg.issue_numbers]
-    try:
-        return compute_waves(plan)
-    except ValueError:
-        _logger.warning(
-            "coach cold-start: compute_waves could not order issues "
-            "(cyclic or unresolvable dependency) — falling back to a single "
-            "wave holding every requested issue",
-            extra={
-                "event": "coach.cold_start.wave_resolution_fallback",
-                "issue_numbers": cfg.issue_numbers,
-                "fallback": "single_wave",
-            },
-        )
-        return [cfg.issue_numbers]
+    import warnings
+    from atdd.train import wave_runner as _wave_runner
+
+    warnings.warn(
+        "atdd.coach.commands.coach._resolve_waves is deprecated; the wave plan "
+        "resolution moved to atdd.train.wave_runner.resolve_waves (Child 9). "
+        "Removal target: 3.87.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _wave_runner.resolve_waves(cfg)
 
 
 def _drive_wave_concurrently(
-    wave: list[int], drive_fn: Callable[[int], int],
+    wave: list[int],
+    drive_fn: Callable[[int], int],
+    *,
+    max_parallel: Optional[int] = None,
 ) -> dict[int, int]:
-    """Drive every member of one wave concurrently, joining before returning.
+    """DEPRECATED shim — moved to atdd.train.wave_runner.drive_wave_concurrently (Child 9, #896).
 
-    One worker thread per issue (issue #730) — ``drive_fn(issue_num)`` returns
-    that member's rc. The join over all threads is the barrier that preserves
-    between-wave dependency ordering: the next wave cannot start until every
-    member of this one is terminal. Returns ``{issue_num: rc}``.
+    Removal target: 3.87.0 (§11).
     """
-    results: dict[int, int] = {}
-    results_lock = threading.Lock()
+    import warnings
+    from atdd.train import wave_runner as _wave_runner
 
-    def _worker(issue_num: int) -> None:
-        rc = drive_fn(issue_num)
-        with results_lock:
-            results[issue_num] = rc
-
-    threads = [
-        threading.Thread(
-            target=_worker, args=(issue_num,),
-            name=f"coach-issue-{issue_num}",
-        )
-        for issue_num in wave
-    ]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-    return results
+    warnings.warn(
+        "atdd.coach.commands.coach._drive_wave_concurrently is deprecated; moved to "
+        "atdd.train.wave_runner.drive_wave_concurrently (Child 9). "
+        "Removal target: 3.87.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _wave_runner.drive_wave_concurrently(wave, drive_fn, max_parallel=max_parallel)
 
 
 def _execute_cold_start(
@@ -1151,99 +1134,38 @@ def _execute_cold_start(
     _max_loop_events: Optional[int] = None,
     _run_id_sink: Optional[list] = None,
     _observer_factory: Optional[Callable] = None,
+    _max_parallel: Optional[int] = None,
     runner: Optional[object] = None,
     policy: Optional[object] = None,
 ) -> "ColdStartResult":
-    """Wire and drive all issues through the full lifecycle (cold-start path).
+    """DEPRECATED shim — moved to atdd.train.wave_runner.execute_cold_start (Child 9, #896).
 
-    Waves run in dependency order (R6, issue #645): wave N+1 does not start
-    until every member of wave N has reached a terminal state. Members WITHIN
-    a single wave are driven concurrently — one worker thread per member, each
-    with its own ``coach-run-*`` id and event loop — so the wave plan's
-    ``Wave 0: #A,#B`` reflects real parallel execution (issue #730).
-
-    A BLOCKED member is surfaced in the returned :class:`ColdStartResult`
-    without aborting siblings that already started (Decision #1). Returns a
-    ``ColdStartResult`` carrying the aggregate ``rc`` and the BLOCKED issues.
-
-    Issue #754: starts exactly one MultiAgentObserver before driving waves;
-    stops it after all waves complete regardless of outcome.
-
-    Child 8 (#895): when ``runner`` (a :class:`~atdd.train.runner_iface.TrainRunner`)
-    and ``policy`` are supplied, each issue is driven through
-    ``runner.start_issue`` — the TrainRunner seam — instead of the deprecated
-    ``_drive_single_issue`` private call. The legacy direct-drive path is kept
-    only as the ``runner is None`` fallback so the existing wave-orchestration
-    tests, which inject a fake ``_drive_single_issue``, keep working.
+    Removal target: 3.87.0 (§11). New code drives a cold-start wave via
+    ``atdd.train.wave_runner.execute_cold_start``; this name is kept so existing
+    internal/test callers keep working through the soak.
     """
-    from atdd.coach.commands.observer import MultiAgentObserver as _MultiAgentObserver
+    import warnings
+    from atdd.train import wave_runner as _wave_runner
 
-    factory = _observer_factory or _MultiAgentObserver
-    coach_observer = factory(runtime_dir)
-    coach_observer.start()
-
-    waves = _resolve_waves(cfg)
-    machines_by_number = {sm.issue_number: sm for sm in machines}
-    if runner is not None:
-        # Drive the same StateMachine objects the wave bookkeeping inspects, and
-        # thread the cold-start drive seams through the runner so start_issue
-        # reproduces the previous _drive_single_issue call exactly.
-        runner.bind_state_machines(machines_by_number)
-        runner.bind_drive_context(
-            cfg=cfg,
-            runtime_dir=runtime_dir,
-            spawn_func=_spawn_func,
-            two_phase_func=_two_phase_func,
-            max_loop_events=_max_loop_events,
-            run_id_sink=_run_id_sink,
-            injected_events=_injected_events,
-        )
-
-    def _drive_issue(issue_num: int) -> int:
-        """Drive one issue INIT→terminal, returning its rc.
-
-        A crashed driver yields rc 2 rather than propagating, so one member's
-        failure can never abort its siblings (issue #730, Decision #1).
-        """
-        sm = machines_by_number.get(issue_num)
-        if sm is None:
-            return 0
-        try:
-            if runner is not None:
-                run_id = runner.start_issue(issue_num, policy=policy)
-                return runner.rc_for(run_id)
-            return _drive_single_issue(
-                cfg, sm, runtime_dir,
-                _spawn_func=_spawn_func,
-                _two_phase_func=_two_phase_func,
-                _injected_events=(_injected_events or {}).get(issue_num),
-                _max_loop_events=_max_loop_events,
-                _run_id_sink=_run_id_sink,
-            )
-        except Exception:  # noqa: BLE001 — a crashed driver must not abort siblings
-            _logger.exception(
-                "coach cold-start: issue driver raised",
-                extra={"issue": issue_num},
-            )
-            return 2
-
-    aggregate_rc = 0
-    blocked: list[int] = []
-    try:
-        for wave in waves:
-            wave_results = _drive_wave_concurrently(wave, _drive_issue)
-            # Aggregate this wave's outcomes — a BLOCKED member is recorded, not
-            # fatal: siblings already running are left to finish.
-            for issue_num, rc in wave_results.items():
-                if rc != 0 and aggregate_rc == 0:
-                    aggregate_rc = rc
-                sm = machines_by_number.get(issue_num)
-                if sm is not None and sm.phase == Phase.BLOCKED:
-                    blocked.append(issue_num)
-    finally:
-        coach_observer.stop()
-
-    return ColdStartResult(rc=aggregate_rc, blocked=blocked)
+    warnings.warn(
+        "atdd.coach.commands.coach._execute_cold_start is deprecated; the cold-start "
+        "wave drive moved to atdd.train.wave_runner.execute_cold_start (Child 9). "
+        "Removal target: 3.87.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _wave_runner.execute_cold_start(
+        cfg, machines, runtime_dir,
+        _spawn_func=_spawn_func,
+        _two_phase_func=_two_phase_func,
+        _injected_events=_injected_events,
+        _max_loop_events=_max_loop_events,
+        _run_id_sink=_run_id_sink,
+        _observer_factory=_observer_factory,
+        _max_parallel=_max_parallel,
+        runner=runner,
+        policy=policy,
+    )
 
 
 def _make_resume_transition_action(
@@ -1407,8 +1329,12 @@ def run(
         # instantiates JsonlTrainRunner + PolicyHandle here and hands them to the
         # cold-start loop, which calls runner.start_issue per issue — no direct
         # coach.commands.coach._drive_* private call remains in the CLI path.
+        # Child 9 (#896): the wave orchestration now lives in the train layer;
+        # the CLI calls it directly (the coach-side name is a deprecated shim).
+        from atdd.train import wave_runner as _wave_runner
+
         train_runner = _build_train_runner(cfg, runtime_dir)
-        result = _execute_cold_start(
+        result = _wave_runner.execute_cold_start(
             cfg,
             machines,
             runtime_dir,

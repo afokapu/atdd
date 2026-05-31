@@ -1393,6 +1393,17 @@ sessions:
   archived: null
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:extract-workflow-issue-runner-and-workflow-runner-protocol
+- id: '896'
+  slug: extract-workflow-wave-runner-and-atdd-resume-cli
+  file: null
+  issue_number: 896
+  type: implementation
+  status: REFACTOR
+  train: 0001-self-compliance-validate
+  created: '2026-05-31'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:extract-workflow-wave-runner-and-atdd-resume-cli
 - id: '905'
   slug: resolve-pre-existing-467-broken-urn-refs-post-decomposition-cleanup
   file: null
