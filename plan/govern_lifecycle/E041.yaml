@@ -71,27 +71,12 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-31"
-  - identity:
-      urn: "acc:govern-lifecycle:E041-UNIT-004-issue-runner-move-and-deprecated-shims"
-      id: "AC-UNIT-004"
-      purpose: "The four orchestration functions live in atdd.train.issue_runner; coach.py keeps @deprecated(removal=3.87.0) compatibility shims that delegate; adding a new event type is a pure events.jsonl schema bump with no Coach-core change"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "atdd.train.issue_runner exposing drive_single_issue / _process_watcher_events / _process_injected_events / make_resume_transition_action, and the coach.py compatibility shims of the same names"
-    when:
-      abstract: "the moved functions are imported from atdd.train.issue_runner; a coach.py shim is called; and atdd.train.events is inspected for a newly-added event type"
-    then:
-      abstract:
-        - "drive_single_issue / _process_watcher_events / _process_injected_events / make_resume_transition_action are defined in atdd.train.issue_runner"
-        - "coach.py still exposes _drive_single_issue / _process_watcher_events / _process_injected_events / _make_resume_transition_action; calling one emits a DeprecationWarning naming the 3.87.0 removal target and delegates to the train.issue_runner implementation"
-        - "the RunCancelled event type added to atdd.train.events.EVENT_TYPES validates via validate_event_dict, and atdd.coach.core needs no change to support it (the event schema lives entirely in the train layer)"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-31"
+  # AC-UNIT-004 (acc:govern-lifecycle:E041-UNIT-004-issue-runner-move-and-deprecated-shims)
+  # removed in #923 along with its parity test
+  # (tests/coach/test_e041_unit_004_issue_runner_move_and_deprecated_shims.py) when the
+  # 5 orphan coach.py @deprecated shims (_process_injected_events, _process_watcher_events,
+  # _make_resume_transition_action, plus the wave_runner pair) were deleted. The 2
+  # still-called shims (_drive_single_issue, _execute_cold_start) are tracked under #790.
   - identity:
       urn: "acc:govern-lifecycle:E041-SMOKE-001-coach-end-to-end-via-trainrunner"
       id: "AC-SMOKE-001"
