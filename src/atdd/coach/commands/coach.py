@@ -34,7 +34,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import shutil
 import subprocess
 import sys
 import threading
@@ -780,6 +779,7 @@ def _ensure_issue_worktree(ctx) -> Optional[Path]:
     """
     from atdd.coach.commands import session_template
     from atdd.coach.handlers.spawn import _resolve_worktree
+    from atdd.runtime import worktree as runtime_worktree
 
     worktree = _resolve_worktree(ctx)
 
@@ -802,55 +802,20 @@ def _ensure_issue_worktree(ctx) -> Optional[Path]:
     if not branch or branch == "TBD":
         branch = f"feat/issue-{ctx.issue_number}"
 
-    # A path that exists but is not a git worktree needs triage before
-    # `git worktree add` (which accepts only a missing or empty directory):
-    #  - empty            → fine, git accepts it as-is.
-    #  - atdd-only residue → stale debris from the pre-fix bug; safe to clear.
-    #  - anything else     → hard failure, never silently clobbered.
-    if worktree.exists():
-        entries = {p.name for p in worktree.iterdir()}
-        if not entries:
-            pass  # empty dir — git worktree add accepts it
-        elif entries <= {".atdd", ".launch_prompt.txt", ".DS_Store"}:
-            shutil.rmtree(worktree)
-        else:
-            print(
-                f"❌ #{ctx.issue_number}: worktree path {worktree} exists and is "
-                f"not a git worktree; refusing to overwrite",
-                file=sys.stderr,
-            )
-            return None
-
-    # Attach to an existing remote branch if present, else create a new one.
-    remote = subprocess.run(
-        ["git", "branch", "-r", "--list", f"origin/{branch}"],
-        cwd=str(repo_root), capture_output=True, text=True,
-    )
-    if remote.stdout.strip():
-        add_cmd = ["git", "worktree", "add", str(worktree), f"origin/{branch}"]
-    else:
-        add_cmd = ["git", "worktree", "add", str(worktree), "-b", branch]
-
-    result = subprocess.run(
-        add_cmd, cwd=str(repo_root), capture_output=True, text=True,
-    )
-    if result.returncode != 0:
+    # Worktree creation (triage of an existing non-git path, remote/new-branch
+    # selection, and the I-1/I-2/I-9 incident defenses) is owned by the runtime
+    # layer (docs/coach-decomposition.md §13.5). Coach only resolves the path
+    # and branch, then delegates.
+    try:
+        return runtime_worktree.ensure_issue_worktree(
+            worktree, branch, repo_root, issue_number=ctx.issue_number,
+        )
+    except runtime_worktree.ProtectedBranchError as exc:
         print(
-            f"❌ #{ctx.issue_number}: git worktree add failed: "
-            f"{result.stderr.strip()}",
+            f"❌ #{ctx.issue_number}: {exc}",
             file=sys.stderr,
         )
         return None
-
-    _logger.info(
-        "coach cold-start worktree created",
-        extra={
-            "issue": ctx.issue_number,
-            "worktree": str(worktree),
-            "branch": branch,
-        },
-    )
-    return worktree
 
 
 def _make_coach_context(

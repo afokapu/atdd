@@ -302,32 +302,28 @@ class BranchManager:
         )
         remote_exists = bool(result.stdout.strip())
 
-        # Create worktree
+        # Create worktree. Creation, the existing-path triage, and the
+        # I-1/I-2/I-9 incident defenses (incl. `core.bare=false` per-worktree)
+        # are owned by the runtime layer (docs/coach-decomposition.md §13.5).
+        # New branches start from origin/<default_branch> so they begin at the
+        # latest remote commit regardless of local-main staleness.
+        from atdd.runtime import worktree as runtime_worktree
         if remote_exists:
-            cmd = [
-                "git", "worktree", "add",
-                str(worktree_path),
-                f"origin/{branch_name}",
-            ]
             print(f"Attaching to existing remote branch: {branch_name}")
         else:
-            # Start the new branch from origin/<default_branch> so it begins
-            # at the latest remote commit regardless of local-main staleness.
-            cmd = [
-                "git", "worktree", "add",
-                str(worktree_path),
-                "-b", branch_name,
-                f"origin/{default_branch}",
-            ]
             print(f"Creating new branch: {branch_name}")
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True, text=True, timeout=30,
-            cwd=self.target_dir,
-        )
-        if result.returncode != 0:
-            print(f"Error: git worktree add failed:\n{result.stderr.strip()}")
+        try:
+            created = runtime_worktree.ensure_issue_worktree(
+                worktree_path, branch_name, self.target_dir,
+                issue_number=issue_number,
+                start_point=f"origin/{default_branch}",
+            )
+        except runtime_worktree.ProtectedBranchError as exc:
+            print(f"Error: {exc}")
+            return 1
+        if created is None:
+            print("Error: git worktree add failed")
             return 1
 
         print(f"  Worktree: {worktree_path}")
