@@ -824,6 +824,17 @@ wagons:
       JsonlTrainRunner + PolicyHandle and call start_issue so no coach.commands.coach._drive_*
       private call remains outside the shim, reserving --runner temporal/langgraph
       (NotImplementedError → §7.2/§7.3) and the train.runner config key (#895)
+    E042: minimize likelihood of the-multi-issue-wave-orchestration-and-crash-recovery-staying-fused-into-coach-py-so-there-is-no-run-wave-or-atdd-resume-and-wave-concurrency-stays-unbounded
+      by implementing JsonlTrainRunner.run_wave (dependency-ordered waves driven concurrently
+      and bounded by train.concurrency.max_parallel_issues, §7.1/§7.4) and JsonlTrainRunner.resume(run_id)
+      per §6.3 (load the FROZEN conventions.snapshot.yaml, replay events.jsonl to
+      reconstruct RunState, re-materialize evidence, recompute the decision via coach.core.next_transition
+      under the frozen conventions, and append a RunResumed continuation with no double-execution),
+      moving _resolve_waves / _drive_wave_concurrently / _execute_cold_start into
+      atdd.train.wave_runner behind @deprecated(removal=3.87.0) shims, adding the
+      atdd resume <run_id> public CLI command (§3.4/§7.4), and landing tests/train/test_jsonl_crash_recovery.py
+      as the §10.3 gate that kill-mid-wave-then-resume yields identical decisions
+      (#896)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/

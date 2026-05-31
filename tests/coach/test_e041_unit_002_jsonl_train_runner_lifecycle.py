@@ -76,12 +76,25 @@ def test_cancel_appends_runcancelled_and_marks_state(tmp_path, monkeypatch):
     assert runner.status(run_id).state == "CANCELLED"
 
 
-def test_resume_and_run_wave_are_reserved_for_child_9(tmp_path, monkeypatch):
-    runner, policy, _ = _runner(tmp_path)
+def test_resume_and_run_wave_are_implemented_in_child_9(tmp_path, monkeypatch):
+    """Child 9 (#896) lands ``resume`` + ``run_wave``; they no longer raise.
+
+    (Child 8 reserved both with ``NotImplementedError``; this is the supersession
+    point — thorough coverage lives in ``tests/train/test_jsonl_crash_recovery.py``
+    and the wave-runner unit tests.)
+    """
+    runner, policy, store = _runner(tmp_path)
     monkeypatch.setattr(issue_runner_mod, "drive_single_issue", lambda *a, **k: 0)
     run_id = runner.start_issue(895, policy=policy)
 
-    with pytest.raises(NotImplementedError):
-        runner.resume(run_id)
-    with pytest.raises(NotImplementedError):
-        runner.run_wave([895])
+    # resume replays the run and records a RunResumed continuation marker.
+    runner.resume(run_id)
+    types = [e.type for e in store.replay_events(RunId(run_id))]
+    assert "RunResumed" in types
+
+    # run_wave returns a typed WaveResult partitioning the issues it drove.
+    result = runner.run_wave([895], concurrency=1)
+    from atdd.train.types import WaveResult
+
+    assert isinstance(result, WaveResult)
+    assert result.failed_to_start == ()

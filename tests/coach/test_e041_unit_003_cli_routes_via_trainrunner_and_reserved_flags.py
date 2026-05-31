@@ -42,7 +42,15 @@ def test_jsonl_runner_resolves_without_error():
 
 
 def test_cold_start_constructs_jsonl_train_runner_and_policy(tmp_path, monkeypatch):
-    """run() must instantiate a JsonlTrainRunner + PolicyHandle for the cold-start."""
+    """run() must instantiate a JsonlTrainRunner + PolicyHandle for the cold-start.
+
+    Child 9 (#896): the cold-start wave drive moved to
+    ``atdd.train.wave_runner.execute_cold_start``; the CLI calls it directly, so
+    the interception point is the train-layer function (the coach-side name is now
+    a deprecated shim).
+    """
+    from atdd.train import wave_runner
+
     captured: dict = {}
 
     def _capture(cfg, machines, runtime_dir, *, runner=None, policy=None, **kwargs):
@@ -50,7 +58,7 @@ def test_cold_start_constructs_jsonl_train_runner_and_policy(tmp_path, monkeypat
         captured["policy"] = policy
         return coach.ColdStartResult(rc=0, blocked=[])
 
-    monkeypatch.setattr(coach, "_execute_cold_start", _capture)
+    monkeypatch.setattr(wave_runner, "execute_cold_start", _capture)
     # Keep the run hermetic — no GitHub label reads during machine setup.
     monkeypatch.setattr(coach, "_read_current_github_phase", lambda n: None)
 

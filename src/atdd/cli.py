@@ -1083,6 +1083,36 @@ Phase descriptions:
         help="Forwarded to atdd.coach.commands.coach",
     )
 
+    # ----- atdd resume <run_id> (Child 9 — #896) -----
+    # New public CLI surface (docs/coach-decomposition.md §3.4, §7.4): replay a
+    # crashed train run from its durable event log (§6.3). The args are declared
+    # here (so `atdd resume --help` renders via the top-level parser); the dispatch
+    # forwards them to `atdd.train.resume_cli.run_args` — the train layer owns the
+    # logic, the dependency points inward (train MUST NOT import atdd.cli, §3.3).
+    resume_parser = subparsers.add_parser(
+        "resume",
+        help="Replay a crashed train run and continue from where it stopped.",
+        description=(
+            "Replay a crashed train run from its durable event log and continue "
+            "from where it stopped. Deterministic crash-recovery: given the same "
+            "frozen conventions snapshot, event log, and external state, resume "
+            "reproduces identical decisions with no double-execution "
+            "(docs/coach-decomposition.md §6.3)."
+        ),
+    )
+    resume_parser.add_argument(
+        "run_id",
+        metavar="RUN_ID",
+        help="The run id to resume (e.g. run-816-20260530-a81b0d90).",
+    )
+    resume_parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=None,
+        dest="resume_repo_root",
+        help="Repo root holding .atdd/runtime/runs/ (defaults to the cwd).",
+    )
+
     # ----- atdd agent <subcommand> ... (J2 — #497) -----
     # The persona-agent runtime CLI; argparse for sub-subcommands lives in
     # `atdd.coach.commands.agent._build_parser`. We register a single
@@ -2398,6 +2428,14 @@ Phase descriptions:
     elif args.command == "coach":
         from atdd.coach.commands.coach import run_cli as run_coach_cli
         return run_coach_cli(list(getattr(args, "coach_argv", []) or []))
+
+    # atdd resume <run_id> (Child 9 — #896)
+    elif args.command == "resume":
+        from atdd.train.resume_cli import run_args as run_resume
+        return run_resume(
+            run_id=args.run_id,
+            repo_root=getattr(args, "resume_repo_root", None),
+        )
 
     # atdd agent <subcommand> ... (J2 — #497)
     elif args.command == "agent":
