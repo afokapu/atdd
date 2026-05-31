@@ -49,27 +49,11 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-31"
-  - identity:
-      urn: "acc:govern-lifecycle:E042-UNIT-003-wave-runner-move-and-deprecated-shims"
-      id: "AC-UNIT-003"
-      purpose: "resolve_waves / drive_wave_concurrently / execute_cold_start live in atdd.train.wave_runner; coach.py keeps @deprecated(removal=3.87.0) compatibility shims of the matching names that delegate, and the cold-start CLI path drives through the train-layer function"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "atdd.train.wave_runner exposing resolve_waves / drive_wave_concurrently / execute_cold_start, and the coach.py compatibility shims _resolve_waves / _drive_wave_concurrently / _execute_cold_start of the same names"
-    when:
-      abstract: "the moved functions are imported from atdd.train.wave_runner; a coach.py shim is called; and the run() cold-start path is observed"
-    then:
-      abstract:
-        - "resolve_waves / drive_wave_concurrently / execute_cold_start are defined in atdd.train.wave_runner and stay within the §3.3 train-layer dependency rules (no atdd.cli / atdd.observer import)"
-        - "coach.py still exposes _resolve_waves / _drive_wave_concurrently / _execute_cold_start; calling one emits a DeprecationWarning naming the 3.87.0 removal target and delegates to the train.wave_runner implementation"
-        - "run() cold-start constructs the JsonlTrainRunner + PolicyHandle and drives the wave via atdd.train.wave_runner.execute_cold_start"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-31"
+  # AC-UNIT-003 (acc:govern-lifecycle:E042-UNIT-003-wave-runner-move-and-deprecated-shims)
+  # removed in #923 along with its parity test
+  # (tests/coach/test_e042_unit_003_wave_runner_move_and_deprecated_shims.py) when
+  # _resolve_waves and _drive_wave_concurrently were deleted from coach.py. The
+  # remaining _execute_cold_start shim (1 caller) is tracked under #790.
   - identity:
       urn: "acc:govern-lifecycle:E042-UNIT-004-atdd-resume-cli-command"
       id: "AC-UNIT-004"
