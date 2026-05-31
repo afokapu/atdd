@@ -1002,29 +1002,6 @@ def _drive_single_issue(
     )
 
 
-def _process_injected_events(
-    ctx: "CoachContext",
-    sm: StateMachine,
-    events: list,
-    writer: "DecisionWriter",
-    spawn_h: Callable,
-) -> None:
-    """DEPRECATED shim — moved to atdd.train.issue_runner._process_injected_events (Child 8, #895).
-
-    Removal target: 3.87.0 (§11).
-    """
-    import warnings
-    from atdd.train import issue_runner as _issue_runner
-
-    warnings.warn(
-        "atdd.coach.commands.coach._process_injected_events is deprecated; moved to "
-        "atdd.train.issue_runner (Child 8). Removal target: 3.87.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _issue_runner._process_injected_events(ctx, sm, events, writer, spawn_h)
-
-
 def _watcher_runtime_dir(ctx: "CoachContext", fallback: Path) -> Path:
     """Runtime dir the coach's ``RuntimeWatcher`` must scan (#708 link 3).
 
@@ -1047,80 +1024,6 @@ def _watcher_runtime_dir(ctx: "CoachContext", fallback: Path) -> Path:
         )
         return fallback
     return worktree / ".atdd" / "runtime"
-
-
-def _process_watcher_events(
-    ctx: "CoachContext",
-    sm: StateMachine,
-    runtime_dir: Path,
-    cfg: "Config",
-    writer: "DecisionWriter",
-    spawn_h: Callable,
-    *,
-    max_events: Optional[int] = None,
-    no_progress_ttl_seconds: Optional[int] = None,
-) -> None:
-    """DEPRECATED shim — moved to atdd.train.issue_runner._process_watcher_events (Child 8, #895).
-
-    Removal target: 3.87.0 (§11).
-    """
-    import warnings
-    from atdd.train import issue_runner as _issue_runner
-
-    warnings.warn(
-        "atdd.coach.commands.coach._process_watcher_events is deprecated; moved to "
-        "atdd.train.issue_runner (Child 8). Removal target: 3.87.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _issue_runner._process_watcher_events(
-        ctx, sm, runtime_dir, cfg, writer, spawn_h,
-        max_events=max_events,
-        no_progress_ttl_seconds=no_progress_ttl_seconds,
-    )
-
-
-def _resolve_waves(cfg: "Config") -> list[list[int]]:
-    """DEPRECATED shim — moved to atdd.train.wave_runner.resolve_waves (Child 9, #896).
-
-    Removal target: 3.87.0 (§11 deprecation cadence). New code resolves the wave
-    plan via the train layer; this name is kept so existing internal/test callers
-    keep working through the soak.
-    """
-    import warnings
-    from atdd.train import wave_runner as _wave_runner
-
-    warnings.warn(
-        "atdd.coach.commands.coach._resolve_waves is deprecated; the wave plan "
-        "resolution moved to atdd.train.wave_runner.resolve_waves (Child 9). "
-        "Removal target: 3.87.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _wave_runner.resolve_waves(cfg)
-
-
-def _drive_wave_concurrently(
-    wave: list[int],
-    drive_fn: Callable[[int], int],
-    *,
-    max_parallel: Optional[int] = None,
-) -> dict[int, int]:
-    """DEPRECATED shim — moved to atdd.train.wave_runner.drive_wave_concurrently (Child 9, #896).
-
-    Removal target: 3.87.0 (§11).
-    """
-    import warnings
-    from atdd.train import wave_runner as _wave_runner
-
-    warnings.warn(
-        "atdd.coach.commands.coach._drive_wave_concurrently is deprecated; moved to "
-        "atdd.train.wave_runner.drive_wave_concurrently (Child 9). "
-        "Removal target: 3.87.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _wave_runner.drive_wave_concurrently(wave, drive_fn, max_parallel=max_parallel)
 
 
 def _execute_cold_start(
@@ -1165,34 +1068,6 @@ def _execute_cold_start(
         _max_parallel=_max_parallel,
         runner=runner,
         policy=policy,
-    )
-
-
-def _make_resume_transition_action(
-    cfg: "Config",
-    runtime_dir: Path,
-    *,
-    multiplexer_backend: Optional[object] = None,
-    worktree_override: Optional[Path] = None,
-) -> Callable[[int, str, str], dict]:
-    """DEPRECATED shim — moved to atdd.train.issue_runner.make_resume_transition_action (Child 8, #895).
-
-    Removal target: 3.87.0 (§11).
-    """
-    import warnings
-    from atdd.train import issue_runner as _issue_runner
-
-    warnings.warn(
-        "atdd.coach.commands.coach._make_resume_transition_action is deprecated; moved "
-        "to atdd.train.issue_runner.make_resume_transition_action (Child 8). "
-        "Removal target: 3.87.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _issue_runner.make_resume_transition_action(
-        cfg, runtime_dir,
-        multiplexer_backend=multiplexer_backend,
-        worktree_override=worktree_override,
     )
 
 
