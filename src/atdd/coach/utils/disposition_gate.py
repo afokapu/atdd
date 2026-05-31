@@ -278,6 +278,77 @@ def _suggest_marker_for(rule_id: str) -> str:
     )
 
 
+# Map the gate's disposition tiers onto the ValidatorReport disposition
+# vocabulary (docs/coach-decomposition.md §4.2). The two vocabularies differ:
+# the gate speaks strict/advisory/suppress-and-clean; ValidatorReport speaks
+# block/warn-and-log/suppress-and-clean.
+_GATE_TO_REPORT_DISPOSITION = {
+    "strict": "block",
+    "advisory": "warn-and-log",
+    "suppress-and-clean": "suppress-and-clean",
+}
+
+
+def _coerce_severity(value: Any) -> int:
+    """Best-effort coerce a Violation severity to the ValidatorReport int (0-5)."""
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    return {
+        "info": 1,
+        "low": 2,
+        "warn": 3,
+        "warning": 3,
+        "error": 4,
+        "high": 4,
+        "critical": 5,
+    }.get(str(value).strip().lower(), 0)
+
+
+def _emit_validator_reports(
+    validator_id: str,
+    structured: "Dict[str, List[Any]]",
+    registry: "Dict[str, RuleMetadata]",
+) -> None:
+    """Emit one ``ValidatorReport`` per rule_id to the active run (§4.11).
+
+    Best-effort: a no-op when no run context is configured (see
+    ``atdd.validators.emit.emit_reports``) and never raises into the gate. This
+    is the migration adapter (Child 3 / #890) that makes every validator routing
+    through this gate emit uniform reports the train persistence layer reads back
+    into ``Evidence.validator_reports``.
+    """
+    try:
+        from atdd.coach.core.types import ValidatorReport
+        from atdd.validators.emit import emit_reports
+
+        reports: List[ValidatorReport] = []
+        for rule_id, vs in structured.items():
+            meta = registry.get(rule_id)
+            gate_disp = meta.disposition if meta and meta.disposition else _DEFAULT_DISPOSITION
+            if gate_disp not in _LEGAL_DISPOSITIONS:
+                gate_disp = _DEFAULT_DISPOSITION
+            severities = [_coerce_severity(getattr(v, "severity", 0)) for v in vs]
+            first = vs[0] if vs else None
+            reports.append(
+                ValidatorReport(
+                    validator_id=validator_id,
+                    rule_id=rule_id,
+                    severity=max(severities) if severities else 0,
+                    disposition=_GATE_TO_REPORT_DISPOSITION.get(gate_disp, "block"),
+                    unsuppressed_count=len(vs),
+                    location=getattr(first, "location", None) if first else None,
+                    detail=getattr(first, "detail", None) if first else None,
+                )
+            )
+        if reports:
+            emit_reports(tuple(reports))
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        # Emission is best-effort; never let it perturb the gate verdict.
+        return
+
+
 def assert_disposition_satisfied(
     validator_id: str,
     violations: Sequence[Any],
@@ -337,6 +408,11 @@ def assert_disposition_satisfied(
             structured[v.rule_id].append(v)
         else:
             opaque.append(v)
+
+    # Child 3 (#890): emit a ValidatorReport per rule so the train persistence
+    # layer can read violations back into Evidence (§4.11). Best-effort; the
+    # call is a no-op outside a configured run and never affects the verdict.
+    _emit_validator_reports(validator_id, structured, registry)
 
     # Substrate spec v12 §4.5 / issue #422: record per-rule outcomes on the
     # active pytest session BEFORE we route through the gate. The security

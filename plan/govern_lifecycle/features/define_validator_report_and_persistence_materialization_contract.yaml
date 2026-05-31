@@ -1,0 +1,7 @@
+feature: define-validator-report-and-persistence-materialization-contract
+wagon: govern-lifecycle
+urn: "feature:govern-lifecycle:define-validator-report-and-persistence-materialization-contract"
+wmbts:
+  - "wmbt:govern-lifecycle:E037"
+references:
+  - "docs/coach-decomposition.md"
