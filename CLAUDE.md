@@ -2,7 +2,7 @@
 
 ---
 missions:
-  orchestrate_atdd: "ATDD lifecycle (planner INIT → tester PLANNED → coder RED → tester GREEN → coder SMOKE → coder REFACTOR)"
+  orchestrate_atdd: "ATDD lifecycle: INIT → PLANNED → RED → GREEN → SMOKE → REFACTOR (per-phase agent ownership: src/atdd/coach/conventions/phase_machine.convention.yaml)"
   validate_phase_transitions: "Phase transitions and quality gates per conventions and schemas"
   required: true
 
