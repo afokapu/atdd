@@ -1516,8 +1516,24 @@ sessions:
   wagon: govern-lifecycle
 - id: '928-gap2'
   slug: atdd-cleanup-command
+  file: null
+  issue_number: 928
+  type: tracking
+  status: INIT
+  created: '2026-06-01'
+  archived: null
+  wagon: govern-lifecycle
 - id: '928-graphctx'
   slug: graph-context-wagonless-compliance
+  file: null
+  issue_number: 928
+  type: tracking
+  status: INIT
+  created: '2026-06-01'
+  archived: null
+  wagon: govern-lifecycle
+- id: '928-gap4item3'
+  slug: gap4-item3-validate-live-source
   file: null
   issue_number: 928
   type: tracking

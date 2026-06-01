@@ -9,6 +9,15 @@ set -e
 
 # --- Emergency bypass check (E031) ---
 _REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+
+# --- Source-checkout live-source bridge (#928 Gap 4 Item 3) ---
+# Inside the atdd toolkit source checkout, prepend src/ so the bare `python3`
+# version gate AND `atdd validate` import atdd from the WORKING TREE, not the
+# installed wheel. Removes the manual `PYTHONPATH=src` bridge; no-op elsewhere.
+if [ -n "$_REPO_ROOT" ] && [ -d "$_REPO_ROOT/src/atdd" ] && \
+   grep -q '^name = "atdd"' "$_REPO_ROOT/pyproject.toml" 2>/dev/null; then
+    export PYTHONPATH="$_REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+fi
 if [ -n "$_REPO_ROOT" ]; then
     _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
     if [ -f "$_BYPASS_FILE" ]; then

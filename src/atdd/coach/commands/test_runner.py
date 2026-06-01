@@ -71,8 +71,32 @@ class TestRunner:
 
     def __init__(self, repo_root: Path = None):
         self.repo_root = repo_root or find_repo_root()
-        # Point to the installed atdd package validators, not a local atdd/ dir
-        self.atdd_pkg_dir = Path(atdd.__file__).resolve().parent
+        # #928 Gap 4 Item 3: inside the atdd source checkout, validate the LIVE
+        # working tree (src/atdd), not the installed wheel. Otherwise `atdd
+        # validate` (and every git hook that runs it) tests the last RELEASED
+        # toolkit while you edit source — new validators look like orphans and
+        # hooks-on requires a manual `PYTHONPATH=src` bridge. In a consumer
+        # repo this falls back to the installed package, unchanged.
+        self.atdd_pkg_dir = self._resolve_atdd_pkg_dir()
+
+    def _repo_is_atdd_checkout(self) -> bool:
+        """True when self.repo_root is the atdd toolkit source checkout.
+
+        Keyed off ``pyproject.toml`` declaring ``name = "atdd"`` — independent
+        of where the running ``atdd`` was imported from (a pipx wheel still
+        reports the checkout correctly).
+        """
+        pyproject = self.repo_root / "pyproject.toml"
+        try:
+            return pyproject.is_file() and 'name = "atdd"' in pyproject.read_text(encoding="utf-8")
+        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+            return False
+
+    def _resolve_atdd_pkg_dir(self) -> Path:
+        src_pkg = self.repo_root / "src" / "atdd"
+        if self._repo_is_atdd_checkout() and src_pkg.is_dir():
+            return src_pkg.resolve()
+        return Path(atdd.__file__).resolve().parent
 
     def _get_validator_dirs(self, phase: Optional[str] = None) -> Optional[list]:
         """Resolve validator directories for the given phase."""
@@ -155,6 +179,14 @@ class TestRunner:
         import os
         env = _scrub_git_hook_env(os.environ.copy())
         env["ATDD_REPO_ROOT"] = str(self.repo_root)
+
+        # #928 Gap 4 Item 3: inside the atdd checkout, prepend src/ so the
+        # pytest subprocess imports atdd from the WORKING TREE (matching
+        # atdd_pkg_dir above), not the installed wheel — no manual bridge.
+        if self._repo_is_atdd_checkout():
+            src = str(self.repo_root / "src")
+            existing = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = src + (os.pathsep + existing if existing else "")
 
         print(f"  Running: {' '.join(cmd)}")
         print(f"  Repo root: {self.repo_root}")
