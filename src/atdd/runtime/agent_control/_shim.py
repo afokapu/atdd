@@ -103,6 +103,9 @@ class PersonaShim:
         self._cli_return_offset: int = 0
         self._master_fd: Optional[int] = None
         self._proc: Optional[subprocess.Popen] = None
+        # E006/#948: operator stdin is forwarded only once the wrapped agent
+        # CLI's TUI is ready; until then boot-time terminal chatter is dropped.
+        self._ready_gate_open: bool = False
 
     # ------------------------------------------------------------------
     # Public interface
@@ -176,7 +179,16 @@ class PersonaShim:
                 self._process_cli_return_line(line.rstrip("\n"))
 
     def forward_stdin_once(self) -> None:
-        """Read one chunk from stdin_source and write to the pty.
+        """Read one chunk from stdin_source and forward it to the pty.
+
+        Two guards protect the wrapped agent CLI's TUI from terminal chatter an
+        interactive multiplexer terminal injects (issue #948):
+
+        * stdin is drained and discarded until the ready-gate opens — bytes
+          forwarded before the CLI's kitty keyboard-protocol handshake finishes
+          corrupt it and wedge the welcome screen;
+        * terminal focus events (``ESC[I`` / ``ESC[O``) are always stripped;
+          they are unsolicited and never a meaningful keystroke.
 
         Designed for unit tests that simulate operator keystrokes.
         """
@@ -185,6 +197,11 @@ class PersonaShim:
             data = sys.stdin.buffer.read(1024)
         else:
             data = source.read(1024)
+        if not data:
+            return
+        if not self._ready_gate_open:
+            return  # drain & discard boot-time terminal chatter
+        data = data.replace(b"\x1b[I", b"").replace(b"\x1b[O", b"")
         if data:
             self._write_to_pty(data)
 
@@ -253,7 +270,7 @@ class PersonaShim:
         ready_marker = os.environ.get("ATDD_SHIM_READY_MARKER", "❯").encode("utf-8")
         bootstrap_delay = float(os.environ.get("ATDD_SHIM_BOOTSTRAP_DELAY_S", "3.0"))
         spawn_time = time.monotonic()
-        ready_gate_open = False
+        self._ready_gate_open = False
         output_log_path = (self._agent_dir / "output.log") if self._agent_dir else None
         # Include stdin fd in select only when stdin is a real TTY (E005).
         stdin_source = self._stdin_source or sys.stdin.buffer
@@ -293,20 +310,20 @@ class PersonaShim:
                     break
 
             # E006: open the gate when ready-marker seen or bootstrap delay elapsed
-            if not ready_gate_open:
+            if not self._ready_gate_open:
                 elapsed = time.monotonic() - spawn_time
                 if elapsed >= bootstrap_delay:
-                    ready_gate_open = True
+                    self._ready_gate_open = True
                 elif output_log_path is not None and output_log_path.exists():
                     try:
                         content = output_log_path.read_bytes()
                         if ready_marker in content:
-                            ready_gate_open = True
+                            self._ready_gate_open = True
                     except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
                         pass
 
             # Drain cli-return inbox (only after gate opens)
-            if ready_gate_open:
+            if self._ready_gate_open:
                 self.poll_once()
 
         # Drain remaining output after process exits
