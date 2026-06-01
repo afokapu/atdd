@@ -1549,3 +1549,11 @@ sessions:
   status: INIT
   created: '2026-06-01'
   archived: null
+- id: '950'
+  slug: shim-submit-sentinel-not-enter-under-kitty-protocol
+  file: null
+  issue_number: 950
+  type: implementation
+  status: INIT
+  created: '2026-06-01'
+  archived: null
