@@ -114,3 +114,23 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-31"
+  - identity:
+      urn: "acc:govern-lifecycle:E039-UNIT-005-shim-gates-and-strips-boot-stdin"
+      id: "AC-UNIT-005"
+      purpose: "PersonaShim.forward_stdin_once drains-and-discards operator stdin until the ready-gate opens, and always strips terminal focus events (ESC[I / ESC[O), so interactive-multiplexer terminal chatter cannot corrupt the wrapped agent CLI's kitty-keyboard-protocol boot handshake (the coach-spawned-agent welcome-screen wedge, issue #948)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a PersonaShim constructed with a stdin_source and a pty_write_sink test seam"
+    when:
+      abstract: "forward_stdin_once is called once before the ready-gate opens, and once after with stdin containing focus events interleaved with real keystrokes"
+    then:
+      abstract:
+        - "before the ready-gate opens, no bytes are written to the pty (boot-time stdin is drained and dropped)"
+        - "after the ready-gate opens, real keystrokes are forwarded with focus events ESC[I and ESC[O removed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-01"
