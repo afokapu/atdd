@@ -1557,3 +1557,11 @@ sessions:
   status: INIT
   created: '2026-06-01'
   archived: null
+- id: '951'
+  slug: recompose-wagons-from-wmbts
+  file: null
+  issue_number: 951
+  type: refactor
+  status: INIT
+  created: '2026-06-01'
+  archived: null
