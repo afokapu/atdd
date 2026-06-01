@@ -1514,7 +1514,7 @@ sessions:
   created: '2026-05-31'
   archived: null
   wagon: govern-lifecycle
-- id: '928-gap2'
+- id: 928-gap2
   slug: atdd-cleanup-command
   file: null
   issue_number: 928
@@ -1523,7 +1523,7 @@ sessions:
   created: '2026-06-01'
   archived: null
   wagon: govern-lifecycle
-- id: '928-graphctx'
+- id: 928-graphctx
   slug: graph-context-wagonless-compliance
   file: null
   issue_number: 928
@@ -1532,7 +1532,7 @@ sessions:
   created: '2026-06-01'
   archived: null
   wagon: govern-lifecycle
-- id: '928-gap4item3'
+- id: 928-gap4item3
   slug: gap4-item3-validate-live-source
   file: null
   issue_number: 928
@@ -1541,3 +1541,11 @@ sessions:
   created: '2026-06-01'
   archived: null
   wagon: govern-lifecycle
+- id: '948'
+  slug: coach-agent-boot-wedge-shim-drops-terminal-focus-events
+  file: null
+  issue_number: 948
+  type: implementation
+  status: INIT
+  created: '2026-06-01'
+  archived: null
