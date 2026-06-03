@@ -71,30 +71,28 @@ def build_feed_runner_from_repo(
     workspace_id: str,
     repo_root: Optional[Path] = None,
 ) -> FeedRunnerUseCase:  # pragma: no cover - exercised by live smoke
+    """Production wiring: real Feed source/transport + the LLM coach.
+
+    The coach is ``ClaudeCoach`` (one-shot ``claude -p``), not the deprecated
+    screen-scrape ``CmuxCoachClient`` — so the feed path no longer touches
+    ``mediate_decision.build_mediate_use_case_from_repo``. The dangerous-action
+    safety gate runs ahead of the coach inside ``FeedRunnerUseCase`` (C003), so
+    the coach stays decide-only.
+    """
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.claude_coach import (
+        ClaudeCoach,
+    )
     from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_event_source import (
         CmuxFeedSource,
     )
     from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_reply_applier import (
         CmuxFeedTransport,
     )
-    from atdd.mediate_worker_decisions.mediate_decision.composition import (
-        build_mediate_use_case_from_repo,
-    )
-
-    root = Path(repo_root or Path.cwd())
-    mediate = build_mediate_use_case_from_repo(root)
-
-    class _MediateCoach:
-        """Adapt the mediate-decision use case to the runner's Coach port."""
-
-        def mediate(self, request):
-            outcome = mediate.handle(request)
-            return getattr(outcome, "verdict", None)
 
     return build_feed_runner(
         source=CmuxFeedSource(),
         reply=CmuxFeedTransport(),
-        coach=_MediateCoach(),
+        coach=ClaudeCoach(),
     )
 
 

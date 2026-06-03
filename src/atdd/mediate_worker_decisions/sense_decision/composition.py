@@ -72,8 +72,22 @@ def build_sense_use_case(
 def build_sense_use_case_from_repo(
     repo_root: Optional[Path] = None,
 ) -> SenseDecisionUseCase:  # pragma: no cover - exercised by live smoke
-    """Production wiring from ``.atdd/decision/`` config + the cmux backend."""
+    """Production wiring from ``.atdd/decision/`` config + the cmux backend.
+
+    .. deprecated:: 3.88.0
+       Wires the screen-scrape ``CmuxSurfaceReader``; superseded by the
+       bridge-cmux-feed Feed integration. Removal: 3.90.0.
+    """
+    import warnings
     import yaml
+
+    warnings.warn(
+        "build_sense_use_case_from_repo is deprecated since 3.88.0; the cmux Feed "
+        "is the channel now — use atdd.mediate_worker_decisions.bridge_cmux_feed."
+        "composition.build_feed_runner. Removal: 3.90.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     root = Path(repo_root or Path.cwd())
     registry_path = root / ".atdd" / "decision" / "registry.yaml"

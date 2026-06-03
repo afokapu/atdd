@@ -76,7 +76,24 @@ def build_mediate_use_case_from_repo(
     repo_root: Optional[Path] = None,
     coach_surface_id: str = "surface:1",
 ) -> MediateDecisionUseCase:  # pragma: no cover - exercised by live smoke
+    """Production wiring over the cmux backend.
+
+    .. deprecated:: 3.88.0
+       Wires the screen-scrape ``CmuxCoachClient``; superseded by the
+       bridge-cmux-feed Feed integration. Removal: 3.90.0. The feed path now
+       uses ``bridge_cmux_feed.integration.claude_coach.ClaudeCoach`` instead of
+       reusing this builder, so this warning no longer surfaces on the feed path.
+    """
+    import warnings
     import yaml
+
+    warnings.warn(
+        "build_mediate_use_case_from_repo is deprecated since 3.88.0; the cmux "
+        "Feed is the channel now — use atdd.mediate_worker_decisions."
+        "bridge_cmux_feed.composition.build_feed_runner. Removal: 3.90.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     root = Path(repo_root or Path.cwd())
     registry_path = root / ".atdd" / "decision" / "registry.yaml"

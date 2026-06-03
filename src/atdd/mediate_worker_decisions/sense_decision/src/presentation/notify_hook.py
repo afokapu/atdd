@@ -4,6 +4,11 @@ Configured via ``.cmux/cmux.json`` to run on every notification. Receives the
 notification policy JSON on stdin, senses a decision (if the surface maps to a
 worker and shows a real prompt), and echoes the original payload back so the
 desktop notification is never suppressed.
+
+.. deprecated:: 3.88.0
+   This notification hook is the screen-scrape trigger, superseded by the
+   bridge-cmux-feed Feed integration
+   (``atdd.mediate_worker_decisions.bridge_cmux_feed``). Removal: 3.90.0.
 """
 from __future__ import annotations
 
@@ -26,6 +31,15 @@ def _notification_hash(payload: dict) -> str:
 
 def run(use_case: SenseDecisionUseCase, stdin: TextIO, stdout: TextIO) -> int:
     """Drive one notification through the sense use case; pass the payload through."""
+    import warnings
+
+    warnings.warn(
+        "notify_hook.run is deprecated since 3.88.0; the cmux Feed is the channel "
+        "now — use atdd.mediate_worker_decisions.bridge_cmux_feed.composition."
+        "build_feed_runner. Removal: 3.90.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     payload = json.load(stdin)
     notification = payload.get("notification", {}) or {}
     surface_id: Optional[str] = notification.get("surfaceId") or notification.get(
