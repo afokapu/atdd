@@ -1570,6 +1570,6 @@ sessions:
   file: null
   issue_number: 955
   type: implementation
-  status: INIT
+  status: PLANNED
   created: '2026-06-03'
   archived: null
