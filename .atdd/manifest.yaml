@@ -1570,6 +1570,9 @@ sessions:
   file: null
   issue_number: 955
   type: implementation
-  status: PLANNED
+  status: RED
   created: '2026-06-03'
   archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:sense-decision
+  train: 0002-coach-drives-lifecycle
