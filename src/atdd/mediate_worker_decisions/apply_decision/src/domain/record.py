@@ -4,9 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-APPLIED = "applied"
-ESCALATED = "escalated"
-APPLICATION_FAILED = "application_failed"
+APPLIED, ESCALATED, APPLICATION_FAILED = "applied", "escalated", "application_failed"
 
 
 @dataclass(frozen=True)
@@ -23,15 +21,13 @@ class DecisionRecord:
     error: Optional[str] = None
 
     def to_contract(self) -> dict:
-        return {
-            "record_id": self.record_id,
-            "request_id": self.request_id,
-            "verdict_id": self.verdict_id,
-            "recorded_at": self.recorded_at,
-            "request": self.request,
-            "verdict": self.verdict,
-            "escalation": self.escalation,
-            "disposition": self.disposition,
-            "idempotency_key": self.idempotency_key,
-            "error": self.error,
-        }
+        out: dict = {"record_id": self.record_id, "request_id": self.request_id}
+        out["verdict_id"] = self.verdict_id
+        out["recorded_at"] = self.recorded_at
+        out["request"] = self.request
+        out["verdict"] = self.verdict
+        out["escalation"] = self.escalation
+        out["disposition"] = self.disposition
+        out["idempotency_key"] = self.idempotency_key
+        out["error"] = self.error
+        return out
