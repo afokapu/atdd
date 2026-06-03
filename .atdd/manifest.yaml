@@ -1565,3 +1565,11 @@ sessions:
   status: INIT
   created: '2026-06-01'
   archived: null
+- id: '955'
+  slug: cmux-coach-decision-bridge
+  file: null
+  issue_number: 955
+  type: implementation
+  status: INIT
+  created: '2026-06-03'
+  archived: null
