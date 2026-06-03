@@ -1,0 +1,84 @@
+urn: "wmbt:mediate-worker-decisions:C002"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-dangerous-action-being-auto-applied-instead-of-escalated-to-a-human"
+context_clarifier: "when a decision request involves a dangerous action (git push, git merge, gh pr merge, rm -rf, force push, destructive migration) the safety gate must classify it human_required BEFORE the coach is ever consulted, and an escalation must be emitted"
+lens: "functional.security"
+statement: "minimize likelihood of a dangerous action being auto-applied — the safety gate classifies it human_required before the coach is consulted and emits an escalation"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:C002-UNIT-001-danger-patterns-human-required"
+      id: "AC-UNIT-001"
+      purpose: "Each dangerous pattern classifies human_required; an ordinary action classifies auto_apply"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Requests whose options include git push, git merge, gh pr merge, rm -rf, force push, destructive migration"
+        - "A request whose options are ordinary (e.g. add a test, pick a name)"
+    when:
+      abstract: "The safety classifier classifies each request"
+      action: "invoke"
+    then:
+      abstract:
+        - "Every dangerous request is human_required"
+        - "The ordinary request is auto_apply"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "mediate-decision"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C002-INTEGRATION-001-gate-before-coach"
+      id: "AC-INTEGRATION-001"
+      purpose: "A dangerous request is escalated and the coach client is never called"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A dangerous decision request"
+        - "A fake coach client that records whether it was called"
+    when:
+      abstract: "The mediate use case handles the request"
+      action: "invoke"
+    then:
+      abstract:
+        - "An escalation with cause dangerous_action is emitted"
+        - "The coach client was never called"
+        - "No auto_apply verdict is produced"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "mediate-decision"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C002-INTEGRATION-002-live-danger-escalates"
+      id: "AC-INTEGRATION-002"
+      purpose: "A live dangerous prompt produces an escalation and leaves the coach surface untouched"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real worker surface shows a prompt offering to git push"
+    when:
+      abstract: "The bridge mediates the live decision"
+      action: "invoke"
+    then:
+      abstract:
+        - "An escalation is recorded and nothing is sent to the coach surface"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "mediate-decision"

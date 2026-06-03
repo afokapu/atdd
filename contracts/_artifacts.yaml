@@ -15,6 +15,50 @@ artifacts:
   path: contracts/commons/compliance/inventory.schema.json
   producer: wagon:govern-lifecycle
   consumers: []
+- id: commons:decision:escalation
+  urn: contract:commons:decision:escalation
+  version: 1.0.0
+  title: CommonsDecisionEscalation
+  description: An external signal that a worker decision cannot be safely auto-mediated
+    and needs a human. Produced by the mediate-decision feature whenever the safety
+    gate fires or the coach cannot be parsed/answers too slowly.
+  path: contracts/commons/decision/escalation.schema.json
+  producer: wagon:mediate-worker-decisions
+  consumers: []
+- id: commons:decision:record
+  urn: contract:commons:decision:record
+  version: 1.0.0
+  title: CommonsDecisionRecord
+  description: 'The durable, externally-observable audit record of a mediated decision:
+    what was asked, what was decided (or that it was escalated), and what happened
+    when it was applied. Produced by the apply-decision feature; consumed by the observer/ledger.'
+  path: contracts/commons/decision/record.schema.json
+  producer: wagon:mediate-worker-decisions
+  consumers:
+  - wagon:observe-and-correct
+- id: commons:decision:request
+  urn: contract:commons:decision:request
+  version: 1.0.0
+  title: CommonsDecisionRequest
+  description: A blocked worker's decision prompt, normalized from a cmux notification
+    (or the emit CLI), ready for coach mediation. Flows from the sense-decision feature
+    to the mediate-decision feature.
+  path: contracts/commons/decision/request.schema.json
+  producer: wagon:mediate-worker-decisions
+  consumers:
+  - wagon:mediate-worker-decisions
+- id: commons:decision:verdict
+  urn: contract:commons:decision:verdict
+  version: 1.0.0
+  title: CommonsDecisionVerdict
+  description: 'The mediated outcome of a decision request. disposition encodes the
+    safety guarantee in the contract itself: a human_required verdict carries no selected
+    option and MUST NOT be auto-applied. Flows from the mediate-decision feature to
+    the apply-decision feature.'
+  path: contracts/commons/decision/verdict.schema.json
+  producer: wagon:mediate-worker-decisions
+  consumers:
+  - wagon:mediate-worker-decisions
 - id: commons:error:response
   urn: contract:commons:error:response
   version: 1.0.0

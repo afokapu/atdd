@@ -1,0 +1,56 @@
+urn: "wmbt:mediate-worker-decisions:K001"
+step: "conclude"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "an-applied-decision-missing-from-the-durable-ledger"
+context_clarifier: "when a verdict is applied (or escalated, or fails) the bridge must append a commons:decision:record embedding the request and verdict and the terminal disposition to a durable ledger"
+lens: "functional.traceability"
+statement: "minimize likelihood of an applied decision missing from the ledger — every outcome appends a record embedding request, verdict, and disposition"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:K001-INTEGRATION-001-record-written"
+      id: "AC-INTEGRATION-001"
+      purpose: "Applying a verdict appends a record embedding the request, verdict, and disposition applied"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A fake ledger and an auto_apply verdict"
+    when:
+      abstract: "The apply use case applies the verdict"
+      action: "invoke"
+    then:
+      abstract:
+        - "Exactly one record is appended with disposition applied, embedding request and verdict"
+      assertions:
+        - type: "equals"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "apply-decision"
+  - identity:
+      urn: "acc:mediate-worker-decisions:K001-INTEGRATION-002-live-ledger"
+      id: "AC-INTEGRATION-002"
+      purpose: "A live applied decision lands a record line in the real durable ledger"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "The real JSONL-backed ledger under .atdd"
+    when:
+      abstract: "The bridge applies a live verdict"
+      action: "invoke"
+    then:
+      abstract:
+        - "A commons:decision:record line is present in the ledger"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "apply-decision"

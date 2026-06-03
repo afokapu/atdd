@@ -1,0 +1,33 @@
+urn: "wmbt:mediate-worker-decisions:P001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-12-03
+step: "prepare"
+direction: "minimize"
+dimension: "effort"
+object_of_control: "presenting-a-structured-worker-decision-to-the-coach-surface"
+context_clarifier: "when a safe decision request must be shown to the coach as a structured prompt the coach can answer with DECISION:/REASON:"
+lens: "functional.usability"
+statement: "minimize effort of presenting a structured worker decision request to the coach surface for a DECISION:/REASON: reply"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:P001-INTEGRATION-001-coach-request-format"
+      id: "AC-INTEGRATION-001"
+      purpose: "The coach client renders the request (wagon, worker, question, options) and sends it to the coach surface in the DECISION:/REASON: contract"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A safe decision request for worker glue with two options"
+        - "A fake coach client that records what it was sent"
+    when:
+      abstract: "The mediate use case presents the request to the coach"
+      action: "invoke"
+    then:
+      abstract:
+        - "The sent text contains the question, both option ids, and the DECISION:/REASON: reply instruction"
+      assertions:
+        - type: "contains"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "mediate-decision"
