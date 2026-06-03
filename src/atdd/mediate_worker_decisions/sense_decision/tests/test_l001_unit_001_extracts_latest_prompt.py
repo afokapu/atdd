@@ -4,18 +4,24 @@
 # Phase: RED
 # Layer: domain
 # Assertion: behavioral
-"""L001-UNIT-001 — The pure parser extracts the question and option list, choosing the latest prompt when several appear
-
-RED: the sense-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires sense-decision's domain/application/integration tiers.
-"""
+"""L001-UNIT-001 — parser extracts the latest prompt's question and options."""
 from __future__ import annotations
 
-import pytest
+from atdd.mediate_worker_decisions.sense_decision.src.domain.prompt_parser import parse_prompt
 
 
 def test_l001_unit_001_extracts_latest_prompt():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.sense_decision import composition  # noqa: F401
-
-    pytest.fail("RED: acc:mediate-worker-decisions:L001-UNIT-001-extracts-latest-prompt not yet implemented")
+    text = (
+        "Do you want the old thing?\n"
+        "1) old-a\n"
+        "2) old-b\n"
+        "...work happens...\n"
+        "Proceed with the migration?\n"
+        "1) Apply\n"
+        "2) Abort\n"
+    )
+    prompt = parse_prompt(text)
+    assert prompt is not None
+    # latest prompt wins
+    assert prompt.question == "Proceed with the migration?"
+    assert [(o.id, o.label) for o in prompt.options] == [("1", "Apply"), ("2", "Abort")]

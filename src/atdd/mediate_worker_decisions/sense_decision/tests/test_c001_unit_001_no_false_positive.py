@@ -4,18 +4,23 @@
 # Phase: RED
 # Layer: domain
 # Assertion: behavioral
-"""C001-UNIT-001 — Non-decision text (empty, progress, or partially-rendered prompt) yields no request
-
-RED: the sense-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires sense-decision's domain/application/integration tiers.
-"""
+"""C001-UNIT-001 — non-decision output yields no request."""
 from __future__ import annotations
 
 import pytest
 
+from atdd.mediate_worker_decisions.sense_decision.src.domain.prompt_parser import parse_prompt
 
-def test_c001_unit_001_no_false_positive():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.sense_decision import composition  # noqa: F401
 
-    pytest.fail("RED: acc:mediate-worker-decisions:C001-UNIT-001-no-false-positive not yet implemented")
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "   \n  \n",
+        "Building... [####------] 40%\n",
+        "Proceed with the migration?\n",          # question, no options (half-rendered)
+        "Only one option here:\n1) lonely\n",     # single bullet is a list, not a decision
+    ],
+)
+def test_c001_unit_001_no_false_positive(text):
+    assert parse_prompt(text) is None

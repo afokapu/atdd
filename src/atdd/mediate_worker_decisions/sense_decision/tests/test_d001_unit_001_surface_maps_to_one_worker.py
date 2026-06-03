@@ -2,20 +2,26 @@
 # Acceptance: acc:mediate-worker-decisions:D001-UNIT-001-surface-maps-to-one-worker
 # WMBT: wmbt:mediate-worker-decisions:D001
 # Phase: RED
-# Layer: domain
+# Layer: integration
 # Assertion: behavioral
-"""D001-UNIT-001 — A known surface id resolves to exactly one worker; an unknown surface id resolves to None (no worker invented)
-
-RED: the sense-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires sense-decision's domain/application/integration tiers.
-"""
+"""D001-UNIT-001 — a known surface resolves to exactly one worker; unknown -> None."""
 from __future__ import annotations
 
-import pytest
+from atdd.mediate_worker_decisions.sense_decision.src.integration.registry_worker_lookup import (
+    RegistryWorkerLookup,
+)
 
 
 def test_d001_unit_001_surface_maps_to_one_worker():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.sense_decision import composition  # noqa: F401
+    registry = RegistryWorkerLookup(
+        {"surface:3": {"run_id": "run-1", "agent_handle_ref": "h-3"}}
+    )
 
-    pytest.fail("RED: acc:mediate-worker-decisions:D001-UNIT-001-surface-maps-to-one-worker not yet implemented")
+    worker = registry.resolve("surface:3")
+    assert worker is not None
+    assert worker.surface_id == "surface:3"
+    assert worker.run_id == "run-1"
+    assert worker.agent_handle_ref == "h-3"
+
+    # Unknown surface fabricates no worker.
+    assert registry.resolve("surface:99") is None
