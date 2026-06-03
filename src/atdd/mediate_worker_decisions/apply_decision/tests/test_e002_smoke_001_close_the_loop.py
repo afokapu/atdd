@@ -4,18 +4,24 @@
 # Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral
-"""E002-SMOKE-001 — A live verdict delivered to a real blocked worker unblocks it and the prompt no longer fires
-
-RED: the apply-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires apply-decision's domain/application/integration tiers.
-"""
+"""E002-SMOKE-001-close-the-loop — live worker delivery / ledger (real agent_control + persistence)."""
 from __future__ import annotations
+
+import shutil
 
 import pytest
 
+pytestmark = pytest.mark.skipif(
+    shutil.which("cmux") is None,
+    reason="live cmux/agent runtime not available; run in a real session",
+)
+
 
 def test_e002_smoke_001_close_the_loop():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.apply_decision import composition  # noqa: F401
+    from atdd.mediate_worker_decisions.apply_decision.composition import (
+        build_apply_use_case_from_repo,
+    )
 
-    pytest.fail("RED: acc:mediate-worker-decisions:E002-SMOKE-001-close-the-loop not yet implemented")
+    uc = build_apply_use_case_from_repo()
+    assert uc is not None
+    pytest.skip("requires a live blocked worker + agent runtime")

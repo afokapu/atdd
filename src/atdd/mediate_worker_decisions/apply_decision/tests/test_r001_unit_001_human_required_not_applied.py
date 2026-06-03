@@ -2,20 +2,28 @@
 # Acceptance: acc:mediate-worker-decisions:R001-UNIT-001-human-required-not-applied
 # WMBT: wmbt:mediate-worker-decisions:R001
 # Phase: RED
-# Layer: domain
+# Layer: application
 # Assertion: behavioral
-"""R001-UNIT-001 — A human_required verdict is never delivered to the worker and is recorded as escalated
-
-RED: the apply-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires apply-decision's domain/application/integration tiers.
-"""
+"""R001-UNIT-001 — a human_required verdict is never delivered; recorded as escalated."""
 from __future__ import annotations
 
-import pytest
+from atdd.mediate_worker_decisions.apply_decision.composition import build_apply_use_case
+from atdd.mediate_worker_decisions.apply_decision.src.domain.record import ESCALATED
+from atdd.mediate_worker_decisions.apply_decision.src.integration.agent_control_applier import (
+    InMemoryAppliedGuard,
+)
+from atdd.mediate_worker_decisions.apply_decision.tests._helpers import (
+    FakeApplier, FakeLedger, fixed_id, fixed_ts, make_request, make_verdict,
+)
 
 
-def test_r001_unit_001_human_required_not_applied():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.apply_decision import composition  # noqa: F401
+def test_human_required_not_applied():
+    applier, ledger = FakeApplier(), FakeLedger()
+    uc = build_apply_use_case(
+        applier=applier, ledger=ledger, guard=InMemoryAppliedGuard(),
+        id_factory=fixed_id, ts_factory=fixed_ts,
+    )
+    rec = uc.apply(make_request(), make_verdict(auto=False))
 
-    pytest.fail("RED: acc:mediate-worker-decisions:R001-UNIT-001-human-required-not-applied not yet implemented")
+    assert applier.calls == []            # never delivered
+    assert rec.disposition == ESCALATED

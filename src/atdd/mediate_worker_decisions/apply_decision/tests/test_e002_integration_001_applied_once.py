@@ -2,20 +2,29 @@
 # Acceptance: acc:mediate-worker-decisions:E002-INTEGRATION-001-applied-once
 # WMBT: wmbt:mediate-worker-decisions:E002
 # Phase: RED
-# Layer: integration
+# Layer: application
 # Assertion: behavioral
-"""E002-INTEGRATION-001 — Handing the same verdict twice delivers to the worker exactly once
-
-RED: the apply-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires apply-decision's domain/application/integration tiers.
-"""
+"""E002-INTEGRATION-001 — the same verdict is delivered exactly once."""
 from __future__ import annotations
 
-import pytest
+from atdd.mediate_worker_decisions.apply_decision.composition import build_apply_use_case
+from atdd.mediate_worker_decisions.apply_decision.src.integration.agent_control_applier import (
+    InMemoryAppliedGuard,
+)
+from atdd.mediate_worker_decisions.apply_decision.tests._helpers import (
+    FakeApplier, FakeLedger, fixed_id, fixed_ts, make_request, make_verdict,
+)
 
 
-def test_e002_integration_001_applied_once():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.apply_decision import composition  # noqa: F401
+def test_applied_once():
+    applier, ledger = FakeApplier(), FakeLedger()
+    uc = build_apply_use_case(
+        applier=applier, ledger=ledger, guard=InMemoryAppliedGuard(),
+        id_factory=fixed_id, ts_factory=fixed_ts,
+    )
+    req, verdict = make_request(), make_verdict()
+    uc.apply(req, verdict)
+    uc.apply(req, verdict)            # replay
 
-    pytest.fail("RED: acc:mediate-worker-decisions:E002-INTEGRATION-001-applied-once not yet implemented")
+    assert len(applier.calls) == 1   # delivered once
+    assert len(ledger.records) == 2  # applied, then deduped

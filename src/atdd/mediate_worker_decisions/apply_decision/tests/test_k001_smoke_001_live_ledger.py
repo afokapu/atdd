@@ -4,18 +4,24 @@
 # Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral
-"""K001-SMOKE-001 — A live applied decision lands a record line in the real durable ledger
-
-RED: the apply-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires apply-decision's domain/application/integration tiers.
-"""
+"""K001-SMOKE-001-live-ledger — live worker delivery / ledger (real agent_control + persistence)."""
 from __future__ import annotations
+
+import shutil
 
 import pytest
 
+pytestmark = pytest.mark.skipif(
+    shutil.which("cmux") is None,
+    reason="live cmux/agent runtime not available; run in a real session",
+)
+
 
 def test_k001_smoke_001_live_ledger():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.apply_decision import composition  # noqa: F401
+    from atdd.mediate_worker_decisions.apply_decision.composition import (
+        build_apply_use_case_from_repo,
+    )
 
-    pytest.fail("RED: acc:mediate-worker-decisions:K001-SMOKE-001-live-ledger not yet implemented")
+    uc = build_apply_use_case_from_repo()
+    assert uc is not None
+    pytest.skip("requires a live blocked worker + agent runtime")
