@@ -10,9 +10,10 @@
     "resource": "request",
     "version": "1.0.0",
     "hash": "",
-    "visibility": "internal",
     "producer": "wagon:mediate-worker-decisions",
-    "consumers": ["wagon:mediate-worker-decisions"],
+    "consumers": [
+      "wagon:mediate-worker-decisions"
+    ],
     "dependencies": [],
     "traceability": {
       "wagon_ref": "plan/mediate_worker_decisions/_mediate_worker_decisions.yaml",
@@ -23,6 +24,22 @@
     },
     "governance": {
       "status": "draft"
+    },
+    "api": {
+      "version": "v1",
+      "operations": [
+        {
+          "method": "POST",
+          "path": "/decision/request",
+          "description": "Append a commons:decision:request entry to the decision stream",
+          "responses": {
+            "200": {
+              "description": "CommonsDecisionRequest accepted",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
     }
   },
   "properties": {
@@ -39,19 +56,36 @@
       "type": "object",
       "description": "The blocked worker agent the prompt was read from.",
       "properties": {
-        "surface_id": { "type": "string", "description": "cmux surface ref the worker runs in (e.g. surface:3)." },
-        "run_id": { "type": "string", "description": "ATDD run id owning the worker, when known." },
-        "agent_handle_ref": { "type": "string", "description": "Opaque agent-control handle ref for delivery." }
+        "surface_id": {
+          "type": "string",
+          "description": "cmux surface ref the worker runs in (e.g. surface:3)."
+        },
+        "run_id": {
+          "type": "string",
+          "description": "ATDD run id owning the worker, when known."
+        },
+        "agent_handle_ref": {
+          "type": "string",
+          "description": "Opaque agent-control handle ref for delivery."
+        }
       },
-      "required": ["surface_id"],
+      "required": [
+        "surface_id"
+      ],
       "additionalProperties": false
     },
     "prompt": {
       "type": "object",
       "description": "The structured decision extracted from the worker surface text.",
       "properties": {
-        "raw_text": { "type": "string", "description": "Raw (ANSI-stripped) tail of the surface the prompt was extracted from." },
-        "question": { "type": "string", "description": "The decision question presented to the worker." },
+        "raw_text": {
+          "type": "string",
+          "description": "Raw (ANSI-stripped) tail of the surface the prompt was extracted from."
+        },
+        "question": {
+          "type": "string",
+          "description": "The decision question presented to the worker."
+        },
         "options": {
           "type": "array",
           "description": "The selectable options. Empty is not a valid decision request.",
@@ -59,15 +93,28 @@
           "items": {
             "type": "object",
             "properties": {
-              "id": { "type": "string", "description": "Stable option id (e.g. \"1\", \"a\")." },
-              "label": { "type": "string", "description": "Human-readable option text." }
+              "id": {
+                "type": "string",
+                "description": "Stable option id (e.g. \"1\", \"a\")."
+              },
+              "label": {
+                "type": "string",
+                "description": "Human-readable option text."
+              }
             },
-            "required": ["id", "label"],
+            "required": [
+              "id",
+              "label"
+            ],
             "additionalProperties": false
           }
         }
       },
-      "required": ["raw_text", "question", "options"],
+      "required": [
+        "raw_text",
+        "question",
+        "options"
+      ],
       "additionalProperties": false
     },
     "provenance": {
@@ -76,7 +123,10 @@
       "properties": {
         "source": {
           "type": "string",
-          "enum": ["cmux_notification", "emit_cli"],
+          "enum": [
+            "cmux_notification",
+            "emit_cli"
+          ],
           "description": "Entry path."
         },
         "notification_hash": {
@@ -84,10 +134,17 @@
           "description": "Hash of the originating cmux notification payload, when source=cmux_notification."
         }
       },
-      "required": ["source"],
+      "required": [
+        "source"
+      ],
       "additionalProperties": false
     }
   },
-  "required": ["request_id", "worker", "prompt", "provenance"],
+  "required": [
+    "request_id",
+    "worker",
+    "prompt",
+    "provenance"
+  ],
   "additionalProperties": false
 }
