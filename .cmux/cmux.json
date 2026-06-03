@@ -1,0 +1,12 @@
+{
+  "notifications": {
+    "hooks": [
+      {
+        "id": "atdd-mediate-worker-decisions",
+        "command": "python -m atdd.mediate_worker_decisions.sense_decision.src.presentation.notify_hook",
+        "timeoutSeconds": 20,
+        "description": "Route a blocked worker's decision prompt to the coach (wagon:mediate-worker-decisions). Reads the notification JSON on stdin, senses a request, and echoes the payload back so the desktop notification is never suppressed."
+      }
+    ]
+  }
+}
