@@ -192,7 +192,7 @@ of bypass patterns.
 | acc:mediate-worker-decisions:K001-SMOKE-001-live-ledger | real (JsonlPersistenceStore under .atdd) | commons:decision:record line present in the durable ledger | apply → DecisionLedger | #955 |
 | acc:mediate-worker-decisions:L002-SMOKE-001-locates-live-blocked-agent | real (live Claude worker blocked on cmux Feed) | pending feed item located + mapped to a request with the live request_id | cmux Feed (feed.list/events) → sense | #955 |
 | acc:mediate-worker-decisions:E003-SMOKE-001-unblocks-live-agent | real (live Claude worker + cmux rpc feed.*.reply) | coach verdict replied via Feed resolves the item; worker proceeds | mediate verdict → feed reply → agent | #955 |
-| acc:mediate-worker-decisions:C003-SMOKE-001-live-dangerous-not-auto-approved | real (live worker requesting a dangerous tool use) | dangerous tool_input is not auto-replied; escalated to human soft-wait | safety gate over tool_input → no reply | #955 |
+| acc:mediate-worker-decisions:C003-SMOKE-001-live-dangerous-not-auto-approved | real (live worker requesting a dangerous tool use) | dangerous tool_input is not auto-replied; escalated to human soft-wait | safety gate over tool_input → no reply | #955; SKIPPED at runtime — no blocked dangerous permission inducible under cmux auto-mode (`--allow-dangerously-skip-permissions`); C003 unit+integration carry the guarantee |
 
 ---
 
