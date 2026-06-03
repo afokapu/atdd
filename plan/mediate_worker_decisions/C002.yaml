@@ -4,8 +4,8 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "a-dangerous-action-being-auto-applied-instead-of-escalated-to-a-human"
 context_clarifier: "when a decision request involves a dangerous action (git push, git merge, gh pr merge, rm -rf, force push, destructive migration) the safety gate must classify it human_required BEFORE the coach is ever consulted, and an escalation must be emitted"
-lens: "functional.security"
-statement: "minimize likelihood of a dangerous action being auto-applied — the safety gate classifies it human_required before the coach is consulted and emits an escalation"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a dangerous action being auto applied instead of escalated to a human"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:C002-UNIT-001-danger-patterns-human-required"
@@ -60,8 +60,8 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "mediate-decision"
   - identity:
-      urn: "acc:mediate-worker-decisions:C002-INTEGRATION-002-live-danger-escalates"
-      id: "AC-INTEGRATION-002"
+      urn: "acc:mediate-worker-decisions:C002-SMOKE-001-live-danger-escalates"
+      id: "AC-SMOKE-001"
       purpose: "A live dangerous prompt produces an escalation and leaves the coach surface untouched"
       phase: "SMOKE"
     harness:

@@ -4,8 +4,8 @@ direction: "minimize"
 dimension: "effort"
 object_of_control: "presenting-a-structured-worker-decision-to-the-coach-surface"
 context_clarifier: "when a safe decision request must be shown to the coach as a structured prompt the coach can answer with DECISION:/REASON:"
-lens: "functional.usability"
-statement: "minimize effort of presenting a structured worker decision request to the coach surface for a DECISION:/REASON: reply"
+lens: "functional.efficiency"
+statement: "minimize effort of presenting a structured worker decision to the coach surface"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:P001-INTEGRATION-001-coach-request-format"

@@ -4,8 +4,8 @@ direction: "maximize"
 dimension: "likelihood"
 object_of_control: "locating-the-latest-decision-prompt-in-worker-surface-text"
 context_clarifier: "when the worker surface scrollback contains an interactive decision prompt (question plus numbered/lettered options), possibly preceded by older output or progress noise"
-lens: "functional.correctness"
-statement: "maximize likelihood of locating the latest decision prompt (question plus its options) within worker surface text"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of locating the latest decision prompt in worker surface text"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:L001-UNIT-001-extracts-latest-prompt"

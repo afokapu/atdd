@@ -4,8 +4,8 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "a-worker-application-failure-being-silently-swallowed"
 context_clarifier: "when delivering the answer to the worker fails (the applier raises), the bridge must record a failure record carrying the error and must not swallow the exception or report success"
-lens: "functional.reliability"
-statement: "minimize likelihood of a worker-application failure being swallowed — a delivery error is recorded as application_failed with the error, never hidden"
+lens: "functional.availability"
+statement: "minimize likelihood of a worker application failure being silently swallowed"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:M002-INTEGRATION-001-failure-recorded"

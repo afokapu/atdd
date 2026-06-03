@@ -4,8 +4,8 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "an-escalated-human-required-verdict-being-auto-applied"
 context_clarifier: "the C-side mirror of the safety gate: when apply receives a verdict whose disposition is human_required, it must never deliver to the worker and must record disposition escalated"
-lens: "functional.security"
-statement: "minimize likelihood of an escalated (human_required) verdict being auto-applied — apply never delivers it and records disposition escalated"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of an escalated human required verdict being auto applied"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:R001-UNIT-001-human-required-not-applied"

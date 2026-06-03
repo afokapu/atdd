@@ -4,8 +4,8 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "an-applied-decision-missing-from-the-durable-ledger"
 context_clarifier: "when a verdict is applied (or escalated, or fails) the bridge must append a commons:decision:record embedding the request and verdict and the terminal disposition to a durable ledger"
-lens: "functional.traceability"
-statement: "minimize likelihood of an applied decision missing from the ledger — every outcome appends a record embedding request, verdict, and disposition"
+lens: "functional.sustainability"
+statement: "minimize likelihood of an applied decision missing from the durable ledger"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:K001-INTEGRATION-001-record-written"
@@ -32,8 +32,8 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "apply-decision"
   - identity:
-      urn: "acc:mediate-worker-decisions:K001-INTEGRATION-002-live-ledger"
-      id: "AC-INTEGRATION-002"
+      urn: "acc:mediate-worker-decisions:K001-SMOKE-001-live-ledger"
+      id: "AC-SMOKE-001"
       purpose: "A live applied decision lands a record line in the real durable ledger"
       phase: "SMOKE"
     harness:

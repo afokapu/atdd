@@ -4,8 +4,8 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "misparsing-the-coach-reply-into-a-wrong-verdict"
 context_clarifier: "when the coach replies on its surface with a DECISION: <option> / REASON: <text> block that must be parsed into a verdict, and a malformed reply must not be guessed into a verdict"
-lens: "functional.correctness"
-statement: "minimize likelihood of misparsing the coach reply — a well-formed DECISION:/REASON: yields a verdict, a malformed reply yields a ParseError, never a guessed verdict"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of misparsing the coach reply into a wrong verdict"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:E001-UNIT-001-parse-or-error"

@@ -4,8 +4,8 @@ direction: "minimize"
 dimension: "quantity"
 object_of_control: "duplicate-applications-of-the-same-verdict-to-a-worker"
 context_clarifier: "when the same verdict is handed to apply more than once (replay, retry, double-notification) the worker must receive the answer exactly once, keyed by a stable idempotency key derived from request+verdict"
-lens: "functional.reliability"
-statement: "minimize quantity of duplicate applications of the same verdict — delivery is idempotent on a stable request+verdict key"
+lens: "functional.availability"
+statement: "minimize quantity of duplicate applications of the same verdict to a worker"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:E002-UNIT-001-stable-idempotency-key"
@@ -56,8 +56,8 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "apply-decision"
   - identity:
-      urn: "acc:mediate-worker-decisions:E002-INTEGRATION-002-close-the-loop"
-      id: "AC-INTEGRATION-002"
+      urn: "acc:mediate-worker-decisions:E002-SMOKE-001-close-the-loop"
+      id: "AC-SMOKE-001"
       purpose: "A live verdict delivered to a real blocked worker unblocks it and the prompt no longer fires"
       phase: "SMOKE"
     harness:

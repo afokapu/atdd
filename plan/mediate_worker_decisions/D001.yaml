@@ -4,8 +4,8 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "resolving-a-cmux-notification-to-the-wrong-worker-or-diverging-entry-paths"
 context_clarifier: "when a cmux notification (or an emit-CLI call) names a surface and the bridge must map it to exactly one registered worker, and the notify-hook and emit-CLI entry paths must serialize the same commons:decision:request shape"
-lens: "functional.correctness"
-statement: "minimize likelihood of resolving a cmux notification to the wrong worker, or of the notify-hook and emit-CLI entry paths producing divergent requests"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of resolving a cmux notification to the wrong worker or diverging entry paths"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:D001-UNIT-001-surface-maps-to-one-worker"
@@ -58,8 +58,8 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "sense-decision"
   - identity:
-      urn: "acc:mediate-worker-decisions:D001-INTEGRATION-002-live-resolve"
-      id: "AC-INTEGRATION-002"
+      urn: "acc:mediate-worker-decisions:D001-SMOKE-001-live-resolve"
+      id: "AC-SMOKE-001"
       purpose: "A live cmux notification resolves through the real registry to the worker that raised it"
       phase: "SMOKE"
     harness:

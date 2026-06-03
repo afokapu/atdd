@@ -4,8 +4,8 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "coach-silence-causing-a-silent-auto-apply-instead-of-an-escalation"
 context_clarifier: "when the coach does not return a parseable DECISION: within the configured budget, the bridge must escalate (cause coach_timeout) rather than wait forever or apply a default"
-lens: "functional.reliability"
-statement: "minimize likelihood of coach silence causing a silent auto-apply — a timeout escalates with cause coach_timeout and produces no verdict"
+lens: "functional.availability"
+statement: "minimize likelihood of coach silence causing a silent auto apply instead of an escalation"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:M001-INTEGRATION-001-timeout-escalates"
@@ -34,8 +34,8 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "mediate-decision"
   - identity:
-      urn: "acc:mediate-worker-decisions:M001-INTEGRATION-002-live-timeout"
-      id: "AC-INTEGRATION-002"
+      urn: "acc:mediate-worker-decisions:M001-SMOKE-001-live-timeout"
+      id: "AC-SMOKE-001"
       purpose: "A live coach that does not answer within budget yields an escalation"
       phase: "SMOKE"
     harness:

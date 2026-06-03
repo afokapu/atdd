@@ -4,8 +4,8 @@ direction: "minimize"
 dimension: "quantity"
 object_of_control: "false-decision-requests-emitted-from-non-decision-worker-output"
 context_clarifier: "when the worker surface shows ordinary output, a progress bar, an empty buffer, or a half-rendered prompt that is not yet a real decision"
-lens: "functional.correctness"
-statement: "minimize quantity of false decision-requests emitted from worker output that is not a genuine, fully-rendered decision prompt"
+lens: "functional.effectiveness"
+statement: "minimize quantity of false decision requests emitted from non decision worker output"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:C001-UNIT-001-no-false-positive"
