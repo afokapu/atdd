@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:decision:request",
+  "title": "CommonsDecisionRequest",
+  "description": "A blocked worker's decision prompt, normalized from a cmux notification (or the emit CLI), ready for coach mediation. Flows from the sense-decision feature to the mediate-decision feature.",
+  "version": "1.0.0",
+  "type": "object",
+  "x-artifact-metadata": {
+    "domain": "decision",
+    "resource": "request",
+    "version": "1.0.0",
+    "hash": "",
+    "visibility": "internal",
+    "producer": "wagon:mediate-worker-decisions",
+    "consumers": ["wagon:mediate-worker-decisions"],
+    "dependencies": [],
+    "traceability": {
+      "wagon_ref": "plan/mediate_worker_decisions/_mediate_worker_decisions.yaml",
+      "feature_refs": [
+        "feature:mediate-worker-decisions:sense-decision",
+        "feature:mediate-worker-decisions:mediate-decision"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  },
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "description": "Stable identifier for this decision request (uuid)."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the request was sensed."
+    },
+    "worker": {
+      "type": "object",
+      "description": "The blocked worker agent the prompt was read from.",
+      "properties": {
+        "surface_id": { "type": "string", "description": "cmux surface ref the worker runs in (e.g. surface:3)." },
+        "run_id": { "type": "string", "description": "ATDD run id owning the worker, when known." },
+        "agent_handle_ref": { "type": "string", "description": "Opaque agent-control handle ref for delivery." }
+      },
+      "required": ["surface_id"],
+      "additionalProperties": false
+    },
+    "prompt": {
+      "type": "object",
+      "description": "The structured decision extracted from the worker surface text.",
+      "properties": {
+        "raw_text": { "type": "string", "description": "Raw (ANSI-stripped) tail of the surface the prompt was extracted from." },
+        "question": { "type": "string", "description": "The decision question presented to the worker." },
+        "options": {
+          "type": "array",
+          "description": "The selectable options. Empty is not a valid decision request.",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "description": "Stable option id (e.g. \"1\", \"a\")." },
+              "label": { "type": "string", "description": "Human-readable option text." }
+            },
+            "required": ["id", "label"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["raw_text", "question", "options"],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "description": "How this request entered the bridge. notify-hook and emit-CLI MUST serialize identically except for source.",
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["cmux_notification", "emit_cli"],
+          "description": "Entry path."
+        },
+        "notification_hash": {
+          "type": "string",
+          "description": "Hash of the originating cmux notification payload, when source=cmux_notification."
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["request_id", "worker", "prompt", "provenance"],
+  "additionalProperties": false
+}

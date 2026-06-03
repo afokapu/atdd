@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:decision:verdict",
+  "title": "CommonsDecisionVerdict",
+  "description": "The mediated outcome of a decision request. disposition encodes the safety guarantee in the contract itself: a human_required verdict carries no selected option and MUST NOT be auto-applied. Flows from the mediate-decision feature to the apply-decision feature.",
+  "version": "1.0.0",
+  "type": "object",
+  "x-artifact-metadata": {
+    "domain": "decision",
+    "resource": "verdict",
+    "version": "1.0.0",
+    "hash": "",
+    "visibility": "internal",
+    "producer": "wagon:mediate-worker-decisions",
+    "consumers": ["wagon:mediate-worker-decisions"],
+    "dependencies": ["commons:decision:request"],
+    "traceability": {
+      "wagon_ref": "plan/mediate_worker_decisions/_mediate_worker_decisions.yaml",
+      "feature_refs": [
+        "feature:mediate-worker-decisions:mediate-decision",
+        "feature:mediate-worker-decisions:apply-decision"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  },
+  "properties": {
+    "verdict_id": {
+      "type": "string",
+      "description": "Stable identifier for this verdict (uuid)."
+    },
+    "request_id": {
+      "type": "string",
+      "description": "The commons:decision:request this verdict answers."
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the verdict was reached."
+    },
+    "disposition": {
+      "type": "string",
+      "enum": ["auto_apply", "human_required"],
+      "description": "auto_apply: a selected option may be delivered to the worker. human_required: the decision is escalated and MUST NOT be auto-applied."
+    },
+    "selected_option_id": {
+      "type": ["string", "null"],
+      "description": "The chosen option id; MUST be one of request.prompt.options[].id when disposition=auto_apply, and null when disposition=human_required."
+    },
+    "reason": {
+      "type": "string",
+      "description": "One-line rationale from the coach or the safety gate."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["coach", "safety_gate"],
+      "description": "Who produced the verdict: the coach surface, or the pre-coach safety gate."
+    }
+  },
+  "required": ["verdict_id", "request_id", "disposition", "source"],
+  "additionalProperties": false
+}

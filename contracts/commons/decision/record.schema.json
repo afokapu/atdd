@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:decision:record",
+  "title": "CommonsDecisionRecord",
+  "description": "The durable, externally-observable audit record of a mediated decision: what was asked, what was decided (or that it was escalated), and what happened when it was applied. Produced by the apply-decision feature; consumed by the observer/ledger.",
+  "version": "1.0.0",
+  "type": "object",
+  "x-artifact-metadata": {
+    "domain": "decision",
+    "resource": "record",
+    "version": "1.0.0",
+    "hash": "",
+    "visibility": "external",
+    "producer": "wagon:mediate-worker-decisions",
+    "consumers": ["wagon:observe-and-correct"],
+    "dependencies": [
+      "commons:decision:request",
+      "commons:decision:verdict",
+      "commons:decision:escalation"
+    ],
+    "traceability": {
+      "wagon_ref": "plan/mediate_worker_decisions/_mediate_worker_decisions.yaml",
+      "feature_refs": ["feature:mediate-worker-decisions:apply-decision"]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  },
+  "properties": {
+    "record_id": {
+      "type": "string",
+      "description": "Stable identifier for this ledger record (uuid)."
+    },
+    "request_id": {
+      "type": "string",
+      "description": "The originating commons:decision:request."
+    },
+    "verdict_id": {
+      "type": ["string", "null"],
+      "description": "The commons:decision:verdict applied; null when the outcome was escalated."
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the record was written."
+    },
+    "request": {
+      "type": "object",
+      "description": "The embedded request snapshot (commons:decision:request)."
+    },
+    "verdict": {
+      "type": ["object", "null"],
+      "description": "The embedded verdict snapshot (commons:decision:verdict), or null when escalated."
+    },
+    "escalation": {
+      "type": ["object", "null"],
+      "description": "The embedded escalation snapshot (commons:decision:escalation), or null when applied."
+    },
+    "disposition": {
+      "type": "string",
+      "enum": ["applied", "escalated", "application_failed"],
+      "description": "Terminal outcome: delivered to the worker, escalated to a human, or delivery failed."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "Stable key derived from request+verdict; a repeated key MUST NOT re-apply."
+    },
+    "error": {
+      "type": ["string", "null"],
+      "description": "Failure detail when disposition=application_failed; null otherwise. Never silently swallowed."
+    }
+  },
+  "required": ["record_id", "request_id", "disposition", "idempotency_key"],
+  "additionalProperties": false
+}
