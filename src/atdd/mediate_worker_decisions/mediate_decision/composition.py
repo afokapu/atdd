@@ -76,12 +76,16 @@ def build_mediate_use_case_from_repo(
     repo_root: Optional[Path] = None,
     coach_surface_id: str = "surface:1",
 ) -> MediateDecisionUseCase:  # pragma: no cover - exercised by live smoke
-    from atdd.coach.utils.multiplexer import CmuxBackend
+    import yaml
 
     root = Path(repo_root or Path.cwd())
-    backend = CmuxBackend()
+    registry_path = root / ".atdd" / "decision" / "registry.yaml"
+    config = yaml.safe_load(registry_path.read_text()) if registry_path.exists() else {}
+    config = config or {}
+    workspace_id = config.get("workspace_id", "workspace:1")
+    coach_surface = (config.get("coach") or {}).get("surface_id", coach_surface_id)
     return build_mediate_use_case(
-        coach=CmuxCoachClient(backend, coach_surface_id),
+        coach=CmuxCoachClient(workspace_id, coach_surface),
         clock=SystemClock(),
         verdict_sink=JsonlVerdictSink(root / ".atdd" / "decision" / "verdicts.jsonl"),
         escalation_sink=JsonlEscalationSink(

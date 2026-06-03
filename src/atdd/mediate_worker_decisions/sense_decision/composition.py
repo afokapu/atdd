@@ -74,7 +74,6 @@ def build_sense_use_case_from_repo(
 ) -> SenseDecisionUseCase:  # pragma: no cover - exercised by live smoke
     """Production wiring from ``.atdd/decision/`` config + the cmux backend."""
     import yaml
-    from atdd.coach.utils.multiplexer import CmuxBackend
 
     root = Path(repo_root or Path.cwd())
     registry_path = root / ".atdd" / "decision" / "registry.yaml"
@@ -82,7 +81,8 @@ def build_sense_use_case_from_repo(
     if registry_path.exists():
         config = yaml.safe_load(registry_path.read_text()) or {}
 
-    reader = CmuxSurfaceReader(CmuxBackend())
+    workspace_id = config.get("workspace_id", "workspace:1")
+    reader = CmuxSurfaceReader(workspace_id)
     registry = RegistryWorkerLookup.from_config(config)
     sink = JsonlRequestSink(root / ".atdd" / "decision" / "requests.jsonl")
     return build_sense_use_case(reader=reader, registry=registry, sink=sink)

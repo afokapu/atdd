@@ -1,12 +1,17 @@
-"""SurfaceReader adapter over the existing CmuxBackend.
+"""SurfaceReader adapter over the cmux CLI.
 
 ANSI stripping and buffer assembly live here (integration), so the pure parser
-stays deterministic. The ``MultiplexerRef`` construction is confined to this
-tier — the application/domain tiers only ever see a ``str`` surface id.
+stays deterministic. cmux surface refs are workspace-scoped indexes, so
+``capture-pane`` MUST be given ``--workspace`` (a bare ``--surface`` raises
+"Surface is not a terminal" against current cmux — the reason CmuxBackend's
+workspace-less capture returns empty here). The workspace ref is therefore part
+of this adapter's construction; the application/domain tiers only ever see a
+plain ``str`` surface id.
 """
 from __future__ import annotations
 
 import re
+import subprocess
 
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 
@@ -16,14 +21,19 @@ def strip_ansi(text: str) -> str:
 
 
 class CmuxSurfaceReader:
-    def __init__(self, backend: object, lines: int = 120) -> None:
-        # backend is an atdd.coach.utils.multiplexer.CmuxBackend (duck-typed here
-        # to keep this adapter import-light and unit-substitutable).
-        self._backend = backend
+    def __init__(self, workspace_id: str, lines: int = 200, cmux_bin: str = "cmux") -> None:
+        self._workspace = workspace_id
         self._lines = lines
+        self._cmux = cmux_bin
 
     def read(self, surface_id: str) -> str:
-        # CmuxBackend.capture_pane_text(surface_ref) returns the surface text;
-        # the ref is the opaque surface id string (e.g. "surface:3").
-        raw = self._backend.capture_pane_text(surface_id)
-        return strip_ansi(raw)
+        result = subprocess.run(
+            [
+                self._cmux, "capture-pane",
+                "--workspace", self._workspace,
+                "--surface", surface_id,
+                "--lines", str(self._lines),
+            ],
+            capture_output=True, text=True, timeout=15,
+        )
+        return strip_ansi(result.stdout or "")

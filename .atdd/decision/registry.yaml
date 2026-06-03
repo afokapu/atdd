@@ -4,6 +4,10 @@
 # coach surface that answers decisions. A later follow-up derives this from live
 # .atdd/runtime state instead of a hand-maintained file (see issue #955 scope).
 
+# cmux surface refs are workspace-scoped, so the bridge needs the workspace ref
+# to read/write surfaces. MVP assumes coach + workers share one workspace.
+workspace_id: "workspace:1"
+
 coach:
   surface_id: "surface:1"
   role: coach
