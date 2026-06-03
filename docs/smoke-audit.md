@@ -190,6 +190,9 @@ of bypass patterns.
 | acc:mediate-worker-decisions:M001-SMOKE-001-live-timeout | real (live coach surface left unanswered) | unanswered coach within budget → escalation cause coach_timeout | mediate → escalation | #955 |
 | acc:mediate-worker-decisions:E002-SMOKE-001-close-the-loop | real (live blocked worker in cmux surface) | worker receives selected option and the prompt no longer fires | mediate verdict → apply → worker pty (feedback loop) | #955 |
 | acc:mediate-worker-decisions:K001-SMOKE-001-live-ledger | real (JsonlPersistenceStore under .atdd) | commons:decision:record line present in the durable ledger | apply → DecisionLedger | #955 |
+| acc:mediate-worker-decisions:L002-SMOKE-001-locates-live-blocked-agent | real (live Claude worker blocked on cmux Feed) | pending feed item located + mapped to a request with the live request_id | cmux Feed (feed.list/events) → sense | #955 |
+| acc:mediate-worker-decisions:E003-SMOKE-001-unblocks-live-agent | real (live Claude worker + cmux rpc feed.*.reply) | coach verdict replied via Feed resolves the item; worker proceeds | mediate verdict → feed reply → agent | #955 |
+| acc:mediate-worker-decisions:C003-SMOKE-001-live-dangerous-not-auto-approved | real (live worker requesting a dangerous tool use) | dangerous tool_input is not auto-replied; escalated to human soft-wait | safety gate over tool_input → no reply | #955 |
 
 ---
 

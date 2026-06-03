@@ -38,9 +38,10 @@ features:
   - urn: "feature:mediate-worker-decisions:sense-decision"
   - urn: "feature:mediate-worker-decisions:mediate-decision"
   - urn: "feature:mediate-worker-decisions:apply-decision"
+  - urn: "feature:mediate-worker-decisions:bridge-cmux-feed"
 
 wmbt:
-  total: 12
+  total: 15
   D001: "minimize likelihood of resolving a cmux notification to the wrong worker (or routing two entry paths to divergent requests)"
   L001: "maximize likelihood of locating the latest decision prompt in worker surface text"
   C001: "minimize quantity of false decision-requests emitted from non-decision worker output"
@@ -53,3 +54,6 @@ wmbt:
   K001: "minimize likelihood of an applied decision missing from the durable ledger"
   M002: "minimize likelihood of a worker-application failure being silently swallowed"
   R001: "minimize likelihood of an escalated (human_required) verdict being auto-applied"
+  L002: "maximize likelihood of locating a blocked agent decision in the cmux feed"
+  E003: "minimize likelihood of failing to deliver the coach verdict through the feed reply"
+  C003: "minimize likelihood of auto replying to a dangerous tool use without human review"
