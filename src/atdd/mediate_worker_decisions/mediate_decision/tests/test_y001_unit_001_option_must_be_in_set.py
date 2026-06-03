@@ -4,18 +4,17 @@
 # Phase: RED
 # Layer: domain
 # Assertion: behavioral
-"""Y001-UNIT-001 — A selected option id within the request is accepted; an out-of-set id is rejected toward escalation
-
-RED: the mediate-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires mediate-decision's domain/application/integration tiers.
-"""
+"""Y001-UNIT-001 — selected option must be one offered to the worker."""
 from __future__ import annotations
 
-import pytest
+from atdd.mediate_worker_decisions.mediate_decision.src.domain.coach_reply_parser import (
+    selection_in_options,
+)
 
 
-def test_y001_unit_001_option_must_be_in_set():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.mediate_decision import composition  # noqa: F401
+def test_in_set_accepted():
+    assert selection_in_options("1", ["1", "2"]) is True
 
-    pytest.fail("RED: acc:mediate-worker-decisions:Y001-UNIT-001-option-must-be-in-set not yet implemented")
+
+def test_out_of_set_rejected():
+    assert selection_in_options("9", ["1", "2"]) is False

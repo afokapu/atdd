@@ -2,20 +2,26 @@
 # Acceptance: acc:mediate-worker-decisions:P001-INTEGRATION-001-coach-request-format
 # WMBT: wmbt:mediate-worker-decisions:P001
 # Phase: RED
-# Layer: integration
+# Layer: application
 # Assertion: behavioral
-"""P001-INTEGRATION-001 — The coach client renders the request (wagon, worker, question, options) and sends it to the coach surface in the DECISION:/REASON: contract
-
-RED: the mediate-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires mediate-decision's domain/application/integration tiers.
-"""
+"""P001-INTEGRATION-001 — the coach request carries question, options, and the reply contract."""
 from __future__ import annotations
 
-import pytest
+from atdd.mediate_worker_decisions.mediate_decision.composition import build_mediate_use_case
+from atdd.mediate_worker_decisions.mediate_decision.tests._helpers import (
+    FakeClock, FakeCoach, FakeSink, fixed_id, fixed_ts, make_request,
+)
 
 
 def test_p001_integration_001_coach_request_format():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.mediate_decision import composition  # noqa: F401
+    coach = FakeCoach(reply="DECISION: 1\nREASON: ok")
+    uc = build_mediate_use_case(
+        coach=coach, clock=FakeClock(), verdict_sink=FakeSink(),
+        escalation_sink=FakeSink(), id_factory=fixed_id, ts_factory=fixed_ts,
+    )
+    uc.handle(make_request(question="Proceed?", options=(("1", "Yes"), ("2", "No"))))
 
-    pytest.fail("RED: acc:mediate-worker-decisions:P001-INTEGRATION-001-coach-request-format not yet implemented")
+    sent = coach.presented[0]
+    assert "Proceed?" in sent
+    assert "1)" in sent and "2)" in sent
+    assert "DECISION:" in sent and "REASON:" in sent

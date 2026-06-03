@@ -4,18 +4,24 @@
 # Phase: RED
 # Layer: domain
 # Assertion: behavioral
-"""C002-UNIT-001 — Each dangerous pattern classifies human_required; an ordinary action classifies auto_apply
-
-RED: the mediate-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires mediate-decision's domain/application/integration tiers.
-"""
+"""C002-UNIT-001 — every danger pattern -> human_required; safe -> auto."""
 from __future__ import annotations
 
 import pytest
 
+from atdd.mediate_worker_decisions.mediate_decision.src.domain.safety_classifier import classify
 
-def test_c002_unit_001_danger_patterns_human_required():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.mediate_decision import composition  # noqa: F401
 
-    pytest.fail("RED: acc:mediate-worker-decisions:C002-UNIT-001-danger-patterns-human-required not yet implemented")
+@pytest.mark.parametrize("label", [
+    "git push to origin", "git merge main", "gh pr merge 5",
+    "rm -rf build", "force push the branch", "run a destructive migration",
+])
+def test_danger_is_human_required(label):
+    sc = classify("Proceed?", [label, "do nothing"])
+    assert not sc.is_safe
+    assert sc.matched_rule is not None
+
+
+def test_ordinary_is_safe():
+    sc = classify("Pick a name?", ["add a unit test", "rename the function"])
+    assert sc.is_safe

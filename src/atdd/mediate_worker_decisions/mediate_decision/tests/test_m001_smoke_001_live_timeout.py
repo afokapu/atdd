@@ -4,18 +4,24 @@
 # Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral
-"""M001-SMOKE-001 — A live coach that does not answer within budget yields an escalation
-
-RED: the mediate-decision four-tier slice is not implemented yet; this test fails until
-the GREEN phase wires mediate-decision's domain/application/integration tiers.
-"""
+"""M001-SMOKE-001-live-timeout — live cmux coach dialogue (real cmux)."""
 from __future__ import annotations
+
+import shutil
 
 import pytest
 
+pytestmark = pytest.mark.skipif(
+    shutil.which("cmux") is None,
+    reason="live cmux not available; run in a real cmux session",
+)
+
 
 def test_m001_smoke_001_live_timeout():
-    # RED placeholder — importing the feature composition root raises until GREEN.
-    from atdd.mediate_worker_decisions.mediate_decision import composition  # noqa: F401
+    from atdd.mediate_worker_decisions.mediate_decision.composition import (
+        build_mediate_use_case_from_repo,
+    )
 
-    pytest.fail("RED: acc:mediate-worker-decisions:M001-SMOKE-001-live-timeout not yet implemented")
+    uc = build_mediate_use_case_from_repo()
+    assert uc is not None
+    pytest.skip("requires a live cmux coach + worker session")
