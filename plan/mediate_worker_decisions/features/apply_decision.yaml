@@ -1,6 +1,9 @@
 urn: "feature:mediate-worker-decisions:apply-decision"
 wagon: "wagon:mediate-worker-decisions"
-kind: feedback-loop
+kind: feedback-loop  # atdd:suppress(planner.smoke.feedback-loop-close-the-loop) UNTIL=2026-09-30
+# The close-the-loop live smoke (E002-SMOKE-001) was the deprecated screen-scrape path, removed in 3.90.0
+# (#962). The live close-the-loop is now exercised by the cmux Feed feature (bridge-cmux-feed E003-SMOKE-001
+# -unblocks-live-agent). apply-decision retains hermetic INTEGRATION coverage of idempotent delivery.
 description: "Applies a commons:decision:verdict: auto_apply is delivered to the worker exactly once (idempotent); human_required is never applied. Every outcome is written to the durable ledger."
 sizing:
   wmbts: 4

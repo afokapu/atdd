@@ -1576,3 +1576,11 @@ sessions:
   wagon: mediate-worker-decisions
   feature: feature:mediate-worker-decisions:sense-decision
   train: 0002-coach-drives-lifecycle
+- id: '962'
+  slug: remove-deprecated-screen-scrape-path
+  file: null
+  issue_number: 962
+  type: cleanup
+  status: INIT
+  created: '2026-06-04'
+  archived: null
