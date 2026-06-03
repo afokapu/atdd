@@ -1,0 +1,33 @@
+urn: "wmbt:mediate-worker-decisions:L001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-12-03
+step: "locate"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "locating-the-latest-decision-prompt-in-worker-surface-text"
+context_clarifier: "when the worker surface scrollback contains an interactive decision prompt (question plus numbered/lettered options), possibly preceded by older output or progress noise"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of locating the latest decision prompt in worker surface text"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:L001-UNIT-001-extracts-latest-prompt"
+      id: "AC-UNIT-001"
+      purpose: "The pure parser extracts the question and option list, choosing the latest prompt when several appear"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Surface text contains an earlier prompt and then a newer decision prompt with options 1) and 2)"
+    when:
+      abstract: "The prompt parser parses the surface text"
+      action: "invoke"
+    then:
+      abstract:
+        - "It returns the newer question and both options with stable ids"
+      assertions:
+        - type: "equals"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "sense-decision"

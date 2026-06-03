@@ -1,0 +1,83 @@
+urn: "wmbt:mediate-worker-decisions:E002"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "duplicate-applications-of-the-same-verdict-to-a-worker"
+context_clarifier: "when the same verdict is handed to apply more than once (replay, retry, double-notification) the worker must receive the answer exactly once, keyed by a stable idempotency key derived from request+verdict"
+lens: "functional.availability"
+statement: "minimize quantity of duplicate applications of the same verdict to a worker"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:E002-UNIT-001-stable-idempotency-key"
+      id: "AC-UNIT-001"
+      purpose: "The idempotency key is stable for the same request+verdict and differs across distinct ones"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A request+verdict pair, and a second distinct pair"
+    when:
+      abstract: "The idempotency key is computed for each"
+      action: "invoke"
+    then:
+      abstract:
+        - "The same pair yields the same key; the distinct pair yields a different key"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "apply-decision"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E002-INTEGRATION-001-applied-once"
+      id: "AC-INTEGRATION-001"
+      purpose: "Handing the same verdict twice delivers to the worker exactly once"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A fake worker applier and an applied-guard backed by tmp storage"
+        - "An auto_apply verdict handed to apply twice"
+    when:
+      abstract: "The apply use case runs for both"
+      action: "invoke"
+    then:
+      abstract:
+        - "The worker applier is called exactly once"
+        - "Two records are written: applied, then a deduped no-op"
+      assertions:
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "apply-decision"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E002-SMOKE-001-close-the-loop"
+      id: "AC-SMOKE-001"
+      purpose: "A live verdict delivered to a real blocked worker unblocks it and the prompt no longer fires"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real worker blocked on a decision prompt in a cmux surface"
+    when:
+      abstract: "The bridge applies the coach verdict to the worker"
+      action: "invoke"
+    then:
+      abstract:
+        - "The worker receives the selected option and proceeds"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "worker pty stdin received the selected option and the agent advanced past the prompt"
+      drift_resolved: "a second sense scan of the worker surface finds no pending decision prompt"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "apply-decision"

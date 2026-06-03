@@ -1,0 +1,58 @@
+urn: "wmbt:mediate-worker-decisions:M001"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "coach-silence-causing-a-silent-auto-apply-instead-of-an-escalation"
+context_clarifier: "when the coach does not return a parseable DECISION: within the configured budget, the bridge must escalate (cause coach_timeout) rather than wait forever or apply a default"
+lens: "functional.availability"
+statement: "minimize likelihood of coach silence causing a silent auto apply instead of an escalation"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:M001-INTEGRATION-001-timeout-escalates"
+      id: "AC-INTEGRATION-001"
+      purpose: "When the coach does not reply within budget, an escalation cause coach_timeout is emitted and no verdict is applied"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A fake coach client that never replies and a fake clock that advances past the budget"
+        - "A safe decision request"
+    when:
+      abstract: "The mediate use case waits for the coach"
+      action: "invoke"
+    then:
+      abstract:
+        - "An escalation with cause coach_timeout is emitted"
+        - "No auto_apply verdict is produced"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "mediate-decision"
+  - identity:
+      urn: "acc:mediate-worker-decisions:M001-SMOKE-001-live-timeout"
+      id: "AC-SMOKE-001"
+      purpose: "A live coach that does not answer within budget yields an escalation"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real coach surface that is left unanswered past the budget"
+    when:
+      abstract: "The bridge mediates a safe live decision"
+      action: "invoke"
+    then:
+      abstract:
+        - "An escalation with cause coach_timeout is recorded"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "mediate-decision"

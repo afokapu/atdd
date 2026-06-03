@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:decision:escalation",
+  "title": "CommonsDecisionEscalation",
+  "description": "An external signal that a worker decision cannot be safely auto-mediated and needs a human. Produced by the mediate-decision feature whenever the safety gate fires or the coach cannot be parsed/answers too slowly.",
+  "version": "1.0.0",
+  "type": "object",
+  "x-artifact-metadata": {
+    "domain": "decision",
+    "resource": "escalation",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:mediate-worker-decisions",
+    "consumers": [],
+    "dependencies": [
+      "contract:commons:decision:request"
+    ],
+    "traceability": {
+      "wagon_ref": "plan/mediate_worker_decisions/_mediate_worker_decisions.yaml",
+      "feature_refs": [
+        "feature:mediate-worker-decisions:mediate-decision"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    },
+    "api": {
+      "version": "v1",
+      "operations": [
+        {
+          "method": "POST",
+          "path": "/decision/escalation",
+          "description": "Append a commons:decision:escalation entry to the decision stream",
+          "responses": {
+            "200": {
+              "description": "CommonsDecisionEscalation accepted",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "properties": {
+    "escalation_id": {
+      "type": "string",
+      "description": "Stable identifier for this escalation (uuid)."
+    },
+    "request_id": {
+      "type": "string",
+      "description": "The commons:decision:request being escalated."
+    },
+    "raised_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the escalation was raised."
+    },
+    "cause": {
+      "type": "string",
+      "enum": [
+        "dangerous_action",
+        "coach_timeout",
+        "coach_unparseable"
+      ],
+      "description": "Why a human is required: a dangerous action was detected, the coach did not answer in time, or the coach reply could not be parsed."
+    },
+    "safety_class": {
+      "type": "string",
+      "description": "The safety classification that triggered escalation (e.g. the matched danger rule), when cause=dangerous_action."
+    },
+    "human_channel_ref": {
+      "type": "string",
+      "description": "Where the human should look to resolve this (e.g. the worker surface ref or operator channel)."
+    }
+  },
+  "required": [
+    "escalation_id",
+    "request_id",
+    "cause"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,35 @@
+urn: "feature:mediate-worker-decisions:bridge-cmux-feed"
+wagon: "wagon:mediate-worker-decisions"
+description: "Rides the bridge on cmux's Feed: locate a blocked agent decision from feed events, route it through the coach, and reply via feed.*.reply. Dangerous tool uses are never auto-replied."
+sizing:
+  wmbts: 3
+  footprint_score: 7
+  footprint_size: "S"
+wmbts:
+  - "wmbt:mediate-worker-decisions:L002"
+  - "wmbt:mediate-worker-decisions:E003"
+  - "wmbt:mediate-worker-decisions:C003"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "feed_runner_cli: poll the Feed and drive each pending item through the bridge"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "feed_runner: locate pending item -> mediate (coach) -> reply or escalate"
+      - type: "ports"
+        count: 2
+        rationale: "FeedSource (read pending items) and FeedReply (deliver verdict) protocols"
+    domain:
+      - type: "services"
+        count: 2
+        rationale: "feed_item_mapper (feed item -> DecisionRequest) and tool_input_safety (classify a permission command) — both pure"
+      - type: "value_objects"
+        count: 1
+        rationale: "FeedItem / FeedReplyPlan (frozen)"
+    integration:
+      - type: "clients"
+        count: 2
+        rationale: "feed_event_source (cmux feed.list/events) and feed_reply_applier (cmux rpc feed.*.reply)"

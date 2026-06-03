@@ -1549,3 +1549,30 @@ sessions:
   status: INIT
   created: '2026-06-01'
   archived: null
+- id: '950'
+  slug: shim-submit-sentinel-not-enter-under-kitty-protocol
+  file: null
+  issue_number: 950
+  type: implementation
+  status: INIT
+  created: '2026-06-01'
+  archived: null
+- id: '951'
+  slug: recompose-wagons-from-wmbts
+  file: null
+  issue_number: 951
+  type: refactor
+  status: INIT
+  created: '2026-06-01'
+  archived: null
+- id: '955'
+  slug: cmux-coach-decision-bridge
+  file: null
+  issue_number: 955
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-03'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:sense-decision
+  train: 0002-coach-drives-lifecycle
