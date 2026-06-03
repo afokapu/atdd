@@ -1,39 +1,23 @@
 """SurfaceReader adapter over the cmux CLI.
 
 ANSI stripping and buffer assembly live here (integration), so the pure parser
-stays deterministic. cmux surface refs are workspace-scoped indexes, so
-``capture-pane`` MUST be given ``--workspace`` (a bare ``--surface`` raises
-"Surface is not a terminal" against current cmux — the reason CmuxBackend's
-workspace-less capture returns empty here). The workspace ref is therefore part
-of this adapter's construction; the application/domain tiers only ever see a
-plain ``str`` surface id.
+stays deterministic. cmux surface refs are workspace-scoped, so ``capture-pane``
+is given ``--workspace`` (a bare ``--surface`` raises "Surface is not a
+terminal"); the workspace ref is part of this adapter's construction.
 """
 from __future__ import annotations
 
-import re
-import subprocess
-
-_ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
-
-
-def strip_ansi(text: str) -> str:
-    return _ANSI.sub("", text or "")
+from atdd.mediate_worker_decisions.commons.cmux_cli import run_cmux, strip_ansi
 
 
 class CmuxSurfaceReader:
-    def __init__(self, workspace_id: str, lines: int = 200, cmux_bin: str = "cmux") -> None:
+    def __init__(self, workspace_id: str, lines: int = 200) -> None:
         self._workspace = workspace_id
         self._lines = lines
-        self._cmux = cmux_bin
 
     def read(self, surface_id: str) -> str:
-        result = subprocess.run(
-            [
-                self._cmux, "capture-pane",
-                "--workspace", self._workspace,
-                "--surface", surface_id,
-                "--lines", str(self._lines),
-            ],
-            capture_output=True, text=True, timeout=15,
+        out = run_cmux(
+            "capture-pane", "--workspace", self._workspace,
+            "--surface", surface_id, "--lines", str(self._lines),
         )
-        return strip_ansi(result.stdout or "")
+        return strip_ansi(out)

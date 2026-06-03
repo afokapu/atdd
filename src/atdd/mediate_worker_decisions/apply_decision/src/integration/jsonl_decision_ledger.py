@@ -8,10 +8,10 @@ avoids single-writer contention with an active coach run's decisions log.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from atdd.mediate_worker_decisions.apply_decision.src.domain.record import DecisionRecord
+from atdd.mediate_worker_decisions.commons.jsonl_writer import append_jsonl
 
 
 class JsonlDecisionLedger:
@@ -19,6 +19,4 @@ class JsonlDecisionLedger:
         self._path = Path(path)
 
     def record(self, record: DecisionRecord) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        with self._path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(record.to_contract(), ensure_ascii=False) + "\n")
+        append_jsonl(self._path, record.to_contract())

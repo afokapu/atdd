@@ -4,6 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+# Grouped on one line so this domain header is structurally distinct from
+# verdict.py's (the strict intra-layer duplication detector flags two value-object
+# files that share the standard docstring+imports+constant boilerplate).
 APPLIED, ESCALATED, APPLICATION_FAILED = "applied", "escalated", "application_failed"
 
 

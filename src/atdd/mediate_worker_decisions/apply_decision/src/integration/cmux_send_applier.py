@@ -8,27 +8,19 @@ are workspace-scoped, so ``send``/``send-key`` take ``--workspace``.
 """
 from __future__ import annotations
 
-import subprocess
-
 from atdd.mediate_worker_decisions.apply_decision.src.domain.application_plan import (
     WorkerInstruction,
 )
+from atdd.mediate_worker_decisions.commons.cmux_cli import run_cmux
 
 
 class CmuxSendApplier:
-    def __init__(self, workspace_id: str, cmux_bin: str = "cmux") -> None:
+    def __init__(self, workspace_id: str) -> None:
         self._workspace = workspace_id
-        self._cmux = cmux_bin
 
     def apply(self, handle_ref: str, instruction: WorkerInstruction) -> None:
         # handle_ref is the worker's cmux surface id.
-        subprocess.run(
-            [self._cmux, "send", "--workspace", self._workspace,
-             "--surface", handle_ref, instruction.text.rstrip("\n")],
-            capture_output=True, text=True, timeout=15, check=True,
-        )
-        subprocess.run(
-            [self._cmux, "send-key", "--workspace", self._workspace,
-             "--surface", handle_ref, "Enter"],
-            capture_output=True, text=True, timeout=15, check=True,
-        )
+        run_cmux("send", "--workspace", self._workspace,
+                 "--surface", handle_ref, instruction.text.rstrip("\n"))
+        run_cmux("send-key", "--workspace", self._workspace,
+                 "--surface", handle_ref, "Enter")
