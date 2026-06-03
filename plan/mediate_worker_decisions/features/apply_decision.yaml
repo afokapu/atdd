@@ -1,0 +1,40 @@
+urn: "feature:mediate-worker-decisions:apply-decision"
+wagon: "wagon:mediate-worker-decisions"
+kind: feedback-loop
+description: "Applies a commons:decision:verdict: auto_apply is delivered to the worker exactly once (idempotent); human_required is never applied. Every outcome is written to the durable ledger."
+sizing:
+  wmbts: 4
+  footprint_score: 7
+  footprint_size: "S"
+wmbts:
+  - "wmbt:mediate-worker-decisions:E002"
+  - "wmbt:mediate-worker-decisions:K001"
+  - "wmbt:mediate-worker-decisions:M002"
+  - "wmbt:mediate-worker-decisions:R001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "apply_cli: consume a verdict line, emit a record line"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "apply_use_case: guard human_required, apply once, record disposition (incl. failure)"
+      - type: "ports"
+        count: 3
+        rationale: "WorkerApplier, DecisionLedger, AppliedGuard (idempotency) protocols"
+    domain:
+      - type: "services"
+        count: 1
+        rationale: "application_plan: Verdict -> WorkerInstruction (what to deliver)"
+      - type: "value_objects"
+        count: 1
+        rationale: "idempotency_key: stable dedupe key from request+verdict"
+    integration:
+      - type: "clients"
+        count: 1
+        rationale: "agent_control_applier: wraps AgentController.deliver_prompt (narrow WorkerApplier port)"
+      - type: "stores"
+        count: 1
+        rationale: "jsonl_decision_ledger: wraps JsonlPersistenceStore into the commons:decision:record shape"

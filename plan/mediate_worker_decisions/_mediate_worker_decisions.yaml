@@ -1,0 +1,55 @@
+wagon: mediate-worker-decisions
+urn: "wagon:mediate-worker-decisions"
+name: "Mediate Worker Decisions"
+description: "cmux bridge that lets the coach answer a blocked worker agent's decision prompt, with dangerous actions always escalated to a human and every outcome recorded"
+theme: commons
+
+subject: "coach:mediator"
+context: "worker-blocked, cmux-surface, lifecycle-active"
+action: "mediates a blocked worker's decision through the coach"
+goal: "keep agents progressing without a human operator in the loop while never auto-applying dangerous actions"
+outcome: "decision applied to the worker or escalated to a human, with a durable audit record"
+
+produce:
+  - name: commons:decision:record
+    contract: "contract:commons:decision:record"
+    telemetry: null
+    to: external
+  - name: commons:decision:escalation
+    contract: "contract:commons:decision:escalation"
+    telemetry: null
+    to: external
+  - name: commons:decision:request
+    contract: "contract:commons:decision:request"
+    telemetry: null
+    to: internal
+  - name: commons:decision:verdict
+    contract: "contract:commons:decision:verdict"
+    telemetry: null
+    to: internal
+
+consume:
+  - name: commons:cmux:notification
+    from: system:cmux
+    contract: null
+    telemetry: null
+
+features:
+  - urn: "feature:mediate-worker-decisions:sense-decision"
+  - urn: "feature:mediate-worker-decisions:mediate-decision"
+  - urn: "feature:mediate-worker-decisions:apply-decision"
+
+wmbt:
+  total: 12
+  D001: "minimize likelihood of resolving a cmux notification to the wrong worker (or routing two entry paths to divergent requests)"
+  L001: "maximize likelihood of locating the latest decision prompt in worker surface text"
+  C001: "minimize quantity of false decision-requests emitted from non-decision worker output"
+  P001: "minimize effort of presenting a structured worker decision to the coach surface"
+  C002: "minimize likelihood of a dangerous action being auto-applied instead of escalated to a human"
+  E001: "minimize likelihood of misparsing the coach reply into a wrong verdict"
+  M001: "minimize likelihood of coach silence causing a silent auto-apply instead of an escalation"
+  Y001: "minimize likelihood of a verdict referencing an option absent from the request"
+  E002: "minimize quantity of duplicate applications of the same verdict to a worker"
+  K001: "minimize likelihood of an applied decision missing from the durable ledger"
+  M002: "minimize likelihood of a worker-application failure being silently swallowed"
+  R001: "minimize likelihood of an escalated (human_required) verdict being auto-applied"
