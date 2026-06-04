@@ -1,0 +1,61 @@
+urn: "wmbt:mediate-worker-decisions:E004"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-blocked-feed-item-left-unanswered-by-the-autonomous-daemon-loop"
+context_clarifier: "the daemon continuously polls cmux feed.list and, for each blocked decision item, drives the production FeedRunnerUseCase.handle so a routine decision is auto-answered without a human in the loop; reuse is wholesale — the daemon never duplicates the decide/escalate logic"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a blocked feed item left unanswered by the autonomous daemon loop"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:E004-UNIT-001-tick-answers-a-blocked-item"
+      id: "AC-UNIT-001"
+      purpose: "One daemon tick over a safe blocked question item drives the runner, delivers a reply, and records the verdict to the durable ledger"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fake feed source with one safe (non-dangerous) question item"
+        - "A fake transport, fake coach, and a recording verdict ledger"
+    when:
+      abstract: "The daemon runs a single tick"
+      action: "invoke"
+    then:
+      abstract:
+        - "The coach is consulted once and the transport reply verb is called once"
+        - "The verdict is appended to the ledger and the request_id is marked answered"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E004-SMOKE-001-live-loop-answers-blocked-agent"
+      id: "AC-SMOKE-001"
+      purpose: "A live daemon tick answers a real blocked agent decision end-to-end through the Feed"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real worker blocked on a decision prompt visible in cmux feed.list"
+    when:
+      abstract: "The daemon runs one poll tick over the live Feed"
+      action: "invoke"
+    then:
+      abstract:
+        - "The blocked item is answered and resolved; the agent advances past the prompt"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the worker received the selected option through feed.*.reply and advanced past the prompt"
+      drift_resolved: "a second feed.list no longer shows the item as pending"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon"
