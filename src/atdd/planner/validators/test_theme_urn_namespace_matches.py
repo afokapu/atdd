@@ -25,7 +25,8 @@ from ._theme_taxonomy import check_urn_namespace_matches, drop_deferred
 pytestmark = [pytest.mark.planner]
 
 _RULE_ID = "planner.theme.urn-namespace-matches"
-_RULE = bind_rule(_RULE_ID)
+# Literal id so the reverse rule-coherence scanner binds this rule.
+_RULE = bind_rule("planner.theme.urn-namespace-matches")
 
 REPO_ROOT = find_repo_root()
 

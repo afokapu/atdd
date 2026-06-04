@@ -29,7 +29,8 @@ from ._theme_taxonomy import check_commons_coach_boundary, drop_deferred
 pytestmark = [pytest.mark.planner]
 
 _RULE_ID = "planner.theme.commons-coach-boundary"
-_RULE = bind_rule(_RULE_ID)
+# Literal id so the reverse rule-coherence scanner binds this rule.
+_RULE = bind_rule("planner.theme.commons-coach-boundary")
 
 REPO_ROOT = find_repo_root()
 

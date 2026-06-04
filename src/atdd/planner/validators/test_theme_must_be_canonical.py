@@ -32,7 +32,9 @@ from ._theme_taxonomy import (
 pytestmark = [pytest.mark.planner]
 
 _RULE_ID = "planner.theme.must-be-canonical"
-_RULE = bind_rule(_RULE_ID)
+# NOTE: pass the literal id (not _RULE_ID) so the reverse rule-coherence
+# scanner — which only recognizes ``bind_rule("<literal>")`` — binds this rule.
+_RULE = bind_rule("planner.theme.must-be-canonical")
 
 REPO_ROOT = find_repo_root()
 

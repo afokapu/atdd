@@ -130,7 +130,9 @@ rules:
     aliases: ["PLANNER-THEME-ARCHETYPE-001"]
     severity: 2
     disposition: documentation-only
-    validator: "test_theme_archetype_alignment::test_archetype_themes_align_with_source_roots"
+    # documentation-only rules MUST NOT carry a `validator:` back-reference
+    # (reverse rule-coherence). The advisory scan still lives in
+    # test_theme_archetype_alignment.py; it just isn't a bound enforcement gate.
     introduced_in: "3.92.0"
     description: >-
       The plan/test/code themes align to the planner/tester/coder archetypes
