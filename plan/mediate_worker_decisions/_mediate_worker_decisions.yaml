@@ -47,7 +47,7 @@ features:
   - urn: "feature:mediate-worker-decisions:surface-worker-decisions"
 
 wmbt:
-  total: 24
+  total: 28
   D001: "minimize likelihood of resolving a cmux notification to the wrong worker (or routing two entry paths to divergent requests)"
   L001: "maximize likelihood of locating the latest decision prompt in worker surface text"
   C001: "minimize quantity of false decision-requests emitted from non-decision worker output"
