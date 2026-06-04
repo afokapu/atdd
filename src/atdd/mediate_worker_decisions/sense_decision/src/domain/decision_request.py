@@ -8,7 +8,12 @@ without any cmux/runtime dependency.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
+
+if TYPE_CHECKING:  # avoid an import cycle (decision_document imports Option below)
+    from atdd.mediate_worker_decisions.sense_decision.src.domain.decision_document import (
+        DecisionDocument,
+    )
 
 
 @dataclass(frozen=True)
@@ -47,6 +52,12 @@ class DecisionRequest:
     source: str  # "cmux_notification" | "emit_cli"
     created_at: str
     notification_hash: Optional[str] = None
+    # The full modular decision composition (every question/block preserved,
+    # never flattened to the first). When present this is the canonical decision
+    # the decider answers; ``prompt`` above stays as a single-block back-compat
+    # mirror of the first block. Optional so single-question entry paths
+    # (sense/emit) need not populate it (WMBT L003).
+    document: Optional["DecisionDocument"] = None
 
     def to_contract(self) -> dict:
         """Serialize to the ``commons:decision:request`` JSON shape.
