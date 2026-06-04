@@ -119,7 +119,7 @@ class _RecordingTransport:
     """Wraps the real cmux transport so the smoke can prove a reply was/wasn't sent.
 
     The runner itself is the production wiring
-    (``build_feed_runner_from_repo`` → real ``CmuxFeedSource`` + ``ClaudeCoach``);
+    (``build_feed_runner_from_repo`` → real ``CmuxFeedSource`` + ``LlmCoach``);
     this spy is injected via the builder's ``transport`` seam so a real reply
     still goes out through ``CmuxFeedTransport`` while the smoke observes whether
     one was delivered.
@@ -182,6 +182,63 @@ def unblock_live_smoke() -> dict:
         replied = any(v == "feed.question.reply" for v, _ in recorder.calls)
         resolved = replied and _wait_until_resolved(source, item.request_id)
         return {"resolved": resolved, "request_id": item.request_id}
+    finally:
+        _cmux("close-workspace", "--workspace", ws)
+
+
+def multi_question_unblock_live_smoke() -> dict:
+    """L003/E006/E007 — a real multi-question + checkbox auto-answers ALL of it.
+
+    The headline #976 proof: a worker blocked on ONE AskUserQuestion carrying
+    three questions (single + single + multi-select checkbox) is located as a
+    full block document (L003), the LlmCoach decides EVERY block (E006), and the
+    flat reply carries the chosen labels for every question — checkbox included —
+    so the whole item resolves and the worker proceeds (E007). No human in the
+    TUI; the verdict is recorded by the daemon path.
+    """
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item_mapper import (
+        map_feed_item,
+    )
+
+    ws, worker = _spawn_claude_worker("atdd-feed-976-multi")
+    try:
+        _send_task(
+            ws, worker,
+            "Use the AskUserQuestion tool right now to ask THREE questions in one "
+            "call: (1) Color, single-select, options Blue/Red; (2) Size, "
+            "single-select, options Small/Large; (3) Features, multi-select "
+            "(checkbox), options Auth/Billing/Cache. Do nothing else first.",
+        )
+        source = CmuxFeedSource()
+        # wait for a genuinely multi-question item (questions[] carries >= 2)
+        item = _wait_for_pending(
+            source, kind=QUESTION, predicate=lambda i: len(i.questions) >= 2
+        )
+        assert item is not None, "no multi-question item appeared in the Feed"
+
+        document = map_feed_item(item).document  # L003: located as a block doc
+        blocks = list(document.blocks) if document else []
+
+        recorder = _RecordingTransport(CmuxFeedTransport())
+        runner = build_feed_runner_from_repo(workspace_id=ws, transport=recorder)
+        outcomes = runner.run_once()
+
+        outcome = next((o for o in outcomes if o.request_id == item.request_id), None)
+        answer = outcome.verdict.answer if (outcome and outcome.verdict) else None
+        answered_blocks = list(answer.answers) if answer else []
+
+        reply = next(
+            (p for v, p in recorder.calls if v == "feed.question.reply"), None
+        )
+        selections = list(reply.get("selections", [])) if reply else []
+        resolved = reply is not None and _wait_until_resolved(source, item.request_id)
+        return {
+            "request_id": item.request_id,
+            "questions_located": len(blocks),          # L003
+            "blocks_answered": len(answered_blocks),    # E006
+            "selections": selections,                   # E007 (flat, all questions)
+            "resolved": resolved,                       # E007 (worker proceeds)
+        }
     finally:
         _cmux("close-workspace", "--workspace", ws)
 

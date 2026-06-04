@@ -72,14 +72,17 @@ def build_feed_runner_from_repo(
     workspace_id: str,
     repo_root: Optional[Path] = None,
     transport: Optional[ReplyTransport] = None,
+    coach_provider: str = "claude",
+    coach_model: Optional[str] = None,
 ) -> FeedRunnerUseCase:  # pragma: no cover - exercised by live smoke
-    """Production wiring: real Feed source/transport + the LLM coach.
+    """Production wiring: real Feed source/transport + the pluggable LLM coach.
 
-    The coach is ``ClaudeCoach`` (one-shot ``claude -p``), not the deprecated
-    screen-scrape ``CmuxCoachClient`` — so the feed path no longer touches
-    ``mediate_decision.build_mediate_use_case_from_repo``. The dangerous-action
-    safety gate runs ahead of the coach inside ``FeedRunnerUseCase`` (C003), so
-    the coach stays decide-only.
+    The coach is ``LlmCoach`` (provider-pluggable; ``coach_provider='claude'`` is
+    the default and only implementation, one-shot ``claude -p``), not the
+    deprecated screen-scrape ``CmuxCoachClient`` — so the feed path no longer
+    touches ``mediate_decision.build_mediate_use_case_from_repo``. The
+    dangerous-action safety gate runs ahead of the coach inside
+    ``FeedRunnerUseCase`` (C003), so the coach stays decide-only.
 
     ``transport`` is an optional reply-transport seam for the live SMOKEs: they
     pass a recording wrapper around ``CmuxFeedTransport`` to prove a reply was
@@ -88,8 +91,8 @@ def build_feed_runner_from_repo(
     byte-identical; the builder wraps it once-per-request behind the idempotency
     guard exactly as before.
     """
-    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.claude_coach import (
-        ClaudeCoach,
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.llm_coach import (
+        LlmCoach,
     )
     from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_event_source import (
         CmuxFeedSource,
@@ -101,7 +104,7 @@ def build_feed_runner_from_repo(
     return build_feed_runner(
         source=CmuxFeedSource(),
         reply=transport or CmuxFeedTransport(),
-        coach=ClaudeCoach(),
+        coach=LlmCoach(provider=coach_provider, model=coach_model),
     )
 
 

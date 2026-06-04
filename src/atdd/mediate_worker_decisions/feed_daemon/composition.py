@@ -58,8 +58,8 @@ def build_feed_daemon(
 def build_feed_daemon_from_repo(*, config: DaemonConfig) -> FeedDaemonUseCase:  # pragma: no cover - live
     """Production wiring: reuse build_feed_runner wholesale behind a shared source."""
     from atdd.mediate_worker_decisions.bridge_cmux_feed.composition import build_feed_runner
-    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.claude_coach import (
-        ClaudeCoach,
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.llm_coach import (
+        LlmCoach,
     )
     from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_event_source import (
         CmuxFeedSource,
@@ -82,7 +82,9 @@ def build_feed_daemon_from_repo(*, config: DaemonConfig) -> FeedDaemonUseCase:  
 
     source = CmuxFeedSource()  # one shared source for poll + runner
     runner = build_feed_runner(
-        source=source, reply=CmuxFeedTransport(), coach=ClaudeCoach()
+        source=source,
+        reply=CmuxFeedTransport(),
+        coach=LlmCoach(provider=config.coach_provider, model=config.coach_model),
     )
     answered = AnsweredSet(
         read_handled_request_ids(config.verdicts_path, config.escalations_path)

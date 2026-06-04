@@ -29,6 +29,12 @@ class FeedItem:
     question_options: Tuple[Mapping[str, str], ...] = field(default_factory=tuple)
     tool_name: Optional[str] = None
     tool_input: Optional[str] = None
+    # The FULL multi-question payload as cmux emits it: each entry is a plain
+    # mapping {"id", "header", "prompt", "multi_select", "options":[...], and an
+    # optional "kind"}. ``question_prompt``/``question_options`` above are a
+    # convenience mirror of the FIRST question only; ``questions`` carries them
+    # all so the mapper can preserve the whole decision document (WMBT L003).
+    questions: Tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
