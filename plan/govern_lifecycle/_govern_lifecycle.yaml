@@ -66,9 +66,10 @@ features:
   - urn: "feature:govern-lifecycle:agnostic-git-config-bare-guard-via-path-shim"
   - urn: "feature:govern-lifecycle:extract-workflow-issue-runner-and-workflow-runner-protocol"
   - urn: "feature:govern-lifecycle:extract-workflow-wave-runner-and-atdd-resume-cli"
+  - urn: "feature:govern-lifecycle:canonical-theme-taxonomy"
 
 wmbt:
-  total: 71
+  total: 76
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -94,6 +95,11 @@ wmbt:
   L001: "minimize manual theme discovery during atdd init"
   P001: "minimize blind theme prompts that force game-domain defaults on non-game repos"
   C001: "minimize invalid custom theme names accepted into config"
+  C002: "minimize likelihood of wagons-or-trains-declaring-a-non-canonical-theme"
+  C003: "minimize likelihood of commons-themed-wagons-whose-source-imports-coach"
+  C004: "minimize likelihood of produced-urn-theme-prefix-diverging-from-wagon-theme"
+  C005: "minimize likelihood of archetype-themes-misaligned-with-source-roots"
+  C006: "minimize likelihood of resolved-theme-sets-missing-the-mandatory-commons-floor"
   E001: "minimize schema validation failures on valid custom theme names"
   M001: "minimize silent commons digit overrides that break cross-repo tooling"
   E002: "minimize issue-creation landing on wrong branch and leaving orphan worktrees"

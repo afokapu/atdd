@@ -1,0 +1,49 @@
+urn: "wmbt:govern-lifecycle:C002"  # binds previously-unbound wmbt:govern-lifecycle:E001
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "wagons-or-trains-declaring-a-non-canonical-theme"
+context_clarifier: "when a wagon manifest or train declares a theme outside the five canonical themes commons-plan-test-code-coach at digits 0-4, including retired game-domain names at digits 5-9 or any undeclared value"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of wagons-or-trains-declaring-a-non-canonical-theme when a manifest declares a theme outside the canonical five"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C002-UNIT-001-non-canonical-theme-is-flagged"
+      id: "AC-UNIT-001"
+      purpose: "a wagon declaring a retired or undeclared theme is surfaced as a violation; canonical themes pass"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "_theme_taxonomy.CANONICAL_THEMES is (commons, plan, test, code, coach)"
+        - "A wagon manifest declares theme: match (a retired game-domain theme)"
+    when:
+      abstract: "check_must_be_canonical(repo_root) runs"
+    then:
+      abstract:
+        - "The wagon is returned as a ThemeViolation with theme='match'"
+        - "A wagon declaring any of the five canonical themes produces no violation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"
+  - identity:
+      urn: "acc:govern-lifecycle:C002-SMOKE-001-plan-tree-has-no-non-canonical-theme"
+      id: "AC-SMOKE-001"
+      purpose: "the toolkit's own plan/ tree contains only canonical themes"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The toolkit's own plan/ tree under the repo root"
+    when:
+      abstract: "test_every_wagon_theme_is_canonical runs against REPO_ROOT"
+    then:
+      abstract:
+        - "Zero non-canonical wagon themes are reported (commons is canonical)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"

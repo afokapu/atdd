@@ -1,0 +1,69 @@
+urn: "wmbt:govern-lifecycle:C006"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "resolved-theme-sets-missing-the-mandatory-commons-floor"
+context_clarifier: "when a consumer .atdd/config.yaml themes block overrides or removes digit 0, the resolved theme set must still pin digit 0 to the locked commons token rather than dropping or renaming the floor"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of resolved-theme-sets-missing-the-mandatory-commons-floor when a consumer config overrides or removes digit 0"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C006-UNIT-001-override-cannot-remove-commons-floor"
+      id: "AC-UNIT-001"
+      purpose: "a hostile override that renames or removes digit 0 still resolves commons at digit 0"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "CANONICAL_THEME_0 is locked to 'commons'"
+        - "A config declares themes: {'0': 'platform', '1': 'qualification'}"
+    when:
+      abstract: "resolve_theme_set(config) runs"
+    then:
+      abstract:
+        - "resolved['0'] == 'commons' (the digit-0 override is ignored)"
+        - "commons is present in the resolved theme values"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"
+  - identity:
+      urn: "acc:govern-lifecycle:C006-UNIT-002-defaults-contain-commons-floor"
+      id: "AC-UNIT-002"
+      purpose: "with no config the resolved set still pins commons at digit 0"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "No consumer themes overrides are supplied (config is None)"
+    when:
+      abstract: "resolve_theme_set(None) and check_theme_zero_mandatory(None) run"
+    then:
+      abstract:
+        - "resolved['0'] == 'commons'"
+        - "check_theme_zero_mandatory returns no violations"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"
+  - identity:
+      urn: "acc:govern-lifecycle:C006-SMOKE-001-repo-config-keeps-commons-floor"
+      id: "AC-SMOKE-001"
+      purpose: "the toolkit's own .atdd/config.yaml resolves with the commons floor intact"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The toolkit's own .atdd/config.yaml under the repo root"
+    when:
+      abstract: "test_commons_is_always_in_resolved_theme_set runs against REPO_ROOT"
+    then:
+      abstract:
+        - "Zero theme-zero-mandatory violations are reported"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"

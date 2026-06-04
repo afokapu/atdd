@@ -1,0 +1,51 @@
+urn: "wmbt:govern-lifecycle:C004"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "produced-urn-theme-prefix-diverging-from-wagon-theme"
+context_clarifier: "when a wagon's produced contract or telemetry URN carries a theme-prefix different from the wagon's declared theme, e.g. a coach-themed wagon producing commons:decision:* artifacts"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of produced-urn-theme-prefix-diverging-from-wagon-theme when a wagon's produced URNs use a different theme namespace"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C004-UNIT-001-urn-prefix-mismatch-is-flagged"
+      id: "AC-UNIT-001"
+      purpose: "a coach wagon producing a commons:* URN is flagged; matching prefixes pass"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A wagon manifest declares theme: coach"
+        - "Its produce list contains name: commons:decision:record"
+    when:
+      abstract: "check_urn_namespace_matches(repo_root) runs"
+    then:
+      abstract:
+        - "The wagon is returned as a ThemeViolation for the commons-prefixed URN"
+        - "A coach wagon producing coach:decision:record produces no violation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"
+  - identity:
+      urn: "acc:govern-lifecycle:C004-SMOKE-001-plan-tree-urn-prefixes-align"
+      id: "AC-SMOKE-001"
+      purpose: "produced URN theme-prefixes align with wagon themes across plan/ — deferred (xfail) to the #951 re-theme co-land"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The toolkit's own plan/ tree under the repo root"
+        - "~41 produced URNs (e.g. spawn-agents/dispatch-* coach:* under commons theme; mediate commons:decision:*) currently diverge — the #951 re-theme worklist this slice does not migrate"
+    when:
+      abstract: "test_produced_urn_prefix_matches_theme runs against REPO_ROOT (xfail until #951)"
+    then:
+      abstract:
+        - "Today: xfail (the divergences are the deferred re-theme worklist)"
+        - "After #951 re-themes wagons and re-namespaces URNs: zero mismatches (xpass)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"
