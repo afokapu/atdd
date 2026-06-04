@@ -1603,3 +1603,14 @@ sessions:
   status: REFACTOR
   created: '2026-06-04'
   archived: null
+- id: '970'
+  slug: canonical-wagon-theme-taxonomy
+  file: null
+  issue_number: 970
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-04'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:canonical-theme-taxonomy
+  train: 0001-self-compliance-validate

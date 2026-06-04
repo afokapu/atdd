@@ -1,0 +1,68 @@
+urn: "wmbt:govern-lifecycle:C005"  # binds previously-unbound wmbt:govern-lifecycle:L001
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "archetype-themes-misaligned-with-source-roots"
+context_clarifier: "when a wagon themed plan-test-or-code has its implementation outside the matching planner-tester-or-coder archetype source root, breaking the theme-to-archetype mapping"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of archetype-themes-misaligned-with-source-roots when a plan-test-or-code wagon lives outside its archetype root"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C005-UNIT-001-misaligned-archetype-theme-is-flagged"
+      id: "AC-UNIT-001"
+      purpose: "a plan/test/code wagon outside its archetype root is flagged; an aligned wagon passes"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ARCHETYPE_THEME_ROOTS maps plan->planner, test->tester, code->coder"
+        - "A wagon themed code whose implementation lives under a coder root"
+    when:
+      abstract: "check_archetype_alignment(repo_root) runs"
+    then:
+      abstract:
+        - "An aligned code-under-coder wagon produces no violation"
+        - "A code-themed wagon implemented outside any coder root is surfaced"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"
+  - identity:
+      urn: "acc:govern-lifecycle:C005-UNIT-002-scanner-surfaces-existing-themes"
+      id: "AC-UNIT-002"
+      purpose: "the theme scanner surfaces distinct themes declared across plan/ (also satisfies L001-UNIT-001)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The toolkit's plan/ tree with wagon manifests declaring theme: entries"
+    when:
+      abstract: "scan_wagon_themes(repo_root) is invoked"
+    then:
+      abstract:
+        - "The scanner returns a non-empty set of distinct themes found under plan/"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"
+  - identity:
+      urn: "acc:govern-lifecycle:C005-SMOKE-001-plan-tree-archetype-themes-align"
+      id: "AC-SMOKE-001"
+      purpose: "plan/test/code wagons in the real plan/ tree align with their archetype roots"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The toolkit's own plan/ tree under the repo root"
+    when:
+      abstract: "test_archetype_themes_align_with_source_roots runs against REPO_ROOT"
+    then:
+      abstract:
+        - "Zero archetype/theme misalignments are reported"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"
