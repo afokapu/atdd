@@ -4,6 +4,11 @@ Classification of `# Phase: SMOKE` acceptance tests against real-infrastructure 
 
 | acceptance-URN | entry-point-coverage | assertion-target | handoff-coverage | incident-cross-ref |
 |---|---|---|---|---|
+| acc:mediate-worker-decisions:C004-SMOKE-001-live-dangerous-not-auto-answered | real (live cmux + claude worker, spy ClaudeCoach) | escalation recorded + loud-logged + no feed.reply + coach never consulted | worker → cmux Feed → feed_daemon → escalations.jsonl | #966; live blocked on #967 (worker prompts not yet published to the Feed) |
+| acc:mediate-worker-decisions:E004-SMOKE-001-live-loop-answers-blocked-agent | real (live cmux + claude worker) | blocked decision answered via feed.*.reply | worker → cmux Feed → feed_daemon → feed.question.reply | #966; live blocked on #967 |
+| acc:mediate-worker-decisions:E005-SMOKE-001-live-restart-no-double-answer | real (live cmux + claude worker) | restart re-hydrates answered-set, no double answer/escalation | daemon restart → verdicts.jsonl + escalations.jsonl re-hydration | #966; live blocked on #967 |
+| acc:mediate-worker-decisions:D002-SMOKE-001-live-second-instance-refused | real (daemon subprocess + pidfile) | second daemon instance refused by PidfileLock | N/A (single component) | #966 (real process smoke, passes) |
+| acc:mediate-worker-decisions:R002-SMOKE-001-live-sigterm-clean-shutdown | real (daemon subprocess) | SIGTERM exits the poll loop and releases the pidfile | N/A (single component) | #966 (real process smoke, passes) |
 | acc:observe-and-correct:E008-SMOKE-001-delivery-waits-for-tui | synthetic (Python slow-start subprocess) | TUI ready-marker gate timing | single direction | #862; flagged for retrofit per #855 (synthetic-fixture-bypass + timing-flaky risk) |
 | acc:observe-and-correct:E007-SMOKE-001-sentinel-enables-tui-submission | synthetic (Python echo-on-enter subprocess in raw termios) | submit sentinel (CR) delivery | single direction | #862; flagged for retrofit per #855 (synthetic-fixture-bypass) |
 | acc:observe-and-correct:E003-SMOKE-001 | atdd-shim CLI subprocess | output.log contains CORRECTION_RECEIVED | dispatcher.dispatch → cli-return.jsonl → shim → agent stdin | #862 (rewritten from PersonaShim direct) |

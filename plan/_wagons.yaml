@@ -1218,7 +1218,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 15
+    total: 20
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
@@ -1242,6 +1242,15 @@ wagons:
       feed reply
     C003: minimize likelihood of auto replying to a dangerous tool use without human
       review
+    E004: minimize likelihood of a blocked feed item left unanswered by the autonomous
+      daemon loop
+    E005: minimize quantity of duplicate answers to the same request id across ticks
+      and restarts
+    C004: minimize likelihood of the daemon auto answering a dangerous tool use instead
+      of escalating to a human
+    R002: minimize likelihood of the daemon failing to shut down cleanly and release
+      its lock on a termination signal
+    D002: minimize likelihood of two daemon instances answering the same feed concurrently
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/
