@@ -1584,3 +1584,11 @@ sessions:
   status: REFACTOR
   created: '2026-06-04'
   archived: null
+- id: '963'
+  slug: migrate-feed-smokes-to-production-runner
+  file: null
+  issue_number: 963
+  type: refactor
+  status: REFACTOR
+  created: '2026-06-04'
+  archived: null

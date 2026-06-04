@@ -27,6 +27,7 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import 
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_reply_applier import (
     FeedReplyApplier,
     InMemoryReplyGuard,
+    ReplyTransport,
 )
 
 
@@ -70,6 +71,7 @@ def build_feed_runner_from_repo(
     *,
     workspace_id: str,
     repo_root: Optional[Path] = None,
+    transport: Optional[ReplyTransport] = None,
 ) -> FeedRunnerUseCase:  # pragma: no cover - exercised by live smoke
     """Production wiring: real Feed source/transport + the LLM coach.
 
@@ -78,6 +80,13 @@ def build_feed_runner_from_repo(
     ``mediate_decision.build_mediate_use_case_from_repo``. The dangerous-action
     safety gate runs ahead of the coach inside ``FeedRunnerUseCase`` (C003), so
     the coach stays decide-only.
+
+    ``transport`` is an optional reply-transport seam for the live SMOKEs: they
+    pass a recording wrapper around ``CmuxFeedTransport`` to prove a reply was
+    (E003) or was not (C003) delivered, while still exercising the real source
+    and coach. It defaults to ``CmuxFeedTransport()`` so production wiring is
+    byte-identical; the builder wraps it once-per-request behind the idempotency
+    guard exactly as before.
     """
     from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.claude_coach import (
         ClaudeCoach,
@@ -91,7 +100,7 @@ def build_feed_runner_from_repo(
 
     return build_feed_runner(
         source=CmuxFeedSource(),
-        reply=CmuxFeedTransport(),
+        reply=transport or CmuxFeedTransport(),
         coach=ClaudeCoach(),
     )
 
