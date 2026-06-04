@@ -33,7 +33,6 @@ from pathlib import Path
 # substrate; no need to reinvent workspace spawn / Feed polling.
 from atdd.mediate_worker_decisions.bridge_cmux_feed.live_smoke import (
     PermissionNotInducible,
-    _ClaudeCoach,
     _RecordingTransport,
     _cmux,
     _send_task,
@@ -42,6 +41,9 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.live_smoke import (
     _wait_until_resolved,
 )
 from atdd.mediate_worker_decisions.bridge_cmux_feed.composition import build_feed_runner
+from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.llm_coach import (
+    LlmCoach,
+)
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import (
     PERMISSION,
     QUESTION,
@@ -146,7 +148,7 @@ def loop_answers_live_smoke(tmp_dir: str = "/tmp/atdd-feed-daemon-loop") -> dict
 
         recorder = _RecordingTransport(CmuxFeedTransport())
         daemon = _build_live_daemon(
-            source=source, coach=_ClaudeCoach(), recorder=recorder,
+            source=source, coach=LlmCoach(), recorder=recorder,
             verdicts=verdicts, escalations=escalations,
         )
         daemon.tick()
@@ -190,7 +192,7 @@ def danger_escalates_live_smoke(tmp_dir: str = "/tmp/atdd-feed-daemon-danger") -
             )
 
         recorder = _RecordingTransport(CmuxFeedTransport())
-        spy = _SpyCoach(_ClaudeCoach())
+        spy = _SpyCoach(LlmCoach())
         daemon = _build_live_daemon(
             source=source, coach=spy, recorder=recorder,
             verdicts=verdicts, escalations=escalations,
@@ -242,14 +244,14 @@ def restart_no_double_answer_live_smoke(
         # daemon #1 — escalates the dangerous item, writes escalations.jsonl
         rec1 = _RecordingTransport(CmuxFeedTransport())
         daemon1 = _build_live_daemon(
-            source=source, coach=_SpyCoach(_ClaudeCoach()), recorder=rec1,
+            source=source, coach=_SpyCoach(LlmCoach()), recorder=rec1,
             verdicts=verdicts, escalations=escalations,
         )
         daemon1.tick()
         before = _line_count(escalations)
 
         # daemon #2 — fresh process would re-hydrate from the SAME ledgers
-        spy2 = _SpyCoach(_ClaudeCoach())
+        spy2 = _SpyCoach(LlmCoach())
         rec2 = _RecordingTransport(CmuxFeedTransport())
         daemon2 = _build_live_daemon(
             source=source, coach=spy2, recorder=rec2,

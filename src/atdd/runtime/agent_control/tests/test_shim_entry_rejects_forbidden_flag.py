@@ -1,4 +1,7 @@
-# URN: acc:govern-lifecycle:E014-UNIT-006-runtime-shim-entry-rejects-forbidden-flag
+# URN: test:govern-lifecycle:agent-behavior-rules-enforcement:E014-UNIT-006-runtime-shim-entry-rejects-forbidden-flag
+# Acceptance: acc:govern-lifecycle:E014-UNIT-006-runtime-shim-entry-rejects-forbidden-flag
+# WMBT: wmbt:govern-lifecycle:E014
+# Phase: GREEN
 """acc:govern-lifecycle:E014-UNIT-006 — the runtime shim CLI entry point
 (`python -m atdd.runtime.agent_control`) refuses an adapter command carrying the
 forbidden flag before spawning any process.

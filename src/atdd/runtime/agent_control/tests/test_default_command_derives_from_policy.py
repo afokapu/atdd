@@ -1,4 +1,7 @@
-# URN: acc:govern-lifecycle:E014-UNIT-004-runtime-default-command-derives-permission-policy-from-spec
+# URN: test:govern-lifecycle:agent-behavior-rules-enforcement:E014-UNIT-004-runtime-default-command-derives-permission-policy-from-spec
+# Acceptance: acc:govern-lifecycle:E014-UNIT-004-runtime-default-command-derives-permission-policy-from-spec
+# WMBT: wmbt:govern-lifecycle:E014
+# Phase: GREEN
 """acc:govern-lifecycle:E014-UNIT-004 — runtime cli-return launch transport derives
 the permission policy from the DispatchSpec and never emits the forbidden flag.
 

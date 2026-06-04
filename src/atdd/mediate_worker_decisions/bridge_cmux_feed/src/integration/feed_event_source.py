@@ -57,7 +57,32 @@ def _to_feed_item(entry: dict) -> FeedItem:
         question_options=options,
         tool_name=entry.get("tool_name"),
         tool_input=_as_text(entry.get("tool_input")),
+        # the FULL multi-question payload, so the mapper preserves every
+        # question as a block instead of flattening to the mirror (WMBT L003)
+        questions=tuple(_normalize_question(q) for q in (entry.get("questions") or [])),
     )
+
+
+def _normalize_question(question: dict) -> dict:
+    """Normalize one cmux ``questions[]`` entry to the mapper's expected shape.
+
+    cmux may send ``multi_select`` as ``multiSelect``; options carry id/label.
+    The optional ``kind`` is passed through so an agent can mark a question as a
+    confirm/free_text block explicitly.
+    """
+    return {
+        "id": str(question.get("id", "")),
+        "header": question.get("header"),
+        "prompt": str(question.get("prompt", "")),
+        "multi_select": bool(
+            question.get("multi_select", question.get("multiSelect", False))
+        ),
+        "kind": question.get("kind"),
+        "options": [
+            {"id": str(o.get("id", "")), "label": str(o.get("label", ""))}
+            for o in (question.get("options") or [])
+        ],
+    }
 
 
 def _as_text(tool_input) -> Optional[str]:

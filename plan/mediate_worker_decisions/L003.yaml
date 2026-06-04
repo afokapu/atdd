@@ -1,0 +1,81 @@
+urn: "wmbt:mediate-worker-decisions:L003"
+step: "locate"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "preserving-every-question-when-mapping-a-feed-item-into-the-decision-document"
+context_clarifier: "when a worker emits one AskUserQuestion carrying multiple questions (each with id/header/prompt/multi_select/options) the cmux Feed item carries the FULL questions[] array plus a top-level single-question mirror; the mapper must preserve EVERY question as a block (single_choice for multi_select=false, multi_choice for multi_select=true) into the decision document and NEVER flatten to the first question"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of preserving every question when mapping a feed item into the decision document"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:L003-UNIT-001-preserves-every-question-as-block"
+      id: "AC-UNIT-001"
+      purpose: "A feed item with three questions (single, single, multi_select) maps to a document of three blocks preserving order, ids, options, and multi_select kind — not flattened to the first"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A pending feed question item whose questions[] carries Color (single), Size (single), and Features (multi_select) each with id/header/prompt/options"
+    when:
+      abstract: "The feed-item mapper maps the item to a decision document"
+      action: "invoke"
+    then:
+      abstract:
+        - "The request.document carries three blocks in order, each with the question id as block_id and the options preserved"
+        - "The Features block has kind multi_choice while Color/Size are single_choice"
+      assertions:
+        - type: "equals"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:L003-UNIT-002-single-question-still-maps"
+      id: "AC-UNIT-002"
+      purpose: "A legacy single-question feed item (top-level mirror only, no questions[]) still maps to a one-block document, preserving back-compat"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A pending feed question item with only question_prompt/question_options and no questions[]"
+    when:
+      abstract: "The feed-item mapper maps the item"
+      action: "invoke"
+    then:
+      abstract:
+        - "The request.document carries exactly one single_choice block whose options match the top-level mirror"
+      assertions:
+        - type: "count"
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:L003-SMOKE-001-live-multi-question-located-whole"
+      id: "AC-SMOKE-001"
+      purpose: "A real agent's live multi-question AskUserQuestion is located from the Feed and mapped to a document carrying every question, not just the first"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real Claude worker blocked on an AskUserQuestion with multiple questions including a multi-select"
+    when:
+      abstract: "The feed event source reads the pending item and the mapper maps it"
+      action: "invoke"
+    then:
+      abstract:
+        - "The document carries one block per live question with the multi-select question mapped to multi_choice"
+      assertions:
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
