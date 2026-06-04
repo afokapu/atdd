@@ -6,7 +6,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from atdd.mediate_worker_decisions.sense_decision.src.domain.decision_document import (
+        DecisionAnswer,
+    )
 
 AUTO_APPLY = "auto_apply"
 HUMAN_REQUIRED = "human_required"
@@ -28,6 +33,10 @@ class Verdict:
     source: str  # SOURCE_COACH | SOURCE_SAFETY_GATE
     selected_option_id: Optional[str] = None
     reason: str = ""
+    # The structured per-block answer when the decider answered a modular
+    # document (WMBT E006). ``selected_option_id`` stays as the single-block
+    # back-compat mirror of the first block; ``answer`` carries every block.
+    answer: Optional["DecisionAnswer"] = None
 
     def to_contract(self) -> dict:
         return {

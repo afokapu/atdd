@@ -1603,3 +1603,14 @@ sessions:
   status: REFACTOR
   created: '2026-06-04'
   archived: null
+- id: '976'
+  slug: feed-daemon-multi-question-and-checkbox-support
+  file: null
+  issue_number: 976
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-04'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:bridge-cmux-feed
+  train: 0002-coach-drives-lifecycle

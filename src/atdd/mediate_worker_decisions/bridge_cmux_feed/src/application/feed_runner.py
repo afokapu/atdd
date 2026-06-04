@@ -36,6 +36,10 @@ from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import (
     Escalation,
     Verdict,
 )
+from atdd.mediate_worker_decisions.sense_decision.src.domain.decision_document import (
+    CONFIRM,
+    DecisionDocument,
+)
 
 
 @dataclass(frozen=True)
@@ -71,18 +75,39 @@ class FeedRunnerUseCase:
         # Safety gate FIRST for tool-use kinds (WMBT C003) — before the coach.
         if item.kind in (PERMISSION, EXIT_PLAN):
             if classify(item.tool_input or "") == HUMAN_REQUIRED:
-                return FeedOutcome(
-                    request_id=item.request_id,
-                    escalation=Escalation(
-                        escalation_id=self._id(),
-                        request_id=item.request_id,
-                        raised_at=self._ts(),
-                        cause=CAUSE_DANGEROUS,
-                        safety_class=CAUSE_DANGEROUS,
-                    ),
-                )
+                return self._escalate(item.request_id)
 
         request = map_feed_item(item)
+
+        # Document-level per-block safety (WMBT C005): a dangerous confirm block
+        # within a multi-block document escalates the WHOLE document — a cmux
+        # item is answered atomically, so it is never partially replied. The
+        # coach is not consulted for a document carrying a dangerous block.
+        if request.document is not None and _has_dangerous_block(request.document):
+            return self._escalate(item.request_id)
+
         verdict = self._coach.mediate(request)
         self._reply.deliver(plan_reply(verdict, kind=item.kind))
         return FeedOutcome(request_id=item.request_id, verdict=verdict)
+
+    def _escalate(self, request_id: str) -> FeedOutcome:
+        return FeedOutcome(
+            request_id=request_id,
+            escalation=Escalation(
+                escalation_id=self._id(),
+                request_id=request_id,
+                raised_at=self._ts(),
+                cause=CAUSE_DANGEROUS,
+                safety_class=CAUSE_DANGEROUS,
+            ),
+        )
+
+
+def _has_dangerous_block(document: DecisionDocument) -> bool:
+    """A confirm block whose prompt matches a danger pattern makes the whole
+    document human-required (WMBT C005). Group compositions are flattened by
+    ``leaf_blocks`` so a dangerous block nested in a group is still caught."""
+    return any(
+        block.kind == CONFIRM and classify(block.prompt) == HUMAN_REQUIRED
+        for block in document.leaf_blocks()
+    )

@@ -1,0 +1,84 @@
+urn: "wmbt:mediate-worker-decisions:C005"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-dangerous-block-in-a-mixed-document-being-auto-answered-instead-of-escalating-the-whole-document"
+context_clarifier: "when a decision document mixes a dangerous confirm/permission block with safe choice blocks, the daemon must escalate the WHOLE document (document-atomic) — a cmux feed item is answered atomically, so a single item is never partially replied; the decider's computed answers for the safe blocks are recorded for the human alongside the escalation, and NO feed reply is delivered. The headline safety property: a dangerous block in a mixed document is NEVER auto-answered."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a dangerous block in a mixed document being auto answered instead of escalating the whole document"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:C005-UNIT-001-mixed-document-escalates-whole"
+      id: "AC-UNIT-001"
+      purpose: "A document with a safe single_choice block plus a dangerous confirm block escalates the whole document and delivers no reply; the coach/decider is not consulted to auto-answer it"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A feed item whose document mixes a safe Color single_choice block and a dangerous confirm block (e.g. approve git push)"
+        - "A recording escalation sink and a fake transport"
+    when:
+      abstract: "The daemon runs a single tick over the item"
+      action: "invoke"
+    then:
+      abstract:
+        - "An escalation is recorded and the transport reply verb is never called for that request_id"
+        - "No auto_apply verdict is delivered for the document"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C005-INTEGRATION-001-mixed-document-escalated-durably-no-reply"
+      id: "AC-INTEGRATION-001"
+      purpose: "A mixed document with a dangerous block is escalated durably to escalations.jsonl (one record matching the escalation contract) and no feed reply is delivered; safe-block suggestions surface via the operator log, not a partial reply"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A JsonlEscalationSink backed by a tmp escalations.jsonl and a fake transport"
+        - "A mixed document (safe choice block + dangerous confirm block)"
+    when:
+      abstract: "The daemon handles the mixed document in a tick"
+      action: "invoke"
+    then:
+      abstract:
+        - "escalations.jsonl contains exactly one escalation record for the request_id matching the escalation contract"
+        - "The transport reply verb is never called for that request_id"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C005-SMOKE-001-live-mixed-document-not-auto-answered"
+      id: "AC-SMOKE-001"
+      purpose: "A real mixed document containing a dangerous block is escalated by the live daemon, never auto-answered"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real worker whose blocked decision composes a dangerous block with safe blocks"
+    when:
+      abstract: "The daemon runs one poll tick over the live Feed"
+      action: "invoke"
+    then:
+      abstract:
+        - "No reply is sent; the whole document is escalated to the human channel"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon"

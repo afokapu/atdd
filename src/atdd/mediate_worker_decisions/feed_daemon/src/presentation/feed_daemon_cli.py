@@ -32,6 +32,16 @@ def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - thin sh
         default=".atdd/runtime/feed-daemon/verdicts.jsonl",
         help="durable auto-applied-verdict ledger",
     )
+    parser.add_argument(
+        "--coach-provider",
+        default="claude",
+        help="decider LLM provider (default: claude — the only one implemented)",
+    )
+    parser.add_argument(
+        "--coach-model",
+        default=None,
+        help="optional decider model to pin (provider-specific)",
+    )
     args = parser.parse_args(argv)
 
     from atdd.mediate_worker_decisions.feed_daemon.composition import (
@@ -47,6 +57,8 @@ def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - thin sh
         escalations_path=Path(args.escalations),
         verdicts_path=Path(args.verdicts),
         poll_interval_s=args.interval,
+        coach_provider=args.coach_provider,
+        coach_model=args.coach_model,
     )
     build_feed_daemon_from_repo(config=config).run_forever()
     return 0
