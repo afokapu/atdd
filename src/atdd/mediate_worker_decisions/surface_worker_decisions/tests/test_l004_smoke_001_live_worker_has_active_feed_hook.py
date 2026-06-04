@@ -1,10 +1,10 @@
-# URN: test:mediate-worker-decisions:surface-worker-decisions:L003-SMOKE-001-live-worker-has-active-feed-hook
-# Acceptance: acc:mediate-worker-decisions:L003-SMOKE-001-live-worker-has-active-feed-hook
-# WMBT: wmbt:mediate-worker-decisions:L003
+# URN: test:mediate-worker-decisions:surface-worker-decisions:L004-SMOKE-001-live-worker-has-active-feed-hook
+# Acceptance: acc:mediate-worker-decisions:L004-SMOKE-001-live-worker-has-active-feed-hook
+# WMBT: wmbt:mediate-worker-decisions:L004
 # Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral
-"""L003-SMOKE-001 — a live spawned worker has the Feed-publishing hook active.
+"""L004-SMOKE-001 — a live spawned worker has the Feed-publishing hook active.
 
 Live end-to-end: a toolkit-spawned worker runs under the cmux wrapper with
 CMUX_SURFACE_ID set, a live socket, and the injected --settings carrying the

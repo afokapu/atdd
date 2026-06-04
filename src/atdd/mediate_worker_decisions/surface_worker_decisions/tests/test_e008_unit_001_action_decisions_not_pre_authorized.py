@@ -1,10 +1,10 @@
-# URN: test:mediate-worker-decisions:surface-worker-decisions:E006-UNIT-001-action-decisions-not-pre-authorized
-# Acceptance: acc:mediate-worker-decisions:E006-UNIT-001-action-decisions-not-pre-authorized
-# WMBT: wmbt:mediate-worker-decisions:E006
+# URN: test:mediate-worker-decisions:surface-worker-decisions:E008-UNIT-001-action-decisions-not-pre-authorized
+# Acceptance: acc:mediate-worker-decisions:E008-UNIT-001-action-decisions-not-pre-authorized
+# WMBT: wmbt:mediate-worker-decisions:E008
 # Phase: RED
 # Layer: application
 # Assertion: behavioral
-"""E006-UNIT-001 — resolving surfacing values leaves action-class decisions un-allowed.
+"""E008-UNIT-001 — resolving surfacing values leaves action-class decisions un-allowed.
 
 Resolving the surfacing values for a claude worker yields allowed_tools that
 auto-allow the read/edit tools but NOT Bash, under permission_mode acceptEdits and

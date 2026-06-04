@@ -1,4 +1,4 @@
-urn: "wmbt:mediate-worker-decisions:L003"
+urn: "wmbt:mediate-worker-decisions:L004"
 step: "locate"
 direction: "maximize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.availability"
 statement: "maximize likelihood of the feed publishing hook being active for a spawned worker at launch"
 acceptances:
   - identity:
-      urn: "acc:mediate-worker-decisions:L003-UNIT-001-probe-reports-hook-active-and-inactive"
+      urn: "acc:mediate-worker-decisions:L004-UNIT-001-probe-reports-hook-active-and-inactive"
       id: "AC-UNIT-001"
       purpose: "The hook-presence probe reports active when CMUX_SURFACE_ID and a live socket are present, and inactive (with a reason) when either is missing"
       phase: "RED"
@@ -33,7 +33,7 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "surface-worker-decisions"
   - identity:
-      urn: "acc:mediate-worker-decisions:L003-INTEGRATION-001-build-warns-when-hook-path-absent"
+      urn: "acc:mediate-worker-decisions:L004-INTEGRATION-001-build-warns-when-hook-path-absent"
       id: "AC-INTEGRATION-001"
       purpose: "Building a launch config while the hook path is absent surfaces a loud warning so a non-publishing worker is never spawned silently"
       phase: "RED"
@@ -56,7 +56,7 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "surface-worker-decisions"
   - identity:
-      urn: "acc:mediate-worker-decisions:L003-SMOKE-001-live-worker-has-active-feed-hook"
+      urn: "acc:mediate-worker-decisions:L004-SMOKE-001-live-worker-has-active-feed-hook"
       id: "AC-SMOKE-001"
       purpose: "A live toolkit-spawned worker runs under the cmux wrapper with the PermissionRequest->feed hook actually injected, so its decisions can publish"
       phase: "SMOKE"

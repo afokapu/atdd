@@ -1,10 +1,10 @@
-# URN: test:mediate-worker-decisions:surface-worker-decisions:C005-UNIT-001-no-bypass-and-bash-always-surfaced
-# Acceptance: acc:mediate-worker-decisions:C005-UNIT-001-no-bypass-and-bash-always-surfaced
-# WMBT: wmbt:mediate-worker-decisions:C005
+# URN: test:mediate-worker-decisions:surface-worker-decisions:C006-UNIT-001-no-bypass-and-bash-always-surfaced
+# Acceptance: acc:mediate-worker-decisions:C006-UNIT-001-no-bypass-and-bash-always-surfaced
+# WMBT: wmbt:mediate-worker-decisions:C006
 # Phase: RED
 # Layer: application
 # Assertion: behavioral
-"""C005-UNIT-001 — no rendered config bypasses surfacing, for any claude agent kind.
+"""C006-UNIT-001 — no rendered config bypasses surfacing, for any claude agent kind.
 
 Every supported claude-family worker's resolved values omit the forbidden bypass
 flags/modes and never list Bash in allowed_tools, so an action-class decision can

@@ -1,4 +1,4 @@
-"""cmux_hook_probe — HookPresenceProbe over the real cmux launch environment (WMBT L003).
+"""cmux_hook_probe — HookPresenceProbe over the real cmux launch environment (WMBT L004).
 
 The cmux Claude wrapper injects its PermissionRequest->'cmux hooks feed' hook only
 when the worker runs under the wrapper with CMUX_SURFACE_ID set and a live cmux

@@ -1,4 +1,4 @@
-"""DecisionSurfacingPolicy — the pure rule for what a spawned worker surfaces (WMBT E006/C005).
+"""DecisionSurfacingPolicy — the pure rule for what a spawned worker surfaces (WMBT E008/C006).
 
 A worker only publishes a blocking decision to the cmux Feed when its launch does
 NOT pre-authorize that decision. This policy partitions the worker's tools into an

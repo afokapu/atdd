@@ -1,4 +1,4 @@
-"""resolve_surfacing_values — the single decision point (WMBT E006/L003).
+"""resolve_surfacing_values — the single decision point (WMBT E008/L004).
 
 Given an agent kind, resolve the DecisionSurfacingPolicy and render it to the
 DispatchSpec values the spawn adapter loads. If a HookPresenceProbe is injected

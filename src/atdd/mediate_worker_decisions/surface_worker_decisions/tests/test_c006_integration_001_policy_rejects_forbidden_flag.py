@@ -1,10 +1,10 @@
-# URN: test:mediate-worker-decisions:surface-worker-decisions:C005-INTEGRATION-001-policy-rejects-forbidden-flag
-# Acceptance: acc:mediate-worker-decisions:C005-INTEGRATION-001-policy-rejects-forbidden-flag
-# WMBT: wmbt:mediate-worker-decisions:C005
+# URN: test:mediate-worker-decisions:surface-worker-decisions:C006-INTEGRATION-001-policy-rejects-forbidden-flag
+# Acceptance: acc:mediate-worker-decisions:C006-INTEGRATION-001-policy-rejects-forbidden-flag
+# WMBT: wmbt:mediate-worker-decisions:C006
 # Phase: RED
 # Layer: domain
 # Assertion: behavioral
-"""C005-INTEGRATION-001 — a surfacing-suppressing policy is rejected at build time.
+"""C006-INTEGRATION-001 — a surfacing-suppressing policy is rejected at build time.
 
 Building a DecisionSurfacingPolicy that auto-allows an action-class tool (Bash) or
 sets a bypass permission_mode raises PolicyError — it is never silently rendered.

@@ -6,10 +6,10 @@ sizing:
   footprint_score: 8
   footprint_size: "S"
 wmbts:
-  - "wmbt:mediate-worker-decisions:E006"
-  - "wmbt:mediate-worker-decisions:C005"
+  - "wmbt:mediate-worker-decisions:E008"
+  - "wmbt:mediate-worker-decisions:C006"
   - "wmbt:mediate-worker-decisions:Y002"
-  - "wmbt:mediate-worker-decisions:L003"
+  - "wmbt:mediate-worker-decisions:L004"
 components:
   backend:
     presentation:

@@ -1,4 +1,4 @@
-urn: "wmbt:mediate-worker-decisions:C005"
+urn: "wmbt:mediate-worker-decisions:C006"
 step: "confirm"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of the launch policy pre authorizing an action class tool so a dangerous action executes without ever surfacing for mediation"
 acceptances:
   - identity:
-      urn: "acc:mediate-worker-decisions:C005-UNIT-001-no-bypass-and-bash-always-surfaced"
+      urn: "acc:mediate-worker-decisions:C006-UNIT-001-no-bypass-and-bash-always-surfaced"
       id: "AC-UNIT-001"
       purpose: "Every rendered worker launch config omits the forbidden bypass flags and never lists Bash in --allowedTools, so an action-class decision can never execute without first surfacing to the Feed"
       phase: "RED"
@@ -32,7 +32,7 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "surface-worker-decisions"
   - identity:
-      urn: "acc:mediate-worker-decisions:C005-INTEGRATION-001-policy-rejects-forbidden-flag"
+      urn: "acc:mediate-worker-decisions:C006-INTEGRATION-001-policy-rejects-forbidden-flag"
       id: "AC-INTEGRATION-001"
       purpose: "A policy constructed with a forbidden bypass flag or with Bash in the auto-allow set is rejected at build time, not silently rendered"
       phase: "RED"
@@ -55,7 +55,7 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "surface-worker-decisions"
   - identity:
-      urn: "acc:mediate-worker-decisions:C005-SMOKE-001-live-bash-decision-surfaces-not-auto-executed"
+      urn: "acc:mediate-worker-decisions:C006-SMOKE-001-live-bash-decision-surfaces-not-auto-executed"
       id: "AC-SMOKE-001"
       purpose: "A live toolkit-spawned worker asked to run a Bash command surfaces it as a pending permission decision on the Feed (with the command in tool_input) instead of auto-executing it"
       phase: "SMOKE"

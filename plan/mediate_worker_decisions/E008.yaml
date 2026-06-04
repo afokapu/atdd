@@ -1,4 +1,4 @@
-urn: "wmbt:mediate-worker-decisions:E006"
+urn: "wmbt:mediate-worker-decisions:E008"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of a spawned workers escalation worthy decision being pre authorized so it never surfaces to the feed"
 acceptances:
   - identity:
-      urn: "acc:mediate-worker-decisions:E006-UNIT-001-action-decisions-not-pre-authorized"
+      urn: "acc:mediate-worker-decisions:E008-UNIT-001-action-decisions-not-pre-authorized"
       id: "AC-UNIT-001"
       purpose: "resolving surfacing values for a claude worker yields allowed_tools that auto-allow read/edit tools but leave Bash (and the native AskUserQuestion/ExitPlanMode) un-allowed, so an action-class decision is not pre-authorized"
       phase: "RED"
@@ -33,7 +33,7 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "surface-worker-decisions"
   - identity:
-      urn: "acc:mediate-worker-decisions:E006-SMOKE-001-live-spawned-worker-decision-appears-blocked-in-feed"
+      urn: "acc:mediate-worker-decisions:E008-SMOKE-001-live-spawned-worker-decision-appears-blocked-in-feed"
       id: "AC-SMOKE-001"
       purpose: "A worker spawned the way the toolkit spawns them, hitting a real blocking decision, produces a status-blocked item in cmux feed.list — the live proof the producer publishes (headline acceptance, unblocks the daemon's C004/E004/E005 live smokes)"
       phase: "SMOKE"

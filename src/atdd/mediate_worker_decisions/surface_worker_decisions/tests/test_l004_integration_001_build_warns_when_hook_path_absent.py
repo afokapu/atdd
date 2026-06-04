@@ -1,10 +1,10 @@
-# URN: test:mediate-worker-decisions:surface-worker-decisions:L003-INTEGRATION-001-build-warns-when-hook-path-absent
-# Acceptance: acc:mediate-worker-decisions:L003-INTEGRATION-001-build-warns-when-hook-path-absent
-# WMBT: wmbt:mediate-worker-decisions:L003
+# URN: test:mediate-worker-decisions:surface-worker-decisions:L004-INTEGRATION-001-build-warns-when-hook-path-absent
+# Acceptance: acc:mediate-worker-decisions:L004-INTEGRATION-001-build-warns-when-hook-path-absent
+# WMBT: wmbt:mediate-worker-decisions:L004
 # Phase: RED
 # Layer: integration
 # Assertion: behavioral
-"""L003-INTEGRATION-001 — resolving while the hook path is absent warns loudly.
+"""L004-INTEGRATION-001 — resolving while the hook path is absent warns loudly.
 
 When the injected probe reports the wrapper hook path inactive, resolve() still
 returns the surfacing values but emits a warning naming the inactive hook path —

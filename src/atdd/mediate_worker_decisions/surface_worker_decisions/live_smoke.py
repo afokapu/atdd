@@ -12,13 +12,13 @@ from typing import Any, Dict
 
 def decision_appears_blocked_live_smoke() -> Dict[str, Any]:
     """Spawn a worker the toolkit way, induce a blocking decision, and confirm a
-    pending item appears in cmux feed.list (E006-SMOKE-001)."""
+    pending item appears in cmux feed.list (E008-SMOKE-001)."""
     raise NotImplementedError("SMOKE: decision_appears_blocked_live_smoke")
 
 
 def bash_decision_surfaces_live_smoke() -> Dict[str, Any]:
     """Confirm a worker's Bash command surfaces as a pending permission decision in
-    feed.list (with the command in tool_input) instead of auto-executing (C005-SMOKE-001)."""
+    feed.list (with the command in tool_input) instead of auto-executing (C006-SMOKE-001)."""
     raise NotImplementedError("SMOKE: bash_decision_surfaces_live_smoke")
 
 
@@ -30,5 +30,5 @@ def launch_argv_matches_policy_live_smoke() -> Dict[str, Any]:
 
 def worker_has_active_feed_hook_live_smoke() -> Dict[str, Any]:
     """Confirm a live spawned worker runs under the wrapper with the
-    PermissionRequest->feed hook injected (L003-SMOKE-001)."""
+    PermissionRequest->feed hook injected (L004-SMOKE-001)."""
     raise NotImplementedError("SMOKE: worker_has_active_feed_hook_live_smoke")

@@ -1,10 +1,10 @@
-# URN: test:mediate-worker-decisions:surface-worker-decisions:L003-UNIT-001-probe-reports-hook-active-and-inactive
-# Acceptance: acc:mediate-worker-decisions:L003-UNIT-001-probe-reports-hook-active-and-inactive
-# WMBT: wmbt:mediate-worker-decisions:L003
+# URN: test:mediate-worker-decisions:surface-worker-decisions:L004-UNIT-001-probe-reports-hook-active-and-inactive
+# Acceptance: acc:mediate-worker-decisions:L004-UNIT-001-probe-reports-hook-active-and-inactive
+# WMBT: wmbt:mediate-worker-decisions:L004
 # Phase: RED
 # Layer: integration
 # Assertion: behavioral
-"""L003-UNIT-001 — the hook-presence probe reports active vs inactive with a reason.
+"""L004-UNIT-001 — the hook-presence probe reports active vs inactive with a reason.
 
 With CMUX_SURFACE_ID set and a live socket the probe reports the hook path active;
 with the surface id absent it reports inactive and names the missing precondition.
