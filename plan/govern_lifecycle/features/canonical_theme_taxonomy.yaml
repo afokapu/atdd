@@ -1,0 +1,38 @@
+urn: "feature:govern-lifecycle:canonical-theme-taxonomy"
+wagon: "wagon:govern-lifecycle"
+description: >-
+  Collapse wagon/train themes to the five canonical themes
+  (commons/plan/test/code/coach, digits 0-4) and enforce them with four bound
+  validators: must-be-canonical, commons-coach-boundary, urn-namespace-matches,
+  and archetype-alignment. Closes the previously-unbound theme WMBTs E001/L001
+  (SPEC-COACH-RULEID-0007). Enforcement only; the wagon re-theme +
+  commons:decision:* -> coach:decision:* URN migration is deferred to the #951
+  co-land.
+convention: "src/atdd/planner/conventions/theme.convention.yaml"
+sizing:
+  wmbts: 5
+  footprint_score: 9
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:C002"
+  - "wmbt:govern-lifecycle:C003"
+  - "wmbt:govern-lifecycle:C004"
+  - "wmbt:govern-lifecycle:C005"
+  - "wmbt:govern-lifecycle:C006"
+components:
+  backend:
+    application:
+      - type: "use_cases"
+        count: 5
+        rationale: >-
+          five pure functions: must-be-canonical theme-set check, commons-coach
+          import-boundary scan, produced-URN theme-prefix check, archetype/
+          source-root alignment scan, and the theme-zero-mandatory resolver that
+          pins commons as the non-removable digit-0 floor
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: >-
+          canonical theme set + digit map + commons/coach boundary as a single
+          value object (_theme_taxonomy) with the digit-0 token as the one flip
+          point

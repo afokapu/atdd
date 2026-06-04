@@ -1,0 +1,50 @@
+urn: "wmbt:govern-lifecycle:C003"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "commons-themed-wagons-whose-source-imports-coach"
+context_clarifier: "when a wagon declares theme: commons but a module under its src tree imports atdd.coach, violating the rule that commons artifacts are consumable by a non-coach archetype without importing coach"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of commons-themed-wagons-whose-source-imports-coach when a commons wagon depends on coach internals"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C003-UNIT-001-commons-wagon-importing-coach-is-flagged"
+      id: "AC-UNIT-001"
+      purpose: "a commons wagon whose src imports atdd.coach is flagged; a coach-themed wagon importing coach is fine"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A wagon manifest declares theme: commons"
+        - "A module under its src tree contains 'from atdd.coach... import ...'"
+    when:
+      abstract: "check_commons_coach_boundary(repo_root) runs"
+    then:
+      abstract:
+        - "The commons wagon is returned as a ThemeViolation"
+        - "A coach-themed wagon importing atdd.coach produces no violation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"
+  - identity:
+      urn: "acc:govern-lifecycle:C003-SMOKE-001-plan-tree-respects-boundary"
+      id: "AC-SMOKE-001"
+      purpose: "the plan/ tree respects the commons-coach boundary, except the #951-deferred mediate-worker-decisions carve-out"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The toolkit's own plan/ tree under the repo root"
+        - "mediate-worker-decisions is a known deferred carve-out until #951 re-themes it to coach"
+    when:
+      abstract: "test_commons_wagons_do_not_import_coach runs against REPO_ROOT"
+    then:
+      abstract:
+        - "Zero unsuppressed commons-importing-coach violations are reported"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-04"
