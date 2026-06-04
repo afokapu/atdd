@@ -8,8 +8,11 @@ Skeleton: bodies land in GREEN.
 """
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
+
+_log = logging.getLogger("atdd.feed_daemon")
 
 
 class PidfileLock:
@@ -38,26 +41,31 @@ class PidfileLock:
         try:
             self._path.unlink()
         except FileNotFoundError:
-            pass
+            _log.debug("pidfile already gone on release", extra={"path": str(self._path)})
         self._held = False
 
     def _holder_alive(self) -> bool:
         try:
             text = self._path.read_text(encoding="utf-8").strip()
         except OSError:
+            _log.debug("pidfile unreadable; treating as stale", extra={"path": str(self._path)})
             return False
         try:
             pid = int(text)
         except ValueError:
+            _log.debug("pidfile content not an int; treating as stale", extra={"path": str(self._path)})
             return False
         if pid <= 0:
             return False
         try:
             os.kill(pid, 0)
         except ProcessLookupError:
+            _log.debug("pidfile holder not alive; stale", extra={"pid": pid})
             return False  # stale pidfile — holder is gone
         except PermissionError:
+            _log.debug("pidfile holder owned by another user; alive", extra={"pid": pid})
             return True  # process exists, owned by another user
         except OSError:
+            _log.debug("os.kill probe failed; treating holder as gone", extra={"pid": pid})
             return False
         return True
