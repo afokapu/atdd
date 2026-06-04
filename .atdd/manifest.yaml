@@ -1603,3 +1603,13 @@ sessions:
   status: REFACTOR
   created: '2026-06-04'
   archived: null
+- id: '969'
+  slug: retire-skip-permissions-reconcile-agent-control-transport
+  file: null
+  issue_number: 969
+  type: refactor
+  status: REFACTOR
+  created: '2026-06-04'
+  archived: null
+  wagon: govern-lifecycle
+  train: 0001-self-compliance-validate

@@ -44,9 +44,52 @@ __all__ = [
     "DEFAULT_TRANSPORT",
     "LEGACY_TRANSPORT",
     "LEGACY_SPAWN_ENV",
+    "ForbiddenLaunchFlagError",
+    "assert_no_forbidden_launch_flags",
+    "FORBIDDEN_LAUNCH_FLAGS",
 ]
 
 _logger = logging.getLogger(__name__)
+
+# --- forbidden-flag guard (E014, #969) -----------------------------------
+#
+# The cmux-surface adapter path is guarded by
+# ``coach.commands.spawn._assert_no_forbidden_flags`` (which inspects the
+# adapter command STRING). The cli-return / Shim launch transport builds its
+# own argv list, which previously bypassed that guard entirely — which is why
+# the contradictory ``--dangerously-skip-permissions`` config survived here
+# (#967 root cause). This is the runtime-local, import-clean (§3.3 stdlib-only)
+# twin: every launch path in this layer runs its argv through it.
+
+FORBIDDEN_LAUNCH_FLAGS: tuple[str, ...] = ("--dangerously-skip-permissions",)
+
+
+class ForbiddenLaunchFlagError(ValueError):
+    """Raised when a launch argv carries a forbidden permission flag.
+
+    E014 (#657 / #969): ``--dangerously-skip-permissions`` suppresses *all*
+    ``PermissionRequest`` events, so escalation-worthy worker decisions never
+    surface. The sanctioned freedom set is
+    ``--permission-mode acceptEdits --allowedTools <scoped>`` (one policy,
+    carried by ``DispatchSpec.permission_mode`` + ``allowed_tools``).
+    """
+
+
+def assert_no_forbidden_launch_flags(argv: Sequence[str]) -> None:
+    """Raise ForbiddenLaunchFlagError if any argv token carries a forbidden flag.
+
+    Substring match (mirrors the coach-side guard) so the ``--flag=value`` form
+    is caught as well as the bare flag.
+    """
+    for token in argv:
+        for flag in FORBIDDEN_LAUNCH_FLAGS:
+            if flag in token:
+                raise ForbiddenLaunchFlagError(
+                    f"Forbidden launch flag detected in argv: {flag!r} (token {token!r}). "
+                    "Use '--permission-mode acceptEdits --allowedTools ...' derived "
+                    "from DispatchSpec instead — it surfaces decisions for "
+                    "non-allowlisted tools. (E014, #969)"
+                )
 
 # --- transport selection -------------------------------------------------
 
@@ -237,6 +280,9 @@ class ShimAgentController:
         test hosting). The production cmux path uses ``prepare`` +
         ``build_dispatch_command`` instead."""
         command = list(agent_command) if agent_command is not None else self._default_command(spec)
+        # Close the E014 gap for caller-injected commands too (#969): the launch
+        # boundary refuses a forbidden permission flag no matter who built argv.
+        assert_no_forbidden_launch_flags(command)
         shim = PersonaShim(
             agent_id=spec.agent_id,
             spawn_command=command,
@@ -335,9 +381,21 @@ class ShimAgentController:
         return bool(engine and engine.is_alive())
 
     def _default_command(self, spec: DispatchSpec) -> list[str]:
-        cmd = ["claude"]
-        if spec.permission_mode == "acceptEdits":
-            cmd.append("--dangerously-skip-permissions")
+        """Build the launch argv from the launch-permission-policy on the spec.
+
+        The policy is carried *entirely* by ``DispatchSpec.permission_mode`` +
+        ``allowed_tools`` (OS-1a, #969) — there is no hardcoded permission flag.
+        This mirrors the cmux-surface adapter
+        (``coach.commands.spawn._claude_code_adapter``) exactly: a scoped
+        ``--allowedTools`` allowlist is the leash, so any tool NOT listed fires
+        a ``PermissionRequest`` and the decision surfaces. One policy, one
+        source of truth — the cli-return path no longer suppresses decisions
+        via the E014-forbidden ``--dangerously-skip-permissions`` flag.
+        """
+        cmd = ["claude", "--permission-mode", spec.permission_mode]
+        if spec.allowed_tools:
+            cmd += ["--allowedTools", " ".join(spec.allowed_tools)]
+        assert_no_forbidden_launch_flags(cmd)
         return cmd
 
 

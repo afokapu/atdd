@@ -15,6 +15,7 @@ Classification of `# Phase: SMOKE` acceptance tests against real-infrastructure 
 | acc:observe-and-correct:E003-SMOKE-002 | atdd-shim CLI subprocess (`python -m atdd.coach.shim`) | captured stdout contains STDOUT_SENTINEL_E003_SMOKE_002 | shim pty → sys.stdout.buffer → operator-visible terminal | #843 (stdout forwarding) |
 | acc:observe-and-correct:E004-SMOKE-001 | atdd spawn / cmd_spawn | shim is surface foreground process (ppid check), output.log grows | cmd_spawn → PersonaShim (via atdd-shim) → agent pty | #841 (spawn dispatch wiring) |
 | acc:govern-lifecycle:E036-SMOKE-001-installed-shim-blocks-and-forwards-in-real-worktree | real (on-disk .atdd/bin/git installed in a real `git init` repo, real system git downstream, real shell PATH resolution) | block exits 1 + shared core.bare not poisoned; real `git status` forwards exit 0 | shell PATH → .atdd/bin/git shim → real git binary | #884 (agent-agnostic git-config bare guard; real binary, no synthetic stub) |
+| acc:govern-lifecycle:E014-SMOKE-002-runtime-shim-entry-refuses-forbidden-flag | real (`python -m atdd.runtime.agent_control` module CLI as a subprocess; no mocks/FakeMultiplexer/stub) | non-zero exit + stderr names `--dangerously-skip-permissions` + no agents/<id> dir created (no process launched) | N/A (single component — the launch boundary refuses before any handoff) | #969 (retire forbidden flag + close E014 guard gap in cli-return transport; real subprocess, operator-observable refusal) |
 
 ## Histogram
 
