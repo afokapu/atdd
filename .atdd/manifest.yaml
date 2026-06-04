@@ -1581,6 +1581,6 @@ sessions:
   file: null
   issue_number: 962
   type: cleanup
-  status: INIT
+  status: REFACTOR
   created: '2026-06-04'
   archived: null
