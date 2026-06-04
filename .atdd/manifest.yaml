@@ -1576,3 +1576,14 @@ sessions:
   wagon: mediate-worker-decisions
   feature: feature:mediate-worker-decisions:sense-decision
   train: 0002-coach-drives-lifecycle
+- id: '966'
+  slug: autonomous-coach-feed-daemon
+  file: null
+  issue_number: 966
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-04'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:feed-daemon
+  train: 0002-coach-drives-lifecycle

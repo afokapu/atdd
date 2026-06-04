@@ -1,0 +1,37 @@
+urn: "feature:mediate-worker-decisions:feed-daemon"
+wagon: "wagon:mediate-worker-decisions"
+description: "The single coach-level listener: a long-running daemon that continuously polls the cmux Feed and drives every blocked decision through the existing FeedRunnerUseCase. Routine decisions are auto-answered; dangerous ones always escalate to a human. Idempotent within a run and across restarts; graceful shutdown; one instance per Feed. Reuses the decide/escalate brain wholesale — it adds only the loop, dedup, durable ledgers, and lifecycle."
+sizing:
+  wmbts: 5
+  footprint_score: 11
+  footprint_size: "M"
+wmbts:
+  - "wmbt:mediate-worker-decisions:E004"
+  - "wmbt:mediate-worker-decisions:E005"
+  - "wmbt:mediate-worker-decisions:C004"
+  - "wmbt:mediate-worker-decisions:R002"
+  - "wmbt:mediate-worker-decisions:D002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "feed_daemon_cli: parse --interval/--lock/--escalations/--verdicts/--workspace, install signal handlers, run the loop"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "feed_daemon: poll -> skip-answered -> runner.handle -> reply|escalate-and-record -> mark answered; run_forever under the lock"
+      - type: "ports"
+        count: 1
+        rationale: "EscalationSink / VerdictLedger / Sleeper / Lock / StopSignal protocols (FeedSource is reused from bridge-cmux-feed)"
+    domain:
+      - type: "services"
+        count: 1
+        rationale: "answered_set: pure idempotency set over request_ids, seeded from the durable ledgers"
+      - type: "value_objects"
+        count: 1
+        rationale: "daemon_config (frozen): poll interval + lock/escalations/verdicts paths + workspace id"
+    integration:
+      - type: "clients"
+        count: 3
+        rationale: "jsonl_ledgers (escalation sink + verdict ledger + re-hydrate reader via commons.append_jsonl), pidfile_lock (single-instance guard), signal_stop (SIGINT/SIGTERM -> stop event + real sleeper)"
