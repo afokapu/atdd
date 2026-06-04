@@ -1196,6 +1196,10 @@ wagons:
   outcome: decision applied to the worker or escalated to a human, with a durable
     audit record
   produce:
+  - name: commons:feed:blocked-item
+    contract: contract:commons:feed:blocked-item
+    telemetry: null
+    to: internal
   - name: commons:decision:record
     contract: contract:commons:decision:record
     telemetry: null
@@ -1259,6 +1263,14 @@ wagons:
       instead of every question
     C005: minimize likelihood of a dangerous block in a mixed document being auto
       answered instead of escalating the whole document
+    E008: minimize likelihood of a spawned workers escalation worthy decision being
+      pre authorized so it never surfaces to the feed
+    C006: minimize likelihood of the launch policy pre authorizing an action class
+      tool so a dangerous action executes without ever surfacing for mediation
+    Y002: minimize likelihood of the rendered dispatch spec values diverging from
+      the declared decision surfacing policy
+    L004: maximize likelihood of the feed publishing hook being active for a spawned
+      worker at launch
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/

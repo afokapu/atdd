@@ -11,6 +11,10 @@ goal: "keep agents progressing without a human operator in the loop while never 
 outcome: "decision applied to the worker or escalated to a human, with a durable audit record"
 
 produce:
+  - name: commons:feed:blocked-item
+    contract: "contract:commons:feed:blocked-item"
+    telemetry: null
+    to: internal
   - name: commons:decision:record
     contract: "contract:commons:decision:record"
     telemetry: null
@@ -40,9 +44,10 @@ features:
   - urn: "feature:mediate-worker-decisions:apply-decision"
   - urn: "feature:mediate-worker-decisions:bridge-cmux-feed"
   - urn: "feature:mediate-worker-decisions:feed-daemon"
+  - urn: "feature:mediate-worker-decisions:surface-worker-decisions"
 
 wmbt:
-  total: 24
+  total: 28
   D001: "minimize likelihood of resolving a cmux notification to the wrong worker (or routing two entry paths to divergent requests)"
   L001: "maximize likelihood of locating the latest decision prompt in worker surface text"
   C001: "minimize quantity of false decision-requests emitted from non-decision worker output"
@@ -67,3 +72,7 @@ wmbt:
   E006: "minimize likelihood of the decider leaving any block of the decision document unanswered"
   E007: "minimize likelihood of delivering selections for only the first question instead of every question"
   C005: "minimize likelihood of a dangerous block in a mixed document being auto answered instead of escalating the whole document"
+  E008: "minimize likelihood of a spawned workers escalation worthy decision being pre authorized so it never surfaces to the feed"
+  C006: "minimize likelihood of the launch policy pre authorizing an action class tool so a dangerous action executes without ever surfacing for mediation"
+  Y002: "minimize likelihood of the rendered dispatch spec values diverging from the declared decision surfacing policy"
+  L004: "maximize likelihood of the feed publishing hook being active for a spawned worker at launch"

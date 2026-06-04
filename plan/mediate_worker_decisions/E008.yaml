@@ -1,0 +1,61 @@
+urn: "wmbt:mediate-worker-decisions:E008"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-spawned-workers-escalation-worthy-decision-being-pre-authorized-so-it-never-surfaces-to-the-feed"
+context_clarifier: "the cmux Claude wrapper already injects the native PermissionRequest hook that publishes a blocked item to the Feed; a worker only surfaces a decision when its launch policy does NOT pre-authorize that tool. The producer renders launch flags so action-class decisions (Bash, AskUserQuestion, ExitPlanMode) stay un-allowed, so they reach the hook and appear in feed.list for the daemon to mediate. Danger classification is the daemon's job (tool_input_safety) and is never duplicated here."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a spawned workers escalation worthy decision being pre authorized so it never surfaces to the feed"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:E008-UNIT-001-action-decisions-not-pre-authorized"
+      id: "AC-UNIT-001"
+      purpose: "resolving surfacing values for a claude worker yields allowed_tools that auto-allow read/edit tools but leave Bash (and the native AskUserQuestion/ExitPlanMode) un-allowed, so an action-class decision is not pre-authorized"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The default worker launch policy for the claude agent kind"
+    when:
+      abstract: "The launch config is built and rendered to flags"
+      action: "invoke"
+    then:
+      abstract:
+        - "The rendered --allowedTools contains the read/edit tools (Read, Edit, Write, ...) but NOT Bash"
+        - "permission-mode is acceptEdits and no forbidden bypass flag is present, so Bash/AskUserQuestion/ExitPlanMode still raise a PermissionRequest"
+      assertions:
+        - type: "exists"
+        - type: "absence"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E008-SMOKE-001-live-spawned-worker-decision-appears-blocked-in-feed"
+      id: "AC-SMOKE-001"
+      purpose: "A worker spawned the way the toolkit spawns them, hitting a real blocking decision, produces a status-blocked item in cmux feed.list — the live proof the producer publishes (headline acceptance, unblocks the daemon's C004/E004/E005 live smokes)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A worker spawned via the toolkit spawn path with the DecisionSurfacingPolicy values applied to its DispatchSpec, running under the cmux Claude wrapper"
+    when:
+      abstract: "The worker reaches a real blocking decision (a Bash permission or an AskUserQuestion)"
+      action: "invoke"
+    then:
+      abstract:
+        - "cmux rpc feed.list shows a pending decision item for that worker with kind in {permission, question, exitPlan}"
+        - "the feed_daemon, started against that Feed, answers or escalates the item with no human in the TUI"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the feed_daemon read the blocked item from feed.list and replied/escalated it via feed.*.reply"
+      drift_resolved: "a second feed.list no longer shows the item as pending and the worker advances past the prompt"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"

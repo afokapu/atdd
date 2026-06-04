@@ -1,0 +1,84 @@
+urn: "wmbt:mediate-worker-decisions:Y002"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-rendered-dispatch-spec-values-diverging-from-the-declared-decision-surfacing-policy"
+context_clarifier: "the DecisionSurfacingPolicy is the single source of truth for what surfaces vs auto-allows; its values land on the existing DispatchSpec fields (permission_mode + allowed_tools) that both launch transports read — the cmux-surface spawn adapter and the cli-return agent_control path (#969). If the rendered DispatchSpec values drift from the declared policy — an auto_allow tool dropped, or a surface tool (Bash) leaking into allowed_tools — the spec no longer describes the policy and the two transports diverge again, reintroducing the original bug."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the rendered dispatch spec values diverging from the declared decision surfacing policy"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:Y002-UNIT-001-rendered-flags-realize-policy-exactly"
+      id: "AC-UNIT-001"
+      purpose: "The renderer is the exact image of the policy: the rendered allowed_tools equals the policy auto_allow set, every surface tool is absent, and permission_mode equals the policy mode"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A DecisionSurfacingPolicy with an explicit auto_allow set and surface set"
+    when:
+      abstract: "The policy is rendered to DispatchSpec values (permission_mode, allowed_tools)"
+      action: "invoke"
+    then:
+      abstract:
+        - "The rendered allowed_tools equals the policy auto_allow set exactly (no extras, none missing)"
+        - "The surface set is disjoint from allowed_tools and permission_mode matches the policy"
+      assertions:
+        - type: "equality"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"
+  - identity:
+      urn: "acc:mediate-worker-decisions:Y002-UNIT-002-spec-values-carry-policy-fields"
+      id: "AC-UNIT-002"
+      purpose: "The resolved values load onto the existing DispatchSpec fields: permission_mode is a valid mode (acceptEdits) and allowed_tools is the auto_allow set with Bash absent — no new shared type introduced (per 3.3, agent_control reads these from the spec)"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The resolved surfacing values for the claude agent kind"
+    when:
+      abstract: "The values are loaded into a DispatchSpec"
+      action: "invoke"
+    then:
+      abstract:
+        - "spec.permission_mode is acceptEdits and spec.allowed_tools equals the policy auto_allow set with Bash absent"
+      assertions:
+        - type: "equality"
+        - type: "absence"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"
+  - identity:
+      urn: "acc:mediate-worker-decisions:Y002-SMOKE-001-live-worker-launch-argv-matches-policy"
+      id: "AC-SMOKE-001"
+      purpose: "The actual launch argv of a live toolkit-spawned worker matches the declared policy: Bash is absent from --allowedTools and no bypass flag is present"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A worker spawned via the toolkit spawn path with the DecisionSurfacingPolicy values applied to its DispatchSpec"
+    when:
+      abstract: "The worker's live launch command is captured from its surface/process"
+      action: "invoke"
+    then:
+      abstract:
+        - "The captured argv contains the policy's auto_allow tools in --allowedTools and does NOT contain Bash or any forbidden bypass flag"
+      assertions:
+        - type: "exists"
+        - type: "absence"
+    close_the_loop:
+      consumer_reacted: "the running worker's argv is the exact image of the declared decision-surfacing-policy values on the DispatchSpec"
+      drift_resolved: "both launch transports render the same flags, so no transport reintroduces the freedom-set bug"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"

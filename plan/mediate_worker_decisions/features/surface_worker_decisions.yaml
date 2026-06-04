@@ -1,0 +1,36 @@
+urn: "feature:mediate-worker-decisions:surface-worker-decisions"
+wagon: "wagon:mediate-worker-decisions"
+description: "The producer half of the daemon's journey: configure a spawned worker's launch so its escalation-worthy decisions actually surface to the cmux Feed as blocked items. The cmux Claude wrapper already injects the PermissionRequest -> 'cmux hooks feed' hook; the bug is that the toolkit's freedom set (--permission-mode acceptEdits --allowedTools \"Bash Edit Write Read ...\") pre-authorizes every tool, so PermissionRequest never fires and feed.list stays empty. This feature replaces the hardcoded freedom set with a pure DecisionSurfacingPolicy that yields the surfacing VALUES: a permission_mode (acceptEdits) plus a scoped auto-allow toolset that keeps file/read tools auto-allowed for autonomy but deliberately omits the action-class decisions (Bash, AskUserQuestion, ExitPlanMode) so they reach the wrapper hook and publish a blocked item the feed_daemon can mediate. The cross-boundary surface is the EXISTING DispatchSpec fields (permission_mode + allowed_tools) — NOT a new shared type: the spawn adapter loads the policy's values into the spec, and the cli-return agent_control path (#969) consumes them from the spec (it cannot import the coach or this wagon, per §3.3). Danger classification is NOT duplicated here — it stays in the daemon's tool_input_safety/match_danger; the producer only guarantees the decision reaches the Feed."
+sizing:
+  wmbts: 4
+  footprint_score: 8
+  footprint_size: "S"
+wmbts:
+  - "wmbt:mediate-worker-decisions:E008"
+  - "wmbt:mediate-worker-decisions:C006"
+  - "wmbt:mediate-worker-decisions:Y002"
+  - "wmbt:mediate-worker-decisions:L004"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "surfacing_values_provider: the single seam the cmux-surface spawn adapter calls to obtain a worker's (permission_mode, allowed_tools) from the declared policy before loading them into the DispatchSpec; agent_control (#969) then reads those values from the spec"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "resolve_surfacing_values: given a worker/agent kind, resolve the DecisionSurfacingPolicy into the DispatchSpec values (permission_mode + allowed_tools) the spawn adapter loads; the single decision point for what surfaces vs auto-allows"
+      - type: "ports"
+        count: 1
+        rationale: "HookPresenceProbe protocol: confirm the cmux wrapper's PermissionRequest->feed hook path will be active at launch (so a surfaced decision actually publishes)"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "DecisionSurfacingPolicy (frozen): permission_mode + auto_allow_tools + surface_tools; encodes that action-class decisions are never pre-authorized and the forbidden flags (--dangerously-skip-permissions / bypassPermissions) are never used. Produces VALUES for the existing DispatchSpec, not a new importable type"
+      - type: "services"
+        count: 1
+        rationale: "surfacing_renderer (pure): DecisionSurfacingPolicy -> (permission_mode, allowed_tools) for the DispatchSpec, guaranteeing surface_tools are absent from allowed_tools and auto_allow_tools are present"
+    integration:
+      - type: "clients"
+        count: 1
+        rationale: "cmux_hook_probe: read CMUX_SURFACE_ID + live socket to confirm the wrapper will inject the PermissionRequest->feed hook for this worker (HookPresenceProbe impl)"
