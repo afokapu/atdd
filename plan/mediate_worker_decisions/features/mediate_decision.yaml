@@ -36,8 +36,8 @@ components:
         rationale: "Verdict / Escalation (frozen)"
     integration:
       - type: "clients"
-        count: 1
-        rationale: "cmux_coach_client: paste_text the request, poll read_screen for the structured reply (wraps CmuxBackend)"
+        count: 0
+        rationale: "the screen-scrape cmux_coach_client (and SystemClock) were removed in 3.90.0; the cmux Feed path supplies its own CoachClient (bridge_cmux_feed.integration.claude_coach.ClaudeCoach). build_mediate_use_case takes the coach + clock via injection"
       - type: "stores"
-        count: 2
-        rationale: "jsonl_verdict_sink and jsonl_escalation_sink"
+        count: 0
+        rationale: "the screen-scrape jsonl_verdict_sink / jsonl_escalation_sink were removed in 3.90.0; the VerdictSink / EscalationSink ports are supplied by callers"

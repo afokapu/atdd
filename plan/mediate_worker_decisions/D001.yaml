@@ -1,49 +1,25 @@
-urn: "wmbt:mediate-worker-decisions:D001"
+urn: "wmbt:mediate-worker-decisions:D001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-09-30
+# Live SMOKE coverage migrated to the cmux Feed feature (bridge-cmux-feed: L002/E003/C003) in 3.90.0;
+# the deprecated screen-scrape live smoke was removed (#962). D001 retains hermetic INTEGRATION coverage.
 step: "define"
 direction: "minimize"
 dimension: "likelihood"
-object_of_control: "resolving-a-cmux-notification-to-the-wrong-worker-or-diverging-entry-paths"
-context_clarifier: "when a cmux notification (or an emit-CLI call) names a surface and the bridge must map it to exactly one registered worker, and the notify-hook and emit-CLI entry paths must serialize the same commons:decision:request shape"
+object_of_control: "diverging-entry-paths-serializing-different-request-shapes"
+context_clarifier: "when a decision enters via the notification source or an emit-CLI call, both entry paths must serialize the same commons:decision:request shape through one shared RequestSink (modulo provenance.source)"
 lens: "functional.effectiveness"
-statement: "minimize likelihood of resolving a cmux notification to the wrong worker or diverging entry paths"
+statement: "minimize likelihood of diverging entry paths serializing different request shapes"
 acceptances:
-  - identity:
-      urn: "acc:mediate-worker-decisions:D001-UNIT-001-surface-maps-to-one-worker"
-      id: "AC-UNIT-001"
-      purpose: "A known surface id resolves to exactly one worker; an unknown surface id resolves to None (no worker invented)"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A worker registry maps surface:3 -> worker feature_validator_execution"
-        - "A notification names surface:3, and another names surface:99 (unregistered)"
-    when:
-      abstract: "The worker registry resolves each surface id"
-      action: "invoke"
-    then:
-      abstract:
-        - "surface:3 resolves to exactly one worker handle"
-        - "surface:99 resolves to None — no worker is fabricated"
-      assertions:
-        - type: "equals"
-        - type: "exists"
-    signal: {}
-    metadata:
-      wagon: "mediate-worker-decisions"
-      feature: "sense-decision"
   - identity:
       urn: "acc:mediate-worker-decisions:D001-INTEGRATION-001-entry-path-parity"
       id: "AC-INTEGRATION-001"
-      purpose: "notify-hook and emit-CLI serialize a byte-identical request (modulo provenance.source) via one shared RequestSink"
+      purpose: "the notification-source path and the emit-CLI path serialize a byte-identical request (modulo provenance.source) via one shared RequestSink"
       phase: "RED"
     harness:
       type: "integration"
       category: "integration"
     given:
       abstract:
-        - "The same worker + prompt enter once via notify_hook and once via emit_cli"
+        - "The same worker + prompt enter once via the notification source and once via emit_cli"
         - "Both paths write through the shared RequestSink"
     when:
       abstract: "Both entry paths emit their commons:decision:request"
@@ -51,29 +27,6 @@ acceptances:
     then:
       abstract:
         - "The two requests are identical except provenance.source (cmux_notification vs emit_cli)"
-      assertions:
-        - type: "equals"
-    signal: {}
-    metadata:
-      wagon: "mediate-worker-decisions"
-      feature: "sense-decision"
-  - identity:
-      urn: "acc:mediate-worker-decisions:D001-SMOKE-001-live-resolve"
-      id: "AC-SMOKE-001"
-      purpose: "A live cmux notification resolves through the real registry to the worker that raised it"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "integration"
-    given:
-      abstract:
-        - "A real worker runs in a cmux surface and raises a notification"
-    when:
-      abstract: "The notify hook resolves the notification surface to a worker"
-      action: "invoke"
-    then:
-      abstract:
-        - "The resolved worker is the one running in that surface"
       assertions:
         - type: "equals"
     signal: {}
