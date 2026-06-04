@@ -3,7 +3,7 @@
 The production screen-scrape wiring (``build_mediate_use_case_from_repo`` over
 ``CmuxCoachClient`` / ``SystemClock`` / JSONL sinks) was removed in 3.90.0; the
 cmux Feed integration (``atdd.mediate_worker_decisions.bridge_cmux_feed``, which
-uses ``ClaudeCoach``) is the channel now. ``build_mediate_use_case`` remains for
+uses ``LlmCoach``) is the channel now. ``build_mediate_use_case`` remains for
 dependency-injected wiring (the coach + clock + sinks are supplied by callers).
 """
 from __future__ import annotations

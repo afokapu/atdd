@@ -1,0 +1,82 @@
+urn: "wmbt:mediate-worker-decisions:E007"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "delivering-selections-for-only-the-first-question-instead-of-every-question"
+context_clarifier: "cmux feed.question.reply takes a single FLAT selections:[string] list of chosen option labels and routes each label to its question by option membership (verified live). When the decider has answered a multi-block document the reply mapper must emit the chosen labels for EVERY question — a single_choice contributes its one label, a multi_choice/checkbox contributes ALL its chosen labels — not a list carrying only the first question's selection (the live bug). free_text/confirm blocks are answered by the decider but not carried in a cmux question reply"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of delivering selections for only the first question instead of every question"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:E007-UNIT-001-reply-carries-per-question-selections"
+      id: "AC-UNIT-001"
+      purpose: "A verdict answering a three-block document maps to a feed.question.reply whose flat selections list covers every question, with the multi_choice question contributing both chosen labels"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A verdict carrying per-block answers for Color (single), Size (single), Features (multi-select with two chosen)"
+    when:
+      abstract: "The reply mapper plans the feed reply for the question item"
+      action: "invoke"
+    then:
+      abstract:
+        - "The reply verb is feed.question.reply and the flat selections list carries the chosen label for every question, in document order"
+        - "The Features (checkbox) question contributes both chosen labels to the flat selections"
+      assertions:
+        - type: "equals"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E007-INTEGRATION-001-roundtrip-each-block-kind"
+      id: "AC-INTEGRATION-001"
+      purpose: "Choice block kinds (single + multi/checkbox) round-trip mapper -> decider -> reply as a flat selections list covering every question; a free_text block is answered by the decider but not carried in the cmux question reply; a safe permission round-trips as a decision"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A multi-block question item (single + checkbox + free_text), a safe permission item, a document-answering fake decider, and a recording transport"
+    when:
+      abstract: "The runner handles each item end to end"
+      action: "invoke"
+    then:
+      abstract:
+        - "The recorded feed.question.reply carries a flat selections list covering the single and checkbox questions (checkbox contributing multiple labels); the free_text block adds no label"
+        - "The recorded feed.permission.reply carries the decision"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E007-SMOKE-001-live-multi-question-all-answered"
+      id: "AC-SMOKE-001"
+      purpose: "The live multi-question + checkbox case auto-answers ALL sub-questions through the feed reply and the worker proceeds"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real worker blocked on a Color/Size/Features-checkbox AskUserQuestion"
+    when:
+      abstract: "The runner handles the live item and replies"
+      action: "invoke"
+    then:
+      abstract:
+        - "The feed reply carries a selection for every question and the item resolves (worker unblocks)"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"

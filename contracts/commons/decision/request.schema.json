@@ -5,6 +5,86 @@
   "description": "A blocked worker's decision prompt, normalized from a cmux notification (or the emit CLI), ready for coach mediation. Flows from the sense-decision feature to the mediate-decision feature.",
   "version": "1.0.0",
   "type": "object",
+  "definitions": {
+    "blockOption": {
+      "type": "object",
+      "description": "One selectable answer within a choice block.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable option id (cmux option id / \"1\", \"a\")."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable option text. cmux feed replies select by label."
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "block": {
+      "type": "object",
+      "description": "One modular unit of a decision document. The block grammar (the composable vocabulary): single_choice (pick one), multi_choice (pick 0..N, alias checkbox, honoring min/max), free_text (type an answer), confirm (approve/deny, alias permission), group (compose child blocks). A decision is a composition of blocks, NOT a fixed Claude question shape; this is the agent-agnostic contract grammar.",
+      "properties": {
+        "block_id": {
+          "type": "string",
+          "description": "Stable id of this block within the document; for a cmux question this is the question id. The answer routes back per block_id."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "single_choice",
+            "multi_choice",
+            "free_text",
+            "confirm",
+            "group"
+          ],
+          "description": "The block kind. multi_choice covers checkbox/multi-select; confirm covers permission/approve-deny."
+        },
+        "prompt": {
+          "type": "string",
+          "description": "The question/instruction this block presents."
+        },
+        "header": {
+          "type": "string",
+          "description": "Optional short header/label for the block (cmux question header)."
+        },
+        "options": {
+          "type": "array",
+          "description": "Selectable options for single_choice/multi_choice blocks.",
+          "items": {
+            "$ref": "#/definitions/blockOption"
+          }
+        },
+        "min_selections": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "For multi_choice: minimum number of options that must be selected."
+        },
+        "max_selections": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "For multi_choice: maximum number of options that may be selected."
+        },
+        "blocks": {
+          "type": "array",
+          "description": "Child blocks, when kind=group (composition).",
+          "items": {
+            "$ref": "#/definitions/block"
+          }
+        }
+      },
+      "required": [
+        "block_id",
+        "kind",
+        "prompt"
+      ],
+      "additionalProperties": false
+    }
+  },
   "x-artifact-metadata": {
     "domain": "decision",
     "resource": "request",
@@ -114,6 +194,24 @@
         "raw_text",
         "question",
         "options"
+      ],
+      "additionalProperties": false
+    },
+    "document": {
+      "type": "object",
+      "description": "The full modular decision composition: every block preserved (multi-question + checkbox/multi_select), NOT flattened to the first question. When present, this is the canonical decision the coach/decider answers; the flat `prompt` above is a single-block convenience mirror of the first block for back-compat. Optional so single-question entry paths (sense/emit) need not populate it.",
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "description": "The ordered blocks of the decision document. Empty is not a valid document.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/block"
+          }
+        }
+      },
+      "required": [
+        "blocks"
       ],
       "additionalProperties": false
     },

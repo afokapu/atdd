@@ -1255,13 +1255,21 @@ wagons:
     R002: minimize likelihood of the daemon failing to shut down cleanly and release
       its lock on a termination signal
     D002: minimize likelihood of two daemon instances answering the same feed concurrently
-    E006: minimize likelihood of a spawned workers escalation worthy decision being
+    L003: maximize likelihood of preserving every question when mapping a feed item
+      into the decision document
+    E006: minimize likelihood of the decider leaving any block of the decision document
+      unanswered
+    E007: minimize likelihood of delivering selections for only the first question
+      instead of every question
+    C005: minimize likelihood of a dangerous block in a mixed document being auto
+      answered instead of escalating the whole document
+    E008: minimize likelihood of a spawned workers escalation worthy decision being
       pre authorized so it never surfaces to the feed
-    C005: minimize likelihood of the launch policy pre authorizing an action class
+    C006: minimize likelihood of the launch policy pre authorizing an action class
       tool so a dangerous action executes without ever surfacing for mediation
     Y002: minimize likelihood of the rendered dispatch spec values diverging from
       the declared decision surfacing policy
-    L003: maximize likelihood of the feed publishing hook being active for a spawned
+    L004: maximize likelihood of the feed publishing hook being active for a spawned
       worker at launch
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
