@@ -6,7 +6,7 @@
   "version": "1.0.0",
   "x-artifact-metadata": {
     "domain": "feed",
-    "resource": "blocked-item",
+    "resource": "blocked_item",
     "version": "1.0.0",
     "hash": "",
     "producer": "wagon:mediate-worker-decisions",
@@ -39,10 +39,17 @@
           }
         }
       ]
+    },
+    "persistence": {
+      "strategy": "none"
     }
   },
   "type": "object",
-  "required": ["id", "request_id", "kind"],
+  "required": [
+    "id",
+    "request_id",
+    "kind"
+  ],
   "properties": {
     "id": {
       "type": "string",
@@ -55,15 +62,28 @@
     "kind": {
       "type": "string",
       "description": "The blocked decision kind, exactly as cmux emits it.",
-      "enum": ["question", "permission", "exitPlan"]
+      "enum": [
+        "question",
+        "permission",
+        "exitPlan"
+      ]
     },
     "status": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Item status. A blocked decision is pending (or unset); resolved/telemetry items are not consumed.",
-      "enum": ["pending", null]
+      "enum": [
+        "pending",
+        null
+      ]
     },
     "question_prompt": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "For kind=question: the prompt text presented to the user."
     },
     "question_options": {
@@ -72,18 +92,30 @@
       "items": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "label": { "type": "string" },
-          "description": { "type": "string" }
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
         }
       }
     },
     "tool_name": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "For kind=permission: the tool requesting permission (e.g. Bash)."
     },
     "tool_input": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "For kind=permission: the tool input verbatim (e.g. the bash command), matched by the daemon's danger gate."
     }
   }
