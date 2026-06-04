@@ -13,8 +13,8 @@ components:
   backend:
     presentation:
       - type: "controllers"
-        count: 2
-        rationale: "notify_hook (cmux notification hook, JSON on stdin) and emit_cli (atdd decision emit) — both feed the same RequestSink"
+        count: 1
+        rationale: "emit_cli (atdd decision emit) feeds the RequestSink (the deprecated screen-scrape notify_hook was removed in 3.90.0)"
     application:
       - type: "use_cases"
         count: 1
@@ -31,8 +31,8 @@ components:
         rationale: "DecisionRequest (frozen), SurfaceId/WorkerHandle"
     integration:
       - type: "clients"
-        count: 2
-        rationale: "cmux_surface_reader (wraps CmuxBackend.capture_pane_text), registry_worker_lookup"
+        count: 0
+        rationale: "the screen-scrape adapters (cmux_surface_reader, registry_worker_lookup) were removed in 3.90.0; the sense use case is now driven via injected ports (the cmux Feed path supplies its own SurfaceReader/WorkerRegistry mapping)"
       - type: "stores"
-        count: 1
-        rationale: "jsonl_request_sink writes the commons:decision:request line"
+        count: 0
+        rationale: "the screen-scrape jsonl_request_sink was removed in 3.90.0; the RequestSink port is supplied by callers"

@@ -185,10 +185,6 @@ of bypass patterns.
 | acc:spawn-agents:E028-SMOKE-001-live-adapter-registry-claude-code-has-surface-marker-probe | real (ADAPTER_REGISTRY inspection) | claude-code adapter has SurfaceMarkerProbe | N/A (single component) | #863 |
 | acc:spawn-agents:E029-SMOKE-001-deployed-cmd-spawn-order-is-probe-then-paste-then-jsonl | real (cmd_spawn source inspection) | probe before paste before jsonl-wait | N/A (single component) | #863 |
 | acc:spawn-agents:L004-SMOKE-001-session-jsonl-appears-after-launch-prompt-paste | real (cmd_spawn smoke) | session JSONL appears after paste | N/A (single component) | #863 |
-| acc:mediate-worker-decisions:D001-SMOKE-001-live-resolve | real (live cmux notification + registry) | notification surface resolves to the worker that raised it | cmux notify → sense ingress | #955 |
-| acc:mediate-worker-decisions:C002-SMOKE-001-live-danger-escalates | real (live worker surface offering git push) | dangerous prompt → escalation; coach surface untouched | sense → mediate safety gate → escalation | #955 |
-| acc:mediate-worker-decisions:M001-SMOKE-001-live-timeout | real (live coach surface left unanswered) | unanswered coach within budget → escalation cause coach_timeout | mediate → escalation | #955 |
-| acc:mediate-worker-decisions:E002-SMOKE-001-close-the-loop | real (live blocked worker in cmux surface) | worker receives selected option and the prompt no longer fires | mediate verdict → apply → worker pty (feedback loop) | #955 |
 | acc:mediate-worker-decisions:K001-SMOKE-001-live-ledger | real (JsonlPersistenceStore under .atdd) | commons:decision:record line present in the durable ledger | apply → DecisionLedger | #955 |
 | acc:mediate-worker-decisions:L002-SMOKE-001-locates-live-blocked-agent | real (live Claude worker blocked on cmux Feed) | pending feed item located + mapped to a request with the live request_id | cmux Feed (feed.list/events) → sense | #955 |
 | acc:mediate-worker-decisions:E003-SMOKE-001-unblocks-live-agent | real (live Claude worker + cmux rpc feed.*.reply) | coach verdict replied via Feed resolves the item; worker proceeds | mediate verdict → feed reply → agent | #955 |

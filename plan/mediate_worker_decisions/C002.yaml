@@ -1,4 +1,6 @@
-urn: "wmbt:mediate-worker-decisions:C002"
+urn: "wmbt:mediate-worker-decisions:C002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-09-30
+# Live SMOKE coverage migrated to the cmux Feed feature (bridge-cmux-feed: L002/E003/C003) in 3.90.0;
+# the deprecated screen-scrape live smoke was removed (#962). C002 retains hermetic UNIT+INTEGRATION coverage.
 step: "confirm"
 direction: "minimize"
 dimension: "likelihood"
@@ -54,29 +56,6 @@ acceptances:
         - "No auto_apply verdict is produced"
       assertions:
         - type: "equals"
-        - type: "exists"
-    signal: {}
-    metadata:
-      wagon: "mediate-worker-decisions"
-      feature: "mediate-decision"
-  - identity:
-      urn: "acc:mediate-worker-decisions:C002-SMOKE-001-live-danger-escalates"
-      id: "AC-SMOKE-001"
-      purpose: "A live dangerous prompt produces an escalation and leaves the coach surface untouched"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "integration"
-    given:
-      abstract:
-        - "A real worker surface shows a prompt offering to git push"
-    when:
-      abstract: "The bridge mediates the live decision"
-      action: "invoke"
-    then:
-      abstract:
-        - "An escalation is recorded and nothing is sent to the coach surface"
-      assertions:
         - type: "exists"
     signal: {}
     metadata:

@@ -16,12 +16,11 @@ from __future__ import annotations
 import re
 import subprocess
 import time
-import uuid
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import List, Optional
 
-from atdd.mediate_worker_decisions.bridge_cmux_feed.composition import build_feed_runner
+from atdd.mediate_worker_decisions.bridge_cmux_feed.composition import (
+    build_feed_runner_from_repo,
+)
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import (
     PERMISSION,
     QUESTION,
@@ -35,11 +34,6 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_reply_a
 )
 from atdd.mediate_worker_decisions.mediate_decision.src.domain.danger_rules import (
     match_danger,
-)
-from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import (
-    AUTO_APPLY,
-    SOURCE_COACH,
-    Verdict,
 )
 
 class PermissionNotInducible(RuntimeError):
@@ -56,7 +50,6 @@ _BOOT_SECONDS = 7.0
 _FEED_TIMEOUT = 60.0
 _FEED_INTERVAL = 3.0
 _RESOLVE_TIMEOUT = 20.0
-_COACH_TIMEOUT = 90.0
 
 
 # --------------------------------------------------------------------------- #
@@ -120,45 +113,17 @@ def _wait_until_resolved(source: CmuxFeedSource, request_id: str) -> bool:
 
 
 # --------------------------------------------------------------------------- #
-# Coach + recording transport                                                 #
+# Recording transport                                                          #
 # --------------------------------------------------------------------------- #
-class _ClaudeCoach:
-    """A real coach: renders the request and asks ``claude -p`` to pick an option."""
-
-    def mediate(self, request) -> Verdict:
-        prompt = _render_decision_prompt(request)
-        out = subprocess.run(
-            ["claude", "-p", prompt], capture_output=True, text=True, timeout=_COACH_TIMEOUT
-        ).stdout
-        label = _parse_selection(out, request)
-        return Verdict(
-            verdict_id=str(uuid.uuid4()),
-            request_id=request.request_id,
-            decided_at=datetime.now(timezone.utc).isoformat(),
-            disposition=AUTO_APPLY,
-            source=SOURCE_COACH,
-            selected_option_id=label,
-            reason="coach decided via claude -p",
-        )
-
-
-def _render_decision_prompt(request) -> str:
-    lines = [request.prompt.question, "", "Options:"]
-    lines += [f"- {o.label}" for o in request.prompt.options]
-    lines += ["", "Reply with ONLY the exact label of the best option, nothing else."]
-    return "\n".join(lines)
-
-
-def _parse_selection(output: str, request) -> str:
-    low = (output or "").lower()
-    for opt in request.prompt.options:
-        if opt.label.lower() in low:
-            return opt.label
-    return request.prompt.options[0].label if request.prompt.options else ""
-
-
 class _RecordingTransport:
-    """Wraps the real cmux transport so the smoke can prove a reply was/wasn't sent."""
+    """Wraps the real cmux transport so the smoke can prove a reply was/wasn't sent.
+
+    The runner itself is the production wiring
+    (``build_feed_runner_from_repo`` → real ``CmuxFeedSource`` + ``ClaudeCoach``);
+    this spy is injected via the builder's ``transport`` seam so a real reply
+    still goes out through ``CmuxFeedTransport`` while the smoke observes whether
+    one was delivered.
+    """
 
     def __init__(self, inner) -> None:
         self._inner = inner
@@ -167,12 +132,6 @@ class _RecordingTransport:
     def reply(self, verb: str, params: dict) -> None:
         self.calls.append((verb, params))
         self._inner.reply(verb, params)
-
-
-def _build_runner(recorder: _RecordingTransport):
-    return build_feed_runner(
-        source=CmuxFeedSource(), reply=recorder, coach=_ClaudeCoach()
-    )
 
 
 # --------------------------------------------------------------------------- #
@@ -217,7 +176,7 @@ def unblock_live_smoke() -> dict:
         assert item is not None, "no pending question item appeared in the Feed"
 
         recorder = _RecordingTransport(CmuxFeedTransport())
-        runner = _build_runner(recorder)
+        runner = build_feed_runner_from_repo(workspace_id=ws, transport=recorder)
         runner.run_once()
 
         replied = any(v == "feed.question.reply" for v, _ in recorder.calls)
@@ -248,7 +207,7 @@ def danger_live_smoke() -> dict:
             )
 
         recorder = _RecordingTransport(CmuxFeedTransport())
-        runner = _build_runner(recorder)
+        runner = build_feed_runner_from_repo(workspace_id=ws, transport=recorder)
         outcomes = runner.run_once()
 
         escalated = next(
