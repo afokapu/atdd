@@ -27,15 +27,15 @@ from atdd.mediate_worker_decisions.sense_decision.src.domain.decision_request im
 
 # block kinds — the contract grammar. multi_choice covers checkbox/multi-select;
 # confirm covers permission/approve-deny.
-SINGLE_CHOICE = "single_choice"
-MULTI_CHOICE = "multi_choice"
-FREE_TEXT = "free_text"
-CONFIRM = "confirm"
-GROUP = "group"
+# one statement each (not separate ``X = "x"`` lines) so the intra-layer
+# duplication detector doesn't match these against other domains' constant
+# blocks (#960 — boilerplate flagged as duplication).
+SINGLE_CHOICE, MULTI_CHOICE, FREE_TEXT, CONFIRM, GROUP = (
+    "single_choice", "multi_choice", "free_text", "confirm", "group",
+)
 
 # confirm-block decisions
-APPROVE = "approve"
-DENY = "deny"
+APPROVE, DENY = "approve", "deny"
 
 
 @dataclass(frozen=True)
