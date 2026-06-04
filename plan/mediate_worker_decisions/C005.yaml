@@ -1,0 +1,83 @@
+urn: "wmbt:mediate-worker-decisions:C005"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-launch-policy-pre-authorizing-an-action-class-tool-so-a-dangerous-action-executes-without-ever-surfacing-for-mediation"
+context_clarifier: "the daemon's safety gate (C003/C004 via tool_input_safety/match_danger) can only protect actions it actually sees on the Feed. If the launch policy pre-authorizes the action-class tool (Bash) or uses a blanket bypass (--dangerously-skip-permissions / bypassPermissions), a dangerous command runs locally and is never published, so the human-required gate is bypassed entirely. The producer must guarantee the action-class is always surfaced, never auto-allowed at launch."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the launch policy pre authorizing an action class tool so a dangerous action executes without ever surfacing for mediation"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:C005-UNIT-001-no-bypass-and-bash-always-surfaced"
+      id: "AC-UNIT-001"
+      purpose: "Every rendered worker launch config omits the forbidden bypass flags and never lists Bash in --allowedTools, so an action-class decision can never execute without first surfacing to the Feed"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The launch policies for every supported claude agent kind"
+    when:
+      abstract: "Each policy is rendered to launch flags"
+      action: "invoke"
+    then:
+      abstract:
+        - "No rendered flag set contains --dangerously-skip-permissions or permission-mode bypassPermissions"
+        - "Bash is never present in any rendered --allowedTools value"
+      assertions:
+        - type: "absence"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C005-INTEGRATION-001-policy-rejects-forbidden-flag"
+      id: "AC-INTEGRATION-001"
+      purpose: "A policy constructed with a forbidden bypass flag or with Bash in the auto-allow set is rejected at build time, not silently rendered"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "An attempt to build a DecisionSurfacingPolicy that auto-allows an action-class tool or sets a bypass permission_mode"
+    when:
+      abstract: "The launch config is built"
+      action: "invoke"
+    then:
+      abstract:
+        - "Building raises a clear error naming the forbidden configuration"
+      assertions:
+        - type: "raises"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C005-SMOKE-001-live-bash-decision-surfaces-not-auto-executed"
+      id: "AC-SMOKE-001"
+      purpose: "A live toolkit-spawned worker asked to run a Bash command surfaces it as a pending permission decision on the Feed (with the command in tool_input) instead of auto-executing it"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A worker spawned via the toolkit spawn path with the DecisionSurfacingPolicy values applied to its DispatchSpec"
+    when:
+      abstract: "The worker is asked to run a Bash command"
+      action: "invoke"
+    then:
+      abstract:
+        - "cmux rpc feed.list shows a pending kind=permission item whose tool_input carries the command verbatim"
+        - "the command did not execute before a verdict was delivered"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the daemon's danger gate classified the surfaced command (auto for safe, escalate for dangerous) before any execution"
+      drift_resolved: "the worker only proceeds after the Feed reply, never by silent pre-authorization"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"

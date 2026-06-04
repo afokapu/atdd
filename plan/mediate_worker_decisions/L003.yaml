@@ -1,0 +1,83 @@
+urn: "wmbt:mediate-worker-decisions:L003"
+step: "locate"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "the-feed-publishing-hook-being-active-for-a-spawned-worker-at-launch"
+context_clarifier: "even a correct launch policy only publishes when the cmux Claude wrapper actually injects its PermissionRequest->'cmux hooks feed' hook, which requires the worker to run under the wrapper with CMUX_SURFACE_ID set and a live cmux socket. The producer probes this hook path at launch so a worker that would silently fail to publish (no surface id / dead socket / wrapper bypassed) is detected loudly instead of looking falsely healthy."
+lens: "functional.availability"
+statement: "maximize likelihood of the feed publishing hook being active for a spawned worker at launch"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:L003-UNIT-001-probe-reports-hook-active-and-inactive"
+      id: "AC-UNIT-001"
+      purpose: "The hook-presence probe reports active when CMUX_SURFACE_ID and a live socket are present, and inactive (with a reason) when either is missing"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An environment with CMUX_SURFACE_ID set and a live socket path, and a second with the surface id absent"
+    when:
+      abstract: "The hook-presence probe is evaluated for each environment"
+      action: "invoke"
+    then:
+      abstract:
+        - "The first reports the hook path active"
+        - "The second reports inactive and names the missing precondition"
+      assertions:
+        - type: "equality"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"
+  - identity:
+      urn: "acc:mediate-worker-decisions:L003-INTEGRATION-001-build-warns-when-hook-path-absent"
+      id: "AC-INTEGRATION-001"
+      purpose: "Building a launch config while the hook path is absent surfaces a loud warning so a non-publishing worker is never spawned silently"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A build of a worker launch config in an environment where the wrapper hook path is not active"
+    when:
+      abstract: "The launch config is built with the probe injected"
+      action: "invoke"
+    then:
+      abstract:
+        - "A warning is emitted naming the inactive hook path (the worker's decisions would not reach the Feed)"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"
+  - identity:
+      urn: "acc:mediate-worker-decisions:L003-SMOKE-001-live-worker-has-active-feed-hook"
+      id: "AC-SMOKE-001"
+      purpose: "A live toolkit-spawned worker runs under the cmux wrapper with the PermissionRequest->feed hook actually injected, so its decisions can publish"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A worker spawned via the toolkit spawn path under the cmux Claude wrapper"
+    when:
+      abstract: "The worker's environment and injected settings are inspected"
+      action: "invoke"
+    then:
+      abstract:
+        - "CMUX_SURFACE_ID is set, the cmux socket is live, and the injected --settings carries the PermissionRequest -> cmux hooks feed hook"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "a subsequent blocking decision from the worker appears in cmux feed.list, proving the hook path was live"
+      drift_resolved: "the probe's active verdict at launch is confirmed by a real published item"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "surface-worker-decisions"
