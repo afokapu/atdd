@@ -27,6 +27,10 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import 
 )
 from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import Verdict
 
+# cmux feed.permission.reply requires a ``mode`` ∈ once|always|all|bypass|deny
+# (verified live 2026-06-05, #980 — NOT ``decision``). ``once`` allows the action
+# this time; a human deny is delivered by the cmux Feed itself (mode ``deny``)
+# when a dangerous request is escalated.
 PERMISSION_ALLOW = "once"
 
 
@@ -36,7 +40,7 @@ def plan_reply(verdict: Verdict, kind: str) -> FeedReplyPlan:
     if kind == PERMISSION:
         return FeedReplyPlan(
             verb="feed.permission.reply",
-            params={"request_id": verdict.request_id, "decision": PERMISSION_ALLOW},
+            params={"request_id": verdict.request_id, "mode": PERMISSION_ALLOW},
         )
     if kind == EXIT_PLAN:
         return FeedReplyPlan(

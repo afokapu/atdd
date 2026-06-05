@@ -75,6 +75,10 @@ class FeedRunnerUseCase:
         # Safety gate FIRST for tool-use kinds (WMBT C003) — before the coach.
         if item.kind in (PERMISSION, EXIT_PLAN):
             if classify(item.tool_input or "") == HUMAN_REQUIRED:
+                # Dangerous tool use is NOT auto-decided: escalate to a human, who
+                # allows/denies via the cmux Feed (feed.permission.reply). The
+                # daemon never auto-approves a dangerous action (WMBT C003), and
+                # deliberately does not auto-deny either — that stays a human call.
                 return self._escalate(item.request_id)
 
         request = map_feed_item(item)

@@ -45,4 +45,5 @@ def test_permission_verdict_yields_permission_reply():
 
     assert plan.verb == "feed.permission.reply"
     assert plan.params["request_id"] == "req-p"
-    assert plan.params["decision"] == "once"
+    # cmux requires ``mode`` (not ``decision``) ∈ once|always|all|bypass|deny (#980/#981).
+    assert plan.params["mode"] == "once"

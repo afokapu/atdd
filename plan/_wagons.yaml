@@ -621,7 +621,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 71
+    total: 76
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -658,6 +658,11 @@ wagons:
     P001: minimize blind theme prompts that force game-domain defaults on non-game
       repos
     C001: minimize invalid custom theme names accepted into config
+    C002: minimize likelihood of wagons-or-trains-declaring-a-non-canonical-theme
+    C003: minimize likelihood of commons-themed-wagons-whose-source-imports-coach
+    C004: minimize likelihood of produced-urn-theme-prefix-diverging-from-wagon-theme
+    C005: minimize likelihood of archetype-themes-misaligned-with-source-roots
+    C006: minimize likelihood of resolved-theme-sets-missing-the-mandatory-commons-floor
     E001: minimize schema validation failures on valid custom theme names
     M001: minimize silent commons digit overrides that break cross-repo tooling
     E002: minimize issue-creation landing on wrong branch and leaving orphan worktrees
@@ -1222,7 +1227,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 24
+    total: 28
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
