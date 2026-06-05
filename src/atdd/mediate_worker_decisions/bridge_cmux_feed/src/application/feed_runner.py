@@ -25,6 +25,9 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item_mapper 
     map_feed_item,
 )
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_reply_mapper import (
+    DANGEROUS_DENY,
+    DANGEROUS_ESCALATE,
+    plan_permission_deny,
     plan_reply,
 )
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.tool_input_safety import (
@@ -60,12 +63,18 @@ class FeedRunnerUseCase:
         coach: Coach,
         id_factory: Callable[[], str],
         ts_factory: Callable[[], str],
+        dangerous_permission_policy: str = DANGEROUS_ESCALATE,
     ) -> None:
         self._source = source
         self._reply = reply
         self._coach = coach
         self._id = id_factory
         self._ts = ts_factory
+        # How a dangerous PERMISSION request is resolved without a human (#981).
+        # Default ESCALATE preserves the supervised human-in-the-loop behavior;
+        # the autonomous daemon passes DENY so a dangerous action is blocked
+        # immediately rather than stalling the worker at the 120s soft-wait.
+        self._dangerous_policy = dangerous_permission_policy
 
     def run_once(self) -> List[FeedOutcome]:
         """Locate every pending item and handle each."""
@@ -75,10 +84,13 @@ class FeedRunnerUseCase:
         # Safety gate FIRST for tool-use kinds (WMBT C003) — before the coach.
         if item.kind in (PERMISSION, EXIT_PLAN):
             if classify(item.tool_input or "") == HUMAN_REQUIRED:
-                # Dangerous tool use is NOT auto-decided: escalate to a human, who
-                # allows/denies via the cmux Feed (feed.permission.reply). The
-                # daemon never auto-approves a dangerous action (WMBT C003), and
-                # deliberately does not auto-deny either — that stays a human call.
+                # Dangerous tool use is NEVER auto-approved (WMBT C003). The coach
+                # policy decides how to resolve it without a human reply: DENY it
+                # now (autonomous-safe, no stall) or ESCALATE to a human. Either
+                # way the escalation is recorded for human visibility. Only a
+                # PERMISSION item has a deny-reply shape; EXIT_PLAN escalates only.
+                if item.kind == PERMISSION and self._dangerous_policy == DANGEROUS_DENY:
+                    self._reply.deliver(plan_permission_deny(item.request_id))
                 return self._escalate(item.request_id)
 
         request = map_feed_item(item)
