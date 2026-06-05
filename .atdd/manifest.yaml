@@ -1679,3 +1679,14 @@ sessions:
   wagon: govern-lifecycle
   feature: null
   train: 0001-self-compliance-validate
+- id: '990'
+  slug: retire-orphaned-shim-acceptances-and-wmbts
+  file: null
+  issue_number: 990
+  type: cleanup
+  status: PLANNED
+  created: '2026-06-06'
+  archived: null
+  wagon: govern-lifecycle
+  feature: null
+  train: 0001-self-compliance-validate
