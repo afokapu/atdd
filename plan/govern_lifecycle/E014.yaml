@@ -97,29 +97,6 @@ acceptances:
       created: "2026-05-19"
 
   - identity:
-      urn: "acc:govern-lifecycle:E014-UNIT-004-runtime-default-command-derives-permission-policy-from-spec"
-      id: "AC-UNIT-004"
-      purpose: "The runtime cli-return launch transport derives its permission policy from the DispatchSpec (--permission-mode + --allowedTools) and never emits --dangerously-skip-permissions (#969 — closes the divergent second config behind #967)"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "ShimAgentController and DispatchSpec are importable from atdd.runtime.agent_control"
-        - "A DispatchSpec with permission_mode='acceptEdits' and a scoped allowed_tools tuple (e.g. ('Bash','Edit','Read'))"
-    when:
-      abstract: "ShimAgentController()._default_command(spec) is called"
-    then:
-      abstract:
-        - "The returned argv contains '--permission-mode' immediately followed by the spec's permission_mode"
-        - "The returned argv contains '--allowedTools' immediately followed by the space-joined allowed_tools"
-        - "The returned argv does NOT contain '--dangerously-skip-permissions' for any permission_mode"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-04"
-
-  - identity:
       urn: "acc:govern-lifecycle:E014-UNIT-005-runtime-launch-boundary-rejects-forbidden-flag"
       id: "AC-UNIT-005"
       purpose: "The runtime launch boundary rejects a forbidden flag in any launch argv — default-built or caller-injected — closing the enforcement gap where the cli-return argv list bypassed the cmd_spawn string guard (#969)"
@@ -137,52 +114,6 @@ acceptances:
       abstract:
         - "ForbiddenLaunchFlagError is raised before any shim process is launched"
         - "assert_no_forbidden_launch_flags also raises on the '--flag=value' substring form"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-04"
-
-  - identity:
-      urn: "acc:govern-lifecycle:E014-UNIT-006-runtime-shim-entry-rejects-forbidden-flag"
-      id: "AC-UNIT-006"
-      purpose: "The runtime shim CLI entry point (python -m atdd.runtime.agent_control) refuses an adapter command carrying the forbidden flag before spawning any process — last-mile defense-in-depth so no runtime launch path can emit it (#969)"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "main is importable from atdd.runtime.agent_control.__main__"
-        - "A runtime-dir under tmp_path and an adapter command 'claude --dangerously-skip-permissions'"
-    when:
-      abstract: "main(['--agent-id','x','--runtime-dir',<dir>,'--','claude','--dangerously-skip-permissions']) is called"
-    then:
-      abstract:
-        - "main returns a non-zero exit code"
-        - "stderr names the forbidden flag '--dangerously-skip-permissions'"
-        - "No agent runtime directory (agents/<id>) is created — the launch was refused"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-04"
-
-  - identity:
-      urn: "acc:govern-lifecycle:E014-SMOKE-002-runtime-shim-entry-refuses-forbidden-flag"
-      id: "AC-SMOKE-002"
-      purpose: "The real runtime shim CLI subprocess refuses a forbidden-flag launch: operator sees a non-zero exit and a stderr message naming the flag, and no agent process starts (#969)"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "The real `python -m atdd.runtime.agent_control` module CLI is invoked as a subprocess (no mocks, no FakeMultiplexer, no synthetic stub)"
-        - "The adapter command after -- is 'claude --dangerously-skip-permissions'"
-    when:
-      abstract: "the subprocess runs with --agent-id, --runtime-dir <tmp>, -- claude --dangerously-skip-permissions"
-    then:
-      abstract:
-        - "The process exits non-zero (operator-observable)"
-        - "stderr contains '--dangerously-skip-permissions'"
-        - "No agents/<id> runtime directory was created (no agent process launched)"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-04"

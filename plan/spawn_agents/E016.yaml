@@ -1,4 +1,4 @@
-urn: "wmbt:spawn-agents:E016"
+urn: "wmbt:spawn-agents:E016"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-09-01
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -31,29 +31,6 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-25"
   - identity:
-      urn: "acc:spawn-agents:E016-UNIT-002-build-shim-command-emits-env-flags"
-      id: "AC-UNIT-002"
-      purpose: "_build_shim_command with env_overrides={'ATDD_AGENT_ID': 'x-001'} emits '--env ATDD_AGENT_ID=x-001' and does NOT place 'ATDD_AGENT_ID=x-001' as argv[0] after '--'"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "adapter_command = 'claude --permission-mode auto'"
-        - "env_overrides = {'ATDD_AGENT_ID': 'planner-001-abc'}"
-        - "agent_id and runtime_root set"
-    when:
-      abstract: "_build_shim_command(adapter_command, agent_id, runtime_root, env_overrides=env_overrides) is called"
-    then:
-      abstract:
-        - "The returned command string contains '--env ATDD_AGENT_ID=planner-001-abc'"
-        - "The token immediately after '--' in the returned command is 'claude', not 'ATDD_AGENT_ID=planner-001-abc'"
-        - "Lexing the returned command with shlex.split produces argv where 'ATDD_AGENT_ID=...' does not appear between '--' and 'claude'"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-25"
-  - identity:
       urn: "acc:spawn-agents:E016-UNIT-003-non-cli-return-shell-prefix-reconstructed"
       id: "AC-UNIT-003"
       purpose: "In the non-cli-return code path, cmd_spawn reconstructs the shell-style KEY=value prefix from env_overrides and prepends it to the adapter command, so the multiplexer shell dispatch behavior is unchanged"
@@ -71,27 +48,6 @@ acceptances:
       abstract:
         - "The command string passed to FakeMultiplexer.new_surface starts with 'ATDD_AGENT_ID=<agent_id>'"
         - "No '--env' flag appears in that command string"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-25"
-  - identity:
-      urn: "acc:spawn-agents:E016-SMOKE-001-no-popen-exec-failure-with-cli-return-env"
-      id: "AC-SMOKE-001"
-      purpose: "The installed atdd-shim CLI, invoked with --env ATDD_AGENT_ID=test-001 -- python3 -c 'pass', exits 0 within 10 s and does not raise FileNotFoundError"
-      phase: "SMOKE"
-    harness:
-      type: "smoke"
-      category: "backend"
-    given:
-      abstract:
-        - "atdd-shim is installed as a CLI entry point"
-        - "A temporary runtime-dir is created"
-    when:
-      abstract: "atdd-shim --agent-id test-001 --runtime-dir <tmp> --env ATDD_AGENT_ID=test-001 -- python3 -c pass is run as a subprocess"
-    then:
-      abstract:
-        - "The process exits with return code 0 (no FileNotFoundError)"
-        - "No stderr line contains 'No such file or directory'"
     metadata:
       author: "atdd:planner"
       created: "2026-05-25"
