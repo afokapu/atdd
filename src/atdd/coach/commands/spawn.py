@@ -944,6 +944,22 @@ def _build_shim_command(
     )
 
 
+def _prepend_env_prefix(command: str, env_overrides: dict[str, str] | None) -> str:
+    """Prepend a shell ``KEY=value`` prefix so the shell that runs the surface
+    command exports ``env_overrides`` for the adapter process.
+
+    Used by the direct (cmux-native / tui-scrape) dispatch paths, where the
+    surface command is run by a shell. The cli-return path does NOT use this —
+    the shim applies env_overrides via ``--env`` flags (#854 Shape A).
+    """
+    if not env_overrides:
+        return command
+    prefix = " ".join(
+        f"{k}={shlex.quote(str(v))}" for k, v in env_overrides.items()
+    )
+    return f"{prefix} {command}"
+
+
 def _build_cmux_native_command(adapter_command: str, prompt_text: str) -> str:
     """Build the cmux-native surface command (#978, E043): the agent's POSITIONAL
     prompt seeds AND auto-submits the first turn — no pty shim, no cli-return
@@ -1523,24 +1539,19 @@ def cmd_spawn(
     using_cli_return = transport == "cli-return"
     using_cmux_native = transport == "cmux-native"
     if using_cli_return:
+        # The shim consumes env_overrides via --env flags (build_shim_command),
+        # so no shell KEY=value prefix is applied on this path.
         _prime_cli_return_inbox(agent_dir, prompt_path.read_text())
         command = _build_shim_command(command, agent_id, runtime_root, env_overrides=env_overrides)
     elif using_cmux_native:
         # Seed the first turn via the agent's positional prompt (prompt-first,
         # before --allowedTools). No shim wrap, no inbox priming, no paste.
         command = _build_cmux_native_command(command, prompt_path.read_text())
-        if env_overrides:
-            prefix = " ".join(
-                f"{k}={shlex.quote(str(v))}" for k, v in env_overrides.items()
-            )
-            command = f"{prefix} {command}"
-    elif env_overrides:
-        # Shell/multiplexer dispatch: reconstruct KEY=value prefix so the shell
-        # that runs the surface command sets the env var for the adapter process.
-        prefix = " ".join(
-            f"{k}={shlex.quote(str(v))}" for k, v in env_overrides.items()
-        )
-        command = f"{prefix} {command}"
+        command = _prepend_env_prefix(command, env_overrides)
+    else:
+        # tui-scrape / other direct dispatch: the shell that runs the surface
+        # command sets env_overrides via a reconstructed KEY=value prefix.
+        command = _prepend_env_prefix(command, env_overrides)
 
     from atdd.coach.utils.config import load_atdd_config
 
