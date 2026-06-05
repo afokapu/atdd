@@ -11,9 +11,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional, Tuple
 
-# feed item kinds, exactly as cmux emits them
+# feed item kinds, exactly as cmux emits them. NB cmux uses ``permissionRequest``
+# (NOT ``permission``) for tool/shell permission decisions — verified live against
+# ``cmux rpc feed.list`` (#981). The mismatch silently dropped every permission
+# item in CmuxFeedSource, so permission mediation never surfaced.
 QUESTION = "question"
-PERMISSION = "permission"
+PERMISSION = "permissionRequest"
 EXIT_PLAN = "exitPlan"
 
 

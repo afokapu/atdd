@@ -52,7 +52,7 @@ MULTI_QUESTION = FeedItem(
 SAFE_PERMISSION = FeedItem(
     id="f-p",
     request_id="req-p",
-    kind="permission",
+    kind="permissionRequest",
     tool_name="Bash",
     tool_input="ls -la",
 )

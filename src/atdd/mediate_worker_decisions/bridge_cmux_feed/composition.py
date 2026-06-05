@@ -16,6 +16,9 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.application.ports import
     FeedReply,
     FeedSource,
 )
+from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_reply_mapper import (
+    DANGEROUS_ESCALATE,
+)
 
 # domain
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import (  # noqa: F401
@@ -56,14 +59,19 @@ def build_feed_runner(
     guard: Optional[InMemoryReplyGuard] = None,
     id_factory: Callable[[], str] = default_id_factory,
     ts_factory: Callable[[], str] = default_clock_text,
+    dangerous_permission_policy: str = DANGEROUS_ESCALATE,
 ) -> FeedRunnerUseCase:
-    """Wire the runner; ``reply`` is a transport that gets wrapped once-per-request."""
+    """Wire the runner; ``reply`` is a transport that gets wrapped once-per-request.
+
+    ``dangerous_permission_policy`` defaults to ESCALATE (supervised); the
+    autonomous daemon passes DENY so a dangerous action is blocked without a stall."""
     return FeedRunnerUseCase(
         source=source,
         reply=build_feed_reply_applier(transport=reply, guard=guard),
         coach=coach,
         id_factory=id_factory,
         ts_factory=ts_factory,
+        dangerous_permission_policy=dangerous_permission_policy,
     )
 
 

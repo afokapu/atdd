@@ -23,7 +23,7 @@ def test_dangerous_item_escalates_without_reply():
     item = FeedItem(
         id="f1",
         request_id="req-danger",
-        kind="permission",
+        kind="permissionRequest",
         question_prompt=None,
         question_options=(),
         tool_name="Bash",
