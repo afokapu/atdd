@@ -29,6 +29,38 @@ Classification of `# Phase: SMOKE` acceptance tests against real-infrastructure 
 | acc:govern-lifecycle:C005-SMOKE-001-plan-tree-archetype-themes-align | real (validator scans the toolkit's own plan/ + src/ trees under REPO_ROOT) | zero plan/test/code wagons living outside their planner/tester/coder archetype root | wagon theme: vs archetype source root → check_archetype_alignment | #970 (archetype alignment; plan-time validator, no synthetic fixture) |
 | acc:govern-lifecycle:C006-SMOKE-001-repo-config-keeps-commons-floor | real (validator resolves the toolkit's own .atdd/config.yaml under REPO_ROOT) | zero theme-zero-mandatory violations; resolved set pins commons at digit 0 | .atdd/config.yaml themes: block → resolve_theme_set → check_theme_zero_mandatory | #970 (commons mandatory floor; plan-time validator, no synthetic fixture) |
 | acc:govern-lifecycle:E014-SMOKE-002-runtime-shim-entry-refuses-forbidden-flag | real (`python -m atdd.runtime.agent_control` module CLI as a subprocess; no mocks/FakeMultiplexer/stub) | non-zero exit + stderr names `--dangerously-skip-permissions` + no agents/<id> dir created (no process launched) | N/A (single component — the launch boundary refuses before any handoff) | #969 (retire forbidden flag + close E014 guard gap in cli-return transport; real subprocess, operator-observable refusal) |
+| acc:govern-lifecycle:E043-SMOKE-001-live-cmux-native-launch-feed-no-shim | real (live cmux 0.64.10 + claude worker via the production launch builders; no mocks/stub) | worker boots with NO `atdd.coach.shim`/PersonaShim in path; positional prompt auto-submits (feed `userPrompt`+`stop`); activity publishes to `feed.list` with `source=claude` | build_agent_seed_argv + build_cmux_launch_argv → `cmux new-workspace --command` → claude positional seed → cmux wrapper hooks → `cmux rpc feed.list` | #978 (live verified 2026-06-05; no shim, no synthetic fixture — evidence below) |
+
+## E043-SMOKE-001 live evidence (2026-06-05)
+
+Captured by running the smoke against real cmux 0.64.10 + claude inside a cmux
+session (`PYTHONPATH=src <venv> -m pytest -s
+src/atdd/coach/commands/tests/test_e043_smoke_001_live_cmux_native_launch.py`):
+
+```
+workspace_ref : workspace:84
+worker_cwd    : /private/var/folders/.../atdd-e043-smoke-42345
+launch_argv   : ['cmux', 'new-workspace', '--name', 'atdd-e043-smoke-42345',
+                 '--cwd', '.../atdd-e043-smoke-42345', '--command',
+                 "claude 'Reply with exactly this token and nothing else: SMOKE-OK-978. Do not use any tools.' --permission-mode acceptEdits --allowedTools Read"]
+feed_kinds    : ['sessionStart', 'stop', 'userPrompt']
+turn_item     : {"kind": "stop", "source": "claude", "status": "telemetry",
+                 "cwd": ".../atdd-e043-smoke-42345",
+                 "id": "75329F80-03B9-4BAB-B18C-4C278737419C",
+                 "workstream_id": "claude-ac70674f-0e3e-4b16-8465-28e452d3727c",
+                 "created_at": "2026-06-05T20:34:38Z"}
+shim_in_path  : []   (expected: [])
+```
+
+Proves all three acceptance criteria jointly: (1) `cmux new-workspace --command`
+booted a claude worker with **no shim** in the launch path (`shim_in_path: []`,
+and the `--command` string is a bare `claude` invocation); (2) the **positional
+prompt auto-submitted** — the Feed recorded a `userPrompt` and a `stop` (the
+worker took and finished its first turn unattended, no paste/sentinel); (3) the
+worker's activity **published to `feed.list` with `source=claude`**, i.e. the
+cmux wrapper's Feed hooks fired **without** the shim. `sessionStart` alone is
+explicitly rejected by the smoke (would prove only boot, not auto-submit), so the
+green is not a #855-style fake.
 
 ## Histogram
 

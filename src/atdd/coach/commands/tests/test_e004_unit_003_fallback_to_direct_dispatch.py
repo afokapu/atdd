@@ -7,13 +7,16 @@
 # Assertion: behavioral
 """E004-UNIT-003 — fallback to the direct (tui-scrape) dispatch path.
 
-NOTE (Child 6, #893, docs/coach-decomposition.md §13.6): cli-return is now the
-DEFAULT control plane. The direct paste path (no shim wrapping; launch prompt via
-paste_text + send_key) is the LEGACY fallback, reached only under the
-``ATDD_USE_LEGACY_SPAWN=1`` kill switch (§12.4 R-4) or an explicit
-``ATDD_CORRECTION_TRANSPORT`` override that is not ``cli-return``. This test now
-guards that fallback path; the default-is-cli-return contract is covered by
-E038-UNIT-004.
+NOTE (Child 6 §13.6; updated for #978/E043): the spawn DEFAULT is now
+``cmux-native`` and the ``ATDD_USE_LEGACY_SPAWN=1`` kill switch routes to the
+**shim** (``cli-return``) as the soak fallback. The direct paste path (no shim
+wrapping; launch prompt via paste_text + send_key) is the deprecated tui-scrape
+path, reached only via an explicit ``ATDD_CORRECTION_TRANSPORT=tui-scrape``
+(or other non-cli-return/non-cmux-native) override. The invariant guarded here is
+unchanged — *a non-cli-return direct transport must NOT wrap with the shim nor
+prime the cli-return inbox* — only the trigger moved off the repurposed kill
+switch onto the explicit override. The kill-switch→shim contract is covered by
+E043-UNIT-002.
 """
 from __future__ import annotations
 
@@ -132,10 +135,11 @@ def _run_cmd_spawn(tmp_path, multiplexer, monkeypatch):
     return runtime
 
 
-def test_no_shim_under_legacy_spawn_kill_switch(tmp_path, monkeypatch):
-    """ATDD_USE_LEGACY_SPAWN=1 routes back to the direct (no-shim) paste path."""
-    monkeypatch.delenv("ATDD_CORRECTION_TRANSPORT", raising=False)
-    monkeypatch.setenv("ATDD_USE_LEGACY_SPAWN", "1")
+def test_no_shim_under_tui_scrape_override(tmp_path, monkeypatch):
+    """An explicit ATDD_CORRECTION_TRANSPORT=tui-scrape override routes to the
+    direct (no-shim) paste path."""
+    monkeypatch.delenv("ATDD_USE_LEGACY_SPAWN", raising=False)
+    monkeypatch.setenv("ATDD_CORRECTION_TRANSPORT", "tui-scrape")
     fake_mx = _FakeMultiplexer()
     _run_cmd_spawn(tmp_path, fake_mx, monkeypatch)
 
@@ -143,12 +147,12 @@ def test_no_shim_under_legacy_spawn_kill_switch(tmp_path, monkeypatch):
     surface_cmd = fake_mx.surface_commands[-1]
 
     assert not surface_cmd.startswith("atdd-shim"), (
-        f"Under ATDD_USE_LEGACY_SPAWN=1 the command must NOT be wrapped with "
-        f"atdd-shim. Got: {surface_cmd!r}"
+        f"Under ATDD_CORRECTION_TRANSPORT=tui-scrape the command must NOT be "
+        f"wrapped with atdd-shim. Got: {surface_cmd!r}"
     )
     assert "atdd.coach.shim" not in surface_cmd and "atdd.runtime.agent_control" not in surface_cmd, (
-        f"Under ATDD_USE_LEGACY_SPAWN=1 the command must NOT reference the shim. "
-        f"Got: {surface_cmd!r}"
+        f"Under ATDD_CORRECTION_TRANSPORT=tui-scrape the command must NOT "
+        f"reference the shim. Got: {surface_cmd!r}"
     )
 
 
@@ -169,11 +173,11 @@ def test_no_shim_when_transport_is_multiplexer_send(tmp_path, monkeypatch):
     )
 
 
-def test_no_cli_return_priming_under_legacy_spawn(tmp_path, monkeypatch):
-    """Under ATDD_USE_LEGACY_SPAWN=1, no cli-return.jsonl inbox priming entry is
-    written before the surface is created."""
-    monkeypatch.delenv("ATDD_CORRECTION_TRANSPORT", raising=False)
-    monkeypatch.setenv("ATDD_USE_LEGACY_SPAWN", "1")
+def test_no_cli_return_priming_under_tui_scrape_override(tmp_path, monkeypatch):
+    """Under ATDD_CORRECTION_TRANSPORT=tui-scrape, no cli-return.jsonl inbox
+    priming entry is written before the surface is created."""
+    monkeypatch.delenv("ATDD_USE_LEGACY_SPAWN", raising=False)
+    monkeypatch.setenv("ATDD_CORRECTION_TRANSPORT", "tui-scrape")
     fake_mx = _FakeMultiplexer()
     runtime = _run_cmd_spawn(tmp_path, fake_mx, monkeypatch)
 

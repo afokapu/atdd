@@ -2,10 +2,15 @@
 
 docs/coach-decomposition.md §4.8 / §13.6. Owns worker spawn (shim), prompt
 delivery, ready detection, the correction inbox, stdin forwarding, agent done
-signals, and transport selection. **cli-return is the default control plane**
-— the screen-scrape (tui-scrape) path is the deprecated fallback behind the
-``ATDD_USE_LEGACY_SPAWN=1`` kill switch. Making cli-return the default closes
-the #840 / #871 / #872 cluster.
+signals, and transport selection. **cmux-native is the default launch plane**
+(#978): cmux opens the surface running the agent and the agent's positional
+prompt seeds AND auto-submits the first turn. ``ATDD_USE_LEGACY_SPAWN=1`` (the
+kill switch) routes to the shim (cli-return / ``ShimAgentController``) — the
+proven prior launch path, kept as the soak fallback until the shim is deleted
+(#979). The screen-scrape (tui-scrape) path remains reachable only via an
+explicit ``ATDD_CORRECTION_TRANSPORT=tui-scrape`` override. The shim default
+closed the #840 / #871 / #872 cluster; cmux-native retires the cold-start
+heartbeat flake and the #950 submit-sentinel bug from the launch path.
 
 Dependency rule (§3.3): this layer imports stdlib (+ subprocess) only. It MUST
 NOT import ``atdd.coach.*``, ``atdd.train.*``, ``atdd.integrations.*``, or
@@ -25,7 +30,7 @@ import time
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Iterator, Literal, Mapping, Optional, Protocol, Sequence, runtime_checkable
+from typing import Callable, Iterator, Literal, Mapping, Optional, Protocol, Sequence, runtime_checkable
 
 from atdd.runtime.agent_control._shim import PersonaShim
 
@@ -39,9 +44,11 @@ __all__ = [
     "ShimAgentController",
     "TuiScrapeAgentController",
     "HeadlessPrintController",
+    "CmuxAgentController",
     "PersonaShim",
     "resolve_transport",
     "DEFAULT_TRANSPORT",
+    "SHIM_TRANSPORT",
     "LEGACY_TRANSPORT",
     "LEGACY_SPAWN_ENV",
     "ForbiddenLaunchFlagError",
@@ -93,7 +100,8 @@ def assert_no_forbidden_launch_flags(argv: Sequence[str]) -> None:
 
 # --- transport selection -------------------------------------------------
 
-DEFAULT_TRANSPORT = "cli-return"
+DEFAULT_TRANSPORT = "cmux-native"
+SHIM_TRANSPORT = "cli-return"
 LEGACY_TRANSPORT = "tui-scrape"
 LEGACY_SPAWN_ENV = "ATDD_USE_LEGACY_SPAWN"
 _LEGACY_OVERRIDE_ENV = "ATDD_CORRECTION_TRANSPORT"  # back-compat explicit override
@@ -107,17 +115,22 @@ def resolve_transport(env: Optional[Mapping[str, str]] = None) -> str:
     Precedence (most-specific first):
 
     1. An explicit ``ATDD_CORRECTION_TRANSPORT`` value (forward opt-in / test
-       override) wins — including ``cli-return``.
-    2. ``ATDD_USE_LEGACY_SPAWN=1`` (the kill switch) routes back to the
-       pre-extraction screen-scrape path.
-    3. Otherwise cli-return — the DEFAULT control plane.
+       override) wins — including ``cmux-native``, ``cli-return`` and the
+       deprecated ``tui-scrape``.
+    2. ``ATDD_USE_LEGACY_SPAWN=1`` (the kill switch) routes to the shim
+       (``cli-return`` / ``ShimAgentController``) — the proven prior launch
+       path kept as the soak fallback for #978.
+    3. Otherwise ``cmux-native`` — the DEFAULT launch plane (#978): cmux opens
+       the surface running the agent and the positional prompt seeds AND
+       auto-submits the first turn (no pty shim, no cli-return inbox, no submit
+       sentinel; decisions ride the cmux Feed hooks).
     """
     env = os.environ if env is None else env
     override = str(env.get(_LEGACY_OVERRIDE_ENV, "")).strip().lower()
     if override:
         return override
     if str(env.get(LEGACY_SPAWN_ENV, "")).strip().lower() in _TRUEY:
-        return LEGACY_TRANSPORT
+        return SHIM_TRANSPORT
     return DEFAULT_TRANSPORT
 
 
@@ -173,7 +186,7 @@ class AgentHandle:
     agent_id: str
     spec: DispatchSpec
     spawned_at: str
-    transport: Literal["cli-return", "tui-scrape", "headless-print"]
+    transport: Literal["cli-return", "tui-scrape", "headless-print", "cmux-native"]
 
 
 @runtime_checkable
@@ -514,3 +527,105 @@ class HeadlessPrintController:
                 proc.terminate()  # type: ignore[attr-defined]
             except OSError as exc:  # pragma: no cover - race on exit
                 _logger.debug("headless stop skipped", extra={"error": str(exc)})
+
+
+# --- CmuxAgentController (cmux-native launch, #978) -----------------------
+
+
+def _default_cmux_runner(argv: Sequence[str]) -> str:
+    """Run a cmux CLI command and return its stdout (default launch runner)."""
+    import subprocess
+
+    completed = subprocess.run(
+        list(argv), capture_output=True, text=True, check=True,
+    )
+    return completed.stdout
+
+
+class CmuxAgentController:
+    """cmux-native launcher (#978): opens a cmux surface running the agent and
+    seeds the first turn via the agent's **positional prompt** — no pty shim, no
+    ``cli-return.jsonl`` inbox, no submit sentinel.
+
+    Decision communication rides the cmux Feed (the wrapper's hooks fire because
+    the surface sets ``CMUX_SURFACE_ID``); this controller never touches the Feed
+    and never owns a pty. Liveness and signals go through the cmux CLI, not
+    ``output.log``. The ``runner`` is injected so the launch shape is testable
+    without a real cmux. ``ATDD_USE_LEGACY_SPAWN=1`` still selects the shim.
+    """
+
+    transport_name = "cmux-native"
+
+    def __init__(
+        self,
+        *,
+        agent_bin: str = "claude",
+        cmux_bin: str = "cmux",
+        runner: Optional[Callable[[Sequence[str]], str]] = None,
+    ) -> None:
+        self._agent_bin = agent_bin
+        self._cmux_bin = cmux_bin
+        self._runner = runner or _default_cmux_runner
+        # agent_id -> launch stdout (carries the workspace/surface ref)
+        self._launched: dict[str, str] = {}
+
+    def _launch_argv(self, spec: DispatchSpec) -> list[str]:
+        """Build (and guard) the cmux launch argv for ``spec`` — prompt-first seed."""
+        from atdd.runtime.agent_control.cmux_launch import (
+            build_agent_seed_argv,
+            build_cmux_launch_argv,
+        )
+
+        agent_argv = build_agent_seed_argv(
+            self._agent_bin,
+            spec.prompt_text,
+            permission_mode=spec.permission_mode,
+            allowed_tools=tuple(spec.allowed_tools),
+        )
+        # Same E014 boundary guard every launch path runs (#969): no bypass flag
+        # may reach a launch, or decisions would never surface to the Feed.
+        assert_no_forbidden_launch_flags(agent_argv)
+        return build_cmux_launch_argv(
+            agent_argv,
+            cwd=spec.worktree_path,
+            name=_canonical_surface_name(spec.agent_id),
+            cmux_bin=self._cmux_bin,
+        )
+
+    def spawn(self, spec: DispatchSpec) -> AgentHandle:
+        result = self._runner(self._launch_argv(spec))
+        self._launched[spec.agent_id] = result
+        return AgentHandle(
+            agent_id=spec.agent_id,
+            spec=spec,
+            spawned_at=_now_iso(),
+            transport="cmux-native",
+        )
+
+    def deliver_prompt(self, handle: AgentHandle, prompt: str) -> None:
+        """Initial brief is seeded at launch (positional prompt). A mid-run
+        correction is delivered to the surface via ``cmux send`` + ``send-key``
+        (the agent's correct keyboard-protocol handling submits it)."""
+        self._runner([self._cmux_bin, "send", prompt])
+        self._runner([self._cmux_bin, "send-key", "Enter"])
+
+    def wait_ready(self, handle: AgentHandle, *, timeout_s: float) -> ReadyResult:
+        # cmux owns process+pixels; a successful launch means the surface exists.
+        # Liveness derives from cmux surface state, not an output.log heartbeat.
+        return ReadyResult(True, "cmux-surface-launched", 0.0)
+
+    def stream_events(self, handle: AgentHandle) -> Iterator[AgentEvent]:
+        return iter(())
+
+    def signal(self, handle: AgentHandle, sig: AgentSignal) -> None:
+        if sig == AgentSignal.INTERRUPT:
+            self._runner([self._cmux_bin, "send-key", "C-c"])
+
+    def stop(self, handle: AgentHandle, *, reason: str) -> None:
+        self._launched.pop(handle.agent_id, None)
+
+
+def _canonical_surface_name(agent_id: str) -> str:
+    """Canonical cmux surface/workspace name for an agent id (coach.orchestration
+    canonical-session-name shape, uppercased, no separators)."""
+    return "ATDD" + "".join(ch for ch in agent_id if ch.isalnum()).upper()

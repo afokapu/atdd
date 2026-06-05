@@ -52,14 +52,23 @@ class _ObserverProcFactory:
 
 @pytest.fixture(autouse=True)
 def _default_legacy_spawn_transport(monkeypatch) -> Iterator[None]:
-    """Child 6 (#893, docs/coach-decomposition.md §13.6) flipped the spawn
-    dispatch default to cli-return. The cmd_spawn tests in this directory assert
-    the legacy tui-scrape (paste + readiness probe) path, reached only under the
-    ATDD_USE_LEGACY_SPAWN=1 kill switch (§12.4 R-4), which reproduces the
-    pre-extraction default byte-for-byte. Tests targeting the new cli-return
-    default set ATDD_CORRECTION_TRANSPORT=cli-return (wins by precedence)."""
-    if "ATDD_USE_LEGACY_SPAWN" not in os.environ:
-        monkeypatch.setenv("ATDD_USE_LEGACY_SPAWN", "1")
+    """#978 flipped the spawn dispatch default to **cmux-native**. Most cmd_spawn
+    tests in this directory were written against the legacy tui-scrape (paste +
+    readiness probe) surface path, so we pin that path explicitly here via
+    ``ATDD_CORRECTION_TRANSPORT=tui-scrape`` (an explicit override wins by
+    precedence and is stable across the default flip).
+
+    NOTE: pre-#978 this fixture set ``ATDD_USE_LEGACY_SPAWN=1`` to reach the same
+    paste path, but that kill switch now routes to the **shim** (cli-return) —
+    the soak fallback for cmux-native — so it can no longer stand in for
+    tui-scrape. Tests targeting a specific transport set their own
+    ``ATDD_CORRECTION_TRANSPORT`` (cli-return / cmux-native) or
+    ``ATDD_USE_LEGACY_SPAWN`` and win by precedence."""
+    if (
+        "ATDD_USE_LEGACY_SPAWN" not in os.environ
+        and "ATDD_CORRECTION_TRANSPORT" not in os.environ
+    ):
+        monkeypatch.setenv("ATDD_CORRECTION_TRANSPORT", "tui-scrape")
     yield
 
 
