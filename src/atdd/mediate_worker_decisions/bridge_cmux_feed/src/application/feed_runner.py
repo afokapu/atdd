@@ -82,16 +82,8 @@ class FeedRunnerUseCase:
 
     def handle(self, item: FeedItem) -> FeedOutcome:
         # Safety gate FIRST for tool-use kinds (WMBT C003) — before the coach.
-        if item.kind in (PERMISSION, EXIT_PLAN):
-            if classify(item.tool_input or "") == HUMAN_REQUIRED:
-                # Dangerous tool use is NEVER auto-approved (WMBT C003). The coach
-                # policy decides how to resolve it without a human reply: DENY it
-                # now (autonomous-safe, no stall) or ESCALATE to a human. Either
-                # way the escalation is recorded for human visibility. Only a
-                # PERMISSION item has a deny-reply shape; EXIT_PLAN escalates only.
-                if item.kind == PERMISSION and self._dangerous_policy == DANGEROUS_DENY:
-                    self._reply.deliver(plan_permission_deny(item.request_id))
-                return self._escalate(item.request_id)
+        if item.kind in (PERMISSION, EXIT_PLAN) and classify(item.tool_input or "") == HUMAN_REQUIRED:
+            return self._resolve_dangerous_tool_use(item)
 
         request = map_feed_item(item)
 
@@ -105,6 +97,20 @@ class FeedRunnerUseCase:
         verdict = self._coach.mediate(request)
         self._reply.deliver(plan_reply(verdict, kind=item.kind))
         return FeedOutcome(request_id=item.request_id, verdict=verdict)
+
+    def _resolve_dangerous_tool_use(self, item: FeedItem) -> FeedOutcome:
+        """Resolve a tool use the safety gate flagged dangerous (WMBT C003).
+
+        A dangerous action is NEVER auto-approved and the coach is never consulted.
+        The coach policy resolves it without a human reply: under ``deny`` the
+        PERMISSION request is actively denied via the Feed (autonomous-safe — no
+        120s soft-wait stall); under ``escalate`` no reply is sent and a human
+        decides. Either way the escalation is recorded. Only a PERMISSION item has
+        a deny-reply shape; EXIT_PLAN escalates only.
+        """
+        if item.kind == PERMISSION and self._dangerous_policy == DANGEROUS_DENY:
+            self._reply.deliver(plan_permission_deny(item.request_id))
+        return self._escalate(item.request_id)
 
     def _escalate(self, request_id: str) -> FeedOutcome:
         return FeedOutcome(
