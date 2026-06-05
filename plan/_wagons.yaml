@@ -621,7 +621,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 77
+    total: 76
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -756,10 +756,6 @@ wagons:
     E028: minimize likelihood of new-smoke-tests-using-synthetic-fixtures-that-bypass-production-wiring
       by adding three anti-pattern rules to smoke.convention.yaml and implementing
       the planner.smoke.synthetic-fixture-bypass validator (#855)
-    E029: minimize quantity of lived-incident-smoke-tests-asserting-on-synthetic-fixtures-rather-than-real-spawn
-      by retrofitting test_e003_smoke_001 and test_e003_smoke_002 to drive the real
-      atdd spawn entry point and removing the ATDD_RUN_SMOKE opt-in from test_e004_smoke_001
-      (#855)
     L002: minimize quantity of existing-smoke-acceptances-escaping-the-new-anti-pattern-detector
       by implementing a meta-walker that exhaustively applies the synthetic-fixture-bypass
       scan to every phase:SMOKE acceptance in plan/ (#855)
@@ -1370,7 +1366,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 20
+    total: 16
     P001: minimize quantity of observer-runtime-skeleton-gaps
     P002: minimize quantity of observer-input-acquisition-gaps
     M001: minimize likelihood of undetected-basic-protocol-violations
@@ -1385,12 +1381,8 @@ wagons:
     E002: minimize quantity of per-worker-observer-processes-spawned-by-coach
     E003: minimize quantity of observer-correction-loop-activation-gaps
     E004: minimize quantity of persona-shim-spawn-dispatch-wiring-gaps
-    E008: minimize quantity of launch-prompt-delivery-races-before-tui-is-ready
-    E007: minimize quantity of cli-return-corrections-missing-submit-sentinel
     C001: minimize likelihood of behavioral-regression-against-babysit-baseline
     C002: minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary
-    E005: minimize likelihood of atdd-shim-popen-missing-env-kwarg-for-typed-env-override-delivery
-    E006: minimize quantity of shim-stdin-forwarding-gaps
   total: 0
   manifest: plan/observe_and_correct/_observe_and_correct.yaml
   path: plan/observe_and_correct/
@@ -1665,7 +1657,7 @@ wagons:
   - name: commons:coach:decisions-jsonl-writer
     from: wagon:drive-state-machine
   wmbt:
-    total: 42
+    total: 36
     E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
     D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
     E002: minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout
@@ -1690,12 +1682,6 @@ wagons:
     R001: minimize likelihood of deny-pattern-bash-invocations-handled-via-in-band-modal-or-unrouted-escalation
     E015: minimize likelihood of planner-agent-commits-planned-without-verifying-smoke-acceptance-coverage
     E016: minimize likelihood of shell-style-env-prefix-injected-into-shim-argv-causing-popen-exec-failure
-    E017: minimize likelihood of coach-spawn-shim-command-resolves-to-wrong-atdd-installation-on-multi-install-hosts
-    E018: minimize likelihood of coach-spawn-stage-detector-reports-success-when-spawned-process-has-already-crashed
-    E019: minimize likelihood of shim-runtime-dir-relative-path-bleeds-into-worktree-cwd-at-build-shim-command
-    E020: minimize likelihood of persona-shim-operates-with-relative-runtime-dir-if-future-caller-bypasses-primary-fix
-    E021: minimize likelihood of process-alive-timeout-mislabels-cwd-bleed-path-mismatch-as-silent-shim-crash
-    L002: minimize likelihood of relative-runtime-root-causes-output-log-to-land-at-worktree-path-instead-of-coach-polled-path
     E022: minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-to-dispatched-agents
     E023: minimize quantity of claude-md-lines-exceeding-worker-context-budget
     E024: minimize likelihood of operator-emergency-bypass-mechanism-documented-as-copy-pasteable-env-var-in-agent-readable-context

@@ -25,8 +25,6 @@ features:
   - urn: "feature:spawn-agents:spawn-time-non-interactive-convention"
   - urn: "feature:spawn-agents:surface-smoke-acceptance-rule-in-planner-flow"
   - urn: "feature:spawn-agents:shim-popen-env-var-prefix-fix"
-  - urn: "feature:spawn-agents:coach-spawn-detector-process-alive"
-  - urn: "feature:spawn-agents:shim-runtime-dir-absolute-path"
   - urn: "feature:spawn-agents:claude-md-slim-and-debanner"
   - urn: "feature:spawn-agents:launch-prompt-wagon-graph-context"
 
@@ -147,7 +145,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 42
+  total: 36
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -172,12 +170,6 @@ wmbt:
   R001: "minimize likelihood of deny-pattern-bash-invocations-handled-via-in-band-modal-or-unrouted-escalation"
   E015: "minimize likelihood of planner-agent-commits-planned-without-verifying-smoke-acceptance-coverage"
   E016: "minimize likelihood of shell-style-env-prefix-injected-into-shim-argv-causing-popen-exec-failure"
-  E017: "minimize likelihood of coach-spawn-shim-command-resolves-to-wrong-atdd-installation-on-multi-install-hosts"
-  E018: "minimize likelihood of coach-spawn-stage-detector-reports-success-when-spawned-process-has-already-crashed"
-  E019: "minimize likelihood of shim-runtime-dir-relative-path-bleeds-into-worktree-cwd-at-build-shim-command"
-  E020: "minimize likelihood of persona-shim-operates-with-relative-runtime-dir-if-future-caller-bypasses-primary-fix"
-  E021: "minimize likelihood of process-alive-timeout-mislabels-cwd-bleed-path-mismatch-as-silent-shim-crash"
-  L002: "minimize likelihood of relative-runtime-root-causes-output-log-to-land-at-worktree-path-instead-of-coach-polled-path"
   E022: "minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-to-dispatched-agents"
   E023: "minimize quantity of claude-md-lines-exceeding-worker-context-budget"
   E024: "minimize likelihood of operator-emergency-bypass-mechanism-documented-as-copy-pasteable-env-var-in-agent-readable-context"

@@ -2,13 +2,12 @@ urn: "feature:govern-lifecycle:smoke-false-green-prevention"
 wagon: "wagon:govern-lifecycle"
 description: "Audit every phase:SMOKE acceptance by structural false-green cause, extend smoke.convention.yaml with three anti-pattern rules, implement a planner-side synthetic-fixture-bypass validator, and retrofit the two lived-incident SMOKE tests (test_e003_smoke_001, test_e003_smoke_002) to drive the real atdd spawn entry point. Addresses the systemic pattern identified in #855 where four production bugs shipped through green-SMOKE during 2026-05-21 → 2026-05-24."
 sizing:
-  wmbts: 5
+  wmbts: 4
   footprint_score: 7
   footprint_size: "M"
 wmbts:
   - "wmbt:govern-lifecycle:E027"
   - "wmbt:govern-lifecycle:E028"
-  - "wmbt:govern-lifecycle:E029"
   - "wmbt:govern-lifecycle:L002"
   - "wmbt:govern-lifecycle:M002"
 components:
