@@ -2,10 +2,15 @@
 
 docs/coach-decomposition.md §4.8 / §13.6. Owns worker spawn (shim), prompt
 delivery, ready detection, the correction inbox, stdin forwarding, agent done
-signals, and transport selection. **cli-return is the default control plane**
-— the screen-scrape (tui-scrape) path is the deprecated fallback behind the
-``ATDD_USE_LEGACY_SPAWN=1`` kill switch. Making cli-return the default closes
-the #840 / #871 / #872 cluster.
+signals, and transport selection. **cmux-native is the default launch plane**
+(#978): cmux opens the surface running the agent and the agent's positional
+prompt seeds AND auto-submits the first turn. ``ATDD_USE_LEGACY_SPAWN=1`` (the
+kill switch) routes to the shim (cli-return / ``ShimAgentController``) — the
+proven prior launch path, kept as the soak fallback until the shim is deleted
+(#979). The screen-scrape (tui-scrape) path remains reachable only via an
+explicit ``ATDD_CORRECTION_TRANSPORT=tui-scrape`` override. The shim default
+closed the #840 / #871 / #872 cluster; cmux-native retires the cold-start
+heartbeat flake and the #950 submit-sentinel bug from the launch path.
 
 Dependency rule (§3.3): this layer imports stdlib (+ subprocess) only. It MUST
 NOT import ``atdd.coach.*``, ``atdd.train.*``, ``atdd.integrations.*``, or
@@ -43,6 +48,7 @@ __all__ = [
     "PersonaShim",
     "resolve_transport",
     "DEFAULT_TRANSPORT",
+    "SHIM_TRANSPORT",
     "LEGACY_TRANSPORT",
     "LEGACY_SPAWN_ENV",
     "ForbiddenLaunchFlagError",
@@ -94,7 +100,8 @@ def assert_no_forbidden_launch_flags(argv: Sequence[str]) -> None:
 
 # --- transport selection -------------------------------------------------
 
-DEFAULT_TRANSPORT = "cli-return"
+DEFAULT_TRANSPORT = "cmux-native"
+SHIM_TRANSPORT = "cli-return"
 LEGACY_TRANSPORT = "tui-scrape"
 LEGACY_SPAWN_ENV = "ATDD_USE_LEGACY_SPAWN"
 _LEGACY_OVERRIDE_ENV = "ATDD_CORRECTION_TRANSPORT"  # back-compat explicit override
@@ -108,17 +115,22 @@ def resolve_transport(env: Optional[Mapping[str, str]] = None) -> str:
     Precedence (most-specific first):
 
     1. An explicit ``ATDD_CORRECTION_TRANSPORT`` value (forward opt-in / test
-       override) wins — including ``cli-return``.
-    2. ``ATDD_USE_LEGACY_SPAWN=1`` (the kill switch) routes back to the
-       pre-extraction screen-scrape path.
-    3. Otherwise cli-return — the DEFAULT control plane.
+       override) wins — including ``cmux-native``, ``cli-return`` and the
+       deprecated ``tui-scrape``.
+    2. ``ATDD_USE_LEGACY_SPAWN=1`` (the kill switch) routes to the shim
+       (``cli-return`` / ``ShimAgentController``) — the proven prior launch
+       path kept as the soak fallback for #978.
+    3. Otherwise ``cmux-native`` — the DEFAULT launch plane (#978): cmux opens
+       the surface running the agent and the positional prompt seeds AND
+       auto-submits the first turn (no pty shim, no cli-return inbox, no submit
+       sentinel; decisions ride the cmux Feed hooks).
     """
     env = os.environ if env is None else env
     override = str(env.get(_LEGACY_OVERRIDE_ENV, "")).strip().lower()
     if override:
         return override
     if str(env.get(LEGACY_SPAWN_ENV, "")).strip().lower() in _TRUEY:
-        return LEGACY_TRANSPORT
+        return SHIM_TRANSPORT
     return DEFAULT_TRANSPORT
 
 
