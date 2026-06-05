@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:cmux-native-worker-launcher"
+wagon: "wagon:govern-lifecycle"
+description: "Adds a CmuxAgentController that launches a worker via cmux new-workspace --command, seeding the first turn with the agent's positional prompt (prompt-before-flags) and relying on the cmux wrapper's Feed hooks for decision communication — retiring the pty shim, cli-return inbox, output.log heartbeat and submit sentinel from the launch path (#978). Full shim deletion is #979."
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E043"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — the new controller is consumed by the existing spawn path; CLI wiring lands with the kill-switch soak"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "CmuxAgentController implements the AgentController protocol (launch + seed + signal) via the cmux CLI"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "Pure launch-argv builders (build_agent_seed_argv, build_cmux_launch_argv) — prompt-first ordering is the load-bearing rule"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "Default cmux subprocess runner (injectable for hermetic tests)"
