@@ -1692,3 +1692,14 @@ sessions:
   train: null
   branch: feat/feed-reply-resolves-item-but-worker-tui-not-advanced
   worktree: /Users/alecfokapu/Github/atdd/feat-feed-reply-worker-advance
+- id: '971'
+  slug: retire-spawn-leash-surface-decisions-to-feed
+  file: null
+  issue_number: 971
+  type: implementation
+  status: PLANNED
+  created: '2026-06-05'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:surface-worker-decisions
+  train: 0002-coach-drives-lifecycle
