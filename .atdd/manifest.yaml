@@ -1657,3 +1657,14 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:cmux-native-worker-launcher
   train: 0001-self-compliance-validate
+- id: '981'
+  slug: feed-daemon-mediates-permission-requests
+  file: null
+  issue_number: 981
+  type: implementation
+  status: GREEN
+  created: '2026-06-05'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:bridge-cmux-feed
+  train: 0002-coach-drives-lifecycle

@@ -33,6 +33,33 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "bridge-cmux-feed"
   - identity:
+      urn: "acc:mediate-worker-decisions:C003-UNIT-002-dangerous-permission-policy-deny-or-escalate"
+      id: "AC-UNIT-002"
+      purpose: "A dangerous permission is NEVER auto-approved and the coach is never consulted; under the deny policy it is actively denied via feed.permission.reply {mode: deny} and escalated, under the escalate policy no reply is sent and it is escalated (#981)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A dangerous permission feed item (tool_input 'rm -rf /')"
+        - "A FeedRunnerUseCase configured with the deny policy, and one with the escalate policy"
+    when:
+      abstract: "The runner handles the dangerous item under each policy"
+      action: "invoke"
+    then:
+      abstract:
+        - "Under deny: exactly one feed.permission.reply with mode 'deny' is delivered and an escalation is recorded"
+        - "Under escalate: no reply is delivered and an escalation is recorded"
+        - "The coach is never consulted for the dangerous item under either policy"
+      assertions:
+        - type: "equality"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
       urn: "acc:mediate-worker-decisions:C003-INTEGRATION-001-no-reply-for-dangerous"
       id: "AC-INTEGRATION-001"
       purpose: "A dangerous permission item produces an escalation and NO feed reply is sent"

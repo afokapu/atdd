@@ -12,6 +12,10 @@ request_id + selections; a permission-kind auto_apply verdict yields
 """
 from __future__ import annotations
 
+from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import (
+    PERMISSION,
+    QUESTION,
+)
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_reply_mapper import (
     plan_reply,
 )
@@ -27,7 +31,7 @@ def test_question_verdict_yields_question_reply():
         selected_option_id="Alpha", reason="ok",
     )
 
-    plan = plan_reply(verdict, kind="question")
+    plan = plan_reply(verdict, kind=QUESTION)
 
     assert plan.verb == "feed.question.reply"
     assert plan.params["request_id"] == "req-q"
@@ -41,8 +45,9 @@ def test_permission_verdict_yields_permission_reply():
         selected_option_id=None, reason="ok",
     )
 
-    plan = plan_reply(verdict, kind="permission")
+    plan = plan_reply(verdict, kind=PERMISSION)
 
     assert plan.verb == "feed.permission.reply"
     assert plan.params["request_id"] == "req-p"
-    assert plan.params["decision"] == "once"
+    # cmux requires ``mode`` (not ``decision``) ∈ once|always|all|bypass|deny (#980/#981).
+    assert plan.params["mode"] == "once"

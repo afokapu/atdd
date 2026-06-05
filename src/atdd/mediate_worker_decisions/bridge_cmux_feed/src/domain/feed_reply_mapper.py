@@ -27,7 +27,22 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import 
 )
 from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import Verdict
 
+# cmux feed.permission.reply requires a ``mode`` ∈ once|always|all|bypass|deny
+# (verified live 2026-06-05, #980 — NOT ``decision``). ``once`` allows the action
+# this time; ``deny`` blocks it (the worker reports "denied via cmux Feed").
 PERMISSION_ALLOW = "once"
+PERMISSION_DENY = "deny"
+
+# Coach policy for a dangerous permission request (#981). A dangerous action is
+# NEVER auto-approved; the policy chooses how it is resolved without a human reply:
+#   ESCALATE — no auto-reply; surface to a human who allows/denies via the Feed
+#              (the worker may fall through to its in-TUI prompt after the 120s
+#              soft-wait if nobody answers — fine for supervised runs).
+#   DENY     — actively deny via the Feed so the action is blocked NOW and the
+#              worker never stalls (the autonomous-safe default for the daemon),
+#              with the escalation still recorded for human visibility.
+DANGEROUS_ESCALATE = "escalate"
+DANGEROUS_DENY = "deny"
 
 
 def plan_reply(verdict: Verdict, kind: str) -> FeedReplyPlan:
@@ -36,7 +51,7 @@ def plan_reply(verdict: Verdict, kind: str) -> FeedReplyPlan:
     if kind == PERMISSION:
         return FeedReplyPlan(
             verb="feed.permission.reply",
-            params={"request_id": verdict.request_id, "decision": PERMISSION_ALLOW},
+            params={"request_id": verdict.request_id, "mode": PERMISSION_ALLOW},
         )
     if kind == EXIT_PLAN:
         return FeedReplyPlan(
@@ -44,6 +59,19 @@ def plan_reply(verdict: Verdict, kind: str) -> FeedReplyPlan:
             params={"request_id": verdict.request_id},
         )
     raise ValueError(f"unknown feed item kind: {kind!r}")
+
+
+def plan_permission_deny(request_id: str) -> FeedReplyPlan:
+    """DENY a dangerous permission request via ``feed.permission.reply {mode: deny}``.
+
+    The coach's autonomous policy can block a dangerous action immediately (the
+    worker reports it was denied via the cmux Feed, #980) instead of leaving it to
+    the 120s soft-wait fall-through to the worker's in-TUI prompt. A dangerous
+    action is never auto-APPROVED — only denied or escalated to a human."""
+    return FeedReplyPlan(
+        verb="feed.permission.reply",
+        params={"request_id": request_id, "mode": PERMISSION_DENY},
+    )
 
 
 def _question_reply(verdict: Verdict) -> FeedReplyPlan:

@@ -25,6 +25,9 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item_mapper 
     map_feed_item,
 )
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_reply_mapper import (
+    DANGEROUS_DENY,
+    DANGEROUS_ESCALATE,
+    plan_permission_deny,
     plan_reply,
 )
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.tool_input_safety import (
@@ -60,12 +63,18 @@ class FeedRunnerUseCase:
         coach: Coach,
         id_factory: Callable[[], str],
         ts_factory: Callable[[], str],
+        dangerous_permission_policy: str = DANGEROUS_ESCALATE,
     ) -> None:
         self._source = source
         self._reply = reply
         self._coach = coach
         self._id = id_factory
         self._ts = ts_factory
+        # How a dangerous PERMISSION request is resolved without a human (#981).
+        # Default ESCALATE preserves the supervised human-in-the-loop behavior;
+        # the autonomous daemon passes DENY so a dangerous action is blocked
+        # immediately rather than stalling the worker at the 120s soft-wait.
+        self._dangerous_policy = dangerous_permission_policy
 
     def run_once(self) -> List[FeedOutcome]:
         """Locate every pending item and handle each."""
@@ -73,9 +82,8 @@ class FeedRunnerUseCase:
 
     def handle(self, item: FeedItem) -> FeedOutcome:
         # Safety gate FIRST for tool-use kinds (WMBT C003) — before the coach.
-        if item.kind in (PERMISSION, EXIT_PLAN):
-            if classify(item.tool_input or "") == HUMAN_REQUIRED:
-                return self._escalate(item.request_id)
+        if item.kind in (PERMISSION, EXIT_PLAN) and classify(item.tool_input or "") == HUMAN_REQUIRED:
+            return self._resolve_dangerous_tool_use(item)
 
         request = map_feed_item(item)
 
@@ -89,6 +97,20 @@ class FeedRunnerUseCase:
         verdict = self._coach.mediate(request)
         self._reply.deliver(plan_reply(verdict, kind=item.kind))
         return FeedOutcome(request_id=item.request_id, verdict=verdict)
+
+    def _resolve_dangerous_tool_use(self, item: FeedItem) -> FeedOutcome:
+        """Resolve a tool use the safety gate flagged dangerous (WMBT C003).
+
+        A dangerous action is NEVER auto-approved and the coach is never consulted.
+        The coach policy resolves it without a human reply: under ``deny`` the
+        PERMISSION request is actively denied via the Feed (autonomous-safe — no
+        120s soft-wait stall); under ``escalate`` no reply is sent and a human
+        decides. Either way the escalation is recorded. Only a PERMISSION item has
+        a deny-reply shape; EXIT_PLAN escalates only.
+        """
+        if item.kind == PERMISSION and self._dangerous_policy == DANGEROUS_DENY:
+            self._reply.deliver(plan_permission_deny(item.request_id))
+        return self._escalate(item.request_id)
 
     def _escalate(self, request_id: str) -> FeedOutcome:
         return FeedOutcome(

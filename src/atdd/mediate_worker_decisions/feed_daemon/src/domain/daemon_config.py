@@ -23,3 +23,9 @@ class DaemonConfig:
     poll_interval_s: float = 2.0
     coach_provider: str = "claude"
     coach_model: Optional[str] = None
+    # How a dangerous tool-use permission is resolved without a human (#981):
+    # ``escalate`` (default) keeps the human-in-the-loop C004 contract — the
+    # daemon never auto-answers a dangerous action; ``deny`` actively blocks it
+    # via the Feed so a fully-unattended worker is never stalled at the 120s
+    # soft-wait. Either way the escalation is recorded for human visibility.
+    dangerous_permission_policy: str = "escalate"

@@ -85,6 +85,12 @@ def build_feed_daemon_from_repo(*, config: DaemonConfig) -> FeedDaemonUseCase:  
         source=source,
         reply=CmuxFeedTransport(),
         coach=LlmCoach(provider=config.coach_provider, model=config.coach_model),
+        # #981 policy knob: default ESCALATE keeps the C004 human-in-the-loop
+        # contract (the live daemon never auto-answers a dangerous action). An
+        # operator running fully unattended sets ``dangerous_permission_policy:
+        # deny`` so a dangerous tool-use is blocked immediately instead of
+        # stalling the worker at the 120s soft-wait.
+        dangerous_permission_policy=config.dangerous_permission_policy,
     )
     answered = AnsweredSet(
         read_handled_request_ids(config.verdicts_path, config.escalations_path)

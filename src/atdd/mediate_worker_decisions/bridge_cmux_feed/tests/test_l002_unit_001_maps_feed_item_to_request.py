@@ -45,7 +45,7 @@ def test_permission_item_exposes_tool_input_for_safety_gate():
     item = FeedItem(
         id="f2",
         request_id="req-p",
-        kind="permission",
+        kind="permissionRequest",
         question_prompt=None,
         question_options=(),
         tool_name="Bash",
