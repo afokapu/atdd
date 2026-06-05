@@ -814,7 +814,7 @@ def _inject_agent_env(
 
 
 # ---------------------------------------------------------------------------
-# E004 (#841): PersonaShim wiring helpers
+# Transport dispatch helpers (cmux-native + tui-scrape override)
 # ---------------------------------------------------------------------------
 
 
@@ -1370,9 +1370,9 @@ def cmd_spawn(
     # (claude-code today; codex / gemini / glm later) inherits it for free.
     # Without this the spawned persona has no ATDD_AGENT_ID and every
     # `atdd agent` subcommand fails closed, stalling the coach.
-    # #731 / #854 Shape A: _inject_agent_env returns (env_overrides, command).
-    # - cli-return path: env_overrides passed via --env flags to atdd-shim
-    # - shell/multiplexer path: reconstruct KEY=value prefix for shell dispatch
+    # #731 / #854 Shape A: _inject_agent_env returns (env_overrides, command);
+    # the dispatch path reconstructs a KEY=value shell prefix for the surface
+    # command (_prepend_env_prefix).
     env_overrides, command = _inject_agent_env(command, agent_id)
 
     # Transport dispatch (#978, E043). Two launch shapes (the legacy cli-return
