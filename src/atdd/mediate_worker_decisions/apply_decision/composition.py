@@ -64,11 +64,11 @@ def build_apply_use_case(
 def build_apply_use_case_from_repo(
     repo_root: Optional[Path] = None,
 ) -> ApplyDecisionUseCase:  # pragma: no cover - exercised by live smoke
-    from atdd.runtime.agent_control import ShimAgentController
+    from atdd.runtime.agent_control import CmuxAgentController
 
     root = Path(repo_root or Path.cwd())
     return build_apply_use_case(
-        applier=AgentControlApplier(ShimAgentController()),
+        applier=AgentControlApplier(CmuxAgentController()),
         ledger=JsonlDecisionLedger(root / ".atdd" / "decision" / "decisions.jsonl"),
         guard=InMemoryAppliedGuard(),
     )

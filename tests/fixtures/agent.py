@@ -1,10 +1,11 @@
 """``FakeAgent`` — in-memory stand-in for the agent-control layer.
 
-The real worker spawns a persona via the shim, does the phase's work, and calls
+The real worker spawns a persona cmux-native, does the phase's work, and calls
 ``atdd agent done``. The parity test only needs the *signal*: a per-issue queue
 of "the current phase's work is finished" markers. ``LocalDryRunRunner`` consumes
 one marker per phase advance, so the test drives the lifecycle deterministically
-without any subprocess. The real ``ShimAgentController`` ships in Child 6.
+without any subprocess. The real ``CmuxAgentController`` lives in
+``atdd.runtime.agent_control``.
 """
 from __future__ import annotations
 

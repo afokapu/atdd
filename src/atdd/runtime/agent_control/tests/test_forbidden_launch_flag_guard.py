@@ -22,7 +22,6 @@ import pytest
 
 from atdd.runtime.agent_control import (
     ForbiddenLaunchFlagError,
-    ShimAgentController,
     assert_no_forbidden_launch_flags,
 )
 
@@ -46,20 +45,7 @@ def test_guard_allows_clean_policy_argv():
     )
 
 
-def test_default_command_argv_passes_its_own_guard(make_spec):
-    """The default command the controller builds is self-consistent with the guard."""
-    controller = ShimAgentController()
-    cmd = controller._default_command(make_spec(permission_mode="acceptEdits"))
-    # Must not raise.
-    assert_no_forbidden_launch_flags(cmd)
-
-
-def test_spawn_rejects_caller_command_with_forbidden_flag(make_spec):
-    """A caller-injected agent_command carrying the forbidden flag is refused at
-    the launch boundary — the gap that let the contradiction slip through."""
-    controller = ShimAgentController()
-    with pytest.raises(ForbiddenLaunchFlagError):
-        controller.spawn(
-            make_spec(),
-            agent_command=["claude", "--dangerously-skip-permissions"],
-        )
+# The launch-boundary integration of this guard (a forbidden flag refused before
+# a worker is launched) is now exercised on the sole cmux-native launch path in
+# test_e043_unit_001_cmux_native_launch_seed.py; the legacy ShimAgentController
+# spawn/default-command coverage was retired with the shim in #979.

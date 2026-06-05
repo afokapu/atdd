@@ -279,18 +279,20 @@ def test_i8_decision_durable_even_if_body_raises(tmp_path):
 #        #884; here we pin the runtime mechanism that delivers it.
 # --------------------------------------------------------------------------- #
 def test_i10_env_overrides_threaded_into_dispatch(tmp_path):
-    from atdd.runtime.agent_control import DispatchSpec, ShimAgentController
+    from atdd.coach.commands.spawn import _prepend_env_prefix
+    from atdd.runtime.agent_control import DispatchSpec
 
-    controller = ShimAgentController(runtime_dir=tmp_path)
     shimmed_path = f"{tmp_path / '.atdd' / 'bin'}{os.pathsep}/usr/bin"
-    cmd = controller.build_dispatch_command(
-        "claude --dangerously-skip-permissions",
-        agent_id="agent-1",
-        runtime_root=tmp_path,
-        env_overrides={"PATH": shimmed_path},
+    # #979: the legacy shim --env delivery was removed; the sole cmux-native
+    # launch plane threads DispatchSpec.env_overrides into the surface command
+    # as a shell KEY=value prefix (_prepend_env_prefix), so the git PATH shim
+    # still reaches the worker process.
+    cmd = _prepend_env_prefix(
+        "claude --permission-mode default",
+        {"PATH": shimmed_path},
     )
-    assert "--env" in cmd and "PATH=" in cmd, (
-        "DispatchSpec.env_overrides must reach the worker as --env (I-10)"
+    assert cmd.startswith("PATH="), (
+        "DispatchSpec.env_overrides must reach the worker as a shell prefix (I-10)"
     )
     assert ".atdd/bin" in cmd, "the shimmed PATH (.atdd/bin first) must be delivered (I-10)"
 
@@ -304,7 +306,7 @@ def test_i10_env_overrides_threaded_into_dispatch(tmp_path):
         output_log=tmp_path / "output.log",
         runtime_dir=tmp_path,
         env_overrides={"PATH": shimmed_path},
-        transport="cli-return",
+        transport="cmux-native",
         permission_mode="default",
         allowed_tools=(),
     )

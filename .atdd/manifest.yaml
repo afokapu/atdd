@@ -1668,3 +1668,14 @@ sessions:
   wagon: mediate-worker-decisions
   feature: feature:mediate-worker-decisions:bridge-cmux-feed
   train: 0002-coach-drives-lifecycle
+- id: '979'
+  slug: decommission-legacy-shim-and-spawn-transport
+  file: null
+  issue_number: 979
+  type: cleanup
+  status: PLANNED
+  created: '2026-06-05'
+  archived: null
+  wagon: govern-lifecycle
+  feature: null
+  train: 0001-self-compliance-validate
