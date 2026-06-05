@@ -85,7 +85,6 @@ def _run_cmd_spawn(tmp_path, multiplexer, monkeypatch):
         patch("atdd.coach.utils.config.load_atdd_config", return_value=MagicMock()),
         # Isolate the command-building / priming assertions from liveness +
         # the legacy paste readiness stages.
-        patch("atdd.coach.commands.spawn._verify_process_alive"),
         patch("atdd.coach.commands.spawn._verify_cmux_surface_alive"),
         patch("atdd.coach.commands.spawn.SurfaceMarkerProbe.wait_for_ready"),
         patch("atdd.coach.commands.spawn._verify_stage"),
@@ -103,13 +102,18 @@ def _run_cmd_spawn(tmp_path, multiplexer, monkeypatch):
     return runtime
 
 
-def test_resolve_transport_default_is_cmux_native_killswitch_is_shim():
+def test_resolve_transport_default_is_cmux_native_killswitch_retired():
     from atdd.runtime.agent_control import resolve_transport
 
     assert resolve_transport({}) == "cmux-native"
-    assert resolve_transport({"ATDD_USE_LEGACY_SPAWN": "1"}) == "cli-return"
-    # An explicit override still wins (incl. the deprecated direct path).
+    # #979: the ATDD_USE_LEGACY_SPAWN kill switch was retired with the shim — it
+    # no longer routes to cli-return; cmux-native is unconditional.
+    assert resolve_transport({"ATDD_USE_LEGACY_SPAWN": "1"}) == "cmux-native"
+    # An explicit override still wins (incl. the deprecated direct paste path)...
     assert resolve_transport({"ATDD_CORRECTION_TRANSPORT": "tui-scrape"}) == "tui-scrape"
+    # ...except the now-defunct cli-return (still used by the deferred observer
+    # for mid-run corrections), which falls through to cmux-native for launch.
+    assert resolve_transport({"ATDD_CORRECTION_TRANSPORT": "cli-return"}) == "cmux-native"
 
 
 def test_default_spawn_seeds_positional_prompt_no_shim_no_inbox_no_paste(tmp_path, monkeypatch):
@@ -147,22 +151,19 @@ def test_default_spawn_seeds_positional_prompt_no_shim_no_inbox_no_paste(tmp_pat
     assert fake_mx.paste_calls == [], f"cmux-native must not paste: {fake_mx.paste_calls!r}"
 
 
-def test_killswitch_routes_to_shim_and_primes_inbox(tmp_path, monkeypatch):
-    """ATDD_USE_LEGACY_SPAWN=1 → the shim (cli-return): the surface command IS the
-    shim wrapper and the cli-return inbox is primed with the launch prompt."""
+def test_killswitch_retired_still_routes_cmux_native(tmp_path, monkeypatch):
+    """#979: ATDD_USE_LEGACY_SPAWN=1 no longer routes to the (deleted) shim — the
+    spawn still goes cmux-native: positional seed, no shim wrap, no cli-return
+    inbox, no paste."""
     monkeypatch.delenv("ATDD_CORRECTION_TRANSPORT", raising=False)
     monkeypatch.setenv("ATDD_USE_LEGACY_SPAWN", "1")
     fake_mx = _FakeMultiplexer()
     runtime = _run_cmd_spawn(tmp_path, fake_mx, monkeypatch)
 
     surface_cmd = fake_mx.surface_commands[-1]
-    assert "atdd.coach.shim" in surface_cmd, (
-        f"ATDD_USE_LEGACY_SPAWN=1 must wrap the command in the shim. Got: {surface_cmd!r}"
-    )
+    assert "atdd.coach.shim" not in surface_cmd, surface_cmd
+    assert _SEED in shlex.split(surface_cmd), surface_cmd
 
     inbox = runtime / "agents" / "coder-978-002" / "cli-return.jsonl"
-    assert inbox.exists(), "the shim path must prime the cli-return inbox"
-    rows = [json.loads(ln) for ln in inbox.read_text().splitlines() if ln.strip()]
-    assert any(_SEED in (r.get("correction_text") or "") for r in rows), rows
-    # The shim path delivers via the inbox, not a paste.
+    assert not inbox.exists(), "the retired kill switch must not prime a cli-return inbox"
     assert fake_mx.paste_calls == []
