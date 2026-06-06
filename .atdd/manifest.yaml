@@ -1684,7 +1684,7 @@ sessions:
   file: null
   issue_number: 986
   type: fix
-  status: GREEN
+  status: SMOKE
   created: '2026-06-06'
   archived: null
   wagon: mediate-worker-decisions
