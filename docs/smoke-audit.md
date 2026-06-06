@@ -9,10 +9,10 @@ Classification of `# Phase: SMOKE` acceptance tests against real-infrastructure 
 | acc:mediate-worker-decisions:E005-SMOKE-001-live-restart-no-double-answer | real (live cmux + claude worker) | restart re-hydrates answered-set, no double answer/escalation | daemon restart → verdicts.jsonl + escalations.jsonl re-hydration | #966; live blocked on #967 |
 | acc:mediate-worker-decisions:D002-SMOKE-001-live-second-instance-refused | real (daemon subprocess + pidfile) | second daemon instance refused by PidfileLock | N/A (single component) | #966 (real process smoke, passes) |
 | acc:mediate-worker-decisions:R002-SMOKE-001-live-sigterm-clean-shutdown | real (daemon subprocess) | SIGTERM exits the poll loop and releases the pidfile | N/A (single component) | #966 (real process smoke, passes) |
-| acc:mediate-worker-decisions:E008-SMOKE-001-live-spawned-worker-decision-appears-blocked-in-feed | real (live cmux + toolkit-spawned claude worker) | a blocking decision appears as a pending item in cmux feed.list | spawn → worker decides → cmux Feed → feed.list | #967 producer; live blocked on spawn-agents leash retirement + adapter wiring (#NEW) |
-| acc:mediate-worker-decisions:C006-SMOKE-001-live-bash-decision-surfaces-not-auto-executed | real (live cmux + toolkit-spawned claude worker) | a Bash command surfaces as a pending kind=permission item (command in tool_input), not auto-executed | spawn → worker Bash → cmux Feed → feed.list | #967 producer; live blocked on spawn-agents leash retirement + adapter wiring (#NEW) |
-| acc:mediate-worker-decisions:Y002-SMOKE-001-live-worker-launch-argv-matches-policy | real (live toolkit-spawned claude worker) | captured launch argv has policy auto_allow in --allowedTools, Bash + bypass flag absent | spawn → DispatchSpec values → claude argv | #967 producer; live blocked on spawn-agents leash retirement + adapter wiring (#NEW) |
-| acc:mediate-worker-decisions:L004-SMOKE-001-live-worker-has-active-feed-hook | real (live toolkit-spawned claude worker under cmux wrapper) | CMUX_SURFACE_ID set, live socket, PermissionRequest→cmux hooks feed injected in --settings | spawn → cmux wrapper → injected hook | #967 producer; live blocked on spawn-agents leash retirement + adapter wiring (#NEW) |
+| acc:mediate-worker-decisions:E008-SMOKE-001-live-spawned-worker-decision-appears-blocked-in-feed | real (live cmux + claude worker via the production launch builders; no mocks) | a blocking decision appears as a pending item in cmux feed.list | spawn (claude-code adapter + _build_cmux_native_command, Bash-free) → worker decides → cmux wrapper hook → feed.list | #971 (live verified 2026-06-06; leash retired, evidence below) |
+| acc:mediate-worker-decisions:C006-SMOKE-001-live-bash-decision-surfaces-not-auto-executed | real (live cmux + claude worker via the production launch builders; no mocks) | a Bash command surfaces as a pending kind=permissionRequest item (command in tool_input), not auto-executed | spawn → worker Bash → cmux wrapper hook → feed.list | #971 (live verified 2026-06-06; deny-pattern `rm` surfaces pending while safe `echo` auto-approves — evidence below) |
+| acc:mediate-worker-decisions:Y002-SMOKE-001-live-worker-launch-argv-matches-policy | real (live toolkit-spawned claude worker via production builders) | captured launch argv has policy auto_allow in --allowedTools, Bash + bypass flag absent | spawn → DecisionSurfacingPolicy values → claude argv | #971 (live verified 2026-06-06; argv has `Read Edit Write TodoWrite Glob Grep WebFetch`, no Bash/bypass — evidence below) |
+| acc:mediate-worker-decisions:L004-SMOKE-001-live-worker-has-active-feed-hook | real (live toolkit-spawned claude worker under cmux wrapper) | CMUX_SURFACE_ID set, live socket, PermissionRequest→cmux hooks feed active (proven by a real published item) | spawn → cmux wrapper → injected hook → feed.list | #971 (live verified 2026-06-06; worker's published permissionRequest confirms the hook path was live — evidence below) |
 | acc:mediate-worker-decisions:L003-SMOKE-001-live-multi-question-located-whole | real (live cmux + claude worker) | a 3-question item located as a 3-block document, not flattened | worker → cmux Feed (questions[]) → feed_item_mapper → DecisionDocument | #976 (live; top-level cmux+claude publishes AskUserQuestion to the Feed, passes) |
 | acc:mediate-worker-decisions:E006-SMOKE-001-live-decider-answers-whole-doc | real (live cmux + claude worker, real LlmCoach over claude -p) | verdict carries a non-empty answer for every block | DecisionDocument → LlmCoach (claude -p) → DecisionAnswer | #976 (live; real LLM decider, passes) |
 | acc:mediate-worker-decisions:E007-SMOKE-001-live-multi-question-all-answered | real (live cmux + claude worker, real LlmCoach) | flat selections covering every question (checkbox incl.) resolves the item, worker proceeds | worker → cmux Feed → bridge → feed.question.reply (flat selections) | #976 (live headline; cmux feed.question.reply takes flat selections:[label], verified, passes) |
@@ -62,6 +62,51 @@ worker's activity **published to `feed.list` with `source=claude`**, i.e. the
 cmux wrapper's Feed hooks fired **without** the shim. `sessionStart` alone is
 explicitly rejected by the smoke (would prove only boot, not auto-submit), so the
 green is not a #855-style fake.
+
+## #971 producer live evidence (E008 / C006 / Y002 / L004-SMOKE-001, 2026-06-06)
+
+The headline proof that retiring the leash makes a spawned worker's ungated
+tool use surface to the Feed. Captured against real cmux + claude inside a cmux
+session via the production launch builders (the `claude-code` adapter — now
+Bash-free — composed with `spawn._build_cmux_native_command`), e.g.
+`ATDD_LIVE_SMOKE=1 PYTHONPATH=src <venv> -m pytest -s
+src/atdd/mediate_worker_decisions/surface_worker_decisions/tests/test_c006_smoke_001_live_bash_decision_surfaces_not_auto_executed.py`
+(`1 passed in 12.36s`).
+
+Launch command (Y002 — argv is the exact image of the policy, **Bash absent**):
+
+```
+claude 'Use the Bash tool to run exactly this command and nothing else: rm -rf /private/tmp/SMOKE971-...-does-not-exist' \
+       --permission-mode acceptEdits \
+       --allowedTools 'Read Edit Write TodoWrite Glob Grep WebFetch'
+```
+
+The worker's Bash command surfaced as a **pending `permissionRequest`** in
+`cmux rpc feed.list` (C006 / E008), instead of auto-executing:
+
+```json
+{
+  "kind": "permissionRequest",
+  "status": "pending",
+  "source": "claude",
+  "tool_name": "Bash",
+  "tool_input": "{\"command\":\"rm -rf /private/tmp/SMOKE971-b21be92a-does-not-exist\",\"description\":\"Remove nonexistent temp path\"}",
+  "request_id": "claude-...-PermissionRequest-Bash-1780740994225",
+  "cwd": "/private/tmp/smoke971-960b96",
+  "workstream_id": "claude-ffad241a-...",
+  "created_at": "2026-06-06T10:16:34Z"
+}
+```
+
+Contrast that proves the gate is real (not a #855 fake): a **safe** `echo`
+command run the same way published only `toolUse`/`status=telemetry` (Claude
+auto-approves it) and the worker ran to `stop` — whereas the **deny-pattern**
+`rm` blocked as a `pending` `permissionRequest`. The producer guarantees the
+decision reaches the Feed; the daemon's `tool_input_safety`/`match_danger` (C003
+/ C004) decides auto vs human_required. The published item also proves the
+Feed-publishing hook path was live for the worker (L004): `source=claude` +
+`request_id` exist only because the cmux wrapper's `PermissionRequest -> cmux
+hooks feed` hook fired. The workspace is closed after capture (no orphan panes).
 
 ## Histogram
 
