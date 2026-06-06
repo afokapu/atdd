@@ -14,6 +14,7 @@ parked worker proceeds. cmux specifics live here, behind the application's
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Callable, Optional, Tuple
 
@@ -22,6 +23,8 @@ from atdd.mediate_worker_decisions.commons.cmux_cli import run_cmux, strip_ansi
 
 _RESOLVED = "resolved"
 _EXPIRED = "expired"
+
+_log = logging.getLogger("atdd.mediate_worker_decisions.advance")
 
 
 class CmuxWorkerAdvance:
@@ -100,7 +103,15 @@ class CmuxWorkerAdvance:
                 self._run("tree", "--workspace", self._ws, "--json")
             ).strip()
             tree = json.loads(raw) if raw else {}
-        except (ValueError, OSError):
+        except (ValueError, OSError) as exc:
+            # Degrade, don't fail: cmux send-key falls back to the workspace's
+            # selected surface when no explicit surface is resolved. Log so a
+            # missing/garbled tree is visible rather than silently swallowed.
+            _log.warning(
+                "could not resolve worker surface; send-key will target the "
+                "selected surface",
+                extra={"workspace_id": self._ws, "error": repr(exc)},
+            )
             return None
         for window in tree.get("windows", []) or []:
             for workspace in window.get("workspaces", []) or []:
