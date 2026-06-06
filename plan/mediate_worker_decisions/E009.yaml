@@ -1,0 +1,135 @@
+urn: "wmbt:mediate-worker-decisions:E009"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "claiming-a-feed-reply-delivered-while-the-worker-stays-parked-on-its-tui-menu"
+context_clarifier: "a cmux feed.*.reply resolves the Feed item (delivered:true, no longer pending) but a cmux-native-launched worker's claude TUI can lose the race against its native interactive menu and stay parked — only a send-key advances it. The reply path (used by both the coach and the daemon) must VERIFY the worker actually advanced (the item reaches status resolved with a decision, NOT merely non-pending which includes the expired-but-stuck case), auto send-key the pre-highlighted selection as a fallback, re-verify, and escalate worker_stuck if still parked — never silently claim delivered"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of claiming a feed reply delivered while the worker stays parked on its tui menu"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:E009-UNIT-001-verified-advance-no-fallback"
+      id: "AC-UNIT-001"
+      purpose: "When the reply verifies the worker advanced, the outcome carries the verdict and no fallback or escalation occurs"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A pending question item and an auto_apply coach verdict"
+        - "A WorkerAdvance that confirms advanced on the first check"
+    when:
+      abstract: "The runner handles the item"
+      action: "invoke"
+    then:
+      abstract:
+        - "The reply is delivered exactly once"
+        - "The outcome carries the verdict with no escalation"
+        - "No send-key fallback (nudge) is issued"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E009-UNIT-002-fallback-advances-stuck-worker"
+      id: "AC-UNIT-002"
+      purpose: "When the worker is not advanced by the reply, the send-key fallback is issued and a re-verify that succeeds yields the verdict"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A pending question item and an auto_apply coach verdict"
+        - "A WorkerAdvance that reports not-advanced first, then advanced after the nudge"
+    when:
+      abstract: "The runner handles the item"
+      action: "invoke"
+    then:
+      abstract:
+        - "The send-key fallback (nudge) is issued exactly once for the item"
+        - "The outcome carries the verdict with no escalation"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E009-UNIT-003-still-stuck-escalates-worker-stuck"
+      id: "AC-UNIT-003"
+      purpose: "When the worker stays parked even after the send-key fallback, the outcome escalates worker_stuck and never claims a delivered verdict"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A pending question item and an auto_apply coach verdict"
+        - "A WorkerAdvance that reports not-advanced on every check"
+    when:
+      abstract: "The runner handles the item"
+      action: "invoke"
+    then:
+      abstract:
+        - "The send-key fallback is attempted"
+        - "The outcome carries an escalation with cause worker_stuck and no verdict"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E009-INTEGRATION-001-resolved-decision-is-the-oracle"
+      id: "AC-INTEGRATION-001"
+      purpose: "The cmux advance adapter treats status==resolved with a decision as advanced, and status==expired (non-pending but no decision) as not-advanced, and issues a send-key nudge to the worker workspace"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A fake cmux runner whose feed.list reports an item as resolved with a decision"
+        - "A fake cmux runner whose feed.list reports the same item as expired with no decision"
+    when:
+      abstract: "confirm_advanced is queried, and nudge is invoked"
+      action: "invoke"
+    then:
+      abstract:
+        - "The resolved+decision case confirms advanced (true)"
+        - "The expired/no-decision case reports not-advanced (false), never true on mere non-pending"
+        - "nudge issues a cmux send-key Enter targeting the worker workspace"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E009-SMOKE-001-worker-actually-proceeds-after-reply"
+      id: "AC-SMOKE-001"
+      purpose: "A real cmux-native worker actually proceeds after a Feed reply (not merely that the Feed item resolved), with a captured evidence artifact"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real Claude worker launched cmux-native and blocked on a live AskUserQuestion"
+    when:
+      abstract: "The bridge replies the coach verdict and, if needed, send-keys the pre-highlighted selection"
+      action: "invoke"
+    then:
+      abstract:
+        - "The worker's screen advances past the menu (evidence: screen-before parked, screen-after answered)"
+        - "The Feed item reaches resolved with a decision, never left expired-and-parked"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
