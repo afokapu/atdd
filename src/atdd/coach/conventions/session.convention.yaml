@@ -23,12 +23,19 @@ spawn_time:
     description: |
       Pre-grant the safe-tool allowlist via spawn-time flags so modals never
       fire for allowed tools. Implemented by ADAPTER_REGISTRY.permission_flags
-      and ADAPTER_REGISTRY.allowed_tools per adapter (E013, issue #829).
+      and ADAPTER_REGISTRY.allowed_tools per adapter (E013, issue #829). The
+      allowlist is the image of the DecisionSurfacingPolicy (#971): read/edit
+      tools are auto-allowed for autonomy; Bash (and the native AskUserQuestion /
+      ExitPlanMode decisions) are deliberately ABSENT so they surface to the cmux
+      Feed for the daemon to mediate, instead of being pre-authorized so the
+      Feed-publishing hook never fires (#967). The leash is retired.
     mechanism: "spawn-time CLI flags (--permission-mode acceptEdits --allowedTools ...)"
     claude_flags:
       - "--permission-mode acceptEdits"
-      - "--allowedTools \"Bash Edit Write Read TodoWrite Glob Grep WebFetch\""
-    invariant: "Modals MUST NOT fire for tools in the allowed_tools list."
+      - "--allowedTools \"Read Edit Write TodoWrite Glob Grep WebFetch\""
+    invariant: |
+      Modals MUST NOT fire for tools in the allowed_tools list; Bash MUST NOT be
+      in the list (it surfaces as a decision, never auto-executes — #971).
 
   leash_layer:
     description: |
