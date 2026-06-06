@@ -31,6 +31,27 @@ class FakeFeedSource:
         return list(self._items)
 
 
+class FakeWorkerAdvance:
+    """Scripts confirm_advanced/nudge for the verify→fallback→escalate path (E009).
+
+    ``results`` is the boolean returned by successive ``confirm_advanced`` calls
+    (the first is the post-reply check, the second the post-nudge re-verify). Any
+    calls beyond the scripted results default to False (still stuck).
+    """
+
+    def __init__(self, results):
+        self._results = list(results)
+        self.confirm_calls = 0
+        self.nudge_calls = []  # list[request_id]
+
+    def confirm_advanced(self, item):
+        self.confirm_calls += 1
+        return self._results.pop(0) if self._results else False
+
+    def nudge(self, item):
+        self.nudge_calls.append(item.request_id)
+
+
 class FakeCoach:
     """A coach that would auto-approve.
 

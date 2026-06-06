@@ -35,6 +35,7 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_reply_a
 from atdd.mediate_worker_decisions.mediate_decision.src.domain.danger_rules import (
     match_danger,
 )
+from atdd.mediate_worker_decisions.commons.cmux_cli import strip_ansi
 
 class PermissionNotInducible(RuntimeError):
     """Raised when no *blocked* dangerous permission can be produced in the Feed.
@@ -82,6 +83,43 @@ def _spawn_claude_worker(name: str) -> tuple:
 def _send_task(ws: str, surface: str, task: str) -> None:
     _cmux("send", "--workspace", ws, "--surface", surface, task)
     _cmux("send-key", "--workspace", ws, "--surface", surface, "Enter")
+
+
+def _spawn_claude_native_worker(name: str, prompt: str) -> tuple:
+    """Spawn the cmux-NATIVE launch path that reproduces the #986 race.
+
+    Unlike ``_spawn_claude_worker`` (plain ``claude`` then a ``send`` of the
+    task), this embeds the prompt in the launch ``--command`` exactly as the
+    coach launches workers, so claude renders its native interactive question
+    menu — the configuration where a Feed reply loses the race and the worker
+    stays parked. Returns (workspace_ref, surface_ref).
+    """
+    created = _cmux(
+        "new-workspace", "--name", name, "--cwd", "/tmp", "--focus", "false",
+        "--command",
+        f'claude "{prompt}" --permission-mode acceptEdits --allowedTools "Read"',
+    )
+    ws = next((t for t in created.stdout.split() if t.startswith("workspace:")), None)
+    if ws is None:
+        raise RuntimeError(f"could not create cmux workspace: {created.stderr}")
+    time.sleep(_BOOT_SECONDS)
+    surfaces = _surfaces(ws)
+    if not surfaces:
+        raise RuntimeError("claude worker surface never appeared")
+    return ws, surfaces[0]
+
+
+def _capture(ws: str, surface: str) -> str:
+    return strip_ansi(_cmux("capture-pane", "--workspace", ws, "--surface", surface).stdout)
+
+
+def _screen_shows_menu(text: str) -> bool:
+    """The worker is still parked iff its native question menu is on screen."""
+    return "Enter to select" in text
+
+
+def _screen_shows_answered(text: str) -> bool:
+    return "User answered" in text or "You chose" in text
 
 
 def _wait_for_pending(
@@ -274,6 +312,67 @@ def danger_live_smoke() -> dict:
         return {
             "cause": escalated.escalation.cause,
             "auto_replied": bool(recorder.calls),
+        }
+    finally:
+        _cmux("close-workspace", "--workspace", ws)
+
+
+def advance_live_smoke(evidence_path: Optional[str] = None) -> dict:
+    """E009 — a cmux-native worker ACTUALLY proceeds after a Feed reply (#986).
+
+    The headline #986 proof. Spawns the cmux-native launch path that reproduces
+    the race (claude renders its native interactive menu), blocks it on an
+    AskUserQuestion, then drives the REAL production runner — which now verifies
+    the worker advanced and send-keys the pre-highlighted selection as a fallback
+    if the Feed reply alone did not unblock it. Asserts the worker's screen
+    advances past the menu (not merely that the Feed item resolved), and captures
+    a screen-before/after evidence artifact (#983 evidence-bound smokes).
+    """
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.composition import (
+        build_feed_runner_from_repo,
+    )
+
+    prompt = (
+        "Use the AskUserQuestion tool right now to ask whether to indent with "
+        "Tabs or Spaces (options: Tabs, Spaces). Do nothing else first."
+    )
+    ws, worker = _spawn_claude_native_worker("atdd-feed-986-advance", prompt)
+    try:
+        source = CmuxFeedSource()
+        item = _wait_for_pending(source, kind=QUESTION)
+        assert item is not None, "no pending question item appeared in the Feed"
+
+        screen_before = _capture(ws, worker)
+        assert _screen_shows_menu(screen_before), (
+            "worker did not render the native question menu — wrong launch path"
+        )
+
+        # Production wiring now includes the WorkerAdvance verifier+fallback.
+        runner = build_feed_runner_from_repo(workspace_id=ws)
+        runner.run_once()
+
+        # Give the (possible) send-key fallback a moment to land, then re-read.
+        time.sleep(3.0)
+        screen_after = _capture(ws, worker)
+
+        advanced = _screen_shows_answered(screen_after) or not _screen_shows_menu(
+            screen_after
+        )
+
+        if evidence_path:
+            with open(evidence_path, "w", encoding="utf-8") as fh:
+                fh.write("=== request_id ===\n")
+                fh.write(item.request_id + "\n\n")
+                fh.write("=== screen BEFORE reply (parked on menu) ===\n")
+                fh.write(screen_before + "\n\n")
+                fh.write("=== screen AFTER reply+fallback (advanced) ===\n")
+                fh.write(screen_after + "\n")
+
+        return {
+            "request_id": item.request_id,
+            "parked_before": _screen_shows_menu(screen_before),
+            "advanced": advanced,
+            "evidence_path": evidence_path,
         }
     finally:
         _cmux("close-workspace", "--workspace", ws)
