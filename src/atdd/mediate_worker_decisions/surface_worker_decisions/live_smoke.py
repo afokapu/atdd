@@ -19,6 +19,7 @@ captured evidence for a documented run lives in docs/smoke-audit.md per #983.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -26,6 +27,8 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+
+_log = logging.getLogger(__name__)
 
 
 def live_smoke_available() -> Optional[str]:
@@ -54,7 +57,8 @@ def _rpc_feed_list() -> List[Dict[str, Any]]:
         return []
     try:
         return json.loads(out.stdout).get("items", [])
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        _log.debug("feed.list returned non-JSON; treating as empty", extra={"error": str(exc)})
         return []
 
 
@@ -85,8 +89,10 @@ def _spawn_worker_and_wait(
     cwd_str = str(cwd)
     try:
         spawn._pre_trust_worktree(cwd)
-    except Exception:
-        pass
+    except Exception as exc:
+        # Best-effort: a failed pre-trust only risks a trust modal, which the
+        # poll loop will simply time out on — log it loudly rather than hide it.
+        _log.warning("pre-trust failed", extra={"cwd": str(cwd), "error": str(exc)})
 
     launch_command = _production_launch_command(cwd, seed_prompt)
     create = subprocess.run(
