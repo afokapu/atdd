@@ -14,16 +14,19 @@ from __future__ import annotations
 
 import pytest
 
-pytestmark = pytest.mark.skip(
-    reason="requires spawn-agents leash retirement + adapter wiring (#NEW); #967 "
-    "lands the producer feature hermetic-only — goes live when that issue lands"
+from atdd.mediate_worker_decisions.surface_worker_decisions.live_smoke import (
+    bash_decision_surfaces_live_smoke,
+    live_smoke_available,
 )
 
 
-def test_c005_smoke_001_live_bash_decision_surfaces_not_auto_executed():
-    from atdd.mediate_worker_decisions.surface_worker_decisions.live_smoke import (
-        bash_decision_surfaces_live_smoke,
-    )
-
+def test_c006_smoke_001_live_bash_decision_surfaces_not_auto_executed():
+    # Live-on-demand: spawns a real worker under cmux. Skips cleanly in CI / when
+    # not opted in (ATDD_LIVE_SMOKE=1). Documented run: docs/smoke-audit.md (#971).
+    skip = live_smoke_available()
+    if skip:
+        pytest.skip(skip)
     evidence = bash_decision_surfaces_live_smoke()
     assert evidence["surfaced"] is True
+    assert evidence["evidence"]["kind"] == "permissionRequest"
+    assert evidence["evidence"]["tool_name"] == "Bash"

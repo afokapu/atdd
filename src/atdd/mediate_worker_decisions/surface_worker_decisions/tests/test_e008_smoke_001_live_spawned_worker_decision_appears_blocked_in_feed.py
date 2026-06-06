@@ -16,16 +16,18 @@ from __future__ import annotations
 
 import pytest
 
-pytestmark = pytest.mark.skip(
-    reason="requires spawn-agents leash retirement + adapter wiring (#NEW); #967 "
-    "lands the producer feature hermetic-only — goes live when that issue lands"
+from atdd.mediate_worker_decisions.surface_worker_decisions.live_smoke import (
+    decision_appears_blocked_live_smoke,
+    live_smoke_available,
 )
 
 
-def test_e006_smoke_001_live_spawned_worker_decision_appears_blocked_in_feed():
-    from atdd.mediate_worker_decisions.surface_worker_decisions.live_smoke import (
-        decision_appears_blocked_live_smoke,
-    )
-
+def test_e008_smoke_001_live_spawned_worker_decision_appears_blocked_in_feed():
+    # Live-on-demand: spawns a real worker under cmux. Skips cleanly in CI / when
+    # not opted in (ATDD_LIVE_SMOKE=1). Documented run: docs/smoke-audit.md (#971).
+    skip = live_smoke_available()
+    if skip:
+        pytest.skip(skip)
     evidence = decision_appears_blocked_live_smoke()
     assert evidence["surfaced"] is True
+    assert evidence["evidence"]["status"] == "pending"

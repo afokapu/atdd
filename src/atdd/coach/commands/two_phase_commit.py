@@ -250,10 +250,14 @@ def phase_b_launch_sessions(
         # paste_text + send_key (#702). Claude Code v2.1.x ignores a
         # positional prompt arg in interactive mode, so `$(cat ...)` here
         # silently produced an idle session with no task.
-        launch_cmd = (
-            "claude --permission-mode acceptEdits "
-            "--allowedTools \"Bash Edit Write Read TodoWrite Glob Grep WebFetch\""
-        )
+        #
+        # #971: the leash is retired here too — the surfacing flags come from the
+        # same DecisionSurfacingPolicy the cmd_spawn adapter uses, so this second
+        # launch transport never reintroduces the freedom-set bug (Y002). Bash is
+        # absent from --allowedTools so it surfaces to the cmux Feed.
+        from atdd.coach.commands.spawn import _claude_surfacing_flags
+
+        launch_cmd = f"claude {_claude_surfacing_flags('claude-code')}"
 
         try:
             pane_ref = backend.resolve_focused_pane() if hasattr(backend, "resolve_focused_pane") else "pane:1"

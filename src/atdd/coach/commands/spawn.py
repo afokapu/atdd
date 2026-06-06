@@ -640,6 +640,32 @@ def _require_env(var_name: str, adapter_id: str) -> str:
     return value
 
 
+def _claude_surfacing_flags(agent_kind: str) -> str:
+    """Render a claude-family worker's decision-surfacing flags (#971).
+
+    Delegates to the ``surface-worker-decisions`` wagon's presentation seam,
+    which resolves the ``DecisionSurfacingPolicy`` to the launch values
+    ``--permission-mode <mode> --allowedTools "<auto_allow>"``. The leash is
+    retired: ``Bash`` (and the native ``AskUserQuestion`` / ``ExitPlanMode``
+    decisions) are deliberately ABSENT from ``--allowedTools`` so they raise a
+    ``PermissionRequest`` and surface to the cmux Feed for the daemon to
+    mediate — instead of being pre-authorized so the hook never fires (#967).
+
+    Uses ``provide`` (not the bare ``resolve``) so a live ``CmuxHookProbe`` warns
+    loudly when the Feed-publishing hook path is inactive at launch (L004) — a
+    non-publishing worker is never spawned silently.
+    """
+    from atdd.mediate_worker_decisions.surface_worker_decisions.src.presentation.surfacing_values_provider import (
+        provide,
+    )
+
+    values = provide(agent_kind)
+    return (
+        f'--permission-mode {values.permission_mode} '
+        f'--allowedTools "{" ".join(values.allowed_tools)}"'
+    )
+
+
 def _claude_code_adapter(prompt_path: Path) -> str:
     """Spec §5.2: shell out to ``claude`` to start an interactive session.
 
@@ -651,18 +677,14 @@ def _claude_code_adapter(prompt_path: Path) -> str:
     ``send_key("Enter")``. ``prompt_path`` is retained in the signature for
     adapter-registry uniformity.
 
-    Permission policy: ``--permission-mode acceptEdits --allowedTools
-    "Bash Edit Write Read TodoWrite Glob Grep WebFetch"`` is the sanctioned
-    alternative to the forbidden ``bypassPermissions`` (per repo memory
-    rule). Tool-level allowlist gives autonomous flow without skipping
-    the permission system entirely.
+    Permission policy: the freedom-with-a-leash flags are gone (#971). The
+    surfacing flags come from the ``DecisionSurfacingPolicy`` via
+    ``_claude_surfacing_flags`` — read/edit tools auto-allowed, ``Bash`` left
+    un-allowed so it surfaces to the Feed. The forbidden ``bypassPermissions`` /
+    ``--dangerously-skip-permissions`` are never emitted.
     """
     _ = prompt_path  # injected post-boot, not via argv — see docstring
-    allowed_tools = "Bash Edit Write Read TodoWrite Glob Grep WebFetch"
-    return (
-        f'claude --permission-mode acceptEdits '
-        f'--allowedTools "{allowed_tools}"'
-    )
+    return f"claude {_claude_surfacing_flags('claude-code')}"
 
 
 def _claude_glm_adapter(prompt_path: Path) -> str:
@@ -670,30 +692,23 @@ def _claude_glm_adapter(prompt_path: Path) -> str:
 
     Prompt is injected post-boot (same pattern as claude-code — the
     --model flag routes to z.ai's GLM-5.1 model via the Claude CLI's
-    custom-endpoint support).
+    custom-endpoint support). Surfacing flags from the policy (#971).
     """
     _ = prompt_path  # injected post-boot, not via argv
     _require_env("Z_AI_API_KEY", "claude-glm")
-    allowed_tools = "Bash Edit Write Read TodoWrite Glob Grep WebFetch"
-    return (
-        f'claude --model glm-5.1 --permission-mode acceptEdits '
-        f'--allowedTools "{allowed_tools}"'
-    )
+    return f"claude --model glm-5.1 {_claude_surfacing_flags('claude-glm')}"
 
 
 def _claude_gpt_adapter(prompt_path: Path) -> str:
     """Adapter for claude-gpt via OpenRouter (requires OPENROUTER_API_KEY).
 
     Prompt is injected post-boot. The --model flag routes through the
-    Claude CLI's OpenRouter endpoint to GPT-5.5.
+    Claude CLI's OpenRouter endpoint to GPT-5.5. Surfacing flags from the
+    policy (#971).
     """
     _ = prompt_path  # injected post-boot, not via argv
     _require_env("OPENROUTER_API_KEY", "claude-gpt")
-    allowed_tools = "Bash Edit Write Read TodoWrite Glob Grep WebFetch"
-    return (
-        f'claude --model gpt-5.5 --permission-mode acceptEdits '
-        f'--allowedTools "{allowed_tools}"'
-    )
+    return f"claude --model gpt-5.5 {_claude_surfacing_flags('claude-gpt')}"
 
 
 def _codex_adapter(prompt_path: Path) -> str:
@@ -717,18 +732,39 @@ def _gemini_adapter(prompt_path: Path) -> str:
     return f"gemini generate --prompt-file {shlex.quote(str(prompt_path))}"
 
 
-_CLAUDE_PERMISSION_FLAGS = ["--permission-mode", "acceptEdits"]
-_CLAUDE_ALLOWED_TOOLS = [
-    "Bash", "Edit", "Write", "Read", "TodoWrite", "Glob", "Grep", "WebFetch",
-]
+def _default_claude_surfacing_values():
+    """Resolve the default claude-family surfacing values (no probe) for the
+    structured ADAPTER_REGISTRY fields. Probe-free so module import emits no
+    warning; the call-time adapters use ``provide`` (probe-injected) instead.
+    """
+    from atdd.mediate_worker_decisions.surface_worker_decisions.src.application.resolve_surfacing_values import (
+        resolve,
+    )
+
+    return resolve("claude-code")
+
+
+# #971: the structured freedom set is now the image of the DecisionSurfacingPolicy.
+# Bash is deliberately ABSENT from _CLAUDE_ALLOWED_TOOLS so it surfaces to the Feed
+# (the leash is retired); permission_mode stays acceptEdits (never a bypass mode).
+_CLAUDE_DEFAULT_SURFACING = _default_claude_surfacing_values()
+_CLAUDE_PERMISSION_FLAGS = ["--permission-mode", _CLAUDE_DEFAULT_SURFACING.permission_mode]
+_CLAUDE_ALLOWED_TOOLS = list(_CLAUDE_DEFAULT_SURFACING.allowed_tools)
 
 
 def _claude_code_non_interactive_smoke() -> None:
-    """L001-SMOKE-001: confirm the freedom-set flags suppress Bash permission modals.
+    """L001-SMOKE-001: confirm the auto-allow set suppresses modals for the
+    frictionless tools.
 
-    Spawns `claude --permission-mode acceptEdits --allowedTools Bash -p ...`
-    and asserts none of the modal-class markers ('(1) Yes', 'Allow this', etc.)
-    appear in the captured output within 30 s.
+    #971 retired the leash: ``Bash`` is no longer pre-authorized — it
+    deliberately surfaces a ``PermissionRequest`` so the cmux Feed can mediate it.
+    This smoke therefore probes an AUTO-ALLOWED tool (``Read``, an explicit member
+    of ``_CLAUDE_ALLOWED_TOOLS``): with the freedom set applied, reading a file
+    must fire no permission modal. (Bash surfacing is proven by the live
+    C006-SMOKE-001 / E008-SMOKE-001 Feed smokes, not here.)
+
+    Spawns ``claude --permission-mode acceptEdits --allowedTools "<auto_allow>"
+    -p Read(...)`` and asserts none of the modal-class markers appear within 30 s.
 
     Raises RuntimeError if claude is not on PATH or a modal marker is found.
     """
@@ -740,22 +776,26 @@ def _claude_code_non_interactive_smoke() -> None:
             "claude not found on PATH — cannot run non_interactive_smoke. "
             "Install Claude Code CLI first."
         )
+    # Read is an auto-allowed tool; Bash is intentionally absent (it surfaces).
+    assert "Read" in _CLAUDE_ALLOWED_TOOLS, "Read must stay auto-allowed for autonomy"
+    assert "Bash" not in _CLAUDE_ALLOWED_TOOLS, "Bash must surface, not be pre-authorized (#971)"
     allowed_tools = " ".join(_CLAUDE_ALLOWED_TOOLS)
     cmd = [
         "claude",
         "--permission-mode", "acceptEdits",
         "--allowedTools", allowed_tools,
-        "-p", "Bash('echo smoke-ok')",
+        "-p", "Read('/etc/hostname')",
     ]
     result = _subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     combined = result.stdout + result.stderr
-    modal_markers = ["(1) Yes", "(2) No", "Allow this Bash command", "❯ 1."]
+    modal_markers = ["(1) Yes", "(2) No", "Allow this", "❯ 1."]
     for marker in modal_markers:
         if marker in combined:
             raise RuntimeError(
                 f"L001-SMOKE-001: modal detected in claude output "
                 f"(marker: {marker!r}). The freedom-set permission_flags are "
-                f"not suppressing permission prompts.\nOutput:\n{combined[:500]}"
+                f"not suppressing modals for the auto-allowed tools.\n"
+                f"Output:\n{combined[:500]}"
             )
 
 

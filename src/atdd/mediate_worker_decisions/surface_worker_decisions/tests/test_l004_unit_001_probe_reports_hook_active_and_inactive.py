@@ -11,26 +11,33 @@ with the surface id absent it reports inactive and names the missing preconditio
 """
 from __future__ import annotations
 
+import shutil
 import socket
+import tempfile
 
 from atdd.mediate_worker_decisions.surface_worker_decisions.src.integration.cmux_hook_probe import (
     CmuxHookProbe,
 )
 
 
-def test_probe_active_with_surface_and_live_socket(tmp_path):
-    sock_path = tmp_path / "cmux.sock"
+def test_probe_active_with_surface_and_live_socket():
+    # macOS caps AF_UNIX bind() paths at ~104 chars, which pytest's deep tmp_path
+    # blows past. Bind under a short mkdtemp dir instead; the probe stat()s the
+    # path (not subject to the bind cap) so the active verdict still holds.
+    sock_dir = tempfile.mkdtemp(prefix="cmuxsk-")
+    sock_path = f"{sock_dir}/s.sock"
     srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    srv.bind(str(sock_path))
+    srv.bind(sock_path)
     srv.listen(1)
     try:
         probe = CmuxHookProbe(
-            env={"CMUX_SURFACE_ID": "S1", "CMUX_SOCKET_PATH": str(sock_path)}
+            env={"CMUX_SURFACE_ID": "S1", "CMUX_SOCKET_PATH": sock_path}
         )
         presence = probe.evaluate()
         assert presence.active is True
     finally:
         srv.close()
+        shutil.rmtree(sock_dir, ignore_errors=True)
 
 
 def test_probe_inactive_names_missing_surface_id(tmp_path):

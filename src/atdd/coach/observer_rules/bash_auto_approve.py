@@ -13,8 +13,10 @@ Predicate semantics (E014, M001, R001 — issue #829):
 
   * ``classify_prompt`` returns ``action == "auto_approve"`` → predicate
     returns ``False``. The spawn-time allowlist (``--permission-mode
-    acceptEdits --allowedTools "Bash Edit Write Read ..."``) pre-grants
-    the freedom set so this modal never fires for allowed tools.
+    acceptEdits --allowedTools "Read Edit Write ..."``) pre-grants the
+    read/edit freedom set so this modal never fires for those tools. Bash
+    is no longer pre-authorized (#971): it surfaces to the cmux Feed for the
+    daemon to mediate rather than being auto-approved at launch.
   * ``classify_prompt`` returns ``action == "escalate"`` → predicate
     returns ``True`` so the observer emits a correction via cli-return
     directing the agent to run ``atdd agent escalate``.
@@ -39,9 +41,10 @@ _CORRECTION_TEXT = (
     "pre-grants safe tools; deny-pattern bashes are not in the freedom set."
 )
 _FIX_HINT = (
-    "Pre-grant the safe-tool freedom set at spawn time using "
-    "--permission-mode acceptEdits --allowedTools \"Bash Edit Write Read TodoWrite Glob Grep WebFetch\" "
-    "so modals never fire for allowed tools. "
+    "Pre-grant the read/edit freedom set at spawn time using "
+    "--permission-mode acceptEdits --allowedTools \"Read Edit Write TodoWrite Glob Grep WebFetch\" "
+    "so modals never fire for those tools. Bash is deliberately absent (#971) — it "
+    "surfaces to the cmux Feed for the daemon to mediate. "
     "For deny-pattern bashes (rm, pip install, curl, etc.), run: atdd agent escalate "
     "to route the invocation to the structured outbound escalation channel "
     "(see orchestration.convention.yaml::babysit.bash_deny_patterns)."

@@ -117,7 +117,7 @@ def test_claude_code_adapter_returns_bare_interactive_invocation(tmp_path):
     cmd = spawn.ADAPTER_REGISTRY["claude-code"](prompt_path)
     assert cmd == (
         'claude --permission-mode acceptEdits '
-        '--allowedTools "Bash Edit Write Read TodoWrite Glob Grep WebFetch"'
+        '--allowedTools "Read Edit Write TodoWrite Glob Grep WebFetch"'
     )
     # Regression guard (#702): no positional prompt / cat substitution.
     assert "$(cat" not in cmd
@@ -154,7 +154,7 @@ def test_spawn_dispatches_adapter_off_llm_flag(tmp_path, monkeypatch):
 
     expected = (
         'claude --permission-mode acceptEdits '
-        '--allowedTools "Bash Edit Write Read TodoWrite Glob Grep WebFetch"'
+        '--allowedTools "Read Edit Write TodoWrite Glob Grep WebFetch"'
     )
     assert fake_mx.last_command == expected
 
