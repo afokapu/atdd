@@ -28,3 +28,20 @@ class FeedReply(Protocol):
 
 class Coach(Protocol):
     def mediate(self, request: DecisionRequest) -> Verdict: ...
+
+
+class WorkerAdvance(Protocol):
+    """Proves a delivered reply actually advanced the worker, and nudges if not.
+
+    A ``feed.*.reply`` resolving the Feed item is NOT proof the worker proceeded —
+    a cmux-native worker can lose the race against its native TUI menu and stay
+    parked while the item is marked non-pending (the ``expired`` case). The runner
+    asks ``confirm_advanced`` for the real oracle and, if the worker is still
+    parked, ``nudge`` delivers the pre-highlighted selection (a send-key) before
+    re-verifying. Integration adapters carry the cmux specifics; the use case
+    only sees this shape.
+    """
+
+    def confirm_advanced(self, item: FeedItem) -> bool: ...
+
+    def nudge(self, item: FeedItem) -> None: ...

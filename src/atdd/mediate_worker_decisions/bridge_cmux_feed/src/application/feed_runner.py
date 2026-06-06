@@ -15,6 +15,7 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.application.ports import
     Coach,
     FeedReply,
     FeedSource,
+    WorkerAdvance,
 )
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import (
     EXIT_PLAN,
@@ -36,6 +37,7 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.tool_input_safety
 )
 from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import (
     CAUSE_DANGEROUS,
+    CAUSE_WORKER_STUCK,
     Escalation,
     Verdict,
 )
@@ -64,12 +66,18 @@ class FeedRunnerUseCase:
         id_factory: Callable[[], str],
         ts_factory: Callable[[], str],
         dangerous_permission_policy: str = DANGEROUS_ESCALATE,
+        advance: Optional[WorkerAdvance] = None,
     ) -> None:
         self._source = source
         self._reply = reply
         self._coach = coach
         self._id = id_factory
         self._ts = ts_factory
+        # Optional advance-verifier (#986). When wired (production coach/daemon),
+        # the runner proves the worker actually proceeded after the reply, with a
+        # send-key fallback and a worker_stuck escalation if it stays parked. Left
+        # None in tests/wirings that only exercise reply delivery (back-compat).
+        self._advance = advance
         # How a dangerous PERMISSION request is resolved without a human (#981).
         # Default ESCALATE preserves the supervised human-in-the-loop behavior;
         # the autonomous daemon passes DENY so a dangerous action is blocked
@@ -96,7 +104,29 @@ class FeedRunnerUseCase:
 
         verdict = self._coach.mediate(request)
         self._reply.deliver(plan_reply(verdict, kind=item.kind))
-        return FeedOutcome(request_id=item.request_id, verdict=verdict)
+        return self._confirm_or_recover(item, verdict)
+
+    def _confirm_or_recover(self, item: FeedItem, verdict: Verdict) -> FeedOutcome:
+        """Prove the worker advanced; send-key fallback then escalate if stuck (#986).
+
+        A delivered reply is NOT proof the worker proceeded — a cmux-native worker
+        can lose the race against its native TUI menu and stay parked while the
+        Feed item is marked non-pending (the false ``expired`` signal). When an
+        advance-verifier is wired (production coach/daemon), confirm the worker
+        actually advanced; if not, deliver the pre-highlighted selection via a
+        send-key nudge and re-verify; if it is STILL parked, escalate
+        ``worker_stuck`` rather than silently claim the reply landed. Without a
+        verifier (delivery-only wirings) the behavior is unchanged.
+        """
+        verdict_outcome = FeedOutcome(request_id=item.request_id, verdict=verdict)
+        if self._advance is None:
+            return verdict_outcome
+        if self._advance.confirm_advanced(item):
+            return verdict_outcome
+        self._advance.nudge(item)
+        if self._advance.confirm_advanced(item):
+            return verdict_outcome
+        return self._escalate(item.request_id, cause=CAUSE_WORKER_STUCK, safety_class=None)
 
     def _resolve_dangerous_tool_use(self, item: FeedItem) -> FeedOutcome:
         """Resolve a tool use the safety gate flagged dangerous (WMBT C003).
@@ -112,15 +142,20 @@ class FeedRunnerUseCase:
             self._reply.deliver(plan_permission_deny(item.request_id))
         return self._escalate(item.request_id)
 
-    def _escalate(self, request_id: str) -> FeedOutcome:
+    def _escalate(
+        self,
+        request_id: str,
+        cause: str = CAUSE_DANGEROUS,
+        safety_class: Optional[str] = CAUSE_DANGEROUS,
+    ) -> FeedOutcome:
         return FeedOutcome(
             request_id=request_id,
             escalation=Escalation(
                 escalation_id=self._id(),
                 request_id=request_id,
                 raised_at=self._ts(),
-                cause=CAUSE_DANGEROUS,
-                safety_class=CAUSE_DANGEROUS,
+                cause=cause,
+                safety_class=safety_class,
             ),
         )
 

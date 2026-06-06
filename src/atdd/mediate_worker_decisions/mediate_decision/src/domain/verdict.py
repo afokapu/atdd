@@ -22,6 +22,9 @@ SOURCE_SAFETY_GATE = "safety_gate"
 CAUSE_DANGEROUS = "dangerous_action"
 CAUSE_TIMEOUT = "coach_timeout"
 CAUSE_UNPARSEABLE = "coach_unparseable"
+# The reply was delivered (Feed item non-pending) but the worker stayed parked on
+# its TUI menu even after the send-key fallback — never silently claim delivered.
+CAUSE_WORKER_STUCK = "worker_stuck"
 
 
 @dataclass(frozen=True)

@@ -79,8 +79,12 @@ class FeedDaemonUseCase:
                 # Dangerous / human-required: record durably AND loudly surface
                 # it; NEVER auto-answer (WMBT C004 — headline safety property).
                 self._escalations.record(outcome.escalation)
+                # Covers both causes that reach here: a dangerous decision never
+                # auto-answered (WMBT C004) and a worker that stayed parked even
+                # after the send-key fallback (worker_stuck, #986) — the reply was
+                # never silently claimed as delivered.
                 self._log.warning(
-                    "ESCALATION REQUIRED — dangerous decision NOT auto-answered: "
+                    "ESCALATION REQUIRED — decision NOT auto-resolved: "
                     "request_id=%s cause=%s (a human must review)",
                     outcome.escalation.request_id,
                     outcome.escalation.cause,
