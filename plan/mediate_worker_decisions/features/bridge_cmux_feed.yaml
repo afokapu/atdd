@@ -2,8 +2,8 @@ urn: "feature:mediate-worker-decisions:bridge-cmux-feed"
 wagon: "wagon:mediate-worker-decisions"
 description: "Rides the bridge on cmux's Feed: locate a blocked agent decision from feed events, route it through the coach, and reply via feed.*.reply. Dangerous tool uses are never auto-replied."
 sizing:
-  wmbts: 6
-  footprint_score: 11
+  wmbts: 7
+  footprint_score: 13
   footprint_size: "M"
 wmbts:
   - "wmbt:mediate-worker-decisions:L002"
@@ -12,6 +12,7 @@ wmbts:
   - "wmbt:mediate-worker-decisions:L003"
   - "wmbt:mediate-worker-decisions:E006"
   - "wmbt:mediate-worker-decisions:E007"
+  - "wmbt:mediate-worker-decisions:E009"
 components:
   backend:
     presentation:
@@ -23,8 +24,8 @@ components:
         count: 1
         rationale: "feed_runner: locate pending item -> mediate (coach) -> reply or escalate"
       - type: "ports"
-        count: 2
-        rationale: "FeedSource (read pending items) and FeedReply (deliver verdict) protocols"
+        count: 3
+        rationale: "FeedSource (read pending items), FeedReply (deliver verdict), and WorkerAdvance (verify the worker actually advanced + nudge fallback) protocols"
     domain:
       - type: "services"
         count: 2
@@ -34,5 +35,5 @@ components:
         rationale: "FeedItem / FeedReplyPlan (frozen)"
     integration:
       - type: "clients"
-        count: 2
-        rationale: "feed_event_source (cmux feed.list/events) and feed_reply_applier (cmux rpc feed.*.reply)"
+        count: 3
+        rationale: "feed_event_source (cmux feed.list/events), feed_reply_applier (cmux rpc feed.*.reply), and feed_advance_verifier (cmux feed.list resolved-oracle + send-key nudge)"

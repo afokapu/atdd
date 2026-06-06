@@ -1679,3 +1679,16 @@ sessions:
   wagon: govern-lifecycle
   feature: null
   train: 0001-self-compliance-validate
+- id: '986'
+  slug: feed-reply-resolves-item-but-worker-tui-not-advanced
+  file: null
+  issue_number: 986
+  type: fix
+  status: REFACTOR
+  created: '2026-06-06'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:bridge-cmux-feed
+  train: null
+  branch: feat/feed-reply-resolves-item-but-worker-tui-not-advanced
+  worktree: /Users/alecfokapu/Github/atdd/feat-feed-reply-worker-advance

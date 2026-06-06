@@ -60,11 +60,15 @@ def build_feed_runner(
     id_factory: Callable[[], str] = default_id_factory,
     ts_factory: Callable[[], str] = default_clock_text,
     dangerous_permission_policy: str = DANGEROUS_ESCALATE,
+    advance=None,
 ) -> FeedRunnerUseCase:
     """Wire the runner; ``reply`` is a transport that gets wrapped once-per-request.
 
     ``dangerous_permission_policy`` defaults to ESCALATE (supervised); the
-    autonomous daemon passes DENY so a dangerous action is blocked without a stall."""
+    autonomous daemon passes DENY so a dangerous action is blocked without a stall.
+    ``advance`` is the optional ``WorkerAdvance`` verifier (#986): when wired, the
+    runner proves the worker actually proceeded after the reply (send-key fallback,
+    then a worker_stuck escalation if still parked)."""
     return FeedRunnerUseCase(
         source=source,
         reply=build_feed_reply_applier(transport=reply, guard=guard),
@@ -72,6 +76,7 @@ def build_feed_runner(
         id_factory=id_factory,
         ts_factory=ts_factory,
         dangerous_permission_policy=dangerous_permission_policy,
+        advance=advance,
     )
 
 
@@ -108,11 +113,17 @@ def build_feed_runner_from_repo(
     from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_reply_applier import (
         CmuxFeedTransport,
     )
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_advance_verifier import (
+        CmuxWorkerAdvance,
+    )
 
     return build_feed_runner(
         source=CmuxFeedSource(),
         reply=transport or CmuxFeedTransport(),
         coach=LlmCoach(provider=coach_provider, model=coach_model),
+        # #986: prove the worker actually advanced after the reply (send-key
+        # fallback, then worker_stuck escalation if still parked).
+        advance=CmuxWorkerAdvance(workspace_id=workspace_id),
     )
 
 
