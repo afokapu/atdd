@@ -2,7 +2,7 @@ urn: "feature:mediate-worker-decisions:bridge-cmux-feed"
 wagon: "wagon:mediate-worker-decisions"
 description: "Rides the bridge on cmux's Feed: locate a blocked agent decision from feed events, route it through the coach, and reply via feed.*.reply. Dangerous tool uses are never auto-replied."
 sizing:
-  wmbts: 7
+  wmbts: 8
   footprint_score: 13
   footprint_size: "M"
 wmbts:
@@ -13,6 +13,7 @@ wmbts:
   - "wmbt:mediate-worker-decisions:E006"
   - "wmbt:mediate-worker-decisions:E007"
   - "wmbt:mediate-worker-decisions:E009"
+  - "wmbt:mediate-worker-decisions:D003"
 components:
   backend:
     presentation:
