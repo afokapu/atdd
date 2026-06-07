@@ -217,7 +217,7 @@ of bypass patterns.
 | acc:govern-lifecycle:R004-SMOKE-001-real-linked-worktree-recognized-worktree-ready | real (git worktree) | worktree detection | N/A (single component) | — |
 | acc:govern-lifecycle:Y004-SMOKE-001-pre-commit-template-has-drift-notice | real (template file) | file content | N/A (single component) | — |
 | acc:govern-lifecycle:Y005-SMOKE-001-reconcile-wired-in-cli | real (atdd issue reconcile) | CLI wiring | N/A (single component) | — |
-| acc:implement-code:L005-UNIT-002-no-false-positives | real (atdd validate) | no false violations | N/A (validator) | — |
+| acc:implement-code:D003-UNIT-002-no-false-positives | real (atdd validate) | no false violations | N/A (validator) | — |
 | acc:integrate-end-to-end:E001-SMOKE-001-cycle-reaches-complete | real (full ATDD cycle) | issue status | both ends (INIT → COMPLETE) | — |
 | acc:integrate-end-to-end:E001-SMOKE-002-artifacts-readable | real (full ATDD cycle) | artifact readability | both ends (write + read) | — |
 | acc:integrate-end-to-end:M001-SMOKE-001-integration-log-covers-every-handoff | real (full ATDD cycle) | log completeness | both ends (all handoffs) | — |
