@@ -5,7 +5,7 @@ dimension: "likelihood"
 object_of_control: "a-managed-daemon-left-running-or-a-stale-manager-pidfile-after-atdd-coach-stop"
 context_clarifier: "atdd coach stop signals every managed feed_daemon recorded in the per-workspace manager pidfiles and removes the pidfile; atdd coach daemons lists the managed daemons with a live or stale status derived from those pidfiles so the operator sees and stops exactly what start launched"
 lens: "functional.effectiveness"
-statement: "minimize likelihood of atdd coach stop leaving a managed daemon running or a stale manager pidfile"
+statement: "minimize likelihood of a managed daemon left running or a stale manager pidfile after atdd coach stop"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:R003-UNIT-001-stop-signals-pid-and-clears-pidfile"
@@ -53,6 +53,32 @@ acceptances:
         - "The live-pid workspace is reported running and the dead-pid workspace is reported stale"
       assertions:
         - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-runtime"
+  - identity:
+      urn: "acc:mediate-worker-decisions:R003-SMOKE-001-live-stop-terminates-managed-daemon"
+      id: "AC-SMOKE-001"
+      purpose: "atdd coach stop terminates a real managed feed_daemon process and clears its pidfile"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real managed feed_daemon process started by atdd coach start in a /tmp scratch dir"
+    when:
+      abstract: "atdd coach stop is invoked for that workspace"
+      action: "invoke"
+    then:
+      abstract:
+        - "The daemon process exits and the manager pidfile is removed"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the spawned feed_daemon process receives SIGTERM and exits"
+      drift_resolved: "atdd coach daemons no longer lists the workspace as running"
     signal: {}
     metadata:
       wagon: "mediate-worker-decisions"

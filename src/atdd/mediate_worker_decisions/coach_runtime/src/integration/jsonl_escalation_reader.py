@@ -10,8 +10,12 @@ Skeleton: bodies land in GREEN.
 """
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from typing import List
+
+from atdd.mediate_worker_decisions.coach_runtime.src.log import log as _log
 
 
 class JsonlEscalationReader:
@@ -19,7 +23,19 @@ class JsonlEscalationReader:
         self._path = Path(path)
 
     def read_all(self) -> List[dict]:
-        raise NotImplementedError("GREEN")
+        """Every escalation record appended so far; blank/malformed lines skipped."""
+        if not self._path.exists():
+            return []
+        records: List[dict] = []
+        for line in self._path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue  # a partial ledger never crashes the wait
+        return records
 
 
 class FileCursorStore:
@@ -27,7 +43,19 @@ class FileCursorStore:
         self._path = Path(path)
 
     def load(self) -> int:
-        raise NotImplementedError("GREEN")
+        if not self._path.exists():
+            return 0
+        try:
+            return int(self._path.read_text(encoding="utf-8").strip() or 0)
+        except (ValueError, OSError) as exc:
+            _log.debug(
+                "cursor file unreadable; restarting at 0",
+                extra={"path": str(self._path), "error": str(exc)},
+            )
+            return 0
 
     def save(self, cursor: int) -> None:
-        raise NotImplementedError("GREEN")
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self._path.with_suffix(self._path.suffix + ".tmp")
+        tmp.write_text(str(int(cursor)), encoding="utf-8")
+        os.replace(tmp, self._path)  # atomic — cursor never half-written

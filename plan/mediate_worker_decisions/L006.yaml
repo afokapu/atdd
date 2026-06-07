@@ -5,7 +5,7 @@ dimension: "likelihood"
 object_of_control: "the-next-unhandled-escalation-past-the-persisted-cursor-in-the-daemons-escalations-ledger"
 context_clarifier: "atdd coach wait (alias next) blocks until the next coach-needed escalation appears in the daemon's escalations.jsonl, prints exactly that one record as a single JSON line, advances a persisted read cursor, and exits so a chat-session coach runs it as a completing command in a loop; the cursor is durable so a handled escalation is never re-emitted across invocations; the next-after-cursor selection is a pure function tested directly"
 lens: "functional.effectiveness"
-statement: "maximize likelihood of atdd coach wait surfacing exactly the next unhandled escalation past the persisted cursor and never re-emitting a handled one"
+statement: "maximize likelihood of the next unhandled escalation past the persisted cursor in the daemons escalations ledger"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:L006-UNIT-001-pure-next-after-cursor"

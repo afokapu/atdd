@@ -15,4 +15,15 @@ from typing import List, Optional, Tuple
 def next_escalation_after(
     records: List[dict], cursor: int
 ) -> Tuple[Optional[dict], int]:
-    raise NotImplementedError("GREEN")
+    """Return the first record past `cursor` and the advanced cursor.
+
+    `cursor` is a count of already-handled records. A negative cursor is
+    clamped to 0. At (or past) the end of the ledger no record is returned and
+    the cursor is left unchanged, so a caller never advances past an escalation
+    it did not actually surface.
+    """
+    if cursor < 0:
+        cursor = 0
+    if cursor < len(records):
+        return records[cursor], cursor + 1
+    return None, cursor

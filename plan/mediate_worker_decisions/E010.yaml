@@ -5,7 +5,7 @@ dimension: "likelihood"
 object_of_control: "a-second-feed-daemon-spawned-for-a-workspace-that-already-has-a-live-managed-daemon"
 context_clarifier: "atdd coach start --workspace <ws> runs atdd gate, then launches the #993 workspace-scoped feed_daemon as a managed background process recorded in a per-workspace manager pidfile and returns immediately; a start for a workspace whose recorded pid is still alive is a no-op so two daemons never decide the same Feed; the existing feed_daemon CLI/composition is reused wholesale (the daemon is never reimplemented)"
 lens: "functional.effectiveness"
-statement: "minimize likelihood of atdd coach start spawning a second daemon for a workspace that already has one running"
+statement: "minimize likelihood of a second feed daemon spawned for a workspace that already has a live managed daemon"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:E010-UNIT-001-start-writes-pidfile-and-spawns-once"
