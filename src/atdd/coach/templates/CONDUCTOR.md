@@ -49,7 +49,7 @@ git:
     rule: "Use --worktree flag for per-worktree git config; never run bare git config in a worktree"
     danger_keys: ["core.bare", "core.worktree", "core.hooksPath"]
   parallelization:
-    see: "src/atdd/coach/conventions/orchestration.convention.yaml"
+    see: "src/atdd/coach/conventions/coach.convention.yaml"
   post_commit_hook:
     purpose: "Blast-radius local validation after every commit"
     behavior: "Runs only validators in the commit's blast radius; never blocks; no-op when CI=true"

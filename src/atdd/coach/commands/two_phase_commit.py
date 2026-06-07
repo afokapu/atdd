@@ -1,10 +1,9 @@
-"""Two-phase-commit absorbed from `commands/orchestrate.py` per spec §4.6.
+"""Two-phase-commit for the durable coach per spec §4.6.
 
-J4 (issue #502) absorbs the rollback discipline from
-``atdd orchestrate`` into coach without re-implementing it. The helpers
-``_create_worktree`` and ``_remove_worktree`` continue to live in
-``commands/orchestrate.py`` (decommission is owned by #P5); this module
-imports them and owns the new coach-side Phase A / Phase B loops.
+J4 (issue #502) owns the coach-side Phase A / Phase B loops. The worktree
+primitives ``_create_worktree`` and ``_remove_worktree`` live in
+``commands/wave_planning.py``; this module imports them and owns the new
+rollback-disciplined loops.
 
 Phase A — worktree creation
     Iterates over the plan and calls ``_create_worktree`` for each
@@ -25,9 +24,9 @@ Phase B — session launch
     un-launched siblings on a subsequent run.
 
 Resume source
-    ``decisions.jsonl`` replaces ``.atdd/orchestrate-state.json`` as
-    the durable resume source. This module never writes the legacy
-    state file. ``--resume`` reconstruction itself is owned by #J6.
+    ``decisions.jsonl`` is the durable resume source. This module never
+    writes a legacy state file. ``--resume`` reconstruction itself is
+    owned by #J6.
 """
 from __future__ import annotations
 
@@ -39,7 +38,7 @@ from pathlib import Path
 from typing import Optional
 
 from atdd.coach.commands.durability import DecisionWriter
-from atdd.coach.commands._archived.orchestrate import (
+from atdd.coach.commands.wave_planning import (
     PlannedIssue,
     _branch_to_slug,
     _create_worktree,

@@ -4,15 +4,14 @@
 
 """Observer rule 16 — ``coach.observer.smoke-skip`` (spec §6.4 / §8.3).
 
-Absorbs the ``--status REFACTOR`` clause of ``babysit.detect_violation``
-verbatim per spec §0.2. Only the SMOKE-skip variant of
-``detect_violation`` is owned by this rule; the ``.atdd/`` hand-edit
-violation is a separate observer rule.
+Owns the ``--status REFACTOR`` clause of ``detectors.detect_violation``.
+Only the SMOKE-skip variant of ``detect_violation`` is owned by this rule;
+the ``.atdd/`` hand-edit violation is a separate observer rule.
 """
 from __future__ import annotations
 
 from atdd.coach.commands import observer
-from atdd.coach.commands._archived.babysit import detect_violation
+from atdd.coach.observer_rules.detectors import detect_violation
 
 
 _RULE_ID = "coach.observer.smoke-skip"
@@ -24,7 +23,7 @@ _CORRECTION_TEXT = (
 
 
 def predicate(ctx: observer.ObservedInput) -> bool:
-    """True when ``babysit.detect_violation`` flags the SMOKE-skip variant."""
+    """True when ``detectors.detect_violation`` flags the SMOKE-skip variant."""
     if not ctx.log_lines:
         return False
     screen = "\n".join(ctx.log_lines)

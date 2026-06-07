@@ -344,12 +344,12 @@ def test_rules_show_legacy_alias_displays_both_forms(
     from atdd.coach.commands.rules import RulesCommand
 
     # Real toolkit rule with a known legacy alias.
-    rc = RulesCommand().show("COACH-ORCH-NAMING-0001")
+    rc = RulesCommand().show("COACH-SESSION-NAMING-0001")
     assert rc == 0
     out = capsys.readouterr().out
     # Both forms appear.
-    assert "COACH-ORCH-NAMING-0001" in out
-    assert "coach.orchestration.canonical-session-name" in out
+    assert "COACH-SESSION-NAMING-0001" in out
+    assert "coach.session.canonical-session-name" in out
     # Canonical metadata still printed.
     assert "severity:" in out
     assert "disposition:" in out
@@ -361,11 +361,11 @@ def test_rules_show_canonical_call_does_not_print_alias_resolution_header(
     """When invoked with the canonical id, no legacy-alias resolution noise."""
     from atdd.coach.commands.rules import RulesCommand
 
-    rc = RulesCommand().show("coach.orchestration.canonical-session-name")
+    rc = RulesCommand().show("coach.session.canonical-session-name")
     assert rc == 0
     out = capsys.readouterr().out
     # The canonical line is present.
-    assert "coach.orchestration.canonical-session-name" in out
+    assert "coach.session.canonical-session-name" in out
     # The alias-resolution header line MUST NOT appear when input is canonical.
     assert "legacy alias" not in out.lower()
 
@@ -385,13 +385,13 @@ def test_rules_where_prints_module_function_for_toolkit_rule(
     """
     from atdd.coach.commands.rules import RulesCommand
 
-    rc = RulesCommand().where("coach.orchestration.canonical-session-name")
+    rc = RulesCommand().where("coach.session.canonical-session-name")
     assert rc == 0
     out = capsys.readouterr().out
     # validator field surfaced.
-    assert "test_orchestration_session_naming::test_active_session_names_canonical" in out
+    assert "test_session_naming::test_active_session_names_canonical" in out
     # Inferred import path includes the archetype dir.
-    assert "coach/validators/test_orchestration_session_naming.py" in out
+    assert "coach/validators/test_session_naming.py" in out
 
 
 def test_rules_where_prints_substrate_dispatcher_for_repo_signal_rule(
@@ -415,10 +415,10 @@ def test_rules_where_resolves_legacy_alias_to_canonical_validator(
     """``where`` accepts a legacy alias and resolves to the canonical binding."""
     from atdd.coach.commands.rules import RulesCommand
 
-    rc = RulesCommand().where("COACH-ORCH-NAMING-0001")
+    rc = RulesCommand().where("COACH-SESSION-NAMING-0001")
     assert rc == 0
     out = capsys.readouterr().out
-    assert "test_orchestration_session_naming::test_active_session_names_canonical" in out
+    assert "test_session_naming::test_active_session_names_canonical" in out
 
 
 def test_rules_where_unknown_rule_id_returns_nonzero(
@@ -461,11 +461,11 @@ def test_rules_grep_searches_aliases(
     """
     from atdd.coach.commands.rules import RulesCommand
 
-    rc = RulesCommand().grep("COACH-ORCH-NAMING-0001")
+    rc = RulesCommand().grep("COACH-SESSION-NAMING-0001")
     assert rc == 0
     out = capsys.readouterr().out
     # The canonical rule is surfaced even though the pattern is the alias.
-    assert "coach.orchestration.canonical-session-name" in out
+    assert "coach.session.canonical-session-name" in out
 
 
 def test_rules_grep_each_line_shows_severity_disposition_description(
@@ -771,7 +771,7 @@ def test_rules_archetype_repo_lists_every_substrate_rule(
     assert "repo.foo-wagon.D001-acc-http-007" in out
     assert "repo.0001-self-compliance-validate.acc-idempotent-on-retry" in out
     # No toolkit rule (e.g., coach.*) leaks in.
-    assert "coach.orchestration.canonical-session-name" not in out
+    assert "coach.session.canonical-session-name" not in out
 
 
 def test_rules_archetype_repo_output_sorted_by_rule_id(
@@ -808,7 +808,7 @@ def test_rules_archetype_coach_excludes_repo_rules(
     # No repo.* rule in coach archetype.
     assert "repo." not in out
     # A known coach toolkit rule appears.
-    assert "coach.orchestration.canonical-session-name" in out
+    assert "coach.session.canonical-session-name" in out
 
 
 def test_rules_archetype_coder_returns_only_coder_rules(

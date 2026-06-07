@@ -1,11 +1,10 @@
 """
 Multiplexer abstraction — unified interface over cmux (preferred), zellij, and tmux.
 
-Used by `atdd orchestrate` to launch parallel agent sessions, and by
-`atdd babysit` to read screens and send input.
+Used by `atdd coach` to launch parallel agent sessions, and by the observer
+to read screens and send corrections.
 
-Convention: src/atdd/coach/conventions/orchestration.convention.yaml
-SPEC IDs: SPEC-COACH-ORCH-0003
+Convention: src/atdd/coach/conventions/session.convention.yaml::multiplexer
 
 Refs come in two flavours and are dispatched by string prefix:
     workspace:NN  → top-level cmux workspace

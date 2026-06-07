@@ -1597,15 +1597,14 @@ def cmd_aggregate_approve(
     known-safe prompts across active sessions.
 
     Enumerates agent dirs from ``.atdd/runtime/agents/*/``, reads
-    ``output.log`` for pending prompts, classifies using the same bash
-    patterns as babysit (from ``orchestration.convention.yaml``), and
-    writes approval signals to ``cli-return.jsonl``. Returns an
-    ``AggregateApprovalResult`` with approved/escalated counts and
-    per-surface dispositions.
+    ``output.log`` for pending prompts, classifies using the bash classifier
+    (from ``observer.convention.yaml::bash_classifier``), and writes approval
+    signals to ``cli-return.jsonl``. Returns an ``AggregateApprovalResult``
+    with approved/escalated counts and per-surface dispositions.
     """
-    # Lazy import to break the observer ↔ babysit circular dependency
-    # (babysit imports SurfaceRow from observer).
-    from atdd.coach.commands.babysit import (
+    # Lazy import to break the observer ↔ detectors circular dependency
+    # (detectors imports from observer for ObserverRule typing).
+    from atdd.coach.observer_rules.detectors import (
         classify_prompt,
         detect_violation,
     )

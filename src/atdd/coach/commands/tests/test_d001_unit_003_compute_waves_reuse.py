@@ -5,10 +5,8 @@
 # Layer: application
 """D001-UNIT-003 — multi-issue invocations reuse `compute_waves()`.
 
-Per spec §0.2 absorption discipline: every absorbed function moves into
-coach modules with behavior preserved — nothing is rewritten. J1 reuses
-`compute_waves()` from `commands/orchestrate.py` directly; it does not
-copy or shadow the function. `--strict-deps` propagates into the
+J1 reuses `compute_waves()` from `commands/wave_planning.py` directly; it
+does not copy or shadow the function. `--strict-deps` propagates into the
 wave-transition gating policy.
 """
 from __future__ import annotations
@@ -20,14 +18,12 @@ import pytest
 pytestmark = [pytest.mark.platform]
 
 
-def test_coach_imports_compute_waves_from_orchestrate():
-    """The function symbol in coach.py must BE the one in the archived
-    orchestrate module (P5 #531: orchestrate.py is now a stub; the
-    absorbed implementation lives in commands/_archived/orchestrate.py)."""
+def test_coach_imports_compute_waves_from_wave_planning():
+    """The function symbol in coach.py must BE the one in wave_planning."""
     import atdd.coach.commands.coach as coach_mod
-    from atdd.coach.commands._archived import orchestrate as orchestrate_mod
+    from atdd.coach.commands import wave_planning as wave_planning_mod
 
-    assert coach_mod.compute_waves is orchestrate_mod.compute_waves
+    assert coach_mod.compute_waves is wave_planning_mod.compute_waves
 
 
 def test_coach_does_not_shadow_compute_waves_with_local_def():
@@ -38,7 +34,7 @@ def test_coach_does_not_shadow_compute_waves_with_local_def():
 
     src = inspect.getsource(coach_mod)
     assert "def compute_waves" not in src, (
-        "coach.py must reuse compute_waves from orchestrate; do not redefine it"
+        "coach.py must reuse compute_waves from wave_planning; do not redefine it"
     )
 
 
@@ -46,7 +42,7 @@ def test_run_multi_issue_invokes_compute_waves(capsys):
     """`atdd coach 358 359 360 --strict-deps --dry-run` calls
     `compute_waves` and prints the resolved wave assignment."""
     from atdd.coach.commands.coach import run
-    from atdd.coach.commands._archived.orchestrate import PlannedIssue
+    from atdd.coach.commands.wave_planning import PlannedIssue
 
     fake_plan = {
         358: PlannedIssue(number=358, dependencies=[]),
@@ -60,7 +56,7 @@ def test_run_multi_issue_invokes_compute_waves(capsys):
     ) as mock_build, patch(
         "atdd.coach.commands.coach.compute_waves",
         wraps=__import__(
-            "atdd.coach.commands._archived.orchestrate",
+            "atdd.coach.commands.wave_planning",
             fromlist=["compute_waves"],
         ).compute_waves,
     ) as mock_waves:

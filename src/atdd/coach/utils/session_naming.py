@@ -10,12 +10,12 @@ look up the target grid label for a given surface count.
 
 These helpers are reused by:
 
-    * ``atdd orchestrate``      — dispatch-time naming + layout pass
+    * ``atdd coach``            — dispatch-time naming + layout pass
     * ``atdd session-template`` — inlines the canonical name in the launch prompt
-    * ``atdd babysit``          — drift detection + auto-correct on every tick
-    * the ``test_orchestration_session_naming`` validator (phase 3)
+    * the observer (rules 14/15) — drift detection + auto-correct on every tick
+    * the ``test_session_naming`` validator (phase 3)
 
-Single source of truth for the regex is ``orchestration.convention.yaml::
+Single source of truth for the regex is ``session.convention.yaml::
 session_naming.regex`` — this module mirrors it with a tested helper but
 the convention is authoritative.
 """
@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 
-# Canonical format regex. Mirrored from orchestration.convention.yaml::
+# Canonical format regex. Mirrored from session.convention.yaml::
 # session_naming.regex; the validator asserts the two stay in sync.
 CANONICAL_NAME_REGEX = re.compile(
     r"^([A-Z]{2,8})(\d+)(-phase\d+)?-([a-z0-9]+(?:-[a-z0-9]+)*)$"
@@ -234,8 +234,8 @@ def is_canonical_name(name: str) -> bool:
 def target_grid_label(active_surface_count: int) -> str:
     """Return the human-readable target layout for ``active_surface_count``.
 
-    Mirrors ``orchestration.convention.yaml::layout_placement.policy``;
-    the value is purely informational (used by babysit's notice and the
+    Mirrors ``session.convention.yaml::layout_placement.policy``;
+    the value is purely informational (used by the observer's notice and the
     validator's drift message). No actual cmux ops are issued from this
     helper — placement is the multiplexer backend's responsibility.
     """

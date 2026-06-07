@@ -841,12 +841,6 @@ Phase descriptions:
         help="Backfill missing GitHub WMBT sub-issues from plan YAMLs (idempotent)"
     )
     issue_parser.add_argument(
-        "--orchestrate",
-        action="store_true",
-        dest="orchestrate",
-        help="Walk the dep graph from this issue and launch atdd orchestrate on the computed wave"
-    )
-    issue_parser.add_argument(
         "--force", "-f",
         action="store_true",
         help="Bypass gate/body checks (train still enforced)"
@@ -1085,21 +1079,6 @@ Phase descriptions:
         ),
     )
 
-    # ----- atdd orchestrate (DEPRECATED — decommissioned in coach v9, spec §11.3) -----
-    # MIGRATION_MESSAGE in orchestrate.py is the source of truth for the canonical
-    # replacement; imported here so cli.py never duplicates the alternatives text.
-    from atdd.coach.commands.orchestrate import MIGRATION_MESSAGE as _ORCHESTRATE_MIGRATION_MSG
-
-    subparsers.add_parser(
-        "orchestrate",
-        help="[DEPRECATED] removed in coach v9 — use atdd coach <issue-numbers>",
-        description=(
-            f"DEPRECATED — {_ORCHESTRATE_MIGRATION_MSG}\n\n"
-            "(Original orchestrate help suppressed.)"
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
     # ----- atdd coach <issue-numbers...> / atdd coach status ... -----
     # J1 (#496): state-machine skeleton + §5.1 CLI surface.
     # #616 (L001): adds `atdd coach status` live-inspection subcommand.
@@ -1294,21 +1273,6 @@ Phase descriptions:
         default=None,
         dest="last_commit",
         help="Last commit short SHA (default: detected from git)",
-    )
-
-    # ----- atdd babysit (DEPRECATED — decommissioned in coach v9, spec §11.3) -----
-    # MIGRATION_MESSAGE in babysit.py is the source of truth for canonical
-    # alternatives; imported here so cli.py never duplicates the text.
-    from atdd.coach.commands.babysit import MIGRATION_MESSAGE as _BABYSIT_MIGRATION_MSG
-
-    subparsers.add_parser(
-        "babysit",
-        help="[DEPRECATED] removed in coach v9 — see atdd observer / atdd coach",
-        description=(
-            f"DEPRECATED — {_BABYSIT_MIGRATION_MSG}\n\n"
-            "(Original babysit help suppressed.)"
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     # ----- atdd merge-cascade <pr-numbers...> -----
@@ -2380,10 +2344,6 @@ Phase descriptions:
             rc = manager.sync_wmbts(issue_number)
             return 0 if rc >= 0 else 1
 
-        if getattr(args, 'orchestrate', False):
-            from atdd.coach.commands.orchestrate_wave_walk import orchestrate_from_issue
-            return orchestrate_from_issue(issue_number)
-
         if getattr(args, 'status', None):
             return lifecycle.transition(
                 issue_number,
@@ -2451,13 +2411,6 @@ Phase descriptions:
             output=out,
             worktree_path=getattr(args, "worktree_path", "") or "",
             from_checkpoint=getattr(args, "from_checkpoint", False),
-        )
-
-    # atdd orchestrate <issue-numbers...> (decommissioned — P5 #531)
-    elif args.command == "orchestrate":
-        from atdd.coach.commands.orchestrate import run as run_orchestrate
-        return run_orchestrate(
-            issue_numbers=args.issue_numbers,
         )
 
     # atdd coach <issue-numbers...> / atdd coach status ... (J1 — #496 / L001 — #616)
@@ -2529,11 +2482,6 @@ Phase descriptions:
             branch=getattr(args, "branch", None),
             last_commit=getattr(args, "last_commit", None),
         )
-
-    # atdd babysit (decommissioned — P6 #532)
-    elif args.command == "babysit":
-        from atdd.coach.commands.babysit import run as run_babysit
-        return run_babysit()
 
     # atdd merge-cascade <pr-numbers...>
     elif args.command == "merge-cascade":

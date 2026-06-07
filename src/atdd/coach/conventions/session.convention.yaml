@@ -48,13 +48,13 @@ spawn_time:
 
   deny_pattern_escalation:
     description: |
-      Bash invocations matching orchestration.convention.yaml::babysit.bash_deny_patterns
+      Bash invocations matching observer.convention.yaml::bash_classifier.deny_patterns
       (rm, mv, pip install, curl, wget, git push --force, etc.) are NEVER
       auto-approved. When the observer detects a deny-pattern modal, it emits a
       correction directing the agent to run: atdd agent escalate
       This routes the invocation to the structured outbound escalation channel
-      (a machine-readable record in the agent's runtime dir) for the babysitter
-      to pick up.
+      (a machine-readable record in the agent's runtime dir) for the coach
+      daemon to pick up.
     command: "atdd agent escalate"
     invariant: "Deny-pattern bashes MUST route to atdd agent escalate, not to modal typing."
 
@@ -82,3 +82,107 @@ rules:
     introduced_in: "3.83.2"
     aliases: []
     validator: "launch_prompt_wagon_graph_guard::check_wagon_graph_rule"
+
+# =============================================================================
+# Session naming + layout placement (issue #470)
+# =============================================================================
+# When the coach (`atdd coach`) dispatches a cmux-native session, BOTH the cmux
+# tab title AND the Claude session header are set to the canonical format below.
+# The observer (rules 14/15) re-applies on every tick with drift-detection only
+# — already-canonical names + already-conforming layouts are no-ops.
+
+session_naming:
+  description: |
+    Canonical human-readable name for parallel ATDD sessions. Applied to
+    cmux tab titles AND Claude session headers so a glance at either
+    surface reveals which issue the session belongs to.
+  format: "<REPO><N>[-phase<M>]-<slug>"
+  regex: '^([A-Z]{2,8})(\d+)(-phase\d+)?-([a-z0-9]+(-[a-z0-9]+)*)$'
+  components:
+    repo: "Uppercase short-name from .atdd/config.yaml::repo.short_name (default: last hyphen-segment of repo field, uppercased)"
+    issue_number: "GitHub issue number; no separator from <REPO>"
+    phase: "Optional -phase<M> infix for multi-PR issues (M >= 1)"
+    slug: "Branch slug or maintainer override (--session-slug); lowercase, hyphenated; <= 40 chars"
+  application_points:
+    cmux: "cmux rename-tab --surface <ref> '<name>'"
+    claude: "shim-owned pty metadata (issue #824); observer reconciles the cmux side"
+  trigger_semantics:
+    coach: "Once at dispatch time — both passes (naming + layout) fire after the surface boots"
+    observer: "Every tick; drift-detection only — already-canonical names are no-ops (idempotent)"
+  exemplars:
+    - "ATDD459-ast-detector-done"
+    - "ATDD462-phase1-softprops-done"
+    - "ATDD462-phase2-bump-on-merge"
+    - "ATDD466-train-hint-fix"
+    - "ATDD467-hint-completeness"
+  rationale: |
+    Auto-summary names obscure issue identity; the cmux tab and Claude
+    session can drift apart under default behavior. Canonical names
+    make the cmux→Claude→issue mapping a constant-time string parse
+    (`re.match(r'^([A-Z]+)(\d+)(?:-phase(\d+))?-(.+)$', tab_name)`).
+    See issue #470.
+  rules:
+    - id: "coach.session.canonical-session-name"
+      aliases: ["COACH-SESSION-NAMING-0001"]
+      severity: 3
+      disposition: advisory
+      description: "Active ATDD session names match <REPO><N>[-phase<M>]-<slug>"
+      introduced_in: "3.10.0"
+      validator: "test_session_naming::test_active_session_names_canonical"
+      fix_hint: |
+        Rename the surface to the canonical form.
+        e.g. "cmux rename-tab --surface surface:42 'ATDD470-canonical-session-naming'"
+        (the observer reconciles drift automatically on the next tick).
+
+layout_placement:
+  description: |
+    New parallel sessions open on the RIGHT of the operator's shell pane
+    in the ATDD workspace, arranged in a grid that scales with surface
+    count. The operator's shell stays in the leftmost pane and is never
+    resplit by the coach.
+  policy:
+    "0": "shell-only (left pane)"
+    "1": "shell (left) + 1 surface (right)"
+    "2": "shell (left) + 2 surfaces stacked vertically (right)"
+    "3-4": "shell (left) + 2x2 grid (right region)"
+    "5-6": "shell (left) + 2x3 grid (right region)"
+    "7+": "shell (left) + dense column grid (3+ columns x N rows)"
+  application_points:
+    coach: "cmux new-pane --direction right --workspace workspace:1; rebalance via move-surface ops per the policy table"
+    observer: "detect non-conforming layouts; auto-correct by moving impl-agent surfaces to the right region; idempotent"
+  trigger_semantics:
+    coach: "Once at dispatch time — paired with the naming pass"
+    observer: "Every tick; drift-detection only — already-conforming layouts are no-ops"
+  rationale: |
+    Glance-able layout: all parallel agents visible at once without
+    tab-clicking. Right-anchored grid preserves the operator's typing
+    pane on the left ("operator shell is sacred"). See issue #470,
+    decisions 8-13.
+  rules:
+    - id: "coach.session.layout-conformance"
+      aliases: ["COACH-SESSION-LAYOUT-0001"]
+      severity: 2
+      disposition: advisory
+      description: "ATDD workspace surfaces follow the grid policy (shell left, agents right)"
+      introduced_in: "3.10.0"
+      validator: "test_session_naming::test_workspace_layout_conforms"
+      fix_hint: |
+        Move impl-agent surfaces to the right region; keep the operator's
+        shell as the leftmost pane.
+        e.g. "cmux move-surface --surface surface:42 --direction right"
+        (the observer reconciles drift automatically on the next tick).
+
+# =============================================================================
+# Multiplexer preference
+# =============================================================================
+multiplexer:
+  preferred: "cmux"
+  alternates: ["zellij", "tmux"]
+  detection: "cmux --version first, then zellij --version, then tmux -V"
+  rationale: |
+    cmux workspace model matches ATDD's one-session-per-worktree pattern.
+    zellij is preferred over tmux as a fallback because it supports detached
+    session creation (`zellij attach --create-background`) and per-session
+    targeting (via the ZELLIJ_SESSION_NAME env var), both of which align
+    with the headless coach model. tmux remains as the ubiquitous
+    last-resort fallback.

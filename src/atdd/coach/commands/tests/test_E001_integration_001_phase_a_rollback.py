@@ -64,7 +64,7 @@ def _fake_remove_factory(removed: list[Path]):
 
 
 def _make_plan(numbers: list[int]):
-    from atdd.coach.commands._archived.orchestrate import PlannedIssue
+    from atdd.coach.commands.wave_planning import PlannedIssue
 
     return {
         n: PlannedIssue(

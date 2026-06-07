@@ -4,10 +4,10 @@
 
 """Observer rule 13 — ``coach.observer.bash-auto-approve`` (spec §8.3).
 
-Absorbs ``babysit.classify_prompt`` verbatim per spec §0.2. The classifier
-reads ``orchestration.convention.yaml::babysit.bash_auto_approve_patterns``
-and ``bash_deny_patterns`` via ``babysit._load_bash_patterns`` /
-``babysit.BashPattern`` — the patterns YAML is unchanged.
+The classifier (``detectors.classify_prompt``) reads
+``observer.convention.yaml::bash_classifier.auto_approve_patterns`` and
+``deny_patterns`` via ``detectors._load_bash_patterns`` /
+``detectors.BashPattern``.
 
 Predicate semantics (E014, M001, R001 — issue #829):
 
@@ -26,7 +26,7 @@ Predicate semantics (E014, M001, R001 — issue #829):
 from __future__ import annotations
 
 from atdd.coach.commands import observer
-from atdd.coach.commands._archived.babysit import (
+from atdd.coach.observer_rules.detectors import (
     BashPattern,
     _load_bash_patterns,
     classify_prompt,
@@ -47,7 +47,7 @@ _FIX_HINT = (
     "surfaces to the cmux Feed for the daemon to mediate. "
     "For deny-pattern bashes (rm, pip install, curl, etc.), run: atdd agent escalate "
     "to route the invocation to the structured outbound escalation channel "
-    "(see orchestration.convention.yaml::babysit.bash_deny_patterns)."
+    "(see observer.convention.yaml::bash_classifier.deny_patterns)."
 )
 
 
