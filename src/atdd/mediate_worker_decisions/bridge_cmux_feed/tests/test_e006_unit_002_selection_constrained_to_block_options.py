@@ -50,7 +50,7 @@ def _request() -> DecisionRequest:
     )
 
 
-def _fake_cli(prompt, *, timeout):
+def _fake_cli(prompt, *, system=None, timeout):
     # "purple" is NOT a color option and "z" is NOT a feature option — both must
     # be dropped; only in-block ids survive.
     return json.dumps(

@@ -55,7 +55,7 @@ def _doc_request() -> DecisionRequest:
     )
 
 
-def _fake_cli(prompt, *, timeout):
+def _fake_cli(prompt, *, system=None, timeout):
     # The decider renders the whole document and parses a per-block answer.
     return json.dumps(
         {
