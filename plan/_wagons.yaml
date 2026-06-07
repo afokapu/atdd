@@ -1232,7 +1232,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 33
+    total: 34
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
@@ -1291,6 +1291,8 @@ wagons:
       cursor in the daemons escalations ledger
     R003: minimize likelihood of a managed daemon left running or a stale manager
       pidfile after atdd coach stop
+    E011: minimize likelihood of the autonomous decider deciding without the coach
+      convention and operating protocol loaded
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/
