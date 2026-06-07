@@ -1721,7 +1721,7 @@ sessions:
   file: null
   issue_number: 998
   type: implementation
-  status: PLANNED
+  status: REFACTOR
   created: '2026-06-07'
   archived: null
   wagon: mediate-worker-decisions
