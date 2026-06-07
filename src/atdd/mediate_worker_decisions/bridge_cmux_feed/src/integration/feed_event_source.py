@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Callable, List, Optional
 
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import (
@@ -73,13 +74,19 @@ class CmuxFeedSource:
     def _resolve_scope(self) -> WorkspaceScope:
         """Resolve the configured workspace's identity from ``surface.list``.
 
-        Collects, for every surface in the workspace, the agent's workstream id
-        (``<kind>-<checkpoint_id>``, matching the Feed item's ``workstream_id``)
-        and the worktree cwd. A garbled/empty tree degrades to an empty scope
-        (filters everything out) rather than silently leaking the global set —
-        logged so the miss is visible.
+        ``cmux rpc surface.list`` with ``{"workspace_id": <ws>}`` returns ONLY
+        that workspace's surfaces (it accepts the ``workspace:N`` ref under that
+        key — verified live; the bare ``workspace`` key is ignored and leaks the
+        caller's surfaces). For each surface we collect the agent's workstream id
+        (``<kind>-<checkpoint_id>`` from ``resume_binding``, matching the Feed
+        item's ``workstream_id`` e.g. ``claude-<session-uuid>``) and the worktree
+        cwd (with its symlink-resolved form, since the Feed reports the realpath
+        — e.g. ``/private/tmp/x`` vs a surface's ``/tmp/x``). The workstream id is
+        the precise signal; cwd is the fallback. A garbled/empty response degrades
+        to an empty scope (filters everything out) rather than silently leaking
+        the global set — logged so the miss is visible.
         """
-        params = json.dumps({"workspace": self._ws})
+        params = json.dumps({"workspace_id": self._ws})
         raw = strip_ansi(self._run("rpc", "surface.list", params)).strip()
         workstream_ids: set = set()
         cwds: set = set()
@@ -95,20 +102,21 @@ class CmuxFeedSource:
             payload.get("surfaces", payload) if isinstance(payload, dict) else payload
         )
         for surface in surfaces or []:
-            cwd = surface.get("requested_working_directory")
             binding = surface.get("resume_binding") or {}
             checkpoint = binding.get("checkpoint_id")
             kind = binding.get("kind")
-            binding_cwd = binding.get("cwd")
             if checkpoint:
                 # cmux builds the Feed workstream_id as ``<kind>-<checkpoint_id>``
                 # (e.g. ``claude-<session-uuid>``); fall back to the bare id when
                 # the kind is absent.
                 workstream_ids.add(f"{kind}-{checkpoint}" if kind else str(checkpoint))
-            if cwd:
-                cwds.add(cwd)
-            if binding_cwd:
-                cwds.add(binding_cwd)
+            for cwd in (
+                surface.get("requested_working_directory"),
+                binding.get("cwd"),
+            ):
+                if cwd:
+                    cwds.add(cwd)
+                    cwds.add(os.path.realpath(cwd))  # Feed reports the realpath
         return WorkspaceScope(frozenset(workstream_ids), frozenset(cwds))
 
 
