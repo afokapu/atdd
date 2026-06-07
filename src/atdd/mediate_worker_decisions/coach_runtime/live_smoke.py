@@ -140,8 +140,8 @@ def stop_terminates_managed_daemon_live_smoke(
             exited = not probe.is_alive(daemon.pid)  # not our child / already reaped
             if exited:
                 break
-        except OSError:
-            pass
+        except OSError as exc:
+            _log.debug("waitpid probe failed; retrying", extra={"pid": daemon.pid, "error": str(exc)})
         time.sleep(0.2)
 
     pidfile = runtime_root / workspace_slug(ws) / "manager.json"

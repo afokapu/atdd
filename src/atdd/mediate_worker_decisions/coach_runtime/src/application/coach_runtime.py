@@ -24,7 +24,12 @@ from atdd.mediate_worker_decisions.coach_runtime.src.application.ports import (
     Sleeper,
     StopSignal,
 )
+from atdd.mediate_worker_decisions.coach_runtime.src.domain.cursor import (
+    next_escalation_after,
+)
 from atdd.mediate_worker_decisions.coach_runtime.src.domain.managed_daemon import (
+    STATUS_RUNNING,
+    STATUS_STALE,
     ManagedDaemon,
 )
 
@@ -102,10 +107,6 @@ class CoachRuntime:
         handled escalation is never re-emitted. Returns ``None`` when ``stop``
         fires before any new escalation appears.
         """
-        from atdd.mediate_worker_decisions.coach_runtime.src.domain.cursor import (
-            next_escalation_after,
-        )
-
         record: Optional[dict] = None
         advanced = 0
         while not stop.is_set():
@@ -137,11 +138,6 @@ class CoachRuntime:
 
     def list_daemons(self) -> List[ManagedDaemon]:
         """Every managed daemon with a derived running|stale status."""
-        from atdd.mediate_worker_decisions.coach_runtime.src.domain.managed_daemon import (
-            STATUS_RUNNING,
-            STATUS_STALE,
-        )
-
         out: List[ManagedDaemon] = []
         for daemon in self._registry.load_all():
             status = (
