@@ -1703,3 +1703,16 @@ sessions:
   wagon: mediate-worker-decisions
   feature: feature:mediate-worker-decisions:surface-worker-decisions
   train: 0002-coach-drives-lifecycle
+- id: '993'
+  slug: feed-source-scope-list-to-workspace
+  file: null
+  issue_number: 993
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-07'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:bridge-cmux-feed
+  train: null
+  branch: feat/feed-source-scope-list-to-workspace
+  worktree: /Users/alecfokapu/Github/atdd/feat-feed-source-scope-list-to-workspace

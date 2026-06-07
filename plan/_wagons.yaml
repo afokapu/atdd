@@ -1232,7 +1232,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 29
+    total: 30
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
@@ -1283,6 +1283,8 @@ wagons:
       worker at launch
     E009: minimize likelihood of claiming a feed reply delivered while the worker
       stays parked on its tui menu
+    L005: minimize likelihood of a daemon acting on decisions outside its own workspace
+      because the feed read is not scoped
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/

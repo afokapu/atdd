@@ -47,7 +47,7 @@ features:
   - urn: "feature:mediate-worker-decisions:surface-worker-decisions"
 
 wmbt:
-  total: 29
+  total: 30
   D001: "minimize likelihood of resolving a cmux notification to the wrong worker (or routing two entry paths to divergent requests)"
   L001: "maximize likelihood of locating the latest decision prompt in worker surface text"
   C001: "minimize quantity of false decision-requests emitted from non-decision worker output"
@@ -77,3 +77,4 @@ wmbt:
   Y002: "minimize likelihood of the rendered dispatch spec values diverging from the declared decision surfacing policy"
   L004: "maximize likelihood of the feed publishing hook being active for a spawned worker at launch"
   E009: "minimize likelihood of claiming a feed reply delivered while the worker stays parked on its tui menu"
+  L005: "minimize likelihood of a daemon acting on decisions outside its own workspace because the feed read is not scoped"

@@ -3,17 +3,33 @@
 Shells out via ``commons.cmux_cli.run_cmux`` to ``cmux rpc feed.list '{}'``,
 parses the JSON, and maps each pending entry to a frozen ``FeedItem``. Only
 pending items are returned (already-resolved ones are skipped).
+
+When constructed with a ``workspace_id`` the source is SCOPED (WMBT L005): cmux
+``feed.list`` is global and ignores any filter param (verified live — the item
+count is identical with and without one), so a per-workspace daemon must map each
+global item to a workspace and keep only its own. The workspace identity (its
+claude session/workstream + worktree cwd) is read from ``cmux rpc surface.list``:
+``resume_binding.checkpoint_id`` is the session uuid that an item's
+``workstream_id`` (``claude-<uuid>``) is built from, and
+``requested_working_directory`` is the cwd. cmux specifics stay here; the
+membership predicate is the pure ``WorkspaceScope``. Without a ``workspace_id``
+the source returns the global set (back-compat).
 """
 from __future__ import annotations
 
 import json
-from typing import List, Optional
+import logging
+import os
+from typing import Callable, List, Optional
 
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import (
     EXIT_PLAN,
     PERMISSION,
     QUESTION,
     FeedItem,
+)
+from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.workspace_scope import (
+    WorkspaceScope,
 )
 from atdd.mediate_worker_decisions.commons.cmux_cli import run_cmux, strip_ansi
 
@@ -22,10 +38,24 @@ _PENDING = "pending"
 # (kind "toolUse", status "telemetry"); a *blocked decision* is one of these.
 _DECISION_KINDS = (QUESTION, PERMISSION, EXIT_PLAN)
 
+_log = logging.getLogger("atdd.mediate_worker_decisions.feed_source")
+
 
 class CmuxFeedSource:
+    def __init__(
+        self,
+        *,
+        workspace_id: Optional[str] = None,
+        runner: Callable[..., str] = run_cmux,
+    ) -> None:
+        """``workspace_id`` scopes the read to one workspace (WMBT L005); None
+        keeps the global behaviour. ``runner`` is the cmux CLI seam (injectable
+        for hermetic tests)."""
+        self._ws = workspace_id
+        self._run = runner
+
     def list_pending(self) -> List[FeedItem]:
-        raw = strip_ansi(run_cmux("rpc", "feed.list", "{}")).strip()
+        raw = strip_ansi(self._run("rpc", "feed.list", "{}")).strip()
         if not raw:
             return []
         payload = json.loads(raw)
@@ -37,7 +67,57 @@ class CmuxFeedSource:
             if entry.get("status") not in (None, _PENDING):
                 continue
             items.append(_to_feed_item(entry))
-        return items
+        if self._ws is None:
+            return items  # unscoped: the global pending set (back-compat)
+        return self._resolve_scope().filter(items)
+
+    def _resolve_scope(self) -> WorkspaceScope:
+        """Resolve the configured workspace's identity from ``surface.list``.
+
+        ``cmux rpc surface.list`` with ``{"workspace_id": <ws>}`` returns ONLY
+        that workspace's surfaces (it accepts the ``workspace:N`` ref under that
+        key — verified live; the bare ``workspace`` key is ignored and leaks the
+        caller's surfaces). For each surface we collect the agent's workstream id
+        (``<kind>-<checkpoint_id>`` from ``resume_binding``, matching the Feed
+        item's ``workstream_id`` e.g. ``claude-<session-uuid>``) and the worktree
+        cwd (with its symlink-resolved form, since the Feed reports the realpath
+        — e.g. ``/private/tmp/x`` vs a surface's ``/tmp/x``). The workstream id is
+        the precise signal; cwd is the fallback. A garbled/empty response degrades
+        to an empty scope (filters everything out) rather than silently leaking
+        the global set — logged so the miss is visible.
+        """
+        params = json.dumps({"workspace_id": self._ws})
+        raw = strip_ansi(self._run("rpc", "surface.list", params)).strip()
+        workstream_ids: set = set()
+        cwds: set = set()
+        try:
+            payload = json.loads(raw) if raw else {}
+        except ValueError as exc:
+            _log.warning(
+                "could not parse surface.list; scoping to an empty set",
+                extra={"workspace_id": self._ws, "error": repr(exc)},
+            )
+            return WorkspaceScope(frozenset(), frozenset())
+        surfaces = (
+            payload.get("surfaces", payload) if isinstance(payload, dict) else payload
+        )
+        for surface in surfaces or []:
+            binding = surface.get("resume_binding") or {}
+            checkpoint = binding.get("checkpoint_id")
+            kind = binding.get("kind")
+            if checkpoint:
+                # cmux builds the Feed workstream_id as ``<kind>-<checkpoint_id>``
+                # (e.g. ``claude-<session-uuid>``); fall back to the bare id when
+                # the kind is absent.
+                workstream_ids.add(f"{kind}-{checkpoint}" if kind else str(checkpoint))
+            for cwd in (
+                surface.get("requested_working_directory"),
+                binding.get("cwd"),
+            ):
+                if cwd:
+                    cwds.add(cwd)
+                    cwds.add(os.path.realpath(cwd))  # Feed reports the realpath
+        return WorkspaceScope(frozenset(workstream_ids), frozenset(cwds))
 
 
 def _to_feed_item(entry: dict) -> FeedItem:
@@ -60,6 +140,9 @@ def _to_feed_item(entry: dict) -> FeedItem:
         # the FULL multi-question payload, so the mapper preserves every
         # question as a block instead of flattening to the mirror (WMBT L003)
         questions=tuple(_normalize_question(q) for q in (entry.get("questions") or [])),
+        # provenance used for per-workspace scoping (WMBT L005)
+        workstream_id=entry.get("workstream_id"),
+        cwd=entry.get("cwd"),
     )
 
 

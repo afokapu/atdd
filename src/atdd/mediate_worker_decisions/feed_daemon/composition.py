@@ -83,7 +83,11 @@ def build_feed_daemon_from_repo(*, config: DaemonConfig) -> FeedDaemonUseCase:  
         SignalStop,
     )
 
-    source = CmuxFeedSource()  # one shared source for poll + runner
+    # #993: scope the Feed read to this daemon's workspace. cmux feed.list is
+    # global and ignores filter params, so without this every per-workspace
+    # daemon decides every worker's prompt (the live two-daemon cross-decide
+    # bug). One shared scoped source for both the poll loop and the runner.
+    source = CmuxFeedSource(workspace_id=config.workspace_id)
     runner = build_feed_runner(
         source=source,
         reply=CmuxFeedTransport(),

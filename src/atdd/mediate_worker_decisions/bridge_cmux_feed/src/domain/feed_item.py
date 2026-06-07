@@ -38,6 +38,13 @@ class FeedItem:
     # convenience mirror of the FIRST question only; ``questions`` carries them
     # all so the mapper can preserve the whole decision document (WMBT L003).
     questions: Tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
+    # Where the item came from. cmux feed.list is global and tags each item with
+    # the agent's ``workstream_id`` (``claude-<session-uuid>``) and the worker's
+    # ``cwd`` — NOT a workspace id. A per-workspace daemon uses these to keep only
+    # ITS workspace's decisions (WMBT L005); ``workstream_id`` is the precise
+    # signal (the claude session) and ``cwd`` is the worktree fallback.
+    workstream_id: Optional[str] = None
+    cwd: Optional[str] = None
 
 
 @dataclass(frozen=True)
