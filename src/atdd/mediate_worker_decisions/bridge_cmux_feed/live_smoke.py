@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import tempfile
 import time
 from typing import List, Optional
 
@@ -64,10 +65,10 @@ def _surfaces(ws: str) -> List[str]:
     return re.findall(r"surface:\d+", _cmux("tree", "--workspace", ws).stdout)
 
 
-def _spawn_claude_worker(name: str) -> tuple:
+def _spawn_claude_worker(name: str, cwd: str = "/tmp") -> tuple:
     """Create a throwaway workspace running a real claude worker; return (ws, surface)."""
     created = _cmux(
-        "new-workspace", "--name", name, "--cwd", "/tmp",
+        "new-workspace", "--name", name, "--cwd", cwd,
         "--command", "claude", "--focus", "false",
     )
     ws = next((t for t in created.stdout.split() if t.startswith("workspace:")), None)
@@ -315,6 +316,79 @@ def danger_live_smoke() -> dict:
         }
     finally:
         _cmux("close-workspace", "--workspace", ws)
+
+
+def scope_isolation_live_smoke(evidence_path: Optional[str] = None) -> dict:
+    """D003 — two live workers, each scoped consumer sees ONLY its own (#993).
+
+    The headline #993 proof. Spawns TWO real claude workers in TWO workspaces,
+    each in its OWN throwaway worktree cwd (faithful to how the coach spawns real
+    workers), and blocks each on a DISTINCT AskUserQuestion. Builds a
+    workspace-scoped ``CmuxFeedSource`` for each and asserts each sees ONLY its
+    own worker's pending decision — no cross-decide, and no duplicate
+    ``request_id`` across the two scoped result sets (the live two-daemon bug).
+    The scope is resolved per workspace from ``surface.list`` (the claude session
+    workstream is the precise signal; the distinct worktree cwd corroborates).
+
+    Captures a screen/identity evidence artifact (#983 evidence-bound smokes) and
+    always closes both workspaces. Runs in throwaway /tmp scratch dirs, never the
+    caller's worktree.
+    """
+    question_a = (
+        "Use the AskUserQuestion tool right now to ask whether to indent with "
+        "Tabs or Spaces (options: Tabs, Spaces). Do nothing else first."
+    )
+    question_b = (
+        "Use the AskUserQuestion tool right now to ask whether you prefer "
+        "Cats or Dogs (options: Cats, Dogs). Do nothing else first."
+    )
+    cwd_a = tempfile.mkdtemp(prefix="atdd-993-a-")
+    cwd_b = tempfile.mkdtemp(prefix="atdd-993-b-")
+    ws_a, worker_a = _spawn_claude_worker("atdd-993-scope-a", cwd=cwd_a)
+    try:
+        ws_b, worker_b = _spawn_claude_worker("atdd-993-scope-b", cwd=cwd_b)
+        try:
+            _send_task(ws_a, worker_a, question_a)
+            _send_task(ws_b, worker_b, question_b)
+
+            # Each scoped source must surface ONLY its own workspace's decision.
+            source_a = CmuxFeedSource(workspace_id=ws_a)
+            source_b = CmuxFeedSource(workspace_id=ws_b)
+            item_a = _wait_for_pending(source_a, kind=QUESTION)
+            item_b = _wait_for_pending(source_b, kind=QUESTION)
+            assert item_a is not None, "workspace A scoped source saw no decision"
+            assert item_b is not None, "workspace B scoped source saw no decision"
+
+            # Re-read the full scoped sets to prove the isolation both ways.
+            a_ids = sorted({i.request_id for i in source_a.list_pending()})
+            b_ids = sorted({i.request_id for i in source_b.list_pending()})
+            shared = sorted(set(a_ids) & set(b_ids))
+
+            if evidence_path:
+                with open(evidence_path, "w", encoding="utf-8") as fh:
+                    fh.write("=== #993 workspace-scope isolation ===\n")
+                    fh.write(f"workspace A: {ws_a}  cwd={cwd_a}\n")
+                    fh.write(f"  scoped request_id: {item_a.request_id}\n")
+                    fh.write(f"  workstream_id: {item_a.workstream_id}\n")
+                    fh.write(f"  A scoped set: {a_ids}\n\n")
+                    fh.write(f"workspace B: {ws_b}  cwd={cwd_b}\n")
+                    fh.write(f"  scoped request_id: {item_b.request_id}\n")
+                    fh.write(f"  workstream_id: {item_b.workstream_id}\n")
+                    fh.write(f"  B scoped set: {b_ids}\n\n")
+                    fh.write(f"shared request_ids (must be empty): {shared}\n")
+
+            return {
+                "a_request_id": item_a.request_id,
+                "b_request_id": item_b.request_id,
+                "a_seen_request_ids": a_ids,
+                "b_seen_request_ids": b_ids,
+                "shared_request_ids": shared,
+                "evidence_path": evidence_path,
+            }
+        finally:
+            _cmux("close-workspace", "--workspace", ws_b)
+    finally:
+        _cmux("close-workspace", "--workspace", ws_a)
 
 
 def advance_live_smoke(evidence_path: Optional[str] = None) -> dict:

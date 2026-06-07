@@ -118,7 +118,9 @@ def build_feed_runner_from_repo(
     )
 
     return build_feed_runner(
-        source=CmuxFeedSource(),
+        # #993: scope the Feed read to this workspace so a per-workspace runner
+        # never acts on another worker's decisions (cmux feed.list is global).
+        source=CmuxFeedSource(workspace_id=workspace_id),
         reply=transport or CmuxFeedTransport(),
         coach=LlmCoach(provider=coach_provider, model=coach_model),
         # #986: prove the worker actually advanced after the reply (send-key
