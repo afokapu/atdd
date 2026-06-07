@@ -4,7 +4,7 @@ Shells out via ``commons.cmux_cli.run_cmux`` to ``cmux rpc feed.list '{}'``,
 parses the JSON, and maps each pending entry to a frozen ``FeedItem``. Only
 pending items are returned (already-resolved ones are skipped).
 
-When constructed with a ``workspace_id`` the source is SCOPED (WMBT D003): cmux
+When constructed with a ``workspace_id`` the source is SCOPED (WMBT L005): cmux
 ``feed.list`` is global and ignores any filter param (verified live — the item
 count is identical with and without one), so a per-workspace daemon must map each
 global item to a workspace and keep only its own. The workspace identity (its
@@ -48,7 +48,7 @@ class CmuxFeedSource:
         workspace_id: Optional[str] = None,
         runner: Callable[..., str] = run_cmux,
     ) -> None:
-        """``workspace_id`` scopes the read to one workspace (WMBT D003); None
+        """``workspace_id`` scopes the read to one workspace (WMBT L005); None
         keeps the global behaviour. ``runner`` is the cmux CLI seam (injectable
         for hermetic tests)."""
         self._ws = workspace_id
@@ -140,7 +140,7 @@ def _to_feed_item(entry: dict) -> FeedItem:
         # the FULL multi-question payload, so the mapper preserves every
         # question as a block instead of flattening to the mirror (WMBT L003)
         questions=tuple(_normalize_question(q) for q in (entry.get("questions") or [])),
-        # provenance used for per-workspace scoping (WMBT D003)
+        # provenance used for per-workspace scoping (WMBT L005)
         workstream_id=entry.get("workstream_id"),
         cwd=entry.get("cwd"),
     )

@@ -1708,7 +1708,7 @@ sessions:
   file: null
   issue_number: 993
   type: implementation
-  status: INIT
+  status: REFACTOR
   created: '2026-06-07'
   archived: null
   wagon: mediate-worker-decisions

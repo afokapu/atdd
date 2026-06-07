@@ -319,7 +319,7 @@ def danger_live_smoke() -> dict:
 
 
 def scope_isolation_live_smoke(evidence_path: Optional[str] = None) -> dict:
-    """D003 — two live workers, each scoped consumer sees ONLY its own (#993).
+    """L005 — two live workers, each scoped consumer sees ONLY its own (#993).
 
     The headline #993 proof. Spawns TWO real claude workers in TWO workspaces,
     each in its OWN throwaway worktree cwd (faithful to how the coach spawns real

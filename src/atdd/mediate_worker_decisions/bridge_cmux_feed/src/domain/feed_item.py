@@ -41,7 +41,7 @@ class FeedItem:
     # Where the item came from. cmux feed.list is global and tags each item with
     # the agent's ``workstream_id`` (``claude-<session-uuid>``) and the worker's
     # ``cwd`` — NOT a workspace id. A per-workspace daemon uses these to keep only
-    # ITS workspace's decisions (WMBT D003); ``workstream_id`` is the precise
+    # ITS workspace's decisions (WMBT L005); ``workstream_id`` is the precise
     # signal (the claude session) and ``cwd`` is the worktree fallback.
     workstream_id: Optional[str] = None
     cwd: Optional[str] = None
