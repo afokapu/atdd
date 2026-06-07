@@ -16,12 +16,12 @@ decide unattended — rather than raising.
 """
 from __future__ import annotations
 
-import logging
 import os
 from pathlib import Path
 from typing import Optional
+import logging
 
-_log = logging.getLogger("atdd.feed_daemon")
+_log = logging.getLogger("atdd.feed_daemon.coach_context")
 
 # The coach's operating protocol: the canonical ATDD lifecycle state machine the
 # coach drives. Resolved relative to the repo root (never an absolute hardcode).
