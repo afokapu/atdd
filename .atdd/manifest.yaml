@@ -1716,3 +1716,16 @@ sessions:
   train: null
   branch: feat/feed-source-scope-list-to-workspace
   worktree: /Users/alecfokapu/Github/atdd/feat-feed-source-scope-list-to-workspace
+- id: '998'
+  slug: atdd-coach-runtime-start-daemon-and-notify-pass
+  file: null
+  issue_number: 998
+  type: implementation
+  status: PLANNED
+  created: '2026-06-07'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:coach-runtime
+  train: null
+  branch: feat/atdd-coach-runtime-start-daemon-and-notify-pass
+  worktree: /Users/alecfokapu/Github/atdd/feat-atdd-coach-runtime-start-daemon
