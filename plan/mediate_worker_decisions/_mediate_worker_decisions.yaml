@@ -77,4 +77,4 @@ wmbt:
   Y002: "minimize likelihood of the rendered dispatch spec values diverging from the declared decision surfacing policy"
   L004: "maximize likelihood of the feed publishing hook being active for a spawned worker at launch"
   E009: "minimize likelihood of claiming a feed reply delivered while the worker stays parked on its tui menu"
-  D003: "minimize likelihood of a per-workspace daemon acting on another workspace's decisions because the feed read is not scoped to its workspace"
+  L005: "minimize likelihood of a daemon acting on decisions outside its own workspace because the feed read is not scoped"

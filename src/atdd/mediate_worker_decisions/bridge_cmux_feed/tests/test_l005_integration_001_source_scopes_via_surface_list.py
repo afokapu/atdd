@@ -1,10 +1,10 @@
-# URN: test:mediate-worker-decisions:bridge-cmux-feed:D003-INTEGRATION-001-source-scopes-via-surface-list
-# Acceptance: acc:mediate-worker-decisions:D003-INTEGRATION-001-source-scopes-via-surface-list
-# WMBT: wmbt:mediate-worker-decisions:D003
+# URN: test:mediate-worker-decisions:bridge-cmux-feed:L005-INTEGRATION-001-source-scopes-via-surface-list
+# Acceptance: acc:mediate-worker-decisions:L005-INTEGRATION-001-source-scopes-via-surface-list
+# WMBT: wmbt:mediate-worker-decisions:L005
 # Phase: RED
 # Layer: integration
 # Assertion: behavioral
-"""D003-INTEGRATION-001 — CmuxFeedSource scopes the Feed via surface.list.
+"""L005-INTEGRATION-001 — CmuxFeedSource scopes the Feed via surface.list.
 
 cmux ``feed.list`` is global and ignores any filter param (verified live), so the
 adapter must map each global item to a workspace and keep only the configured

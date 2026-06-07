@@ -13,7 +13,7 @@ wmbts:
   - "wmbt:mediate-worker-decisions:E006"
   - "wmbt:mediate-worker-decisions:E007"
   - "wmbt:mediate-worker-decisions:E009"
-  - "wmbt:mediate-worker-decisions:D003"
+  - "wmbt:mediate-worker-decisions:L005"
 components:
   backend:
     presentation:

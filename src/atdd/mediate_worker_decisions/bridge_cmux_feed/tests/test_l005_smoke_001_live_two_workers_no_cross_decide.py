@@ -1,10 +1,10 @@
-# URN: test:mediate-worker-decisions:bridge-cmux-feed:D003-SMOKE-001-live-two-workers-no-cross-decide
-# Acceptance: acc:mediate-worker-decisions:D003-SMOKE-001-live-two-workers-no-cross-decide
-# WMBT: wmbt:mediate-worker-decisions:D003
+# URN: test:mediate-worker-decisions:bridge-cmux-feed:L005-SMOKE-001-live-two-workers-no-cross-decide
+# Acceptance: acc:mediate-worker-decisions:L005-SMOKE-001-live-two-workers-no-cross-decide
+# WMBT: wmbt:mediate-worker-decisions:L005
 # Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral
-"""D003-SMOKE-001 — two live workers, each scoped consumer sees only its own.
+"""L005-SMOKE-001 — two live workers, each scoped consumer sees only its own.
 
 The headline #993 proof: spawn TWO real cmux-native workers in TWO workspaces,
 each blocked on a DISTINCT live AskUserQuestion. Build a workspace-scoped
@@ -25,7 +25,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_d003_smoke_001_live_two_workers_no_cross_decide(tmp_path):
+def test_l005_smoke_001_live_two_workers_no_cross_decide(tmp_path):
     from atdd.mediate_worker_decisions.bridge_cmux_feed.live_smoke import (
         scope_isolation_live_smoke,
     )

@@ -1,10 +1,10 @@
-# URN: test:mediate-worker-decisions:bridge-cmux-feed:D003-UNIT-001-scope-returns-only-own-workspace-items
-# Acceptance: acc:mediate-worker-decisions:D003-UNIT-001-scope-returns-only-own-workspace-items
-# WMBT: wmbt:mediate-worker-decisions:D003
+# URN: test:mediate-worker-decisions:bridge-cmux-feed:L005-UNIT-001-scope-returns-only-own-workspace-items
+# Acceptance: acc:mediate-worker-decisions:L005-UNIT-001-scope-returns-only-own-workspace-items
+# WMBT: wmbt:mediate-worker-decisions:L005
 # Phase: RED
 # Layer: domain
 # Assertion: behavioral
-"""D003-UNIT-001 — the scope keeps only the configured workspace's items.
+"""L005-UNIT-001 — the scope keeps only the configured workspace's items.
 
 A per-workspace daemon must not act on another workspace's decisions. Given a
 mixed list of feed items carrying different ``workstream_id``s, a

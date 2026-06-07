@@ -1,10 +1,10 @@
-# URN: test:mediate-worker-decisions:bridge-cmux-feed:D003-UNIT-002-cwd-fallback-when-workstream-unknown
-# Acceptance: acc:mediate-worker-decisions:D003-UNIT-002-cwd-fallback-when-workstream-unknown
-# WMBT: wmbt:mediate-worker-decisions:D003
+# URN: test:mediate-worker-decisions:bridge-cmux-feed:L005-UNIT-002-cwd-fallback-when-workstream-unknown
+# Acceptance: acc:mediate-worker-decisions:L005-UNIT-002-cwd-fallback-when-workstream-unknown
+# WMBT: wmbt:mediate-worker-decisions:L005
 # Phase: RED
 # Layer: domain
 # Assertion: behavioral
-"""D003-UNIT-002 — cwd is the fallback when an item's workstream is unknown.
+"""L005-UNIT-002 — cwd is the fallback when an item's workstream is unknown.
 
 The precise signal is ``workstream_id`` (the claude session). When an item
 carries no resolvable ``workstream_id`` the scope falls back to the workspace's
