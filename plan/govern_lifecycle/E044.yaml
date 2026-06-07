@@ -1,0 +1,101 @@
+urn: "wmbt:govern-lifecycle:E044"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-registry-build-materializing-the-game-template-default-code-roots-python-supabase-telemetry-into-every-repo-regardless-of-what-atdd-config-yaml-code-declares-so-every-atdd-pr-leaves-stray-empty-stub-dirs-that-must-be-rm-rf-d-by-hand"
+context_clarifier: "RegistryBuilder.build_all (atdd.coach.commands.registry) unconditionally calls build_coder, build_supabase and build_telemetry, and each writes its mirror file (python/_implementations.yaml, supabase/_functions.yaml, telemetry/_telemetry.yaml) via _confirm_and_apply, which always runs registry_path.parent.mkdir(parents=True, exist_ok=True) even when the repo ships no sources for that root and the mirror has zero entries. The result is that `atdd pr` / `atdd registry update --apply` materializes empty python/, supabase/ and telemetry/ stub dirs into a repo that never declared them — the game-template DEFAULT_CODE_ROOTS rot (atdd.coach.utils.config.DEFAULT_CODE_ROOTS = {python, supabase, web}), the same vestigial game-template default #970 collapsed for themes. It is toolkit-self-inflicted contamination: a validator can only flag the stray dirs AFTER the toolkit itself created them, so every coach/worker runs `rm -rf python supabase telemetry` after each `atdd pr`. The fix gates code-root mirror materialization on what the repo actually declares: build_coder/build_supabase run only when `python`/`supabase` appear in the repo's `.atdd/config.yaml` `code:` block (explicitly declared, NOT the merged DEFAULT_CODE_ROOTS) or the source dir already exists; build_telemetry runs only when telemetry/ already exists. The game-template defaults stay available for repos that genuinely declare them — they are simply no longer FORCED. The toolkit's own `.atdd/config.yaml` drops the vestigial python/supabase/web declarations, keeping only `toolkit: src/atdd`, so the toolkit produces no stub dirs (#984, sibling of #970)."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the-registry-build-materializing-the-game-template-default-code-roots-python-supabase-telemetry-into-every-repo-regardless-of-what-atdd-config-yaml-code-declares-so-every-atdd-pr-leaves-stray-empty-stub-dirs-that-must-be-rm-rf-d-by-hand by (1) adding RegistryBuilder._declared_code_roots() that returns ONLY the keys explicitly declared in the repo's .atdd/config.yaml `code:` block (never merging the game-template DEFAULT_CODE_ROOTS the way get_code_roots does); (2) gating build_all so build_coder runs only when `python` is declared or python/ already exists, build_supabase runs only when `supabase` is declared or supabase/ already exists, and build_telemetry runs only when telemetry/ already exists — so a repo declaring only `code.toolkit: src/atdd` gets NO python/supabase/telemetry stub dirs while a repo that declares the defaults still gets them; and (3) dropping the vestigial python/supabase/web declarations from the toolkit's own .atdd/config.yaml `code:` block so the toolkit's own `atdd pr` no longer leaves stray stub dirs (#984)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E044-UNIT-001-toolkit-only-config-creates-no-game-template-stub-dirs"
+      id: "AC-UNIT-001"
+      purpose: "A repo declaring only a non-default code root (toolkit) gets NO python/supabase/telemetry stub dirs from build_all"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A temporary repo whose .atdd/config.yaml declares only `code.toolkit: src/atdd`"
+        - "No python/, supabase/ or telemetry/ directory exists in the repo"
+        - "RegistryBuilder is instantiated pointing at that repo root"
+    when:
+      abstract: "build_all(mode='apply') is invoked"
+    then:
+      abstract:
+        - "No python/ directory is created"
+        - "No supabase/ directory is created"
+        - "No telemetry/ directory is created"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-07"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E044-UNIT-002-declared-default-roots-still-materialize"
+      id: "AC-UNIT-002"
+      purpose: "A repo that declares the game-template default roots still gets their mirrors materialized"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A temporary repo whose .atdd/config.yaml `code:` block declares both `python` and `supabase`"
+        - "RegistryBuilder is instantiated pointing at that repo root"
+    when:
+      abstract: "build_all(mode='apply') is invoked"
+    then:
+      abstract:
+        - "python/_implementations.yaml is created (python/ materialized)"
+        - "supabase/_functions.yaml is created (supabase/ materialized)"
+        - "The defaults are available to repos that opt in — only the forcing is removed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-07"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E044-UNIT-003-declared-code-roots-excludes-merged-defaults"
+      id: "AC-UNIT-003"
+      purpose: "_declared_code_roots returns only explicitly-declared keys, never the merged game-template DEFAULT_CODE_ROOTS"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A temporary repo whose .atdd/config.yaml declares only `code.toolkit: src/atdd`"
+        - "RegistryBuilder is instantiated pointing at that repo root"
+    when:
+      abstract: "RegistryBuilder._declared_code_roots() is called"
+    then:
+      abstract:
+        - "The returned set contains 'toolkit'"
+        - "The returned set does NOT contain 'python', 'supabase' or 'web' (the DEFAULT_CODE_ROOTS are not merged in)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-07"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E044-SMOKE-001-toolkit-registry-build-leaves-no-stray-stub-dirs"
+      id: "AC-SMOKE-001"
+      purpose: "On the live toolkit repo, a registry build leaves no stray python/supabase/telemetry stub dirs"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI runs against the live toolkit worktree (PYTHONPATH=src)"
+        - "The toolkit .atdd/config.yaml `code:` block declares only `toolkit: src/atdd`"
+        - "The worktree has no python/, supabase/ or telemetry/ directory"
+    when:
+      abstract: "RegistryBuilder(repo_root).build_all(mode='apply') is invoked on the worktree"
+    then:
+      abstract:
+        - "No python/ directory appears at the worktree root"
+        - "No supabase/ directory appears at the worktree root"
+        - "No telemetry/ directory appears at the worktree root"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-07"
