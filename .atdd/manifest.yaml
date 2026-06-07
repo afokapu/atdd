@@ -1,6 +1,16 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '987'
+  slug: llm-coach-loads-convention-and-supervised-session-first-routing
+  file: null
+  issue_number: 987
+  type: implementation
+  status: PLANNED
+  created: '2026-06-07'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:bridge-cmux-feed
 - id: '270'
   slug: enforce-train-composition
   file: null

@@ -19,6 +19,13 @@ already agent-agnostic; ``LlmCoach`` is the pluggable DECIDER seam.
 intentionally NOT implemented now; an unknown provider raises
 ``UnsupportedCoachProvider`` rather than silently falling back.
 
+Decides AS A COACH (WMBT E011): the coach convention + operating protocol (the
+canonical ATDD phase machine, resolved from the repo) is loaded once and carried
+into the provider CLI as an appended system prompt — for claude via
+``--append-system-prompt``. The CLI seam takes a ``system`` keyword so the SAME
+coach context flows to any provider, not just claude. A blank ``claude -p`` is
+never issued; this is a strict quality upgrade with no behavior removed.
+
 Decide-only by design: the dangerous-action safety gate already runs *ahead* of
 the coach in ``FeedRunnerUseCase`` (WMBT C003/C005), so a dangerous tool use /
 dangerous block never reaches this adapter. ``LlmCoach`` therefore only chooses
@@ -33,6 +40,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
 
+from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.coach_context import (
+    load_coach_context,
+)
 from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import (
     AUTO_APPLY,
     SOURCE_COACH,
@@ -59,7 +69,10 @@ _log = logging.getLogger("atdd.feed_daemon")
 _COACH_TIMEOUT = 90.0
 DEFAULT_PROVIDER = "claude"
 
-# A provider CLI is a callable ``(prompt, *, timeout) -> str`` returning stdout.
+# A provider CLI is a callable ``(prompt, *, system, timeout) -> str`` returning
+# stdout. ``system`` carries the coach convention / operating protocol (E011) so
+# the decider decides as a coach; each provider decides how to apply it (claude
+# appends it via ``--append-system-prompt``).
 CoachCli = Callable[..., str]
 
 
@@ -76,12 +89,19 @@ def _default_ts_factory() -> str:
 
 
 def _claude_cli_factory(model: Optional[str]) -> CoachCli:
-    """Build the ``claude -p`` CLI (optionally pinned to ``--model``)."""
+    """Build the ``claude -p`` CLI (optionally pinned to ``--model``).
 
-    def run(prompt: str, *, timeout: float) -> str:
+    When ``system`` is supplied (the coach convention / operating protocol, E011)
+    it is appended to the call via ``--append-system-prompt`` so the decider
+    decides as a coach rather than a blank LLM.
+    """
+
+    def run(prompt: str, *, system: Optional[str] = None, timeout: float) -> str:
         cmd = ["claude", "-p", prompt]
         if model:
             cmd += ["--model", model]
+        if system:
+            cmd += ["--append-system-prompt", system]
         return subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout
         ).stdout
@@ -115,6 +135,11 @@ class LlmCoach:
     optionally pins a model. ``cli`` / id / ts factories are injectable so the
     adapter is unit-testable without shelling out (the hermetic tests inject a
     fake cli); when ``cli`` is omitted it is resolved from ``provider``/``model``.
+
+    ``coach_context`` is the coach convention / operating protocol carried into
+    every provider call so the decider decides as a coach (E011). When omitted it
+    is loaded once (lazily, on first decision) from the repo via
+    ``context_loader``; tests inject a known string to assert it reaches the args.
     """
 
     def __init__(
@@ -123,6 +148,8 @@ class LlmCoach:
         provider: str = DEFAULT_PROVIDER,
         model: Optional[str] = None,
         cli: Optional[CoachCli] = None,
+        coach_context: Optional[str] = None,
+        context_loader: Callable[[], str] = load_coach_context,
         id_factory: Callable[[], str] = _default_id_factory,
         ts_factory: Callable[[], str] = _default_ts_factory,
         timeout: float = _COACH_TIMEOUT,
@@ -130,9 +157,20 @@ class LlmCoach:
         self._provider = provider
         self._model = model
         self._cli = cli if cli is not None else resolve_provider_cli(provider, model)
+        # Lazily resolved: None means "load the coach convention on first decision"
+        # so unit tests that don't inject context don't pay a filesystem read at
+        # construction (and an injected string short-circuits the load entirely).
+        self._coach_context = coach_context
+        self._context_loader = context_loader
         self._id = id_factory
         self._ts = ts_factory
         self._timeout = timeout
+
+    def _system_prompt(self) -> str:
+        """The coach convention / operating protocol carried to the decider (E011)."""
+        if self._coach_context is None:
+            self._coach_context = self._context_loader()
+        return self._coach_context
 
     def mediate(self, request: DecisionRequest) -> Verdict:
         if request.document is not None:
@@ -144,7 +182,7 @@ class LlmCoach:
         self, request: DecisionRequest, document: DecisionDocument
     ) -> Verdict:
         prompt = _render_document_prompt(document)
-        output = self._cli(prompt, timeout=self._timeout)
+        output = self._cli(prompt, system=self._system_prompt(), timeout=self._timeout)
         answer = _parse_document_answer(output, document)
         return Verdict(
             verdict_id=self._id(),
@@ -160,7 +198,7 @@ class LlmCoach:
     # -- legacy single-question path --------------------------------------- #
     def _mediate_single(self, request: DecisionRequest) -> Verdict:
         prompt = _render_decision_prompt(request)
-        output = self._cli(prompt, timeout=self._timeout)
+        output = self._cli(prompt, system=self._system_prompt(), timeout=self._timeout)
         label = _parse_selection(output, request)
         return Verdict(
             verdict_id=self._id(),

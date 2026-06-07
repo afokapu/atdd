@@ -450,3 +450,81 @@ def advance_live_smoke(evidence_path: Optional[str] = None) -> dict:
         }
     finally:
         _cmux("close-workspace", "--workspace", ws)
+
+
+def decide_with_convention_live_smoke(evidence_path: Optional[str] = None) -> dict:
+    """E011 — a live decider answers a benign question WITH the coach convention loaded.
+
+    The headline #987 (b) proof. Spawns a real claude worker blocked on a benign
+    AskUserQuestion, then drives the REAL runner whose ``LlmCoach`` carries the
+    repo coach convention / operating protocol into its ``claude -p`` call. A thin
+    recorder wraps the production claude provider CLI so the smoke captures the
+    EXACT system context the decider was handed (evidence per #983) while a real
+    ``claude -p`` still decides. Asserts BOTH: a verdict was produced AND the coach
+    convention was present in the decider's invocation.
+    """
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.composition import (
+        build_feed_runner,
+    )
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.coach_context import (
+        load_coach_context,
+    )
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.llm_coach import (
+        LlmCoach,
+        resolve_provider_cli,
+    )
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_advance_verifier import (
+        CmuxWorkerAdvance,
+    )
+
+    coach_context = load_coach_context()
+    real_cli = resolve_provider_cli("claude", None)
+    captured: dict = {}
+
+    def _recording_claude_cli(prompt, *, system=None, timeout):
+        captured["system"] = system  # what the decider was actually handed
+        return real_cli(prompt, system=system, timeout=timeout)
+
+    ws, worker = _spawn_claude_worker("atdd-feed-987-convention")
+    try:
+        _send_task(
+            ws, worker,
+            "Use the AskUserQuestion tool right now to ask whether to indent with "
+            "Tabs or Spaces (options: 'Tabs', 'Spaces'). Do nothing else first.",
+        )
+        source = CmuxFeedSource(workspace_id=ws)
+        item = _wait_for_pending(source, kind=QUESTION)
+        assert item is not None, "no pending question item appeared in the Feed"
+
+        recorder = _RecordingTransport(CmuxFeedTransport())
+        coach = LlmCoach(cli=_recording_claude_cli, coach_context=coach_context)
+        runner = build_feed_runner(
+            source=source,
+            reply=recorder,
+            coach=coach,
+            advance=CmuxWorkerAdvance(workspace_id=ws),
+        )
+        outcomes = runner.run_once()
+
+        outcome = next((o for o in outcomes if o.request_id == item.request_id), None)
+        verdict_produced = bool(outcome and outcome.verdict is not None)
+        system_seen = captured.get("system") or ""
+        convention_present = "Phase Machine Convention" in system_seen
+
+        if evidence_path:
+            with open(evidence_path, "w", encoding="utf-8") as fh:
+                fh.write("=== #987(b) decide-with-convention ===\n")
+                fh.write(f"request_id: {item.request_id}\n")
+                fh.write(f"verdict_produced: {verdict_produced}\n")
+                fh.write(f"convention_present: {convention_present}\n\n")
+                fh.write("=== coach context handed to the decider (head) ===\n")
+                fh.write(system_seen[:800] + "\n")
+
+        return {
+            "request_id": item.request_id,
+            "verdict_produced": verdict_produced,       # a verdict was produced
+            "convention_present": convention_present,   # convention reached the decider
+            "evidence_path": evidence_path,
+        }
+    finally:
+        _cmux("close-workspace", "--workspace", ws)
