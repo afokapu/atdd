@@ -1,0 +1,35 @@
+urn: "feature:mediate-worker-decisions:coach-runtime"
+wagon: "wagon:mediate-worker-decisions"
+description: "The coach-session runtime that closes the autonomous loop: atdd coach start runs the gate and launches the #993 workspace-scoped feed_daemon as a managed background process (per-workspace pidfile, idempotent — never two daemons), then returns; atdd coach wait (alias next) blocks until the next coach-needed escalation appears in the daemon's escalations.jsonl, prints exactly that one record as a JSON line, advances a durable read cursor, and exits so a chat-session coach loops it; atdd coach stop / daemons stop and list the managed daemons from their pidfiles. It reuses the feed_daemon CLI/composition wholesale and adds only the managed-process lifecycle and the cursor-tracked notify pass, with the wait/cursor selection as a pure unit-testable core."
+sizing:
+  wmbts: 3
+  footprint_score: 8
+  footprint_size: "S"
+wmbts:
+  - "wmbt:mediate-worker-decisions:E010"
+  - "wmbt:mediate-worker-decisions:L006"
+  - "wmbt:mediate-worker-decisions:R003"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "coach_runtime_cli: parse and dispatch start/wait/next/stop/daemons; the atdd coach subcommand routes these verbs here"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "coach_runtime: start (gate -> idempotent managed spawn), wait_next (poll ledger past cursor -> emit one -> advance cursor -> exit), stop, list managed daemons"
+      - type: "ports"
+        count: 1
+        rationale: "EscalationReader / CursorStore / DaemonSpawner / Signaller / LivenessProbe / Sleeper / StopSignal protocols (the daemon brain is reused from feed_daemon)"
+    domain:
+      - type: "services"
+        count: 1
+        rationale: "cursor: pure next-unhandled-escalation-after-offset selection over an append-only ledger"
+      - type: "value_objects"
+        count: 1
+        rationale: "managed_daemon (frozen): workspace id + pid + ledger/lock paths + live|stale status"
+    integration:
+      - type: "clients"
+        count: 2
+        rationale: "daemon_manager (subprocess spawn of the feed_daemon CLI + per-workspace manager pidfile registry + signal-based stop) and jsonl_escalation_reader (tail escalations.jsonl + file-backed cursor store)"

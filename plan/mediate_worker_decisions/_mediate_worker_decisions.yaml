@@ -45,9 +45,10 @@ features:
   - urn: "feature:mediate-worker-decisions:bridge-cmux-feed"
   - urn: "feature:mediate-worker-decisions:feed-daemon"
   - urn: "feature:mediate-worker-decisions:surface-worker-decisions"
+  - urn: "feature:mediate-worker-decisions:coach-runtime"
 
 wmbt:
-  total: 30
+  total: 33
   D001: "minimize likelihood of resolving a cmux notification to the wrong worker (or routing two entry paths to divergent requests)"
   L001: "maximize likelihood of locating the latest decision prompt in worker surface text"
   C001: "minimize quantity of false decision-requests emitted from non-decision worker output"
@@ -78,3 +79,6 @@ wmbt:
   L004: "maximize likelihood of the feed publishing hook being active for a spawned worker at launch"
   E009: "minimize likelihood of claiming a feed reply delivered while the worker stays parked on its tui menu"
   L005: "minimize likelihood of a daemon acting on decisions outside its own workspace because the feed read is not scoped"
+  E010: "minimize likelihood of a second feed daemon spawned for a workspace that already has a live managed daemon"
+  L006: "maximize likelihood of the next unhandled escalation past the persisted cursor in the daemons escalations ledger"
+  R003: "minimize likelihood of a managed daemon left running or a stale manager pidfile after atdd coach stop"
