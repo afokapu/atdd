@@ -122,17 +122,33 @@ def stop_terminates_managed_daemon_live_smoke(
     time.sleep(1.0)
 
     runtime.stop(ws)
-    # Poll for the process to actually exit (bounded).
+    # Poll for the process to actually exit (bounded). The daemon is a direct
+    # child of THIS process here, so on exit it lingers as a zombie until reaped
+    # — os.kill(pid, 0) would still report it alive. Reap it with waitpid so we
+    # observe the real exit. (In production `atdd coach stop` returns immediately,
+    # so init reaps the daemon — no zombie.)
     probe = OsLivenessProbe()
-    deadline = _wall() + 10.0
-    while probe.is_alive(daemon.pid) and _wall() < deadline:
+    deadline = _wall() + 15.0
+    exited = False
+    while _wall() < deadline:
+        try:
+            wpid, _ = os.waitpid(daemon.pid, os.WNOHANG)
+            if wpid == daemon.pid:
+                exited = True
+                break
+        except ChildProcessError:
+            exited = not probe.is_alive(daemon.pid)  # not our child / already reaped
+            if exited:
+                break
+        except OSError:
+            pass
         time.sleep(0.2)
 
     pidfile = runtime_root / workspace_slug(ws) / "manager.json"
     evidence = {
         "workspace_id": ws,
         "pid": daemon.pid,
-        "process_exited": not probe.is_alive(daemon.pid),
+        "process_exited": exited,
         "pidfile_removed": not pidfile.exists(),
         "scratch": str(scratch),
     }
