@@ -1767,7 +1767,7 @@ sessions:
   file: null
   issue_number: 1004
   type: implementation
-  status: SMOKE
+  status: REFACTOR
   created: '2026-06-08'
   archived: null
   wagon: mediate-worker-decisions
