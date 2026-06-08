@@ -1780,7 +1780,7 @@ sessions:
   file: null
   issue_number: 959
   type: cleanup
-  status: RED
+  status: GREEN
   created: '2026-06-08'
   archived: null
   wagon: govern-lifecycle
