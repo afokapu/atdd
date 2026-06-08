@@ -253,6 +253,124 @@ def wait_emits_induced_escalation_live_smoke(
     return evidence
 
 
+def real_coach_start_writes_verdict_live_smoke(tmp_dir: Optional[str] = None) -> dict:
+    """M005-SMOKE-001 — the REAL `atdd coach start` decides through to a verdict.
+
+    The headline gate every prior #1007 round missed. M003-SMOKE drove the daemon
+    LOOP directly (``build_feed_daemon`` + ``tick``) and passed while the real
+    command was broken — because the bug lives in the detached spawn, not the loop:
+    ``atdd coach start`` launches the daemon via ``SubprocessDaemonSpawner`` and the
+    detached child inherited the coach session's stale ``CMUX_*`` client-context env,
+    so its ``cmux rpc`` broke-pipe and ``run_cmux`` swallowed it to an empty Feed.
+
+    This drives the PRODUCTION entry point — ``CoachRuntime.start`` over the real
+    ``SubprocessDaemonSpawner`` (the same call ``atdd coach start --workspace`` makes)
+    — against a real worker blocked on a real AskUserQuestion, then asserts the
+    MANAGED daemon's own ``verdicts.jsonl`` gains a line. Skips cleanly without cmux.
+    """
+    if not _cmux_available():
+        return {"skipped": True, "reason": "cmux not found on PATH"}
+
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.live_smoke import (
+        _cmux as _bridge_cmux,
+        _send_task,
+        _spawn_claude_worker,
+        _wait_for_pending,
+    )
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import QUESTION
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_event_source import (
+        CmuxFeedSource,
+    )
+    from atdd.mediate_worker_decisions.coach_runtime.composition import (
+        build_coach_runtime_from_repo,
+        resolve_workspace_paths,
+    )
+
+    question_task = (
+        "Use the AskUserQuestion tool right now to ask whether to indent with "
+        "Tabs or Spaces (options: 'Tabs', 'Spaces'). Do nothing else first."
+    )
+    scratch = Path(tmp_dir) if tmp_dir else Path(tempfile.mkdtemp(prefix="coach-runtime-m005-"))
+    runtime_root = scratch / ".atdd" / "runtime" / "coach-runtime"
+
+    ws, worker = _spawn_claude_worker("atdd-coach-1007-real-start")
+    try:
+        _send_task(ws, worker, question_task)
+        # Confirm the worker is actually blocked on a question in the SCOPED feed
+        # before we hand the workspace to the managed daemon.
+        item = _wait_for_pending(CmuxFeedSource(workspace_id=ws), kind=QUESTION)
+        assert item is not None, "no pending question item appeared in the scoped Feed"
+
+        # The production path: build the repo-wired runtime and START — exactly what
+        # `atdd coach start --workspace <ws>` does (detached SubprocessDaemonSpawner).
+        runtime = build_coach_runtime_from_repo(runtime_root=runtime_root)
+        paths = resolve_workspace_paths(ws, repo_root=scratch)
+
+        # Faithfully recreate the #1007 production condition that prior smokes missed:
+        # a coach session exports a stale cmux CLIENT-CONTEXT socket that conflicts
+        # with the live one, and the detached daemon must NOT inherit it. We set it
+        # ONLY around the spawn (the child inherits os.environ at Popen time) and
+        # restore immediately, so the parent's own cmux calls stay clean. WITHOUT the
+        # env scrub the daemon inherits this and every `cmux rpc` fails -> empty Feed
+        # -> zero verdicts; WITH the scrub it reaches the server cleanly and decides.
+        stale_socket = str(scratch / "stale-coach.sock")
+        _saved_socket = os.environ.get("CMUX_SOCKET")
+        os.environ["CMUX_SOCKET"] = stale_socket
+        try:
+            daemon = runtime.start(
+                ws,
+                lock_path=paths["lock_path"],
+                escalations_path=paths["escalations_path"],
+                verdicts_path=paths["verdicts_path"],
+                run_gate=False,  # the coach session already gated; keep the smoke tight
+            )
+        finally:
+            # The child already inherited at Popen time; the parent must go clean again.
+            if _saved_socket is None:
+                os.environ.pop("CMUX_SOCKET", None)
+            else:
+                os.environ["CMUX_SOCKET"] = _saved_socket
+
+        verdicts = Path(paths["verdicts_path"])
+        budget = float(os.environ.get("ATDD_LIVE_WAIT_BUDGET", "120"))
+        deadline = _wall() + budget
+        while _wall() < deadline and _line_count(verdicts) < 1:
+            time.sleep(1.0)
+
+        log_path = Path(paths["lock_path"]).parent / "daemon.log"
+        evidence = {
+            "workspace_id": ws,
+            "daemon_pid": daemon.pid,
+            "verdict_written": _line_count(verdicts) >= 1,
+            "verdict_lines": _line_count(verdicts),
+            "request_id": item.request_id,
+            "verdicts_path": str(verdicts),
+            "stale_socket_injected": stale_socket,
+            "daemon_log_tail": _tail(log_path, 40),
+            "scratch": str(scratch),
+        }
+        _write_evidence(scratch, "m005-evidence.json", evidence)
+        return evidence
+    finally:
+        try:
+            build_coach_runtime_from_repo(runtime_root=runtime_root).stop(ws)
+        except Exception as exc:  # best-effort cleanup; never mask the result
+            _log.debug("daemon stop during cleanup failed", extra={"error": str(exc)})
+        _bridge_cmux("close-workspace", "--workspace", ws)
+
+
+def _line_count(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return len([ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()])
+
+
+def _tail(path: Path, n: int) -> str:
+    if not path.exists():
+        return ""
+    return "\n".join(path.read_text(encoding="utf-8").splitlines()[-n:])
+
+
 def _slug(workspace_id: str) -> str:
     from atdd.mediate_worker_decisions.coach_runtime.src.integration.daemon_manager import (
         workspace_slug,
