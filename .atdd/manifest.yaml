@@ -6,10 +6,12 @@ sessions:
   file: null
   issue_number: 960
   type: implementation
-  status: PLANNED
+  status: REFACTOR
   created: '2026-06-08'
   archived: null
   branch: feat/intra-layer-duplication-detector-counts-header-boilerplate
+  wagon: implement-code
+  train: 0001-self-compliance-validate
 - id: '987'
   slug: llm-coach-loads-convention-and-supervised-session-first-routing
   file: null
