@@ -3,14 +3,14 @@ step: "execute"
 direction: "minimize"
 dimension: "likelihood"
 object_of_control: "a-second-feed-daemon-spawned-for-a-workspace-that-already-has-a-live-managed-daemon"
-context_clarifier: "atdd coach start --workspace <ws> runs atdd gate, then launches the #993 workspace-scoped feed_daemon as a managed background process recorded in a per-workspace manager pidfile and returns immediately; a start for a workspace whose recorded pid is still alive is a no-op so two daemons never decide the same Feed; the existing feed_daemon CLI/composition is reused wholesale (the daemon is never reimplemented)"
+context_clarifier: "atdd coach start --workspace <ws> runs atdd gate, then launches the #993 workspace-scoped feed_daemon as a headless cmux surface (#1007: inside a cmux surface so it is a socket-recognized process, never an orphaned detached subprocess) recorded in a per-workspace manager record naming the daemon's own cmux workspace, and returns immediately; a start for a workspace whose recorded daemon surface is still alive is a no-op so two daemons never decide the same Feed; the existing feed_daemon CLI/composition is reused wholesale (the daemon is never reimplemented)"
 lens: "functional.effectiveness"
 statement: "minimize likelihood of a second feed daemon spawned for a workspace that already has a live managed daemon"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:E010-UNIT-001-start-writes-pidfile-and-spawns-once"
       id: "AC-UNIT-001"
-      purpose: "A first start writes the per-workspace manager pidfile and invokes the daemon spawn exactly once"
+      purpose: "A first start writes the per-workspace manager record and launches the daemon surface exactly once"
       phase: "RED"
     harness:
       type: "unit"
@@ -18,14 +18,14 @@ acceptances:
     given:
       abstract:
         - "A managed-daemon registry rooted at a tmp dir"
-        - "A recording spawner that returns a live fake pid, and a stub gate runner"
+        - "A recording surface launcher that returns a daemon cmux workspace ref, and a stub gate runner"
     when:
       abstract: "start is invoked for a workspace with no existing managed daemon"
       action: "invoke"
     then:
       abstract:
-        - "The spawner is called exactly once with the workspace-scoped feed_daemon argv"
-        - "A manager pidfile for the workspace exists and records the spawned pid"
+        - "The launcher is called exactly once with the workspace-scoped feed_daemon argv"
+        - "A manager record for the workspace exists and records the daemon's own cmux workspace ref"
       assertions:
         - type: "count"
         - type: "exists"
@@ -36,22 +36,22 @@ acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:E010-UNIT-002-second-start-is-a-no-op"
       id: "AC-UNIT-002"
-      purpose: "A second start for the same workspace, while the recorded pid is alive, performs no second spawn"
+      purpose: "A second start for the same workspace, while the recorded daemon surface is alive, performs no second launch"
       phase: "RED"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "A managed-daemon registry already holding a live pidfile for the workspace"
-        - "A recording spawner and an injected liveness probe reporting the recorded pid alive"
+        - "A managed-daemon registry already holding a live record for the workspace"
+        - "A recording surface launcher and an injected liveness probe reporting the recorded daemon surface alive"
     when:
       abstract: "start is invoked a second time for the same workspace"
       action: "invoke"
     then:
       abstract:
-        - "The spawner is never called (no second daemon)"
-        - "The existing manager pidfile is left unchanged"
+        - "The launcher is never called (no second daemon)"
+        - "The existing manager record is left unchanged"
       assertions:
         - type: "count"
         - type: "equals"
@@ -62,7 +62,7 @@ acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:E010-SMOKE-001-live-start-launches-scoped-daemon"
       id: "AC-SMOKE-001"
-      purpose: "atdd coach start on a real worker workspace launches the scoped feed_daemon as a live managed process"
+      purpose: "atdd coach start on a real worker workspace launches the scoped feed_daemon as a live managed cmux surface"
       phase: "SMOKE"
     harness:
       type: "integration"
@@ -75,11 +75,11 @@ acceptances:
       action: "invoke"
     then:
       abstract:
-        - "A manager pidfile is written and names a live feed_daemon process scoped to the workspace"
+        - "A manager record is written and names the daemon's live cmux surface scoped to the workspace"
       assertions:
         - type: "exists"
     close_the_loop:
-      consumer_reacted: "the spawned feed_daemon process is alive and polling the workspace-scoped Feed"
+      consumer_reacted: "the daemon's cmux surface is alive and the daemon is polling the workspace-scoped Feed"
       drift_resolved: "atdd coach daemons lists the workspace with a running status"
     signal: {}
     metadata:

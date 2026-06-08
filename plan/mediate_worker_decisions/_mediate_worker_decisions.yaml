@@ -86,4 +86,4 @@ wmbt:
   L007: "minimize likelihood of the workspace scoped feed read excluding a legitimate decision from a worktree launched worker or silently empty scoping a watched workspace"
   M003: "minimize likelihood of a decide-loop or decider failure being silently swallowed so the daemon writes neither a verdict nor an escalation"
   M004: "minimize likelihood of a managed daemon being spawned with its output discarded so runtime failures are unobservable"
-  M005: "minimize likelihood of a managed daemon's cmux rpc calls failing silently because the detached spawn inherited stale cmux client-context env"
+  M005: "minimize likelihood of a managed daemon spawned as a detached orphaned process whose cmux rpc calls broken pipe so it silently never decides"
