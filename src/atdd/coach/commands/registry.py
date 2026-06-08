@@ -1800,8 +1800,34 @@ class RegistryBuilder:
         )
         return 1 if has_drift else 0
 
+    def _declared_code_roots(self) -> set:
+        """Return the code-root keys the repo EXPLICITLY declares in config.
+
+        Reads the optional ``code:`` block of ``.atdd/config.yaml`` and returns
+        its keys verbatim. Unlike
+        :func:`atdd.coach.utils.config.get_code_roots`, this does NOT merge the
+        game-template ``DEFAULT_CODE_ROOTS`` (``python``/``supabase``/``web``):
+        the registry build must materialize only roots the repo actually ships,
+        never force the defaults into a repo that declares none — which is what
+        leaves stray ``python/``/``supabase/`` stub dirs after every
+        ``atdd pr`` / ``atdd registry update --apply`` (#984, sibling of #970).
+
+        Returns:
+            Set of declared code-root keys (e.g. ``{"toolkit"}``); empty when no
+            ``code:`` block is declared.
+        """
+        config = load_atdd_config(self.repo_root)
+        code = config.get("code") if isinstance(config, dict) else None
+        return set(code.keys()) if isinstance(code, dict) else set()
+
     def build_all(self, mode: str = "interactive") -> Dict[str, Any]:
         """Build all registries.
+
+        Code-root mirrors (``python``/``supabase``/``telemetry``) are gated on
+        what the repo actually declares so the build never stubs the
+        game-template ``DEFAULT_CODE_ROOTS`` into a repo that ships none of them
+        (#984). The universal ATDD registries (plan/trains/contracts/tester) are
+        always built — every ATDD repo has those artifacts.
 
         Args:
             mode: "interactive" (prompt), "apply" (no prompt), or "check" (verify only)
@@ -1814,11 +1840,20 @@ class RegistryBuilder:
             "plan": self.build_planner(mode),
             "trains": self.build_trains(mode),
             "contracts": self.build_contracts(mode),
-            "telemetry": self.build_telemetry(mode),
             "tester": self.build_tester(mode),
-            "coder": self.build_coder(mode),
-            "supabase": self.build_supabase(mode)
         }
+
+        # Code-root-gated mirrors (#984): materialize a mirror only when the repo
+        # declares that root in `.atdd/config.yaml` `code:` (or it already exists
+        # on disk). Never force the game-template DEFAULT_CODE_ROOTS — or the
+        # telemetry mirror — into a repo that ships none of them.
+        declared = self._declared_code_roots()
+        if "telemetry" in declared or self.telemetry_dir.exists():
+            results["telemetry"] = self.build_telemetry(mode)
+        if "python" in declared or self.python_dir.exists():
+            results["coder"] = self.build_coder(mode)
+        if "supabase" in declared or self.supabase_dir.exists():
+            results["supabase"] = self.build_supabase(mode)
 
         print("\n" + "=" * 60)
         print("Registry Build Complete")
