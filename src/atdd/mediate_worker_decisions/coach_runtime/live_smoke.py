@@ -41,9 +41,10 @@ def start_launches_scoped_daemon_live_smoke(
 ) -> dict:
     """E010-SMOKE-001 — real `atdd coach start` launches the scoped feed_daemon.
 
-    Spawns the actual feed_daemon CLI subprocess in a /tmp scratch runtime dir
-    and asserts a manager pidfile is written naming a live process. Cleans up by
-    stopping the daemon. Skips when cmux is unavailable.
+    Launches the actual feed_daemon as a headless cmux surface in a /tmp scratch
+    runtime dir and asserts a manager record is written naming the daemon's own
+    cmux workspace, which exists. Cleans up by stopping the daemon. Skips when cmux
+    is unavailable.
     """
     if not _cmux_available():
         return {"skipped": True, "reason": "cmux not found on PATH"}
@@ -53,7 +54,7 @@ def start_launches_scoped_daemon_live_smoke(
         resolve_workspace_paths,
     )
     from atdd.mediate_worker_decisions.coach_runtime.src.integration.daemon_manager import (
-        OsLivenessProbe,
+        CmuxWorkspaceLiveness,
     )
 
     ws = workspace_id or os.environ.get("ATDD_LIVE_WORKSPACE") or f"smoke-{uuid.uuid4().hex[:8]}"
@@ -70,12 +71,12 @@ def start_launches_scoped_daemon_live_smoke(
         run_gate=False,  # gate already ran for the coach session; keep the smoke tight
     )
 
-    time.sleep(1.0)  # let the child settle
+    time.sleep(1.0)  # let the surface settle
     pidfile = runtime_root / _slug(ws) / "manager.json"
-    alive = OsLivenessProbe().is_alive(daemon.pid)
+    alive = CmuxWorkspaceLiveness().is_alive(daemon.daemon_workspace)
     evidence = {
         "workspace_id": ws,
-        "pid": daemon.pid,
+        "daemon_workspace": daemon.daemon_workspace,
         "pidfile": str(pidfile),
         "pidfile_written": pidfile.exists(),
         "process_alive": alive,
@@ -92,8 +93,9 @@ def stop_terminates_managed_daemon_live_smoke(
 ) -> dict:
     """R003-SMOKE-001 — `atdd coach stop` terminates a real managed daemon.
 
-    Starts a real feed_daemon subprocess, signals it via stop, and asserts the
-    process exits and its pidfile is removed. Skips when cmux is unavailable.
+    Launches a real feed_daemon cmux surface, stops it (cmux close-workspace), and
+    asserts the daemon's workspace no longer exists and its manager record is
+    removed. Skips when cmux is unavailable.
     """
     if not _cmux_available():
         return {"skipped": True, "reason": "cmux not found on PATH"}
@@ -103,7 +105,7 @@ def stop_terminates_managed_daemon_live_smoke(
         resolve_workspace_paths,
     )
     from atdd.mediate_worker_decisions.coach_runtime.src.integration.daemon_manager import (
-        OsLivenessProbe,
+        CmuxWorkspaceLiveness,
         workspace_slug,
     )
 
@@ -122,32 +124,20 @@ def stop_terminates_managed_daemon_live_smoke(
     time.sleep(1.0)
 
     runtime.stop(ws)
-    # Poll for the process to actually exit (bounded). The daemon is a direct
-    # child of THIS process here, so on exit it lingers as a zombie until reaped
-    # — os.kill(pid, 0) would still report it alive. Reap it with waitpid so we
-    # observe the real exit. (In production `atdd coach stop` returns immediately,
-    # so init reaps the daemon — no zombie.)
-    probe = OsLivenessProbe()
+    # Poll until the daemon's cmux surface workspace is gone (bounded).
+    probe = CmuxWorkspaceLiveness()
     deadline = _wall() + 15.0
     exited = False
     while _wall() < deadline:
-        try:
-            wpid, _ = os.waitpid(daemon.pid, os.WNOHANG)
-            if wpid == daemon.pid:
-                exited = True
-                break
-        except ChildProcessError:
-            exited = not probe.is_alive(daemon.pid)  # not our child / already reaped
-            if exited:
-                break
-        except OSError as exc:
-            _log.debug("waitpid probe failed; retrying", extra={"pid": daemon.pid, "error": str(exc)})
+        if not probe.is_alive(daemon.daemon_workspace):
+            exited = True
+            break
         time.sleep(0.2)
 
     pidfile = runtime_root / workspace_slug(ws) / "manager.json"
     evidence = {
         "workspace_id": ws,
-        "pid": daemon.pid,
+        "daemon_workspace": daemon.daemon_workspace,
         "process_exited": exited,
         "pidfile_removed": not pidfile.exists(),
         "scratch": str(scratch),
@@ -251,6 +241,110 @@ def wait_emits_induced_escalation_live_smoke(
     _write_evidence(scratch, "l006-evidence.json", evidence)
     runtime.stop(ws)
     return evidence
+
+
+def real_coach_start_writes_verdict_live_smoke(tmp_dir: Optional[str] = None) -> dict:
+    """M005-SMOKE-001 — the REAL `atdd coach start` decides through to a verdict.
+
+    The headline gate every prior #1007 round missed. M003-SMOKE drove the daemon
+    LOOP directly (``build_feed_daemon`` + ``tick``) and passed while the real
+    command was broken — because the bug was in the spawn, not the loop: ``atdd
+    coach start`` spawned the daemon as a DETACHED subprocess and exited, ORPHANING
+    it, and cmux rejects orphaned processes (every ``cmux rpc`` broken-pipes
+    regardless of env). The fix launches the daemon INSIDE a headless cmux surface.
+
+    This drives the PRODUCTION entry point — ``CoachRuntime.start`` over the real
+    ``CmuxSurfaceDaemonLauncher`` (the same cmux-surface spawn ``atdd coach start
+    --workspace`` makes) — against a real worker blocked on a real AskUserQuestion,
+    then asserts the MANAGED daemon's own ``verdicts.jsonl`` gains a line. Because the
+    daemon is a cmux surface (parented to cmux, NOT a child of this process), this
+    exercises the real orphan-immune path — not a live-parent subprocess. Skips
+    cleanly without cmux.
+    """
+    if not _cmux_available():
+        return {"skipped": True, "reason": "cmux not found on PATH"}
+
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.live_smoke import (
+        _cmux as _bridge_cmux,
+        _send_task,
+        _spawn_claude_worker,
+        _wait_for_pending,
+    )
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import QUESTION
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_event_source import (
+        CmuxFeedSource,
+    )
+    from atdd.mediate_worker_decisions.coach_runtime.composition import (
+        build_coach_runtime_from_repo,
+        resolve_workspace_paths,
+    )
+
+    question_task = (
+        "Use the AskUserQuestion tool right now to ask whether to indent with "
+        "Tabs or Spaces (options: 'Tabs', 'Spaces'). Do nothing else first."
+    )
+    scratch = Path(tmp_dir) if tmp_dir else Path(tempfile.mkdtemp(prefix="coach-runtime-m005-"))
+    runtime_root = scratch / ".atdd" / "runtime" / "coach-runtime"
+
+    ws, worker = _spawn_claude_worker("atdd-coach-1007-real-start")
+    try:
+        _send_task(ws, worker, question_task)
+        # Confirm the worker is actually blocked on a question in the SCOPED feed
+        # before we hand the workspace to the managed daemon.
+        item = _wait_for_pending(CmuxFeedSource(workspace_id=ws), kind=QUESTION)
+        assert item is not None, "no pending question item appeared in the scoped Feed"
+
+        # The production path: build the repo-wired runtime and START — exactly what
+        # `atdd coach start --workspace <ws>` does (cmux-surface daemon launch). The
+        # daemon runs inside its own cmux surface, so it is a socket-recognized
+        # process — never an orphaned detached subprocess (#1007).
+        runtime = build_coach_runtime_from_repo(runtime_root=runtime_root)
+        paths = resolve_workspace_paths(ws, repo_root=scratch)
+        daemon = runtime.start(
+            ws,
+            lock_path=paths["lock_path"],
+            escalations_path=paths["escalations_path"],
+            verdicts_path=paths["verdicts_path"],
+            run_gate=False,  # the coach session already gated; keep the smoke tight
+        )
+
+        verdicts = Path(paths["verdicts_path"])
+        budget = float(os.environ.get("ATDD_LIVE_WAIT_BUDGET", "120"))
+        deadline = _wall() + budget
+        while _wall() < deadline and _line_count(verdicts) < 1:
+            time.sleep(1.0)
+
+        log_path = Path(paths["lock_path"]).parent / "daemon.log"
+        evidence = {
+            "workspace_id": ws,
+            "daemon_workspace": daemon.daemon_workspace,
+            "verdict_written": _line_count(verdicts) >= 1,
+            "verdict_lines": _line_count(verdicts),
+            "request_id": item.request_id,
+            "verdicts_path": str(verdicts),
+            "daemon_log_tail": _tail(log_path, 40),
+            "scratch": str(scratch),
+        }
+        _write_evidence(scratch, "m005-evidence.json", evidence)
+        return evidence
+    finally:
+        try:
+            build_coach_runtime_from_repo(runtime_root=runtime_root).stop(ws)
+        except Exception as exc:  # best-effort cleanup; never mask the result
+            _log.debug("daemon stop during cleanup failed", extra={"error": str(exc)})
+        _bridge_cmux("close-workspace", "--workspace", ws)
+
+
+def _line_count(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return len([ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()])
+
+
+def _tail(path: Path, n: int) -> str:
+    if not path.exists():
+        return ""
+    return "\n".join(path.read_text(encoding="utf-8").splitlines()[-n:])
 
 
 def _slug(workspace_id: str) -> str:

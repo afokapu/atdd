@@ -3,14 +3,14 @@ step: "resolve"
 direction: "minimize"
 dimension: "likelihood"
 object_of_control: "a-managed-daemon-left-running-or-a-stale-manager-pidfile-after-atdd-coach-stop"
-context_clarifier: "atdd coach stop signals every managed feed_daemon recorded in the per-workspace manager pidfiles and removes the pidfile; atdd coach daemons lists the managed daemons with a live or stale status derived from those pidfiles so the operator sees and stops exactly what start launched"
+context_clarifier: "atdd coach stop closes the cmux surface of every managed feed_daemon recorded in the per-workspace manager records and removes the record; atdd coach daemons lists the managed daemons with a live or stale status derived from whether each daemon's cmux surface still exists (#1007: the daemon runs inside a cmux surface, so stop is cmux close-workspace and liveness is surface existence — not pid signalling) so the operator sees and stops exactly what start launched"
 lens: "functional.effectiveness"
 statement: "minimize likelihood of a managed daemon left running or a stale manager pidfile after atdd coach stop"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:R003-UNIT-001-stop-signals-pid-and-clears-pidfile"
       id: "AC-UNIT-001"
-      purpose: "stop signals the recorded pid and removes the manager pidfile so a subsequent list shows no live daemon"
+      purpose: "stop closes the recorded daemon's cmux surface and removes the manager record so a subsequent list shows no live daemon"
       phase: "RED"
     harness:
       type: "unit"
@@ -18,14 +18,14 @@ acceptances:
     given:
       abstract:
         - "A managed-daemon registry holding one live recorded daemon under a tmp dir"
-        - "A recording signaller and an injected liveness probe"
+        - "A recording workspace closer and an injected liveness probe"
     when:
       abstract: "stop is invoked for that workspace"
       action: "invoke"
     then:
       abstract:
-        - "The signaller is called once with the recorded pid and a terminating signal"
-        - "The manager pidfile is removed and a subsequent list reports no live managed daemon"
+        - "The closer is called once with the recorded daemon's cmux workspace ref"
+        - "The manager record is removed and a subsequent list reports no live managed daemon"
       assertions:
         - type: "count"
         - type: "exists"
@@ -36,21 +36,21 @@ acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:R003-UNIT-002-daemons-lists-live-and-stale"
       id: "AC-UNIT-002"
-      purpose: "The daemons listing derives a live or stale status for each manager pidfile"
+      purpose: "The daemons listing derives a live or stale status for each managed daemon from whether its cmux surface exists"
       phase: "RED"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "A managed-daemon registry holding one pidfile naming a live pid and one naming a dead pid"
-        - "An injected liveness probe"
+        - "A managed-daemon registry holding one record whose daemon cmux surface exists and one whose surface is gone"
+        - "An injected cmux-workspace liveness probe"
     when:
       abstract: "the managed-daemon listing is computed"
       action: "invoke"
     then:
       abstract:
-        - "The live-pid workspace is reported running and the dead-pid workspace is reported stale"
+        - "The daemon whose cmux surface exists is reported running and the one whose surface is gone is reported stale"
       assertions:
         - type: "equals"
     signal: {}
@@ -60,7 +60,7 @@ acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:R003-SMOKE-001-live-stop-terminates-managed-daemon"
       id: "AC-SMOKE-001"
-      purpose: "atdd coach stop terminates a real managed feed_daemon process and clears its pidfile"
+      purpose: "atdd coach stop closes a real managed feed_daemon's cmux surface and clears its manager record"
       phase: "SMOKE"
     harness:
       type: "integration"
@@ -73,11 +73,11 @@ acceptances:
       action: "invoke"
     then:
       abstract:
-        - "The daemon process exits and the manager pidfile is removed"
+        - "The daemon's cmux surface no longer exists and the manager record is removed"
       assertions:
         - type: "exists"
     close_the_loop:
-      consumer_reacted: "the spawned feed_daemon process receives SIGTERM and exits"
+      consumer_reacted: "the daemon's cmux surface is closed (cmux close-workspace) and the daemon exits"
       drift_resolved: "atdd coach daemons no longer lists the workspace as running"
     signal: {}
     metadata:

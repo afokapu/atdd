@@ -23,7 +23,7 @@ from atdd.mediate_worker_decisions.coach_runtime.src.integration.daemon_manager 
 )
 from atdd.mediate_worker_decisions.coach_runtime.tests._helpers import (
     FakeLiveness,
-    RecordingSignaller,
+    RecordingCloser,
     RecordingSpawner,
     StubGate,
     fake_argv,
@@ -36,18 +36,19 @@ def test_second_start_does_not_spawn_when_live(tmp_path):
     registry.save(
         ManagedDaemon(
             workspace_id="ws-1",
-            pid=4242,
+            daemon_workspace="workspace:42",
             lock_path=str(tmp_path / "feed.lock"),
             escalations_path=str(tmp_path / "escalations.jsonl"),
             verdicts_path=str(tmp_path / "verdicts.jsonl"),
         )
     )
-    spawner = RecordingSpawner(pid=9999)
+    spawner = RecordingSpawner(daemon_workspace="workspace:99")
     runtime = CoachRuntime(
         registry=registry,
         spawner=spawner,
-        liveness=FakeLiveness(alive={4242}),  # recorded daemon still alive
-        signaller=RecordingSignaller(),
+        # the recorded daemon's surface still exists
+        liveness=FakeLiveness(alive={"workspace:42"}),
+        closer=RecordingCloser(),
         gate=StubGate(),
         daemon_argv=fake_argv,
     )
@@ -59,6 +60,7 @@ def test_second_start_does_not_spawn_when_live(tmp_path):
         verdicts_path=str(tmp_path / "verdicts.jsonl"),
     )
 
-    assert len(spawner.calls) == 0  # no second spawn
-    assert result.pid == 4242  # returned the existing daemon
-    assert ManagerRegistry(root).load("ws-1").pid == 4242  # pidfile unchanged
+    assert len(spawner.calls) == 0  # no second launch
+    assert result.daemon_workspace == "workspace:42"  # returned the existing daemon
+    # manager record unchanged
+    assert ManagerRegistry(root).load("ws-1").daemon_workspace == "workspace:42"

@@ -83,7 +83,8 @@ def run(argv: Optional[List[str]] = None) -> int:
             run_gate=not args.no_gate,
         )
         print(
-            f"coach: daemon for workspace {args.workspace!r} running (pid {daemon.pid})"
+            f"coach: daemon for workspace {args.workspace!r} running in cmux "
+            f"workspace {daemon.daemon_workspace}"
         )
         return 0
 
@@ -142,7 +143,7 @@ def run(argv: Optional[List[str]] = None) -> int:
             print("coach: no managed daemons")
             return 0
         for d in listing:
-            print(f"  {d.workspace_id}\tpid {d.pid}\t{d.status}")
+            print(f"  {d.workspace_id}\t{d.daemon_workspace}\t{d.status}")
         return 0
 
     return 2  # unreachable: argparse rejects unknown verbs

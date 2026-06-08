@@ -1,22 +1,25 @@
-"""Process + pidfile mechanism for the coach runtime (integration).
+"""cmux-surface launch + manager-registry mechanism for the coach runtime.
 
-``ManagerRegistry`` persists one ``manager.json`` per workspace under a runtime
-root, so `start` is idempotent across invocations and `stop`/`daemons` can find
-exactly what was launched. ``SubprocessDaemonSpawner`` launches the existing
-feed_daemon CLI detached (reuse — never a reimplementation). ``OsLivenessProbe``
-and ``OsSignaller`` wrap ``os.kill``. ``build_feed_daemon_argv`` renders the
-launch argv as a pure function.
+``ManagerRegistry`` persists one ``manager.json`` per watched workspace under a
+runtime root, so `start` is idempotent and `stop`/`daemons` can find exactly what
+was launched. ``CmuxSurfaceDaemonLauncher`` launches the existing feed_daemon CLI
+INSIDE a headless cmux surface (``cmux new-workspace --focus false --command``) —
+the #1007 fix: cmux rejects orphaned/detached processes (every ``cmux rpc`` from a
+``subprocess.Popen(start_new_session=True)`` daemon broken-pipes), but a process
+running inside a cmux surface has socket access. ``CmuxWorkspaceLiveness`` reads
+liveness from the daemon's surface still existing; ``CmuxWorkspaceCloser`` closes
+it. ``build_feed_daemon_argv`` renders the launch argv as a pure function.
 """
 from __future__ import annotations
 
 import json
 import os
 import re
-import subprocess
-import sys
+import shlex
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
+from atdd.mediate_worker_decisions.commons.cmux_cli import run_cmux, strip_ansi
 from atdd.mediate_worker_decisions.coach_runtime.src.domain.managed_daemon import (
     ManagedDaemon,
 )
@@ -27,6 +30,7 @@ _FEED_DAEMON_MODULE = (
 )
 
 _SAFE = re.compile(r"[^A-Za-z0-9._-]+")
+_WORKSPACE_REF = re.compile(r"workspace:\d+")
 
 
 def workspace_slug(workspace_id: str) -> str:
@@ -132,7 +136,7 @@ def _daemon_from_record(record: dict) -> Optional[ManagedDaemon]:
     try:
         return ManagedDaemon(
             workspace_id=record["workspace_id"],
-            pid=int(record["pid"]),
+            daemon_workspace=record["daemon_workspace"],
             lock_path=record.get("lock_path", ""),
             escalations_path=record.get("escalations_path", ""),
             verdicts_path=record.get("verdicts_path", ""),
@@ -142,65 +146,83 @@ def _daemon_from_record(record: dict) -> Optional[ManagedDaemon]:
         return None
 
 
-class SubprocessDaemonSpawner:
-    """Launch the feed_daemon CLI as a detached background process."""
+def _daemon_command(argv: List[str], log_path: Optional[str]) -> str:
+    """Render the daemon argv as a shell command for ``--command`` (typed into the
+    surface's shell), redirecting stdout+stderr to the durable daemon.log so a
+    runtime failure leaves a diagnosable trace (WMBT M004 / #1008)."""
+    cmd = shlex.join(argv)
+    if log_path:
+        Path(log_path).parent.mkdir(parents=True, exist_ok=True)
+        cmd = f"{cmd} >> {shlex.quote(log_path)} 2>&1"
+    return cmd
 
-    def __init__(self, python: Optional[str] = None) -> None:
-        self._python = python or sys.executable
 
-    def spawn(self, argv: List[str], *, log_path: Optional[str] = None) -> int:
-        """Spawn the daemon detached, capturing its output to a durable log.
+class CmuxSurfaceDaemonLauncher:
+    """Launch the feed_daemon CLI INSIDE a headless cmux surface.
 
-        stdout/stderr are wired to ``log_path`` (append, line-buffered) so a
-        detached daemon's runtime failure — decide loop, LlmCoach, scope — leaves
-        a diagnosable trace instead of vanishing into ``/dev/null`` (WMBT M004).
-        stdin stays ``DEVNULL``. Without a ``log_path`` the output is discarded.
-        """
-        if log_path:
-            log_file = Path(log_path)
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            # Append + line-buffered: a watched daemon's last line survives a crash.
-            sink = open(log_file, "a", buffering=1, encoding="utf-8")
-            try:
-                proc = subprocess.Popen(
-                    argv,
-                    stdin=subprocess.DEVNULL,
-                    stdout=sink,
-                    stderr=sink,
-                    start_new_session=True,  # survive the parent shell exiting
-                )
-            finally:
-                # The child holds its own dup of the fd; the parent must not keep it.
-                sink.close()
-            return proc.pid
-        proc = subprocess.Popen(  # pragma: no cover - discard path (no log sink)
-            argv,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
+    cmux rejects orphaned/detached processes — a ``subprocess.Popen`` daemon
+    (#1007) broken-pipes on every ``cmux rpc``. Launching it as a ``cmux
+    new-workspace --focus false --command`` surface makes it a socket-recognized
+    process. Returns the daemon's OWN cmux workspace ref.
+    """
+
+    def __init__(
+        self, *, cwd: str, runner: Callable[..., str] = run_cmux
+    ) -> None:
+        self._cwd = cwd
+        self._run = runner
+
+    def spawn(
+        self, argv: List[str], *, name: str, log_path: Optional[str] = None
+    ) -> str:
+        command = _daemon_command(argv, log_path)
+        out = strip_ansi(
+            self._run(
+                "new-workspace",
+                "--name",
+                name,
+                "--cwd",
+                self._cwd,
+                "--focus",
+                "false",
+                "--command",
+                command,
+            )
         )
-        return proc.pid
+        match = _WORKSPACE_REF.search(out)
+        if match is None:
+            raise RuntimeError(
+                f"cmux new-workspace did not return a workspace ref (got: {out!r})"
+            )
+        return match.group(0)
 
 
-class OsLivenessProbe:
-    def is_alive(self, pid: int) -> bool:
-        if pid <= 0:
+class CmuxWorkspaceLiveness:
+    """Liveness = the daemon's cmux surface workspace still exists."""
+
+    def __init__(self, runner: Callable[..., str] = run_cmux) -> None:
+        self._run = runner
+
+    def is_alive(self, daemon_workspace: str) -> bool:
+        if not daemon_workspace:
             return False
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
-            _log.debug("pid not running", extra={"pid": pid})
-            return False
-        except PermissionError:
-            _log.debug("pid alive but owned by another user", extra={"pid": pid})
-            return True
-        return True
+        out = strip_ansi(self._run("list-workspaces"))
+        return daemon_workspace in set(_WORKSPACE_REF.findall(out))
 
 
-class OsSignaller:
-    def signal(self, pid: int, sig: int) -> None:
+class CmuxWorkspaceCloser:
+    """Stop the daemon by closing its cmux surface workspace (idempotent)."""
+
+    def __init__(self, runner: Callable[..., str] = run_cmux) -> None:
+        self._run = runner
+
+    def close(self, daemon_workspace: str) -> None:
+        if not daemon_workspace:
+            return
         try:
-            os.kill(pid, sig)
-        except ProcessLookupError:
-            _log.debug("pid already gone; signal is idempotent", extra={"pid": pid})
+            self._run("close-workspace", "--workspace", daemon_workspace)
+        except Exception as exc:  # already gone / unreachable — close is idempotent
+            _log.debug(
+                "close-workspace failed; treating as idempotent",
+                extra={"daemon_workspace": daemon_workspace, "error": str(exc)},
+            )

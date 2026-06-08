@@ -23,7 +23,7 @@ from atdd.mediate_worker_decisions.coach_runtime.src.integration.daemon_manager 
 )
 from atdd.mediate_worker_decisions.coach_runtime.tests._helpers import (
     FakeLiveness,
-    RecordingSignaller,
+    RecordingCloser,
     RecordingSpawner,
     StubGate,
     fake_argv,
@@ -34,12 +34,12 @@ def test_start_passes_durable_log_path_to_spawner(tmp_path):
     root = tmp_path / "coach-runtime"
     ws_dir = tmp_path / "ws"
     ws_dir.mkdir()
-    spawner = RecordingSpawner(pid=4242)
+    spawner = RecordingSpawner(daemon_workspace="workspace:42")
     runtime = CoachRuntime(
         registry=ManagerRegistry(root),
         spawner=spawner,
         liveness=FakeLiveness(),
-        signaller=RecordingSignaller(),
+        closer=RecordingCloser(),
         gate=StubGate(),
         daemon_argv=fake_argv,
     )

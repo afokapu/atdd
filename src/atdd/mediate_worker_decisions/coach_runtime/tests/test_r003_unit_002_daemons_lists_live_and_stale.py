@@ -24,17 +24,17 @@ from atdd.mediate_worker_decisions.coach_runtime.src.integration.daemon_manager 
 )
 from atdd.mediate_worker_decisions.coach_runtime.tests._helpers import (
     FakeLiveness,
-    RecordingSignaller,
+    RecordingCloser,
     RecordingSpawner,
     StubGate,
     fake_argv,
 )
 
 
-def _rec(ws, pid, tmp_path):
+def _rec(ws, daemon_workspace, tmp_path):
     return ManagedDaemon(
         workspace_id=ws,
-        pid=pid,
+        daemon_workspace=daemon_workspace,
         lock_path=str(tmp_path / f"{ws}.lock"),
         escalations_path=str(tmp_path / f"{ws}.escalations.jsonl"),
         verdicts_path=str(tmp_path / f"{ws}.verdicts.jsonl"),
@@ -43,13 +43,14 @@ def _rec(ws, pid, tmp_path):
 
 def test_list_marks_live_and_stale(tmp_path):
     registry = ManagerRegistry(tmp_path / "coach-runtime")
-    registry.save(_rec("ws-live", 111, tmp_path))
-    registry.save(_rec("ws-dead", 222, tmp_path))
+    registry.save(_rec("ws-live", "workspace:111", tmp_path))
+    registry.save(_rec("ws-dead", "workspace:222", tmp_path))
     runtime = CoachRuntime(
         registry=registry,
         spawner=RecordingSpawner(),
-        liveness=FakeLiveness(alive={111}),  # only ws-live is alive
-        signaller=RecordingSignaller(),
+        # only ws-live's daemon surface still exists
+        liveness=FakeLiveness(alive={"workspace:111"}),
+        closer=RecordingCloser(),
         gate=StubGate(),
         daemon_argv=fake_argv,
     )

@@ -20,24 +20,28 @@ class GateRunner(Protocol):
 
 
 class DaemonSpawner(Protocol):
-    def spawn(self, argv: List[str], *, log_path: Optional[str] = None) -> int:
-        """Launch the feed_daemon CLI detached. Returns the child pid.
+    def spawn(
+        self, argv: List[str], *, name: str, log_path: Optional[str] = None
+    ) -> str:
+        """Launch the feed_daemon as a headless cmux SURFACE; return its workspace ref.
 
-        ``log_path`` is a durable per-workspace sink for the detached daemon's
-        stdout/stderr (so a runtime failure leaves a trace); when omitted the
-        output is discarded. The autonomous coach always passes one — a daemon
-        spawned to ``/dev/null`` is unobservable (WMBT M004).
+        The daemon runs INSIDE a cmux surface (``cmux new-workspace --focus false
+        --command``) so it is a socket-recognized process — NOT a detached/orphaned
+        subprocess, whose every ``cmux rpc`` broken-pipes (WMBT M005, #1007). ``name``
+        names the daemon's surface; ``log_path`` is a durable per-workspace sink for
+        the daemon's stdout/stderr (the surface command redirects to it) so a runtime
+        failure leaves a trace (WMBT M004). Returns the daemon's own cmux workspace ref.
         """
 
 
 class LivenessProbe(Protocol):
-    def is_alive(self, pid: int) -> bool:
-        """True when a process with `pid` is currently live."""
+    def is_alive(self, daemon_workspace: str) -> bool:
+        """True when the daemon's cmux workspace still exists (the surface is up)."""
 
 
-class Signaller(Protocol):
-    def signal(self, pid: int, sig: int) -> None:
-        """Send signal `sig` to `pid`."""
+class WorkspaceCloser(Protocol):
+    def close(self, daemon_workspace: str) -> None:
+        """Close the daemon's cmux workspace (``cmux close-workspace``)."""
 
 
 class ManagerRegistryPort(Protocol):

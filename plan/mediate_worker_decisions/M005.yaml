@@ -1,0 +1,111 @@
+urn: "wmbt:mediate-worker-decisions:M005"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-managed-daemon-spawned-as-a-detached-orphaned-process-whose-cmux-rpc-calls-broken-pipe-so-it-silently-never-decides"
+context_clarifier: "atdd coach start spawned the workspace-scoped feed_daemon as a DETACHED process (subprocess.Popen + start_new_session) and then exited, ORPHANING the daemon (reparented to launchd/init). cmux rejects orphaned/detached processes: every cmux rpc from such a process fails with a broken-pipe socket write (errno 32) regardless of env — so the daemon saw an empty Feed every poll and silently never decided (the swallowed-to-empty failure run_cmux now surfaces as CmuxCommandError). A process running INSIDE a cmux surface talks to the socket fine. The fix: atdd coach start must launch the feed_daemon as a headless cmux surface (cmux new-workspace --focus false --command '<daemon argv>') instead of a detached subprocess, so the daemon is a cmux-recognized process with socket access; start records the daemon's own cmux workspace ref, stop closes that workspace (cmux close-workspace), and daemons derives liveness from the daemon workspace still existing"
+lens: "functional.availability"
+statement: "minimize likelihood of a managed daemon spawned as a detached orphaned process whose cmux rpc calls broken pipe so it silently never decides"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:M005-UNIT-001-run-cmux-raises-and-loud-logs-on-nonzero-exit-not-swallowed"
+      id: "AC-UNIT-001"
+      purpose: "run_cmux surfaces a non-zero cmux exit — loud-logs and raises a typed CmuxCommandError carrying the argv/returncode/stderr — instead of returning '' and masquerading as empty output (the broken-pipe swallow that hid #1007 for four rounds and made the orphaning diagnosable)"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A stubbed subprocess.run returning a CompletedProcess with returncode=1, empty stdout, and a broken-pipe stderr"
+        - "A captured logger on the cmux_cli module"
+    when:
+      abstract: "run_cmux is invoked for a cmux rpc subcommand"
+      action: "invoke"
+    then:
+      abstract:
+        - "run_cmux raises CmuxCommandError (it does NOT return '') and the error carries the returncode and stderr"
+        - "A WARNING-or-higher record naming the cmux failure is emitted on the cmux_cli logger"
+      assertions:
+        - type: "raises"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-runtime"
+  - identity:
+      urn: "acc:mediate-worker-decisions:M005-UNIT-002-start-launches-daemon-as-headless-cmux-surface"
+      id: "AC-UNIT-002"
+      purpose: "start launches the feed_daemon INSIDE a headless cmux surface (cmux new-workspace --focus false --command carrying the daemon argv) — so the daemon is a cmux-recognized process with socket access — and records the daemon's own cmux workspace ref, instead of a detached/orphaned subprocess.Popen"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A CoachRuntime wired with a recording surface launcher that captures the new-workspace invocation and returns a daemon workspace ref, a real tmp-rooted manager registry, and a stub gate"
+    when:
+      abstract: "start is invoked for a target workspace with no existing managed daemon"
+      action: "invoke"
+    then:
+      abstract:
+        - "The launcher is invoked once with the daemon argv (carrying the target --workspace) and a headless --focus false new-workspace launch, NOT a detached subprocess"
+        - "The persisted manager record carries the daemon's own cmux workspace ref distinct from the watched target workspace"
+      assertions:
+        - type: "exists"
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-runtime"
+  - identity:
+      urn: "acc:mediate-worker-decisions:M005-UNIT-003-stop-closes-daemon-workspace-and-liveness-from-existence"
+      id: "AC-UNIT-003"
+      purpose: "stop closes the daemon's OWN cmux workspace (cmux close-workspace) rather than killing a pid, and daemons derives each managed daemon's running|stale status from whether its daemon workspace still exists"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A manager registry holding one managed daemon whose daemon workspace ref is recorded, a recording workspace closer, and a liveness probe keyed on existing daemon workspaces"
+    when:
+      abstract: "stop is invoked for the target workspace, then daemons is listed"
+      action: "invoke"
+    then:
+      abstract:
+        - "The closer is asked to close exactly the recorded daemon workspace ref and the manager record is removed"
+        - "daemons reports running for a daemon whose workspace still exists and stale for one whose workspace is gone"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-runtime"
+  - identity:
+      urn: "acc:mediate-worker-decisions:M005-SMOKE-001-real-coach-start-managed-daemon-writes-a-verdict"
+      id: "AC-SMOKE-001"
+      purpose: "The headline gate every prior round missed: started through the REAL `atdd coach start --workspace <ws>` cmux-surface spawn (NOT the loop directly, NOT feed_daemon_cli foreground, NOT a live-parent subprocess) against a live worker blocked on a real AskUserQuestion, the managed daemon's verdicts.jsonl GAINS A LINE — the orphan-immune surface daemon actually decides"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real worker blocked on a real AskUserQuestion visible in cmux feed.list, and a tmp runtime root for the managed daemon's per-workspace ledgers"
+    when:
+      abstract: "The production coach runtime is started via coach_runtime_cli `start` (the cmux-surface daemon launch path) for that workspace and given a moment to poll"
+      action: "invoke"
+    then:
+      abstract:
+        - "The managed daemon's per-workspace verdicts.jsonl gains a line: the daemon launched as a cmux surface by the real command reached cmux cleanly and recorded a real decision"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the daemon launched as a cmux surface by `atdd coach start` reached the cmux socket, decided the blocked question, and appended a verdict to its managed verdicts.jsonl"
+      drift_resolved: "the real production command auto-answers a blocked decision instead of orphaning a detached daemon that broken-pipes on every cmux rpc and silently writes zero verdicts"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-runtime"

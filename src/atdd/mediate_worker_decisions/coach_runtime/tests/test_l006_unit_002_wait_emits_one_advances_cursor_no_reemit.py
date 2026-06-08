@@ -29,7 +29,7 @@ from atdd.mediate_worker_decisions.coach_runtime.tests._helpers import (
     CountingStop,
     FakeLiveness,
     ImmediateSleeper,
-    RecordingSignaller,
+    RecordingCloser,
     RecordingSpawner,
     StubGate,
     fake_argv,
@@ -49,7 +49,7 @@ def _runtime(tmp_path):
         registry=ManagerRegistry(tmp_path / "reg"),
         spawner=RecordingSpawner(),
         liveness=FakeLiveness(),
-        signaller=RecordingSignaller(),
+        closer=RecordingCloser(),
         gate=StubGate(),
         daemon_argv=fake_argv,
     )
