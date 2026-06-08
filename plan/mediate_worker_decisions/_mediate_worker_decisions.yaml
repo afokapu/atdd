@@ -48,7 +48,7 @@ features:
   - urn: "feature:mediate-worker-decisions:coach-runtime"
 
 wmbt:
-  total: 34
+  total: 35
   D001: "minimize likelihood of resolving a cmux notification to the wrong worker (or routing two entry paths to divergent requests)"
   L001: "maximize likelihood of locating the latest decision prompt in worker surface text"
   C001: "minimize quantity of false decision-requests emitted from non-decision worker output"
@@ -83,3 +83,4 @@ wmbt:
   L006: "maximize likelihood of the next unhandled escalation past the persisted cursor in the daemons escalations ledger"
   R003: "minimize likelihood of a managed daemon left running or a stale manager pidfile after atdd coach stop"
   E011: "minimize likelihood of the autonomous decider deciding without the coach convention and operating protocol loaded"
+  L007: "minimize likelihood of the workspace scoped feed read excluding a legitimate decision from a worktree launched worker or silently empty scoping a watched workspace"

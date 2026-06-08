@@ -1762,3 +1762,16 @@ sessions:
   train: 0002-coach-drives-lifecycle
   branch: feat/atdd-coach-activation-convention-operating-protocol
   worktree: /Users/alecfokapu/Github/atdd/feat-atdd-coach-activation-convention-operating-protocol
+- id: '1004'
+  slug: daemon-scope-excludes-worktree-launched-worker-decision
+  file: null
+  issue_number: 1004
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-08'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:bridge-cmux-feed
+  train: null
+  branch: feat/daemon-scope-excludes-worktree-launched-worker-decision
+  worktree: /Users/alecfokapu/Github/atdd/feat-daemon-scope-excludes-worktree-launched-worker-decision

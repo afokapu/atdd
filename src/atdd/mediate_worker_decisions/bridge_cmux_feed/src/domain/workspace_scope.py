@@ -24,20 +24,37 @@ class WorkspaceScope:
 
     ``workstream_ids`` is the precise signal — each is a ``claude-<session-uuid>``
     that an item's ``workstream_id`` must match exactly. ``cwds`` is the fallback,
-    used when an item carries no resolvable ``workstream_id``: a real spawned
-    worker runs in a unique worktree, so its cwd isolates it (the documented
-    limitation is two workers sharing a cwd — real workers get distinct worktrees).
+    used when an item's workstream is unknown to us: a real spawned worker runs in
+    a unique worktree, so its cwd isolates it. Because a worker is launched at a
+    repo's launch cwd and then ``cd``s into a flat-sibling worktree (running claude
+    under a NEW session that is NOT the surface's resume checkpoint), the cwds set
+    is resolved worktree-aware in the integration tier — it carries both the launch
+    cwd AND the repo's worktree dirs, so the worktree the worker cd'd into matches.
+
+    ``permissive`` is the watched-but-unresolvable degrade (WMBT L007): when the
+    integration tier cannot resolve ANY identity for a workspace the daemon was
+    explicitly told to watch (e.g. ``surface.list`` returned nothing usable), it
+    builds a permissive scope that owns EVERY item rather than an empty scope that
+    silently swallows the watched workspace's decisions. A watched-but-empty scope
+    is a bug, not a no-op — over-including is recoverable; silent swallowing parks
+    the worker forever.
     """
 
     workstream_ids: FrozenSet[str]
     cwds: FrozenSet[str]
+    permissive: bool = False
 
     def owns(self, item: FeedItem) -> bool:
+        # Watched-but-unresolvable degrade: never silently swallow the decisions of
+        # a workspace we were told to watch (WMBT L007).
+        if self.permissive:
+            return True
         # Precise: the claude session/workstream this item was raised by.
         if item.workstream_id and item.workstream_id in self.workstream_ids:
             return True
         # Fallback: the worktree cwd, when the item's workstream is unknown to us
-        # (e.g. the surface had no resume binding to resolve a session uuid).
+        # (e.g. a worktree-launched worker running under a session that is not the
+        # surface's resume checkpoint — the cwds set is worktree-aware).
         if item.cwd and item.cwd in self.cwds:
             return True
         return False
