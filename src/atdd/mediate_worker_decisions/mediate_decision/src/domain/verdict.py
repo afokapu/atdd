@@ -25,6 +25,10 @@ CAUSE_UNPARSEABLE = "coach_unparseable"
 # The reply was delivered (Feed item non-pending) but the worker stayed parked on
 # its TUI menu even after the send-key fallback — never silently claim delivered.
 CAUSE_WORKER_STUCK = "worker_stuck"
+# The decide path itself failed for an item (e.g. the LlmCoach ``claude -p`` call
+# died in the detached, no-TTY daemon context). The daemon must escalate this to a
+# human and loud-log it rather than swallow it into zero verdicts / zero escalations.
+CAUSE_DECIDE_FAILED = "decide_failed"
 
 
 @dataclass(frozen=True)
