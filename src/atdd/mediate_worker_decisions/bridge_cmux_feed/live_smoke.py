@@ -13,7 +13,9 @@ when ``cmux`` is on PATH and skip otherwise.
 """
 from __future__ import annotations
 
+import os
 import re
+import shutil
 import subprocess
 import tempfile
 import time
@@ -99,6 +101,58 @@ def _spawn_claude_native_worker(name: str, prompt: str) -> tuple:
         "new-workspace", "--name", name, "--cwd", "/tmp", "--focus", "false",
         "--command",
         f'claude "{prompt}" --permission-mode acceptEdits --allowedTools "Read"',
+    )
+    ws = next((t for t in created.stdout.split() if t.startswith("workspace:")), None)
+    if ws is None:
+        raise RuntimeError(f"could not create cmux workspace: {created.stderr}")
+    time.sleep(_BOOT_SECONDS)
+    surfaces = _surfaces(ws)
+    if not surfaces:
+        raise RuntimeError("claude worker surface never appeared")
+    return ws, surfaces[0]
+
+
+def _make_repo_with_worktree() -> tuple:
+    """Create a throwaway git repo and a flat-sibling git worktree of it.
+
+    Returns ``(repo_dir, worktree_dir)``. The repo is the launch cwd a worker is
+    spawned at; the worktree is the flat sibling it then ``cd``s into — exactly
+    how the coach runs real workers. Faithful to the #1004 regression: the surface
+    reports the launch cwd, the worker's Feed item reports the worktree cwd.
+    """
+    root = tempfile.mkdtemp(prefix="atdd-1004-")
+    repo = os.path.join(root, "main")
+    os.makedirs(repo, exist_ok=True)
+
+    def _git(*args: str) -> None:
+        subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, check=True)
+
+    subprocess.run(["git", "init", repo], capture_output=True, text=True, check=True)
+    _git("config", "user.email", "smoke@atdd.local")
+    _git("config", "user.name", "atdd smoke")
+    with open(os.path.join(repo, "README.md"), "w", encoding="utf-8") as fh:
+        fh.write("# atdd-1004 worktree smoke\n")
+    _git("add", "-A")
+    _git("commit", "-m", "init")
+    worktree = os.path.join(root, "feat-x")
+    _git("worktree", "add", "-b", "feat/atdd-1004-smoke", worktree)
+    return repo, worktree
+
+
+def _spawn_worktree_native_worker(name: str, repo: str, worktree: str, prompt: str) -> tuple:
+    """Launch a cmux-native worker at ``repo`` that ``cd``s into ``worktree``.
+
+    The launch ``--cwd`` is the repo (so the surface reports the launch cwd), and
+    the launch command ``cd``s into the flat-sibling worktree before running claude
+    (so the worker's Feed item reports the worktree cwd, under a new session). This
+    is the exact #1004 configuration the #993 scope swallowed. Returns
+    ``(workspace_ref, surface_ref)``.
+    """
+    created = _cmux(
+        "new-workspace", "--name", name, "--cwd", repo, "--focus", "false",
+        "--command",
+        f'cd "{worktree}" && claude "{prompt}" '
+        f'--permission-mode acceptEdits --allowedTools "Read"',
     )
     ws = next((t for t in created.stdout.split() if t.startswith("workspace:")), None)
     if ws is None:
@@ -389,6 +443,62 @@ def scope_isolation_live_smoke(evidence_path: Optional[str] = None) -> dict:
             _cmux("close-workspace", "--workspace", ws_b)
     finally:
         _cmux("close-workspace", "--workspace", ws_a)
+
+
+def worktree_scope_live_smoke(evidence_path: Optional[str] = None) -> dict:
+    """L007 — a live worktree worker's decision is NOT scoped out (#993/#1004).
+
+    The headline #1004 proof. Spawn a real cmux-native claude worker launched at a
+    git repo root (the surface's launch cwd) that ``cd``s into a flat-sibling git
+    worktree and blocks on a live AskUserQuestion — the exact configuration the
+    #993 workspace scope silently swallowed (the worker's session/workstream is not
+    the surface's resume checkpoint, and its cwd is the worktree, not the launch
+    cwd). Build a workspace-scoped ``CmuxFeedSource`` for that workspace and assert
+    it INCLUDES the worker's pending decision. Captures the matched worktree cwd /
+    workstream as evidence (#983) and always closes the workspace + removes the
+    throwaway repo.
+    """
+    question = (
+        "Use the AskUserQuestion tool right now to ask whether to indent with "
+        "Tabs or Spaces (options: Tabs, Spaces). Do nothing else first."
+    )
+    repo, worktree = _make_repo_with_worktree()
+    ws, worker = _spawn_worktree_native_worker(
+        "atdd-1004-worktree-scope", repo, worktree, question
+    )
+    try:
+        # The workspace-scoped source must surface the worktree worker's decision.
+        source = CmuxFeedSource(workspace_id=ws)
+        item = _wait_for_pending(source, kind=QUESTION)
+        assert item is not None, (
+            "the workspace-scoped source saw no decision — the worktree worker's "
+            "decision was scoped out (the #1004 regression)"
+        )
+
+        seen_ids = sorted({i.request_id for i in source.list_pending()})
+
+        if evidence_path:
+            with open(evidence_path, "w", encoding="utf-8") as fh:
+                fh.write("=== #1004 worktree-launched scope inclusion ===\n")
+                fh.write(f"workspace: {ws}\n")
+                fh.write(f"launch cwd (surface): {repo}\n")
+                fh.write(f"worktree cwd (worker cd'd into): {worktree}\n")
+                fh.write(f"item cwd (Feed): {item.cwd}\n")
+                fh.write(f"item workstream_id: {item.workstream_id}\n")
+                fh.write(f"scoped request_id: {item.request_id}\n")
+                fh.write(f"scoped seen set: {seen_ids}\n")
+
+        return {
+            "launch_cwd": repo,
+            "worktree_cwd": worktree,
+            "item_cwd": item.cwd,
+            "scoped_request_id": item.request_id,
+            "scoped_seen_request_ids": seen_ids,
+            "evidence_path": evidence_path,
+        }
+    finally:
+        _cmux("close-workspace", "--workspace", ws)
+        shutil.rmtree(os.path.dirname(repo), ignore_errors=True)
 
 
 def advance_live_smoke(evidence_path: Optional[str] = None) -> dict:
