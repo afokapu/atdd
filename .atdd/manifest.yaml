@@ -1804,7 +1804,7 @@ sessions:
   file: null
   issue_number: 1007
   type: implementation
-  status: RED
+  status: REFACTOR
   created: '2026-06-08'
   archived: null
   wagon: mediate-worker-decisions
