@@ -159,6 +159,53 @@ def _hash_statements(stmts: List[ast.stmt]) -> str:
     return hashlib.sha256(dumped.encode("utf-8")).hexdigest()[:16]
 
 
+def _is_module_docstring(stmt: ast.stmt) -> bool:
+    """True if stmt is a bare string expression (a module/leading docstring)."""
+    return (
+        isinstance(stmt, ast.Expr)
+        and isinstance(stmt.value, ast.Constant)
+        and isinstance(stmt.value.value, str)
+    )
+
+
+def _is_import(stmt: ast.stmt) -> bool:
+    """True if stmt is an ``import`` or ``from ... import`` (incl. __future__)."""
+    return isinstance(stmt, (ast.Import, ast.ImportFrom))
+
+
+def _is_module_constant(stmt: ast.stmt) -> bool:
+    """True if stmt is a module-level constant binding (``X = ...`` / ``X: T = ...``).
+
+    Leading bindings (path constants, ``_RULE = bind_rule(...)``, sentinel
+    tuples, etc.) are part of the standard file header, not duplicated logic.
+    """
+    return isinstance(stmt, (ast.Assign, ast.AnnAssign))
+
+
+def strip_module_header(body: List[ast.stmt]) -> List[ast.stmt]:
+    """Drop the contiguous *leading* header-boilerplate prefix of a module body.
+
+    Issue #960: the strict intra-layer duplication detector counted standard
+    file-header boilerplate — the module docstring, ``from __future__`` /
+    ``import`` block, and leading module constants — as duplication. Two small
+    value-object files in the same layer collided on their headers alone, with
+    no real shared logic.
+
+    The boundary: we strip the leading docstring followed by a contiguous run of
+    import statements and module-level constant bindings, stopping at the first
+    statement of real logic (a function/class definition, control flow, an
+    expression call, etc.). Header statements that follow real code are NOT
+    stripped, so genuine duplicated logic is still compared and flagged.
+    """
+    idx = 0
+    n = len(body)
+    if idx < n and _is_module_docstring(body[idx]):
+        idx += 1
+    while idx < n and (_is_import(body[idx]) or _is_module_constant(body[idx])):
+        idx += 1
+    return body[idx:]
+
+
 def extract_fragments(
     file_path: Path,
     min_statements: int,
@@ -193,8 +240,9 @@ def extract_fragments(
             end_line = window[-1].end_lineno or window[-1].lineno
             fragments.append((h, start_line, end_line))
 
-    # Scan module-level statements
-    _scan_body(tree.body)
+    # Scan module-level statements, excluding standard header boilerplate
+    # (docstring + import block + leading constants) — issue #960.
+    _scan_body(strip_module_header(tree.body))
 
     # Scan function/method bodies
     for node in ast.walk(tree):
@@ -369,4 +417,107 @@ def test_no_intra_layer_duplication():
     assert_disposition_satisfied(
         validator_id="duplication_detector",
         violations=violations,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Issue #960 — header boilerplate must NOT count as duplication
+# ---------------------------------------------------------------------------
+# Standard 4-line header (docstring + __future__ + 2 imports) followed by a
+# leading constant binding (``_RULE = bind_rule("...")``). This is the exact
+# 5-statement window that #955 flagged across two value-object files.
+_SHARED_HEADER = '''"""{title} value object (pure)."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
+
+_RULE = bind_rule("coder.duplication.no-intra-layer-code-python")
+'''
+
+
+def _write_domain_file(base: Path, name: str, body: str) -> Path:
+    """Write a file under a ``.../domain/`` path so it classifies as 'domain'."""
+    domain_dir = base / name / "src" / "domain"
+    domain_dir.mkdir(parents=True, exist_ok=True)
+    target = domain_dir / f"{name}.py"
+    target.write_text(body, encoding="utf-8")
+    return target
+
+
+@pytest.mark.coder
+def test_header_boilerplate_only_overlap_is_not_flagged(tmp_path):
+    """
+    SPEC-CODER-DUP-0960: Two same-layer files sharing ONLY the standard header
+    boilerplate (docstring + __future__ + imports + a leading constant) and
+    having distinct real bodies must NOT be flagged as intra-layer duplication.
+
+    Reproduces #955: apply_decision/.../domain/record.py vs
+    mediate_decision/.../domain/verdict.py collided on header alone.
+    """
+    file_a = _write_domain_file(tmp_path, "record", _SHARED_HEADER.format(title="DecisionRecord") + '''
+
+@dataclass(frozen=True)
+class DecisionRecord:
+    record_id: str
+    request_id: str
+
+    def to_contract(self) -> dict:
+        out: dict = {}
+        out["record_id"] = self.record_id
+        return out
+''')
+    file_b = _write_domain_file(tmp_path, "verdict", _SHARED_HEADER.format(title="Verdict") + '''
+
+@dataclass(frozen=True)
+class Verdict:
+    verdict_id: str
+    decided_at: str
+    reason: Optional[str] = None
+
+    def is_final(self) -> bool:
+        flag = self.reason is not None
+        return flag
+''')
+
+    violations = find_intra_layer_duplicates({"domain": [file_a, file_b]}, 5)
+
+    assert violations == [], (
+        "Files sharing only standard header boilerplate must not be flagged "
+        f"as duplication, got: {violations}"
+    )
+
+
+@pytest.mark.coder
+def test_real_shared_body_logic_is_still_flagged(tmp_path):
+    """
+    SPEC-CODER-DUP-0960: Genuine duplicated logic in the same layer must STILL
+    be flagged after header boilerplate is excluded from the comparison.
+
+    The two files have DIFFERENT headers (so the only structural overlap is the
+    real, copy-pasted function body) — proving the detector stays sound.
+    """
+    shared_logic = '''
+def process(data):
+    step_one = data + 1
+    step_two = step_one * 2
+    step_three = step_two - 3
+    step_four = step_three / 4
+    return step_four
+'''
+    file_a = _write_domain_file(tmp_path, "alpha", '''"""Alpha."""
+from __future__ import annotations
+
+from typing import Optional
+''' + shared_logic)
+    file_b = _write_domain_file(tmp_path, "beta", '''"""Beta module with a longer distinct docstring header."""
+import os
+import sys
+''' + shared_logic)
+
+    violations = find_intra_layer_duplicates({"domain": [file_a, file_b]}, 5)
+
+    assert violations, (
+        "Genuine duplicated body logic across same-layer files must still be "
+        "flagged after header boilerplate is excluded"
     )
