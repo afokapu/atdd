@@ -1,6 +1,15 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '960'
+  slug: intra-layer-duplication-detector-counts-header-boilerplate
+  file: null
+  issue_number: 960
+  type: implementation
+  status: PLANNED
+  created: '2026-06-08'
+  archived: null
+  branch: feat/intra-layer-duplication-detector-counts-header-boilerplate
 - id: '987'
   slug: llm-coach-loads-convention-and-supervised-session-first-routing
   file: null
