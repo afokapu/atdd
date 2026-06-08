@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
 from typing import Callable, List, Optional
 
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import (
@@ -41,18 +42,51 @@ _DECISION_KINDS = (QUESTION, PERMISSION, EXIT_PLAN)
 _log = logging.getLogger("atdd.mediate_worker_decisions.feed_source")
 
 
+def _git_worktrees(cwd: str) -> List[str]:
+    """Return the worktree directories of the git repo containing ``cwd``.
+
+    A real worker is launched at the surface's launch cwd (a repo root) and then
+    ``cd``s into a flat-sibling git worktree where it runs claude (WMBT L007). The
+    surface only ever reports the launch cwd, so to match the worktree the worker
+    actually cd'd into we resolve the repo's worktrees via ``git worktree list``
+    (the launch cwd's own worktree is included). Returns ``[]`` when ``cwd`` is not
+    a git repo, git is unavailable, or the call errors — the caller degrades
+    gracefully (it never raises through a poll)."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", cwd, "worktree", "list", "--porcelain"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if out.returncode != 0:
+        return []
+    paths: List[str] = []
+    for line in out.stdout.splitlines():
+        if line.startswith("worktree "):
+            path = line[len("worktree "):].strip()
+            if path:
+                paths.append(path)
+    return paths
+
+
 class CmuxFeedSource:
     def __init__(
         self,
         *,
         workspace_id: Optional[str] = None,
         runner: Callable[..., str] = run_cmux,
+        worktrees: Callable[[str], List[str]] = _git_worktrees,
     ) -> None:
         """``workspace_id`` scopes the read to one workspace (WMBT L005); None
-        keeps the global behaviour. ``runner`` is the cmux CLI seam (injectable
-        for hermetic tests)."""
+        keeps the global behaviour. ``runner`` is the cmux CLI seam and
+        ``worktrees`` resolves a launch cwd to its git worktrees (WMBT L007) — both
+        injectable for hermetic tests."""
         self._ws = workspace_id
         self._run = runner
+        self._worktrees = worktrees
 
     def list_pending(self) -> List[FeedItem]:
         raw = strip_ansi(self._run("rpc", "feed.list", "{}")).strip()
@@ -79,12 +113,22 @@ class CmuxFeedSource:
         key — verified live; the bare ``workspace`` key is ignored and leaks the
         caller's surfaces). For each surface we collect the agent's workstream id
         (``<kind>-<checkpoint_id>`` from ``resume_binding``, matching the Feed
-        item's ``workstream_id`` e.g. ``claude-<session-uuid>``) and the worktree
-        cwd (with its symlink-resolved form, since the Feed reports the realpath
-        — e.g. ``/private/tmp/x`` vs a surface's ``/tmp/x``). The workstream id is
-        the precise signal; cwd is the fallback. A garbled/empty response degrades
-        to an empty scope (filters everything out) rather than silently leaking
-        the global set — logged so the miss is visible.
+        item's ``workstream_id`` e.g. ``claude-<session-uuid>``) and the cwd, both
+        symlink-resolved (the Feed reports the realpath — ``/private/tmp/x`` vs a
+        surface's ``/tmp/x``).
+
+        Worktree-aware (WMBT L007): the surface only ever reports the LAUNCH cwd,
+        but a real worker ``cd``s from there into a flat-sibling git worktree and
+        runs claude under a NEW session — so its Feed item carries the worktree cwd
+        and a workstream that is NOT the surface's resume checkpoint. We therefore
+        also add the launch cwd's git worktrees to the cwd set so the worktree the
+        worker cd'd into still matches.
+
+        Never silently empty-scope (WMBT L007): if ``surface.list`` is garbled or
+        yields NO usable identity for a workspace we were explicitly told to watch,
+        we degrade to a LOUD permissive scope (owns everything) rather than an empty
+        scope that silently swallows the watched workspace's decisions — a
+        watched-but-empty scope is a bug, not a no-op.
         """
         params = json.dumps({"workspace_id": self._ws})
         raw = strip_ansi(self._run("rpc", "surface.list", params)).strip()
@@ -94,10 +138,11 @@ class CmuxFeedSource:
             payload = json.loads(raw) if raw else {}
         except ValueError as exc:
             _log.warning(
-                "could not parse surface.list; scoping to an empty set",
+                "could not parse surface.list for a watched workspace; degrading "
+                "to a permissive scope so its decisions are not silently swallowed",
                 extra={"workspace_id": self._ws, "error": repr(exc)},
             )
-            return WorkspaceScope(frozenset(), frozenset())
+            return WorkspaceScope(frozenset(), frozenset(), permissive=True)
         surfaces = (
             payload.get("surfaces", payload) if isinstance(payload, dict) else payload
         )
@@ -115,9 +160,27 @@ class CmuxFeedSource:
                 binding.get("cwd"),
             ):
                 if cwd:
-                    cwds.add(cwd)
-                    cwds.add(os.path.realpath(cwd))  # Feed reports the realpath
+                    self._add_cwd_and_worktrees(cwd, cwds)
+        if not workstream_ids and not cwds:
+            _log.warning(
+                "surface.list yielded no usable identity for a watched workspace; "
+                "degrading to a permissive scope rather than silently empty-scoping "
+                "its decisions",
+                extra={"workspace_id": self._ws},
+            )
+            return WorkspaceScope(frozenset(), frozenset(), permissive=True)
         return WorkspaceScope(frozenset(workstream_ids), frozenset(cwds))
+
+    def _add_cwd_and_worktrees(self, cwd: str, cwds: set) -> None:
+        """Add a launch cwd, its realpath, and the cwd's git worktrees (+realpaths)
+        to the scope's cwd set — so a worker that cd'd from the launch cwd into a
+        flat-sibling worktree is matched (WMBT L007). The Feed reports realpaths, so
+        every entry is stored both raw and symlink-resolved."""
+        cwds.add(cwd)
+        cwds.add(os.path.realpath(cwd))
+        for worktree in self._worktrees(cwd):
+            cwds.add(worktree)
+            cwds.add(os.path.realpath(worktree))
 
 
 def _to_feed_item(entry: dict) -> FeedItem:
