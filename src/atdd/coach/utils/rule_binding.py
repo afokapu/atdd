@@ -285,7 +285,7 @@ def find_convention_files(
 _WMBT_ACC_BODY_RE = re.compile(
     r"^([DLPCEMYRK][0-9]{3})-"
     r"(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|"
-    r"WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-"
+    r"WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-"
     r"([0-9]{3})(?:-([a-z0-9-]+))?$"
 )
 
@@ -311,7 +311,7 @@ _RULE_ID_PATTERN = re.compile(
 #           v12 §5.4) — derived from a feature.yaml abuse_case.
 _REPO_RULE_ID_PATTERN = re.compile(
     r"^repo\.[a-z0-9][a-z0-9-]*\.("
-    r"[DLPCEMYRK][0-9]{3}-acc-(?:unit|http|event|ws|e2e|a11y|vis|metric|job|db|sec|load|script|widget|golden|bloc|integration|rls|edge|realtime|storage)-[0-9]{3}"
+    r"[DLPCEMYRK][0-9]{3}-acc-(?:unit|http|event|ws|e2e|a11y|vis|metric|job|db|sec|load|script|widget|golden|bloc|integration|rls|edge|realtime|storage|smoke)-[0-9]{3}"
     r"|"
     r"acc-[a-z][a-z0-9-]*"
     r"|"

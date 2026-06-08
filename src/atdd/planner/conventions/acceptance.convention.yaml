@@ -90,7 +90,7 @@ urn_generation:
     - Enforces colon = hierarchy, dash = facet cluster
 
   validation:
-    pattern: "^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-[0-9]{3}(?:-[a-z0-9-]+)?$"
+    pattern: "^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?$"
     description: "Enforces colon for hierarchy (acc:wagon:wmbt_id) and dash-joined facet cluster (-harness-NNN[-slug])"
 
   legacy_format:
@@ -121,6 +121,7 @@ harness_codes:
   edge_function: EDGE
   realtime: REALTIME
   storage: STORAGE
+  smoke: SMOKE
 
 # -----------------------------------------------------------------------------
 # execution_kind — orthogonal runtime-environment classifier (issue #690)
