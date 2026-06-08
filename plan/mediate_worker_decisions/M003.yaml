@@ -1,0 +1,61 @@
+urn: "wmbt:mediate-worker-decisions:M003"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-decide-loop-failure-silently-swallowed-so-the-daemon-writes-no-verdict-and-no-escalation"
+context_clarifier: "the autonomous daemon drives FeedRunnerUseCase.handle per blocked item; when the decide path raises (the LlmCoach claude -p call fails in the detached no-TTY stdin=DEVNULL daemon context, the convention load errors, or any unexpected error), the loop must surface it LOUDLY and record a human-required escalation rather than swallowing it and continuing with no progress — the daemon stays alive but leaves a durable trace, and a routine safe decision still ends in a written verdict"
+lens: "functional.availability"
+statement: "minimize likelihood of a decide loop failure silently swallowed so the daemon writes no verdict and no escalation"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:M003-UNIT-001-decide-failure-logged-and-escalated-not-swallowed"
+      id: "AC-UNIT-001"
+      purpose: "When the runner raises for a blocked item, one daemon tick loud-logs the failure AND records a human-required escalation, marks the request answered, and the loop continues (never silently swallowed, never crashed)"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fake feed source with one blocked item and a runner stub that raises on handle"
+        - "A recording escalation sink, a recording verdict ledger, and a captured daemon logger"
+    when:
+      abstract: "The daemon runs a single tick over the failing item"
+      action: "invoke"
+    then:
+      abstract:
+        - "A WARNING-or-higher record naming the request_id is emitted on the daemon logger"
+        - "An escalation (cause decide_failed) is recorded and no verdict is written; the request_id is marked answered and tick returns without raising"
+      assertions:
+        - type: "exists"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon"
+  - identity:
+      urn: "acc:mediate-worker-decisions:M003-SMOKE-001-live-daemon-writes-a-verdict"
+      id: "AC-SMOKE-001"
+      purpose: "A live daemon, driven through the production decide path over a real induced safe decision, WRITES A VERDICT to the durable ledger — not merely that the scoped source includes the item"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real worker blocked on a real AskUserQuestion visible in cmux feed.list, and a /tmp scratch ledger dir"
+    when:
+      abstract: "The production-wired daemon (real CmuxFeedSource + LlmCoach over claude -p) runs one poll tick"
+      action: "invoke"
+    then:
+      abstract:
+        - "verdicts.jsonl gains a line: the daemon completed a real decision and recorded it durably"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the decider's claude -p call completed in the daemon context and the verdict was appended to verdicts.jsonl"
+      drift_resolved: "the blocked item is auto-answered through the Feed rather than expiring unanswered with zero verdicts written"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon"

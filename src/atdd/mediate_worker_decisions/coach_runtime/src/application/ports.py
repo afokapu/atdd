@@ -20,8 +20,14 @@ class GateRunner(Protocol):
 
 
 class DaemonSpawner(Protocol):
-    def spawn(self, argv: List[str]) -> int:
-        """Launch the feed_daemon CLI detached. Returns the child pid."""
+    def spawn(self, argv: List[str], *, log_path: Optional[str] = None) -> int:
+        """Launch the feed_daemon CLI detached. Returns the child pid.
+
+        ``log_path`` is a durable per-workspace sink for the detached daemon's
+        stdout/stderr (so a runtime failure leaves a trace); when omitted the
+        output is discarded. The autonomous coach always passes one — a daemon
+        spawned to ``/dev/null`` is unobservable (WMBT M004).
+        """
 
 
 class LivenessProbe(Protocol):

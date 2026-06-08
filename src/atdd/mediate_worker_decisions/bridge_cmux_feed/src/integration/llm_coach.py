@@ -80,6 +80,15 @@ class UnsupportedCoachProvider(ValueError):
     """Raised when an LlmCoach is asked for a provider with no CLI factory."""
 
 
+class CoachInvocationError(RuntimeError):
+    """Raised when the provider CLI (e.g. ``claude -p``) fails to produce output.
+
+    Surfaced (not swallowed) so the daemon decide loop escalates the decision to a
+    human and loud-logs it, instead of turning a dead ``claude -p`` into an empty
+    silent verdict — the #1007 failure mode in the detached, no-TTY daemon context.
+    """
+
+
 def _default_id_factory() -> str:
     return str(uuid.uuid4())
 
@@ -102,9 +111,23 @@ def _claude_cli_factory(model: Optional[str]) -> CoachCli:
             cmd += ["--model", model]
         if system:
             cmd += ["--append-system-prompt", system]
-        return subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
-        ).stdout
+        # Explicit stdin=DEVNULL: the autonomous daemon runs detached with no TTY, so
+        # claude -p must not inherit (or block on) the daemon's stdin (#1007).
+        completed = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            stdin=subprocess.DEVNULL,
+        )
+        if completed.returncode != 0:
+            # Surface the failure so the daemon escalates rather than silently
+            # producing an empty (first-option) verdict from no output.
+            raise CoachInvocationError(
+                f"claude -p exited {completed.returncode}: "
+                f"{(completed.stderr or '').strip()[:500]}"
+            )
+        return completed.stdout
 
     return run
 

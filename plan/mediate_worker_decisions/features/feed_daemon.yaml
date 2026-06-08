@@ -2,7 +2,7 @@ urn: "feature:mediate-worker-decisions:feed-daemon"
 wagon: "wagon:mediate-worker-decisions"
 description: "The single coach-level listener: a long-running daemon that continuously polls the cmux Feed and drives every blocked decision through the existing FeedRunnerUseCase. Routine decisions are auto-answered; dangerous ones always escalate to a human. Idempotent within a run and across restarts; graceful shutdown; one instance per Feed. Reuses the decide/escalate brain wholesale — it adds only the loop, dedup, durable ledgers, and lifecycle."
 sizing:
-  wmbts: 6
+  wmbts: 7
   footprint_score: 12
   footprint_size: "M"
 wmbts:
@@ -12,6 +12,7 @@ wmbts:
   - "wmbt:mediate-worker-decisions:R002"
   - "wmbt:mediate-worker-decisions:D002"
   - "wmbt:mediate-worker-decisions:C005"
+  - "wmbt:mediate-worker-decisions:M003"
 components:
   backend:
     presentation:

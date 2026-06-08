@@ -14,7 +14,9 @@ acceptances fail behaviourally rather than on import.
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
+import uuid
+from datetime import datetime, timezone
+from typing import Callable, List, Optional
 
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.application.feed_runner import (
     FeedOutcome,
@@ -29,8 +31,20 @@ from atdd.mediate_worker_decisions.feed_daemon.src.application.ports import (
     VerdictLedger,
 )
 from atdd.mediate_worker_decisions.feed_daemon.src.domain.answered_set import AnsweredSet
+from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import (
+    CAUSE_DECIDE_FAILED,
+    Escalation,
+)
 
 _LOG = logging.getLogger("atdd.feed_daemon")
+
+
+def _default_id() -> str:
+    return str(uuid.uuid4())
+
+
+def _default_ts() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 class SingleInstanceError(RuntimeError):
@@ -51,6 +65,8 @@ class FeedDaemonUseCase:
         lock: Lock,
         poll_interval_s: float = 2.0,
         logger: Optional[logging.Logger] = None,
+        id_factory: Callable[[], str] = _default_id,
+        ts_factory: Callable[[], str] = _default_ts,
     ) -> None:
         self._source = source
         self._runner = runner
@@ -62,6 +78,10 @@ class FeedDaemonUseCase:
         self._lock = lock
         self._interval = poll_interval_s
         self._log = logger or _LOG
+        # Factories for the decide-failure escalation the loop raises itself (the
+        # runner owns its own for the decisions it escalates).
+        self._id = id_factory
+        self._ts = ts_factory
 
     def tick(self) -> List[FeedOutcome]:
         """One poll pass: handle each fresh blocked item exactly once.
@@ -74,7 +94,10 @@ class FeedDaemonUseCase:
         for item in self._source.list_pending():
             if self._answered.seen(item.request_id):
                 continue
-            outcome = self._runner.handle(item)
+            try:
+                outcome = self._runner.handle(item)
+            except Exception:
+                outcome = self._on_decide_failure(item)
             if outcome.escalation is not None:
                 # Dangerous / human-required: record durably AND loudly surface
                 # it; NEVER auto-answer (WMBT C004 — headline safety property).
@@ -96,6 +119,31 @@ class FeedDaemonUseCase:
             self._answered.mark(item.request_id)
             outcomes.append(outcome)
         return outcomes
+
+    def _on_decide_failure(self, item) -> FeedOutcome:
+        """Turn a raised decide failure into an observable escalation (#1007).
+
+        The decide path failed for this item (e.g. the LlmCoach ``claude -p`` call
+        died in the detached, no-TTY daemon context). NEVER swallow it into zero
+        verdicts / zero escalations: loud-log with the traceback AND raise a
+        human-required escalation so the failure leaves a durable trace, then let
+        the caller keep polling rather than crash the whole daemon.
+        """
+        self._log.exception(
+            "DECIDE LOOP FAILED — request_id=%s could not be auto-resolved in the "
+            "daemon; escalating to a human and continuing",
+            item.request_id,
+        )
+        return FeedOutcome(
+            request_id=item.request_id,
+            escalation=Escalation(
+                escalation_id=self._id(),
+                request_id=item.request_id,
+                raised_at=self._ts(),
+                cause=CAUSE_DECIDE_FAILED,
+                safety_class=None,
+            ),
+        )
 
     def run_forever(self) -> None:
         """Loop tick()+sleep under the single-instance lock until stop fires.

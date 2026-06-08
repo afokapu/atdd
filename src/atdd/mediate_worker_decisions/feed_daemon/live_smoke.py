@@ -165,6 +165,50 @@ def loop_answers_live_smoke(tmp_dir: str = "/tmp/atdd-feed-daemon-loop") -> dict
         _cmux("close-workspace", "--workspace", ws)
 
 
+def writes_verdict_live_smoke(tmp_dir: str = "/tmp/atdd-feed-daemon-verdict") -> dict:
+    """M003 — a live daemon WRITES A VERDICT for a real induced safe decision.
+
+    The headline gate the L007 inclusion smoke missed (#1007). Drive the REAL decide
+    path — the production workspace-scoped ``CmuxFeedSource``, the real ``LlmCoach``
+    over ``claude -p`` (whose factory now forces ``stdin=DEVNULL``, the detached
+    daemon's no-TTY condition), and the durable ``JsonlVerdictLedger`` — over one
+    tick against a live worker blocked on a real AskUserQuestion. Assert
+    ``verdicts.jsonl`` GAINS A LINE: the daemon completed a real decision and recorded
+    it, rather than the silent zero-verdicts failure. Captures evidence (#983).
+    """
+    tmp = Path(tmp_dir)
+    tmp.mkdir(parents=True, exist_ok=True)
+    verdicts, escalations = tmp / "verdicts.jsonl", tmp / "escalations.jsonl"
+    for ledger in (verdicts, escalations):
+        if ledger.exists():
+            ledger.unlink()
+    ws, worker = _spawn_claude_worker("atdd-feed-1007-verdict")
+    try:
+        _send_task(ws, worker, _QUESTION_TASK)
+        # Production scoped read (the #993/#1004 path) — the daemon's real source.
+        source = CmuxFeedSource(workspace_id=ws)
+        item = _wait_for_pending(source, kind=QUESTION)
+        assert item is not None, "no pending question item appeared in the scoped Feed"
+
+        recorder = _RecordingTransport(CmuxFeedTransport())
+        daemon = _build_live_daemon(
+            source=source, coach=LlmCoach(), recorder=recorder,
+            verdicts=verdicts, escalations=escalations,
+        )
+        daemon.tick()
+
+        verdict_lines = _line_count(verdicts)
+        return {
+            "verdict_written": verdict_lines >= 1,
+            "verdict_lines": verdict_lines,
+            "request_id": item.request_id,
+            "escalation_lines": _line_count(escalations),
+            "replied": any(v == "feed.question.reply" for v, _ in recorder.calls),
+        }
+    finally:
+        _cmux("close-workspace", "--workspace", ws)
+
+
 def danger_escalates_live_smoke(tmp_dir: str = "/tmp/atdd-feed-daemon-danger") -> dict:
     """C004 — a real dangerous tool use is escalated, never auto-answered.
 

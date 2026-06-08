@@ -11,14 +11,16 @@ from typing import List, Optional
 
 
 class RecordingSpawner:
-    """Captures spawn argv and hands back a scripted pid each call."""
+    """Captures spawn argv (+ the durable log_path) and returns a scripted pid."""
 
     def __init__(self, pid: int = 4242) -> None:
         self.calls: List[List[str]] = []
+        self.log_paths: List[Optional[str]] = []
         self._pid = pid
 
-    def spawn(self, argv: List[str]) -> int:
+    def spawn(self, argv: List[str], *, log_path: Optional[str] = None) -> int:
         self.calls.append(list(argv))
+        self.log_paths.append(log_path)
         return self._pid
 
 

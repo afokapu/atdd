@@ -48,6 +48,8 @@ def test_claude_argv_carries_the_coach_convention(monkeypatch):
 
     class _FakeCompleted:
         stdout = "Use the shim"
+        stderr = ""
+        returncode = 0
 
     def _fake_run(cmd, **kwargs):
         captured["cmd"] = cmd
