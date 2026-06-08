@@ -11,6 +11,7 @@ Skeleton: bodies land in GREEN.
 from __future__ import annotations
 
 import signal as _signal
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 from atdd.mediate_worker_decisions.coach_runtime.src.application.ports import (
@@ -81,7 +82,11 @@ class CoachRuntime:
             escalations_path=escalations_path,
             verdicts_path=verdicts_path,
         )
-        pid = self._spawner.spawn(argv)
+        # Direct the detached daemon's stdout/stderr to a durable per-workspace log
+        # (a daemon.log beside its ledgers/lock), never /dev/null — a runtime failure
+        # must leave a diagnosable trace (WMBT M004).
+        log_path = str(Path(lock_path).parent / "daemon.log")
+        pid = self._spawner.spawn(argv, log_path=log_path)
         daemon = ManagedDaemon(
             workspace_id=workspace_id,
             pid=pid,

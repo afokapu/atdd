@@ -148,13 +148,37 @@ class SubprocessDaemonSpawner:
     def __init__(self, python: Optional[str] = None) -> None:
         self._python = python or sys.executable
 
-    def spawn(self, argv: List[str]) -> int:  # pragma: no cover - real process
-        proc = subprocess.Popen(
+    def spawn(self, argv: List[str], *, log_path: Optional[str] = None) -> int:
+        """Spawn the daemon detached, capturing its output to a durable log.
+
+        stdout/stderr are wired to ``log_path`` (append, line-buffered) so a
+        detached daemon's runtime failure — decide loop, LlmCoach, scope — leaves
+        a diagnosable trace instead of vanishing into ``/dev/null`` (WMBT M004).
+        stdin stays ``DEVNULL``. Without a ``log_path`` the output is discarded.
+        """
+        if log_path:
+            log_file = Path(log_path)
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            # Append + line-buffered: a watched daemon's last line survives a crash.
+            sink = open(log_file, "a", buffering=1, encoding="utf-8")
+            try:
+                proc = subprocess.Popen(
+                    argv,
+                    stdin=subprocess.DEVNULL,
+                    stdout=sink,
+                    stderr=sink,
+                    start_new_session=True,  # survive the parent shell exiting
+                )
+            finally:
+                # The child holds its own dup of the fd; the parent must not keep it.
+                sink.close()
+            return proc.pid
+        proc = subprocess.Popen(  # pragma: no cover - discard path (no log sink)
             argv,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            start_new_session=True,  # survive the parent shell exiting
+            start_new_session=True,
         )
         return proc.pid
 
