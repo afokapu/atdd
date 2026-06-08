@@ -206,7 +206,7 @@ class MultiplexerBackend(ABC):
 
         Default implementation is a no-op so backends without a rename
         primitive (zellij, tmux) silently degrade instead of breaking
-        the orchestrate flow. Issue #470 — canonical session naming.
+        the coach launch flow. Issue #470 — canonical session naming.
         Override in cmux backend.
         """
         del ref, name
@@ -596,8 +596,8 @@ class CmuxBackend(MultiplexerBackend):
         """Rename a cmux surface/workspace tab title (issue #470).
 
         Best-effort: failures degrade silently so a missing/renamed cmux
-        rename verb does not crash orchestrate. Babysit will retry on
-        the next tick. ``workspace`` scopes a surface ref (#655).
+        rename verb does not crash the coach launch. The observer will retry
+        on the next tick. ``workspace`` scopes a surface ref (#655).
         """
         if not name:
             return
@@ -615,7 +615,7 @@ class CmuxBackend(MultiplexerBackend):
                 )
         except MultiplexerError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             # Best-effort: cmux build may not expose rename verbs; the
-            # validator is advisory and babysit retries every tick.
+            # validator is advisory and the observer retries every tick.
             pass
 
     def capture_pane_text(self, surface_ref: MultiplexerRef) -> str:

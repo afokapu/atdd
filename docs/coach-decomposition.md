@@ -691,13 +691,17 @@ class AgentController(Protocol):
     def stop(self, handle: AgentHandle, *, reason: str) -> None: ...
 ```
 
-Implementations:
+Implementations (historical Child-6 decomposition):
+
+> **Superseded (#978/#979):** the pty-shim launch transport below was replaced
+> by the cmux-native launcher (`src/atdd/runtime/agent_control/cmux_launch.py`).
+> This table is retained as a record of the original decomposition.
 
 | Class | Status | Notes |
 |---|---|---|
-| `ShimAgentController` | Default, ships in Child 6 | pty shim + cli-return.jsonl + output.log heartbeat |
-| `TuiScrapeAgentController` | Deprecated path, ships in Child 6 | Legacy fallback; marked `@deprecated`; closed in a future cycle once parity proven |
-| `HeadlessPrintController` | Optional, ships in Child 6 | `claude -p` for CI / non-interactive runs |
+| `ShimAgentController` | Superseded by cmux-native launch (#978/#979) | pty shim + cli-return.jsonl + output.log heartbeat |
+| `TuiScrapeAgentController` | Superseded; legacy screen-scrape fallback removed | Legacy fallback |
+| `HeadlessPrintController` | Optional | `claude -p` for CI / non-interactive runs |
 
 ### 4.9 Multiplexer protocol (view-only)
 

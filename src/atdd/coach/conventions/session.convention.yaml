@@ -61,10 +61,10 @@ spawn_time:
   slash_command_prohibition:
     description: |
       Runtime /rename and other slash-command injections via multiplexer.send
-      are forbidden after M001 (issue #829). Session naming is shim-managed
-      via pty metadata (issue #824). Observer corrections MUST use cli-return.
+      are forbidden after M001 (issue #829). Session naming is set by the
+      cmux-native launch metadata (#978). Observer corrections MUST use cli-return.
     prohibited: "multiplexer.send(ref, '/...')"
-    replacement: "cli-return.jsonl + shim-owned pty metadata"
+    replacement: "cli-return.jsonl correction inbox + cmux-native session metadata"
 
 # =============================================================================
 # LAUNCH-PROMPT QUALITY RULES

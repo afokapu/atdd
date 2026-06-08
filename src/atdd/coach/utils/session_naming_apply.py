@@ -68,7 +68,7 @@ def apply_canonical_name_and_layout(
     """Apply canonical name via multiplexer-level rename (tab/window title only).
 
     M001 (#829): The Claude /rename slash-command injection is removed. Session
-    naming is delegated to the shim-owned pty metadata (issue #824). Only the
+    naming is delegated to the cmux-native launch metadata (#978). Only the
     multiplexer-level backend.rename() call (which sets the tab/window title) is
     retained as a best-effort cosmetic. The ``verify_after_send`` parameter is
     preserved in the signature for call-site compat but is now a no-op since

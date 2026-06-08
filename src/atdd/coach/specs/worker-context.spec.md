@@ -44,19 +44,19 @@ Atomic: payload is staged to `.tmp` and renamed.
 
 ## SPEC-COACH-WORKER-0002 — Token-count alert
 
-`atdd babysit` reads each workspace's token count and emits an
-`escalate` decision (and a `token_threshold` JSONL event) when the count
-crosses the configured threshold.
+The observer (rule 06 `coach.observer.token-threshold`) reads each
+workspace's token count and emits an `escalate` decision (and a
+`token_threshold` JSONL event) when the count crosses the configured
+threshold.
 
 | Setting     | Value                                                                |
 |-------------|----------------------------------------------------------------------|
 | Default     | `400000` (≈200k headroom under the typical 600k effective cap)       |
-| Override    | `babysit.token_alert_threshold` in `.atdd/config.yaml`               |
-| CLI flag    | `atdd babysit --token-alert-threshold N`                             |
+| Override    | `coach.token_alert_threshold` in `.atdd/config.yaml`                 |
 | Source      | `claude --print-context-status` (Decision 6)                         |
 | Fallback    | `None` → no alert (rendered as `—` in dashboards)                    |
 
-Implementation: `src/atdd/coach/commands/babysit.py::check_token_threshold`,
+Implementation: `src/atdd/coach/commands/token_threshold.py::check_token_threshold`,
 `read_token_count`.
 
 ---

@@ -1,6 +1,6 @@
 # URN: component:observe-and-correct:observer-runtime-and-rules:canonical_naming_drift:backend:application
 # Runtime: python
-# Purpose: Observer rule 14 — detect multiplexer surface name drift; re-apply canonical via babysit.correct_naming_drift.
+# Purpose: Observer rule 14 — detect multiplexer surface name drift; re-apply canonical via detectors.correct_naming_drift.
 
 """Observer rule 14 — ``coach.observer.canonical-naming-drift`` (spec §8.3).
 

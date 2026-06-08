@@ -1,0 +1,114 @@
+version: "1.0"
+name: "Coach Activation + Operating Protocol Convention"
+description: |
+  How the ATDD coach is activated and how it operates on a parallel ATDD run.
+  This replaces the decommissioned `atdd orchestrate` (v1 launcher) and
+  `atdd babysit` (v2 monitor): a single durable coach (`atdd coach`) now owns
+  dispatch, the cmux-native launch transport (#978), Feed mediation of worker
+  decisions (#966/#971/#987/#993), and the autonomous feed daemon (#998).
+
+# =============================================================================
+# Core principle (unchanged from the v1 model, now owned by `atdd coach`)
+# =============================================================================
+# One issue → one git worktree → one cmux workspace/surface → one independent
+# agent session. No sub-agent delegation, no shared workspaces. Waves are
+# computed by a topological sort over the issue dependency DAG
+# (commands/wave_planning.py) and worktrees are created two-phase with rollback
+# (commands/two_phase_commit.py).
+
+core_principle:
+  unit: "one issue → one worktree → one cmux session unit → one agent"
+  wave_planning: "src/atdd/coach/commands/wave_planning.py (build_plan + compute_waves)"
+  two_phase_commit: "src/atdd/coach/commands/two_phase_commit.py (Phase A worktrees, Phase B launch)"
+  anti_pattern: "Reusing a worktree across issues, or sub-agent delegation that shares one agent's context."
+
+# =============================================================================
+# Activation surface (#998)
+# =============================================================================
+activation:
+  description: |
+    The coach is a long-lived process driven by the `atdd coach` subcommand.
+    The durable runtime (start/wait/next/stop/daemons) is carved into
+    `commands/coach.py::run_cli` (#998).
+  commands:
+    dispatch: "atdd coach <issue-numbers...>   # plan waves + launch sessions"
+    start: "atdd coach start                   # start the coach runtime + daemons"
+    wait: "atdd coach wait                      # block until the run settles"
+    next: "atdd coach next                      # advance the run one step"
+    daemons: "atdd coach daemons                # inspect/manage background daemons"
+    stop: "atdd coach stop                      # stop the coach runtime + daemons"
+    status: "atdd coach status                  # live per-surface inspection (#616)"
+
+# =============================================================================
+# Launch transport — cmux-native (#978)
+# =============================================================================
+launch_transport:
+  description: |
+    Workers are launched cmux-native: the cmux new-workspace/new-surface command
+    runs `claude` with the launch prompt as its positional first turn, which the
+    TUI auto-submits. There is NO pty-owning shim and NO cli-return inbox on the
+    launch path (the legacy persona-shim / cli-return spawn transport was
+    decommissioned in #978/#979).
+  implementation: "src/atdd/runtime/agent_control/cmux_launch.py"
+  freedom_set: "session.convention.yaml::spawn_time.freedom_layer (--permission-mode acceptEdits --allowedTools ...)"
+
+# =============================================================================
+# Feed mediation of worker decisions (#966/#971/#987/#993)
+# =============================================================================
+feed_mediation:
+  description: |
+    Worker decisions (Bash, AskUserQuestion, ExitPlanMode) are deliberately
+    absent from the spawn-time allowlist (#971) so they surface to the cmux
+    Feed instead of auto-executing. The coach mediates each decision: the
+    autonomous feed daemon polls the Feed, the decider resolves the question
+    against the loaded coach convention (#987), and the resolution is replied
+    back via `cmux feed.question.reply`. Unresolvable decisions escalate.
+  wagon: "src/atdd/mediate_worker_decisions/"
+  feed_daemon: "src/atdd/mediate_worker_decisions/feed_daemon/ (#966/#993)"
+  bridge: "src/atdd/mediate_worker_decisions/bridge_cmux_feed/"
+  dangerous_permission_policy:
+    description: |
+      Governs how the daemon treats dangerous (deny-pattern) permission
+      decisions. Defaults to ESCALATE (supervised): dangerous decisions are
+      surfaced to the operator rather than auto-resolved. A fully-unattended
+      operator may opt into a more permissive policy.
+    default: "escalate"
+    config: "DaemonConfig.dangerous_permission_policy"
+
+# =============================================================================
+# Observer corrections (leash) — cli-return CORRECTION transport (#824)
+# =============================================================================
+observer_corrections:
+  description: |
+    The observer detects out-of-contract behaviour in worker output and appends
+    corrections to `cli-return.jsonl` (issue #824) — this is the live CORRECTION
+    transport, distinct from the decommissioned spawn transport of the same
+    name. Detection + correction primitives live in
+    `observer_rules/detectors.py`; rule definitions in observer.convention.yaml.
+  transport: "cli-return.jsonl (correction inbox, #824)"
+  rules: "observer.convention.yaml + .atdd/observer/rules/*.yaml"
+
+# =============================================================================
+# Documentation-only operating-protocol rules
+# =============================================================================
+# These encode the protocol for discoverability; they are dispatched by the
+# coach runtime, not by a pytest validator (disposition: documentation-only, so
+# no validator pointer is required).
+rules:
+  - id: "coach.activation.one-agent-per-session-unit"
+    severity: 3
+    disposition: documentation-only
+    description: "Exactly one agent session per cmux session unit (workspace or surface); no sub-agent delegation that shares context."
+    introduced_in: "4.0.0"
+
+  - id: "coach.activation.cmux-native-launch"
+    severity: 3
+    disposition: documentation-only
+    description: "Workers launch cmux-native (claude positional-prompt first turn); no pty shim, no cli-return spawn inbox."
+    introduced_in: "4.0.0"
+
+  - id: "coach.activation.decisions-surface-to-feed"
+    severity: 3
+    disposition: documentation-only
+    description: "Worker decisions (Bash / AskUserQuestion / ExitPlanMode) are absent from the spawn allowlist so they surface to the cmux Feed for daemon mediation (#971)."
+    introduced_in: "4.0.0"

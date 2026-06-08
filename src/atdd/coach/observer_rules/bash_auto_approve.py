@@ -1,6 +1,6 @@
 # URN: component:observe-and-correct:observer-runtime-and-rules:bash_auto_approve:backend:application
 # Runtime: python
-# Purpose: Observer rule 13 — auto-approve known-safe bash prompts; escalate deny-pattern prompts (absorbs babysit.classify_prompt).
+# Purpose: Observer rule 13 — auto-approve known-safe bash prompts; escalate deny-pattern prompts (detectors.classify_prompt).
 
 """Observer rule 13 — ``coach.observer.bash-auto-approve`` (spec §8.3).
 

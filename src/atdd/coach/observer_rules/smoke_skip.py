@@ -1,6 +1,6 @@
 # URN: component:observe-and-correct:observer-runtime-and-rules:smoke_skip:backend:application
 # Runtime: python
-# Purpose: Observer rule 16 — flag GREEN→REFACTOR phase transitions without an intervening SMOKE (absorbs babysit.detect_violation SMOKE-skip clause).
+# Purpose: Observer rule 16 — flag GREEN→REFACTOR phase transitions without an intervening SMOKE (detectors.detect_violation SMOKE-skip clause).
 
 """Observer rule 16 — ``coach.observer.smoke-skip`` (spec §6.4 / §8.3).
 

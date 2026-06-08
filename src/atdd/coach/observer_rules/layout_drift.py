@@ -1,6 +1,6 @@
 # URN: component:observe-and-correct:observer-runtime-and-rules:layout_drift:backend:application
 # Runtime: python
-# Purpose: Observer rule 15 — detect surface count or arrangement drift; re-apply via babysit.correct_layout_drift.
+# Purpose: Observer rule 15 — detect surface count or arrangement drift; re-apply via detectors.correct_layout_drift.
 
 """Observer rule 15 — ``coach.observer.layout-drift`` (spec §8.3).
 

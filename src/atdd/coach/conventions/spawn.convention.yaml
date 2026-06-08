@@ -8,9 +8,9 @@ description: |
   (spec v9 §5.2 / §7.1; issue #499).
 
 # =============================================================================
-# Core principle: one entry point owns the launch path. The K-track absorbs
-# the parallel launch paths in atdd orchestrate, atdd coach (v8 prototype),
-# and operator hand-typed claude invocations into one rule-IDed CLI surface.
+# Core principle: one entry point owns the launch path. The K-track folded the
+# previously-parallel launch paths and operator hand-typed claude invocations
+# into one rule-IDed CLI surface that `atdd coach` drives.
 # =============================================================================
 
 rules:
@@ -28,9 +28,9 @@ rules:
     introduced_in: "3.21.0"
     validator: "test_e001_unit_001_spawn_cli_launches_session::test_spawn_emits_agent_spawned_event_conforming_to_schema"
     fix_hint: |
-      Replace ad-hoc launch shell-out (atdd orchestrate Phase B, the v8
-      atdd coach prototype, or operator-typed `claude` invocations)
-      with a single call to `atdd spawn --persona <p> --llm <l>
+      Replace ad-hoc launch shell-out (the two-phase-commit Phase B launch
+      loop or operator-typed `claude` invocations) with a single call to
+      `atdd spawn --persona <p> --llm <l>
       --worktree <w> --issue <N> --agent-id <id> --runtime <rt>`. The
       claude-code adapter is shipped in K1; codex / gemini / glm follow
       as separate K-track issues registering on ADAPTER_REGISTRY.
