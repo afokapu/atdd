@@ -2,16 +2,16 @@
 
 All notable changes to the ATDD toolkit are documented here.
 
-## [4.0.0] — Hard-decommission the legacy coach (#985)
+## [3.106.0] — Hard-decommission the legacy coach (#985)
 
-### Removed (BREAKING)
+### Removed
 
 - **`atdd orchestrate` and `atdd babysit` removed entirely** — the
   migration-message stubs (see the prior Unreleased notes) are gone; the
   subcommands are no longer registered, so `atdd orchestrate` / `atdd babysit`
   now error as unknown commands. The `_archived/` package, the parity
   validators/tests, and `orchestration.convention.yaml` were deleted.
-- Rule IDs renamed (BREAKING): `coach.orchestration.*` →
+- Rule IDs renamed: `coach.orchestration.*` →
   `coach.session.*` (session naming/layout) / `coach.observer.bash-*` (bash
   classifier) / `coach.observer.token-threshold`.
 
