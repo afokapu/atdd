@@ -636,7 +636,7 @@ synthetic_fixture_anti_patterns:
         operator-observable behavior — captured stdout, exit code, rendered pane
         content, persistent DB row — not on intermediate-artifact-write events such
         as output.log existence, output.log line content, or cli-return.jsonl file
-        write. The lived incident: #843 PersonaShim swallowed pty output; E003-SMOKE
+        write. The lived incident: #843 — the launcher swallowed pty output; E003-SMOKE
         asserted on output.log content, which was written before the pty forwarding
         path was ever exercised. The test passed; the operator saw nothing.
         Tests that assert solely on output.log or other intermediate artifacts without

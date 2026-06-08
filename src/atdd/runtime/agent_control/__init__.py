@@ -1,14 +1,11 @@
-"""``atdd.runtime.agent_control`` — the runtime agent-control layer (Child 6).
+"""``atdd.runtime.agent_control`` — the runtime agent-control layer.
 
-docs/coach-decomposition.md §4.8 / §13.6. Owns worker spawn, prompt delivery,
-ready detection, agent done signals, and transport selection. **cmux-native is
-the sole launch plane** (#978 / #979): cmux opens the surface running the agent
-and the agent's positional prompt seeds AND auto-submits the first turn. The
-legacy pty shim (cli-return / ``ShimAgentController``) and its
-``ATDD_USE_LEGACY_SPAWN`` kill switch were decommissioned in #979 once the
-cmux-native path soaked — that retired the cold-start heartbeat flake and the
-#950 submit-sentinel bug from the launch path. ``HeadlessPrintController``
-(``claude -p``) remains for CI / non-interactive runs.
+Owns worker spawn, prompt delivery, ready detection, agent done signals, and
+transport selection. **cmux-native is the sole launch plane** (#978 / #979):
+cmux opens the surface running the agent and the agent's positional prompt
+seeds AND auto-submits the first turn; worker decisions ride the cmux Feed
+hooks. ``HeadlessPrintController`` (``claude -p``) remains for CI /
+non-interactive runs.
 
 Dependency rule (§3.3): this layer imports stdlib (+ subprocess) only. It MUST
 NOT import ``atdd.coach.*``, ``atdd.train.*``, ``atdd.integrations.*``, or
@@ -48,11 +45,11 @@ _logger = logging.getLogger(__name__)
 #
 # The cmux-surface adapter path is guarded by
 # ``coach.commands.spawn._assert_no_forbidden_flags`` (which inspects the
-# adapter command STRING). The cli-return / Shim launch transport builds its
-# own argv list, which previously bypassed that guard entirely — which is why
-# the contradictory ``--dangerously-skip-permissions`` config survived here
-# (#967 root cause). This is the runtime-local, import-clean (§3.3 stdlib-only)
-# twin: every launch path in this layer runs its argv through it.
+# adapter command STRING). A launch path that builds its own argv list could
+# bypass that guard entirely — which is why the contradictory
+# ``--dangerously-skip-permissions`` config once survived here (#967 root
+# cause). This is the runtime-local, import-clean (§3.3 stdlib-only) twin:
+# every launch path in this layer runs its argv through it.
 
 FORBIDDEN_LAUNCH_FLAGS: tuple[str, ...] = ("--dangerously-skip-permissions",)
 
@@ -87,7 +84,7 @@ def assert_no_forbidden_launch_flags(argv: Sequence[str]) -> None:
 # --- transport selection -------------------------------------------------
 
 DEFAULT_TRANSPORT = "cmux-native"
-_DEFUNCT_SHIM_TRANSPORT = "cli-return"  # decommissioned launch transport (#979)
+_DEFUNCT_LAUNCH_TRANSPORT = "cli-return"  # not a valid launch transport (#979)
 _LEGACY_OVERRIDE_ENV = "ATDD_CORRECTION_TRANSPORT"  # back-compat explicit override
 
 
@@ -96,24 +93,23 @@ def resolve_transport(env: Optional[Mapping[str, str]] = None) -> str:
 
     ``cmux-native`` is the sole supported launch plane (#978 / #979): cmux opens
     the surface running the agent and the positional prompt seeds AND
-    auto-submits the first turn (no pty shim, no cli-return inbox, no submit
-    sentinel; decisions ride the cmux Feed hooks).
+    auto-submits the first turn (no separate launch inbox, no submit sentinel;
+    decisions ride the cmux Feed hooks).
 
     An explicit ``ATDD_CORRECTION_TRANSPORT`` value is still honoured as a
     forward opt-in / test override — including the deprecated ``tui-scrape``
-    direct-paste path. The one exception is the now-defunct ``cli-return``
-    (the deleted shim): the deferred observer still uses that same env var to
-    select its *mid-run correction* delivery, so a leftover ``cli-return``
-    value falls through to ``cmux-native`` for *launch* rather than routing to a
-    shim that no longer exists (#979).
+    direct-paste path. The one exception is ``cli-return``: the observer uses
+    that same env var to select its *mid-run correction* delivery, so a leftover
+    ``cli-return`` value falls through to ``cmux-native`` for *launch* rather
+    than selecting a launch transport that no longer exists (#979).
     """
     env = os.environ if env is None else env
     override = str(env.get(_LEGACY_OVERRIDE_ENV, "")).strip().lower()
-    if override and override != _DEFUNCT_SHIM_TRANSPORT:
+    if override and override != _DEFUNCT_LAUNCH_TRANSPORT:
         return override
-    if override == _DEFUNCT_SHIM_TRANSPORT:
+    if override == _DEFUNCT_LAUNCH_TRANSPORT:
         _logger.info(
-            "ignoring defunct cli-return launch transport; using cmux-native",
+            "ignoring cli-return as a launch transport; using cmux-native",
             extra={"override": override},
         )
     return DEFAULT_TRANSPORT
@@ -272,14 +268,14 @@ def _default_cmux_runner(argv: Sequence[str]) -> str:
 
 class CmuxAgentController:
     """cmux-native launcher (#978): opens a cmux surface running the agent and
-    seeds the first turn via the agent's **positional prompt** — no pty shim, no
-    ``cli-return.jsonl`` inbox, no submit sentinel.
+    seeds the first turn via the agent's **positional prompt** — no separate
+    launch inbox, no submit sentinel.
 
     Decision communication rides the cmux Feed (the wrapper's hooks fire because
     the surface sets ``CMUX_SURFACE_ID``); this controller never touches the Feed
     and never owns a pty. Liveness and signals go through the cmux CLI, not
     ``output.log``. The ``runner`` is injected so the launch shape is testable
-    without a real cmux. ``ATDD_USE_LEGACY_SPAWN=1`` still selects the shim.
+    without a real cmux.
     """
 
     transport_name = "cmux-native"

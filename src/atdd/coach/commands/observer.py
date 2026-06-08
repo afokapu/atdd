@@ -6,8 +6,7 @@ registry, and dispatches corrections through one of three injection
 paths (CLI return-path / multiplexer send-keys / kill-and-respawn).
 
 This module owns the *runtime* + *registry* + *injection* foundation
-(skeleton from #500), plus the *operator-facing dashboard* absorbed
-from ``commands/babysit.py`` per spec §0.2 (issue #515 / L6):
+(skeleton from #500), plus the *operator-facing dashboard* (issue #515 / L6):
 
 - ``SurfaceRow`` — one rendered row of the dashboard. Pure data.
 - ``_format_hms`` — duration formatter.
@@ -16,16 +15,12 @@ from ``commands/babysit.py`` per spec §0.2 (issue #515 / L6):
   from ``.atdd/runtime/agents/<id>/`` (heartbeat.json, context.json,
   optional token-count metadata) instead of polling multiplexer state.
 
-And the *aggregate-approve* batch action absorbed from
-``commands/babysit.py`` per spec §0.2 (issue #516 / L7):
+And the *aggregate-approve* batch action (issue #516 / L7):
 
 - ``AggregateApprovalResult`` — approved/escalated counts + per-surface
-  dispositions. Absorbed from babysit's ``AggregateApprovalResult``.
+  dispositions.
 - ``cmd_aggregate_approve`` — enumerate agent dirs, classify pending
-  prompts using shared bash patterns, write approval signals.
-
-The observer's aggregate-approve / status output is the supported
-replacement for the legacy monitor's dashboard + batch-approve flows.
+  prompts using the bash classifier, write approval signals.
 
 Subcommands per spec §5.4:
     run                — start the observer for an agent (tail + evaluate loop)
@@ -35,7 +30,6 @@ Subcommands per spec §5.4:
 
 Out of scope:
 - The 17 default detection rules (#L2-#L5).
-- The babysit parity test suite (#L8).
 """
 from __future__ import annotations
 
@@ -370,7 +364,7 @@ def _make_out_of_scope_edit_predicate(
       (a) not under any of ``ctx.wmbt_target_paths`` (when target paths
           are declared); or
       (b) under ``.atdd/`` AND not under one of
-          ``atdd_allowlist_prefixes`` (the absorbed babysit clause).
+          ``atdd_allowlist_prefixes`` (the .atdd/ hand-edit clause).
 
     Returns format-args naming the first offending path so the
     correction can identify it."""
@@ -386,7 +380,7 @@ def _make_out_of_scope_edit_predicate(
 
     def predicate(ctx: ObservedInput):
         for change in ctx.worktree_changes:
-            # (b) the absorbed babysit `.atdd/` clause is enforced
+            # (b) the .atdd/ hand-edit clause is enforced
             # independently of WMBT scope: any `.atdd/` write that isn't
             # under the allowlist fires regardless of the WMBT.
             if change.startswith(".atdd/") and not _under_any(
@@ -483,7 +477,7 @@ def _make_validator_failure_ignored_predicate() -> Predicate:
 def _resolve_python_callable(spec: str):
     """Resolve a ``module:attr`` spec to the referenced object.
 
-    Used by the ``python`` trigger type so absorbed-from-babysit rules
+    Used by the ``python`` trigger type so rule-builder modules
     (#513) and future python-coded predicates can declare themselves in
     YAML without re-implementing their logic in regex.
     """
@@ -1368,9 +1362,7 @@ def cmd_attach(
 
 
 # ---------------------------------------------------------------------------
-# Dashboard primitives — absorbed from `commands/babysit.py` per spec §0.2
-# (issue #515 / L6). Output parity with babysit modulo trailing whitespace
-# is a gating condition for #P6 (babysit decommissioning).
+# Dashboard primitives (issue #515 / L6) — the operator-facing surface table.
 # ---------------------------------------------------------------------------
 
 
@@ -1386,7 +1378,7 @@ class SurfaceRow:
     stalled: bool
     status: str  # ACTIVE | STALLED | escalated | violation
     # New for L6: optional token-count surfacing per AC-001. Not rendered
-    # in the legacy column layout (parity with babysit), but carried on
+    # in the column layout, but carried on
     # the row so downstream consumers can read it.
     token_count: Optional[int] = None
 
@@ -1406,7 +1398,7 @@ def _render_dashboard(
 ) -> str:
     """Render the aggregate table as a single string. Pure.
 
-    Layout is preserved verbatim from ``babysit._render_dashboard`` to
+    The column layout is stable to
     guarantee output parity at decommissioning (AC-002 / #P6 gate).
     """
     header = (
@@ -1432,7 +1424,7 @@ def _render_dashboard(
 
 # ---------------------------------------------------------------------------
 # Runtime-folder data source — `.atdd/runtime/agents/<id>/`
-# (issue #515 / L6). Replaces babysit's multiplexer polling.
+# (issue #515 / L6). Reads runtime agent dirs instead of polling the multiplexer.
 # ---------------------------------------------------------------------------
 
 
@@ -1533,7 +1525,7 @@ def cmd_status(*, runtime_dir: Optional[Path] = None) -> int:
     (issue #515 / L6).
 
     Data source is ``.atdd/runtime/agents/*/`` — no multiplexer polling.
-    Output parity with babysit gates #P6 (babysit decommissioning).
+    Renders the per-surface status table from runtime agent dirs.
     """
     runtime = _runtime_root(runtime_dir)
     agents_dir = runtime / "agents"
@@ -1560,8 +1552,7 @@ def cmd_status(*, runtime_dir: Optional[Path] = None) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Aggregate approval — absorbed from `commands/babysit.py` per spec §0.2
-# (issue #516 / L7). Output parity with babysit gates #P6.
+# Aggregate approval (issue #516 / L7) — batch-approve known-safe prompts.
 # ---------------------------------------------------------------------------
 
 
@@ -1665,14 +1656,14 @@ def cmd_aggregate_approve(
         if not _contains_prompt_marker(screen):
             continue
 
-        # Check for violations first (same order as babysit).
+        # Check for violations first.
         violation = detect_violation(screen)
         if violation is not None:
             result.escalated += 1
             result.escalations_by_ref[agent_id] = violation.reason or "violation"
             continue
 
-        # Classify using the shared babysit classifier (same bash patterns).
+        # Classify using the shared bash classifier (detectors.classify_prompt).
         decision = classify_prompt(screen)
 
         if decision.action == "auto_approve":

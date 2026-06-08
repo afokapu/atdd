@@ -136,8 +136,7 @@ def test_rule_06_does_not_fire_when_token_count_below_threshold(tmp_path: Path):
 def test_rule_06_does_not_fire_when_token_count_unavailable(tmp_path: Path):
     """A None reading (binary missing / parse failure) must NOT fire rule 06.
 
-    Parity contract with babysit's `check_token_threshold(None, ...)`:
-    unknown count → no alert.
+    Contract: `check_token_threshold(None, ...)` — unknown count → no alert.
     """
     from atdd.coach.commands import observer
 

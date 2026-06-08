@@ -2,10 +2,9 @@ version: "1.0"
 name: "Coach Activation + Operating Protocol Convention"
 description: |
   How the ATDD coach is activated and how it operates on a parallel ATDD run.
-  This replaces the decommissioned `atdd orchestrate` (v1 launcher) and
-  `atdd babysit` (v2 monitor): a single durable coach (`atdd coach`) now owns
-  dispatch, the cmux-native launch transport (#978), Feed mediation of worker
-  decisions (#966/#971/#987/#993), and the autonomous feed daemon (#998).
+  A single durable coach (`atdd coach`) owns dispatch, the cmux-native launch
+  transport (#978), Feed mediation of worker decisions (#966/#971/#987/#993),
+  and the autonomous feed daemon (#998).
 
 # =============================================================================
 # Core principle (unchanged from the v1 model, now owned by `atdd coach`)
@@ -46,9 +45,8 @@ launch_transport:
   description: |
     Workers are launched cmux-native: the cmux new-workspace/new-surface command
     runs `claude` with the launch prompt as its positional first turn, which the
-    TUI auto-submits. There is NO pty-owning shim and NO cli-return inbox on the
-    launch path (the legacy persona-shim / cli-return spawn transport was
-    decommissioned in #978/#979).
+    TUI auto-submits (#978). The launch path owns no pty and writes no separate
+    launch inbox; worker decisions ride the cmux Feed hooks.
   implementation: "src/atdd/runtime/agent_control/cmux_launch.py"
   freedom_set: "session.convention.yaml::spawn_time.freedom_layer (--permission-mode acceptEdits --allowedTools ...)"
 
@@ -104,7 +102,7 @@ rules:
   - id: "coach.activation.cmux-native-launch"
     severity: 3
     disposition: documentation-only
-    description: "Workers launch cmux-native (claude positional-prompt first turn); no pty shim, no cli-return spawn inbox."
+    description: "Workers launch cmux-native (claude positional-prompt first turn); the launch path owns no pty and writes no separate launch inbox."
     introduced_in: "4.0.0"
 
   - id: "coach.activation.decisions-surface-to-feed"

@@ -22,11 +22,10 @@ rationale: |
   polling. Without parsed trailers in the runtime layer, there is no
   deterministic input for the validator selection resolver.
 
-  Real incident (cf. spec §1): pre-coach-v9, the babysitter polled
-  ``_screen_hash`` to infer commit transitions — slow, lossy, fragile.
-  M1 makes the first link of the tier-1 chain event-driven; this
-  convention is the rule-family the watcher emits when the producer
-  contract is violated.
+  Real incident (cf. spec §1): an earlier monitor polled a screen hash
+  to infer commit transitions — slow, lossy, fragile. M1 makes the first
+  link of the tier-1 chain event-driven; this convention is the
+  rule-family the watcher emits when the producer contract is violated.
 
 required_trailers:
   - "Phase"
