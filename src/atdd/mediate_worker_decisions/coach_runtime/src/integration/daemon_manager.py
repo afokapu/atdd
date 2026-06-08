@@ -28,6 +28,28 @@ _FEED_DAEMON_MODULE = (
 
 _SAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
+# cmux env vars the detached daemon MUST keep to find cmux itself — the bundled
+# CLI path. Everything else under the CMUX_ prefix is per-surface/panel/socket
+# CLIENT-CONTEXT identity the daemon must NOT impersonate (#1007): inheriting the
+# coach session's CMUX_PANEL_ID / empty CMUX_SOCKET / CMUX_SURFACE_ID / CMUX_AGENT_*
+# made the daemon's ``cmux rpc`` break-pipe against the coach's dead surface.
+_CMUX_ENV_KEEP = frozenset({"CMUX_BUNDLED_CLI_PATH"})
+
+
+def scrub_cmux_client_context(env: dict) -> dict:
+    """Return a copy of ``env`` with stale cmux CLIENT-CONTEXT vars removed.
+
+    Drops every ``CMUX_*`` var except the bundled-CLI pointer cmux needs to find
+    itself, so a detached daemon reaches the cmux server with a clean default
+    socket instead of impersonating the coach session's dead surface/panel/socket
+    (the #1007 broken-pipe root cause). Non-cmux vars (PATH, HOME, …) pass through.
+    """
+    return {
+        key: value
+        for key, value in env.items()
+        if not key.startswith("CMUX_") or key in _CMUX_ENV_KEEP
+    }
+
 
 def workspace_slug(workspace_id: str) -> str:
     """A filesystem-safe directory name for a (possibly uuid/slash) workspace id."""
@@ -155,7 +177,13 @@ class SubprocessDaemonSpawner:
         detached daemon's runtime failure — decide loop, LlmCoach, scope — leaves
         a diagnosable trace instead of vanishing into ``/dev/null`` (WMBT M004).
         stdin stays ``DEVNULL``. Without a ``log_path`` the output is discarded.
+
+        The child's env has the stale cmux CLIENT-CONTEXT vars scrubbed (WMBT
+        M005): a detached daemon that inherited the coach session's CMUX_PANEL_ID /
+        empty CMUX_SOCKET / CMUX_SURFACE_ID / CMUX_AGENT_* would break-pipe on every
+        ``cmux rpc`` against the coach's dead surface and silently see an empty Feed.
         """
+        env = scrub_cmux_client_context(dict(os.environ))
         if log_path:
             log_file = Path(log_path)
             log_file.parent.mkdir(parents=True, exist_ok=True)
@@ -168,6 +196,7 @@ class SubprocessDaemonSpawner:
                     stdout=sink,
                     stderr=sink,
                     start_new_session=True,  # survive the parent shell exiting
+                    env=env,
                 )
             finally:
                 # The child holds its own dup of the fd; the parent must not keep it.
@@ -179,6 +208,7 @@ class SubprocessDaemonSpawner:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
+            env=env,
         )
         return proc.pid
 
