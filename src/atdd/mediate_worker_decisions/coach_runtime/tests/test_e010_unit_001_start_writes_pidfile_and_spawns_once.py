@@ -4,11 +4,11 @@
 # Phase: RED
 # Layer: unit
 # Assertion: behavioral
-"""E010-UNIT-001 — a first start writes the manager pidfile and spawns once.
+"""E010-UNIT-001 — a first start writes the manager record and launches once.
 
 `atdd coach start` for a workspace with no live managed daemon runs the gate,
-spawns the workspace-scoped feed_daemon exactly once, and persists a manager
-pidfile recording the spawned pid.
+launches the workspace-scoped feed_daemon exactly once (as a cmux surface), and
+persists a manager record naming the daemon's own cmux workspace.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from atdd.mediate_worker_decisions.coach_runtime.src.integration.daemon_manager 
 )
 from atdd.mediate_worker_decisions.coach_runtime.tests._helpers import (
     FakeLiveness,
-    RecordingSignaller,
+    RecordingCloser,
     RecordingSpawner,
     StubGate,
     fake_argv,
@@ -32,7 +32,7 @@ def _runtime(root, spawner, liveness, gate):
         registry=ManagerRegistry(root),
         spawner=spawner,
         liveness=liveness,
-        signaller=RecordingSignaller(),
+        closer=RecordingCloser(),
         gate=gate,
         daemon_argv=fake_argv,
     )
@@ -40,7 +40,7 @@ def _runtime(root, spawner, liveness, gate):
 
 def test_first_start_spawns_once_and_writes_pidfile(tmp_path):
     root = tmp_path / "coach-runtime"
-    spawner = RecordingSpawner(pid=4242)
+    spawner = RecordingSpawner(daemon_workspace="workspace:42")
     gate = StubGate()
     runtime = _runtime(root, spawner, FakeLiveness(), gate)
 
@@ -51,12 +51,12 @@ def test_first_start_spawns_once_and_writes_pidfile(tmp_path):
         verdicts_path=str(tmp_path / "verdicts.jsonl"),
     )
 
-    assert len(spawner.calls) == 1  # spawned exactly once
+    assert len(spawner.calls) == 1  # launched exactly once
     assert "--workspace" in spawner.calls[0]
     assert "ws-1" in spawner.calls[0]
     assert gate.calls == 1  # ran the gate first
 
     reloaded = ManagerRegistry(root).load("ws-1")
     assert reloaded is not None
-    assert reloaded.pid == 4242
-    assert daemon.pid == 4242
+    assert reloaded.daemon_workspace == "workspace:42"
+    assert daemon.daemon_workspace == "workspace:42"

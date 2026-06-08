@@ -8,15 +8,18 @@
 
 The headline gate every prior #1007 round missed. M003-SMOKE drove the daemon LOOP
 directly (``build_feed_daemon`` + ``tick``) and PASSED while the real command was
-broken — because the bug is in the detached spawn, not the loop: ``atdd coach start``
-launches the daemon via ``SubprocessDaemonSpawner`` and the detached child inherited
-the coach session's stale ``CMUX_*`` client-context env, so its ``cmux rpc`` broke-pipe
-and ``run_cmux`` swallowed it into an empty Feed.
+broken — because the bug was in the spawn, not the loop: ``atdd coach start`` spawned
+the daemon as a DETACHED subprocess and exited, ORPHANING it, and cmux rejects
+orphaned processes (every ``cmux rpc`` broken-pipes regardless of env). The fix
+launches the daemon INSIDE a headless cmux surface so it is a socket-recognized
+process.
 
 This drives the PRODUCTION entry point (``CoachRuntime.start`` over the real
-``SubprocessDaemonSpawner`` — the same call ``atdd coach start --workspace <ws>``
-makes) against a live worker blocked on a real AskUserQuestion, and asserts the
-MANAGED daemon's own ``verdicts.jsonl`` GAINS A LINE. Runs whenever cmux is on PATH;
+``CmuxSurfaceDaemonLauncher`` — the same cmux-surface spawn ``atdd coach start
+--workspace <ws>`` makes) against a live worker blocked on a real AskUserQuestion,
+and asserts the MANAGED daemon's own ``verdicts.jsonl`` GAINS A LINE. Because the
+daemon is a cmux surface (not a child of this test process), this exercises the real
+orphan-immune path — not a live-parent subprocess. Runs whenever cmux is on PATH;
 skips otherwise. Evidence captured (#983).
 """
 from __future__ import annotations
@@ -46,7 +49,7 @@ def test_m005_smoke_001_real_coach_start_managed_daemon_writes_a_verdict(tmp_pat
     # production entry point decides, not merely the loop in isolation.
     assert evidence["verdict_written"] is True, (
         "the managed daemon started by `atdd coach start` wrote no verdict — the "
-        "stale-CMUX-env broken-pipe #1007 reopen reproduced. daemon.log tail:\n"
+        "orphaned-daemon broken-pipe #1007 reopen reproduced. daemon.log tail:\n"
         + evidence.get("daemon_log_tail", "")
     )
     assert evidence["verdict_lines"] >= 1
