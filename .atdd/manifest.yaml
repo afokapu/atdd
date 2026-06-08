@@ -1775,3 +1775,16 @@ sessions:
   train: null
   branch: feat/daemon-scope-excludes-worktree-launched-worker-decision
   worktree: /Users/alecfokapu/Github/atdd/feat-daemon-scope-excludes-worktree-launched-worker-decision
+- id: '959'
+  slug: smoke-token-missing-from-acceptance-urn-enum
+  file: null
+  issue_number: 959
+  type: cleanup
+  status: PLANNED
+  created: '2026-06-08'
+  archived: null
+  wagon: govern-lifecycle
+  feature: null
+  train: null
+  branch: feat/smoke-token-missing-from-acceptance-urn-enum
+  worktree: /Users/alecfokapu/Github/atdd/feat-smoke-token-missing-from-acceptance-urn-enum
