@@ -11,6 +11,16 @@ sessions:
   archived: null
   wagon: mediate-worker-decisions
   feature: feature:mediate-worker-decisions:bridge-cmux-feed
+- id: '984'
+  slug: registry-build-stubs-game-template-roots
+  file: null
+  issue_number: 984
+  type: cleanup
+  status: INIT
+  created: '2026-06-07'
+  archived: null
+  wagon: govern-lifecycle
+  branch: feat/registry-build-stubs-game-template-roots
 - id: '270'
   slug: enforce-train-composition
   file: null

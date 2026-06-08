@@ -14,9 +14,11 @@ release:
   version_file: pyproject.toml
   tag_prefix: v
 code:
-  python: python
-  supabase: supabase/functions
-  web: web/src
+  # Only the toolkit's own implementation root is declared. The game-template
+  # defaults (python/supabase/web) live in DEFAULT_CODE_ROOTS and are merged by
+  # get_code_roots() for read-side coverage validators; they are intentionally
+  # NOT declared here so the registry build does not stub python//supabase/
+  # mirror dirs into this repo (#984, sibling of #970).
   toolkit: src/atdd
 sync:
   agents:

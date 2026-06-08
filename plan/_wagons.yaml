@@ -620,7 +620,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 76
+    total: 77
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -844,6 +844,13 @@ wagons:
       inbox, no output.log heartbeat, no submit sentinel), and exposing pure builders
       (build_agent_seed_argv / build_cmux_launch_argv) so the launch shape is unit-testable
       without a real cmux (#978)
+    E044: 'minimize likelihood of the-registry-build-materializing-the-game-template-default-code-roots-python-supabase-telemetry-into-every-repo-regardless-of-what-atdd-config-yaml-code-declares
+      by gating build_all code-root mirrors on the repo''s explicitly-declared `.atdd/config.yaml`
+      code: block (build_coder/build_supabase only when python/supabase declared or
+      already present; build_telemetry only when telemetry/ exists) via a new _declared_code_roots()
+      that never merges the game-template DEFAULT_CODE_ROOTS, and dropping the vestigial
+      python/supabase/web declarations from the toolkit''s own config so `atdd pr`
+      no longer leaves stray stub dirs (#984, sibling of #970)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
