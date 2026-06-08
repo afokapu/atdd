@@ -1804,11 +1804,11 @@ sessions:
   file: null
   issue_number: 1007
   type: implementation
-  status: REFACTOR
+  status: RED
   created: '2026-06-08'
   archived: null
   wagon: mediate-worker-decisions
-  feature: feature:mediate-worker-decisions:feed-daemon
+  feature: feature:mediate-worker-decisions:coach-runtime
   train: 0002-coach-drives-lifecycle
-  branch: feat/coach-daemon-decide-loop-silent-and-unobservable
-  worktree: /Users/alecfokapu/Github/atdd/coach-daemon-decide-loop-silent-and-unobservable
+  branch: fix/coach-daemon-cmux-env-scrub
+  worktree: /Users/alecfokapu/Github/atdd/fix-coach-daemon-cmux-env-scrub

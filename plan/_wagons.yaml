@@ -1306,6 +1306,8 @@ wagons:
       so the daemon writes neither a verdict nor an escalation
     M004: minimize likelihood of a managed daemon being spawned with its output discarded
       so runtime failures are unobservable
+    M005: minimize likelihood of a managed daemon's cmux rpc calls failing silently
+      because the detached spawn inherited stale cmux client-context env
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/
