@@ -97,26 +97,7 @@ class FeedDaemonUseCase:
             try:
                 outcome = self._runner.handle(item)
             except Exception:
-                # The decide path failed for this item (e.g. the LlmCoach
-                # ``claude -p`` call died in the detached, no-TTY daemon context).
-                # NEVER swallow it into zero verdicts / zero escalations (#1007):
-                # loud-log with the traceback AND escalate to a human, then keep
-                # the loop polling rather than crashing the whole daemon.
-                self._log.exception(
-                    "DECIDE LOOP FAILED — request_id=%s could not be auto-resolved "
-                    "in the daemon; escalating to a human and continuing",
-                    item.request_id,
-                )
-                outcome = FeedOutcome(
-                    request_id=item.request_id,
-                    escalation=Escalation(
-                        escalation_id=self._id(),
-                        request_id=item.request_id,
-                        raised_at=self._ts(),
-                        cause=CAUSE_DECIDE_FAILED,
-                        safety_class=None,
-                    ),
-                )
+                outcome = self._on_decide_failure(item)
             if outcome.escalation is not None:
                 # Dangerous / human-required: record durably AND loudly surface
                 # it; NEVER auto-answer (WMBT C004 — headline safety property).
@@ -138,6 +119,31 @@ class FeedDaemonUseCase:
             self._answered.mark(item.request_id)
             outcomes.append(outcome)
         return outcomes
+
+    def _on_decide_failure(self, item) -> FeedOutcome:
+        """Turn a raised decide failure into an observable escalation (#1007).
+
+        The decide path failed for this item (e.g. the LlmCoach ``claude -p`` call
+        died in the detached, no-TTY daemon context). NEVER swallow it into zero
+        verdicts / zero escalations: loud-log with the traceback AND raise a
+        human-required escalation so the failure leaves a durable trace, then let
+        the caller keep polling rather than crash the whole daemon.
+        """
+        self._log.exception(
+            "DECIDE LOOP FAILED — request_id=%s could not be auto-resolved in the "
+            "daemon; escalating to a human and continuing",
+            item.request_id,
+        )
+        return FeedOutcome(
+            request_id=item.request_id,
+            escalation=Escalation(
+                escalation_id=self._id(),
+                request_id=item.request_id,
+                raised_at=self._ts(),
+                cause=CAUSE_DECIDE_FAILED,
+                safety_class=None,
+            ),
+        )
 
     def run_forever(self) -> None:
         """Loop tick()+sleep under the single-instance lock until stop fires.
