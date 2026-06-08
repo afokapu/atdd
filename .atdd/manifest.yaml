@@ -1,6 +1,17 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '865'
+  slug: coach-layout-conformance-is-log-theater-never-actually-enforced
+  file: null
+  issue_number: 865
+  type: cleanup
+  status: PLANNED
+  created: '2026-06-09'
+  archived: null
+  branch: feat/coach-layout-conformance-is-log-theater-never-actually-enforced
+  wagon: consolidate-coach-workspace
+  feature: feature:consolidate-coach-workspace:enforce-surface-conformance
 - id: '1014'
   slug: safety-gate-danger-denylist-incomplete
   file: null
