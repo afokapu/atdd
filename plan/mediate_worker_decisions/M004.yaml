@@ -1,11 +1,11 @@
 urn: "wmbt:mediate-worker-decisions:M004"
-step: "execute"
+step: "monitor"
 direction: "minimize"
 dimension: "likelihood"
-object_of_control: "a-managed-daemon-spawned-with-its-output-discarded-to-dev-null-so-runtime-failures-are-unobservable"
+object_of_control: "a-managed-daemon-spawned-with-its-output-discarded-so-runtime-failures-are-unobservable"
 context_clarifier: "atdd coach start launches the workspace-scoped feed_daemon as a detached managed process; spawning it with stdout/stderr to /dev/null makes any runtime failure (decide loop, LlmCoach, scope) undiagnosable in production. start must direct the daemon's stdout/stderr to a durable per-workspace log (a daemon.log under the workspace runtime dir, append, line-buffered) so a watched daemon that hits an error leaves a trace rather than vanishing"
-lens: "functional.observability"
-statement: "minimize likelihood of a managed daemon being spawned with its output discarded so runtime failures are unobservable"
+lens: "functional.availability"
+statement: "minimize likelihood of a managed daemon spawned with its output discarded so runtime failures are unobservable"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:M004-UNIT-001-start-passes-durable-log-path-to-spawner"
@@ -52,6 +52,32 @@ acceptances:
       assertions:
         - type: "exists"
         - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-runtime"
+  - identity:
+      urn: "acc:mediate-worker-decisions:M004-SMOKE-001-real-spawn-captures-daemon-output-to-log"
+      id: "AC-SMOKE-001"
+      purpose: "A REAL process spawned via SubprocessDaemonSpawner with a log_path has its stdout/stderr captured to the durable daemon.log on disk — not discarded to /dev/null"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real short-lived child process that prints a known marker to stdout and a /tmp scratch daemon.log path"
+    when:
+      abstract: "The process is spawned detached via SubprocessDaemonSpawner.spawn with the log_path and allowed to exit"
+      action: "invoke"
+    then:
+      abstract:
+        - "The on-disk daemon.log contains the child's printed marker (its output was captured, not sent to /dev/null)"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the detached child's stdout was written to the durable per-workspace daemon.log"
+      drift_resolved: "a runtime failure in the managed daemon now leaves a diagnosable trace instead of vanishing into /dev/null"
     signal: {}
     metadata:
       wagon: "mediate-worker-decisions"

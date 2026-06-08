@@ -1,11 +1,11 @@
 urn: "wmbt:mediate-worker-decisions:M003"
-step: "execute"
+step: "monitor"
 direction: "minimize"
 dimension: "likelihood"
-object_of_control: "a-decide-loop-or-decider-failure-silently-swallowed-so-the-daemon-writes-neither-a-verdict-nor-an-escalation"
+object_of_control: "a-decide-loop-failure-silently-swallowed-so-the-daemon-writes-no-verdict-and-no-escalation"
 context_clarifier: "the autonomous daemon drives FeedRunnerUseCase.handle per blocked item; when the decide path raises (the LlmCoach claude -p call fails in the detached no-TTY stdin=DEVNULL daemon context, the convention load errors, or any unexpected error), the loop must surface it LOUDLY and record a human-required escalation rather than swallowing it and continuing with no progress — the daemon stays alive but leaves a durable trace, and a routine safe decision still ends in a written verdict"
-lens: "functional.effectiveness"
-statement: "minimize likelihood of a decide-loop or decider failure being silently swallowed so the daemon writes neither a verdict nor an escalation"
+lens: "functional.availability"
+statement: "minimize likelihood of a decide loop failure silently swallowed so the daemon writes no verdict and no escalation"
 acceptances:
   - identity:
       urn: "acc:mediate-worker-decisions:M003-UNIT-001-decide-failure-logged-and-escalated-not-swallowed"
