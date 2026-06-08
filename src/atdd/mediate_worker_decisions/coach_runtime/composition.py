@@ -1,9 +1,10 @@
 """Composition root for the coach runtime.
 
 ``build_coach_runtime`` wires the use case from explicit collaborators (the test
-+ production seam). ``build_coach_runtime_from_repo`` is the production wiring:
-real os-backed liveness/signaller, a subprocess spawner over the feed_daemon CLI,
-and a file-backed manager registry rooted under ``.atdd/runtime/coach-runtime``.
++ production seam). ``build_coach_runtime_from_repo`` is the production wiring: a
+cmux-surface daemon launcher (the daemon runs inside a headless cmux surface so it
+is socket-recognized — #1007), cmux-workspace liveness/closer, and a file-backed
+manager registry rooted under ``.atdd/runtime/coach-runtime``.
 ``resolve_workspace_paths`` derives the per-workspace ledger/lock/cursor paths so
 `start` and `wait` agree on where the daemon writes.
 """
@@ -20,10 +21,10 @@ from atdd.mediate_worker_decisions.coach_runtime.src.application.coach_runtime i
     CoachRuntime,
 )
 from atdd.mediate_worker_decisions.coach_runtime.src.integration.daemon_manager import (
+    CmuxSurfaceDaemonLauncher,
+    CmuxWorkspaceCloser,
+    CmuxWorkspaceLiveness,
     ManagerRegistry,
-    OsLivenessProbe,
-    OsSignaller,
-    SubprocessDaemonSpawner,
     build_feed_daemon_argv,
     workspace_slug,
 )
@@ -67,7 +68,7 @@ def build_coach_runtime(
     registry,
     spawner,
     liveness,
-    signaller,
+    closer,
     gate=None,
     python: Optional[str] = None,
 ) -> CoachRuntime:
@@ -87,22 +88,28 @@ def build_coach_runtime(
         registry=registry,
         spawner=spawner,
         liveness=liveness,
-        signaller=signaller,
+        closer=closer,
         gate=gate,
         daemon_argv=_argv,
     )
 
 
 def build_coach_runtime_from_repo(
-    *, runtime_root: Optional[Path] = None
+    *, runtime_root: Optional[Path] = None, repo_cwd: Optional[Path] = None
 ) -> CoachRuntime:
-    """Production wiring: os-backed process control + file-backed registry."""
+    """Production wiring: cmux-surface daemon launch + file-backed registry.
+
+    The daemon is launched as a headless cmux surface (#1007 / WMBT M005), so it
+    is a socket-recognized process. ``repo_cwd`` is the working dir the daemon's
+    surface is created in (defaults to the current repo root).
+    """
     root = runtime_root if runtime_root is not None else default_runtime_root()
+    cwd = str(repo_cwd if repo_cwd is not None else Path.cwd())
     return build_coach_runtime(
         registry=ManagerRegistry(root),
-        spawner=SubprocessDaemonSpawner(),
-        liveness=OsLivenessProbe(),
-        signaller=OsSignaller(),
+        spawner=CmuxSurfaceDaemonLauncher(cwd=cwd),
+        liveness=CmuxWorkspaceLiveness(),
+        closer=CmuxWorkspaceCloser(),
         gate=_SubprocessGate(),
     )
 

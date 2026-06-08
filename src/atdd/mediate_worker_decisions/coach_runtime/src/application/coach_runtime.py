@@ -10,9 +10,8 @@ Skeleton: bodies land in GREEN.
 """
 from __future__ import annotations
 
-import signal as _signal
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from atdd.mediate_worker_decisions.coach_runtime.src.application.ports import (
     CursorStore,
@@ -21,9 +20,9 @@ from atdd.mediate_worker_decisions.coach_runtime.src.application.ports import (
     GateRunner,
     LivenessProbe,
     ManagerRegistryPort,
-    Signaller,
     Sleeper,
     StopSignal,
+    WorkspaceCloser,
 )
 from atdd.mediate_worker_decisions.coach_runtime.src.domain.cursor import (
     next_escalation_after,
@@ -34,6 +33,13 @@ from atdd.mediate_worker_decisions.coach_runtime.src.domain.managed_daemon impor
     ManagedDaemon,
 )
 
+_DAEMON_WORKSPACE_PREFIX = "atdd-coach-daemon-"
+
+
+def _default_daemon_name(workspace_id: str) -> str:
+    """The cmux workspace title for the daemon watching ``workspace_id``."""
+    return f"{_DAEMON_WORKSPACE_PREFIX}{workspace_id}"
+
 
 class CoachRuntime:
     def __init__(
@@ -42,17 +48,20 @@ class CoachRuntime:
         registry: ManagerRegistryPort,
         spawner: DaemonSpawner,
         liveness: LivenessProbe,
-        signaller: Signaller,
+        closer: WorkspaceCloser,
         gate: Optional[GateRunner] = None,
         daemon_argv,
+        daemon_name: Optional[object] = None,
     ) -> None:
         self._registry = registry
         self._spawner = spawner
         self._liveness = liveness
-        self._signaller = signaller
+        self._closer = closer
         self._gate = gate
         # daemon_argv: callable(ManagedDaemon-like paths) -> List[str]
         self._daemon_argv = daemon_argv
+        # daemon_name: callable(workspace_id) -> str naming the daemon's own surface.
+        self._daemon_name = daemon_name or _default_daemon_name
 
     def start(
         self,
@@ -70,7 +79,7 @@ class CoachRuntime:
         feed_daemon CLI is spawned, and the manager pidfile is persisted.
         """
         existing = self._registry.load(workspace_id)
-        if existing is not None and self._liveness.is_alive(existing.pid):
+        if existing is not None and self._liveness.is_alive(existing.daemon_workspace):
             return existing  # no-op — already running
 
         if run_gate and self._gate is not None:
@@ -82,14 +91,18 @@ class CoachRuntime:
             escalations_path=escalations_path,
             verdicts_path=verdicts_path,
         )
-        # Direct the detached daemon's stdout/stderr to a durable per-workspace log
-        # (a daemon.log beside its ledgers/lock), never /dev/null — a runtime failure
-        # must leave a diagnosable trace (WMBT M004).
+        # Launch the daemon INSIDE a headless cmux surface so it is a socket-recognized
+        # process (#1007 / WMBT M005) — never an orphaned detached subprocess whose
+        # cmux rpc broken-pipes. Its stdout/stderr are redirected to a durable
+        # per-workspace daemon.log (beside its ledgers/lock), never /dev/null, so a
+        # runtime failure leaves a diagnosable trace (WMBT M004).
         log_path = str(Path(lock_path).parent / "daemon.log")
-        pid = self._spawner.spawn(argv, log_path=log_path)
+        daemon_workspace = self._spawner.spawn(
+            argv, name=self._daemon_name(workspace_id), log_path=log_path
+        )
         daemon = ManagedDaemon(
             workspace_id=workspace_id,
-            pid=pid,
+            daemon_workspace=daemon_workspace,
             lock_path=lock_path,
             escalations_path=escalations_path,
             verdicts_path=verdicts_path,
@@ -129,24 +142,29 @@ class CoachRuntime:
         return record
 
     def stop(self, workspace_id: Optional[str] = None) -> List[ManagedDaemon]:
-        """Signal + deregister the managed daemon(s); idempotent on dead pids."""
+        """Close the daemon's cmux surface + deregister; idempotent on dead ones."""
         targets = (
             [d for d in [self._registry.load(workspace_id)] if d is not None]
             if workspace_id is not None
             else self._registry.load_all()
         )
         for daemon in targets:
-            if self._liveness.is_alive(daemon.pid):
-                self._signaller.signal(daemon.pid, _signal.SIGTERM)
+            if self._liveness.is_alive(daemon.daemon_workspace):
+                self._closer.close(daemon.daemon_workspace)
             self._registry.remove(daemon.workspace_id)
         return targets
 
     def list_daemons(self) -> List[ManagedDaemon]:
-        """Every managed daemon with a derived running|stale status."""
+        """Every managed daemon with a derived running|stale status.
+
+        Liveness is whether the daemon's own cmux surface workspace still exists.
+        """
         out: List[ManagedDaemon] = []
         for daemon in self._registry.load_all():
             status = (
-                STATUS_RUNNING if self._liveness.is_alive(daemon.pid) else STATUS_STALE
+                STATUS_RUNNING
+                if self._liveness.is_alive(daemon.daemon_workspace)
+                else STATUS_STALE
             )
             out.append(daemon.with_status(status))
         return out
