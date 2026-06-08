@@ -2,13 +2,14 @@ urn: "feature:mediate-worker-decisions:coach-runtime"
 wagon: "wagon:mediate-worker-decisions"
 description: "The coach-session runtime that closes the autonomous loop: atdd coach start runs the gate and launches the #993 workspace-scoped feed_daemon as a managed background process (per-workspace pidfile, idempotent — never two daemons), then returns; atdd coach wait (alias next) blocks until the next coach-needed escalation appears in the daemon's escalations.jsonl, prints exactly that one record as a JSON line, advances a durable read cursor, and exits so a chat-session coach loops it; atdd coach stop / daemons stop and list the managed daemons from their pidfiles. It reuses the feed_daemon CLI/composition wholesale and adds only the managed-process lifecycle and the cursor-tracked notify pass, with the wait/cursor selection as a pure unit-testable core."
 sizing:
-  wmbts: 3
+  wmbts: 4
   footprint_score: 8
   footprint_size: "S"
 wmbts:
   - "wmbt:mediate-worker-decisions:E010"
   - "wmbt:mediate-worker-decisions:L006"
   - "wmbt:mediate-worker-decisions:R003"
+  - "wmbt:mediate-worker-decisions:M004"
 components:
   backend:
     presentation:
