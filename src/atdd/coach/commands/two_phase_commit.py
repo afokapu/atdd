@@ -58,8 +58,8 @@ from atdd.coach.utils.session_naming import (
 )
 
 
-# Indirections that tests can monkeypatch without touching orchestrate.py
-# directly. The default callables delegate to the absorbed helpers.
+# Indirections that tests can monkeypatch without touching wave_planning.py
+# directly. The default callables delegate to the worktree helpers.
 def _create_worktree_call(branch: str, worktree_path: Path, *, _issue_number: int) -> None:
     _create_worktree(branch, worktree_path)
 
@@ -118,8 +118,9 @@ def phase_a_create_worktrees(
 ) -> PhaseAResult:
     """Create one worktree per planned issue with rollback-on-any-failure.
 
-    Per spec §4.6 the rollback discipline is verbatim from orchestrate:
-    if any creation fails, every already-created worktree is removed
+    Per spec §4.6 the rollback discipline is verbatim from the prior
+    two-phase-commit implementation: if any creation fails, every
+    already-created worktree is removed
     before the function returns. The matching durable decisions are
     only appended for creations that ultimately persist.
     """

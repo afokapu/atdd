@@ -3,10 +3,10 @@
 # Layer: application
 """Direct unit coverage for wave planning (issue #985).
 
-These replace the compute_waves cases from the deleted test_orchestrate.py:
+These replace the compute_waves cases from the retired parity tests:
 the topological-sort planner is now first-class coach code in
 ``commands/wave_planning.py`` (relocated from the decommissioned
-`atdd orchestrate`).
+legacy launcher).
 """
 from __future__ import annotations
 

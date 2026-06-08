@@ -6,7 +6,7 @@
 """M003-UNIT-005 — Observer YAML loader supports the ``python`` trigger
 type, which delegates rule construction to a ``module:attr`` builder.
 
-This is the wire-up that lets the four absorbed-from-babysit rules
+This is the wire-up that lets the four python-builder drift/classifier rules
 (13–16) declare themselves as YAML files at ``.atdd/observer/rules/``
 without re-implementing their predicates as regexes.
 """

@@ -8,7 +8,7 @@
 rows for each active agent under `.atdd/runtime/agents/`. Each row
 includes name, phase, last-heartbeat (formatted via the absorbed
 `_format_hms`), and token count. Layout matches the absorbed
-``SurfaceRow`` schema from babysit.
+``SurfaceRow`` schema.
 
 Issue #515 (L6). Spec: `atdd-coach-spec-v9.md` §5.4 / §0.2 / §3.2.
 """
@@ -24,7 +24,7 @@ pytestmark = [pytest.mark.platform]
 
 
 # ---------------------------------------------------------------------------
-# Module surface — the four functions absorbed from babysit must land
+# Module surface — the four dashboard functions must land
 # in the observer module per spec §0.2 absorption inventory.
 # ---------------------------------------------------------------------------
 
@@ -63,7 +63,7 @@ def test_surface_row_carries_token_count_field():
     assert row.token_count == 12_345
 
 
-def test_format_hms_matches_babysit_signature():
+def test_format_hms_signature():
     from atdd.coach.commands.observer import _format_hms
 
     assert _format_hms(0) == "0:00:00"

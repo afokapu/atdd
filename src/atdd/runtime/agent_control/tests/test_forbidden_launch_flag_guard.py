@@ -47,5 +47,5 @@ def test_guard_allows_clean_policy_argv():
 
 # The launch-boundary integration of this guard (a forbidden flag refused before
 # a worker is launched) is now exercised on the sole cmux-native launch path in
-# test_e043_unit_001_cmux_native_launch_seed.py; the legacy ShimAgentController
+# test_e043_unit_001_cmux_native_launch_seed.py; the retired pty-shim controller
 # spawn/default-command coverage was retired with the shim in #979.

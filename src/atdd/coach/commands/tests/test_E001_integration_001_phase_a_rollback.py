@@ -8,7 +8,7 @@
 Per spec §4.6 absorption: when coach launches multiple issues and any
 worktree creation fails, every already-created worktree is removed via
 ``_remove_worktree`` (absorbed verbatim from
-``src/atdd/coach/commands/orchestrate.py``) before exit. No partial
+``src/atdd/coach/commands/wave_planning.py``) before exit. No partial
 state persists — neither orphaned worktrees nor ``decisions.jsonl``
 entries for the rolled-back creations.
 """

@@ -3,8 +3,7 @@
 # Layer: application
 """Direct unit coverage for the relocated observer detectors (issue #985).
 
-These replace the deleted babysit parity tests (test_m003_unit_001..004 and
-test_babysit_classifier): the classifier + drift correctors are now first-class
+These replace the retired parity tests: the classifier + drift correctors are now first-class
 observer code in ``observer_rules/detectors.py`` and are covered here directly,
 not by identity-comparison against a legacy module.
 """

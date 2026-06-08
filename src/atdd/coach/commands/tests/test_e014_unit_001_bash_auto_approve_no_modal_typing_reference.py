@@ -3,7 +3,7 @@
 """E014-UNIT-001 — bash_auto_approve.py contains no stale modal-typing reference.
 
 RED: the docstring says 'the multiplexer separately sends "1\\n" to accept' which is
-stale documentation of archived babysit behavior.
+stale documentation of the retired modal-typing launcher behavior.
 GREEN: that sentence is removed and the docstring accurately describes cli-return.
 """
 import inspect
@@ -16,7 +16,7 @@ def test_bash_auto_approve_has_no_multiplexer_separately_sends_reference():
     source = inspect.getsource(module)
     assert "multiplexer separately sends" not in source, (
         "bash_auto_approve.py still contains 'multiplexer separately sends' — "
-        "this is stale documentation of the archived babysit modal-typing path. "
+        "this is stale documentation of the retired modal-typing path. "
         "E014: remove this reference (the current rule uses cli-return, not multiplexer.send)."
     )
 
@@ -27,7 +27,7 @@ def test_bash_auto_approve_has_no_one_backslash_n_modal_typing():
     source = inspect.getsource(module)
     assert '"1\\\\n"' not in source and '"1\\n"' not in source, (
         "bash_auto_approve.py references '\"1\\n\"' modal typing sequence — "
-        "stale reference to archived babysit.py behavior. E014: remove it."
+        "stale reference to the retired modal-typing path. E014: remove it."
     )
 
 
