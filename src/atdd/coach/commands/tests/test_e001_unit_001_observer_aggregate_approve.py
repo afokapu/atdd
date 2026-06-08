@@ -196,11 +196,11 @@ class TestScopeBatchApproves:
         assert "agent-a" in result.approvals_by_ref
         assert "agent-b" in result.escalations_by_ref
 
-    def test_bash_patterns_read_from_same_source_as_babysit(
+    def test_bash_patterns_read_from_observer_convention(
         self, tmp_path: Path,
     ):
-        """The observer uses the same bash patterns from
-        orchestration.convention.yaml as babysit's rule 13 (#513)."""
+        """The observer's aggregate-approve uses the same bash classifier
+        patterns as rule 13, from observer.convention.yaml (#513)."""
         runtime = tmp_path / "rt"
         # git status is in the allow list; curl is in the deny list
         _setup_agent(

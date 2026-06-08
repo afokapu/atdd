@@ -354,6 +354,6 @@ class CmuxAgentController:
 
 
 def _canonical_surface_name(agent_id: str) -> str:
-    """Canonical cmux surface/workspace name for an agent id (coach.orchestration
+    """Canonical cmux surface/workspace name for an agent id (coach.session
     canonical-session-name shape, uppercased, no separators)."""
     return "ATDD" + "".join(ch for ch in agent_id if ch.isalnum()).upper()

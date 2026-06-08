@@ -24,9 +24,8 @@ And the *aggregate-approve* batch action absorbed from
 - ``cmd_aggregate_approve`` — enumerate agent dirs, classify pending
   prompts using shared bash patterns, write approval signals.
 
-Output is at parity with ``atdd babysit`` at time of decommissioning,
-modulo trailing whitespace. **This parity is a gating condition for
-#P6 (babysit decommissioning).**
+The observer's aggregate-approve / status output is the supported
+replacement for the legacy monitor's dashboard + batch-approve flows.
 
 Subcommands per spec §5.4:
     run                — start the observer for an agent (tail + evaluate loop)
@@ -68,7 +67,7 @@ from atdd.coach.utils.rule_binding import (
 # Feature flag: ATDD_CORRECTION_TRANSPORT=cli-return overrides per-correction
 # injection_method for multiplexer-send corrections, routing them to
 # cli-return.jsonl instead. Default: multiplexer-send (backward compat) until
-# persona-shim parity is demonstrated (#824).
+# the cli-return correction path is fully demonstrated (#824).
 CORRECTION_TRANSPORT_ENV = "ATDD_CORRECTION_TRANSPORT"
 
 INJECTION_METHODS: frozenset[str] = frozenset(
@@ -750,7 +749,7 @@ class InjectionDispatcher:
         method = correction.injection_method
 
         # When ATDD_CORRECTION_TRANSPORT=cli-return, redirect multiplexer-send
-        # corrections to cli-return.jsonl so the persona-shim can consume them.
+        # corrections to cli-return.jsonl so the worker can drain them.
         if transport == "cli-return" and method == "multiplexer-send":
             method = "cli-return"
 
@@ -1530,8 +1529,8 @@ def _extract_surface_state_from_runtime(
 
 
 def cmd_status(*, runtime_dir: Optional[Path] = None) -> int:
-    """`atdd observer status` — render the surface dashboard at parity
-    with ``atdd babysit`` (issue #515 / L6).
+    """`atdd observer status` — render the per-surface dashboard
+    (issue #515 / L6).
 
     Data source is ``.atdd/runtime/agents/*/`` — no multiplexer polling.
     Output parity with babysit gates #P6 (babysit decommissioning).

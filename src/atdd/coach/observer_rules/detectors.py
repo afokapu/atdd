@@ -321,8 +321,11 @@ def correct_naming_drift(
     if applied_cache.get(ref) == expected_name:
         return False
     try:
+        # Multiplexer-level rename only. The Claude /rename slash-command
+        # injection was removed by M001 (#829) — naming is set by the
+        # cmux-native launch metadata; the observer only re-applies the
+        # tab/window title here. See session.convention.yaml.
         backend.rename(ref, expected_name)
-        backend.send(ref, f"/rename {expected_name}\n")
     except MultiplexerError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         # Best-effort: log + retry next tick.
         log_event(

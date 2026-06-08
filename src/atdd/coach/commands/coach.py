@@ -46,8 +46,8 @@ from typing import Callable, Iterable, Optional, Sequence
 
 _logger = logging.getLogger("atdd.coach")
 
-# Wave planning + worktree primitives live in wave_planning (relocated from the
-# decommissioned `atdd orchestrate` so the durable coach owns them first-class).
+# Wave planning + worktree primitives live in wave_planning; the durable coach
+# owns them first-class.
 from atdd.coach.commands.wave_planning import build_plan, compute_waves
 
 # State-machine types extracted to handlers package (#591 split).

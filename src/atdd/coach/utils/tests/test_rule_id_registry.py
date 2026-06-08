@@ -83,7 +83,7 @@ rules:
   worktree_per_issue:
     rule: "Every orchestrated issue MUST have its own git worktree"
     anti_pattern: "Reusing a worktree across issues"
-    enforced_by: "atdd orchestrate"
+    enforced_by: "atdd coach"
 """,
     )
 

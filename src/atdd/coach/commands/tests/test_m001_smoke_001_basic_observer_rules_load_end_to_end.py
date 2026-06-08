@@ -39,7 +39,7 @@ EXPECTED_RULE_IDS = {
     "coach.observer.reviewer-edit-attempt",
     "coach.observer.validator-failure-ignored",
     # M002 — absorbed babysit token-threshold (#507)
-    "coach.orchestration.token-threshold",
+    "coach.observer.token-threshold",
     # L4 — absorbed-from-babysit python-builder rules (#513;
     # loader regression fixed in #700)
     "coach.observer.bash-auto-approve",

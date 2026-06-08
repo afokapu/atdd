@@ -83,7 +83,7 @@ def _make_bang_rule(rules_dir: Path) -> None:
     """Write a rule that fires on BANG output — same trigger as P001-SMOKE-001."""
     (rules_dir / "10-bang.yaml").write_text(
         """
-rule_id: "coach.orchestration.read-only-git-diagnostics"
+rule_id: "coach.observer.bash-read-only-git-diagnostics"
 trigger:
   type: log_regex
   pattern: ".*BANG.*"

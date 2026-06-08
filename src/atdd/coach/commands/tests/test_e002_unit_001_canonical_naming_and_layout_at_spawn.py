@@ -164,7 +164,7 @@ def test_spawn_applies_canonical_name_and_injects_rename(tmp_path, monkeypatch):
         f"M001 (#829): send_key must NOT be called for rename. Got: {send_key_calls}"
     )
     assert result["canonical_name"] == canonical_name
-    assert result["canonical_rule_id"] == "coach.orchestration.canonical-session-name"
+    assert result["canonical_rule_id"] == "coach.session.canonical-session-name"
 
 
 def test_spawn_prints_layout_label(tmp_path, monkeypatch, capsys):
@@ -173,7 +173,7 @@ def test_spawn_prints_layout_label(tmp_path, monkeypatch, capsys):
 
     captured = capsys.readouterr()
     assert target_grid_label(1) in captured.out
-    assert "coach.orchestration.layout-conformance" in captured.out
+    assert "coach.session.layout-conformance" in captured.out
 
 
 def test_spawn_rename_failure_is_best_effort(tmp_path, monkeypatch, capsys):
@@ -183,5 +183,5 @@ def test_spawn_rename_failure_is_best_effort(tmp_path, monkeypatch, capsys):
 
     assert result["surface_ref"] == "surface:1"
     captured = capsys.readouterr()
-    assert "coach.orchestration.canonical-session-name" in captured.err
+    assert "coach.session.canonical-session-name" in captured.err
     assert "rename failed" in captured.err

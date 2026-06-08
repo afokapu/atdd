@@ -2,7 +2,7 @@
 Orphan worktree garbage collector for ATDD.
 
 Detects sibling-of-main directories that were created by `atdd branch` or
-`atdd orchestrate` but whose worktree was never properly linked (i.e. not in
+`atdd coach` but whose worktree was never properly linked (i.e. not in
 `git worktree list`) and whose only file is `.launch_prompt.txt`.
 
 Usage:

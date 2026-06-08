@@ -104,7 +104,7 @@ Each spawned agent owns a directory keyed by its agent id (a slug like
 |-------|-------|
 | role | Liveness signal: last-known PID, wall-clock, and free-form status payload for one agent. Coach uses it to detect process_silence. |
 | writer | Runtime watcher (#J5) |
-| reader | Runtime watcher (silence detection); review reporters; `atdd babysit` |
+| reader | Runtime watcher (silence detection); review reporters; the observer |
 | appendability | **rewritten** in place — most recent state replaces the previous |
 | serialization shape | **single-doc** JSON |
 | schema | (no committed schema — one-key-only `{pid, observed_at, status}`; if grown beyond that, file a follow-up to add one) |
@@ -125,7 +125,7 @@ Each spawned agent owns a directory keyed by its agent id (a slug like
 |-------|-------|
 | role | Per-agent runtime event stream — one event document per line. The 12 event types are frozen at C0. |
 | writer | Runtime watcher (#J5) |
-| reader | Observer (#L1); git watcher (#M1); review reporters; `atdd babysit` |
+| reader | Observer (#L1); git watcher (#M1); review reporters; the observer |
 | appendability | **append-only** — never rewritten in place |
 | serialization shape | **JSON-line** stream |
 | schema | [`runtime-event.schema.json`](./runtime-event.schema.json) — temporal contracts in [`event-semantics.md`](./event-semantics.md) |

@@ -12,8 +12,8 @@ from typing import Any, Optional
 from atdd.coach.utils.multiplexer import MultiplexerError
 from atdd.coach.utils.session_naming import target_grid_label
 
-CANONICAL_SESSION_NAME_RULE_ID = "coach.orchestration.canonical-session-name"
-LAYOUT_CONFORMANCE_RULE_ID = "coach.orchestration.layout-conformance"
+CANONICAL_SESSION_NAME_RULE_ID = "coach.session.canonical-session-name"
+LAYOUT_CONFORMANCE_RULE_ID = "coach.session.layout-conformance"
 
 _UUID_FILENAME_PATTERN = re.compile(r"^([a-f0-9-]{36})\.jsonl$")
 
