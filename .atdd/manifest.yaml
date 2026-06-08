@@ -1788,3 +1788,16 @@ sessions:
   train: null
   branch: feat/smoke-token-missing-from-acceptance-urn-enum
   worktree: /Users/alecfokapu/Github/atdd/feat-smoke-token-missing-from-acceptance-urn-enum
+- id: '1007'
+  slug: coach-daemon-decide-loop-silent-and-unobservable
+  file: null
+  issue_number: 1007
+  type: implementation
+  status: PLANNED
+  created: '2026-06-08'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:feed-daemon
+  train: 0002-coach-drives-lifecycle
+  branch: feat/coach-daemon-decide-loop-silent-and-unobservable
+  worktree: /Users/alecfokapu/Github/atdd/coach-daemon-decide-loop-silent-and-unobservable
