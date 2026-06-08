@@ -1,0 +1,105 @@
+urn: "wmbt:consolidate-coach-workspace:E004"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "emitting-a-managed-surface-name-lacking-the-role-aware-canonical-shape"
+context_clarifier: >-
+  Naming consolidates onto a single role-aware canonical scheme
+  `<REPO><N>[-phaseN]-<role>-<slug>` with role ∈ {worker, coach-daemon, observer}
+  and a shared sanitizer (lowercase, [a-z0-9-], truncate), reusing the #470
+  primitive session_naming.compute_canonical_name. A bound validator
+  (coach.session.<rule> via bind_rule("<literal>")) extends
+  coach/observer_rules/canonical_naming_drift.py — it does not fork it — and fails
+  a managed surface/workspace whose name lacks the canonical role-aware shape. This
+  is the "stop the log-theater" enforcement applied to NAMING as well as LAYOUT.
+lens: "functional.effectiveness"
+statement: >-
+  minimize likelihood of emitting a managed surface name lacking the role aware
+  canonical shape
+acceptances:
+  - identity:
+      urn: "acc:consolidate-coach-workspace:E004-UNIT-001-build-sanitize-parse-roundtrip"
+      id: "AC-UNIT-001"
+      purpose: >-
+        The role-aware builder produces <REPO><N>[-phaseN]-<role>-<slug>; the
+        sanitizer lowercases/strips/truncates; the parser round-trips including the
+        role; an invalid role is rejected
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "repo ATDD, issue 865, role worker, slug 'Coach Layout!!', phase None"
+        - "A name string with an unknown role token"
+    when:
+      abstract: "The builder, sanitizer, and parser process each input"
+      action: "invoke"
+    then:
+      abstract:
+        - "The builder yields 'ATDD865-worker-coach-layout'"
+        - "The parser round-trips the components including role=worker"
+        - "An unknown-role name fails to parse (no role is guessed)"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "consolidate-coach-workspace"
+      feature: "enforce-surface-conformance"
+  - identity:
+      urn: "acc:consolidate-coach-workspace:E004-INTEGRATION-001-validator-flags-non-role-name"
+      id: "AC-INTEGRATION-001"
+      purpose: >-
+        The bound validator (binding via bind_rule on a coach.session.* literal)
+        flags a managed surface whose name lacks the role-aware shape and accepts a
+        conforming one
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A surface_state event named 'ATDD865-worker-coach-layout' (conforming)"
+        - "A surface_state event named 'ATDD865-coach-layout' (no role segment)"
+    when:
+      abstract: "The bound naming validator evaluates the observed surface names"
+      action: "invoke"
+    then:
+      abstract:
+        - "The conforming name is accepted (no drift fired)"
+        - "The non-role-aware name is flagged as drift"
+        - "The validator binds its rule via bind_rule at import time"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "consolidate-coach-workspace"
+      feature: "enforce-surface-conformance"
+  - identity:
+      urn: "acc:consolidate-coach-workspace:E004-SMOKE-001-validator-over-live-surface-names"
+      id: "AC-SMOKE-001"
+      purpose: >-
+        Run the naming validator over a real surface.list — a coach-managed surface
+        named in the role-aware scheme passes; a drifted name is flagged
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A live surface.list including a role-aware managed surface name"
+    when:
+      abstract: "The naming validator evaluates the live names"
+      action: "invoke"
+    then:
+      abstract:
+        - "The role-aware managed surface name passes"
+        - "A name lacking the role segment is flagged for re-application"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "consolidate-coach-workspace"
+      feature: "enforce-surface-conformance"

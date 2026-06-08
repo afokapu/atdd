@@ -1,0 +1,77 @@
+urn: "wmbt:consolidate-coach-workspace:C001"
+step: "confirm"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "each-per-workspace-worker-keeping-its-own-single-identity-daemon-scope-after-a-layout-pass"
+context_clarifier: >-
+  The coach-left / workers-right view is window/pane GEOMETRY over per-workspace
+  surfaces, NOT N workers collapsed into the coach workspace's tabs.
+  CmuxFeedSource._resolve_scope() unions every surface in a workspace into one
+  WorkspaceScope, so two workers sharing a workspace would cross-decide by
+  construction (#1013, reproduced at 20-worker scale 2026-06-09). After any layout
+  pass over N per-workspace workers, each worker MUST still resolve to its own
+  single-identity workspace and `surface.list` per worker-workspace MUST yield
+  exactly one worker identity. A layout that makes two workers share a daemon
+  scope is a FAIL. This is the headline safety acceptance for #865.
+lens: "functional.effectiveness"
+statement: >-
+  maximize likelihood of each per workspace worker keeping its own single identity
+  daemon scope after a layout pass
+acceptances:
+  - identity:
+      urn: "acc:consolidate-coach-workspace:C001-UNIT-001-plan-never-merges-scopes"
+      id: "AC-UNIT-001"
+      purpose: >-
+        The pure layout planner never produces a plan that moves a worker surface
+        out of its own single-identity workspace into another worker's or the
+        coach's workspace
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "N>=2 worker surfaces, each in its own single-identity workspace"
+        - "A coach surface in the coach workspace"
+    when:
+      abstract: "The layout planner builds the geometry plan over the workers"
+      action: "invoke"
+    then:
+      abstract:
+        - "Every op targets a worker by its own workspace identity"
+        - "No op moves a worker surface into another worker's or the coach's workspace"
+        - "A plan that would collapse two workers into one scope is rejected as invalid"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "consolidate-coach-workspace"
+      feature: "enforce-surface-conformance"
+  - identity:
+      urn: "acc:consolidate-coach-workspace:C001-SMOKE-001-live-never-collapse"
+      id: "AC-SMOKE-001"
+      purpose: >-
+        After a live layout pass over N>=2 per-workspace workers on real cmux,
+        each worker still resolves to its own single-identity workspace
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "N>=2 real per-workspace worker surfaces launched via the cmux agent-hook path"
+    when:
+      abstract: "The conformance pass applies the coach-left / workers-right geometry"
+      action: "invoke"
+    then:
+      abstract:
+        - "surface.list per worker-workspace yields exactly one worker identity"
+        - "No worker surface migrated into another worker's or the coach's workspace"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "consolidate-coach-workspace"
+      feature: "enforce-surface-conformance"
