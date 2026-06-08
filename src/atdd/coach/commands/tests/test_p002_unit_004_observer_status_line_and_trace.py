@@ -62,7 +62,7 @@ def test_operator_can_see_ingested_input_and_fired_rule(tmp_path: Path, capsys):
 
     # A rule that fires on the persona's real output.
     (rules_dir / "50-bell.yaml").write_text(
-        "rule_id: \"coach.orchestration.read-only-git-diagnostics\"\n"
+        "rule_id: \"coach.observer.bash-read-only-git-diagnostics\"\n"
         "trigger:\n"
         "  type: log_regex\n"
         "  pattern: \".*RING THE BELL.*\"\n"
@@ -84,6 +84,6 @@ def test_operator_can_see_ingested_input_and_fired_rule(tmp_path: Path, capsys):
     assert "RING THE BELL" in out, (
         "operator must be able to see what the observer ingested this scan"
     )
-    assert "coach.orchestration.read-only-git-diagnostics" in out, (
+    assert "coach.observer.bash-read-only-git-diagnostics" in out, (
         "operator must be able to see which rule ids fired"
     )

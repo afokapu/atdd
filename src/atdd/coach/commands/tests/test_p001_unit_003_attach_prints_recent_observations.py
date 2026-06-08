@@ -20,7 +20,7 @@ pytestmark = [pytest.mark.platform]
 def _write_correction(agent_dir: Path, **fields) -> None:
     base = {
         "agent_id": "agent-A",
-        "rule_id": "coach.orchestration.read-only-git-diagnostics",
+        "rule_id": "coach.observer.bash-read-only-git-diagnostics",
         "severity": 3,
         "disposition": "advisory",
         "correction_text": "stub",
@@ -43,13 +43,13 @@ def test_attach_prints_rule_id_timestamp_and_correction_text(tmp_path, capsys):
 
     _write_correction(
         agent_dir,
-        rule_id="coach.orchestration.read-only-git-diagnostics",
+        rule_id="coach.observer.bash-read-only-git-diagnostics",
         correction_text="first thing to fix",
         issued_at="2026-05-09T10:00:00Z",
     )
     _write_correction(
         agent_dir,
-        rule_id="coach.orchestration.test-runner-invocations",
+        rule_id="coach.observer.bash-test-runner-invocations",
         correction_text="second thing to fix",
         issued_at="2026-05-09T10:01:00Z",
     )
@@ -57,8 +57,8 @@ def test_attach_prints_rule_id_timestamp_and_correction_text(tmp_path, capsys):
     rc = observer.cmd_attach(agent_id="agent-A", runtime_dir=runtime)
     assert rc == 0
     captured = capsys.readouterr().out
-    assert "coach.orchestration.read-only-git-diagnostics" in captured
-    assert "coach.orchestration.test-runner-invocations" in captured
+    assert "coach.observer.bash-read-only-git-diagnostics" in captured
+    assert "coach.observer.bash-test-runner-invocations" in captured
     assert "first thing to fix" in captured
     assert "second thing to fix" in captured
     assert "2026-05-09T10:00:00Z" in captured

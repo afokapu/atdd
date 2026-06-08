@@ -48,7 +48,7 @@ SAMPLE_BODY = """## Issue Metadata
 
 | ID | Check |
 |----|-------|
-| GT-010 | `grep -c "def orchestrate" src/atdd/coach/commands/orchestrate.py` |
+| GT-010 | `grep -c "def compute_waves" src/atdd/coach/commands/wave_planning.py` |
 | GT-020 | `grep -rn "MultiplexerBackend" src/atdd/coach/utils/multiplexer.py` |
 """
 
@@ -73,7 +73,7 @@ def test_parse_dependencies_falls_back_to_closes():
 
 def test_parse_grep_gates_extracts_backtick_commands():
     gates = parse_grep_gates(SAMPLE_BODY)
-    assert any("def orchestrate" in g for g in gates)
+    assert any("def compute_waves" in g for g in gates)
     assert any("MultiplexerBackend" in g for g in gates)
 
 

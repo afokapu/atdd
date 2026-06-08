@@ -1,10 +1,10 @@
 version: "1.0"
 name: "Observer Convention"
 description: |
-  Canonical rule_ids for the coach v9 observer's seventeen default
-  detection rules per spec §8.3. The basic-protocol set (01–05, 08, 09)
-  ships in #L2; token-threshold (06) ships in #L3; babysit-absorbed
-  (13–16) in #L4; substrate-aware (10, 11, 12, 17) in #L5.
+  Canonical rule_ids for the coach observer's default detection rules per
+  spec §8.3. The basic-protocol set (01–05, 08, 09) ships in #L2;
+  token-threshold (06) in #L3; the drift/classifier rules (13–16) in #L4;
+  substrate-aware (10, 11, 12, 17) in #L5.
 
   Each rule_id resolves via ``bind_rule()`` at observer rule load time
   per ``src/atdd/coach/commands/observer.py::ObserverRule``. The
@@ -71,53 +71,145 @@ basic_protocol_observer_rules:
       introduced_in: "3.21.0"
 
 # =============================================================================
-# Babysit-absorbed observer rules (#L4 — issue #513)
+# Drift + classifier observer rules (#L4 — issue #513)
 # =============================================================================
-babysit_absorbed_observer_rules:
+# Disposition is ``documentation-only`` because these rules are dispatched by
+# the observer runtime (``Observer.scan_once``) — the runtime correctors live
+# in ``src/atdd/coach/observer_rules/`` (detectors.py + the rule modules) and
+# carry their own ``disposition`` (advisory/strict) in code. The static
+# coherence validator only resolves validator callables, not runtime emitters;
+# direct unit coverage for the detectors lives in
+# ``src/atdd/coach/observer_rules/tests/``.
+drift_classifier_observer_rules:
   description: |
-    Four rules from spec §8.3 that absorb existing ``atdd babysit`` behavior
-    per spec §0.2: preserve the babysit function bodies and change the caller.
-    Rules 14 and 15 log the existing ``coach.orchestration.*`` rule IDs from
-    orchestration.convention.yaml for backward telemetry parity.
+    Four runtime rules from spec §8.3: a Bash-prompt classifier and three
+    drift detectors/correctors. The runtime function bodies live in
+    ``observer_rules/detectors.py``; rules 14 and 15 log the
+    ``coach.session.*`` rule IDs (session.convention.yaml).
   rules:
     - id: "coach.observer.bash-auto-approve"
       severity: 3
-      disposition: advisory
-      description: "Auto-approve known-safe bash prompts; escalate deny-pattern prompts (absorbs babysit.classify_prompt)"
+      disposition: documentation-only
+      description: "Auto-approve known-safe bash prompts; escalate deny-pattern prompts"
       introduced_in: "3.21.0"
-      validator: "test_m003_unit_001_rule_13_bash_auto_approve::test_rule_13_parity_with_classify_prompt"
       fix_hint: |
-        Inspect the bash command against orchestration.convention.yaml::babysit.bash_auto_approve_patterns
-        and bash_deny_patterns. Auto-approve matches send "1\n" via the multiplexer; deny matches
+        Inspect the bash command against observer.convention.yaml::bash_classifier.auto_approve_patterns
+        and deny_patterns. Auto-approve matches send "1\n" via the multiplexer; deny matches
         escalate to the operator.
 
     - id: "coach.observer.canonical-naming-drift"
       severity: 3
-      disposition: advisory
-      description: "Detect multiplexer surface name drift from canonical and re-apply via correct_naming_drift (absorbs babysit.correct_naming_drift)"
+      disposition: documentation-only
+      description: "Detect multiplexer surface name drift from canonical and re-apply via correct_naming_drift"
       introduced_in: "3.21.0"
-      validator: "test_m003_unit_002_rule_14_canonical_naming_drift::test_rule_14_parity_with_correct_naming_drift"
       fix_hint: |
         Re-apply the canonical name to the drifted surface. See
-        orchestration.convention.yaml::session_naming.format and the
-        coach.orchestration.canonical-session-name rule for the canonical regex.
+        session.convention.yaml::session_naming.format and the
+        coach.session.canonical-session-name rule for the canonical regex.
 
     - id: "coach.observer.layout-drift"
       severity: 2
-      disposition: advisory
-      description: "Detect surface count or arrangement drift from target_grid_label and re-apply via correct_layout_drift (absorbs babysit.correct_layout_drift)"
+      disposition: documentation-only
+      description: "Detect surface count or arrangement drift from target_grid_label and re-apply via correct_layout_drift"
       introduced_in: "3.21.0"
-      validator: "test_m003_unit_003_rule_15_layout_drift::test_rule_15_parity_with_correct_layout_drift"
       fix_hint: |
-        Re-apply the canonical layout. See orchestration.convention.yaml::layout_placement.policy
-        and the coach.orchestration.layout-conformance rule.
+        Re-apply the canonical layout. See session.convention.yaml::layout_placement.policy
+        and the coach.session.layout-conformance rule.
 
     - id: "coach.observer.smoke-skip"
       severity: 4
-      disposition: strict
-      description: "Flag a phase transition from GREEN to REFACTOR without an intervening SMOKE (absorbs babysit.detect_violation --status REFACTOR clause)"
+      disposition: documentation-only
+      description: "Flag a phase transition from GREEN to REFACTOR without an intervening SMOKE"
       introduced_in: "3.21.0"
-      validator: "test_m003_unit_004_rule_16_smoke_skip::test_rule_16_parity_with_detect_violation"
       fix_hint: |
         Run SMOKE phase tests against real infrastructure before transitioning to REFACTOR.
         See atdd-coach-spec-v9.md §6.4 (phase-ordering contract).
+
+# =============================================================================
+# Token-threshold observer rule (#L3 — issue #507)
+# =============================================================================
+# Relocated from the decommissioned orchestration.convention.yaml. Enforced at
+# *runtime* by the observer evaluation loop (the runtime correction record at
+# ``.atdd/observer/rules/06-token-threshold.yaml`` carries disposition:
+# advisory); documentation-only here so the static coherence validator does not
+# require a validator pointer.
+token_threshold_observer_rule:
+  rules:
+    - id: "coach.observer.token-threshold"
+      aliases: ["06-token-threshold"]
+      severity: 3
+      disposition: documentation-only
+      description: "Token-count alert (rule 06): fires when the agent approaches its context window limit (default 400k per coach.token_alert_threshold)"
+      introduced_in: "3.21.0"
+
+# =============================================================================
+# Bash-prompt classifier patterns (issue #366)
+# =============================================================================
+# Relocated from the decommissioned orchestration.convention.yaml. The Bash
+# command is extracted from the observer screen capture and matched against
+# deny patterns first, then allow patterns; unmatched commands escalate. Loaded
+# at runtime by ``observer_rules/detectors.py::_load_bash_patterns``.
+bash_classifier:
+  auto_approve_patterns:
+    description: |
+      Regex patterns (anchored at the start of the command) for Bash invocations
+      the observer auto-approves. Numeric suffix range reserved for allow rules;
+      deny rules live under deny_patterns.
+    rules:
+      - id: "coach.observer.bash-read-only-git-diagnostics"
+        severity: 2
+        disposition: documentation-only
+        description: "Read-only git diagnostics"
+        regex: '^git (status|log|diff|show|branch|remote|fetch|rev-parse|reflog|stash list)\b'
+      - id: "coach.observer.bash-test-runner-invocations"
+        severity: 2
+        disposition: documentation-only
+        description: "Test runner invocations"
+        regex: '^pytest\b'
+      - id: "coach.observer.bash-read-only-file-inspection"
+        severity: 2
+        disposition: documentation-only
+        description: "Read-only file inspection"
+        regex: '^(ls|cat|head|tail|grep|find|wc)\b'
+      - id: "coach.observer.bash-stdout-only-output"
+        severity: 1
+        disposition: documentation-only
+        description: "Stdout-only output"
+        regex: '^echo\b'
+      - id: "coach.observer.bash-print-working-directory"
+        severity: 1
+        disposition: documentation-only
+        description: "Print working directory"
+        regex: '^pwd\s*$'
+      - id: "coach.observer.bash-worker-self-checkpoint-issue"
+        severity: 1
+        disposition: documentation-only
+        description: "Worker self-checkpoint (issue #378)"
+        regex: '^atdd checkpoint\b'
+
+  deny_patterns:
+    description: |
+      Regex patterns that always escalate, even if a permissive allow pattern
+      would also match. Deny is checked *before* allow so the safety boundary
+      cannot be widened by accident.
+    rules:
+      - id: "coach.observer.bash-network-egress-escalate-even"
+        severity: 5
+        disposition: documentation-only
+        description: "Network egress — escalate even if otherwise safe"
+        regex: '^(curl|wget)\b'
+      - id: "coach.observer.bash-mutates-python-environment"
+        severity: 4
+        disposition: documentation-only
+        description: "Mutates Python environment"
+        regex: '^pip (install|uninstall)\b'
+      - id: "coach.observer.bash-destructive-file-ops-always"
+        severity: 5
+        disposition: documentation-only
+        description: "Destructive file ops — always escalate"
+        regex: '^(rm|mv)\b'
+      - id: "coach.observer.bash-destructive-or-remote-mutating"
+        severity: 4
+        disposition: documentation-only
+        description: "Destructive or remote-mutating git ops"
+        regex: '^git (push|reset --hard|clean -f|branch -D|checkout --)\b'

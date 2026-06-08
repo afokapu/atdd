@@ -45,12 +45,12 @@ def test_faulty_rule_is_caught_and_other_rules_still_fire(
         raise RuntimeError("rule A is broken")
 
     rule_a = observer.ObserverRule(
-        rule_id="coach.orchestration.read-only-git-diagnostics",
+        rule_id="coach.observer.bash-read-only-git-diagnostics",
         predicate=boom,
         correction_text="should never be emitted",
     )
     rule_b = observer.ObserverRule(
-        rule_id="coach.orchestration.test-runner-invocations",
+        rule_id="coach.observer.bash-test-runner-invocations",
         predicate=lambda ctx: any("RING THE BELL" in line for line in ctx.log_lines),
         correction_text="B fires",
     )
@@ -60,20 +60,20 @@ def test_faulty_rule_is_caught_and_other_rules_still_fire(
     corrections = obs.scan_once()
     rule_ids = [c.rule_id for c in corrections]
     assert (
-        "coach.orchestration.test-runner-invocations" in rule_ids
+        "coach.observer.bash-test-runner-invocations" in rule_ids
     ), "Rule B must still fire after Rule A raises"
     assert (
-        "coach.orchestration.read-only-git-diagnostics" not in rule_ids
+        "coach.observer.bash-read-only-git-diagnostics" not in rule_ids
     ), "Faulty rule A must not produce a correction"
 
     # Faulty rule recorded with its rule_id.
     assert (
-        "coach.orchestration.read-only-git-diagnostics" in obs.registry.faulty_rules
+        "coach.observer.bash-read-only-git-diagnostics" in obs.registry.faulty_rules
     )
 
     # The observer process did not raise — confirmed by reaching this point.
     err = capsys.readouterr().err
-    assert "coach.orchestration.read-only-git-diagnostics" in err, (
+    assert "coach.observer.bash-read-only-git-diagnostics" in err, (
         "Faulty rule must be logged to stderr with its rule_id"
     )
 
@@ -100,7 +100,7 @@ def test_faulty_rule_remains_faulty_for_subsequent_scans(tmp_path: Path):
 
     obs.registry.add_rule(
         observer.ObserverRule(
-            rule_id="coach.orchestration.read-only-git-diagnostics",
+            rule_id="coach.observer.bash-read-only-git-diagnostics",
             predicate=boom,
             correction_text="x",
         )

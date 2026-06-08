@@ -53,7 +53,7 @@ def test_observer_writes_schema_valid_correction_when_rule_fires(tmp_path: Path)
     )
 
     fired = observer.ObserverRule(
-        rule_id="coach.orchestration.read-only-git-diagnostics",
+        rule_id="coach.observer.bash-read-only-git-diagnostics",
         predicate=lambda ctx: any("PROHIBITED-TOKEN" in line for line in ctx.log_lines),
         correction_text="Do not emit PROHIBITED-TOKEN.",
         severity=3,
@@ -74,7 +74,7 @@ def test_observer_writes_schema_valid_correction_when_rule_fires(tmp_path: Path)
     jsonschema.validate(rec, schema)
 
     assert rec["agent_id"] == "agent-A"
-    assert rec["rule_id"] == "coach.orchestration.read-only-git-diagnostics"
+    assert rec["rule_id"] == "coach.observer.bash-read-only-git-diagnostics"
     assert rec["injection_method"] == "cli-return", (
         "Default injection_method must be cli-return per spec §8.2 path 1"
     )
@@ -89,7 +89,7 @@ def test_correction_dataclass_default_injection_method_is_cli_return():
 
     c = observer.Correction(
         agent_id="agent-A",
-        rule_id="coach.orchestration.read-only-git-diagnostics",
+        rule_id="coach.observer.bash-read-only-git-diagnostics",
         severity=3,
         disposition="advisory",
         correction_text="hi",
@@ -112,7 +112,7 @@ def test_observer_does_not_fire_when_predicate_returns_false(tmp_path: Path):
     )
     obs.registry.add_rule(
         observer.ObserverRule(
-            rule_id="coach.orchestration.read-only-git-diagnostics",
+            rule_id="coach.observer.bash-read-only-git-diagnostics",
             predicate=lambda ctx: False,
             correction_text="should not fire",
         )

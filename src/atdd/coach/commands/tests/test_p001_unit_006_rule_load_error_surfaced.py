@@ -47,7 +47,7 @@ correction_text: "missing rule_id"
     # A well-formed companion that must continue to load.
     (rules_dir / "01-good.yaml").write_text(
         """
-rule_id: "coach.orchestration.read-only-git-diagnostics"
+rule_id: "coach.observer.bash-read-only-git-diagnostics"
 trigger:
   type: log_regex
   pattern: ".*never matches.*"
@@ -68,7 +68,7 @@ disposition: "advisory"
     # The well-formed rule must be loaded.
     loaded_ids = [r.rule_id for r in obs.registry.rules]
     assert (
-        "coach.orchestration.read-only-git-diagnostics" in loaded_ids
+        "coach.observer.bash-read-only-git-diagnostics" in loaded_ids
     ), "Well-formed sibling rules must continue to load"
 
     # The malformed rule must surface as a load error.

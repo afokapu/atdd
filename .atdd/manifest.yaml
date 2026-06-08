@@ -1749,3 +1749,16 @@ sessions:
   train: null
   branch: feat/atdd-coach-runtime-start-daemon-and-notify-pass
   worktree: /Users/alecfokapu/Github/atdd/feat-atdd-coach-runtime-start-daemon
+- id: '985'
+  slug: atdd-coach-activation-convention-operating-protocol
+  file: null
+  issue_number: 985
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-08'
+  archived: null
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:coach-runtime
+  train: 0002-coach-drives-lifecycle
+  branch: feat/atdd-coach-activation-convention-operating-protocol
+  worktree: /Users/alecfokapu/Github/atdd/feat-atdd-coach-activation-convention-operating-protocol

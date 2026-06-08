@@ -41,7 +41,7 @@ grammar:
 # convention being listed under `migration.completed:` — legacy IDs in
 # unmigrated files are still ignored exactly as before.
 #
-# Decision #8: `AP-DS-NN` and `COACH-BABYSIT-NNN` are NOT legacy — they
+# Decision #8: `AP-DS-NN`-style multi-hyphen IDs are NOT legacy — they
 # already match the canonical regex (two-or-more-hyphen IDs are canonical),
 # so adding them here would create double-grammar uniqueness edge cases.
 #
@@ -610,7 +610,6 @@ migration:
   completed:
     # Add migrated convention paths here as they land.
     - "src/atdd/coder/conventions/green.convention.yaml"
-    - "src/atdd/coach/conventions/orchestration.convention.yaml"
     - "src/atdd/coach/conventions/spawn.convention.yaml"
     - "src/atdd/coder/conventions/refactor.convention.yaml"
     # Issue #394 Phase 1 — coder conventions whose ratchet validators emit Violations

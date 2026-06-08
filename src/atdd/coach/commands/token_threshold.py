@@ -1,14 +1,11 @@
 """Coach observer: token-threshold alerting (issue #507 / spec §8.3).
 
-Absorbs babysit's token-count alerting machinery — `load_token_alert_threshold`,
-`read_token_count`, `check_token_threshold` — into a coach module so the
-observer's rule `06-token-threshold` can drive the alert from the L1
-evaluation loop instead of the babysit polling loop. Behavior parity with
-babysit is preserved (same firing decision for the same inputs); the
-default 400k threshold is preserved per spec §10.
+The token-count alerting machinery — `load_token_alert_threshold`,
+`read_token_count`, `check_token_threshold` — lives here so the observer's
+rule `06-token-threshold` can drive the alert from the L1 evaluation loop.
+The default 400k threshold is per spec §10.
 
 Spec references:
-    §0.2  Absorption inventory — token alerting
     §8.3  Rule 06 (token threshold) — correction text
     §10   Configuration key `coach.token_alert_threshold` (default 400000)
 """
@@ -31,11 +28,9 @@ from atdd.coach.utils.config import load_atdd_config
 DEFAULT_TOKEN_ALERT_THRESHOLD: int = 400_000
 
 
-# Configuration namespaces, in resolution order. `coach.*` is the spec §10
-# canonical key; `babysit.*` is honored as a legacy fallback so pre-absorption
-# `.atdd/config.yaml` files keep working through the deprecation window owned
-# by #P6.
-_CONFIG_NAMESPACES: tuple[str, ...] = ("coach", "babysit")
+# Configuration namespace. `coach.token_alert_threshold` is the spec §10
+# canonical key.
+_CONFIG_NAMESPACES: tuple[str, ...] = ("coach",)
 _CONFIG_KEY: str = "token_alert_threshold"
 
 
@@ -45,16 +40,14 @@ def load_token_alert_threshold(*, repo_root: Optional[Path] = None) -> int:
 
     Resolution order (issue #507):
         1. `coach.token_alert_threshold` (spec §10 canonical key)
-        2. `babysit.token_alert_threshold` (legacy, pre-absorption)
-        3. ``DEFAULT_TOKEN_ALERT_THRESHOLD`` (400_000)
+        2. ``DEFAULT_TOKEN_ALERT_THRESHOLD`` (400_000)
 
-    A malformed or unreadable config silently falls back to the default —
-    parity with babysit's pre-absorption behavior.
+    A malformed or unreadable config silently falls back to the default.
     """
     base = Path(repo_root) if repo_root is not None else Path.cwd()
     try:
         config = load_atdd_config(base)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # parity with babysit's silent fallback for malformed config
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # best-effort: malformed config → default
         return DEFAULT_TOKEN_ALERT_THRESHOLD
     if not isinstance(config, dict):
         return DEFAULT_TOKEN_ALERT_THRESHOLD
@@ -77,11 +70,11 @@ def read_token_count(
 
     Returns ``None`` when the binary is missing, the call errors, or the
     output is not parseable JSON. Callers MUST treat ``None`` as "unknown" —
-    the rule's predicate uses None as a no-fire signal (parity with babysit
-    where the dashboard renders this as ``—``).
+    the rule's predicate uses None as a no-fire signal (the dashboard renders
+    it as ``—``).
 
-    Decision 6 (issue #378, preserved by absorption): the source mechanism
-    is `claude --print-context-status`. A future revision can swap in a
+    Decision 6 (issue #378): the source mechanism is
+    `claude --print-context-status`. A future revision can swap in a
     per-surface multiplexer command without changing the alert logic.
 
     Parameters:
@@ -96,14 +89,14 @@ def read_token_count(
             text=True,
             timeout=timeout,
         )
-    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # parity with babysit: best-effort, missing binary or call error → None
+    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # best-effort: missing binary or call error → None
         return None
     if getattr(result, "returncode", 1) != 0:
         return None
     stdout = getattr(result, "stdout", "")
     try:
         payload = json.loads(stdout)
-    except (json.JSONDecodeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # parity with babysit: unrecognized stdout shape → None
+    except (json.JSONDecodeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # best-effort: unrecognized stdout shape → None
         return None
     if not isinstance(payload, dict):
         return None
@@ -119,11 +112,11 @@ def check_token_threshold(
 ) -> bool:
     """Return True when the token count meets or exceeds the threshold.
 
-    Parity with babysit (issue #507 absorption):
+    Semantics (issue #507):
         - ``None`` token_count   → False (unknown ⇒ no alert)
         - ``count <  threshold`` → False
-        - ``count >= threshold`` → True (firing at exactly threshold matches
-          babysit's `>=` semantics — see test_check_alerts_at_exactly_threshold).
+        - ``count >= threshold`` → True (fires at exactly the threshold —
+          see test_check_alerts_at_exactly_threshold).
     """
     if token_count is None:
         return False

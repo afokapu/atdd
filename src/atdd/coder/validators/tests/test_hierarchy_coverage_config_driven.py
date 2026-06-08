@@ -44,8 +44,10 @@ class TestFindToolkitImplementations:
         hits = find_toolkit_implementations(
             "govern-lifecycle", "orchestrate-ready-lifecycle", toolkit_root
         )
-        assert hits, "expected at least one match for 'orchestrate' under src/atdd"
-        assert any("orchestrate" in h.name for h in hits)
+        assert hits, "expected at least one fuzzy-segment match under src/atdd"
+        # The 'lifecycle' segment matches issue_lifecycle.py et al. (fuzzy
+        # basename match on a >=4-char hyphen-segment of the feature slug).
+        assert any("lifecycle" in h.name for h in hits)
 
     def test_unknown_slug_returns_empty(self):
         toolkit_root = REPO_ROOT / "src/atdd"

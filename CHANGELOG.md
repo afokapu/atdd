@@ -2,6 +2,30 @@
 
 All notable changes to the ATDD toolkit are documented here.
 
+## [3.106.0] — Hard-decommission the legacy coach (#985)
+
+### Removed
+
+- **`atdd orchestrate` and `atdd babysit` removed entirely** — the
+  migration-message stubs (see the prior Unreleased notes) are gone; the
+  subcommands are no longer registered, so `atdd orchestrate` / `atdd babysit`
+  now error as unknown commands. The `_archived/` package, the parity
+  validators/tests, and `orchestration.convention.yaml` were deleted.
+- Rule IDs renamed: `coach.orchestration.*` →
+  `coach.session.*` (session naming/layout) / `coach.observer.bash-*` (bash
+  classifier) / `coach.observer.token-threshold`.
+
+### Relocated / Added
+
+- Observer detectors → `coach/observer_rules/detectors.py`; wave planning +
+  worktree primitives → `coach/commands/wave_planning.py` (owned by `atdd coach`).
+- Bash-classifier patterns + token-threshold → `observer.convention.yaml`;
+  session naming/layout/multiplexer → `session.convention.yaml`; PR-phase gate →
+  `pr.convention.yaml`.
+- New `coach.convention.yaml` — `atdd coach` activation + operating protocol
+  (cmux-native launch #978, Feed mediation #966/#971/#987/#993, autonomous
+  feed daemon #998, observer cli-return corrections #824).
+
 ## [Unreleased]
 
 ### Removed

@@ -38,9 +38,9 @@ EXPECTED_RULE_IDS = {
     "coach.observer.missed-heartbeat",
     "coach.observer.reviewer-edit-attempt",
     "coach.observer.validator-failure-ignored",
-    # M002 — absorbed babysit token-threshold (#507)
-    "coach.orchestration.token-threshold",
-    # L4 — absorbed-from-babysit python-builder rules (#513;
+    # M002 — token-threshold rule (#507)
+    "coach.observer.token-threshold",
+    # L4 — python-builder drift/classifier rules (#513;
     # loader regression fixed in #700)
     "coach.observer.bash-auto-approve",
     "coach.observer.canonical-naming-drift",

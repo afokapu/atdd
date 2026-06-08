@@ -59,7 +59,7 @@ def test_d001_rendered_body_uses_fix_prefix_for_refactor_type(tmp_path):
 
 def test_d001_rendered_body_contains_dependencies_heading(tmp_path):
     """D001: rendered body must contain a '### Dependencies' heading so
-    atdd orchestrate can parse the dep graph without post-hoc edits.
+    the coach can parse the dep graph without post-hoc edits.
     """
     manager = _make_manager(tmp_path)
 

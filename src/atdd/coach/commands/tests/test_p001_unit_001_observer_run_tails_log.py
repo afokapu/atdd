@@ -101,7 +101,7 @@ def test_cmd_run_loads_rules_from_observer_rules_dir(tmp_path: Path):
     # A rule_id that already exists in the toolkit registry — so bind_rule
     # resolves cleanly. We don't depend on the rule's actual semantics here.
     rule_yaml = """
-rule_id: "coach.orchestration.read-only-git-diagnostics"
+rule_id: "coach.observer.bash-read-only-git-diagnostics"
 trigger:
   type: log_regex
   pattern: ".*never matches in this test.*"
@@ -119,7 +119,7 @@ disposition: "advisory"
     )
     obs.load_rules()
     assert len(obs.registry.rules) == 1
-    assert obs.registry.rules[0].rule_id == "coach.orchestration.read-only-git-diagnostics"
+    assert obs.registry.rules[0].rule_id == "coach.observer.bash-read-only-git-diagnostics"
     assert obs.registry.load_errors == []
 
 

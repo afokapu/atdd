@@ -6,15 +6,15 @@
 """M001-UNIT-004 — Rule `04-out-of-scope-edit`.
 
 Issue #506 (L2). Spec: `atdd-coach-spec-v9.md` §8.3 / §0.2 (the
-`.atdd/` clause absorbed verbatim from babysit's ``detect_violation``).
+`.atdd/` hand-edit clause from ``detectors.detect_violation``).
 
 Fires when:
   (a) a worktree change touches a file outside the WMBT target paths, or
   (b) a worktree change touches any path under `.atdd/` outside the
-      allowlist (the absorbed babysit clause).
+      allowlist (the .atdd/ hand-edit clause).
 
 The correction names the offending path and instructs revert-or-escalate.
-Behavior at parity with babysit's ``detect_violation`` `.atdd/` clause for
+Behavior matches ``detectors.detect_violation`` `.atdd/` clause for
 the absorbed cases.
 """
 from __future__ import annotations
@@ -58,7 +58,7 @@ def test_fires_on_change_outside_wmbt_target_paths():
     assert "revert" in correction.correction_text.lower() or "escalate" in correction.correction_text.lower()
 
 
-def test_fires_on_atdd_hand_edit_outside_allowlist_absorbed_babysit_clause():
+def test_fires_on_atdd_hand_edit_outside_allowlist():
     from atdd.coach.commands import observer
 
     rule = _load_rule()
@@ -70,7 +70,7 @@ def test_fires_on_atdd_hand_edit_outside_allowlist_absorbed_babysit_clause():
     )
     correction = rule.evaluate(ctx, agent_id="agent-A")
     assert correction is not None, (
-        "rule must fire on .atdd/ hand-edits outside the allowlist (babysit clause)"
+        "rule must fire on .atdd/ hand-edits outside the allowlist (.atdd/ hand-edit clause)"
     )
     assert ".atdd/manifest.yaml" in correction.correction_text
 
@@ -89,7 +89,7 @@ def test_does_not_fire_on_in_scope_change():
 
 def test_does_not_fire_on_atdd_allowlisted_observer_rules_subtree():
     """`.atdd/observer/rules/` is an allowlisted location for #L2 rule
-    files — editing them must not trip the babysit clause."""
+    files — editing them must not trip the .atdd/ hand-edit clause."""
     from atdd.coach.commands import observer
 
     rule = _load_rule()

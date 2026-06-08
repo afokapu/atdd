@@ -8,7 +8,7 @@
 Per spec §4.6 absorption: when coach launches multiple issues and any
 worktree creation fails, every already-created worktree is removed via
 ``_remove_worktree`` (absorbed verbatim from
-``src/atdd/coach/commands/orchestrate.py``) before exit. No partial
+``src/atdd/coach/commands/wave_planning.py``) before exit. No partial
 state persists — neither orphaned worktrees nor ``decisions.jsonl``
 entries for the rolled-back creations.
 """
@@ -64,7 +64,7 @@ def _fake_remove_factory(removed: list[Path]):
 
 
 def _make_plan(numbers: list[int]):
-    from atdd.coach.commands._archived.orchestrate import PlannedIssue
+    from atdd.coach.commands.wave_planning import PlannedIssue
 
     return {
         n: PlannedIssue(

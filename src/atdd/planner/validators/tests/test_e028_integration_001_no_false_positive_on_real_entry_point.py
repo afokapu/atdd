@@ -36,9 +36,9 @@ def test_no_false_positive_on_real_entry_point(tmp_path):
             pytestmark = [pytest.mark.smoke, pytest.mark.platform]
 
             def invoke_atdd_spawn(agent_id, runtime_dir, adapter_command):
-                \"\"\"Real atdd spawn path via atdd-shim CLI.\"\"\"
+                \"\"\"Real atdd spawn path via the atdd CLI.\"\"\"
                 return subprocess.Popen(
-                    [sys.executable, "-m", "atdd.coach.shim",
+                    [sys.executable, "-m", "atdd.cli", "spawn",
                      "--agent-id", agent_id,
                      "--runtime-dir", str(runtime_dir),
                      "--",

@@ -16,12 +16,12 @@ Decision #1 of #387 fixes the regex set:
               whose names contain neither (RULE_EMPTY_RENDER, XSS_RULE_ID,
               RULE_DYNAMIC_TRAIN_ID, RULE_ALLOWLIST_MIGRATION, …).
   Pattern C — catch-all for any keyword-arg string literal that names
-              ``rule_id`` (e.g. babysit's auto-approval builder); ensures a
+              ``rule_id`` (e.g. the bash-auto-approve builder); ensures a
               non-Violation constructor still gets scanned.
 
 Out-of-scope for v1: dynamic emissions where the rhs is an attribute or
-subscript reference instead of a string literal (e.g. babysit's per-rule
-loop where the rhs reads from a parsed config). These require AST +
+subscript reference instead of a string literal (e.g. a per-rule loop where
+the rhs reads from a parsed config). These require AST +
 control-flow analysis and are deferred until v1's false-negative rate
 forces the upgrade.
 

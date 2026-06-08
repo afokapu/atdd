@@ -1,11 +1,11 @@
 # URN: component:observe-and-correct:observer-runtime-and-rules:canonical_naming_drift:backend:application
 # Runtime: python
-# Purpose: Observer rule 14 — detect multiplexer surface name drift; re-apply canonical via babysit.correct_naming_drift.
+# Purpose: Observer rule 14 — detect multiplexer surface name drift; re-apply canonical via detectors.correct_naming_drift.
 
 """Observer rule 14 — ``coach.observer.canonical-naming-drift`` (spec §8.3).
 
-Absorbs ``babysit.correct_naming_drift`` verbatim per spec §0.2. The
-canonical-name source of truth is ``session_naming.is_canonical_name`` /
+The corrector is ``detectors.correct_naming_drift``. The canonical-name
+source of truth is ``session_naming.is_canonical_name`` /
 ``compute_canonical_name``. The rule fires per tick when any
 ``surface_state`` event in :class:`ObservedInput.events` carries a name
 that fails ``is_canonical_name``.
@@ -20,9 +20,8 @@ predicate and ``apply_correction``) is::
         "expected_canonical": "<the canonical name to re-apply>",
     }
 
-The ``expected_canonical`` field is what babysit's caller computes from
-``orchestrate-state.json::canonical_name`` (or
-``compute_canonical_name`` as a fallback) — pre-resolving it here keeps
+The ``expected_canonical`` field is the caller-computed canonical name
+(or ``compute_canonical_name`` as a fallback) — pre-resolving it here keeps
 the predicate pure.
 """
 from __future__ import annotations
@@ -31,14 +30,14 @@ from pathlib import Path
 from typing import Any, Dict, Iterable
 
 from atdd.coach.commands import observer
-from atdd.coach.commands._archived.babysit import correct_naming_drift
+from atdd.coach.observer_rules.detectors import correct_naming_drift
 from atdd.coach.utils.session_naming import is_canonical_name
 
 
 _RULE_ID = "coach.observer.canonical-naming-drift"
 _CORRECTION_TEXT = (
     "Multiplexer surface name has drifted from canonical — re-apply per "
-    "session_naming.format. See coach.orchestration.canonical-session-name."
+    "session_naming.format. See coach.session.canonical-session-name."
 )
 
 
@@ -64,7 +63,7 @@ def apply_correction(
     log_path: Path,
     applied_cache: Dict[str, str],
 ) -> None:
-    """Side-effect path that calls babysit.correct_naming_drift verbatim.
+    """Side-effect path that calls ``detectors.correct_naming_drift``.
 
     Iterates each ``surface_state`` event and re-applies the canonical
     name when drift is detected. Already-canonical surfaces are skipped

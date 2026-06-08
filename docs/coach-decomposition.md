@@ -165,7 +165,7 @@ Rule: **Train is not the Temporal/LangGraph-equivalent. TrainRunner is the equiv
 | **`atdd.train`** | Stateful orchestration: sessions, retries, event loop, wave concurrency, resume, persistence reads/writes, conventions loading | Phase semantics, persona mapping, spawn mechanics, GitHub API calls |
 | **`atdd.runtime.worktree`** | git worktree create/remove, branch safety, working-tree invariants | Phase decisions, GitHub label state |
 | **`atdd.runtime.multiplexer`** | cmux/tmux/zellij surface CREATE / ATTACH / CLOSE for **observability only** | Prompt delivery, ready detection, stdin forwarding |
-| **`atdd.runtime.agent_control`** | Worker spawn (shim), prompt delivery, ready detection, correction inbox, stdin forwarding, agent done signals, transport selection | Phase decisions, terminal rendering |
+| **`atdd.runtime.agent_control`** | Worker spawn (cmux-native), prompt delivery, ready detection, agent done signals, transport selection | Phase decisions, terminal rendering |
 | **`atdd.integrations.github`** | Issue labels, Projects v2 fields, PR state/merge, check runs | Phase semantics, decision logic |
 | **`atdd.validators`** | Run validation against repo state, emit `ValidatorReport` rows | Decide what to do with violations |
 | **`atdd.observer`** | Read events.jsonl + per-agent output.log; surface in CLI/TUI | Write any orchestration state |
@@ -645,9 +645,9 @@ class DispatchSpec:
 > reason `Multiplexer.attach_view(handle)` (§4.9) types its handle argument
 > structurally (`object`) instead of importing `AgentHandle` from the sibling
 > runtime layer. The actual adapter argv is passed to
-> `ShimAgentController.spawn(spec, *, agent_command=...)` (the production cmux
-> path uses `build_dispatch_command` + `prepare`); `DispatchSpec` itself is
-> unchanged from this contract.
+> the cmux-native launcher (`CmuxAgentController`, #978/#979) — which uses
+> `build_dispatch_command` + `prepare`; `DispatchSpec` itself is unchanged
+> from this contract.
 
 ```python
 @dataclass(frozen=True)
@@ -691,13 +691,16 @@ class AgentController(Protocol):
     def stop(self, handle: AgentHandle, *, reason: str) -> None: ...
 ```
 
-Implementations:
+Implementations (historical Child-6 decomposition):
+
+> **Superseded (#978/#979):** the pty-owning launch transport below was replaced
+> by the cmux-native launcher (`src/atdd/runtime/agent_control/cmux_launch.py`).
+> This table is retained as a record of the original decomposition.
 
 | Class | Status | Notes |
 |---|---|---|
-| `ShimAgentController` | Default, ships in Child 6 | pty shim + cli-return.jsonl + output.log heartbeat |
-| `TuiScrapeAgentController` | Deprecated path, ships in Child 6 | Legacy fallback; marked `@deprecated`; closed in a future cycle once parity proven |
-| `HeadlessPrintController` | Optional, ships in Child 6 | `claude -p` for CI / non-interactive runs |
+| `CmuxAgentController` | Default (#978/#979) | cmux-native: positional-prompt first turn; decisions ride the cmux Feed |
+| `HeadlessPrintController` | Optional | `claude -p` for CI / non-interactive runs |
 
 ### 4.9 Multiplexer protocol (view-only)
 
@@ -1403,14 +1406,11 @@ Children #894, #895, and #896 carry historical slugs that include `workflow` (e.
 
 **Scope:**
 - Create `src/atdd/runtime/agent_control.py` with `AgentController` Protocol, `DispatchSpec`, `ReadyResult`, `AgentEvent`, `AgentSignal`, `AgentHandle` per §4.8.
-- Implement `ShimAgentController` (default): pty shim + `cli-return.jsonl` priming + `output.log` heartbeat ready detection + structured event stream.
-- Implement `TuiScrapeAgentController`: legacy screen-scrape path, marked `@deprecated`, behind feature flag `ATDD_USE_LEGACY_SPAWN=1`.
+- Implement `CmuxAgentController` (default, #978/#979): cmux-native launch — the agent's positional prompt seeds AND auto-submits the first turn; decisions ride the cmux Feed hooks.
 - Implement `HeadlessPrintController`: `claude -p` for non-interactive use.
-- Fix shim submit gap so `deliver_prompt` actually submits (closes #872).
-- Fix stdin forwarding so `signal(INTERRUPT)` reaches the wrapped agent (closes #871).
 - Create `src/atdd/runtime/multiplexer.py` with the view-only `Multiplexer` Protocol (§4.9). Strip all control methods (`paste_text`, `send_key`, `capture_pane_text`) — they MUST NOT exist on the Protocol surface.
-- Migrate `atdd.coach.commands.spawn` to dispatch through `ShimAgentController` by default.
-- Add `runtime.agent_control` tests including a real-shim integration test that asserts `deliver_prompt` actually submits.
+- Migrate `atdd.coach.commands.spawn` to dispatch through `CmuxAgentController` by default.
+- Add `runtime.agent_control` tests for the cmux-native launch shape.
 
 **Out of scope:**
 - The actual train runner (Child 8).
@@ -1647,7 +1647,7 @@ Highest-leverage waves for operator experience: **B** and **C**. After Wave C al
 | **Verdict** | Coach's decision (PROCEED/STAY/BLOCKED/ESCALATE) with rule references |
 | **Conventions snapshot** | Frozen conventions YAML for a single run; guarantees replay determinism |
 | **events.jsonl** | Single-writer (train runner) append-only event log |
-| **cli-return.jsonl** | Correction inbox the shim drains to deliver prompts |
+| **cli-return.jsonl** | Correction inbox the worker drains to receive mid-run corrections |
 | **output.log** | tee'd output from a wrapped agent; observer reads it |
 | **Run** | One execution of `TrainRunner.start_issue`; identified by `run_id` |
 | **Wave** | A batch of issues run concurrently |

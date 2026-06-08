@@ -64,7 +64,7 @@ def test_screen_reflects_canonical_name_after_rename():
         "send_key('Enter') must be called to submit the /rename command"
     )
 
-    # Reading the screen (simulating what a live operator or babysit would do)
+    # Reading the screen (simulating what a live operator would do)
     # shows the canonical name — proving the rename was submitted
     screen_content = mx.read_screen(SURFACE_REF)
     assert CANONICAL_NAME in screen_content, (

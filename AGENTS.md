@@ -311,16 +311,16 @@ git:
     incident_2026_05_12: "An agent debugging the #583 prepush-validator hook ran `git config core.bare true` directly inside its worktree; that wrote to the SHARED .git/config and contaminated main + sibling worktrees. The #629 Layer 1 hook caught the push (Wave 12 PRs #625/#627 also stopped at push), but the local mess cycled for hours before the root cause (worktrees share .git/config by default) was understood. extensions.worktreeConfig was enabled afterwards."
 
   # ─── PARALLEL WORK VIA WORKTREE + CMUX ────────────────────────────────
-  # Machine-readable rules for parallel agent sessions (waves, babysitter,
-  # prompt approval policy, violation patterns, merge cascade, telemetry)
-  # live in the orchestration convention file. A human-facing overview of
-  # when/why to parallelize is retained under git.branching above.
+  # Machine-readable rules for parallel agent sessions (waves, cmux-native
+  # launch, Feed mediation, observer corrections) live in the coach
+  # activation + operating-protocol convention file. A human-facing overview
+  # of when/why to parallelize is retained under git.branching above.
   # ───────────────────────────────────────────────────────────────────────
   parallelization:
-    see: "src/atdd/coach/conventions/orchestration.convention.yaml"
+    see: "src/atdd/coach/conventions/coach.convention.yaml"
     cli:
-      - "atdd orchestrate <issue-numbers...>"
-      - "atdd babysit [--interval 60]"
+      - "atdd coach <issue-numbers...>"
+      - "atdd coach start | wait | next | daemons | stop"
       - "atdd merge-cascade <pr-numbers...>"
       - "atdd session-template <issue-number>"
 

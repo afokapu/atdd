@@ -54,7 +54,7 @@ def test_cli_return_dispatch_writes_to_return_channel(tmp_path: Path):
     dispatcher = observer.InjectionDispatcher()
     cor = observer.Correction(
         agent_id="agent-A",
-        rule_id="coach.orchestration.read-only-git-diagnostics",
+        rule_id="coach.observer.bash-read-only-git-diagnostics",
         severity=3,
         disposition="advisory",
         correction_text="please correct yourself",
@@ -68,7 +68,7 @@ def test_cli_return_dispatch_writes_to_return_channel(tmp_path: Path):
     )
     content = return_channel.read_text()
     assert "please correct yourself" in content
-    assert "coach.orchestration.read-only-git-diagnostics" in content
+    assert "coach.observer.bash-read-only-git-diagnostics" in content
 
 
 def test_multiplexer_send_dispatch_invokes_multiplexer(tmp_path: Path):
@@ -84,7 +84,7 @@ def test_multiplexer_send_dispatch_invokes_multiplexer(tmp_path: Path):
 
     cor = observer.Correction(
         agent_id="agent-A",
-        rule_id="coach.orchestration.read-only-git-diagnostics",
+        rule_id="coach.observer.bash-read-only-git-diagnostics",
         severity=3,
         disposition="advisory",
         correction_text="nudge text",
@@ -106,7 +106,7 @@ def test_respawn_dispatch_invokes_callback(tmp_path: Path):
 
     cor = observer.Correction(
         agent_id="agent-A",
-        rule_id="coach.orchestration.read-only-git-diagnostics",
+        rule_id="coach.observer.bash-read-only-git-diagnostics",
         severity=5,
         disposition="strict",
         correction_text="catastrophic failure — kill and respawn",
@@ -124,7 +124,7 @@ def test_unsupported_injection_method_raises(tmp_path: Path):
     dispatcher = observer.InjectionDispatcher()
     cor = observer.Correction(
         agent_id="agent-A",
-        rule_id="coach.orchestration.read-only-git-diagnostics",
+        rule_id="coach.observer.bash-read-only-git-diagnostics",
         severity=3,
         disposition="advisory",
         correction_text="x",

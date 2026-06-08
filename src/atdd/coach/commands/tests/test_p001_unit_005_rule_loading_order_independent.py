@@ -19,7 +19,7 @@ def _seed_three_rules(rules_dir: Path) -> None:
     rules_dir.mkdir(parents=True, exist_ok=True)
     (rules_dir / "01-alpha.yaml").write_text(
         """
-rule_id: "coach.orchestration.read-only-git-diagnostics"
+rule_id: "coach.observer.bash-read-only-git-diagnostics"
 trigger:
   type: log_regex
   pattern: ".*ALPHA.*"
@@ -31,7 +31,7 @@ disposition: "advisory"
     )
     (rules_dir / "02-beta.yaml").write_text(
         """
-rule_id: "coach.orchestration.test-runner-invocations"
+rule_id: "coach.observer.bash-test-runner-invocations"
 trigger:
   type: log_regex
   pattern: ".*BETA.*"
@@ -43,7 +43,7 @@ disposition: "advisory"
     )
     (rules_dir / "03-gamma.yaml").write_text(
         """
-rule_id: "coach.orchestration.read-only-file-inspection"
+rule_id: "coach.observer.bash-read-only-file-inspection"
 trigger:
   type: log_regex
   pattern: ".*GAMMA.*"
@@ -70,9 +70,9 @@ def test_rules_load_alphabetically(tmp_path: Path):
     obs.load_rules()
     loaded_ids = [r.rule_id for r in obs.registry.rules]
     assert loaded_ids == [
-        "coach.orchestration.read-only-git-diagnostics",
-        "coach.orchestration.test-runner-invocations",
-        "coach.orchestration.read-only-file-inspection",
+        "coach.observer.bash-read-only-git-diagnostics",
+        "coach.observer.bash-test-runner-invocations",
+        "coach.observer.bash-read-only-file-inspection",
     ], f"Rules must load alphabetically by filename, got {loaded_ids}"
 
 

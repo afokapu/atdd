@@ -56,7 +56,7 @@ def _read_jsonl(path: Path) -> list[dict]:
 def test_phase_a_real_git_success_records_decisions(tmp_path, monkeypatch):
     from atdd.coach.commands import two_phase_commit
     from atdd.coach.commands.durability import DecisionWriter
-    from atdd.coach.commands._archived.orchestrate import PlannedIssue
+    from atdd.coach.commands.wave_planning import PlannedIssue
 
     repo = _make_repo(tmp_path)
     monkeypatch.chdir(repo)
@@ -105,7 +105,7 @@ def test_phase_a_real_git_failure_rolls_back(tmp_path, monkeypatch):
     creations."""
     from atdd.coach.commands import two_phase_commit
     from atdd.coach.commands.durability import DecisionWriter
-    from atdd.coach.commands._archived.orchestrate import PlannedIssue
+    from atdd.coach.commands.wave_planning import PlannedIssue
 
     # Only 358 and 359 have branches; 360 will fail.
     repo = _make_repo(tmp_path, branches=(358, 359))
@@ -158,7 +158,7 @@ def test_decisions_jsonl_is_append_only_and_stays_durable(tmp_path, monkeypatch)
     no orphaned worktrees."""
     from atdd.coach.commands import two_phase_commit
     from atdd.coach.commands.durability import DecisionWriter
-    from atdd.coach.commands._archived.orchestrate import PlannedIssue
+    from atdd.coach.commands.wave_planning import PlannedIssue
 
     repo = _make_repo(tmp_path)
     monkeypatch.chdir(repo)

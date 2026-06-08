@@ -86,11 +86,13 @@ consume:
     from: wagon:observe-and-correct
 
 wmbt:
-  total: 7
+  total: 6
   L001: "minimize quantity of unsurfaced-rule-registry-entries-in-discovery-cli"
   L002: "minimize quantity of unsurfaced-disposition-archetype-and-suppression-listings"
   P001: "minimize ambiguity-in-per-llm-convention-file-regeneration"
   P002: "minimize quantity of unparsed-coach-config-fields"
   E001: "minimize likelihood of legacy-atdd-orchestrate-callsites-after-coach-v9"
   E002: "minimize likelihood of legacy-atdd-babysit-callsites-after-coach-v9"
-  E003: "minimize likelihood of decommissioned-stub-help-showing-functional-options"
+  # E003 (decommissioned-stub-help) removed in #985: the hard decommission
+  # eliminates the migration-message stubs entirely, so there is no stub
+  # --help left to police.

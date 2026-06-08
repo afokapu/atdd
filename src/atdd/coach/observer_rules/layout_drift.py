@@ -1,11 +1,11 @@
 # URN: component:observe-and-correct:observer-runtime-and-rules:layout_drift:backend:application
 # Runtime: python
-# Purpose: Observer rule 15 — detect surface count or arrangement drift; re-apply via babysit.correct_layout_drift.
+# Purpose: Observer rule 15 — detect surface count or arrangement drift; re-apply via detectors.correct_layout_drift.
 
 """Observer rule 15 — ``coach.observer.layout-drift`` (spec §8.3).
 
-Absorbs ``babysit.correct_layout_drift`` verbatim per spec §0.2. The
-canonical-layout source of truth is ``session_naming.target_grid_label``.
+The corrector is ``detectors.correct_layout_drift``. The canonical-layout
+source of truth is ``session_naming.target_grid_label``.
 
 The structured ``layout_state`` event shape (consumed by both predicate
 and ``apply_correction``) is::
@@ -28,14 +28,14 @@ from pathlib import Path
 from typing import Any, Dict, Iterable
 
 from atdd.coach.commands import observer
-from atdd.coach.commands._archived.babysit import correct_layout_drift
+from atdd.coach.observer_rules.detectors import correct_layout_drift
 from atdd.coach.utils.session_naming import target_grid_label
 
 
 _RULE_ID = "coach.observer.layout-drift"
 _CORRECTION_TEXT = (
     "Multiplexer layout has drifted from the canonical grid — re-apply per "
-    "layout_placement.policy. See coach.orchestration.layout-conformance."
+    "layout_placement.policy. See coach.session.layout-conformance."
 )
 
 
@@ -65,7 +65,7 @@ def apply_correction(
     log_path: Path,
     layout_cache: Dict[str, str],
 ) -> bool:
-    """Side-effect path that calls babysit.correct_layout_drift verbatim.
+    """Side-effect path that calls ``detectors.correct_layout_drift``.
 
     Returns True when a re-apply was actually issued (i.e.,
     ``correct_layout_drift`` returned True), False when the layout band

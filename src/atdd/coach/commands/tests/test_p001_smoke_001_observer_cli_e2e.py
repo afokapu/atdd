@@ -78,7 +78,7 @@ def test_observer_cli_discovers_rules_fires_correction_writes_jsonl(
     # orchestration.convention.yaml — borrowed for test purposes).
     (rules_dir / "10-bang.yaml").write_text(
         """
-rule_id: "coach.orchestration.read-only-git-diagnostics"
+rule_id: "coach.observer.bash-read-only-git-diagnostics"
 trigger:
   type: log_regex
   pattern: ".*BANG.*"
@@ -130,7 +130,7 @@ disposition: "advisory"
     )
     assert r2.returncode == 0
     assert "stop emitting BANG" in r2.stdout
-    assert "coach.orchestration.read-only-git-diagnostics" in r2.stdout
+    assert "coach.observer.bash-read-only-git-diagnostics" in r2.stdout
 
 
 def test_observer_cli_surfaces_malformed_rule_via_meta_load_error(

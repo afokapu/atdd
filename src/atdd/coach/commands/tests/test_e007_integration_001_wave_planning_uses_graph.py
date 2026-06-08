@@ -108,7 +108,7 @@ def test_downstream_wagon_issue_held_in_later_wave(
     _scaffold_repo(tmp_path)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "atdd.coach.commands._archived.orchestrate.fetch_issue",
+        "atdd.coach.commands.wave_planning.fetch_issue",
         _fake_fetch_issue,
     )
 

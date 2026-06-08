@@ -1,4 +1,4 @@
-# URN: component:govern-lifecycle:enforcement-substrate:test_orchestration_session_naming:backend:domain
+# URN: component:govern-lifecycle:enforcement-substrate:test_session_naming:backend:domain
 # Runtime: python
 # Purpose: Audit canonical session naming + layout placement (issue #470).
 
@@ -6,12 +6,12 @@
 
 Enforces (advisory):
 
-    * ``coach.orchestration.canonical-session-name`` — every active ATDD
+    * ``coach.session.canonical-session-name`` — every active ATDD
       session name (cmux tab + Claude session) matches
       ``<REPO><N>[-phase<M>]-<slug>``.
-    * ``coach.orchestration.layout-conformance`` — workspace surfaces
+    * ``coach.session.layout-conformance`` — workspace surfaces
       follow the right-of-shell grid policy in
-      ``orchestration.convention.yaml::layout_placement.policy``.
+      ``session.convention.yaml::layout_placement.policy``.
 
 The active-introspection branch (querying cmux for live workspaces and
 their tab titles) is **best-effort** — when cmux is not on PATH or the
@@ -26,7 +26,7 @@ to this module.
 
 Run:
     PYTHONPATH=src python3 -m pytest -q \
-        src/atdd/coach/validators/test_orchestration_session_naming.py -v
+        src/atdd/coach/validators/test_session_naming.py -v
 """
 
 from __future__ import annotations
@@ -55,13 +55,13 @@ from atdd.coach.validators._violation import Violation
 pytestmark = [pytest.mark.coach]
 
 
-_RULE_NAME = bind_rule("coach.orchestration.canonical-session-name")
-_RULE_LAYOUT = bind_rule("coach.orchestration.layout-conformance")
+_RULE_NAME = bind_rule("coach.session.canonical-session-name")
+_RULE_LAYOUT = bind_rule("coach.session.layout-conformance")
 
 
 _ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
-_ORCHESTRATION_CONVENTION = (
-    _ATDD_PKG_DIR / "coach" / "conventions" / "orchestration.convention.yaml"
+_SESSION_CONVENTION = (
+    _ATDD_PKG_DIR / "coach" / "conventions" / "session.convention.yaml"
 )
 
 
@@ -69,17 +69,17 @@ _ORCHESTRATION_CONVENTION = (
 # Convention loaders
 # ---------------------------------------------------------------------------
 def _load_convention() -> Dict:
-    if _ORCHESTRATION_CONVENTION.is_file():
-        path = _ORCHESTRATION_CONVENTION
+    if _SESSION_CONVENTION.is_file():
+        path = _SESSION_CONVENTION
     else:
         from atdd.coach.utils.repo import find_repo_root
         path = (
             find_repo_root()
             / "src" / "atdd" / "coach" / "conventions"
-            / "orchestration.convention.yaml"
+            / "session.convention.yaml"
         )
         if not path.is_file():
-            pytest.fail(f"orchestration convention missing at {_ORCHESTRATION_CONVENTION}")
+            pytest.fail(f"session convention missing at {_SESSION_CONVENTION}")
     with open(path) as fh:
         return yaml.safe_load(fh) or {}
 
@@ -87,14 +87,14 @@ def _load_convention() -> Dict:
 def _session_naming_block() -> Dict:
     block = _load_convention().get("session_naming")
     if not isinstance(block, dict):
-        pytest.fail("orchestration.convention.yaml::session_naming block missing")
+        pytest.fail("session.convention.yaml::session_naming block missing")
     return block
 
 
 def _layout_block() -> Dict:
     block = _load_convention().get("layout_placement")
     if not isinstance(block, dict):
-        pytest.fail("orchestration.convention.yaml::layout_placement block missing")
+        pytest.fail("session.convention.yaml::layout_placement block missing")
     return block
 
 
@@ -152,7 +152,7 @@ def _build_naming_violations() -> List[Violation]:
             Violation(
                 rule_id=_RULE_NAME.rule_id,
                 severity=_RULE_NAME.severity,
-                location="orchestration.convention.yaml:session_naming.regex",
+                location="session.convention.yaml:session_naming.regex",
                 detail="session_naming.regex is missing or empty",
             )
         )
@@ -164,7 +164,7 @@ def _build_naming_violations() -> List[Violation]:
                 Violation(
                     rule_id=_RULE_NAME.rule_id,
                     severity=_RULE_NAME.severity,
-                    location="orchestration.convention.yaml:session_naming.regex",
+                    location="session.convention.yaml:session_naming.regex",
                     detail=f"session_naming.regex does not compile: {exc}",
                 )
             )
@@ -179,7 +179,7 @@ def _build_naming_violations() -> List[Violation]:
                 Violation(
                     rule_id=_RULE_NAME.rule_id,
                     severity=_RULE_NAME.severity,
-                    location=f"orchestration.convention.yaml:session_naming.exemplars[{idx}]",
+                    location=f"session.convention.yaml:session_naming.exemplars[{idx}]",
                     detail=(
                         f"exemplar {exemplar!r} does not match the canonical regex — "
                         "either the exemplar is wrong or the regex needs widening"
@@ -198,7 +198,7 @@ def _build_naming_violations() -> List[Violation]:
                 location=f"cmux:{ref}",
                 detail=(
                     f"surface {ref!r} has non-canonical name {name!r}; "
-                    "run `atdd babysit` to auto-correct"
+                    "the observer auto-corrects drift on the next tick"
                 ),
                 fix_hint_ref=_RULE_NAME.fix_hint,
             )
@@ -217,7 +217,7 @@ def _build_layout_violations() -> List[Violation]:
             Violation(
                 rule_id=_RULE_LAYOUT.rule_id,
                 severity=_RULE_LAYOUT.severity,
-                location="orchestration.convention.yaml:layout_placement.policy",
+                location="session.convention.yaml:layout_placement.policy",
                 detail="layout_placement.policy block missing or empty",
             )
         )
@@ -241,7 +241,7 @@ def _build_layout_violations() -> List[Violation]:
 
 
 # ---------------------------------------------------------------------------
-# Public test entry points (referenced by orchestration.convention.yaml)
+# Public test entry points (referenced by session.convention.yaml)
 # ---------------------------------------------------------------------------
 def test_active_session_names_canonical():
     """Canonical session names match <REPO><N>[-phase<M>]-<slug>.
@@ -321,6 +321,6 @@ def test_exemplars_round_trip():
     assert exemplars, "session_naming.exemplars must be non-empty for documentation value"
     for exemplar in exemplars:
         assert is_canonical_name(exemplar), (
-            f"exemplar {exemplar!r} declared in orchestration.convention.yaml::"
+            f"exemplar {exemplar!r} declared in session.convention.yaml::"
             "session_naming.exemplars does not match the canonical regex"
         )

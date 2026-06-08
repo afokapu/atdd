@@ -1,8 +1,8 @@
 # Observer rule 15 — coach.observer.layout-drift
 # Spec: atdd-coach-spec-v9.md §8.3.
-# Issue #513 (L4) — absorbs babysit.correct_layout_drift verbatim per §0.2.
+# Implemented by detectors.correct_layout_drift (observer_rules/detectors.py).
 # On drift, the rule's apply_correction() calls correct_layout_drift() which
-# logs coach.orchestration.layout-conformance (orchestration.convention.yaml).
+# logs coach.session.layout-conformance (session.convention.yaml).
 
 trigger:
   type: python

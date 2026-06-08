@@ -12,8 +12,8 @@ from typing import Any, Optional
 from atdd.coach.utils.multiplexer import MultiplexerError
 from atdd.coach.utils.session_naming import target_grid_label
 
-CANONICAL_SESSION_NAME_RULE_ID = "coach.orchestration.canonical-session-name"
-LAYOUT_CONFORMANCE_RULE_ID = "coach.orchestration.layout-conformance"
+CANONICAL_SESSION_NAME_RULE_ID = "coach.session.canonical-session-name"
+LAYOUT_CONFORMANCE_RULE_ID = "coach.session.layout-conformance"
 
 _UUID_FILENAME_PATTERN = re.compile(r"^([a-f0-9-]{36})\.jsonl$")
 
@@ -68,7 +68,7 @@ def apply_canonical_name_and_layout(
     """Apply canonical name via multiplexer-level rename (tab/window title only).
 
     M001 (#829): The Claude /rename slash-command injection is removed. Session
-    naming is delegated to the shim-owned pty metadata (issue #824). Only the
+    naming is delegated to the cmux-native launch metadata (#978). Only the
     multiplexer-level backend.rename() call (which sets the tab/window title) is
     retained as a best-effort cosmetic. The ``verify_after_send`` parameter is
     preserved in the signature for call-site compat but is now a no-op since

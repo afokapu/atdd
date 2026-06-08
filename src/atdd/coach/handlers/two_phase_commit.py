@@ -1,7 +1,7 @@
 """Two-phase-commit handler — COMPLETE → MERGED wiring (issue #590).
 
 Wires the COMPLETE → MERGED state transition to the J4 two-phase commit
-discipline absorbed from `atdd orchestrate`:
+discipline (worktree primitives in `commands/wave_planning.py`):
   Phase A: create PR via `atdd pr <N>` (validates default-branch base per #477)
   Phase B: merge via `gh pr merge --squash --delete-branch`
   Phase D: cleanup worktree (best-effort; failure → warn, still MERGED)

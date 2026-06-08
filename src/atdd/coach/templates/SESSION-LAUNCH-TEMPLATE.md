@@ -21,7 +21,7 @@ worktree at `{{worktree_path}}` on branch `{{branch}}`.
 - **Branch:** {{branch}}
 - **Train:** {{train}}
 - **Feature:** {{feature}}
-- **Canonical session name:** `{{canonical_session_name}}` (per orchestration.convention.yaml::session_naming — issue #470). The cmux tab and Claude session header should both match this; if they don't, run `/rename {{canonical_session_name}}` and the babysitter will reconcile the cmux side on the next tick.
+- **Canonical session name:** `{{canonical_session_name}}` (per session.convention.yaml::session_naming — issue #470). The cmux tab and Claude session header should both match this; if they don't, run `/rename {{canonical_session_name}}` and the observer will reconcile the cmux side on the next tick.
 
 ## Dependencies
 
