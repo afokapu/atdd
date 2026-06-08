@@ -59,9 +59,19 @@ def _git_worktrees(cwd: str) -> List[str]:
             text=True,
             timeout=5,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as exc:
+        # Not fatal: cwd may not be a git repo or git may be unavailable. The cwd
+        # itself is still scoped via its realpath; we just can't add worktrees.
+        _log.debug(
+            "git worktree list failed; scoping without worktree augmentation",
+            extra={"cwd": cwd, "error": repr(exc)},
+        )
         return []
     if out.returncode != 0:
+        _log.debug(
+            "git worktree list returned non-zero; cwd is likely not a git repo",
+            extra={"cwd": cwd, "returncode": out.returncode},
+        )
         return []
     paths: List[str] = []
     for line in out.stdout.splitlines():
