@@ -1,0 +1,109 @@
+urn: "wmbt:mediate-worker-decisions:L007"
+step: "locate"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-workspace-scoped-feed-read-excluding-a-legitimate-decision-from-a-worktree-launched-worker-or-silently-empty-scoping-a-watched-workspace"
+context_clarifier: "Real workers always run in a git worktree: cmux launches the workspace at the repo's launch cwd (e.g. .../atdd/main) and the worker then `cd`s into its flat-sibling worktree (.../atdd/feat-x) and runs claude there. The Feed item it raises carries the worker's CURRENT cwd (the worktree) and a workstream_id (claude-<session-uuid>) for the session the worker is actually running under — which is NOT the surface's resume_binding.checkpoint_id (that is the cmux-managed launch/resume session, a different uuid). So in CmuxFeedSource._resolve_scope the precise workstream match misses AND the cwd fallback misses (scope has the launch cwd, item has the worktree cwd — or vice versa), and the daemon scoped to that workspace drops the worker's decision: no verdict, no escalation, worker parked. Worse, when surface.list returns nothing usable, the safe empty-scope silently swallows EVERY decision of a workspace the daemon was explicitly told to watch. Fix: resolve the worktree set of each surface's launch cwd (git worktree list) and accept the worktree the worker cd'd into as the workspace's cwd; and NEVER silently empty-scope a watched workspace — degrade to a loud permissive scope rather than swallow its decisions. cmux/git specifics stay in the integration tier; WorkspaceScope stays a pure membership predicate."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the workspace-scoped feed read excluding a legitimate decision from a worktree-launched worker or silently empty-scoping a watched workspace"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:L007-UNIT-001-permissive-scope-owns-every-item"
+      id: "AC-UNIT-001"
+      purpose: "A permissive WorkspaceScope (the watched-but-unresolvable degrade) owns every item; a non-permissive scope still excludes a sibling workspace's item"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A permissive WorkspaceScope holding no workstream_ids and no cwds"
+        - "A non-permissive WorkspaceScope holding only the configured workstream identity"
+        - "A mixed list of FeedItems across two workspaces"
+    when:
+      abstract: "Each scope filters the mixed list"
+      action: "invoke"
+    then:
+      abstract:
+        - "The permissive scope returns every item rather than silently dropping the watched workspace's decisions"
+        - "The non-permissive scope still excludes the sibling workspace's item"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:L007-INTEGRATION-001-worktree-cwd-item-included"
+      id: "AC-INTEGRATION-001"
+      purpose: "A worktree-launched item (workstream_id not in the surface's checkpoints, cwd = the sibling worktree the worker cd'd into, differing from the surface's launch cwd) is INCLUDED by the scoped source because the launch cwd's worktrees are resolved; an item from another workspace is still excluded"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A fake cmux runner whose surface.list returns the watched workspace's surface with a launch cwd and a resume checkpoint that does NOT equal the item's workstream session"
+        - "An injected worktrees resolver mapping the launch cwd to its flat-sibling worktrees"
+        - "A global feed.list carrying a worktree-cwd item for the watched workspace and a sibling-workspace item"
+    when:
+      abstract: "list_pending is called on the workspace-scoped source"
+      action: "invoke"
+    then:
+      abstract:
+        - "The worktree-launched item is returned (matched via the launch cwd's resolved worktree, not the stale checkpoint)"
+        - "The sibling workspace's item is still excluded"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:L007-INTEGRATION-002-unresolvable-surface-list-does-not-silently-empty-scope"
+      id: "AC-INTEGRATION-002"
+      purpose: "When surface.list yields nothing usable for a watched workspace, the source does NOT silently empty-scope (swallowing every decision) — it degrades to a loud permissive scope so the watched workspace's items still flow"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A fake cmux runner whose surface.list returns an empty / unusable payload for the watched workspace and whose feed.list carries a pending decision"
+    when:
+      abstract: "list_pending is called on the workspace-scoped source"
+      action: "invoke"
+    then:
+      abstract:
+        - "The pending decision is still returned (not silently swallowed by an empty scope)"
+        - "The degrade is logged loudly rather than treated as a no-op"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:L007-SMOKE-001-live-worktree-worker-decision-not-swallowed"
+      id: "AC-SMOKE-001"
+      purpose: "A real cmux-native worker that cd's into a git worktree raises a live decision; a workspace-scoped CmuxFeedSource for that workspace INCLUDES it (the daemon would decide or escalate it, not silently swallow it) — the #993/#1004 worktree regression proof"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real Claude worker launched cmux-native whose surface launch cwd is a repo root and which cd's into a flat-sibling git worktree, blocked on a live AskUserQuestion"
+    when:
+      abstract: "A workspace-scoped CmuxFeedSource is built for that worker's workspace and polled"
+      action: "invoke"
+    then:
+      abstract:
+        - "The scoped source returns the worktree-launched worker's pending decision rather than scoping it out"
+        - "The match is captured as evidence (the worktree cwd / workstream that was included)"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
