@@ -1,6 +1,17 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1014'
+  slug: safety-gate-danger-denylist-incomplete
+  file: null
+  issue_number: 1014
+  type: implementation
+  status: PLANNED
+  created: '2026-06-08'
+  archived: null
+  branch: feat/safety-gate-danger-denylist-incomplete
+  wagon: mediate-worker-decisions
+  feature: feature:mediate-worker-decisions:mediate-decision
 - id: '960'
   slug: intra-layer-duplication-detector-counts-header-boilerplate
   file: null

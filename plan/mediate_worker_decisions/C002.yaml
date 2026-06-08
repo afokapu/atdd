@@ -5,7 +5,7 @@ step: "confirm"
 direction: "minimize"
 dimension: "likelihood"
 object_of_control: "a-dangerous-action-being-auto-applied-instead-of-escalated-to-a-human"
-context_clarifier: "when a decision request involves a dangerous action (git push, git merge, gh pr merge, rm -rf, force push, destructive migration) the safety gate must classify it human_required BEFORE the coach is ever consulted, and an escalation must be emitted"
+context_clarifier: "when a decision request involves a dangerous action the safety gate must classify it human_required BEFORE the coach is ever consulted, and an escalation must be emitted. The danger set must cover destructive git/fs/db operations — not only push/merge but also reset --hard, clean -fd/-x, branch -D, checkout --force/., restore, stash drop/clear, rebase, update-ref -d, reflog expire, plus DELETE FROM, TRUNCATE, dd, mkfs, chmod -R, truncate -s (#1014). An incomplete denylist that defaults the long tail to auto is the defect."
 lens: "functional.effectiveness"
 statement: "minimize likelihood of a dangerous action being auto applied instead of escalated to a human"
 acceptances:
@@ -28,6 +28,31 @@ acceptances:
       abstract:
         - "Every dangerous request is human_required"
         - "The ordinary request is auto_apply"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "mediate-decision"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C002-UNIT-002-unrecognized-destructive-human-required"
+      id: "AC-UNIT-002"
+      purpose: "Destructive operations BEYOND the original push/merge denylist (reset --hard, clean -fd, branch -D, rebase, restore, DELETE FROM, truncate, dd, mkfs, chmod -R, ...) classify human_required; read-only command labels (git status, ls -la, pytest -q) classify auto_apply. Guards against denylist incompleteness (#1014)."
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Requests whose option labels are destructive ops absent from the original denylist (e.g. git reset --hard, git clean -fd, git branch -D, git rebase, DELETE FROM users)"
+        - "Requests whose option labels are read-only commands (git status, ls -la, pytest -q)"
+    when:
+      abstract: "The safety classifier classifies each request"
+      action: "invoke"
+    then:
+      abstract:
+        - "Every destructive request is human_required"
+        - "Every read-only request is auto_apply"
       assertions:
         - type: "equals"
     signal: {}

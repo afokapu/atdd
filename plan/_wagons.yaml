@@ -1238,7 +1238,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 37
+    total: 38
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
@@ -1306,8 +1306,8 @@ wagons:
       so the daemon writes neither a verdict nor an escalation
     M004: minimize likelihood of a managed daemon being spawned with its output discarded
       so runtime failures are unobservable
-    M005: minimize likelihood of a managed daemon spawned as a detached orphaned
-      process whose cmux rpc calls broken pipe so it silently never decides
+    M005: minimize likelihood of a managed daemon spawned as a detached orphaned process
+      whose cmux rpc calls broken pipe so it silently never decides
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/
