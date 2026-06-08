@@ -34,6 +34,7 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_reply_mapper
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.tool_input_safety import (
     HUMAN_REQUIRED,
     classify,
+    is_dangerous,
 )
 from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import (
     CAUSE_DANGEROUS,
@@ -163,8 +164,13 @@ class FeedRunnerUseCase:
 def _has_dangerous_block(document: DecisionDocument) -> bool:
     """A confirm block whose prompt matches a danger pattern makes the whole
     document human-required (WMBT C005). Group compositions are flattened by
-    ``leaf_blocks`` so a dangerous block nested in a group is still caught."""
+    ``leaf_blocks`` so a dangerous block nested in a group is still caught.
+
+    A confirm-block prompt is prose, not a shell command, so it is checked with
+    the danger-pattern matcher — NOT the allowlist command gate (``classify``),
+    which escalates-by-default and would force every benign confirm to a human
+    (#1014)."""
     return any(
-        block.kind == CONFIRM and classify(block.prompt) == HUMAN_REQUIRED
+        block.kind == CONFIRM and is_dangerous(block.prompt)
         for block in document.leaf_blocks()
     )

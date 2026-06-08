@@ -3,7 +3,7 @@ step: "confirm"
 direction: "minimize"
 dimension: "likelihood"
 object_of_control: "auto-replying-to-a-dangerous-tool-use-without-human-review"
-context_clarifier: "when a feed permission item requests a dangerous tool use (git push, git merge, rm -rf, destructive migration) the safety gate must classify it human_required and the bridge must NOT auto-reply — leaving the agent's 120s soft-wait to fall through to a human"
+context_clarifier: "the tool_input safety gate auto-approves ONLY a known read-only allowlist (git status/log/diff/show, ls, cat, head, tail, grep, rg, find without -delete/-exec, echo, pwd, which, pytest, atdd validate/gate); every other or unrecognized command is human_required and the bridge must NOT auto-reply — leaving the agent's 120s soft-wait to fall through to a human. Escalate-by-default: a denylist whose default disposition is auto is forbidden, because it silently auto-approved git reset --hard, git clean -fd, and git branch -D (#1014)."
 lens: "functional.effectiveness"
 statement: "minimize likelihood of auto replying to a dangerous tool use without human review"
 acceptances:
@@ -55,6 +55,31 @@ acceptances:
       assertions:
         - type: "equality"
         - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "bridge-cmux-feed"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C003-UNIT-003-unrecognized-command-escalates-by-default"
+      id: "AC-UNIT-003"
+      purpose: "The tool_input gate is allowlist-based: a read-only command (git status, ls -la, pytest -q) is auto; any unrecognized or destructive command absent from the original denylist (git reset --hard, git clean -fd, git branch -D, git rebase, git restore ., DELETE FROM, dd if=, mkfs, chmod -R) is human_required. Escalate-by-default — the denylist's auto default is the defect (#1014)."
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "tool_input commands that are read-only (git status, ls -la, pytest -q)"
+        - "tool_input commands that are destructive or unrecognized and absent from the original denylist (git reset --hard, git clean -fd, git branch -D, dd if=/dev/zero, mkfs.ext4)"
+    when:
+      abstract: "The tool_input safety gate classifies each command"
+      action: "invoke"
+    then:
+      abstract:
+        - "Each read-only command is auto"
+        - "Each unrecognized or destructive command is human_required"
+      assertions:
+        - type: "equals"
     signal: {}
     metadata:
       wagon: "mediate-worker-decisions"
