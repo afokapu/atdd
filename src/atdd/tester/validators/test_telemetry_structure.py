@@ -507,7 +507,7 @@ def test_telemetry_acceptance_references_exist():
         pytest.skip("No acceptance URNs found in plan/")
 
     urn_pattern = re.compile(
-        r"^acc:[a-z][a-z0-9_-]*:([DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-[0-9]{3}(?:-[a-z0-9-]+)?|[A-Z][0-9]{3})$"
+        r"^acc:[a-z][a-z0-9_-]*:([DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?|[A-Z][0-9]{3})$"
     )
 
     missing = []

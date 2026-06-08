@@ -138,7 +138,8 @@ class URNBuilder:
         'rls': 'RLS',
         'edge_function': 'EDGE',
         'realtime': 'REALTIME',
-        'storage': 'STORAGE'
+        'storage': 'STORAGE',
+        'smoke': 'SMOKE'
     }
 
     _MANIFEST_STATE = {}
@@ -155,10 +156,10 @@ class URNBuilder:
         'test': (
             r'^test:('
             # V3 acceptance: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
-            r'[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z]\d{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-\d{3}-[a-z0-9][a-z0-9-]*'
+            r'[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z]\d{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\d{3}-[a-z0-9][a-z0-9-]*'
             r'|'
             # V3 journey: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
-            r'train:\d{4}-[a-z0-9][a-z0-9-]*:(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-\d{3}-[a-z0-9][a-z0-9-]*'
+            r'train:\d{4}-[a-z0-9][a-z0-9-]*:(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\d{3}-[a-z0-9][a-z0-9-]*'
             r'|'
             # Legacy dot format (migration support)
             r'[a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)*(?:\.[a-z0-9-]+)?'
@@ -179,7 +180,7 @@ class URNBuilder:
         # `[DLPCEMYRK]\d{3}-<HARNESS>-\d{3}` greedily before the train branch).
         'acc': (
             r'^acc:[a-z0-9][a-z0-9-]*:('
-            r'[DLPCEMYRK][0-9]{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE)-[0-9]{3}(?:-[a-z0-9-]+)?'
+            r'[DLPCEMYRK][0-9]{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?'
             r'|'
             r'[a-z][a-z0-9-]*'
             r')$'
