@@ -145,4 +145,17 @@ def surface_workspace_resolves_live_smoke() -> dict[str, Any]:
     Returns ``{"resolved_handle": str, "error": str|None}``. Creates and cleans
     up its own throwaway workspace.
     """
-    raise NotImplementedError  # SMOKE/GREEN: resolve a live worker surface's workspace
+    ws, surface = _new_workspace("e005-smoke")
+    resolved = ""
+    error: str | None = None
+    try:
+        # surface_workspace iterates list_workspaces() (now sanitized) and
+        # cross-references list-panes — the exact path that crashed on a
+        # decorated handle before the #1025 sanitizer landed.
+        resolved = CmuxBackend().surface_workspace(surface)
+    except Exception as exc:  # capture so the test asserts on the message
+        error = str(exc)
+    finally:
+        if ws:
+            _cmux("close-workspace", "--workspace", ws)
+    return {"resolved_handle": resolved, "error": error, "surface": surface}
