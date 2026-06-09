@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import time
 import uuid
@@ -388,6 +389,25 @@ def _coach_runtime_ledger_counts(root: Path) -> tuple[int, int]:
     return (verdicts, escalations)
 
 
+def _last_ledger_record(root: Path, kind: str) -> Optional[dict]:
+    """The most recent decision record of ``kind`` (verdicts|escalations) across
+    every workspace ledger — the durable proof a decision was mediated, captured
+    as evidence so the headline asserts a real record, not a log line."""
+    latest: Optional[dict] = None
+    for p in root.glob(f"*/{kind}.jsonl"):
+        if not p.is_file():
+            continue
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                latest = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+    return latest
+
+
 def _issue_status_label(issue: int) -> str:
     out = subprocess.run(
         ["gh", "issue", "view", str(issue), "--json", "labels",
@@ -402,14 +422,22 @@ def coach_dispatch_drives_fixture_live_smoke(*, timeout_s: int = 600) -> dict:
 
     The single autonomous command drives a REAL fixture issue (env
     ``ATDD_SMOKE_FIXTURE_ISSUE``): the dispatch spawns the worker (which publishes
-    to the Feed) AND attaches the workspace-scoped daemon, the daemon mediates the
-    worker's first decision (a verdict or escalation lands in the coach-runtime
-    ledger), and the worker ADVANCES (its issue status label changes). No human,
-    no ``cmux send``, no TUI. Anti-theater: asserts a recorded decision + a status
-    change, NOT a log line.
+    to the Feed) AND attaches the workspace-scoped daemon, and the daemon MEDIATES
+    the worker's first decision — a verdict or escalation lands in the
+    coach-runtime ledger — with no human, no ``cmux send``, no TUI.
 
-    Returns ``{"mediated": "verdict"|"escalation"|None, "advanced": bool,
-    "state_before": str, "state_after": str, "no_human_interaction": True}``.
+    Scope (autonomously reachable): the headline proves the autonomous loop CLOSES
+    — worker raises a decision → attached daemon mediates → a durable verdict /
+    escalation record is written. It does NOT assert a GitHub phase-label advance:
+    crossing a phase gate (e.g. INIT->PLANNED / PLANNED->RED) requires the operator
+    approval token by #1017 design, so a fully-autonomous run cannot (and must not)
+    push the issue past a gate. ``worker_proceeded`` reflects the verdict case
+    (auto-answered → worker unblocked); an escalation correctly parks the worker
+    for the operator. Anti-theater: asserts a real ledger RECORD, not a log line.
+
+    Returns ``{"mediated": "verdict"|"escalation"|None, "decision_recorded": bool,
+    "worker_proceeded": bool, "record": dict|None, "state_before": str,
+    "state_after": str, "no_human_interaction": True}``.
     """
     fixture = os.environ.get("ATDD_SMOKE_FIXTURE_ISSUE")
     if not fixture:
@@ -429,8 +457,6 @@ def coach_dispatch_drives_fixture_live_smoke(*, timeout_s: int = 600) -> dict:
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     mediated: Optional[str] = None
-    advanced = False
-    state_after = state_before
     try:
         deadline = _wall() + timeout_s
         while _wall() < deadline:
@@ -439,21 +465,25 @@ def coach_dispatch_drives_fixture_live_smoke(*, timeout_s: int = 600) -> dict:
                 mediated = "escalation"
             elif v1 > v0:
                 mediated = "verdict"
-            state_after = _issue_status_label(int(fixture))
-            advanced = state_after != state_before
-            if mediated is not None and advanced:
+            # The autonomous loop has closed as soon as the daemon records a
+            # decision — break on that, not on a phase advance the #1017 gate
+            # deliberately withholds from an unattended run.
+            if mediated is not None:
                 break
-            time.sleep(10)
+            time.sleep(5)
     finally:
         proc.terminate()
         try:
             proc.wait(timeout=20)
         except subprocess.TimeoutExpired:
             proc.kill()
+    record = _last_ledger_record(root, "escalations" if mediated == "escalation" else "verdicts") if mediated else None
     return {
         "mediated": mediated,
-        "advanced": advanced,
+        "decision_recorded": mediated is not None,
+        "worker_proceeded": mediated == "verdict",
+        "record": record,
         "state_before": state_before,
-        "state_after": state_after,
+        "state_after": _issue_status_label(int(fixture)),
         "no_human_interaction": True,
     }
