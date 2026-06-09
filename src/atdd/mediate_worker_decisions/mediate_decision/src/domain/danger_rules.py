@@ -16,6 +16,7 @@ Two layers, both used by the safety gate BEFORE the coach is ever consulted:
 """
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 AUTO = "auto"
@@ -85,6 +86,11 @@ READONLY_ALLOWLIST = (
     ("pytest",),
     ("atdd", "validate"),
     ("atdd", "gate"),
+    # Coach-launched workers MUST run ``atdd repo graph`` at bootstrap to build
+    # against the real architecture (#1031 / #1029 Part B). It is a read-only
+    # graph inspection — keep this entry scoped to ``graph`` only; other ``atdd
+    # repo`` subcommands are NOT presumed read-only.
+    ("atdd", "repo", "graph"),
 )
 
 # Shell metacharacters that can chain, redirect, or substitute a second command.
@@ -94,6 +100,30 @@ _SHELL_COMPOSE = (";", "&&", "||", "|", ">", "<", "`", "$(", "\n")
 
 # ``find`` is read-only EXCEPT for these action predicates, which mutate.
 _FIND_MUTATING = ("-delete", "-exec", "-execdir")
+
+# A coach-launched worker issues its sanctioned bootstrap from inside its
+# worktree as a compound ``cd <worktree> && <read-only command>`` (e.g.
+# ``cd /…/issue-1031 && atdd gate``). The leading ``cd`` would otherwise trip the
+# ``&&`` composition guard, so EVERY bootstrap step escalated-by-default and the
+# worker deadlocked on step one (#1031). We peel EXACTLY ONE leading
+# ``cd <plain-path> &&`` and re-check the remainder under the full gate. The path
+# token is intentionally strict — no whitespace, shell metacharacter, quote, or
+# ``$``/backtick — so ``cd $(evil) && atdd gate`` and ``cd 'a b' && …`` do NOT
+# match and still escalate. A second ``&&``, a danger pattern, or a
+# non-allowlisted command AFTER the unwrapped prefix also still escalates, so the
+# #1014 escalate-by-default posture is unchanged past the bootstrap ``cd``.
+_CD_BOOTSTRAP_PREFIX = re.compile(
+    r"""^cd\s+(?P<path>[^\s;&|<>`$()'"]+)\s+&&\s+(?P<rest>.+)$""",
+    re.DOTALL,
+)
+
+
+def _strip_bootstrap_cd_prefix(text: str) -> str:
+    """Peel a single leading ``cd <plain-path> &&`` bootstrap prefix, else return
+    ``text`` unchanged. Only one prefix is removed; the caller re-checks the
+    remainder under the full read-only gate (#1031)."""
+    match = _CD_BOOTSTRAP_PREFIX.match(text.strip())
+    return match.group("rest").strip() if match else text.strip()
 
 
 def match_danger(text: str) -> Optional[str]:
@@ -113,7 +143,9 @@ def is_readonly_safe(text: str) -> bool:
     (so the caller escalates)."""
     if not text:
         return False
-    stripped = text.strip()
+    # Peel a sanctioned ``cd <worktree> &&`` bootstrap prefix before the
+    # composition guard, then check the remainder exactly as before (#1031).
+    stripped = _strip_bootstrap_cd_prefix(text)
     if any(meta in stripped for meta in _SHELL_COMPOSE):
         return False
     tokens = [t.lower() for t in stripped.split()]
