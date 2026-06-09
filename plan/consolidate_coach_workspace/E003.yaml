@@ -1,0 +1,102 @@
+urn: "wmbt:consolidate-coach-workspace:E003"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "logging-a-layout-target-without-invoking-a-backend-layout-primitive"
+context_clarifier: >-
+  The core #865 bug: apply_canonical_name_and_layout prints
+  "layout target (N surface[s]): … (coach.session.layout-conformance)" for every
+  spawn but only calls backend.rename() — it never invokes a real multiplexer
+  layout mutation, so workers land as tabs in the focused (coach) pane. The fix
+  routes the layout pass through an application port that invokes ONE real cmux
+  layout primitive (right-pane create + move-surface); a print of the layout label
+  can never again substitute for the invocation. A recording-fake meta-smoke
+  guards the regression.
+lens: "functional.effectiveness"
+statement: >-
+  minimize likelihood of logging a layout target without invoking a backend
+  layout primitive
+acceptances:
+  - identity:
+      urn: "acc:consolidate-coach-workspace:E003-UNIT-001-use-case-invokes-layout-port"
+      id: "AC-UNIT-001"
+      purpose: >-
+        The apply-layout use case invokes the MultiplexerLayoutPort (create-right-pane
+        / move-surface) for a placement rather than taking a print-only no-op path
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An apply-layout use case wired with a fake MultiplexerLayoutPort"
+        - "A single worker placement request"
+    when:
+      abstract: "The use case applies the layout for the placement"
+      action: "invoke"
+    then:
+      abstract:
+        - "The port's right-pane-create or move-surface primitive is invoked at least once"
+        - "The use case does not return successfully via a print-only path with zero port calls"
+      assertions:
+        - type: "count"
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "consolidate-coach-workspace"
+      feature: "enforce-surface-conformance"
+  - identity:
+      urn: "acc:consolidate-coach-workspace:E003-INTEGRATION-001-shim-records-layout-call"
+      id: "AC-INTEGRATION-001"
+      purpose: >-
+        Driving the thin apply_canonical_name_and_layout shim end-to-end with a
+        recording multiplexer fake records at least one layout primitive invocation
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A recording multiplexer fake that captures every backend call"
+        - "The apply_canonical_name_and_layout shim delegating to the feature"
+    when:
+      abstract: "The shim runs a conformance pass for a spawned worker surface"
+      action: "invoke"
+    then:
+      abstract:
+        - "At least one layout primitive (new-right-pane or move-surface) call is recorded"
+        - "The pass is not satisfied by a rename plus a layout-target print alone"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "consolidate-coach-workspace"
+      feature: "enforce-surface-conformance"
+  - identity:
+      urn: "acc:consolidate-coach-workspace:E003-SMOKE-001-meta-smoke-print-theater-guard"
+      id: "AC-SMOKE-001"
+      purpose: >-
+        Meta-smoke that fails on a print-theater regression — a recording fake must
+        observe a real backend layout primitive, not merely a layout-target log line
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A recording multiplexer fake driving the live conformance pass"
+    when:
+      abstract: "The conformance pass executes for a worker placement"
+      action: "invoke"
+    then:
+      abstract:
+        - "A backend layout primitive invocation is observed"
+        - "If only a layout-target print occurred with zero layout primitive calls, the smoke FAILS"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "consolidate-coach-workspace"
+      feature: "enforce-surface-conformance"

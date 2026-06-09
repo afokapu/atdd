@@ -1,0 +1,74 @@
+urn: "feature:consolidate-coach-workspace:enforce-surface-conformance"
+wagon: "wagon:consolidate-coach-workspace"
+description: >-
+  Issue #865 — stop the layout/naming log-theater. Two enforcement concerns
+  carved as ONE four-tier, contract-backed feature inside the
+  consolidate-coach-workspace wagon (the rest of the flat wagon is left behind a
+  clean seam). (a) A role-aware canonical NAMING builder/sanitizer/parser for the
+  shape `<REPO><N>[-phaseN]-<role>-<slug>` (role ∈ worker | coach-daemon |
+  observer), reusing the #470 primitive session_naming.compute_canonical_name,
+  with a contract for the name shape and a bound validator extending
+  coach/observer_rules/canonical_naming_drift.py. (b) A real layout pass — the
+  dispatch conformance step invokes ONE real cmux layout primitive (right-pane
+  create + move-surface) behind an application port, replacing the no-op
+  `print("layout target …")`, with a print-theater meta-smoke that fails if the
+  function ever logs layout intent again without invoking a backend layout
+  primitive. The layout is window/pane GEOMETRY over per-workspace surfaces and
+  honors the never-collapse safety invariant — each per-workspace worker keeps
+  its own single-identity daemon scope after a layout pass (the
+  CmuxFeedSource._resolve_scope union hazard reproduced at 20-worker scale on
+  2026-06-09; #1013). The flat `session_naming_apply.py::apply_canonical_name_and_layout`
+  becomes a THIN delegating shim onto this feature's composition root. tmux/zellij
+  parity (#601), per-surface daemon scoping (#1012), owns() hardening (#1013), and
+  post-merge teardown (#783) are out of scope.
+sizing:
+  wmbts: 3
+  footprint_score: 13
+  footprint_size: "M"
+wmbts:
+  - "wmbt:consolidate-coach-workspace:C001"
+  - "wmbt:consolidate-coach-workspace:E003"
+  - "wmbt:consolidate-coach-workspace:E004"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: >-
+          apply_surface_conformance entrypoint — the thin delegation target that
+          session_naming_apply.apply_canonical_name_and_layout shims onto; drives
+          the role-aware rename + the real layout pass through the composition root.
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: >-
+          apply_layout_use_case — builds the pure layout plan, invokes the
+          MultiplexerLayoutPort exactly once per placement (no print-only path),
+          then asserts the never-collapse post-condition via the scope probe.
+      - type: "ports"
+        count: 3
+        rationale: >-
+          MultiplexerLayoutPort (create-right-pane + move-surface), SurfaceScopeProbe
+          (list per-workspace surface identities for never-collapse assertion), and
+          ConformanceLogger (structured emit so intent-logging can never substitute
+          for a real invocation).
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: >-
+          Role (worker | coach-daemon | observer) and CanonicalSurfaceName
+          (issue-number-free-where-applicable, role-aware, parsed components).
+      - type: "services"
+        count: 2
+        rationale: >-
+          canonical_name builder/sanitizer/parser (role-aware, reuses #470
+          compute_canonical_name) and layout_plan planner whose never-collapse
+          specification rejects any plan that would move a worker surface out of its
+          own single-identity workspace.
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: >-
+          cmux_layout_adapter — implements MultiplexerLayoutPort + SurfaceScopeProbe
+          over the existing CmuxBackend primitives (new-pane --direction right,
+          move-surface, surface.list). cmux-first; tmux/zellij parity deferred to #601.

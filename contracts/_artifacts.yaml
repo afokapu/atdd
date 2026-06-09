@@ -1,4 +1,18 @@
 artifacts:
+- id: commons:coach:canonical-surface-name
+  urn: contract:commons:coach:canonical-surface-name
+  version: 1.0.0
+  title: CommonsCoachCanonicalSurfaceName
+  description: 'The role-aware canonical name shape for a coach-managed multiplexer
+    surface or workspace (issue #865). Format `<REPO><N>[-phaseN]-<role>-<slug>`,
+    role in {worker, coach-daemon, observer}, reusing the #470 naming primitive. Produced
+    by the enforce-surface-conformance feature; consumed by the bound naming-drift
+    validator and the dispatch conformance pass to detect and re-apply non-canonical
+    names.'
+  path: contracts/commons/coach/canonical-surface-name.schema.json
+  producer: wagon:consolidate-coach-workspace
+  consumers:
+  - wagon:consolidate-coach-workspace
 - id: commons:compliance:gate
   urn: contract:commons:compliance:gate
   version: 1.0.0

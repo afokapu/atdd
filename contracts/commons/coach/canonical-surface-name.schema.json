@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:coach:canonical-surface-name",
+  "title": "CommonsCoachCanonicalSurfaceName",
+  "description": "The role-aware canonical name shape for a coach-managed multiplexer surface or workspace (issue #865). Format `<REPO><N>[-phaseN]-<role>-<slug>`, role in {worker, coach-daemon, observer}, reusing the #470 naming primitive. Produced by the enforce-surface-conformance feature; consumed by the bound naming-drift validator and the dispatch conformance pass to detect and re-apply non-canonical names.",
+  "version": "1.0.0",
+  "type": "object",
+  "x-artifact-metadata": {
+    "domain": "coach",
+    "resource": "canonical_surface_name",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:consolidate-coach-workspace",
+    "consumers": [
+      "wagon:consolidate-coach-workspace"
+    ],
+    "dependencies": [],
+    "traceability": {
+      "wagon_ref": "plan/consolidate_coach_workspace/_consolidate_coach_workspace.yaml",
+      "feature_refs": [
+        "feature:consolidate-coach-workspace:enforce-surface-conformance"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    },
+    "api": {
+      "version": "v1",
+      "operations": [
+        {
+          "method": "POST",
+          "path": "/coach/canonical-surface-name",
+          "description": "Validate or re-apply a role-aware canonical surface/workspace name",
+          "responses": {
+            "200": {
+              "description": "CommonsCoachCanonicalSurfaceName accepted",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "required": [
+    "name",
+    "repo",
+    "issue",
+    "role",
+    "slug"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "The fully-rendered canonical surface/workspace name.",
+      "pattern": "^([A-Z]{2,8})([0-9]+)(-phase[0-9]+)?-(worker|coach-daemon|observer)-([a-z0-9]+(-[a-z0-9]+)*)$"
+    },
+    "repo": {
+      "type": "string",
+      "description": "Uppercase short repo token (e.g. ATDD).",
+      "pattern": "^[A-Z]{2,8}$"
+    },
+    "issue": {
+      "type": "integer",
+      "description": "GitHub issue number; no separator from <REPO>.",
+      "minimum": 1
+    },
+    "phase": {
+      "type": ["integer", "null"],
+      "description": "Optional phase ordinal for multi-PR issues (>= 1); null when absent.",
+      "minimum": 1
+    },
+    "role": {
+      "type": "string",
+      "description": "Role of the managed surface.",
+      "enum": ["worker", "coach-daemon", "observer"]
+    },
+    "slug": {
+      "type": "string",
+      "description": "Sanitized branch/intent slug: lowercase, [a-z0-9-], truncated at a hyphen boundary.",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 40
+    }
+  }
+}
