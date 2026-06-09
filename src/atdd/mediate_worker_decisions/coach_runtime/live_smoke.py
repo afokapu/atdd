@@ -452,9 +452,18 @@ def coach_dispatch_drives_fixture_live_smoke(*, timeout_s: int = 600) -> dict:
     v0, e0 = _coach_runtime_ledger_counts(root)
     state_before = _issue_status_label(int(fixture))
 
+    # Drive the dispatch through the SAME toolkit this test is bound to (source
+    # under PYTHONPATH, or the installed branch) via ``python -m atdd`` — NOT the
+    # stock ``atdd`` on PATH, which would exercise a toolkit without this fix's
+    # daemon-attach and silently mediate nothing.
+    import sys
+    import atdd as _atdd_pkg
+
+    src_dir = str(Path(_atdd_pkg.__file__).resolve().parent.parent)
+    env = {**os.environ, "PYTHONPATH": src_dir + os.pathsep + os.environ.get("PYTHONPATH", "")}
     proc = subprocess.Popen(
-        ["atdd", "coach", fixture, "--no-prompt"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        [sys.executable, "-m", "atdd", "coach", fixture, "--no-prompt"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env,
     )
     mediated: Optional[str] = None
     try:
