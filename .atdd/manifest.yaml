@@ -1877,7 +1877,7 @@ sessions:
   file: null
   issue_number: 1025
   type: implementation
-  status: INIT
+  status: PLANNED
   created: '2026-06-09'
   archived: null
   wagon: mediate-worker-decisions
