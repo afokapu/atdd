@@ -1904,3 +1904,11 @@ sessions:
   status: INIT
   created: '2026-06-09'
   archived: null
+- id: '1034'
+  slug: reconcile-atdd-to-executable-train-convention
+  file: null
+  issue_number: 1034
+  type: tracking
+  status: INIT
+  created: '2026-06-10'
+  archived: null
