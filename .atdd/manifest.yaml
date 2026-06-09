@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 958
   type: implementation
-  status: RED
+  status: SMOKE
   created: '2026-06-09'
   archived: null
   branch: feat/config-drive-four-tier-and-refactor-validators-toolkit-root
