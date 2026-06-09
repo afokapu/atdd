@@ -220,6 +220,52 @@ def worker_has_active_feed_hook_live_smoke() -> Dict[str, Any]:
     return result
 
 
+def dispatch_worker_decision_publishes_live_smoke(*, timeout_s: int = 200) -> Dict[str, Any]:
+    """Spawn a worker via the REAL dispatch surface path and confirm its gated
+    Bash decision publishes to cmux feed.list (E013-SMOKE-001, #1025).
+
+    Drives the production ``_create_surface`` (the ``cmux new-surface --pane`` +
+    ``cmux send`` dispatch path), NOT the raw new-workspace standalone spawn — so
+    it proves the wrapper Feed hook is live for the DISPATCH spawn specifically
+    (the producer half the closed #967 missed). Returns ``{"surfaced": bool,
+    "evidence": ..., "cwd": str, "launch_command": str}``.
+    """
+    from atdd.coach.commands import spawn
+    from atdd.coach.utils.multiplexer import CmuxBackend
+
+    cwd = Path("/private/tmp") / f"dispatch-smoke-{uuid.uuid4().hex[:6]}"
+    cwd.mkdir(parents=True, exist_ok=True)
+    cwd_str = str(cwd)
+    try:
+        spawn._pre_trust_worktree(cwd)
+    except Exception as exc:
+        _log.warning("pre-trust failed", extra={"cwd": cwd_str, "error": str(exc)})
+
+    launch_command = _production_launch_command(cwd, _gated_bash_seed())
+    backend = CmuxBackend()
+    surface_ref = spawn._create_surface(
+        backend, worktree=cwd, command=launch_command, name=f"dispatch-smoke-{cwd.name}",
+    )
+    try:
+        deadline = time.time() + timeout_s
+        seen: List[Dict[str, Any]] = []
+        while time.time() < deadline:
+            seen = [i for i in _rpc_feed_list() if i.get("cwd") == cwd_str]
+            for item in seen:
+                if _is_pending_bash_permission(item, cwd_str):
+                    return {"surfaced": True, "evidence": item, "cwd": cwd_str,
+                            "launch_command": launch_command}
+            time.sleep(5)
+        return {"surfaced": False, "evidence": seen, "cwd": cwd_str,
+                "launch_command": launch_command}
+    finally:
+        try:
+            backend.close(surface_ref)
+        except Exception as exc:
+            _log.warning("dispatch-smoke surface cleanup failed",
+                         extra={"surface": surface_ref, "error": str(exc)})
+
+
 if __name__ == "__main__":
     import sys
 

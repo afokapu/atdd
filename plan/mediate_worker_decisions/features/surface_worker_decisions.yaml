@@ -2,11 +2,12 @@ urn: "feature:mediate-worker-decisions:surface-worker-decisions"
 wagon: "wagon:mediate-worker-decisions"
 description: "The producer half of the daemon's journey: configure a spawned worker's launch so its escalation-worthy decisions actually surface to the cmux Feed as blocked items. The cmux Claude wrapper already injects the PermissionRequest -> 'cmux hooks feed' hook; the bug is that the toolkit's freedom set (--permission-mode acceptEdits --allowedTools \"Bash Edit Write Read ...\") pre-authorizes every tool, so PermissionRequest never fires and feed.list stays empty. This feature replaces the hardcoded freedom set with a pure DecisionSurfacingPolicy that yields the surfacing VALUES: a permission_mode (acceptEdits) plus a scoped auto-allow toolset that keeps file/read tools auto-allowed for autonomy but deliberately omits the action-class decisions (Bash, AskUserQuestion, ExitPlanMode) so they reach the wrapper hook and publish a blocked item the feed_daemon can mediate. The cross-boundary surface is the EXISTING DispatchSpec fields (permission_mode + allowed_tools) — NOT a new shared type: the spawn adapter loads the policy's values into the spec, and the cli-return agent_control path (#969) consumes them from the spec (it cannot import the coach or this wagon, per §3.3). Danger classification is NOT duplicated here — it stays in the daemon's tool_input_safety/match_danger; the producer only guarantees the decision reaches the Feed."
 sizing:
-  wmbts: 4
-  footprint_score: 8
+  wmbts: 5
+  footprint_score: 9
   footprint_size: "S"
 wmbts:
   - "wmbt:mediate-worker-decisions:E008"
+  - "wmbt:mediate-worker-decisions:E013"
   - "wmbt:mediate-worker-decisions:C006"
   - "wmbt:mediate-worker-decisions:Y002"
   - "wmbt:mediate-worker-decisions:L004"

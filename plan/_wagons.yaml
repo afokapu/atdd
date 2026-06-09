@@ -120,7 +120,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 8
+    total: 9
     Y001: minimize quantity of coach-orchestration-tabs so N issues / N invocations
       resolve to one canonical tab
     E001: increase likelihood of multi-issue-orchestration-state-visibility via a
@@ -137,6 +137,8 @@ wagons:
       layout primitive
     E004: minimize likelihood of emitting a managed surface name lacking the role-aware
       canonical shape
+    E005: minimize likelihood of a decorated cmux workspace handle reaching cmux list
+      panes unsanitized
   total: 0
   manifest: plan/consolidate_coach_workspace/_consolidate_coach_workspace.yaml
   path: plan/consolidate_coach_workspace/
@@ -1287,7 +1289,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 39
+    total: 41
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
@@ -1357,6 +1359,10 @@ wagons:
       so runtime failures are unobservable
     M005: minimize likelihood of a managed daemon spawned as a detached orphaned process
       whose cmux rpc calls broken pipe so it silently never decides
+    E012: minimize likelihood of the atdd coach dispatch spawning a worker without
+      attaching the workspace scoped decision daemon
+    E013: minimize likelihood of a dispatch spawned worker whose blocking decisions
+      never reach the feed
     C007: minimize likelihood of the daemon auto answering an operator reserved governance
       decision such as a phase transition sign off instead of escalating it to the
       human by classifying it operator_reserved before the coach is consulted and

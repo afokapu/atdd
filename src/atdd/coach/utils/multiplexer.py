@@ -33,6 +33,15 @@ import subprocess
 from abc import ABC, abstractmethod
 from typing import Optional
 
+# #1025: consume the workspace-handle sanitizer through the
+# enforce-surface-conformance feature's application surface (not the domain
+# directly), so the domain is consumed within its own feature's layers
+# (SPEC-CODER-COMP-0003). The surface imports only the pure domain function, so
+# this top-level import carries no composition/integration weight (no cycle).
+from atdd.consolidate_coach_workspace.enforce_surface_conformance.src.presentation.workspace_handle_surface import (
+    sanitize_cmux_workspace_handle,
+)
+
 
 # Type alias — opaque ref string with prefix `workspace:` or `surface:`.
 MultiplexerRef = str
@@ -505,8 +514,24 @@ class CmuxBackend(MultiplexerBackend):
         _run(["cmux", "paste-buffer", *_target_args(ref, workspace)], capture=False)
 
     def list_workspaces(self) -> list[str]:
+        # cmux decorates each line with a current-workspace marker (`* `), a
+        # trailing title, and `[selected]`; sanitize to the bare `workspace:N`
+        # token so a downstream `cmux list-panes --workspace <handle>` never
+        # receives decoration (the #1025 "Invalid workspace handle" crash). The
+        # sanitizer is consumed through the enforce-surface-conformance feature's
+        # application surface (imported at module top), not the domain directly.
         result = _run(["cmux", "list-workspaces"])
-        return [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+        handles: list[str] = []
+        for line in (result.stdout or "").splitlines():
+            if not line.strip():
+                continue
+            try:
+                handles.append(sanitize_cmux_workspace_handle(line))
+            except ValueError:
+                # A header/blank/non-workspace line carries no handle — skip it
+                # rather than flow a bad handle into a workspace-scoped cmux call.
+                continue
+        return handles
 
     def _surface_workspace(self, surface_ref: str) -> Optional[str]:
         """Resolve which workspace owns ``surface_ref`` via ``cmux tree --all``.

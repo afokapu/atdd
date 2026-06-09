@@ -136,3 +136,26 @@ def naming_validator_live_smoke(*, evidence_path: str) -> dict[str, Any]:
     finally:
         for w, _ in created:
             _cmux("close-workspace", "--workspace", w)
+
+
+def surface_workspace_resolves_live_smoke() -> dict[str, Any]:
+    """Resolve a real worker surface's owning workspace via surface_workspace,
+    asserting no ``Invalid workspace handle`` (E005-SMOKE-001, #1025).
+
+    Returns ``{"resolved_handle": str, "error": str|None}``. Creates and cleans
+    up its own throwaway workspace.
+    """
+    ws, surface = _new_workspace("e005-smoke")
+    resolved = ""
+    error: str | None = None
+    try:
+        # surface_workspace iterates list_workspaces() (now sanitized) and
+        # cross-references list-panes — the exact path that crashed on a
+        # decorated handle before the #1025 sanitizer landed.
+        resolved = CmuxBackend().surface_workspace(surface)
+    except Exception as exc:  # capture so the test asserts on the message
+        error = str(exc)
+    finally:
+        if ws:
+            _cmux("close-workspace", "--workspace", ws)
+    return {"resolved_handle": resolved, "error": error, "surface": surface}

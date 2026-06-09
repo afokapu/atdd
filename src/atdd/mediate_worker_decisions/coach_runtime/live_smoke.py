@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import time
 import uuid
@@ -357,3 +358,141 @@ def _slug(workspace_id: str) -> str:
 
 def _wall() -> float:
     return time.time()
+
+
+def live_smoke_available() -> Optional[str]:
+    """Return ``None`` when the E012 headline harness can run, else a skip reason.
+
+    Needs cmux + claude on PATH, a live cmux surface, and the explicit
+    ``ATDD_LIVE_SMOKE=1`` opt-in so ordinary runs never drive a real dispatch.
+    """
+    if os.environ.get("ATDD_LIVE_SMOKE") != "1":
+        return "live smoke is opt-in: set ATDD_LIVE_SMOKE=1 (needs a live cmux surface)"
+    if not shutil.which("cmux"):
+        return "cmux not on PATH"
+    if not shutil.which("claude"):
+        return "claude not on PATH"
+    if not os.environ.get("CMUX_SURFACE_ID"):
+        return "not running under a live cmux surface (CMUX_SURFACE_ID unset)"
+    return None
+
+
+def _coach_runtime_ledger_counts(root: Path) -> tuple[int, int]:
+    """(verdict_lines, escalation_lines) summed across every workspace ledger."""
+    verdicts = escalations = 0
+    if not root.is_dir():
+        return (0, 0)
+    for p in root.glob("*/verdicts.jsonl"):
+        verdicts += sum(1 for _ in p.open()) if p.is_file() else 0
+    for p in root.glob("*/escalations.jsonl"):
+        escalations += sum(1 for _ in p.open()) if p.is_file() else 0
+    return (verdicts, escalations)
+
+
+def _last_ledger_record(root: Path, kind: str) -> Optional[dict]:
+    """The most recent decision record of ``kind`` (verdicts|escalations) across
+    every workspace ledger — the durable proof a decision was mediated, captured
+    as evidence so the headline asserts a real record, not a log line."""
+    latest: Optional[dict] = None
+    for p in root.glob(f"*/{kind}.jsonl"):
+        if not p.is_file():
+            continue
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                latest = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+    return latest
+
+
+def _issue_status_label(issue: int) -> str:
+    out = subprocess.run(
+        ["gh", "issue", "view", str(issue), "--json", "labels",
+         "--jq", '[.labels[].name | select(startswith("atdd:"))] | join(",")'],
+        capture_output=True, text=True, timeout=30,
+    )
+    return (out.stdout or "").strip()
+
+
+def coach_dispatch_drives_fixture_live_smoke(*, timeout_s: int = 600) -> dict:
+    """Run `atdd coach <fixture>` end-to-end through ONE mediated decision (E012).
+
+    The single autonomous command drives a REAL fixture issue (env
+    ``ATDD_SMOKE_FIXTURE_ISSUE``): the dispatch spawns the worker (which publishes
+    to the Feed) AND attaches the workspace-scoped daemon, and the daemon MEDIATES
+    the worker's first decision — a verdict or escalation lands in the
+    coach-runtime ledger — with no human, no ``cmux send``, no TUI.
+
+    Scope (autonomously reachable): the headline proves the autonomous loop CLOSES
+    — worker raises a decision → attached daemon mediates → a durable verdict /
+    escalation record is written. It does NOT assert a GitHub phase-label advance:
+    crossing a phase gate (e.g. INIT->PLANNED / PLANNED->RED) requires the operator
+    approval token by #1017 design, so a fully-autonomous run cannot (and must not)
+    push the issue past a gate. ``worker_proceeded`` reflects the verdict case
+    (auto-answered → worker unblocked); an escalation correctly parks the worker
+    for the operator. Anti-theater: asserts a real ledger RECORD, not a log line.
+
+    Returns ``{"mediated": "verdict"|"escalation"|None, "decision_recorded": bool,
+    "worker_proceeded": bool, "record": dict|None, "state_before": str,
+    "state_after": str, "no_human_interaction": True}``.
+    """
+    fixture = os.environ.get("ATDD_SMOKE_FIXTURE_ISSUE")
+    if not fixture:
+        raise RuntimeError(
+            "set ATDD_SMOKE_FIXTURE_ISSUE to a real INIT fixture issue number"
+        )
+    from atdd.mediate_worker_decisions.coach_runtime.composition import (
+        default_runtime_root,
+    )
+
+    root = default_runtime_root()
+    v0, e0 = _coach_runtime_ledger_counts(root)
+    state_before = _issue_status_label(int(fixture))
+
+    # Drive the dispatch through the SAME toolkit this test is bound to (source
+    # under PYTHONPATH, or the installed branch) via ``python -m atdd`` — NOT the
+    # stock ``atdd`` on PATH, which would exercise a toolkit without this fix's
+    # daemon-attach and silently mediate nothing.
+    import sys
+    import atdd as _atdd_pkg
+
+    src_dir = str(Path(_atdd_pkg.__file__).resolve().parent.parent)
+    env = {**os.environ, "PYTHONPATH": src_dir + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "atdd", "coach", fixture, "--no-prompt"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env,
+    )
+    mediated: Optional[str] = None
+    try:
+        deadline = _wall() + timeout_s
+        while _wall() < deadline:
+            v1, e1 = _coach_runtime_ledger_counts(root)
+            if e1 > e0:
+                mediated = "escalation"
+            elif v1 > v0:
+                mediated = "verdict"
+            # The autonomous loop has closed as soon as the daemon records a
+            # decision — break on that, not on a phase advance the #1017 gate
+            # deliberately withholds from an unattended run.
+            if mediated is not None:
+                break
+            time.sleep(5)
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=20)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    record = _last_ledger_record(root, "escalations" if mediated == "escalation" else "verdicts") if mediated else None
+    return {
+        "mediated": mediated,
+        "decision_recorded": mediated is not None,
+        "worker_proceeded": mediated == "verdict",
+        "record": record,
+        "state_before": state_before,
+        "state_after": _issue_status_label(int(fixture)),
+        "no_human_interaction": True,
+    }
