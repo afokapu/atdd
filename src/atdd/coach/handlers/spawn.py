@@ -20,7 +20,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from atdd.coach.handlers.state_machine import CoachContext, HandlerResult, Phase, Transition
 
@@ -363,6 +363,46 @@ def _write_cospawn_decision(
 
 
 # ---------------------------------------------------------------------------
+# Dispatch -> daemon attach (#1025)
+# ---------------------------------------------------------------------------
+
+
+def _attach_worker_daemon(
+    backend: Any, surface_ref: str, *, repo_cwd: Optional[Path] = None
+) -> None:
+    """Attach a workspace-scoped decision daemon to the spawned worker (#1025).
+
+    The ``atdd coach <N>`` dispatch spawns a worker but otherwise never starts a
+    daemon, so the worker hangs unmediated on its first decision. Resolve the
+    worker's OWN workspace and reuse the idempotent ``coach_runtime`` start.
+    Best-effort: a failed attach is loud-logged (the worker still exists; the
+    warning surfaces the unmediated risk) rather than aborting the spawn.
+    """
+    from atdd.mediate_worker_decisions.coach_runtime.src.presentation.attach_worker_daemon import (
+        attach_worker_daemon,
+    )
+
+    if backend is None:
+        from atdd.coach.commands.spawn import _resolve_multiplexer
+
+        backend = _resolve_multiplexer()
+    try:
+        daemon = attach_worker_daemon(backend, surface_ref, repo_cwd=repo_cwd)
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-01
+        print(
+            f"⚠️  dispatch→daemon attach failed for {surface_ref}: {exc} — "
+            f"worker may be unmediated",
+            file=sys.stderr,
+        )
+        return
+    if daemon is not None:
+        print(
+            f"   decision daemon attached for {surface_ref} "
+            f"(daemon surface {daemon.daemon_workspace})"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
@@ -468,6 +508,10 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
     # across every phase of the issue's lifecycle.
     if persona_surface_ref is not None:
         ctx.issue_surface_ref = persona_surface_ref
+        # #1025: the dispatch must attach a workspace-scoped decision daemon to
+        # the spawned worker — without it the worker hangs unmediated on its
+        # first decision (the autonomy blocker). Idempotent + best-effort.
+        _attach_worker_daemon(ctx.multiplexer_backend, persona_surface_ref)
     # Issue #754: per-worker observer spawn removed. A single MultiAgentObserver
     # is started once by _execute_cold_start and watches all agent dirs under
     # .atdd/runtime/agents/*. No per-worker subprocess or :obs surface.
