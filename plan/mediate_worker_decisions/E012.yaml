@@ -1,0 +1,140 @@
+urn: "wmbt:mediate-worker-decisions:E012"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-atdd-coach-dispatch-spawning-a-worker-without-attaching-the-workspace-scoped-decision-daemon"
+context_clarifier: >-
+  The single autonomous entry point `atdd coach <N>` routes only the
+  start/wait/next/stop/daemons verbs to the coach_runtime; the `<N>` dispatch
+  (run -> wave_runner.execute_cold_start -> handlers/spawn.handle) spawns the
+  worker but NEVER starts or attaches the #993 workspace-scoped feed_daemon, so a
+  dispatch-spawned worker is unmediated by construction and hangs on its first
+  decision (live 2026-06-09, `atdd coach 1012`: `atdd coach daemons` -> "no
+  managed daemons"). The fix carves a thin dispatch->daemon attach that resolves
+  the spawned worker's OWN cmux workspace and reuses coach_runtime.start wholesale
+  (idempotent — never a second daemon on a workspace that already has a live one),
+  invoked once per worker after a successful spawn. The daemon-as-surface start
+  path already works; this only composes it into the dispatch flow.
+lens: "functional.effectiveness"
+statement: >-
+  minimize likelihood of the atdd coach dispatch spawning a worker without
+  attaching the workspace scoped decision daemon
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:E012-UNIT-001-dispatch-attach-starts-scoped-daemon-once"
+      id: "AC-UNIT-001"
+      purpose: >-
+        The dispatch attach resolves the spawned worker's owning cmux workspace and
+        starts the workspace-scoped feed_daemon exactly once via the reused
+        coach_runtime.start, scoped to that workspace
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A backend that resolves a spawned worker surface ref to its owning cmux workspace"
+        - "A recording coach-runtime whose start records the workspace it is scoped to"
+    when:
+      abstract: "The dispatch attach is invoked for the spawned worker surface"
+      action: "invoke"
+    then:
+      abstract:
+        - "coach_runtime.start is called exactly once, scoped to the worker's own workspace"
+        - "The attach uses the resolved worker workspace, not the coach's selected workspace"
+      assertions:
+        - type: "count"
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-runtime"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E012-UNIT-002-attach-is-idempotent"
+      id: "AC-UNIT-002"
+      purpose: >-
+        A second attach for the same worker workspace, while its managed daemon is
+        already live, performs no second start (never two daemons on one Feed)
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A coach-runtime whose start is idempotent for an already-live workspace daemon"
+        - "A worker workspace that already has a live managed daemon recorded"
+    when:
+      abstract: "The dispatch attach is invoked a second time for the same worker workspace"
+      action: "invoke"
+    then:
+      abstract:
+        - "No second daemon spawn occurs for the workspace"
+        - "The existing managed daemon record is returned unchanged"
+      assertions:
+        - type: "count"
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-runtime"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E012-INTEGRATION-001-spawn-handler-attaches-after-spawn"
+      id: "AC-INTEGRATION-001"
+      purpose: >-
+        Driving the spawn handler through a successful worker spawn invokes the
+        dispatch->daemon attach for the spawned worker's surface, so the dispatch
+        flow leaves a mediating daemon attached
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A spawn handler context with a recording multiplexer and a recording attach"
+        - "A phase transition that spawns a worker persona successfully"
+    when:
+      abstract: "The spawn handler handles the transition"
+      action: "invoke"
+    then:
+      abstract:
+        - "The attach is invoked with the freshly-spawned worker's surface ref after the spawn succeeds"
+        - "A spawn that returns no surface ref does not invoke the attach"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-runtime"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E012-SMOKE-001-coach-dispatch-drives-fixture-through-one-mediated-decision"
+      id: "AC-SMOKE-001"
+      purpose: >-
+        The single `atdd coach <fixture>` command drives a REAL fixture issue from
+        INIT through one mediated decision end-to-end with no human, no `cmux send`
+        and no TUI interaction — the missing headline end-to-end smoke
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real fixture issue at INIT and a live cmux + claude install"
+        - "The single autonomous command `atdd coach <fixture>` (dispatch, not the daemon verbs)"
+    when:
+      abstract: "atdd coach <fixture> runs the dispatch, which spawns the worker and attaches the scoped daemon"
+      action: "invoke"
+    then:
+      abstract:
+        - "The worker raises a decision, the attached daemon mediates it (verdict or escalation), and the worker ADVANCES"
+        - "The advance is proven by changed lifecycle state / a recorded decision, NOT by a log line, and with no human / cmux send / TUI"
+      assertions:
+        - type: "exists"
+        - type: "equals"
+    close_the_loop:
+      consumer_reacted: "the attached daemon answers the worker's blocked Feed item with a verdict or escalation"
+      drift_resolved: "the worker's recorded lifecycle state advances past the decision with no human in the loop"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-runtime"

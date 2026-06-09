@@ -22,13 +22,14 @@ description: >-
   parity (#601), per-surface daemon scoping (#1012), owns() hardening (#1013), and
   post-merge teardown (#783) are out of scope.
 sizing:
-  wmbts: 3
-  footprint_score: 13
+  wmbts: 4
+  footprint_score: 14
   footprint_size: "M"
 wmbts:
   - "wmbt:consolidate-coach-workspace:C001"
   - "wmbt:consolidate-coach-workspace:E003"
   - "wmbt:consolidate-coach-workspace:E004"
+  - "wmbt:consolidate-coach-workspace:E005"
 components:
   backend:
     presentation:

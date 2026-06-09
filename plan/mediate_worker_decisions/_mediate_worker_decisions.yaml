@@ -49,7 +49,7 @@ features:
   - urn: "feature:mediate-worker-decisions:operator-reserved-decision-class"
 
 wmbt:
-  total: 39
+  total: 41
   D001: "minimize likelihood of resolving a cmux notification to the wrong worker (or routing two entry paths to divergent requests)"
   L001: "maximize likelihood of locating the latest decision prompt in worker surface text"
   C001: "minimize quantity of false decision-requests emitted from non-decision worker output"
@@ -88,4 +88,6 @@ wmbt:
   M003: "minimize likelihood of a decide-loop or decider failure being silently swallowed so the daemon writes neither a verdict nor an escalation"
   M004: "minimize likelihood of a managed daemon being spawned with its output discarded so runtime failures are unobservable"
   M005: "minimize likelihood of a managed daemon spawned as a detached orphaned process whose cmux rpc calls broken pipe so it silently never decides"
+  E012: "minimize likelihood of the atdd coach dispatch spawning a worker without attaching the workspace scoped decision daemon"
+  E013: "minimize likelihood of a dispatch spawned worker whose blocking decisions never reach the feed"
   C007: "minimize likelihood of the daemon auto answering an operator reserved governance decision such as a phase transition sign off instead of escalating it to the human by classifying it operator_reserved before the coach is consulted and escalating with no verdict"

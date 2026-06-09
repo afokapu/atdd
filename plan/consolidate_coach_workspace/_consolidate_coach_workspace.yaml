@@ -41,7 +41,7 @@ produce:
 consume: []
 
 wmbt:
-  total: 8
+  total: 9
   Y001: "minimize quantity of coach-orchestration-tabs so N issues / N invocations resolve to one canonical tab"
   E001: "increase likelihood of multi-issue-orchestration-state-visibility via a consolidated per-issue status view"
   D001: "minimize quantity of coach-pane-shrinkage-when-workers-are-added via a fixed 50/50 split and workers-as-surfaces"
@@ -50,3 +50,4 @@ wmbt:
   C001: "maximize likelihood of each per-workspace worker keeping its own single-identity daemon scope after a layout pass"
   E003: "minimize likelihood of logging a layout target without invoking a backend layout primitive"
   E004: "minimize likelihood of emitting a managed surface name lacking the role-aware canonical shape"
+  E005: "minimize likelihood of a decorated cmux workspace handle reaching cmux list panes unsanitized"
