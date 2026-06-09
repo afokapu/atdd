@@ -59,14 +59,15 @@
       "type": "string",
       "enum": [
         "dangerous_action",
+        "operator_reserved",
         "coach_timeout",
         "coach_unparseable"
       ],
-      "description": "Why a human is required: a dangerous action was detected, the coach did not answer in time, or the coach reply could not be parsed."
+      "description": "Why a human is required: a dangerous action was detected, an operator-reserved governance decision (e.g. a phase-transition sign-off) must not be auto-answered (#1017), the coach did not answer in time, or the coach reply could not be parsed."
     },
     "safety_class": {
       "type": "string",
-      "description": "The safety classification that triggered escalation (e.g. the matched danger rule), when cause=dangerous_action."
+      "description": "The safety classification that triggered escalation (e.g. the matched danger rule when cause=dangerous_action, or 'operator_reserved' when cause=operator_reserved)."
     },
     "human_channel_ref": {
       "type": "string",

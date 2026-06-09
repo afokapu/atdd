@@ -36,8 +36,12 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.tool_input_safety
     classify,
     is_dangerous,
 )
+from atdd.mediate_worker_decisions.mediate_decision.src.domain.governance_rules import (
+    classify_governance,
+)
 from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import (
     CAUSE_DANGEROUS,
+    CAUSE_OPERATOR_RESERVED,
     CAUSE_WORKER_STUCK,
     Escalation,
     Verdict,
@@ -45,6 +49,9 @@ from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import (
 from atdd.mediate_worker_decisions.sense_decision.src.domain.decision_document import (
     CONFIRM,
     DecisionDocument,
+)
+from atdd.mediate_worker_decisions.sense_decision.src.domain.decision_request import (
+    DecisionRequest,
 )
 
 
@@ -103,6 +110,19 @@ class FeedRunnerUseCase:
         if request.document is not None and _has_dangerous_block(request.document):
             return self._escalate(item.request_id)
 
+        # Operator-reserved governance gate (WMBT C007): a phase-transition
+        # sign-off / lifecycle-governance decision is escalated to the human,
+        # never auto-answered — the #1014 escalate-by-default posture lifted to
+        # governance. Runs BEFORE the coach, exactly like the danger gate; the
+        # coach brain is never consulted for it. Routine design-preference
+        # questions carry no governance marker and fall through to the coach.
+        if _is_operator_reserved(request):
+            return self._escalate(
+                item.request_id,
+                cause=CAUSE_OPERATOR_RESERVED,
+                safety_class=CAUSE_OPERATOR_RESERVED,
+            )
+
         verdict = self._coach.mediate(request)
         self._reply.deliver(plan_reply(verdict, kind=item.kind))
         return self._confirm_or_recover(item, verdict)
@@ -159,6 +179,26 @@ class FeedRunnerUseCase:
                 safety_class=safety_class,
             ),
         )
+
+
+def _is_operator_reserved(request: DecisionRequest) -> bool:
+    """A phase-sign-off / lifecycle-governance decision the operator must own (C007).
+
+    Classifies the single-prompt question + option labels and, when the request
+    carries a modular document, every leaf block's prompt + option labels (so a
+    governance block nested in a group is still caught). A single governance
+    marker makes the whole decision operator-reserved — escalate, never
+    auto-answer. The check is pure prose classification (``classify_governance``),
+    the governance sibling of ``_has_dangerous_block``."""
+    labels = [o.label for o in request.prompt.options]
+    if classify_governance(request.prompt.question, labels).is_operator_reserved:
+        return True
+    if request.document is not None:
+        for block in request.document.leaf_blocks():
+            block_labels = [o.label for o in block.options]
+            if classify_governance(block.prompt, block_labels).is_operator_reserved:
+                return True
+    return False
 
 
 def _has_dangerous_block(document: DecisionDocument) -> bool:
