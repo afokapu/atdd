@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 865
   type: cleanup
-  status: PLANNED
+  status: REFACTOR
   created: '2026-06-09'
   archived: null
   branch: feat/coach-layout-conformance-is-log-theater-never-actually-enforced
