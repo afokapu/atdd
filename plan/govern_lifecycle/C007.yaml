@@ -1,11 +1,11 @@
-urn: "wmbt:govern-lifecycle:C007"
+urn: "wmbt:govern-lifecycle:C007"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-12-31 — pure result-aggregation logic (evaluate_gate); no real infrastructure to verify. The real-subprocess AND-semantics path is smoked by E045-SMOKE-001.
 step: "confirm"
 direction: "minimize"
 dimension: "likelihood"
 object_of_control: "a-transition-with-several-registered-gate-checks-passing-overall-while-one-of-its-checks-failed-because-only-the-first-or-last-check-was-consulted-instead-of-all-of-them"
 context_clarifier: "The gate registry holds a LIST of declared checks per transition (extending the (gate_id, phase, command, validator) shape of ARCHETYPE_GATES) so #958 (structural four-tier), #1017 (approval token) and existing validate gates can all register onto the same (from -> to) transition. evaluate_gate must therefore run EVERY registered check and block when ANY of them fails — not short-circuit on the first pass nor be satisfied by a majority. The confirmation pins the AND-semantics: given a mixed list of pass/fail results the outcome is proceed=False and the failures tuple contains exactly the failing checks; given an all-pass list the outcome is proceed=True with an empty failures tuple."
 lens: "functional.effectiveness"
-statement: "minimize likelihood of a-transition-with-several-registered-checks-passing-overall-while-one-failed by making evaluate_gate aggregate ALL results with AND-semantics: proceed is True only when every GateCheckResult passed, and the failures tuple enumerates every failing check"
+statement: "minimize likelihood of a-transition-with-several-registered-gate-checks-passing-overall-while-one-of-its-checks-failed-because-only-the-first-or-last-check-was-consulted-instead-of-all-of-them by making evaluate_gate aggregate ALL results with AND-semantics: proceed is True only when every GateCheckResult passed, and the failures tuple enumerates every failing check"
 acceptances:
   - identity:
       urn: "acc:govern-lifecycle:C007-UNIT-001-any-failing-check-blocks"

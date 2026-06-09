@@ -1,11 +1,11 @@
-urn: "wmbt:govern-lifecycle:D019"
+urn: "wmbt:govern-lifecycle:D019"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-12-31 — pure config/registry policy logic (is_transition_gated + empty-registry no-op); no real infrastructure to verify beyond the real-subprocess gate path smoked by E045-SMOKE-001 / E046-SMOKE-001.
 step: "define"
 direction: "minimize"
 dimension: "likelihood"
 object_of_control: "flipping-the-gate-from-advisory-to-blocking-starting-to-fail-transitions-that-previously-proceeded-because-the-gate-fires-on-transitions-or-with-checks-that-were-never-opted-into-bricking-every-in-flight-issue-and-the-worker-driving-its-own-lifecycle"
 context_clarifier: "Advisory -> blocking is behavior-changing: the keystone must ship the MECHANISM while staying a no-op until #958/#1017 register real checks. Two gates govern whether the enforcing gate can block: (1) is_transition_gated(config, from, to) reads the .atdd/config.yaml `gate.transitions` block — PLANNED -> RED is gated by default, an operator can disable it or enable others, and a transition that is not gated short-circuits to proceed=True without consulting any check; (2) the module-level GATE_REGISTRY starts EMPTY, so even a gated transition with zero registered checks resolves to proceed=True. The conjunction is the migration-safety guarantee: with the registry empty NO existing transition can start failing as a result of this change. This WMBT pins both — the default/config-driven gating decision AND the empty-registry no-op — so the proof that nothing is bricked is a test, not a hope."
 lens: "functional.adaptability"
-statement: "minimize likelihood of flipping-the-gate-to-blocking-failing-transitions-that-previously-proceeded by gating on BOTH is_transition_gated(config) (PLANNED -> RED default, operator-toggleable; ungated transitions proceed without consulting checks) AND an empty default GATE_REGISTRY (a gated transition with no registered checks proceeds), so the mechanism ships inert until #958/#1017 register checks"
+statement: "minimize likelihood of flipping-the-gate-from-advisory-to-blocking-starting-to-fail-transitions-that-previously-proceeded-because-the-gate-fires-on-transitions-or-with-checks-that-were-never-opted-into-bricking-every-in-flight-issue-and-the-worker-driving-its-own-lifecycle by gating on BOTH is_transition_gated(config) (PLANNED -> RED default, operator-toggleable; ungated transitions proceed without consulting checks) AND an empty default GATE_REGISTRY (a gated transition with no registered checks proceeds), so the mechanism ships inert until #958/#1017 register checks"
 acceptances:
   - identity:
       urn: "acc:govern-lifecycle:D019-UNIT-001-planned-to-red-gated-by-default-config-toggles"
