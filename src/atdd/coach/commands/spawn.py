@@ -1183,7 +1183,14 @@ def _create_surface(
             "Broken pipe on cmux >=0.64.7. Use mode='surface' (the default). "
             "See issue #830."
         )
-    # "surface" / "auto" — canonical path: new-surface inside the focused pane.
+    # "surface" / "auto" — #1025: launch the worker as the foreground process of
+    # its OWN cmux workspace so the wrapper injects the Feed-publishing hook
+    # (new-surface --pane + send-paste leaves it in the coach's workspace with the
+    # hook un-fired — the live worker-hangs-unmediated bug). Backends that predate
+    # this method fall back to the prior new-surface-in-pane path.
+    own_ws_launch = getattr(multiplexer, "new_worker_surface_in_own_workspace", None)
+    if own_ws_launch is not None:
+        return own_ws_launch(cwd=str(worktree), command=command, name=name)
     pane_ref = _resolve_spawn_pane(multiplexer)
     return multiplexer.new_surface_in_pane(
         pane_ref=pane_ref,

@@ -25,7 +25,19 @@ def assert_dispatch_feed_hook_active(probe: Optional[Any] = None) -> None:
     inactive verdict means the worker's decisions would never reach the Feed, so
     the dispatch must refuse loudly instead of spawning an unmediated worker.
     """
-    raise NotImplementedError  # GREEN: evaluate the probe, raise when inactive
+    if probe is None:
+        from atdd.mediate_worker_decisions.surface_worker_decisions.src.integration.cmux_hook_probe import (
+            CmuxHookProbe,
+        )
+
+        probe = CmuxHookProbe()
+    presence = probe.evaluate()
+    if not presence.active:
+        raise FeedHookInactiveError(
+            f"dispatch refused to spawn: Feed-publishing hook path inactive — "
+            f"{presence.reason}. The worker's decisions would surface only to the "
+            f"TUI and never reach the Feed, so it would hang unmediated."
+        )
 
 
 __all__ = ["FeedHookInactiveError", "assert_dispatch_feed_hook_active"]

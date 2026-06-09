@@ -24,7 +24,10 @@ def sanitize_workspace_handle(line: str) -> str:
     malformed listing line surfaces loudly instead of silently flowing a bad
     handle into a cmux call.
     """
-    raise NotImplementedError  # GREEN: extract the bare handle
+    match = _WORKSPACE_HANDLE_RE.search(line)
+    if match is None:
+        raise ValueError(f"no workspace handle in cmux listing line: {line!r}")
+    return match.group(0)
 
 
 __all__ = ["sanitize_workspace_handle"]
