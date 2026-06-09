@@ -1,0 +1,52 @@
+urn: "wmbt:govern-lifecycle:E049"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "config-driving-the-four-tier-validators-onto-src-atdd-lighting-up-the-full-legacy-spaghetti-debt-at-once-and-turning-validate-coder-red-on-pre-existing-toolkit-files-that-no-one-touched-in-this-change-an-unmergeable-wall-instead-of-a-frozen-visible-shrinking-baseline"
+context_clarifier: "The moment composition and boundaries honor code.toolkit they will see every legacy toolkit file that predates four-tier discipline, so a naive landing would make `atdd validate coder` fail on dozens of pre-existing files — boiling the ocean. The ratchet (strangler-fig at the process level, reusing the #482 suppress-and-clean disposition + .atdd/baselines/) snapshots today's toolkit violations into a grandfathered baseline so the gate fails ONLY on new or growing violations: a touched legacy file must not ADD a violation, but no untouched legacy file may start failing. What is grandfathered is logged (never silently 'covered'). The acceptance is the migration-safety proof, mirroring #1020 D019: with the toolkit root enabled, the live validators do NOT newly-fail any existing legacy file because current violations are absorbed by the baseline; and a deliberately-introduced NEW violation beyond the baseline DOES fail — proving the ratchet bites on growth, not on legacy."
+lens: "process.sustainability"
+statement: "minimize likelihood of config-driving-the-four-tier-validators-onto-src-atdd-lighting-up-the-full-legacy-spaghetti-debt-at-once-and-turning-validate-coder-red-on-pre-existing-toolkit-files-that-no-one-touched-in-this-change-an-unmergeable-wall-instead-of-a-frozen-visible-shrinking-baseline by grandfathering today's toolkit violations into a ratchet baseline (reusing the #482 suppress-and-clean disposition + .atdd/baselines/) so the gate fails only on new or growing violations, logging what is grandfathered"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E049-INTEGRATION-001-no-existing-legacy-file-newly-fails-under-toolkit-root"
+      id: "AC-INTEGRATION-001"
+      purpose: "Migration safety: with code.toolkit enabled, running the live composition+boundaries validators over the repo does NOT newly-fail any pre-existing legacy file — current toolkit violations are within the grandfathered baseline"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "code.toolkit enabled at src/atdd and a grandfathered baseline snapshotting today's toolkit composition+boundaries violations"
+        - "No new code change beyond enabling the toolkit root"
+    when:
+      abstract: "the live toolkit-aware composition and boundaries violation sets are evaluated against the disposition/baseline gate"
+    then:
+      abstract:
+        - "The gate verdict is satisfied (no failing punch list) — every current toolkit violation is absorbed by the baseline"
+        - "The set of grandfathered violations is non-empty and is surfaced (logged), not silently dropped"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E049-SMOKE-001-new-violation-beyond-baseline-fails-the-gate"
+      id: "AC-SMOKE-001"
+      purpose: "The ratchet bites on growth: a NEW violation introduced beyond the grandfathered baseline makes the disposition gate fail (non-empty punch list), proving the freeze is not a blanket skip"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The grandfathered toolkit baseline from AC-INTEGRATION-001"
+        - "A synthetic NEW toolkit four-tier violation not present in the baseline (e.g. an unwired layer file under a temp toolkit feature)"
+    when:
+      abstract: "the disposition/baseline gate is evaluated over the baseline-plus-one violation set against the real suppression scanner"
+    then:
+      abstract:
+        - "The gate verdict is NOT satisfied — the new, unsuppressed violation fails with a per-site punch list entry"
+        - "The pre-existing grandfathered violations remain absorbed (they are not what failed)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
