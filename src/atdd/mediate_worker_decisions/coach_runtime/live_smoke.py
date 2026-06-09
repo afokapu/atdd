@@ -376,10 +376,84 @@ def live_smoke_available() -> Optional[str]:
     return None
 
 
-def coach_dispatch_drives_fixture_live_smoke() -> dict:
+def _coach_runtime_ledger_counts(root: Path) -> tuple[int, int]:
+    """(verdict_lines, escalation_lines) summed across every workspace ledger."""
+    verdicts = escalations = 0
+    if not root.is_dir():
+        return (0, 0)
+    for p in root.glob("*/verdicts.jsonl"):
+        verdicts += sum(1 for _ in p.open()) if p.is_file() else 0
+    for p in root.glob("*/escalations.jsonl"):
+        escalations += sum(1 for _ in p.open()) if p.is_file() else 0
+    return (verdicts, escalations)
+
+
+def _issue_status_label(issue: int) -> str:
+    out = subprocess.run(
+        ["gh", "issue", "view", str(issue), "--json", "labels",
+         "--jq", '[.labels[].name | select(startswith("atdd:"))] | join(",")'],
+        capture_output=True, text=True, timeout=30,
+    )
+    return (out.stdout or "").strip()
+
+
+def coach_dispatch_drives_fixture_live_smoke(*, timeout_s: int = 600) -> dict:
     """Run `atdd coach <fixture>` end-to-end through ONE mediated decision (E012).
 
-    Returns evidence: ``{"mediated": "verdict"|"escalation", "advanced": bool,
+    The single autonomous command drives a REAL fixture issue (env
+    ``ATDD_SMOKE_FIXTURE_ISSUE``): the dispatch spawns the worker (which publishes
+    to the Feed) AND attaches the workspace-scoped daemon, the daemon mediates the
+    worker's first decision (a verdict or escalation lands in the coach-runtime
+    ledger), and the worker ADVANCES (its issue status label changes). No human,
+    no ``cmux send``, no TUI. Anti-theater: asserts a recorded decision + a status
+    change, NOT a log line.
+
+    Returns ``{"mediated": "verdict"|"escalation"|None, "advanced": bool,
     "state_before": str, "state_after": str, "no_human_interaction": True}``.
     """
-    raise NotImplementedError  # SMOKE/GREEN: drive the real atdd coach <fixture>
+    fixture = os.environ.get("ATDD_SMOKE_FIXTURE_ISSUE")
+    if not fixture:
+        raise RuntimeError(
+            "set ATDD_SMOKE_FIXTURE_ISSUE to a real INIT fixture issue number"
+        )
+    from atdd.mediate_worker_decisions.coach_runtime.composition import (
+        default_runtime_root,
+    )
+
+    root = default_runtime_root()
+    v0, e0 = _coach_runtime_ledger_counts(root)
+    state_before = _issue_status_label(int(fixture))
+
+    proc = subprocess.Popen(
+        ["atdd", "coach", fixture, "--no-prompt"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    mediated: Optional[str] = None
+    advanced = False
+    state_after = state_before
+    try:
+        deadline = _wall() + timeout_s
+        while _wall() < deadline:
+            v1, e1 = _coach_runtime_ledger_counts(root)
+            if e1 > e0:
+                mediated = "escalation"
+            elif v1 > v0:
+                mediated = "verdict"
+            state_after = _issue_status_label(int(fixture))
+            advanced = state_after != state_before
+            if mediated is not None and advanced:
+                break
+            time.sleep(10)
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=20)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    return {
+        "mediated": mediated,
+        "advanced": advanced,
+        "state_before": state_before,
+        "state_after": state_after,
+        "no_human_interaction": True,
+    }
