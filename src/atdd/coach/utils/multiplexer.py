@@ -640,6 +640,77 @@ class CmuxBackend(MultiplexerBackend):
         except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
             return ""
 
+    # ------------------------------------------------------------------
+    # Layout geometry over per-workspace surfaces (issue #865)
+    # ------------------------------------------------------------------
+    def reorder_workspace_after(
+        self, workspace_id: str, anchor_workspace_id: str
+    ) -> None:
+        """Position ``workspace_id`` immediately right of ``anchor_workspace_id``
+        within its window (``cmux reorder-workspace --after``).
+
+        A workspace-ordering op: the worker stays its OWN workspace (and its own
+        daemon scope), so the never-collapse invariant holds by construction.
+        """
+        _run(
+            [
+                "cmux", "reorder-workspace",
+                "--workspace", workspace_id,
+                "--after", anchor_workspace_id,
+            ],
+            capture=False,
+        )
+
+    def current_workspace(self) -> MultiplexerRef:
+        """Return the operator's currently-selected workspace ref."""
+        out = (_run(["cmux", "current-workspace"]).stdout or "").strip()
+        token = _extract_ref_token(out, "workspace")
+        return token or out
+
+    def surface_workspace(self, surface_ref: MultiplexerRef) -> MultiplexerRef:
+        """Resolve the workspace that owns ``surface_ref``.
+
+        Cross-references ``surface.list`` (surface → pane) against each
+        workspace's ``list-panes`` (pane → workspace).
+        """
+        payload = json.loads(_run(["cmux", "rpc", "surface.list"]).stdout or "{}")
+        pane_ref = ""
+        for surface in payload.get("surfaces", []):
+            if surface.get("ref") == surface_ref:
+                pane_ref = surface.get("pane_ref") or ""
+                break
+        if not pane_ref:
+            raise MultiplexerError(
+                f"surface {surface_ref!r} not found in cmux surface.list"
+            )
+        for ws in self.list_workspaces():
+            panes = _run(["cmux", "list-panes", *_ws_flag(ws)]).stdout or ""
+            if re.search(rf"\b{re.escape(pane_ref)}\b", panes):
+                return ws
+        raise MultiplexerError(
+            f"could not resolve owning workspace for {surface_ref!r}"
+        )
+
+    def list_surface_identities(self, workspace_id: str) -> list[str]:
+        """Return the distinct agent identities resident in ``workspace_id``.
+
+        An identity is an agent-hook surface's ``resume_binding.checkpoint_id``;
+        a single-worker workspace yields exactly one. Used for the never-collapse
+        post-condition (#865/#1013).
+        """
+        panes_out = _run(["cmux", "list-panes", *_ws_flag(workspace_id)]).stdout or ""
+        pane_refs = set(re.findall(r"pane:\d+", panes_out))
+        payload = json.loads(_run(["cmux", "rpc", "surface.list"]).stdout or "{}")
+        identities: list[str] = []
+        for surface in payload.get("surfaces", []):
+            if surface.get("pane_ref") not in pane_refs:
+                continue
+            binding = surface.get("resume_binding") or {}
+            checkpoint = binding.get("checkpoint_id")
+            if checkpoint and checkpoint not in identities:
+                identities.append(checkpoint)
+        return identities
+
     def new_persona_surface(
         self,
         cwd: str,

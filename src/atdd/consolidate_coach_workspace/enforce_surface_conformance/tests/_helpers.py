@@ -12,31 +12,26 @@ from typing import Any
 # rename, not a print). The print-theater guard asserts at least one fires.
 LAYOUT_METHODS: frozenset[str] = frozenset(
     {
-        "create_right_pane",
-        "place_surface_right",
-        "new_right_pane",
-        "new_surface_in_pane",
+        "reorder_workspace_after",
+        "position_workspace_right",
         "move_surface",
-        "new_surface",
+        "new_surface_in_pane",
         "new_pane",
-        "split_pane",
+        "split_off",
+        "reorder_surface",
     }
 )
 
 
 class RecordingLayoutPort:
-    """Records MultiplexerLayoutPort calls; returns stable refs."""
+    """Records MultiplexerLayoutPort calls."""
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple, dict]] = []
 
-    def create_right_pane(self, from_pane: str, *, workspace_id: str) -> str:
-        self.calls.append(("create_right_pane", (from_pane,), {"workspace_id": workspace_id}))
-        return f"pane:right:{workspace_id}"
-
-    def place_surface_right(self, surface_ref: str, *, workspace_id: str, pane_ref: str) -> None:
+    def position_workspace_right(self, workspace_id: str, *, anchor_workspace_id: str) -> None:
         self.calls.append(
-            ("place_surface_right", (surface_ref,), {"workspace_id": workspace_id, "pane_ref": pane_ref})
+            ("position_workspace_right", (workspace_id,), {"anchor_workspace_id": anchor_workspace_id})
         )
 
     @property
@@ -67,9 +62,11 @@ class FakeLogger:
 class RecordingBackend:
     """Generic multiplexer-backend double: records every method call by name.
 
-    ``rename`` is concrete (the flat shim calls it). Any other attribute resolves
-    to a recorder that captures the call and returns a stable ref string, so the
-    GREEN shim's layout primitives are observable here.
+    ``rename`` and ``list_surface_identities`` are concrete; any other attribute
+    resolves to a recorder that captures the call and returns a stable ref string,
+    so the GREEN shim's layout primitives are observable here. Each workspace
+    reports exactly ONE synthetic identity so the never-collapse post-condition
+    passes for the fake (the layout-invocation assertions are the point).
     """
 
     def __init__(self) -> None:
@@ -77,6 +74,10 @@ class RecordingBackend:
 
     def rename(self, ref: str, name: str) -> None:
         self.calls.append(("rename", (ref, name), {}))
+
+    def list_surface_identities(self, workspace_id: str) -> list[str]:
+        self.calls.append(("list_surface_identities", (workspace_id,), {}))
+        return [f"claude-{workspace_id}"]
 
     def call_names(self) -> list[str]:
         return [c[0] for c in self.calls]

@@ -48,4 +48,6 @@ def test_apply_does_not_succeed_with_zero_port_calls():
     uc, layout, workers = _build()
     uc.apply(COACH_PANE, COACH_WS, workers)
     method_names = {c[0] for c in layout.calls}
-    assert method_names & {"create_right_pane", "place_surface_right"}
+    assert method_names & {"position_workspace_right"}
+    # one real layout primitive per worker placed
+    assert layout.layout_invocations == len(workers)

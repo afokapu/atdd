@@ -91,11 +91,31 @@ def apply_canonical_name_and_layout(
             file=sys.stderr,
         )
 
-    layout = target_grid_label(surface_count)
-    print(
-        f"   layout target ({surface_count} surface[s]): {layout} "
-        f"({LAYOUT_CONFORMANCE_RULE_ID})"
-    )
+    # Real layout pass (#865): invoke an ACTUAL multiplexer layout primitive.
+    # The prior bare ``print("layout target …")`` was log-theater — it claimed
+    # enforcement while nothing was invoked, so every worker landed as a tab in
+    # the focused (coach) pane. Delegate to the enforce-surface-conformance
+    # feature, which positions the worker's OWN workspace right of the coach via a
+    # real cmux op (never-collapse: the worker keeps its own daemon scope).
+    # Best-effort: a layout failure (or a backend double lacking the layout
+    # primitives) must not abort the spawn — the rename half already succeeded.
+    try:
+        from atdd.consolidate_coach_workspace.enforce_surface_conformance.src.presentation.apply_conformance import (  # noqa: E501
+            place_worker_surface_right,
+        )
+
+        result = place_worker_surface_right(backend, ref)
+        print(
+            f"   layout applied ({result.layout_invocations} op[s]): {ref} "
+            f"positioned right of coach ({LAYOUT_CONFORMANCE_RULE_ID})"
+        )
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-01
+        print(
+            f"⚠️  layout not applied for {ref}: {exc} "
+            f"(target: {target_grid_label(surface_count)}) "
+            f"({LAYOUT_CONFORMANCE_RULE_ID})",
+            file=sys.stderr,
+        )
 
 
 def capture_session_uuid(
