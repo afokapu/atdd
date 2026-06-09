@@ -1289,7 +1289,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 41
+    total: 42
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
@@ -1367,6 +1367,8 @@ wagons:
       decision such as a phase transition sign off instead of escalating it to the
       human by classifying it operator_reserved before the coach is consulted and
       escalating with no verdict
+    C008: minimize likelihood of a sanctioned worker bootstrap command being escalated
+      by default and deadlocking the worker instead of auto applied
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/
