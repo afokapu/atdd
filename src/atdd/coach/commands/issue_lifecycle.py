@@ -280,7 +280,20 @@ class IssueLifecycle:
         return worktree_path
 
     def _run_gate(self, worktree_path: Path) -> int:
-        """Run atdd gate in the worktree."""
+        """Run ``atdd gate`` in the worktree for DISPLAY only (advisory).
+
+        This prints the toolkit gate output when an agent enters a worktree; it
+        is intentionally advisory and its return code is informational — the
+        enter() caller does not act on it. Do NOT retrofit this into a blocker:
+        the full ``atdd gate`` advisory output gates nothing on purpose, because
+        hard-blocking on it would brick every in-flight transition (#1020 scope
+        E migration-safety).
+
+        The ENFORCING per-transition chokepoint is ``_transition_gate`` (called
+        from ``transition()``), which acts on a fail-closed verdict from the
+        pure ``atdd.coach.gate`` decision module against the per-transition check
+        registry. That is where "act on the return code, never swallow it" lives.
+        """
         try:
             result = subprocess.run(
                 ["atdd", "gate"],
