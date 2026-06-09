@@ -43,3 +43,11 @@ github:
   field_schema: atdd/coach/schemas/project_fields.schema.json
 coach:
   token_alert_threshold: 400000
+# Enforcing phase-transition gate (#1020). Operator control over which phase
+# transitions consult their registered gate checks, keyed by "FROM->TO".
+# PLANNED->RED is gated by default (atdd.coach.gate.decision.DEFAULT_GATED_TRANSITIONS);
+# entries here override per transition. The check registry ships EMPTY, so a
+# gated transition is a no-op until #958/#1017 register checks into GATE_REGISTRY.
+gate:
+  transitions:
+    PLANNED->RED: true

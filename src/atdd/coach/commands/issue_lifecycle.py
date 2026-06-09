@@ -397,6 +397,71 @@ class IssueLifecycle:
         )
         return 1
 
+    def _load_config(self) -> dict:
+        """Read .atdd/config.yaml as a dict (empty dict when absent/unreadable)."""
+        import yaml
+        if not self.config_file.exists():
+            return {}
+        try:
+            return yaml.safe_load(self.config_file.read_text()) or {}
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-09-01
+            return {}
+
+    def _transition_gate(self, issue_number: int, target_status: str,
+                         force: bool = False) -> int:
+        """Enforcing per-transition gate — the keystone chokepoint (#1020).
+
+        Thin caller of the pure ``atdd.coach.gate`` decision module: resolves the
+        checks registered for the ``current_phase -> target_status`` transition
+        and BLOCKS (returns non-zero, so transition() never reaches
+        IssueManager.update()'s label/phase swap) when any check fails.
+        Fail-closed: an errored/timed-out check counts as a failure.
+
+        Migration-safe by construction: ``GATE_REGISTRY`` ships empty, so every
+        transition is a no-op here until #958/#1017 register real checks. ``force``
+        bypasses with a loud warning, mirroring the other transition gates.
+        """
+        from atdd.coach.gate.decision import GateContext, evaluate_transition_gate
+        from atdd.coach.gate.registry import GATE_REGISTRY
+
+        # Fast path + migration safety: an empty registry can never block, so
+        # skip the gate (and its issue fetch) entirely until checks are
+        # registered (#958/#1017). This keeps the shipped behavior a true no-op.
+        if GATE_REGISTRY.is_empty():
+            return 0
+
+        issue = self._fetch_issue(issue_number)
+        if not issue:
+            print(f"❌ could not fetch issue #{issue_number} for transition gate")
+            return 1
+        from_phase = self._get_status_from_labels(issue.get("labels", []))
+        ctx = GateContext(
+            issue_number=issue_number,
+            from_phase=from_phase,
+            to_phase=target_status.upper(),
+            worktree=self.target_dir,
+        )
+        outcome = evaluate_transition_gate(GATE_REGISTRY, self._load_config(), ctx)
+        if outcome.proceed:
+            return 0
+
+        if force:
+            print(
+                f"::warning::Transition gate bypassed (--force) for "
+                f"{from_phase} -> {target_status.upper()}; "
+                f"{len(outcome.failures)} check(s) failed."
+            )
+            return 0
+
+        print(
+            f"\nError: Transition {from_phase} -> {target_status.upper()} blocked "
+            f"by {len(outcome.failures)} failing gate check(s):"
+        )
+        for f in outcome.failures:
+            print(f"  ✗ [{f.gate_id} / {f.rule_id}] {f.message}")
+        print(f"  Bypass: atdd issue {issue_number} --status {target_status.upper()} --force")
+        return 1
+
     def transition(self, issue_number: int, status: str, force: bool = False) -> int:
         """Transition an issue to a new status, then re-enter to show updated state.
 
@@ -414,6 +479,14 @@ class IssueLifecycle:
             0 on success, 1 on failure.
         """
         from atdd.coach.commands.issue import IssueManager
+
+        # Enforcing per-transition gate — the #1020 keystone. Acts on the gate
+        # verdict (unlike the advisory _run_gate it replaces): a failing
+        # registered check returns non-zero here, so we never reach
+        # IssueManager.update()'s label/phase swap. Empty registry => no-op.
+        gate_rc = self._transition_gate(issue_number, status, force=force)
+        if gate_rc != 0:
+            return gate_rc
 
         # Template compliance gate — PLANNED and beyond require a fully
         # populated issue body (SPEC-COACH-ORCH-0011). --force overrides.
