@@ -1,0 +1,72 @@
+urn: "wmbt:govern-lifecycle:E048"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-wagon-boundaries-validator-hardcoding-the-python-dir-constant-so-bare-layer-imports-cross-wagon-imports-and-package-hierarchy-rules-enforce-nothing-on-the-toolkit-s-own-src-atdd-wagons-and-cannot-recognise-toolkit-imports-that-carry-the-atdd-package-prefix"
+context_clarifier: "test_wagon_boundaries.py pins PYTHON_DIR = REPO_ROOT / 'python' (l.40) and every finder (find_test_files, find_implementation_files, get_wagon_from_path, is_cross_wagon_import, check_package_hierarchy) is rooted there, so the toolkit's own wagons under src/atdd are never scanned. Reconciliation of the two roots is required exactly as in composition: the DISCOVERY root is src/atdd (wagons live one level under it, e.g. mediate_worker_decisions), but toolkit code imports cross-wagon as `atdd.<wagon>.<feature>...` — the wagon name is the SECOND import segment because the import-resolution root is src and `atdd` is the top package. get_wagon_from_path and is_cross_wagon_import must strip the atdd import-prefix to recover the wagon, or they will mis-attribute every toolkit import. The fix config-drives the scan roots from get_code_roots honoring code.toolkit, carrying per-root (discovery_root, import_prefix), and excludes coder/validators/fixtures/. The acceptance proves toolkit files are discovered AND a genuine cross-wagon `atdd.<other_wagon>` import is correctly flagged while a same-wagon import is not — behaviorally, not by a log line."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the-wagon-boundaries-validator-hardcoding-the-python-dir-constant-so-bare-layer-imports-cross-wagon-imports-and-package-hierarchy-rules-enforce-nothing-on-the-toolkit-s-own-src-atdd-wagons-and-cannot-recognise-toolkit-imports-that-carry-the-atdd-package-prefix by config-driving the scan roots from get_code_roots honoring code.toolkit, carrying per-root (discovery_root, import_prefix) so wagon attribution strips the atdd. prefix, and excluding coder/validators/fixtures/"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E048-UNIT-001-toolkit-files-discovered-under-src-atdd"
+      id: "AC-UNIT-001"
+      purpose: "When code.toolkit is configured, the boundaries validator's finders enumerate implementation and test files under src/atdd, not only python/"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "code.toolkit configured at src/atdd containing real wagon implementation and test files"
+    when:
+      abstract: "the boundaries validator resolves its scan roots and enumerates implementation/test files"
+    then:
+      abstract:
+        - "A known toolkit implementation file under src/atdd/<wagon>/<feature>/src/<layer> is among the discovered files"
+        - "No discovered file is rooted under coder/validators/fixtures/"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E048-UNIT-002-cross-wagon-attribution-strips-atdd-prefix"
+      id: "AC-UNIT-002"
+      purpose: "Cross-wagon detection on toolkit code recovers the wagon from the atdd-prefixed import: a genuine atdd.<other_wagon> import is flagged cross-wagon while a same-wagon import is not"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A toolkit scan root whose import_prefix is `atdd.` and discovery_root is src/atdd"
+        - "A source file in wagon A that imports `atdd.<wagonB>.<feature>...` and another that imports within `atdd.<wagonA>...`"
+    when:
+      abstract: "is_cross_wagon_import is evaluated for both imports under the toolkit scan root"
+    then:
+      abstract:
+        - "The `atdd.<wagonB>` import is reported as cross-wagon with source=wagonA, target=wagonB"
+        - "The same-wagon `atdd.<wagonA>` import is NOT reported as cross-wagon"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E048-SMOKE-001-real-toolkit-files-discovered-over-live-tree"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real repo (no mocks/fixtures): the production config-driven boundaries finder over the live src/atdd tree enumerates real toolkit implementation files and excludes the negative fixtures"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The toolkit's own shipped .atdd/config.yaml (code.toolkit: src/atdd) and the real src/atdd tree"
+    when:
+      abstract: "resolve_scan_roots + find_implementation_files run over the live toolkit tree"
+    then:
+      abstract:
+        - "A known real toolkit implementation file under src/atdd is discovered"
+        - "No discovered file is rooted under coder/validators/fixtures/"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"

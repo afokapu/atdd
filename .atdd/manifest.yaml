@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '958'
+  slug: config-drive-four-tier-and-refactor-validators-toolkit-root
+  file: null
+  issue_number: 958
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-09'
+  archived: null
+  branch: feat/config-drive-four-tier-and-refactor-validators-toolkit-root
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:config-driven-four-tier-validators
+  train: 0001-self-compliance-validate
 - id: '865'
   slug: coach-layout-conformance-is-log-theater-never-actually-enforced
   file: null

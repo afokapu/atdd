@@ -36,6 +36,7 @@ from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coder.utils.python_file_walker import walk_consumer_python_files
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coder.validators._toolkit_roots import ScanRoot, is_excluded_fixture
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -176,12 +177,19 @@ def find_feature_dirs(stack_root: Path, stack: str) -> Set[Path]:
     if not stack_root.exists():
         return feature_dirs
 
+    # Skip negative fixtures only when the scanned root is a real tree — the
+    # fixture dogfood tests intentionally root the analyzer inside fixtures (#958).
+    skip_fixtures = not is_excluded_fixture(stack_root)
+
     for layer in LAYER_NAMES:
         for layer_dir in stack_root.rglob(layer):
             if not layer_dir.is_dir():
                 continue
             feature_dir = feature_dir_for_layer_dir(layer_dir, stack)
             if feature_dir is None or feature_dir == stack_root:
+                continue
+            # Negative fixtures self-trigger — never discover them as features (#958).
+            if skip_fixtures and is_excluded_fixture(feature_dir):
                 continue
             feature_dirs.add(feature_dir)
 
@@ -243,14 +251,27 @@ def build_feature_contexts(repo_root: Path, stack: str, stack_root: Path) -> Lis
     return contexts
 
 
-def collect_python_files(repo_root: Path) -> List[Path]:
-    python_root = repo_root / "python"
-    if not python_root.exists():
+def collect_python_files(
+    repo_root: Path, discovery_root: Optional[Path] = None
+) -> List[Path]:
+    """Collect python source files under the discovery root.
+
+    ``discovery_root`` defaults to the consumer ``python/`` tree (back-compat).
+    When a toolkit discovery root (``src/atdd``) is supplied, the negative
+    fixtures under ``coder/validators/fixtures/`` are excluded so they cannot
+    self-trigger (#958).
+    """
+    root = discovery_root if discovery_root is not None else (repo_root / "python")
+    if not root.exists():
         return []
+    # Exclude the negative fixtures only when scanning a real tree — fixture-based
+    # dogfood tests deliberately point the analyzer AT a fixture subtree (#958).
+    skip_fixtures = not is_excluded_fixture(root)
     return sorted(
         path
-        for path in walk_consumer_python_files(python_root)
+        for path in walk_consumer_python_files(root)
         if not graph_file_excluded(path)
+        and not (skip_fixtures and is_excluded_fixture(path))
     )
 
 
@@ -305,8 +326,18 @@ def resolve_python_import(
     import_ref: PythonImportRef,
     all_files: Set[Path],
     repo_root: Path,
+    import_root: Optional[Path] = None,
 ) -> Set[Path]:
+    """Resolve a python import to candidate target files.
+
+    ``import_root`` is the directory a dotted import resolves against on disk. It
+    defaults to the consumer ``python/`` base (back-compat); the toolkit passes
+    ``src`` so a qualified ``atdd.<wagon>.<feature>.src.<layer>`` import resolves
+    to ``src/atdd/<wagon>/<feature>/src/<layer>`` instead of failing against a
+    ``python`` base (the #955 false-violation fix — #958).
+    """
     candidates: Set[Path] = set()
+    base_root = import_root if import_root is not None else (repo_root / "python")
 
     if import_ref.level > 0:
         base_dir = source_file.parent
@@ -322,7 +353,7 @@ def resolve_python_import(
             local_base = feature_root / "src" / import_ref.module.replace(".", "/")
             candidates.update(candidate_python_paths(local_base, all_files))
 
-        repo_base = repo_root / "python" / import_ref.module.replace(".", "/")
+        repo_base = base_root / import_ref.module.replace(".", "/")
         candidates.update(candidate_python_paths(repo_base, all_files))
 
     return candidates
@@ -363,15 +394,21 @@ def extract_called_names(file_path: Path) -> Set[str]:
     return called
 
 
-def build_python_graph(repo_root: Path) -> Dict[Path, Set[Path]]:
-    python_files = collect_python_files(repo_root)
+def build_python_graph(
+    repo_root: Path,
+    discovery_root: Optional[Path] = None,
+    import_root: Optional[Path] = None,
+) -> Dict[Path, Set[Path]]:
+    python_files = collect_python_files(repo_root, discovery_root)
     all_files = set(python_files)
     graph: Dict[Path, Set[Path]] = {file_path: set() for file_path in python_files}
 
     for file_path in python_files:
         called_names = extract_called_names(file_path) if file_path.name == "composition.py" else set()
         for import_ref in extract_python_imports(file_path):
-            resolved = resolve_python_import(file_path, import_ref, all_files, repo_root)
+            resolved = resolve_python_import(
+                file_path, import_ref, all_files, repo_root, import_root=import_root
+            )
 
             if file_path.name == "composition.py" and import_ref.names:
                 setter_only = all(name.startswith("set_") for name in import_ref.names)
@@ -607,17 +644,43 @@ def python_composition_root_violations(
 
 
 def analyze_python_repo(repo_root: Path) -> List[Violation]:
+    """Analyze the consumer ``python/`` tree (the convention-declared stack root).
+
+    A thin wrapper over :func:`analyze_python_root` with a consumer ScanRoot
+    (discovery == import root, no package prefix), preserving the historical
+    behavior while sharing the one analysis path (#958).
+    """
     convention = load_yaml(COMPOSITION_CONVENTION)
-    stack_conf = convention["composition"]["stacks"]["python"]
-    stack_root = repo_root / stack_conf["repo_root"]
-    features = build_feature_contexts(repo_root, "python", stack_root)
+    stack_root = repo_root / convention["composition"]["stacks"]["python"]["repo_root"]
+    consumer = ScanRoot(discovery_root=stack_root, import_root=stack_root, import_prefix="")
+    return analyze_python_root(repo_root, consumer)
+
+
+def analyze_python_root(repo_root: Path, scan_root: ScanRoot) -> List[Violation]:
+    """Analyze python composition completeness for one config-driven scan root.
+
+    Feature contexts are discovered under ``scan_root.discovery_root`` and the
+    import graph resolves against ``scan_root.import_root`` — so the consumer
+    ``python/`` tree and the toolkit's own four-tier features under ``src/atdd``
+    (whose qualified ``atdd.`` imports resolve against the ``src`` import root) are
+    both analyzed through one path (#958). Returns the canonical Violation records
+    (unsorted); the ratchet decides which are new vs grandfathered.
+    """
+    features = build_feature_contexts(repo_root, "python", scan_root.discovery_root)
     if not features:
         return []
 
-    graph = build_python_graph(repo_root)
+    graph = build_python_graph(
+        repo_root,
+        discovery_root=scan_root.discovery_root,
+        import_root=scan_root.import_root,
+    )
     reverse = build_reverse_graph(graph)
-    violations: List[Violation] = []
 
+    convention = load_yaml(COMPOSITION_CONVENTION)
+    stack_conf = convention["composition"]["stacks"]["python"]
+
+    violations: List[Violation] = []
     violations.extend(
         violation
         for feature in features
