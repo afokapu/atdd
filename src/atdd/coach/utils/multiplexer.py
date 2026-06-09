@@ -674,41 +674,52 @@ class CmuxBackend(MultiplexerBackend):
         workspace's ``list-panes`` (pane → workspace).
         """
         payload = json.loads(_run(["cmux", "rpc", "surface.list"]).stdout or "{}")
-        pane_ref = ""
+        pane_id = ""
         for surface in payload.get("surfaces", []):
             if surface.get("ref") == surface_ref:
-                pane_ref = surface.get("pane_ref") or ""
+                pane_id = surface.get("pane_id") or ""
                 break
-        if not pane_ref:
+        if not pane_id:
             raise MultiplexerError(
                 f"surface {surface_ref!r} not found in cmux surface.list"
             )
         for ws in self.list_workspaces():
-            panes = _run(["cmux", "list-panes", *_ws_flag(ws)]).stdout or ""
-            if re.search(rf"\b{re.escape(pane_ref)}\b", panes):
+            if pane_id in self._pane_uuids(ws):
                 return ws
         raise MultiplexerError(
             f"could not resolve owning workspace for {surface_ref!r}"
         )
 
-    def list_surface_identities(self, workspace_id: str) -> list[str]:
-        """Return the distinct agent identities resident in ``workspace_id``.
+    @staticmethod
+    def _pane_uuids(workspace_id: str) -> set[str]:
+        """Global pane UUIDs in ``workspace_id`` (short ``pane:N`` refs resolve
+        per selected-workspace, so UUIDs are the reliable cross-workspace key)."""
+        out = _run(
+            ["cmux", "list-panes", *_ws_flag(workspace_id), "--id-format", "uuids"]
+        ).stdout or ""
+        return set(re.findall(r"[0-9A-Fa-f]{8}-[0-9A-Fa-f-]{27}", out))
 
-        An identity is an agent-hook surface's ``resume_binding.checkpoint_id``;
-        a single-worker workspace yields exactly one. Used for the never-collapse
-        post-condition (#865/#1013).
+    def list_surface_identities(self, workspace_id: str) -> list[str]:
+        """Return the distinct surface identities resident in ``workspace_id``.
+
+        Uses ``list-pane-surfaces --id-format uuids`` — the reliable
+        cross-workspace primitive: ``surface.list`` (with resume_binding
+        checkpoints) only reports the *selected* workspace, whereas this resolves
+        any workspace. Surface UUIDs are globally unique, so a worker that kept its
+        own single-identity workspace yields exactly one identity disjoint from
+        every other worker's (the never-collapse proof, #865/#1013). A
+        single-worker workspace yields exactly one.
         """
-        panes_out = _run(["cmux", "list-panes", *_ws_flag(workspace_id)]).stdout or ""
-        pane_refs = set(re.findall(r"pane:\d+", panes_out))
-        payload = json.loads(_run(["cmux", "rpc", "surface.list"]).stdout or "{}")
+        out = _run(
+            [
+                "cmux", "list-pane-surfaces",
+                *_ws_flag(workspace_id), "--id-format", "uuids",
+            ]
+        ).stdout or ""
         identities: list[str] = []
-        for surface in payload.get("surfaces", []):
-            if surface.get("pane_ref") not in pane_refs:
-                continue
-            binding = surface.get("resume_binding") or {}
-            checkpoint = binding.get("checkpoint_id")
-            if checkpoint and checkpoint not in identities:
-                identities.append(checkpoint)
+        for uuid in re.findall(r"[0-9A-Fa-f]{8}-[0-9A-Fa-f-]{27}", out):
+            if uuid not in identities:
+                identities.append(uuid)
         return identities
 
     def new_persona_surface(
