@@ -357,3 +357,29 @@ def _slug(workspace_id: str) -> str:
 
 def _wall() -> float:
     return time.time()
+
+
+def live_smoke_available() -> Optional[str]:
+    """Return ``None`` when the E012 headline harness can run, else a skip reason.
+
+    Needs cmux + claude on PATH, a live cmux surface, and the explicit
+    ``ATDD_LIVE_SMOKE=1`` opt-in so ordinary runs never drive a real dispatch.
+    """
+    if os.environ.get("ATDD_LIVE_SMOKE") != "1":
+        return "live smoke is opt-in: set ATDD_LIVE_SMOKE=1 (needs a live cmux surface)"
+    if not shutil.which("cmux"):
+        return "cmux not on PATH"
+    if not shutil.which("claude"):
+        return "claude not on PATH"
+    if not os.environ.get("CMUX_SURFACE_ID"):
+        return "not running under a live cmux surface (CMUX_SURFACE_ID unset)"
+    return None
+
+
+def coach_dispatch_drives_fixture_live_smoke() -> dict:
+    """Run `atdd coach <fixture>` end-to-end through ONE mediated decision (E012).
+
+    Returns evidence: ``{"mediated": "verdict"|"escalation", "advanced": bool,
+    "state_before": str, "state_after": str, "no_human_interaction": True}``.
+    """
+    raise NotImplementedError  # SMOKE/GREEN: drive the real atdd coach <fixture>
