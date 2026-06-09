@@ -24,7 +24,7 @@ Both would resolve to "domain.X" causing module shadowing when tests run togethe
 import pytest
 import re
 from pathlib import Path
-from typing import List, Tuple, Set
+from typing import List, Optional, Sequence, Tuple, Set
 import ast
 
 import atdd
@@ -34,6 +34,7 @@ from atdd.coach.utils.diagnostics import (
     fail_with_diagnostic,
 )
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coder.validators._toolkit_roots import ScanRoot, is_excluded_fixture
 
 # Path constants
 # Consumer repo artifacts
@@ -41,29 +42,49 @@ REPO_ROOT = find_repo_root()
 PYTHON_DIR = REPO_ROOT / "python"
 PYPROJECT_TOML = PYTHON_DIR / "pyproject.toml"
 
+# The consumer ``python/`` tree as a ScanRoot: discovery == import root, no
+# package prefix (the wagon is the top-level import segment). Toolkit callers
+# pass a ScanRoot whose import_root is ``src`` and import_prefix is ``atdd`` so
+# cross-wagon attribution strips the package prefix (#958).
+_CONSUMER_ROOT = ScanRoot(discovery_root=PYTHON_DIR, import_root=PYTHON_DIR, import_prefix="")
+
 # Package resources (conventions, schemas)
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 BOUNDARIES_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "boundaries.convention.yaml"
 
 
-def find_test_files() -> List[Path]:
-    """Find all test files in wagons."""
-    if not PYTHON_DIR.exists():
-        return []
+def _scan_roots(roots: Optional[Sequence[ScanRoot]]) -> Sequence[ScanRoot]:
+    return roots if roots is not None else [_CONSUMER_ROOT]
 
-    test_files = []
-    for py_file in PYTHON_DIR.rglob("test_*.py"):
-        # Skip __pycache__
-        if '__pycache__' in str(py_file):
+
+def find_test_files(roots: Optional[Sequence[ScanRoot]] = None) -> List[Path]:
+    """Find all test files across the given scan roots (consumer python by default).
+
+    Negative fixtures under ``coder/validators/fixtures/`` are skipped when the
+    scanned root is a real tree (#958).
+    """
+    test_files: List[Path] = []
+    for scan_root in _scan_roots(roots):
+        discovery = scan_root.discovery_root
+        if not discovery.exists():
             continue
-        test_files.append(py_file)
+        skip_fixtures = not is_excluded_fixture(discovery)
+        for py_file in discovery.rglob("test_*.py"):
+            if '__pycache__' in str(py_file):
+                continue
+            if skip_fixtures and is_excluded_fixture(py_file):
+                continue
+            test_files.append(py_file)
 
     return test_files
 
 
-def find_implementation_files() -> List[Path]:
+def find_implementation_files(roots: Optional[Sequence[ScanRoot]] = None) -> List[Path]:
     """
     Find all implementation files in wagons (excluding tests and orchestration layers).
+
+    Scans every given scan root (the consumer ``python/`` tree by default;
+    toolkit callers pass a ``src/atdd`` ScanRoot — #958).
 
     Excluded from wagon boundary checks:
     - Test files (testing infrastructure)
@@ -71,32 +92,38 @@ def find_implementation_files() -> List[Path]:
     - trains/orchestrators/ directory (theme/train-level orchestration)
     - contracts/ directory (neutral DTO boundary layer)
     - scripts/ directory (utility scripts and tools)
+    - coder/validators/fixtures/ negative fixtures (when scanning a real tree)
     """
-    if not PYTHON_DIR.exists():
-        return []
+    impl_files: List[Path] = []
+    for scan_root in _scan_roots(roots):
+        discovery = scan_root.discovery_root
+        if not discovery.exists():
+            continue
+        skip_fixtures = not is_excluded_fixture(discovery)
+        for py_file in discovery.rglob("*.py"):
+            # Skip test files
+            if '/test/' in str(py_file) or py_file.name.startswith('test_'):
+                continue
+            # Skip __pycache__
+            if '__pycache__' in str(py_file):
+                continue
+            # Skip wagon.py, composition.py, and app entrypoint (wagon/app-level orchestration)
+            if py_file.name in ['wagon.py', 'composition.py', 'app.py']:
+                continue
+            # Skip trains/orchestrators/ directory (theme/train-level orchestration - can import across wagons)
+            if '/trains/orchestrators/' in str(py_file):
+                continue
+            # Skip contracts/ directory (neutral DTO layer)
+            if '/contracts/' in str(py_file):
+                continue
+            # Skip scripts/ directory (utility scripts - can import across wagons for tooling)
+            if '/scripts/' in str(py_file):
+                continue
+            # Skip negative fixtures when scanning a real tree
+            if skip_fixtures and is_excluded_fixture(py_file):
+                continue
 
-    impl_files = []
-    for py_file in PYTHON_DIR.rglob("*.py"):
-        # Skip test files
-        if '/test/' in str(py_file) or py_file.name.startswith('test_'):
-            continue
-        # Skip __pycache__
-        if '__pycache__' in str(py_file):
-            continue
-        # Skip wagon.py, composition.py, and app entrypoint (wagon/app-level orchestration)
-        if py_file.name in ['wagon.py', 'composition.py', 'app.py']:
-            continue
-        # Skip trains/orchestrators/ directory (theme/train-level orchestration - can import across wagons)
-        if '/trains/orchestrators/' in str(py_file):
-            continue
-        # Skip contracts/ directory (neutral DTO layer)
-        if '/contracts/' in str(py_file):
-            continue
-        # Skip scripts/ directory (utility scripts - can import across wagons for tooling)
-        if '/scripts/' in str(py_file):
-            continue
-
-        impl_files.append(py_file)
+            impl_files.append(py_file)
 
     return impl_files
 
@@ -209,10 +236,15 @@ def check_for_syspath_manipulation(file_path: Path) -> List[Tuple[str, int]]:
     return violations
 
 
-def get_wagon_from_path(file_path: Path) -> str:
-    """Extract wagon name from file path."""
+def get_wagon_from_path(file_path: Path, scan_root: Optional[ScanRoot] = None) -> str:
+    """Extract wagon name from a file path, relative to the scan root's discovery root.
+
+    The wagon is the first path segment under ``discovery_root`` (``python/`` for
+    the consumer, ``src/atdd`` for the toolkit — #958).
+    """
+    discovery = (scan_root or _CONSUMER_ROOT).discovery_root
     try:
-        rel_path = file_path.relative_to(PYTHON_DIR)
+        rel_path = file_path.relative_to(discovery)
         parts = rel_path.parts
         if len(parts) > 0:
             return parts[0]
@@ -245,26 +277,37 @@ def is_bare_layer_import(import_path: str) -> bool:
     return False
 
 
-def is_cross_wagon_import(file_path: Path, import_path: str) -> Tuple[bool, str, str]:
+def is_cross_wagon_import(
+    file_path: Path, import_path: str, scan_root: Optional[ScanRoot] = None
+) -> Tuple[bool, str, str]:
     """
     Check if import crosses wagon boundaries.
+
+    For a toolkit scan root the dotted import carries the package prefix
+    (``atdd.<wagon>.<feature>...``); it is stripped first so the wagon is
+    recovered from the segment immediately under the discovery root (#958).
 
     Returns:
         (is_cross_wagon, source_wagon, target_wagon)
     """
-    source_wagon = get_wagon_from_path(file_path)
+    scan_root = scan_root or _CONSUMER_ROOT
+    source_wagon = get_wagon_from_path(file_path, scan_root)
+
+    # Strip the package import-prefix (no-op for the consumer root) so the wagon
+    # is the first dotted segment, matching the discovery-root layout.
+    stripped = scan_root.strip_import_prefix(import_path)
 
     # Check if import is from a different wagon
     # Pattern: {wagon}.{feature}.src.{layer}.{module}
-    match = re.match(r'([^.]+)\.', import_path)
+    match = re.match(r'([^.]+)\.', stripped)
     if match:
         target_wagon = match.group(1)
 
         # Check if it's a different wagon (not shared utilities, commons, or contracts)
         # generate_identifiers is a utility wagon providing cross-cutting concerns
         if target_wagon != source_wagon and target_wagon not in ['shared', 'commons', 'generate_identifiers', '__init__', 'contracts']:
-            # Verify it's an actual wagon directory
-            wagon_dir = PYTHON_DIR / target_wagon
+            # Verify it's an actual wagon directory under this root's discovery tree
+            wagon_dir = scan_root.discovery_root / target_wagon
             if wagon_dir.exists() and wagon_dir.is_dir():
                 return (True, source_wagon, target_wagon)
 

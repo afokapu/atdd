@@ -105,19 +105,30 @@ def test_qualified_atdd_import_resolves_against_src_import_root():
     )
 
 
-def test_wired_toolkit_feature_has_no_false_unwired_violation():
-    """E047-UNIT-002: the genuinely-wired #865 feature yields no consumer violation."""
+def test_wired_toolkit_layer_file_has_no_false_unwired_violation():
+    """E047-UNIT-002: a genuinely-wired toolkit layer file is not falsely flagged.
+
+    ``composition.py`` imports ``application/apply_layout_use_case.py`` and
+    ``integration/cmux_layout_adapter.py`` via fully-qualified ``atdd.`` paths.
+    Under the hardcoded ``python`` import-base those edges never resolved, so both
+    looked unconsumed (false positives — the #955 wall). With the ``src`` import
+    root they resolve and neither file is reported as unwired. (Unconsumed *domain*
+    files in this feature are real debt for the ratchet, not false positives, so
+    this asserts only on the demonstrably-wired files.)
+    """
     scan_root = _toolkit_scan_root()
     violations = analyze_python_root(REPO_ROOT, scan_root)
-    f865_consumer_violations = [
+    wired = {"apply_layout_use_case.py", "cmux_layout_adapter.py"}
+    false_positives = [
         v
         for v in violations
         if v.rule_id == "coder.refactor.composition-consumer"
         and "enforce_surface_conformance" in v.location
+        and any(v.location.endswith(name) for name in wired)
     ]
-    assert not f865_consumer_violations, (
-        "a fully-wired toolkit feature must not be reported as unwired:\n"
-        + "\n".join(f"{v.location}: {v.detail}" for v in f865_consumer_violations)
+    assert not false_positives, (
+        "a composition-root-wired toolkit file must not be reported as unwired:\n"
+        + "\n".join(f"{v.location}: {v.detail}" for v in false_positives)
     )
 
 
