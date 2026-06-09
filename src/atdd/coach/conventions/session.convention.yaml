@@ -133,6 +133,18 @@ session_naming:
         Rename the surface to the canonical form.
         e.g. "cmux rename-tab --surface surface:42 'ATDD470-canonical-session-naming'"
         (the observer reconciles drift automatically on the next tick).
+    - id: "coach.session.canonical-role-name"
+      aliases: ["COACH-SESSION-NAMING-0002"]
+      severity: 3
+      disposition: advisory
+      description: "Coach-managed surface/workspace names match <REPO><N>[-phase<M>]-<role>-<slug> (role in worker|coach-daemon|observer)"
+      introduced_in: "3.107.0"
+      validator: "test_canonical_role_naming::test_managed_surface_names_role_aware"
+      fix_hint: |
+        Rename the managed surface to the role-aware canonical form, e.g.
+        "cmux rename-tab --surface surface:42 'ATDD865-worker-coach-layout'"
+        (role in worker|coach-daemon|observer). The drift family reconciles on
+        the next observer tick. See issue #865.
 
 layout_placement:
   description: |
