@@ -220,6 +220,17 @@ def worker_has_active_feed_hook_live_smoke() -> Dict[str, Any]:
     return result
 
 
+def dispatch_worker_decision_publishes_live_smoke() -> Dict[str, Any]:
+    """Spawn a worker via the REAL dispatch worker-spawn path and confirm its
+    gated Bash decision publishes to cmux feed.list (E013-SMOKE-001, #1025).
+
+    Unlike the standalone live-smoke spawn, this drives the production dispatch
+    surface creation (own-workspace foreground launch) so it proves the wrapper
+    Feed hook is live for the dispatch spawn — the producer half #967 missed.
+    """
+    raise NotImplementedError  # SMOKE/GREEN: drive _create_surface dispatch path
+
+
 if __name__ == "__main__":
     import sys
 
