@@ -644,40 +644,27 @@ def python_composition_root_violations(
 
 
 def analyze_python_repo(repo_root: Path) -> List[Violation]:
+    """Analyze the consumer ``python/`` tree (the convention-declared stack root).
+
+    A thin wrapper over :func:`analyze_python_root` with a consumer ScanRoot
+    (discovery == import root, no package prefix), preserving the historical
+    behavior while sharing the one analysis path (#958).
+    """
     convention = load_yaml(COMPOSITION_CONVENTION)
-    stack_conf = convention["composition"]["stacks"]["python"]
-    stack_root = repo_root / stack_conf["repo_root"]
-    features = build_feature_contexts(repo_root, "python", stack_root)
-    if not features:
-        return []
-
-    graph = build_python_graph(repo_root)
-    reverse = build_reverse_graph(graph)
-    violations: List[Violation] = []
-
-    violations.extend(
-        violation
-        for feature in features
-        for violation in feature_rule_violations(feature, reverse, stack_conf["layer_rules"])
-    )
-    violations.extend(
-        violation
-        for feature in features
-        for violation in python_composition_root_violations(feature, graph, stack_conf["composition_root_rule"])
-    )
-    return violations
+    stack_root = repo_root / convention["composition"]["stacks"]["python"]["repo_root"]
+    consumer = ScanRoot(discovery_root=stack_root, import_root=stack_root, import_prefix="")
+    return analyze_python_root(repo_root, consumer)
 
 
 def analyze_python_root(repo_root: Path, scan_root: ScanRoot) -> List[Violation]:
     """Analyze python composition completeness for one config-driven scan root.
 
-    Generalizes :func:`analyze_python_repo` (which is pinned to the consumer
-    ``python/`` tree) to any ``ScanRoot``: feature contexts are discovered under
-    ``scan_root.discovery_root`` and the import graph resolves against
-    ``scan_root.import_root`` — so the toolkit's own four-tier features under
-    ``src/atdd`` are analyzed with their qualified ``atdd.`` imports resolving
-    correctly (#958). Returns the canonical Violation records (unsorted); the
-    ratchet decides which are new vs grandfathered.
+    Feature contexts are discovered under ``scan_root.discovery_root`` and the
+    import graph resolves against ``scan_root.import_root`` — so the consumer
+    ``python/`` tree and the toolkit's own four-tier features under ``src/atdd``
+    (whose qualified ``atdd.`` imports resolve against the ``src`` import root) are
+    both analyzed through one path (#958). Returns the canonical Violation records
+    (unsorted); the ratchet decides which are new vs grandfathered.
     """
     features = build_feature_contexts(repo_root, "python", scan_root.discovery_root)
     if not features:
