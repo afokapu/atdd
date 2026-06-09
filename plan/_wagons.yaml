@@ -630,7 +630,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 77
+    total: 81
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -861,6 +861,25 @@ wagons:
       that never merges the game-template DEFAULT_CODE_ROOTS, and dropping the vestigial
       python/supabase/web declarations from the toolkit''s own config so `atdd pr`
       no longer leaves stray stub dirs (#984, sibling of #970)'
+    E045: 'minimize likelihood of a-registered-phase-transition-gate-check-failing-yet-the-status-transition-still-proceeding-because-the-gate-verdict-is-discarded
+      by acting on the verdict inside IssueLifecycle.transition(): a failing registered
+      check makes evaluate_transition_gate return proceed=False so transition() returns
+      non-zero and never reaches IssueManager.update()''s label/phase swap, proven
+      behaviorally (label unchanged, non-zero exit) not by a log line; a passing check
+      proceeds (#1020)'
+    E046: minimize likelihood of a-gate-check-that-errors-or-times-out-being-treated-as-a-silent-pass
+      by making run_checks() catch any exception from a check's run() (timeout, missing
+      tool, otherwise) and emit a failing GateCheckResult — fail-closed — so evaluate_gate
+      returns proceed=False rather than waving the transition through (#1020)
+    C007: 'minimize likelihood of a-transition-with-several-registered-checks-passing-overall-while-one-failed
+      by making evaluate_gate aggregate ALL results with AND-semantics: proceed is
+      True only when every GateCheckResult passed and the failures tuple enumerates
+      every failing check (#1020)'
+    D019: 'minimize likelihood of flipping-the-gate-from-advisory-to-blocking-failing-transitions-that-previously-proceeded
+      by gating on BOTH is_transition_gated(config) (PLANNED->RED default, operator-toggleable;
+      ungated transitions proceed without consulting checks) AND an empty default
+      GATE_REGISTRY (a gated transition with no registered checks proceeds), so the
+      mechanism ships inert until #958/#1017 register checks (#1020)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
