@@ -4,7 +4,7 @@ direction: "minimize"
 dimension: "likelihood"
 object_of_control: "the-composition-completeness-four-tier-validator-hardcoding-the-consumer-python-root-so-it-discovers-and-enforces-nothing-on-the-toolkit-s-own-src-atdd-four-tier-features-and-when-pointed-at-src-atdd-emitting-false-unwired-violations-because-import-resolution-still-hardcodes-the-python-base"
 context_clarifier: "test_composition_completeness.py resolves its python stack root and import-resolution base from a hardcoded `repo_root / 'python'` (collect_python_files l.247, resolve_python_import repo_base l.325, analyze_python_repo l.609), so toolkit four-tier features under src/atdd (e.g. consolidate_coach_workspace/enforce_surface_conformance from #865, and the mediate_worker_decisions wagons) are never discovered. Naively pointing the discovery root at src/atdd is not enough: toolkit modules import as `atdd.<wagon>.<feature>.src.<layer>...` and resolve against the `src` import-root, but resolve_python_import builds `repo_root / 'python' / module` — so every toolkit import fails to resolve, every layer file looks unconsumed, and the validator emits ~25 false 'unwired' violations (observed on #955). The fix config-drives BOTH the discovery root (src/atdd, where wagons live) AND the import-resolution root (src, where the atdd package resolves) from get_code_roots(load_atdd_config(repo_root)) honoring code.toolkit, and excludes coder/validators/fixtures/ (negative composition fixtures that would self-trigger). The acceptance proves a real toolkit four-tier feature is discovered AND that a genuinely-wired toolkit layer file is NOT reported as a false violation — never by asserting a log line."
-lens: "functional.correctness"
+lens: "functional.effectiveness"
 statement: "minimize likelihood of the-composition-completeness-four-tier-validator-hardcoding-the-consumer-python-root-so-it-discovers-and-enforces-nothing-on-the-toolkit-s-own-src-atdd-four-tier-features-and-when-pointed-at-src-atdd-emitting-false-unwired-violations-because-import-resolution-still-hardcodes-the-python-base by config-driving both the discovery root (src/atdd) and the import-resolution root (src) from get_code_roots honoring code.toolkit, threading them through collect_python_files / build_python_graph / resolve_python_import, and excluding coder/validators/fixtures/"
 acceptances:
   - identity:
@@ -67,6 +67,27 @@ acceptances:
     then:
       abstract:
         - "No feature context is rooted under coder/validators/fixtures/"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E047-SMOKE-001-real-toolkit-scan-discovers-and-resolves"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real repo (no mocks/fixtures): the production config-driven composition analysis over the live src/atdd tree discovers the #865 four-tier feature AND resolves its qualified atdd. import edges — the import-resolution fix holds end-to-end"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The toolkit's own shipped .atdd/config.yaml (code.toolkit: src/atdd) and the real src/atdd tree"
+    when:
+      abstract: "resolve_scan_roots + analyze_python_root run the real composition analysis over the live toolkit tree"
+    then:
+      abstract:
+        - "The enforce-surface-conformance feature is among the analyzed features"
+        - "Its composition-root-wired files (apply_layout_use_case.py, cmux_layout_adapter.py) carry no false unwired violation (their atdd. edges resolved against the src import root)"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-09"
