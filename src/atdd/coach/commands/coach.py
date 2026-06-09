@@ -1275,6 +1275,13 @@ def run_cli(argv: list[str]) -> int:
     """
     if argv and argv[0] == "status":
         return run_status(argv[1:])
+    # #1017 — operator produces the approval token that the ApprovalTokenGateCheck
+    # requires; `atdd coach approve <N> --transition PLANNED->RED`. Thin verb
+    # dispatch; logic lives in the govern-lifecycle gate feature.
+    if argv and argv[0] == "approve":
+        from atdd.coach.gate.approve_command import run as run_approve
+
+        return run_approve(argv[1:])
     if argv and argv[0] == "review":
         return run_review(argv[1:])
     if argv and argv[0] == "watch":

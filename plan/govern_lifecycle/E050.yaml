@@ -1,0 +1,100 @@
+urn: "wmbt:govern-lifecycle:E050"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval-because-the-status-handler-treats-the-worker-and-the-human-operator-identically-so-the-daemons-rubber-stamp-or-an-expired-cmux-feed-message-is-enough-to-leak-the-transition"
+context_clarifier: "IssueLifecycle.transition() runs the #1020 enforcing gate (evaluate_transition_gate against GATE_REGISTRY), which ships EMPTY so any operator-gated transition is a no-op today: `atdd issue <N> --status RED` advances the label/phase whether a human approved or not, because the --status handler cannot distinguish the worker agent from the human operator. #1017 registers an ApprovalTokenGateCheck (a GateCheck satisfying the #1020 Protocol) INTO GATE_REGISTRY for the operator-gated transition (default PLANNED->RED, config-toggleable via .atdd/config.yaml gate.transitions) rather than hand-editing issue_lifecycle.py. The check PASSES iff an operator-signed approval token exists for the exact (issue, from_phase, to_phase) tuple — a filesystem artifact at .atdd/runtime/issue-<N>/approvals/<from>-<to>.json carrying a signature over the canonical scope — and FAILS (clear message) otherwise. The token is INDEPENDENT of the cmux Feed: the ~120s soft-expiry can neither satisfy nor bypass it, so an operator who never answers leaves the worker stalled at the gate rather than leaking through. The operator PRODUCES the token via `atdd coach approve <N> --transition PLANNED->RED`. A token scoped to one transition never unlocks another. The acceptance proves the BLOCK behaviorally (label/phase unchanged + non-zero exit — IssueManager.update() never reached) per the #865/#1020 anti-theater rule, never by asserting a printed 'blocked' line."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval-because-the-status-handler-treats-the-worker-and-the-human-operator-identically-so-the-daemons-rubber-stamp-or-an-expired-cmux-feed-message-is-enough-to-leak-the-transition by registering an ApprovalTokenGateCheck into the #1020 GATE_REGISTRY for the operator-gated transition: the check fails (so transition() returns non-zero and never reaches IssueManager.update()'s label/phase swap) unless an operator-signed, Feed-decoupled approval token exists for the exact (issue, from, to) tuple, which the operator produces via `atdd coach approve`"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E050-UNIT-001-token-presence-and-scope-and-signature-are-pure"
+      id: "AC-UNIT-001"
+      purpose: "The pure approval-token verifier accepts a well-formed operator-signed token for the exact (issue, from, to) tuple, and REJECTS a token whose scope is a different transition (a PLANNED->RED token never unlocks RED->GREEN), a token with a missing/forged signature, and a structurally absent token"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pure verify_token(token_data, issue, from_phase, to_phase, key) function and its sign_approval(scope, key) companion (stdlib-only, no I/O)"
+        - "A token whose issue/from/to match the transition and whose signature is sign_approval over the canonical scope"
+        - "A second token signed for a DIFFERENT transition (PLANNED->RED) being checked against RED->GREEN"
+    when:
+      abstract: "verify_token is evaluated for each token against the transition under decision"
+    then:
+      abstract:
+        - "The matching, correctly-signed token verifies True"
+        - "The different-transition token verifies False (scope isolation — one transition's token does not unlock another)"
+        - "A token with a wrong/absent signature verifies False, and an absent token verifies False"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E050-INTEGRATION-001-no-token-refuses-transition-label-unchanged"
+      id: "AC-INTEGRATION-001"
+      purpose: "With the ApprovalTokenGateCheck registered for PLANNED->RED and NO token on disk, the worker's transition to RED is refused: non-zero exit AND IssueManager.update() (the label/phase swap) is never reached — proven via a recording fake, not a log line"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "An IssueLifecycle whose transition() resolves the #1020 enforcing gate against the live GATE_REGISTRY"
+        - "An ApprovalTokenGateCheck registered for the PLANNED -> RED transition with NO approval token file present in the worktree"
+        - "A recording fake on IssueManager.update() that records whether it was called"
+    when:
+      abstract: "transition(issue_number, 'RED') is invoked for an issue currently labelled atdd:PLANNED with no operator approval token present"
+    then:
+      abstract:
+        - "transition() returns a non-zero exit code"
+        - "IssueManager.update() was never reached (no label swap, no phase advance — the transition did not occur)"
+        - "The failure is attributed to the ApprovalTokenGateCheck with its bound rule id"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E050-INTEGRATION-002-operator-signed-token-allows-transition"
+      id: "AC-INTEGRATION-002"
+      purpose: "With a valid operator-signed token for (issue, PLANNED, RED) present, the ApprovalTokenGateCheck passes and the transition proceeds to IssueManager.update()"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "An IssueLifecycle whose transition() resolves the enforcing gate against the live GATE_REGISTRY"
+        - "An ApprovalTokenGateCheck registered for PLANNED -> RED and a valid operator-signed token written for that exact transition in the worktree"
+    when:
+      abstract: "transition(issue_number, 'RED') is invoked for an issue currently labelled atdd:PLANNED"
+    then:
+      abstract:
+        - "The enforcing gate does not block — transition() proceeds to call IssueManager.update()"
+        - "The gate-driven non-zero early return is not taken"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E050-SMOKE-001-real-cli-blocked-without-token-proceeds-after-coach-approve"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real CLI: `atdd issue <N> --status RED` is hard-refused (non-zero exit, atdd:PLANNED label unchanged) while no token exists, and proceeds only after `atdd coach approve <N> --transition PLANNED->RED` writes the operator-signed token — enforcement decoupled from the cmux Feed (no Feed message can satisfy or bypass it)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real source-wired `atdd issue` CLI on an issue labelled atdd:PLANNED with the approval gate registered for PLANNED->RED and no token on disk"
+        - "The real `atdd coach approve` command that writes the operator-signed token to .atdd/runtime/issue-<N>/approvals/PLANNED-RED.json"
+    when:
+      abstract: "the CLI runs `atdd issue <N> --status RED` before any token exists, then again after `atdd coach approve <N> --transition PLANNED->RED`"
+    then:
+      abstract:
+        - "The pre-approval run exits non-zero and the issue's atdd:PLANNED label/phase is unchanged"
+        - "The post-approval run passes the gate (no token-related block), with no dependence on any cmux Feed message"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"

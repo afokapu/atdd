@@ -1859,3 +1859,16 @@ sessions:
   train: null
   branch: feat/enforcing-phase-transition-gate-keystone
   worktree: /Users/alecfokapu/Github/atdd/feat-enforcing-phase-transition-gate-keystone
+- id: '1017'
+  slug: daemon-operator-reserved-decision-gate
+  file: null
+  issue_number: 1017
+  type: implementation
+  status: PLANNED
+  created: '2026-06-09'
+  archived: null
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:operator-approval-token-gate
+  train: null
+  branch: feat/daemon-operator-reserved-decision-gate
+  worktree: /Users/alecfokapu/Github/atdd/feat-daemon-operator-reserved-decision-gate

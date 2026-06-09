@@ -20,6 +20,10 @@ SOURCE_COACH = "coach"
 SOURCE_SAFETY_GATE = "safety_gate"
 
 CAUSE_DANGEROUS = "dangerous_action"
+# An operator-reserved governance decision (e.g. a phase-transition sign-off) was
+# routed to the human instead of being auto-answered — the #1014 escalate-by-default
+# posture lifted to lifecycle governance (#1017). The daemon never auto-answers it.
+CAUSE_OPERATOR_RESERVED = "operator_reserved"
 CAUSE_TIMEOUT = "coach_timeout"
 CAUSE_UNPARSEABLE = "coach_unparseable"
 # The reply was delivered (Feed item non-pending) but the worker stayed parked on

@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:operator-approval-token-gate"
+wagon: "wagon:govern-lifecycle"
+description: "Registers an operator-reserved approval-token check INTO the #1020 enforcing-phase-transition gate (GATE_REGISTRY) rather than forking transition logic. The check passes only when an operator-signed approval token exists for the exact (issue, from, to) transition — a filesystem artifact decoupled from the cmux Feed so its ~120s soft-expiry can neither satisfy nor bypass it — and fails otherwise, so the worker's `atdd issue <N> --status RED` is hard-refused (non-zero, no label/phase swap) until a human approves. Adds the operator path to PRODUCE the token: `atdd coach approve <N> --transition PLANNED->RED`. Pure token sign/verify/scope logic lives in a stdlib-only domain module; the file-reading check is its integration sibling; registration is a config-gated import side-effect wired at the `atdd issue --status` dispatch (never a gate-package import, so the #1020 empty-registry tests stay green)."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E050"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "`atdd coach approve <N> --transition <FROM>-><TO>` writes the operator-signed approval token; no change to the existing `atdd issue --status` chokepoint beyond a side-effect registration import"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "Reuses the #1020 evaluate_transition_gate use case unchanged — this feature only registers a check INTO GATE_REGISTRY"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "approval: pure ApprovalToken record + stdlib-only sign_approval / verify_token / approval_relpath functions (no subprocess/network — honours the gate decision-module purity contract)"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "ApprovalTokenGateCheck: the file-reading GateCheck that loads the token under the worktree and delegates the verdict to the pure verifier; fail-closed (absent/unparseable/mis-scoped/mis-signed token => FAIL); plus a registrations module performing the config-gated GATE_REGISTRY.register side-effect"

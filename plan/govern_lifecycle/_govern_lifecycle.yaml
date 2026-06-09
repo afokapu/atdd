@@ -69,10 +69,11 @@ features:
   - urn: "feature:govern-lifecycle:extract-workflow-wave-runner-and-atdd-resume-cli"
   - urn: "feature:govern-lifecycle:canonical-theme-taxonomy"
   - urn: "feature:govern-lifecycle:enforcing-phase-transition-gate"
+  - urn: "feature:govern-lifecycle:operator-approval-token-gate"
   - urn: "feature:govern-lifecycle:config-driven-four-tier-validators"
 
 wmbt:
-  total: 84
+  total: 85
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -157,3 +158,4 @@ wmbt:
   E049: "minimize likelihood of config-driving-the-four-tier-validators-onto-src-atdd-lighting-up-the-full-legacy-debt-at-once-and-turning-validate-coder-red-on-untouched-pre-existing-files by grandfathering today's toolkit violations into a ratchet baseline (reusing the #482 suppress-and-clean disposition) so the gate fails only on new or growing violations, logging what is grandfathered (#958)"
   C007: "minimize likelihood of a-transition-with-several-registered-checks-passing-overall-while-one-failed by making evaluate_gate aggregate ALL results with AND-semantics: proceed is True only when every GateCheckResult passed and the failures tuple enumerates every failing check (#1020)"
   D019: "minimize likelihood of flipping-the-gate-from-advisory-to-blocking-failing-transitions-that-previously-proceeded by gating on BOTH is_transition_gated(config) (PLANNED->RED default, operator-toggleable; ungated transitions proceed without consulting checks) AND an empty default GATE_REGISTRY (a gated transition with no registered checks proceeds), so the mechanism ships inert until #958/#1017 register checks (#1020)"
+  E050: "minimize likelihood of a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval by registering an ApprovalTokenGateCheck into the #1020 GATE_REGISTRY for the operator-gated transition: the check fails (so transition() returns non-zero and never reaches IssueManager.update()'s label/phase swap) unless an operator-signed, Feed-decoupled approval token exists for the exact (issue, from, to) tuple, produced by `atdd coach approve` (#1017)"
