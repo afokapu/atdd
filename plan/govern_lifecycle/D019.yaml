@@ -1,0 +1,54 @@
+urn: "wmbt:govern-lifecycle:D019"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "flipping-the-gate-from-advisory-to-blocking-starting-to-fail-transitions-that-previously-proceeded-because-the-gate-fires-on-transitions-or-with-checks-that-were-never-opted-into-bricking-every-in-flight-issue-and-the-worker-driving-its-own-lifecycle"
+context_clarifier: "Advisory -> blocking is behavior-changing: the keystone must ship the MECHANISM while staying a no-op until #958/#1017 register real checks. Two gates govern whether the enforcing gate can block: (1) is_transition_gated(config, from, to) reads the .atdd/config.yaml `gate.transitions` block — PLANNED -> RED is gated by default, an operator can disable it or enable others, and a transition that is not gated short-circuits to proceed=True without consulting any check; (2) the module-level GATE_REGISTRY starts EMPTY, so even a gated transition with zero registered checks resolves to proceed=True. The conjunction is the migration-safety guarantee: with the registry empty NO existing transition can start failing as a result of this change. This WMBT pins both — the default/config-driven gating decision AND the empty-registry no-op — so the proof that nothing is bricked is a test, not a hope."
+lens: "functional.adaptability"
+statement: "minimize likelihood of flipping-the-gate-to-blocking-failing-transitions-that-previously-proceeded by gating on BOTH is_transition_gated(config) (PLANNED -> RED default, operator-toggleable; ungated transitions proceed without consulting checks) AND an empty default GATE_REGISTRY (a gated transition with no registered checks proceeds), so the mechanism ships inert until #958/#1017 register checks"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-001-planned-to-red-gated-by-default-config-toggles"
+      id: "AC-UNIT-001"
+      purpose: "PLANNED -> RED is gated by default; the .atdd/config.yaml gate.transitions block can disable it and enable other transitions"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An empty config (no gate block)"
+        - "A config with gate.transitions disabling PLANNED -> RED and enabling GREEN -> SMOKE"
+    when:
+      abstract: "is_transition_gated(config, from_phase, to_phase) is called for each (config, transition)"
+    then:
+      abstract:
+        - "With the empty config, PLANNED -> RED is gated (returns True)"
+        - "With the empty config, a transition not in the default set (e.g. GREEN -> SMOKE) is not gated (returns False)"
+        - "With the override config, PLANNED -> RED is not gated and GREEN -> SMOKE is gated"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-002-empty-registry-and-ungated-transition-proceed"
+      id: "AC-UNIT-002"
+      purpose: "MIGRATION SAFETY: a gated transition with no registered checks proceeds, and an ungated transition proceeds without consulting checks"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An empty GateRegistry (zero registered checks — the shipped default)"
+        - "A config that gates PLANNED -> RED"
+    when:
+      abstract: "evaluate_transition_gate(empty_registry, config, ctx) is called for PLANNED -> RED, and again for an ungated transition"
+    then:
+      abstract:
+        - "For the gated-but-unregistered PLANNED -> RED transition, the outcome has proceed=True (no existing transition starts failing)"
+        - "For the ungated transition, the outcome has proceed=True and no check is consulted"
+        - "The results tuple is empty in both no-op cases"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
