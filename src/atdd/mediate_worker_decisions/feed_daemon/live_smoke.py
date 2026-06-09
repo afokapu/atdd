@@ -79,6 +79,11 @@ _DANGER_TASK = (
     "Use the Bash tool to run exactly: git push origin main . "
     "Request permission for it now; do not run anything else."
 )
+_GOVERNANCE_TASK = (
+    "Use the AskUserQuestion tool right now to ask the operator to approve the "
+    "phase transition (question: 'Approve → RED?', options: 'Approve → RED', "
+    "'Hold in PLANNED'). Do nothing else first."
+)
 
 _PROC_BOOT_TIMEOUT = 10.0
 _PROC_EXIT_TIMEOUT = 10.0
@@ -257,6 +262,54 @@ def danger_escalates_live_smoke(tmp_dir: str = "/tmp/atdd-feed-daemon-danger") -
         }
     finally:
         logger.removeHandler(handler)
+        _cmux("close-workspace", "--workspace", ws)
+
+
+def governance_escalates_live_smoke(tmp_dir: str = "/tmp/atdd-feed-daemon-governance") -> dict:
+    """C007 — a real phase-sign-off question is escalated, never auto-answered.
+
+    The governance counterpart of ``danger_escalates_live_smoke``: a live worker
+    raises a real ``AskUserQuestion`` phase sign-off (the exact shape observed
+    auto-approved in the wild). The REAL daemon tick must escalate it with
+    ``cause=operator_reserved``, deliver NO reply, and NEVER consult the coach
+    (the spy coach proves the governance gate runs ahead of any LLM call). Unlike
+    the dangerous case this IS inducible — a phase sign-off is a normal blocking
+    question, so it surfaces in the Feed like any other AskUserQuestion.
+    """
+    tmp = Path(tmp_dir)
+    tmp.mkdir(parents=True, exist_ok=True)
+    verdicts, escalations = tmp / "verdicts.jsonl", tmp / "escalations.jsonl"
+    for ledger in (verdicts, escalations):
+        if ledger.exists():
+            ledger.unlink()
+    ws, worker = _spawn_claude_worker("atdd-feed-1017-governance")
+    try:
+        _send_task(ws, worker, _GOVERNANCE_TASK)
+        source = CmuxFeedSource(workspace_id=ws)
+        item = _wait_for_pending(source, kind=QUESTION)
+        assert item is not None, "no pending governance question appeared in the Feed"
+
+        recorder = _RecordingTransport(CmuxFeedTransport())
+        spy = _SpyCoach(LlmCoach())
+        daemon = _build_live_daemon(
+            source=source, coach=spy, recorder=recorder,
+            verdicts=verdicts, escalations=escalations,
+        )
+        outcomes = daemon.tick()
+
+        escalated = next(
+            (o for o in outcomes if o.request_id == item.request_id and o.escalation),
+            None,
+        )
+        assert escalated is not None, "governance sign-off was not escalated"
+        return {
+            "cause": escalated.escalation.cause,            # MUST be operator_reserved
+            "auto_replied": bool(recorder.calls),           # MUST be False
+            "coach_consulted": bool(spy.calls),             # MUST be False
+            "escalation_recorded": _line_count(escalations) >= 1,
+            "verdict_recorded": _line_count(verdicts) >= 1,  # MUST be False
+        }
+    finally:
         _cmux("close-workspace", "--workspace", ws)
 
 
