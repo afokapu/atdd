@@ -1,4 +1,4 @@
-urn: "wmbt:govern-lifecycle:E047"
+urn: "wmbt:govern-lifecycle:E050"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval-because-the-status-handler-treats-the-worker-and-the-human-operator-identically-so-the-daemons-rubber-stamp-or-an-expired-cmux-feed-message-is-enough-to-leak-the-transition by registering an ApprovalTokenGateCheck into the #1020 GATE_REGISTRY for the operator-gated transition: the check fails (so transition() returns non-zero and never reaches IssueManager.update()'s label/phase swap) unless an operator-signed, Feed-decoupled approval token exists for the exact (issue, from, to) tuple, which the operator produces via `atdd coach approve`"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:E047-UNIT-001-token-presence-and-scope-and-signature-are-pure"
+      urn: "acc:govern-lifecycle:E050-UNIT-001-token-presence-and-scope-and-signature-are-pure"
       id: "AC-UNIT-001"
       purpose: "The pure approval-token verifier accepts a well-formed operator-signed token for the exact (issue, from, to) tuple, and REJECTS a token whose scope is a different transition (a PLANNED->RED token never unlocks RED->GREEN), a token with a missing/forged signature, and a structurally absent token"
       phase: "GREEN"
@@ -32,7 +32,7 @@ acceptances:
       created: "2026-06-09"
 
   - identity:
-      urn: "acc:govern-lifecycle:E047-INTEGRATION-001-no-token-refuses-transition-label-unchanged"
+      urn: "acc:govern-lifecycle:E050-INTEGRATION-001-no-token-refuses-transition-label-unchanged"
       id: "AC-INTEGRATION-001"
       purpose: "With the ApprovalTokenGateCheck registered for PLANNED->RED and NO token on disk, the worker's transition to RED is refused: non-zero exit AND IssueManager.update() (the label/phase swap) is never reached — proven via a recording fake, not a log line"
       phase: "GREEN"
@@ -56,7 +56,7 @@ acceptances:
       created: "2026-06-09"
 
   - identity:
-      urn: "acc:govern-lifecycle:E047-INTEGRATION-002-operator-signed-token-allows-transition"
+      urn: "acc:govern-lifecycle:E050-INTEGRATION-002-operator-signed-token-allows-transition"
       id: "AC-INTEGRATION-002"
       purpose: "With a valid operator-signed token for (issue, PLANNED, RED) present, the ApprovalTokenGateCheck passes and the transition proceeds to IssueManager.update()"
       phase: "GREEN"
@@ -78,7 +78,7 @@ acceptances:
       created: "2026-06-09"
 
   - identity:
-      urn: "acc:govern-lifecycle:E047-SMOKE-001-real-cli-blocked-without-token-proceeds-after-coach-approve"
+      urn: "acc:govern-lifecycle:E050-SMOKE-001-real-cli-blocked-without-token-proceeds-after-coach-approve"
       id: "AC-SMOKE-001"
       purpose: "Against the real CLI: `atdd issue <N> --status RED` is hard-refused (non-zero exit, atdd:PLANNED label unchanged) while no token exists, and proceeds only after `atdd coach approve <N> --transition PLANNED->RED` writes the operator-signed token — enforcement decoupled from the cmux Feed (no Feed message can satisfy or bypass it)"
       phase: "SMOKE"

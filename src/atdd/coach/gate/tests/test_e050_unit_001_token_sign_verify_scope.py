@@ -1,10 +1,10 @@
-# URN: test:govern-lifecycle:operator-approval-token-gate:E047-UNIT-001-token-presence-and-scope-and-signature-are-pure
-# Acceptance: acc:govern-lifecycle:E047-UNIT-001-token-presence-and-scope-and-signature-are-pure
-# WMBT: wmbt:govern-lifecycle:E047
+# URN: test:govern-lifecycle:operator-approval-token-gate:E050-UNIT-001-token-presence-and-scope-and-signature-are-pure
+# Acceptance: acc:govern-lifecycle:E050-UNIT-001-token-presence-and-scope-and-signature-are-pure
+# WMBT: wmbt:govern-lifecycle:E050
 # Phase: GREEN
 # Layer: unit
 # Assertion: behavioral
-"""E047-UNIT-001 — the pure approval-token verifier (sign / verify / scope).
+"""E050-UNIT-001 — the pure approval-token verifier (sign / verify / scope).
 
 verify_token accepts a correctly operator-signed token for the EXACT
 (issue, from, to) transition and rejects everything else: a token scoped to a

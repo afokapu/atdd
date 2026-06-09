@@ -1,12 +1,12 @@
-# URN: test:govern-lifecycle:operator-approval-token-gate:E047-SMOKE-001-real-cli-blocked-without-token-proceeds-after-coach-approve
-# Acceptance: acc:govern-lifecycle:E047-SMOKE-001-real-cli-blocked-without-token-proceeds-after-coach-approve
-# WMBT: wmbt:govern-lifecycle:E047
+# URN: test:govern-lifecycle:operator-approval-token-gate:E050-SMOKE-001-real-cli-blocked-without-token-proceeds-after-coach-approve
+# Acceptance: acc:govern-lifecycle:E050-SMOKE-001-real-cli-blocked-without-token-proceeds-after-coach-approve
+# WMBT: wmbt:govern-lifecycle:E050
 # Phase: SMOKE
 # Layer: integration
 # Smoke: true
 # Assertion: behavioral
 # Purpose: exercise the real registration -> registry -> decision -> token-file path with the real operator approve command, no mocks
-"""E047-SMOKE-001 — block without token, proceed after the real `atdd coach approve`.
+"""E050-SMOKE-001 — block without token, proceed after the real `atdd coach approve`.
 
 No fakes on the gate path: the real ``register_approval_checks`` registers the
 real ``ApprovalTokenGateCheck`` into a real ``GateRegistry``; the real

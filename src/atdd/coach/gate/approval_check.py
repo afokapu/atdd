@@ -28,7 +28,7 @@ from atdd.coach.gate.decision import GateCheckResult, GateContext
 logger = logging.getLogger(__name__)
 
 GATE_ID = "approval-token"
-RULE_ID = "govern-lifecycle.E047.operator-approval-required"
+RULE_ID = "govern-lifecycle.E050.operator-approval-required"
 
 
 @dataclass(frozen=True)

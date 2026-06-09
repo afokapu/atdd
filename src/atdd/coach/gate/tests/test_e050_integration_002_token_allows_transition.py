@@ -1,10 +1,10 @@
-# URN: test:govern-lifecycle:operator-approval-token-gate:E047-INTEGRATION-002-operator-signed-token-allows-transition
-# Acceptance: acc:govern-lifecycle:E047-INTEGRATION-002-operator-signed-token-allows-transition
-# WMBT: wmbt:govern-lifecycle:E047
+# URN: test:govern-lifecycle:operator-approval-token-gate:E050-INTEGRATION-002-operator-signed-token-allows-transition
+# Acceptance: acc:govern-lifecycle:E050-INTEGRATION-002-operator-signed-token-allows-transition
+# WMBT: wmbt:govern-lifecycle:E050
 # Phase: GREEN
 # Layer: integration
 # Assertion: behavioral
-"""E047-INTEGRATION-002 — a valid operator-signed token lets the transition proceed.
+"""E050-INTEGRATION-002 — a valid operator-signed token lets the transition proceed.
 
 With a correctly-signed token written for the exact (issue, PLANNED, RED) tuple
 under the worktree, the ApprovalTokenGateCheck passes and transition() proceeds
@@ -51,7 +51,7 @@ def clean_registry():
 
 
 def test_valid_token_allows_transition(tmp_path: Path, planned_issue, clean_registry):
-    """E047-INTEGRATION-002: a valid signed token in the worktree passes the gate."""
+    """E050-INTEGRATION-002: a valid signed token in the worktree passes the gate."""
     token_path = tmp_path / approval_relpath(1017, "PLANNED", "RED")
     token_path.parent.mkdir(parents=True, exist_ok=True)
     token_path.write_text(json.dumps(

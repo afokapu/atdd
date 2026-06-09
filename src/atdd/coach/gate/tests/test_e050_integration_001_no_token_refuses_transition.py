@@ -1,10 +1,10 @@
-# URN: test:govern-lifecycle:operator-approval-token-gate:E047-INTEGRATION-001-no-token-refuses-transition-label-unchanged
-# Acceptance: acc:govern-lifecycle:E047-INTEGRATION-001-no-token-refuses-transition-label-unchanged
-# WMBT: wmbt:govern-lifecycle:E047
+# URN: test:govern-lifecycle:operator-approval-token-gate:E050-INTEGRATION-001-no-token-refuses-transition-label-unchanged
+# Acceptance: acc:govern-lifecycle:E050-INTEGRATION-001-no-token-refuses-transition-label-unchanged
+# WMBT: wmbt:govern-lifecycle:E050
 # Phase: GREEN
 # Layer: integration
 # Assertion: behavioral
-"""E047-INTEGRATION-001 — no operator token => transition refused, label unchanged.
+"""E050-INTEGRATION-001 — no operator token => transition refused, label unchanged.
 
 Anti-theater (mirrors #1020 E045): the ApprovalTokenGateCheck registered for
 PLANNED->RED must REFUSE the worker's transition when no operator-signed token
@@ -49,7 +49,7 @@ def clean_registry():
 
 
 def test_no_token_refuses_transition_label_unchanged(tmp_path: Path, planned_issue, clean_registry):
-    """E047-INTEGRATION-001: a missing approval token blocks PLANNED->RED."""
+    """E050-INTEGRATION-001: a missing approval token blocks PLANNED->RED."""
     clean_registry.register("PLANNED", "RED", ApprovalTokenGateCheck(signing_key="k"))
 
     # Operator-gated transition must be enabled for this transition.

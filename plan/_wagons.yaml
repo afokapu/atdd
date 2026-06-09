@@ -880,7 +880,7 @@ wagons:
       ungated transitions proceed without consulting checks) AND an empty default
       GATE_REGISTRY (a gated transition with no registered checks proceeds), so the
       mechanism ships inert until #958/#1017 register checks (#1020)'
-    E047: 'minimize likelihood of a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval
+    E050: 'minimize likelihood of a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval
       by registering an ApprovalTokenGateCheck into the #1020 GATE_REGISTRY for the
       operator-gated transition: the check fails (so transition() returns non-zero
       and never reaches IssueManager.update()''s label/phase swap) unless an operator-signed,
