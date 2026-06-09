@@ -1,0 +1,30 @@
+urn: "feature:mediate-worker-decisions:operator-reserved-decision-class"
+wagon: "wagon:mediate-worker-decisions"
+description: "Adds an operator_reserved governance classification ALONGSIDE the existing dangerous_action gate in the daemon decide path, applying #1014's escalate-by-default posture to lifecycle governance. A pure governance classifier (match_governance / classify_governance over the decision question, option labels, and document leaf blocks) detects a phase-transition sign-off / governance AskUserQuestion in FeedRunnerUseCase.handle() BEFORE the coach is consulted; when operator_reserved, the runner escalates (cause=operator_reserved, NO verdict, coach.mediate never invoked) exactly like the danger gate. Routine design-preference questions stay on the working auto-answer path (no regression). The escalation is the notification that the operator should run `atdd coach approve`; the Layer-2 approval token is the decoupled enforcement. Scope is the governance-escalation classification only — decision routing / convention loading stays with #987."
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "S"
+wmbts:
+  - "wmbt:mediate-worker-decisions:C007"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — the classification slots into the existing FeedRunnerUseCase.handle() decide path"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "Reuses FeedRunnerUseCase.handle / FeedDaemonUseCase.tick; adds only a governance branch ahead of coach.mediate that routes to the existing _escalate path"
+    domain:
+      - type: "services"
+        count: 1
+        rationale: "governance_rules: pure match_governance(text) + classify_governance(question, option_labels) detecting phase-transition sign-off / lifecycle-governance markers (no I/O), the prose sibling of danger_rules"
+      - type: "value_objects"
+        count: 1
+        rationale: "CAUSE_OPERATOR_RESERVED verdict cause constant; GovernanceClass record (safe vs operator_reserved with the matched marker)"
+    integration:
+      - type: "clients"
+        count: 0
+        rationale: "Reuses the existing JsonlEscalationSink / FeedReply wiring — an operator_reserved escalation flows through the unchanged escalation ledger"

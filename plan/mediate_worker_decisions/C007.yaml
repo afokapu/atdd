@@ -1,0 +1,109 @@
+urn: "wmbt:mediate-worker-decisions:C007"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-daemon-auto-answering-an-operator-reserved-governance-decision-such-as-a-phase-transition-sign-off-instead-of-escalating-it-to-the-human"
+context_clarifier: "The daemon's decide path auto-answers EVERY non-dangerous worker decision, including operator-reserved governance gates (verified live 2026-06-09: a worker raised an AskUserQuestion 'Approve -> RED?' at the PLANNED->RED boundary and the LlmCoach auto-picked 'Approve -> RED', source=coach). #1014 fixed this one level up for danger with escalate-by-default; governance needs the identical posture. #1017 adds an operator_reserved classification ALONGSIDE the existing dangerous_action gate in FeedRunnerUseCase.handle(): a pure governance classifier (match_governance / classify_governance over the question + option labels, and document leaf blocks) detects a phase-sign-off / lifecycle-governance decision BEFORE the coach is consulted. When operator_reserved, the runner escalates (records an Escalation with cause=operator_reserved, safety_class=operator_reserved) and delivers NO verdict — the coach.mediate brain is never invoked, exactly like the danger gate. Routine design-preference questions (e.g. pick a colour) are NOT governance and stay on the working auto-answer path — no regression. The escalation is the NOTIFICATION that the operator should run `atdd coach approve`; the #1017 Layer-2 approval-token gate is the ENFORCEMENT, decoupled so an expired/missed Feed message can neither satisfy nor bypass the block. Scope is the governance-escalation classification only; decision routing/convention loading stays with #987 (no overlap — this is a safety-gate classification ahead of the decider, not a routing change). The acceptance proves NO auto-answer via a recording fake (escalation recorded, reply verb never called), never a log line."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the daemon auto answering an operator reserved governance decision such as a phase transition sign off instead of escalating it to the human by classifying it operator_reserved before the coach is consulted and escalating with no verdict"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:C007-UNIT-001-phase-sign-off-escalates-no-verdict"
+      id: "AC-UNIT-001"
+      purpose: "A phase-transition sign-off AskUserQuestion (e.g. question 'Approve -> RED?' with option 'Approve -> RED') is classified operator_reserved and escalated: an Escalation with cause/safety_class=operator_reserved is recorded, NO verdict is delivered, and the coach decider is never consulted to auto-answer it"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A feed item whose decision is a phase-transition sign-off (question and option label naming a phase advance, e.g. Approve -> RED)"
+        - "A recording fake coach (records whether mediate was called) and a fake transport that records reply calls"
+    when:
+      abstract: "The runner handles the item in a single tick"
+      action: "invoke"
+    then:
+      abstract:
+        - "The outcome carries an Escalation with cause=operator_reserved (and safety_class=operator_reserved) and no Verdict"
+        - "The transport reply verb is never called for that request_id and the coach mediate brain was never invoked"
+      assertions:
+        - type: "exists"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "operator-reserved-decision-class"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C007-UNIT-002-routine-design-question-still-auto-answered"
+      id: "AC-UNIT-002"
+      purpose: "A routine design-preference AskUserQuestion (e.g. 'Which colour? Blue / Red') is NOT operator_reserved and stays on the working auto-answer path — the coach is consulted and a verdict is delivered (no regression of the danger/governance-free path)"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A feed item whose decision is a routine design preference with no phase-sign-off / governance markers"
+        - "A fake coach that returns an auto_apply verdict and a fake transport that records reply calls"
+    when:
+      abstract: "The runner handles the item in a single tick"
+      action: "invoke"
+    then:
+      abstract:
+        - "The coach mediate brain IS invoked and an auto_apply verdict is delivered through the transport"
+        - "No operator_reserved escalation is raised for that request_id"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "operator-reserved-decision-class"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C007-INTEGRATION-001-governance-escalated-durably-no-reply"
+      id: "AC-INTEGRATION-001"
+      purpose: "A governance phase-sign-off decision is escalated durably to escalations.jsonl as exactly one operator_reserved record and no feed reply is delivered (the daemon never auto-answers the operator-reserved gate)"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A JsonlEscalationSink backed by a tmp escalations.jsonl, a recording verdict ledger, and a fake transport"
+        - "A feed item whose decision is a phase-transition sign-off"
+    when:
+      abstract: "The daemon runs one tick over the item"
+      action: "invoke"
+    then:
+      abstract:
+        - "escalations.jsonl contains exactly one escalation record for the request_id with cause=operator_reserved matching the escalation contract"
+        - "The transport reply verb is never called for that request_id and no verdict is recorded"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "operator-reserved-decision-class"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C007-SMOKE-001-live-governance-question-not-auto-answered"
+      id: "AC-SMOKE-001"
+      purpose: "A real worker's phase-sign-off decision is escalated by the live daemon, never auto-answered"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real worker whose blocked decision is a PLANNED->RED phase-transition sign-off on the live Feed"
+    when:
+      abstract: "The daemon runs one poll tick over the live Feed"
+      action: "invoke"
+    then:
+      abstract:
+        - "No reply is sent; the governance decision is escalated to the human channel as operator_reserved"
+      assertions:
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "operator-reserved-decision-class"

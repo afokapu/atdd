@@ -630,7 +630,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 81
+    total: 82
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -880,6 +880,12 @@ wagons:
       ungated transitions proceed without consulting checks) AND an empty default
       GATE_REGISTRY (a gated transition with no registered checks proceeds), so the
       mechanism ships inert until #958/#1017 register checks (#1020)'
+    E047: 'minimize likelihood of a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval
+      by registering an ApprovalTokenGateCheck into the #1020 GATE_REGISTRY for the
+      operator-gated transition: the check fails (so transition() returns non-zero
+      and never reaches IssueManager.update()''s label/phase swap) unless an operator-signed,
+      Feed-decoupled approval token exists for the exact (issue, from, to) tuple,
+      produced by `atdd coach approve` (#1017)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -1267,7 +1273,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 38
+    total: 39
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
@@ -1337,6 +1343,10 @@ wagons:
       so runtime failures are unobservable
     M005: minimize likelihood of a managed daemon spawned as a detached orphaned process
       whose cmux rpc calls broken pipe so it silently never decides
+    C007: minimize likelihood of the daemon auto answering an operator reserved governance
+      decision such as a phase transition sign off instead of escalating it to the
+      human by classifying it operator_reserved before the coach is consulted and
+      escalating with no verdict
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/
