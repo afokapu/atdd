@@ -1,0 +1,30 @@
+urn: "feature:govern-lifecycle:enforcing-phase-transition-gate"
+wagon: "wagon:govern-lifecycle"
+description: "Makes the phase-transition gate enforcing: carves a pure gate-decision module (evaluate_transition_gate) + an empty-by-default check registry + a pluggable GateCheck contract, and turns IssueLifecycle.transition() into a thin caller that refuses a transition (non-zero, no label/phase swap) when a registered check fails. Ships the mechanism inert (registry empty) so #958/#1017 register real blocking checks later without bricking in-flight issues."
+sizing:
+  wmbts: 4
+  footprint_score: 6
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E045"
+  - "wmbt:govern-lifecycle:E046"
+  - "wmbt:govern-lifecycle:C007"
+  - "wmbt:govern-lifecycle:D019"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — the existing `atdd issue <N> --status <NEXT>` chokepoint (IssueLifecycle.transition) becomes a thin caller of the gate module"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "evaluate_transition_gate(registry, config, ctx) composes gating config, registry lookup, check execution and verdict aggregation into the single transition-gate decision"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "GateContext / GateCheckResult / GateOutcome are pure value records and the GateCheck Protocol is a contract, not modeled domain entities; the decision logic (evaluate_gate, run_checks, is_transition_gated) is pure and stdlib-only"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "CommandGateCheck is the reference subprocess-backed pluggable check (fail-closed on timeout/missing-tool); not registered by default"

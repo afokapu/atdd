@@ -1,0 +1,77 @@
+urn: "wmbt:govern-lifecycle:E045"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-registered-phase-transition-gate-check-failing-yet-the-status-transition-still-proceeding-because-the-gate-verdict-is-discarded-the-exact-advisory-theater-where-issue-lifecycle-runs-the-gate-prints-output-and-returns-0-regardless-of-pass-or-fail"
+context_clarifier: "IssueLifecycle._run_gate (src/atdd/coach/commands/issue_lifecycle.py:282) returns 0 even on failure and its caller at l.624 discards the return code entirely, so `atdd issue <N> --status <NEXT>` advances the label/phase no matter what the gate reported — there is no enforcing chokepoint for ANY per-transition policy (#958, #1017 both assume a gate that blocks). The fix carves a pure gate-decision unit (atdd.coach.gate.decision.evaluate_transition_gate) and makes IssueLifecycle.transition() a thin caller of it: when a check registered for the (from_phase -> to_phase) transition returns a failing GateCheckResult, evaluate_transition_gate returns GateOutcome(proceed=False), transition() prints the failures and returns non-zero BEFORE IssueManager.update() is ever called — so the GitHub label is never swapped and the phase never advances. A passing check (or an empty registry, the migration-safe default) yields proceed=True and the transition proceeds. The acceptance proves the BLOCK behaviorally — the label/phase did not change and the exit code is non-zero — never by asserting a printed 'gate failed' line (the #865 anti-theater lesson applied to the gate itself)."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-registered-phase-transition-gate-check-failing-yet-the-status-transition-still-proceeding-because-the-gate-verdict-is-discarded-the-exact-advisory-theater-where-issue-lifecycle-runs-the-gate-prints-output-and-returns-0-regardless-of-pass-or-fail by acting on the gate verdict inside IssueLifecycle.transition(): a failing registered check makes evaluate_transition_gate return proceed=False, so transition() returns non-zero and never reaches IssueManager.update()'s label/phase swap; a passing check lets the transition proceed normally"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E045-INTEGRATION-001-failing-check-refuses-transition-label-unchanged"
+      id: "AC-INTEGRATION-001"
+      purpose: "A registered failing gate check refuses the transition: non-zero exit AND no label/phase swap occurs (proven via a recording fake, not a log line)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "An IssueLifecycle whose transition() resolves the enforcing gate against a registry"
+        - "A gate check registered for the PLANNED -> RED transition that returns a failing GateCheckResult"
+        - "A recording fake GitHub client that records every add_label / remove_label call"
+    when:
+      abstract: "transition(issue_number, 'RED') is invoked for an issue currently labelled atdd:PLANNED"
+    then:
+      abstract:
+        - "transition() returns a non-zero exit code"
+        - "The recording client recorded NO add_label('atdd:RED') call and NO remove_label of the atdd:PLANNED label"
+        - "IssueManager.update() was never reached (the transition did not occur)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E045-INTEGRATION-002-passing-check-allows-transition"
+      id: "AC-INTEGRATION-002"
+      purpose: "A registered passing gate check lets the transition proceed to IssueManager.update()"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "An IssueLifecycle whose transition() resolves the enforcing gate against a registry"
+        - "A gate check registered for the PLANNED -> RED transition that returns a passing GateCheckResult"
+    when:
+      abstract: "transition(issue_number, 'RED') is invoked for an issue currently labelled atdd:PLANNED"
+    then:
+      abstract:
+        - "The enforcing gate does not block — transition() proceeds to call IssueManager.update()"
+        - "The non-zero early-return path is not taken on account of the gate"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E045-SMOKE-001-real-subprocess-check-blocks-through-live-registry"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real OS: a real subprocess CommandGateCheck registered into a live GateRegistry makes evaluate_transition_gate block (failing command) and proceed (passing command) — production wiring, no mocks"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real GateRegistry (no fakes) and the real evaluate_transition_gate decision path"
+        - "A real CommandGateCheck whose command is a genuine failing shell command (exit 1) registered for PLANNED -> RED, and a second whose command genuinely exits 0"
+        - "A config gating PLANNED -> RED"
+    when:
+      abstract: "evaluate_transition_gate(registry, config, ctx) runs the registered command via a real subprocess on the host"
+    then:
+      abstract:
+        - "With the genuinely-failing command registered, the outcome has proceed=False and the failure is attributed to the CommandGateCheck"
+        - "With only the genuinely-passing command registered, the outcome has proceed=True"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"

@@ -1,24 +1,16 @@
 version: '1.0'
-# TrainRunner backend selection (docs/coach-decomposition.md §7.4, Child 8 #895).
-# Only `jsonl` is implemented; `temporal`/`langgraph` are reserved names that
-# raise NotImplementedError until §7.2/§7.3 land.
 train:
-  runner: jsonl                   # jsonl | temporal | langgraph
+  runner: jsonl
   concurrency:
     max_parallel_issues: 4
   resume:
-    auto_resume_on_start: false   # if true, atdd coach <N> resumes existing run for N
+    auto_resume_on_start: false
   conventions:
-    snapshot_on_run_start: true   # always true; here for visibility
+    snapshot_on_run_start: true
 release:
   version_file: pyproject.toml
   tag_prefix: v
 code:
-  # Only the toolkit's own implementation root is declared. The game-template
-  # defaults (python/supabase/web) live in DEFAULT_CODE_ROOTS and are merged by
-  # get_code_roots() for read-side coverage validators; they are intentionally
-  # NOT declared here so the registry build does not stub python//supabase/
-  # mirror dirs into this repo (#984, sibling of #970).
   toolkit: src/atdd
 sync:
   agents:
@@ -43,7 +35,7 @@ route_train_wagon_coverage:
   - web/src/**/App.tsx
   allowlist: []
 toolkit:
-  last_version: 3.83.4
+  last_version: 3.106.0
 github:
   repo: afokapu/atdd
   project_number: 1
@@ -51,3 +43,11 @@ github:
   field_schema: atdd/coach/schemas/project_fields.schema.json
 coach:
   token_alert_threshold: 400000
+# Enforcing phase-transition gate (#1020). Operator control over which phase
+# transitions consult their registered gate checks, keyed by "FROM->TO".
+# PLANNED->RED is gated by default (atdd.coach.gate.decision.DEFAULT_GATED_TRANSITIONS);
+# entries here override per transition. The check registry ships EMPTY, so a
+# gated transition is a no-op until #958/#1017 register checks into GATE_REGISTRY.
+gate:
+  transitions:
+    PLANNED->RED: true

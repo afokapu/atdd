@@ -1,0 +1,76 @@
+urn: "wmbt:govern-lifecycle:E046"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-phase-transition-gate-check-that-errors-or-times-out-being-treated-as-a-silent-pass-so-an-undiagnosable-or-hung-check-quietly-lets-the-transition-through"
+context_clarifier: "A pluggable gate check (atdd.coach.gate.decision.GateCheck) may run a subprocess (atdd.coach.gate.command_check.CommandGateCheck) that raises (missing tool: FileNotFoundError) or times out (subprocess.TimeoutExpired). The advisory predecessor (_run_gate) caught exactly these and `return 0` — a silent pass. The fix makes run_checks() fail-closed: any exception raised by a check's run() (including timeout / missing-tool) is converted into a failing GateCheckResult (passed=False) carrying the check's gate_id/rule_id and an error message, so evaluate_gate then reports proceed=False. A check that cannot prove it passed is treated as a FAIL, never a silent pass."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-phase-transition-gate-check-that-errors-or-times-out-being-treated-as-a-silent-pass-so-an-undiagnosable-or-hung-check-quietly-lets-the-transition-through by making run_checks() catch any exception from a check's run() (timeout, missing tool, or otherwise) and emit a failing GateCheckResult — fail-closed — so evaluate_gate returns proceed=False rather than waving the transition through"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E046-UNIT-001-raising-check-becomes-failing-result"
+      id: "AC-UNIT-001"
+      purpose: "A check whose run() raises an exception is converted by run_checks() into a failing GateCheckResult (not dropped, not a pass)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fake GateCheck whose run() raises RuntimeError"
+        - "A GateContext for any transition"
+    when:
+      abstract: "run_checks([raising_check], ctx) is called"
+    then:
+      abstract:
+        - "Exactly one GateCheckResult is returned"
+        - "That result has passed=False"
+        - "The result carries the check's gate_id and rule_id and a non-empty message"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E046-UNIT-002-timeout-or-missing-tool-is-fail-closed"
+      id: "AC-UNIT-002"
+      purpose: "A CommandGateCheck whose command times out / is missing yields a failing result (fail-closed), making evaluate_transition_gate block"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A CommandGateCheck pointed at a command that times out (timeout very small) or does not exist"
+        - "A registry registering it for PLANNED -> RED and a config gating that transition"
+    when:
+      abstract: "evaluate_transition_gate(registry, config, ctx) is called for PLANNED -> RED"
+    then:
+      abstract:
+        - "The outcome has proceed=False"
+        - "The failing result is attributed to the CommandGateCheck (its gate_id / rule_id)"
+        - "No exception escapes evaluate_transition_gate (the failure is captured, not raised)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E046-SMOKE-001-real-missing-tool-fails-closed"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real OS: a CommandGateCheck for a binary that does not exist on the host PATH fails closed (proceed=False) — the real OS reports the missing tool, no mocks"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real CommandGateCheck whose command names a binary that genuinely does not exist on the host PATH"
+        - "A real GateRegistry registering it for PLANNED -> RED and a config gating that transition"
+    when:
+      abstract: "evaluate_transition_gate(registry, config, ctx) attempts to run the missing binary via a real subprocess"
+    then:
+      abstract:
+        - "The real OS raises FileNotFoundError, which the gate converts to a failing result"
+        - "The outcome has proceed=False and the failure is attributed to the CommandGateCheck"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-09"
