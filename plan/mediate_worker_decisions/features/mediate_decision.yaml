@@ -2,7 +2,7 @@ urn: "feature:mediate-worker-decisions:mediate-decision"
 wagon: "wagon:mediate-worker-decisions"
 description: "Decides a commons:decision:request: a pure safety gate runs FIRST (dangerous->human_required), otherwise the coach surface is asked and its reply parsed. Emits a verdict or an escalation."
 sizing:
-  wmbts: 5
+  wmbts: 6
   footprint_score: 9
   footprint_size: "S"
 wmbts:
@@ -11,6 +11,7 @@ wmbts:
   - "wmbt:mediate-worker-decisions:E001"
   - "wmbt:mediate-worker-decisions:M001"
   - "wmbt:mediate-worker-decisions:Y001"
+  - "wmbt:mediate-worker-decisions:C008"
 components:
   backend:
     presentation:

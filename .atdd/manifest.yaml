@@ -1885,3 +1885,14 @@ sessions:
   train: 0002-coach-drives-lifecycle
   branch: feat/coach-dispatch-not-wired-end-to-end-worker-hangs-unmediated
   worktree: /Users/alecfokapu/Github/atdd/feat-coach-dispatch-not-wired-end-to-end-worker-hangs-unmediated
+- id: '1031'
+  slug: coach-worker-bootstrap-deadlock-safety-gate-escalates-preflight
+  file: null
+  issue_number: 1031
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-09'
+  archived: null
+  train: 0002-coach-drives-lifecycle
+  branch: feat/coach-worker-bootstrap-deadlock-safety-gate-escalates-preflight
+  worktree: /Users/alecfokapu/Github/atdd/feat-coach-worker-bootstrap-deadlock-safety-gate-escalates-preflight
