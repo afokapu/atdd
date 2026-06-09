@@ -1882,6 +1882,6 @@ sessions:
   archived: null
   wagon: mediate-worker-decisions
   feature: feature:mediate-worker-decisions:coach-runtime
-  train: null
+  train: 0002-coach-drives-lifecycle
   branch: feat/coach-dispatch-not-wired-end-to-end-worker-hangs-unmediated
   worktree: /Users/alecfokapu/Github/atdd/feat-coach-dispatch-not-wired-end-to-end-worker-hangs-unmediated
