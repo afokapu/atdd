@@ -74,7 +74,16 @@ RETIRED_THEMES: Tuple[str, ...] = (
 #: recompose co-land. The repo-wide boundary/URN checks exclude these so the
 #: enforcement slice lands green while the data migration is tracked, not yet
 #: applied. SINGLE SOURCE — delete entries here as #951 re-themes each wagon.
-DEFERRED_RETHEME_WAGONS: frozenset = frozenset({"mediate-worker-decisions"})
+DEFERRED_RETHEME_WAGONS: frozenset = frozenset(
+    {
+        "mediate-worker-decisions",
+        # consolidate-coach-workspace is coach functionality currently themed
+        # commons; its enforce-surface-conformance feature legitimately reuses the
+        # #470 coach naming primitive + the coach multiplexer (live smoke). The
+        # theme correction to `coach` co-lands with the #951 recompose (#865).
+        "consolidate-coach-workspace",
+    }
+)
 
 
 @dataclass(frozen=True)
