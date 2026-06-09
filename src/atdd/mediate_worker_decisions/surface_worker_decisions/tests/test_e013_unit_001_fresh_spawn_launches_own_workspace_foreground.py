@@ -1,56 +1,54 @@
-# URN: test:mediate-worker-decisions:surface-worker-decisions:E013-UNIT-001-fresh-spawn-launches-own-workspace-foreground
-# Acceptance: acc:mediate-worker-decisions:E013-UNIT-001-fresh-spawn-launches-own-workspace-foreground
+# URN: test:mediate-worker-decisions:surface-worker-decisions:E013-UNIT-001-dispatch-launch-carries-no-hook-suppressing-flag
+# Acceptance: acc:mediate-worker-decisions:E013-UNIT-001-dispatch-launch-carries-no-hook-suppressing-flag
 # WMBT: wmbt:mediate-worker-decisions:E013
 # Phase: RED
 # Layer: unit
 # Assertion: behavioral
-"""E013-UNIT-001 — a fresh dispatch spawn launches an own-workspace foreground.
+"""E013-UNIT-001 — the dispatch worker launch carries no hook-suppressing flag.
 
-The proven-publishing launch shape (the #1007 daemon launcher + the
-surface_worker_decisions live smoke) runs the agent as the foreground process of
-its OWN cmux workspace (`cmux new-workspace --command`). A fresh dispatch worker
-spawn must use that shape — NOT `new-surface --pane <coach>` + a `cmux send`
-text-paste, which leaves the worker in the coach's workspace and the wrapper Feed
-hook un-fired.
+The cmux claude wrapper injects the PermissionRequest->'cmux hooks feed' hook
+ONLY when the invocation is a clean session entrypoint: passing ``--settings``
+(overrides the wrapper's hook settings), ``-p``/``--print`` or ``-r``/``--resume``
+suppresses it (coach live-repro on 3.110.0: a dispatch worker's Bash permission
+hit the TUI, feed.list empty). The dispatch-built worker launch must therefore
+carry NO such flag, and must leave Bash OUT of --allowedTools so a Bash decision
+raises a PermissionRequest the hook can publish. This locks the regression the
+own-workspace hypothesis (now reverted) failed to address.
 """
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
-from typing import Any, List, Optional
 
-from atdd.coach.commands.spawn import _create_surface
+from atdd.coach.commands import spawn
 
-
-class _RecordingBackend:
-    name = "fake"
-
-    def __init__(self) -> None:
-        self.calls: List[dict] = []
-
-    def resolve_focused_pane(self, workspace: Optional[str] = None) -> str:
-        return "pane:1"
-
-    def new_surface_in_pane(
-        self, pane_ref: str, cwd: Any = None, command: Any = None, name: Any = None
-    ) -> str:
-        self.calls.append({"op": "new_surface_in_pane", "command": command})
-        return "surface:pasted"
-
-    def new_worker_surface_in_own_workspace(
-        self, cwd: Any = None, command: Any = None, name: Any = None
-    ) -> str:
-        self.calls.append({"op": "new_worker_workspace", "command": command, "cwd": cwd})
-        return "surface:own"
+# Flags that suppress the cmux wrapper's Feed-hook injection (per the wrapper).
+_SUPPRESSING_FLAGS = {
+    "--settings", "-p", "--print", "-r", "--resume", "-c", "--continue",
+}
 
 
-def test_fresh_spawn_uses_own_workspace_foreground_launch(tmp_path: Path):
-    backend = _RecordingBackend()
-    agent_cmd = 'claude "go" --permission-mode acceptEdits --allowedTools "Read"'
+def _dispatch_launch_command(tmp_path: Path) -> str:
+    """The exact worker launch command the cmux-native dispatch builds."""
+    prompt_path = tmp_path / ".launch_prompt.txt"
+    prompt_path.write_text("Do the ATDD task: run atdd gate then proceed.")
+    adapter_cmd = spawn.ADAPTER_REGISTRY["claude-code"](prompt_path)
+    return spawn._build_cmux_native_command(adapter_cmd, prompt_path.read_text())
 
-    _create_surface(backend, worktree=tmp_path, command=agent_cmd, name="ATDD1025")
 
-    ops = [c["op"] for c in backend.calls]
-    assert "new_worker_workspace" in ops  # own-workspace foreground launch
-    assert "new_surface_in_pane" not in ops  # NOT a send-paste into the coach pane
-    own = next(c for c in backend.calls if c["op"] == "new_worker_workspace")
-    assert own["command"] == agent_cmd  # the agent IS the workspace foreground
+def test_dispatch_launch_has_no_hook_suppressing_flag(tmp_path: Path):
+    tokens = shlex.split(_dispatch_launch_command(tmp_path))
+    suppressors = [t for t in tokens if t in _SUPPRESSING_FLAGS]
+    assert suppressors == [], (
+        f"dispatch worker launch carries hook-suppressing flag(s) {suppressors} — "
+        f"the cmux wrapper will not inject the Feed hook, so the worker hangs "
+        f"unmediated on its first decision (TUI modal, empty feed.list)"
+    )
+
+
+def test_dispatch_launch_leaves_bash_unallowed(tmp_path: Path):
+    command = _dispatch_launch_command(tmp_path)
+    _, _, after_allowed = command.partition("--allowedTools")
+    # Bash must NOT be pre-authorized — it must raise a PermissionRequest the
+    # wrapper hook publishes to the Feed for the daemon to mediate.
+    assert "Bash" not in after_allowed, command

@@ -428,53 +428,6 @@ class CmuxBackend(MultiplexerBackend):
             )
         return surface_ref
 
-    def new_worker_surface_in_own_workspace(
-        self,
-        cwd: Optional[str] = None,
-        command: Optional[str] = None,
-        name: Optional[str] = None,
-    ) -> MultiplexerRef:
-        """Launch a dispatch worker as the foreground process of its OWN cmux
-        workspace (issue #1025, WMBT E013).
-
-        The proven-publishing launch shape (the #1007 daemon launcher + the
-        surface_worker_decisions live smoke): ``cmux new-workspace --command``
-        runs the agent as the workspace foreground process, so the cmux wrapper
-        recognizes it and injects the PermissionRequest->'cmux hooks feed' hook.
-        (``new-surface --pane`` + a ``cmux send`` text-paste leaves the worker in
-        the coach's workspace with the hook un-fired — the live #1012 hang.)
-
-        Refuses loudly (FeedHookInactiveError) when the Feed-publishing hook path
-        is inactive, so an unmediated worker is never spawned. Returns the
-        worker's surface ref (resolved within the new workspace) so the
-        respawn-in-place (#730) and layout (#865) paths keep working.
-        """
-        from atdd.mediate_worker_decisions.surface_worker_decisions.src.presentation.dispatch_feed_hook_gate import (
-            assert_dispatch_feed_hook_active,
-        )
-
-        assert_dispatch_feed_hook_active()
-        ws_ref = self.new_workspace(cwd=cwd or "", command=command or "", name=name)
-        return self._resolve_workspace_foreground_surface(ws_ref)
-
-    def _resolve_workspace_foreground_surface(
-        self, workspace_id: MultiplexerRef
-    ) -> MultiplexerRef:
-        """Resolve the foreground ``surface:`` ref of ``workspace_id``.
-
-        Mirrors ``surface_workspace`` inverted: cross-reference ``surface.list``
-        (surface -> pane) against the workspace's pane UUIDs (``list-panes``)."""
-        target_panes = self._pane_uuids(workspace_id)
-        payload = json.loads(_run(["cmux", "rpc", "surface.list"]).stdout or "{}")
-        for surface in payload.get("surfaces", []):
-            if surface.get("pane_id") in target_panes:
-                ref = surface.get("ref")
-                if ref:
-                    return ref
-        raise MultiplexerError(
-            f"no foreground surface resolved for new workspace {workspace_id!r}"
-        )
-
     def resolve_focused_pane(
         self, workspace: Optional[MultiplexerRef] = None
     ) -> MultiplexerRef:
