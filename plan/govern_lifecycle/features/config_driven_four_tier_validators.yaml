@@ -1,0 +1,29 @@
+urn: "feature:govern-lifecycle:config-driven-four-tier-validators"
+wagon: "wagon:govern-lifecycle"
+description: "Config-drives the four-tier composition-completeness and wagon-boundaries validators to honor code.toolkit (finishing #327), reconciling discovery root (src/atdd) vs import-resolution root (src) and excluding coder/validators/fixtures/, then grandfathers today's toolkit violations into a ratchet baseline so no existing legacy file starts failing"
+sizing:
+  wmbts: 3
+  footprint_score: 5
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E047"
+  - "wmbt:govern-lifecycle:E048"
+  - "wmbt:govern-lifecycle:E049"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — the validators are run by existing `atdd validate` / validate-coder CI; config is read by the existing config loader"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "A single config-resolution unit (scan-roots resolver carrying discovery_root + import_root + fixtures exclusion) is carved clean and called by both thinned validators"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts — a scan root is configuration-derived path data, not a modeled entity"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses the existing .atdd/config.yaml loader and the #482 suppress/disposition baseline mechanism; no new persistence or external clients"

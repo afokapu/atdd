@@ -630,7 +630,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 82
+    total: 85
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -871,6 +871,20 @@ wagons:
       by making run_checks() catch any exception from a check's run() (timeout, missing
       tool, otherwise) and emit a failing GateCheckResult — fail-closed — so evaluate_gate
       returns proceed=False rather than waving the transition through (#1020)
+    E047: 'minimize likelihood of the-composition-completeness-four-tier-validator-hardcoding-the-consumer-python-root-so-it-enforces-nothing-on-src-atdd-and-emits-false-unwired-violations-when-pointed-there
+      by config-driving BOTH the discovery root (src/atdd) and the import-resolution
+      root (src) from get_code_roots honoring code.toolkit, threading them through
+      collect_python_files / build_python_graph / resolve_python_import so qualified
+      atdd.<wagon> imports resolve, and excluding coder/validators/fixtures/ (#958,
+      finishing #327)'
+    E048: minimize likelihood of the-wagon-boundaries-validator-hardcoding-PYTHON_DIR-so-it-enforces-nothing-on-src-atdd-and-cannot-recognise-toolkit-imports-carrying-the-atdd-package-prefix
+      by config-driving the scan roots from get_code_roots honoring code.toolkit,
+      carrying per-root (discovery_root, import_prefix) so cross-wagon attribution
+      strips the atdd. prefix, and excluding coder/validators/fixtures/ (#958)
+    E049: 'minimize likelihood of config-driving-the-four-tier-validators-onto-src-atdd-lighting-up-the-full-legacy-debt-at-once-and-turning-validate-coder-red-on-untouched-pre-existing-files
+      by grandfathering today''s toolkit violations into a ratchet baseline (reusing
+      the #482 suppress-and-clean disposition) so the gate fails only on new or growing
+      violations, logging what is grandfathered (#958)'
     C007: 'minimize likelihood of a-transition-with-several-registered-checks-passing-overall-while-one-failed
       by making evaluate_gate aggregate ALL results with AND-semantics: proceed is
       True only when every GateCheckResult passed and the failures tuple enumerates
