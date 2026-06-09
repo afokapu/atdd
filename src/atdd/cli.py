@@ -2345,6 +2345,14 @@ Phase descriptions:
             return 0 if rc >= 0 else 1
 
         if getattr(args, 'status', None):
+            # #1017 — register the operator-approval gate check INTO the #1020
+            # GATE_REGISTRY. Called EXPLICITLY here at the --status dispatch (not
+            # an import-time side effect, not in the gate package) so importing
+            # the module stays pure and #1020's empty-registry migration-safety
+            # tests stay green. Which transitions enforce is decided by
+            # .atdd/config.yaml gate.transitions (default PLANNED->RED).
+            from atdd.coach.gate.registrations import register_approval_checks
+            register_approval_checks()
             return lifecycle.transition(
                 issue_number,
                 args.status,
