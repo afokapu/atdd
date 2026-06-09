@@ -1,0 +1,13 @@
+validator: four_tier_toolkit_composition
+note: Grandfathered toolkit four-tier composition debt (#958). The gate fails only
+  on violations NOT listed here. Shrink this list; never grow it. Regenerate intentionally,
+  never to absorb a new regression.
+grandfathered:
+- coder.refactor.composition-consumer::consolidate_coach_workspace/enforce_surface_conformance/src/domain/canonical_name.py
+- coder.refactor.composition-consumer::consolidate_coach_workspace/enforce_surface_conformance/src/domain/role.py
+- coder.refactor.composition-consumer::mediate_worker_decisions/coach_runtime/src/integration/jsonl_escalation_reader.py
+- coder.refactor.composition-consumer::mediate_worker_decisions/surface_worker_decisions/src/integration/cmux_hook_probe.py
+- coder.refactor.composition-root::consolidate_coach_workspace/enforce_surface_conformance/composition.py
+- coder.refactor.composition-root::mediate_worker_decisions/bridge_cmux_feed/composition.py
+- coder.refactor.composition-root::mediate_worker_decisions/coach_runtime/composition.py
+- coder.refactor.composition-root::mediate_worker_decisions/feed_daemon/composition.py
