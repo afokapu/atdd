@@ -1,0 +1,88 @@
+urn: "wmbt:mediate-worker-decisions:L008"
+step: "locate"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "surfacing-every-unanswered-escalation-from-the-daemons-escalations-ledger-in-atdd-coach-status"
+context_clarifier: "an escalated decision is written to the daemon's coach-runtime/<ws>/escalations.jsonl with no auto-reply (by design, C004/C007) — but without surfacing the operator is never told there is something to answer, so the worker stalls permanently. atdd coach status must read escalations.jsonl and list the UNANSWERED escalations with their request_id and prompt/options, while OMITTING ones that have since been answered, so the operator knows exactly what to pass to atdd coach answer. The unanswered selection is a pure, unit-testable read over the append-only ledger."
+lens: "functional.effectiveness"
+statement: "maximize likelihood of surfacing every unanswered escalation from the daemons escalations ledger in atdd coach status"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:L008-UNIT-001-status-lists-unanswered-with-prompt-options"
+      id: "AC-UNIT-001"
+      purpose: "atdd coach status lists each unanswered escalation from escalations.jsonl with its request_id and prompt/options"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An escalations.jsonl with two unanswered escalation records, each carrying a request_id and a prompt with options"
+        - "No answers recorded for either request_id"
+    when:
+      abstract: "atdd coach status reads the escalations ledger"
+      action: "invoke"
+    then:
+      abstract:
+        - "Both request_ids are listed, each with its prompt/options"
+        - "The listing is sufficient for the operator to choose a label for atdd coach answer"
+      assertions:
+        - type: "equals"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-answer-escalation"
+  - identity:
+      urn: "acc:mediate-worker-decisions:L008-UNIT-002-status-omits-answered-escalations"
+      id: "AC-UNIT-002"
+      purpose: "atdd coach status omits an escalation whose request_id has been answered, listing only those still unanswered"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An escalations.jsonl with two escalation records"
+        - "One of the two request_ids recorded as answered (resolved / no longer pending)"
+    when:
+      abstract: "atdd coach status reads the escalations ledger and the answered set"
+      action: "invoke"
+    then:
+      abstract:
+        - "Only the still-unanswered request_id is listed"
+        - "The answered request_id is omitted"
+      assertions:
+        - type: "equals"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-answer-escalation"
+  - identity:
+      urn: "acc:mediate-worker-decisions:L008-SMOKE-001-live-status-surfaces-then-omits-after-answer"
+      id: "AC-SMOKE-001"
+      purpose: "After a real daemon escalation, atdd coach status surfaces the unanswered request_id; after atdd coach answer resolves it, status omits it"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real managed feed_daemon that has escalated a live worker's decision into coach-runtime/<ws>/escalations.jsonl"
+    when:
+      abstract: "atdd coach status is run before and after atdd coach answer resolves the escalation"
+      action: "invoke"
+    then:
+      abstract:
+        - "Before answering, status lists the unanswered request_id with its prompt/options"
+        - "After answering, status no longer lists that request_id"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the operator sees the unanswered escalation in atdd coach status and answers it"
+      drift_resolved: "the answered escalation is omitted from a subsequent atdd coach status"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "coach-answer-escalation"
