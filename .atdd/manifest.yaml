@@ -1976,3 +1976,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1043'
+  slug: declared-dispatch-registry
+  file: null
+  issue_number: 1043
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
