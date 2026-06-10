@@ -14,13 +14,16 @@ is unimplemented so this fails.
 """
 from __future__ import annotations
 
+import shutil
+
 import pytest
 
-pytestmark = pytest.mark.skip(
-    reason="live cmux + managed feed_daemon + claude worker recovery harness "
-    "lands in the SMOKE phase (#1036); the hermetic E014 unit + integration "
-    "tests carry the delivery guarantee in GREEN"
-)
+pytestmark = [
+    pytest.mark.smoke,
+    pytest.mark.skipif(
+        shutil.which("cmux") is None, reason="live cmux + claude not on PATH"
+    ),
+]
 
 
 def test_e014_smoke_001_live_answer_advances_parked_worker():

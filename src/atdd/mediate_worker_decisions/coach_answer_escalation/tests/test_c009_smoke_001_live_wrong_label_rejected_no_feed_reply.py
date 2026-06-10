@@ -13,13 +13,16 @@ RED the harness is unimplemented so this fails.
 """
 from __future__ import annotations
 
+import shutil
+
 import pytest
 
-pytestmark = pytest.mark.skip(
-    reason="live cmux + claude worker label-rejection harness lands in the "
-    "SMOKE phase (#1036); the hermetic C009 unit tests carry the loud-reject "
-    "guarantee in GREEN"
-)
+pytestmark = [
+    pytest.mark.smoke,
+    pytest.mark.skipif(
+        shutil.which("cmux") is None, reason="live cmux + claude not on PATH"
+    ),
+]
 
 
 def test_c009_smoke_001_live_wrong_label_rejected_no_feed_reply():

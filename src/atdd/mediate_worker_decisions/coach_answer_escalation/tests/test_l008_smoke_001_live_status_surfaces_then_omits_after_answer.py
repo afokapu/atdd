@@ -13,13 +13,16 @@ no longer lists it. In RED the harness is unimplemented so this fails.
 """
 from __future__ import annotations
 
+import shutil
+
 import pytest
 
-pytestmark = pytest.mark.skip(
-    reason="live cmux + managed feed_daemon status-surfacing harness lands in "
-    "the SMOKE phase (#1036); the hermetic L008 unit tests carry the "
-    "surface/omit guarantee in GREEN"
-)
+pytestmark = [
+    pytest.mark.smoke,
+    pytest.mark.skipif(
+        shutil.which("cmux") is None, reason="live cmux + claude not on PATH"
+    ),
+]
 
 
 def test_l008_smoke_001_live_status_surfaces_then_omits_after_answer():
