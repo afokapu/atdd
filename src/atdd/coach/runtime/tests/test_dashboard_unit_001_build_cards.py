@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from atdd.coach.runtime.dashboard import STALL_AFTER_SECONDS, Worker, build_cards
+from atdd.coach.runtime.dashboard import STALL_AFTER_SECONDS, Worker, build_cards, render_card
 from atdd.coach.runtime.reader import AgentState
 
 NOW = datetime(2026, 6, 10, 20, 0, 0, tzinfo=timezone.utc)
@@ -41,12 +41,23 @@ def test_phase_falls_back_to_issue_phases_when_agent_phase_missing():
     assert cards[0].phase == "PLANNED"
 
 
-def test_stalled_flag_set_past_threshold():
-    fresh = _agent("fresh·1000·coder", 1000, heartbeat_age_s=30)
-    stale = _agent("stale·1030·planner", 1030, heartbeat_age_s=STALL_AFTER_SECONDS + 60)
-    by_issue = {c.issue: c for c in build_cards(agent_states=[fresh, stale], issue_phases={}, now=NOW)}
-    assert by_issue[1030].stalled is True
-    assert by_issue[1000].stalled is False
+def test_stalled_when_live_and_running_past_threshold():
+    short = Worker(issue=1000, role="coder", phase="GREEN",
+                   started_at=NOW - timedelta(minutes=30), last_heartbeat=NOW)
+    longrun = Worker(issue=1030, role="coder", phase="GREEN",
+                     started_at=NOW - timedelta(seconds=STALL_AFTER_SECONDS + 60),
+                     last_heartbeat=NOW)
+    by = {c.issue: c for c in build_cards(agent_states=[short, longrun], issue_phases={}, now=NOW)}
+    assert by[1030].stalled is True   # live, running > 2h
+    assert by[1000].stalled is False  # live, 30m
+
+
+def test_finished_long_runner_is_not_stalled():
+    # Surface closed → not live → never stalled, however long it ran.
+    w = Worker(issue=5, role="coder", surface="surface:9", phase="REFACTOR",
+               started_at=NOW - timedelta(hours=5), last_heartbeat=NOW - timedelta(hours=4))
+    card = build_cards(agent_states=[w], issue_phases={}, live_surfaces=set(), now=NOW)[0]
+    assert card.live is False and card.stalled is False
 
 
 def test_cards_ordered_by_lifecycle_phase():
@@ -82,6 +93,35 @@ def test_elapsed_is_run_duration_last_activity_minus_spawn():
     assert card.elapsed == "1h04m"
     assert card.stalled is False
     assert card.role == "coder" and card.phase == "GREEN"
+
+
+def test_finished_worker_shows_ran_and_ended_not_uptime():
+    # Surface NOT in the live set → finished → 'ran <dur> · ended <ago>', no 'up'.
+    w = Worker(
+        issue=1, role="coder", surface="surface:9",
+        started_at=NOW - timedelta(days=2),
+        last_heartbeat=NOW - timedelta(days=2) + timedelta(minutes=30),
+        phase="REFACTOR",
+    )
+    card = build_cards(agent_states=[w], issue_phases={}, live_surfaces=set(), now=NOW)[0]
+    assert card.live is False
+    rendered = "\n".join(render_card(card, width=44))
+    assert "ran 30m" in rendered and "ended" in rendered and "ago" in rendered
+    assert "up " not in rendered
+
+
+def test_live_worker_shows_uptime():
+    w = Worker(
+        issue=1, role="coder", surface="surface:9",
+        started_at=NOW - timedelta(minutes=5),
+        last_heartbeat=NOW - timedelta(seconds=10),
+        phase="GREEN",
+    )
+    card = build_cards(
+        agent_states=[w], issue_phases={}, live_surfaces={"surface:9"}, now=NOW
+    )[0]
+    assert card.live is True
+    assert "up" in "\n".join(render_card(card, width=44))
 
 
 def test_elapsed_is_bounded_for_an_old_finished_worker():

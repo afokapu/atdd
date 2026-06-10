@@ -364,10 +364,10 @@ def _run_interactive(runtime_dir: Path, args) -> int:
     )
 
     # Navigable filter modes for ←/→ (matches the menu order, minus the quit action).
-    NAV_MODES = ["active", "historical", "blocked", "stalled", "phase"]
+    NAV_MODES = ["live", "finished", "stalled", "phase"]
     fd = sys.stdin.fileno()
     saved = termios.tcgetattr(fd)
-    mode, phase_idx = "active", 0
+    mode, phase_idx = "live", 0
     try:
         tty.setcbreak(fd)
         while True:
@@ -376,31 +376,29 @@ def _run_interactive(runtime_dir: Path, args) -> int:
             if run_id is None:
                 print(f"No coach runs found in {runtime_dir / 'coach'}")
             else:
-                active_issues = _run_issues(runtime_dir, run_id)
                 workers = _read_workers(runtime_dir, run_id, scope_all=True)
                 issue_phases = derive_issue_phases(run_id, runtime_dir=runtime_dir)
                 titles = _load_titles(
                     sorted({w.issue for w in workers if w.issue is not None}), runtime_dir
                 )
                 decisions = read_decisions(run_id, 50, runtime_dir=runtime_dir)
+                # One cmux query per refresh: drives both liveness display
+                # (up vs ran/ended) and the active filter.
+                live = _live_surfaces()
                 all_cards = build_cards(
                     agent_states=workers, issue_phases=issue_phases,
-                    titles=titles, decisions=decisions,
+                    titles=titles, decisions=decisions, live_surfaces=live,
                 )
                 phase = PHASE_ORDER[phase_idx] if mode == "phase" else None
-                live = _live_surfaces() if mode == "active" else None
-                cards = filter_cards(
-                    all_cards, mode, active_issues=active_issues,
-                    live_surfaces=live, phase=phase,
-                )
+                cards = filter_cards(all_cards, mode, phase=phase)
                 color = not args.no_color
                 print(f"atdd coach dashboard · run {run_id} · {len(cards)}/{len(all_cards)} worker(s)")
                 print(render_menu(mode, phase=phase, color=color))
-                hint = "←/→ navigate · letter to jump · ↑/↓ cycle status · q quit"
+                hint = "←/→ navigate · letter to jump · ↑/↓ cycle phase · q quit"
                 print(f"\033[2m{hint}\033[0m" if color else hint)
                 print()
                 # Clamp the grid to the rows below the (pinned) 4-line header so a
-                # huge Historical list never scrolls the menu off-screen.
+                # huge Finished list never scrolls the menu off-screen.
                 try:
                     rows = shutil.get_terminal_size((80, 24)).lines
                 except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
@@ -412,12 +410,10 @@ def _run_interactive(runtime_dir: Path, args) -> int:
             key = _read_key(1.0)
             if key in ("q", "\x03"):
                 break
-            elif key == "a":
-                mode = "active"
-            elif key == "h":
-                mode = "historical"
-            elif key == "b":
-                mode = "blocked"
+            elif key == "l":
+                mode = "live"
+            elif key == "f":
+                mode = "finished"
             elif key == "s":
                 mode = "stalled"
             elif key == "p":
@@ -484,6 +480,7 @@ def run_dashboard(argv: list[str], *, runtime_dir: Optional[Path] = None) -> int
             issue_phases=issue_phases,
             titles=titles,
             decisions=decisions,
+            live_surfaces=_live_surfaces(),
         )
         use_color = not args.no_color and sys.stdout.isatty()
         header = f"atdd coach dashboard · run {run_id} · {len(cards)} worker(s)"
