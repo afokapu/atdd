@@ -47,8 +47,8 @@ from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_reply_a
 from atdd.mediate_worker_decisions.coach_answer_escalation.src.application.answer_escalation import (
     AnswerEscalationUseCase,
 )
-from atdd.mediate_worker_decisions.coach_answer_escalation.src.domain.escalation_surfacing import (
-    list_unanswered_escalations,
+from atdd.mediate_worker_decisions.coach_answer_escalation.src.application.surface_escalations import (
+    SurfaceEscalationsUseCase,
 )
 from atdd.mediate_worker_decisions.coach_answer_escalation.src.domain.label_resolver import (
     LabelResolutionError,
@@ -176,8 +176,10 @@ def status_surfaces_then_omits_live_smoke(
         )
         daemon.tick()  # escalates the governance sign-off into escalations.jsonl
 
-        records = JsonlEscalationReader(escalations).read_all()
-        before = list_unanswered_escalations(records, source.list_pending())
+        surfacer = SurfaceEscalationsUseCase(
+            source=source, escalations=JsonlEscalationReader(escalations)
+        )
+        before = surfacer.surface()
         listed_before_answer = any(u.request_id == item.request_id for u in before)
 
         # the operator answers it via the real recovery path (atdd coach answer)
@@ -186,7 +188,7 @@ def status_surfaces_then_omits_live_smoke(
         use_case.answer(item.request_id, label)
         _wait_until_resolved(source, item.request_id)
 
-        after = list_unanswered_escalations(records, source.list_pending())
+        after = surfacer.surface()
         omitted_after_answer = all(u.request_id != item.request_id for u in after)
         return {
             "listed_before_answer": listed_before_answer,
