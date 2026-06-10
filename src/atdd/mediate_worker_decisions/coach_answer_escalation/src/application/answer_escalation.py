@@ -16,6 +16,10 @@ Skeleton: bodies land in GREEN.
 """
 from __future__ import annotations
 
+from atdd.mediate_worker_decisions.bridge_cmux_feed.src.application.ports import (
+    FeedReply,
+    FeedSource,
+)
 from atdd.mediate_worker_decisions.bridge_cmux_feed.src.domain.feed_item import (
     PERMISSION,
     QUESTION,
@@ -65,7 +69,7 @@ def plan_answer(item: FeedItem, verb: str) -> FeedReplyPlan:
 class AnswerEscalationUseCase:
     """Resolve a request_id to its pending item, plan the answer, deliver once."""
 
-    def __init__(self, *, source, reply) -> None:
+    def __init__(self, *, source: FeedSource, reply: FeedReply) -> None:
         self._source = source
         self._reply = reply
 
