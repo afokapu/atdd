@@ -1984,3 +1984,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1044'
+  slug: run-train-wagon-and-step-schema
+  file: null
+  issue_number: 1044
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
