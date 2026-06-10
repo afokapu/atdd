@@ -265,6 +265,7 @@ def _read_workers(runtime_dir: Path, run_id: str, *, scope_all: bool) -> list:
                     last_heartbeat=_last_event_time(runtime_dir / "agents" / agent_id / "events.jsonl"),
                     phase=phase.upper() if isinstance(phase, str) else None,
                     agent_id=agent_id,
+                    surface=s.get("cmux_surface") or "",
                 )
             )
     return workers
@@ -272,18 +273,52 @@ def _read_workers(runtime_dir: Path, run_id: str, *, scope_all: bool) -> list:
 
 # Arrows arrive as CSI (ESC [ X, normal cursor mode) or SS3 (ESC O X,
 # application cursor mode) — terminals switch between them, so handle both.
-_ARROWS = {
-    "[A": "UP", "[B": "DOWN", "[C": "RIGHT", "[D": "LEFT",
-    "OA": "UP", "OB": "DOWN", "OC": "RIGHT", "OD": "LEFT",
-}
+_ARROW_FINAL = {"A": "UP", "B": "DOWN", "C": "RIGHT", "D": "LEFT"}
+
+
+def _live_surfaces():
+    """Set of surface refs currently open in cmux, or None if cmux is unavailable.
+
+    None (cmux not queryable) makes the ``active`` filter fall back to run-roster
+    membership rather than hiding every worker.
+    """
+    import json
+    import subprocess
+
+    try:
+        r = subprocess.run(
+            ["cmux", "tree", "--json"], capture_output=True, text=True, timeout=5
+        )
+        if r.returncode != 0:
+            return None
+        data = json.loads(r.stdout)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+    surfaces: set = set()
+
+    def _walk(node):
+        if isinstance(node, dict):
+            ref = node.get("ref")
+            if isinstance(ref, str) and ref.startswith("surface:"):
+                surfaces.add(ref)
+            for v in node.values():
+                _walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                _walk(v)
+
+    _walk(data)
+    return surfaces or None
 
 
 def _read_key(timeout: float):
     """Return a keypress within ``timeout`` seconds, or None (TTY only).
 
-    Reads the raw fd (not buffered ``sys.stdin``, which can swallow keys).
-    Arrow escape sequences (CSI ``ESC [ X`` or SS3 ``ESC O X``) are normalized
-    to ``"UP"/"DOWN"/"RIGHT"/"LEFT"``; other keys return their character.
+    Reads the raw fd (not buffered ``sys.stdin``, which can swallow keys). For an
+    escape, it drains the whole sequence and matches the final byte — so arrows
+    work whether the terminal sends CSI (``ESC [ C``), SS3 (``ESC O C``), or a
+    modified form (``ESC [ 1 ; 2 C``). Plain keys return their character.
     """
     import os
     import select
@@ -293,12 +328,16 @@ def _read_key(timeout: float):
     if not r:
         return None
     data = os.read(fd, 1)
-    if data == b"\x1b":  # escape — maybe an arrow sequence
-        more, _, _ = select.select([fd], [], [], 0.05)
-        if more:
-            seq = os.read(fd, 2).decode("latin-1", "ignore")
-            return _ARROWS.get(seq, "\x1b")
-        return "\x1b"  # lone ESC
+    if data == b"\x1b":  # escape — drain the rest of the sequence
+        seq = ""
+        while True:
+            more, _, _ = select.select([fd], [], [], 0.02)
+            if not more or len(seq) >= 6:
+                break
+            seq += os.read(fd, 1).decode("latin-1", "ignore")
+        if seq and seq[-1] in _ARROW_FINAL:
+            return _ARROW_FINAL[seq[-1]]
+        return "\x1b"  # lone ESC / unhandled sequence
     return data.decode("utf-8", "ignore")
 
 
@@ -349,15 +388,26 @@ def _run_interactive(runtime_dir: Path, args) -> int:
                     titles=titles, decisions=decisions,
                 )
                 phase = PHASE_ORDER[phase_idx] if mode == "phase" else None
-                cards = filter_cards(all_cards, mode, active_issues=active_issues, phase=phase)
+                live = _live_surfaces() if mode == "active" else None
+                cards = filter_cards(
+                    all_cards, mode, active_issues=active_issues,
+                    live_surfaces=live, phase=phase,
+                )
                 color = not args.no_color
                 print(f"atdd coach dashboard · run {run_id} · {len(cards)}/{len(all_cards)} worker(s)")
                 print(render_menu(mode, phase=phase, color=color))
                 hint = "←/→ navigate · letter to jump · ↑/↓ cycle status · q quit"
                 print(f"\033[2m{hint}\033[0m" if color else hint)
                 print()
+                # Clamp the grid to the rows below the (pinned) 4-line header so a
+                # huge Historical list never scrolls the menu off-screen.
+                try:
+                    rows = shutil.get_terminal_size((80, 24)).lines
+                except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+                    rows = 24
                 print(render_grid(
-                    cards, _term_width(args.width), card_width=args.card_width, color=color
+                    cards, _term_width(args.width), card_width=args.card_width,
+                    color=color, max_lines=max(6, rows - 5),
                 ))
             key = _read_key(1.0)
             if key in ("q", "\x03"):

@@ -1,6 +1,7 @@
-# URN: test:coach-ops:coach-dashboard:PLACEHOLDER-UNIT-001-build-cards
-# WMBT: wmbt:coach-ops:PLACEHOLDER   # FIXME(#1053): assign real WMBT id when planner defines WMBTs at PLANNED
-# Phase: RED
+# URN: test:coach-ops:worker-grid-dashboard:M002-UNIT-001-cards-built-from-runtime
+# Acceptance: acc:coach-ops:M002-UNIT-001-cards-built-from-runtime
+# WMBT: wmbt:coach-ops:M002
+# Phase: GREEN
 # Layer: domain
 """build_cards maps reader output → renderable worker cards (pure transform)."""
 from __future__ import annotations
@@ -40,12 +41,22 @@ def test_phase_falls_back_to_issue_phases_when_agent_phase_missing():
     assert cards[0].phase == "PLANNED"
 
 
-def test_stalled_flag_set_past_threshold_and_sorted_first():
+def test_stalled_flag_set_past_threshold():
     fresh = _agent("fresh·1000·coder", 1000, heartbeat_age_s=30)
     stale = _agent("stale·1030·planner", 1030, heartbeat_age_s=STALL_AFTER_SECONDS + 60)
-    cards = build_cards(agent_states=[fresh, stale], issue_phases={}, now=NOW)
-    assert cards[0].issue == 1030 and cards[0].stalled is True
-    assert cards[1].issue == 1000 and cards[1].stalled is False
+    by_issue = {c.issue: c for c in build_cards(agent_states=[fresh, stale], issue_phases={}, now=NOW)}
+    assert by_issue[1030].stalled is True
+    assert by_issue[1000].stalled is False
+
+
+def test_cards_ordered_by_lifecycle_phase():
+    ws = [
+        Worker(issue=1, role="coder", phase="REFACTOR", last_heartbeat=NOW),
+        Worker(issue=2, role="planner", phase="INIT", last_heartbeat=NOW),
+        Worker(issue=3, role="tester", phase="GREEN", last_heartbeat=NOW),
+    ]
+    cards = build_cards(agent_states=ws, issue_phases={}, now=NOW)
+    assert [c.phase for c in cards] == ["INIT", "GREEN", "REFACTOR"]
 
 
 def test_elapsed_is_human_readable():
@@ -57,9 +68,9 @@ def test_elapsed_is_human_readable():
     assert cards[0].elapsed == "12m04s"
 
 
-def test_elapsed_measures_runtime_from_spawn_not_last_activity():
-    # A Worker spawned 1h ago whose last heartbeat was 30s ago: elapsed is the
-    # full runtime since spawn, while stall is judged from the recent heartbeat.
+def test_elapsed_is_run_duration_last_activity_minus_spawn():
+    # Spawned 1h5m ago, last heartbeat 30s ago → duration = last − spawn ≈ 1h04m
+    # (NOT now − spawn), while stall is judged from the recent heartbeat.
     w = Worker(
         issue=1036,
         role="coder",
@@ -68,6 +79,19 @@ def test_elapsed_measures_runtime_from_spawn_not_last_activity():
         phase="GREEN",
     )
     card = build_cards(agent_states=[w], issue_phases={}, now=NOW)[0]
-    assert card.elapsed == "1h05m"
+    assert card.elapsed == "1h04m"
     assert card.stalled is False
     assert card.role == "coder" and card.phase == "GREEN"
+
+
+def test_elapsed_is_bounded_for_an_old_finished_worker():
+    # Spawned 2 days ago, last activity 30m after spawn → ran 30m, NOT 48h.
+    w = Worker(
+        issue=5,
+        role="coder",
+        started_at=NOW - timedelta(days=2),
+        last_heartbeat=NOW - timedelta(days=2) + timedelta(minutes=30),
+        phase="REFACTOR",
+    )
+    card = build_cards(agent_states=[w], issue_phases={}, now=NOW)[0]
+    assert card.elapsed == "30m00s"

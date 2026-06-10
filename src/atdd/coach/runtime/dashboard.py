@@ -99,6 +99,7 @@ class Worker:
     phase: Optional[str] = None
     agent_id: str = ""
     started_at: Optional[datetime] = None
+    surface: str = ""  # cmux surface ref, e.g. "surface:623"
 
 
 @dataclass
@@ -117,6 +118,7 @@ class WorkerCard:
     tasks: list[Task] = field(default_factory=list)
     stalled: bool = False
     idle: str = ""  # human time since last activity (only meaningful when stalled)
+    surface: str = ""  # cmux surface ref — distinguishes workers on the same issue
 
     @property
     def done_count(self) -> int:
@@ -150,6 +152,25 @@ def _seconds_since(start: Optional[datetime], now: datetime) -> Optional[int]:
     if start.tzinfo is None:
         start = start.replace(tzinfo=timezone.utc)
     return max(0, int((now - start).total_seconds()))
+
+
+def _duration_secs(
+    start: Optional[datetime], last: Optional[datetime], now: datetime
+) -> Optional[int]:
+    """Active run duration: last activity − spawn (NOT wall-clock since spawn).
+
+    A worker that ran 30 min two days ago reads as 30m, not 48h. For a still-live
+    worker (last ≈ now) this is the ongoing duration. With no spawn time, falls
+    back to time since last activity.
+    """
+    if start is None:
+        return _seconds_since(last, now)
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    end = last if last is not None else now
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    return max(0, int((end - start).total_seconds()))
 
 
 def build_cards(
@@ -189,9 +210,9 @@ def build_cards(
         ) or "?"
         role = _role_of(st)
         last = getattr(st, "last_heartbeat", None)
-        # Elapsed is true runtime (since spawn); stall is measured from last
-        # activity. When no spawn time is known, fall back to last activity.
-        start = getattr(st, "started_at", None) or last
+        start = getattr(st, "started_at", None)
+        # Elapsed is the active run DURATION (last activity − spawn), not
+        # wall-clock since spawn; stall/idle is time since last activity.
         secs = _seconds_since(last, now)
         cards.append(
             WorkerCard(
@@ -199,14 +220,22 @@ def build_cards(
                 title=titles.get(int(issue), "") if issue is not None else "",
                 phase=phase,
                 role=role,
-                elapsed=_elapsed(start, now),
+                elapsed=_fmt_secs(_duration_secs(start, last, now)),
                 idle=_fmt_secs(secs),
+                surface=getattr(st, "surface", "") or "",
                 tasks=list(activity.get(int(issue), [])) if issue is not None else [],
                 stalled=secs is not None and secs > STALL_AFTER_SECONDS,
             )
         )
-    # Stable ordering: stalled first (they need attention), then by issue.
-    cards.sort(key=lambda c: (not c.stalled, c.issue if c.issue is not None else 1 << 30))
+    # Order by lifecycle phase (INIT→…→REFACTOR) so the grid reads in pipeline
+    # order, then by issue and surface for stability.
+    cards.sort(
+        key=lambda c: (
+            PHASE_ORDER.index(c.phase) if c.phase in PHASE_ORDER else len(PHASE_ORDER),
+            c.issue if c.issue is not None else 1 << 30,
+            c.surface,
+        )
+    )
     return cards
 
 
@@ -260,8 +289,10 @@ def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[st
     pbar = _progress_bar(card.phase)
     if pbar:
         lines.append(row(pbar, paint=True))
-    # "up" = runtime since spawn; "idle" = time since last activity (when stalled).
-    meta = f"{card.role} · up {card.elapsed}"
+    # role@<surface> distinguishes multiple workers on the same issue; "up" =
+    # runtime since spawn; "idle" = time since last activity (when stalled).
+    surf = card.surface.split(":")[-1] if card.surface else ""
+    meta = f"{card.role}" + (f" ({surf})" if surf else "") + f" · up {card.elapsed}"
     if card.stalled:
         meta += f" · idle {card.idle}"
     lines.append(row(meta))
@@ -293,17 +324,22 @@ def filter_cards(
     mode: str,
     *,
     active_issues: Optional[set] = None,
+    live_surfaces: Optional[set] = None,
     phase: Optional[str] = None,
 ) -> list[WorkerCard]:
     """Pure filter over already-built cards, selected by menu ``mode``.
 
-    ``active`` keeps the current run's workers (``active_issues``); ``blocked`` /
+    ``active`` means the worker is genuinely live: when ``live_surfaces`` is
+    provided (the set of surface refs actually open in cmux), keep only workers
+    whose surface is in it. When cmux can't be queried (``live_surfaces`` is
+    None), fall back to run-roster membership (``active_issues``). ``blocked`` /
     ``stalled`` filter on card state; ``phase`` keeps one lifecycle stage;
     anything else (``historical`` / ``all``) returns every card.
     """
     if mode == "active":
-        ai = active_issues or set()
-        return [c for c in cards if c.issue in ai]
+        if live_surfaces is not None:
+            return [c for c in cards if c.surface and c.surface in live_surfaces]
+        return [c for c in cards if c.issue in (active_issues or set())]
     if mode == "blocked":
         return [c for c in cards if c.phase == "BLOCKED"]
     if mode == "stalled":
@@ -326,12 +362,19 @@ def render_menu(mode: str, *, phase: Optional[str] = None, color: bool = True) -
 
 
 def render_grid(
-    cards: Sequence[WorkerCard], term_width: int, *, card_width: int = 21, color: bool = False
+    cards: Sequence[WorkerCard],
+    term_width: int,
+    *,
+    card_width: int = 21,
+    color: bool = False,
+    max_lines: Optional[int] = None,
 ) -> str:
     """Lay cards out in a reflowing grid that fits ``term_width``.
 
     Columns are chosen from the available width; cards in a row are padded to
-    equal height so the grid stays aligned.
+    equal height so the grid stays aligned. When ``max_lines`` is set, the grid
+    is clamped to that many lines (whole card-rows only) and a ``+N more`` footer
+    is appended — so a fixed header/menu above it never scrolls off-screen.
     """
     if not cards:
         return "No active workers."
@@ -341,12 +384,18 @@ def render_grid(
     blocks = [render_card(c, card_width, color=color) for c in cards]
 
     out: list[str] = []
+    shown = 0
     for i in range(0, len(blocks), cols):
         rowcards = blocks[i : i + cols]
         height = max(len(b) for b in rowcards)
         pad = " " * card_width
         for b in rowcards:
             b.extend([pad] * (height - len(b)))
-        for r in range(height):
-            out.append((" " * gutter).join(b[r] for b in rowcards))
+        rowlines = [(" " * gutter).join(b[r] for b in rowcards) for r in range(height)]
+        # Reserve one line for the footer; clamp on whole card-rows.
+        if max_lines is not None and len(out) + len(rowlines) + 1 > max_lines:
+            out.append(f"… +{len(cards) - shown} more — filter to narrow (b/s/p)")
+            break
+        out.extend(rowlines)
+        shown += len(rowcards)
     return "\n".join(out)

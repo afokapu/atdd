@@ -1,0 +1,27 @@
+urn: "feature:coach-ops:worker-grid-dashboard"
+wagon: "wagon:coach-ops"
+description: "`atdd coach dashboard` — an operator worker-grid over the coach runtime, sibling of `atdd coach status`. Renders one card per worker (issue, title, per-phase GitHub-label color, lifecycle progress bar, role + cmux surface, up/idle timer, stall flag) in a reflowing grid that clamps to the surface with a pinned single-key + arrow filter menu (active/historical/blocked/stalled/status). `active` means a live cmux surface; the command is live-by-default on a TTY (snapshot when piped) and auto-discovers the coach's populated runtime from any worktree. Stdlib-only (no rich/textual)."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "M"
+wmbts:
+  - "wmbt:coach-ops:M002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "coach_dashboard.py — `atdd coach dashboard` CLI + interactive loop"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "run_dashboard (gather+render), _read_workers (runtime→workers), _resolve_runtime_dir (auto-discovery)"
+    domain:
+      - type: "value_objects"
+        count: 3
+        rationale: "Worker, WorkerCard, Task — plus pure build_cards/render_grid/render_menu/filter_cards"
+    integration:
+      - type: "adapters"
+        count: 2
+        rationale: "reader (coach runtime JSON) and cmux tree (live surface set)"

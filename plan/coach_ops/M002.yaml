@@ -1,0 +1,110 @@
+urn: "wmbt:coach-ops:M002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+step: "monitor"
+direction: "minimize"
+dimension: "time"
+object_of_control: "assessing-live-coach-worker-state-during-a-wave"
+context_clarifier: "when an operator runs a coach wave and must see every live worker's issue, phase, runtime, and stall state across many cmux surfaces at a glance; `coach status` prints one table that does not scale, and run-roster membership is not liveness"
+lens: "functional.effectiveness"
+statement: "minimize time of assessing-live-coach-worker-state-during-a-wave by rendering one card per worker (issue, title, phase, role, surface, run-duration/idle, stall flag, lifecycle progress) from the coach runtime in lifecycle order, reflowing the grid to the surface width with a pinned filter menu, scoping `active` to workers whose cmux surface is actually open, and auto-discovering the coach's populated runtime from any worktree"
+acceptances:
+  - identity:
+      urn: "acc:coach-ops:M002-UNIT-001-cards-built-from-runtime"
+      id: "AC-UNIT-001"
+      purpose: "build_cards maps coach runtime to one WorkerCard per worker with phase fallback, runtime-from-spawn, and stall flag"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Worker records for two workers on one issue at different phases"
+        - "A fixed now() and per-worker last-heartbeat and spawned-at"
+    when:
+      abstract: "build_cards(agent_states=..., issue_phases=..., now=...) is called"
+    then:
+      abstract:
+        - "One card per worker (not per issue); role/phase derived per worker"
+        - "elapsed is runtime since spawn; stalled is set past the 10-minute idle threshold; stalled cards sort first"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:coach-ops:M002-UNIT-002-grid-reflows-and-clamps"
+      id: "AC-UNIT-002"
+      purpose: "render_grid reflows columns to terminal width and clamps to max_lines with a +N footer so a pinned menu never scrolls off"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A list of N cards, a card width, narrow/wide terminal widths, and a max_lines bound"
+    when:
+      abstract: "render_grid(cards, term_width, card_width, max_lines=...) is called"
+    then:
+      abstract:
+        - "Narrow width yields one column; wide width packs multiple columns"
+        - "Output never exceeds max_lines; a '+N more' footer is shown when clamped"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:coach-ops:M002-UNIT-003-card-presentation"
+      id: "AC-UNIT-003"
+      purpose: "card shows title, per-phase GitHub-label color (visible width unchanged), lifecycle progress bar, 'persona (surface)', and up/idle timer"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A WorkerCard with phase, title, surface, and elapsed/idle"
+    when:
+      abstract: "render_card(card, width, color=True/False) is called"
+    then:
+      abstract:
+        - "Color wraps padded content so visible width equals the card width"
+        - "Progress bar fill reflects the phase's lifecycle position; meta renders 'persona (surface)' and 'up <elapsed>' (+ 'idle <t>' when stalled)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:coach-ops:M002-UNIT-004-filter-modes-and-menu"
+      id: "AC-UNIT-004"
+      purpose: "filter_cards selects active(live surface)/historical/blocked/stalled/status; render_menu lists keys and highlights the mode"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Cards across phases, stall states, and surfaces; a set of live surfaces"
+    when:
+      abstract: "filter_cards(cards, mode, live_surfaces=..., active_issues=..., phase=...) and render_menu(mode) are called"
+    then:
+      abstract:
+        - "active keeps only workers whose surface is in live_surfaces (run-roster fallback when None)"
+        - "blocked/stalled/status filter on card state; menu highlights the active mode"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:coach-ops:M002-INTEGRATION-001-cli-dispatch-and-discovery"
+      id: "AC-INTEGRATION-001"
+      purpose: "`atdd coach dashboard` routes via coach.run_cli, scopes to the current run, and auto-discovers the coach's populated runtime"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A seeded runtime dir (runs/status.json + coach/<issue>/sessions) and an empty sibling worktree runtime"
+    when:
+      abstract: "run_dashboard([...]) is invoked and coach.run_cli(['dashboard']) is routed"
+    then:
+      abstract:
+        - "Default scope shows only the current run's workers; --all shows the roster"
+        - "_resolve_runtime_dir finds the populated sibling when cwd's runtime is empty"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"

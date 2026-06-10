@@ -1,6 +1,7 @@
-# URN: test:coach-ops:coach-dashboard:PLACEHOLDER-UNIT-002-render-grid
-# WMBT: wmbt:coach-ops:PLACEHOLDER   # FIXME(#1053): assign real WMBT id when planner defines WMBTs at PLANNED
-# Phase: RED
+# URN: test:coach-ops:worker-grid-dashboard:M002-UNIT-002-grid-reflows-and-clamps
+# Acceptance: acc:coach-ops:M002-UNIT-002-grid-reflows-and-clamps
+# WMBT: wmbt:coach-ops:M002
+# Phase: GREEN
 # Layer: domain
 """render_grid reflows cards to terminal width; render_card draws a box."""
 from __future__ import annotations
@@ -72,6 +73,14 @@ def test_empty_grid_has_a_message():
     assert "No active workers" in render_grid([], term_width=80)
 
 
+def test_grid_clamps_to_max_lines_and_shows_more_footer():
+    cards = [_card(i) for i in range(40)]
+    out = render_grid(cards, term_width=24, card_width=21, max_lines=10)
+    lines = out.splitlines()
+    assert len(lines) <= 10  # never overflows the viewport
+    assert "more" in lines[-1]  # hidden-count footer present
+
+
 def test_progress_bar_tracks_lifecycle_position():
     # 7 stages × 3 cells = 21 cells; filled = (stage index + 1) × 3.
     assert _progress_bar("INIT") == "▰▰▰" + "▱" * 18
@@ -108,3 +117,15 @@ def test_color_tints_phase_and_preserves_visible_width():
 def test_grid_color_flag_threads_to_cards():
     out = render_grid([_card(1, phase="SMOKE")], term_width=24, card_width=21, color=True)
     assert "\x1b[38;2;29;118;219m" in out  # SMOKE #1D76DB
+
+
+def test_card_shows_surface_id_to_distinguish_same_issue_workers():
+    # Two workers on the SAME issue must be tellable apart by their cmux surface.
+    a = WorkerCard(issue=1036, title="", phase="GREEN", role="coder",
+                   elapsed="1m", surface="surface:623")
+    b = WorkerCard(issue=1036, title="", phase="SMOKE", role="tester",
+                   elapsed="1m", surface="surface:624")
+    ra = "\n".join(render_card(a, width=40))
+    rb = "\n".join(render_card(b, width=40))
+    assert "coder (623)" in ra and "tester (624)" in rb  # persona (surface)
+    assert ra != rb

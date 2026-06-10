@@ -1,6 +1,7 @@
-# URN: test:coach-ops:coach-dashboard:PLACEHOLDER-UNIT-003-filter-menu
-# WMBT: wmbt:coach-ops:PLACEHOLDER   # FIXME(#1053): assign real WMBT id when planner defines WMBTs at PLANNED
-# Phase: RED
+# URN: test:coach-ops:worker-grid-dashboard:M002-UNIT-004-filter-modes-and-menu
+# Acceptance: acc:coach-ops:M002-UNIT-004-filter-modes-and-menu
+# WMBT: wmbt:coach-ops:M002
+# Phase: GREEN
 # Layer: domain
 """Single-key filter modes and the in-dashboard menu (pure, no TTY)."""
 from __future__ import annotations
@@ -17,6 +18,15 @@ def test_filter_active_keeps_only_current_run_issues():
     cards = [_c(1, "GREEN"), _c(2, "RED"), _c(3, "PLANNED")]
     out = filter_cards(cards, "active", active_issues={1, 3})
     assert {c.issue for c in out} == {1, 3}
+
+
+def test_active_filter_uses_live_cmux_surfaces_when_available():
+    # "active" means the worker's surface is actually open in cmux, not merely
+    # a member of the run roster. Live surfaces win over active_issues.
+    a = WorkerCard(issue=1, title="", phase="GREEN", role="coder", elapsed="1m", surface="surface:10")
+    b = WorkerCard(issue=2, title="", phase="RED", role="coder", elapsed="1m", surface="surface:99")
+    out = filter_cards([a, b], "active", live_surfaces={"surface:10"}, active_issues={1, 2})
+    assert [c.issue for c in out] == [1]  # only the worker whose surface is live
 
 
 def test_filter_blocked_and_stalled_and_phase():

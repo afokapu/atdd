@@ -1,6 +1,7 @@
-# URN: test:coach-ops:coach-dashboard:PLACEHOLDER-INTEGRATION-001-cli-dispatch
-# WMBT: wmbt:coach-ops:PLACEHOLDER   # FIXME(#1053): assign real WMBT id when planner defines WMBTs at PLANNED
-# Phase: RED
+# URN: test:coach-ops:worker-grid-dashboard:M002-INTEGRATION-001-cli-dispatch-and-discovery
+# Acceptance: acc:coach-ops:M002-INTEGRATION-001-cli-dispatch-and-discovery
+# WMBT: wmbt:coach-ops:M002
+# Phase: GREEN
 # Layer: application
 """`atdd coach dashboard` routes through coach.run_cli and reads the runtime."""
 from __future__ import annotations
