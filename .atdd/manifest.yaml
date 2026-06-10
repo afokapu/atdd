@@ -1920,3 +1920,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1036'
+  slug: coach-answer-escalation-recovery-direct-channel
+  file: null
+  issue_number: 1036
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
