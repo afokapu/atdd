@@ -41,4 +41,18 @@ def list_unanswered_escalations(
     (enriched with the pending item's prompt/options); one whose request_id is no
     longer pending has been answered/resolved and is OMITTED.
     """
-    raise NotImplementedError("wmbt:mediate-worker-decisions:L008")
+    pending_by_request = {item.request_id: item for item in pending_items}
+    unanswered: List[UnansweredEscalation] = []
+    for record in escalations:
+        request_id = record.get("request_id")
+        item = pending_by_request.get(request_id)
+        if item is None:
+            continue  # answered/resolved (no longer pending) — omit
+        unanswered.append(
+            UnansweredEscalation(
+                request_id=request_id,
+                prompt=item.question_prompt,
+                options=tuple(opt["label"] for opt in item.question_options),
+            )
+        )
+    return unanswered

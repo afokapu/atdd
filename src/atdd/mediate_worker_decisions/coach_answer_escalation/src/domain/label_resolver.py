@@ -27,4 +27,10 @@ def resolve_exact_label(operator_input: str, options: Sequence[str]) -> str:
     non-exact match, so the caller fails loudly instead of delivering a silent
     no-op reply.
     """
-    raise NotImplementedError("wmbt:mediate-worker-decisions:C009")
+    valid = list(options)
+    for label in valid:
+        if label == operator_input:
+            return label
+    raise LabelResolutionError(
+        f"{operator_input!r} is not an exact option label; valid options: {valid}"
+    )
