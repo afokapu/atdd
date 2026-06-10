@@ -73,16 +73,17 @@ def test_empty_grid_has_a_message():
 
 
 def test_progress_bar_tracks_lifecycle_position():
-    assert _progress_bar("INIT") == "▰▱▱▱▱▱▱"
-    assert _progress_bar("GREEN") == "▰▰▰▰▱▱▱"
-    assert _progress_bar("COMPLETE") == "▰▰▰▰▰▰▰"
-    assert _progress_bar("BLOCKED") == "▱▱▱▱▱▱▱"
+    # 7 stages × 3 cells = 21 cells; filled = (stage index + 1) × 3.
+    assert _progress_bar("INIT") == "▰▰▰" + "▱" * 18
+    assert _progress_bar("GREEN") == "▰" * 12 + "▱" * 9
+    assert _progress_bar("COMPLETE") == "▰" * 21
+    assert _progress_bar("BLOCKED") == "▱" * 21
     assert _progress_bar("?") == ""  # unknown phase → no bar
 
 
 def test_card_includes_progress_bar_row():
-    rendered = "\n".join(render_card(_card(1, phase="RED"), width=24))
-    assert "▰▰▰▱▱▱▱" in rendered  # RED is the 3rd of 7 lifecycle stages
+    rendered = "\n".join(render_card(_card(1, phase="RED"), width=30))
+    assert "▰" * 9 + "▱" in rendered  # RED is the 3rd of 7 stages → 9/21 filled
 
 
 def test_card_renders_issue_title_when_present():

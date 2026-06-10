@@ -60,11 +60,15 @@ def _colorize(text: str, rgb: tuple) -> str:
     return f"\033[38;2;{r};{g};{b}m{text}\033[0m"
 
 
-def _progress_bar(phase: str) -> str:
-    """A filled/unfilled lifecycle bar for ``phase`` (e.g. ``▰▰▰▰▱▱▱``)."""
-    total = len(PHASE_ORDER)
+_BAR_CELLS_PER_PHASE = 3
+
+
+def _progress_bar(phase: str, cells_per_phase: int = _BAR_CELLS_PER_PHASE) -> str:
+    """A filled/unfilled lifecycle bar for ``phase`` — ``cells_per_phase`` cells
+    per stage (e.g. ``▰▰▰▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱`` for GREEN at 3 cells/phase)."""
+    total = len(PHASE_ORDER) * cells_per_phase
     if phase in PHASE_ORDER:
-        filled = PHASE_ORDER.index(phase) + 1
+        filled = (PHASE_ORDER.index(phase) + 1) * cells_per_phase
         return "▰" * filled + "▱" * (total - filled)
     if phase in ("BLOCKED", "OBSOLETE"):
         return "▱" * total
