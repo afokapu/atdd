@@ -65,6 +65,7 @@ def _make_issue() -> dict:
 
 
 def _run_update(tmp_path):
+    _setup(tmp_path)
     mgr = IssueManager(target_dir=tmp_path)
     client = MagicMock()
     client.get_issue.return_value = _make_issue()
