@@ -1960,3 +1960,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1041'
+  slug: rules-have-bindings-meta-validator
+  file: null
+  issue_number: 1041
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
