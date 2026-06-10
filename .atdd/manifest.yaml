@@ -1936,3 +1936,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1038'
+  slug: rename-trainrunner-to-issuerunner
+  file: null
+  issue_number: 1038
+  type: refactor
+  status: INIT
+  created: '2026-06-10'
+  archived: null
