@@ -1952,3 +1952,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1040'
+  slug: train-convention-normative-prose
+  file: null
+  issue_number: 1040
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
