@@ -2035,3 +2035,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1050'
+  slug: dummy-coach-e2e-smoke-delete-me
+  file: null
+  issue_number: 1050
+  type: cleanup
+  status: INIT
+  created: '2026-06-10'
+  archived: null
