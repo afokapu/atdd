@@ -2040,7 +2040,7 @@ sessions:
   file: null
   issue_number: 1053
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-06-10'
   archived: null
   branch: feat/coach-dashboard-worker-grid
