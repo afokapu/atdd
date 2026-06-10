@@ -1289,7 +1289,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 42
+    total: 45
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
@@ -1369,6 +1369,12 @@ wagons:
       escalating with no verdict
     C008: minimize likelihood of a sanctioned worker bootstrap command being escalated
       by default and deadlocking the worker instead of auto applied
+    E014: minimize likelihood of atdd coach answer failing to deliver the operator
+      reply through the correct cmux feed verb and params
+    C009: minimize likelihood of a wrong or partial option being delivered as a silent
+      delivered true no op instead of loudly rejected before any cmux reply
+    L008: maximize likelihood of surfacing every unanswered escalation from the daemons
+      escalations ledger in atdd coach status
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/
