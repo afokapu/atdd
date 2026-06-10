@@ -2051,3 +2051,6 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+  train: 0001-self-compliance-validate
+  branch: feat/issue-1051
+  worktree: /Users/alecfokapu/Github/atdd/issue-1051
