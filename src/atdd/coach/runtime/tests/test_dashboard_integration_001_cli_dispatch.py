@@ -8,7 +8,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from atdd.coach.commands.coach_dashboard import run_dashboard
+from atdd.coach.commands.coach_dashboard import (
+    _has_runs,
+    _resolve_runtime_dir,
+    run_dashboard,
+)
 
 
 def _session(runtime_dir: Path, issue: int, agent_id: str, persona: str, phase: str) -> None:
@@ -83,6 +87,24 @@ def test_all_scope_includes_inactive_run_issues(tmp_path, capsys):
     assert rc == 0
     assert "#1036" in out and "#999" in out
     assert "2 worker" in out
+
+
+def test_resolve_runtime_dir_finds_populated_sibling(tmp_path, monkeypatch):
+    parent = tmp_path / "repos"
+    here = parent / "worker-worktree"
+    (here / ".atdd" / "runtime").mkdir(parents=True)  # local runtime, no runs
+    main_rt = parent / "main" / ".atdd" / "runtime"
+    (main_rt / "runs" / "run-1").mkdir(parents=True)
+    monkeypatch.chdir(here)
+    assert _resolve_runtime_dir(Path(".atdd") / "runtime") == main_rt
+
+
+def test_resolve_runtime_dir_prefers_local_when_populated(tmp_path, monkeypatch):
+    here = tmp_path / "main"
+    (here / ".atdd" / "runtime" / "runs" / "r1").mkdir(parents=True)
+    monkeypatch.chdir(here)
+    resolved = _resolve_runtime_dir(Path(".atdd") / "runtime")
+    assert _has_runs(resolved)
 
 
 def test_explicit_run_id_from_runs_dir_is_accepted(tmp_path, capsys):

@@ -122,6 +122,37 @@ def _load_titles(issues, runtime_dir: Path) -> dict:
     return titles
 
 
+def _has_runs(runtime_dir: Path) -> bool:
+    """True when a runtime dir holds at least one coach run."""
+    runs = runtime_dir / "runs"
+    try:
+        return runs.is_dir() and any(runs.iterdir())
+    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return False
+
+
+def _resolve_runtime_dir(default: Path) -> Path:
+    """Find the coach's populated runtime.
+
+    The coach centralizes every worker it spawns into one runtime (the primary
+    worktree's ``.atdd/runtime``), not the per-worker checkouts. So when the
+    current dir's runtime is empty, look across sibling worktrees and pick the
+    one that actually has runs — letting ``atdd coach dashboard`` work from any
+    worktree without ``ATDD_RUNTIME_DIR``.
+    """
+    if _has_runs(default):
+        return default
+    try:
+        siblings = sorted(Path.cwd().parent.iterdir())
+    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return default
+    candidates = [d / ".atdd" / "runtime" for d in siblings if d.is_dir()]
+    populated = [rt for rt in candidates if _has_runs(rt)]
+    if populated:
+        return max(populated, key=lambda rt: sum(1 for _ in (rt / "runs").iterdir()))
+    return default
+
+
 def _term_width(override: Optional[int]) -> int:
     if override:
         return override
@@ -239,14 +270,27 @@ def _read_workers(runtime_dir: Path, run_id: str, *, scope_all: bool) -> list:
     return workers
 
 
+_ARROWS = {"[A": "UP", "[B": "DOWN", "[C": "RIGHT", "[D": "LEFT"}
+
+
 def _read_key(timeout: float):
-    """Return a single keypress within ``timeout`` seconds, or None (TTY only)."""
+    """Return a keypress within ``timeout`` seconds, or None (TTY only).
+
+    Arrow keys arrive as a 3-byte escape sequence (``ESC [ A/B/C/D``); those are
+    normalized to ``"UP"/"DOWN"/"RIGHT"/"LEFT"``. Other keys return their char.
+    """
     import select
 
     r, _, _ = select.select([sys.stdin], [], [], timeout)
-    if r:
-        return sys.stdin.read(1)
-    return None
+    if not r:
+        return None
+    ch = sys.stdin.read(1)
+    if ch == "\x1b":  # escape — maybe an arrow sequence
+        more, _, _ = select.select([sys.stdin], [], [], 0.05)
+        if not more:
+            return ch  # lone ESC
+        return _ARROWS.get(sys.stdin.read(2), ch)
+    return ch
 
 
 def _run_interactive(runtime_dir: Path, args) -> int:
@@ -271,6 +315,8 @@ def _run_interactive(runtime_dir: Path, args) -> int:
         read_decisions,
     )
 
+    # Navigable filter modes for ←/→ (matches the menu order, minus the quit action).
+    NAV_MODES = ["active", "historical", "blocked", "stalled", "phase"]
     fd = sys.stdin.fileno()
     saved = termios.tcgetattr(fd)
     mode, phase_idx = "active", 0
@@ -298,6 +344,8 @@ def _run_interactive(runtime_dir: Path, args) -> int:
                 color = not args.no_color
                 print(f"atdd coach dashboard · run {run_id} · {len(cards)}/{len(all_cards)} worker(s)")
                 print(render_menu(mode, phase=phase, color=color))
+                hint = "←/→ navigate · letter to jump · ↑/↓ cycle status · q quit"
+                print(f"\033[2m{hint}\033[0m" if color else hint)
                 print()
                 print(render_grid(
                     cards, _term_width(args.width), card_width=args.card_width, color=color
@@ -316,6 +364,12 @@ def _run_interactive(runtime_dir: Path, args) -> int:
             elif key == "p":
                 phase_idx = (phase_idx + 1) % len(PHASE_ORDER) if mode == "phase" else 0
                 mode = "phase"
+            elif key in ("RIGHT", "LEFT"):
+                step = 1 if key == "RIGHT" else -1
+                i = NAV_MODES.index(mode) if mode in NAV_MODES else (-1 if step == 1 else 0)
+                mode = NAV_MODES[(i + step) % len(NAV_MODES)]
+            elif key in ("UP", "DOWN") and mode == "phase":
+                phase_idx = (phase_idx + (1 if key == "UP" else -1)) % len(PHASE_ORDER)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, saved)
     return 0
@@ -339,7 +393,8 @@ def run_dashboard(argv: list[str], *, runtime_dir: Optional[Path] = None) -> int
 
     if runtime_dir is None:
         env_dir = os.environ.get("ATDD_RUNTIME_DIR")
-        runtime_dir = Path(env_dir) if env_dir else Path(".atdd") / "runtime"
+        # Explicit env wins; otherwise auto-discover the coach's populated runtime.
+        runtime_dir = Path(env_dir) if env_dir else _resolve_runtime_dir(Path(".atdd") / "runtime")
 
     if args.run_id is not None:
         known = (runtime_dir / "runs" / args.run_id).exists() or args.run_id in list_run_ids(
