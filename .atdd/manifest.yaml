@@ -1968,3 +1968,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1042'
+  slug: journey-engine-core-trainrunner-execute
+  file: null
+  issue_number: 1042
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
