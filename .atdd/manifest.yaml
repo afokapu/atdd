@@ -1995,3 +1995,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1045'
+  slug: drive-nominal-0002-on-engine
+  file: null
+  issue_number: 1045
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
