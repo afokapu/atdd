@@ -15,7 +15,6 @@ import argparse
 import os
 import shutil
 import sys
-import time
 from pathlib import Path
 from typing import Optional
 
@@ -35,9 +34,9 @@ def _build_dashboard_parser() -> argparse.ArgumentParser:
         help="Inspect a specific run (default: most recent run).",
     )
     p.add_argument(
-        "--watch",
+        "--once",
         action="store_true",
-        help="Refresh every 2s (clear + re-render loop, no curses).",
+        help="Print a single snapshot and exit (default on a TTY is the live view).",
     )
     p.add_argument(
         "--width",
@@ -376,18 +375,10 @@ def run_dashboard(argv: list[str], *, runtime_dir: Optional[Path] = None) -> int
             cards, _term_width(args.width), card_width=args.card_width, color=use_color
         )
 
-    if args.watch:
-        # Interactive single-key filtering needs a real keyboard; fall back to a
-        # plain refresh loop when stdin isn't a TTY (pipes, CI, capture).
-        if sys.stdin.isatty():
-            return _run_interactive(runtime_dir, args)
-        try:
-            while True:
-                print("\033[2J\033[H", end="")
-                print(_render_once())
-                time.sleep(2)
-        except KeyboardInterrupt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-            return 0
+    # Live + interactive by default on a real terminal; a single snapshot when
+    # piped/redirected (scriptable) or when --once is given.
+    if not args.once and sys.stdin.isatty():
+        return _run_interactive(runtime_dir, args)
 
     print(_render_once())
     return 0
