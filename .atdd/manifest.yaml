@@ -2040,9 +2040,13 @@ sessions:
   file: null
   issue_number: 1053
   type: implementation
-  status: PLANNED
+  status: RED
   created: '2026-06-10'
   archived: null
+  branch: feat/coach-dashboard-worker-grid
+  wagon: coach-ops
+  feature: feature:coach-ops:worker-grid-dashboard
+  train: 0002-coach-drives-lifecycle
 - id: '1051'
   slug: graphql-projects-board-sync-burst-batch-and-decouple
   file: null
