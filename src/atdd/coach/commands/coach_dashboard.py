@@ -57,6 +57,13 @@ def _build_dashboard_parser() -> argparse.ArgumentParser:
         dest="no_color",
         help="Disable phase colors (default: colored when stdout is a TTY).",
     )
+    p.add_argument(
+        "--card-width",
+        type=int,
+        default=40,
+        dest="card_width",
+        help="Card width in columns (default 40; wider fits full titles, fewer per row).",
+    )
     return p
 
 
@@ -233,6 +240,88 @@ def _read_workers(runtime_dir: Path, run_id: str, *, scope_all: bool) -> list:
     return workers
 
 
+def _read_key(timeout: float):
+    """Return a single keypress within ``timeout`` seconds, or None (TTY only)."""
+    import select
+
+    r, _, _ = select.select([sys.stdin], [], [], timeout)
+    if r:
+        return sys.stdin.read(1)
+    return None
+
+
+def _run_interactive(runtime_dir: Path, args) -> int:
+    """Live, single-key-filterable dashboard. Requires a TTY stdin (cbreak mode).
+
+    Gathers every worker once per refresh, then filters in-memory by the menu
+    mode so a/h/b/s/p switch views instantly without re-reading the run scope.
+    """
+    import termios
+    import tty
+
+    from atdd.coach.runtime.dashboard import (
+        PHASE_ORDER,
+        build_cards,
+        filter_cards,
+        render_grid,
+        render_menu,
+    )
+    from atdd.coach.runtime.reader import (
+        derive_issue_phases,
+        find_latest_run_id,
+        read_decisions,
+    )
+
+    fd = sys.stdin.fileno()
+    saved = termios.tcgetattr(fd)
+    mode, phase_idx = "active", 0
+    try:
+        tty.setcbreak(fd)
+        while True:
+            run_id = args.run_id if args.run_id is not None else find_latest_run_id(runtime_dir)
+            print("\033[2J\033[H", end="")
+            if run_id is None:
+                print(f"No coach runs found in {runtime_dir / 'coach'}")
+            else:
+                active_issues = _run_issues(runtime_dir, run_id)
+                workers = _read_workers(runtime_dir, run_id, scope_all=True)
+                issue_phases = derive_issue_phases(run_id, runtime_dir=runtime_dir)
+                titles = _load_titles(
+                    sorted({w.issue for w in workers if w.issue is not None}), runtime_dir
+                )
+                decisions = read_decisions(run_id, 50, runtime_dir=runtime_dir)
+                all_cards = build_cards(
+                    agent_states=workers, issue_phases=issue_phases,
+                    titles=titles, decisions=decisions,
+                )
+                phase = PHASE_ORDER[phase_idx] if mode == "phase" else None
+                cards = filter_cards(all_cards, mode, active_issues=active_issues, phase=phase)
+                color = not args.no_color
+                print(f"atdd coach dashboard · run {run_id} · {len(cards)}/{len(all_cards)} worker(s)")
+                print(render_menu(mode, phase=phase, color=color))
+                print()
+                print(render_grid(
+                    cards, _term_width(args.width), card_width=args.card_width, color=color
+                ))
+            key = _read_key(1.0)
+            if key in ("q", "\x03"):
+                break
+            elif key == "a":
+                mode = "active"
+            elif key == "h":
+                mode = "historical"
+            elif key == "b":
+                mode = "blocked"
+            elif key == "s":
+                mode = "stalled"
+            elif key == "p":
+                phase_idx = (phase_idx + 1) % len(PHASE_ORDER) if mode == "phase" else 0
+                mode = "phase"
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, saved)
+    return 0
+
+
 def run_dashboard(argv: list[str], *, runtime_dir: Optional[Path] = None) -> int:
     """``atdd coach dashboard`` entry point.
 
@@ -283,9 +372,15 @@ def run_dashboard(argv: list[str], *, runtime_dir: Optional[Path] = None) -> int
         )
         use_color = not args.no_color and sys.stdout.isatty()
         header = f"atdd coach dashboard · run {run_id} · {len(cards)} worker(s)"
-        return header + "\n\n" + render_grid(cards, _term_width(args.width), color=use_color)
+        return header + "\n\n" + render_grid(
+            cards, _term_width(args.width), card_width=args.card_width, color=use_color
+        )
 
     if args.watch:
+        # Interactive single-key filtering needs a real keyboard; fall back to a
+        # plain refresh loop when stdin isn't a TTY (pipes, CI, capture).
+        if sys.stdin.isatty():
+            return _run_interactive(runtime_dir, args)
         try:
             while True:
                 print("\033[2J\033[H", end="")

@@ -73,16 +73,16 @@ def test_empty_grid_has_a_message():
 
 
 def test_progress_bar_tracks_lifecycle_position():
-    assert _progress_bar("INIT") == "▰▱▱▱▱▱▱ 1/7"
-    assert _progress_bar("GREEN").endswith("4/7")
-    assert _progress_bar("COMPLETE").endswith("7/7")
-    assert "✗" in _progress_bar("BLOCKED")
+    assert _progress_bar("INIT") == "▰▱▱▱▱▱▱"
+    assert _progress_bar("GREEN") == "▰▰▰▰▱▱▱"
+    assert _progress_bar("COMPLETE") == "▰▰▰▰▰▰▰"
+    assert _progress_bar("BLOCKED") == "▱▱▱▱▱▱▱"
     assert _progress_bar("?") == ""  # unknown phase → no bar
 
 
 def test_card_includes_progress_bar_row():
     rendered = "\n".join(render_card(_card(1, phase="RED"), width=24))
-    assert "3/7" in rendered  # RED is the 3rd lifecycle stage
+    assert "▰▰▰▱▱▱▱" in rendered  # RED is the 3rd of 7 lifecycle stages
 
 
 def test_card_renders_issue_title_when_present():

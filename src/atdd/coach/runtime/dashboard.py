@@ -61,13 +61,13 @@ def _colorize(text: str, rgb: tuple) -> str:
 
 
 def _progress_bar(phase: str) -> str:
-    """A filled/unfilled lifecycle bar for ``phase`` (e.g. ``▰▰▰▰▱▱▱ 4/7``)."""
+    """A filled/unfilled lifecycle bar for ``phase`` (e.g. ``▰▰▰▰▱▱▱``)."""
     total = len(PHASE_ORDER)
     if phase in PHASE_ORDER:
         filled = PHASE_ORDER.index(phase) + 1
-        return "▰" * filled + "▱" * (total - filled) + f" {filled}/{total}"
+        return "▰" * filled + "▱" * (total - filled)
     if phase in ("BLOCKED", "OBSOLETE"):
-        return "▱" * total + " ✗"
+        return "▱" * total
     return ""  # unknown phase → no bar
 
 
@@ -112,24 +112,32 @@ class WorkerCard:
     elapsed: str
     tasks: list[Task] = field(default_factory=list)
     stalled: bool = False
+    idle: str = ""  # human time since last activity (only meaningful when stalled)
 
     @property
     def done_count(self) -> int:
         return sum(1 for t in self.tasks if t.state == "done")
 
 
-def _elapsed(start: Optional[datetime], now: datetime) -> str:
-    """Human ``HhMm`` / ``MmSs`` elapsed from ``start`` to ``now``."""
-    if start is None:
+def _fmt_secs(secs: Optional[int]) -> str:
+    """Human ``HhMm`` / ``MmSs`` duration from a second count."""
+    if secs is None:
         return "--"
-    if start.tzinfo is None:
-        start = start.replace(tzinfo=timezone.utc)
-    secs = max(0, int((now - start).total_seconds()))
+    secs = max(0, int(secs))
     h, rem = divmod(secs, 3600)
     m, s = divmod(rem, 60)
     if h:
         return f"{h}h{m:02d}m"
     return f"{m}m{s:02d}s"
+
+
+def _elapsed(start: Optional[datetime], now: datetime) -> str:
+    """Human elapsed from ``start`` to ``now``."""
+    if start is None:
+        return "--"
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    return _fmt_secs(int((now - start).total_seconds()))
 
 
 def _seconds_since(start: Optional[datetime], now: datetime) -> Optional[int]:
@@ -188,6 +196,7 @@ def build_cards(
                 phase=phase,
                 role=role,
                 elapsed=_elapsed(start, now),
+                idle=_fmt_secs(secs),
                 tasks=list(activity.get(int(issue), [])) if issue is not None else [],
                 stalled=secs is not None and secs > STALL_AFTER_SECONDS,
             )
@@ -237,15 +246,21 @@ def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[st
     bottom = tint("└" + "─" * inner + "┘")
 
     num = f"#{card.issue}" if card.issue is not None else "#?"
-    flag = " ⚠" if card.stalled else ""
 
-    lines = [top, row(f"{num}  {card.phase}", paint=True)]
+    # Stall flag rides the header so it's prominent and never truncated by a
+    # narrow card; the meta line carries the durations.
+    head = f"{num}  {card.phase}" + (" ⚠" if card.stalled else "")
+    lines = [top, row(head, paint=True)]
     if card.title:
         lines.append(row(card.title))
     pbar = _progress_bar(card.phase)
     if pbar:
         lines.append(row(pbar, paint=True))
-    lines.append(row(f"{card.role} · {card.elapsed}{flag}"))
+    # "up" = runtime since spawn; "idle" = time since last activity (when stalled).
+    meta = f"{card.role} · up {card.elapsed}"
+    if card.stalled:
+        meta += f" · idle {card.idle}"
+    lines.append(row(meta))
     if card.tasks:
         lines.append(row(""))
         for t in card.tasks[:4]:
@@ -255,6 +270,55 @@ def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[st
         lines.append(row(f" {card.done_count}/{total} ".center(inner, "─")))
     lines.append(bottom)
     return lines
+
+
+# Single-key filter menu. Each entry: (key, mode, label). 'quit' is an action,
+# not a filter mode. Kept deliberately small to stay glanceable.
+FILTER_KEYS = [
+    ("a", "active", "Active"),
+    ("h", "historical", "Historical"),
+    ("b", "blocked", "Blocked"),
+    ("s", "stalled", "Stalled"),
+    ("p", "phase", "Status"),
+    ("q", "quit", "Quit"),
+]
+
+
+def filter_cards(
+    cards: Sequence[WorkerCard],
+    mode: str,
+    *,
+    active_issues: Optional[set] = None,
+    phase: Optional[str] = None,
+) -> list[WorkerCard]:
+    """Pure filter over already-built cards, selected by menu ``mode``.
+
+    ``active`` keeps the current run's workers (``active_issues``); ``blocked`` /
+    ``stalled`` filter on card state; ``phase`` keeps one lifecycle stage;
+    anything else (``historical`` / ``all``) returns every card.
+    """
+    if mode == "active":
+        ai = active_issues or set()
+        return [c for c in cards if c.issue in ai]
+    if mode == "blocked":
+        return [c for c in cards if c.phase == "BLOCKED"]
+    if mode == "stalled":
+        return [c for c in cards if c.stalled]
+    if mode == "phase" and phase:
+        return [c for c in cards if c.phase == phase]
+    return list(cards)
+
+
+def render_menu(mode: str, *, phase: Optional[str] = None, color: bool = True) -> str:
+    """One-line filter menu; the active mode is highlighted (reverse video)."""
+    segs = []
+    for key, name, label in FILTER_KEYS:
+        text = f"Status:{phase or 'ALL'}" if name == "phase" else label
+        seg = f"[{key}] {text}"
+        if name == mode:
+            seg = f"\033[7m {seg} \033[0m" if color else f"▸{seg}◂"
+        segs.append(seg)
+    return "  ".join(segs)
 
 
 def render_grid(
