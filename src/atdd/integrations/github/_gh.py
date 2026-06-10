@@ -13,9 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import subprocess
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -25,41 +23,19 @@ from atdd.integrations.github.types import GitHubIntegrationError
 
 _log = logging.getLogger(__name__)
 
-#: Env var holding the fine-grained PAT with Projects: R/W (issue #404 / #882).
-PROJECT_TOKEN_ENV = "PROJECT_TOKEN"
-
-
-@dataclass(frozen=True)
-class ProjectRef:
-    """Repo + Projects v2 identifiers read from ``.atdd/config.yaml``."""
-
-    repo: str
-    project_id: str
-
-
-def project_token() -> Optional[str]:
-    """Return the ``PROJECT_TOKEN`` PAT if set and non-empty, else ``None``."""
-    token = os.environ.get(PROJECT_TOKEN_ENV, "").strip()
-    return token or None
-
 
 def run_gh(
     args: Sequence[str],
     *,
-    token: Optional[str] = None,
     input_text: Optional[str] = None,
     timeout: int = 30,
 ) -> str:
     """Run a ``gh`` command and return stripped stdout.
 
-    When *token* is given it is injected as ``GH_TOKEN`` for that invocation only
-    (used to route Projects v2 mutations through ``PROJECT_TOKEN``). Raises
-    :class:`GitHubIntegrationError` on a non-zero exit or a missing ``gh`` binary.
+    Raises :class:`GitHubIntegrationError` on a non-zero exit or a missing
+    ``gh`` binary.
     """
     cmd = ["gh", *args]
-    env = None
-    if token:
-        env = {**os.environ, "GH_TOKEN": token}
     _log.debug("gh %s", " ".join(args), extra={"command": args[0] if args else "gh"})
     try:
         result = subprocess.run(
@@ -68,7 +44,6 @@ def run_gh(
             text=True,
             timeout=timeout,
             input=input_text,
-            env=env,
         )
     except FileNotFoundError as exc:
         raise GitHubIntegrationError(
@@ -85,13 +60,13 @@ def run_gh(
     return result.stdout.strip()
 
 
-def graphql(query: str, *, token: Optional[str] = None) -> dict:
+def graphql(query: str) -> dict:
     """Execute a GraphQL query/mutation via ``gh api graphql``.
 
     Raises :class:`GitHubIntegrationError` on transport failure or a GraphQL
-    ``errors`` block (so callers can distinguish access-denied responses).
+    ``errors`` block.
     """
-    output = run_gh(["api", "graphql", "-f", f"query={query}"], token=token)
+    output = run_gh(["api", "graphql", "-f", f"query={query}"])
     data = json.loads(output) if output else {}
     if isinstance(data, dict) and data.get("errors"):
         raise GitHubIntegrationError(
@@ -109,12 +84,12 @@ def _find_repo_root(start: Optional[Path] = None) -> Optional[Path]:
     return None
 
 
-def resolve_project_config(repo_root: Optional[Path] = None) -> ProjectRef:
-    """Read ``repo`` + ``project_id`` from ``.atdd/config.yaml``.
+def resolve_repo(repo_root: Optional[Path] = None) -> str:
+    """Read the ``repo`` (``owner/name``) from ``.atdd/config.yaml``.
 
-    Raises :class:`GitHubIntegrationError` when the config or its ``github``
-    section is missing — the same loud-fail contract the old ``ProjectConfig``
-    used, so callers see an actionable message instead of a silent no-op.
+    The Projects v2 board was decommissioned in #1051, so only the repo slug is
+    resolved now (no board identifiers). Raises :class:`GitHubIntegrationError`
+    when the config or its ``github.repo`` is missing.
     """
     root = repo_root or _find_repo_root()
     if root is None:
@@ -130,14 +105,8 @@ def resolve_project_config(repo_root: Optional[Path] = None) -> ProjectRef:
         ) from exc
     github = config.get("github") or {}
     repo = github.get("repo")
-    project_id = github.get("project_id")
-    if not repo or not project_id:
+    if not repo:
         raise GitHubIntegrationError(
-            "Missing github.repo / github.project_id in .atdd/config.yaml"
+            "Missing github.repo in .atdd/config.yaml"
         )
-    return ProjectRef(repo=str(repo), project_id=str(project_id))
-
-
-def is_access_denied(exc: Exception) -> bool:
-    """True when *exc* is the Projects v2 access-denied response (issue #384)."""
-    return "resource not accessible by integration" in str(exc).lower()
+    return str(repo)

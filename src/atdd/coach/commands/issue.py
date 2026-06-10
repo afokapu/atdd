@@ -412,10 +412,15 @@ class IssueManager:
             return yaml.safe_load(f) or {}
 
     def _has_github_config(self) -> bool:
-        """Check if GitHub integration is configured."""
+        """Check if GitHub integration is configured.
+
+        Only ``github.repo`` is required (#1051): the Projects v2 board — and
+        its ``project_id`` — was decommissioned, so the issue label (REST) plus
+        the local manifest carry all state.
+        """
         config = self._load_config()
         github = config.get("github", {})
-        return bool(github.get("repo") and github.get("project_id"))
+        return bool(github.get("repo"))
 
     def _get_github_client(self):
         """Get a GitHubClient from config. Returns None if not configured."""

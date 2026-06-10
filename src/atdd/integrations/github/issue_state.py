@@ -1,8 +1,8 @@
 """GitHub issue phase/label + body adapter (docs/coach-decomposition.md §4.10).
 
-``transition_phase`` is the **single owner** of the atomic label-swap +
-Projects v2 status sync. Because both writes live behind one call, the label and
-the board can never drift — that lock-step is the structural fix for #882.
+``transition_phase`` swaps the ``atdd:<phase>`` label (REST). That label, plus
+the local ``.atdd/manifest.yaml`` mirror, is the sole representation of lifecycle
+state — the Projects v2 board sync was decommissioned in #1051.
 """
 from __future__ import annotations
 
@@ -12,8 +12,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from atdd.integrations.github import _gh, projects_v2
-from atdd.integrations.github.types import MissingProjectTokenError
+from atdd.integrations.github import _gh
 
 _log = logging.getLogger(__name__)
 
@@ -53,14 +52,10 @@ def _current_phase_labels(issue: int) -> list[str]:
 def transition_phase(
     issue: int, to: str, *, repo_root: Optional[Path] = None
 ) -> None:
-    """Swap the ``atdd:<phase>`` label to *to* AND sync the Projects v2 board.
+    """Swap the ``atdd:<phase>`` label to *to* (REST).
 
-    ATOMIC contract (§4.10): one call site owns both writes so they cannot
-    drift — the #882 fix. The label swap always runs. The board sync is routed
-    through :func:`projects_v2.sync_status_field`, which requires
-    ``PROJECT_TOKEN``; when the token is absent or Projects access is denied
-    (#384) the swap still lands and a loud warning is logged (label-only sync),
-    preserving the established graceful-degradation behaviour.
+    The label is the authoritative phase representation (#1051); the local
+    manifest mirror records the same transition. No Projects v2 board write.
     """
     stale = _current_phase_labels(issue)
     for label in stale:
@@ -70,23 +65,6 @@ def transition_phase(
     _gh.run_gh(
         ["issue", "edit", str(issue), "--add-label", f"{_PHASE_LABEL_PREFIX}{to}"]
     )
-
-    try:
-        projects_v2.sync_status_field(issue, to, repo_root=repo_root)
-    except MissingProjectTokenError as exc:
-        _log.warning(
-            "Projects v2 status sync skipped (label-only): PROJECT_TOKEN unset",
-            extra={"issue": issue, "phase": to, "error": str(exc)},
-        )
-    except Exception as exc:  # noqa: BLE001 - degrade on access-denied, re-raise else
-        if _gh.is_access_denied(exc):
-            _log.warning(
-                "Projects v2 status sync denied (label-only); set PROJECT_TOKEN. "
-                "See docs/operator-projects-v2-token.md",
-                extra={"issue": issue, "phase": to, "error": str(exc)},
-            )
-        else:
-            raise
 
 
 def read_train(issue: int) -> Optional[str]:

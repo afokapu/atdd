@@ -20,9 +20,9 @@ def read_check_runs(
     sha: str, *, repo_root: Optional[Path] = None
 ) -> tuple[CheckRunData, ...]:
     """Return the check runs reported against commit *sha*."""
-    cfg = _gh.resolve_project_config(repo_root)
+    repo = _gh.resolve_repo(repo_root)
     out = _gh.run_gh(
-        ["api", f"repos/{cfg.repo}/commits/{sha}/check-runs", "--paginate"]
+        ["api", f"repos/{repo}/commits/{sha}/check-runs", "--paginate"]
     )
     data = json.loads(out) if out else {}
     runs: list[CheckRunData] = []

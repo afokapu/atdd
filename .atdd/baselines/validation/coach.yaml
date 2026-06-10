@@ -1,5 +1,5 @@
 phase: coach
-passed_at: '2026-05-11T11:17:38.569659+00:00'
-source_hash: 29ab126ad453463a06dc755294faf12b12eb7c6df5e9dc97bdc206b4fb925f58
-atdd_version: 3.30.0
-skipped_api: false
+passed_at: '2026-06-10T23:44:17.578693+00:00'
+source_hash: 333bb77af20f2a07e5b2fac9aab965db9b81680aa64eae322504b9e31d59e04d
+atdd_version: 3.112.0
+skipped_api: true

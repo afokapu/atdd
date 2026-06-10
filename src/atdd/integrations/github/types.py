@@ -19,15 +19,6 @@ class GitHubIntegrationError(Exception):
     """Raised when a ``gh`` CLI / GraphQL call fails."""
 
 
-class MissingProjectTokenError(GitHubIntegrationError):
-    """Raised when a Projects v2 mutation is attempted without ``PROJECT_TOKEN``.
-
-    The default ``GITHUB_TOKEN`` in CI cannot write Projects v2 (issue #404),
-    which is the root cause of #882. Operators must provision a fine-grained PAT
-    with Projects: R/W — see ``docs/operator-projects-v2-token.md``.
-    """
-
-
 @dataclass(frozen=True)
 class MergeResult:
     """Outcome of a PR merge attempt (§4.7)."""
@@ -71,7 +62,6 @@ class PrStateData:
 
 __all__ = [
     "GitHubIntegrationError",
-    "MissingProjectTokenError",
     "MergeResult",
     "CheckRunData",
     "ReviewData",
