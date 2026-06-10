@@ -1944,3 +1944,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1039'
+  slug: train-convention-skeleton-rule-ids-and-shapes
+  file: null
+  issue_number: 1039
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
