@@ -7,7 +7,7 @@
   "type": "object",
   "x-artifact-metadata": {
     "domain": "commons",
-    "resource": "dashboard-card",
+    "resource": "dashboard_card",
     "version": "1.0.0",
     "hash": "",
     "producer": "wagon:coach-ops",
