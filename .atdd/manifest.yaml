@@ -1912,3 +1912,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1035'
+  slug: polyglot-config-awareness
+  file: null
+  issue_number: 1035
+  type: refactor
+  status: INIT
+  created: '2026-06-10'
+  archived: null
