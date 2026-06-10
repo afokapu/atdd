@@ -5,7 +5,21 @@
 """render_grid reflows cards to terminal width; render_card draws a box."""
 from __future__ import annotations
 
-from atdd.coach.runtime.dashboard import Task, WorkerCard, render_card, render_grid
+import re
+
+from atdd.coach.runtime.dashboard import (
+    Task,
+    WorkerCard,
+    _progress_bar,
+    render_card,
+    render_grid,
+)
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _visible(s: str) -> str:
+    return _ANSI.sub("", s)
 
 
 def _card(issue, phase="RED", role="coder"):
@@ -56,3 +70,40 @@ def test_tasks_render_with_progress_footer():
 
 def test_empty_grid_has_a_message():
     assert "No active workers" in render_grid([], term_width=80)
+
+
+def test_progress_bar_tracks_lifecycle_position():
+    assert _progress_bar("INIT") == "▰▱▱▱▱▱▱ 1/7"
+    assert _progress_bar("GREEN").endswith("4/7")
+    assert _progress_bar("COMPLETE").endswith("7/7")
+    assert "✗" in _progress_bar("BLOCKED")
+    assert _progress_bar("?") == ""  # unknown phase → no bar
+
+
+def test_card_includes_progress_bar_row():
+    rendered = "\n".join(render_card(_card(1, phase="RED"), width=24))
+    assert "3/7" in rendered  # RED is the 3rd lifecycle stage
+
+
+def test_card_renders_issue_title_when_present():
+    c = WorkerCard(issue=1036, title="Declared Dispatch Registry",
+                   phase="GREEN", role="coder", elapsed="1m")
+    rendered = "\n".join(render_card(c, width=28))
+    assert "Declared Dispatch" in rendered
+
+
+def test_color_tints_phase_and_preserves_visible_width():
+    c = _card(1036, phase="GREEN")
+    plain = render_card(c, width=21, color=False)
+    colored = render_card(c, width=21, color=True)
+    # No escapes when color is off.
+    assert all("\x1b[" not in ln for ln in plain)
+    # GREEN's GitHub label color (#0E8A16 → 14;138;22) is present when on.
+    assert any("\x1b[38;2;14;138;22m" in ln for ln in colored)
+    # Tinting wraps padded content, so visible width is unchanged.
+    assert all(len(_visible(ln)) == 21 for ln in colored)
+
+
+def test_grid_color_flag_threads_to_cards():
+    out = render_grid([_card(1, phase="SMOKE")], term_width=24, card_width=21, color=True)
+    assert "\x1b[38;2;29;118;219m" in out  # SMOKE #1D76DB

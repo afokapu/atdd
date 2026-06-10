@@ -51,7 +51,69 @@ def _build_dashboard_parser() -> argparse.ArgumentParser:
         dest="scope_all",
         help="Show every worker on disk, not just the current run's (historical view).",
     )
+    p.add_argument(
+        "--no-color",
+        action="store_true",
+        dest="no_color",
+        help="Disable phase colors (default: colored when stdout is a TTY).",
+    )
     return p
+
+
+def _repo_slug() -> Optional[str]:
+    """``owner/repo`` from the actual git remote (never inferred)."""
+    import re
+    import subprocess
+
+    try:
+        r = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+    m = re.search(r"github\.com[:/](.+?)(?:\.git)?$", r.stdout.strip())
+    return m.group(1) if m else None
+
+
+def _load_titles(issues, runtime_dir: Path) -> dict:
+    """Issue titles for the given numbers, cached at runtime/issue-titles.json.
+
+    Titles are not in the worker JSON, so missing ones are fetched once via the
+    GitHub REST API (core quota — not GraphQL) and cached. Best-effort: any
+    failure leaves the title blank rather than breaking the render.
+    """
+    import json
+    import subprocess
+
+    cache = runtime_dir / "issue-titles.json"
+    titles: dict = {}
+    if cache.exists():
+        try:
+            titles = {int(k): v for k, v in json.loads(cache.read_text(encoding="utf-8")).items()}
+        except (json.JSONDecodeError, OSError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            titles = {}
+
+    missing = [i for i in issues if i not in titles]
+    if missing:
+        repo = _repo_slug()
+        for i in missing if repo else []:
+            try:
+                r = subprocess.run(
+                    ["gh", "api", f"repos/{repo}/issues/{i}", "--jq", ".title"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if r.returncode == 0 and r.stdout.strip():
+                    titles[i] = r.stdout.strip()
+            except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+                pass
+        try:
+            cache.write_text(
+                json.dumps({str(k): v for k, v in titles.items()}), encoding="utf-8"
+            )
+        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            pass
+    return titles
 
 
 def _term_width(override: Optional[int]) -> int:
@@ -210,14 +272,18 @@ def run_dashboard(argv: list[str], *, runtime_dir: Optional[Path] = None) -> int
         issue_phases = derive_issue_phases(run_id, runtime_dir=runtime_dir)
         workers = _read_workers(runtime_dir, run_id, scope_all=args.scope_all)
         decisions = read_decisions(run_id, 50, runtime_dir=runtime_dir)
+        issues = sorted({w.issue for w in workers if w.issue is not None})
+        titles = _load_titles(issues, runtime_dir)
 
         cards = build_cards(
             agent_states=workers,
             issue_phases=issue_phases,
+            titles=titles,
             decisions=decisions,
         )
+        use_color = not args.no_color and sys.stdout.isatty()
         header = f"atdd coach dashboard · run {run_id} · {len(cards)} worker(s)"
-        return header + "\n\n" + render_grid(cards, _term_width(args.width))
+        return header + "\n\n" + render_grid(cards, _term_width(args.width), color=use_color)
 
     if args.watch:
         try:

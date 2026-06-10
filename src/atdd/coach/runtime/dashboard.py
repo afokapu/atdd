@@ -35,6 +35,41 @@ STALL_AFTER_SECONDS = 10 * 60
 
 _TASK_GLYPH = {"done": "✓", "doing": "◐", "todo": "○"}
 
+# Canonical lifecycle progression (escapes BLOCKED/OBSOLETE are off-track), from
+# src/atdd/coach/conventions/phase_machine.convention.yaml — drives the per-card
+# progress bar.
+PHASE_ORDER = ["INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE"]
+
+# Per-phase truecolor, matching the GitHub `atdd:<PHASE>` issue-label colors so
+# the dashboard reads the same as the GitHub board.
+PHASE_RGB = {
+    "INIT": (0xFB, 0xCA, 0x04),
+    "PLANNED": (0xB6, 0x02, 0x05),
+    "RED": (0xD9, 0x3F, 0x0B),
+    "GREEN": (0x0E, 0x8A, 0x16),
+    "SMOKE": (0x1D, 0x76, 0xDB),
+    "REFACTOR": (0x00, 0x6B, 0x75),
+    "COMPLETE": (0x6F, 0x42, 0xC1),
+    "BLOCKED": (0xD7, 0x3A, 0x4A),
+    "OBSOLETE": (0x6A, 0x73, 0x7D),
+}
+
+
+def _colorize(text: str, rgb: tuple) -> str:
+    r, g, b = rgb
+    return f"\033[38;2;{r};{g};{b}m{text}\033[0m"
+
+
+def _progress_bar(phase: str) -> str:
+    """A filled/unfilled lifecycle bar for ``phase`` (e.g. ``▰▰▰▰▱▱▱ 4/7``)."""
+    total = len(PHASE_ORDER)
+    if phase in PHASE_ORDER:
+        filled = PHASE_ORDER.index(phase) + 1
+        return "▰" * filled + "▱" * (total - filled) + f" {filled}/{total}"
+    if phase in ("BLOCKED", "OBSOLETE"):
+        return "▱" * total + " ✗"
+    return ""  # unknown phase → no bar
+
 
 @dataclass
 class Task:
@@ -181,38 +216,50 @@ def _truncate(text: str, width: int) -> str:
     return text if len(text) <= width else text[: max(0, width - 1)] + "…"
 
 
-def render_card(card: WorkerCard, width: int) -> list[str]:
-    """Render one card as a list of ``width``-wide lines (ANSI box-drawing)."""
-    inner = max(1, width - 2)
-    top = "┌" + "─" * inner + "┐"
-    bottom = "└" + "─" * inner + "┘"
+def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[str]:
+    """Render one card as a list of ``width``-wide lines (ANSI box-drawing).
 
-    def row(s: str) -> str:
-        return "│" + _truncate(s, inner).ljust(inner) + "│"
+    When ``color`` is set, the border, phase header, and progress bar are tinted
+    in the phase's GitHub-label color. Color codes wrap already-padded content,
+    so the *visible* width stays exactly ``width`` regardless of tinting.
+    """
+    inner = max(1, width - 2)
+    rgb = PHASE_RGB.get(card.phase) if color else None
+
+    def tint(s: str) -> str:
+        return _colorize(s, rgb) if rgb else s
+
+    def row(content: str, *, paint: bool = False) -> str:
+        body = _truncate(content, inner).ljust(inner)
+        return tint("│") + (tint(body) if paint else body) + tint("│")
+
+    top = tint("┌" + "─" * inner + "┐")
+    bottom = tint("└" + "─" * inner + "┘")
 
     num = f"#{card.issue}" if card.issue is not None else "#?"
-    head = f"{num}  {card.phase}"
     flag = " ⚠" if card.stalled else ""
-    meta = f"{card.role} · {card.elapsed}{flag}"
 
-    lines = [top, row(head)]
+    lines = [top, row(f"{num}  {card.phase}", paint=True)]
     if card.title:
         lines.append(row(card.title))
-    lines.append(row("·" * inner))
-    lines.append(row(meta))
+    pbar = _progress_bar(card.phase)
+    if pbar:
+        lines.append(row(pbar, paint=True))
+    lines.append(row(f"{card.role} · {card.elapsed}{flag}"))
     if card.tasks:
         lines.append(row(""))
         for t in card.tasks[:4]:
             glyph = _TASK_GLYPH.get(t.state, "○")
             lines.append(row(f"{glyph} {t.text}"))
         total = len(card.tasks)
-        bar = f" {card.done_count}/{total} "
-        lines.append(row(bar.center(inner, "─")))
+        lines.append(row(f" {card.done_count}/{total} ".center(inner, "─")))
     lines.append(bottom)
     return lines
 
 
-def render_grid(cards: Sequence[WorkerCard], term_width: int, *, card_width: int = 21) -> str:
+def render_grid(
+    cards: Sequence[WorkerCard], term_width: int, *, card_width: int = 21, color: bool = False
+) -> str:
     """Lay cards out in a reflowing grid that fits ``term_width``.
 
     Columns are chosen from the available width; cards in a row are padded to
@@ -223,7 +270,7 @@ def render_grid(cards: Sequence[WorkerCard], term_width: int, *, card_width: int
 
     gutter = 1
     cols = max(1, (term_width + gutter) // (card_width + gutter))
-    blocks = [render_card(c, card_width) for c in cards]
+    blocks = [render_card(c, card_width, color=color) for c in cards]
 
     out: list[str] = []
     for i in range(0, len(blocks), cols):
