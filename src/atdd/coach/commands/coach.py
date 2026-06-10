@@ -1275,6 +1275,11 @@ def run_cli(argv: list[str]) -> int:
     """
     if argv and argv[0] == "status":
         return run_status(argv[1:])
+    # Worker-grid sibling of `status`: one card per worker over the same reader.
+    if argv and argv[0] == "dashboard":
+        from atdd.coach.commands.coach_dashboard import run_dashboard
+
+        return run_dashboard(argv[1:])
     # #1017 — operator produces the approval token that the ApprovalTokenGateCheck
     # requires; `atdd coach approve <N> --transition PLANNED->RED`. Thin verb
     # dispatch; logic lives in the govern-lifecycle gate feature.
