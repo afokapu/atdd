@@ -13,6 +13,18 @@
     "producer": "wagon:coach-ops",
     "consumers": ["wagon:coach-ops"],
     "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/cli/coach/dashboard",
+          "description": "Render one card per worker for a coach run",
+          "responses": {
+            "200": { "description": "A worker card", "schema": "$ref: #" }
+          }
+        }
+      ]
+    },
     "traceability": {
       "wagon_ref": "plan/coach_ops/_coach_ops.yaml",
       "feature_refs": ["feature:coach-ops:worker-grid-dashboard"]
