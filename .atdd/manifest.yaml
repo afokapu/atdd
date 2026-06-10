@@ -2043,3 +2043,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1051'
+  slug: graphql-projects-board-sync-burst-batch-and-decouple
+  file: null
+  issue_number: 1051
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
