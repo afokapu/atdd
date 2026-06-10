@@ -1928,3 +1928,11 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1037'
+  slug: harden-decision-discriminant-if-then
+  file: null
+  issue_number: 1037
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
