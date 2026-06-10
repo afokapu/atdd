@@ -1928,6 +1928,9 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+  train: 0002-coach-drives-lifecycle
+  branch: feat/issue-1036
+  worktree: /Users/alecfokapu/Github/atdd/issue-1036
 - id: '1037'
   slug: harden-decision-discriminant-if-then
   file: null
