@@ -270,27 +270,36 @@ def _read_workers(runtime_dir: Path, run_id: str, *, scope_all: bool) -> list:
     return workers
 
 
-_ARROWS = {"[A": "UP", "[B": "DOWN", "[C": "RIGHT", "[D": "LEFT"}
+# Arrows arrive as CSI (ESC [ X, normal cursor mode) or SS3 (ESC O X,
+# application cursor mode) — terminals switch between them, so handle both.
+_ARROWS = {
+    "[A": "UP", "[B": "DOWN", "[C": "RIGHT", "[D": "LEFT",
+    "OA": "UP", "OB": "DOWN", "OC": "RIGHT", "OD": "LEFT",
+}
 
 
 def _read_key(timeout: float):
     """Return a keypress within ``timeout`` seconds, or None (TTY only).
 
-    Arrow keys arrive as a 3-byte escape sequence (``ESC [ A/B/C/D``); those are
-    normalized to ``"UP"/"DOWN"/"RIGHT"/"LEFT"``. Other keys return their char.
+    Reads the raw fd (not buffered ``sys.stdin``, which can swallow keys).
+    Arrow escape sequences (CSI ``ESC [ X`` or SS3 ``ESC O X``) are normalized
+    to ``"UP"/"DOWN"/"RIGHT"/"LEFT"``; other keys return their character.
     """
+    import os
     import select
 
-    r, _, _ = select.select([sys.stdin], [], [], timeout)
+    fd = sys.stdin.fileno()
+    r, _, _ = select.select([fd], [], [], timeout)
     if not r:
         return None
-    ch = sys.stdin.read(1)
-    if ch == "\x1b":  # escape — maybe an arrow sequence
-        more, _, _ = select.select([sys.stdin], [], [], 0.05)
-        if not more:
-            return ch  # lone ESC
-        return _ARROWS.get(sys.stdin.read(2), ch)
-    return ch
+    data = os.read(fd, 1)
+    if data == b"\x1b":  # escape — maybe an arrow sequence
+        more, _, _ = select.select([fd], [], [], 0.05)
+        if more:
+            seq = os.read(fd, 2).decode("latin-1", "ignore")
+            return _ARROWS.get(seq, "\x1b")
+        return "\x1b"  # lone ESC
+    return data.decode("utf-8", "ignore")
 
 
 def _run_interactive(runtime_dir: Path, args) -> int:
@@ -370,6 +379,8 @@ def _run_interactive(runtime_dir: Path, args) -> int:
                 mode = NAV_MODES[(i + step) % len(NAV_MODES)]
             elif key in ("UP", "DOWN") and mode == "phase":
                 phase_idx = (phase_idx + (1 if key == "UP" else -1)) % len(PHASE_ORDER)
+    except KeyboardInterrupt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        pass
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, saved)
     return 0
