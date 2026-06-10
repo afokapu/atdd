@@ -1,5 +1,5 @@
 # URN: test:coach-ops:coach-dashboard:PLACEHOLDER-UNIT-002-render-grid
-# WMBT: wmbt:coach-ops:PLACEHOLDER   # FIXME(transplant): set real WMBT id once the atdd issue exists
+# WMBT: wmbt:coach-ops:PLACEHOLDER   # FIXME(#1053): assign real WMBT id when planner defines WMBTs at PLANNED
 # Phase: RED
 # Layer: domain
 """render_grid reflows cards to terminal width; render_card draws a box."""
