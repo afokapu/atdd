@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from atdd.coach.runtime.dashboard import STALL_AFTER_SECONDS, build_cards
+from atdd.coach.runtime.dashboard import STALL_AFTER_SECONDS, Worker, build_cards
 from atdd.coach.runtime.reader import AgentState
 
 NOW = datetime(2026, 6, 10, 20, 0, 0, tzinfo=timezone.utc)
@@ -55,3 +55,19 @@ def test_elapsed_is_human_readable():
         now=NOW,
     )
     assert cards[0].elapsed == "12m04s"
+
+
+def test_elapsed_measures_runtime_from_spawn_not_last_activity():
+    # A Worker spawned 1h ago whose last heartbeat was 30s ago: elapsed is the
+    # full runtime since spawn, while stall is judged from the recent heartbeat.
+    w = Worker(
+        issue=1036,
+        role="coder",
+        started_at=NOW - timedelta(hours=1, minutes=5),
+        last_heartbeat=NOW - timedelta(seconds=30),
+        phase="GREEN",
+    )
+    card = build_cards(agent_states=[w], issue_phases={}, now=NOW)[0]
+    assert card.elapsed == "1h05m"
+    assert card.stalled is False
+    assert card.role == "coder" and card.phase == "GREEN"

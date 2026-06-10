@@ -191,12 +191,16 @@ def run_dashboard(argv: list[str], *, runtime_dir: Optional[Path] = None) -> int
         env_dir = os.environ.get("ATDD_RUNTIME_DIR")
         runtime_dir = Path(env_dir) if env_dir else Path(".atdd") / "runtime"
 
-    if args.run_id is not None and args.run_id not in list_run_ids(runtime_dir):
-        print(
-            f"Error: run '{args.run_id}' not found in {runtime_dir / 'coach'}",
-            file=sys.stderr,
+    if args.run_id is not None:
+        known = (runtime_dir / "runs" / args.run_id).exists() or args.run_id in list_run_ids(
+            runtime_dir
         )
-        return 1
+        if not known:
+            print(
+                f"Error: run '{args.run_id}' not found in {runtime_dir / 'runs'}",
+                file=sys.stderr,
+            )
+            return 1
 
     def _render_once() -> str:
         run_id = args.run_id if args.run_id is not None else find_latest_run_id(runtime_dir)
