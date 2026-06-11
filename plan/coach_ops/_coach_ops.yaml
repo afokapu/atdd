@@ -12,6 +12,7 @@ outcome: "atdd coach watch + atdd agent wait-ci commands backed by a reusable co
 
 features:
   - urn: "feature:coach-ops:pr-watcher-module"
+  - urn: "feature:coach-ops:worker-grid-dashboard"
 
 produce:
   - name: commons:coach:pr-watcher-module
@@ -26,9 +27,14 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: commons:coach:dashboard-card
+    contract: "contract:commons:coach:dashboard-card"
+    telemetry: null
+    to: external
 
 consume: []
 
 wmbt:
-  total: 1
+  total: 2
   M001: "minimize likelihood of secondary-rate-limit-hits-during-batched-pr-polling"
+  M002: "minimize time to assess live-coach-worker-state during a wave"

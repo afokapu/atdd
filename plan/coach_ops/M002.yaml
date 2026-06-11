@@ -1,0 +1,110 @@
+urn: "wmbt:coach-ops:M002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+step: "monitor"
+direction: "minimize"
+dimension: "time"
+object_of_control: "assessing-live-coach-worker-state-during-a-wave"
+context_clarifier: "when an operator runs a coach wave and must see every live worker's issue, phase, runtime, and stall state across many cmux surfaces at a glance; `coach status` prints one table that does not scale, and run-roster membership is not liveness"
+lens: "functional.effectiveness"
+statement: "minimize time of assessing-live-coach-worker-state-during-a-wave by rendering one card per worker (issue, title, phase, role, surface, absolute clock times, lifecycle progress) from the coach runtime in lifecycle order, classifying each worker as live (cmux surface open) or stopped (surface closed), surfacing the per-worker channel events (observer escalations) as a card feed, reflowing the grid to the surface width with a pinned two-axis menu (run-state filter + orthogonal phase sub-filter), and auto-discovering the coach's populated runtime from any worktree"
+acceptances:
+  - identity:
+      urn: "acc:coach-ops:M002-UNIT-001-cards-built-from-runtime"
+      id: "AC-UNIT-001"
+      purpose: "build_cards maps coach runtime to one WorkerCard per worker (phase fallback, timing, run-state live/paused/stopped), ordered by lifecycle phase"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Worker records for two workers on one issue at different phases"
+        - "A fixed now() and per-worker last-heartbeat and spawned-at"
+    when:
+      abstract: "build_cards(agent_states=..., issue_phases=..., now=...) is called"
+    then:
+      abstract:
+        - "One card per worker (not per issue); role/phase derived per worker; cards ordered by lifecycle phase"
+        - "state is stopped when the surface is known-closed else live (surface-derived only); channel events come from agents/<id>/escalations.jsonl (newest first); last = newest event time"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:coach-ops:M002-UNIT-002-grid-reflows-and-clamps"
+      id: "AC-UNIT-002"
+      purpose: "render_grid reflows columns to terminal width; paginate() windows the full grid into fixed-height pages so nothing below the fold is unreachable (spacebar/PgDn paging)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A list of N cards, a card width, narrow/wide terminal widths, and a max_lines bound"
+    when:
+      abstract: "render_grid(cards, term_width, card_width, max_lines=...) is called"
+    then:
+      abstract:
+        - "Narrow width yields one column; wide width packs multiple columns"
+        - "paginate(lines, page, height) returns a (window, page, pages) triple, clamping page into range; the interactive loop pages with SPACE / PgDn / PgUp and shows page X/Y"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:coach-ops:M002-UNIT-003-card-presentation"
+      id: "AC-UNIT-003"
+      purpose: "card shows title, per-phase GitHub-label color (visible width unchanged), lifecycle progress bar, 'persona (surface)', and an absolute spawn time + surface state (live/stopped) + a per-worker channel-events feed (severity-tinted) — no growing time-since counters"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A WorkerCard with phase, title, surface, run-state, and started/last/duration clock fields"
+    when:
+      abstract: "render_card(card, width, color=True/False) is called"
+    then:
+      abstract:
+        - "Color wraps padded content so visible width equals the card width"
+        - "Progress bar fill reflects the phase's lifecycle position; meta renders 'persona (surface) · started <HH:MM> · ● <state>' with a single-width state dot colored after padding (green=live, grey=stopped) so the box stays aligned; below it a '─ channel' feed lists recent observer escalations (severity-tinted, newest first)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:coach-ops:M002-UNIT-004-filter-modes-and-menu"
+      id: "AC-UNIT-004"
+      purpose: "filter_cards selects by run-state (live/stopped/all) with an orthogonal phase sub-filter; render_menu shows a State row + Phase row and highlights the active state"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Cards carrying a run-state (card.state ∈ live/paused/stopped) and a phase"
+    when:
+      abstract: "filter_cards(cards, state, phase=...) and render_menu(state, phase=...) are called"
+    then:
+      abstract:
+        - "state filter keeps cards of that run-state (all = every state); the phase sub-filter additionally narrows to one lifecycle stage; the two combine (e.g. Live + RED)"
+        - "menu State row lists 🟢[l]Live ⚪[o]Stopped [a]All [q]Quit (state emoji in the header) and highlights the active state; Phase row shows the current sub-filter"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:coach-ops:M002-INTEGRATION-001-cli-dispatch-and-discovery"
+      id: "AC-INTEGRATION-001"
+      purpose: "`atdd coach dashboard` routes via coach.run_cli, scopes to the current run, and auto-discovers the coach's populated runtime"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A seeded runtime dir (runs/status.json + coach/<issue>/sessions) and an empty sibling worktree runtime"
+    when:
+      abstract: "run_dashboard([...]) is invoked and coach.run_cli(['dashboard']) is routed"
+    then:
+      abstract:
+        - "Default scope shows only the current run's workers; --all shows the roster"
+        - "_resolve_runtime_dir finds the populated sibling when cwd's runtime is empty"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"

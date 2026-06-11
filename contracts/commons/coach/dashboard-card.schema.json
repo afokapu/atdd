@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:coach:dashboard-card",
+  "title": "CommonsCoachDashboardCard",
+  "description": "One per-worker card rendered by `atdd coach dashboard` — the data the reader produces from coach runtime and the grid renderer consumes.",
+  "version": "1.0.0",
+  "type": "object",
+  "x-artifact-metadata": {
+    "domain": "commons",
+    "resource": "dashboard_card",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:coach-ops",
+    "consumers": ["wagon:coach-ops"],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/cli/coach/dashboard",
+          "description": "Render one card per worker for a coach run",
+          "responses": {
+            "200": { "description": "A worker card", "schema": "$ref: #" }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/coach_ops/_coach_ops.yaml",
+      "feature_refs": ["feature:coach-ops:worker-grid-dashboard"]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  },
+  "required": ["issue", "phase", "role", "elapsed", "stalled"],
+  "properties": {
+    "issue": {
+      "type": ["integer", "null"],
+      "description": "GitHub issue number the worker is on (null if unknown)."
+    },
+    "title": {
+      "type": "string",
+      "description": "Issue title (cached GitHub REST lookup; empty when offline/unavailable)."
+    },
+    "phase": {
+      "type": "string",
+      "description": "Worker's current ATDD lifecycle phase. Workers exist only for agent-owned phases (INIT..REFACTOR); COMPLETE/BLOCKED/OBSOLETE have no agent and so never appear on a worker card.",
+      "enum": ["INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "?"]
+    },
+    "role": {
+      "type": "string",
+      "description": "Persona (planner/tester/coder/...)."
+    },
+    "surface": {
+      "type": "string",
+      "description": "cmux surface ref (e.g. 'surface:623') — distinguishes multiple workers on the same issue; empty if unknown."
+    },
+    "elapsed": {
+      "type": "string",
+      "description": "Human runtime since spawn (rendered as 'up <elapsed>')."
+    },
+    "idle": {
+      "type": "string",
+      "description": "Human time since last activity; meaningful only when stalled."
+    },
+    "stalled": {
+      "type": "boolean",
+      "description": "True when idle exceeds the 10-minute drift threshold; renders the ⚠ header flag."
+    },
+    "progress": {
+      "type": "object",
+      "description": "Lifecycle position for the progress bar.",
+      "required": ["filled", "total"],
+      "properties": {
+        "filled": {"type": "integer", "minimum": 0, "description": "Stages reached (phase index + 1)."},
+        "total": {"type": "integer", "minimum": 1, "description": "Total lifecycle stages (7)."}
+      }
+    }
+  }
+}

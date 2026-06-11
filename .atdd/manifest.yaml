@@ -2102,6 +2102,10 @@ sessions:
   status: REFACTOR
   created: '2026-06-10'
   archived: null
+  branch: feat/coach-dashboard-worker-grid
+  wagon: coach-ops
+  feature: feature:coach-ops:worker-grid-dashboard
+  train: 0002-coach-drives-lifecycle
 - id: '1030'
   slug: forbid-coach-handrolled-worker-spawn-force-atdd-coach
   file: null
