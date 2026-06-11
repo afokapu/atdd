@@ -2414,3 +2414,12 @@ sessions:
   status: INIT
   created: '2026-06-11'
   archived: null
+  branch: feat/retire-c002-board-reader-and-drop-project-id-decommission-finish
+- id: '1074'
+  slug: bind-coder-architecture-validators
+  file: null
+  issue_number: 1074
+  type: refactor
+  status: INIT
+  created: '2026-06-12'
+  archived: null
