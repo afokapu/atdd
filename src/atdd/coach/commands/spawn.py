@@ -641,14 +641,16 @@ def _require_env(var_name: str, adapter_id: str) -> str:
 
 
 def _claude_surfacing_flags(agent_kind: str) -> str:
-    """Render a claude-family worker's decision-surfacing flags (#971).
+    """Render a claude-family worker's decision-surfacing flags (#971/#1062).
 
     Delegates to the ``surface-worker-decisions`` wagon's presentation seam,
     which resolves the ``DecisionSurfacingPolicy`` to the launch values
-    ``--permission-mode <mode> --allowedTools "<auto_allow>"``. The leash is
-    retired: ``Bash`` (and the native ``AskUserQuestion`` / ``ExitPlanMode``
-    decisions) are deliberately ABSENT from ``--allowedTools`` so they raise a
-    ``PermissionRequest`` and surface to the cmux Feed for the daemon to
+    ``--permission-mode <mode> --allowedTools "<auto_allow>"``. The auto-allow
+    set is the config-driven scoped freedom set (E031 #1062): read/edit tools
+    plus the tightly-scoped ``Bash(<cmd>:*)`` safe prefixes auto-run. Bare
+    ``Bash`` (and the native ``AskUserQuestion`` / ``ExitPlanMode`` decisions)
+    stay ABSENT from ``--allowedTools`` so the broad decision class raises a
+    ``PermissionRequest`` and surfaces to the cmux Feed for the daemon to
     mediate — instead of being pre-authorized so the hook never fires (#967).
 
     Uses ``provide`` (not the bare ``resolve``) so a live ``CmuxHookProbe`` warns
@@ -682,9 +684,10 @@ def _claude_code_adapter(prompt_path: Path) -> str:
 
     Permission policy: the freedom-with-a-leash flags are gone (#971). The
     surfacing flags come from the ``DecisionSurfacingPolicy`` via
-    ``_claude_surfacing_flags`` — read/edit tools auto-allowed, ``Bash`` left
-    un-allowed so it surfaces to the Feed. The forbidden ``bypassPermissions`` /
-    ``--dangerously-skip-permissions`` are never emitted.
+    ``_claude_surfacing_flags`` — read/edit tools plus scoped ``Bash(<cmd>:*)``
+    safe prefixes auto-allowed (config-driven, E031 #1062); bare ``Bash`` left
+    un-allowed so the broad class surfaces to the Feed. The forbidden
+    ``bypassPermissions`` / ``--dangerously-skip-permissions`` are never emitted.
     """
     _ = prompt_path  # injected post-boot, not via argv — see docstring
     return f"claude {_claude_surfacing_flags('claude-code')}"
