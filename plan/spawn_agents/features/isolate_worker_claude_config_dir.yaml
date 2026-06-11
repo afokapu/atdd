@@ -1,10 +1,10 @@
 urn: "feature:spawn-agents:isolate-worker-claude-config-dir"
 wagon: "wagon:spawn-agents"
-description: "Spawned workers are launched with CLAUDE_CONFIG_DIR set to a per-worker isolated path under the issue worktree runtime dir (never ~/.claude / the operator -main config dir), injected at both the cmux-native launch builder (runtime/agent_control/cmux_launch.py) and the legacy claude-code adapter (coach/commands/spawn.py::_claude_code_adapter), so Claude Code auto-memory — which resolves its root via the shared git-common-dir — stops polluting the operator's -main memory dir while the Feed-publishing hooks remain active (E030)"
+description: "Spawned workers are launched with CLAUDE_CONFIG_DIR set to a per-worker isolated path under the issue worktree runtime dir (never ~/.claude / the operator -main config dir), injected at both the cmux-native launch builder (runtime/agent_control/cmux_launch.py) and the legacy claude-code adapter (coach/commands/spawn.py::_claude_code_adapter), so Claude Code auto-memory — which resolves its root via the shared git-common-dir — stops polluting the operator's -main memory dir while the Feed-publishing hooks remain active. The isolated dir is SEEDED before launch with the operator's non-memory config (every entry under ~/.claude except projects/ and history.jsonl) so auth + onboarding + settings carry over and the worker reaches its task instead of parking on the onboarding/login screen, while projects/ stays fresh in the isolated dir (memory isolation preserved) — #1066 fixes the #1057 regression shipped in v3.114.0 (E030)"
 sizing:
   wmbts: 1
-  footprint_score: 4
-  footprint_size: "XS"
+  footprint_score: 6
+  footprint_size: "S"
 wmbts:
   - "wmbt:spawn-agents:E030"
 components:
@@ -15,8 +15,8 @@ components:
         rationale: "The two rule-IDed worker launch surfaces: the cmux-native launch builder in src/atdd/runtime/agent_control/cmux_launch.py (the surface env feeding build_agent_seed_argv's argv) and cmd_spawn / _claude_code_adapter in src/atdd/coach/commands/spawn.py (legacy/headless path) — both must carry the CLAUDE_CONFIG_DIR override (E030 AC-UNIT-002 / AC-UNIT-003)"
     application:
       - type: "use_cases"
-        count: 1
-        rationale: "A single pure derivation of the per-worker isolated CLAUDE_CONFIG_DIR path from (agent_id, worktree_root) → <worktree>/.atdd/runtime/agents/<agent-id>/claude-home, used as the one source of truth by both launch sites and injected via the existing env_overrides / env-prefix mechanism (_inject_agent_env / _prepend_env_prefix) (E030 AC-UNIT-001)"
+        count: 2
+        rationale: "(1) A single pure derivation of the per-worker isolated CLAUDE_CONFIG_DIR path from (agent_id, worktree_root) → <worktree>/.atdd/runtime/agents/<agent-id>/claude-home, used as the one source of truth by both launch sites and injected via the existing env_overrides / env-prefix mechanism (_inject_agent_env / _prepend_env_prefix) (E030 AC-UNIT-001). (2) A single shared seed primitive that derives the seed-plan (every operator ~/.claude entry EXCEPT projects/ and history.jsonl — E030 AC-UNIT-004) and idempotently populates the isolated dir from the operator config so auth/onboarding/settings carry over while projects/ stays fresh (E030 AC-UNIT-005); both launch planes invoke it before emitting CLAUDE_CONFIG_DIR (E030 AC-UNIT-006)"
     domain:
       - type: "value_objects"
         count: 0

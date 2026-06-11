@@ -1,6 +1,19 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1066'
+  slug: issue-1066
+  file: null
+  issue_number: 1066
+  type: implementation
+  status: PLANNED
+  created: '2026-06-11'
+  archived: null
+  branch: feat/issue-1066
+  worktree: /Users/alecfokapu/Github/atdd/issue-1066
+  wagon: spawn-agents
+  feature: feature:spawn-agents:isolate-worker-claude-config-dir
+  train: 0002-coach-drives-lifecycle
 - id: '958'
   slug: config-drive-four-tier-and-refactor-validators-toolkit-root
   file: null
