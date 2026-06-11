@@ -49,7 +49,9 @@ def _emitted_allowed_tools(tmp_path: Path) -> list[str]:
         f"claude-code adapter command emits no --allowedTools flag: {command!r}"
     )
     value = tokens[tokens.index("--allowedTools") + 1]
-    return value.split()
+    # Comma-delimited so scoped multi-word Bash patterns (e.g. ``Bash(atdd
+    # validate:*)``) survive as single entries — Claude Code's --allowedTools format.
+    return value.split(",")
 
 
 def test_emitted_allowlist_contains_every_convention_entry(tmp_path: Path):

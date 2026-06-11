@@ -97,7 +97,7 @@ def test_no_forbidden_command_in_argv_allowed_tools():
     value = _allowed_tools_value(argv)
     inner = [
         tok[len("Bash(") : -len(":*)")]
-        for tok in value.split()
+        for tok in value.split(",")
         if tok.startswith("Bash(") and tok.endswith(":*)")
     ]
     for cmd in inner:

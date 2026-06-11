@@ -660,9 +660,12 @@ def _claude_surfacing_flags(agent_kind: str) -> str:
     )
 
     values = provide(agent_kind)
+    # Comma-delimited so scoped multi-word Bash patterns (e.g. ``Bash(atdd
+    # validate:*)``) survive as single allow-list entries — the config-driven
+    # freedom set (E031 #1062); Claude Code parses ``--allowedTools`` as a comma list.
     return (
         f'--permission-mode {values.permission_mode} '
-        f'--allowedTools "{" ".join(values.allowed_tools)}"'
+        f'--allowedTools "{",".join(values.allowed_tools)}"'
     )
 
 
@@ -744,9 +747,12 @@ def _default_claude_surfacing_values():
     return resolve("claude-code")
 
 
-# #971: the structured freedom set is now the image of the DecisionSurfacingPolicy.
-# Bash is deliberately ABSENT from _CLAUDE_ALLOWED_TOOLS so it surfaces to the Feed
-# (the leash is retired); permission_mode stays acceptEdits (never a bypass mode).
+# The structured freedom set is the image of the DecisionSurfacingPolicy, which now
+# sources the scoped safe allow-list from session.convention.yaml::spawn_time.
+# freedom_layer (allowed_tools ∪ allowed_bash — config-driven, E031 #1062). Bare
+# ``Bash`` stays ABSENT (the broad decision class surfaces to the Feed, #971/#967);
+# only tightly-scoped ``Bash(<cmd>:*)`` safe prefixes are pre-authorized.
+# permission_mode stays acceptEdits (never a bypass mode).
 _CLAUDE_DEFAULT_SURFACING = _default_claude_surfacing_values()
 _CLAUDE_PERMISSION_FLAGS = ["--permission-mode", _CLAUDE_DEFAULT_SURFACING.permission_mode]
 _CLAUDE_ALLOWED_TOOLS = list(_CLAUDE_DEFAULT_SURFACING.allowed_tools)
@@ -756,12 +762,12 @@ def _claude_code_non_interactive_smoke() -> None:
     """L001-SMOKE-001: confirm the auto-allow set suppresses modals for the
     frictionless tools.
 
-    #971 retired the leash: ``Bash`` is no longer pre-authorized — it
-    deliberately surfaces a ``PermissionRequest`` so the cmux Feed can mediate it.
-    This smoke therefore probes an AUTO-ALLOWED tool (``Read``, an explicit member
-    of ``_CLAUDE_ALLOWED_TOOLS``): with the freedom set applied, reading a file
-    must fire no permission modal. (Bash surfacing is proven by the live
-    C006-SMOKE-001 / E008-SMOKE-001 Feed smokes, not here.)
+    Bare ``Bash`` (the broad decision class) is not pre-authorized — it deliberately
+    surfaces a ``PermissionRequest`` so the cmux Feed can mediate it; only tightly-
+    scoped ``Bash(<cmd>:*)`` safe prefixes auto-run (E031 #1062). This smoke probes an
+    AUTO-ALLOWED tool (``Read``, an explicit member of ``_CLAUDE_ALLOWED_TOOLS``):
+    with the freedom set applied, reading a file must fire no permission modal. (Bash
+    surfacing is proven by the live C006-SMOKE-001 / E008-SMOKE-001 Feed smokes.)
 
     Spawns ``claude --permission-mode acceptEdits --allowedTools "<auto_allow>"
     -p Read(...)`` and asserts none of the modal-class markers appear within 30 s.
@@ -776,10 +782,12 @@ def _claude_code_non_interactive_smoke() -> None:
             "claude not found on PATH — cannot run non_interactive_smoke. "
             "Install Claude Code CLI first."
         )
-    # Read is an auto-allowed tool; Bash is intentionally absent (it surfaces).
+    # Read is an auto-allowed tool; bare ``Bash`` is intentionally absent (the broad
+    # class surfaces) — only scoped ``Bash(<cmd>:*)`` prefixes are pre-authorized.
     assert "Read" in _CLAUDE_ALLOWED_TOOLS, "Read must stay auto-allowed for autonomy"
-    assert "Bash" not in _CLAUDE_ALLOWED_TOOLS, "Bash must surface, not be pre-authorized (#971)"
-    allowed_tools = " ".join(_CLAUDE_ALLOWED_TOOLS)
+    assert "Bash" not in _CLAUDE_ALLOWED_TOOLS, "bare Bash must surface, not be pre-authorized (#971/#1062)"
+    # Comma-delimited so scoped multi-word Bash patterns survive as single entries.
+    allowed_tools = ",".join(_CLAUDE_ALLOWED_TOOLS)
     cmd = [
         "claude",
         "--permission-mode", "acceptEdits",

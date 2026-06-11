@@ -42,7 +42,8 @@ def test_live_adapter_command_carries_config_driven_scoped_bash(tmp_path: Path):
     assert "--allowedTools" in tokens, (
         f"live claude-code adapter emits no --allowedTools: {command!r}"
     )
-    emitted = tokens[tokens.index("--allowedTools") + 1].split()
+    # Comma-delimited so scoped multi-word Bash patterns survive as single entries.
+    emitted = tokens[tokens.index("--allowedTools") + 1].split(",")
 
     for entry in ("Bash(pytest:*)", "Bash(atdd validate:*)"):
         assert entry in emitted, (

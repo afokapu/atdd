@@ -79,7 +79,11 @@ def build_agent_seed_argv(
     """
     argv: list[str] = [agent_bin, prompt, "--permission-mode", permission_mode]
     if allowed_tools:
-        argv += ["--allowedTools", " ".join(allowed_tools)]
+        # Comma-delimited: the freedom set carries scoped multi-word Bash patterns
+        # (e.g. ``Bash(atdd validate:*)``) whose internal spaces a space-joined list
+        # would shatter; Claude Code parses ``--allowedTools`` as a comma list (E031
+        # #1062).
+        argv += ["--allowedTools", ",".join(allowed_tools)]
     return argv
 
 
@@ -93,7 +97,7 @@ def build_cmux_launch_argv(
     """Build the ``cmux new-workspace`` argv that runs ``agent_argv`` in a surface.
 
     The agent command is passed as a single ``--command`` shell string (shlex-quoted
-    so the positional prompt and the space-joined ``--allowedTools`` value survive as
+    so the positional prompt and the comma-joined ``--allowedTools`` value survive as
     single tokens). The surface ``--cwd`` is the worktree, so ``CMUX_SURFACE_ID`` is
     set there and the cmux wrapper injects the Feed-publishing hooks.
     """

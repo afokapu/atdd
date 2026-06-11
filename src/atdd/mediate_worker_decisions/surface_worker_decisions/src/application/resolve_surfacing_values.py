@@ -8,7 +8,10 @@ decisions cannot reach the Feed must never be spawned silently.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Tuple
+
+import yaml
 
 from atdd.mediate_worker_decisions.surface_worker_decisions.src.application.ports import (
     HookPresenceProbe,
@@ -24,6 +27,46 @@ from atdd.mediate_worker_decisions.surface_worker_decisions.src.domain.surfacing
 _log = logging.getLogger(__name__)
 
 
+def _session_convention_path() -> Path:
+    """Locate ``session.convention.yaml`` from the installed ``atdd`` package.
+
+    Resolved off the package root (not a sibling-wagon import) so this stays a data
+    read, not a code coupling: ``<atdd>/coach/conventions/session.convention.yaml``.
+    """
+    import atdd
+
+    return (
+        Path(atdd.__file__).resolve().parent
+        / "coach"
+        / "conventions"
+        / "session.convention.yaml"
+    )
+
+
+def _convention_freedom_set() -> Optional[Tuple[str, ...]]:
+    """Read the config-driven freedom set (``allowed_tools ∪ allowed_bash``) from
+    ``session.convention.yaml::spawn_time.freedom_layer`` (E031 #1062).
+
+    The convention is the source of truth for the scoped safe allow-list; both launch
+    transports realize it via this single resolve() seam. Returns ``None`` if the
+    convention does not declare the data (falls back to the pure default set) — a
+    missing convention must never silently widen the allow-list.
+    """
+    try:
+        data = yaml.safe_load(_session_convention_path().read_text(encoding="utf-8"))
+        freedom_layer = (data or {}).get("spawn_time", {}).get("freedom_layer", {})
+        allowed = list(freedom_layer.get("allowed_tools") or [])
+        allowed += list(freedom_layer.get("allowed_bash") or [])
+    except (OSError, yaml.YAMLError) as exc:
+        _log.warning(
+            "could not read freedom_layer from session convention; "
+            "falling back to default auto-allow set",
+            extra={"error": str(exc)},
+        )
+        return None
+    return tuple(allowed) if allowed else None
+
+
 def resolve(
     agent_kind: str, *, probe: Optional[HookPresenceProbe] = None
 ) -> SurfacingValues:
@@ -34,7 +77,9 @@ def resolve(
     loud warning naming the missing precondition — a worker whose decisions cannot
     reach the Feed must never be spawned silently — then still return the values.
     """
-    values = to_dispatch_values(make_policy(agent_kind))
+    values = to_dispatch_values(
+        make_policy(agent_kind, auto_allow_tools=_convention_freedom_set())
+    )
     if probe is not None:
         presence = probe.evaluate()
         if not presence.active:
