@@ -1289,62 +1289,14 @@ class ProjectInitializer:
         return created, existed
 
     def _ensure_project(self, repo: str) -> Tuple[Optional[str], Optional[int], bool]:
-        """Find or create 'ATDD Sessions' Project v2. Returns (id, number, created)."""
-        owner = repo.split("/")[0]
+        """Projects v2 board decommissioned (#1051/#1072) — no-op stub.
 
-        # Check for existing project
-        try:
-            result = subprocess.run(
-                ["gh", "project", "list", "--owner", owner, "--format", "json"],
-                capture_output=True, text=True, timeout=15,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                data = json.loads(result.stdout)
-                for proj in data.get("projects", []):
-                    if proj.get("title") == "ATDD Sessions":
-                        # Need to get the node ID via GraphQL
-                        proj_number = proj["number"]
-                        node_id = self._get_project_node_id(owner, proj_number)
-                        return node_id, proj_number, False
-        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
-            pass
-
-        # Create new project via GraphQL
-        try:
-            # Get owner node ID
-            result = subprocess.run(
-                ["gh", "api", "graphql", "-f",
-                 f'query={{ user(login:"{owner}") {{ id }} }}',
-                 "--jq", ".data.user.id"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode != 0:
-                # Try as org
-                result = subprocess.run(
-                    ["gh", "api", "graphql", "-f",
-                     f'query={{ organization(login:"{owner}") {{ id }} }}',
-                     "--jq", ".data.organization.id"],
-                    capture_output=True, text=True, timeout=10,
-                )
-
-            owner_id = result.stdout.strip()
-            if not owner_id:
-                print("  Warning: Could not find owner ID for Project creation")
-                return None, None, False
-
-            result = subprocess.run(
-                ["gh", "api", "graphql", "-f",
-                 f'query=mutation {{ createProjectV2(input: {{ ownerId: "{owner_id}", '
-                 f'title: "ATDD Sessions" }}) {{ projectV2 {{ id number }} }} }}'],
-                capture_output=True, text=True, timeout=15,
-            )
-            if result.returncode == 0:
-                data = json.loads(result.stdout)
-                proj = data["data"]["createProjectV2"]["projectV2"]
-                return proj["id"], proj["number"], True
-        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError) as e:
-            print(f"  Warning: Could not create Project: {e}")
-
+        The coach no longer creates or syncs an "ATDD Sessions" Project v2
+        board; phase state is the ``atdd:<phase>`` label + ``.atdd/manifest
+        .yaml`` (the source of truth). Returns the ``(id, number, created)``
+        contract as ``(None, None, False)`` so callers guarded on
+        ``if project_id:`` skip all board work.
+        """
         return None, None, False
 
     def _get_project_node_id(self, owner: str, project_number: int) -> Optional[str]:

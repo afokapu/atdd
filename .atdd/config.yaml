@@ -38,9 +38,6 @@ toolkit:
   last_version: 3.106.0
 github:
   repo: afokapu/atdd
-  project_number: 1
-  project_id: PVT_kwHOAIbyOM4BPpKf
-  field_schema: atdd/coach/schemas/project_fields.schema.json
 coach:
   token_alert_threshold: 400000
 # Enforcing phase-transition gate (#1020). Operator control over which phase
