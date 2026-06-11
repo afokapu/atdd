@@ -17,6 +17,8 @@ RED until Edge A (warm-resume) is fixed so the SM starts at GREEN.
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 pytestmark = [pytest.mark.platform]
@@ -31,6 +33,16 @@ def _make_cfg(tmp_path=None, *, issue_numbers=(690,), dry_run: bool = False):
     )
 
 
+def _write_phase_marker(runtime_dir, issue, persona, phase_name):
+    """Write a phase-tagged done.json — the completion marker warm-resume gates on (#1055)."""
+    agent_dir = runtime_dir / "agents" / f"{persona}-{issue}-deadbeef"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    (agent_dir / "done.json").write_text(
+        json.dumps({"timestamp": "2026-06-11T00:00:00Z", "summary": f"{phase_name}: done"}),
+        encoding="utf-8",
+    )
+
+
 def test_warm_resume_from_green_reaches_smoke_without_events(tmp_path, monkeypatch):
     """_drive_single_issue on a GREEN issue: warm-resume spawns (GREEN,SMOKE) and advances SM to SMOKE.
 
@@ -42,6 +54,10 @@ def test_warm_resume_from_green_reaches_smoke_without_events(tmp_path, monkeypat
     """
     from atdd.coach.commands.coach import Phase, _drive_single_issue
     from atdd.coach.handlers.state_machine import HandlerResult, StateMachine
+
+    # #1055 — warm-resume advances only when the CURRENT phase's worker completed.
+    # This is the normal "GREEN genuinely completed" path; write the GREEN marker.
+    _write_phase_marker(tmp_path, 690, "coder", "GREEN")
 
     monkeypatch.setattr(
         "atdd.coach.commands.coach._read_current_github_phase",

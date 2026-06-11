@@ -14,6 +14,8 @@ RED until _drive_single_issue reads the GitHub phase and routes accordingly.
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 pytestmark = [pytest.mark.platform]
@@ -25,6 +27,16 @@ def _make_cfg(tmp_path=None, *, issue_numbers=(690,), dry_run: bool = False):
         issue_numbers=list(issue_numbers),
         dry_run=dry_run,
         skip_review=True,
+    )
+
+
+def _write_phase_marker(runtime_dir, issue, persona, phase_name):
+    """Write a phase-tagged done.json — the completion marker warm-resume gates on (#1055)."""
+    agent_dir = runtime_dir / "agents" / f"{persona}-{issue}-deadbeef"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    (agent_dir / "done.json").write_text(
+        json.dumps({"timestamp": "2026-06-11T00:00:00Z", "summary": f"{phase_name}: done"}),
+        encoding="utf-8",
     )
 
 
@@ -68,6 +80,10 @@ def test_warm_resume_planned_first_spawn_is_tester(tmp_path, monkeypatch):
     """The first spawn call for a PLANNED issue must be Transition(PLANNED, RED)."""
     from atdd.coach.commands.coach import Phase, _drive_single_issue
     from atdd.coach.handlers.state_machine import HandlerResult, StateMachine
+
+    # #1055 — warm-resume advances (spawns the next persona) only when the CURRENT
+    # phase completed; write the PLANNED marker so it advances PLANNED→RED.
+    _write_phase_marker(tmp_path, 690, "planner", "PLANNED")
 
     monkeypatch.setattr(
         "atdd.coach.commands.coach._read_current_github_phase",

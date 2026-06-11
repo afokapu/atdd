@@ -15,6 +15,8 @@ those symbols don't yet exist, causing ImportError.
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 pytestmark = [pytest.mark.platform]
@@ -29,10 +31,23 @@ def _make_cfg(tmp_path=None, *, issue_numbers=(690,), dry_run: bool = False):
     )
 
 
+def _write_phase_marker(runtime_dir, issue, persona, phase_name):
+    """Write a phase-tagged done.json — the completion marker warm-resume gates on (#1055)."""
+    agent_dir = runtime_dir / "agents" / f"{persona}-{issue}-deadbeef"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    (agent_dir / "done.json").write_text(
+        json.dumps({"timestamp": "2026-06-11T00:00:00Z", "summary": f"{phase_name}: done"}),
+        encoding="utf-8",
+    )
+
+
 def test_full_lifecycle_from_planned_to_refactor(tmp_path, monkeypatch):
     """PLANNED issue: four injected events drive to REFACTOR; SM never BLOCKED."""
     from atdd.coach.commands.coach import Phase, _drive_single_issue
     from atdd.coach.handlers.state_machine import HandlerResult, StateMachine
+
+    # #1055 — warm-resume advances only when the CURRENT (PLANNED) phase completed.
+    _write_phase_marker(tmp_path, 690, "planner", "PLANNED")
 
     monkeypatch.setattr(
         "atdd.coach.commands.coach._read_current_github_phase",
@@ -50,11 +65,16 @@ def test_full_lifecycle_from_planned_to_refactor(tmp_path, monkeypatch):
         return HandlerResult.HANDLED
 
     # Warm-resume at PLANNED: spawns tester (PLANNED→RED) and advances SM to RED.
-    # Then 3 events drive RED→GREEN→SMOKE→REFACTOR.
+    # Then 3 events drive RED→GREEN→SMOKE→REFACTOR. #1055: each agent_done must
+    # carry the COMPLETING phase (done.json summary phase-prefix) matching sm.phase
+    # at that step — the persona-phase gate ignores a done whose phase != sm.phase.
     events = [
-        {"event_type": "agent_done", "agent_id": "coder-690-bbb"},    # RED→GREEN
-        {"event_type": "agent_done", "agent_id": "tester-690-ccc"},   # GREEN→SMOKE
-        {"event_type": "agent_done", "agent_id": "coder-690-ddd"},    # SMOKE→REFACTOR
+        {"event_type": "agent_done", "agent_id": "tester-690-bbb",
+         "payload": {"summary": "RED: tests written"}},      # RED→GREEN
+        {"event_type": "agent_done", "agent_id": "coder-690-ccc",
+         "payload": {"summary": "GREEN: impl done"}},        # GREEN→SMOKE
+        {"event_type": "agent_done", "agent_id": "tester-690-ddd",
+         "payload": {"summary": "SMOKE: smoke verified"}},   # SMOKE→REFACTOR
     ]
 
     cfg = _make_cfg(tmp_path, dry_run=True)
