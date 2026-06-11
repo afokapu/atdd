@@ -2379,3 +2379,11 @@ sessions:
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:fix-issue-reconcile-unbound-local-shadowed-import
   train: 0001-self-compliance-validate
+- id: '1066'
+  slug: isolated-worker-config-dir-drops-auth-and-onboarding
+  file: null
+  issue_number: 1066
+  type: implementation
+  status: INIT
+  created: '2026-06-11'
+  archived: null
