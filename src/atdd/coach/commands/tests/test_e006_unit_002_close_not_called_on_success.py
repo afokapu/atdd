@@ -62,7 +62,7 @@ def test_close_not_called_on_successful_spawn(tmp_path):
         patch("atdd.coach.commands.spawn._wait_for_claude_ready"),
         patch("atdd.coach.commands.spawn._pre_trust_worktree"),
         patch("atdd.coach.commands.spawn._assert_no_forbidden_flags"),
-        patch("atdd.coach.commands.spawn._inject_agent_env", side_effect=lambda cmd, _: ({}, cmd)),
+        patch("atdd.coach.commands.spawn._inject_agent_env", side_effect=lambda cmd, _aid, **_kw: ({}, cmd)),
         patch("atdd.coach.commands.spawn.compute_repo_short_name", return_value="test"),
         patch("atdd.coach.commands.spawn.compute_issue_surface_name", return_value="ATDD999"),
         patch("atdd.coach.commands.spawn._emit_agent_spawned_event"),

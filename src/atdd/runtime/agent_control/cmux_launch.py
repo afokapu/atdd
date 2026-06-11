@@ -22,6 +22,43 @@ from pathlib import Path
 from typing import Sequence
 
 
+def isolated_claude_config_dir(agent_id: str, worktree_root: Path) -> Path:
+    """Derive the per-worker isolated ``CLAUDE_CONFIG_DIR`` path (#1057, E030).
+
+    This is the ONE source of truth both launch planes consume — the cmux-native
+    surface env (``build_worker_launch_env``) and the legacy/headless adapter
+    (``spawn.py::_inject_agent_env``). It returns a path UNDER the issue worktree's
+    ``.atdd/runtime`` subtree, keyed by ``agent_id`` so distinct workers never
+    collide, and NEVER under the operator's ``~/.claude`` config dir.
+
+    Relocating Claude Code's config/memory/projects root here stops worker
+    auto-memory from bleeding back into the operator's shared ``-main`` memory dir
+    (auto-memory keys off the git-common-dir, which every linked worktree shares).
+    """
+    return (
+        Path(worktree_root)
+        / ".atdd"
+        / "runtime"
+        / "agents"
+        / agent_id
+        / "claude-home"
+    )
+
+
+def build_worker_launch_env(agent_id: str, worktree_root: Path) -> dict[str, str]:
+    """Build the cmux-native worker launch env carrying the isolated
+    ``CLAUDE_CONFIG_DIR`` (#1057, E030).
+
+    The value is the single-source-of-truth ``isolated_claude_config_dir``
+    derivation. No Feed-disabling lever is smuggled in here — ``--bare`` /
+    ``CLAUDE_CODE_SIMPLE`` are explicitly rejected (Decision #2) so the cmux
+    wrapper's Feed-publishing hooks stay active.
+    """
+    return {
+        "CLAUDE_CONFIG_DIR": str(isolated_claude_config_dir(agent_id, worktree_root)),
+    }
+
+
 def build_agent_seed_argv(
     agent_bin: str,
     prompt: str,

@@ -840,17 +840,35 @@ ADAPTER_REGISTRY: dict[str, AdapterConfig] = {
 
 
 def _inject_agent_env(
-    command: str, agent_id: str
+    command: str, agent_id: str, *, worktree_root: Path | None = None
 ) -> tuple[dict[str, str], str]:
-    """Return ``(env_overrides, command)`` for ATDD_AGENT_ID injection (#731 / #854).
+    """Return ``(env_overrides, command)`` for the worker launch env (#731 / #854 / #1057).
 
     Returns a typed ``(dict, str)`` tuple so the dispatch path can reconstruct
     the ``KEY=value`` shell prefix from the dict and prepend it to the surface
     command (``_prepend_env_prefix``).
+
+    Two overrides are injected:
+
+    - ``ATDD_AGENT_ID`` (#731 / #854) — so every ``atdd agent`` subcommand the
+      spawned persona runs resolves its identity.
+    - ``CLAUDE_CONFIG_DIR`` (#1057, E030) — set to the per-worker isolated path
+      under the worktree runtime dir via the single-source-of-truth
+      ``isolated_claude_config_dir`` derivation (the SAME derivation the
+      cmux-native plane uses). This relocates Claude Code's config/memory/projects
+      root out of the operator's shared ``-main`` dir so worker auto-memory no
+      longer pollutes it. Injected only when ``worktree_root`` is supplied.
     """
     if not agent_id:
         return {}, command
-    return {"ATDD_AGENT_ID": agent_id}, command
+    overrides = {"ATDD_AGENT_ID": agent_id}
+    if worktree_root is not None:
+        from atdd.runtime.agent_control.cmux_launch import isolated_claude_config_dir
+
+        overrides["CLAUDE_CONFIG_DIR"] = str(
+            isolated_claude_config_dir(agent_id, worktree_root)
+        )
+    return overrides, command
 
 
 # ---------------------------------------------------------------------------
@@ -1413,7 +1431,9 @@ def cmd_spawn(
     # #731 / #854 Shape A: _inject_agent_env returns (env_overrides, command);
     # the dispatch path reconstructs a KEY=value shell prefix for the surface
     # command (_prepend_env_prefix).
-    env_overrides, command = _inject_agent_env(command, agent_id)
+    env_overrides, command = _inject_agent_env(
+        command, agent_id, worktree_root=worktree
+    )
 
     # Transport dispatch (#978, E043). Two launch shapes (the legacy cli-return
     # shim path was decommissioned in #979):
