@@ -57,7 +57,7 @@ def test_seed_argv_places_prompt_before_variadic_allowedtools():
     assert argv[1] == "DO THE THING", "prompt must be the first positional"
     assert argv.index("DO THE THING") < argv.index("--allowedTools")
     assert argv[argv.index("--permission-mode") + 1] == "acceptEdits"
-    assert argv[argv.index("--allowedTools") + 1] == "Read Edit"
+    assert argv[argv.index("--allowedTools") + 1] == "Read,Edit"
 
 
 def test_seed_argv_omits_allowedtools_when_empty():
@@ -74,7 +74,7 @@ def test_cmux_launch_wraps_command_and_prompt_survives_shlex(tmp_path):
     command = launch[launch.index("--command") + 1]
     parsed = shlex.split(command)
     assert parsed[1] == "Work issue #978", "positional prompt survives the --command round-trip"
-    assert parsed[parsed.index("--allowedTools") + 1] == "Read Edit"
+    assert parsed[parsed.index("--allowedTools") + 1] == "Read,Edit"
 
 
 def test_controller_spawn_delegates_to_cmux_runner_no_shim(tmp_path):

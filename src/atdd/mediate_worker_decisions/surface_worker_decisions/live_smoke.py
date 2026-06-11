@@ -178,7 +178,10 @@ def bash_decision_surfaces_live_smoke() -> Dict[str, Any]:
 
 def launch_argv_matches_policy_live_smoke() -> Dict[str, Any]:
     """Capture a live worker's launch argv and confirm it is the image of the policy:
-    Bash absent from --allowedTools, no bypass flag (Y002-SMOKE-001)."""
+    the broad Bash class absent from --allowedTools (scoped Bash(<cmd>:*) may appear),
+    no bypass flag (Y002-SMOKE-001, E031 #1062)."""
+    import re
+
     from atdd.mediate_worker_decisions.surface_worker_decisions.src.application.resolve_surfacing_values import (
         resolve,
     )
@@ -189,7 +192,9 @@ def launch_argv_matches_policy_live_smoke() -> Dict[str, Any]:
     values = resolve("claude-code")
 
     _, _, after_allowed = launch_command.partition("--allowedTools")
-    assert "Bash" not in after_allowed, launch_command
+    # Bare / over-broad Bash must never be pre-authorized; scoped Bash(<cmd>:*) may.
+    assert not re.search(r"Bash(?!\()", after_allowed), launch_command
+    assert "Bash(*)" not in after_allowed and "Bash(:*)" not in after_allowed, launch_command
     assert "--dangerously-skip-permissions" not in launch_command
     assert "bypassPermissions" not in launch_command
     for tool in values.allowed_tools:

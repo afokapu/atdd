@@ -29,11 +29,12 @@ _CLAUDE_ADAPTERS = ("claude-code", "claude-glm", "claude-gpt")
 
 
 def _allowed_tools_from_command(command: str) -> list[str]:
-    """Extract the --allowedTools value (a space-joined token list) from a
-    rendered claude launch command."""
+    """Extract the --allowedTools value (a comma-joined token list) from a
+    rendered claude launch command — comma-delimited so scoped multi-word Bash
+    patterns (e.g. ``Bash(atdd validate:*)``) survive as single entries (E031 #1062)."""
     tokens = shlex.split(command)
     idx = tokens.index("--allowedTools")
-    return tokens[idx + 1].split()
+    return tokens[idx + 1].split(",")
 
 
 def _set_required_env(monkeypatch) -> None:
@@ -56,7 +57,8 @@ def test_every_claude_adapter_command_realizes_resolved_policy(tmp_path, monkeyp
         rendered_tools = _allowed_tools_from_command(command)
         # The rendered allowedTools is the EXACT image of the resolved policy.
         assert rendered_tools == list(values.allowed_tools), kind
-        # Bash is never pre-authorized — it must surface to the Feed.
+        # Bare ``Bash`` (the broad class) is never pre-authorized — it must surface
+        # to the Feed; only scoped ``Bash(<cmd>:*)`` safe prefixes are allowed (#1062).
         assert "Bash" not in rendered_tools, kind
         # permission-mode is the policy mode.
         assert f"--permission-mode {values.permission_mode}" in command, kind
