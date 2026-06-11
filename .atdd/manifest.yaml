@@ -2387,3 +2387,12 @@ sessions:
   status: INIT
   created: '2026-06-11'
   archived: null
+  branch: feat/isolated-worker-config-dir-drops-auth-and-onboarding
+- id: '1068'
+  slug: seed-worker-config-also-carries-dot-claude-json
+  file: null
+  issue_number: 1068
+  type: implementation
+  status: INIT
+  created: '2026-06-11'
+  archived: null
