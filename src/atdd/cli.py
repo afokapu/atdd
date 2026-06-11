@@ -2295,7 +2295,7 @@ Phase descriptions:
             dry_run = getattr(args, 'dry_run', False)
             if dry_run:
                 # E019: dry-run path — validate locally, print rendered body, exit 0
-                from atdd.coach.commands.issue import IssueBodyChecker, IssueBodyComplianceError, IssueManager
+                from atdd.coach.commands.issue import IssueBodyChecker, IssueBodyComplianceError
                 slug = target
                 manager = IssueManager()
                 issue_type = getattr(args, 'type', 'implementation')
@@ -2704,7 +2704,6 @@ Phase descriptions:
     elif args.command == "manifest":
         manifest_command = getattr(args, "manifest_command", None)
         if manifest_command == "backfill":
-            from atdd.coach.commands.issue import IssueManager
             repo_root = Path(args.repo) if args.repo else find_repo_root()
             manager = IssueManager(repo_root)
             return manager.reconcile()
