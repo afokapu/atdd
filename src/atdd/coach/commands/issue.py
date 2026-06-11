@@ -322,6 +322,74 @@ class IssueManager:
                 ),
             )
 
+    def _manifest_train(self, issue_number: int) -> Optional[str]:
+        """Return the train assigned to *issue_number* from the local manifest.
+
+        The manifest is the sole source for train lineage past PLANNED (#1051,
+        decommission Projects v2). Looks up ``issues.<n>.train`` first, then any
+        ``train`` recorded on the matching ``sessions`` entry. Returns None when
+        the manifest is absent or no train is recorded.
+        """
+        if not self.manifest_file.exists():
+            return None
+        manifest = self._load_manifest()
+        issues = manifest.get("issues") or {}
+        entry = issues.get(str(issue_number)) or {}
+        train = entry.get("train")
+        if train:
+            return str(train)
+        for session in manifest.get("sessions") or []:
+            if session.get("issue_number") == issue_number and session.get("train"):
+                return str(session["train"])
+        return None
+
+    def _manifest_branch(self, issue_number: int) -> Optional[str]:
+        """Return the branch recorded for *issue_number* from the local manifest.
+
+        Replaces the retired Projects v2 ``ATDD Branch`` read (#1051). Looks up
+        the matching ``sessions`` entry first, then ``issues.<n>.branch``.
+        """
+        if not self.manifest_file.exists():
+            return None
+        manifest = self._load_manifest()
+        for session in manifest.get("sessions") or []:
+            if session.get("issue_number") == issue_number and session.get("branch"):
+                return str(session["branch"])
+        entry = (manifest.get("issues") or {}).get(str(issue_number)) or {}
+        branch = entry.get("branch")
+        return str(branch) if branch else None
+
+    def _update_manifest_fields(
+        self, issue_number: int, fields: Dict[str, Any]
+    ) -> None:
+        """Mirror text metadata (branch/train/...) into the local manifest.
+
+        Writes onto the matching ``sessions`` entry and the ``issues.<n>``
+        record so both views stay consistent. A missing manifest is a no-op —
+        transitions for issues created outside the atdd CLI remain valid.
+        """
+        if not self.manifest_file.exists():
+            return
+        manifest = self._load_manifest()
+        mutated = False
+        for session in manifest.get("sessions") or []:
+            if session.get("issue_number") == issue_number:
+                session.update(fields)
+                mutated = True
+        issues = manifest.setdefault("issues", {})
+        record = issues.get(str(issue_number))
+        if record is not None:
+            record.update(fields)
+            mutated = True
+        if mutated:
+            self._save_manifest(manifest)
+            self._commit_manifest_change(
+                verb="atdd update",
+                message=(
+                    f"chore(coach): mirror issue #{issue_number} metadata in manifest"
+                ),
+            )
+
     def _slugify(self, text: str) -> str:
         """Convert text to kebab-case slug."""
         # Convert to lowercase
@@ -344,10 +412,15 @@ class IssueManager:
             return yaml.safe_load(f) or {}
 
     def _has_github_config(self) -> bool:
-        """Check if GitHub integration is configured."""
+        """Check if GitHub integration is configured.
+
+        Only ``github.repo`` is required (#1051): the Projects v2 board — and
+        its ``project_id`` — was decommissioned, so the issue label (REST) plus
+        the local manifest carry all state.
+        """
         config = self._load_config()
         github = config.get("github", {})
-        return bool(github.get("repo") and github.get("project_id"))
+        return bool(github.get("repo"))
 
     def _get_github_client(self):
         """Get a GitHubClient from config. Returns None if not configured."""
@@ -927,11 +1000,8 @@ class IssueManager:
         parent_number = client.create_issue(title=title, body=body, labels=parent_labels)
         print(f"Created #{parent_number}: {title}")
 
-        try:
-            client.add_issue_to_project(parent_number)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-            pass
-
+        # Issue state is carried by the atdd:INIT label (REST) + the manifest
+        # record below — no Projects v2 board writes (#1051).
         self._register_issue_in_manifest(parent_number, slug, train)
 
         wmbts = self._discover_wmbts(slug)
@@ -1077,50 +1147,9 @@ class IssueManager:
         )
         print(f"  Created #{parent_number}: {title}")
 
-        # Add to Project v2 and set fields
-        try:
-            item_id = client.add_issue_to_project(parent_number)
-            fields = client.get_project_fields()
-
-            # Set ATDD Status = INIT
-            if "ATDD Status" in fields:
-                options = fields["ATDD Status"].get("options", {})
-                if "INIT" in options:
-                    client.set_project_field_select(
-                        item_id, fields["ATDD Status"]["id"], options["INIT"]
-                    )
-
-            # Set issue type (Project field: "ATDD Issue Type")
-            if "ATDD Issue Type" in fields:
-                options = fields["ATDD Issue Type"].get("options", {})
-                if issue_type in options:
-                    client.set_project_field_select(
-                        item_id, fields["ATDD Issue Type"]["id"], options[issue_type]
-                    )
-
-            # Set ATDD Phase = Planner
-            if "ATDD Phase" in fields:
-                options = fields["ATDD Phase"].get("options", {})
-                if "Planner" in options:
-                    client.set_project_field_select(
-                        item_id, fields["ATDD Phase"]["id"], options["Planner"]
-                    )
-
-            # E008: Set Train field if provided
-            if train and "ATDD Train" in fields:
-                client.set_project_field_text(
-                    item_id, fields["ATDD Train"]["id"], train
-                )
-
-            # E010: Set Archetypes field if provided
-            if archetypes and "ATDD Archetypes" in fields:
-                client.set_project_field_text(
-                    item_id, fields["ATDD Archetypes"]["id"], archetypes
-                )
-
-            print(f"  Added to Project with custom fields")
-        except GitHubClientError as e:
-            print(f"  Warning: Could not add to Project: {e}")
+        # Phase/type/train/archetypes are carried by the atdd:INIT label (REST)
+        # and the local manifest record (#1051) — the Projects v2 board is
+        # decommissioned, so no board writes happen on creation.
 
         # Discover WMBTs from plan YAML
         wagon = slug  # Default: wagon slug = issue slug
@@ -1158,22 +1187,8 @@ class IssueManager:
                 except GitHubClientError as e:
                     print(f"    Warning: Could not link sub-issue: {e}")
 
-                # Add to Project and set WMBT fields
-                try:
-                    sub_item_id = client.add_issue_to_project(sub_number)
-                    if "ATDD WMBT ID" in fields:
-                        client.set_project_field_text(
-                            sub_item_id, fields["ATDD WMBT ID"]["id"], wmbt_id
-                        )
-                    if "ATDD WMBT Step" in fields:
-                        step_options = fields["ATDD WMBT Step"].get("options", {})
-                        if step_name in step_options:
-                            client.set_project_field_select(
-                                sub_item_id, fields["ATDD WMBT Step"]["id"],
-                                step_options[step_name],
-                            )
-                except GitHubClientError as e:
-                    print(f"    Warning: Could not set Project fields: {e}")
+                # WMBT sub-issues carry their identity via labels only (#1051);
+                # the Projects v2 board WMBT fields are decommissioned.
 
                 wmbt_count += 1
 
@@ -1397,18 +1412,8 @@ class IssueManager:
         except GitHubClientError as e:
             print(f"  Warning: Could not update labels: {e}")
 
-        # Update Project field
-        try:
-            fields = client.get_project_fields()
-            item_id = client.get_project_item_id(issue_number)
-            if item_id and "ATDD Status" in fields:
-                options = fields["ATDD Status"].get("options", {})
-                if "COMPLETE" in options:
-                    client.set_project_field_select(
-                        item_id, fields["ATDD Status"]["id"], options["COMPLETE"]
-                    )
-        except GitHubClientError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
-            pass
+        # COMPLETE is carried by the atdd:COMPLETE label (REST) + the manifest
+        # archive record below (#1051) — no Projects v2 board write.
 
         # Update manifest
         manifest = self._load_manifest()
@@ -1962,43 +1967,14 @@ class IssueManager:
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
-        # Issue #384: ProjectV2 sync may be denied when the GHA token lacks
-        # `projects: write` (or when the org-level Actions policy disables
-        # Projects access). The inner try catches the narrow access-denied
-        # case so the label swap below still runs (label-only sync). Any
-        # other error re-raises into the outer except for the existing
-        # user-visible abort path — no new print sites introduced.
-        projects_access_denied = False
+        # Projects v2 board sync is decommissioned (#1051). The lifecycle state
+        # machine runs entirely on the ``atdd:<phase>`` label (REST) plus the
+        # local .atdd/manifest.yaml mirror — no GraphQL board reads or writes.
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-            try:
-                fields = client.get_project_fields()
-                item_id = client.get_project_item_id(issue_number)
-            except GitHubClientError as e:
-                if "Resource not accessible by integration" not in str(e):
-                    raise
-                logger.warning(
-                    "ProjectV2 sync denied for issue #%s; continuing with "
-                    "label-only sync. To enable full Status-field sync, "
-                    "create a fine-grained PAT with Projects: R/W "
-                    "(https://github.com/settings/tokens?type=beta) and set "
-                    "it as the PROJECT_TOKEN repo secret — see issue #404.",
-                    issue_number,
-                    extra={
-                        "action": "projects_access_fallback",
-                        "issue": issue_number,
-                    },
-                )
-                projects_access_denied = True
-                fields = {}
-                item_id = None
         except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
             print(f"Error: {e}")
-            return 1
-
-        if item_id is None and not projects_access_denied:
-            print(f"Error: #{issue_number} not found in Project")
             return 1
 
         updated = []
@@ -2029,25 +2005,30 @@ class IssueManager:
             train_required = issue_type in self.TRAIN_REQUIRED_TYPES if issue_type else True
 
             if status in post_planned and train_required and not train:
-                # Check if Train is already set on the project item
-                try:
-                    field_values = client.get_project_item_field_values(item_id)
-                    current_train = (field_values.get("ATDD Train") or "").strip()
-                    if not current_train or current_train.upper() == "TBD":
-                        print(f"Error: Train field required for {issue_type or 'unknown'} type before transitioning to {status}")
-                        print(f"  Current Train: {current_train or '(empty)'}")
-                        print( "  Fix:")
-                        print( "    1. cd into the issue's worktree (find via: git worktree list | grep <branch>):")
-                        print( "       cd /path/to/<feat-or-fix>-<slug>")
-                        print( "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"0001-self-compliance-validate\")")
-                        print( "    3. Run:")
-                        print(f"       atdd issue {issue_id} --status {status} --train <train_id>")
-                        print( "  Why train: implementation-type issues require lineage to a Train past PLANNED")
-                        print( "  so cross-cutting work threads to a shared journey. (See `plan/_trains.yaml`.)")
-                        return 1
-                except GitHubClientError:
-                    # If we can't read fields, allow the transition (fail open)
-                    logger.debug("Could not read Train field, allowing transition", extra={"action": "fail_open"})
+                # Train lineage is read from the local manifest mirror (#1051),
+                # never the Projects v2 board. An absent/TBD train fails loudly;
+                # a present train is cross-referenced against plan/_trains.yaml
+                # below (no board fallback recovers an unknown value).
+                current_train = (self._manifest_train(issue_number) or "").strip()
+                if not current_train or current_train.upper() == "TBD":
+                    print(f"Error: Train field required for {issue_type or 'unknown'} type before transitioning to {status}")
+                    print(f"  Current Train: {current_train or '(empty)'}")
+                    print( "  Fix:")
+                    print( "    1. cd into the issue's worktree (find via: git worktree list | grep <branch>):")
+                    print( "       cd /path/to/<feat-or-fix>-<slug>")
+                    print( "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"0001-self-compliance-validate\")")
+                    print( "    3. Run:")
+                    print(f"       atdd issue {issue_id} --status {status} --train <train_id>")
+                    print( "  Why train: implementation-type issues require lineage to a Train past PLANNED")
+                    print( "  so cross-cutting work threads to a shared journey. (See `plan/_trains.yaml`.)")
+                    return 1
+                train_valid, train_messages = self._validate_train_against_trains_yaml(current_train)
+                for msg in train_messages:
+                    print(msg)
+                if not train_valid:
+                    print(f"\nError: Train '{current_train}' (from manifest) not found in _trains.yaml")
+                    print(f"  Fix: Use a valid train_id or add the train to plan/_trains.yaml")
+                    return 1
 
             # Issue #478 — PR-existence gate at INIT → PLANNED.
             # `atdd branch` defers PR creation; `atdd pr` opens it post-commit.
@@ -2056,11 +2037,7 @@ class IssueManager:
             if status == "PLANNED":
                 gate_branch = branch
                 if not gate_branch:
-                    try:
-                        field_values = client.get_project_item_field_values(item_id)
-                        gate_branch = (field_values.get("ATDD Branch") or "").strip()
-                    except GitHubClientError:
-                        gate_branch = ""
+                    gate_branch = (self._manifest_branch(issue_number) or "").strip()
 
                 if gate_branch:
                     pr_exists, pr_messages = self._validate_pr_exists_for_branch(
@@ -2205,67 +2182,16 @@ class IssueManager:
                 if not force:
                     print()
 
-            # Swap phase label
+            # Swap phase label — the sole authoritative phase write (#1051).
             phase_labels = [l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"]
             if phase_labels:
                 client.remove_label(issue_number, phase_labels)
             client.add_label(issue_number, [f"atdd:{status}"])
 
-            # Update Projects v2 Status field. Prefer the dedicated
-            # PROJECT_TOKEN-backed adapter (docs/coach-decomposition.md §4.10,
-            # closes #882: the default GITHUB_TOKEN cannot write Projects v2,
-            # #404). When no PAT is configured the adapter raises
-            # MissingProjectTokenError and we fall back to the ambient-auth
-            # client path below — preserving the #384 label-only behaviour.
-            from atdd.integrations.github import projects_v2
-            from atdd.integrations.github.types import (
-                GitHubIntegrationError as _GhError,
-                MissingProjectTokenError as _NoProjectToken,
-            )
-
-            synced_via_pat = False
-            try:
-                projects_v2.sync_status_field(
-                    issue_number, status, repo_root=self.target_dir
-                )
-                synced_via_pat = True
-            except _NoProjectToken:
-                logger.debug(
-                    "PROJECT_TOKEN not set; using ambient client for "
-                    "Projects v2 status sync",
-                    extra={"issue": issue_number},
-                )  # fall back to ambient client path below
-            except _GhError as exc:
-                logger.warning(
-                    "Projects v2 status sync via PROJECT_TOKEN failed; "
-                    "falling back to label/ambient sync. "
-                    "See docs/operator-projects-v2-token.md",
-                    extra={"issue": issue_number, "error": str(exc)},
-                )
-
-            if not synced_via_pat and "ATDD Status" in fields:
-                options = fields["ATDD Status"].get("options", {})
-                if status in options:
-                    client.set_project_field_select(
-                        item_id, fields["ATDD Status"]["id"], options[status]
-                    )
             # R001: mirror the transition into the local manifest so readers of
             # .atdd/manifest.yaml do not diverge from GitHub state.
             self._update_manifest_status(issue_number, status)
             updated.append(f"status: {status}")
-
-        # Phase (Planner/Tester/Coder)
-        if phase:
-            phase_cap = phase.capitalize()
-            if "ATDD Phase" in fields:
-                options = fields["ATDD Phase"].get("options", {})
-                if phase_cap in options:
-                    client.set_project_field_select(
-                        item_id, fields["ATDD Phase"]["id"], options[phase_cap]
-                    )
-                    updated.append(f"phase: {phase_cap}")
-                else:
-                    print(f"Warning: Unknown phase '{phase_cap}'")
 
         # Validate branch prefix (every branch = a worktree)
         if branch:
@@ -2278,29 +2204,20 @@ class IssueManager:
                 )
                 return 1
 
-        # Text fields
+        # Text fields are mirrored into the local manifest (#1051) — the
+        # Projects v2 board that previously carried branch/train/feature/
+        # archetypes is decommissioned.
         text_updates = {
-            "ATDD Branch": branch,
-            "ATDD Train": train,
-            "ATDD Feature URN": feature_urn,
-            "ATDD Archetypes": archetypes,
+            "branch": branch,
+            "train": train,
+            "feature_urn": feature_urn,
+            "archetypes": archetypes,
         }
-        for field_name, value in text_updates.items():
-            if value and field_name in fields:
-                client.set_project_field_text(item_id, fields[field_name]["id"], value)
-                # Display the short name (strip "ATDD " prefix)
-                display_name = field_name.removeprefix("ATDD ").lower()
-                updated.append(f"{display_name}: {value}")
-
-        # Complexity
-        if complexity:
-            if "ATDD Complexity" in fields:
-                options = fields["ATDD Complexity"].get("options", {})
-                if complexity in options:
-                    client.set_project_field_select(
-                        item_id, fields["ATDD Complexity"]["id"], options[complexity]
-                    )
-                    updated.append(f"complexity: {complexity}")
+        manifest_text = {k: v for k, v in text_updates.items() if v}
+        if manifest_text:
+            self._update_manifest_fields(issue_number, manifest_text)
+            for key, value in manifest_text.items():
+                updated.append(f"{key}: {value}")
 
         if updated:
             print(f"Updated #{issue_number}:")

@@ -1,0 +1,92 @@
+urn: "wmbt:govern-lifecycle:E053"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "residual-projects-v2-substrate-surviving-after-the-board-path-is-deleted"
+context_clarifier: "when the board GraphQL is removed from the drive paths and its supporting substrate must be retired with it so the Projects-v2 GraphQL budget stops being a failure surface rather than being rationed — this means deleting integrations/github/projects_v2.py, the _gh.py project_token / resolve_project_config plumbing, the .atdd/config.yaml project_id, and the Projects-v2 docs (docs/operator-projects-v2-token.md, coach-decomposition.md §4.10); updating CLAUDE.md issues.source_of_truth (and the GEMINI/GLM/AGENTS synced copies) to drop Projects v2 in favour of 'GitHub Issues (labels) + local manifest'; and retiring the 3 board-on regression tests in test_issue_update_fallback.py (test_denied_logs_warning_with_remediation, test_granted_runs_both_label_and_project_field, test_non_matching_github_error_aborts) that encode the old board contract — leaving labels (REST) + manifest as the only state carriers"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of residual-projects-v2-substrate-surviving-after-the-board-path-is-deleted by removing integrations/github/projects_v2.py and the PROJECT_TOKEN / project_token / resolve_project_config plumbing and the .atdd/config.yaml project_id, deleting the Projects-v2 docs, rewriting CLAUDE.md issues.source_of_truth to name GitHub Issue labels + local manifest, and retiring the 3 board-contract regression tests in test_issue_update_fallback.py so no shipped code path imports or references Projects v2"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E053-UNIT-001-no-projects-v2-module-or-token-in-shipped-code"
+      id: "AC-UNIT-001"
+      purpose: "The Projects-v2 module and token plumbing are gone: no projects_v2.py and no PROJECT_TOKEN / project_token / resolve_project_config / board-method references outside archives and migration docs"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A grep across shipped code excluding commands/_archived/, CHANGELOG, and docs that reference the migration only"
+    when:
+      abstract: "The repository is searched for the Projects-v2 substrate symbols"
+    then:
+      abstract:
+        - "src/atdd/integrations/github/projects_v2.py does not exist"
+        - "Zero references to PROJECT_TOKEN, project_token, resolve_project_config, set_project_field_select, set_project_field_text, get_project_fields, get_project_item_id, get_project_item_field_values or add_issue_to_project remain in shipped code"
+        - "The .atdd/config.yaml schema / loader no longer defines or reads project_id"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:govern-lifecycle:E053-UNIT-002-claude-md-source-of-truth-debanners-projects-v2"
+      id: "AC-UNIT-002"
+      purpose: "CLAUDE.md (and the synced GEMINI/GLM/AGENTS copies) declares the source of truth as GitHub Issue labels + local manifest and no longer names Projects v2"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The rendered CLAUDE.md and its synced GEMINI.md / GLM.md / AGENTS.md siblings"
+    when:
+      abstract: "The issues.source_of_truth declaration is read from each file"
+    then:
+      abstract:
+        - "issues.source_of_truth no longer contains the strings 'Projects v2', 'Project v2' or 'Projects-v2'"
+        - "issues.source_of_truth names GitHub Issues (labels) plus the local .atdd/manifest.yaml as the state carriers"
+        - "The four files agree (atdd sync renders the same source_of_truth into each)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:govern-lifecycle:E053-UNIT-003-board-contract-regression-tests-retired"
+      id: "AC-UNIT-003"
+      purpose: "The 3 board-on regression tests that encoded the old board contract are removed, and no replacement asserts board writes"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "test_issue_update_fallback.py and the collected test suite"
+    when:
+      abstract: "The suite is collected"
+    then:
+      abstract:
+        - "test_denied_logs_warning_with_remediation, test_granted_runs_both_label_and_project_field and test_non_matching_github_error_aborts are absent from collection"
+        - "No remaining test asserts that update() runs a project-field write alongside the label swap"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:govern-lifecycle:E053-SMOKE-001-config-loads-and-github-imports-without-projects-v2"
+      id: "AC-SMOKE-001"
+      purpose: "In a real interpreter, integrations.github imports with no projects_v2 symbol and a real .atdd/config.yaml without project_id loads successfully"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real .atdd/config.yaml that contains no project_id key and a real Python interpreter with the toolkit installed"
+    when:
+      abstract: "load_atdd_config is run against that config and atdd.integrations.github is imported"
+    then:
+      abstract:
+        - "The config loads successfully with no error or warning about a missing project_id / PROJECT_TOKEN"
+        - "atdd.integrations.github exposes no projects_v2 attribute and importing atdd.integrations.github.projects_v2 raises ModuleNotFoundError"
+        - "A label-only update against a recording transport in the same process emits zero Projects-v2 GraphQL"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"

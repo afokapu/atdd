@@ -253,22 +253,9 @@ class IssueLifecycle:
 
         print(f"  Worktree: {worktree_path}")
 
-        # Update GitHub ATDD Branch field
-        try:
-            import yaml
-            from atdd.coach.github import GitHubClient, ProjectConfig
-            proj = ProjectConfig.from_config(self.config_file)
-            client = GitHubClient(repo=proj.repo, project_id=proj.project_id)
-            item_id = client.get_project_item_id(issue_number)
-            if item_id:
-                fields = client.get_project_fields()
-                if "ATDD Branch" in fields:
-                    client.set_project_field_text(
-                        item_id, fields["ATDD Branch"]["id"], branch_name,
-                    )
-                    print(f"  Updated ATDD Branch -> {branch_name}")
-        except Exception as e:
-            logger.debug("Could not update Branch field: %s", e, extra={"error": str(e)})
+        # Branch lineage is recorded in the local manifest by ``atdd branch``
+        # (#1051); the Projects v2 "ATDD Branch" field is decommissioned, so no
+        # board write happens here.
 
         # Refresh workspace
         try:

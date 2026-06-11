@@ -1,0 +1,72 @@
+urn: "wmbt:govern-lifecycle:E052"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-train-gate-reading-the-projects-v2-board-instead-of-the-local-manifest"
+context_clarifier: "when the Projects-v2 removal lands and the only functional board read in the whole automation — the Train gate's get_project_item_field_values lookup of the ATDD Train field — must be replaced by the local manifest mirror; ATDD Train is already recorded in .atdd/manifest.yaml (issues.<n>.train) and is canonical in plan/_trains.yaml, so the gate can resolve the train locally via the existing _manifest_train helper with zero board GraphQL while still validating the value against plan/_trains.yaml, eliminating the last decision-bearing board read"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the-train-gate-reading-the-projects-v2-board-instead-of-the-local-manifest by resolving the issue's train from _manifest_train (.atdd/manifest.yaml issues.<n>.train) validated against plan/_trains.yaml and removing the get_project_item_field_values board read from the gate, so the Train gate enforces train membership with zero Projects-v2 GraphQL"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E052-UNIT-001-train-gate-reads-manifest-not-board"
+      id: "AC-UNIT-001"
+      purpose: "The Train gate resolves the issue's train from the manifest and validates it against plan/_trains.yaml without any board read"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An .atdd/manifest.yaml whose issues.<n>.train names a train that exists in plan/_trains.yaml"
+        - "A spy GitHub client recording every method invocation"
+    when:
+      abstract: "The Train gate runs for that issue"
+    then:
+      abstract:
+        - "The train value is obtained via _manifest_train (the manifest mirror) and checked for membership in plan/_trains.yaml"
+        - "get_project_item_field_values and every other Projects-v2 GraphQL method are never invoked"
+        - "The gate passes for the in-train issue"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:govern-lifecycle:E052-UNIT-002-train-gate-rejects-unknown-train-no-board-fallback"
+      id: "AC-UNIT-002"
+      purpose: "An issue whose manifest train is absent from plan/_trains.yaml fails the gate loudly with no silent fallback to a board read"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An .atdd/manifest.yaml whose issues.<n>.train names a train missing from plan/_trains.yaml"
+        - "A spy GitHub client recording every method invocation"
+    when:
+      abstract: "The Train gate runs for that issue"
+    then:
+      abstract:
+        - "The gate raises/fails loudly identifying the unknown train value"
+        - "It does NOT fall back to get_project_item_field_values or any other board read to recover the train"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:govern-lifecycle:E052-SMOKE-001-train-gate-enforces-offline-zero-board-graphql"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real repo and a recording transport, the Train gate enforces train membership with zero Projects-v2 GraphQL captured"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo with a populated .atdd/manifest.yaml and plan/_trains.yaml, a GraphQL transport recording every outbound document, and no PROJECT_TOKEN in the environment"
+    when:
+      abstract: "The Train gate is run for an issue whose manifest train is present in plan/_trains.yaml"
+    then:
+      abstract:
+        - "The gate enforces successfully using only the manifest + plan/_trains.yaml"
+        - "The recorded GraphQL log contains zero Projects-v2 operations (no getProjectV2 / projectV2 field-value query) for the gate evaluation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"

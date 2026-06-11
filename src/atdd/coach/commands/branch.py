@@ -142,6 +142,31 @@ class BranchManager:
                 return entry
         return None
 
+    def _record_branch_in_manifest(self, issue_number: int, branch_name: str) -> None:
+        """Persist *branch_name* onto the issue's session entry (#1051).
+
+        Replaces the retired Projects v2 ``ATDD Branch`` write. A missing
+        manifest or entry is a no-op (the worktree still exists; the gate that
+        reads this falls open on an empty branch).
+        """
+        if not self.manifest_file.exists():
+            return
+        manifest = self._load_manifest()
+        mutated = False
+        for entry in manifest.get("sessions", []):
+            if entry.get("issue_number") == issue_number:
+                entry["branch"] = branch_name
+                mutated = True
+        if not mutated:
+            return
+        try:
+            with open(self.manifest_file, "w") as fh:
+                yaml.dump(manifest, fh, default_flow_style=False, sort_keys=False)
+        except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+            logger.debug("Could not record branch in manifest: %s", exc, extra={"error": str(exc)})
+            return
+        print(f"  Recorded branch in manifest → {branch_name}")
+
     def _backfill_from_github(self, issue_number: int) -> Optional[Dict[str, Any]]:
         """Fetch issue #N from GitHub and append a synthesised sessions entry to the manifest.
 
@@ -353,25 +378,11 @@ class BranchManager:
             worktree_path=worktree_path,
         )
 
-        # Update GitHub "ATDD Branch" field
-        try:
-            proj = ProjectConfig.from_config(self.config_file)
-            client = GitHubClient(
-                repo=proj.repo,
-                project_id=proj.project_id,
-            )
-            item_id = client.get_project_item_id(issue_number)
-            if item_id:
-                fields = client.get_project_fields()
-                if "ATDD Branch" in fields:
-                    client.set_project_field_text(
-                        item_id, fields["ATDD Branch"]["id"], branch_name,
-                    )
-                    print(f"  Updated ATDD Branch → {branch_name}")
-            else:
-                print("  Warning: Issue not found in Project; Branch field not updated.")
-        except GitHubClientError as e:
-            print(f"  Warning: Could not update Branch field: {e}")
+        # Record the branch in the local manifest (#1051). The Projects v2
+        # "ATDD Branch" field is decommissioned — the manifest is now the
+        # canonical local mirror that downstream gates (e.g. the PLANNED PR
+        # gate) read.
+        self._record_branch_in_manifest(issue_number, branch_name)
 
         # Refresh VS Code workspace file
         try:

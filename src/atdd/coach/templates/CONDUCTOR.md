@@ -72,7 +72,7 @@ release:
 # gh pr create are forbidden because they bypass `atdd-issue` label-scoped
 # validators; see #919 review note)
 issues:
-  source_of_truth: "GitHub Issues + Project v2 custom fields"
+  source_of_truth: "GitHub Issues (atdd:<phase> labels) + local .atdd/manifest.yaml"
   convention: "src/atdd/coach/conventions/issue.convention.yaml"
   commands:
     new: "atdd issue <slug>"

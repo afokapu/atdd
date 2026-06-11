@@ -35,8 +35,11 @@ def _setup_atdd_config(tmp_path: Path) -> Path:
     (cfg_dir / "manifest.yaml").write_text(yaml.safe_dump({
         "version": "2.0",
         "sessions": [
+            # #1051: the PLANNED PR-gate resolves the branch from the local
+            # manifest (the Projects v2 "ATDD Branch" board read is retired).
             {"id": "478", "slug": "478-branch-pr-empty",
-             "issue_number": 478, "type": "cleanup", "status": "INIT"},
+             "issue_number": 478, "type": "cleanup", "status": "INIT",
+             "branch": "chore/478-branch-pr-empty"},
         ],
     }))
     return tmp_path
