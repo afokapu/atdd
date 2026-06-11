@@ -72,9 +72,10 @@ features:
   - urn: "feature:govern-lifecycle:operator-approval-token-gate"
   - urn: "feature:govern-lifecycle:config-driven-four-tier-validators"
   - urn: "feature:govern-lifecycle:decommission-projects-v2-board-sync"
+  - urn: "feature:govern-lifecycle:fix-issue-reconcile-unbound-local-shadowed-import"
 
 wmbt:
-  total: 88
+  total: 89
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -163,3 +164,4 @@ wmbt:
   E051: "minimize likelihood of residual-projects-v2-graphql-calls-on-the-coach-drive-paths-issue-transition-and-issue-creation by deleting sync_status_field / set_project_field_select / set_project_field_text / add_issue_to_project from both issue.py::update and the issue-creation path so transitions and creation drive off the atdd:<phase> label (REST) alone, retiring the ATDD_SKIP_BOARD_SYNC bridge (#1051)"
   E052: "minimize likelihood of the-train-gate-reading-the-projects-v2-board-instead-of-the-local-manifest by resolving the train from _manifest_train (.atdd/manifest.yaml) validated against plan/_trains.yaml and removing get_project_item_field_values from the gate, so the Train gate enforces with zero board GraphQL (#1051)"
   E053: "minimize likelihood of residual-projects-v2-substrate-surviving-after-the-board-path-is-deleted by removing projects_v2.py + PROJECT_TOKEN/project_token/resolve_project_config plumbing + .atdd/config.yaml project_id, deleting the Projects-v2 docs, rewriting CLAUDE.md issues.source_of_truth to labels + manifest, and retiring the 3 board-contract regression tests (#1051)"
+  E054: "minimize likelihood of atdd-issue-reconcile-and-manifest-backfill-crashing-with-unboundlocalerror-because-issuemanager-is-shadowed-by-a-function-local-import by removing IssueManager from the two function-local imports in cli.py main() (the `atdd issue <slug> --dry-run` branch at l.2298 and the `manifest backfill` branch at l.2707) so it resolves to the module-level import (cli.py:52) on every dispatch path including reconcile (#1056)"
