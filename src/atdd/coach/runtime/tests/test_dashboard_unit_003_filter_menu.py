@@ -3,48 +3,60 @@
 # WMBT: wmbt:coach-ops:M002
 # Phase: GREEN
 # Layer: domain
-"""Single-key filter modes and the in-dashboard menu (pure, no TTY)."""
+"""Run-state filters (live/paused/stopped) + the orthogonal phase sub-filter and menu."""
 from __future__ import annotations
 
-from atdd.coach.runtime.dashboard import FILTER_KEYS, WorkerCard, filter_cards, render_card, render_menu
+from atdd.coach.runtime.dashboard import STATE_KEYS, WorkerCard, filter_cards, render_card, render_menu
 
 
-def _c(issue, phase, *, live=True, stalled=False, idle=""):
+def _c(issue, phase, *, state="live", idle=""):
     return WorkerCard(issue=issue, title="", phase=phase, role="coder",
-                      elapsed="1m", live=live, stalled=stalled, idle=idle)
+                      elapsed="1m", state=state, idle=idle)
 
 
-def test_filter_live_and_finished_split_on_liveness():
-    cards = [_c(1, "GREEN", live=True), _c(2, "RED", live=False), _c(3, "PLANNED", live=True)]
-    assert {c.issue for c in filter_cards(cards, "live")} == {1, 3}
-    assert {c.issue for c in filter_cards(cards, "finished")} == {2}
+def test_filter_by_run_state():
+    cards = [_c(1, "GREEN", state="live"), _c(2, "RED", state="paused"),
+             _c(3, "PLANNED", state="stopped")]
+    assert {c.issue for c in filter_cards(cards, "live")} == {1}
+    assert {c.issue for c in filter_cards(cards, "paused")} == {2}
+    assert {c.issue for c in filter_cards(cards, "stopped")} == {3}
+    assert {c.issue for c in filter_cards(cards, "all")} == {1, 2, 3}
 
 
-def test_filter_stalled_and_phase():
-    cards = [_c(1, "RED", stalled=True), _c(2, "GREEN"), _c(3, "GREEN")]
-    assert [c.issue for c in filter_cards(cards, "stalled")] == [1]
-    assert {c.issue for c in filter_cards(cards, "phase", phase="GREEN")} == {2, 3}
+def test_state_and_phase_are_orthogonal_and_combine():
+    cards = [
+        _c(1, "RED", state="live"), _c(2, "GREEN", state="live"),
+        _c(3, "RED", state="paused"),
+    ]
+    # Live + RED → only #1 (not the paused RED, not the live GREEN).
+    assert [c.issue for c in filter_cards(cards, "live", phase="RED")] == [1]
+    # All + GREEN → only #2.
+    assert [c.issue for c in filter_cards(cards, "all", phase="GREEN")] == [2]
 
 
-def test_menu_lists_every_key_and_highlights_active_mode():
-    m = render_menu("finished", color=True)
-    for key, _, _ in FILTER_KEYS:
+def test_menu_lists_states_and_highlights_active():
+    m = render_menu("paused", color=True)
+    for key, _, _ in STATE_KEYS:
         assert f"[{key}]" in m
-    assert "[l]" in m and "[f]" in m and "Live" in m and "Finished" in m
-    assert "Blocked" not in m  # removed
-    assert "\x1b[7m" in m  # active mode in reverse video
+    assert "Live" in m and "Paused" in m and "Stopped" in m and "All" in m
+    assert "Finished" not in m and "Stalled" not in m and "Blocked" not in m
+    assert "\x1b[7m" in m  # active state highlighted
 
 
-def test_menu_phase_entry_shows_current_phase():
-    assert "Phase:RED" in render_menu("phase", phase="RED", color=False)
+def test_menu_shows_phase_subfilter_row():
+    m = render_menu("live", phase="RED", color=False)
+    assert "State:" in m and "Phase: RED" in m
 
 
-def test_live_worker_shows_uptime_finished_shows_ran_and_ended():
-    live = WorkerCard(issue=1, title="", phase="RED", role="coder",
-                      elapsed="14m04s", live=True)
-    done = WorkerCard(issue=2, title="", phase="REFACTOR", role="coder",
-                      elapsed="30m00s", idle="2d", live=False)
+def test_state_specific_timing_render():
+    live = WorkerCard(issue=1, title="", phase="RED", role="coder", elapsed="14m04s", state="live")
+    paused = WorkerCard(issue=2, title="", phase="RED", role="coder",
+                        elapsed="2h00m", idle="15m", state="paused")
+    stopped = WorkerCard(issue=3, title="", phase="REFACTOR", role="coder",
+                         elapsed="30m00s", idle="2d", state="stopped")
     a = "\n".join(render_card(live, width=44))
-    b = "\n".join(render_card(done, width=44))
-    assert "up 14m04s" in a and "ran" not in a
-    assert "ran 30m00s" in b and "ended 2d ago" in b and "up " not in b
+    b = "\n".join(render_card(paused, width=44))
+    c = "\n".join(render_card(stopped, width=44))
+    assert "up 14m04s" in a and "idle" not in a and "ran" not in a
+    assert "up 2h00m" in b and "idle 15m" in b and "⚠" in b
+    assert "ran 30m00s" in c and "ended 2d ago" in c and "up " not in c

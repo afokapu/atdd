@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from atdd.coach.runtime.dashboard import STALL_AFTER_SECONDS, Worker, build_cards, render_card
+from atdd.coach.runtime.dashboard import Worker, build_cards, render_card
 from atdd.coach.runtime.reader import AgentState
 
 NOW = datetime(2026, 6, 10, 20, 0, 0, tzinfo=timezone.utc)
@@ -41,23 +41,18 @@ def test_phase_falls_back_to_issue_phases_when_agent_phase_missing():
     assert cards[0].phase == "PLANNED"
 
 
-def test_stalled_when_live_and_running_past_threshold():
-    short = Worker(issue=1000, role="coder", phase="GREEN",
-                   started_at=NOW - timedelta(minutes=30), last_heartbeat=NOW)
-    longrun = Worker(issue=1030, role="coder", phase="GREEN",
-                     started_at=NOW - timedelta(seconds=STALL_AFTER_SECONDS + 60),
-                     last_heartbeat=NOW)
-    by = {c.issue: c for c in build_cards(agent_states=[short, longrun], issue_phases={}, now=NOW)}
-    assert by[1030].stalled is True   # live, running > 2h
-    assert by[1000].stalled is False  # live, 30m
-
-
-def test_finished_long_runner_is_not_stalled():
-    # Surface closed → not live → never stalled, however long it ran.
-    w = Worker(issue=5, role="coder", surface="surface:9", phase="REFACTOR",
-               started_at=NOW - timedelta(hours=5), last_heartbeat=NOW - timedelta(hours=4))
-    card = build_cards(agent_states=[w], issue_phases={}, live_surfaces=set(), now=NOW)[0]
-    assert card.live is False and card.stalled is False
+def test_paused_is_idle_based_not_uptime_based():
+    # A worker running 3h but active 2m ago is LIVE; a short worker idle 15m is
+    # PAUSED. Liveness keys off recent activity, not total uptime.
+    active = Worker(issue=1000, role="coder", phase="GREEN", surface="surface:1",
+                    started_at=NOW - timedelta(hours=3), last_heartbeat=NOW - timedelta(minutes=2))
+    quiet = Worker(issue=1030, role="coder", phase="GREEN", surface="surface:2",
+                   started_at=NOW - timedelta(minutes=30), last_heartbeat=NOW - timedelta(minutes=15))
+    by = {c.issue: c.state for c in build_cards(
+        agent_states=[active, quiet], issue_phases={},
+        live_surfaces={"surface:1", "surface:2"}, now=NOW)}
+    assert by[1000] == "live"
+    assert by[1030] == "paused"
 
 
 def test_cards_ordered_by_lifecycle_phase():
@@ -71,28 +66,43 @@ def test_cards_ordered_by_lifecycle_phase():
 
 
 def test_elapsed_is_human_readable():
-    cards = build_cards(
-        agent_states=[_agent("x·1·coder", 1, heartbeat_age_s=12 * 60 + 4)],
-        issue_phases={},
-        now=NOW,
-    )
-    assert cards[0].elapsed == "12m04s"
+    # Live worker → uptime = now − spawn, humanized.
+    w = Worker(issue=1, role="coder", surface="surface:1",
+               started_at=NOW - timedelta(minutes=12, seconds=4), last_heartbeat=NOW)
+    card = build_cards(agent_states=[w], issue_phases={}, live_surfaces={"surface:1"}, now=NOW)[0]
+    assert card.elapsed == "12m04s"
 
 
-def test_elapsed_is_run_duration_last_activity_minus_spawn():
-    # Spawned 1h5m ago, last heartbeat 30s ago → duration = last − spawn ≈ 1h04m
-    # (NOT now − spawn), while stall is judged from the recent heartbeat.
+def test_stopped_elapsed_is_run_duration_last_activity_minus_spawn():
+    # A STOPPED worker shows run duration (last − spawn ≈ 1h04m), not now − spawn.
     w = Worker(
         issue=1036,
         role="coder",
+        surface="surface:9",
         started_at=NOW - timedelta(hours=1, minutes=5),
         last_heartbeat=NOW - timedelta(seconds=30),
         phase="GREEN",
     )
-    card = build_cards(agent_states=[w], issue_phases={}, now=NOW)[0]
+    card = build_cards(agent_states=[w], issue_phases={}, live_surfaces=set(), now=NOW)[0]
+    assert card.state == "stopped"
     assert card.elapsed == "1h04m"
-    assert card.stalled is False
     assert card.role == "coder" and card.phase == "GREEN"
+
+
+def test_worker_state_is_live_paused_or_stopped():
+    # Surface known-closed → stopped (regardless of idle).
+    stopped = Worker(issue=1, role="coder", surface="surface:9", phase="REFACTOR",
+                     started_at=NOW - timedelta(hours=1), last_heartbeat=NOW - timedelta(minutes=30))
+    # Surface open, idle < 10m → live.
+    live = Worker(issue=2, role="coder", surface="surface:1", phase="GREEN",
+                  started_at=NOW - timedelta(minutes=20), last_heartbeat=NOW - timedelta(minutes=2))
+    # Surface open, idle ≥ 10m → paused.
+    paused = Worker(issue=3, role="coder", surface="surface:2", phase="RED",
+                    started_at=NOW - timedelta(hours=1), last_heartbeat=NOW - timedelta(minutes=15))
+    cards = build_cards(agent_states=[stopped, live, paused], issue_phases={},
+                        live_surfaces={"surface:1", "surface:2"}, now=NOW)
+    by = {c.issue: c.state for c in cards}
+    assert by[1] == "stopped" and by[2] == "live" and by[3] == "paused"
 
 
 def test_finished_worker_shows_ran_and_ended_not_uptime():
@@ -104,7 +114,7 @@ def test_finished_worker_shows_ran_and_ended_not_uptime():
         phase="REFACTOR",
     )
     card = build_cards(agent_states=[w], issue_phases={}, live_surfaces=set(), now=NOW)[0]
-    assert card.live is False
+    assert card.state == "stopped"
     rendered = "\n".join(render_card(card, width=44))
     assert "ran 30m" in rendered and "ended" in rendered and "ago" in rendered
     assert "up " not in rendered
@@ -120,18 +130,19 @@ def test_live_worker_shows_uptime():
     card = build_cards(
         agent_states=[w], issue_phases={}, live_surfaces={"surface:9"}, now=NOW
     )[0]
-    assert card.live is True
+    assert card.state == "live"
     assert "up" in "\n".join(render_card(card, width=44))
 
 
-def test_elapsed_is_bounded_for_an_old_finished_worker():
+def test_stopped_elapsed_is_bounded_for_an_old_worker():
     # Spawned 2 days ago, last activity 30m after spawn → ran 30m, NOT 48h.
     w = Worker(
         issue=5,
         role="coder",
+        surface="surface:9",
         started_at=NOW - timedelta(days=2),
         last_heartbeat=NOW - timedelta(days=2) + timedelta(minutes=30),
         phase="REFACTOR",
     )
-    card = build_cards(agent_states=[w], issue_phases={}, now=NOW)[0]
-    assert card.elapsed == "30m00s"
+    card = build_cards(agent_states=[w], issue_phases={}, live_surfaces=set(), now=NOW)[0]
+    assert card.state == "stopped" and card.elapsed == "30m00s"

@@ -363,11 +363,11 @@ def _run_interactive(runtime_dir: Path, args) -> int:
         read_decisions,
     )
 
-    # Navigable filter modes for ←/→ (matches the menu order, minus the quit action).
-    NAV_MODES = ["live", "finished", "stalled", "phase"]
+    # ←/→ navigate the run-STATE; ↑/↓ cycle the PHASE sub-filter (0 = All).
+    NAV_STATES = ["live", "paused", "stopped", "all"]
     fd = sys.stdin.fileno()
     saved = termios.tcgetattr(fd)
-    mode, phase_idx = "live", 0
+    state, phase_idx = "live", 0
     try:
         tty.setcbreak(fd)
         while True:
@@ -389,12 +389,12 @@ def _run_interactive(runtime_dir: Path, args) -> int:
                     agent_states=workers, issue_phases=issue_phases,
                     titles=titles, decisions=decisions, live_surfaces=live,
                 )
-                phase = PHASE_ORDER[phase_idx] if mode == "phase" else None
-                cards = filter_cards(all_cards, mode, phase=phase)
+                phase = PHASE_ORDER[phase_idx - 1] if phase_idx else None
+                cards = filter_cards(all_cards, state, phase=phase)
                 color = not args.no_color
                 print(f"atdd coach dashboard · run {run_id} · {len(cards)}/{len(all_cards)} worker(s)")
-                print(render_menu(mode, phase=phase, color=color))
-                hint = "←/→ navigate · letter to jump · ↑/↓ cycle phase · q quit"
+                print(render_menu(state, phase=phase, color=color))
+                hint = "←/→ state · ↑/↓ phase · l/p/o/a jump · q quit"
                 print(f"\033[2m{hint}\033[0m" if color else hint)
                 print()
                 # Clamp the grid to the rows below the (pinned) 4-line header so a
@@ -405,26 +405,26 @@ def _run_interactive(runtime_dir: Path, args) -> int:
                     rows = 24
                 print(render_grid(
                     cards, _term_width(args.width), card_width=args.card_width,
-                    color=color, max_lines=max(6, rows - 5),
+                    color=color, max_lines=max(6, rows - 6),
                 ))
             key = _read_key(1.0)
             if key in ("q", "\x03"):
                 break
             elif key == "l":
-                mode = "live"
-            elif key == "f":
-                mode = "finished"
-            elif key == "s":
-                mode = "stalled"
+                state = "live"
             elif key == "p":
-                phase_idx = (phase_idx + 1) % len(PHASE_ORDER) if mode == "phase" else 0
-                mode = "phase"
+                state = "paused"
+            elif key == "o":
+                state = "stopped"
+            elif key == "a":
+                state = "all"
             elif key in ("RIGHT", "LEFT"):
                 step = 1 if key == "RIGHT" else -1
-                i = NAV_MODES.index(mode) if mode in NAV_MODES else (-1 if step == 1 else 0)
-                mode = NAV_MODES[(i + step) % len(NAV_MODES)]
-            elif key in ("UP", "DOWN") and mode == "phase":
-                phase_idx = (phase_idx + (1 if key == "UP" else -1)) % len(PHASE_ORDER)
+                i = NAV_STATES.index(state) if state in NAV_STATES else (-1 if step == 1 else 0)
+                state = NAV_STATES[(i + step) % len(NAV_STATES)]
+            elif key in ("UP", "DOWN"):
+                # Phase sub-filter cycles 0 (All) .. len(PHASE_ORDER).
+                phase_idx = (phase_idx + (1 if key == "UP" else -1)) % (len(PHASE_ORDER) + 1)
     except KeyboardInterrupt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         pass
     finally:

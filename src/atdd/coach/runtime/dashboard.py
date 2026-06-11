@@ -31,8 +31,8 @@ from typing import Iterable, Optional, Sequence
 
 # Workers with no heartbeat for longer than this are flagged as stalled. Matches
 # the operator drift threshold: >10 min with no progress warrants intervention.
-# A worker still LIVE after running this long is "stalled" (taking too long).
-STALL_AFTER_SECONDS = 2 * 60 * 60
+# A running worker with no activity for this long flips from "live" to "paused".
+PAUSE_AFTER_SECONDS = 10 * 60
 
 _TASK_GLYPH = {"done": "✓", "doing": "◐", "todo": "○"}
 
@@ -117,10 +117,9 @@ class WorkerCard:
     role: str
     elapsed: str
     tasks: list[Task] = field(default_factory=list)
-    stalled: bool = False
-    idle: str = ""  # human time since last activity ("ended <idle> ago" when finished)
+    idle: str = ""  # human time since last activity ("idle"/"ended <idle> ago")
     surface: str = ""  # cmux surface ref — distinguishes workers on the same issue
-    live: bool = True  # worker's cmux surface is open; False → finished (show ran/ended)
+    state: str = "live"  # "live" | "paused" | "stopped" (see build_cards)
 
     @property
     def done_count(self) -> int:
@@ -229,26 +228,34 @@ def build_cards(
         last = getattr(st, "last_heartbeat", None)
         start = getattr(st, "started_at", None)
         surface = getattr(st, "surface", "") or ""
-        # Elapsed is the active run DURATION (last activity − spawn); idle/ended
-        # is time since last activity; uptime is wall-clock since spawn.
         idle_secs = _seconds_since(last, now)
         uptime_secs = _seconds_since(start, now)
-        # Liveness: a worker is live when its surface is open in cmux. With no
-        # live set (cmux unqueryable), assume live so we don't mislabel.
-        live = live_surfaces is None or (bool(surface) and surface in live_surfaces)
+        # State (from surface + idle):
+        #   stopped — we positively know the cmux surface is closed
+        #   paused  — running but no activity for ≥ PAUSE_AFTER_SECONDS
+        #   live    — running and active within the window
+        # Without cmux (live_surfaces None) we can't prove "stopped", so a quiet
+        # worker degrades to "paused", not a guessed "stopped".
+        known_closed = live_surfaces is not None and bool(surface) and surface not in live_surfaces
+        if known_closed:
+            state = "stopped"
+        elif idle_secs is not None and idle_secs >= PAUSE_AFTER_SECONDS:
+            state = "paused"
+        else:
+            state = "live"
+        # Running workers show uptime (now − spawn); stopped shows run duration.
+        elapsed = _duration_secs(start, last, now) if state == "stopped" else uptime_secs
         cards.append(
             WorkerCard(
                 issue=issue,
                 title=titles.get(int(issue), "") if issue is not None else "",
                 phase=phase,
                 role=role,
-                elapsed=_fmt_secs(_duration_secs(start, last, now)),
+                elapsed=_fmt_secs(elapsed),
                 idle=_ago(idle_secs),
                 surface=surface,
-                live=live,
+                state=state,
                 tasks=list(activity.get(int(issue), [])) if issue is not None else [],
-                # Stalled: still live but running past the threshold (stuck/too slow).
-                stalled=live and uptime_secs is not None and uptime_secs > STALL_AFTER_SECONDS,
             )
         )
     # Order by lifecycle phase (INIT→…→REFACTOR) so the grid reads in pipeline
@@ -304,9 +311,9 @@ def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[st
 
     num = f"#{card.issue}" if card.issue is not None else "#?"
 
-    # Stall flag rides the header so it's prominent and never truncated by a
+    # Paused flag rides the header so it's prominent and never truncated by a
     # narrow card; the meta line carries the durations.
-    head = f"{num}  {card.phase}" + (" ⚠" if card.stalled else "")
+    head = f"{num}  {card.phase}" + (" ⚠" if card.state == "paused" else "")
     lines = [top, row(head, paint=True)]
     if card.title:
         lines.append(row(card.title))
@@ -318,10 +325,12 @@ def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[st
     # duration and when it ended — 'uptime' is meaningless for a dead worker.
     surf = card.surface.split(":")[-1] if card.surface else ""
     who = f"{card.role}" + (f" ({surf})" if surf else "")
-    if card.live:
-        meta = f"{who} · up {card.elapsed}"
-    else:
+    if card.state == "stopped":
         meta = f"{who} · ran {card.elapsed} · ended {card.idle} ago"
+    elif card.state == "paused":
+        meta = f"{who} · up {card.elapsed} · idle {card.idle}"
+    else:  # live
+        meta = f"{who} · up {card.elapsed}"
     lines.append(row(meta))
     if card.tasks:
         lines.append(row(""))
@@ -336,49 +345,45 @@ def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[st
 
 # Single-key filter menu. Each entry: (key, mode, label). 'quit' is an action,
 # not a filter mode. Kept deliberately small to stay glanceable.
-FILTER_KEYS = [
+# Primary run-state filters. Phase is a separate, orthogonal sub-filter.
+STATE_KEYS = [
     ("l", "live", "Live"),
-    ("f", "finished", "Finished"),
-    ("s", "stalled", "Stalled"),
-    ("p", "phase", "Phase"),
-    ("q", "quit", "Quit"),
+    ("p", "paused", "Paused"),
+    ("o", "stopped", "Stopped"),
+    ("a", "all", "All"),
 ]
 
 
 def filter_cards(
     cards: Sequence[WorkerCard],
-    mode: str,
+    state: str,
     *,
     phase: Optional[str] = None,
 ) -> list[WorkerCard]:
-    """Pure filter over already-built cards, selected by menu ``mode``.
+    """Filter by run ``state`` (live/paused/stopped/all) and an optional ``phase``.
 
-    Liveness is on the card (``card.live`` = surface open in cmux): ``live``
-    keeps live workers, ``finished`` keeps the rest. ``stalled`` keeps live
-    workers running past the threshold; ``phase`` keeps one lifecycle stage;
-    anything else returns every card.
+    State and phase are orthogonal: when both are given, both apply (e.g.
+    Live + RED). ``state="all"`` keeps every state; ``phase=None`` keeps every
+    phase.
     """
-    if mode == "live":
-        return [c for c in cards if c.live]
-    if mode == "finished":
-        return [c for c in cards if not c.live]
-    if mode == "stalled":
-        return [c for c in cards if c.stalled]
-    if mode == "phase" and phase:
-        return [c for c in cards if c.phase == phase]
-    return list(cards)
+    out = list(cards)
+    if state in ("live", "paused", "stopped"):
+        out = [c for c in out if c.state == state]
+    if phase:
+        out = [c for c in out if c.phase == phase]
+    return out
 
 
-def render_menu(mode: str, *, phase: Optional[str] = None, color: bool = True) -> str:
-    """One-line filter menu; the active mode is highlighted (reverse video)."""
-    segs = []
-    for key, name, label in FILTER_KEYS:
-        text = f"{label}:{phase or 'ALL'}" if name == "phase" else label
-        seg = f"[{key}] {text}"
-        if name == mode:
-            seg = f"\033[7m {seg} \033[0m" if color else f"▸{seg}◂"
-        segs.append(seg)
-    return "  ".join(segs)
+def render_menu(state: str, *, phase: Optional[str] = None, color: bool = True) -> str:
+    """Two-axis menu: a State row (highlighted) and a Phase sub-filter row."""
+
+    def hi(seg: str, on: bool) -> str:
+        if not on:
+            return seg
+        return f"\033[7m {seg} \033[0m" if color else f"▸{seg}◂"
+
+    states = "  ".join(hi(f"[{k}] {label}", name == state) for k, name, label in STATE_KEYS)
+    return f"State: {states}   [q] Quit\nPhase: {phase or 'All'}  (↑/↓)"
 
 
 def render_grid(

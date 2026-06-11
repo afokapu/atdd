@@ -53,9 +53,9 @@ def test_grid_packs_multiple_columns_when_wide():
     assert any(row.count("┌") >= 2 for row in top_rows)
 
 
-def test_stalled_card_shows_warning_glyph():
+def test_paused_card_shows_warning_glyph():
     c = WorkerCard(issue=1030, title="", phase="PLANNED", role="planner",
-                   elapsed="14m02s", stalled=True)
+                   elapsed="14m02s", state="paused")
     assert any("⚠" in line for line in render_card(c, width=21))
 
 

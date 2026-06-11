@@ -5,12 +5,12 @@ dimension: "time"
 object_of_control: "assessing-live-coach-worker-state-during-a-wave"
 context_clarifier: "when an operator runs a coach wave and must see every live worker's issue, phase, runtime, and stall state across many cmux surfaces at a glance; `coach status` prints one table that does not scale, and run-roster membership is not liveness"
 lens: "functional.effectiveness"
-statement: "minimize time of assessing-live-coach-worker-state-during-a-wave by rendering one card per worker (issue, title, phase, role, surface, run-duration, stall flag, lifecycle progress) from the coach runtime in lifecycle order, reflowing the grid to the surface width with a pinned filter menu (live/finished/stalled/phase), distinguishing live workers (cmux surface open, shown as uptime) from finished ones (shown as run-duration and end time), and auto-discovering the coach's populated runtime from any worktree"
+statement: "minimize time of assessing-live-coach-worker-state-during-a-wave by rendering one card per worker (issue, title, phase, role, surface, timing, lifecycle progress) from the coach runtime in lifecycle order, classifying each worker as live (cmux surface open and active within 10 min), paused (running but idle ≥ 10 min), or stopped (surface closed), reflowing the grid to the surface width with a pinned two-axis menu (run-state filter + orthogonal phase sub-filter), and auto-discovering the coach's populated runtime from any worktree"
 acceptances:
   - identity:
       urn: "acc:coach-ops:M002-UNIT-001-cards-built-from-runtime"
       id: "AC-UNIT-001"
-      purpose: "build_cards maps coach runtime to one WorkerCard per worker (phase fallback, run-duration, liveness, stall flag), ordered by lifecycle phase"
+      purpose: "build_cards maps coach runtime to one WorkerCard per worker (phase fallback, timing, run-state live/paused/stopped), ordered by lifecycle phase"
       phase: "GREEN"
     harness:
       type: "unit"
@@ -24,7 +24,7 @@ acceptances:
     then:
       abstract:
         - "One card per worker (not per issue); role/phase derived per worker; cards ordered by lifecycle phase"
-        - "elapsed is run DURATION (last activity − spawn); a still-live worker running past the 2h threshold is stalled"
+        - "state is stopped when the surface is known-closed, else paused when idle ≥ 10 min, else live; running workers show uptime, stopped workers show run duration (last activity − spawn)"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"
@@ -51,7 +51,7 @@ acceptances:
   - identity:
       urn: "acc:coach-ops:M002-UNIT-003-card-presentation"
       id: "AC-UNIT-003"
-      purpose: "card shows title, per-phase GitHub-label color (visible width unchanged), lifecycle progress bar, 'persona (surface)', and liveness-aware timing (up vs ran/ended)"
+      purpose: "card shows title, per-phase GitHub-label color (visible width unchanged), lifecycle progress bar, 'persona (surface)', and state-aware timing (live up / paused up+idle / stopped ran+ended)"
       phase: "GREEN"
     harness:
       type: "unit"
@@ -64,27 +64,27 @@ acceptances:
     then:
       abstract:
         - "Color wraps padded content so visible width equals the card width"
-        - "Progress bar fill reflects the phase's lifecycle position; meta renders 'persona (surface)'; a live worker shows 'up <uptime>', a finished worker shows 'ran <duration> · ended <ago>'"
+        - "Progress bar fill reflects the phase's lifecycle position; meta renders 'persona (surface)'; live shows 'up <uptime>', paused shows 'up <uptime> · idle <ago>' with a ⚠, stopped shows 'ran <duration> · ended <ago>'"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"
   - identity:
       urn: "acc:coach-ops:M002-UNIT-004-filter-modes-and-menu"
       id: "AC-UNIT-004"
-      purpose: "filter_cards selects live/finished/stalled/phase from card state; render_menu lists keys and highlights the mode"
+      purpose: "filter_cards selects by run-state (live/paused/stopped/all) with an orthogonal phase sub-filter; render_menu shows a State row + Phase row and highlights the active state"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "Cards carrying liveness (card.live), stall state, and phase"
+        - "Cards carrying a run-state (card.state ∈ live/paused/stopped) and a phase"
     when:
-      abstract: "filter_cards(cards, mode, phase=...) and render_menu(mode) are called"
+      abstract: "filter_cards(cards, state, phase=...) and render_menu(state, phase=...) are called"
     then:
       abstract:
-        - "live keeps card.live workers; finished keeps the rest; stalled keeps live workers past the threshold; phase keeps one lifecycle stage"
-        - "menu lists [l]Live [f]Finished [s]Stalled [p]Phase [q]Quit (no Blocked) and highlights the active mode"
+        - "state filter keeps cards of that run-state (all = every state); the phase sub-filter additionally narrows to one lifecycle stage; the two combine (e.g. Live + RED)"
+        - "menu State row lists [l]Live [p]Paused [o]Stopped [a]All [q]Quit and highlights the active state; Phase row shows the current sub-filter"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"
