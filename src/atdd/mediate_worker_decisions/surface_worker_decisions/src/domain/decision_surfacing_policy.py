@@ -79,16 +79,28 @@ def validate_policy(policy: DecisionSurfacingPolicy) -> None:
         )
 
 
-def make_policy(agent_kind: str) -> DecisionSurfacingPolicy:
-    """Build the default decision-surfacing policy for ``agent_kind``.
+def make_policy(
+    agent_kind: str,
+    *,
+    auto_allow_tools: Tuple[str, ...] | None = None,
+) -> DecisionSurfacingPolicy:
+    """Build the decision-surfacing policy for ``agent_kind``.
 
-    Returns acceptEdits + the scoped read/edit auto-allow set (Bash excluded). The
-    result is validated so a surfacing-suppressing policy can never be constructed.
+    Returns acceptEdits + the auto-allow set, validated so a surfacing-suppressing
+    policy can never be constructed. ``auto_allow_tools`` lets the application layer
+    pass a convention-sourced safe set (``allowed_tools ∪ allowed_bash``, the
+    config-driven freedom set — E031 #1062); when omitted the pure default
+    read/edit-only set is used. Pure: this function never reads files — the
+    convention sourcing is done in the application layer and passed in.
+
+    Bare ``Bash`` (the broad decision class) is still rejected by ``validate_policy``
+    — only tightly-scoped ``Bash(<cmd>:*)`` safe prefixes are permitted in the
+    auto-allow set; the broad class continues to surface to the Feed.
     """
     policy = DecisionSurfacingPolicy(
         agent_kind=agent_kind,
         permission_mode=_DEFAULT_PERMISSION_MODE,
-        auto_allow_tools=_DEFAULT_AUTO_ALLOW,
+        auto_allow_tools=auto_allow_tools if auto_allow_tools is not None else _DEFAULT_AUTO_ALLOW,
         surface_tools=tuple(sorted(ACTION_CLASS_TOOLS)),
     )
     validate_policy(policy)

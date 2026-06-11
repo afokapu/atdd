@@ -1,0 +1,93 @@
+urn: "wmbt:govern-lifecycle:E051"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "residual-projects-v2-graphql-calls-on-the-coach-drive-paths-issue-transition-and-issue-creation"
+context_clarifier: "when issue #1051 makes the Projects-v2 removal permanent — a 2026-06-10 code audit confirmed the Projects v2 board is write-only cosmetics (nothing in the automation reads it to make a decision; read_phase() reads the atdd:<phase> label in integrations/github/issue_state.py and transition validation in issue.py derives current_status from labels), yet both the per-transition path (coach/commands/issue.py::update) and the issue-creation path (issue.py ~1082-1163) currently emit Projects-v2 GraphQL (sync_status_field / set_project_field_select / set_project_field_text / add_issue_to_project), which the post-commit hook compounds per-commit when CI=false, exhausting the shared 5,000/hr GraphQL budget and blocking workers mid-run (gh hit 'API rate limit already exceeded' during atdd coach 1036); the fix keeps the atdd:<phase> label (REST) as the sole phase representation, deletes the board GraphQL from both drive paths, and removes the temporary ATDD_SKIP_BOARD_SYNC bridge gate so label-only sync is the permanent default"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of residual-projects-v2-graphql-calls-on-the-coach-drive-paths-issue-transition-and-issue-creation by deleting sync_status_field / set_project_field_select / set_project_field_text / get_project_fields / get_project_item_id / add_issue_to_project from both coach/commands/issue.py::update and the issue-creation path (and the branch.py call sites) so phase transitions and issue creation drive off the atdd:<phase> label (REST) alone with zero Projects-v2 GraphQL, retiring the ATDD_SKIP_BOARD_SYNC bridge so label-only sync is the unconditional default"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E051-UNIT-001-transition-emits-label-rest-only-no-board-graphql"
+      id: "AC-UNIT-001"
+      purpose: "A phase transition through IssueManager.update issues only the atdd:<phase> label swap over REST and invokes zero Projects-v2 GraphQL methods"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An IssueManager.update is wired to a spy GitHub client that records every method invocation (REST label calls and any GraphQL/project method)"
+        - "An issue currently labelled atdd:RED with a valid manifest entry"
+    when:
+      abstract: "update(issue_number, status='GREEN') is invoked to perform a phase transition"
+    then:
+      abstract:
+        - "The spy records exactly the atdd:RED -> atdd:GREEN label swap via the REST label API and no other GitHub state mutation for phase"
+        - "Zero invocations of sync_status_field, set_project_field_select, set_project_field_text, get_project_fields, get_project_item_id or add_issue_to_project are recorded"
+        - "The local .atdd/manifest.yaml status for the issue is updated to GREEN (manifest remains the local mirror)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:govern-lifecycle:E051-UNIT-002-issue-creation-zero-board-writes"
+      id: "AC-UNIT-002"
+      purpose: "The issue-creation drive path performs zero Projects-v2 board writes; state is carried by the atdd:<phase> label plus the manifest entry"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The issue-creation path (issue.py ~1082-1163) is exercised against a spy GitHub client recording every invocation"
+    when:
+      abstract: "A new ATDD issue is created via the creation drive path"
+    then:
+      abstract:
+        - "Zero invocations of add_issue_to_project, set_project_field_select or set_project_field_text are recorded"
+        - "The created issue carries the initial atdd:INIT label via REST and is registered in .atdd/manifest.yaml"
+        - "No Projects-v2 GraphQL document is sent for the new issue"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:govern-lifecycle:E051-UNIT-003-skip-board-sync-gate-retired"
+      id: "AC-UNIT-003"
+      purpose: "The ATDD_SKIP_BOARD_SYNC bridge env gate is removed so label-only sync is unconditional, not opt-in"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A grep across shipped code (excluding CHANGELOG and migration-referencing docs) for the ATDD_SKIP_BOARD_SYNC token"
+    when:
+      abstract: "update(...) is invoked both with ATDD_SKIP_BOARD_SYNC unset and set to any value"
+    then:
+      abstract:
+        - "Zero references to ATDD_SKIP_BOARD_SYNC remain in shipped code (the env gate is deleted, not merely defaulted on)"
+        - "Behaviour is identical regardless of the env var: label-only REST sync with zero board GraphQL in both cases"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+  - identity:
+      urn: "acc:govern-lifecycle:E051-SMOKE-001-full-cycle-zero-projects-v2-graphql"
+      id: "AC-SMOKE-001"
+      purpose: "A real coach drive across a RED->COMPLETE lifecycle issues zero Projects-v2 GraphQL operations against a recording transport, with phase reads coming from the label"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo with an .atdd/manifest.yaml issue entry, a GitHub transport that records every outbound GraphQL document and REST call, and no PROJECT_TOKEN in the environment"
+    when:
+      abstract: "An issue is driven through its phase transitions (e.g. RED -> GREEN -> SMOKE -> REFACTOR -> COMPLETE) via the real coach drive path"
+    then:
+      abstract:
+        - "The recorded GraphQL log contains zero Projects-v2 operations (no projectV2, updateProjectV2ItemFieldValue or addProjectV2ItemById documents) across the entire cycle"
+        - "Each transition is observable as an atdd:<phase> label swap via REST and read_phase() resolves the phase from the label"
+        - "The drive completes without any 'API rate limit already exceeded' GraphQL failure attributable to board sync"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"

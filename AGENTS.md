@@ -432,7 +432,7 @@ agents:
 # Source of truth: GitHub Issues with Project v2 custom fields
 # Legacy local session files (atdd-sessions/) are historical only
 issues:
-  source_of_truth: "GitHub Issues + Project v2 custom fields"
+  source_of_truth: "GitHub Issues (atdd:<phase> labels) + local .atdd/manifest.yaml"
   config_dir: ".atdd/"
   manifest: ".atdd/manifest.yaml"
   convention: "src/atdd/coach/conventions/issue.convention.yaml"

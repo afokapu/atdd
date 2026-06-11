@@ -1,0 +1,74 @@
+urn: "wmbt:govern-lifecycle:E054"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "atdd-issue-reconcile-and-manifest-backfill-crashing-with-unboundlocalerror-because-issuemanager-is-shadowed-by-a-function-local-import"
+context_clarifier: "IssueManager is imported at module scope (src/atdd/cli.py:52). But the single large main() function also re-imports IssueManager at function scope in two branches — cli.py:2298 (the `atdd issue <slug> --dry-run` branch) and cli.py:2707 (the `manifest backfill` branch). Per Python scoping, binding a name anywhere in a function makes that name local for the ENTIRE function body, so within main() IssueManager is a local variable. On the reconcile dispatch path (target == 'reconcile', cli.py:2249) neither local-import branch has executed, so `manager = IssueManager()` reads an unbound local and raises UnboundLocalError before reconcile() is ever reached — making reconcile a deterministic crash and a no-op. The fix removes IssueManager from the two function-local imports (cli.py:2298, 2707), relying on the existing module-level import so IssueManager resolves to the module global everywhere in main()."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of atdd-issue-reconcile-and-manifest-backfill-crashing-with-unboundlocalerror-because-issuemanager-is-shadowed-by-a-function-local-import by removing IssueManager from the two function-local imports in cli.py main() (the `atdd issue <slug> --dry-run` branch at l.2298 and the `manifest backfill` branch at l.2707) so IssueManager resolves to the module-level import (cli.py:52) on every dispatch path, proven by the reconcile path constructing IssueManager and reaching reconcile() without UnboundLocalError"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E054-UNIT-001-issuemanager-resolves-to-module-import-on-reconcile-path"
+      id: "AC-UNIT-001"
+      purpose: "The `atdd issue reconcile` dispatch path constructs IssueManager and reaches reconcile() without raising UnboundLocalError — proven behaviorally via a recording fake, not by inspecting source text"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.cli.main is invoked with argv equivalent to `atdd issue reconcile`"
+        - "IssueManager.reconcile is monkeypatched to record that it was called and return a sentinel exit code (0) without touching GitHub or the manifest"
+    when:
+      abstract: "main() dispatches the reconcile target and executes `manager = IssueManager()` followed by `manager.reconcile()`"
+    then:
+      abstract:
+        - "No UnboundLocalError is raised on the reconcile path"
+        - "The recording fake confirms reconcile() was reached exactly once"
+        - "main() returns the sentinel exit code from reconcile()"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E054-UNIT-002-no-function-local-issuemanager-import-shadows-module-global"
+      id: "AC-UNIT-002"
+      purpose: "No import statement inside cli.py main() binds the name IssueManager at function scope, so it cannot shadow the module-level import"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/cli.py is parsed into an AST"
+        - "The FunctionDef node for main() is located"
+    when:
+      abstract: "Every Import / ImportFrom node within the main() body is inspected for a binding of the name 'IssueManager'"
+    then:
+      abstract:
+        - "Zero function-local imports inside main() bind the name 'IssueManager'"
+        - "A module-level `from atdd.coach.commands.issue import IssueManager` remains present at cli.py module scope"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E054-SMOKE-001-issue-reconcile-runs-without-unboundlocalerror"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real installed CLI: `atdd issue reconcile` runs through a real subprocess and does not crash with UnboundLocalError (it may exit non-zero for unrelated reasons such as no gh auth, but the traceback must never name UnboundLocalError or IssueManager-unbound)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI is invoked as a real subprocess: `python -m atdd.cli issue reconcile` (or the installed `atdd issue reconcile`)"
+    when:
+      abstract: "The reconcile command runs end-to-end against the real CLI dispatch with no monkeypatching"
+    then:
+      abstract:
+        - "The combined stdout/stderr does NOT contain 'UnboundLocalError'"
+        - "The combined stdout/stderr does NOT contain \"cannot access local variable 'IssueManager'\""
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-11"

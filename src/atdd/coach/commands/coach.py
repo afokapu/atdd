@@ -652,6 +652,86 @@ _PHASE_TRAILER_MAP: dict[str, Phase] = {
     "COMPLETE": Phase.COMPLETE,
 }
 
+# Predecessor of each phase (reverse of _COLD_START_ADVANCE_FROM). Used by
+# warm-resume to re-attempt the CURRENT phase: spawning the current phase's
+# persona is a Transition(<predecessor>, <current>) (#1055).
+_PHASE_PREDECESSOR: dict[Phase, Phase] = {
+    dst: src for src, dst in _COLD_START_ADVANCE_FROM.items()
+}
+
+# Persona prefix (parts[0] of the agent_id) → the phase that persona completes.
+# A done-signal proves the persona's phase finished; this disambiguates which
+# phase an agent_done event actually completed when the done.json summary phase-
+# prefix is unavailable (#1055). NOTE: ``tester`` serves RED and ``coder`` GREEN
+# under the cold-start naming; the SMOKE/REFACTOR personas carry their own
+# prefixes (``smoke``/``refactor`` after the first ``-`` split).
+_PERSONA_COMPLETES: dict[str, Phase] = {
+    "planner": Phase.PLANNED,
+    "tester": Phase.RED,
+    "coder": Phase.GREEN,
+    "smoke": Phase.SMOKE,
+    "refactor": Phase.REFACTOR,
+}
+
+
+def _phase_from_summary(summary: str) -> Optional[Phase]:
+    """Map a done.json/commit summary's phase-prefix to a Phase (#1055).
+
+    The phase-prefix is the leading ``"<PHASE>: …"`` token a worker writes
+    (``atdd agent done --summary "RED: …"`` → RED). Returns None when the
+    summary is empty or its prefix is not a known phase.
+    """
+    head = summary.split(":", 1)[0].strip().upper() if summary else ""
+    return _PHASE_TRAILER_MAP.get(head)
+
+
+def _completed_phase_from_agent_done(event: dict, agent_id: str) -> Optional[Phase]:
+    """Derive the phase a persona's ``agent_done`` actually completed (#1055).
+
+    Prefers the ``done.json`` summary phase-prefix carried in the event payload
+    (``"RED: …"`` → RED) — this disambiguates tester RED-vs-SMOKE and coder
+    GREEN-vs-REFACTOR. Falls back to the persona prefix in the agent_id when no
+    summary is present (e.g. a bare replayed event). Returns None when neither
+    yields a known phase.
+    """
+    payload = event.get("payload") or {}
+    phase = _phase_from_summary(payload.get("summary") or "")
+    if phase is not None:
+        return phase
+    persona = agent_id.split("-", 1)[0]
+    return _PERSONA_COMPLETES.get(persona)
+
+
+def _phase_completion_marker_present(
+    runtime_dir: Path, issue_number: int, phase: Phase
+) -> bool:
+    """True when the worker for ``phase`` (``issue_number``) wrote a done.json (#1055).
+
+    The completion marker is a
+    ``<runtime_dir>/agents/<persona>-<issue>-<suffix>/done.json`` whose ``summary``
+    begins with the phase name (the tester writes ``atdd agent done --summary
+    "RED: …"``). Warm-resume gates phase-advance on this marker: the prefix is the
+    proof that the CURRENT phase actually finished, rather than advancing blindly
+    on a re-run after a spawn that left no done.json (the live #1051 RED-skip).
+    """
+    agents_dir = runtime_dir / "agents"
+    if not agents_dir.is_dir():
+        return False
+    for agent_dir in sorted(agents_dir.iterdir()):
+        done = agent_dir / "done.json"
+        if not done.is_file():
+            continue
+        parts = agent_dir.name.split("-")
+        if len(parts) >= 2 and parts[1].isdigit() and int(parts[1]) != issue_number:
+            continue
+        try:
+            data = json.loads(done.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
+            continue
+        if _phase_from_summary(data.get("summary") or "") == phase:
+            return True
+    return False
+
 
 def _cold_start_proposed_transition(sm: StateMachine, event: dict) -> Optional["Transition"]:
     """Map a raw queue event to a (src, dst) Transition per cold-start rules.
@@ -684,6 +764,13 @@ def _cold_start_proposed_transition(sm: StateMachine, event: dict) -> Optional["
         if len(parts) < 2 or not parts[1].isdigit():
             return None
         if str(sm.issue_number) != parts[1]:
+            return None
+        # #1055 — gate on phase-match: advance only when the COMPLETING persona's
+        # phase equals the SM's current phase. A durable/replayed planner-done
+        # (completes PLANNED) re-firing while the SM sits at RED must NOT advance
+        # RED→GREEN. Mirrors the ``commit_observed`` guard below.
+        completed = _completed_phase_from_agent_done(event, agent_id)
+        if completed is None or completed != sm.phase:
             return None
         dst = _COLD_START_ADVANCE_FROM.get(sm.phase)
         if dst is None or not can_transition(sm.phase, dst):

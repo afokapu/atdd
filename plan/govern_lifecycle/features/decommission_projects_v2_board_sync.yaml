@@ -1,0 +1,32 @@
+urn: "feature:govern-lifecycle:decommission-projects-v2-board-sync"
+wagon: "wagon:govern-lifecycle"
+description: "Permanently removes the write-only Projects-v2 board from the coach drive paths so the GraphQL budget stops being a failure surface. The board is non-load-bearing (phase reads come from the atdd:<phase> label, train from the manifest); this feature deletes the board GraphQL from issue.py::update and the issue-creation path, moves the Train gate onto the manifest, retires the projects_v2.py module + PROJECT_TOKEN plumbing + .atdd/config.yaml project_id + ATDD_SKIP_BOARD_SYNC bridge + Projects-v2 docs, rewrites CLAUDE.md issues.source_of_truth to labels + manifest, and drops the 3 board-contract regression tests. Labels (REST) + local manifest carry all state."
+sizing:
+  wmbts: 3
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E051"
+  - "wmbt:govern-lifecycle:E052"
+  - "wmbt:govern-lifecycle:E053"
+references:
+  - "docs/operator-projects-v2-token.md"
+  - "docs/coach-decomposition.md"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "CLI surface unchanged — atdd issue create / --status keep the same commands and flags; only the board side effects are removed"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "issue.py::update loses the board-sync branch (label-only REST); the issue-creation path loses its board writes; the Train gate reads the manifest instead of the board"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts — phase is the existing atdd:<phase> label, train the existing manifest mirror"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "Deletes the Projects-v2 adapter (integrations/github/projects_v2.py) and the _gh.py project_token / resolve_project_config plumbing; keeps the REST label path and the yaml manifest reader"

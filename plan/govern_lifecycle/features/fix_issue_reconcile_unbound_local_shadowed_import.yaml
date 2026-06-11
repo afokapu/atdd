@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:fix-issue-reconcile-unbound-local-shadowed-import"
+wagon: "wagon:govern-lifecycle"
+description: "Fix `atdd issue reconcile` (and the `atdd manifest backfill` path) crashing with UnboundLocalError: IssueManager is imported at module scope but two function-local re-imports inside cli.py main() (the `atdd issue <slug> --dry-run` branch and the `manifest backfill` branch) make the name local for the whole function, so the reconcile dispatch path reads it unbound. Remove IssueManager from the two function-local imports so it resolves to the module-level import on every path (#1056)"
+sizing:
+  wmbts: 1
+  footprint_score: 1
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:govern-lifecycle:E054"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "cli.py main() dispatch — remove the function-local IssueManager imports (l.2298, l.2707) so the module-level import (l.52) is used on all paths including reconcile"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No behavior change to IssueManager.reconcile() itself; the crash was at constructor binding time, never reaching the method"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concepts; pure scoping bug fix"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "No integration changes"

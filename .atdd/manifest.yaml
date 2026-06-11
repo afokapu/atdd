@@ -1995,6 +1995,73 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+- id: '1045'
+  slug: drive-nominal-0002-on-engine
+  file: null
+  issue_number: 1045
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
+- id: '1046'
+  slug: divergence-engine-three-way-and-replay
+  file: null
+  issue_number: 1046
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
+- id: '1047'
+  slug: resolve-escalation-wagon-0301-chained-e2e
+  file: null
+  issue_number: 1047
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
+- id: '1048'
+  slug: coverage-reachable-resolvable-terminating-validator
+  file: null
+  issue_number: 1048
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
+- id: '1049'
+  slug: start-issue-cutover-to-trainrunner-execute
+  file: null
+  issue_number: 1049
+  type: refactor
+  status: INIT
+  created: '2026-06-10'
+  archived: null
+- id: '1050'
+  slug: dummy-coach-e2e-smoke-delete-me
+  file: null
+  issue_number: 1050
+  type: cleanup
+  status: INIT
+  created: '2026-06-10'
+  archived: null
+- id: '1051'
+  slug: graphql-projects-board-sync-burst-batch-and-decouple
+  file: null
+  issue_number: 1051
+  type: implementation
+  status: INIT
+  created: '2026-06-10'
+  archived: null
+  train: 0001-self-compliance-validate
+  branch: feat/issue-1051
+  worktree: /Users/alecfokapu/Github/atdd/issue-1051
+- id: '1062'
+  slug: scoped-bash-freedom-set-config-driven-for-spawned-workers
+  file: null
+  issue_number: 1062
+  type: implementation
+  status: INIT
+  created: '2026-06-11'
+  archived: null
 - id: '1058'
   slug: commit-blast-radius-receipt-enforcement
   file: null
@@ -2007,14 +2074,6 @@ sessions:
   slug: spawned-workers-pollute-operator-memory-via-shared-git-dir
   file: null
   issue_number: 1057
-  type: implementation
-  status: INIT
-  created: '2026-06-10'
-  archived: null
-- id: '1056'
-  slug: issue-reconcile-crashes-unboundlocalerror-shadowed-import
-  file: null
-  issue_number: 1056
   type: implementation
   status: INIT
   created: '2026-06-10'
@@ -2047,54 +2106,6 @@ sessions:
   wagon: coach-ops
   feature: feature:coach-ops:worker-grid-dashboard
   train: 0002-coach-drives-lifecycle
-- id: '1051'
-  slug: graphql-projects-board-sync-burst-batch-and-decouple
-  file: null
-  issue_number: 1051
-  type: implementation
-  status: GREEN
-  created: '2026-06-10'
-  archived: null
-- id: '1049'
-  slug: start-issue-cutover-to-trainrunner-execute
-  file: null
-  issue_number: 1049
-  type: implementation
-  status: INIT
-  created: '2026-06-10'
-  archived: null
-- id: '1048'
-  slug: coverage-reachable-resolvable-terminating-validator
-  file: null
-  issue_number: 1048
-  type: implementation
-  status: INIT
-  created: '2026-06-10'
-  archived: null
-- id: '1047'
-  slug: resolve-escalation-wagon-0301-chained-e2e
-  file: null
-  issue_number: 1047
-  type: implementation
-  status: INIT
-  created: '2026-06-10'
-  archived: null
-- id: '1046'
-  slug: divergence-engine-three-way-and-replay
-  file: null
-  issue_number: 1046
-  type: implementation
-  status: INIT
-  created: '2026-06-10'
-  archived: null
-- id: '1045'
-  slug: drive-nominal-0002-on-engine
-  file: null
-  issue_number: 1045
-  type: implementation
-  status: INIT
-  created: '2026-06-10'
-  archived: null
 - id: '1030'
   slug: forbid-coach-handrolled-worker-spawn-force-atdd-coach
   file: null
@@ -2359,3 +2370,16 @@ sessions:
   status: INIT
   created: '2026-05-13'
   archived: null
+- id: '1056'
+  slug: issue-reconcile-crashes-unboundlocalerror-shadowed-import
+  file: null
+  issue_number: 1056
+  type: implementation
+  status: PLANNED
+  created: '2026-06-11'
+  archived: null
+  branch: feat/issue-reconcile-crashes-unboundlocalerror-shadowed-import
+  worktree: /Users/alecfokapu/Github/atdd/feat-issue-reconcile-crashes-unboundlocalerror-shadowed-import
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:fix-issue-reconcile-unbound-local-shadowed-import
+  train: 0001-self-compliance-validate

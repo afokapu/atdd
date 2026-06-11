@@ -90,23 +90,43 @@ def drive_single_issue(
                        "trigger": "warm-resume"},
             )
             next_phase = _coach._COLD_START_ADVANCE_FROM.get(current_github_phase)
-            if next_phase is not None:
+            # #1055 — phase-advance-requires-completion-match. Before advancing
+            # current→next, verify the CURRENT phase's worker actually completed
+            # (a phase-tagged done.json marker). On a re-run after a spawn that
+            # left no done.json (the live #1051 RED-skip), re-attempt the CURRENT
+            # phase instead of advancing — and do NOT swap the label forward.
+            current_completed = _coach._phase_completion_marker_present(
+                runtime_dir, sm.issue_number, current_github_phase
+            )
+
+            def _spawn_or_block(transition: Transition, trigger: str, fail_msg: str):
+                """Spawn ``transition``; on spawn ERROR escalate, BLOCK, return 1.
+
+                Returns the exit code 1 when the spawn failed (caller returns it),
+                otherwise None so the caller continues. Shared by the advance and
+                re-attempt warm-resume branches (#1055).
+                """
+                arrow = f"{transition.src.value}→{transition.dst.value}"
+                if spawn_h(ctx, transition) != HandlerResult.ERROR:
+                    return None
+                _logger.error(
+                    "coach warm-resume spawn failed",
+                    extra={"issue": sm.issue_number, "phase": arrow, "trigger": trigger},
+                )
+                _coach._write_escalation(cfg.escalation_channel, fail_msg)
+                sm.history.append(sm.phase)
+                sm.phase = Phase.BLOCKED
+                return 1
+
+            if next_phase is not None and current_completed:
                 warm_t = Transition(current_github_phase, next_phase)
-                spawn_result = spawn_h(ctx, warm_t)
-                if spawn_result == HandlerResult.ERROR:
-                    _logger.error(
-                        "coach warm-resume spawn failed",
-                        extra={"issue": sm.issue_number,
-                               "phase": f"{current_github_phase.value}→{next_phase.value}",
-                               "trigger": "warm-resume"},
-                    )
-                    _coach._write_escalation(
-                        cfg.escalation_channel,
-                        f"#{sm.issue_number}: spawn failed at {current_github_phase.value}→{next_phase.value}",
-                    )
-                    sm.history.append(sm.phase)
-                    sm.phase = Phase.BLOCKED
-                    return 1
+                blocked = _spawn_or_block(
+                    warm_t, "warm-resume",
+                    f"#{sm.issue_number}: spawn failed at "
+                    f"{current_github_phase.value}→{next_phase.value}",
+                )
+                if blocked is not None:
+                    return blocked
                 sm.history.append(sm.phase)
                 sm.phase = next_phase
                 _coach._swap_phase_label(sm.issue_number, next_phase)
@@ -117,6 +137,27 @@ def drive_single_issue(
                            "trigger": "warm-resume"},
                 )
                 _coach._try_emit_telemetry(sm.issue_number, current_github_phase, next_phase)
+            else:
+                # CURRENT phase incomplete (no done.json marker) → re-attempt it:
+                # spawn the current phase's persona via Transition(<prev>, current).
+                # Leave the SM at current and do NOT swap the label (#1055).
+                prev_phase = _coach._PHASE_PREDECESSOR.get(
+                    current_github_phase, current_github_phase
+                )
+                reattempt_t = Transition(prev_phase, current_github_phase)
+                blocked = _spawn_or_block(
+                    reattempt_t, "warm-resume-reattempt",
+                    f"#{sm.issue_number}: spawn failed re-attempting "
+                    f"{current_github_phase.value}",
+                )
+                if blocked is not None:
+                    return blocked
+                _logger.info(
+                    "coach warm-resume re-attempt",
+                    extra={"issue": sm.issue_number,
+                           "phase": f"{prev_phase.value}→{current_github_phase.value}",
+                           "trigger": "warm-resume-reattempt"},
+                )
         else:
             # Cold start: write INIT→PLANNED decision, ensure worktree, spawn planner.
             init_record = _coach._make_phase_transition_record(

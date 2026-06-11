@@ -28,11 +28,16 @@ class GitHubClientError(Exception):
 
 @dataclass
 class ProjectConfig:
-    """GitHub Project v2 configuration from .atdd/config.yaml."""
+    """GitHub repo configuration from .atdd/config.yaml.
+
+    The Projects v2 board was decommissioned in #1051; ``project_number`` /
+    ``project_id`` are retained as optional, no-longer-required fields so older
+    configs still load, but no board operation consumes them.
+    """
 
     repo: str
-    project_number: int
-    project_id: str
+    project_number: Optional[int] = None
+    project_id: Optional[str] = None
 
     @classmethod
     def from_config(cls, config_path: Path) -> "ProjectConfig":
@@ -51,11 +56,16 @@ class ProjectConfig:
                 "Missing 'github' section in .atdd/config.yaml\n"
                 "Run 'atdd init' to set up GitHub integration."
             )
+        if not github.get("repo"):
+            raise GitHubClientError(
+                "Missing 'github.repo' in .atdd/config.yaml\n"
+                "Run 'atdd init' to set up GitHub integration."
+            )
 
         return cls(
             repo=github["repo"],
-            project_number=github["project_number"],
-            project_id=github["project_id"],
+            project_number=github.get("project_number"),
+            project_id=github.get("project_id"),
         )
 
 
@@ -279,32 +289,6 @@ class GitHubClient:
     # Projects v2
     # -------------------------------------------------------------------------
 
-    def add_issue_to_project(self, issue_number: int) -> str:
-        """Add an issue to the Project v2. Returns project item ID."""
-        if not self.project_id:
-            raise GitHubClientError("No project_id configured")
-
-        node_id = self.get_issue_node_id(issue_number)
-        data = self._graphql(
-            f'mutation {{ addProjectV2ItemById(input: {{ '
-            f'projectId: "{self.project_id}", contentId: "{node_id}" '
-            f'}}) {{ item {{ id }} }} }}'
-        )
-        item_id = data["data"]["addProjectV2ItemById"]["item"]["id"]
-        logger.info("Added #%d to project (item: %s)", issue_number, item_id, extra={"issue": issue_number, "item_id": item_id})
-        return item_id
-
-    def set_project_field_text(
-        self, item_id: str, field_id: str, value: str
-    ) -> None:
-        """Set a text field on a project item."""
-        self._graphql(
-            f'mutation {{ updateProjectV2ItemFieldValue(input: {{ '
-            f'projectId: "{self.project_id}", itemId: "{item_id}", '
-            f'fieldId: "{field_id}", value: {{ text: "{value}" }} '
-            f'}}) {{ projectV2Item {{ id }} }} }}'
-        )
-
     def set_project_field_number(
         self, item_id: str, field_id: str, value: float
     ) -> None:
@@ -313,17 +297,6 @@ class GitHubClient:
             f'mutation {{ updateProjectV2ItemFieldValue(input: {{ '
             f'projectId: "{self.project_id}", itemId: "{item_id}", '
             f'fieldId: "{field_id}", value: {{ number: {value} }} '
-            f'}}) {{ projectV2Item {{ id }} }} }}'
-        )
-
-    def set_project_field_select(
-        self, item_id: str, field_id: str, option_id: str
-    ) -> None:
-        """Set a single-select field on a project item."""
-        self._graphql(
-            f'mutation {{ updateProjectV2ItemFieldValue(input: {{ '
-            f'projectId: "{self.project_id}", itemId: "{item_id}", '
-            f'fieldId: "{field_id}", value: {{ singleSelectOptionId: "{option_id}" }} '
             f'}}) {{ projectV2Item {{ id }} }} }}'
         )
 
@@ -346,150 +319,6 @@ class GitHubClient:
             f'... on ProjectV2SingleSelectField {{ id }} }} }} }}'
         )
         logger.info("Deleted field %s", field_id, extra={"field_id": field_id})
-
-    def get_project_fields(self) -> Dict[str, Any]:
-        """Fetch all project fields with their IDs and option IDs."""
-        if not self.project_id:
-            raise GitHubClientError("No project_id configured")
-
-        data = self._graphql(
-            f'{{ node(id: "{self.project_id}") {{ '
-            f'... on ProjectV2 {{ fields(first: 30) {{ nodes {{ '
-            f'... on ProjectV2Field {{ id name dataType }} '
-            f'... on ProjectV2SingleSelectField {{ id name dataType options {{ id name }} }} '
-            f'}} }} }} }} }}'
-        )
-        fields = {}
-        for node in data["data"]["node"]["fields"]["nodes"]:
-            name = node.get("name")
-            if name:
-                fields[name] = {
-                    "id": node["id"],
-                    "data_type": node.get("dataType"),
-                }
-                if "options" in node:
-                    fields[name]["options"] = {
-                        opt["name"]: opt["id"] for opt in node["options"]
-                    }
-        return fields
-
-    def get_project_item_id(self, issue_number: int) -> Optional[str]:
-        """Get the project item ID for an issue already in the project."""
-        if not self.project_id:
-            return None
-        owner, name = self.repo.split("/")
-        data = self._graphql(
-            f'{{ repository(owner:"{owner}", name:"{name}") {{ '
-            f'issue(number:{issue_number}) {{ '
-            f'projectItems(first: 10) {{ nodes {{ id project {{ id }} }} }} '
-            f'}} }} }}'
-        )
-        for item in data["data"]["repository"]["issue"]["projectItems"]["nodes"]:
-            if item["project"]["id"] == self.project_id:
-                return item["id"]
-        return None
-
-    def get_project_item_field_values(
-        self, item_id: str
-    ) -> Dict[str, Any]:
-        """Read all field values for a project item.
-
-        Returns:
-            Dict mapping field name to its value (string for text/number,
-            option name for single-select).
-        """
-        if not self.project_id:
-            raise GitHubClientError("No project_id configured")
-
-        data = self._graphql(
-            f'{{ node(id: "{item_id}") {{ '
-            f'... on ProjectV2Item {{ '
-            f'fieldValues(first: 30) {{ nodes {{ '
-            f'... on ProjectV2ItemFieldTextValue {{ text field {{ ... on ProjectV2Field {{ name }} }} }} '
-            f'... on ProjectV2ItemFieldNumberValue {{ number field {{ ... on ProjectV2Field {{ name }} }} }} '
-            f'... on ProjectV2ItemFieldSingleSelectValue {{ name field {{ ... on ProjectV2SingleSelectField {{ name }} }} }} '
-            f'}} }} }} }} }}'
-        )
-        values = {}
-        for node in data["data"]["node"]["fieldValues"]["nodes"]:
-            field_name = node.get("field", {}).get("name")
-            if not field_name:
-                continue
-            if "text" in node:
-                values[field_name] = node["text"]
-            elif "number" in node:
-                values[field_name] = node["number"]
-            elif "name" in node and node["name"]:
-                values[field_name] = node["name"]
-        return values
-
-    def get_all_project_items(self) -> Dict[int, Dict[str, Any]]:
-        """Fetch all project items with field values in a single GraphQL query.
-
-        Returns dict mapping issue_number -> {
-            "item_id": str,
-            "fields": {field_name: value, ...}
-        }
-
-        This eliminates the N+1 pattern of calling get_project_item_id() +
-        get_project_item_field_values() per issue.
-        """
-        if not self.project_id:
-            raise GitHubClientError("No project_id configured")
-
-        items: Dict[int, Dict[str, Any]] = {}
-        cursor = None
-
-        while True:
-            after = f', after: "{cursor}"' if cursor else ""
-            data = self._graphql(
-                f'{{ node(id: "{self.project_id}") {{ '
-                f'... on ProjectV2 {{ items(first: 100{after}) {{ '
-                f'pageInfo {{ hasNextPage endCursor }} '
-                f'nodes {{ '
-                f'id '
-                f'content {{ ... on Issue {{ number }} }} '
-                f'fieldValues(first: 30) {{ nodes {{ '
-                f'... on ProjectV2ItemFieldTextValue {{ text field {{ ... on ProjectV2Field {{ name }} }} }} '
-                f'... on ProjectV2ItemFieldNumberValue {{ number field {{ ... on ProjectV2Field {{ name }} }} }} '
-                f'... on ProjectV2ItemFieldSingleSelectValue {{ name field {{ ... on ProjectV2SingleSelectField {{ name }} }} }} '
-                f'}} }} '
-                f'}} '
-                f'}} }} }} }}'
-            )
-
-            project = data["data"]["node"]
-            for node in project["items"]["nodes"]:
-                content = node.get("content") or {}
-                issue_num = content.get("number")
-                if not issue_num:
-                    continue
-
-                fields = {}
-                for fv in node["fieldValues"]["nodes"]:
-                    field_name = fv.get("field", {}).get("name")
-                    if not field_name:
-                        continue
-                    if "text" in fv:
-                        fields[field_name] = fv["text"]
-                    elif "number" in fv:
-                        fields[field_name] = fv["number"]
-                    elif "name" in fv and fv["name"]:
-                        fields[field_name] = fv["name"]
-
-                items[issue_num] = {
-                    "item_id": node["id"],
-                    "fields": fields,
-                }
-
-            page_info = project["items"]["pageInfo"]
-            if page_info["hasNextPage"]:
-                cursor = page_info["endCursor"]
-            else:
-                break
-
-        logger.debug("Fetched %d project items in batch", len(items), extra={"count": len(items)})
-        return items
 
     # -------------------------------------------------------------------------
     # Batch prefetch (validator optimization)
@@ -550,7 +379,7 @@ class GitHubClient:
             data = self._graphql(query)
             project = data.get("data", {}).get("node", {})
 
-            # Parse fields (match get_project_fields() format: data_type, options as {name: id})
+            # Parse fields (data_type, options as {name: id})
             fields_raw = project.get("fields", {}).get("nodes", [])
             fields = {}
             for f in fields_raw:
