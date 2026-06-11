@@ -840,11 +840,7 @@ ADAPTER_REGISTRY: dict[str, AdapterConfig] = {
 
 
 def _inject_agent_env(
-    command: str,
-    agent_id: str,
-    *,
-    worktree_root: Path | None = None,
-    config_root: Path | None = None,
+    command: str, agent_id: str, *, worktree_root: Path | None = None
 ) -> tuple[dict[str, str], str]:
     """Return ``(env_overrides, command)`` for the worker launch env (#731 / #854 / #1057).
 
@@ -867,17 +863,11 @@ def _inject_agent_env(
         return {}, command
     overrides = {"ATDD_AGENT_ID": agent_id}
     if worktree_root is not None:
-        from atdd.runtime.agent_control.cmux_launch import (
-            isolated_claude_config_dir,
-            seed_isolated_config_dir,
-        )
+        from atdd.runtime.agent_control.cmux_launch import isolated_claude_config_dir
 
-        config_dir = isolated_claude_config_dir(agent_id, worktree_root)
-        # #1066: seed the isolated dir through the ONE shared primitive (same as
-        # the cmux-native plane) so the worker inherits operator auth/onboarding
-        # and never launches against an empty, auth-less config dir.
-        seed_isolated_config_dir(config_dir, config_root)
-        overrides["CLAUDE_CONFIG_DIR"] = str(config_dir)
+        overrides["CLAUDE_CONFIG_DIR"] = str(
+            isolated_claude_config_dir(agent_id, worktree_root)
+        )
     return overrides, command
 
 

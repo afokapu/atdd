@@ -138,10 +138,6 @@ produce:
     contract: null
     telemetry: null
     to: external
-  - name: coach:spawn:seeded-isolated-claude-config-dir
-    contract: null
-    telemetry: null
-    to: external
 
 consume:
   - name: commons:coach:runtime-event-schema

@@ -3,9 +3,9 @@ step: "execute"
 direction: "minimize"
 dimension: "likelihood"
 object_of_control: "spawned-worker-claude-auto-memory-writing-into-the-operator-shared-config-dir"
-context_clarifier: "Spawned workers are stock `claude` CLI invocations launched by the coach. Claude Code resolves its config + memory + projects root from the CLAUDE_CONFIG_DIR env var (default ~/.claude). Workers inherit the operator's default value, and because Claude Code's auto-memory keys its project memory dir off the git **common dir** (`git rev-parse --git-common-dir` → …/atdd/main/.git from ANY linked worktree), every spawned worker — regardless of which issue-* worktree it runs in — writes its project memory into the operator's `~/.claude/projects/-Users-…-atdd-main/memory/` dir (project_issue_<N>_*.md + appended MEMORY.md lines). Session transcripts are keyed on cwd and are correctly isolated; only auto-memory bleeds, via the shared git-common-dir. FIX (exact wiring is GREEN's job): the coach must launch each worker with CLAUDE_CONFIG_DIR set to a per-worker isolated path under the issue worktree's runtime dir (e.g. <worktree>/.atdd/runtime/agents/<agent-id>/claude-home), NEVER ~/.claude and NEVER the operator's -main config dir. The override must be injected at BOTH launch sites: (1) the cmux-native path — runtime/agent_control/cmux_launch.py (the surface that runs `build_agent_seed_argv`'s argv), and (2) the legacy/headless path — coach/commands/spawn.py::_claude_code_adapter (via the env_overrides that flow through _inject_agent_env / _prepend_env_prefix). NOTE: `claude --bare` would also disable auto-memory but is REJECTED here because it additionally skips hooks/plugin-sync/CLAUDE.md discovery — including the cmux Feed-publishing hooks the coach depends on for PermissionRequest/AskUserQuestion. CLAUDE_CONFIG_DIR isolation preserves the Feed hooks while relocating memory out of the operator dir.\n\nREGRESSION + EXTENSION (#1066, fixes the #1057 isolation shipped in v3.114.0): CLAUDE_CONFIG_DIR relocates Claude Code's **entire** config root, not just memory. A fresh, EMPTY isolated dir has no auth, no onboarding state, and no settings — so every freshly-spawned worker lands in Claude Code's first-run flow ('Choose the text style…' theme picker) and then the 'Select login method' prompt, which is a HARD BLOCKER (the isolated dir has no credentials, the worker cannot authenticate non-interactively, and never reaches its launch prompt → the coach can drive no worker once v3.114.0 isolation is active). The original E030-SMOKE-001 missed this because it only asserted the operator memory dir gained no file — the headless `claude -p` exited at the login prompt writing nothing, so isolation 'passed' while worker viability was never checked. FIX (exact wiring is GREEN's job): before launch, SEED the per-worker isolated CLAUDE_CONFIG_DIR with the operator's NON-MEMORY config — copy (or symlink) every entry under the operator config root (~/.claude) EXCEPT `projects/` (which holds memory + session transcripts) and the large `history.jsonl`. Auth + onboarding markers + settings carry over so the worker authenticates and reaches its task; `projects/` stays absent so the worker's memory + transcripts still start fresh in the isolated dir — PRESERVING the #1057 memory-isolation guarantee. The seed must run at BOTH launch planes (one shared seed primitive as source of truth) and must be idempotent (safe to re-run on an already-seeded dir). `--bare` remains rejected (same reason as above)."
+context_clarifier: "Spawned workers are stock `claude` CLI invocations launched by the coach. Claude Code resolves its config + memory + projects root from the CLAUDE_CONFIG_DIR env var (default ~/.claude). Workers inherit the operator's default value, and because Claude Code's auto-memory keys its project memory dir off the git **common dir** (`git rev-parse --git-common-dir` → …/atdd/main/.git from ANY linked worktree), every spawned worker — regardless of which issue-* worktree it runs in — writes its project memory into the operator's `~/.claude/projects/-Users-…-atdd-main/memory/` dir (project_issue_<N>_*.md + appended MEMORY.md lines). Session transcripts are keyed on cwd and are correctly isolated; only auto-memory bleeds, via the shared git-common-dir. FIX (exact wiring is GREEN's job): the coach must launch each worker with CLAUDE_CONFIG_DIR set to a per-worker isolated path under the issue worktree's runtime dir (e.g. <worktree>/.atdd/runtime/agents/<agent-id>/claude-home), NEVER ~/.claude and NEVER the operator's -main config dir. The override must be injected at BOTH launch sites: (1) the cmux-native path — runtime/agent_control/cmux_launch.py (the surface that runs `build_agent_seed_argv`'s argv), and (2) the legacy/headless path — coach/commands/spawn.py::_claude_code_adapter (via the env_overrides that flow through _inject_agent_env / _prepend_env_prefix). NOTE: `claude --bare` would also disable auto-memory but is REJECTED here because it additionally skips hooks/plugin-sync/CLAUDE.md discovery — including the cmux Feed-publishing hooks the coach depends on for PermissionRequest/AskUserQuestion. CLAUDE_CONFIG_DIR isolation preserves the Feed hooks while relocating memory out of the operator dir."
 lens: "functional.effectiveness"
-statement: "minimize likelihood of spawned-worker-claude-auto-memory-writing-into-the-operator-shared-config-dir by launching every spawned worker with CLAUDE_CONFIG_DIR set to a per-worker isolated path (under the issue worktree runtime dir, never ~/.claude and never the operator -main config dir) at both the cmux-native launch builder (runtime/agent_control/cmux_launch.py) and the legacy claude-code adapter (coach/commands/spawn.py::_claude_code_adapter), so Claude Code auto-memory — which resolves its root via git-common-dir and would otherwise land in the operator -main memory dir — writes into the isolated worker dir instead, AND by SEEDING that isolated dir before launch with the operator's non-memory config (every entry under ~/.claude EXCEPT projects/ and history.jsonl) so auth + onboarding + settings carry over and the worker reaches its task instead of parking on the onboarding/login screen, while projects/ stays fresh in the isolated dir (preserving memory isolation) and the Feed-publishing hooks remain active (not via --bare)"
+statement: "minimize likelihood of spawned-worker-claude-auto-memory-writing-into-the-operator-shared-config-dir by launching every spawned worker with CLAUDE_CONFIG_DIR set to a per-worker isolated path (under the issue worktree runtime dir, never ~/.claude and never the operator -main config dir) at both the cmux-native launch builder (runtime/agent_control/cmux_launch.py) and the legacy claude-code adapter (coach/commands/spawn.py::_claude_code_adapter), so Claude Code auto-memory — which resolves its root via git-common-dir and would otherwise land in the operator -main memory dir — writes into the isolated worker dir instead, while the Feed-publishing hooks remain active (not via --bare)"
 acceptances:
   - identity:
       urn: "acc:spawn-agents:E030-UNIT-001-isolated-config-dir-derivation"
@@ -96,97 +96,6 @@ acceptances:
         - "The worker process environment contains CLAUDE_CONFIG_DIR pointing under the worktree runtime dir (not ~/.claude)"
         - "No NEW file appears under the operator memory dir compared to the pre-launch snapshot (no project_issue_*.md created, MEMORY.md byte-size unchanged)"
         - "Any Claude config/projects/memory the worker did write is located under the isolated CLAUDE_CONFIG_DIR path"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-06-11"
-  - identity:
-      urn: "acc:spawn-agents:E030-UNIT-004-seed-plan-excludes-projects-and-history"
-      id: "AC-UNIT-004"
-      purpose: "There is a single pure derivation of the seed-plan for the isolated CLAUDE_CONFIG_DIR: given the operator config root (~/.claude), it returns the set of entries to carry into the isolated dir = EVERY top-level entry EXCEPT `projects/` (memory + session transcripts) and `history.jsonl` (large, operator-private). This is what makes the isolation viable (auth/onboarding/settings carry over) WITHOUT reintroducing the #1057 memory bleed (projects/ stays out)."
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A fake operator config root containing a representative spread of entries: at least one auth/onboarding/settings-bearing entry (e.g. settings.json plus an onboarding/credentials marker), a `projects/` subdir (with a nested memory file), and a `history.jsonl` file"
-    when:
-      abstract: "The pure seed-plan derivation is invoked with that operator config root"
-    then:
-      abstract:
-        - "The seed plan INCLUDES the non-memory config entries (the settings/onboarding/auth-bearing entries are present in the planned set)"
-        - "The seed plan EXCLUDES `projects/` entirely (no projects entry, nested or top-level, is planned for copy/symlink)"
-        - "The seed plan EXCLUDES `history.jsonl`"
-        - "The derivation is pure: invoked twice on the same input it returns the same set (deterministic, no I/O side effects in the planning step)"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-06-11"
-  - identity:
-      urn: "acc:spawn-agents:E030-UNIT-005-seeded-dir-carries-auth-onboarding-not-memory"
-      id: "AC-UNIT-005"
-      purpose: "Applying the seed to a fresh isolated CLAUDE_CONFIG_DIR populates it with the operator's non-memory config (so the worker can authenticate and skip onboarding) while leaving `projects/` unseeded — so memory + transcripts still start fresh in the isolated dir and the #1057 guarantee is preserved. Re-running the seed on an already-seeded dir is safe (idempotent)."
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A fake operator config root (as in AC-UNIT-004) and a fresh, empty per-worker isolated CLAUDE_CONFIG_DIR path (from AC-UNIT-001)"
-    when:
-      abstract: "The seed operation is executed against that isolated dir, then executed a second time"
-    then:
-      abstract:
-        - "After seeding, the isolated dir CONTAINS the operator's non-memory config entries (the settings/onboarding/auth-bearing entries are resolvable inside the isolated dir, whether copied or symlinked)"
-        - "After seeding, the isolated dir does NOT contain a populated operator `projects/` (no operator memory file is reachable under the isolated dir's projects path — memory starts fresh)"
-        - "After seeding, `history.jsonl` is absent from the isolated dir"
-        - "The second seed invocation completes without error and leaves the isolated dir in the same state (idempotent — no duplication, no exception on pre-existing entries)"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-06-11"
-  - identity:
-      urn: "acc:spawn-agents:E030-UNIT-006-both-launch-planes-seed-before-emitting-config-dir"
-      id: "AC-UNIT-006"
-      purpose: "Both worker launch planes — the cmux-native builder (runtime/agent_control/cmux_launch.py) and the legacy adapter (coach/commands/spawn.py::_claude_code_adapter) — seed the isolated CLAUDE_CONFIG_DIR via the one shared seed primitive before/as they emit the CLAUDE_CONFIG_DIR override, so NEITHER plane can launch a worker against an empty (auth-less) config dir. Closes the regression on both surfaces, not just one."
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "An agent_id and issue worktree root for a spawned worker, and a fake operator config root with seedable non-memory entries"
-        - "The launch env / argv is assembled through each plane in turn (cmux-native builder; legacy claude-code adapter)"
-    when:
-      abstract: "The launch assembly is exercised for each plane and the isolated CLAUDE_CONFIG_DIR target is inspected afterward"
-    then:
-      abstract:
-        - "For the cmux-native plane: after launch assembly, the emitted CLAUDE_CONFIG_DIR target has been seeded (contains the operator non-memory config, lacks operator projects/)"
-        - "For the legacy adapter plane: after launch assembly, the same isolated target has been seeded the same way (one shared seed primitive — not a divergent second implementation)"
-        - "Both planes seed THROUGH the single seed primitive from AC-UNIT-005 (the seed is not re-implemented per plane)"
-        - "The pre-existing E030 guarantees still hold: each plane still emits CLAUDE_CONFIG_DIR under the worktree runtime dir (not ~/.claude), still injects ATDD_AGENT_ID, and still emits no --bare / CLAUDE_CODE_SIMPLE=1"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-06-11"
-  - identity:
-      urn: "acc:spawn-agents:E030-SMOKE-002-real-worker-reaches-task-not-onboarding-or-login"
-      id: "AC-SMOKE-002"
-      purpose: "STRENGTHENS E030-SMOKE-001 (which only proved the operator memory dir stays clean — it passed even when the worker died at the login prompt). A real worker launched through the deployed coach spawn path with a SEEDED isolated CLAUDE_CONFIG_DIR actually REACHES its task: it produces task output and does NOT park on Claude Code's first-run onboarding ('Choose the text style…') or the 'Select login method' prompt — proving auth + onboarding carried over — WHILE still creating no new file under the operator memory dir (the #1057 guarantee is preserved end-to-end)."
-      phase: "SMOKE"
-    harness:
-      type: "smoke"
-      category: "backend"
-    given:
-      abstract:
-        - "ATDD_RUN_SMOKE=1 is set and the installed atdd package + an authenticated operator Claude CLI (~/.claude with valid auth/onboarding) are available"
-        - "A snapshot of the file listing under the operator memory dir (~/.claude/projects/-Users-…-atdd-main/memory/) is captured before launch"
-        - "A real worker is launched for a test issue through the deployed coach spawn path with the isolated, SEEDED CLAUDE_CONFIG_DIR (cmux-native and/or legacy adapter)"
-    when:
-      abstract: "The worker boots through Claude Code startup and is given a trivial task turn, then its output and the operator memory dir are inspected"
-    then:
-      abstract:
-        - "The worker's CLAUDE_CONFIG_DIR points under the worktree runtime dir and, at launch time, is seeded (resolves the operator's auth/onboarding/settings — not an empty dir)"
-        - "The worker produces task output and does NOT emit/park on the onboarding theme picker ('Choose the text style' / 'Welcome to Claude Code') NOR the 'Select login method' login prompt (it authenticated non-interactively via the seeded config)"
-        - "No NEW file appears under the operator memory dir compared to the pre-launch snapshot (no project_issue_*.md created, MEMORY.md byte-size unchanged) — the #1057 isolation still holds"
-        - "Any memory/transcripts the worker did write are located under the isolated CLAUDE_CONFIG_DIR's own projects/ path"
     metadata:
       author: "atdd:planner"
       created: "2026-06-11"
