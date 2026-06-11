@@ -2054,3 +2054,16 @@ sessions:
   train: 0001-self-compliance-validate
   branch: feat/issue-1051
   worktree: /Users/alecfokapu/Github/atdd/issue-1051
+- id: '1056'
+  slug: issue-reconcile-crashes-unboundlocalerror-shadowed-import
+  file: null
+  issue_number: 1056
+  type: implementation
+  status: PLANNED
+  created: '2026-06-11'
+  archived: null
+  branch: feat/issue-reconcile-crashes-unboundlocalerror-shadowed-import
+  worktree: /Users/alecfokapu/Github/atdd/feat-issue-reconcile-crashes-unboundlocalerror-shadowed-import
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:fix-issue-reconcile-unbound-local-shadowed-import
+  train: 0001-self-compliance-validate
