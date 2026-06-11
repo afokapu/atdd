@@ -9,9 +9,9 @@ from __future__ import annotations
 from atdd.coach.runtime.dashboard import STATE_KEYS, WorkerCard, filter_cards, render_card, render_menu
 
 
-def _c(issue, phase, *, state="live", idle=""):
+def _c(issue, phase, *, state="live"):
     return WorkerCard(issue=issue, title="", phase=phase, role="coder",
-                      elapsed="1m", state=state, idle=idle)
+                      started="01:00", last="10:41", duration="30m", state=state)
 
 
 def test_filter_by_run_state():
@@ -49,14 +49,16 @@ def test_menu_shows_phase_subfilter_row():
 
 
 def test_state_specific_timing_render():
-    live = WorkerCard(issue=1, title="", phase="RED", role="coder", elapsed="14m04s", state="live")
+    # Absolute clock times only; no growing "time since" counters.
+    live = WorkerCard(issue=1, title="", phase="RED", role="coder",
+                      started="01:00", last="10:41", state="live")
     paused = WorkerCard(issue=2, title="", phase="RED", role="coder",
-                        elapsed="2h00m", idle="15m", state="paused")
+                        started="01:00", last="10:26", state="paused")
     stopped = WorkerCard(issue=3, title="", phase="REFACTOR", role="coder",
-                         elapsed="30m00s", idle="2d", state="stopped")
+                         duration="30m00s", last="Jun 9 14:30", state="stopped")
     a = "\n".join(render_card(live, width=44))
     b = "\n".join(render_card(paused, width=44))
     c = "\n".join(render_card(stopped, width=44))
-    assert "up 14m04s" in a and "idle" not in a and "ran" not in a
-    assert "up 2h00m" in b and "idle 15m" in b and "⚠" in b
-    assert "ran 30m00s" in c and "ended 2d ago" in c and "up " not in c
+    assert "started 01:00" in a and "last 10:41" in a and "up " not in a and "ago" not in a
+    assert "started 01:00" in b and "last 10:26" in b and "⚠" in b
+    assert "ran 30m00s" in c and "ended Jun 9 14:30" in c and "up " not in c and "ago" not in c

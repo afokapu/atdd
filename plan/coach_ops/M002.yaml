@@ -5,7 +5,7 @@ dimension: "time"
 object_of_control: "assessing-live-coach-worker-state-during-a-wave"
 context_clarifier: "when an operator runs a coach wave and must see every live worker's issue, phase, runtime, and stall state across many cmux surfaces at a glance; `coach status` prints one table that does not scale, and run-roster membership is not liveness"
 lens: "functional.effectiveness"
-statement: "minimize time of assessing-live-coach-worker-state-during-a-wave by rendering one card per worker (issue, title, phase, role, surface, timing, lifecycle progress) from the coach runtime in lifecycle order, classifying each worker as live (cmux surface open and active within 10 min), paused (running but idle ≥ 10 min), or stopped (surface closed), reflowing the grid to the surface width with a pinned two-axis menu (run-state filter + orthogonal phase sub-filter), and auto-discovering the coach's populated runtime from any worktree"
+statement: "minimize time of assessing-live-coach-worker-state-during-a-wave by rendering one card per worker (issue, title, phase, role, surface, absolute clock times, lifecycle progress) from the coach runtime in lifecycle order, classifying each worker as live (cmux surface open and active within 10 min), paused (running but idle ≥ 10 min), or stopped (surface closed), reflowing the grid to the surface width with a pinned two-axis menu (run-state filter + orthogonal phase sub-filter), and auto-discovering the coach's populated runtime from any worktree"
 acceptances:
   - identity:
       urn: "acc:coach-ops:M002-UNIT-001-cards-built-from-runtime"
@@ -24,7 +24,7 @@ acceptances:
     then:
       abstract:
         - "One card per worker (not per issue); role/phase derived per worker; cards ordered by lifecycle phase"
-        - "state is stopped when the surface is known-closed, else paused when idle ≥ 10 min, else live; running workers show uptime, stopped workers show run duration (last activity − spawn)"
+        - "state is stopped when the surface is known-closed, else paused when idle ≥ 10 min, else live; running workers show start/last clock times, stopped workers show run duration (last activity − spawn) + end time"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"
@@ -51,20 +51,20 @@ acceptances:
   - identity:
       urn: "acc:coach-ops:M002-UNIT-003-card-presentation"
       id: "AC-UNIT-003"
-      purpose: "card shows title, per-phase GitHub-label color (visible width unchanged), lifecycle progress bar, 'persona (surface)', and state-aware timing (live up / paused up+idle / stopped ran+ended)"
+      purpose: "card shows title, per-phase GitHub-label color (visible width unchanged), lifecycle progress bar, 'persona (surface)', and absolute state-aware timing (started/last for running, ran-duration/ended for stopped) — no growing time-since counters"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "A WorkerCard with phase, title, surface, and elapsed/idle"
+        - "A WorkerCard with phase, title, surface, run-state, and started/last/duration clock fields"
     when:
       abstract: "render_card(card, width, color=True/False) is called"
     then:
       abstract:
         - "Color wraps padded content so visible width equals the card width"
-        - "Progress bar fill reflects the phase's lifecycle position; meta renders 'persona (surface)'; live shows 'up <uptime>', paused shows 'up <uptime> · idle <ago>' with a ⚠, stopped shows 'ran <duration> · ended <ago>'"
+        - "Progress bar fill reflects the phase's lifecycle position; meta renders 'persona (surface)' with ABSOLUTE clock times (no growing counters): live/paused show 'started <HH:MM> · last <HH:MM>' (paused adds ⚠), stopped shows 'ran <duration> · ended <HH:MM>'"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"

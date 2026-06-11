@@ -65,15 +65,15 @@ def test_cards_ordered_by_lifecycle_phase():
     assert [c.phase for c in cards] == ["INIT", "GREEN", "REFACTOR"]
 
 
-def test_elapsed_is_human_readable():
+def test_duration_is_human_readable():
     # Live worker → uptime = now − spawn, humanized.
     w = Worker(issue=1, role="coder", surface="surface:1",
                started_at=NOW - timedelta(minutes=12, seconds=4), last_heartbeat=NOW)
     card = build_cards(agent_states=[w], issue_phases={}, live_surfaces={"surface:1"}, now=NOW)[0]
-    assert card.elapsed == "12m04s"
+    assert card.duration == "12m04s"  # last − spawn span
 
 
-def test_stopped_elapsed_is_run_duration_last_activity_minus_spawn():
+def test_stopped_duration_is_last_activity_minus_spawn():
     # A STOPPED worker shows run duration (last − spawn ≈ 1h04m), not now − spawn.
     w = Worker(
         issue=1036,
@@ -85,7 +85,7 @@ def test_stopped_elapsed_is_run_duration_last_activity_minus_spawn():
     )
     card = build_cards(agent_states=[w], issue_phases={}, live_surfaces=set(), now=NOW)[0]
     assert card.state == "stopped"
-    assert card.elapsed == "1h04m"
+    assert card.duration == "1h04m"
     assert card.role == "coder" and card.phase == "GREEN"
 
 
@@ -116,8 +116,8 @@ def test_finished_worker_shows_ran_and_ended_not_uptime():
     card = build_cards(agent_states=[w], issue_phases={}, live_surfaces=set(), now=NOW)[0]
     assert card.state == "stopped"
     rendered = "\n".join(render_card(card, width=44))
-    assert "ran 30m" in rendered and "ended" in rendered and "ago" in rendered
-    assert "up " not in rendered
+    assert "ran 30m" in rendered and "ended" in rendered
+    assert "up " not in rendered and "ago" not in rendered
 
 
 def test_live_worker_shows_uptime():
@@ -131,7 +131,8 @@ def test_live_worker_shows_uptime():
         agent_states=[w], issue_phases={}, live_surfaces={"surface:9"}, now=NOW
     )[0]
     assert card.state == "live"
-    assert "up" in "\n".join(render_card(card, width=44))
+    rendered = "\n".join(render_card(card, width=44))
+    assert "started" in rendered and "last" in rendered and "up " not in rendered
 
 
 def test_stopped_elapsed_is_bounded_for_an_old_worker():
@@ -145,4 +146,15 @@ def test_stopped_elapsed_is_bounded_for_an_old_worker():
         phase="REFACTOR",
     )
     card = build_cards(agent_states=[w], issue_phases={}, live_surfaces=set(), now=NOW)[0]
-    assert card.state == "stopped" and card.elapsed == "30m00s"
+    assert card.state == "stopped" and card.duration == "30m00s"
+
+
+def test_clock_is_absolute_hhmm_today_and_dated_when_older():
+    import re
+
+    from atdd.coach.runtime.dashboard import _fmt_clock
+
+    today = _fmt_clock(NOW - timedelta(minutes=5), NOW)
+    older = _fmt_clock(NOW - timedelta(days=3), NOW)
+    assert re.fullmatch(r"\d{2}:\d{2}", today)          # HH:MM, no "ago"
+    assert re.search(r"[A-Za-z]{3} \d+ \d{2}:\d{2}", older)  # e.g. "Jun 7 19:55"

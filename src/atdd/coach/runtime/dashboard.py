@@ -115,11 +115,12 @@ class WorkerCard:
     title: str
     phase: str
     role: str
-    elapsed: str
-    tasks: list[Task] = field(default_factory=list)
-    idle: str = ""  # human time since last activity ("idle"/"ended <idle> ago")
+    started: str = ""  # absolute spawn clock time (HH:MM, or "Mon D HH:MM")
+    last: str = ""  # absolute last-update clock time (last heartbeat)
+    duration: str = ""  # fixed run span (last − spawn); shown for stopped workers
     surface: str = ""  # cmux surface ref — distinguishes workers on the same issue
     state: str = "live"  # "live" | "paused" | "stopped" (see build_cards)
+    tasks: list[Task] = field(default_factory=list)
 
     @property
     def done_count(self) -> int:
@@ -138,18 +139,21 @@ def _fmt_secs(secs: Optional[int]) -> str:
     return f"{m}m{s:02d}s"
 
 
-def _ago(secs: Optional[int]) -> str:
-    """Coarse single-unit 'time ago' (e.g. 2d, 3h, 12m, 30s) for recency."""
-    if secs is None:
+def _fmt_clock(dt: Optional[datetime], now: datetime) -> str:
+    """Absolute clock time (not a 'time since'): ``HH:MM`` today, else ``Mon D HH:MM``.
+
+    Rendered in local time. Stable to test because it derives only from the
+    given ``dt`` and the injected ``now`` — no wall-clock read.
+    """
+    if dt is None:
         return "?"
-    secs = max(0, int(secs))
-    if secs >= 86400:
-        return f"{secs // 86400}d"
-    if secs >= 3600:
-        return f"{secs // 3600}h"
-    if secs >= 60:
-        return f"{secs // 60}m"
-    return f"{secs}s"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    local = dt.astimezone()
+    today = (now if now.tzinfo else now.replace(tzinfo=timezone.utc)).astimezone().date()
+    if local.date() == today:
+        return local.strftime("%H:%M")
+    return f"{local.strftime('%b')} {local.day} {local.strftime('%H:%M')}"
 
 
 def _elapsed(start: Optional[datetime], now: datetime) -> str:
@@ -229,7 +233,6 @@ def build_cards(
         start = getattr(st, "started_at", None)
         surface = getattr(st, "surface", "") or ""
         idle_secs = _seconds_since(last, now)
-        uptime_secs = _seconds_since(start, now)
         # State (from surface + idle):
         #   stopped — we positively know the cmux surface is closed
         #   paused  — running but no activity for ≥ PAUSE_AFTER_SECONDS
@@ -243,16 +246,15 @@ def build_cards(
             state = "paused"
         else:
             state = "live"
-        # Running workers show uptime (now − spawn); stopped shows run duration.
-        elapsed = _duration_secs(start, last, now) if state == "stopped" else uptime_secs
         cards.append(
             WorkerCard(
                 issue=issue,
                 title=titles.get(int(issue), "") if issue is not None else "",
                 phase=phase,
                 role=role,
-                elapsed=_fmt_secs(elapsed),
-                idle=_ago(idle_secs),
+                started=_fmt_clock(start, now),
+                last=_fmt_clock(last, now),
+                duration=_fmt_secs(_duration_secs(start, last, now)),
                 surface=surface,
                 state=state,
                 tasks=list(activity.get(int(issue), [])) if issue is not None else [],
@@ -325,12 +327,12 @@ def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[st
     # duration and when it ended — 'uptime' is meaningless for a dead worker.
     surf = card.surface.split(":")[-1] if card.surface else ""
     who = f"{card.role}" + (f" ({surf})" if surf else "")
+    # Absolute clock times (no growing "time since" counters). 'ran' is a fixed
+    # completed span, kept for stopped workers.
     if card.state == "stopped":
-        meta = f"{who} · ran {card.elapsed} · ended {card.idle} ago"
-    elif card.state == "paused":
-        meta = f"{who} · up {card.elapsed} · idle {card.idle}"
-    else:  # live
-        meta = f"{who} · up {card.elapsed}"
+        meta = f"{who} · ran {card.duration} · ended {card.last}"
+    else:  # live / paused
+        meta = f"{who} · started {card.started} · last {card.last}"
     lines.append(row(meta))
     if card.tasks:
         lines.append(row(""))

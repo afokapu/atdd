@@ -24,7 +24,7 @@ def _visible(s: str) -> str:
 
 
 def _card(issue, phase="RED", role="coder"):
-    return WorkerCard(issue=issue, title="", phase=phase, role=role, elapsed="1m00s")
+    return WorkerCard(issue=issue, title="", phase=phase, role=role, started="01:00", last="10:41")
 
 
 def test_render_card_is_a_box_of_fixed_width():
@@ -55,13 +55,13 @@ def test_grid_packs_multiple_columns_when_wide():
 
 def test_paused_card_shows_warning_glyph():
     c = WorkerCard(issue=1030, title="", phase="PLANNED", role="planner",
-                   elapsed="14m02s", state="paused")
+                   started="01:00", last="10:41", state="paused")
     assert any("⚠" in line for line in render_card(c, width=21))
 
 
 def test_tasks_render_with_progress_footer():
     c = WorkerCard(
-        issue=1, title="", phase="RED", role="coder", elapsed="1m",
+        issue=1, title="", phase="RED", role="coder", started="01:00", last="10:41",
         tasks=[Task("a", "done"), Task("b", "doing"), Task("c", "todo")],
     )
     rendered = "\n".join(render_card(c, width=24))
@@ -97,7 +97,7 @@ def test_card_includes_progress_bar_row():
 
 def test_card_renders_issue_title_when_present():
     c = WorkerCard(issue=1036, title="Declared Dispatch Registry",
-                   phase="GREEN", role="coder", elapsed="1m")
+                   phase="GREEN", role="coder", started="01:00", last="10:41")
     rendered = "\n".join(render_card(c, width=28))
     assert "Declared Dispatch" in rendered
 
@@ -122,9 +122,9 @@ def test_grid_color_flag_threads_to_cards():
 def test_card_shows_surface_id_to_distinguish_same_issue_workers():
     # Two workers on the SAME issue must be tellable apart by their cmux surface.
     a = WorkerCard(issue=1036, title="", phase="GREEN", role="coder",
-                   elapsed="1m", surface="surface:623")
+                   started="01:00", last="10:41", surface="surface:623")
     b = WorkerCard(issue=1036, title="", phase="SMOKE", role="tester",
-                   elapsed="1m", surface="surface:624")
+                   started="01:00", last="10:41", surface="surface:624")
     ra = "\n".join(render_card(a, width=40))
     rb = "\n".join(render_card(b, width=40))
     assert "coder (623)" in ra and "tester (624)" in rb  # persona (surface)
