@@ -2431,3 +2431,11 @@ sessions:
   status: INIT
   created: '2026-06-12'
   archived: null
+- id: '1076'
+  slug: verify-gated-decision-publishes-to-feed-producer-gate
+  file: null
+  issue_number: 1076
+  type: implementation
+  status: INIT
+  created: '2026-06-12'
+  archived: null
