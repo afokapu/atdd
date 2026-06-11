@@ -1,0 +1,19 @@
+urn: "feature:drive-state-machine:phase-advance-requires-completion-match"
+wagon: "wagon:drive-state-machine"
+description: "Close the phase-skip defect (#1055): coach must not advance an issue's phase unless the CURRENT phase's worker completed. Warm-resume in src/atdd/train/issue_runner.py re-spawns the current phase's persona when no current-phase completion marker exists and advances only when it does; the agent_done branch of coach.py::_cold_start_proposed_transition advances only when the completing agent's phase matches sm.phase — mirroring the existing commit_observed guard. Because tester serves RED+SMOKE and coder serves GREEN+REFACTOR, completion is keyed on a phase-tagged done.json marker, not persona alone."
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "S"
+wmbts:
+  - "wmbt:drive-state-machine:E002"
+components:
+  backend:
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "Warm-resume completion-gate: read the current phase's completion marker and choose re-spawn-current vs advance-next in src/atdd/train/issue_runner.py"
+    domain:
+      - type: "functions"
+        count: 1
+        rationale: "Persona→completed-phase guard in _cold_start_proposed_transition's agent_done branch (return None unless completed == sm.phase), mirroring the commit_observed guard"

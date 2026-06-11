@@ -12,6 +12,7 @@ outcome: "atdd coach + atdd agent CLI surface with decisions.jsonl + judgments.j
 
 features:
   - urn: "feature:drive-state-machine:coach-state-machine-and-runtime"
+  - urn: "feature:drive-state-machine:phase-advance-requires-completion-match"
 
 produce:
   - name: commons:coach:coach-cli-skeleton
