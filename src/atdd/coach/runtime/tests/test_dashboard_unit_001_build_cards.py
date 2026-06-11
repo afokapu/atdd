@@ -158,3 +158,11 @@ def test_clock_is_absolute_hhmm_today_and_dated_when_older():
     older = _fmt_clock(NOW - timedelta(days=3), NOW)
     assert re.fullmatch(r"\d{2}:\d{2}", today)          # HH:MM, no "ago"
     assert re.search(r"[A-Za-z]{3} \d+ \d{2}:\d{2}", older)  # e.g. "Jun 7 19:55"
+
+
+def test_duration_formats_long_spans_as_days():
+    from atdd.coach.runtime.dashboard import _fmt_secs
+
+    assert _fmt_secs(22 * 86400 + 9 * 3600 + 26 * 60) == "22d09h"  # was 537h26m
+    assert _fmt_secs(90 * 60) == "1h30m"   # < 1 day unchanged
+    assert _fmt_secs(45) == "0m45s"

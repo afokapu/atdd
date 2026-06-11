@@ -128,12 +128,15 @@ class WorkerCard:
 
 
 def _fmt_secs(secs: Optional[int]) -> str:
-    """Human ``HhMm`` / ``MmSs`` duration from a second count."""
+    """Human ``DdHh`` / ``HhMm`` / ``MmSs`` duration from a second count."""
     if secs is None:
         return "--"
     secs = max(0, int(secs))
-    h, rem = divmod(secs, 3600)
+    d, rem = divmod(secs, 86400)
+    h, rem = divmod(rem, 3600)
     m, s = divmod(rem, 60)
+    if d:
+        return f"{d}d{h:02d}h"
     if h:
         return f"{h}h{m:02d}m"
     return f"{m}m{s:02d}s"
