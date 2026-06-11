@@ -27,7 +27,6 @@ features:
   - urn: "feature:spawn-agents:shim-popen-env-var-prefix-fix"
   - urn: "feature:spawn-agents:claude-md-slim-and-debanner"
   - urn: "feature:spawn-agents:launch-prompt-wagon-graph-context"
-  - urn: "feature:spawn-agents:isolate-worker-claude-config-dir"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -134,14 +133,6 @@ produce:
     contract: null
     telemetry: null
     to: external
-  - name: coach:spawn:isolated-claude-config-dir
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:seeded-isolated-claude-config-dir
-    contract: null
-    telemetry: null
-    to: external
 
 consume:
   - name: commons:coach:runtime-event-schema
@@ -154,7 +145,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 37
+  total: 36
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -191,4 +182,3 @@ wmbt:
   E028: "minimize likelihood of adapter-specific-hardcoded-session-jsonl-boot-wait-deadlocking-coach-on-lazy-session-creation"
   E029: "minimize likelihood of launch-prompt-paste-gated-behind-session-jsonl-that-appears-only-after-first-user-message"
   L004: "minimize likelihood of spawn-pipeline-regression-to-jsonl-boot-wait-deadlock-on-lazy-session-creation"
-  E030: "minimize likelihood of spawned-worker-claude-auto-memory-writing-into-the-operator-shared-config-dir"
