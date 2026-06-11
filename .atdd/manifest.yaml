@@ -2396,3 +2396,12 @@ sessions:
   status: INIT
   created: '2026-06-11'
   archived: null
+  branch: feat/seed-worker-config-also-carries-dot-claude-json
+- id: '1069'
+  slug: revert-claude-config-dir-isolation-keychain-auth-wall
+  file: null
+  issue_number: 1069
+  type: implementation
+  status: INIT
+  created: '2026-06-11'
+  archived: null
