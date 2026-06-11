@@ -2447,3 +2447,11 @@ sessions:
   status: INIT
   created: '2026-06-12'
   archived: null
+- id: '1078'
+  slug: two-way-decision-channel-behind-adapter-registry-seam
+  file: null
+  issue_number: 1078
+  type: implementation
+  status: INIT
+  created: '2026-06-12'
+  archived: null
