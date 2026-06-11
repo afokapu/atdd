@@ -2423,3 +2423,11 @@ sessions:
   status: INIT
   created: '2026-06-12'
   archived: null
+- id: '1075'
+  slug: two-way-decision-channel-rebaselined-post-1062
+  file: null
+  issue_number: 1075
+  type: implementation
+  status: INIT
+  created: '2026-06-12'
+  archived: null
