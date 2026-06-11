@@ -674,6 +674,17 @@ _PERSONA_COMPLETES: dict[str, Phase] = {
 }
 
 
+def _phase_from_summary(summary: str) -> Optional[Phase]:
+    """Map a done.json/commit summary's phase-prefix to a Phase (#1055).
+
+    The phase-prefix is the leading ``"<PHASE>: …"`` token a worker writes
+    (``atdd agent done --summary "RED: …"`` → RED). Returns None when the
+    summary is empty or its prefix is not a known phase.
+    """
+    head = summary.split(":", 1)[0].strip().upper() if summary else ""
+    return _PHASE_TRAILER_MAP.get(head)
+
+
 def _completed_phase_from_agent_done(event: dict, agent_id: str) -> Optional[Phase]:
     """Derive the phase a persona's ``agent_done`` actually completed (#1055).
 
@@ -684,9 +695,7 @@ def _completed_phase_from_agent_done(event: dict, agent_id: str) -> Optional[Pha
     yields a known phase.
     """
     payload = event.get("payload") or {}
-    summary = payload.get("summary") or ""
-    head = summary.split(":", 1)[0].strip().upper() if summary else ""
-    phase = _PHASE_TRAILER_MAP.get(head)
+    phase = _phase_from_summary(payload.get("summary") or "")
     if phase is not None:
         return phase
     persona = agent_id.split("-", 1)[0]
@@ -719,9 +728,7 @@ def _phase_completion_marker_present(
             data = json.loads(done.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
             continue
-        summary = data.get("summary") or ""
-        head = summary.split(":", 1)[0].strip().upper()
-        if _PHASE_TRAILER_MAP.get(head) == phase:
+        if _phase_from_summary(data.get("summary") or "") == phase:
             return True
     return False
 
