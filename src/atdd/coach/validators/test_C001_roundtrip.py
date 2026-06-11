@@ -50,19 +50,18 @@ def test_github_client_methods_exist():
     Given: The GitHubClient class
     When: Checking method availability
     Then: create_issue, close_issue, add_sub_issue, get_sub_issues,
-          list_issues_by_label, get_project_fields, add_issue_to_project,
-          set_project_field_text, set_project_field_select,
-          get_project_item_field_values methods exist
+          list_issues_by_label, get_issue, ensure_label, add_label,
+          remove_label methods exist. (Projects v2 board methods —
+          get_project_fields/add_issue_to_project/set_project_field_*/
+          get_project_item_* — were removed in #1051; state lives in the
+          atdd:<phase> label + .atdd/manifest.yaml, not the board.)
     """
     from atdd.coach.github import GitHubClient
 
     required_methods = [
         "create_issue", "close_issue", "add_sub_issue", "get_sub_issues",
         "get_all_sub_issues",
-        "list_issues_by_label", "get_project_fields", "add_issue_to_project",
-        "set_project_field_text", "set_project_field_select",
-        "set_project_field_number", "get_project_item_id",
-        "get_project_item_field_values", "get_issue", "ensure_label",
+        "list_issues_by_label", "get_issue", "ensure_label",
         "add_label", "remove_label",
     ]
     missing = [m for m in required_methods if not callable(getattr(GitHubClient, m, None))]
