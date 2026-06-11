@@ -2439,3 +2439,11 @@ sessions:
   status: INIT
   created: '2026-06-12'
   archived: null
+- id: '1077'
+  slug: producer-publishes-complete-gated-decision-payload
+  file: null
+  issue_number: 1077
+  type: implementation
+  status: INIT
+  created: '2026-06-12'
+  archived: null
