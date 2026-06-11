@@ -56,6 +56,15 @@ PHASE_RGB = {
 }
 
 
+# Channel-event severity → truecolor (block = red, warn = amber).
+_SEVERITY_RGB = {
+    "block": (0xD7, 0x3A, 0x4A),
+    "error": (0xD7, 0x3A, 0x4A),
+    "warn": (0xFB, 0xCA, 0x04),
+    "warning": (0xFB, 0xCA, 0x04),
+}
+
+
 def _colorize(text: str, rgb: tuple) -> str:
     r, g, b = rgb
     return f"\033[38;2;{r};{g};{b}m{text}\033[0m"
@@ -101,6 +110,7 @@ class Worker:
     agent_id: str = ""
     started_at: Optional[datetime] = None
     surface: str = ""  # cmux surface ref, e.g. "surface:623"
+    escalations: list = field(default_factory=list)  # raw [{ts, severity, reason}], recent last
 
 
 @dataclass
@@ -116,11 +126,20 @@ class WorkerCard:
     phase: str
     role: str
     started: str = ""  # absolute spawn clock time (HH:MM, or "Mon D HH:MM")
-    last: str = ""  # absolute last-update clock time (last heartbeat)
-    duration: str = ""  # fixed run span (last − spawn); shown for stopped workers
+    last: str = ""  # absolute time of the most recent channel event (blank if none)
     surface: str = ""  # cmux surface ref — distinguishes workers on the same issue
-    state: str = "live"  # "live" | "paused" | "stopped" (see build_cards)
+    state: str = "live"  # "live" (surface open) | "stopped" (surface closed)
+    events: list = field(default_factory=list)  # recent channel events (Event), newest first
     tasks: list[Task] = field(default_factory=list)
+
+
+@dataclass
+class Event:
+    """One per-worker channel event (an observer escalation), for the card feed."""
+
+    time: str  # absolute clock time
+    severity: str  # e.g. block | warn
+    text: str  # human-readable reason
 
     @property
     def done_count(self) -> int:
@@ -235,20 +254,19 @@ def build_cards(
         last = getattr(st, "last_heartbeat", None)
         start = getattr(st, "started_at", None)
         surface = getattr(st, "surface", "") or ""
-        idle_secs = _seconds_since(last, now)
-        # State (from surface + idle):
-        #   stopped — we positively know the cmux surface is closed
-        #   paused  — running but no activity for ≥ PAUSE_AFTER_SECONDS
-        #   live    — running and active within the window
-        # Without cmux (live_surfaces None) we can't prove "stopped", so a quiet
-        # worker degrades to "paused", not a guessed "stopped".
+        # State from the cmux surface only: open → live, known-closed → stopped.
+        # (The observer heartbeat is a continuous ping, not activity, so it can't
+        # tell us idle/paused — we don't guess it.)
         known_closed = live_surfaces is not None and bool(surface) and surface not in live_surfaces
-        if known_closed:
-            state = "stopped"
-        elif idle_secs is not None and idle_secs >= PAUSE_AFTER_SECONDS:
-            state = "paused"
-        else:
-            state = "live"
+        state = "stopped" if known_closed else "live"
+        # Channel events (observer escalations) — the only real per-worker channel
+        # signal. Newest first; `last` is the most recent event's time.
+        raw = getattr(st, "escalations", []) or []
+        events = [
+            Event(time=_fmt_clock(e.get("ts"), now), severity=str(e.get("severity", "")),
+                  text=str(e.get("reason", "")))
+            for e in reversed(raw[-3:])
+        ]
         cards.append(
             WorkerCard(
                 issue=issue,
@@ -256,10 +274,10 @@ def build_cards(
                 phase=phase,
                 role=role,
                 started=_fmt_clock(start, now),
-                last=_fmt_clock(last, now),
-                duration=_fmt_secs(_duration_secs(start, last, now)),
+                last=events[0].time if events else "",
                 surface=surface,
                 state=state,
+                events=events,
                 tasks=list(activity.get(int(issue), [])) if issue is not None else [],
             )
         )
@@ -330,20 +348,17 @@ def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[st
     # duration and when it ended — 'uptime' is meaningless for a dead worker.
     surf = card.surface.split(":")[-1] if card.surface else ""
     who = f"{card.role}" + (f" ({surf})" if surf else "")
-    # Absolute clock times (no growing "time since" counters). 'ran' is a fixed
-    # completed span, kept for stopped workers.
-    if card.state == "stopped":
-        meta = f"{who} · ran {card.duration} · ended {card.last}"
-    else:  # live / paused
-        meta = f"{who} · started {card.started} · last {card.last}"
-    lines.append(row(meta))
-    if card.tasks:
-        lines.append(row(""))
-        for t in card.tasks[:4]:
-            glyph = _TASK_GLYPH.get(t.state, "○")
-            lines.append(row(f"{glyph} {t.text}"))
-        total = len(card.tasks)
-        lines.append(row(f" {card.done_count}/{total} ".center(inner, "─")))
+    # Absolute spawn time + surface-derived state; no growing counters.
+    lines.append(row(f"{who} · started {card.started} · {card.state}"))
+    # Channel events feed (observer escalations), newest first, severity-tinted.
+    if card.events:
+        lines.append(row("─ channel ".ljust(inner, "─")))
+        for ev in card.events:
+            rgb = _SEVERITY_RGB.get(ev.severity) if color else None
+            label = f"⚠ {ev.time} {ev.severity}: " if ev.severity else f"· {ev.time} "
+            body = _truncate(label + ev.text, inner).ljust(inner)
+            painted = _colorize(body, rgb) if rgb else body
+            lines.append(tint("│") + painted + tint("│"))
     lines.append(bottom)
     return lines
 
@@ -353,7 +368,6 @@ def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[st
 # Primary run-state filters. Phase is a separate, orthogonal sub-filter.
 STATE_KEYS = [
     ("l", "live", "Live"),
-    ("p", "paused", "Paused"),
     ("o", "stopped", "Stopped"),
     ("a", "all", "All"),
 ]
@@ -372,7 +386,7 @@ def filter_cards(
     phase.
     """
     out = list(cards)
-    if state in ("live", "paused", "stopped"):
+    if state in ("live", "stopped"):
         out = [c for c in out if c.state == state]
     if phase:
         out = [c for c in out if c.phase == phase]

@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 
 from atdd.coach.runtime.dashboard import (
-    Task,
     WorkerCard,
     _progress_bar,
     render_card,
@@ -59,14 +58,6 @@ def test_paused_card_shows_warning_glyph():
     assert any("⚠" in line for line in render_card(c, width=21))
 
 
-def test_tasks_render_with_progress_footer():
-    c = WorkerCard(
-        issue=1, title="", phase="RED", role="coder", started="01:00", last="10:41",
-        tasks=[Task("a", "done"), Task("b", "doing"), Task("c", "todo")],
-    )
-    rendered = "\n".join(render_card(c, width=24))
-    assert "✓" in rendered and "◐" in rendered and "○" in rendered
-    assert "1/3" in rendered
 
 
 def test_empty_grid_has_a_message():

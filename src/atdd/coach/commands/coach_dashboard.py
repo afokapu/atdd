@@ -262,13 +262,40 @@ def _read_workers(runtime_dir: Path, run_id: str, *, scope_all: bool) -> list:
                     issue=s.get("issue"),
                     role=s.get("persona") or "?",
                     started_at=_parse_iso(s.get("spawned_at")),
-                    last_heartbeat=_last_event_time(runtime_dir / "agents" / agent_id / "events.jsonl"),
                     phase=phase.upper() if isinstance(phase, str) else None,
                     agent_id=agent_id,
                     surface=s.get("cmux_surface") or "",
+                    escalations=_read_escalations(runtime_dir / "agents" / agent_id),
                 )
             )
     return workers
+
+
+def _read_escalations(agent_dir: Path) -> list:
+    """Per-worker channel events from agents/<id>/escalations.jsonl (chronological).
+
+    Each record: {timestamp, severity, reason}. Returns [{ts, severity, reason}]
+    with ts parsed to a datetime; build_cards formats + trims to the latest few.
+    """
+    import json
+
+    path = agent_dir / "escalations.jsonl"
+    if not path.exists():
+        return []
+    out: list = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            r = json.loads(line)
+            out.append({
+                "ts": _parse_iso(r.get("timestamp")),
+                "severity": r.get("severity", ""),
+                "reason": r.get("reason", ""),
+            })
+    except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return out
+    return out
 
 
 # Arrows arrive as CSI (ESC [ X, normal cursor mode) or SS3 (ESC O X,
@@ -364,7 +391,7 @@ def _run_interactive(runtime_dir: Path, args) -> int:
     )
 
     # ←/→ navigate the run-STATE; ↑/↓ cycle the PHASE sub-filter (0 = All).
-    NAV_STATES = ["live", "paused", "stopped", "all"]
+    NAV_STATES = ["live", "stopped", "all"]
     fd = sys.stdin.fileno()
     saved = termios.tcgetattr(fd)
     state, phase_idx = "live", 0
@@ -412,8 +439,6 @@ def _run_interactive(runtime_dir: Path, args) -> int:
                 break
             elif key == "l":
                 state = "live"
-            elif key == "p":
-                state = "paused"
             elif key == "o":
                 state = "stopped"
             elif key == "a":
