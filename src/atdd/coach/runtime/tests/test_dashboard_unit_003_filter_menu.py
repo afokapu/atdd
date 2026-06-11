@@ -64,6 +64,11 @@ def test_state_render_and_events_feed():
     a = "\n".join(render_card(live, width=44))
     b = "\n".join(render_card(stopped, width=44))
     c = "\n".join(render_card(with_events, width=50))
-    assert "started 01:00 · live" in a and "up " not in a
-    assert "started 01:00 · stopped" in b
+    assert "● live" in a and "started 01:00" in a and "up " not in a
+    assert "● stopped" in b
     assert "channel" in c and "11:27" in c and "hard-blocked" in c
+
+
+def test_menu_shows_state_emoji():
+    m = render_menu("live", color=False)
+    assert "🟢" in m and "⚪" in m  # live / stopped emoji in the State row

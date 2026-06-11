@@ -77,7 +77,7 @@ def test_stopped_card_shows_state_not_growing_counter():
                started_at=NOW - timedelta(days=2))
     card = build_cards(agent_states=[w], issue_phases={}, live_surfaces=set(), now=NOW)[0]
     assert card.state == "stopped"
-    rendered = "\n".join(render_card(card, width=44))
+    rendered = "\n".join(render_card(card, width=56))
     assert "stopped" in rendered and "ago" not in rendered
 
 

@@ -31,7 +31,7 @@ acceptances:
   - identity:
       urn: "acc:coach-ops:M002-UNIT-002-grid-reflows-and-clamps"
       id: "AC-UNIT-002"
-      purpose: "render_grid reflows columns to terminal width and clamps to max_lines with a +N footer so a pinned menu never scrolls off"
+      purpose: "render_grid reflows columns to terminal width; paginate() windows the full grid into fixed-height pages so nothing below the fold is unreachable (spacebar/PgDn paging)"
       phase: "GREEN"
     harness:
       type: "unit"
@@ -44,7 +44,7 @@ acceptances:
     then:
       abstract:
         - "Narrow width yields one column; wide width packs multiple columns"
-        - "Output never exceeds max_lines; a '+N more' footer is shown when clamped"
+        - "paginate(lines, page, height) returns a (window, page, pages) triple, clamping page into range; the interactive loop pages with SPACE / PgDn / PgUp and shows page X/Y"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"
@@ -64,7 +64,7 @@ acceptances:
     then:
       abstract:
         - "Color wraps padded content so visible width equals the card width"
-        - "Progress bar fill reflects the phase's lifecycle position; meta renders 'persona (surface) · started <HH:MM> · <state>'; below it a '─ channel' feed lists recent observer escalations (severity-tinted, newest first)"
+        - "Progress bar fill reflects the phase's lifecycle position; meta renders 'persona (surface) · started <HH:MM> · ● <state>' with a single-width state dot colored after padding (green=live, grey=stopped) so the box stays aligned; below it a '─ channel' feed lists recent observer escalations (severity-tinted, newest first)"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"
@@ -84,7 +84,7 @@ acceptances:
     then:
       abstract:
         - "state filter keeps cards of that run-state (all = every state); the phase sub-filter additionally narrows to one lifecycle stage; the two combine (e.g. Live + RED)"
-        - "menu State row lists [l]Live [o]Stopped [a]All [q]Quit and highlights the active state; Phase row shows the current sub-filter"
+        - "menu State row lists 🟢[l]Live ⚪[o]Stopped [a]All [q]Quit (state emoji in the header) and highlights the active state; Phase row shows the current sub-filter"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"

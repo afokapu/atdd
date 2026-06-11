@@ -56,6 +56,22 @@ PHASE_RGB = {
 }
 
 
+# Run-state → dot color (card) and emoji (menu header, where width is loose).
+STATE_RGB = {"live": (0x0E, 0x8A, 0x16), "stopped": (0x80, 0x80, 0x80)}
+STATE_EMOJI = {"live": "🟢", "stopped": "⚪"}
+
+
+def paginate(lines: Sequence[str], page: int, height: int) -> tuple:
+    """Window ``lines`` into pages of ``height``. Returns (window, page, pages).
+
+    ``page`` is clamped into range, so callers can over/under-shoot freely.
+    """
+    height = max(1, height)
+    pages = max(1, (len(lines) + height - 1) // height)
+    page = max(0, min(page, pages - 1))
+    return list(lines[page * height : page * height + height]), page, pages
+
+
 # Channel-event severity → truecolor (block = red, warn = amber).
 _SEVERITY_RGB = {
     "block": (0xD7, 0x3A, 0x4A),
@@ -348,8 +364,12 @@ def render_card(card: WorkerCard, width: int, *, color: bool = False) -> list[st
     # duration and when it ended — 'uptime' is meaningless for a dead worker.
     surf = card.surface.split(":")[-1] if card.surface else ""
     who = f"{card.role}" + (f" ({surf})" if surf else "")
-    # Absolute spawn time + surface-derived state; no growing counters.
-    lines.append(row(f"{who} · started {card.started} · {card.state}"))
+    # Absolute spawn time + surface-derived state with a single-width state dot.
+    # The dot is colored AFTER padding so the visible width stays exact.
+    meta = _truncate(f"{who} · started {card.started} · ● {card.state}", inner).ljust(inner)
+    if color and card.state in STATE_RGB:
+        meta = meta.replace("●", _colorize("●", STATE_RGB[card.state]), 1)
+    lines.append(tint("│") + meta + tint("│"))
     # Channel events feed (observer escalations), newest first, severity-tinted.
     if card.events:
         lines.append(row("─ channel ".ljust(inner, "─")))
@@ -401,7 +421,10 @@ def render_menu(state: str, *, phase: Optional[str] = None, color: bool = True) 
             return seg
         return f"\033[7m {seg} \033[0m" if color else f"▸{seg}◂"
 
-    states = "  ".join(hi(f"[{k}] {label}", name == state) for k, name, label in STATE_KEYS)
+    states = "  ".join(
+        hi(f"{STATE_EMOJI.get(name, '')}[{k}] {label}", name == state)
+        for k, name, label in STATE_KEYS
+    )
     return f"State: {states}   [q] Quit\nPhase: {phase or 'All'}  (↑/↓)"
 
 

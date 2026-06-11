@@ -120,3 +120,22 @@ def test_card_shows_surface_id_to_distinguish_same_issue_workers():
     rb = "\n".join(render_card(b, width=40))
     assert "coder (623)" in ra and "tester (624)" in rb  # persona (surface)
     assert ra != rb
+
+
+def test_paginate_windows_and_clamps():
+    from atdd.coach.runtime.dashboard import paginate
+
+    lines = [str(i) for i in range(25)]
+    assert paginate(lines, 0, 10) == ([str(i) for i in range(10)], 0, 3)
+    assert paginate(lines, 1, 10) == ([str(i) for i in range(10, 20)], 1, 3)
+    w, page, pages = paginate(lines, 99, 10)  # over-shoot clamps to last page
+    assert page == 2 and w == [str(i) for i in range(20, 25)]
+
+
+def test_card_state_dot_is_colored_and_width_preserved():
+    live = WorkerCard(issue=1, title="", phase="RED", role="coder", started="01:00", state="live")
+    colored = render_card(live, width=44, color=True)
+    plain = render_card(live, width=44, color=False)
+    assert any("●" in ln for ln in plain)
+    assert any("\x1b[38;2;14;138;22m●" in ln for ln in colored)  # green dot
+    assert all(len(_visible(ln)) == 44 for ln in colored)        # box stays aligned

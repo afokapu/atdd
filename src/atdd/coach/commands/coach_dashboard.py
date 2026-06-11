@@ -362,6 +362,8 @@ def _read_key(timeout: float):
             if not more or len(seq) >= 6:
                 break
             seq += os.read(fd, 1).decode("latin-1", "ignore")
+        if seq in ("[5~", "[6~"):
+            return "PGUP" if seq == "[5~" else "PGDN"
         if seq and seq[-1] in _ARROW_FINAL:
             return _ARROW_FINAL[seq[-1]]
         return "\x1b"  # lone ESC / unhandled sequence
@@ -381,6 +383,7 @@ def _run_interactive(runtime_dir: Path, args) -> int:
         PHASE_ORDER,
         build_cards,
         filter_cards,
+        paginate,
         render_grid,
         render_menu,
     )
@@ -394,7 +397,7 @@ def _run_interactive(runtime_dir: Path, args) -> int:
     NAV_STATES = ["live", "stopped", "all"]
     fd = sys.stdin.fileno()
     saved = termios.tcgetattr(fd)
-    state, phase_idx = "live", 0
+    state, phase_idx, page, pages = "live", 0, 0, 1
     try:
         tty.setcbreak(fd)
         while True:
@@ -419,37 +422,43 @@ def _run_interactive(runtime_dir: Path, args) -> int:
                 phase = PHASE_ORDER[phase_idx - 1] if phase_idx else None
                 cards = filter_cards(all_cards, state, phase=phase)
                 color = not args.no_color
-                print(f"atdd coach dashboard · run {run_id} · {len(cards)}/{len(all_cards)} worker(s)")
-                print(render_menu(state, phase=phase, color=color))
-                hint = "←/→ state · ↑/↓ phase · l/p/o/a jump · q quit"
-                print(f"\033[2m{hint}\033[0m" if color else hint)
-                print()
-                # Clamp the grid to the rows below the (pinned) 4-line header so a
-                # huge Finished list never scrolls the menu off-screen.
                 try:
                     rows = shutil.get_terminal_size((80, 24)).lines
                 except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
                     rows = 24
-                print(render_grid(
-                    cards, _term_width(args.width), card_width=args.card_width,
-                    color=color, max_lines=max(6, rows - 6),
-                ))
+                # Render the FULL grid, then page through it (variable-height cards),
+                # so nothing below the fold is unreachable.
+                grid = render_grid(
+                    cards, _term_width(args.width), card_width=args.card_width, color=color
+                )
+                window, page, pages = paginate(grid.split("\n"), page, max(3, rows - 6))
+                print(f"atdd coach dashboard · run {run_id} · {len(cards)}/{len(all_cards)} worker(s)")
+                print(render_menu(state, phase=phase, color=color))
+                hint = f"page {page + 1}/{pages} · SPACE/PgDn next · ←/→ state · ↑/↓ phase · q quit"
+                print(f"\033[2m{hint}\033[0m" if color else hint)
+                print()
+                print("\n".join(window))
             key = _read_key(1.0)
             if key in ("q", "\x03"):
                 break
+            elif key in (" ", "PGDN"):
+                page = (page + 1) % pages
+            elif key == "PGUP":
+                page = (page - 1) % pages
             elif key == "l":
-                state = "live"
+                state, page = "live", 0
             elif key == "o":
-                state = "stopped"
+                state, page = "stopped", 0
             elif key == "a":
-                state = "all"
+                state, page = "all", 0
             elif key in ("RIGHT", "LEFT"):
                 step = 1 if key == "RIGHT" else -1
                 i = NAV_STATES.index(state) if state in NAV_STATES else (-1 if step == 1 else 0)
-                state = NAV_STATES[(i + step) % len(NAV_STATES)]
+                state, page = NAV_STATES[(i + step) % len(NAV_STATES)], 0
             elif key in ("UP", "DOWN"):
-                # Phase sub-filter cycles 0 (All) .. len(PHASE_ORDER).
+                # Phase sub-filter cycles 0 (All) .. len(PHASE_ORDER); reset to page 1.
                 phase_idx = (phase_idx + (1 if key == "UP" else -1)) % (len(PHASE_ORDER) + 1)
+                page = 0
     except KeyboardInterrupt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         pass
     finally:
