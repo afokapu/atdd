@@ -2471,3 +2471,11 @@ sessions:
   status: INIT
   created: '2026-06-12'
   archived: null
+- id: '1081'
+  slug: feed-daemon-watches-gated-decisions-answer-escalate-policy
+  file: null
+  issue_number: 1081
+  type: implementation
+  status: INIT
+  created: '2026-06-12'
+  archived: null
