@@ -33,6 +33,7 @@ from atdd.mediate_worker_decisions.feed_daemon.src.application.ports import (
 from atdd.mediate_worker_decisions.feed_daemon.src.domain.answered_set import AnsweredSet
 from atdd.mediate_worker_decisions.mediate_decision.src.domain.verdict import (
     CAUSE_DECIDE_FAILED,
+    CAUSE_RECORD_FAILED,
     Escalation,
 )
 
@@ -101,7 +102,7 @@ class FeedDaemonUseCase:
             if outcome.escalation is not None:
                 # Dangerous / human-required: record durably AND loudly surface
                 # it; NEVER auto-answer (WMBT C004 — headline safety property).
-                self._escalations.record(outcome.escalation)
+                self._safe_record_escalation(outcome.escalation, item.request_id)
                 # Covers both causes that reach here: a dangerous decision never
                 # auto-answered (WMBT C004) and a worker that stayed parked even
                 # after the send-key fallback (worker_stuck, #986) — the reply was
@@ -115,10 +116,60 @@ class FeedDaemonUseCase:
             elif outcome.verdict is not None:
                 # Auto-answered: the runner already delivered the reply; record
                 # the verdict durably for audit + restart re-hydration.
-                self._verdicts.record(outcome.verdict)
+                self._safe_record_verdict(outcome.verdict, item.request_id)
             self._answered.mark(item.request_id)
             outcomes.append(outcome)
         return outcomes
+
+    def _safe_record_verdict(self, verdict, request_id: str) -> None:
+        """Persist a verdict; a write fault escalates-and-continues (WMBT R005).
+
+        An unguarded ``record()`` raise (disk full, permission, IO) would unwind
+        the whole poll loop and kill the daemon while the loud warning never
+        fires. Instead: loud-log the failure, leave a durable escalation trace so
+        the dropped verdict is recoverable, then let the loop keep polling.
+        """
+        try:
+            self._verdicts.record(verdict)
+        except Exception:
+            self._log.warning(
+                "VERDICT LEDGER WRITE FAILED — verdict NOT persisted: "
+                "request_id=%s (escalating; daemon continues)",
+                request_id,
+                exc_info=True,
+            )
+            self._escalate_record_failure(request_id)
+
+    def _safe_record_escalation(self, escalation, request_id: str) -> None:
+        """Persist an escalation; a write fault is loud-logged, never fatal (R005)."""
+        try:
+            self._escalations.record(escalation)
+        except Exception:
+            self._log.warning(
+                "ESCALATION LEDGER WRITE FAILED — escalation NOT persisted: "
+                "request_id=%s (daemon continues)",
+                request_id,
+                exc_info=True,
+            )
+
+    def _escalate_record_failure(self, request_id: str) -> None:
+        """Best-effort durable trace for a dropped verdict write (WMBT R005)."""
+        try:
+            self._escalations.record(
+                Escalation(
+                    escalation_id=self._id(),
+                    request_id=request_id,
+                    raised_at=self._ts(),
+                    cause=CAUSE_RECORD_FAILED,
+                    safety_class=None,
+                )
+            )
+        except Exception:
+            self._log.warning(
+                "could not record a record-failure escalation: request_id=%s",
+                request_id,
+                exc_info=True,
+            )
 
     def _on_decide_failure(self, item) -> FeedOutcome:
         """Turn a raised decide failure into an observable escalation (#1007).

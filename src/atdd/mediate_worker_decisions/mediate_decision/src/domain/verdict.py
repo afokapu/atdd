@@ -33,6 +33,10 @@ CAUSE_WORKER_STUCK = "worker_stuck"
 # died in the detached, no-TTY daemon context). The daemon must escalate this to a
 # human and loud-log it rather than swallow it into zero verdicts / zero escalations.
 CAUSE_DECIDE_FAILED = "decide_failed"
+# A durable ledger write (verdict or escalation) failed mid-tick (disk full,
+# permission, IO). The daemon must escalate-and-continue rather than die on the
+# fault, so the dropped record still leaves a recoverable trace (#1084 C2/R005).
+CAUSE_RECORD_FAILED = "record_failed"
 
 
 @dataclass(frozen=True)
