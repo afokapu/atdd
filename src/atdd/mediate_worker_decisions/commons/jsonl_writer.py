@@ -14,9 +14,12 @@ pattern (``jsonl_escalation_reader``).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
+
+_LOG = logging.getLogger("atdd.mediate_worker_decisions.jsonl_writer")
 
 
 def append_jsonl(path: Path, record: dict) -> None:
@@ -41,5 +44,10 @@ def append_jsonl(path: Path, record: dict) -> None:
         try:
             os.unlink(tmp_name)
         except OSError:
-            pass
+            _LOG.warning(
+                "could not remove staged temp ledger file %s after a failed "
+                "append commit",
+                tmp_name,
+                exc_info=True,
+            )
         raise

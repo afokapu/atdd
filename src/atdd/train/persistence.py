@@ -476,7 +476,13 @@ class JsonlPersistenceStore:
             line = line.strip()
             if not line:
                 continue
-            row = json.loads(line)
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                # A truncated tail line (crash residue) costs only that one record,
+                # not the whole run's replayability (#1084 B2 — same skip-one
+                # tolerance as _read_validator_reports).
+                continue
             events.append(
                 TrainEvent(
                     schema_version=row["schema_version"],
@@ -510,7 +516,12 @@ class JsonlPersistenceStore:
             line = line.strip()
             if not line:
                 continue
-            out.append(_decision_from_dict(json.loads(line)["decision"]))
+            try:
+                out.append(_decision_from_dict(json.loads(line)["decision"]))
+            except (json.JSONDecodeError, KeyError):
+                # Skip a corrupt/truncated line rather than making every
+                # persisted decision unreadable (#1084 B2).
+                continue
         return iter(out)
 
     # --- manifest -------------------------------------------------------- #

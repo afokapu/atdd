@@ -16,11 +16,14 @@ Persona-per-transition table (spec §4.1):
 """
 from __future__ import annotations
 
+import logging
 import sys
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional
+
+_LOG = logging.getLogger("atdd.coach.handlers.spawn")
 
 from atdd.coach.handlers.state_machine import CoachContext, HandlerResult, Phase, Transition
 
@@ -291,6 +294,36 @@ def _escalate(ctx: CoachContext, reason: str) -> None:
             f"❌ ESCALATE via {ctx.escalation_channel!r}: {reason}",
             file=sys.stderr,
         )
+    # Durable sink (#1084 A0): the stderr line scrolls away, so every coach-side
+    # escalation also lands in <runtime_root>/coach/escalations.jsonl — recorded
+    # unconditionally, independent of whether a stderr channel is configured.
+    try:
+        from datetime import datetime, timezone
+        from atdd.coach.commands.durability import _append_jsonl
+
+        runtime_root = Path(ctx.runtime_dir) if ctx.runtime_dir else _RUNTIME_ROOT
+        ledger = runtime_root / "coach" / "escalations.jsonl"
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        now = (
+            datetime.now(timezone.utc)
+            .isoformat(timespec="seconds")
+            .replace("+00:00", "Z")
+        )
+        _append_jsonl(
+            ledger,
+            {
+                "escalation_id": str(uuid.uuid4()),
+                "timestamp": now,
+                "coach_run_id": ctx.coach_run_id,
+                "issue_number": ctx.issue_number,
+                "reason": reason,
+            },
+        )
+    except Exception as exc:  # pragma: no cover - durability is best-effort
+        print(
+            f"⚠ could not write durable escalation record: {exc}",
+            file=sys.stderr,
+        )
 
 
 def _spawn_observer(
@@ -369,14 +402,17 @@ def _write_cospawn_decision(
 
 def _attach_worker_daemon(
     backend: Any, surface_ref: str, *, repo_cwd: Optional[Path] = None
-) -> None:
+) -> bool:
     """Attach a workspace-scoped decision daemon to the spawned worker (#1025).
 
     The ``atdd coach <N>`` dispatch spawns a worker but otherwise never starts a
     daemon, so the worker hangs unmediated on its first decision. Resolve the
     worker's OWN workspace and reuse the idempotent ``coach_runtime`` start.
-    Best-effort: a failed attach is loud-logged (the worker still exists; the
-    warning surfaces the unmediated risk) rather than aborting the spawn.
+
+    Returns ``False`` on attach failure so the caller can BLOCK instead of
+    concluding HANDLED for an unmediated worker (#1084 A1) — a swallowed attach
+    failure was the only blocker path leaving no durable trail. Returns ``True``
+    when the attach succeeds (or is a no-op).
     """
     from atdd.mediate_worker_decisions.coach_runtime.src.presentation.attach_worker_daemon import (
         attach_worker_daemon,
@@ -389,17 +425,27 @@ def _attach_worker_daemon(
     try:
         daemon = attach_worker_daemon(backend, surface_ref, repo_cwd=repo_cwd)
     except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-01
+        # Not a silent swallow: the failure is logged here AND signalled to the
+        # caller (return False), which escalates + writes a durable BLOCKED
+        # decision + returns ERROR (#1084 A1). The handler returns a value rather
+        # than re-raising so a single unmediated worker never crashes the dispatch.
+        _LOG.warning(
+            "dispatch→daemon attach failed for %s — worker is unmediated",
+            surface_ref,
+            exc_info=True,
+        )
         print(
             f"⚠️  dispatch→daemon attach failed for {surface_ref}: {exc} — "
-            f"worker may be unmediated",
+            f"worker is unmediated",
             file=sys.stderr,
         )
-        return
+        return False
     if daemon is not None:
         print(
             f"   decision daemon attached for {surface_ref} "
             f"(daemon surface {daemon.daemon_workspace})"
         )
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -510,8 +556,28 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
         ctx.issue_surface_ref = persona_surface_ref
         # #1025: the dispatch must attach a workspace-scoped decision daemon to
         # the spawned worker — without it the worker hangs unmediated on its
-        # first decision (the autonomy blocker). Idempotent + best-effort.
-        _attach_worker_daemon(ctx.multiplexer_backend, persona_surface_ref)
+        # first decision (the autonomy blocker). Idempotent.
+        #
+        # #1084 (A1): an attach failure must NOT flow through to HANDLED for an
+        # unmediated worker — it is the only blocker path that otherwise writes
+        # neither a decision nor an escalation. On failure: escalate, write a
+        # durable BLOCKED decision naming the worker, and return ERROR.
+        if _attach_worker_daemon(ctx.multiplexer_backend, persona_surface_ref) is False:
+            reason = (
+                f"dispatch→daemon attach failed for #{ctx.issue_number} "
+                f"({persona}/{phase}) on surface {persona_surface_ref} — the "
+                f"worker is UNMEDIATED and would park forever on its first "
+                f"decision"
+            )
+            _escalate(ctx, reason)
+            try:
+                _write_blocked_decision(ctx, transition, reason, run_id, runtime_root)
+            except Exception as write_exc:
+                print(
+                    f"⚠ spawn handler: could not write BLOCKED decision: {write_exc}",
+                    file=sys.stderr,
+                )
+            return HandlerResult.ERROR
     # Issue #754: per-worker observer spawn removed. A single MultiAgentObserver
     # is started once by _execute_cold_start and watches all agent dirs under
     # .atdd/runtime/agents/*. No per-worker subprocess or :obs surface.
