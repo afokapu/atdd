@@ -112,11 +112,11 @@ def mediation_attach_gate_live_smoke() -> Dict[str, Any]:
         _is_pending_bash_permission,
         _spawn_worker_and_wait,
     )
-    from atdd.mediate_worker_decisions.verify_producer_gate.src.application.ports import (
-        AttachState,
-    )
     from atdd.mediate_worker_decisions.verify_producer_gate.src.application.verify_producer_gate import (
         evaluate_mediation,
+    )
+    from atdd.mediate_worker_decisions.verify_producer_gate.src.integration.manager_registry_attach_probe import (
+        ManagerRegistryAttachProbe,
     )
 
     # A real spawned worker publishes a genuine gated decision to the Feed.
@@ -135,21 +135,8 @@ def mediation_attach_gate_live_smoke() -> Dict[str, Any]:
 
     # A real ManagerRegistry-backed attach probe: load(workspace) is the attach signal.
     root = Path("/private/tmp") / f"vpg-attach-{uuid.uuid4().hex[:6]}"
-
-    class _RegistryAttachProbe:
-        def __init__(self, registry: ManagerRegistry) -> None:
-            self._registry = registry
-
-        def evaluate(self, ws: str) -> AttachState:
-            daemon = self._registry.load(ws)
-            if daemon is None:
-                return AttachState(attached=False, daemon_ref="", reason="no manager record")
-            return AttachState(
-                attached=True, daemon_ref=daemon.daemon_workspace, reason="manager record present"
-            )
-
     registry = ManagerRegistry(root)
-    probe = _RegistryAttachProbe(registry)
+    probe = ManagerRegistryAttachProbe(registry)
 
     # Unattached arm: no manager record for the workspace -> UNMEDIATED, not HANDLED.
     unattached = evaluate_mediation(decision, probe)
