@@ -2479,3 +2479,11 @@ sessions:
   status: INIT
   created: '2026-06-12'
   archived: null
+- id: '1082'
+  slug: coach-integration-persistent-orchestrator-loop
+  file: null
+  issue_number: 1082
+  type: implementation
+  status: INIT
+  created: '2026-06-12'
+  archived: null
