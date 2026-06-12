@@ -1,0 +1,86 @@
+urn: "wmbt:mediate-worker-decisions:K002"
+step: "conclude"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "an-attach-failed-worker-being-concluded-as-handled-and-left-unmediated-with-no-durable-blocked-record"
+context_clarifier: "in handlers/spawn.py the dispatch->daemon attach failure path writes to stderr then returns, so handle() proceeds to conclude HANDLED while the worker is spawned with no decision daemon attached — it parks forever, unmediated, and this is the only blocker path that writes neither decisions.jsonl nor escalations.jsonl; on attach failure the handler must write a durable BLOCKED decision plus an escalation and must NOT conclude the outcome as HANDLED for an unmediated worker"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of an attach failed worker being concluded as HANDLED and left unmediated with no durable BLOCKED record"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:K002-UNIT-001-attach-failure-writes-durable-blocked-not-handled"
+      id: "AC-UNIT-001"
+      purpose: "When daemon attach raises, the handler records a durable BLOCKED decision and an escalation rather than returning a HANDLED outcome"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A spawn context whose attach_worker_daemon is forced to raise"
+        - "A recording decision ledger and escalation sink"
+    when:
+      abstract: "The dispatch attach step runs for the spawned worker"
+      action: "invoke"
+    then:
+      abstract:
+        - "A BLOCKED decision is written to the durable decision ledger"
+        - "An escalation is recorded; the outcome is not concluded as HANDLED"
+      assertions:
+        - type: "exists"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
+  - identity:
+      urn: "acc:mediate-worker-decisions:K002-UNIT-002-attach-failure-leaves-an-audit-trail"
+      id: "AC-UNIT-002"
+      purpose: "The attach-failure path leaves a non-empty durable trail (decision + escalation) identifying the unmediated worker and the cause"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A spawn context whose attach_worker_daemon raises with a known cause"
+    when:
+      abstract: "The attach step runs and the failure is handled"
+      action: "invoke"
+    then:
+      abstract:
+        - "The written BLOCKED record names the worker/surface and the attach-failure cause"
+        - "Neither the decision ledger nor the escalation sink is left empty for this worker"
+      assertions:
+        - type: "exists"
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
+  - identity:
+      urn: "acc:mediate-worker-decisions:K002-SMOKE-001-live-attach-failure-surfaces-blocked"
+      id: "AC-SMOKE-001"
+      purpose: "A real dispatch whose daemon attach fails leaves a durable BLOCKED record and escalation on disk for the unmediated worker"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real spawn dispatch where the worker daemon attach is induced to fail"
+    when:
+      abstract: "The dispatch completes its attach step"
+      action: "invoke"
+    then:
+      abstract:
+        - "A durable BLOCKED decision and an escalation record exist on disk for that worker"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "an operator reading the escalation/decision ledgers sees the unmediated worker flagged for review"
+      drift_resolved: "the dispatch is not reported as HANDLED for a worker that has no decision daemon"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"

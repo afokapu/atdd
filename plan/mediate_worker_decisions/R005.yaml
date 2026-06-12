@@ -1,0 +1,87 @@
+urn: "wmbt:mediate-worker-decisions:R005"
+step: "resolve"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-ledger-record-write-failure-killing-the-daemon-instead-of-escalating-and-continuing-the-poll-loop"
+context_clarifier: "in feed_daemon.tick the escalations.record / verdicts.record calls are unguarded and the answered-set mark() runs only after them, so if record() raises (disk full, permission, IO) the exception unwinds the whole loop — the daemon dies, the item is never marked answered, and the loud escalation warning never fires; record() must be wrapped so a write failure is escalated-and-logged and the loop keeps polling rather than the single fault taking the daemon down (the decide path is already guarded by _on_decide_failure — this closes the record path symmetrically)"
+lens: "functional.availability"
+statement: "minimize likelihood of a ledger record write failure killing the daemon instead of escalating and continuing the poll loop"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:R005-UNIT-001-record-failure-keeps-daemon-ticking"
+      id: "AC-UNIT-001"
+      purpose: "A verdict ledger whose record() raises on one item does not abort the tick: the failure is surfaced and the loop proceeds to the next item"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A feed source with two safe blocked items"
+        - "A verdict ledger whose record() raises on the first item and succeeds on the second"
+    when:
+      abstract: "The daemon runs a single tick"
+      action: "invoke"
+    then:
+      abstract:
+        - "The tick returns normally rather than propagating the record() exception"
+        - "The second item is still processed (the loop was not unwound by the first failure)"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
+  - identity:
+      urn: "acc:mediate-worker-decisions:R005-UNIT-002-record-failure-escalates-and-logs"
+      id: "AC-UNIT-002"
+      purpose: "A record() write failure produces a loud warning and a durable escalation, not a silent swallow"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A feed source with one safe blocked item"
+        - "A verdict ledger whose record() raises and a recording escalation sink plus a capturing logger"
+    when:
+      abstract: "The daemon runs a single tick over the item"
+      action: "invoke"
+    then:
+      abstract:
+        - "A warning is logged identifying the failed record write"
+        - "An escalation is recorded so the dropped verdict leaves a durable trace"
+      assertions:
+        - type: "exists"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
+  - identity:
+      urn: "acc:mediate-worker-decisions:R005-SMOKE-001-live-daemon-survives-record-fault"
+      id: "AC-SMOKE-001"
+      purpose: "A running daemon whose verdict ledger path is made unwritable keeps polling and stays alive instead of crashing"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A live daemon process polling the feed with its verdict ledger path forced read-only"
+    when:
+      abstract: "A blocked item is answered and the verdict write fails"
+      action: "invoke"
+    then:
+      abstract:
+        - "The daemon process remains alive and continues to the next poll tick"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the daemon emits the escalation/warning for the failed write and proceeds rather than exiting"
+      drift_resolved: "a follow-up feed.list shows the loop still running, not a dead daemon"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"

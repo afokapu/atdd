@@ -1,0 +1,85 @@
+urn: "wmbt:mediate-worker-decisions:R004"
+step: "resolve"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-single-truncated-jsonl-line-making-an-entire-run-unreplayable-instead-of-being-skipped"
+context_clarifier: "train.persistence replay_events and _read_decisions call json.loads on every line unguarded, so one truncated tail line (the exact corruption E015 prevents on write but a crash can still leave from a legacy or external writer) raises and makes the whole run unreplayable; _read_validator_reports already guards each line with try/except json.JSONDecodeError and skips it — replay_events and _read_decisions must adopt the same skip-one tolerance so a corrupt last line costs that one record, not the run"
+lens: "functional.sustainability"
+statement: "minimize likelihood of a single truncated jsonl line making an entire run unreplayable instead of being skipped"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:R004-UNIT-001-replay-skips-one-corrupt-line"
+      id: "AC-UNIT-001"
+      purpose: "replay_events over an events.jsonl whose final line is truncated yields every well-formed event and raises no error"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An events.jsonl with N valid event lines followed by one truncated half-line"
+    when:
+      abstract: "replay_events is iterated to exhaustion"
+      action: "invoke"
+    then:
+      abstract:
+        - "All N valid events are returned in seq order"
+        - "No JSONDecodeError propagates to the caller"
+      assertions:
+        - type: "count"
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
+  - identity:
+      urn: "acc:mediate-worker-decisions:R004-UNIT-002-read-decisions-skips-one-corrupt-line"
+      id: "AC-UNIT-002"
+      purpose: "_read_decisions over a decisions.jsonl with a corrupt final line yields every well-formed decision and raises no error"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A decisions.jsonl with M valid decision lines followed by one corrupt line"
+    when:
+      abstract: "_read_decisions is iterated to exhaustion"
+      action: "invoke"
+    then:
+      abstract:
+        - "All M valid decisions are returned"
+        - "No JSONDecodeError propagates to the caller"
+      assertions:
+        - type: "count"
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
+  - identity:
+      urn: "acc:mediate-worker-decisions:R004-SMOKE-001-real-run-replays-past-corrupt-tail"
+      id: "AC-SMOKE-001"
+      purpose: "A real persisted run whose events.jsonl has a corrupt trailing line still replays to a recovered state"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real run directory under .atdd/runtime/runs whose events.jsonl tail line is truncated"
+    when:
+      abstract: "The run is replayed from its persisted events"
+      action: "invoke"
+    then:
+      abstract:
+        - "Replay completes and recovers every intact event without aborting the run"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the replay consumer reconstructs run state from the surviving events rather than crashing"
+      drift_resolved: "a corrupt tail line costs exactly one record, and the run is no longer unrecoverable"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"

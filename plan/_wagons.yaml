@@ -1290,7 +1290,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 45
+    total: 50
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
@@ -1376,6 +1376,16 @@ wagons:
       delivered true no op instead of loudly rejected before any cmux reply
     L008: maximize likelihood of surfacing every unanswered escalation from the daemons
       escalations ledger in atdd coach status
+    E015: minimize likelihood of a committed ledger record being lost or half-written
+      when a crash interrupts the jsonl append
+    R004: minimize likelihood of a single truncated jsonl line making an entire run
+      unreplayable instead of being skipped
+    R005: minimize likelihood of a ledger record write failure killing the daemon
+      instead of escalating and continuing the poll loop
+    K002: minimize likelihood of an attach-failed worker being concluded as HANDLED
+      and left unmediated with no durable BLOCKED record
+    K003: minimize likelihood of a coach-side escalation leaving no durable record
+      because it only writes to stderr
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/

@@ -1,0 +1,23 @@
+urn: "feature:mediate-worker-decisions:feed-daemon-durability"
+wagon: "wagon:mediate-worker-decisions"
+description: "Durability and survival hardening for the decision-ledger subsystem behind the feed daemon. The decision loop runs on a substrate that today can silently drop a blocker (attach-failure returns HANDLED), lose the last escalation on a crash (no fsync/atomic append), become unreplayable from a single truncated line, kill the daemon on a single record() fault, and leave coach-side escalations with no durable sink. This feature makes committed records crash-safe (temp+os.replace / flush+fsync), makes replay tolerate a corrupt tail line (skip-one), keeps the daemon alive through a record() failure (escalate-and-continue), forces the attach-failure path to write a durable BLOCKED+escalation instead of concluding HANDLED, and gives coach-side _escalate a durable on-disk record. Scope is the decision ledger only — the toolUse activity stream and pre-authorized Read/Edit/Write are out of scope by design."
+sizing:
+  wmbts: 5
+  footprint_score: 9
+  footprint_size: "M"
+wmbts:
+  - "wmbt:mediate-worker-decisions:E015"
+  - "wmbt:mediate-worker-decisions:R004"
+  - "wmbt:mediate-worker-decisions:R005"
+  - "wmbt:mediate-worker-decisions:K002"
+  - "wmbt:mediate-worker-decisions:K003"
+components:
+  backend:
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "feed_daemon.tick: wrap escalations.record / verdicts.record so a write failure escalates-and-logs and the poll loop continues instead of unwinding the daemon (R005)"
+    integration:
+      - type: "clients"
+        count: 3
+        rationale: "commons.append_jsonl crash-safe durable write — temp+os.replace or flush+fsync mirroring FileCursorStore (E015, B1); train.persistence replay_events + _read_decisions guarded line-by-line skip-one like _read_validator_reports (R004, B2); coach.handlers.spawn attach-failure + _escalate paths write durable BLOCKED/escalation records via the shared append path (K002 A1, K003 A0)"

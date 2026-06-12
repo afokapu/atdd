@@ -1,0 +1,83 @@
+urn: "wmbt:mediate-worker-decisions:K003"
+step: "conclude"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-coach-side-escalation-leaving-no-durable-record-because-it-only-writes-to-stderr"
+context_clarifier: "handlers/spawn.py::_escalate only prints to stderr when escalation_channel is set, while escalations.jsonl is written by the daemon alone — so a coach-side escalation has no durable sink and is lost the moment stderr scrolls away; _escalate must additionally write a durable escalation record (via the same append path the daemon uses) so every coach-raised escalation concludes with an auditable on-disk trace, not just a transient print"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a coach side escalation leaving no durable record because it only writes to stderr"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:K003-UNIT-001-escalate-writes-durable-record"
+      id: "AC-UNIT-001"
+      purpose: "_escalate writes a durable escalation record carrying the reason, not only a stderr print"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A coach context with a durable escalation sink configured and a reason string"
+    when:
+      abstract: "_escalate is invoked with the reason"
+      action: "invoke"
+    then:
+      abstract:
+        - "Exactly one escalation record is appended to the durable sink"
+        - "The recorded escalation carries the supplied reason"
+      assertions:
+        - type: "count"
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
+  - identity:
+      urn: "acc:mediate-worker-decisions:K003-UNIT-002-durable-write-independent-of-stderr-channel"
+      id: "AC-UNIT-002"
+      purpose: "The durable escalation is written regardless of whether the legacy stderr escalation_channel is set"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A coach context with a durable escalation sink but no stderr escalation_channel"
+    when:
+      abstract: "_escalate is invoked with a reason"
+      action: "invoke"
+    then:
+      abstract:
+        - "A durable escalation record is still written even though no stderr channel is configured"
+      assertions:
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
+  - identity:
+      urn: "acc:mediate-worker-decisions:K003-SMOKE-001-live-coach-escalation-persists"
+      id: "AC-SMOKE-001"
+      purpose: "A coach-side escalation raised in a real run leaves an auditable escalation record on disk"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real coach run that triggers a coach-side _escalate"
+    when:
+      abstract: "The escalation is raised during the run"
+      action: "invoke"
+    then:
+      abstract:
+        - "A durable escalation record for that reason is present on disk after the run"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "an operator reviewing the escalation ledger finds the coach-raised escalation after stderr has scrolled away"
+      drift_resolved: "the escalation is recoverable from disk, no longer dependent on a live stderr stream"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"

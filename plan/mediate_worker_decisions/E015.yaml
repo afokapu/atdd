@@ -1,0 +1,86 @@
+urn: "wmbt:mediate-worker-decisions:E015"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-committed-ledger-record-being-lost-or-half-written-when-a-crash-interrupts-the-jsonl-append"
+context_clarifier: "commons.append_jsonl backs escalations.jsonl and verdicts.jsonl; today it opens in append mode and writes a line with no flush/fsync/atomic boundary, so a crash mid-write can lose the just-committed record or leave a truncated half-line; the durable-write path (temp+os.replace or flush+fsync, mirroring FileCursorStore) must guarantee a returned append is either fully on disk or absent — never a partial line"
+lens: "functional.sustainability"
+statement: "minimize likelihood of a committed ledger record being lost or half written when a crash interrupts the jsonl append"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:E015-UNIT-001-append-returns-only-after-record-is-durable"
+      id: "AC-UNIT-001"
+      purpose: "A successful append_jsonl leaves a complete, parseable JSON line on disk — never a truncated fragment — before it returns"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An empty ledger path and a record dict"
+    when:
+      abstract: "append_jsonl is called and returns normally"
+      action: "invoke"
+    then:
+      abstract:
+        - "The file ends with a single newline-terminated line that round-trips through json.loads back to the record"
+        - "No trailing partial (non-newline-terminated) bytes remain on disk"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E015-UNIT-002-crash-after-append-keeps-prior-records-whole"
+      id: "AC-UNIT-002"
+      purpose: "If the process is interrupted such that the in-flight write never lands, every previously committed record remains intact and parseable"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A ledger with N already-committed records"
+        - "A write whose underlying file operation is forced to fail mid-flight"
+    when:
+      abstract: "A subsequent append is attempted and fails"
+      action: "invoke"
+    then:
+      abstract:
+        - "All N prior records are still present and individually json.loads-parseable"
+        - "The ledger contains no truncated half-line"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
+  - identity:
+      urn: "acc:mediate-worker-decisions:E015-SMOKE-001-real-fsync-survives-process-kill"
+      id: "AC-SMOKE-001"
+      purpose: "A record appended by a real subprocess that is hard-killed immediately after the append returns is still fully present on disk"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real subprocess that appends one record via append_jsonl and then is killed with SIGKILL"
+    when:
+      abstract: "The parent reads the ledger back after the child is killed"
+      action: "invoke"
+    then:
+      abstract:
+        - "The committed record is present and parses cleanly with no truncation"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "a fresh reader of the ledger file recovers the record the killed child had committed"
+      drift_resolved: "the ledger contains exactly one whole line, never a half-written fragment"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "feed-daemon-durability"
