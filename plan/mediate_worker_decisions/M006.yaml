@@ -1,0 +1,119 @@
+urn: "wmbt:mediate-worker-decisions:M006"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-daemon-attach-failure-recording-a-workers-gated-decision-as-handled-so-an-unmediated-worker-is-indistinguishable-from-a-mediated-one"
+context_clarifier: >-
+  From S4-pre's trace (#1084 / A1): a daemon-attach failure currently records
+  HANDLED for an unmediated worker — the producer fired and the decision was
+  published, but no daemon was actually watching that worker's workspace, so the
+  decision was marked HANDLED while the worker stayed parked. A published
+  permissionRequest is NOT proof of mediation; mediation requires a daemon
+  attached to the worker's workspace. The S0 gate must therefore assert ACTUAL
+  mediation (daemon attached to the worker's workspace) before treating a gated
+  decision as HANDLED: if the attach probe reports no live daemon scoped to the
+  worker's workspace, the decision must be recorded as unmediated/UNHANDLED
+  (loud), never silently HANDLED. This is the false-success guard at the gate
+  boundary — the actual record-HANDLED-only-when-mediated FIX in the daemon path
+  belongs to S4-pre #1084; C010 confirms the producer fires, M006 confirms a
+  firing producer alone is not miscounted as mediation. Danger classification and
+  the reply delivery stay in the daemon (not duplicated here).
+lens: "functional.availability"
+statement: >-
+  minimize likelihood of a daemon attach failure recording a workers gated
+  decision as handled so an unmediated worker is indistinguishable from a mediated
+  one
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:M006-UNIT-001-attach-failure-not-recorded-handled"
+      id: "AC-UNIT-001"
+      purpose: >-
+        Given a worker whose gated decision is published to the feed but whose
+        workspace has NO live attached daemon (attach probe reports not-attached),
+        the gate records the decision as unmediated/UNHANDLED and loud-logs the
+        missing-mediation precondition — it does NOT record HANDLED for the
+        unmediated worker
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A published gated decision for a worker whose workspace has no live attached daemon"
+        - "A daemon-attach probe reporting not-attached for that workspace, and a captured logger"
+    when:
+      abstract: "The gate evaluates whether the worker's published decision was mediated"
+      action: "invoke"
+    then:
+      abstract:
+        - "The decision is recorded as unmediated/UNHANDLED, not HANDLED"
+        - "A WARNING-or-higher record naming the missing-mediation (no attached daemon) precondition is emitted"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "verify-producer-gate"
+  - identity:
+      urn: "acc:mediate-worker-decisions:M006-UNIT-002-handled-requires-confirmed-attach"
+      id: "AC-UNIT-002"
+      purpose: >-
+        The gate records a published gated decision as HANDLED only when the
+        attach probe confirms a live daemon scoped to the worker's workspace —
+        mediation status is derived from the confirmed attach, never assumed from
+        the mere presence of a published feed item
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A published gated decision for a worker and an attach probe reporting a live daemon scoped to that worker's workspace"
+    when:
+      abstract: "The gate evaluates whether the worker's published decision was mediated"
+      action: "invoke"
+    then:
+      abstract:
+        - "The decision is recorded HANDLED, attributed to the confirmed attached daemon"
+        - "Mediation status is derived from the attach probe result, not from feed-item presence alone"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "verify-producer-gate"
+  - identity:
+      urn: "acc:mediate-worker-decisions:M006-SMOKE-001-live-gate-asserts-daemon-attached-before-handled"
+      id: "AC-SMOKE-001"
+      purpose: >-
+        Against a real spawned worker that publishes a gated decision, the S0 gate
+        confirms a live daemon is attached to the worker's workspace before
+        treating the decision as HANDLED — and when no daemon is attached, the
+        same gate flags the worker unmediated instead of silently HANDLED (the
+        #1084/A1 false-success the gate must catch)
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A worker spawned via the production dispatch path under a live cmux + Claude install that publishes a gated permissionRequest to the feed"
+    when:
+      abstract: "The S0 gate runs once with a daemon attached to the worker's workspace and once with no daemon attached"
+      action: "invoke"
+    then:
+      abstract:
+        - "With a daemon attached, the gate confirms the live attach and records the decision HANDLED"
+        - "With no daemon attached, the gate flags the worker unmediated/UNHANDLED rather than recording HANDLED"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the gate reads the live daemon-attach state for the worker's workspace and gates the HANDLED record on a confirmed attach"
+      drift_resolved: "a published decision on an unmediated worker is no longer miscounted as HANDLED — mediation requires a real attached daemon"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "verify-producer-gate"

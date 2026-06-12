@@ -1,0 +1,95 @@
+urn: "wmbt:mediate-worker-decisions:C010"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-runtime-not-honoring-the-post-1062-scoped-allow-list-so-a-safe-pre-authorized-command-needlessly-surfaces-or-a-gated-command-auto-runs-without-surfacing"
+context_clarifier: >-
+  Post-#1062 re-baseline: safe Bash is pre-authorized via the scoped allow-list
+  (`session.convention.yaml::spawn_time.freedom_layer` -> comma-delimited
+  `--allowedTools`), so those commands auto-run and NEVER fire a PermissionRequest;
+  only the gated set (forbidden/destructive Bash, AskUserQuestion, ExitPlanMode)
+  parks and publishes a `permissionRequest` item the daemon mediates. #1062's
+  E031/E032 cover the EMIT side (the rendered flags carry the scoped list);
+  C010 is the runtime-honor complement and the C006 RENDER-side sibling: it
+  confirms Claude Code actually obeys the comma-delimited scoped list at launch.
+  The empirical anchor (live `cmux rpc feed.list`, 2026-06-12) sampled 141
+  published decisions, but ALL from PRE-#1062 coaches where every Bash (incl.
+  `pytest`) still fired — so the post-#1062 partition is unproven live. The gate
+  derives its expectation partition FROM the freedom_layer allow-list (it does not
+  hardcode a second copy): a freedom-layer command (e.g. `pytest --version`) is
+  expected to auto-run with NO feed item, and a gated command (e.g.
+  `git push --dry-run`) is expected to publish a `permissionRequest`. Danger
+  classification stays in the daemon (tool_input_safety); this only confirms the
+  surface/auto-allow boundary is honored at runtime.
+lens: "functional.effectiveness"
+statement: >-
+  minimize likelihood of the runtime not honoring the post 1062 scoped allow list
+  so a safe pre authorized command needlessly surfaces or a gated command auto runs
+  without surfacing
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:C010-UNIT-001-expectation-partition-derived-from-freedom-layer"
+      id: "AC-UNIT-001"
+      purpose: >-
+        The gate's surfacing-expectation classifier is derived from the
+        `session.convention.yaml::spawn_time.freedom_layer` allow-list (not a
+        hardcoded second copy): a command whose tool is in the freedom-layer
+        auto-allow set is classified expected-auto-run (no feed item), and a
+        command whose tool is in the gated set (forbidden/destructive Bash,
+        AskUserQuestion, ExitPlanMode) is classified expected-surfaced
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The loaded freedom_layer scoped allow-list from session.convention.yaml"
+        - "A safe sample command (pytest --version) and a gated sample command (git push --dry-run)"
+    when:
+      abstract: "The surfacing-expectation classifier is asked whether each command should surface to the feed"
+      action: "invoke"
+    then:
+      abstract:
+        - "The safe command is classified expected-auto-run with no feed item"
+        - "The gated command is classified expected-surfaced as a permissionRequest"
+        - "The classifier reads its partition from the freedom_layer allow-list, not a hardcoded literal"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "verify-producer-gate"
+  - identity:
+      urn: "acc:mediate-worker-decisions:C010-SMOKE-001-post-1062-scoping-honored-live"
+      id: "AC-SMOKE-001"
+      purpose: >-
+        The headline live confirmation the anchor left open: on a post-#1062
+        (3.115.x) coach, a worker spawned the production way runs a freedom-layer
+        command and a gated command — the safe command auto-runs with NO feed item
+        and the gated command publishes a `permissionRequest` to the feed — proving
+        Claude Code honors the comma-delimited scoped allow-list at runtime
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A worker spawned via the production dispatch path under a live cmux + Claude install on a post-#1062 (3.115.x) coach, with the DecisionSurfacingPolicy / freedom_layer values applied to its DispatchSpec"
+    when:
+      abstract: "The worker runs a freedom-layer safe command (pytest --version) and then a gated command (git push --dry-run)"
+      action: "invoke"
+    then:
+      abstract:
+        - "cmux rpc feed.list shows NO pending item for the safe command (it auto-ran)"
+        - "cmux rpc feed.list shows a pending permissionRequest item for the gated command with the full payload (request_id, tool_name, tool_input)"
+      assertions:
+        - type: "absence"
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the gated command's permissionRequest is visible to a workspace-scoped feed poll so the daemon can mediate it, while the safe command never reached the feed"
+      drift_resolved: "the post-#1062 scoped allow-list is proven honored at runtime — safe commands auto-run, only the gated set surfaces for mediation"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "verify-producer-gate"

@@ -1,0 +1,34 @@
+urn: "feature:mediate-worker-decisions:verify-producer-gate"
+wagon: "wagon:mediate-worker-decisions"
+description: "The S0 gate (#1076) of the post-#1062 two-way decision channel cascade: prove the gated-decision PRODUCER actually fires the way the re-baselined premise requires, so every downstream node (S1 payload, S2 reply, daemon watcher) builds on a verified foundation. The producer half (surface-worker-decisions: E008/E013/C006/Y002/L004) renders launch flags that keep action-class decisions un-allowed; this feature is the runtime-and-mediation VERIFICATION layer on top of it. It contributes a tiny gate surface, not new mediation behavior: (1) a surfacing-expectation classifier (C010) derived from session.convention.yaml::spawn_time.freedom_layer that partitions commands into expected-auto-run (safe, no feed item) vs expected-surfaced (gated permissionRequest), confirming Claude Code honors the comma-delimited scoped allow-list at runtime — the live complement to #1062's E031/E032 emit-side and the C006 render-side; and (2) a mediation-attach guard (M006) that derives a published decision's HANDLED status from a confirmed live daemon attached to the worker's workspace, so a daemon-attach failure flags the worker unmediated instead of silently recording HANDLED (the #1084/A1 false-success). Danger classification stays in the daemon (tool_input_safety); the producer-side render stays in surface-worker-decisions; this feature only verifies the producer fires correctly and a firing producer is not miscounted as mediation."
+sizing:
+  wmbts: 2
+  footprint_score: 4
+  footprint_size: "S"
+wmbts:
+  - "wmbt:mediate-worker-decisions:C010"
+  - "wmbt:mediate-worker-decisions:M006"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — the gate runs as a verification harness over the existing spawn + feed.list + daemon-attach state; no new operator command"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "verify_producer_gate: given a spawned worker, partition its commands into expected-auto-run vs expected-surfaced and assert the live feed matches, then derive the decision's mediation status from a confirmed daemon attach — the single decision point the S0 gate evaluates"
+      - type: "ports"
+        count: 1
+        rationale: "DaemonAttachProbe protocol: report whether a live daemon is attached/scoped to a given worker's workspace, so HANDLED is gated on a confirmed attach rather than feed-item presence"
+    domain:
+      - type: "services"
+        count: 1
+        rationale: "surfacing_expectation (pure): freedom_layer allow-list -> per-command expected-auto-run | expected-surfaced partition, derived from session.convention.yaml not a hardcoded copy (the C010 classifier)"
+      - type: "value_objects"
+        count: 1
+        rationale: "MediationStatus (HANDLED requires confirmed attach | UNMEDIATED otherwise) plus the SurfacingExpectation record (command -> auto-run | surfaced); encodes that a published feed item alone is not mediation"
+    integration:
+      - type: "clients"
+        count: 1
+        rationale: "daemon_attach_reader: read the live managed-daemon registry / cmux workspace state to answer DaemonAttachProbe for a worker's workspace"
