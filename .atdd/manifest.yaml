@@ -2463,3 +2463,11 @@ sessions:
   status: INIT
   created: '2026-06-12'
   archived: null
+- id: '1080'
+  slug: decision-reply-selects-and-submits-not-just-highlight
+  file: null
+  issue_number: 1080
+  type: implementation
+  status: INIT
+  created: '2026-06-12'
+  archived: null
