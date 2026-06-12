@@ -10,7 +10,28 @@ never pastes into a non-live surface.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Protocol, runtime_checkable
+
+
+@runtime_checkable
+class SurfaceRegistry(Protocol):
+    """The integration port the single-live-surface guard drives.
+
+    The concrete adapter binds these to a real multiplexer (cmux) surface
+    lifecycle. Making the port explicit documents exactly what the deferred
+    C002-SMOKE live adapter must implement (docs/smoke-audit.md, #1079); the
+    use-case below stays pure and backend-neutral.
+    """
+
+    def live_surfaces_for(self, issue_number: int) -> list[str]: ...
+
+    def is_live(self, ref: str) -> bool: ...
+
+    def create_surface(self, issue_number: int) -> str: ...
+
+    def reap_surface(self, ref: str) -> None: ...
+
+    def paste(self, ref: str, prompt: str) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -23,7 +44,7 @@ class PasteOutcome:
     duplicate_detected: bool
 
 
-def guarded_paste(issue_number: int, prompt: str, registry) -> PasteOutcome:
+def guarded_paste(issue_number: int, prompt: str, registry: SurfaceRegistry) -> PasteOutcome:
     """Resolve the single live surface for ``issue_number`` and paste into it.
 
     ``registry`` exposes ``live_surfaces_for``/``is_live``/``create_surface``/

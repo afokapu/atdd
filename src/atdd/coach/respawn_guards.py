@@ -11,9 +11,30 @@ rather than stacking a second live agent on the issue.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Protocol, runtime_checkable
 
 from atdd.runtime.agent_control import AgentHandle, AgentSignal, DispatchSpec
+
+
+@runtime_checkable
+class WorkerLifecycleController(Protocol):
+    """The integration port the respawn use-case drives (a kill-and-confirm-capable
+    ``AgentController``).
+
+    This is the explicit seam SMOKE flagged: ``respawn_worker`` needs a controller
+    that can confirm liveness (``is_alive``) on top of the base
+    ``atdd.runtime.agent_control.AgentController`` surface. The real controllers do
+    not expose ``is_alive`` yet — wiring that in is what turns the deferred
+    E031-SMOKE into a live one (docs/smoke-audit.md, #1079).
+    """
+
+    def signal(self, handle: AgentHandle, sig: AgentSignal) -> None: ...
+
+    def stop(self, handle: AgentHandle, *, reason: str) -> None: ...
+
+    def is_alive(self, handle: AgentHandle) -> bool: ...
+
+    def spawn(self, spec: DispatchSpec) -> AgentHandle: ...
 
 
 @dataclass(frozen=True)
@@ -28,7 +49,7 @@ class RespawnOutcome:
 
 
 def respawn_worker(
-    controller,
+    controller: WorkerLifecycleController,
     old_handle: AgentHandle,
     new_spec: DispatchSpec,
     *,
