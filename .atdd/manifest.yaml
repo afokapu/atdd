@@ -2455,3 +2455,11 @@ sessions:
   status: INIT
   created: '2026-06-12'
   archived: null
+- id: '1079'
+  slug: coach-spawn-respawn-reliability-primitives
+  file: null
+  issue_number: 1079
+  type: implementation
+  status: INIT
+  created: '2026-06-12'
+  archived: null
