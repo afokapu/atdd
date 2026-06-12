@@ -32,11 +32,19 @@ def classify_command(
 ) -> SurfacingExpectation:
     """Classify ``command`` against the freedom-layer scoped Bash allow-list.
 
-    A command matching one of ``bash_allow`` (e.g. ``"pytest:*"``) is
+    A command matching one of ``bash_allow`` (e.g. ``"pytest:*"`` — a prefix wildcard
+    mirroring Claude Code's ``Bash(pytest:*)`` scoped-allow syntax) is
     expected-auto-run (``surfaces=False``); otherwise it is expected-surfaced as a
-    ``permissionRequest`` (``surfaces=True``). GREEN implements the match.
+    ``permissionRequest`` (``surfaces=True``). The partition is derived from
+    ``bash_allow`` — no command is hardcoded.
     """
-    raise NotImplementedError(
-        "RED #1076 (C010): GREEN derives the surfacing partition from the "
-        "freedom-layer scoped Bash allow-list"
+    cmd = command.strip()
+    for pattern in bash_allow:
+        prefix = pattern[:-2].strip() if pattern.endswith(":*") else pattern.strip()
+        if prefix and (cmd == prefix or cmd.startswith(prefix + " ")):
+            return SurfacingExpectation(
+                command=command, surfaces=False, kind=KIND_AUTO_RUN
+            )
+    return SurfacingExpectation(
+        command=command, surfaces=True, kind=KIND_PERMISSION_REQUEST
     )

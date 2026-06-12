@@ -17,6 +17,8 @@ from atdd.mediate_worker_decisions.verify_producer_gate.src.application.ports im
     DaemonAttachProbe,
 )
 from atdd.mediate_worker_decisions.verify_producer_gate.src.domain.mediation_status import (
+    CAUSE_MEDIATED,
+    CAUSE_NO_ATTACHED_DAEMON,
     MediationStatus,
 )
 
@@ -30,9 +32,24 @@ def evaluate_mediation(
 
     ``decision`` is a published gated-decision record carrying at least a
     ``workspace_id``. The HANDLED verdict is gated on ``probe`` confirming a live
-    attached daemon for that workspace. GREEN implements the gate.
+    attached daemon for that workspace: when no daemon is attached, the decision is
+    UNMEDIATED (loud-logged), never a silent HANDLED for an unmediated worker.
     """
-    raise NotImplementedError(
-        "RED #1076 (M006): GREEN gates HANDLED on a confirmed daemon attach and "
-        "loud-logs an attach failure instead of recording HANDLED"
+    workspace = decision["workspace_id"]
+    state = probe.evaluate(workspace)
+    if not state.attached:
+        _log.warning(
+            "no live daemon attached to workspace; published decision is UNMEDIATED, "
+            "not HANDLED",
+            extra={
+                "workspace_id": workspace,
+                "request_id": decision.get("request_id"),
+                "attach_reason": state.reason,
+            },
+        )
+        return MediationStatus(
+            handled=False, cause=CAUSE_NO_ATTACHED_DAEMON, daemon_ref=None
+        )
+    return MediationStatus(
+        handled=True, cause=CAUSE_MEDIATED, daemon_ref=state.daemon_ref
     )
