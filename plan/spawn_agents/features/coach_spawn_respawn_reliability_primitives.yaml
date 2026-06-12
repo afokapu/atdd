@@ -1,0 +1,35 @@
+urn: "feature:spawn-agents:coach-spawn-respawn-reliability-primitives"
+wagon: "wagon:spawn-agents"
+description: "S5-pre spawn/respawn reliability primitives the #1082 persistent orchestrator loop depends on (issue #1079, child of #1075, blocks #1082). Re-baselined post-#1062: the failure modes are not about Bash mediation but about respawn lifecycle reliability observed live driving #1055/#1057/#1062/#1066, where the coach hung at a warm-resume, re-spawned duplicate planners, left ghost agents alive across a phase transition, pasted a prompt into a stale surface, and sometimes failed to advance the label after `agent done`. This feature ships four primitives that turn each forced failure scenario into a safe outcome: kill-old-agent-before-respawn (E031 — terminate and confirm the prior worker dead before relaunch, never a ghost), idempotent-label-advance (E032 — read current phase, no-op when already at target, refuse on unexpected, never double-apply), one-live-surface-per-issue (C002 — confirm exactly one live surface bound to the issue before pasting, never into a stale/duplicate ref), and hang/timeout detection on warm-resume (M003 — a bounded watchdog that aborts, records a structured escalation, and returns a timed-out result instead of blocking unbounded). The primitives hook into the existing coach phase-transition path (src/atdd/coach/handlers/spawn.py, src/atdd/coach/commands/coach.py: _cold_start_proposed_transition / _swap_phase_label), the warm-resume branch (src/atdd/train/issue_runner.py), the agent_control abstraction (src/atdd/runtime/agent_control/__init__.py: signal/stop/liveness), and the cmux surface lifecycle — no new CLI entry point."
+sizing:
+  wmbts: 4
+  footprint_score: 30
+  footprint_size: "M"
+wmbts:
+  - "wmbt:spawn-agents:E031"
+  - "wmbt:spawn-agents:E032"
+  - "wmbt:spawn-agents:C002"
+  - "wmbt:spawn-agents:M003"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new runtime entry point — the four reliability primitives hook into the existing coach phase-transition path (src/atdd/coach/handlers/spawn.py, src/atdd/coach/commands/coach.py) and the warm-resume branch (src/atdd/train/issue_runner.py) rather than adding a new CLI command"
+    application:
+      - type: "use_cases"
+        count: 4
+        rationale: "Four discrete coach-application use cases, one per primitive: (1) kill-and-confirm the prior worker before respawn (E031), (2) idempotent phase-label advance with current-phase read + no-op/refuse branches (E032), (3) confirm-single-live-surface-before-paste with create/reap/refuse branches (C002), and (4) the bounded warm-resume watchdog that aborts and escalates on timeout (M003)"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "Two new result value objects capturing the safe outcomes the orchestrator branches on: a phase-advance outcome (advanced | noop-already-at-target | refused-unexpected-phase, with the observed-vs-expected phase) shared by E032, and a warm-resume outcome (completed | timed-out, with issue + transition + elapsed) for M003; surface ref, agent handle, and phase shapes are imported from already-shipped multiplexer / agent_control / coach modules"
+    integration:
+      - type: "adapters"
+        count: 0
+        rationale: "No new integration adapter — the primitives reuse the shipped agent_control AgentController.signal/stop and liveness probe (src/atdd/runtime/agent_control/__init__.py), the existing GitHub label calls (_gh_remove_phase_labels / _gh_add_label), and the cmux surface lifecycle; they add guard logic around these, not a new external boundary"
+  frontend:
+    presentation:
+      - type: "components"
+        count: 0
+        rationale: "No frontend surface — the coach is a CLI-only orchestrator"

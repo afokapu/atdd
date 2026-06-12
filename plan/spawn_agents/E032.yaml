@@ -1,0 +1,97 @@
+urn: "wmbt:spawn-agents:E032"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "phase-label-advances-that-error-or-double-apply-when-the-issue-is-already-at-the-target-phase"
+context_clarifier: "_swap_phase_label (src/atdd/coach/commands/coach.py) unconditionally removes all atdd:<phase> labels and adds the target label every time it is called. When the #1082 orchestrator re-polls done.json and re-fires the advance (or the coach is re-invoked on a warm-resume), this either churns the label noisily, double-advances, or — observed live driving #1055/#1057/#1062/#1066 — the advance sometimes did not fire at all after `agent done`. The idempotent-label-advance primitive makes the advance self-checking: read the issue's CURRENT atdd:<phase> label first, then (a) if already at the target phase, return a no-op result with NO GitHub mutation and NO error; (b) if at the expected source phase, perform exactly the single label swap; (c) if at an unexpected phase (neither source nor target), REFUSE rather than blindly overwrite, recording the conflict (current vs expected). Running the same transition advance twice yields the same end state, and the second call performs no mutation. FIX wiring is GREEN's job: wrap the guard around _swap_phase_label on the cold-start / warm-resume advance path (_cold_start_proposed_transition in coach.py)."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of phase-label-advances-that-error-or-double-apply-when-the-issue-is-already-at-the-target-phase by reading the issue's current phase label and making the advance idempotent — a no-op (no GitHub mutation, no error) when already at the target, a single swap when at the expected source, and a recorded refusal when at an unexpected phase — so re-firing the same transition is safe and double-invocation converges to one end state"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E032-UNIT-001-advance-from-source-single-swap"
+      id: "AC-UNIT-001"
+      purpose: "From the expected source phase the advance performs exactly one label swap (remove source, add target) — the normal happy path is unchanged."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fake GitHub label store reporting the issue currently at the SOURCE phase"
+        - "The idempotent advance helper invoked with (source -> target)"
+    when:
+      abstract: "the advance is invoked once"
+    then:
+      abstract:
+        - "After the call the issue carries exactly the target atdd:<phase> label and the source label is removed"
+        - "Exactly one remove-phase-labels + add-label pair is recorded against the store"
+        - "The helper returns an 'advanced' result"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:E032-UNIT-002-noop-when-already-at-target"
+      id: "AC-UNIT-002"
+      purpose: "When the issue is already at the target phase the advance is a no-op — no GitHub mutation, no error — so a re-fired transition is harmless."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fake GitHub label store reporting the issue ALREADY at the TARGET phase"
+        - "The idempotent advance helper invoked with (source -> target)"
+    when:
+      abstract: "the advance is invoked"
+    then:
+      abstract:
+        - "No remove-label / add-label GitHub mutation is recorded"
+        - "The helper returns a 'noop / already-at-target' result and raises no exception"
+        - "The issue's label set is byte-identical before and after the call"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:E032-UNIT-003-refuse-on-unexpected-phase"
+      id: "AC-UNIT-003"
+      purpose: "When the issue is at a phase that is neither the source nor the target, the advance refuses instead of overwriting — preventing the orchestrator from silently clobbering an out-of-band phase change."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fake GitHub label store reporting the issue at a phase that is neither the source nor the target of the requested transition"
+        - "The idempotent advance helper invoked with (source -> target)"
+    when:
+      abstract: "the advance is invoked"
+    then:
+      abstract:
+        - "No GitHub label mutation is recorded"
+        - "The helper returns a refusal/conflict result naming the current phase and the expected source"
+        - "The existing (unexpected) label is left intact — never silently overwritten"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:E032-SMOKE-001-real-issue-advance-idempotent"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real GitHub issue the advance is idempotent end-to-end: the first call lands the target label and a second call for the same transition changes nothing — proving the guard holds against the live `gh` label API."
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 and `gh` is authenticated against a real test issue currently at the source phase"
+        - "The deployed idempotent advance path bound to that issue and transition"
+    when:
+      abstract: "the advance helper is run twice for the same (source -> target) transition against the live issue"
+    then:
+      abstract:
+        - "After the first call the issue carries exactly the target atdd:<phase> label (source removed)"
+        - "The second call performs no label mutation — the issue's atdd:<phase> label set is unchanged after it"
+        - "Neither call errors"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"

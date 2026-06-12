@@ -1,0 +1,97 @@
+urn: "wmbt:spawn-agents:M003"
+step: "monitor"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "warm-resume-attempts-that-hang-past-the-timeout-budget-without-being-detected-or-recorded"
+context_clarifier: "Observed live driving #1055/#1057/#1062/#1066: the coach HUNG at a PLANNED->RED warm-resume — the warm-resume branch of drive_single_issue (src/atdd/train/issue_runner.py, is_warm_resume → _spawn_or_block / warm-resume advance) blocked with no upper time bound and left no record, so the #1082 orchestrator loop would stall indefinitely. The hang/timeout-detection primitive wraps the warm-resume spawn/advance in a bounded watchdog (a configurable timeout budget) that, when exceeded, ABORTS the hung attempt, records a STRUCTURED escalation keyed to the issue + source->dest transition + elapsed time (reusing the _write_escalation / no-progress-TTL machinery already in src/atdd/coach/commands/coach.py), and returns a 'timed-out' result the orchestrator can act on — never an unbounded block. A warm-resume that completes within budget proceeds normally with no timeout fired and the watchdog cancelled. FIX wiring is GREEN's job: wrap the watchdog around the warm-resume branch in issue_runner.py and thread the timeout budget through config with a sane positive default."
+lens: "functional.effectiveness"
+statement: "minimize quantity of warm-resume-attempts-that-hang-past-the-timeout-budget-without-being-detected-or-recorded by wrapping the warm-resume spawn/advance in a bounded watchdog that aborts on timeout, records a structured escalation keyed to issue + source->dest transition + elapsed time, and returns a timed-out result instead of blocking unbounded — while a within-budget warm-resume proceeds normally with no timeout fired"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:M003-UNIT-001-hung-warm-resume-aborted-and-recorded"
+      id: "AC-UNIT-001"
+      purpose: "A warm-resume that exceeds the timeout budget is aborted at the budget and recorded — never an unbounded block — so the orchestrator gets a result it can act on."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A warm-resume spawn/advance action stub that blocks LONGER than the configured timeout budget"
+        - "A recorder capturing escalation writes and the bounded warm-resume's return value"
+    when:
+      abstract: "the bounded warm-resume runs for an issue at a phase boundary"
+    then:
+      abstract:
+        - "The call returns at approximately the budget — it does NOT block unbounded"
+        - "A structured escalation is recorded naming the issue, the source->dest transition, and the elapsed time"
+        - "A 'timed-out' result is returned (the timeout is reported as a result, not lost in an unstructured exception)"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:M003-UNIT-002-within-budget-completes-no-timeout"
+      id: "AC-UNIT-002"
+      purpose: "A warm-resume that completes within budget proceeds normally and fires no timeout — the watchdog adds no false positives to the happy path."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A warm-resume spawn/advance action that completes well UNDER the configured budget"
+        - "A recorder for escalation writes and the warm-resume result"
+    when:
+      abstract: "the bounded warm-resume runs"
+    then:
+      abstract:
+        - "The normal advance result is returned (not a timed-out result)"
+        - "No timeout escalation is recorded"
+        - "The watchdog is cancelled / does not fire after the action completes"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:M003-UNIT-003-timeout-budget-configurable-with-default"
+      id: "AC-UNIT-003"
+      purpose: "The warm-resume timeout budget is configurable and has a sane positive default, so operators can tune it and an unset value never disables the watchdog."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Config that supplies a custom warm-resume timeout value, and a separate case where the value is unset"
+        - "The budget-resolution helper that reads the configured timeout"
+    when:
+      abstract: "the warm-resume timeout budget is resolved for both cases"
+    then:
+      abstract:
+        - "The custom configured value is honored when present"
+        - "A sane positive default is used when the value is unset (the watchdog is never disabled by omission)"
+        - "A non-positive or invalid configured value is rejected rather than silently disabling the watchdog"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:M003-SMOKE-001-real-hung-warm-resume-times-out"
+      id: "AC-SMOKE-001"
+      purpose: "On real infrastructure a genuinely hung warm-resume times out within the budget and writes an escalation — proving the watchdog rescues the orchestrator from an indefinite stall end-to-end."
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 and the installed atdd package with a configured escalation channel"
+        - "A real coach warm-resume driven for a test issue whose spawn is forced to hang, with a short timeout budget set"
+    when:
+      abstract: "the bounded warm-resume runs against the hung spawn"
+    then:
+      abstract:
+        - "The call returns within approximately the configured budget rather than blocking indefinitely"
+        - "An escalation line is written to the configured channel naming the issue and the source->dest transition"
+        - "No zombie spawn process is left running after the timeout"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"

@@ -1,0 +1,98 @@
+urn: "wmbt:spawn-agents:E031"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "ghost-worker-processes-that-survive-a-coach-phase-transition-respawn"
+context_clarifier: "Observed live driving #1055/#1057/#1062/#1066: on a phase transition the coach relaunched a fresh next-phase persona but the prior-phase worker process did NOT die — a ghost agent survived the transition, got relabeled as the new persona, and competed for the surface. The kill-old-agent-before-respawn primitive must, BEFORE relaunching the next persona, deterministically terminate the issue's currently-bound worker via the agent_control abstraction (AgentController.signal(AgentSignal INTERRUPT) → stop(reason=…) in src/atdd/runtime/agent_control/__init__.py) and confirm the process is no longer alive — never assume the old process exited on its own. The kill is bound to the issue's recorded worker handle so it targets exactly the prior-phase process, not an unrelated surface or another issue's worker. It is CLI-agnostic — never a hardcoded quit literal such as claude's '/exit'. If termination cannot be confirmed within a bounded retry, the transition REFUSES (records the un-reaped handle and does not launch) rather than stacking a second live agent on the issue. FIX wiring is GREEN's job: insert the kill-and-confirm step ahead of the per-phase respawn (#746/E007) in the coach phase-transition path (src/atdd/coach/handlers/spawn.py / src/atdd/coach/commands/spawn.py)."
+lens: "functional.effectiveness"
+statement: "minimize quantity of ghost-worker-processes-that-survive-a-coach-phase-transition-respawn by terminating the issue's currently-bound worker through the agent_control abstraction and confirming it is dead BEFORE relaunching the next-phase persona — targeting only that issue's recorded worker handle, never sending a CLI-specific quit literal, and refusing the transition (rather than stacking a second live agent) when the kill cannot be confirmed"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:E031-UNIT-001-kill-precedes-relaunch-on-transition"
+      id: "AC-UNIT-001"
+      purpose: "On a phase transition the coach terminates the prior-phase worker BEFORE launching the next persona, so no two live workers ever coexist for the issue across the boundary."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeAgentController that records every signal / stop / launch call in invocation order"
+        - "An issue bound to a prior-phase worker handle, positioned at a phase boundary in the coach transition path"
+    when:
+      abstract: "the coach advances the issue across one phase transition"
+    then:
+      abstract:
+        - "Exactly one stop/terminate call is recorded for the PRIOR worker handle"
+        - "The terminate call is recorded BEFORE any launch of the next-phase persona"
+        - "The terminate targets the prior worker handle bound to the issue — not another handle"
+        - "No send/send_key carrying a CLI-specific quit literal ('/exit', '/quit', '/clear') is recorded"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:E031-UNIT-002-refuse-when-kill-unconfirmed"
+      id: "AC-UNIT-002"
+      purpose: "When the prior worker cannot be confirmed dead, the transition refuses and never launches the next persona — so a failed kill can never produce two live agents on one issue."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A FakeAgentController whose liveness probe still reports the prior worker ALIVE after stop() is called (the kill fails)"
+        - "An issue bound to that prior worker handle at a phase boundary"
+    when:
+      abstract: "the coach attempts the phase transition"
+    then:
+      abstract:
+        - "No launch of the next-phase persona is recorded"
+        - "The transition returns/raises a refusal that records the un-reaped worker handle"
+        - "At no point are two live workers bound to the same issue"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:E031-UNIT-003-kill-scoped-to-issue-handle"
+      id: "AC-UNIT-003"
+      purpose: "The kill targets only the respawning issue's worker handle and never touches another issue's live worker — so a transition on one issue cannot reap a sibling's agent."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Two issues A and B, each bound to its own distinct worker handle"
+        - "A FakeAgentController recording the target handle of every terminate call"
+    when:
+      abstract: "the coach respawns issue A's worker at a phase boundary"
+    then:
+      abstract:
+        - "A terminate is recorded for issue A's worker handle"
+        - "No terminate is recorded for issue B's worker handle"
+        - "Issue B's worker remains live and bound throughout"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:E031-SMOKE-001-real-respawn-leaves-no-orphan"
+      id: "AC-SMOKE-001"
+      purpose: "On real infrastructure the kill-before-respawn path removes the prior worker process so a real transition leaves exactly one fresh process and no orphan/ghost — proving the bleed is closed end-to-end."
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 and the installed atdd package + a real multiplexer backend are available"
+        - "A real surface bound to a test issue is running an observable long-lived worker process with a captured PID"
+    when:
+      abstract: "the kill-before-respawn transition path runs once against that issue"
+    then:
+      abstract:
+        - "The originally-captured worker PID is no longer running after the transition"
+        - "Exactly one fresh worker process is bound to the surface for the issue"
+        - "A process snapshot shows no surviving prior-phase ghost and no detached/orphan process"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"

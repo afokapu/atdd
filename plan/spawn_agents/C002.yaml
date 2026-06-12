@@ -1,0 +1,97 @@
+urn: "wmbt:spawn-agents:C002"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "prompt-pastes-into-a-stale-or-duplicate-surface-instead-of-the-single-live-surface-bound-to-the-issue"
+context_clarifier: "Observed live driving #1055/#1057/#1062/#1066: a spawn pasted a launch prompt into a STALE surface so the worker never became live; and re-invocation created DUPLICATE surfaces for one issue, so the paste could land in an arbitrary one. The one-live-surface-per-issue primitive confirms, BEFORE injecting/pasting a launch prompt, that there is exactly ONE live surface bound to the issue and that the paste target IS that surface — resolved through the cmux surface lifecycle / agent_control issue->surface binding plus a liveness probe. Branching: if ZERO live surfaces exist for the issue, the path creates one (it never pastes into a dead ref); if MORE THAN ONE live surface is found, it reaps the duplicates down to one (or refuses) rather than pasting into an arbitrary surface; if the resolved target is not live, it never pastes. FIX wiring is GREEN's job: insert this confirm-single-live-surface guard into the prompt-injection / paste step (the runtime/agent_control surface-dispatch path and the coach spawn paste site), upstream of the actual paste."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of prompt-pastes-into-a-stale-or-duplicate-surface-instead-of-the-single-live-surface-bound-to-the-issue by confirming, before any paste, that exactly one live surface is bound to the issue and that it is the paste target — creating a surface when none is live, reaping duplicates down to one (or refusing) when more than one exists, and never pasting into a non-live surface"
+acceptances:
+  - identity:
+      urn: "acc:spawn-agents:C002-UNIT-001-refuse-paste-into-stale-surface"
+      id: "AC-UNIT-001"
+      purpose: "When the issue's resolved surface is not live (stale), the guard never pastes into it — closing the 'pasted into a stale surface so the worker never became live' failure."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An issue->surface binding whose surface reports NOT live (stale ref)"
+        - "A fake surface registry / dispatcher recording every paste call and its target"
+    when:
+      abstract: "the guarded prompt-paste path runs for the issue"
+    then:
+      abstract:
+        - "No paste is recorded against the stale surface ref"
+        - "The path either creates a fresh live surface and pastes there, or returns a refusal — never pastes into the dead ref"
+        - "A diagnostic naming the stale surface ref is recorded"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:C002-UNIT-002-duplicate-surfaces-reaped-to-one"
+      id: "AC-UNIT-002"
+      purpose: "When more than one live surface is bound to the same issue, the guard converges to exactly one (reap or refuse) so a paste can never go to an arbitrary duplicate."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A surface registry reporting TWO live surfaces bound to the same issue"
+        - "A recorder for paste, reap/close, and refusal outcomes"
+    when:
+      abstract: "the one-live-surface guard runs for the issue"
+    then:
+      abstract:
+        - "After the guard exactly one surface remains bound to the issue (the duplicate is reaped) OR the paste is refused"
+        - "No paste is recorded against an arbitrarily-chosen one of the two duplicates"
+        - "The outcome records that a duplicate condition was detected for the issue"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:C002-UNIT-003-happy-path-single-live-surface-paste"
+      id: "AC-UNIT-003"
+      purpose: "When exactly one live surface is bound to the issue, the guard pastes into it and creates nothing new — the normal path is unchanged."
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A surface registry reporting exactly ONE live surface bound to the issue"
+        - "A recorder for paste and surface-creation calls"
+    when:
+      abstract: "the guarded prompt-paste path runs for the issue"
+    then:
+      abstract:
+        - "The paste is recorded against that one live surface ref"
+        - "No new surface is created and no refusal is returned"
+        - "The bound surface count for the issue stays at exactly one"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"
+  - identity:
+      urn: "acc:spawn-agents:C002-SMOKE-001-real-cmux-paste-lands-in-live-surface"
+      id: "AC-SMOKE-001"
+      purpose: "On a real cmux backend the guarded paste lands the prompt in the single live surface and never in a forced stale/duplicate ref — proving the confirm-before-paste holds end-to-end."
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_RUN_SMOKE=1 and a real cmux backend with one live surface bound to a test issue"
+        - "A stale or duplicate surface ref for the same issue is forced present before the paste"
+    when:
+      abstract: "the guarded prompt-paste path runs for the issue"
+    then:
+      abstract:
+        - "The pasted prompt is observed in the LIVE surface (the worker becomes live)"
+        - "Nothing is pasted into the stale/duplicate ref"
+        - "Exactly one live surface remains bound to the issue after the paste"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-12"

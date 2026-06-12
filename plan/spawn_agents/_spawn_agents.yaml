@@ -28,6 +28,7 @@ features:
   - urn: "feature:spawn-agents:claude-md-slim-and-debanner"
   - urn: "feature:spawn-agents:launch-prompt-wagon-graph-context"
   - urn: "feature:spawn-agents:isolate-worker-claude-config-dir"
+  - urn: "feature:spawn-agents:coach-spawn-respawn-reliability-primitives"
 
 produce:
   - name: coach:spawn:atdd-spawn-cli
@@ -138,6 +139,22 @@ produce:
     contract: null
     telemetry: null
     to: external
+  - name: coach:spawn:kill-old-agent-before-respawn
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:idempotent-phase-label-advance
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:one-live-surface-per-issue-guard
+    contract: null
+    telemetry: null
+    to: external
+  - name: coach:spawn:warm-resume-timeout-watchdog
+    contract: null
+    telemetry: null
+    to: external
 
 consume:
   - name: commons:coach:runtime-event-schema
@@ -150,7 +167,7 @@ consume:
     from: wagon:drive-state-machine
 
 wmbt:
-  total: 37
+  total: 41
   E001: "minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id"
   D001: "minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering"
   E002: "minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout"
@@ -188,3 +205,7 @@ wmbt:
   E029: "minimize likelihood of launch-prompt-paste-gated-behind-session-jsonl-that-appears-only-after-first-user-message"
   L004: "minimize likelihood of spawn-pipeline-regression-to-jsonl-boot-wait-deadlock-on-lazy-session-creation"
   E030: "minimize likelihood of spawned-worker-claude-auto-memory-writing-into-the-operator-shared-config-dir"
+  E031: "minimize quantity of ghost-worker-processes-that-survive-a-coach-phase-transition-respawn"
+  E032: "minimize likelihood of phase-label-advances-that-error-or-double-apply-when-the-issue-is-already-at-the-target-phase"
+  C002: "minimize likelihood of prompt-pastes-into-a-stale-or-duplicate-surface-instead-of-the-single-live-surface-bound-to-the-issue"
+  M003: "minimize quantity of warm-resume-attempts-that-hang-past-the-timeout-budget-without-being-detected-or-recorded"
