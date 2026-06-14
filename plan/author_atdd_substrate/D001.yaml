@@ -1,0 +1,70 @@
+urn: "wmbt:author-atdd-substrate:D001"
+step: "define"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "substrate-schemas"
+context_clarifier: "when authoring any of the four canonical governance artifact kinds (convention-node, relationship, scope, gate), each kind must have exactly one canonical schema and one flat canonical home so authored artifacts are structurally well-formed by construction"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of schema-valid substrate-schemas by defining one canonical schema and flat canonical home per artifact kind (convention-node, relationship, scope, gate)"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:D001-UNIT-001-one-schema-per-kind"
+      id: "AC-UNIT-001"
+      purpose: "each of the four artifact kinds resolves to exactly one canonical schema and one flat canonical home"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The four artifact kinds: convention-node, relationship, scope, gate"
+    when:
+      abstract: "load_schema(kind) and canonical_home(kind) are called for each kind"
+    then:
+      abstract:
+        - "Each kind returns exactly one schema reference (no ambiguity)"
+        - "Each kind returns one flat canonical home path (no semantic subfolders)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:D001-UNIT-002-schemas-are-self-consistent"
+      id: "AC-UNIT-002"
+      purpose: "every canonical schema is itself a valid JSON schema with a stable $id"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The four canonical schema files for the artifact kinds"
+    when:
+      abstract: "each schema is parsed and meta-validated"
+    then:
+      abstract:
+        - "Each schema parses as valid JSON schema"
+        - "Each schema declares a stable $id naming its artifact kind"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:D001-SMOKE-001-schemas-load-and-validate"
+      id: "AC-SMOKE-001"
+      purpose: "Verify the four canonical schemas load from disk and validate a known-good fixture of each kind against real infrastructure"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The real on-disk canonical schema files for all four artifact kinds"
+        - "A known-good authored fixture for each kind"
+    when:
+      abstract: "each fixture is validated against its kind's loaded schema"
+    then:
+      abstract:
+        - "All four schemas load from their canonical home without error"
+        - "Each known-good fixture validates against its schema"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"

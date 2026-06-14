@@ -1,0 +1,69 @@
+urn: "wmbt:author-atdd-substrate:E004"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "gate-entry-insert"
+context_clarifier: "when authoring a gate entry into a per-trigger file under src/atdd/coach/gates/, the registry-class trigger file accumulates many gates, so the writer uses dedup-insert + stable-sort by gate_id + atomic write"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of a schema-valid, deterministically-ordered gate-entry-insert into a per-trigger gate file (dedup-insert, stable-sort by gate_id, idempotent, atomic write)"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:E004-UNIT-001-stable-sort-by-gate-id"
+      id: "AC-UNIT-001"
+      purpose: "inserting two gate entries yields a per-trigger file stable-sorted by gate_id"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An empty per-trigger gate file and two valid gate entries in non-sorted gate_id order"
+    when:
+      abstract: "insert_gate() is called for each"
+    then:
+      abstract:
+        - "Both gate entries are present after the inserts"
+        - "Entries are ordered by gate_id (stable, deterministic)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:E004-UNIT-002-idempotent-atomic"
+      id: "AC-UNIT-002"
+      purpose: "re-inserting an identical gate entry is a no-op and the write is atomic"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A per-trigger gate file already containing gate G"
+    when:
+      abstract: "insert_gate(G) is called again"
+    then:
+      abstract:
+        - "The file content is byte-for-byte unchanged (idempotent dedup)"
+        - "The write uses a temp file + atomic rename"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:E004-SMOKE-001-cli-writes-valid-gate"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author gate` writes a schema-valid gate into its per-trigger file in sorted position in a real checkout"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+    when:
+      abstract: "atdd author gate is run with a valid gate for a given trigger"
+    then:
+      abstract:
+        - "The per-trigger file under src/atdd/coach/gates/ gains the gate in gate_id-sorted position"
+        - "The written gate validates against the canonical gate schema"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"

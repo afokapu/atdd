@@ -36,3 +36,11 @@ trains:
       - consolidate-coach-workspace
       - dispatch-ux-defaults-and-primer
       - mediate-worker-decisions
+    - train_id: 0003-author-substrate
+      description: 'Authoring substrate train: define canonical schemas + flat homes,
+        validate author input on a shared spine, then deterministically write the
+        four governance artifact kinds (convention-node, relationship, scope, gate)
+        so authored artifacts pass normal ATDD validation unmodified.'
+      path: plan/_trains/0003-author-substrate.yaml
+      wagons:
+      - author-atdd-substrate

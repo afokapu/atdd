@@ -1,0 +1,28 @@
+urn: "feature:author-atdd-substrate:author-scope"
+wagon: "wagon:author-atdd-substrate"
+description: "Authoring of scopes into the single src/atdd/coach/selectors/scopes.yaml registry using the same sorted-insert + merge-driver model as relationships, sorted by scope_id. A scope must declare at least one selector. Malformed or empty scopes (invalid scope_id, invalid selector type, zero selectors) are rejected."
+sizing:
+  wmbts: 2
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:author-atdd-substrate:E003"
+  - "wmbt:author-atdd-substrate:C004"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd author scope subcommand"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "insert_scope() (dedup-insert + stable-sort by scope_id + atomic write); validate_scope() guard"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "Scope (scope_id, selectors[]); Selector (type + value)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "scopes.yaml sorted-insert merge-driver-backed writer"

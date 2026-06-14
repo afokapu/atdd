@@ -1,0 +1,69 @@
+urn: "wmbt:author-atdd-substrate:E002"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "relationship-edge-insert"
+context_clarifier: "when authoring an edge into the single src/atdd/coach/graph/relationships.yaml, the writer must load, dedup-insert, stable-sort by source_rule_id, and atomically write, remaining idempotent on re-insert"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of a schema-valid, deterministically-ordered relationship-edge-insert into relationships.yaml (dedup-insert, stable-sort by source_rule_id, idempotent, atomic write)"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:E002-UNIT-001-stable-sort-by-source"
+      id: "AC-UNIT-001"
+      purpose: "inserting two edges yields relationships.yaml stable-sorted by source_rule_id"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An empty relationships.yaml and two valid edges with out-of-order source_rule_ids"
+    when:
+      abstract: "insert_edge() is called for each edge"
+    then:
+      abstract:
+        - "Both edges are present after the inserts"
+        - "Edges are ordered by source_rule_id (stable, deterministic)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:E002-UNIT-002-idempotent-reinsert"
+      id: "AC-UNIT-002"
+      purpose: "re-inserting an identical edge is a no-op (dedup) and the write is atomic"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A relationships.yaml already containing edge X"
+    when:
+      abstract: "insert_edge(X) is called again"
+    then:
+      abstract:
+        - "The file content is byte-for-byte unchanged (idempotent dedup)"
+        - "The write goes through a temp file + atomic rename (no partial file)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:E002-SMOKE-001-two-edges-sorted-deduped"
+      id: "AC-SMOKE-001"
+      purpose: "Verify the real CLI inserts two edges into relationships.yaml deterministically sorted and deduped"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+    when:
+      abstract: "atdd author relationship is run twice with out-of-order edges plus one duplicate"
+    then:
+      abstract:
+        - "relationships.yaml contains both unique edges sorted by source_rule_id"
+        - "The duplicate insert leaves the file unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"

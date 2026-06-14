@@ -1,0 +1,69 @@
+urn: "wmbt:author-atdd-substrate:E003"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "scope-insert"
+context_clarifier: "when authoring a scope into the single src/atdd/coach/selectors/scopes.yaml, the writer uses the same dedup-insert + stable-sort by scope_id + atomic write model, and the scope must carry at least one selector"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of a schema-valid, deterministically-ordered scope-insert into scopes.yaml when authoring a scope with at least one selector"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:E003-UNIT-001-stable-sort-by-scope-id"
+      id: "AC-UNIT-001"
+      purpose: "inserting two scopes yields scopes.yaml stable-sorted by scope_id"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An empty scopes.yaml and two valid scopes (each with >=1 selector) in non-sorted scope_id order"
+    when:
+      abstract: "insert_scope() is called for each"
+    then:
+      abstract:
+        - "Both scopes are present after the inserts"
+        - "Scopes are ordered by scope_id (stable, deterministic)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:E003-UNIT-002-idempotent-atomic"
+      id: "AC-UNIT-002"
+      purpose: "re-inserting an identical scope is a no-op and the write is atomic"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A scopes.yaml already containing scope S"
+    when:
+      abstract: "insert_scope(S) is called again"
+    then:
+      abstract:
+        - "The file content is byte-for-byte unchanged (idempotent dedup)"
+        - "The write uses a temp file + atomic rename"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:E003-SMOKE-001-scope-written-and-sorted"
+      id: "AC-SMOKE-001"
+      purpose: "Verify the real CLI writes a scope into scopes.yaml in sorted position in a real checkout"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+    when:
+      abstract: "atdd author scope is run with a valid scope carrying one selector"
+    then:
+      abstract:
+        - "scopes.yaml gains the scope in scope_id-sorted position"
+        - "The written scope validates against the canonical scope schema"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"

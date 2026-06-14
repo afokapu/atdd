@@ -1,0 +1,70 @@
+urn: "wmbt:author-atdd-substrate:K001"
+step: "conclude"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "authored-artifact-validation"
+context_clarifier: "after any `atdd author` write completes, the resulting artifact must pass the ordinary ATDD validation suite unmodified — authoring is a convenience layer, never a validation bypass"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of authored-artifact-validation by ensuring artifacts authored through atdd author pass normal ATDD validation unmodified, with no authoring-specific bypass"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:K001-UNIT-001-no-bypass-marker"
+      id: "AC-UNIT-001"
+      purpose: "authored artifacts carry no authoring-only suppression or bypass marker"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An artifact written by each per-kind author writer"
+    when:
+      abstract: "the written content is inspected"
+    then:
+      abstract:
+        - "No authoring-specific suppression/bypass marker is present"
+        - "The content is identical in shape to a hand-authored equivalent"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:K001-INTEGRATION-001-authored-passes-validation"
+      id: "AC-INTEGRATION-001"
+      purpose: "an artifact of each kind authored via the spine passes the relevant ATDD validator in-process"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A freshly authored artifact for each of the four kinds"
+        - "The corresponding ATDD validators, invoked in-process"
+    when:
+      abstract: "the validators run over the authored artifacts"
+    then:
+      abstract:
+        - "Each authored artifact passes its validator with no violations"
+        - "No validator is skipped or suppressed for the authored artifact"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:K001-SMOKE-001-authored-artifact-validates"
+      id: "AC-SMOKE-001"
+      purpose: "Verify an artifact authored by the real CLI passes `atdd validate` end-to-end with no modification"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author + atdd validate CLIs"
+    when:
+      abstract: "atdd author writes an artifact, then atdd validate is run unmodified"
+    then:
+      abstract:
+        - "The authored artifact is created in its canonical home"
+        - "atdd validate passes over the authored artifact with no edits applied"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"

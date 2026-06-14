@@ -1,0 +1,29 @@
+urn: "feature:author-atdd-substrate:substrate-spine"
+wagon: "wagon:author-atdd-substrate"
+description: "The shared authoring substrate: one canonical schema and flat canonical home per artifact kind (convention-node, relationship, scope, gate), the `atdd author` CLI validation spine that refuses an invalid role/id/path before any write, the frozen authoring vocabularies, and the re-sort/dedup git merge driver reused by every registry-class writer. Guarantees authored artifacts pass normal ATDD validation unmodified."
+sizing:
+  wmbts: 3
+  footprint_score: 8
+  footprint_size: "S"
+wmbts:
+  - "wmbt:author-atdd-substrate:D001"
+  - "wmbt:author-atdd-substrate:C001"
+  - "wmbt:author-atdd-substrate:K001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd author CLI dispatcher (shared spine: parse role/id/path, validate, route to per-kind writer)"
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "validate_author_input(), load_schema(kind), reconcile_merge(driver) spine functions"
+    domain:
+      - type: "value_objects"
+        count: 4
+        rationale: "AuthorInput (role+id+path), ArtifactKind enum, CanonicalHome, SchemaRef"
+    integration:
+      - type: "adapters"
+        count: 2
+        rationale: "atomic file writer adapter; git merge-driver registration adapter"

@@ -1,0 +1,26 @@
+train_id: "0003-author-substrate"
+title: "Author Substrate"
+description: "Authoring substrate train: define canonical schemas + flat homes, validate author input on a shared spine, then deterministically write the four governance artifact kinds (convention-node, relationship, scope, gate) so authored artifacts pass normal ATDD validation unmodified."
+themes:
+  - commons
+primary_wagon: author-atdd-substrate
+participants:
+  - "wagon:author-atdd-substrate"
+  - "system:atdd-cli"
+sequence:
+  - step: 1
+    intent: "Define one canonical schema and flat canonical home per artifact kind"
+    from: "wagon:author-atdd-substrate"
+    to: "system:atdd-cli"
+    artifact: "commons:author:substrate-schemas"
+  - step: 2
+    intent: "Validate role/id/path on the shared author spine before any write"
+    from: "wagon:author-atdd-substrate"
+    to: "system:atdd-cli"
+    artifact: "commons:author:author-spine"
+  - step: 3
+    intent: "Author the four artifact kinds via dedup-insert + stable-sort + atomic write"
+    from: "wagon:author-atdd-substrate"
+    to: "system:atdd-cli"
+    artifact: "commons:author:author-merge-driver"
+status: planned

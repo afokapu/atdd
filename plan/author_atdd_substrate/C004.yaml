@@ -1,0 +1,70 @@
+urn: "wmbt:author-atdd-substrate:C004"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "invalid-scope"
+context_clarifier: "when authoring a scope, the writer must reject a malformed or empty scope — an invalid scope_id, an invalid selector type, or zero selectors"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of accepting an invalid-scope (invalid scope_id, invalid selector type, zero selectors)"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C004-UNIT-001-rejects-bad-id-and-selector-type"
+      id: "AC-UNIT-001"
+      purpose: "validate_scope rejects an invalid scope_id and an invalid selector type"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A scope with an invalid scope_id and one with an invalid selector type"
+    when:
+      abstract: "validate_scope() is called on each"
+    then:
+      abstract:
+        - "The invalid scope_id scope is rejected with an id error"
+        - "The invalid selector-type scope is rejected with a selector error"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:C004-UNIT-002-rejects-zero-selectors"
+      id: "AC-UNIT-002"
+      purpose: "validate_scope rejects a scope with zero selectors"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A scope declaring an empty selectors list"
+    when:
+      abstract: "validate_scope() is called"
+    then:
+      abstract:
+        - "The empty scope is rejected (at least one selector required)"
+        - "scopes.yaml is not modified"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:C004-SMOKE-001-cli-rejects-bad-scope"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author scope` exits non-zero and leaves scopes.yaml untouched for a malformed or empty scope in a real checkout"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+        - "An invocation carrying an invalid or empty scope"
+    when:
+      abstract: "atdd author scope is run with the bad scope"
+    then:
+      abstract:
+        - "The process exits non-zero with a validation error"
+        - "scopes.yaml is unchanged on disk"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"

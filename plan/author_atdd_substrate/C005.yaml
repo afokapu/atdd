@@ -1,0 +1,70 @@
+urn: "wmbt:author-atdd-substrate:C005"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "malformed-gate"
+context_clarifier: "when authoring a gate, the writer must reject a malformed gate — an invalid gate_id, an invalid trigger, an invalid selection strategy, an invalid violation action, or an implicit (undeclared) exit behavior"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of accepting a malformed-gate (invalid gate_id, invalid trigger, invalid selection strategy, invalid violation action, implicit exit behavior)"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C005-UNIT-001-rejects-bad-id-trigger-strategy"
+      id: "AC-UNIT-001"
+      purpose: "validate_gate rejects an invalid gate_id, an invalid trigger, and an invalid selection strategy"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Gates with, respectively, an invalid gate_id, an invalid trigger, and an invalid selection strategy"
+    when:
+      abstract: "validate_gate() is called on each"
+    then:
+      abstract:
+        - "Each gate is rejected citing the specific invalid field"
+        - "No gate is written to the per-trigger file"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:C005-UNIT-002-rejects-bad-action-and-implicit-exit"
+      id: "AC-UNIT-002"
+      purpose: "validate_gate rejects an invalid violation action and an implicit (undeclared) exit behavior"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A gate with an invalid violation action and one with no explicit exit behavior"
+    when:
+      abstract: "validate_gate() is called on each"
+    then:
+      abstract:
+        - "The invalid-action gate is rejected"
+        - "The implicit-exit gate is rejected (exit behavior must be explicit)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:C005-SMOKE-001-cli-rejects-bad-gate"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author gate` exits non-zero and leaves the per-trigger file untouched for a malformed gate in a real checkout"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+        - "An invocation carrying a malformed gate"
+    when:
+      abstract: "atdd author gate is run with the malformed gate"
+    then:
+      abstract:
+        - "The process exits non-zero with a validation error"
+        - "The per-trigger gate file is unchanged on disk"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
