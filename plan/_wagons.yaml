@@ -1,12 +1,14 @@
 wagons:
 - wagon: author-atdd-substrate
   description: 'First-class authoring substrate for ATDD governance artifacts: a shared
-    `atdd author` CLI validation spine plus deterministic, conflict-free writers for
-    the four canonical artifact kinds (convention-node, relationship, scope, gate).
-    Each writer enforces a single canonical schema and flat canonical home per kind,
-    performs dedup-insert + stable-sort + atomic write, and ships a re-sort/dedup
-    git merge driver so concurrent inserts never collide. Authored artifacts pass
-    normal ATDD validation unmodified.'
+    `atdd author` CLI validation spine plus deterministic writers for the four canonical
+    artifact kinds. One kind is conflict-free by construction (convention-node: one
+    file per rule_id); the other three are registry-class (relationship, scope, gate)
+    where many entries accumulate in one file. Each writer enforces a single canonical
+    schema and flat canonical home per kind and performs dedup-insert + stable-sort
+    + atomic write; for the registry kinds a re-sort/dedup git merge driver resolves
+    residual concurrent-insert conflicts deterministically (it does not make them
+    conflict-free). Authored artifacts pass normal ATDD validation unmodified.'
   theme: commons
   subject: agent:planner
   context: authoring-new-governance-artifacts, concurrent-waves-insert-into-shared-registries
@@ -14,8 +16,8 @@ wagons:
     validates role/id/path on a shared author spine, and writes each artifact via
     dedup-insert + stable-sort + atomic write backed by a re-sort/dedup merge driver
   goal: make it impossible to author a malformed or non-deterministically-ordered
-    governance artifact, and eliminate merge collisions when many wagons insert into
-    the same registry file concurrently
+    governance artifact, and deterministically resolve (not eliminate) merge collisions
+    when many wagons insert into the same registry file concurrently
   outcome: schema-valid convention-nodes, relationships.yaml, scopes.yaml, and per-trigger
     gate files authored deterministically through `atdd author`, all passing unmodified
     through normal ATDD validation
