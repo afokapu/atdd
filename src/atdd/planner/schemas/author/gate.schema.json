@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "atdd:author:gate:1.0.0",
+  "title": "ATDD gate (spec §8)",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["gate_id", "trigger", "selection", "on_violation", "exit"],
+  "properties": {
+    "gate_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*(?:\\.[a-z0-9_-]+)+$"},
+    "kind": {"type": "string"},
+    "status": {"type": "string"},
+    "trigger": {
+      "type": "object",
+      "required": ["type", "name"],
+      "properties": {
+        "type": {"enum": ["git_hook", "ci", "manual_command"]},
+        "name": {"enum": ["post-commit", "pre-push", "pull-request", "ci", "local"]}
+      }
+    },
+    "selection": {
+      "type": "object",
+      "required": ["strategy"],
+      "properties": {"strategy": {"enum": ["blast_radius", "full", "phase_subset", "explicit_validators"]}}
+    },
+    "on_violation": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {"action": {"enum": ["never_block", "block", "warn", "defer_to_ci"]}}
+    },
+    "exit": {
+      "type": "object",
+      "required": ["success_code", "failure_code"],
+      "properties": {"success_code": {"type": "integer"}, "failure_code": {"type": "integer"}}
+    }
+  }
+}

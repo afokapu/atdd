@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "atdd:author:scope:1.0.0",
+  "title": "ATDD scope / selector (spec §7)",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["scope_id", "selectors"],
+  "properties": {
+    "scope_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*(?:\\.[a-z0-9_-]+)+$"},
+    "artifact_kind": {"enum": ["source_file", "test_file", "plan_file", "contract_file", "pull_request", "issue", "remote_resource", "runtime_evidence"]},
+    "runtime": {"enum": ["python", "typescript", "supabase", "flutter", null]},
+    "platform": {"enum": ["github", "local_fs", "supabase", "vercel", "convex", null]},
+    "selectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {"enum": ["path_glob", "git_path_prefix", "header_scan", "manifest_query", "github_pr", "github_issue", "remote_resource", "runtime_evidence"]},
+          "value": {"type": "string"}
+        }
+      }
+    }
+  }
+}
