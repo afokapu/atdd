@@ -59,12 +59,15 @@ import yaml
 import json
 import re
 import ast
+import logging
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.utils.theme_map import get_theme_map
+
+_logger = logging.getLogger(__name__)
 
 # Import URNBuilder for URN generation (following conventions)
 try:
@@ -1388,8 +1391,8 @@ class RegistryBuilder:
                     while d != self.repo_root and d.exists() and not any(d.iterdir()):
                         d.rmdir()
                         d = d.parent
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("empty-stub cleanup skipped", extra={"kind": kind, "error": str(exc)})
         print(f"  (no {kind} artifacts — skipping; extension-domain registry not stubbed)")
         return {"registry": kind, "skipped": True, "stats": stats}
 

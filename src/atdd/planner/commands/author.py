@@ -10,12 +10,15 @@ in follow-up slices.
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import re
 import sys
 from pathlib import Path
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 # The four ATDD convention-owning roles. `reviewer` is a spawn persona, not a
 # convention role, so it is intentionally excluded.
@@ -266,7 +269,8 @@ def _config_extensions(root: Path) -> list[str]:
     try:
         data = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
         return list(((data.get("author") or {}).get("extensions")) or [])
-    except Exception:
+    except Exception as exc:
+        logger.debug("no usable author config", extra={"error": str(exc)})
         return []
 
 
@@ -281,6 +285,7 @@ def run(argv: list[str]) -> int:
                 with open(p, encoding="utf-8") as fh:
                     return fh.read()
             except FileNotFoundError:
+                logger.debug("merge-driver input absent", extra={"path": p})
                 return ""
 
         merged = merge_registries(_read(args.base), _read(args.ours), _read(args.theirs))
@@ -301,6 +306,7 @@ def run(argv: list[str]) -> int:
             cwd=cwd, config_extensions=_config_extensions(root),
         )
     except AuthorInputError as exc:
+        logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
         print(f"atdd author: {exc}", file=sys.stderr)
         return 2
 
@@ -319,6 +325,7 @@ def run(argv: list[str]) -> int:
                 statement=args.statement, terms=_parse_terms(args.terms), path=path,
             )
         except AuthorInputError as exc:
+            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(path))
@@ -342,6 +349,7 @@ def run(argv: list[str]) -> int:
         try:
             insert_relationship(edge, path)
         except AuthorInputError as exc:
+            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(path))
@@ -362,6 +370,7 @@ def run(argv: list[str]) -> int:
         try:
             insert_scope_selector(scope_meta, selector, path)
         except AuthorInputError as exc:
+            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(path))
@@ -383,6 +392,7 @@ def run(argv: list[str]) -> int:
         try:
             insert_gate(gate, path)
         except AuthorInputError as exc:
+            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(path))
