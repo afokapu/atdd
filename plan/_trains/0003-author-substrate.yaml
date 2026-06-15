@@ -19,8 +19,23 @@ sequence:
     to: "system:atdd-cli"
     artifact: "commons:author:author-spine"
   - step: 3
-    intent: "Author the four artifact kinds via dedup-insert + stable-sort + atomic write"
+    intent: "Author convention-nodes (flat per-rule_id files) once the shared spine lands"
     from: "wagon:author-atdd-substrate"
     to: "system:atdd-cli"
-    artifact: "commons:author:author-merge-driver"
+    artifact: "commons:author:convention-node-command"
+  - step: 4
+    intent: "Author relationship edges into the single relationships.yaml registry (parallel after spine)"
+    from: "wagon:author-atdd-substrate"
+    to: "system:atdd-cli"
+    artifact: "commons:author:relationship-command"
+  - step: 5
+    intent: "Author scope selectors into the single scopes.yaml registry (parallel after spine)"
+    from: "wagon:author-atdd-substrate"
+    to: "system:atdd-cli"
+    artifact: "commons:author:scope-command"
+  - step: 6
+    intent: "Author gates into per-trigger gate files (parallel after spine)"
+    from: "wagon:author-atdd-substrate"
+    to: "system:atdd-cli"
+    artifact: "commons:author:gate-command"
 status: planned

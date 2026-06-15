@@ -1,11 +1,11 @@
 urn: "wmbt:author-atdd-substrate:K001"
 step: "conclude"
-direction: "maximize"
+direction: "minimize"
 dimension: "likelihood"
-object_of_control: "authored-artifact-validation"
-context_clarifier: "after any `atdd author` write completes, the resulting artifact must pass the ordinary ATDD validation suite unmodified — authoring is a convenience layer, never a validation bypass"
-lens: "functional.effectiveness"
-statement: "maximize likelihood of authored-artifact-validation by ensuring artifacts authored through atdd author pass normal ATDD validation unmodified, with no authoring-specific bypass"
+object_of_control: "authored-artifact-rejection-or-regression"
+context_clarifier: "after any `atdd author` write completes, the artifact must be well-formed against its own schema AND running the current ATDD validators over the repo must neither error on nor quarantine the new paths — no *consuming* validator exists yet (the graph loader / validation-flow is deferred to #1102), so authoring must not bypass validation and must not break existing validation"
+lens: "functional.sustainability"
+statement: "minimize likelihood of authored artifact rejection or regression by existing ATDD gates, so authored artifacts are not rejected or regressed (authoring does not bypass validation)"
 acceptances:
   - identity:
       urn: "acc:author-atdd-substrate:K001-UNIT-001-no-bypass-marker"
@@ -28,30 +28,31 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-06-14"
   - identity:
-      urn: "acc:author-atdd-substrate:K001-INTEGRATION-001-authored-passes-validation"
+      urn: "acc:author-atdd-substrate:K001-INTEGRATION-001-well-formed-and-not-quarantined"
       id: "AC-INTEGRATION-001"
-      purpose: "an artifact of each kind authored via the spine passes the relevant ATDD validator in-process"
+      purpose: "a freshly authored artifact of each kind is well-formed against its own schema, and running the current validators neither errors on nor quarantines the new paths"
       phase: "GREEN"
     harness:
       type: "integration"
       category: "backend"
     given:
       abstract:
-        - "A freshly authored artifact for each of the four kinds"
-        - "The corresponding ATDD validators, invoked in-process"
+        - "A freshly authored artifact for each of the four kinds in its canonical home"
+        - "The current ATDD validators, invoked in-process over the repo (no *consuming* graph validator exists yet)"
     when:
-      abstract: "the validators run over the authored artifacts"
+      abstract: "each artifact is validated against its own schema and the current validators run over the repo"
     then:
       abstract:
-        - "Each authored artifact passes its validator with no violations"
+        - "Each authored artifact is well-formed against its own per-kind schema"
+        - "Running the current validators neither errors on nor quarantines the new paths"
         - "No validator is skipped or suppressed for the authored artifact"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-14"
   - identity:
-      urn: "acc:author-atdd-substrate:K001-SMOKE-001-authored-artifact-validates"
+      urn: "acc:author-atdd-substrate:K001-SMOKE-001-authored-artifact-not-rejected"
       id: "AC-SMOKE-001"
-      purpose: "Verify an artifact authored by the real CLI passes `atdd validate` end-to-end with no modification"
+      purpose: "Verify an artifact of each kind authored by the real CLI is well-formed and that `atdd validate` neither errors on nor flags the new paths"
       phase: "SMOKE"
     harness:
       type: "integration"
@@ -60,11 +61,11 @@ acceptances:
       abstract:
         - "A real repo checkout and the installed atdd author + atdd validate CLIs"
     when:
-      abstract: "atdd author writes an artifact, then atdd validate is run unmodified"
+      abstract: "atdd author writes one artifact of each kind, then atdd validate is run unmodified"
     then:
       abstract:
-        - "The authored artifact is created in its canonical home"
-        - "atdd validate passes over the authored artifact with no edits applied"
+        - "Each authored artifact is created in its canonical home and is well-formed against its own schema"
+        - "atdd validate exits clean and no gate flags or quarantines the new files"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-14"

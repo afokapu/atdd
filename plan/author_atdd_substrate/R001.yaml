@@ -1,0 +1,72 @@
+urn: "wmbt:author-atdd-substrate:R001"
+step: "resolve"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "unresolved-registry-merge-conflict"
+context_clarifier: "when two concurrent branches each insert an entry into the same role-block of an accumulating registry file (relationships.yaml / scopes.yaml / a per-trigger gate file), the stable-sort clusters entries so they can land near the same sorted position; without a merge driver the union produces a hand-merge conflict, so a re-sort/dedup git merge driver must re-run load → dedup → stable-sort on the union to resolve it deterministically"
+lens: "functional.sustainability"
+statement: "minimize likelihood of an unresolved registry merge conflict when concurrent branches insert into the same registry file by shipping a re-sort/dedup git merge driver registered via .gitattributes that re-runs load→dedup→stable-sort on the union"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:R001-UNIT-001-gitattributes-registers-driver"
+      id: "AC-UNIT-001"
+      purpose: "the .gitattributes wiring registers the re-sort/dedup merge driver for the accumulating registry files"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The repo .gitattributes and the git merge-driver registration for the substrate registries"
+    when:
+      abstract: "the .gitattributes entries are parsed for relationships.yaml, scopes.yaml, and the per-trigger gate files"
+    then:
+      abstract:
+        - "relationships.yaml, scopes.yaml, and the gate files each map to the substrate re-sort/dedup merge driver"
+        - "The named merge driver is defined (a merge.<driver>.driver command is registered)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:R001-INTEGRATION-001-driver-resorts-dedups-union"
+      id: "AC-INTEGRATION-001"
+      purpose: "the merge driver re-sorts and dedups the union of two same-role insert sets into a deterministic, conflict-marker-free file"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A registry file plus two derived versions, each having inserted a distinct entry into the same role-block"
+        - "One entry that is identical across both branches (to exercise dedup)"
+    when:
+      abstract: "the re-sort/dedup merge driver is invoked on the union of the two versions"
+    then:
+      abstract:
+        - "The merged file contains every unique entry exactly once (the duplicate is collapsed)"
+        - "The file is stable-sorted by key (source_rule_id / scope_id / gate_id)"
+        - "The output bytes are deterministic and contain no conflict markers (<<<<<<<, =======, >>>>>>>)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:R001-SMOKE-001-merge-driver-resolves-concurrent-inserts"
+      id: "AC-SMOKE-001"
+      purpose: "Verify a real git merge of two branches with colliding same-role registry inserts yields a clean canonically-sorted file via the registered merge driver"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repo with the substrate merge driver registered via .gitattributes"
+        - "Two branches that each inserted a distinct entry into the same role-block of a registry file (relationships.yaml / scopes.yaml / a gate file)"
+    when:
+      abstract: "the two branches are merged with a real git merge"
+    then:
+      abstract:
+        - "The merge completes cleanly with no conflict markers (no <<<<<<<)"
+        - "The resulting registry file is canonically sorted by key with no duplicate entry"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"

@@ -1,14 +1,41 @@
 urn: "feature:author-atdd-substrate:substrate-spine"
 wagon: "wagon:author-atdd-substrate"
-description: "The shared authoring substrate: one canonical schema and flat canonical home per artifact kind (convention-node, relationship, scope, gate), the `atdd author` CLI validation spine that refuses an invalid role/id/path before any write, the frozen authoring vocabularies, and the re-sort/dedup git merge driver reused by every registry-class writer. Guarantees authored artifacts pass normal ATDD validation unmodified."
+description: "The shared authoring substrate: one canonical schema and flat canonical home per artifact kind (convention-node, relationship, scope, gate), the four frozen controlled vocabularies the features consume (never redefine), the `atdd author` CLI validation spine that refuses an invalid role/id/path before any write, and the re-sort/dedup git merge driver (registered via .gitattributes) reused by every registry-class writer. Guarantees authored artifacts pass normal ATDD validation unmodified."
 sizing:
-  wmbts: 3
-  footprint_score: 8
-  footprint_size: "S"
+  wmbts: 4
+  footprint_score: 13
+  footprint_size: "M"
+frozen_vocabularies:
+  # Canonical v1.1-spec list (§5–§8). Frozen here in the spine and CONSUMED by the
+  # four V1 features (never redefined). Each enum is closed: no member may be added
+  # without a schema change. D001 asserts each is loadable and closed.
+  convention_node:
+    kind: [family, rule, principle, constraint, exception, pattern, anti_pattern, policy]
+    status: [draft, active, deprecated]
+  relationship_edge:
+    type: [requires, blocks, enables, follows, awaits, triggered_by, starts_with, runs_alongside, finishes_with, relieves]
+    foundation: [finish_to_start, start_to_start, finish_to_finish, start_to_finish]
+    constraint: [mandatory, discretionary, conditional]
+    control: [internal, external, autonomous]
+    strength: [critical, important, minor]
+  selector:
+    artifact_kind: [source_file, test_file, plan_file, contract_file, pull_request, issue, remote_resource, runtime_evidence]
+    runtime: [python, typescript, supabase, flutter, "null"]
+    platform: [github, local_fs, supabase, vercel, convex, "null"]
+    selector_type: [path_glob, git_path_prefix, header_scan, manifest_query, github_pr, github_issue, remote_resource, runtime_evidence]
+  gate:
+    trigger_type: [git_hook, ci, manual_command]
+    trigger_name: [post-commit, pre-push, pull-request, ci, local]
+    selection_strategy: [blast_radius, full, phase_subset, explicit_validators]
+    changed_artifacts_source: [git_show_head, git_diff_push_range, ci_changed_files, explicit_args]
+    fallback_strategy: [none, phase_subset, full]
+    on_violation_feedback: [cli_return, stderr, github_check, junit, json]
+    on_violation_action: [never_block, block, warn, defer_to_ci]
 wmbts:
   - "wmbt:author-atdd-substrate:D001"
   - "wmbt:author-atdd-substrate:C001"
   - "wmbt:author-atdd-substrate:K001"
+  - "wmbt:author-atdd-substrate:R001"
 components:
   backend:
     presentation:
@@ -17,13 +44,13 @@ components:
         rationale: "atdd author CLI dispatcher (shared spine: parse role/id/path, validate, route to per-kind writer)"
     application:
       - type: "use_cases"
-        count: 3
-        rationale: "validate_author_input(), load_schema(kind), reconcile_merge(driver) spine functions"
+        count: 4
+        rationale: "validate_author_input(), load_schema(kind), load_frozen_vocabulary(name), reconcile_merge(driver) spine functions"
     domain:
       - type: "value_objects"
-        count: 4
-        rationale: "AuthorInput (role+id+path), ArtifactKind enum, CanonicalHome, SchemaRef"
+        count: 5
+        rationale: "AuthorInput (role+id+path), ArtifactKind enum, CanonicalHome, SchemaRef, FrozenVocabulary (closed-enum value object)"
     integration:
       - type: "adapters"
-        count: 2
-        rationale: "atomic file writer adapter; git merge-driver registration adapter"
+        count: 3
+        rationale: "atomic file writer adapter; git merge-driver registration adapter (.gitattributes wiring); re-sort/dedup merge-driver subprocess entrypoint"

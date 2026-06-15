@@ -50,10 +50,11 @@ produce:
 consume: []
 
 wmbt:
-  total: 11
-  D001: "maximize likelihood of schema-valid substrate by defining one canonical schema and flat canonical home per artifact kind"
+  total: 12
+  D001: "maximize likelihood of schema-valid substrate by defining one canonical schema and flat canonical home per artifact kind and freezing the controlled vocabularies"
   C001: "minimize likelihood of the shared atdd author spine accepting an invalid role, id, or path"
-  K001: "maximize likelihood that authored artifacts pass normal ATDD validation unmodified"
+  K001: "minimize likelihood that authored artifacts are rejected or regressed by existing ATDD gates (authoring does not bypass validation)"
+  R001: "minimize likelihood of an unresolved registry merge conflict by shipping a .gitattributes-registered re-sort/dedup git merge driver"
   E001: "maximize likelihood of schema-valid convention-node creation under a flat per-role nodes/ file"
   C002: "minimize likelihood of accepting a structurally invalid convention-node"
   E002: "maximize likelihood of a schema-valid, deterministically-ordered relationships.yaml when authoring an edge"
