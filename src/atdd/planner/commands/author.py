@@ -179,6 +179,30 @@ def build_parser() -> argparse.ArgumentParser:
         "--term", action="append", default=[], dest="terms",
         help="a term as 'term_id=text' (repeatable)",
     )
+
+    rel = sub.add_parser("relationship", help="author a relationship edge")
+    rel.add_argument("--source", required=True, dest="source_ref")
+    rel.add_argument("--type", required=True, dest="rel_type")
+    rel.add_argument("--target", required=True, dest="target_ref")
+    rel.add_argument("--foundation", default=None)
+    rel.add_argument("--constraint", default=None)
+    rel.add_argument("--control", default=None)
+    rel.add_argument("--strength", default=None)
+    rel.add_argument("--reason", default="")
+    rel.add_argument("--confidence", type=float, default=1.0)
+    rel.add_argument(
+        "--path", default="src/atdd/coach/graph/relationships.yaml",
+        help="registry path (default: canonical relationships.yaml home)",
+    )
+
+    md = sub.add_parser(
+        "merge-driver",
+        help="internal: re-sort/dedup git merge driver for registry files",
+    )
+    md.add_argument("base", help="common ancestor file (git O)")
+    md.add_argument("ours", help="current version; merged result is written here (git A)")
+    md.add_argument("theirs", help="other version file (git B)")
+
     return parser
 
 
@@ -207,6 +231,44 @@ def run(argv: list[str]) -> int:
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(path))
+        return 0
+
+    if args.cmd == "relationship":
+        from atdd.planner.commands.author_registry import insert_relationship
+
+        edge = {
+            "source_ref": args.source_ref,
+            "type": args.rel_type,
+            "target_ref": args.target_ref,
+            "reason": args.reason,
+            "confidence": args.confidence,
+        }
+        for key in ("foundation", "constraint", "control", "strength"):
+            val = getattr(args, key)
+            if val is not None:
+                edge[key] = val
+        path = Path(args.path)
+        try:
+            insert_relationship(edge, path)
+        except AuthorInputError as exc:
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        print(str(path))
+        return 0
+
+    if args.cmd == "merge-driver":
+        from atdd.planner.commands.author_registry import merge_registries
+
+        def _read(p: str) -> str:
+            try:
+                with open(p, encoding="utf-8") as fh:
+                    return fh.read()
+            except FileNotFoundError:
+                return ""
+
+        merged = merge_registries(_read(args.base), _read(args.ours), _read(args.theirs))
+        with open(args.ours, "w", encoding="utf-8") as fh:
+            fh.write(merged)
         return 0
 
     return 2
