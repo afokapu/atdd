@@ -5,7 +5,7 @@ dimension: "likelihood"
 object_of_control: "relationship-edge-insert"
 context_clarifier: "when authoring an edge into the single src/atdd/coach/graph/relationships.yaml, the writer must load, dedup-insert, stable-sort by source_ref, and atomically write, remaining idempotent on re-insert"
 lens: "functional.effectiveness"
-statement: "maximize likelihood of a schema-valid, deterministically-ordered relationship-edge-insert into relationships.yaml (dedup-insert, stable-sort by source_rule_id, idempotent, atomic write)"
+statement: "maximize likelihood of a schema-valid, deterministically-ordered relationship-edge-insert into relationships.yaml (dedup-insert, stable-sort by canonical key source_ref+type+target_ref, idempotent, atomic write)"
 acceptances:
   - identity:
       urn: "acc:author-atdd-substrate:E002-UNIT-001-stable-sort-by-source"

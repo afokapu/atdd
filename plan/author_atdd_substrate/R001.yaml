@@ -44,7 +44,7 @@ acceptances:
     then:
       abstract:
         - "The merged file contains every unique entry exactly once (the duplicate is collapsed)"
-        - "The file is stable-sorted by key (source_rule_id / scope_id / gate_id)"
+        - "The file is stable-sorted by the canonical key per kind (relationships: (source_ref, type, target_ref); scopes: scope_id; gates: gate_id)"
         - "The output bytes are deterministic and contain no conflict markers (<<<<<<<, =======, >>>>>>>)"
     metadata:
       author: "atdd:self-compliance"
