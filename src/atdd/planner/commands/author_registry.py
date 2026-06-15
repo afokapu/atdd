@@ -128,6 +128,106 @@ def merge_registries(base_text: str, ours_text: str, theirs_text: str) -> str:
     return canonical_dump(relationship_doc(list(merged.values())))
 
 
+# =============================================================================
+# Scope / selector kind (spec §7)
+# =============================================================================
+ARTIFACT_KINDS = (
+    "source_file", "test_file", "plan_file", "contract_file",
+    "pull_request", "issue", "remote_resource", "runtime_evidence",
+)
+RUNTIMES = ("python", "typescript", "supabase", "flutter", None)
+PLATFORMS = ("github", "local_fs", "supabase", "vercel", "convex", None)
+SELECTOR_TYPES = (
+    "path_glob", "git_path_prefix", "header_scan", "manifest_query",
+    "github_pr", "github_issue", "remote_resource", "runtime_evidence",
+)
+_ID_RE = re.compile(r"^[a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+$")
+
+
+def validate_scope(scope: dict) -> None:
+    if not _ID_RE.match(scope.get("scope_id", "")):
+        raise AuthorInputError("scope_id", f"invalid scope_id {scope.get('scope_id')!r}")
+    ak = scope.get("artifact_kind")
+    if ak is not None and ak not in ARTIFACT_KINDS:
+        raise AuthorInputError("artifact_kind", f"invalid artifact_kind {ak!r}; one of {ARTIFACT_KINDS}")
+    if scope.get("runtime") not in RUNTIMES:
+        raise AuthorInputError("runtime", f"invalid runtime {scope.get('runtime')!r}; one of {RUNTIMES}")
+    if scope.get("platform") not in PLATFORMS:
+        raise AuthorInputError("platform", f"invalid platform {scope.get('platform')!r}; one of {PLATFORMS}")
+    selectors = scope.get("selectors") or []
+    if not selectors:
+        raise AuthorInputError("selectors", "a scope must contain at least one selector (§7)")
+    for sel in selectors:
+        if sel.get("type") not in SELECTOR_TYPES:
+            raise AuthorInputError("selectors", f"invalid selector type {sel.get('type')!r}; one of {SELECTOR_TYPES}")
+
+
+def scope_doc(scopes: list) -> dict:
+    return {
+        "schema_version": "1.0.0",
+        "kind": "scope_registry",
+        "scopes": sorted(scopes, key=lambda s: s["scope_id"]),
+    }
+
+
+def insert_scope(scope: dict, path) -> None:
+    validate_scope(scope)
+    if os.path.exists(path):
+        doc = yaml.safe_load(open(path, encoding="utf-8").read()) or scope_doc([])
+    else:
+        doc = scope_doc([])
+    scopes = [s for s in doc.get("scopes", []) if s["scope_id"] != scope["scope_id"]]
+    scopes.append(scope)
+    _atomic_write(path, canonical_dump(scope_doc(scopes)))
+
+
+# =============================================================================
+# Gate kind (spec §8)
+# =============================================================================
+TRIGGER_TYPES = ("git_hook", "ci", "manual_command")
+TRIGGER_NAMES = ("post-commit", "pre-push", "pull-request", "ci", "local")
+SELECTION_STRATEGIES = ("blast_radius", "full", "phase_subset", "explicit_validators")
+VIOLATION_ACTIONS = ("never_block", "block", "warn", "defer_to_ci")
+
+
+def validate_gate(gate: dict) -> None:
+    if not _ID_RE.match(gate.get("gate_id", "")):
+        raise AuthorInputError("gate_id", f"invalid gate_id {gate.get('gate_id')!r}")
+    trig = gate.get("trigger") or {}
+    if trig.get("type") not in TRIGGER_TYPES:
+        raise AuthorInputError("trigger", f"invalid trigger type {trig.get('type')!r}; one of {TRIGGER_TYPES}")
+    if trig.get("name") not in TRIGGER_NAMES:
+        raise AuthorInputError("trigger", f"invalid trigger name {trig.get('name')!r}; one of {TRIGGER_NAMES}")
+    sel = gate.get("selection") or {}
+    if sel.get("strategy") not in SELECTION_STRATEGIES:
+        raise AuthorInputError("selection", f"invalid selection strategy {sel.get('strategy')!r}; one of {SELECTION_STRATEGIES}")
+    onv = gate.get("on_violation") or {}
+    if onv.get("action") not in VIOLATION_ACTIONS:
+        raise AuthorInputError("action", f"invalid violation action {onv.get('action')!r}; one of {VIOLATION_ACTIONS}")
+    ex = gate.get("exit") or {}
+    if "success_code" not in ex or "failure_code" not in ex:
+        raise AuthorInputError("exit", "exit behavior must be explicit (success_code + failure_code, §8)")
+
+
+def gate_doc(gates: list) -> dict:
+    return {
+        "schema_version": "1.0.0",
+        "kind": "gate_registry",
+        "gates": sorted(gates, key=lambda g: g["gate_id"]),
+    }
+
+
+def insert_gate(gate: dict, path) -> None:
+    validate_gate(gate)
+    if os.path.exists(path):
+        doc = yaml.safe_load(open(path, encoding="utf-8").read()) or gate_doc([])
+    else:
+        doc = gate_doc([])
+    gates = [g for g in doc.get("gates", []) if g["gate_id"] != gate["gate_id"]]
+    gates.append(gate)
+    _atomic_write(path, canonical_dump(gate_doc(gates)))
+
+
 def gitattributes_lines() -> list[str]:
     """`.gitattributes` lines registering the merge driver for registry files."""
     return [

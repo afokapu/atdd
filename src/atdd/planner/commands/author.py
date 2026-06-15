@@ -203,6 +203,30 @@ def build_parser() -> argparse.ArgumentParser:
     md.add_argument("ours", help="current version; merged result is written here (git A)")
     md.add_argument("theirs", help="other version file (git B)")
 
+    sc = sub.add_parser("scope", help="author a scope / selector")
+    sc.add_argument("--scope-id", required=True, dest="scope_id")
+    sc.add_argument("--artifact-kind", default=None, dest="artifact_kind")
+    sc.add_argument("--runtime", default=None)
+    sc.add_argument("--platform", default=None)
+    sc.add_argument(
+        "--selector", action="append", default=[], dest="selectors",
+        help="a selector as 'type=value' (repeatable)",
+    )
+    sc.add_argument("--path", default="src/atdd/coach/selectors/scopes.yaml")
+
+    gt = sub.add_parser("gate", help="author a gate")
+    gt.add_argument("--gate-id", required=True, dest="gate_id")
+    gt.add_argument("--trigger-type", required=True, dest="trigger_type")
+    gt.add_argument("--trigger-name", required=True, dest="trigger_name")
+    gt.add_argument("--selection", required=True, dest="selection_strategy")
+    gt.add_argument("--action", required=True, dest="violation_action")
+    gt.add_argument("--success-code", type=int, default=0, dest="success_code")
+    gt.add_argument("--failure-code", type=int, default=1, dest="failure_code")
+    gt.add_argument(
+        "--path", default=None,
+        help="per-trigger gate file (default: src/atdd/coach/gates/<trigger-name>.yaml)",
+    )
+
     return parser
 
 
@@ -269,6 +293,48 @@ def run(argv: list[str]) -> int:
         merged = merge_registries(_read(args.base), _read(args.ours), _read(args.theirs))
         with open(args.ours, "w", encoding="utf-8") as fh:
             fh.write(merged)
+        return 0
+
+    if args.cmd == "scope":
+        from atdd.planner.commands.author_registry import insert_scope
+
+        selectors = []
+        for raw in args.selectors:
+            typ, _, val = raw.partition("=")
+            selectors.append({"type": typ.strip(), "value": val.strip()})
+        scope = {"scope_id": args.scope_id, "selectors": selectors}
+        for key in ("artifact_kind", "runtime", "platform"):
+            val = getattr(args, key)
+            if val is not None:
+                scope[key] = val
+        path = Path(args.path)
+        try:
+            insert_scope(scope, path)
+        except AuthorInputError as exc:
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        print(str(path))
+        return 0
+
+    if args.cmd == "gate":
+        from atdd.planner.commands.author_registry import insert_gate
+
+        path = Path(args.path) if args.path else Path("src/atdd/coach/gates") / f"{args.trigger_name}.yaml"
+        gate = {
+            "gate_id": args.gate_id,
+            "kind": "gate",
+            "status": "active",
+            "trigger": {"type": args.trigger_type, "name": args.trigger_name},
+            "selection": {"strategy": args.selection_strategy},
+            "on_violation": {"action": args.violation_action},
+            "exit": {"success_code": args.success_code, "failure_code": args.failure_code},
+        }
+        try:
+            insert_gate(gate, path)
+        except AuthorInputError as exc:
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        print(str(path))
         return 0
 
     return 2
