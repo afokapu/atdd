@@ -1,0 +1,28 @@
+urn: "feature:author-atdd-substrate:author-convention-node"
+wagon: "wagon:author-atdd-substrate"
+description: "Authoring of convention-nodes as flat per-rule_id files under src/atdd/<role>/conventions/nodes/. Each node is written conflict-free (one file per rule_id), schema-validated on the author spine, and rejected when the role is unknown, the rule_id malformed, a semantic subfolder is used, or a term id is numbered."
+sizing:
+  wmbts: 2
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:author-atdd-substrate:E001"
+  - "wmbt:author-atdd-substrate:C002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd author convention-node subcommand"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "create_convention_node() write path; validate_convention_node() guard"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "ConventionNode (role, rule_id, terms); NodePath (flat per-role nodes/ home)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "per-role nodes/ flat-file writer adapter"

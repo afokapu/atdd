@@ -1,0 +1,92 @@
+urn: "wmbt:author-atdd-substrate:D001"
+step: "define"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "substrate-schemas"
+context_clarifier: "when authoring any of the four canonical governance artifact kinds (convention-node, relationship, scope, gate), each kind must have exactly one canonical schema and one flat canonical home, and the controlled vocabularies the features consume (node kind/status; relationship type/foundation/constraint/control/strength; selector artifact_kind/runtime/platform/type; gate trigger type+name/selection/changed-source/fallback/feedback/action) must be frozen and closed so authored artifacts are structurally well-formed by construction and validate against a frozen contract"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of schema-valid substrate-schemas by defining one canonical schema and flat canonical home per artifact kind (convention-node, relationship, scope, gate) and freezing the controlled vocabularies (relationship type, gate trigger/selection/violation-action, selector type)"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:D001-UNIT-001-one-schema-per-kind"
+      id: "AC-UNIT-001"
+      purpose: "each of the four artifact kinds resolves to exactly one canonical schema and one flat canonical home"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The four artifact kinds: convention-node, relationship, scope, gate"
+    when:
+      abstract: "load_schema(kind) and canonical_home(kind) are called for each kind"
+    then:
+      abstract:
+        - "Each kind returns exactly one schema reference (no ambiguity)"
+        - "Each kind returns one flat canonical home path (no semantic subfolders)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:D001-UNIT-002-schemas-are-self-consistent"
+      id: "AC-UNIT-002"
+      purpose: "every canonical schema is itself a valid JSON schema with a stable $id"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The four canonical schema files for the artifact kinds"
+    when:
+      abstract: "each schema is parsed and meta-validated"
+    then:
+      abstract:
+        - "Each schema parses as valid JSON schema"
+        - "Each schema declares a stable $id naming its artifact kind"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:D001-UNIT-003-frozen-vocabularies-loadable-and-closed"
+      id: "AC-UNIT-003"
+      purpose: "every frozen controlled vocabulary is loadable and closed (no member can be added without a schema change)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The frozen vocabularies owned by the spine: node kind/status; relationship type (10 verbs)/foundation/constraint/control/strength; selector artifact_kind/runtime/platform/type; gate trigger type+name/selection-strategy/changed-artifacts-source/fallback-strategy/on-violation-feedback/on-violation-action"
+    when:
+      abstract: "each frozen enum is loaded and its membership is inspected"
+    then:
+      abstract:
+        - "Each frozen enum loads with exactly its declared members and no others (node kind=8 members, status=3; relationship type=10 verbs, foundation=4, constraint=3, control=3, strength=3; selector artifact_kind=8, runtime=5, platform=6, type=8; gate trigger_type=3, trigger_name=5, selection_strategy=4, changed_artifacts_source=4, fallback_strategy=3, on_violation_feedback=5, on_violation_action=4)"
+        - "Each enum is closed: a value outside the frozen set is rejected (membership cannot widen without a schema change)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:D001-SMOKE-001-schemas-load-and-validate"
+      id: "AC-SMOKE-001"
+      purpose: "Verify the four canonical schemas and the frozen vocabularies load from disk and validate a known-good fixture of each kind against real infrastructure"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The real on-disk canonical schema files for all four artifact kinds"
+        - "The real on-disk frozen vocabularies (node kind/status; relationship type/foundation/constraint/control/strength; selector artifact_kind/runtime/platform/type; gate trigger type+name/selection/changed-source/fallback/feedback/action)"
+        - "A known-good authored fixture for each kind"
+    when:
+      abstract: "each fixture is validated against its kind's loaded schema and the frozen enums are loaded"
+    then:
+      abstract:
+        - "All four schemas load from their canonical home without error"
+        - "Each frozen vocabulary loads as a closed enum with exactly its declared members"
+        - "Each known-good fixture validates against its schema (and any vocabulary-typed field validates against the frozen enum)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"

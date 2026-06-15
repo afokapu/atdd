@@ -1,0 +1,71 @@
+urn: "wmbt:author-atdd-substrate:K001"
+step: "conclude"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "authored-artifact-rejection-or-regression"
+context_clarifier: "after any `atdd author` write completes, the artifact must be well-formed against its own schema AND `atdd validate` run WITH the authored files present must yield the same exit code and the same violation set (modulo the authored paths) as a baseline run WITHOUT them, with no authored path named in any validator output — no *consuming* validator exists yet (loader/validation-flow deferred to #1102), so this is measured by baseline equivalence, not by a consumer"
+lens: "functional.sustainability"
+statement: "minimize likelihood of authored artifact rejection or regression by existing ATDD gates, so authored artifacts are not rejected or regressed (authoring does not bypass validation)"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:K001-UNIT-001-no-bypass-marker"
+      id: "AC-UNIT-001"
+      purpose: "authored artifacts carry no authoring-only suppression or bypass marker"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An artifact written by each per-kind author writer"
+    when:
+      abstract: "the written content is inspected"
+    then:
+      abstract:
+        - "No authoring-specific suppression/bypass marker is present"
+        - "The content is identical in shape to a hand-authored equivalent"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:K001-INTEGRATION-001-well-formed-and-not-quarantined"
+      id: "AC-INTEGRATION-001"
+      purpose: "a freshly authored artifact of each kind is well-formed against its own schema, and validation with the artifacts present is byte-equivalent in outcome to a baseline run without them"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A freshly authored artifact for each of the four kinds in its canonical home"
+        - "The current ATDD validators, invoked in-process over the repo (no *consuming* graph validator exists yet)"
+    when:
+      abstract: "each artifact is validated against its own schema and the current validators run over the repo"
+    then:
+      abstract:
+        - "Each authored artifact is well-formed against its own per-kind schema"
+        - "atdd validate WITH the artifacts present has the same exit code and same violation set (modulo authored paths) as a baseline run WITHOUT them"
+        - "No validator names an authored path in its output, and none is skipped or suppressed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:K001-SMOKE-001-authored-artifact-not-rejected"
+      id: "AC-SMOKE-001"
+      purpose: "Verify an artifact of each kind authored by the real CLI is well-formed and that `atdd validate` neither errors on nor flags the new paths"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author + atdd validate CLIs"
+    when:
+      abstract: "atdd author writes one artifact of each kind, then atdd validate is run unmodified"
+    then:
+      abstract:
+        - "Each authored artifact is created in its canonical home and is well-formed against its own schema"
+        - "atdd validate exit code + violation set are identical with and without the authored files (modulo authored paths); no gate names the new files"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"

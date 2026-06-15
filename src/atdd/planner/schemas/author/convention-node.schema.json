@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "atdd:author:convention-node:1.0.0",
+  "title": "ATDD convention node (spec §5)",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "rule_id", "kind", "status", "statement", "terms"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "rule_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"},
+    "kind": {"enum": ["family", "rule", "principle", "constraint", "exception", "pattern", "anti_pattern", "policy"]},
+    "status": {"enum": ["draft", "active", "deprecated"]},
+    "statement": {"type": "string", "minLength": 1},
+    "rationale": {"type": "string"},
+    "notes": {"type": "string"},
+    "terms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["term_id", "text"],
+        "properties": {
+          "term_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "label": {"type": "string"},
+          "text": {"type": "string"}
+        }
+      }
+    }
+  }
+}

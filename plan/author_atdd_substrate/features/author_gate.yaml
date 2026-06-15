@@ -1,0 +1,28 @@
+urn: "feature:author-atdd-substrate:author-gate"
+wagon: "wagon:author-atdd-substrate"
+description: "Authoring of gate entries into per-trigger files under src/atdd/coach/gates/. A trigger file is registry-class: it accumulates many gate entries, so authoring uses the same dedup-insert + stable-sort by gate_id + atomic write + merge driver model. Malformed gates (invalid gate_id, invalid trigger, invalid selection strategy, invalid violation action, implicit exit behavior) are rejected."
+sizing:
+  wmbts: 2
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:author-atdd-substrate:E004"
+  - "wmbt:author-atdd-substrate:C005"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd author gate subcommand"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "insert_gate() (dedup-insert + stable-sort by gate_id + atomic write); validate_gate() guard"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "Gate (gate_id, trigger, selection_strategy, violation_action, exit_behavior); TriggerFile home"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "per-trigger gate file sorted-insert merge-driver-backed writer"

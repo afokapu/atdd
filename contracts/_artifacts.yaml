@@ -13,6 +13,16 @@ artifacts:
   producer: wagon:consolidate-coach-workspace
   consumers:
   - wagon:consolidate-coach-workspace
+- id: commons:coach:dashboard-card
+  urn: contract:commons:coach:dashboard-card
+  version: 1.0.0
+  title: CommonsCoachDashboardCard
+  description: One per-worker card rendered by `atdd coach dashboard` — the data the
+    reader produces from coach runtime and the grid renderer consumes.
+  path: contracts/commons/coach/dashboard-card.schema.json
+  producer: wagon:coach-ops
+  consumers:
+  - wagon:coach-ops
 - id: commons:compliance:gate
   urn: contract:commons:compliance:gate
   version: 1.0.0

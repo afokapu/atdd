@@ -1,0 +1,67 @@
+wagon: author-atdd-substrate
+urn: "wagon:author-atdd-substrate"
+name: "Author ATDD Substrate"
+description: "First-class authoring substrate for ATDD governance artifacts: a shared `atdd author` CLI validation spine plus deterministic writers for the four canonical artifact kinds. One kind is conflict-free by construction (convention-node: one file per rule_id); the other three are registry-class (relationship, scope, gate) where many entries accumulate in one file. Each writer enforces a single canonical schema and flat canonical home per kind and performs dedup-insert + stable-sort + atomic write; for the registry kinds a re-sort/dedup git merge driver resolves residual concurrent-insert conflicts deterministically (it does not make them conflict-free). Authored artifacts pass normal ATDD validation unmodified."
+theme: commons
+
+subject: "agent:planner"
+context: "authoring-new-governance-artifacts, concurrent-waves-insert-into-shared-registries"
+action: "defines one canonical schema and flat canonical home per artifact kind, validates role/id/path on a shared author spine, and writes each artifact via dedup-insert + stable-sort + atomic write backed by a re-sort/dedup merge driver"
+goal: "make it impossible to author a malformed or non-deterministically-ordered governance artifact, and deterministically resolve (not eliminate) merge collisions when many wagons insert into the same registry file concurrently"
+outcome: "schema-valid convention-nodes, relationships.yaml, scopes.yaml, and per-trigger gate files authored deterministically through `atdd author`, all passing unmodified through normal ATDD validation"
+
+features:
+  - urn: "feature:author-atdd-substrate:substrate-spine"
+  - urn: "feature:author-atdd-substrate:author-merge-driver"
+  - urn: "feature:author-atdd-substrate:author-convention-node"
+  - urn: "feature:author-atdd-substrate:author-relationship"
+  - urn: "feature:author-atdd-substrate:author-scope"
+  - urn: "feature:author-atdd-substrate:author-gate"
+
+produce:
+  - name: commons:author:substrate-schemas
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:author-spine
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:author-merge-driver
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:convention-node-command
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:relationship-command
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:scope-command
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:gate-command
+    contract: null
+    telemetry: null
+    to: external
+
+consume: []
+
+wmbt:
+  total: 13
+  D001: "maximize likelihood of schema-valid substrate by defining one canonical schema and flat canonical home per artifact kind and freezing the controlled vocabularies"
+  C001: "minimize likelihood of the shared atdd author spine accepting an invalid role, id, or path"
+  P001: "minimize likelihood of wrong-authoring-context by resolving extension-vs-core (extension default; core only with --core)"
+  K001: "minimize likelihood that authored artifacts are rejected or regressed by existing ATDD gates (authoring does not bypass validation)"
+  R001: "minimize likelihood of an unresolved registry merge conflict by shipping a .gitattributes-registered re-sort/dedup git merge driver"
+  E001: "maximize likelihood of schema-valid convention-node creation under a flat per-role nodes/ file"
+  C002: "minimize likelihood of accepting a structurally invalid convention-node"
+  E002: "maximize likelihood of a schema-valid, deterministically-ordered relationships.yaml when authoring an edge"
+  C003: "minimize likelihood of accepting a malformed relationship edge"
+  E003: "maximize likelihood of a schema-valid per-file scope (scopes/<scope_id>.scope.yaml) with embedded selectors sorted by selector_id"
+  C004: "minimize likelihood of accepting a malformed or empty scope"
+  E004: "maximize likelihood of a schema-valid, deterministically-ordered per-trigger gate file when authoring a gate entry"
+  C005: "minimize likelihood of accepting a malformed gate"

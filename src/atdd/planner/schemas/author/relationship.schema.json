@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "atdd:author:relationship:1.0.0",
+  "title": "ATDD relationship edge (spec §6)",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["source_ref", "type", "target_ref"],
+  "properties": {
+    "source_ref": {"type": "string"},
+    "target_ref": {"type": "string"},
+    "type": {"enum": ["requires", "blocks", "enables", "follows", "awaits", "triggered_by", "starts_with", "runs_alongside", "finishes_with", "relieves"]},
+    "foundation": {"enum": ["finish_to_start", "start_to_start", "finish_to_finish", "start_to_finish"]},
+    "constraint": {"enum": ["mandatory", "discretionary", "conditional"]},
+    "control": {"enum": ["internal", "external", "autonomous"]},
+    "strength": {"enum": ["critical", "important", "minor"]},
+    "reason": {"type": "string"},
+    "confidence": {"type": "number"}
+  }
+}

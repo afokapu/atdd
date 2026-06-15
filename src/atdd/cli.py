@@ -1186,6 +1186,23 @@ Phase descriptions:
         help="Forwarded to atdd.coach.commands.spawn",
     )
 
+    # ----- atdd author ... (author-atdd-substrate wagon, #1097) -----
+    # Author schema-valid substrate artifacts by construction. The sub-arg
+    # surface (convention-node / relationship / scope / gate) lives in
+    # `atdd.planner.commands.author.build_parser`; we register `author` here
+    # and forward argv. The first forwarded token is the kind (a positional),
+    # so REMAINDER captures it cleanly.
+    author_parser = subparsers.add_parser(
+        "author",
+        help="Author schema-valid ATDD substrate artifacts by construction.",
+        add_help=False,
+    )
+    author_parser.add_argument(
+        "author_argv",
+        nargs=argparse.REMAINDER,
+        help="Forwarded to atdd.planner.commands.author",
+    )
+
     # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
     # O1 (#501): single boundary for ambiguous coach v9 routing decisions.
     # Renders a prompt template, calls a structured-output LLM via the
@@ -2448,6 +2465,11 @@ Phase descriptions:
     elif args.command == "spawn":
         from atdd.coach.commands.spawn import run as run_spawn
         return run_spawn(list(getattr(args, "spawn_argv", []) or []))
+
+    # atdd author ... (author-atdd-substrate wagon — #1097)
+    elif args.command == "author":
+        from atdd.planner.commands.author import run as run_author
+        return run_author(list(getattr(args, "author_argv", []) or []))
 
     # atdd plan <source> ... (PLAN-1 — #758)
     elif args.command == "plan":

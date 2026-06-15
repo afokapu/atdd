@@ -59,12 +59,15 @@ import yaml
 import json
 import re
 import ast
+import logging
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.utils.theme_map import get_theme_map
+
+_logger = logging.getLogger(__name__)
 
 # Import URNBuilder for URN generation (following conventions)
 try:
@@ -1365,6 +1368,34 @@ class RegistryBuilder:
         output = {"trains": nested_trains}
         return self._confirm_and_apply(mode, "trains", registry_path, output, stats)
 
+    def _skip_empty_stub(self, kind: str, registry_path, items, stats) -> Optional[Dict[str, Any]]:
+        """Do not (re)create a vestigial empty registry stub.
+
+        The tech/test code-root registries (``supabase/_functions.yaml``, the
+        root ``atdd/tester/_tests.yaml``) are extension-domain now, not core
+        roots — under the extension-first model a runtime like Supabase lives in
+        an extension workspace, not a core registry. When there is nothing to
+        register, remove any existing *empty* stub (file + now-empty parent
+        dirs) and skip the write instead of stamping a `functions: []` /
+        `tests: []` placeholder into the repo. Returns a skip-result when it
+        skips, else ``None`` (proceed with the normal write).
+        """
+        if items:
+            return None
+        try:
+            if registry_path.exists():
+                existing = yaml.safe_load(registry_path.read_text()) or {}
+                if not any(existing.get(k) for k in ("tests", "functions", "implementations")):
+                    registry_path.unlink()
+                    d = registry_path.parent
+                    while d != self.repo_root and d.exists() and not any(d.iterdir()):
+                        d.rmdir()
+                        d = d.parent
+        except OSError as exc:
+            _logger.debug("empty-stub cleanup skipped", extra={"kind": kind, "error": str(exc)})
+        print(f"  (no {kind} artifacts — skipping; extension-domain registry not stubbed)")
+        return {"registry": kind, "skipped": True, "stats": stats}
+
     def build_tester(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
         Build tester registry from test files.
@@ -1464,6 +1495,9 @@ class RegistryBuilder:
             print(f"  ⚠️  {stats['errors']} errors encountered")
 
         # Use helper for confirm/apply
+        skip = self._skip_empty_stub("tester", registry_path, tests, stats)
+        if skip is not None:
+            return skip
         output = {"tests": tests}
         return self._confirm_and_apply(mode, "tester", registry_path, output, stats)
 
@@ -1680,6 +1714,9 @@ class RegistryBuilder:
         print(f"  • {stats['preserved_drafts']} draft functions will be preserved")
 
         # Use helper for confirm/apply
+        skip = self._skip_empty_stub("supabase", registry_path, functions, stats)
+        if skip is not None:
+            return skip
         output = {"functions": functions}
         return self._confirm_and_apply(mode, "supabase", registry_path, output, stats)
 

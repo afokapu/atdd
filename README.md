@@ -276,6 +276,33 @@ atdd plan .
 
 `atdd plan` is a read-only planning surface. It should render a deterministic brief and propose a train. It should not mutate GitHub, git, the manifest, or `plan/` artifacts.
 
+### Substrate authoring (`atdd author`)
+
+Creates schema-valid substrate artifacts **by construction** — the malformed case is impossible because every command validates role/id/path on a shared spine and the artifact against its frozen schema before any write. **Extension-first:** by default it writes into a self-contained extension package; `--core` is required (and protected) to touch the ATDD core protocol.
+
+```bash
+# extension-first (default) — writes into extensions/<publisher>.extension.<name>/
+atdd author convention-node --extension acme.extension.component-header --rule-id coder.source.header-required --statement "..." --term "marker=..."
+atdd author relationship    --extension acme.extension.component-header --source coder.source.a --type enables --target coder.source.b
+atdd author scope           --extension acme.extension.component-header --scope-id scope.source.python --artifact-kind source_file \
+                            --selector-id selector.source.python.glob --selector-type path_glob --include "src/**/*.py" --exclude ".venv/**"
+atdd author gate            --extension acme.extension.component-header --gate-id gate.pre_push.x --trigger-type git_hook --trigger-name pre-push --selection blast_radius --action block
+
+# core protocol (explicit, protected)
+atdd author convention-node --core --role coach --rule-id coach.extension.manifest-has-owner-boundary --statement "..." --term "owner=..."
+```
+
+Artifact kinds and homes:
+
+| Kind | Extension home | Core home |
+|---|---|---|
+| convention-node | `conventions/<rule_id>.convention.yaml` (per-file) | `src/atdd/<role>/conventions/nodes/` |
+| scope (+ embedded selectors) | `scopes/<scope_id>.scope.yaml` (per-file) | `src/atdd/coach/selectors/scopes/` |
+| relationship fragment | `relationships.yaml` | `src/atdd/coach/graph/relationships.yaml` |
+| gate fragment | `gates/<trigger>.fragment.yaml` | `src/atdd/coach/gates/<trigger>.yaml` |
+
+Registry-class kinds (relationship/scope/gate) use deterministic sorted-insert; concurrent inserts into the same registry resolve via a `.gitattributes`-registered re-sort/dedup git **merge driver**, so parallel authoring never produces hand-merge conflicts.
+
 ### Issue & PR
 
 ```bash
@@ -404,6 +431,56 @@ Temporal and LangGraph are not required to use ATDD.
 - JSONL-backed TrainRunner is the default local runner.
 - Temporal may become a future TrainRunner backend for cross-machine durable orchestration.
 - LangGraph may become a future review/judge subgraph backend, not necessarily the whole lifecycle runner.
+
+---
+
+## Extension-first migration (in progress)
+
+ATDD is migrating from a Python-centric validation toolkit into an **extensible agent-delivery protocol**: a small, protected **core** + self-contained **extension** packages for each use case, programming language, or workspace.
+
+```text
+ATDD core      = the protocol engine (schemas, lifecycle, gates, runners)
+extension      = a self-contained use-case package (conventions, scopes, gate
+                 fragments, validators, tests, fixtures, runtime/workspace)
+workspace      = a runtime/build/test environment an extension uses
+```
+
+The guiding rule: **a use case never scatters files across core.** It is packaged as one extension that owns its substrate behind a manifest boundary, so it can be installed, indexed, and removed as a unit.
+
+**Naming.** Packages use `<publisher>.<scope>.<artifact-name>` where scope is `core | extension`. `atdd.*` is the reserved publisher for official ATDD packages.
+
+```text
+atdd.core.*                 official core/protocol artifacts
+atdd.extension.*            official ATDD extensions
+<publisher>.extension.*     external/project/team extensions
+```
+
+**Where things live:**
+
+```text
+src/atdd/                      ATDD core protocol (small)
+extensions/<extension-id>/     source extensions (this repo)
+.atdd/extensions/<id>/<ver>/   installed extensions (consumer repo)
+```
+
+**Migration phases:**
+
+| Phase | Scope | Status |
+|---|---|---|
+| 1 | substrate schemas + extension-first `atdd author` (with `--core` protection); first Python workspace extension | author wagon shipped (`atdd author`, extension-first, namespace-validated) |
+| 2 | wrap existing validators in extension/implementation manifests; keep legacy paths working | next |
+| 3 | new validators only via extension bundles; move mature validators into extension packages | planned |
+| 4 | consumer repos install only the extensions/workspaces they need | planned |
+
+`atdd author` is the **authoring** half (it creates compliant substrate by construction). The **packaging** half — extension/workspace/implementation manifests, install/remove, validation-flow wiring — is built as a separate wagon that *consumes* `atdd author` inside a train to assemble an extension.
+
+Boundary recap:
+
+```text
+atdd author    creates compliant substrate artifacts  (extension by default; --core protected)
+atdd validate  verifies substrate artifacts
+atdd gate      decides whether a validation failure blocks
+```
 
 ---
 

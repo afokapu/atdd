@@ -1,0 +1,27 @@
+urn: "feature:author-atdd-substrate:author-merge-driver"
+wagon: "wagon:author-atdd-substrate"
+description: "The re-sort/dedup git merge driver (registered via .gitattributes) reused by every registry-class writer to deterministically resolve concurrent registry-class inserts: it reloads both sides, dedup-inserts, stable-sorts by the registry's canonical key, and writes a single conflict-free result. Produces commons:author:author-merge-driver. It resolves (not eliminates) residual concurrent-insert collisions in the shared relationships.yaml / scopes.yaml / gate registry files."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:author-atdd-substrate:R001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "git merge-driver entrypoint (invoked by git with %O %A %B ancestor/current/other paths)"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "reconcile_merge() — reload both sides, dedup-insert + stable-sort by canonical key, atomic write of the merged registry"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "MergeDriverInput (ancestor/current/other paths + registry kind); RegistrySortKey (canonical sort key per registry kind)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: ".gitattributes / git-config registration adapter that wires the merge=atdd-registry driver to the registry-class file globs"

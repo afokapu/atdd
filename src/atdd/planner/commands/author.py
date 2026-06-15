@@ -1,0 +1,401 @@
+# Component: component:author-atdd-substrate:substrate-spine:AuthorSpine:backend:application
+"""`atdd author` — author schema-valid ATDD substrate artifacts by construction.
+
+Shared spine for the `author-atdd-substrate` wagon. Every per-kind writer
+routes through ``validate_author_input`` before any write path runs, so no
+invalid role, id, or path ever reaches disk (WMBT C001). The convention-node
+writer (E001/C002) is implemented here; relationship/scope/gate writers land
+in follow-up slices.
+"""
+from __future__ import annotations
+
+import argparse
+import logging
+import os
+import re
+import sys
+from pathlib import Path
+
+import yaml
+
+logger = logging.getLogger(__name__)
+
+# The four ATDD convention-owning roles. `reviewer` is a spawn persona, not a
+# convention role, so it is intentionally excluded.
+ROLES: tuple[str, ...] = ("planner", "tester", "coder", "coach")
+
+# Frozen convention-node vocabularies (spec §5.1), consumed not redefined.
+KINDS: tuple[str, ...] = (
+    "family", "rule", "principle", "constraint",
+    "exception", "pattern", "anti_pattern", "policy",
+)
+STATUSES: tuple[str, ...] = ("draft", "active", "deprecated")
+
+# rule_id: dot-separated lowercase kebab segments, role-prefixed.
+_RULE_ID_RE = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
+# term_id: semantic snake_case; numbered ids (T1/T2/T3) are forbidden (§D005).
+_TERM_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+_NUMBERED_TERM_RE = re.compile(r"^[Tt]\d+$")
+_NODE_REQUIRED = ("schema_version", "rule_id", "kind", "status", "statement", "terms")
+
+_SRC_ROOT = os.path.join("src", "atdd")
+
+
+class AuthorInputError(Exception):
+    """Raised when the spine/writer rejects an author input.
+
+    Carries the offending ``field`` so callers and tests can assert *why*.
+    """
+
+    def __init__(self, field: str, message: str) -> None:
+        super().__init__(message)
+        self.field = field
+
+
+def validate_author_input(
+    role: str, rule_id: str, path: Path, *, home_root: str = _SRC_ROOT
+) -> None:
+    """Validate role, rule_id and path before any per-kind writer runs.
+
+    Raises ``AuthorInputError`` (with ``.field``) on the first violation:
+    role not in :data:`ROLES`; rule_id not lowercase-kebab dot-segments or not
+    prefixed by ``role``; path escaping ``home_root``.
+    """
+    if role not in ROLES:
+        raise AuthorInputError(
+            "role", f"invalid role {role!r}; expected one of {', '.join(ROLES)}"
+        )
+
+    if not _RULE_ID_RE.match(rule_id) or rule_id.split(".", 1)[0] != role:
+        raise AuthorInputError(
+            "rule_id",
+            f"invalid rule_id {rule_id!r}; must be lowercase kebab dot-segments "
+            f"prefixed by the role {role!r} (e.g. {role}.green.some-slug)",
+        )
+
+    home = os.path.normpath(str(home_root))
+    norm = os.path.normpath(str(path))
+    if not (norm == home or norm.startswith(home + os.sep)):
+        raise AuthorInputError(
+            "path", f"path {str(path)!r} escapes the canonical home {home}{os.sep}"
+        )
+
+
+def validate_convention_node(node: dict, path: Path) -> None:
+    """Validate a convention-node dict + its target path against the schema (§5).
+
+    Checks: flat path directly under ``nodes/`` (no semantic subfolder);
+    required fields present; ``kind``/``status`` in the frozen enums; every
+    ``term_id`` semantic snake_case (not numbered). Emits the non-blocking
+    §D006 term-count band warning. Raises ``AuthorInputError`` on violation.
+    """
+    # flat home: core uses .../nodes/, an extension uses .../conventions/ —
+    # both flat, no semantic subfolder (nodes/green/) allowed.
+    if path.parent.name not in ("nodes", "conventions"):
+        raise AuthorInputError(
+            "path",
+            f"convention nodes must be flat under nodes/ (core) or conventions/ "
+            f"(extension), not a subfolder ({path.parent}) — §3.1",
+        )
+
+    for field in _NODE_REQUIRED:
+        if field not in node or node[field] in (None, "", []):
+            raise AuthorInputError(field, f"missing required field {field!r} (§5.2)")
+
+    if node["kind"] not in KINDS:
+        raise AuthorInputError("kind", f"invalid kind {node['kind']!r}; one of {KINDS}")
+    if node["status"] not in STATUSES:
+        raise AuthorInputError("status", f"invalid status {node['status']!r}; one of {STATUSES}")
+
+    for term in node["terms"]:
+        tid = term.get("term_id", "")
+        if _NUMBERED_TERM_RE.match(tid) or not _TERM_ID_RE.match(tid):
+            raise AuthorInputError(
+                "terms",
+                f"invalid term_id {tid!r}; must be semantic snake_case, not "
+                f"numbered (T1/T2/T3 forbidden — §D005)",
+            )
+
+    # §D006 term-count heuristic — warn, never block.
+    n = len(node["terms"])
+    if 8 <= n <= 10:
+        print(f"atdd author: warning — {n} terms; review for splitting (§D006)", file=sys.stderr)
+    elif n > 10:
+        print(
+            f"atdd author: warning — {n} terms; likely too large unless justified (§D006)",
+            file=sys.stderr,
+        )
+
+
+def _node_path(role: str, rule_id: str, root: Path) -> Path:
+    """Canonical flat per-role home for a convention-node file (spec §3.1)."""
+    return root / role / "conventions" / "nodes" / f"{rule_id}.convention.yaml"
+
+
+def create_convention_node(
+    role: str,
+    rule_id: str,
+    *,
+    kind: str = "rule",
+    status: str = "active",
+    statement: str = "",
+    terms: list | None = None,
+    root: Path | str | None = None,
+    path: Path | str | None = None,
+) -> Path:
+    """Author one flat schema-valid convention-node file; return its path.
+
+    Per-rule_id file => conflict-free with sibling rules. Validates input
+    (spine) and node (schema) before writing; never writes a partial artifact.
+    When ``path`` is given (e.g. an extension home) it is used verbatim;
+    otherwise the core ``<root>/<role>/conventions/nodes/`` home is computed.
+    """
+    if path is not None:
+        path = Path(path)
+        home_root = str(path.parent)
+    else:
+        root = Path(root) if root is not None else Path(_SRC_ROOT)
+        path = _node_path(role, rule_id, root)
+        home_root = str(root)
+    validate_author_input(role, rule_id, path, home_root=home_root)
+
+    node = {
+        "schema_version": "1.0.0",
+        "rule_id": rule_id,
+        "kind": kind,
+        "status": status,
+        "statement": statement,
+        "terms": terms or [],
+    }
+    validate_convention_node(node, path)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as fh:
+        yaml.safe_dump(node, fh, sort_keys=False, default_flow_style=False)
+    return path
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="atdd author",
+        description="Author schema-valid ATDD substrate artifacts by construction.",
+    )
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    def ctx_flags(p):
+        # extension-first: default writes into an extension; --core is explicit.
+        p.add_argument("--core", action="store_true",
+                       help="author into the ATDD core protocol (explicit; modifies core)")
+        p.add_argument("--extension", default=None,
+                       help="author into this extension package (default context)")
+        p.add_argument("--root", default=None,
+                       help="repo root the home is resolved against (default: cwd)")
+
+    cn = sub.add_parser("convention-node", help="author a flat convention node")
+    ctx_flags(cn)
+    cn.add_argument("--role", default=None, help="core role (required with --core; derived from rule_id in an extension)")
+    cn.add_argument("--rule-id", required=True, dest="rule_id", help="canonical rule_id")
+    cn.add_argument("--kind", default="rule", help=f"one of {', '.join(KINDS)}")
+    cn.add_argument("--status", default="active", help=f"one of {', '.join(STATUSES)}")
+    cn.add_argument("--statement", default="", help="one-sentence rule statement")
+    cn.add_argument(
+        "--term", action="append", default=[], dest="terms",
+        help="a term as 'term_id=text' (repeatable)",
+    )
+
+    rel = sub.add_parser("relationship", help="author a relationship edge")
+    ctx_flags(rel)
+    rel.add_argument("--source", required=True, dest="source_ref")
+    rel.add_argument("--type", required=True, dest="rel_type")
+    rel.add_argument("--target", required=True, dest="target_ref")
+    rel.add_argument("--foundation", default=None)
+    rel.add_argument("--constraint", default=None)
+    rel.add_argument("--control", default=None)
+    rel.add_argument("--strength", default=None)
+    rel.add_argument("--reason", default="")
+    rel.add_argument("--confidence", type=float, default=1.0)
+    rel.add_argument("--path", default=None,
+                     help="override registry path (default: resolved from context)")
+
+    md = sub.add_parser(
+        "merge-driver",
+        help="internal: re-sort/dedup git merge driver for registry files",
+    )
+    md.add_argument("base", help="common ancestor file (git O)")
+    md.add_argument("ours", help="current version; merged result is written here (git A)")
+    md.add_argument("theirs", help="other version file (git B)")
+
+    sc = sub.add_parser("scope", help="author a scope (validation surface) + an embedded selector")
+    ctx_flags(sc)
+    sc.add_argument("--scope-id", required=True, dest="scope_id", help="the surface being validated")
+    sc.add_argument("--artifact-kind", default=None, dest="artifact_kind")
+    sc.add_argument("--runtime", default=None)
+    sc.add_argument("--platform", default=None)
+    sc.add_argument("--selector-id", required=True, dest="selector_id", help="stable id of the discovery mechanism")
+    sc.add_argument("--selector-type", required=True, dest="selector_type",
+                    help="path_glob | git_path_prefix | header_scan | manifest_query | github_pr | github_issue | remote_resource | runtime_evidence")
+    sc.add_argument("--include", action="append", default=[], help="include pattern (repeatable)")
+    sc.add_argument("--exclude", action="append", default=[], help="exclude pattern (repeatable)")
+    sc.add_argument("--path", default=None, help="override scope file path (default: resolved from context)")
+
+    gt = sub.add_parser("gate", help="author a gate")
+    ctx_flags(gt)
+    gt.add_argument("--gate-id", required=True, dest="gate_id")
+    gt.add_argument("--trigger-type", required=True, dest="trigger_type")
+    gt.add_argument("--trigger-name", required=True, dest="trigger_name")
+    gt.add_argument("--selection", required=True, dest="selection_strategy")
+    gt.add_argument("--action", required=True, dest="violation_action")
+    gt.add_argument("--success-code", type=int, default=0, dest="success_code")
+    gt.add_argument("--failure-code", type=int, default=1, dest="failure_code")
+    gt.add_argument(
+        "--path", default=None,
+        help="per-trigger gate file (default: src/atdd/coach/gates/<trigger-name>.yaml)",
+    )
+
+    return parser
+
+
+def _parse_terms(raw_terms: list[str]) -> list[dict]:
+    out = []
+    for raw in raw_terms:
+        tid, _, text = raw.partition("=")
+        out.append({"term_id": tid.strip(), "text": text.strip()})
+    return out
+
+
+def _config_extensions(root: Path) -> list[str]:
+    """Active authoring extensions from .atdd/config.yaml (author.extensions)."""
+    cfg = Path(root) / ".atdd" / "config.yaml"
+    try:
+        data = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
+        return list(((data.get("author") or {}).get("extensions")) or [])
+    except Exception as exc:
+        logger.debug("no usable author config", extra={"error": str(exc)})
+        return []
+
+
+def run(argv: list[str]) -> int:
+    args = build_parser().parse_args(argv)
+
+    if args.cmd == "merge-driver":
+        from atdd.planner.commands.author_registry import merge_registries
+
+        def _read(p: str) -> str:
+            try:
+                with open(p, encoding="utf-8") as fh:
+                    return fh.read()
+            except FileNotFoundError:
+                logger.debug("merge-driver input absent", extra={"path": p})
+                return ""
+
+        merged = merge_registries(_read(args.base), _read(args.ours), _read(args.theirs))
+        with open(args.ours, "w", encoding="utf-8") as fh:
+            fh.write(merged)
+        return 0
+
+    # every author kind resolves an authoring context first (P001, spec §6).
+    from atdd.planner.commands.author_context import (
+        gate_home, node_home, relationship_home, resolve_context, scope_home,
+    )
+
+    cwd = os.getcwd()
+    root = Path(args.root) if getattr(args, "root", None) else Path(cwd)
+    try:
+        ctx = resolve_context(
+            core=args.core, extension=args.extension,
+            cwd=cwd, config_extensions=_config_extensions(root),
+        )
+    except AuthorInputError as exc:
+        logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+        print(f"atdd author: {exc}", file=sys.stderr)
+        return 2
+
+    if args.cmd == "convention-node":
+        if ctx.is_core:
+            role = args.role
+            if not role:
+                print("atdd author: --core convention-node requires --role", file=sys.stderr)
+                return 2
+        else:
+            role = args.rule_id.split(".", 1)[0]  # extension: derive role from rule_id
+        path = node_home(ctx, role, args.rule_id, root)
+        try:
+            create_convention_node(
+                role, args.rule_id, kind=args.kind, status=args.status,
+                statement=args.statement, terms=_parse_terms(args.terms), path=path,
+            )
+        except AuthorInputError as exc:
+            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        print(str(path))
+        return 0
+
+    if args.cmd == "relationship":
+        from atdd.planner.commands.author_registry import insert_relationship
+
+        edge = {
+            "source_ref": args.source_ref,
+            "type": args.rel_type,
+            "target_ref": args.target_ref,
+            "reason": args.reason,
+            "confidence": args.confidence,
+        }
+        for key in ("foundation", "constraint", "control", "strength"):
+            val = getattr(args, key)
+            if val is not None:
+                edge[key] = val
+        path = Path(args.path) if args.path else relationship_home(ctx, root)
+        try:
+            insert_relationship(edge, path)
+        except AuthorInputError as exc:
+            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        print(str(path))
+        return 0
+
+    if args.cmd == "scope":
+        from atdd.planner.commands.author_registry import insert_scope_selector
+
+        scope_meta = {"scope_id": args.scope_id}
+        for key in ("artifact_kind", "runtime", "platform"):
+            val = getattr(args, key)
+            if val is not None:
+                scope_meta[key] = val
+        selector = {"selector_id": args.selector_id, "type": args.selector_type, "include": args.include}
+        if args.exclude:
+            selector["exclude"] = args.exclude
+        path = Path(args.path) if args.path else scope_home(ctx, args.scope_id, root)
+        try:
+            insert_scope_selector(scope_meta, selector, path)
+        except AuthorInputError as exc:
+            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        print(str(path))
+        return 0
+
+    if args.cmd == "gate":
+        from atdd.planner.commands.author_registry import insert_gate
+
+        path = Path(args.path) if args.path else gate_home(ctx, args.trigger_name, root)
+        gate = {
+            "gate_id": args.gate_id,
+            "kind": "gate",
+            "status": "active",
+            "trigger": {"type": args.trigger_type, "name": args.trigger_name},
+            "selection": {"strategy": args.selection_strategy},
+            "on_violation": {"action": args.violation_action},
+            "exit": {"success_code": args.success_code, "failure_code": args.failure_code},
+        }
+        try:
+            insert_gate(gate, path)
+        except AuthorInputError as exc:
+            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        print(str(path))
+        return 0
+
+    return 2

@@ -1,0 +1,69 @@
+urn: "wmbt:author-atdd-substrate:E001"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "convention-node-creation"
+context_clarifier: "when authoring a convention-node, the writer must create a flat per-role file under src/atdd/<role>/conventions/nodes/ keyed by rule_id, conflict-free, and schema-valid"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of schema-valid convention-node-creation when authoring a flat per-role node file under nodes/"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:E001-UNIT-001-flat-per-rule-file"
+      id: "AC-UNIT-001"
+      purpose: "create_convention_node writes one flat file per rule_id under the role's nodes/ home"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A valid convention-node (role=coder, rule_id, terms) and a temp nodes/ home"
+    when:
+      abstract: "create_convention_node(node) is called"
+    then:
+      abstract:
+        - "Exactly one file is written under src/atdd/coder/conventions/nodes/ keyed by rule_id"
+        - "The written file validates against the convention-node schema"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:E001-UNIT-002-conflict-free-second-rule"
+      id: "AC-UNIT-002"
+      purpose: "authoring a second rule_id for the same role adds a new file without touching the first"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An existing convention-node file for rule_id A"
+    when:
+      abstract: "create_convention_node is called for a different rule_id B"
+    then:
+      abstract:
+        - "A new file for rule_id B is written"
+        - "The file for rule_id A is byte-for-byte unchanged (conflict-free)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"
+  - identity:
+      urn: "acc:author-atdd-substrate:E001-SMOKE-001-cli-creates-valid-node"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author convention-node` writes a schema-valid flat per-role file in a real checkout"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+    when:
+      abstract: "atdd author convention-node --role coder --rule-id <id> ... is run"
+    then:
+      abstract:
+        - "A flat file appears under src/atdd/coder/conventions/nodes/ for that rule_id"
+        - "The created node validates against the canonical convention-node schema"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-14"

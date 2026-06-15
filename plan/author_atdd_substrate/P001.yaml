@@ -1,0 +1,95 @@
+urn: "wmbt:author-atdd-substrate:P001"
+step: "prepare"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "wrong-authoring-context"
+context_clarifier: "before any per-kind writer runs, the spine must resolve an authoring context (extension by default, core only with --core) so a use-case artifact is never silently written into the ATDD core protocol"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of wrong-authoring-context by resolving extension-vs-core context (--core > --extension > cwd > single active config > fail) and refusing core writes without an explicit --core flag"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:P001-UNIT-001-resolution-order"
+      id: "AC-UNIT-001"
+      purpose: "resolve_context follows the §6 order: --core, then --extension, then cwd-in-extension, then single active config, else fail"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Inputs exercising each rung: --core; --extension <id>; a cwd inside extensions/<id>/; a config with exactly one active extension; and none of these"
+    when:
+      abstract: "resolve_context is called for each"
+    then:
+      abstract:
+        - "--core yields a core context"
+        - "--extension yields that extension context"
+        - "a cwd inside extensions/<id>/ yields that extension context"
+        - "a single active config extension is used when no flag/cwd applies"
+        - "with no signal at all, resolution fails asking for --extension or --core"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-15"
+  - identity:
+      urn: "acc:author-atdd-substrate:P001-UNIT-002-extension-default-core-protected"
+      id: "AC-UNIT-002"
+      purpose: "extension is the default and core is refused without --core"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An --extension context and a core-only request without --core"
+    when:
+      abstract: "the context is resolved and a core write is attempted without --core"
+    then:
+      abstract:
+        - "the default (no flag) resolves to an extension context, never core"
+        - "a core write without --core is refused before any file is written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-15"
+  - identity:
+      urn: "acc:author-atdd-substrate:P001-UNIT-003-extension-id-namespace"
+      id: "AC-UNIT-003"
+      purpose: "an --extension id must be <publisher>.extension.<name>; the 'core' scope and the reserved 'atdd' publisher are refused"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Candidate extension ids: a well-formed publisher.extension.name; a malformed two-segment id; a publisher.core.name; and atdd.extension.name"
+    when:
+      abstract: "resolve_context / validate_extension_id is called for each"
+    then:
+      abstract:
+        - "the well-formed publisher.extension.name id is accepted"
+        - "a malformed id (not three lowercase-kebab segments) is refused"
+        - "an id whose scope segment is 'core' is refused under --extension"
+        - "an id whose publisher is the reserved 'atdd' is refused"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-15"
+  - identity:
+      urn: "acc:author-atdd-substrate:P001-SMOKE-001-cli-extension-default-and-core-flag"
+      id: "AC-SMOKE-001"
+      purpose: "Verify the real CLI authors a convention-node into an extension package by default and into core only with --core"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout, the installed atdd author CLI, and an --extension id"
+    when:
+      abstract: "atdd author convention-node is run once with --extension and once with --core"
+    then:
+      abstract:
+        - "the --extension run writes under extensions/<id>/conventions/ and not into src/atdd/"
+        - "the --core run writes under src/atdd/<role>/conventions/nodes/"
+        - "a run with neither flag (and no extension context) exits non-zero without writing"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-15"
