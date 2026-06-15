@@ -51,6 +51,28 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-06-15"
   - identity:
+      urn: "acc:author-atdd-substrate:P001-UNIT-003-extension-id-namespace"
+      id: "AC-UNIT-003"
+      purpose: "an --extension id must be <publisher>.extension.<name>; the 'core' scope and the reserved 'atdd' publisher are refused"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Candidate extension ids: a well-formed publisher.extension.name; a malformed two-segment id; a publisher.core.name; and atdd.extension.name"
+    when:
+      abstract: "resolve_context / validate_extension_id is called for each"
+    then:
+      abstract:
+        - "the well-formed publisher.extension.name id is accepted"
+        - "a malformed id (not three lowercase-kebab segments) is refused"
+        - "an id whose scope segment is 'core' is refused under --extension"
+        - "an id whose publisher is the reserved 'atdd' is refused"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-15"
+  - identity:
       urn: "acc:author-atdd-substrate:P001-SMOKE-001-cli-extension-default-and-core-flag"
       id: "AC-SMOKE-001"
       purpose: "Verify the real CLI authors a convention-node into an extension package by default and into core only with --core"

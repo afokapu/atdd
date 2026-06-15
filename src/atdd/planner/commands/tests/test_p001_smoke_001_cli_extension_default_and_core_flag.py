@@ -23,11 +23,11 @@ def _cli(args, cwd):
 
 def test_extension_is_default_and_core_is_protected(tmp_path):
     # 1. --extension → writes inside the extension package, NOT into src/atdd/
-    ext = _cli(["convention-node", "--extension", "bromohub.demo",
+    ext = _cli(["convention-node", "--extension", "bromohub.extension.component-header-validator",
                 "--rule-id", "coder.source.component-header-required",
                 "--statement", "s", "--term", "t=y"], tmp_path)
     assert ext.returncode == 0, ext.stderr
-    ext_file = tmp_path / "extensions/bromohub.demo/conventions/coder.source.component-header-required.convention.yaml"
+    ext_file = tmp_path / "extensions/bromohub.extension.component-header-validator/conventions/coder.source.component-header-required.convention.yaml"
     assert ext_file.exists(), ext.stdout + ext.stderr
     assert not (tmp_path / "src").exists(), "extension authoring leaked into core src/atdd/"
 

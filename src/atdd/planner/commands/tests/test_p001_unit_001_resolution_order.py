@@ -19,20 +19,20 @@ def test_core_flag_wins(tmp_path):
 
 
 def test_extension_flag(tmp_path):
-    ctx = resolve_context(extension="bromohub.x", cwd=str(tmp_path))
-    assert not ctx.is_core and ctx.extension_id == "bromohub.x"
+    ctx = resolve_context(extension="bromohub.extension.alpha", cwd=str(tmp_path))
+    assert not ctx.is_core and ctx.extension_id == "bromohub.extension.alpha"
 
 
 def test_cwd_inside_extension(tmp_path):
-    inside = tmp_path / "extensions" / "bromohub.y" / "conventions"
+    inside = tmp_path / "extensions" / "bromohub.extension.beta" / "conventions"
     inside.mkdir(parents=True)
     ctx = resolve_context(cwd=str(inside))
-    assert ctx.extension_id == "bromohub.y"
+    assert ctx.extension_id == "bromohub.extension.beta"
 
 
 def test_single_active_config(tmp_path):
-    ctx = resolve_context(cwd=str(tmp_path), config_extensions=["bromohub.z"])
-    assert ctx.extension_id == "bromohub.z"
+    ctx = resolve_context(cwd=str(tmp_path), config_extensions=["bromohub.extension.gamma"])
+    assert ctx.extension_id == "bromohub.extension.gamma"
 
 
 def test_no_signal_fails(tmp_path):

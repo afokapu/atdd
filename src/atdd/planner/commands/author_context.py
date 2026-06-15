@@ -11,11 +11,46 @@ merge driver are reused unchanged.
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 from atdd.planner.commands.author import AuthorInputError
 
 _EXT_DIR = "extensions"
+
+# Package namespace: <publisher>.<scope>.<artifact-name> (all lowercase kebab).
+_PKG_ID_RE = re.compile(
+    r"^(?P<publisher>[a-z][a-z0-9-]*)\.(?P<scope>core|extension)\.(?P<name>[a-z][a-z0-9-]*)$"
+)
+_RESERVED_PUBLISHER = "atdd"  # only official ATDD packages may use it
+
+
+def validate_extension_id(extension_id: str) -> None:
+    """Validate an ``--extension`` id against ``<publisher>.extension.<name>``.
+
+    Per the locked package-namespace rule: the second segment must be
+    ``extension`` (``--core`` owns ``.core.``), and ``atdd`` is a reserved
+    publisher for official packages. Raises ``AuthorInputError(field="extension")``.
+    """
+    m = _PKG_ID_RE.match(extension_id or "")
+    if not m:
+        raise AuthorInputError(
+            "extension",
+            f"invalid extension id {extension_id!r}; expected "
+            f"<publisher>.extension.<artifact-name> (lowercase kebab)",
+        )
+    if m.group("scope") != "extension":
+        raise AuthorInputError(
+            "extension",
+            f"extension id {extension_id!r} uses the '{m.group('scope')}' scope; "
+            f"--extension requires the 'extension' scope (use --core for core artifacts)",
+        )
+    if m.group("publisher") == _RESERVED_PUBLISHER:
+        raise AuthorInputError(
+            "extension",
+            f"the '{_RESERVED_PUBLISHER}' publisher is reserved for official ATDD "
+            f"packages; use your own publisher namespace",
+        )
 
 
 class AuthorContext:
@@ -60,13 +95,12 @@ def resolve_context(
     """
     if core:
         return AuthorContext("core")
-    if extension:
-        return AuthorContext("extension", extension)
-    eid = _extension_from_cwd(Path(cwd or os.getcwd()).resolve())
+    eid = extension or _extension_from_cwd(Path(cwd or os.getcwd()).resolve())
+    if not eid and config_extensions and len(config_extensions) == 1:
+        eid = config_extensions[0]
     if eid:
+        validate_extension_id(eid)  # any resolved extension id must be well-formed
         return AuthorContext("extension", eid)
-    if config_extensions and len(config_extensions) == 1:
-        return AuthorContext("extension", config_extensions[0])
     raise AuthorInputError(
         "context",
         "no authoring context: pass --extension <id> (extension-first) or --core "
