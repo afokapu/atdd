@@ -5,7 +5,7 @@ dimension: "likelihood"
 object_of_control: "scope-insert"
 context_clarifier: "V1: scope is the primary surface — authored per-file under scopes/<scope_id>.scope.yaml with its selectors embedded (sorted by selector_id), each selector carrying at least one include pattern; selectors split into their own files only later if complex"
 lens: "functional.effectiveness"
-statement: "maximize likelihood of a schema-valid per-file scope (scopes/<scope_id>.scope.yaml) with embedded selectors deterministically sorted by selector_id"
+statement: "maximize likelihood of a schema-valid scope-insert into a per-file scopes/<scope_id>.scope.yaml with embedded selectors deterministically sorted by selector_id"
 acceptances:
   - identity:
       urn: "acc:author-atdd-substrate:E003-UNIT-001-stable-sort-by-scope-id"
