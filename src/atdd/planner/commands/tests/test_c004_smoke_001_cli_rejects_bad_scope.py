@@ -18,7 +18,7 @@ _SRC = Path(__file__).resolve().parents[4]
 def _run(args, cwd):
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(cwd)}
     return subprocess.run(
-        [sys.executable, "-m", "atdd", "author", "scope", *args],
+        [sys.executable, "-m", "atdd", "author", "scope", "--core", *args],
         cwd=str(cwd), env=env, capture_output=True, text=True, timeout=60,
     )
 

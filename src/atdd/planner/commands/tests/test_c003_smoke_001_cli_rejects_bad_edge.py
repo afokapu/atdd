@@ -20,7 +20,7 @@ def test_cli_rejects_bad_edge_file_untouched(tmp_path):
     # seed a valid registry first
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(tmp_path)}
     seed = subprocess.run(
-        [sys.executable, "-m", "atdd", "author", "relationship",
+        [sys.executable, "-m", "atdd", "author", "relationship", "--core",
          "--source", "coder.green.a", "--type", "enables", "--target", "coder.green.b",
          "--path", str(reg)],
         cwd=str(tmp_path), env=env, capture_output=True, text=True, timeout=60,
@@ -30,7 +30,7 @@ def test_cli_rejects_bad_edge_file_untouched(tmp_path):
 
     # now attempt a malformed edge (invalid type)
     bad = subprocess.run(
-        [sys.executable, "-m", "atdd", "author", "relationship",
+        [sys.executable, "-m", "atdd", "author", "relationship", "--core",
          "--source", "coder.green.a", "--type", "not_a_real_type", "--target", "coder.green.c",
          "--path", str(reg)],
         cwd=str(tmp_path), env=env, capture_output=True, text=True, timeout=60,

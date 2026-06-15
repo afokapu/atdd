@@ -20,7 +20,7 @@ _SRC = Path(__file__).resolve().parents[4]
 def _scope(path, sid, cwd):
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(cwd)}
     return subprocess.run(
-        [sys.executable, "-m", "atdd", "author", "scope",
+        [sys.executable, "-m", "atdd", "author", "scope", "--core",
          "--scope-id", sid, "--artifact-kind", "source_file", "--runtime", "python",
          "--selector", "path_glob=src/**/*.py", "--path", str(path)],
         cwd=str(cwd), env=env, capture_output=True, text=True, timeout=60,

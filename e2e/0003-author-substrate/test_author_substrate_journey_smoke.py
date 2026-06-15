@@ -41,7 +41,7 @@ def _author(args, cwd):
 
 def test_author_every_substrate_kind_end_to_end(tmp_path):
     # 1. convention-node — flat per-role file
-    _author(["convention-node", "--role", "coder",
+    _author(["convention-node", "--core", "--role", "coder",
              "--rule-id", "coder.green.component-urn-marker-is",
              "--statement", "Implementation files declare the component URN marker.",
              "--term", "urn_marker=Every file declares a URN marker."], tmp_path)
@@ -51,7 +51,7 @@ def test_author_every_substrate_kind_end_to_end(tmp_path):
 
     # 2. relationship — registry-class, sorted-insert
     rel = tmp_path / "relationships.yaml"
-    _author(["relationship", "--source", "coder.green.component-urn-marker-is#urn_marker",
+    _author(["relationship", "--core", "--source", "coder.green.component-urn-marker-is#urn_marker",
              "--type", "enables", "--target", "coder.green.component-urn-matches-pattern",
              "--path", str(rel)], tmp_path)
     for e in yaml.safe_load(rel.read_text())["edges"]:
@@ -59,7 +59,7 @@ def test_author_every_substrate_kind_end_to_end(tmp_path):
 
     # 3. scope — selector registry
     scope = tmp_path / "scopes.yaml"
-    _author(["scope", "--scope-id", "scope.source.python", "--artifact-kind", "source_file",
+    _author(["scope", "--core", "--scope-id", "scope.source.python", "--artifact-kind", "source_file",
              "--runtime", "python", "--platform", "local_fs",
              "--selector", "path_glob=src/**/*.py", "--path", str(scope)], tmp_path)
     for s in yaml.safe_load(scope.read_text())["scopes"]:
@@ -67,7 +67,7 @@ def test_author_every_substrate_kind_end_to_end(tmp_path):
 
     # 4. gate — per-trigger file
     gate = tmp_path / "post-commit.yaml"
-    _author(["gate", "--gate-id", "gate.post_commit.local_feedback",
+    _author(["gate", "--core", "--gate-id", "gate.post_commit.local_feedback",
              "--trigger-type", "git_hook", "--trigger-name", "post-commit",
              "--selection", "blast_radius", "--action", "never_block",
              "--success-code", "0", "--failure-code", "0", "--path", str(gate)], tmp_path)

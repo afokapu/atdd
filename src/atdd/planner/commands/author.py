@@ -86,11 +86,13 @@ def validate_convention_node(node: dict, path: Path) -> None:
     ``term_id`` semantic snake_case (not numbered). Emits the non-blocking
     §D006 term-count band warning. Raises ``AuthorInputError`` on violation.
     """
-    if path.parent.name != "nodes":
+    # flat home: core uses .../nodes/, an extension uses .../conventions/ —
+    # both flat, no semantic subfolder (nodes/green/) allowed.
+    if path.parent.name not in ("nodes", "conventions"):
         raise AuthorInputError(
             "path",
-            f"convention nodes must be flat under nodes/, not a subfolder "
-            f"({path.parent}) — semantic subfolders are forbidden (§3.1)",
+            f"convention nodes must be flat under nodes/ (core) or conventions/ "
+            f"(extension), not a subfolder ({path.parent}) — §3.1",
         )
 
     for field in _NODE_REQUIRED:
@@ -136,15 +138,23 @@ def create_convention_node(
     statement: str = "",
     terms: list | None = None,
     root: Path | str | None = None,
+    path: Path | str | None = None,
 ) -> Path:
     """Author one flat schema-valid convention-node file; return its path.
 
     Per-rule_id file => conflict-free with sibling rules. Validates input
     (spine) and node (schema) before writing; never writes a partial artifact.
+    When ``path`` is given (e.g. an extension home) it is used verbatim;
+    otherwise the core ``<root>/<role>/conventions/nodes/`` home is computed.
     """
-    root = Path(root) if root is not None else Path(_SRC_ROOT)
-    path = _node_path(role, rule_id, root)
-    validate_author_input(role, rule_id, path, home_root=str(root))
+    if path is not None:
+        path = Path(path)
+        home_root = str(path.parent)
+    else:
+        root = Path(root) if root is not None else Path(_SRC_ROOT)
+        path = _node_path(role, rule_id, root)
+        home_root = str(root)
+    validate_author_input(role, rule_id, path, home_root=home_root)
 
     node = {
         "schema_version": "1.0.0",
@@ -169,8 +179,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    cn = sub.add_parser("convention-node", help="author a flat per-role convention node")
-    cn.add_argument("--role", required=True, help="convention-owning role")
+    def ctx_flags(p):
+        # extension-first: default writes into an extension; --core is explicit.
+        p.add_argument("--core", action="store_true",
+                       help="author into the ATDD core protocol (explicit; modifies core)")
+        p.add_argument("--extension", default=None,
+                       help="author into this extension package (default context)")
+        p.add_argument("--root", default=None,
+                       help="repo root the home is resolved against (default: cwd)")
+
+    cn = sub.add_parser("convention-node", help="author a flat convention node")
+    ctx_flags(cn)
+    cn.add_argument("--role", default=None, help="core role (required with --core; derived from rule_id in an extension)")
     cn.add_argument("--rule-id", required=True, dest="rule_id", help="canonical rule_id")
     cn.add_argument("--kind", default="rule", help=f"one of {', '.join(KINDS)}")
     cn.add_argument("--status", default="active", help=f"one of {', '.join(STATUSES)}")
@@ -181,6 +201,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     rel = sub.add_parser("relationship", help="author a relationship edge")
+    ctx_flags(rel)
     rel.add_argument("--source", required=True, dest="source_ref")
     rel.add_argument("--type", required=True, dest="rel_type")
     rel.add_argument("--target", required=True, dest="target_ref")
@@ -190,10 +211,8 @@ def build_parser() -> argparse.ArgumentParser:
     rel.add_argument("--strength", default=None)
     rel.add_argument("--reason", default="")
     rel.add_argument("--confidence", type=float, default=1.0)
-    rel.add_argument(
-        "--path", default="src/atdd/coach/graph/relationships.yaml",
-        help="registry path (default: canonical relationships.yaml home)",
-    )
+    rel.add_argument("--path", default=None,
+                     help="override registry path (default: resolved from context)")
 
     md = sub.add_parser(
         "merge-driver",
@@ -204,6 +223,7 @@ def build_parser() -> argparse.ArgumentParser:
     md.add_argument("theirs", help="other version file (git B)")
 
     sc = sub.add_parser("scope", help="author a scope / selector")
+    ctx_flags(sc)
     sc.add_argument("--scope-id", required=True, dest="scope_id")
     sc.add_argument("--artifact-kind", default=None, dest="artifact_kind")
     sc.add_argument("--runtime", default=None)
@@ -212,9 +232,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--selector", action="append", default=[], dest="selectors",
         help="a selector as 'type=value' (repeatable)",
     )
-    sc.add_argument("--path", default="src/atdd/coach/selectors/scopes.yaml")
+    sc.add_argument("--path", default=None, help="override registry path (default: resolved from context)")
 
     gt = sub.add_parser("gate", help="author a gate")
+    ctx_flags(gt)
     gt.add_argument("--gate-id", required=True, dest="gate_id")
     gt.add_argument("--trigger-type", required=True, dest="trigger_type")
     gt.add_argument("--trigger-name", required=True, dest="trigger_name")
@@ -238,18 +259,63 @@ def _parse_terms(raw_terms: list[str]) -> list[dict]:
     return out
 
 
+def _config_extensions(root: Path) -> list[str]:
+    """Active authoring extensions from .atdd/config.yaml (author.extensions)."""
+    cfg = Path(root) / ".atdd" / "config.yaml"
+    try:
+        data = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
+        return list(((data.get("author") or {}).get("extensions")) or [])
+    except Exception:
+        return []
+
+
 def run(argv: list[str]) -> int:
     args = build_parser().parse_args(argv)
 
+    if args.cmd == "merge-driver":
+        from atdd.planner.commands.author_registry import merge_registries
+
+        def _read(p: str) -> str:
+            try:
+                with open(p, encoding="utf-8") as fh:
+                    return fh.read()
+            except FileNotFoundError:
+                return ""
+
+        merged = merge_registries(_read(args.base), _read(args.ours), _read(args.theirs))
+        with open(args.ours, "w", encoding="utf-8") as fh:
+            fh.write(merged)
+        return 0
+
+    # every author kind resolves an authoring context first (P001, spec §6).
+    from atdd.planner.commands.author_context import (
+        gate_home, node_home, relationship_home, resolve_context, scope_home,
+    )
+
+    cwd = os.getcwd()
+    root = Path(args.root) if getattr(args, "root", None) else Path(cwd)
+    try:
+        ctx = resolve_context(
+            core=args.core, extension=args.extension,
+            cwd=cwd, config_extensions=_config_extensions(root),
+        )
+    except AuthorInputError as exc:
+        print(f"atdd author: {exc}", file=sys.stderr)
+        return 2
+
     if args.cmd == "convention-node":
+        if ctx.is_core:
+            role = args.role
+            if not role:
+                print("atdd author: --core convention-node requires --role", file=sys.stderr)
+                return 2
+        else:
+            role = args.rule_id.split(".", 1)[0]  # extension: derive role from rule_id
+        path = node_home(ctx, role, args.rule_id, root)
         try:
-            path = create_convention_node(
-                args.role,
-                args.rule_id,
-                kind=args.kind,
-                status=args.status,
-                statement=args.statement,
-                terms=_parse_terms(args.terms),
+            create_convention_node(
+                role, args.rule_id, kind=args.kind, status=args.status,
+                statement=args.statement, terms=_parse_terms(args.terms), path=path,
             )
         except AuthorInputError as exc:
             print(f"atdd author: {exc}", file=sys.stderr)
@@ -271,28 +337,13 @@ def run(argv: list[str]) -> int:
             val = getattr(args, key)
             if val is not None:
                 edge[key] = val
-        path = Path(args.path)
+        path = Path(args.path) if args.path else relationship_home(ctx, root)
         try:
             insert_relationship(edge, path)
         except AuthorInputError as exc:
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(path))
-        return 0
-
-    if args.cmd == "merge-driver":
-        from atdd.planner.commands.author_registry import merge_registries
-
-        def _read(p: str) -> str:
-            try:
-                with open(p, encoding="utf-8") as fh:
-                    return fh.read()
-            except FileNotFoundError:
-                return ""
-
-        merged = merge_registries(_read(args.base), _read(args.ours), _read(args.theirs))
-        with open(args.ours, "w", encoding="utf-8") as fh:
-            fh.write(merged)
         return 0
 
     if args.cmd == "scope":
@@ -307,7 +358,7 @@ def run(argv: list[str]) -> int:
             val = getattr(args, key)
             if val is not None:
                 scope[key] = val
-        path = Path(args.path)
+        path = Path(args.path) if args.path else scope_home(ctx, root)
         try:
             insert_scope(scope, path)
         except AuthorInputError as exc:
@@ -319,7 +370,7 @@ def run(argv: list[str]) -> int:
     if args.cmd == "gate":
         from atdd.planner.commands.author_registry import insert_gate
 
-        path = Path(args.path) if args.path else Path("src/atdd/coach/gates") / f"{args.trigger_name}.yaml"
+        path = Path(args.path) if args.path else gate_home(ctx, args.trigger_name, root)
         gate = {
             "gate_id": args.gate_id,
             "kind": "gate",

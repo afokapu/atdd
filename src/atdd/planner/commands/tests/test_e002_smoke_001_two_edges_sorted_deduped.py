@@ -21,7 +21,7 @@ def _author_rel(path, source, target, cwd):
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(cwd)}
     return subprocess.run(
         [
-            sys.executable, "-m", "atdd", "author", "relationship",
+            sys.executable, "-m", "atdd", "author", "relationship", "--core",
             "--source", source, "--type", "enables", "--target", target,
             "--path", str(path),
         ],

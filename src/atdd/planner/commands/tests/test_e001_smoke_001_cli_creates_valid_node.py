@@ -23,7 +23,7 @@ def test_cli_creates_schema_valid_node(tmp_path):
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(tmp_path)}
     result = subprocess.run(
         [
-            sys.executable, "-m", "atdd", "author", "convention-node",
+            sys.executable, "-m", "atdd", "author", "convention-node", "--core",
             "--role", "coder",
             "--rule-id", "coder.green.component-urn-marker-is",
             "--statement", "Implementation files must declare the component URN marker.",

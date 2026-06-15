@@ -42,9 +42,9 @@ def _path_env():
 @pytest.mark.parametrize(
     "args, field",
     [
-        (["convention-node", "--role", "nonsense", "--rule-id", "nonsense.green.foo"], "role"),
-        (["convention-node", "--role", "coder", "--rule-id", "coder.Green.BAD_ID"], "rule_id"),
-        (["convention-node", "--role", "coder", "--rule-id", "tester.green.foo"], "rule_id"),
+        (["convention-node", "--core", "--role", "nonsense", "--rule-id", "nonsense.green.foo"], "role"),
+        (["convention-node", "--core", "--role", "coder", "--rule-id", "coder.Green.BAD_ID"], "rule_id"),
+        (["convention-node", "--core", "--role", "coder", "--rule-id", "tester.green.foo"], "rule_id"),
     ],
 )
 def test_cli_refuses_bad_input(tmp_path, args, field):

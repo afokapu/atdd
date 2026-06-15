@@ -37,17 +37,17 @@ def _cli(args, cwd):
 
 def test_real_cli_artifacts_are_well_formed_and_markerless(tmp_path):
     node = tmp_path / "n.yaml"
-    _cli(["convention-node", "--role", "coder", "--rule-id", "coder.green.x",
+    _cli(["convention-node", "--core", "--role", "coder", "--rule-id", "coder.green.x",
           "--statement", "s", "--term", "t=y"], tmp_path)
     node = tmp_path / "src/atdd/coder/conventions/nodes/coder.green.x.convention.yaml"
     rel = tmp_path / "relationships.yaml"
-    _cli(["relationship", "--source", "coder.green.a", "--type", "enables",
+    _cli(["relationship", "--core", "--source", "coder.green.a", "--type", "enables",
           "--target", "coder.green.b", "--path", str(rel)], tmp_path)
     scope = tmp_path / "scopes.yaml"
-    _cli(["scope", "--scope-id", "scope.source.python", "--selector",
+    _cli(["scope", "--core", "--scope-id", "scope.source.python", "--selector",
           "path_glob=src/**/*.py", "--path", str(scope)], tmp_path)
     gate = tmp_path / "post-commit.yaml"
-    _cli(["gate", "--gate-id", "gate.post_commit.x", "--trigger-type", "git_hook",
+    _cli(["gate", "--core", "--gate-id", "gate.post_commit.x", "--trigger-type", "git_hook",
           "--trigger-name", "post-commit", "--selection", "blast_radius",
           "--action", "never_block", "--path", str(gate)], tmp_path)
 

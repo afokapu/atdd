@@ -22,7 +22,7 @@ _SRC = Path(__file__).resolve().parents[4]
 def _gate(path, gid, cwd):
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(cwd)}
     return subprocess.run(
-        [sys.executable, "-m", "atdd", "author", "gate",
+        [sys.executable, "-m", "atdd", "author", "gate", "--core",
          "--gate-id", gid, "--trigger-type", "git_hook", "--trigger-name", "post-commit",
          "--selection", "blast_radius", "--action", "never_block",
          "--success-code", "0", "--failure-code", "0", "--path", str(path)],
