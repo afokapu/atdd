@@ -1,10 +1,10 @@
 urn: "feature:author-atdd-substrate:substrate-spine"
 wagon: "wagon:author-atdd-substrate"
-description: "The shared authoring substrate: one canonical schema and flat canonical home per artifact kind (convention-node, relationship, scope, gate), the four frozen controlled vocabularies the features consume (never redefine), the `atdd author` CLI validation spine that refuses an invalid role/id/path before any write, and the re-sort/dedup git merge driver (registered via .gitattributes) reused by every registry-class writer. Guarantees authored artifacts pass normal ATDD validation unmodified."
+description: "The shared authoring substrate: one canonical schema and flat canonical home per artifact kind (convention-node, relationship, scope, gate), the four frozen controlled vocabularies the features consume (never redefine), and the `atdd author` CLI validation spine that refuses an invalid role/id/path before any write. (The re-sort/dedup git merge driver reused by the registry-class writers lives in its own feature:author-atdd-substrate:author-merge-driver.) Guarantees authored artifacts pass normal ATDD validation unmodified."
 sizing:
-  wmbts: 4
-  footprint_score: 13
-  footprint_size: "M"
+  wmbts: 3
+  footprint_score: 9
+  footprint_size: "S"
 frozen_vocabularies:
   # Canonical v1.1-spec list (§5–§8). Frozen here in the spine and CONSUMED by the
   # four V1 features (never redefined). Each enum is closed: no member may be added
@@ -35,7 +35,6 @@ wmbts:
   - "wmbt:author-atdd-substrate:D001"
   - "wmbt:author-atdd-substrate:C001"
   - "wmbt:author-atdd-substrate:K001"
-  - "wmbt:author-atdd-substrate:R001"
 components:
   backend:
     presentation:
@@ -44,13 +43,13 @@ components:
         rationale: "atdd author CLI dispatcher (shared spine: parse role/id/path, validate, route to per-kind writer)"
     application:
       - type: "use_cases"
-        count: 4
-        rationale: "validate_author_input(), load_schema(kind), load_frozen_vocabulary(name), reconcile_merge(driver) spine functions"
+        count: 3
+        rationale: "validate_author_input(), load_schema(kind), load_frozen_vocabulary(name) spine functions"
     domain:
       - type: "value_objects"
         count: 5
         rationale: "AuthorInput (role+id+path), ArtifactKind enum, CanonicalHome, SchemaRef, FrozenVocabulary (closed-enum value object)"
     integration:
       - type: "adapters"
-        count: 3
-        rationale: "atomic file writer adapter; git merge-driver registration adapter (.gitattributes wiring); re-sort/dedup merge-driver subprocess entrypoint"
+        count: 1
+        rationale: "atomic file writer adapter"

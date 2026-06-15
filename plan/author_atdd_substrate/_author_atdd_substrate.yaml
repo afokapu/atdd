@@ -12,6 +12,7 @@ outcome: "schema-valid convention-nodes, relationships.yaml, scopes.yaml, and pe
 
 features:
   - urn: "feature:author-atdd-substrate:substrate-spine"
+  - urn: "feature:author-atdd-substrate:author-merge-driver"
   - urn: "feature:author-atdd-substrate:author-convention-node"
   - urn: "feature:author-atdd-substrate:author-relationship"
   - urn: "feature:author-atdd-substrate:author-scope"
