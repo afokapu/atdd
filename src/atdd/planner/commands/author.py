@@ -1,11 +1,11 @@
 # Component: component:author-atdd-substrate:substrate-spine:AuthorSpine:backend:application
 """`atdd author` — author schema-valid ATDD substrate artifacts by construction.
 
-This module is the shared spine for the `author-atdd-substrate` wagon. Every
-per-kind writer (convention-node, relationship, scope, gate) routes through
-``validate_author_input`` before any write path runs, so no invalid role, id,
-or path ever reaches disk (WMBT C001). Per-kind writers land in follow-up
-slices (E001/E002/E003/E004); this module owns the CLI skeleton + validation.
+Shared spine for the `author-atdd-substrate` wagon. Every per-kind writer
+routes through ``validate_author_input`` before any write path runs, so no
+invalid role, id, or path ever reaches disk (WMBT C001). The convention-node
+writer (E001/C002) is implemented here; relationship/scope/gate writers land
+in follow-up slices.
 """
 from __future__ import annotations
 
@@ -15,23 +15,33 @@ import re
 import sys
 from pathlib import Path
 
+import yaml
+
 # The four ATDD convention-owning roles. `reviewer` is a spawn persona, not a
 # convention role, so it is intentionally excluded.
 ROLES: tuple[str, ...] = ("planner", "tester", "coder", "coach")
 
-# A rule_id is dot-separated lowercase kebab segments, e.g.
-# `coder.green.component-urn-marker-is`. No uppercase, no underscores, and at
-# least two segments (role prefix + family/slug).
+# Frozen convention-node vocabularies (spec §5.1), consumed not redefined.
+KINDS: tuple[str, ...] = (
+    "family", "rule", "principle", "constraint",
+    "exception", "pattern", "anti_pattern", "policy",
+)
+STATUSES: tuple[str, ...] = ("draft", "active", "deprecated")
+
+# rule_id: dot-separated lowercase kebab segments, role-prefixed.
 _RULE_ID_RE = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
+# term_id: semantic snake_case; numbered ids (T1/T2/T3) are forbidden (§D005).
+_TERM_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+_NUMBERED_TERM_RE = re.compile(r"^[Tt]\d+$")
+_NODE_REQUIRED = ("schema_version", "rule_id", "kind", "status", "statement", "terms")
 
 _SRC_ROOT = os.path.join("src", "atdd")
 
 
 class AuthorInputError(Exception):
-    """Raised when the shared spine rejects an author input.
+    """Raised when the spine/writer rejects an author input.
 
-    Carries the offending ``field`` (``"role"`` / ``"rule_id"`` / ``"path"``)
-    so callers and tests can assert *why* the input was refused.
+    Carries the offending ``field`` so callers and tests can assert *why*.
     """
 
     def __init__(self, field: str, message: str) -> None:
@@ -39,14 +49,14 @@ class AuthorInputError(Exception):
         self.field = field
 
 
-def validate_author_input(role: str, rule_id: str, path: Path) -> None:
+def validate_author_input(
+    role: str, rule_id: str, path: Path, *, home_root: str = _SRC_ROOT
+) -> None:
     """Validate role, rule_id and path before any per-kind writer runs.
 
     Raises ``AuthorInputError`` (with ``.field``) on the first violation:
-      * ``role`` not one of :data:`ROLES`;
-      * ``rule_id`` not lowercase-kebab dot-segments, or not prefixed by ``role``;
-      * ``path`` escaping the canonical ``src/atdd/`` home (e.g. ``..`` traversal).
-    Returns ``None`` when the input is well-formed.
+    role not in :data:`ROLES`; rule_id not lowercase-kebab dot-segments or not
+    prefixed by ``role``; path escaping ``home_root``.
     """
     if role not in ROLES:
         raise AuthorInputError(
@@ -60,18 +70,96 @@ def validate_author_input(role: str, rule_id: str, path: Path) -> None:
             f"prefixed by the role {role!r} (e.g. {role}.green.some-slug)",
         )
 
+    home = os.path.normpath(str(home_root))
     norm = os.path.normpath(str(path))
-    if norm.startswith("..") or not (
-        norm == _SRC_ROOT or norm.startswith(_SRC_ROOT + os.sep)
-    ):
+    if not (norm == home or norm.startswith(home + os.sep)):
         raise AuthorInputError(
-            "path", f"path {str(path)!r} escapes the canonical home under {_SRC_ROOT}/"
+            "path", f"path {str(path)!r} escapes the canonical home {home}{os.sep}"
         )
 
 
-def _node_path(role: str, rule_id: str) -> Path:
+def validate_convention_node(node: dict, path: Path) -> None:
+    """Validate a convention-node dict + its target path against the schema (§5).
+
+    Checks: flat path directly under ``nodes/`` (no semantic subfolder);
+    required fields present; ``kind``/``status`` in the frozen enums; every
+    ``term_id`` semantic snake_case (not numbered). Emits the non-blocking
+    §D006 term-count band warning. Raises ``AuthorInputError`` on violation.
+    """
+    if path.parent.name != "nodes":
+        raise AuthorInputError(
+            "path",
+            f"convention nodes must be flat under nodes/, not a subfolder "
+            f"({path.parent}) — semantic subfolders are forbidden (§3.1)",
+        )
+
+    for field in _NODE_REQUIRED:
+        if field not in node or node[field] in (None, "", []):
+            raise AuthorInputError(field, f"missing required field {field!r} (§5.2)")
+
+    if node["kind"] not in KINDS:
+        raise AuthorInputError("kind", f"invalid kind {node['kind']!r}; one of {KINDS}")
+    if node["status"] not in STATUSES:
+        raise AuthorInputError("status", f"invalid status {node['status']!r}; one of {STATUSES}")
+
+    for term in node["terms"]:
+        tid = term.get("term_id", "")
+        if _NUMBERED_TERM_RE.match(tid) or not _TERM_ID_RE.match(tid):
+            raise AuthorInputError(
+                "terms",
+                f"invalid term_id {tid!r}; must be semantic snake_case, not "
+                f"numbered (T1/T2/T3 forbidden — §D005)",
+            )
+
+    # §D006 term-count heuristic — warn, never block.
+    n = len(node["terms"])
+    if 8 <= n <= 10:
+        print(f"atdd author: warning — {n} terms; review for splitting (§D006)", file=sys.stderr)
+    elif n > 10:
+        print(
+            f"atdd author: warning — {n} terms; likely too large unless justified (§D006)",
+            file=sys.stderr,
+        )
+
+
+def _node_path(role: str, rule_id: str, root: Path) -> Path:
     """Canonical flat per-role home for a convention-node file (spec §3.1)."""
-    return Path(_SRC_ROOT) / role / "conventions" / "nodes" / f"{rule_id}.convention.yaml"
+    return root / role / "conventions" / "nodes" / f"{rule_id}.convention.yaml"
+
+
+def create_convention_node(
+    role: str,
+    rule_id: str,
+    *,
+    kind: str = "rule",
+    status: str = "active",
+    statement: str = "",
+    terms: list | None = None,
+    root: Path | str | None = None,
+) -> Path:
+    """Author one flat schema-valid convention-node file; return its path.
+
+    Per-rule_id file => conflict-free with sibling rules. Validates input
+    (spine) and node (schema) before writing; never writes a partial artifact.
+    """
+    root = Path(root) if root is not None else Path(_SRC_ROOT)
+    path = _node_path(role, rule_id, root)
+    validate_author_input(role, rule_id, path, home_root=str(root))
+
+    node = {
+        "schema_version": "1.0.0",
+        "rule_id": rule_id,
+        "kind": kind,
+        "status": status,
+        "statement": statement,
+        "terms": terms or [],
+    }
+    validate_convention_node(node, path)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as fh:
+        yaml.safe_dump(node, fh, sort_keys=False, default_flow_style=False)
+    return path
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -79,32 +167,46 @@ def build_parser() -> argparse.ArgumentParser:
         prog="atdd author",
         description="Author schema-valid ATDD substrate artifacts by construction.",
     )
-    sub = parser.add_subparsers(dest="kind", required=True)
+    sub = parser.add_subparsers(dest="cmd", required=True)
 
     cn = sub.add_parser("convention-node", help="author a flat per-role convention node")
     cn.add_argument("--role", required=True, help="convention-owning role")
     cn.add_argument("--rule-id", required=True, dest="rule_id", help="canonical rule_id")
-
+    cn.add_argument("--kind", default="rule", help=f"one of {', '.join(KINDS)}")
+    cn.add_argument("--status", default="active", help=f"one of {', '.join(STATUSES)}")
+    cn.add_argument("--statement", default="", help="one-sentence rule statement")
+    cn.add_argument(
+        "--term", action="append", default=[], dest="terms",
+        help="a term as 'term_id=text' (repeatable)",
+    )
     return parser
+
+
+def _parse_terms(raw_terms: list[str]) -> list[dict]:
+    out = []
+    for raw in raw_terms:
+        tid, _, text = raw.partition("=")
+        out.append({"term_id": tid.strip(), "text": text.strip()})
+    return out
 
 
 def run(argv: list[str]) -> int:
     args = build_parser().parse_args(argv)
 
-    if args.kind == "convention-node":
-        path = _node_path(args.role, args.rule_id)
+    if args.cmd == "convention-node":
         try:
-            validate_author_input(args.role, args.rule_id, path)
+            path = create_convention_node(
+                args.role,
+                args.rule_id,
+                kind=args.kind,
+                status=args.status,
+                statement=args.statement,
+                terms=_parse_terms(args.terms),
+            )
         except AuthorInputError as exc:
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
-        # Writer is implemented in the convention-node slice (E001). The spine
-        # has validated the input; until the writer lands, refuse to claim a
-        # write so the SMOKE never sees a partial artifact.
-        print(
-            "atdd author: convention-node writer not yet implemented (E001)",
-            file=sys.stderr,
-        )
-        return 3
+        print(str(path))
+        return 0
 
     return 2
