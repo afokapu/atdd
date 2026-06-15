@@ -51,10 +51,11 @@ produce:
 consume: []
 
 wmbt:
-  total: 13
+  total: 14
   D001: "maximize likelihood of schema-valid substrate by defining one canonical schema and flat canonical home per artifact kind and freezing the controlled vocabularies"
   C001: "minimize likelihood of the shared atdd author spine accepting an invalid role, id, or path"
   P001: "minimize likelihood of wrong-authoring-context by resolving extension-vs-core (extension default; core only with --core)"
+  P002: "maximize likelihood of a well-formed package-skeleton by scaffolding a new extension or workspace-provider package (manifest + canonical skeleton) from a validated namespaced id via `atdd author … init`"
   K001: "minimize likelihood that authored artifacts are rejected or regressed by existing ATDD gates (authoring does not bypass validation)"
   R001: "minimize likelihood of an unresolved registry merge conflict by shipping a .gitattributes-registered re-sort/dedup git merge driver"
   E001: "maximize likelihood of schema-valid convention-node creation under a flat per-role nodes/ file"

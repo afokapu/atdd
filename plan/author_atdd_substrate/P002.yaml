@@ -1,0 +1,72 @@
+urn: "wmbt:author-atdd-substrate:P002"
+step: "prepare"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "package-skeleton"
+context_clarifier: "when an author starts a new extension or workspace provider, `atdd author … init` must create the package boundary — a validated namespaced id, the manifest, and the canonical folder skeleton — by construction, so authoring never begins from a hand-rolled or malformed package shape"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of a well-formed package-skeleton by having `atdd author {extension,workspace} init` scaffold a new package from a validated namespaced id — writing the manifest and canonical folder skeleton and refusing to overwrite an existing package"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:P002-UNIT-001-extension-init-scaffolds"
+      id: "AC-UNIT-001"
+      purpose: "extension init writes a schema-valid extension manifest + canonical skeleton, and refuses a bad id or an overwrite"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A well-formed extension id, a wrong-scope id, and an already-scaffolded package"
+    when:
+      abstract: "init_extension_package is called for each"
+    then:
+      abstract:
+        - "a well-formed id scaffolds extensions/<id>/atdd.extension.yaml with the four-layer owns/depends_on shape plus the canonical folder skeleton"
+        - "a wrong-scope id is refused before anything is written"
+        - "an existing package is not overwritten"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-16"
+  - identity:
+      urn: "acc:author-atdd-substrate:P002-UNIT-002-workspace-init-scaffolds"
+      id: "AC-UNIT-002"
+      purpose: "workspace init writes a provider manifest carrying contract_version + the runtime skeleton, and refuses a wrong-scope id or an overwrite"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A well-formed workspace id, an extension-scope id, and an already-scaffolded provider"
+    when:
+      abstract: "init_workspace_package is called for each"
+    then:
+      abstract:
+        - "a well-formed id scaffolds workspaces/<id>/atdd.workspace.yaml carrying contract_version and the runtime/adapter/conformance skeleton"
+        - "an extension-scope id is refused before anything is written"
+        - "an existing provider package is not overwritten"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-16"
+  - identity:
+      urn: "acc:author-atdd-substrate:P002-SMOKE-001-cli-init"
+      id: "AC-SMOKE-001"
+      purpose: "the real CLI scaffolds extension and workspace packages on disk and refuses a reserved-publisher id"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and the installed atdd author CLI"
+    when:
+      abstract: "atdd author workspace init and atdd author extension init are run"
+    then:
+      abstract:
+        - "workspace init creates workspaces/<id>/atdd.workspace.yaml"
+        - "extension init creates extensions/<id>/atdd.extension.yaml"
+        - "a reserved-publisher (atdd) workspace id exits non-zero without writing"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-16"

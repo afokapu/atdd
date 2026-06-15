@@ -17,6 +17,7 @@ from pathlib import Path
 from atdd.planner.commands.author import AuthorInputError
 
 _EXT_DIR = "extensions"
+_WS_DIR = "workspaces"
 
 # Package namespace: <publisher>.<scope>.<artifact-name> (all lowercase kebab).
 # scope ∈ {core, extension, workspace}: ``core`` is the ATDD protocol, ``extension``
@@ -135,6 +136,16 @@ def resolve_context(
 
 # --- canonical homes per (kind, context) -------------------------------------
 # Core homes match spec §3/§7; extension homes are self-contained per §8.
+
+def extension_package_home(extension_id: str, root: Path) -> Path:
+    """Package-root dir for an extension scaffold: ``<root>/extensions/<id>/``."""
+    return root / _EXT_DIR / extension_id
+
+
+def workspace_package_home(workspace_id: str, root: Path) -> Path:
+    """Package-root dir for a workspace provider scaffold: ``<root>/workspaces/<id>/``."""
+    return root / _WS_DIR / workspace_id
+
 
 def node_home(ctx: AuthorContext, role: str, rule_id: str, root: Path) -> Path:
     if ctx.is_core:
