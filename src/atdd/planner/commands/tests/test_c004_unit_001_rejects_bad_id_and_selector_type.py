@@ -13,13 +13,22 @@ from atdd.planner.commands.author import AuthorInputError
 from atdd.planner.commands.author_registry import validate_scope
 
 
+def _scope(**over):
+    s = {
+        "scope_id": "scope.source.python",
+        "selectors": [{"selector_id": "selector.source.python.pg", "type": "path_glob", "include": ["x"]}],
+    }
+    s.update(over)
+    return s
+
+
 def test_rejects_bad_scope_id():
     with pytest.raises(AuthorInputError) as exc:
-        validate_scope({"scope_id": "Bad Id", "selectors": [{"type": "path_glob", "value": "x"}]})
+        validate_scope(_scope(scope_id="Bad Id"))
     assert exc.value.field == "scope_id"
 
 
 def test_rejects_bad_selector_type():
     with pytest.raises(AuthorInputError) as exc:
-        validate_scope({"scope_id": "scope.source.python", "selectors": [{"type": "nope", "value": "x"}]})
+        validate_scope(_scope(selectors=[{"selector_id": "selector.x.y", "type": "nope", "include": ["x"]}]))
     assert exc.value.field == "selectors"

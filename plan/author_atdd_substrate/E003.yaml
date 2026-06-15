@@ -3,14 +3,14 @@ step: "execute"
 direction: "maximize"
 dimension: "likelihood"
 object_of_control: "scope-insert"
-context_clarifier: "when authoring a scope into the single src/atdd/coach/selectors/scopes.yaml, the writer uses the same dedup-insert + stable-sort by scope_id + atomic write model, and the scope must carry at least one selector"
+context_clarifier: "V1: scope is the primary surface — authored per-file under scopes/<scope_id>.scope.yaml with its selectors embedded (sorted by selector_id), each selector carrying at least one include pattern; selectors split into their own files only later if complex"
 lens: "functional.effectiveness"
-statement: "maximize likelihood of a schema-valid, deterministically-ordered scope-insert into scopes.yaml when authoring a scope with at least one selector"
+statement: "maximize likelihood of a schema-valid per-file scope (scopes/<scope_id>.scope.yaml) with embedded selectors deterministically sorted by selector_id"
 acceptances:
   - identity:
       urn: "acc:author-atdd-substrate:E003-UNIT-001-stable-sort-by-scope-id"
       id: "AC-UNIT-001"
-      purpose: "inserting two scopes yields scopes.yaml stable-sorted by scope_id"
+      purpose: "a per-file scope embeds its selectors, deterministically sorted by selector_id"
       phase: "GREEN"
     harness:
       type: "unit"

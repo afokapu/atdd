@@ -16,7 +16,7 @@ import yaml
 from jsonschema import validate
 
 from atdd.planner.commands.author import create_convention_node
-from atdd.planner.commands.author_registry import insert_gate, insert_relationship, insert_scope
+from atdd.planner.commands.author_registry import insert_gate, insert_relationship, write_scope
 from atdd.planner.commands.author_schemas import load_schema
 
 
@@ -34,10 +34,10 @@ def test_each_kind_well_formed_and_deterministic(tmp_path):
     insert_relationship(edge, rel)  # re-author => byte-identical (stable outcome)
     assert rel.read_text() == before
 
-    scope = tmp_path / "scopes.yaml"
-    insert_scope({"scope_id": "scope.source.python", "selectors": [{"type": "path_glob", "value": "x"}]}, scope)
-    for s in yaml.safe_load(scope.read_text())["scopes"]:
-        validate(s, load_schema("scope"))
+    scope = tmp_path / "scope.source.python.scope.yaml"
+    write_scope({"scope_id": "scope.source.python",
+                 "selectors": [{"selector_id": "selector.source.python.pg", "type": "path_glob", "include": ["x"]}]}, scope)
+    validate(yaml.safe_load(scope.read_text()), load_schema("scope"))
 
     gate = tmp_path / "post-commit.yaml"
     insert_gate({"gate_id": "gate.post_commit.x", "trigger": {"type": "git_hook", "name": "post-commit"},

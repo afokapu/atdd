@@ -70,8 +70,8 @@ wagons:
     E002: maximize likelihood of a schema-valid, deterministically-ordered relationships.yaml
       when authoring an edge
     C003: minimize likelihood of accepting a malformed relationship edge
-    E003: maximize likelihood of a schema-valid, deterministically-ordered scopes.yaml
-      when authoring a scope
+    E003: maximize likelihood of a schema-valid per-file scope (scopes/<scope_id>.scope.yaml)
+      with embedded selectors sorted by selector_id
     C004: minimize likelihood of accepting a malformed or empty scope
     E004: maximize likelihood of a schema-valid, deterministically-ordered per-trigger
       gate file when authoring a gate entry

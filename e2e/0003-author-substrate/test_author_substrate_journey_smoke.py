@@ -57,13 +57,13 @@ def test_author_every_substrate_kind_end_to_end(tmp_path):
     for e in yaml.safe_load(rel.read_text())["edges"]:
         validate(e, load_schema("relationship"))
 
-    # 3. scope — selector registry
-    scope = tmp_path / "scopes.yaml"
+    # 3. scope — per-file, the surface + embedded selector
+    scope = tmp_path / "scope.source.python.scope.yaml"
     _author(["scope", "--core", "--scope-id", "scope.source.python", "--artifact-kind", "source_file",
              "--runtime", "python", "--platform", "local_fs",
-             "--selector", "path_glob=src/**/*.py", "--path", str(scope)], tmp_path)
-    for s in yaml.safe_load(scope.read_text())["scopes"]:
-        validate(s, load_schema("scope"))
+             "--selector-id", "selector.source.python.path-glob", "--selector-type", "path_glob",
+             "--include", "src/**/*.py", "--exclude", ".venv/**", "--path", str(scope)], tmp_path)
+    validate(yaml.safe_load(scope.read_text()), load_schema("scope"))
 
     # 4. gate — per-trigger file
     gate = tmp_path / "post-commit.yaml"

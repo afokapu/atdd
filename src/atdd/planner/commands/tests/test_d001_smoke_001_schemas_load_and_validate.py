@@ -25,7 +25,8 @@ _FIXTURES = {
     "scope": {
         "scope_id": "scope.source.python", "artifact_kind": "source_file",
         "runtime": "python", "platform": "local_fs",
-        "selectors": [{"type": "path_glob", "value": "src/**/*.py"}],
+        "selectors": [{"selector_id": "selector.source.python.path-glob", "type": "path_glob",
+                       "include": ["src/**/*.py"], "exclude": [".venv/**"]}],
     },
     "gate": {
         "gate_id": "gate.post_commit.local_feedback",

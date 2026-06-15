@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from atdd.planner.commands.author import create_convention_node
-from atdd.planner.commands.author_registry import insert_gate, insert_relationship, insert_scope
+from atdd.planner.commands.author_registry import insert_gate, insert_relationship, write_scope
 
 _FORBIDDEN = ["atdd:suppress", "skip-permissions", "dangerously", "noqa", "BYPASS", "type: ignore"]
 
@@ -21,9 +21,10 @@ def _author_all(root):
     rel = root / "relationships.yaml"
     insert_relationship(
         {"source_ref": "coder.green.a", "type": "enables", "target_ref": "coder.green.b"}, rel)
-    scope = root / "scopes.yaml"
-    insert_scope(
-        {"scope_id": "scope.source.python", "selectors": [{"type": "path_glob", "value": "x"}]}, scope)
+    scope = root / "scope.source.python.scope.yaml"
+    write_scope(
+        {"scope_id": "scope.source.python",
+         "selectors": [{"selector_id": "selector.source.python.pg", "type": "path_glob", "include": ["x"]}]}, scope)
     gate = root / "post-commit.yaml"
     insert_gate(
         {"gate_id": "gate.post_commit.x", "trigger": {"type": "git_hook", "name": "post-commit"},

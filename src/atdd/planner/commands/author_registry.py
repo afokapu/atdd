@@ -158,27 +158,58 @@ def validate_scope(scope: dict) -> None:
     if not selectors:
         raise AuthorInputError("selectors", "a scope must contain at least one selector (§7)")
     for sel in selectors:
+        # V1 selector: a discovery mechanism with a stable id + include/exclude.
+        if not _ID_RE.match(sel.get("selector_id", "")):
+            raise AuthorInputError("selectors", f"invalid selector_id {sel.get('selector_id')!r}")
         if sel.get("type") not in SELECTOR_TYPES:
             raise AuthorInputError("selectors", f"invalid selector type {sel.get('type')!r}; one of {SELECTOR_TYPES}")
+        if not (sel.get("include") or []):
+            raise AuthorInputError("selectors", f"selector {sel.get('selector_id')!r} needs at least one include pattern")
 
 
-def scope_doc(scopes: list) -> dict:
-    return {
-        "schema_version": "1.0.0",
-        "kind": "scope_registry",
-        "scopes": sorted(scopes, key=lambda s: s["scope_id"]),
-    }
+def scope_doc(scope_id: str, selectors: list, *, artifact_kind=None, runtime=None, platform=None) -> dict:
+    """A per-file scope: the surface (scope_id, artifact_kind) + embedded
+    selectors (sorted by selector_id)."""
+    doc = {"schema_version": "1.0.0", "kind": "scope", "scope_id": scope_id}
+    if artifact_kind is not None:
+        doc["artifact_kind"] = artifact_kind
+    if runtime is not None:
+        doc["runtime"] = runtime
+    if platform is not None:
+        doc["platform"] = platform
+    doc["selectors"] = sorted(selectors, key=lambda s: s["selector_id"])
+    return doc
 
 
-def insert_scope(scope: dict, path) -> None:
+def write_scope(scope: dict, path) -> None:
+    """Validate + write one per-file scope (selectors embedded, sorted)."""
     validate_scope(scope)
+    doc = scope_doc(
+        scope["scope_id"], scope["selectors"],
+        artifact_kind=scope.get("artifact_kind"),
+        runtime=scope.get("runtime"), platform=scope.get("platform"),
+    )
+    _atomic_write(path, canonical_dump(doc))
+
+
+def insert_scope_selector(scope_meta: dict, selector: dict, path) -> dict:
+    """Add (dedup by selector_id) one selector to the per-file scope at ``path``.
+
+    Loads or creates the scope file, merges scope metadata, dedup-inserts the
+    selector, validates the whole scope, and writes it. Returns the scope dict.
+    """
+    existing = {}
     if os.path.exists(path):
-        doc = yaml.safe_load(open(path, encoding="utf-8").read()) or scope_doc([])
-    else:
-        doc = scope_doc([])
-    scopes = [s for s in doc.get("scopes", []) if s["scope_id"] != scope["scope_id"]]
-    scopes.append(scope)
-    _atomic_write(path, canonical_dump(scope_doc(scopes)))
+        existing = yaml.safe_load(open(path, encoding="utf-8").read()) or {}
+    selectors = [s for s in existing.get("selectors", []) if s.get("selector_id") != selector["selector_id"]]
+    selectors.append(selector)
+    scope = {"scope_id": scope_meta["scope_id"], "selectors": selectors}
+    for key in ("artifact_kind", "runtime", "platform"):
+        val = scope_meta.get(key) if scope_meta.get(key) is not None else existing.get(key)
+        if val is not None:
+            scope[key] = val
+    write_scope(scope, path)
+    return scope
 
 
 # =============================================================================

@@ -124,10 +124,11 @@ def relationship_home(ctx: AuthorContext, root: Path) -> Path:
     return root / _EXT_DIR / ctx.extension_id / "relationships.yaml"
 
 
-def scope_home(ctx: AuthorContext, root: Path) -> Path:
+def scope_home(ctx: AuthorContext, scope_id: str, root: Path) -> Path:
+    # V1: scope is primary — per-file under scopes/, selectors embedded.
     if ctx.is_core:
-        return root / "src" / "atdd" / "coach" / "selectors" / "scopes.yaml"
-    return root / _EXT_DIR / ctx.extension_id / "scopes.yaml"
+        return root / "src" / "atdd" / "coach" / "selectors" / "scopes" / f"{scope_id}.scope.yaml"
+    return root / _EXT_DIR / ctx.extension_id / "scopes" / f"{scope_id}.scope.yaml"
 
 
 def gate_home(ctx: AuthorContext, trigger_name: str, root: Path) -> Path:

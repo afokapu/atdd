@@ -222,17 +222,18 @@ def build_parser() -> argparse.ArgumentParser:
     md.add_argument("ours", help="current version; merged result is written here (git A)")
     md.add_argument("theirs", help="other version file (git B)")
 
-    sc = sub.add_parser("scope", help="author a scope / selector")
+    sc = sub.add_parser("scope", help="author a scope (validation surface) + an embedded selector")
     ctx_flags(sc)
-    sc.add_argument("--scope-id", required=True, dest="scope_id")
+    sc.add_argument("--scope-id", required=True, dest="scope_id", help="the surface being validated")
     sc.add_argument("--artifact-kind", default=None, dest="artifact_kind")
     sc.add_argument("--runtime", default=None)
     sc.add_argument("--platform", default=None)
-    sc.add_argument(
-        "--selector", action="append", default=[], dest="selectors",
-        help="a selector as 'type=value' (repeatable)",
-    )
-    sc.add_argument("--path", default=None, help="override registry path (default: resolved from context)")
+    sc.add_argument("--selector-id", required=True, dest="selector_id", help="stable id of the discovery mechanism")
+    sc.add_argument("--selector-type", required=True, dest="selector_type",
+                    help="path_glob | git_path_prefix | header_scan | manifest_query | github_pr | github_issue | remote_resource | runtime_evidence")
+    sc.add_argument("--include", action="append", default=[], help="include pattern (repeatable)")
+    sc.add_argument("--exclude", action="append", default=[], help="exclude pattern (repeatable)")
+    sc.add_argument("--path", default=None, help="override scope file path (default: resolved from context)")
 
     gt = sub.add_parser("gate", help="author a gate")
     ctx_flags(gt)
@@ -347,20 +348,19 @@ def run(argv: list[str]) -> int:
         return 0
 
     if args.cmd == "scope":
-        from atdd.planner.commands.author_registry import insert_scope
+        from atdd.planner.commands.author_registry import insert_scope_selector
 
-        selectors = []
-        for raw in args.selectors:
-            typ, _, val = raw.partition("=")
-            selectors.append({"type": typ.strip(), "value": val.strip()})
-        scope = {"scope_id": args.scope_id, "selectors": selectors}
+        scope_meta = {"scope_id": args.scope_id}
         for key in ("artifact_kind", "runtime", "platform"):
             val = getattr(args, key)
             if val is not None:
-                scope[key] = val
-        path = Path(args.path) if args.path else scope_home(ctx, root)
+                scope_meta[key] = val
+        selector = {"selector_id": args.selector_id, "type": args.selector_type, "include": args.include}
+        if args.exclude:
+            selector["exclude"] = args.exclude
+        path = Path(args.path) if args.path else scope_home(ctx, args.scope_id, root)
         try:
-            insert_scope(scope, path)
+            insert_scope_selector(scope_meta, selector, path)
         except AuthorInputError as exc:
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2

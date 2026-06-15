@@ -44,8 +44,9 @@ def test_real_cli_artifacts_are_well_formed_and_markerless(tmp_path):
     _cli(["relationship", "--core", "--source", "coder.green.a", "--type", "enables",
           "--target", "coder.green.b", "--path", str(rel)], tmp_path)
     scope = tmp_path / "scopes.yaml"
-    _cli(["scope", "--core", "--scope-id", "scope.source.python", "--selector",
-          "path_glob=src/**/*.py", "--path", str(scope)], tmp_path)
+    _cli(["scope", "--core", "--scope-id", "scope.source.python",
+          "--selector-id", "selector.source.python.path-glob", "--selector-type", "path_glob",
+          "--include", "src/**/*.py", "--path", str(scope)], tmp_path)
     gate = tmp_path / "post-commit.yaml"
     _cli(["gate", "--core", "--gate-id", "gate.post_commit.x", "--trigger-type", "git_hook",
           "--trigger-name", "post-commit", "--selection", "blast_radius",
@@ -54,8 +55,7 @@ def test_real_cli_artifacts_are_well_formed_and_markerless(tmp_path):
     validate(yaml.safe_load(node.read_text()), load_schema("convention-node"))
     for e in yaml.safe_load(rel.read_text())["edges"]:
         validate(e, load_schema("relationship"))
-    for s in yaml.safe_load(scope.read_text())["scopes"]:
-        validate(s, load_schema("scope"))
+    validate(yaml.safe_load(scope.read_text()), load_schema("scope"))  # per-file scope
     for g in yaml.safe_load(gate.read_text())["gates"]:
         validate(g, load_schema("gate"))
 
