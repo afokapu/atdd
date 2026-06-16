@@ -1,0 +1,53 @@
+schema_version: 1.1.0
+rule_id: planner.criteria.plane-keywords
+kind: family
+status: active
+name: Plane keyword routing
+statement: Keyword cues route an acceptance to a layer plane (presentation, application, domain, integration).
+source:
+  legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
+  legacy_section: planes.keywords
+  legacy_sha: db262e7f5fb06226
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: plane_keywords
+  label: Plane keywords
+  text: layer -> routing keywords.
+  values:
+    presentation:
+    - display
+    - visible
+    - screen
+    - render
+    - animation
+    - button
+    - form
+    - modal
+    application:
+    - workflow
+    - orchestrate
+    - use case
+    - policy
+    - state
+    - saga
+    domain:
+    - rule
+    - validate
+    - aggregate
+    - entity
+    - invariant
+    - business
+    integration:
+    - database
+    - persist
+    - external
+    - queue
+    - api
+    - webhook
+    - repository

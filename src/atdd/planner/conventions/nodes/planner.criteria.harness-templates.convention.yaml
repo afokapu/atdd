@@ -1,0 +1,159 @@
+schema_version: 1.1.0
+rule_id: planner.criteria.harness-templates
+kind: family
+status: active
+name: Harness scaffolding templates
+statement: Reusable given/when/then scaffolding template per harness, with the layers it typically exercises.
+source:
+  legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
+  legacy_section: harnesses
+  legacy_sha: db262e7f5fb06226
+  extraction_mode: high_fidelity
+content:
+  summary: '13 harness templates: http, unit, event, ws, e2e, a11y, visual, metric, job, db, sec, load,
+    script.'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: harness_template
+  label: Harness templates
+  text: harness -> {layers, given/when/then scaffold} (verbatim).
+  values:
+    http:
+      layers:
+      - presentation
+      - application
+      - domain
+      - integration
+      given:
+        auth:
+          scopes:
+          - purchase:create
+      when:
+        method: POST
+        path: /api/example
+        headers:
+          Content-Type: application/json
+        body:
+          sample: true
+      then:
+      - kind: status
+        expect: 200
+      - kind: body
+        expect:
+          ok: true
+    unit:
+      layers:
+      - application
+      - domain
+      when:
+        target: Service.method
+        args:
+          payload:
+            sample: true
+      then:
+      - kind: result
+        expect:
+          ok: true
+    event:
+      layers:
+      - application
+      - integration
+      when:
+        topic: sample.event
+        payload:
+          sample: true
+      then:
+      - kind: event
+        expect: sample.event
+    ws:
+      layers:
+      - integration
+      when:
+        url: ws://example/events
+        subscribe_msg:
+          action: subscribe
+          channel: updates
+      then:
+      - kind: message
+        expect:
+          frame: connected
+    e2e:
+      layers:
+      - presentation
+      - application
+      - domain
+      - integration
+      when:
+        url: http://example/ui
+        actions:
+        - 'fill #field'
+        - 'click #submit'
+      then:
+      - kind: visual
+        expect: success-banner
+    a11y:
+      layers:
+      - presentation
+      when: {}
+      then:
+      - kind: a11y
+        expect: passes
+    visual:
+      layers:
+      - presentation
+      when: {}
+      then:
+      - kind: snapshot
+        expect: unchanged
+    metric:
+      layers:
+      - application
+      - integration
+      when: {}
+      then:
+      - kind: metric
+        expect: metric:placeholder
+    job:
+      layers:
+      - application
+      - integration
+      when: {}
+      then:
+      - kind: status
+        expect: completed
+    db:
+      layers:
+      - integration
+      - domain
+      when: {}
+      then:
+      - kind: rows
+        expect: updated
+    sec:
+      layers:
+      - application
+      - integration
+      when: {}
+      then:
+      - kind: security
+        expect: granted
+    load:
+      layers:
+      - integration
+      - application
+      when: {}
+      then:
+      - kind: metrics
+        expect: within_limits
+    script:
+      layers:
+      - application
+      when: {}
+      then:
+      - kind: status
+        expect: 0

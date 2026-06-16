@@ -345,10 +345,73 @@ edges:
   constraint: discretionary
   control: internal
   foundation: start_to_start
-  reason: the criterion record shape and its prose/outcome are the same artifact from two angles
+  reason: the given defaults seed each harness template's given block
+  source_ref: planner.criteria.defaults
+  strength: minor
+  target_ref: planner.criteria.harness-templates
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: start_to_start
+  reason: criteria templates and the acceptance harness vocabulary share the harness set
+  source_ref: planner.criteria.harness-templates
+  strength: important
+  target_ref: planner.acceptance.harness-vocabulary
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: each harness template declares the layers it sequences
+  source_ref: planner.criteria.harness-templates
+  strength: minor
+  target_ref: planner.criteria.sequence-routing
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: the metric is selected from the WMBT dimension + direction
+  source_ref: planner.criteria.metric-mapping
+  strength: important
+  target_ref: planner.wmbt.dimension-selection
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: external
+  foundation: start_to_start
+  reason: both route acceptances to a plane via keyword cues
+  source_ref: planner.criteria.plane-keywords
+  strength: minor
+  target_ref: planner.acceptance.plane-keywords
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the layer sequence is selected via the plane keywords
+  source_ref: planner.criteria.sequence-routing
+  strength: important
+  target_ref: planner.criteria.plane-keywords
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: external
+  foundation: start_to_start
+  reason: criteria are the structured form of an acceptance
   source_ref: planner.criteria.shape
   strength: minor
   target_ref: planner.acceptance.complete
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the criteria shape references the chosen harness
+  source_ref: planner.criteria.shape
+  strength: minor
+  target_ref: planner.criteria.harness-templates
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
