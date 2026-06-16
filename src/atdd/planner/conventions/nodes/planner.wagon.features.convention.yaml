@@ -4,9 +4,27 @@ kind: rule
 status: active
 statement: A wagon's _features.yaml lists every feature module and its current status.
 rationale: A complete _features.yaml index keeps a wagon's feature set and their statuses
-  authoritative in one place.
+  authoritative in one place, with each feature addressable by a URN of the form
+  feature:{wagon-slug}:{feature-name}.
 terms:
 - term_id: wagon_features_manifest
-  text: the wagon's _features.yaml index
-- term_id: feature_status
-  text: each feature's current lifecycle status
+  label: The wagon's _features.yaml index
+  text: The wagon manifest enumerates every feature module under the wagon together
+    with its current lifecycle status. Each entry is addressed by a feature URN
+    following the pattern feature:{wagon-slug}:{feature-name}.
+  values:
+    pattern: 'feature:{wagon-slug}:{feature-name}'
+- term_id: features_listing_format
+  label: urn_format (array) vs legacy object format
+  text: The preferred urn_format lists features as an array of URN objects; the legacy
+    object format maps feature-slug to a description string. Both are accepted; new
+    manifests should use the urn_format array.
+  values:
+    urn_format: array of URN objects, each with a urn key
+    legacy_format: object mapping feature-slug to description string
+  examples:
+    positive:
+    - 'urn_format: [{urn: feature:maintain-ux:provide-foundations}, {urn: feature:maintain-ux:compose-primitives}]'
+    - 'legacy: {provide-foundations: Provide foundation design tokens, compose-primitives: Compose UI primitives}'
+    negative:
+    - 'feature:maintain-ux  # missing the {feature-name} segment'

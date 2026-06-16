@@ -2,11 +2,22 @@ schema_version: 1.0.0
 rule_id: planner.coverage.every-wmbt-must-be
 kind: rule
 status: active
-statement: Every WMBT must be referenced by at least one feature.
+statement: Every WMBT file must appear in at least one feature's wmbts list.
 rationale: Requiring every WMBT to be referenced by a feature keeps the decomposition
-  connected, with no floating truths.
+  connected, with no floating truths that no feature proves. This is the Feature-to-WMBT
+  edge of the coverage graph.
 terms:
 - term_id: wmbt
-  text: a What-Must-Be-True entry in a wagon decomposition
+  text: a What-Must-Be-True entry in a wagon decomposition, backed by a WMBT file
 - term_id: feature
-  text: a capability slice that references the WMBTs it proves
+  text: a capability slice that references the WMBTs it proves via its wmbts list
+- term_id: wmbt_to_feature
+  label: Direction wmbt -> feature
+  text: Every WMBT file must appear in at least one feature's wmbts list. Enforced
+    by test_all_wmbts_in_at_least_one_feature. This rule has no allow-list and no
+    status exemption.
+examples:
+  positive:
+  - every WMBT file is listed in some feature's wmbts[]
+  negative:
+  - a WMBT file exists but no feature lists it in wmbts[]

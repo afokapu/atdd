@@ -2,13 +2,38 @@ schema_version: 1.0.0
 rule_id: planner.theme.archetype-alignment
 kind: rule
 status: active
-statement: The plan, test, and code themes align to the planner, tester, and coder
-  archetypes; a wagon whose implementation lives outside its matching archetype source
-  root is surfaced.
+statement: The plan/test/code themes align to the planner/tester/coder archetypes
+  respectively; a wagon themed code whose implementation lives outside a coder-archetype
+  source root (or vice versa) is surfaced. This is an advisory (documentation-only)
+  alignment, not a blocking gate.
 rationale: Aligning plan/test/code themes to the planner/tester/coder archetypes surfaces
-  work living in the wrong source root.
+  work living in the wrong source root. Surfacing it advisorily keeps the theme-to-archetype
+  correspondence visible without blocking otherwise-valid plans.
 terms:
-- term_id: theme_archetype_alignment
-  text: the plan-planner, test-tester, code-coder mapping
-- term_id: source_root
-  text: the archetype directory a wagon's implementation lives under
+- term_id: theme_archetype_map
+  label: The plan/test/code -> planner/tester/coder mapping
+  text: Each of the three middle themes maps to exactly one archetype. A wagon whose
+    implementation lives outside the source root of its theme's archetype is surfaced.
+    Commons and coach are not archetype-bound.
+  values:
+    plan: planner
+    test: tester
+    code: coder
+  examples:
+    positive:
+    - 'theme: code wagon implemented under the coder source root'
+    negative:
+    - 'theme: code wagon whose implementation lives outside the coder source root'
+- term_id: advisory_disposition
+  label: Documentation-only (advisory) scan
+  text: This alignment is advisory; the scan in test_theme_archetype_alignment.py
+    surfaces mismatches but is not a bound enforcement gate. It also exercises theme
+    discovery across plan/ described by wmbt:govern-lifecycle:L001.
+  values:
+    disposition: documentation-only
+    exercises: 'wmbt:govern-lifecycle:L001'
+examples:
+  positive:
+  - 'theme: test wagon under the tester archetype source root'
+  negative:
+  - 'theme: plan wagon implemented outside the planner source root (surfaced)'

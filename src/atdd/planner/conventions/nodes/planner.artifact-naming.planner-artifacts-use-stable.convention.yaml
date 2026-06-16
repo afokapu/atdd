@@ -2,11 +2,92 @@ schema_version: 1.0.0
 rule_id: planner.artifact-naming.planner-artifacts-use-stable
 kind: rule
 status: active
-statement: Planner artifacts use stable URN-based names matching the registered grammar.
+statement: Planner artifacts use stable URN-based names matching the registered grammar
+  {theme}(:{category})*:{aspect}(.{variant})?, where colon descends the hierarchy and
+  dot marks a lateral variant.
 rationale: Stable URN-based names let the graph reference plan artifacts durably across
-  renames and refactors.
+  renames and refactors, and map one-to-one to contract file paths so the physical layout
+  is derivable from the logical name.
 terms:
-- term_id: planner_artifact
-  text: 'a plan-side file: wagon, feature, WMBT, or train'
-- term_id: urn_name
-  text: a stable URN-based name matching the registered grammar
+- term_id: naming_grammar
+  label: The artifact-name grammar
+  text: An artifact name is {theme}(:{category})*:{aspect}(.{variant})?. Theme is required
+    and appears exactly once; categories are zero or more hierarchy segments; aspect is
+    the required final leaf noun; variant is an optional lateral facet. Every segment is
+    kebab-case.
+  values:
+    full_pattern: '{theme}(:{category})*:{aspect}(.{variant})?'
+    segment_regex: ^[a-z][a-z0-9-]*$
+    theme: required, exactly 1
+    category: optional, 0+ segments
+    aspect: required, exactly 1 (final leaf noun)
+    variant: optional, typically 0-1 segments
+  examples:
+    positive:
+    - commons:ux:foundations:color
+    - sensory:gesture.raw
+    - match:config.duel
+    - commons:ux:foundations:color.primary
+- term_id: separator_semantics
+  label: Colon descends, dot varies
+  text: Colon is hierarchical descent (general to specific, unlimited depth); dot is lateral
+    variation (different flavor/state/type of the same aspect, kept shallow, typically
+    0-1). The two separators always mean the same thing.
+  values:
+    colon: hierarchical descent (theme -> subsystem -> category -> item); unlimited depth
+    dot: lateral variant (state/type/facet); typically 1, rarely 2 - keep shallow
+  examples:
+    positive:
+    - 'commons:ux:foundations:color  # colon = depth'
+    - 'sensory:gesture.raw  # dot = variant facet'
+    - 'player:session.active vs player:session.closed  # state variants via dot'
+- term_id: cardinality_from_aspect
+  label: Plural aspect means a collection
+  text: The aspect (final noun before any variant) determines cardinality. A plural aspect
+    denotes a collection/array schema; a singular aspect denotes a single item. Category
+    and variant segments never affect cardinality, even when plural.
+  values:
+    singular_aspect: single item schema (e.g. scenario:fragment)
+    plural_aspect: collection/array schema or directory reference (e.g. scenario:fragments)
+    category_plural: does not affect cardinality (foundations is just a category name)
+    variant_plural: does not affect cardinality
+  examples:
+    positive:
+    - 'scenario:fragments  # plural aspect -> array'
+    - 'commons:ux:foundations:color  # foundations is a category; color singular -> one item'
+- term_id: contract_path_mapping
+  label: Name maps to contract file path
+  text: Splitting the name on colons and dots yields the contract file path under contracts/;
+    the URN is the artifact name prefixed with the contract scheme and preserves every
+    colon and dot exactly.
+  values:
+    formula: 'theme:seg1:seg2:aspect.variant -> contracts/theme/seg1/seg2/aspect/variant.schema.json'
+    urn_pattern: 'contract:{artifact_name}'
+  examples:
+    positive:
+    - 'commons:ux:foundations:color -> contracts/commons/ux/foundations/color.schema.json'
+    - 'sensory:gesture.raw -> contracts/sensory/gesture/raw.schema.json'
+- term_id: naming_anti_patterns
+  label: Recognized naming anti-patterns
+  text: Names must avoid using dots for hierarchy (wrong_separator_for_hierarchy), omitting
+    the theme (missing_theme), over-specifying with deep dot chains (too_many_dots), using
+    a vague aspect (generic_aspect), or repeating the theme inside the aspect (theme_in_aspect).
+  values:
+    wrong_separator_for_hierarchy: dots used for depth that should be colons
+    missing_theme: no theme prefix, owner unclear
+    too_many_dots: internal details leak into the public name
+    generic_aspect: aspect too vague to be meaningful
+    theme_in_aspect: theme redundantly repeated in the aspect
+  examples:
+    negative:
+    - 'commons:ux.foundations.color  # wrong_separator_for_hierarchy -> commons:ux:foundations:color'
+    - 'gesture.raw  # missing_theme -> sensory:gesture.raw'
+    - 'commons:identifiers.uuid.v7.timestamp.encoded  # too_many_dots -> commons:identifiers.uuid'
+    - 'match:data  # generic_aspect -> match:state.committed'
+    - 'sensory:sensory-feedback.visual  # theme_in_aspect -> sensory:feedback.visual'
+examples:
+  positive:
+  - 'commons:ux:foundations:color.primary  # 4 hierarchy levels + 1 variant'
+  - 'contract:sensory:gesture.raw  # URN preserves colon and dot'
+  negative:
+  - 'mechanic:timebank.exhausted:v1  # version belongs in a separate field, not the $id'

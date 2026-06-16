@@ -2,11 +2,60 @@ schema_version: 1.0.0
 rule_id: planner.acceptance.complete
 kind: rule
 status: active
-statement: Each acceptance criterion has Given/When/Then prose and a verifiable outcome.
+statement: Each acceptance criterion has Given/When/Then prose and a verifiable outcome
+  that a tester can turn into a real, assertable test.
 rationale: Given/When/Then prose plus a verifiable outcome is what lets a tester turn
-  an acceptance into a real, assertable test.
+  an acceptance into a real, assertable test. The given captures only the preconditions
+  needed, the when is a single trigger, and the then is a list of assertions proving
+  the outcome.
 terms:
-- term_id: given_when_then
-  text: the structured prose stating context, action, and expected result
-- term_id: verifiable_outcome
-  text: an outcome a test can assert against
+- term_id: given_structure
+  label: Given - setup and preconditions
+  text: Declare only the preconditions needed before the action runs. given.abstract
+    is a REQUIRED array of Gherkin precondition statements; structured fields are optional.
+  values:
+    abstract: 'array of strings, minItems 1, REQUIRED'
+    optional_fields: [auth, builders, time, stubbing, knobs]
+  examples:
+    positive:
+    - 'given.abstract: ["User is logged in", "Account has credits"]'
+- term_id: when_structure
+  label: When - the single trigger
+  text: Express the single trigger that moves the system under test, in present tense
+    with a clear actor and action. when.abstract is REQUIRED; structured shape varies
+    by harness (http requires method/path, unit requires target, event requires topic).
+  values:
+    abstract: 'string, minLength 5, REQUIRED'
+    harness_required: {http: [method, path], unit: [target], event: [topic]}
+  examples:
+    positive:
+    - 'when.abstract: "User submits login form with credentials"'
+- term_id: then_structure
+  label: Then - verifiable outcomes
+  text: List assertions that prove the outcome. then.abstract is a REQUIRED array of
+    observable outcomes; then.assertions is an array of typed assertion kinds.
+  values:
+    abstract: 'array of strings, minItems 1, REQUIRED'
+  examples:
+    positive:
+    - 'then.abstract: ["Purchase succeeds", "Credits are deducted", "Receipt is generated"]'
+- term_id: assertion_kinds
+  label: Allowed Then assertion kinds
+  text: The controlled vocabulary of assertion kinds an acceptance may assert in then.assertions.
+  values:
+    kinds: [status, body, headers, error, event_published, state_changed, metric]
+- term_id: acceptance_cap
+  label: Cap of five acceptances per WMBT
+  text: Keep acceptances <=5 per WMBT; if you need more, split the WMBT into clearer
+    outcomes. Beyond five indicates mixed concerns that belong in separate WMBTs.
+  values:
+    maximum: 5
+    enforcement: schemas:planner:wmbt acceptance array maxItems
+examples:
+  positive:
+  - "given.abstract: [\"User is logged in\", \"Account has credits\"]; when.abstract:\
+    \ \"User purchases a product\"; then.abstract: [\"Purchase succeeds\", \"Credits\
+    \ are deducted\"]"
+  negative:
+  - acceptance with a when but no then assertions
+  - six acceptances on a single WMBT (exceeds the cap of 5)

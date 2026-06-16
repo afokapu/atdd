@@ -4,9 +4,22 @@ kind: rule
 status: active
 statement: Each feature is registered under exactly one wagon's _features.yaml manifest.
 rationale: Registering each feature under exactly one wagon keeps ownership unambiguous
-  and the manifest authoritative.
+  and the manifest authoritative. A feature URN's wagon segment must match the wagon
+  whose manifest lists it.
 terms:
 - term_id: feature
-  text: a capability slice of a wagon
+  label: A capability slice of a wagon
+  text: A feature is a capability slice owned by exactly one wagon. Its URN
+    (feature:{wagon}:{feature}) carries the owning wagon's slug as its first segment.
+  values:
+    pattern: 'feature:{wagon}:{feature}'
 - term_id: wagon_manifest
-  text: the wagon's _features.yaml that lists its features
+  label: The owning wagon's _features.yaml
+  text: Exactly one wagon's _features.yaml lists the feature. The wagon segment of
+    the feature URN must match the wagon whose manifest registers it; no feature may
+    appear in two wagons' manifests.
+  examples:
+    positive:
+    - 'feature:maintain-ux:provide-foundations listed in plan/maintain_ux/_maintain_ux.yaml'
+    negative:
+    - 'feature:maintain-ux:provide-foundations also listed in plan/resolve_dilemmas/_resolve_dilemmas.yaml'

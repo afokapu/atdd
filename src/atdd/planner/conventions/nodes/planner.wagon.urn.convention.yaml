@@ -2,12 +2,66 @@ schema_version: 1.0.0
 rule_id: planner.wagon.urn
 kind: rule
 status: active
-statement: Wagons declare a stable URN and live under plan/<wagon-slug>/ with the
-  documented file layout.
+statement: Wagons declare a stable URN of the form wagon:{kebab-case-name} and live
+  under plan/<wagon-slug>/ with the documented file layout.
 rationale: A stable wagon URN and fixed layout make wagons addressable and discoverable
-  by the graph and tooling.
+  by the graph and tooling. Keeping logical identifiers in kebab-case and the filesystem
+  in snake_case reduces conversion complexity and keeps the two planes cleanly separated.
 terms:
 - term_id: wagon_urn
-  text: a wagon's stable URN
+  label: The wagon URN grammar
+  text: A wagon's stable identifier follows the pattern wagon:{kebab-case-name}, where
+    the name is lowercase alphanumeric with hyphens and starts with a letter, ideally
+    a verb-object phrase (e.g. resolve-dilemmas, commit-state).
+  values:
+    pattern: 'wagon:{kebab-case-name}'
+    regex: ^wagon:[a-z][a-z0-9-]*$
+    must_start_with: lowercase letter
+    allowed_chars: lowercase letters, digits, hyphens
+    preference: verb-object
+  examples:
+    positive:
+    - 'wagon:resolve-dilemmas'
+    - 'wagon:burn-timebank'
+    - 'wagon:manage-users'
+    negative:
+    - 'wagon:Resolve_Dilemmas'
+    - 'wagon:1-manage-users'
+- term_id: logical_vs_physical_naming
+  label: Kebab-case logical identifiers vs snake_case filesystem
+  text: Logical identifiers (URNs, slug fields, YAML references) use kebab-case with
+    hyphens; the filesystem (directories, manifest files, feature files) uses snake_case
+    with underscores, derived by slug.replace('-', '_'). The two planes must not be
+    confused.
+  values:
+    logical_identifiers: kebab-case with hyphens (-)
+    filesystem: snake_case with underscores (_)
+    slug_to_dirname: slug.replace('-', '_')
+    dirname_to_slug: dirname.replace('_', '-')
+  examples:
+    positive:
+    - 'feature:authenticate-identity → plan/authenticate_identity/ → _authenticate_identity.yaml'
+    - 'plan/authenticate_identity/features/verify_session.yaml'
+    negative:
+    - 'plan/authenticate-identity/  # directories must be snake_case'
 - term_id: wagon_layout
-  text: the plan/<wagon-slug>/ directory layout
+  label: The plan/<wagon-slug>/ directory layout
+  text: A wagon lives under plan/{wagon_dirname}/ (snake_case) and carries a manifest
+    named _{dirname}.yaml whose filename matches the directory name, NOT the slug.
+    Feature modules live under plan/{wagon_dirname}/features/{feature_name}.yaml.
+  values:
+    directory_pattern: plan/{wagon_dirname}/
+    manifest_pattern: plan/{dirname}/_{dirname}.yaml
+    feature_file_pattern: plan/{wagon_dirname}/features/{feature_name}.yaml
+    manifest_note: File name matches directory name, NOT slug
+  examples:
+    positive:
+    - 'plan/authenticate_identity/_authenticate_identity.yaml'
+    - 'plan/resolve_dilemmas/_resolve_dilemmas.yaml'
+    negative:
+    - 'plan/authenticate_identity/_authenticate-identity.yaml  # manifest must match dirname'
+examples:
+  positive:
+  - 'urn: wagon:resolve-dilemmas  # → plan/resolve_dilemmas/_resolve_dilemmas.yaml'
+  negative:
+  - 'urn: wagon:Resolve-Dilemmas  # uppercase not allowed'

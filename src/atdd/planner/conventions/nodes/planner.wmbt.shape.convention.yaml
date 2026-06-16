@@ -2,12 +2,57 @@ schema_version: 1.0.0
 rule_id: planner.wmbt.shape
 kind: rule
 status: active
-statement: A WMBT entry declares its id, its statement, and the artifacts that prove
-  the statement.
+statement: A WMBT entry declares its id (a step-coded URN), its statement, and the
+  artifacts (acceptances and tests) that prove the statement.
 rationale: Declaring id, statement, and proving artifacts makes a WMBT a self-contained,
-  verifiable truth.
+  verifiable truth. The id encodes the step (define/locate/.../conclude) and a sequence,
+  and the statement follows a direction+dimension+object-of-control construction.
 terms:
-- term_id: wmbt_entry
-  text: a What-Must-Be-True entry in a wagon decomposition
+- term_id: wmbt_urn
+  label: The step-coded WMBT URN
+  text: The WMBT id is a URN of the form wmbt:{wagon}:{STEP_CODE}{NNN} where STEP_CODE
+    is one of nine single-letter step codes and NNN is a three-digit zero-padded sequence.
+  values:
+    pattern: 'wmbt:{wagon}:{STEP_CODE}{NNN}'
+    regex: '^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$'
+    sequence_range: 001-999
+  examples:
+    positive:
+    - 'wmbt:resolve-dilemmas:E001'
+    - 'wmbt:burn-timebank:M045'
+    - 'wmbt:user-mgmt:C023'
+- term_id: step_codes
+  label: The nine step codes
+  text: The single-letter step code in the URN names which phase of work the WMBT
+    belongs to. Exactly one of D, L, P, C, E, M, Y, R, K.
+  values:
+    D: define - Define requirements, criteria, or constraints
+    L: locate - Locate, discover, or find resources
+    P: prepare - Prepare, setup, or configure prerequisites
+    C: confirm - Confirm, verify, or validate conditions
+    E: execute - Execute, perform, or run the main action
+    M: monitor - Monitor, observe, or track progress
+    Y: modify - Modify, update, or adjust state
+    R: resolve - Resolve, fix, or handle issues
+    K: conclude - Conclude, complete, or finalize
+- term_id: statement_construction
+  label: How the statement is composed
+  text: The WMBT statement is constructed as "{direction} {dimension} of {object_of_control}"
+    optionally followed by a context clarifier, where direction is an optimization
+    verb and dimension is the metric being optimized.
+  values:
+    pattern: '${direction} ${dimension} of ${object_of_control}${context_clarifier ? '' '' + context_clarifier : ''''}'
+    directions: [minimize, maximize, increase, decrease]
+    dimensions: [Time, Effort, Likelihood, Frequency, Quantity/Amount, Financial Value]
 - term_id: proving_artifacts
-  text: the acceptances and tests that verify the WMBT statement
+  label: Artifacts that prove the statement
+  text: The acceptances and tests collocated with the WMBT that verify the WMBT statement;
+    each WMBT carries one dimension and one lens_ref, and acceptances inherit that
+    context.
+examples:
+  positive:
+  - 'wmbt:resolve-dilemmas:E001 with statement "minimize Time of dilemma-resolution"
+    and >=1 proving acceptance'
+  negative:
+  - 'wmbt:user-mgmt:C23  # sequence not three-digit zero-padded'
+  - WMBT declaring a statement but no proving acceptances or tests

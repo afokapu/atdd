@@ -3,11 +3,33 @@ rule_id: planner.theme.urn-namespace-matches
 kind: rule
 status: active
 statement: A wagon's produced contract or telemetry URN theme-prefix must equal the
-  wagon theme.
+  wagon theme; this catches commons:decision:* artifacts living under a coach-themed
+  wagon.
 rationale: Aligning a produced URN's theme-prefix to the wagon theme prevents artifacts
-  being filed under the wrong team.
+  being filed under the wrong team, keeping the URN namespace a faithful index of
+  wagon ownership.
 terms:
 - term_id: produced_urn
-  text: a contract or telemetry URN a wagon produces
-- term_id: theme_prefix
-  text: the leading theme segment of the URN
+  label: A contract/telemetry URN the wagon produces
+  text: A wagon's produced contract or telemetry URN whose leading theme segment
+    (theme-prefix) must equal the wagon theme. A mismatch surfaces an artifact filed
+    under the wrong team.
+  examples:
+    positive:
+    - 'wagon theme: coach produces coach:decision:* URN'
+    negative:
+    - 'wagon theme: coach produces commons:decision:* URN  # prefix != theme'
+- term_id: decision_migration
+  label: Deferred commons:decision:* -> coach:decision:* migration (#951)
+  text: This rule drives the commons:decision:* -> coach:decision:* migration tracking.
+    The decision artifacts currently carry the commons prefix but belong under coach;
+    the re-prefix is deferred to the #951 co-land.
+  values:
+    from_prefix: 'commons:decision:*'
+    to_prefix: 'coach:decision:*'
+    deferred_to: '#951 co-land'
+examples:
+  positive:
+  - 'theme: commons -> produces commons:contract:* / commons:telemetry:*'
+  negative:
+  - 'theme: coach wagon -> produces commons:decision:* (prefix mismatch, pending #951)'

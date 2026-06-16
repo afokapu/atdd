@@ -2,12 +2,42 @@ schema_version: 1.0.0
 rule_id: planner.theme.commons-coach-boundary
 kind: constraint
 status: active
-statement: A wagon themed commons must not import atdd.coach; coach-only machinery
-  must be themed coach.
-rationale: Keeping commons free of atdd.coach imports preserves the shared layer's
-  reusability and prevents coach machinery leaking into it.
+statement: A wagon themed commons must not have any source module that imports atdd.coach;
+  coach-only machinery must be themed coach.
+rationale: The commons-vs-coach line is the one sharp ownership boundary in the theme
+  taxonomy. Keeping coach internals out of commons lets any non-coach archetype consume
+  commons artifacts without pulling in the orchestrator.
 terms:
-- term_id: commons_theme
-  text: the cross-team commons theme, digit 0
-- term_id: coach_import_boundary
-  text: the prohibition on a commons module importing atdd.coach
+- term_id: commons_boundary_test
+  label: The IFF definition of a commons wagon
+  text: A wagon is commons if and only if a non-coach archetype (planner/tester/coder)
+    can consume its produced artifacts WITHOUT importing atdd.coach. If its implementation
+    requires coach internals, it is coach.
+  examples:
+    positive:
+    - worktree (the Plan landing flow uses it; no coach import)
+    - graph / URN / config / telemetry primitives
+    negative:
+    - multiplexer / pane spawning
+    - durable run persistence
+    - the Feed daemon
+    - worker-decision mediation
+- term_id: bindable_form
+  text: For a wagon themed commons, no module under its src tree may import atdd.coach
+    (or from atdd.coach ...). Coach-only machinery must declare theme coach.
+  values:
+    forbidden_imports:
+    - import atdd.coach
+    - from atdd.coach
+- term_id: deferred_violation
+  label: Known suppressed exception
+  text: mediate-worker-decisions is themed commons but imports coach; the violation
+    is suppressed UNTIL the #951 co-land re-theme moves it to coach.
+  values:
+    wagon: mediate-worker-decisions
+    suppressed_until: '#951 co-land re-theme'
+examples:
+  positive:
+  - 'theme: commons  # worktree, graph, URN, config, telemetry — no coach import'
+  negative:
+  - 'theme: commons  # but src imports atdd.coach (multiplexer, Feed daemon, durable runs)'

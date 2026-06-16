@@ -3,13 +3,47 @@ rule_id: planner.wmbt.must-have-smoke-acceptance
 kind: rule
 status: active
 statement: Every WMBT must declare at least one acceptance whose URN carries the SMOKE
-  harness token, giving the lifecycle explicit real-infrastructure coverage before
-  REFACTOR.
+  harness token (acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]) so the lifecycle has explicit
+  real-infrastructure coverage before REFACTOR, UNLESS the WMBT is genuinely docs-only
+  with no real infra to verify, in which case it may suppress the rule inline.
 rationale: Requiring a SMOKE acceptance closes the asymmetry where SMOKE tests were
   checked for coverage but never required, ensuring real-infrastructure verification
-  before REFACTOR.
+  between GREEN and REFACTOR. It mirrors tester.smoke.pres (#293); docs-only WMBTs
+  with nothing live to exercise are the one honest carve-out, expressed via a time-boxed
+  inline suppression marker.
 terms:
 - term_id: smoke_acceptance
-  text: an acceptance URN carrying the SMOKE harness token, acc:<wagon>:<wmbt_id>-SMOKE-NNN
+  label: The required SMOKE acceptance
+  text: An acceptance whose identity.urn carries the SMOKE harness token and whose
+    identity.phase is SMOKE, giving the lifecycle explicit real-infrastructure verification
+    between GREEN and REFACTOR.
+  values:
+    urn_pattern: 'acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]'
+    identity_phase: SMOKE
+  examples:
+    positive:
+    - 'acc:govern-lifecycle:E003-SMOKE-001-against-real-db'
+    - 'acc:authenticate-user:C004-SMOKE-019'
+    negative:
+    - 'acc:govern-lifecycle:E003-UNIT-001  # UNIT token, not SMOKE'
 - term_id: real_infrastructure_coverage
-  text: verification against real infrastructure between GREEN and REFACTOR
+  label: Why SMOKE, specifically
+  text: SMOKE is the live-infrastructure confidence tier; a SMOKE acceptance verifies
+    behavior against real infrastructure (HTTP, DB, auth, deployment) rather than
+    fakes or hermetic fixtures, before the lifecycle reaches REFACTOR.
+- term_id: docs_only_suppression
+  label: The docs-only carve-out (exception)
+  text: 'A WMBT that is genuinely docs-only or pure metadata, with no real infrastructure
+    to verify, may suppress this rule with an inline marker on the WMBT urn: line.
+    The suppression is time-boxed (~90-day TTL) and must carry an explicit UNTIL deadline.'
+  values:
+    marker: '# atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=YYYY-MM-DD'
+    placement: 'on the urn: line of the WMBT YAML'
+    ttl_policy: 'UNTIL = today + ~90 days'
+    example_line: 'urn: "wmbt:<wagon>:<wmbt_id>"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-08-12'
+examples:
+  positive:
+  - WMBT with identity.urn wmbt:govern-lifecycle:E003 declaring acceptance acc:govern-lifecycle:E003-SMOKE-001-against-real-db
+  - 'docs-only WMBT: urn: "wmbt:docs-only:D001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-08-12'
+  negative:
+  - WMBT declaring only UNIT and HTTP acceptances and no SMOKE acceptance, with no suppression marker

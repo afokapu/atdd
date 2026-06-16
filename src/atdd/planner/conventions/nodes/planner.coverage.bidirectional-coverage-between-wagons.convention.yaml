@@ -2,12 +2,38 @@ schema_version: 1.0.0
 rule_id: planner.coverage.bidirectional-coverage-between-wagons
 kind: rule
 status: active
-statement: A wagon and its features must reference each other bidirectionally, leaving
-  no orphan on either side.
+statement: A wagon and its features must reference each other bidirectionally - every
+  feature file is referenced by its wagon manifest, and every features[] entry resolves
+  to a real feature YAML file - leaving no orphan on either side.
 rationale: Bidirectional wagon-feature references prevent orphaned features that no
-  wagon owns.
+  wagon owns and dangling features[] entries that point at YAML files which do not
+  exist. This is the Wagon-to-Feature edge of the coverage graph.
 terms:
 - term_id: wagon
-  text: a unit of work that owns features and WMBTs
+  text: a unit of work that owns features via its features[] list and owns WMBTs
 - term_id: feature
-  text: a capability slice registered under a wagon
+  text: a capability slice registered under a wagon, backed by a feature YAML file
+- term_id: feature_to_wagon
+  label: Direction feature -> wagon
+  text: Every feature file must be referenced by its wagon manifest. Enforced by
+    test_all_features_in_wagon_manifest.
+- term_id: wagon_to_feature
+  label: Direction wagon -> feature
+  text: Every features[] entry in a wagon manifest must have a corresponding feature
+    YAML file. Enforced by test_all_wagon_feature_refs_exist.
+- term_id: features_orphaned_exception
+  label: Allow-listed features without wagon reference
+  text: Feature URNs that are allowed to exist without a wagon manifest reference.
+    Used for deprecated features being phased out, or experimental features.
+  values:
+    name: features_orphaned
+    config_path: coverage.exceptions.features_orphaned
+    use_case: Deprecated features being phased out, or experimental features
+examples:
+  positive:
+  - every feature YAML is listed in some wagon's features[], and every features[]
+    entry has a YAML file
+  negative:
+  - a feature YAML file exists but no wagon manifest references it (and it is not
+    allow-listed)
+  - a wagon's features[] lists a URN with no corresponding feature YAML file

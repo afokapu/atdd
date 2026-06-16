@@ -2,12 +2,51 @@ schema_version: 1.0.0
 rule_id: planner.appendix.structure
 kind: rule
 status: active
-statement: Appendix sections follow the documented heading order and link back to
-  the main wagon body.
-rationale: A fixed appendix heading order and back-links keep large wagon documents
-  navigable and auditable.
+statement: Appendices are typed multimodal artifacts named {artifact-name}_{type}_{filename}
+  and stored in an appendices/ subdirectory co-located with the artifact they describe.
+rationale: A fixed appendix taxonomy, naming pattern, and storage location keep planner
+  outputs self-contained and let the planner agent reliably detect, read, and reference
+  supplementary content while reducing ambiguity.
 terms:
-- term_id: appendix_section
-  text: a supplementary section of a wagon document
-- term_id: heading_order
-  text: the documented sequence the appendix headings must follow
+- term_id: appendix_types
+  label: The recognized appendix types
+  text: An appendix is one of six types, each with its own file extensions and intended
+    use during wagon/wmbt/feature/component/acceptance creation.
+  values:
+    mockup: 'PNG/JPG/JPEG/SVG/GIF — UI designs, wireframes, prototypes; informs component
+      structure and harness selection'
+    spreadsheet: 'XLSX/CSV/TSV — data models, calculations, business rules; informs domain
+      model and acceptance criteria'
+    document: 'PDF/DOCX/MD/TXT — PRDs, specs, research findings; informs wagon description
+      and component contracts'
+    diagram: 'PNG/SVG/MERMAID/DRAWIO — architecture, ERDs, sequence/state diagrams; informs
+      4-layer structure and integration points'
+    audio: 'MP3/WAV/M4A/OGG — interviews, voice notes, requirement sessions; informs WMBT
+      scenarios and pain points'
+    video: 'MP4/MOV/WEBM/AVI — screen recordings, demos, user-testing sessions; informs
+      feature parity and reproduce steps'
+- term_id: naming_pattern
+  label: The appendix filename pattern
+  text: Appendix filenames follow {artifact-name}_{type}_{filename} to ensure uniqueness,
+    traceability, and clear type identification.
+  values:
+    pattern: '{artifact-name}_{type}_{filename}'
+  examples:
+    positive:
+    - 'checkout-flow_mockup_overview.png  # wagon'
+    - 'E023_diagram_sequence.svg  # wmbt'
+    - 'payment-processing_spreadsheet_tax-rules.xlsx  # feature'
+    - 'PaymentForm_mockup_states.png  # component'
+- term_id: storage_location
+  label: Appendices live in an appendices/ subdirectory
+  text: Appendices are stored in an appendices/ subdirectory of the artifact they describe,
+    keeping artifacts self-contained and appendices co-located with what they describe.
+  values:
+    wagon: '{output_dir}/wagons/{wagon-name}/appendices/'
+    wmbt: '{output_dir}/wagons/{wagon-name}/plan/{wmbt-id}/appendices/'
+    feature: '{output_dir}/wagons/{wagon-name}/features/{feature-name}/appendices/'
+    component: '{output_dir}/wagons/{wagon-name}/features/{feature-name}/components/{component-name}/appendices/'
+  examples:
+    positive:
+    - demo/wagons/checkout-flow/appendices/checkout-flow_mockup_overview.png
+    - demo/wagons/checkout-flow/plan/E023/appendices/E023_mockup_payment-error.png

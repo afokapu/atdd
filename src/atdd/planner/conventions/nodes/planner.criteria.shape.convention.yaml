@@ -5,9 +5,49 @@ status: active
 statement: 'Criteria entries follow the documented shape: id, description, harness,
   and expected_outcome.'
 rationale: A fixed criterion record shape lets tooling read criteria uniformly across
-  features and WMBTs.
+  features and WMBTs, and a fixed harness catalog routes each criterion to the right
+  test scaffolding.
 terms:
 - term_id: criteria_entry
-  text: an acceptance-criterion record on a feature or WMBT
-- term_id: documented_shape
-  text: the required fields id, description, harness, expected_outcome
+  label: An acceptance-criterion record
+  text: An acceptance-criterion record on a feature or WMBT declares id, description,
+    harness, and expected_outcome.
+  values:
+    required_fields:
+    - id
+    - description
+    - harness
+    - expected_outcome
+- term_id: harness_catalog
+  label: Allowed harness types
+  text: The harness field selects one of the documented acceptance-scaffolding harnesses;
+    each harness fixes which architectural layers it covers and the default given/when/then
+    skeleton.
+  values:
+    allowed_harnesses:
+    - http
+    - unit
+    - event
+    - ws
+    - e2e
+    - a11y
+    - visual
+    - metric
+    - job
+    - db
+    - sec
+    - load
+    - script
+  examples:
+    positive:
+    - 'harness: http'
+    - 'harness: e2e'
+    negative:
+    - 'harness: rest  # not in the catalog'
+- term_id: stubbing_policy
+  label: Strict stubbing default
+  text: The default given block sets stubbing policy strict, so dependencies must be
+    explicitly stubbed rather than implicitly faked; overrides are listed explicitly.
+  values:
+    policy: strict
+    overrides: []
