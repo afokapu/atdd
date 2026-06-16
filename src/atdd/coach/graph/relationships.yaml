@@ -90,6 +90,15 @@ edges:
   target_ref: planner.acceptance.given-when-then-structure
   type: follows
 - confidence: 1.0
+  constraint: discretionary
+  control: external
+  foundation: start_to_start
+  reason: acceptance telemetry signals and wagon telemetry URNs share naming
+  source_ref: planner.acceptance.signal-telemetry-naming
+  strength: minor
+  target_ref: planner.wagon.telemetry-filesystem
+  type: runs_alongside
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_start
@@ -251,6 +260,24 @@ edges:
   strength: important
   target_ref: planner.coverage.bidirectional-coverage-between-trains
   type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: wagon-feature coverage presupposes well-formed features
+  source_ref: planner.coverage.bidirectional-coverage-between-wagons
+  strength: important
+  target_ref: planner.feature.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: wagon-feature coverage reads the wagon features manifest
+  source_ref: planner.coverage.bidirectional-coverage-between-wagons
+  strength: important
+  target_ref: planner.wagon.features
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -486,6 +513,15 @@ edges:
   target_ref: planner.feature.hard-limits
   type: runs_alongside
 - confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: a feature URN embeds its parent wagon slug
+  source_ref: planner.feature.urn-naming
+  strength: important
+  target_ref: planner.wagon.urn-naming
+  type: requires
+- confidence: 1.0
   constraint: discretionary
   control: internal
   foundation: start_to_start
@@ -514,9 +550,9 @@ edges:
   type: requires
 - confidence: 1.0
   constraint: mandatory
-  control: internal
+  control: external
   foundation: finish_to_start
-  reason: a feature registered under one wagon presupposes the wagon's _features.yaml lists it
+  reason: a feature is registered in its wagon _features.yaml
   source_ref: planner.feature.wagon-link
   strength: important
   target_ref: planner.wagon.features
@@ -622,6 +658,15 @@ edges:
   type: requires
 - confidence: 1.0
   constraint: discretionary
+  control: external
+  foundation: finish_to_start
+  reason: train data-flow dependencies follow wagon produce/consume artifacts
+  source_ref: planner.train.dependencies
+  strength: minor
+  target_ref: planner.wagon.produce-consume-artifacts
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
   control: internal
   foundation: start_to_start
   reason: dependencies are declared in the spec
@@ -665,6 +710,15 @@ edges:
   strength: important
   target_ref: planner.coverage.bidirectional-coverage-between-trains
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: a train's participants are wagons
+  source_ref: planner.train.scope
+  strength: important
+  target_ref: planner.wagon.urn-naming
+  type: requires
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -775,6 +829,15 @@ edges:
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: contract URNs map to files via the artifact-naming mapping
+  source_ref: planner.wagon.artifact-contracts
+  strength: important
+  target_ref: planner.artifact-naming.contract-file-mapping
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
   control: internal
   foundation: start_to_start
   reason: the features-manifest rule uses the urn-array features format
@@ -791,6 +854,15 @@ edges:
   strength: important
   target_ref: planner.wagon.slug-dirname-conversion
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: produce/consume artifact names follow the naming pattern
+  source_ref: planner.wagon.produce-consume-artifacts
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -811,6 +883,15 @@ edges:
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: the wagon theme is selected from the canonical taxonomy
+  source_ref: planner.wagon.refinement-extraction
+  strength: important
+  target_ref: planner.theme.canonical-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
   control: internal
   foundation: finish_to_start
   reason: coherence validates the extracted refinement fields
@@ -826,6 +907,24 @@ edges:
   source_ref: planner.wagon.semantic-coherence
   strength: important
   target_ref: planner.wagon.produce-consume-artifacts
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: external
+  foundation: start_to_start
+  reason: a wagon produced-URN theme must match its theme
+  source_ref: planner.wagon.semantic-coherence
+  strength: minor
+  target_ref: planner.theme.urn-namespace-matches
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: telemetry URNs follow the artifact-naming grammar
+  source_ref: planner.wagon.telemetry-filesystem
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -862,6 +961,15 @@ edges:
   source_ref: planner.wagon.urn
   strength: minor
   target_ref: planner.artifact-naming.planner-artifacts-use-stable
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: external
+  foundation: start_to_start
+  reason: wagon and artifact names share the kebab grammar
+  source_ref: planner.wagon.urn-naming
+  strength: minor
+  target_ref: planner.artifact-naming.naming-pattern
   type: runs_alongside
 - confidence: 1.0
   constraint: discretionary
