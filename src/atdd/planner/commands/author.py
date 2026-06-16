@@ -353,7 +353,8 @@ def run(argv: list[str]) -> int:
 
     # every author kind resolves an authoring context first (P001, spec §6).
     from atdd.planner.commands.author_context import (
-        gate_home, node_home, relationship_home, resolve_context, scope_home,
+        gate_home, node_home, relationship_graph_id, relationship_home,
+        resolve_context, scope_home,
     )
 
     cwd = os.getcwd()
@@ -406,7 +407,7 @@ def run(argv: list[str]) -> int:
                 edge[key] = val
         path = Path(args.path) if args.path else relationship_home(ctx, root)
         try:
-            insert_relationship(edge, path)
+            insert_relationship(edge, path, graph_id=relationship_graph_id(ctx))
         except AuthorInputError as exc:
             logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
             print(f"atdd author: {exc}", file=sys.stderr)

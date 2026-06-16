@@ -37,3 +37,23 @@ def test_graph_carries_graph_id_header(tmp_path):
     doc = yaml.safe_load(path.read_text())
     assert doc["graph_id"] == "atdd.convention.relationships"
     assert doc["kind"] == "relationship_graph"
+
+
+def test_graph_id_per_context_and_passthrough(tmp_path):
+    from atdd.planner.commands.author_context import AuthorContext, relationship_graph_id
+
+    # core graph keeps the canonical id; an extension graph is package-scoped
+    assert relationship_graph_id(AuthorContext("core")) == "atdd.convention.relationships"
+    assert (relationship_graph_id(AuthorContext("extension", "acme.extension.demo"))
+            == "acme.extension.demo.relationships")
+
+    # an explicit graph_id is written for a NEW file (extension graph)
+    path = tmp_path / "relationships.yaml"
+    insert_relationship(_edge("coder.green.a", "coder.green.b"),
+                        path, graph_id="acme.extension.demo.relationships")
+    assert yaml.safe_load(path.read_text())["graph_id"] == "acme.extension.demo.relationships"
+
+    # an existing graph's id is never rewritten by a later, different graph_id
+    insert_relationship(_edge("coder.green.c", "coder.green.d"),
+                        path, graph_id="other.extension.x.relationships")
+    assert yaml.safe_load(path.read_text())["graph_id"] == "acme.extension.demo.relationships"

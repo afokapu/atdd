@@ -105,17 +105,21 @@ def _atomic_write(path, text: str) -> None:
     os.replace(tmp, str(path))
 
 
-def insert_relationship(edge: dict, path) -> None:
-    """Validate + dedup-insert an edge into the registry at ``path`` (atomic)."""
+def insert_relationship(edge: dict, path, graph_id: str | None = None) -> None:
+    """Validate + dedup-insert an edge into the registry at ``path`` (atomic).
+
+    ``graph_id`` names the graph this edge belongs to (spec §6.1) so core and
+    per-extension graphs compose distinctly. Resolution order: an existing
+    file's graph_id wins (never rewrite an established graph's identity), else
+    the caller's ``graph_id``, else the core default.
+    """
     validate_edge(edge)
-    if os.path.exists(path):
-        doc = yaml.safe_load(open(path, encoding="utf-8").read()) or relationship_doc([])
-    else:
-        doc = relationship_doc([])
-    graph_id = doc.get("graph_id", DEFAULT_GRAPH_ID)  # preserve an existing graph id
-    edges = [e for e in doc.get("edges", []) if _edge_key(e) != _edge_key(edge)]
+    existing = (yaml.safe_load(open(path, encoding="utf-8").read())
+                if os.path.exists(path) else None) or {}
+    final_graph_id = existing.get("graph_id") or graph_id or DEFAULT_GRAPH_ID
+    edges = [e for e in existing.get("edges", []) if _edge_key(e) != _edge_key(edge)]
     edges.append(edge)
-    _atomic_write(path, canonical_dump(relationship_doc(edges, graph_id)))
+    _atomic_write(path, canonical_dump(relationship_doc(edges, final_graph_id)))
 
 
 def merge_registries(base_text: str, ours_text: str, theirs_text: str) -> str:
