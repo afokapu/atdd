@@ -77,9 +77,14 @@ def _sorted_edges(edges: list) -> list:
     return sorted(edges, key=_edge_key)
 
 
-def relationship_doc(edges: list) -> dict:
+# Default graph id for the core convention relationship graph (spec §6.1).
+DEFAULT_GRAPH_ID = "atdd.convention.relationships"
+
+
+def relationship_doc(edges: list, graph_id: str = DEFAULT_GRAPH_ID) -> dict:
     return {
         "schema_version": "1.0.0",
+        "graph_id": graph_id,
         "kind": "relationship_graph",
         "edges": _sorted_edges(edges),
     }
@@ -107,9 +112,10 @@ def insert_relationship(edge: dict, path) -> None:
         doc = yaml.safe_load(open(path, encoding="utf-8").read()) or relationship_doc([])
     else:
         doc = relationship_doc([])
+    graph_id = doc.get("graph_id", DEFAULT_GRAPH_ID)  # preserve an existing graph id
     edges = [e for e in doc.get("edges", []) if _edge_key(e) != _edge_key(edge)]
     edges.append(edge)
-    _atomic_write(path, canonical_dump(relationship_doc(edges)))
+    _atomic_write(path, canonical_dump(relationship_doc(edges, graph_id)))
 
 
 def merge_registries(base_text: str, ours_text: str, theirs_text: str) -> str:

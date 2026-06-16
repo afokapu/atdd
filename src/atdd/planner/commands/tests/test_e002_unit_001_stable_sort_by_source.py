@@ -28,3 +28,12 @@ def test_two_edges_stable_sorted(tmp_path):
     doc = yaml.safe_load(path.read_text())
     sources = [e["source_ref"] for e in doc["edges"]]
     assert sources == ["coder.green.aaa", "coder.green.zzz"], sources
+
+
+def test_graph_carries_graph_id_header(tmp_path):
+    # spec §6.1: the relationship graph declares graph_id + kind.
+    path = tmp_path / "relationships.yaml"
+    insert_relationship(_edge("coder.green.aaa", "coder.green.t2"), path)
+    doc = yaml.safe_load(path.read_text())
+    assert doc["graph_id"] == "atdd.convention.relationships"
+    assert doc["kind"] == "relationship_graph"

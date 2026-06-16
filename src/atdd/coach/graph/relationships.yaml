@@ -1,0 +1,121 @@
+edges:
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: completeness and harness-type declaration are two required facets of the same acceptance
+  source_ref: planner.acceptance.complete
+  strength: important
+  target_ref: planner.acceptance.harness
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the same bidirectional-coverage invariant at the train-wagon and wagon-feature levels
+  source_ref: planner.coverage.bidirectional-coverage-between-trains
+  strength: minor
+  target_ref: planner.coverage.bidirectional-coverage-between-wagons
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the every-WMBT-referenced-by-a-feature check presupposes well-formed features
+  source_ref: planner.coverage.every-wmbt-must-be
+  strength: important
+  target_ref: planner.feature.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a WMBT's required acceptance only counts if acceptances are complete (G/W/T + verifiable outcome)
+  source_ref: planner.coverage.every-wmbt-must-have
+  strength: important
+  target_ref: planner.acceptance.complete
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the per-WMBT acceptance check presupposes a well-shaped WMBT (id, statement, proving artifacts)
+  source_ref: planner.coverage.every-wmbt-must-have
+  strength: important
+  target_ref: planner.wmbt.shape
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the criterion record shape and its prose/outcome are the same artifact from two angles
+  source_ref: planner.criteria.shape
+  strength: minor
+  target_ref: planner.acceptance.complete
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a feature registered under one wagon presupposes the wagon's _features.yaml lists it
+  source_ref: planner.feature.wagon-link
+  strength: important
+  target_ref: planner.wagon.features
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: plan/test/code archetype alignment presupposes a canonical theme
+  source_ref: planner.theme.archetype-alignment
+  strength: minor
+  target_ref: planner.theme.must-be-canonical
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the commons/coach import boundary is only checkable once a theme resolves to canonical
+  source_ref: planner.theme.commons-coach-boundary
+  strength: important
+  target_ref: planner.theme.must-be-canonical
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a canonical theme set must include the non-removable commons@0 floor
+  source_ref: planner.theme.must-be-canonical
+  strength: critical
+  target_ref: planner.theme.theme-zero-mandatory
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: matching a produced-URN theme-prefix to the wagon theme presupposes a canonical theme
+  source_ref: planner.theme.urn-namespace-matches
+  strength: important
+  target_ref: planner.theme.must-be-canonical
+  type: follows
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: a wagon's stable URN is an instance of the stable-naming rule for planner artifacts
+  source_ref: planner.wagon.urn
+  strength: minor
+  target_ref: planner.artifact-naming.planner-artifacts-use-stable
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a SMOKE acceptance is defined by carrying the SMOKE harness token, so it depends on the harness-type rule
+  source_ref: planner.wmbt.must-have-smoke-acceptance
+  strength: critical
+  target_ref: planner.acceptance.harness#harness_type
+  type: requires
+graph_id: atdd.convention.relationships
+kind: relationship_graph
+schema_version: 1.0.0
