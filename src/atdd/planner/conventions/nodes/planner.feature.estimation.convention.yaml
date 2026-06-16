@@ -1,0 +1,29 @@
+schema_version: 1.1.0
+rule_id: planner.feature.estimation
+kind: principle
+status: active
+name: Footprint estimation cues
+statement: Estimate the architectural footprint from WMBTs, interfaces, and component layers.
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: estimation
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: estimation_cue
+  text: signal -> footprint element.
+  values:
+    display_animation: screen/view
+    apply_validate: endpoint
+    reconcile_persist: table/migration
+    notify_retry_queue: async
+    new_events: event count
+    external_consumes_produces: integration points
+    be_repository: table/migration
+    fe_presentation: number of screens

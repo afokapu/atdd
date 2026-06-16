@@ -1,0 +1,23 @@
+schema_version: 1.1.0
+rule_id: planner.feature.feedback-loop-suppression
+kind: rule
+status: active
+name: Feedback-loop docs-only suppression
+statement: 'A docs-only feedback-loop feature may suppress the close-the-loop rule inline on the kind:
+  line.'
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: feature_kind.suppression
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: suppression_marker
+  text: inline opt-out for docs-only feedback-loop features.
+  values:
+    syntax: 'kind: feedback-loop  # atdd:suppress(planner.smoke.feedback-loop-close-the-loop) UNTIL=YYYY-MM-DD'

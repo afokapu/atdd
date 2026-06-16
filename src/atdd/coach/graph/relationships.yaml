@@ -282,6 +282,105 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: seeding a name needs the type-specific verb list
+  source_ref: planner.feature.artifact-seeded-naming
+  strength: important
+  target_ref: planner.feature.verb-selection-by-artifact-type
+  type: requires
+- confidence: 1.0
+  constraint: conditional
+  control: internal
+  foundation: finish_to_start
+  reason: the close-the-loop rule fires only when kind is feedback-loop
+  source_ref: planner.feature.feedback-loop-close-the-loop
+  strength: important
+  target_ref: planner.feature.feedback-loop-kind
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: the inline marker suppresses the close-the-loop rule for docs-only features
+  source_ref: planner.feature.feedback-loop-suppression
+  strength: minor
+  target_ref: planner.feature.feedback-loop-close-the-loop
+  type: relieves
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: estimation cues feed footprint scoring
+  source_ref: planner.feature.footprint-scoring
+  strength: minor
+  target_ref: planner.feature.estimation
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: grouping keeps a feature within its size budget
+  source_ref: planner.feature.grouping-strategy
+  strength: minor
+  target_ref: planner.feature.size-max-rule
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a well-shaped feature declares its urn
+  source_ref: planner.feature.shape
+  strength: important
+  target_ref: planner.feature.urn-naming
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the footprint size is one input to the max rule
+  source_ref: planner.feature.size-max-rule
+  strength: critical
+  target_ref: planner.feature.footprint-scoring
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: sizing and hard limits both gate feature scope
+  source_ref: planner.feature.size-max-rule
+  strength: important
+  target_ref: planner.feature.hard-limits
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the URN feature segment is the artifact-seeded verb-object name
+  source_ref: planner.feature.urn-naming
+  strength: minor
+  target_ref: planner.feature.artifact-seeded-naming
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: validation enforces the hard limits
+  source_ref: planner.feature.validation-rules
+  strength: important
+  target_ref: planner.feature.hard-limits
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: validation enforces the max size rule
+  source_ref: planner.feature.validation-rules
+  strength: important
+  target_ref: planner.feature.size-max-rule
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: a feature registered under one wagon presupposes the wagon's _features.yaml lists it
   source_ref: planner.feature.wagon-link
   strength: important

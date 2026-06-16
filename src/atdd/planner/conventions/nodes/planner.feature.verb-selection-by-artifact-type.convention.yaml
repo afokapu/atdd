@@ -1,0 +1,55 @@
+schema_version: 1.1.0
+rule_id: planner.feature.verb-selection-by-artifact-type
+kind: family
+status: active
+name: Verb selection by artifact type
+statement: The artifact type (event, state, data, config) determines the appropriate verbs for the feature
+  name.
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: artifact_seeds.verb_selection.by_artifact_type
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: verbs_by_type
+  label: Verbs by artifact type
+  text: artifact type -> verbs.
+  values:
+    events:
+    - publish
+    - emit
+    - start
+    - close
+    - trigger
+    - notify
+    states:
+    - track
+    - monitor
+    - maintain
+    - update
+    - manage
+    data:
+    - create
+    - manage
+    - process
+    - handle
+    - make
+    - generate
+    configs:
+    - configure
+    - setup
+    - initialize
+    - define
+    - establish
+  examples:
+    positive:
+    - match:started -> start-match
+    - session:active -> maintain-session
+    - player:profile -> manage-profile
+    - match:config -> configure-match

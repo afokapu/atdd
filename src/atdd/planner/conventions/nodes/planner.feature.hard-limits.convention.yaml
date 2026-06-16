@@ -1,0 +1,29 @@
+schema_version: 1.1.0
+rule_id: planner.feature.hard-limits
+kind: constraint
+status: active
+name: Feature hard limits
+statement: A feature must not exceed 2 new tables, 2 async jobs, or 2 integrations; exceeding any hard
+  limit MUST trigger a split.
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: sizing.hard_limits
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'new_tables<=2 (high maintenance/schema-evolution/perf cost); async_jobs<=2 (operational
+    complexity: monitoring, retry, inconsistency); integrations<=2 (external deps, security, uncontrolled
+    failure).'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: hard_limit
+  text: per-feature ceilings that force a split.
+  values:
+    new_tables: 2
+    async_jobs: 2
+    integrations: 2

@@ -1,0 +1,119 @@
+schema_version: 1.1.0
+rule_id: planner.feature.footprint-scoring
+kind: rule
+status: active
+name: Component footprint scoring
+statement: Architectural footprint = sum(component.count x weight[component.type]), rounded UP, mapped
+  to a size bracket.
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: footprint_scoring
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'Component-based footprint using granular component types from coder conventions. Formula:
+    sum(count x weight); round UP (ceiling).'
+  examples:
+  - 2 controllers(2x1) + 1 repository(1x2) + 1 view(1x1) = 5 -> S
+  - 3 serializers(1.5) + 2 controllers(2) = 3.5 -> ceil 4 -> S
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: complexity_rubric
+  text: universal 0-3 complexity scale.
+  values:
+    0: Pure config/declaration (routes, dtos, events, ports, styles)
+    0.5: Simple transformation/validation (serializers, mappers, validators, hooks, filters)
+    1: Single-responsibility business logic (controllers, services, clients, views)
+    2: Complex orchestration/state/persistence (use_cases, repositories, queues, workflows)
+    3: Very complex algorithms/integrations (engines with ML/graph/optimization)
+- term_id: component_type_weights
+  label: Component type weights
+  text: backend/frontend x layer x component-type -> weight (verbatim).
+  values:
+    backend:
+      presentation:
+        controllers: 1
+        routes: 0
+        serializers: 0.5
+        validators: 0.5
+        middleware: 1
+        guards: 1
+        views: 1
+      application:
+        use_cases: 2
+        handlers: 1
+        ports: 0
+        dtos: 0
+        policies: 1
+        workflows: 2
+      domain:
+        entities: 1
+        value_objects: 0.5
+        aggregates: 2
+        services: 1
+        specifications: 0.5
+        events: 0
+        exceptions: 0
+      integration:
+        repositories: 2
+        clients: 1
+        caches: 0.5
+        engines: 3
+        formatters: 1
+        notifiers: 1
+        queues: 2
+        stores: 1
+        mappers: 0.5
+        schedulers: 2
+        monitors: 1
+    frontend:
+      presentation:
+        views: 1
+        components: 0.5
+        containers: 1
+        controllers: 2
+        routes: 0
+        layouts: 1
+        styles: 0
+        animations: 0.5
+        forms: 1
+        hooks: 0.5
+        directives: 0.5
+        filters: 0.5
+      application:
+        use_cases: 2
+        ports: 0
+        policies: 1
+        dtos: 0
+      domain:
+        entities: 1
+        value_objects: 0.5
+        services: 1
+        specifications: 0.5
+        exceptions: 0
+      integration:
+        repositories: 2
+        clients: 1
+        stores: 1
+        serializers: 0.5
+        mappers: 0.5
+        interceptors: 1
+        caches: 0.5
+        synchronizers: 2
+        monitors: 1
+        validators: 0.5
+        workers: 2
+        connectors: 1
+- term_id: footprint_bracket
+  text: points -> bracket.
+  values:
+    XS: <=5 points
+    S: 6-10 points
+    M: 11-15 points (decompose if necessary)
+    L: 16-25 points (split)
+    XL: '>=26 points (split)'

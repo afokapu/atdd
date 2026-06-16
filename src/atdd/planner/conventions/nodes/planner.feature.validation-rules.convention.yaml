@@ -1,0 +1,28 @@
+schema_version: 1.1.0
+rule_id: planner.feature.validation-rules
+kind: constraint
+status: active
+name: Feature validation rules
+statement: A feature's size must equal max(WMBT size, Footprint size); features exceeding component/event/hard
+  limits must be split.
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: validation_rules
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+content:
+  constraints:
+  - size field must equal max(WMBT size, Footprint size)
+  - covers_wmbts determines WMBT size bracket
+  - footprint scores architectural complexity using point system
+  - Features exceeding component/event limits must be split
+  - Features exceeding hard limits (tables/jobs/integrations) MUST be split
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: validation_rule
+  text: a feature sizing/limit validation rule.

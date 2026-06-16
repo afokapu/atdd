@@ -1,0 +1,37 @@
+schema_version: 1.1.0
+rule_id: planner.feature.grouping-strategy
+kind: family
+status: active
+name: WMBT grouping strategies
+statement: Group WMBTs into a feature by shared step, dimension, object, or coherent user story (<=10
+  per group); avoid miscellaneous buckets.
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: grouping_strategies + grouping_heuristics
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+content:
+  operational_guidance: Every feature must be user-facing and cohesive.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: grouping_strategy
+  text: how WMBTs are grouped into a feature.
+  values:
+    by_step: share the same JTBD step (<=10)
+    by_dimension: measure the same dimension (<=10)
+    by_object: control the same object (<=10)
+    by_coherence: form a coherent user story (<=10)
+- term_id: grouping_heuristic
+  text: cues for coherent grouping.
+  values:
+    cues:
+    - shared object of control
+    - shared metric kind
+    - shared plane/domain
+    - same user story/flow
+    avoid: miscellaneous buckets

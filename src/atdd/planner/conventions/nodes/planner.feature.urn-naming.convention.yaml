@@ -1,0 +1,29 @@
+schema_version: 1.1.0
+rule_id: planner.feature.urn-naming
+kind: rule
+status: active
+name: Feature URN naming
+statement: A feature URN is feature:{wagon}:{feature}, both kebab-case, the feature in verb-object form;
+  built via URNBuilder.feature.
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: urn_naming + naming
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - feature:resolve-dilemmas:choose-option
+  - feature:manage-inventory:track-stock
+  - feature:manage-users:authenticate-user
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: feature_urn
+  text: the feature identifier.
+  values:
+    pattern: ^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$
+    naming: '{verb}-{object}'
