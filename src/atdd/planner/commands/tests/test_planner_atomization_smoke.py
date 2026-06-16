@@ -64,7 +64,8 @@ def test_committed_nodes_and_graph_are_coherent():
     schema = json.loads(_NODE_SCHEMA.read_text())
     node_ids = set()
     node_files = sorted(_NODES.glob("planner.*.convention.yaml"))
-    assert len(node_files) == 23, f"expected 23 atomized nodes, found {len(node_files)}"
+    # the node set grows per-convention as high-fidelity atomization proceeds (#1110)
+    assert len(node_files) >= 23, f"expected the atomized node set, found {len(node_files)}"
     for f in node_files:
         node = yaml.safe_load(f.read_text())
         jsonschema.validate(node, schema)                # every committed node is schema-valid
@@ -74,7 +75,7 @@ def test_committed_nodes_and_graph_are_coherent():
     graph = yaml.safe_load(_CORE_GRAPH.read_text())
     assert graph["graph_id"] == "atdd.convention.relationships"
     edges = graph["edges"]
-    assert len(edges) == 13
+    assert len(edges) >= 13
     # referential integrity: every edge endpoint (minus a #term suffix) is a real node
     for e in edges:
         for ref in (e["source_ref"], e["target_ref"]):

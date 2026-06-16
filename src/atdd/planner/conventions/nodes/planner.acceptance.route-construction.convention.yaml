@@ -1,0 +1,55 @@
+schema_version: 1.1.0
+rule_id: planner.acceptance.route-construction
+kind: rule
+status: active
+name: Route sequence construction
+statement: route.sequence is built as ordered {layer}.{action} transitions flowing presentation -> application
+  -> domain -> integration as needed.
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: route_construction + layer_routing
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - presentation_flow:
+    - presentation.command
+    - application.use_case
+    - domain.validate
+    - integration.persist
+  - query_flow:
+    - presentation.query
+    - application.query
+    - integration.read
+  - event_flow:
+    - integration.call_external
+    - application.aggregate
+    - domain.mutate
+    - integration.persist
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: route_step
+  text: one {layer}.{action} transition in a route sequence.
+  values:
+    presentation:
+    - presentation.command
+    - presentation.query
+    - presentation.display
+    application:
+    - application.use_case
+    - application.query
+    - application.aggregate
+    domain:
+    - domain.create
+    - domain.validate
+    - domain.mutate
+    - domain.policy
+    integration:
+    - integration.read
+    - integration.persist
+    - integration.call_external

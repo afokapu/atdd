@@ -2,12 +2,102 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_start
+  reason: completeness includes the required abstract Gherkin fields
+  source_ref: planner.acceptance.complete
+  strength: important
+  target_ref: planner.acceptance.abstract-fields-required
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a complete acceptance presupposes the Given/When/Then structure
+  source_ref: planner.acceptance.complete
+  strength: critical
+  target_ref: planner.acceptance.given-when-then-structure
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: start_to_start
   reason: completeness and harness-type declaration are two required facets of the same acceptance
   source_ref: planner.acceptance.complete
   strength: important
   target_ref: planner.acceptance.harness
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the when section is harness-specific and draws on the harness vocabulary
+  source_ref: planner.acceptance.given-when-then-structure
+  strength: important
+  target_ref: planner.acceptance.harness-vocabulary
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: declaring a harness presupposes the harness vocabulary
+  source_ref: planner.acceptance.harness
+  strength: critical
+  target_ref: planner.acceptance.harness-vocabulary
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: exercised_boundaries draws on the boundary-kind controlled vocabulary
+  source_ref: planner.acceptance.hermetic-fake-contract
+  strength: critical
+  target_ref: planner.acceptance.boundary-kind-vocabulary
+  type: requires
+- confidence: 1.0
+  constraint: conditional
+  control: internal
+  foundation: finish_to_start
+  reason: the hermetic fake-contract is required only when execution_kind is hermetic_integration
+  source_ref: planner.acceptance.hermetic-fake-contract
+  strength: critical
+  target_ref: planner.acceptance.execution-kind
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the legacy AC id and the acceptance URN are parallel identifiers
+  source_ref: planner.acceptance.id-pattern
+  strength: minor
+  target_ref: planner.acceptance.urn-generation
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the route sequence is built alongside the Given/When/Then structure
+  source_ref: planner.acceptance.route-construction
+  strength: minor
+  target_ref: planner.acceptance.given-when-then-structure
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: telemetry signals are derived from the then/when sections
+  source_ref: planner.acceptance.signal-telemetry-naming
+  strength: important
+  target_ref: planner.acceptance.given-when-then-structure
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the acceptance URN embeds the UPPERCASE harness code from the vocabulary
+  source_ref: planner.acceptance.urn-generation
+  strength: important
+  target_ref: planner.acceptance.harness-vocabulary
+  type: requires
 - confidence: 1.0
   constraint: discretionary
   control: internal

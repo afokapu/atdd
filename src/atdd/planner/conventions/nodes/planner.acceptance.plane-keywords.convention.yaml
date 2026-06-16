@@ -1,0 +1,87 @@
+schema_version: 1.1.0
+rule_id: planner.acceptance.plane-keywords
+kind: family
+status: active
+name: Plane keyword cues
+statement: Keyword cues for selecting the test-layer plane when routing an acceptance.
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: planes
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: plane_keywords
+  text: keyword -> plane routing table.
+  values:
+    ui:
+    - display
+    - visible
+    - screen
+    - render
+    - animation
+    ux:
+    - understand
+    - clarity
+    - steps
+    - easy
+    - confusing
+    be:
+    - validate
+    - apply
+    - compute
+    - reconcile
+    - rule
+    nw:
+    - request
+    - response
+    - timeout
+    - websocket
+    - stream
+    db:
+    - query
+    - index
+    - transaction
+    - lock
+    - row
+    st:
+    - asset
+    - download
+    - upload
+    - cache
+    - blob
+    - cdn
+    tm:
+    - event
+    - metrics
+    - trace
+    - ingest
+    - drop
+    sc:
+    - schema
+    - contract
+    - version
+    - field
+    - json
+    au:
+    - login
+    - token
+    - permission
+    - rate-limit
+    - '403'
+    fn:
+    - price
+    - balance
+    - payout
+    - token
+    if:
+    - cpu
+    - memory
+    - pod
+    - node
+    - gpu

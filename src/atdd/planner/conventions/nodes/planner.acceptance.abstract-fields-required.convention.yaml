@@ -1,0 +1,44 @@
+schema_version: 1.1.0
+rule_id: planner.acceptance.abstract-fields-required
+kind: constraint
+status: active
+name: Abstract Gherkin fields required
+statement: Each acceptance section declares an abstract Gherkin narrative (given.abstract, when.abstract,
+  then.abstract) — all three are REQUIRED.
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: abstract_fields
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+content:
+  summary: Gherkin-style abstract narrative within given/when/then sections for human readability.
+  operational_guidance: 'Abstract fields coexist with structured fields in the same section: abstract
+    for stakeholders (Gherkin), structured for machines (test generation). identity.purpose serves as
+    the scenario name — no separate top-level name needed.'
+  constraints:
+  - 'given.abstract: array[str], minItems 1, REQUIRED — each item a single precondition/setup state.'
+  - 'when.abstract: str, minLength 5, REQUIRED — present tense, clear actor and action.'
+  - 'then.abstract: array[str], minItems 1, REQUIRED — each item a single observable outcome.'
+  examples:
+  - given.abstract:
+    - appendix.convention.yaml defines manifest structure
+    - User account exists in the database
+  - when.abstract: User submits login form with credentials
+  - then.abstract:
+    - 'Wagon manifest includes appendices: [] at root level'
+    - Resolver can resolve appendix paths using URN pattern
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: abstract_field
+  text: a Gherkin narrative line within a given/when/then section, for stakeholder readability alongside
+    the structured machine fields.
+  values:
+    locations:
+    - given.abstract
+    - when.abstract
+    - then.abstract

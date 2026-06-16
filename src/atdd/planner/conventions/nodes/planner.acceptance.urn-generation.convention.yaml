@@ -1,0 +1,39 @@
+schema_version: 1.1.0
+rule_id: planner.acceptance.urn-generation
+kind: rule
+status: active
+name: Acceptance URN generation
+statement: An acceptance URN is acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}], built via URNBuilder.acceptance.
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: urn_generation
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+content:
+  normative_text: Colon = hierarchy (acc:wagon:wmbt_id); dash = facet cluster (-harness-NNN[-slug]). Makes
+    the WMBT tie explicit, bakes in harness visibility for routing, keeps per-harness sequence and an
+    optional readability slug.
+  operational_guidance: URNBuilder.acceptance(wagon_id, wmbt_id, harness_code, seq, slug=None).
+  examples:
+  - URNBuilder.acceptance("authenticate-user", "C004", "E2E", "019") -> acc:authenticate-user:C004-E2E-019
+  - URNBuilder.acceptance("maintain-ux", "C004", "E2E", "019", "user-connection") -> acc:maintain-ux:C004-E2E-019-user-connection
+  counter_examples:
+  - acc:authenticate-user:001:AC-EXEC-201  (legacy format acc:{wagon}:{nnn}:{acceptance_id} — being migrated)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: acceptance_urn
+  label: Acceptance URN
+  text: the canonical id of an acceptance.
+  values:
+    pattern: ^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?$
+    parts:
+      wagon: kebab-case wagon
+      wmbt_id: step code + seq (C004)
+      harness: UPPERCASE harness code
+      NNN: per-harness 001-999
+      slug: optional kebab descriptor
