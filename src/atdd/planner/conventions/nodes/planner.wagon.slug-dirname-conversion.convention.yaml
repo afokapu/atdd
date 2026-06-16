@@ -1,0 +1,26 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.slug-dirname-conversion
+kind: rule
+status: active
+name: Slug/dirname conversion
+statement: Convert between logical slugs and filesystem names by swapping hyphens and underscores.
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_section: naming.conversion + naming.slug_derivation
+  legacy_sha: ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: conversion
+  text: the kebab<->snake conversion functions.
+  values:
+    slug_to_dirname: slug.replace('-', '_')
+    dirname_to_slug: dirname.replace('_', '-')
+    feature_slug_to_filename: feature_slug.replace('-', '_') + '.yaml'
+    feature_filename_to_slug: filename.replace('_', '-').replace('.yaml', '')
+    slug_derivation: lowercase, replace spaces/underscores with hyphens (verb-object preferred)

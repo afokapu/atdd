@@ -1,0 +1,36 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.logical-physical-mapping
+kind: rule
+status: active
+name: Logical-to-physical mapping
+statement: 'Artifact names (logical) map to contract file paths (physical): split on : and ., each segment
+  is a directory level, the final segment is the filename.'
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: logical_vs_physical_mapping + urn_structure
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  operational_guidance: 'segments = split(artifact, /[:.]/); path = ''contracts/'' + segments[0..-1].join(''/'');
+    file = variant ? variant+''.schema.json'' : (directory_reference ? none : aspect+''.schema.json'').'
+  examples:
+  - scenario:fragment -> contracts/scenario/fragment/fragment.schema.json (singular object)
+  - scenario:fragments -> contracts/scenario/fragments/fragments.schema.json (array schema)
+  - commons:ux:foundations -> contracts/commons/ux/foundations/ (directory reference, no file)
+  - sensory:gesture.raw -> contracts/sensory/gesture/raw.schema.json (variant becomes filename)
+  - commons:ux:foundations:color.primary -> contracts/commons/ux/foundations/color/primary.schema.json
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: physical_form
+  label: Three physical forms
+  text: how a plural/singular artifact materializes on disk.
+  values:
+    directory_reference: logical grouping, no concrete schema file (plural aspect referencing a collection
+      of related schemas)
+    array_schema: 'plural aspect with a concrete array schema ({type: array, items: $ref ../singular})'
+    singular_schema: singular aspect = single object schema

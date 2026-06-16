@@ -1,0 +1,31 @@
+schema_version: 1.1.0
+rule_id: planner.train.artifact-flow
+kind: rule
+status: active
+name: Train artifact flow
+statement: Artifacts flow between participants as {domain}:{resource}; they must be produced before consumed
+  and be defined in participant wagon manifests.
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: artifact_flow
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - material:raw-story
+  - scenario:material.steps
+  - match:dilemma.current
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: artifact
+  text: a domain:resource artifact in the flow.
+  values:
+    pattern: ^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$
+    rules:
+    - produced before consumed
+    - defined in participant wagons

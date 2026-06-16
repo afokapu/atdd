@@ -1,0 +1,26 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.contract-file-mapping
+kind: rule
+status: active
+name: Contract file mapping
+statement: 'An artifact path maps directly to a contract file path: theme + segments become directories,
+  the final segment becomes the filename, with a .schema.json extension.'
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: contract_file_mapping
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  operational_guidance: 'Formula: artifact theme:seg1:seg2:aspect.variant -> contracts/theme/seg1/seg2/aspect/variant.schema.json.'
+  examples:
+  - commons:identifiers.uuid -> contracts/commons/identifiers/uuid.schema.json
+  - sensory:feedback:haptic:pulse.short -> contracts/sensory/feedback/haptic/pulse/short.schema.json
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: file_mapping
+  text: the deterministic artifact-name -> file-path transform.

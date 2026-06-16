@@ -1,0 +1,29 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.artifact-contracts
+kind: rule
+status: active
+name: Wagon artifact URN formats
+statement: A wagon's produced artifacts carry a contract URN (contract:{...}) and a telemetry URN (telemetry:{...})
+  following the artifact-naming grammar.
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_section: artifact_contracts.urn_format
+  legacy_sha: ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - contract:commons:ux:foundations:color
+  - contract:mechanic:decision.choice
+  - telemetry:commons:ux:foundations
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: artifact_urn
+  text: the contract/telemetry URN forms.
+  values:
+    contract_urn: contract:{theme}(:{category})*:{aspect}(.{variant})?
+    telemetry_urn: telemetry:{theme}(:{category})*:{aspect}(.{variant})?

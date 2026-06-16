@@ -1,0 +1,26 @@
+schema_version: 1.1.0
+rule_id: planner.criteria.sequence-routing
+kind: rule
+status: active
+name: Layer sequence routing
+statement: 'Each layer maps to a default action in the route sequence: presentation.command, application.use_case,
+  domain.validate, integration.persist.'
+source:
+  legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
+  legacy_section: planes.sequence
+  legacy_sha: db262e7f5fb06226
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: layer_action
+  text: layer -> default action.
+  values:
+    presentation: command
+    application: use_case
+    domain: validate
+    integration: persist

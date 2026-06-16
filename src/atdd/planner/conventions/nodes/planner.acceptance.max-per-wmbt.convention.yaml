@@ -1,0 +1,29 @@
+schema_version: 1.1.0
+rule_id: planner.acceptance.max-per-wmbt
+kind: constraint
+status: active
+name: Acceptance cap per WMBT
+statement: Keep acceptances <=5 per WMBT; if more are needed, split the WMBT into clearer outcomes.
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: max_per_wmbt + guidelines + expected_ratios
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+content:
+  constraints:
+  - 'max_per_wmbt: 5'
+  - acceptance_to_test ratio 1:1 (one acceptance -> one test)
+  - test_to_component ratio N:1
+  operational_guidance: 'Each acceptance maps to exactly one metric_id (no mixed measures). Respect WMBT
+    rules: one dimension and one lens_ref per WMBT; acceptances inherit context from the parent WMBT.'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: acceptance_cap
+  text: the per-WMBT ceiling on acceptances.
+  values:
+    max: 5

@@ -1,0 +1,30 @@
+schema_version: 1.1.0
+rule_id: planner.feature.artifact-seeded-naming
+kind: rule
+status: active
+name: Artifact-seeded feature naming
+statement: 'Feature names are seeded from wagon produce/consume artifacts: identify the artifact, determine
+  its type, pick a type-specific verb, choose an object from the artifact''s domain/resource, and combine
+  as {verb}-{object}.'
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: artifact_seeds
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+content:
+  operational_guidance: 'Steps: (1) identify artifact from produce/consume; (2) determine type event/state/data/config;
+    (3) select verb from the type list; (4) choose object (domain OR resource); (5) combine {verb}-{object}
+    kebab-case.'
+  examples:
+  - mechanic:decision.choice (data) -> make-choice
+  - mechanic:timebank.remaining (state) -> track-timebank
+  - match:started (event) -> start-match
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: feature_seed
+  text: the produce/consume artifact a feature name is derived from.

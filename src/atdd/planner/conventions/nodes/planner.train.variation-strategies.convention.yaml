@@ -1,0 +1,26 @@
+schema_version: 1.1.0
+rule_id: planner.train.variation-strategies
+kind: family
+status: active
+name: Train variation strategies
+statement: Create train variations within a theme by mode, complexity, persona, or phase.
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: variation_strategies
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: variation_strategy
+  label: Variation strategies
+  text: strategy -> example.
+  values:
+    by_mode: 30-match-solo / 31-match-duel / 32-match-team
+    by_complexity: 10-decision-core / 11-decision-timeout / 12-decision-preview
+    by_persona: 01-player-registration / 02-sponsor-registration
+    by_phase: 60-tournament-setup / 61-tournament-active / 62-tournament-complete

@@ -1,0 +1,31 @@
+schema_version: 1.1.0
+rule_id: planner.coverage.coverage-graph
+kind: family
+status: active
+name: Planner coverage graph
+statement: 'The planner coverage graph ensures traceability from trains down to acceptances: Train ->
+  Wagon -> Feature -> WMBT -> Acceptance, each level guarded by coverage validators.'
+source:
+  legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
+  legacy_section: coverage_graph + rollout
+  legacy_sha: 27e800378c584902
+  extraction_mode: high_fidelity
+content:
+  normative_text: Section 2 of the ATDD Hierarchy Coverage Spec v0.1. Validators become strict in Phase
+    2 (PLANNER_TESTER_ENFORCEMENT).
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: coverage_level
+  label: Coverage levels
+  text: level -> {contains, validators}.
+  values:
+    Train: contains Wagons (via participants) — COVERAGE-PLAN-2.1
+    Wagon: contains Features (via features[]) — 2.1, 2.2
+    Feature: contains WMBTs (via wmbts[]) — 2.2, 2.3
+    WMBT: contains Acceptances (via acceptances[]) — 2.3, 2.4
+    Acceptance: contains Test criteria — 2.4

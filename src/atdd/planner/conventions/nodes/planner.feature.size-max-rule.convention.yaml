@@ -1,0 +1,41 @@
+schema_version: 1.1.0
+rule_id: planner.feature.size-max-rule
+kind: rule
+status: active
+name: Feature size is the max rule
+statement: Final feature size = max(WMBT-count size, Footprint size); features MUST be S or smaller, else
+  split or stage before execution.
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: sizing + rationale
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'Blended strategy. Pass 1 (planning): size by WMBT count to unblock decomposition. Pass
+    2 (post-decomposition): compute footprint, reclassify with the max rule, gate M/L features.'
+  operational_guidance: 'Per-feature constraints: <=8 components, <=3 events, <=3 new events. WMBT brackets:
+    XS<=5, S 6-10, M 11-20 (decompose/stage), L >20 (split).'
+  constraints:
+  - 'max_size: S'
+  - 'overflow_action: split or stage before execution'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: final_size_rule
+  text: max(wmbt_count_size, footprint_size).
+  values:
+    max_size: S
+    max_components: 8
+    max_events: 3
+    max_new_events: 3
+- term_id: wmbt_bracket
+  text: WMBT-count size brackets.
+  values:
+    XS: <=5 WMBTs
+    S: 6-10
+    M: 11-20 (decompose/stage)
+    L: '>20 (split immediately)'

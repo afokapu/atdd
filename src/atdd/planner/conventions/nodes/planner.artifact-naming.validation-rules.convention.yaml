@@ -1,0 +1,33 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.validation-rules
+kind: constraint
+status: active
+name: Naming validation rules
+statement: Artifact names must satisfy the format, semantic, and technical validation rules.
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: validation_rules
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  constraints:
+  - 'format: theme lowercase no separators; category/aspect/variant kebab-case; colon for descent; dot
+    for variants.'
+  - 'semantic: theme from approved taxonomy; each hierarchy level adds value; aspect a concrete noun;
+    variant a state/type/facet; URN matches name exactly; avoid deep variant nesting.'
+  - 'technical: contract file exists at contracts/{segments}.schema.json; $id is urn:contract:{artifact_name};
+    all consumers reference the same name; file path derivable by splitting on : and .'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: validation_rule
+  text: a format/semantic/technical constraint on artifact names.
+  values:
+    categories:
+    - format
+    - semantic
+    - technical

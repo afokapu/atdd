@@ -1,0 +1,46 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.produce-consume-artifacts
+kind: rule
+status: active
+name: Produce/consume artifact shape
+statement: produce[] entries declare name + contract + telemetry (optional to/urn/version); consume[]
+  entries declare name (optional from/contract/telemetry/urn/version).
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_section: artifact_contracts.produce_artifacts + artifact_contracts.consume_artifacts
+  legacy_sha: ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - 'produce: {name: commons:ux:foundations, contract: contract:..., telemetry: telemetry:...}; {name:
+    internal:cache, contract: null, telemetry: null, to: internal}'
+  - 'consume: {name: commons:ux:foundations, from: wagon:maintain-ux, contract: contract:...}'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: produce_fields
+  text: produce[] entry fields.
+  values:
+    required:
+    - name
+    - contract
+    - telemetry
+    optional:
+    - to (internal|external, default external)
+    - urn
+    - version
+- term_id: consume_fields
+  text: consume[] entry fields.
+  values:
+    required:
+    - name
+    optional:
+    - from (wagon:slug|system:service|appendix:type|internal)
+    - contract
+    - telemetry
+    - urn
+    - version

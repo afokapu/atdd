@@ -1,0 +1,28 @@
+schema_version: 1.1.0
+rule_id: planner.train.linearity
+kind: constraint
+status: active
+name: Trains are strictly linear
+statement: 'Trains are strictly linear: sequences contain steps only — no loops, routes, or branching;
+  new paths MUST become new trains.'
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: urn_naming.linearity_rule
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'Enforcement: loop and route sequence elements are forbidden; sequential step numbering
+    must have no gaps; each step has exactly one from and one to.'
+  constraints:
+  - loop and route sequence elements are forbidden
+  - Sequential step numbering must have no gaps
+  - Each step has exactly one from and one to
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: linearity
+  text: the no-loops/no-routes/no-branching rule for train sequences.

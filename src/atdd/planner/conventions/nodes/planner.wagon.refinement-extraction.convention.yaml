@@ -1,0 +1,49 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.refinement-extraction
+kind: family
+status: active
+name: Wagon refinement extraction
+statement: Refine ambiguous input into a structured wagon by extracting subject, action, goal, context,
+  outcome, produce/consume artifacts, and theme.
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_section: refinement.extraction
+  legacy_sha: ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+content:
+  operational_guidance: subject = WHO/WHAT performs the action (actor:role/entity:state); action = core
+    present-tense verb phrase; goal = WHY/motivation; context = WHEN/WHERE (comma-separated conditions);
+    outcome = measurable result; description >=10 chars.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: extraction_field
+  label: Refinement fields
+  text: field -> what to extract.
+  values:
+    subject: WHO/WHAT performs the action (actor:role or entity:state)
+    action: core present-tense verb phrase
+    goal: WHY/motivation, single intent statement
+    context: WHEN/WHERE, comma-separated conditions
+    outcome: measurable progress statement
+    produce: owned output artifacts
+    consume: input artifacts owned by other wagons
+- term_id: wagon_theme
+  label: Wagon theme options
+  text: theme -> scope.
+  values:
+    mechanic: Core game rules, decision systems, and immediate feedback loops
+    scenario: Content ingestion, entity extraction, and narrative structure processing
+    match: Session orchestration, state management, and lifecycle control, Multi-player coordination,
+      turn management
+    sensory: UI rendering, audio mixing, gesture capture, and player interaction
+    player: Individual lifecycle, onboarding, progression, and session management
+    league: Competitive organization, bracket management, and tournament operations
+    audience: Spectator engagement, streaming infrastructure, and viewer participation
+    monetization: Token economy, wallet operations, and transaction processing
+    partnership: Sponsor/partner onboarding, delegation, and commercial integration
+    commons: Shared infrastructure, cross-cutting utilities, and platform services

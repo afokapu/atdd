@@ -1,13 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.theme.urn-namespace-matches
 kind: rule
 status: active
-statement: A wagon's produced contract or telemetry URN theme-prefix must equal the
-  wagon theme.
-rationale: Aligning a produced URN's theme-prefix to the wagon theme prevents artifacts
-  being filed under the wrong team.
+name: URN theme-prefix matches wagon theme
+statement: A wagon's produced contract/telemetry URN theme-prefix MUST equal the wagon theme:.
+implementation:
+  type: validator
+  ref: test_theme_urn_namespace_matches::test_produced_urn_prefix_matches_theme
+source:
+  legacy_path: src/atdd/planner/conventions/theme.convention.yaml
+  legacy_section: rules
+  legacy_sha: 2ae106d04d77b06e
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.theme.urn-namespace-matches
+content:
+  normative_text: 'Catches commons:decision:* artifacts living under a coach-themed wagon. Drives the
+    commons:decision:* -> coach:decision:* migration tracking (deferred to #951 co-land).'
+metadata:
+  aliases:
+  - PLANNER-THEME-URN-001
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.92.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
-- term_id: produced_urn
-  text: a contract or telemetry URN a wagon produces
-- term_id: theme_prefix
-  text: the leading theme segment of the URN
+- term_id: urn_theme_prefix
+  text: the leading theme segment of a produced URN, which must equal the wagon theme.

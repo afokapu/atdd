@@ -1,0 +1,64 @@
+schema_version: 1.1.0
+rule_id: planner.train.theme-ranges
+kind: family
+status: active
+name: Train theme digit ranges
+statement: Each theme owns a digit and a category/variation range, giving 400 trains per theme (4000 total).
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: numbering.theme_ranges + numbering.capacity
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'Capacity: 10 themes x 4 categories x 100 variations = 4,000 possible trains.'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: theme_range
+  label: Theme ranges
+  text: theme -> {digit, category_range, description}.
+  values:
+    commons:
+      digit: '0'
+      category_range: 00-03
+      description: Identity, session, account, identifiers, UX systems
+    mechanic:
+      digit: '1'
+      category_range: 10-13
+      description: Core decision loop, timebank, predictions, domain impacts
+    scenario:
+      digit: '2'
+      category_range: 20-23
+      description: Story processing, curation, graph construction, fragments
+    match:
+      digit: '3'
+      category_range: 30-33
+      description: Solo, duel, team gameplay orchestration
+    sensory:
+      digit: '4'
+      category_range: 40-43
+      description: Gesture interpretation, tone, feedback, audio, haptics
+    player:
+      digit: '5'
+      category_range: 50-53
+      description: Onboarding, progression, achievements, review
+    league:
+      digit: '6'
+      category_range: 60-63
+      description: Tournaments, brackets, leaderboards, rewards
+    audience:
+      digit: '7'
+      category_range: 70-73
+      description: Streaming, donations, viewer engagement
+    monetization:
+      digit: '8'
+      category_range: 80-83
+      description: Wallets, cameo flows, transactions, reconciliation
+    partnership:
+      digit: '9'
+      category_range: 90-93
+      description: Sponsors, partners, personas, attribution, reporting

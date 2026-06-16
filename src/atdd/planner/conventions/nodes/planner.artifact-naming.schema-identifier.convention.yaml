@@ -1,0 +1,31 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.schema-identifier
+kind: rule
+status: active
+name: Schema $id and version separation
+statement: A contract's $id is the clean artifact name {theme}:{resource}[.{category}] with NO 'urn:contract:'
+  prefix and NO version suffix; version is a separate top-level field.
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: schema_identifier
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  normative_text: $id = clean artifact identifier (e.g. mechanic:timebank.exhausted). urn_reference (in
+    wagon produce/consume) = contract:{artifact_name}. Version is a SEPARATE top-level field so artifact
+    identity stays stable across versions.
+  counter_examples:
+  - mechanic:timebank.exhausted:v1  (version in $id breaks identity stability)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: id_field
+  text: the $id of a contract schema.
+  values:
+    id_pattern: '{theme}:{resource}[.{category}]'
+    urn_reference: contract:{artifact_name}
+    version: separate top-level field

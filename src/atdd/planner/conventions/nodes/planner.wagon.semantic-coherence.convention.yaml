@@ -1,0 +1,30 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.semantic-coherence
+kind: constraint
+status: active
+name: Wagon semantic coherence
+statement: 'A wagon must be semantically coherent: subject/action/goal align, outcome is measurable, produce
+  is owned, consume is foreign, and at least one produce is external.'
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_section: validation.coherence_checks
+  legacy_sha: ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+content:
+  constraints:
+  - subject and action must align (subject can perform the action)
+  - action and goal must align (action serves the goal)
+  - outcome must be measurable result of action
+  - all produce artifacts must be owned by this wagon
+  - all consume artifacts must be owned by different wagons
+  - context must make sense for when/where action occurs
+  - 'at least one produce artifact must be external (scope: ''external'')'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: coherence_check
+  text: one semantic-coherence validation on a wagon definition.

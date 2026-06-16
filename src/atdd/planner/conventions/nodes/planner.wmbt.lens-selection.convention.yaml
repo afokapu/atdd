@@ -1,0 +1,44 @@
+schema_version: 1.1.0
+rule_id: planner.wmbt.lens-selection
+kind: family
+status: active
+name: WMBT lenses
+statement: Select one quality lens (social, functional, or emotional) most relevant to the work.
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_section: lenses
+  legacy_sha: 040256ed5588a6c7
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: social_lens
+  text: identity/belonging drives.
+  values:
+    belong: accepted by a group, align with norms
+    stand_out: differentiate positively — uniqueness/status/taste/expertise
+    affirm: reinforce an existing identity
+    aspire: become a better future self
+- term_id: functional_lens
+  text: task-outcome qualities.
+  values:
+    efficiency: minimize time/effort/resources
+    effectiveness: improve quality/accuracy/impact
+    availability: accessible and operational when needed
+    adaptability: handle new/changing requirements
+    sustainability: maintain performance over time
+- term_id: emotional_lens
+  text: felt reactions.
+  values:
+    joy: pleasure when friction is removed
+    trust: confidence it is reliable and safe
+    fear: anxiety about a negative outcome
+    surprise: reaction to the unexpected
+    sadness: unhappiness from loss/blocked goal
+    disgust: aversion to unethical/cluttered design
+    anger: frustration when things fail
+    anticipation: hopeful expectation

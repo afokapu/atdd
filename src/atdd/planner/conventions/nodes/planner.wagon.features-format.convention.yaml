@@ -1,0 +1,28 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.features-format
+kind: rule
+status: active
+name: Wagon features format
+statement: A wagon's features are declared as an array of URN objects (feature:{wagon-slug}:{feature-name});
+  the legacy object map is deprecated.
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_section: artifact_contracts.features_format
+  legacy_sha: ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - 'urn_format: [{urn: feature:maintain-ux:provide-foundations}, {urn: feature:maintain-ux:compose-primitives}]'
+  - 'legacy_format (object): {provide-foundations: ''Provide foundation design tokens''}'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: features_format
+  text: the features declaration shape.
+  values:
+    urn_format: 'array of {urn: feature:{wagon-slug}:{feature-name}}'
+    legacy_format: object map (deprecated)

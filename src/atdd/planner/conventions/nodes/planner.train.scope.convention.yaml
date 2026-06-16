@@ -1,0 +1,38 @@
+schema_version: 1.1.0
+rule_id: planner.train.scope
+kind: rule
+status: active
+name: Train scope and sizing
+statement: 'A train tells ONE coherent journey: 3-7 wagons (sweet spot), 2 minimum, 8-12 review, 13+ decompose;
+  if you can''t state the outcome in one sentence without ''and'', split it.'
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: scope
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'one_journey_test: can you state the outcome in ONE sentence without ''and''?'
+  constraints:
+  - recommended 3-7 wagons
+  - minimum 2
+  - warning 8-12 (multiple journeys?)
+  - antipattern 13+ (decompose)
+  examples:
+  - 'good: 1001-decision-standard (5 wagons, one outcome)'
+  - 'bad: 3001-solo-match-complete (16 wagons, multiple journeys)'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: decomposition_signal
+  text: signals a train is multiple journeys.
+  values:
+    signals:
+    - Outcome description contains multiple 'AND' conjunctions
+    - Train has both setup AND teardown (match lifecycle)
+    - Mix of exploratory (gesture) AND core mechanic flows
+    - Multiple independent feedback loops
+    - Participants from 3+ different themes

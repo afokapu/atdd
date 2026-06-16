@@ -1,13 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.harness
 kind: rule
 status: active
-statement: Each acceptance criterion declares a harness type (UNIT, INTEGRATION, SMOKE,
-  ...).
-rationale: Declaring the harness type makes each acceptance's verification layer explicit,
-  so coverage and routing can reason about where a check runs.
+name: Acceptance declares a harness
+statement: Each acceptance criterion declares a harness type (UNIT, INTEGRATION, SMOKE, etc.).
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: rules
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.acceptance.harness
+metadata:
+  aliases:
+  - PLANNER-ACCEPTANCE-HARNESS-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
-- term_id: acceptance_criterion
-  text: a Given/When/Then check that proves a WMBT
-- term_id: harness_type
-  text: 'the test layer that runs the check: UNIT, INTEGRATION, SMOKE, ...'
+- term_id: harness
+  text: the test layer that exercises the acceptance; one of the codes in the harness vocabulary.
+  examples:
+    positive:
+    - UNIT
+    - HTTP
+    - E2E
+    - SMOKE
+    negative:
+    - functional
+    - manual

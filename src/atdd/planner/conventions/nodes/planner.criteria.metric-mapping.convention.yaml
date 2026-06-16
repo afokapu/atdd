@@ -1,0 +1,38 @@
+schema_version: 1.1.0
+rule_id: planner.criteria.metric-mapping
+kind: family
+status: active
+name: Dimension -> metric mapping
+statement: Each WMBT dimension+direction maps to a default metric_id (e.g. time/minimize -> metric:latency_p50).
+source:
+  legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
+  legacy_section: metrics
+  legacy_sha: db262e7f5fb06226
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: dimension_metric
+  label: Dimension metrics
+  text: dimension -> direction -> metric_id.
+  values:
+    time:
+      minimize: metric:latency_p50
+      maximize: metric:latency_increase
+    likelihood:
+      maximize: metric:success_ratio
+      minimize: metric:error_ratio
+    effort:
+      decrease: metric:user_steps
+    frequency:
+      decrease: metric:occurrence_rate
+    quantity / amount:
+      decrease: metric:scrap_rate
+      maximize: metric:throughput
+    financial value:
+      minimize: metric:cost_per_unit
+      maximize: metric:net_margin

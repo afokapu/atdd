@@ -1,12 +1,29 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.complete
 kind: rule
 status: active
+name: Acceptance is complete
 statement: Each acceptance criterion has Given/When/Then prose and a verifiable outcome.
-rationale: Given/When/Then prose plus a verifiable outcome is what lets a tester turn
-  an acceptance into a real, assertable test.
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: rules
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.acceptance.complete
+metadata:
+  aliases:
+  - PLANNER-ACCEPTANCE-COMPLETE-001
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: given_when_then
-  text: the structured prose stating context, action, and expected result
+  text: structured prose stating preconditions, the trigger action, and the expected observable outcomes.
 - term_id: verifiable_outcome
-  text: an outcome a test can assert against
+  text: an outcome a generated test can assert.

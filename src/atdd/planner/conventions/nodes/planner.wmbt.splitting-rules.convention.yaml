@@ -1,0 +1,37 @@
+schema_version: 1.1.0
+rule_id: planner.wmbt.splitting-rules
+kind: rule
+status: active
+name: WMBT splitting rules
+statement: Keep <=5 acceptances per WMBT; split on mixed dimensions, multiple actors, or divergent gates;
+  keep together for single-truth-multiple-layers or a coherent sequence.
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_section: splitting_rules
+  legacy_sha: 040256ed5588a6c7
+  extraction_mode: high_fidelity
+content:
+  normative_text: acceptance_cap maximum 5 — beyond 5 indicates mixed concerns that should be separate
+    WMBTs (enforced by schemas:planner:wmbt acceptance array maxItems). Aligns with conventions:planner:acceptance
+    acceptance_cap.
+  operational_guidance: 'when_to_split: mixed_dimensions (statement mentions multiple dimensions) / multiple_actors
+    (different actors+actions) / divergent_gates (ALL vs ANY). when_to_keep_together: single_truth_multiple_layers
+    (same outcome at UI/API/DB, gate ALL) / coherent_sequence (sequential steps of one process).'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: acceptance_cap
+  text: the per-WMBT acceptance ceiling.
+  values:
+    maximum: 5
+- term_id: split_trigger
+  text: when to split a WMBT.
+  values:
+    allowed:
+    - mixed_dimensions
+    - multiple_actors
+    - divergent_gates

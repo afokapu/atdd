@@ -1,0 +1,53 @@
+schema_version: 1.1.0
+rule_id: planner.acceptance.given-when-then-structure
+kind: rule
+status: active
+name: Given/When/Then structure
+statement: given declares only required preconditions; when declares the single harness-specific trigger
+  (REQUIRED); then is an array of assertions (REQUIRED).
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: gherkin_structure
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+content:
+  operational_guidance: 'given fields: auth, builders, time, stubbing, knobs. when is harness-specific
+    (http: method/path; unit: target; event: topic; ws/e2e: interactions). then.assertion_kinds: status,
+    body, headers, error, event_published, state_changed, metric.'
+  examples:
+  - when.http:
+      method: POST
+      path: /api/users
+      body:
+        name: John
+  - when.unit:
+      target: UserService.createUser
+      args:
+        userData:
+          name: John
+  - then:
+    - kind: status
+      expect: 200
+    - kind: error
+      expect:
+        code: USER_EXISTS
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: given_fields
+  text: 'preconditions: auth, builders, time, stubbing, knobs.'
+- term_id: assertion_kind
+  text: a then assertion kind.
+  values:
+    allowed:
+    - status
+    - body
+    - headers
+    - error
+    - event_published
+    - state_changed
+    - metric

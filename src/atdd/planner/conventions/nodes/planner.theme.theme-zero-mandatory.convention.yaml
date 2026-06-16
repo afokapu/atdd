@@ -1,14 +1,37 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.theme.theme-zero-mandatory
 kind: constraint
 status: active
-statement: 'Theme digit 0 (commons) is the mandatory, non-removable floor of every
-  resolved theme set: consumers may add or override themes 1-9 but must keep commons
-  at digit 0.'
-rationale: Pinning commons at digit 0 guarantees every repo shares the same non-removable
-  foundation theme.
+name: Theme zero is mandatory
+statement: 'Theme digit 0 (commons) is the mandatory, non-removable floor of every resolved theme set:
+  consumers may add/override themes 1-9 but MUST keep commons at digit 0.'
+implementation:
+  type: validator
+  ref: test_theme_zero_mandatory::test_commons_is_always_in_resolved_theme_set
+source:
+  legacy_path: src/atdd/planner/conventions/theme.convention.yaml
+  legacy_section: rules + taxonomy.theme_zero_token
+  legacy_sha: 2ae106d04d77b06e
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.theme.theme-zero-mandatory
+content:
+  normative_text: Any resolved theme map — defaults alone or defaults merged with consumer overrides —
+    MUST contain commons at digit 0. The resolver pins digit 0 regardless of override input.
+metadata:
+  aliases:
+  - PLANNER-THEME-ZERO-001
+  severity: 4
+  disposition: block
+  introduced_in: 3.92.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
-- term_id: theme_zero
-  text: digit 0, the locked 'commons' theme
 - term_id: resolved_theme_set
-  text: the theme map after merging defaults with consumer overrides
+  text: the theme map after merging defaults with consumer overrides.
+  values:
+    floor: commons at digit 0
+    removable: false

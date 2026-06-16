@@ -1,15 +1,52 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.must-have-smoke-acceptance
 kind: rule
 status: active
-statement: Every WMBT must declare at least one acceptance whose URN carries the SMOKE
-  harness token, giving the lifecycle explicit real-infrastructure coverage before
-  REFACTOR.
-rationale: Requiring a SMOKE acceptance closes the asymmetry where SMOKE tests were
-  checked for coverage but never required, ensuring real-infrastructure verification
-  before REFACTOR.
+name: WMBT must have a SMOKE acceptance
+statement: Every WMBT must declare at least one acceptance URN with the SMOKE harness token (acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>])
+  so the lifecycle has explicit real-infrastructure coverage before REFACTOR.
+implementation:
+  type: validator
+  ref: test_wmbt_has_smoke_acceptance::test_every_wmbt_has_smoke_acceptance
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_section: rules
+  legacy_sha: 040256ed5588a6c7
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.wmbt.must-have-smoke-acceptance
+content:
+  normative_text: Mirrors tester.smoke.pres (#293) — closes the asymmetry where tester checks coverage
+    of SMOKE tests that exist but no rule requires SMOKE acceptances be declared in the first place.
+  fix_hint: "The named WMBT declares 0 acceptance URNs with a SMOKE harness token,\nso the lifecycle has\
+    \ no explicit real-infrastructure verification\nbetween GREEN and REFACTOR. Repair as follows\n(run\
+    \ `atdd repo resolve <wmbt-urn>` to inspect the WMBT file path,\n e.g. \"atdd repo resolve wmbt:govern-lifecycle:E003\"\
+    ):\n\n  1. Open the WMBT YAML named in the violation location\n     (e.g. \"plan/govern_lifecycle/E003.yaml:1\"\
+    ).\n  2. Add at least one acceptance whose identity.urn matches\n     \"acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]\"\
+    \ and whose\n     identity.phase is \"SMOKE\".\n  3. If this WMBT is genuinely docs-only / metadata\
+    \ (no real infra\n     to verify), add a suppression marker on the urn: line of the\n     WMBT YAML\
+    \ — substitute YYYY-MM-DD with today + 90 days:\n       urn: \"wmbt:<wagon>:<wmbt_id>\"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance)\
+    \ UNTIL=YYYY-MM-DD\n  4. Re-run the validator to confirm clean\n     (pytest src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py\
+    \ -v).\n\nSee src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001\nfor the template\
+    \ pattern this rule mirrors, and issue #681 for the\nsubstrate-asymmetry incident this rule closes."
+metadata:
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.50.0
+  aliases: []
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: smoke_acceptance
-  text: an acceptance URN carrying the SMOKE harness token, acc:<wagon>:<wmbt_id>-SMOKE-NNN
-- term_id: real_infrastructure_coverage
-  text: verification against real infrastructure between GREEN and REFACTOR
+  text: an acceptance URN carrying the SMOKE harness token.
+  values:
+    urn_shape: acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]
+    phase: SMOKE
+- term_id: suppression_marker
+  text: inline opt-out for genuinely docs-only WMBTs with no real infra.
+  values:
+    syntax: '# atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=YYYY-MM-DD'
+    placement: 'the WMBT''s urn: line'

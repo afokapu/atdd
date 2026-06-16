@@ -1,13 +1,39 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.theme.commons-coach-boundary
 kind: constraint
 status: active
-statement: A wagon themed commons must not import atdd.coach; coach-only machinery
-  must be themed coach.
-rationale: Keeping commons free of atdd.coach imports preserves the shared layer's
-  reusability and prevents coach machinery leaking into it.
+name: Commons-vs-coach boundary
+statement: A wagon themed commons MUST NOT have any source module importing atdd.coach; coach-only machinery
+  MUST be themed coach.
+implementation:
+  type: validator
+  ref: test_theme_commons_coach_boundary::test_commons_wagons_do_not_import_coach
+source:
+  legacy_path: src/atdd/planner/conventions/theme.convention.yaml
+  legacy_section: rules + boundary
+  legacy_sha: 2ae106d04d77b06e
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.theme.commons-coach-boundary
+content:
+  normative_text: 'A wagon is commons IFF a non-coach archetype (planner/tester/coder) can consume its
+    produced artifacts WITHOUT importing atdd.coach. Bindable: no module under a commons wagon''s src
+    tree may `import atdd.coach`. Known deferred violation: mediate-worker-decisions (commons, imports
+    coach) — suppressed UNTIL the #951 co-land re-theme.'
+  examples:
+  - 'commons: worktree, graph/URN/config/telemetry primitives'
+  - 'coach: multiplexer/pane spawn, durable run persistence, Feed daemon, worker-decision mediation'
+metadata:
+  aliases:
+  - PLANNER-THEME-BOUNDARY-001
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.92.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
-- term_id: commons_theme
-  text: the cross-team commons theme, digit 0
 - term_id: coach_import_boundary
-  text: the prohibition on a commons module importing atdd.coach
+  text: the prohibition on a commons module importing atdd.coach.

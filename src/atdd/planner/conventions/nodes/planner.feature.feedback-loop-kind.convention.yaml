@@ -1,0 +1,30 @@
+schema_version: 1.1.0
+rule_id: planner.feature.feedback-loop-kind
+kind: rule
+status: active
+name: 'Feature kind: feedback-loop'
+statement: 'An optional feature `kind:` classifies the system archetype; kind: feedback-loop marks a producer->consumer
+  correction loop (detect+emit, receive+react, predicate no longer fires).'
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: feature_kind
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'Defaults to producer-only if absent; the kind field is optional and validators only
+    activate for explicitly-marked kinds, so existing features are unaffected (issue #825).'
+  examples:
+  - 'kind: feedback-loop'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: feature_kind
+  text: the feature's system archetype.
+  values:
+    valid_values:
+    - feedback-loop
+    default: producer-only

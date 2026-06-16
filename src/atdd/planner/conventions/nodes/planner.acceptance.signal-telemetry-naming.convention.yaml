@@ -1,0 +1,61 @@
+schema_version: 1.1.0
+rule_id: planner.acceptance.signal-telemetry-naming
+kind: rule
+status: active
+name: Telemetry signal naming
+statement: Each acceptance declares telemetry signals (metrics, traces, logs, events) using artifact-based
+  telemetry URNs (REQUIRED).
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: gherkin_structure.signal
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+content:
+  normative_text: Derive metrics from 'then' quantifiable expectations; derive events from 'when' user
+    actions. Operations/wagons go in attributes, NOT in the URN.
+  operational_guidance: 'metric: telemetry:metric:{plane}:{artifact}[.{category}]:{measure}; trace: telemetry:trace:{plane}:{artifact}[.{category}]
+    (no measure); log: optional telemetry:log:...; event: telemetry:event:... or Title Case analytics
+    name. Resource must be a past-tense verb from the lexicon.'
+  constraints:
+  - 'Entity artifacts (nouns) use measures: count, size, age, staleness, freshness.'
+  - 'Event artifacts (past-tense verbs) use: latency, duration, throughput, error_rate, success_rate.'
+  examples:
+  - metric: telemetry:metric:be:order:created:duration (histogram, p95, 200ms)
+  - trace: telemetry:trace:be:order:created (server)
+  - event: telemetry:event:be:order:created  /  'Order Created'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: measure
+  text: the trailing measure segment of a metric URN.
+  values:
+    allowed:
+    - latency
+    - duration
+    - throughput
+    - error_rate
+    - success_rate
+    - count
+    - size
+    - age
+    - staleness
+    - freshness
+- term_id: plane
+  text: the leading plane segment.
+  values:
+    allowed:
+    - ui
+    - ux
+    - be
+    - db
+    - nw
+    - st
+    - tm
+    - sc
+    - au
+    - fn
+    - if

@@ -1,0 +1,41 @@
+schema_version: 1.1.0
+rule_id: planner.wmbt.direction-selection
+kind: family
+status: active
+name: WMBT directions
+statement: Select the optimization direction verb that matches the goal, from the controlled palette.
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_section: directions
+  legacy_sha: 040256ed5588a6c7
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: direction
+  label: Direction palette
+  text: canonical direction -> synonyms.
+  values:
+    minimize:
+    - reduce
+    - decrease
+    - lower
+    - shrink
+    maximize:
+    - increase
+    - boost
+    - raise
+    - grow
+    increase:
+    - improve
+    - elevate
+    - accelerate
+    decrease:
+    - cut
+    - dampen
+    - slow
+    - limit

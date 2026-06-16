@@ -64,7 +64,8 @@ def test_committed_nodes_and_graph_are_coherent():
     schema = json.loads(_NODE_SCHEMA.read_text())
     node_ids = set()
     node_files = sorted(_NODES.glob("planner.*.convention.yaml"))
-    assert len(node_files) == 23, f"expected 23 atomized nodes, found {len(node_files)}"
+    # the node set grows per-convention as high-fidelity atomization proceeds (#1110)
+    assert len(node_files) >= 23, f"expected the atomized node set, found {len(node_files)}"
     for f in node_files:
         node = yaml.safe_load(f.read_text())
         jsonschema.validate(node, schema)                # every committed node is schema-valid
@@ -74,9 +75,35 @@ def test_committed_nodes_and_graph_are_coherent():
     graph = yaml.safe_load(_CORE_GRAPH.read_text())
     assert graph["graph_id"] == "atdd.convention.relationships"
     edges = graph["edges"]
-    assert len(edges) == 13
+    assert len(edges) >= 13
     # referential integrity: every edge endpoint (minus a #term suffix) is a real node
     for e in edges:
         for ref in (e["source_ref"], e["target_ref"]):
             rule_id = ref.split("#", 1)[0]
             assert rule_id in node_ids, f"edge ref {ref!r} points at a missing node"
+
+
+def test_high_fidelity_parity_across_all_planner_conventions():
+    """#1110: every planner convention is atomized at high fidelity (schema 1.1.0,
+    source provenance, parity flags)."""
+    import json
+    schema = json.loads(_NODE_SCHEMA.read_text())
+    assert schema["$id"] == "atdd:author:convention-node:1.1.0"
+
+    # all nine legacy conventions are represented in the node set
+    expected_min = {
+        "acceptance": 10, "artifact-naming": 10, "wmbt": 8, "feature": 10, "wagon": 8,
+        "theme": 6, "coverage": 6, "criteria": 6, "train": 12,
+    }
+    for conv, lo in expected_min.items():
+        n = len(list(_NODES.glob(f"planner.{conv}.*.convention.yaml")))
+        assert n >= lo, f"{conv}: expected >= {lo} high-fidelity nodes, found {n}"
+
+    # high-fidelity provenance: every node carries source(legacy_path) + parity
+    for f in _NODES.glob("planner.*.convention.yaml"):
+        node = yaml.safe_load(f.read_text())
+        if str(node.get("schema_version")) != "1.1.0":
+            continue  # legacy-pass node not yet re-atomized
+        assert node.get("source", {}).get("legacy_path"), f"{f.name} missing source.legacy_path"
+        assert node.get("source", {}).get("extraction_mode") == "high_fidelity", f"{f.name} not high_fidelity"
+        assert "parity" in node, f"{f.name} missing parity block"

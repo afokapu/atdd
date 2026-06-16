@@ -1,0 +1,31 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.anti-patterns
+kind: anti_pattern
+status: active
+name: Naming anti-patterns
+statement: Avoid the catalogued artifact-naming anti-patterns (wrong separator, missing theme, over-specification,
+  generic aspect, theme repeated in aspect).
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: anti_patterns
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: anti_pattern
+  label: Anti-patterns
+  text: bad name -> why -> fix.
+  values:
+    wrong_separator_for_hierarchy: 'commons:ux.foundations.color -> use colons: commons:ux:foundations:color'
+    wrong_separator_for_variant: 'sensory:gesture:raw -> use dot: sensory:gesture.raw'
+    missing_theme: 'gesture.raw -> add theme: sensory:gesture.raw'
+    too_many_dots: commons:identifiers.uuid.v7.timestamp.encoded -> commons:identifiers.uuid (internals
+      stay internal)
+    unnecessary_hierarchy: match:config:base:standard -> match:config
+    generic_aspect: match:data -> match:state.committed (specific)
+    theme_in_aspect: sensory:sensory-feedback.visual -> sensory:feedback.visual

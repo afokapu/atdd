@@ -1,0 +1,26 @@
+schema_version: 1.1.0
+rule_id: planner.train.categories
+kind: family
+status: active
+name: Train test categories
+statement: The category digit (0-3) classifies a train as nominal, error, alternate, or exception.
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: numbering.categories
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: category
+  label: Test categories
+  text: digit -> {name, description}.
+  values:
+    '0': nominal - Happy path - perfect conditions, standard flows
+    '1': error - Unexpected system failures - crashes, unavailability, infrastructure issues
+    '2': alternate - Valid alternative flows - different inputs, modes, configurations
+    '3': exception - Expected failures handled gracefully - validation errors, business rule violations
