@@ -50,6 +50,20 @@
       }
     },
 
+    "bidirectional": {
+      "type": "array",
+      "description": "Coverage-style directional requirements, one entry per direction.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "direction": {"type": "string"},
+          "requirement": {"type": "string"},
+          "exceptions": {"type": "string"},
+          "validator": {"type": "string"}
+        }
+      }
+    },
+
     "metadata": {
       "type": "object",
       "properties": {

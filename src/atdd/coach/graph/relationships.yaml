@@ -246,11 +246,74 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: wagon-feature coverage sits one level below train-wagon coverage
+  source_ref: planner.coverage.bidirectional-coverage-between-wagons
+  strength: important
+  target_ref: planner.coverage.bidirectional-coverage-between-trains
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the graph aggregates the train-wagon coverage validator
+  source_ref: planner.coverage.coverage-graph
+  strength: minor
+  target_ref: planner.coverage.bidirectional-coverage-between-trains
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the graph aggregates the wagon-feature coverage validators
+  source_ref: planner.coverage.coverage-graph
+  strength: minor
+  target_ref: planner.coverage.bidirectional-coverage-between-wagons
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the graph aggregates the wmbt-feature coverage validator
+  source_ref: planner.coverage.coverage-graph
+  strength: minor
+  target_ref: planner.coverage.every-wmbt-must-be
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the graph aggregates the wmbt-acceptance coverage validator
+  source_ref: planner.coverage.coverage-graph
+  strength: minor
+  target_ref: planner.coverage.every-wmbt-must-have
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: wmbt-feature coverage sits below wagon-feature coverage
+  source_ref: planner.coverage.every-wmbt-must-be
+  strength: important
+  target_ref: planner.coverage.bidirectional-coverage-between-wagons
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: the every-WMBT-referenced-by-a-feature check presupposes well-formed features
   source_ref: planner.coverage.every-wmbt-must-be
   strength: important
   target_ref: planner.feature.shape
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: wmbt-acceptance coverage sits below wmbt-feature coverage
+  source_ref: planner.coverage.every-wmbt-must-have
+  strength: important
+  target_ref: planner.coverage.every-wmbt-must-be
+  type: follows
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -269,6 +332,15 @@ edges:
   strength: important
   target_ref: planner.wmbt.shape
   type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: allow-lists and status:draft exempt artifacts from the strict acceptance rule
+  source_ref: planner.coverage.exception-handling
+  strength: important
+  target_ref: planner.coverage.every-wmbt-must-have
+  type: relieves
 - confidence: 1.0
   constraint: discretionary
   control: internal

@@ -1,12 +1,29 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.coverage.every-wmbt-must-be
 kind: rule
 status: active
-statement: Every WMBT must be referenced by at least one feature.
-rationale: Requiring every WMBT to be referenced by a feature keeps the decomposition
-  connected, with no floating truths.
+name: WMBT - Feature Coverage
+statement: Every WMBT must be referenced by at least one feature (wmbt->feature).
+source:
+  legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
+  legacy_section: rules
+  legacy_sha: 27e800378c584902
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.coverage.every-wmbt-must-be
+bidirectional:
+- direction: wmbt -> feature
+  requirement: Every WMBT file must appear in at least one feature's wmbts list
+  validator: test_all_wmbts_in_at_least_one_feature
+metadata:
+  aliases:
+  - COVERAGE-PLAN-2.3
+  disposition: documentation-only
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
-- term_id: wmbt
-  text: a What-Must-Be-True entry in a wagon decomposition
-- term_id: feature
-  text: a capability slice that references the WMBTs it proves
+- term_id: wmbt_feature_coverage
+  text: every WMBT file appears in at least one feature's wmbts list.
