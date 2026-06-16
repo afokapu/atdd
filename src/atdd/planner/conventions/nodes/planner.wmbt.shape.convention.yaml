@@ -1,13 +1,29 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.shape
 kind: rule
 status: active
-statement: A WMBT entry declares its id, its statement, and the artifacts that prove
-  the statement.
-rationale: Declaring id, statement, and proving artifacts makes a WMBT a self-contained,
-  verifiable truth.
+name: WMBT shape
+statement: A WMBT entry declares its id, its statement, and the artifacts that prove the statement.
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_section: rules
+  legacy_sha: 040256ed5588a6c7
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.wmbt.shape
+metadata:
+  aliases:
+  - PLANNER-WMBT-SHAPE-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: wmbt_entry
-  text: a What-Must-Be-True entry in a wagon decomposition
+  text: a What-Must-Be-True entry in a wagon decomposition.
 - term_id: proving_artifacts
-  text: the acceptances and tests that verify the WMBT statement
+  text: the acceptances/tests that prove the WMBT statement.

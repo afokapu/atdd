@@ -1,0 +1,23 @@
+schema_version: 1.1.0
+rule_id: planner.wmbt.statement-template
+kind: rule
+status: active
+name: WMBT statement template
+statement: 'A WMBT statement is composed as: {direction} {dimension} of {object_of_control} [context_clarifier].'
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_section: statement + generators
+  legacy_sha: 040256ed5588a6c7
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: statement_pattern
+  text: the WMBT statement composition.
+  values:
+    pattern: '${direction} ${dimension} of ${object_of_control}${context_clarifier ? '' '' + context_clarifier
+      : ''''}'

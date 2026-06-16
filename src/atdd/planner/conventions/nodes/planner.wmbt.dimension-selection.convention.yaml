@@ -1,0 +1,37 @@
+schema_version: 1.1.0
+rule_id: planner.wmbt.dimension-selection
+kind: family
+status: active
+name: WMBT dimensions
+statement: Select exactly one optimization dimension (the core metric the user wants to optimize) for
+  a WMBT.
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_section: dimensions + dimension_instructions
+  legacy_sha: 040256ed5588a6c7
+  extraction_mode: high_fidelity
+content:
+  operational_guidance: Match the user's intent to a dimension via its keywords; decompose into dimension/actor/action/object
+    using the description and rationale.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: dimension
+  label: Dimensions
+  text: name -> {keywords, description}.
+  values:
+    Time: duration/speed/waiting/delay/rework — the performer's most finite resource
+    Effort: physical or cognitive load — muscular force or concentration/learning/decision-making
+    Likelihood: probability of an outcome — predictability, control, success vs error
+    Frequency: rate of occurrence — reduce repetitive/non-value-added tasks
+    Quantity/Amount: volume of a resource consumed or produced — optimize inputs/outputs
+    Financial Value: monetary impact — cost, revenue, opportunity cost
+  examples:
+    positive:
+    - 'Time: minimize onboarding time'
+    - 'Likelihood: increase usable experiment results'
+    - 'Effort: reduce mental effort to find a bug'

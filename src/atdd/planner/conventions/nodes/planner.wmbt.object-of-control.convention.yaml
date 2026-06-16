@@ -1,0 +1,26 @@
+schema_version: 1.1.0
+rule_id: planner.wmbt.object-of-control
+kind: rule
+status: active
+name: WMBT object of control
+statement: Synthesize the specific thing being controlled or manipulated as a kebab-case noun phrase.
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_section: object_of_control
+  legacy_sha: 040256ed5588a6c7
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: object_of_control
+  text: the controlled subject of the WMBT.
+  values:
+    pattern: kebab-case noun phrase
+  examples:
+    positive:
+    - user-profile
+    - payment-flow

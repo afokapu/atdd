@@ -336,10 +336,100 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: a SMOKE acceptance is defined by carrying the SMOKE harness token, so it depends on the harness-type rule
+  reason: the WMBT filename is step-coded
+  source_ref: planner.wmbt.filename-pattern
+  strength: important
+  target_ref: planner.wmbt.step-code-vocabulary
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: one dimension and one lens are chosen together per WMBT
+  source_ref: planner.wmbt.lens-selection
+  strength: important
+  target_ref: planner.wmbt.dimension-selection
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the smoke-acceptance rule applies once a WMBT is shaped
+  source_ref: planner.wmbt.must-have-smoke-acceptance
+  strength: important
+  target_ref: planner.wmbt.shape
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: the SMOKE token is a harness code from the acceptance harness vocabulary
   source_ref: planner.wmbt.must-have-smoke-acceptance
   strength: critical
-  target_ref: planner.acceptance.harness#harness_type
+  target_ref: planner.acceptance.harness-vocabulary#harness_code
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a well-shaped WMBT declares a composed statement
+  source_ref: planner.wmbt.shape
+  strength: important
+  target_ref: planner.wmbt.statement-template
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: a WMBT splits when its statement mixes dimensions
+  source_ref: planner.wmbt.splitting-rules
+  strength: minor
+  target_ref: planner.wmbt.dimension-selection
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the statement template appends the context clarifier
+  source_ref: planner.wmbt.statement-template
+  strength: minor
+  target_ref: planner.wmbt.context-clarifier
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the statement template consumes the dimension
+  source_ref: planner.wmbt.statement-template
+  strength: important
+  target_ref: planner.wmbt.dimension-selection
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the statement template consumes the direction
+  source_ref: planner.wmbt.statement-template
+  strength: important
+  target_ref: planner.wmbt.direction-selection
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the statement template consumes the object of control
+  source_ref: planner.wmbt.statement-template
+  strength: important
+  target_ref: planner.wmbt.object-of-control
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the WMBT URN embeds a step code
+  source_ref: planner.wmbt.urn-naming
+  strength: important
+  target_ref: planner.wmbt.step-code-vocabulary
   type: requires
 graph_id: atdd.convention.relationships
 kind: relationship_graph

@@ -1,0 +1,31 @@
+schema_version: 1.1.0
+rule_id: planner.wmbt.urn-naming
+kind: rule
+status: active
+name: WMBT URN naming
+statement: A WMBT URN is wmbt:{wagon}:{STEP_CODE}{NNN} — a unique step-coded identifier built via URNBuilder.wmbt(wagon_id,
+  sequence).
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_section: urn_naming
+  legacy_sha: 040256ed5588a6c7
+  extraction_mode: high_fidelity
+content:
+  normative_text: wagon = parent wagon (kebab-case); STEP_CODE = single step letter; NNN = three-digit
+    zero-padded sequence (001-999).
+  examples:
+  - wmbt:resolve-dilemmas:E001
+  - wmbt:burn-timebank:M045
+  - wmbt:user-mgmt:C023
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: wmbt_urn
+  text: the WMBT identifier.
+  values:
+    pattern: ^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$
+    sequence_range: 001-999
