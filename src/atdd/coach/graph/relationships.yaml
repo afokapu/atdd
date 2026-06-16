@@ -423,6 +423,87 @@ edges:
   target_ref: planner.theme.must-be-canonical
   type: follows
 - confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the features-manifest rule uses the urn-array features format
+  source_ref: planner.wagon.features-format
+  strength: important
+  target_ref: planner.wagon.features
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the conversion functions implement the kebab/snake split
+  source_ref: planner.wagon.logical-vs-filesystem-naming
+  strength: important
+  target_ref: planner.wagon.slug-dirname-conversion
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: produce/consume entries carry contract + telemetry URNs
+  source_ref: planner.wagon.produce-consume-artifacts
+  strength: important
+  target_ref: planner.wagon.artifact-contracts
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: produced artifacts' telemetry URNs materialize on the filesystem
+  source_ref: planner.wagon.produce-consume-artifacts
+  strength: minor
+  target_ref: planner.wagon.telemetry-filesystem
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: coherence validates the extracted refinement fields
+  source_ref: planner.wagon.semantic-coherence
+  strength: important
+  target_ref: planner.wagon.refinement-extraction
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: coherence checks produce-owned / consume-foreign / external-scope rules
+  source_ref: planner.wagon.semantic-coherence
+  strength: important
+  target_ref: planner.wagon.produce-consume-artifacts
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the telemetry filesystem maps the telemetry URN form
+  source_ref: planner.wagon.telemetry-filesystem
+  strength: important
+  target_ref: planner.wagon.artifact-contracts
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the plan/<slug>/ layout follows the logical-vs-filesystem split
+  source_ref: planner.wagon.urn
+  strength: important
+  target_ref: planner.wagon.logical-vs-filesystem-naming
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the wagon urn rule presupposes the urn naming grammar
+  source_ref: planner.wagon.urn
+  strength: important
+  target_ref: planner.wagon.urn-naming
+  type: requires
+- confidence: 1.0
   constraint: discretionary
   control: internal
   foundation: start_to_start
@@ -430,6 +511,15 @@ edges:
   source_ref: planner.wagon.urn
   strength: minor
   target_ref: planner.artifact-naming.planner-artifacts-use-stable
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the slug derives from the wagon name
+  source_ref: planner.wagon.urn-naming
+  strength: minor
+  target_ref: planner.wagon.slug-dirname-conversion
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory

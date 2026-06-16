@@ -1,0 +1,52 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.telemetry-filesystem
+kind: rule
+status: active
+name: Telemetry URN -> filesystem
+statement: 'A telemetry URN maps to a filesystem directory of signal files: telemetry:{theme}:{segments}
+  -> telemetry/{theme}/{segments}/{signal-type}.{plane}[.{measure}].json.'
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_section: artifact_contracts.urn_format.telemetry_filesystem
+  legacy_sha: ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+content:
+  normative_text: metric signals require a measure suffix; event signals do not (pattern {signal-type}.{plane}.json).
+    Manifest is generated from telemetry/{domain}/{resource}/*.json.
+  examples:
+  - telemetry:mechanic:decision.choice -> telemetry/mechanic/decision/choice/ (metric.db.count.json, metric.be.duration.json,
+    event.be.json)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: signal_type
+  text: metric vs event.
+  values:
+    metric: OpenTelemetry metric - requires measure suffix
+    event: analytics event - no measure suffix
+- term_id: telemetry_axes
+  text: the controlled planes and measures.
+  values:
+    planes:
+    - ui
+    - ux
+    - be
+    - nw
+    - db
+    - st
+    - tm
+    - sc
+    - au
+    - fn
+    - if
+    measures_metrics_only:
+    - count
+    - duration
+    - latency
+    - size
+    - rate
+    - percentage
