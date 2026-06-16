@@ -803,6 +803,141 @@ edges:
   strength: minor
   target_ref: planner.acceptance.max-per-wmbt
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: patterns are defined per step name
+  source_ref: planner.steps.linguistic-patterns
+  strength: important
+  target_ref: planner.steps.jtbd-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: layer/sequence mapping is keyed by the nine step names
+  source_ref: planner.steps.architecture-routing
+  strength: important
+  target_ref: planner.steps.jtbd-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the ordered 9-step taxonomy supplies the ordering the sequence rule asserts
+  source_ref: planner.steps.jtbd-taxonomy
+  strength: important
+  target_ref: planner.steps.sequence
+  type: enables
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: both decorate the same nine steps from complementary axes
+  source_ref: planner.steps.architecture-routing
+  strength: minor
+  target_ref: planner.steps.linguistic-patterns
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the {type} filename segment must be one of the six appendix types
+  source_ref: planner.appendix.naming-pattern
+  strength: important
+  target_ref: planner.appendix.types
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: files in appendices/ are the named artifacts the pattern produces
+  source_ref: planner.appendix.storage
+  strength: minor
+  target_ref: planner.appendix.naming-pattern
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the per-type creation workflow is keyed on the six types
+  source_ref: planner.appendix.llm-guidelines
+  strength: important
+  target_ref: planner.appendix.types
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the structure node's taxonomy term decomposes into the types node
+  source_ref: planner.appendix.structure
+  strength: important
+  target_ref: planner.appendix.types
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the structure node's naming term decomposes into the naming-pattern node
+  source_ref: planner.appendix.structure
+  strength: important
+  target_ref: planner.appendix.naming-pattern
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the structure node's storage term decomposes into the storage node
+  source_ref: planner.appendix.structure
+  strength: important
+  target_ref: planner.appendix.storage
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the Train->Wagon rung is enforced by 2.1
+  source_ref: planner.coverage.traceability-graph
+  strength: important
+  target_ref: planner.coverage.bidirectional-coverage-between-trains
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the Wagon->Feature rung is enforced by 2.2
+  source_ref: planner.coverage.traceability-graph
+  strength: important
+  target_ref: planner.coverage.bidirectional-coverage-between-wagons
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the Feature->WMBT rung is enforced by 2.3
+  source_ref: planner.coverage.traceability-graph
+  strength: important
+  target_ref: planner.coverage.every-wmbt-must-be
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the WMBT->Acceptance rung is enforced by 2.4
+  source_ref: planner.coverage.traceability-graph
+  strength: important
+  target_ref: planner.coverage.every-wmbt-must-have
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the rollout policy schedules when the ladder's edge validators turn strict
+  source_ref: planner.coverage.rollout
+  strength: minor
+  target_ref: planner.coverage.traceability-graph
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0

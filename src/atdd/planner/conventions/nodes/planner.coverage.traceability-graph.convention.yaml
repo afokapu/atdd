@@ -1,0 +1,72 @@
+schema_version: 1.1.0
+rule_id: planner.coverage.traceability-graph
+kind: principle
+status: active
+name: 'Coverage: Traceability Graph'
+statement: Every planner artifact participates in a single traceability ladder running
+  Train -> Wagon -> Feature -> WMBT -> Acceptance, so any acceptance can be traced
+  up to a train and any train down to its acceptances.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
+  legacy_section: traceability-graph
+  extraction_mode: high_fidelity
+content:
+  summary: 'Section 2 of the ATDD Hierarchy Coverage Spec exists to guarantee end-to-end
+    traceability: without an unbroken ladder, artifacts orphan and lifecycle coverage
+    cannot be proven. Naming each rung and the validators that guard its edges makes
+    the coverage graph auditable as a whole rather than as four isolated rules.'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: coverage_ladder
+  label: Train -> Wagon -> Feature -> WMBT -> Acceptance
+  text: The planner coverage graph ensures traceability from trains down to acceptances.
+    Each level contains the next via a named link and is guarded by the COVERAGE-PLAN-2.x
+    validators on the edges it touches.
+  values:
+    train:
+      contains: Wagons (via participants)
+      validators:
+      - COVERAGE-PLAN-2.1
+    wagon:
+      contains: Features (via features[])
+      validators:
+      - COVERAGE-PLAN-2.1
+      - COVERAGE-PLAN-2.2
+    feature:
+      contains: WMBTs (via wmbts[])
+      validators:
+      - COVERAGE-PLAN-2.2
+      - COVERAGE-PLAN-2.3
+    wmbt:
+      contains: Acceptances (via acceptances[])
+      validators:
+      - COVERAGE-PLAN-2.3
+      - COVERAGE-PLAN-2.4
+    acceptance:
+      contains: Test criteria
+      validators:
+      - COVERAGE-PLAN-2.4
+  examples:
+    positive:
+    - a train lists a wagon in participants, that wagon lists a feature in features[],
+      that feature lists a WMBT in wmbts[], and that WMBT carries an acceptance
+    negative:
+    - a WMBT exists but is reachable from no feature, breaking the Feature -> WMBT
+      rung of the ladder
+- term_id: edge_validators
+  label: Validators guard each ladder edge
+  text: Each rung of the ladder is enforced by the COVERAGE-PLAN-2.x validator(s)
+    listed for the levels it joins, so a coverage failure pinpoints which edge of
+    the graph is broken.
+  values:
+    train_to_wagon: COVERAGE-PLAN-2.1
+    wagon_to_feature: COVERAGE-PLAN-2.2
+    feature_to_wmbt: COVERAGE-PLAN-2.3
+    wmbt_to_acceptance: COVERAGE-PLAN-2.4

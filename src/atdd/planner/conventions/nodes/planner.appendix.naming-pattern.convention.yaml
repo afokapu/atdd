@@ -1,0 +1,45 @@
+schema_version: 1.1.0
+rule_id: planner.appendix.naming-pattern
+kind: pattern
+status: active
+name: 'Appendix: Naming Pattern'
+statement: Appendix filenames follow the pattern {artifact-name}_{type}_{filename},
+  where type is one of the six recognized appendix types.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/appendix.convention.yaml
+  legacy_section: naming-pattern
+  extraction_mode: high_fidelity
+content:
+  summary: Encoding the owning artifact and the appendix type into the filename ensures
+    uniqueness, traceability back to the artifact, and clear type identification without
+    opening the file.
+  examples:
+  - checkout-flow_mockup_overview.png
+  - E023_diagram_sequence.svg
+  - payment-processing_spreadsheet_tax-rules.xlsx
+  - PaymentForm_mockup_states.png
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: naming_pattern
+  text: Appendices follow the pattern {artifact-name}_{type}_{filename}, with the
+    owning artifact name first, the appendix type second, and a descriptive filename
+    last.
+  values:
+    pattern: '{artifact-name}_{type}_{filename}'
+    rationale: Ensures uniqueness, traceability, and clear type identification
+  examples:
+    positive:
+    - 'checkout-flow_mockup_overview.png  # wagon'
+    - 'E023_diagram_sequence.svg  # wmbt'
+    - 'payment-processing_spreadsheet_tax-rules.xlsx  # feature'
+    - 'PaymentForm_mockup_states.png  # component'
+    negative:
+    - 'overview.png  # missing {artifact-name} and {type} segments'
+    - 'checkout-flow-mockup-overview.png  # uses hyphens instead of underscore separators'

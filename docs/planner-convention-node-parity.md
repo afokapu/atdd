@@ -114,12 +114,26 @@ node via its `rule_id`. Their absence from nodes is **not** a parity gap.
 - **Provenance:** every node carries `source: {legacy_path, legacy_sha, legacy_rule_id?,
   extraction_mode: high_fidelity}`, stamped centrally and schema-validated.
 
+## Node schema — 1.1.0 (`atdd:author:convention-node:1.1.0`)
+
+Final node shape: `schema_version · rule_id · kind · status · name · statement ·
+implementation{type,ref} · source{legacy_path,legacy_section,legacy_rule_id,legacy_sha,
+extraction_mode} · content{summary,normative_text,operational_guidance,examples,counter_examples,
+constraints,exceptions,fix_hint} · metadata{aliases,severity,disposition,introduced_in,
+suppression_deadline} · parity{source_fragments_preserved,examples_preserved,
+implementation_preserved,fix_hint_preserved,reviewed_at} · terms[]{text,values,examples}`.
+
+Enforcement rides on the node via the generic `implementation` block: the 23 legacy-rule-anchored
+nodes carry `type: validator` with the real `<module>::<test>` ref plus
+`metadata.severity/disposition/aliases` and `content.fix_hint` pulled from the legacy `rules:`
+blocks; section nodes carry `type: none`. Relationships stay in the separate graph (§6).
+
 ## Status — RESOLVED
 
-All flagged discrepancies are closed. The graph now carries **97 convention-nodes** and an
-**88-edge** relationship graph; every node is schema-valid, every filename equals its `rule_id`,
-every node carries a resolvable `source.legacy_path` (extraction_mode `high_fidelity`), and every
-edge endpoint resolves to a real node.
+All flagged discrepancies are closed. The graph now carries **106 convention-nodes** and a
+**103-edge** relationship graph; every node is 1.1.0-valid, every filename equals its `rule_id`,
+every node carries a resolvable `source.legacy_path` (extraction_mode `high_fidelity`) and a
+`parity` block, and every edge endpoint resolves to a real node.
 
 - [x] Schema extended to §5.1 (`examples`, term `values`, term `examples`) + optional `source` block.
 - [x] 11 rules-bearing conventions re-atomised to high node parity.
@@ -130,10 +144,11 @@ edge endpoint resolves to a real node.
 - [x] Provenance `source` block stamped on all 97 nodes; smoke test guards it.
 - [x] **C** — relationship edges grown from 13 → 88 (intra-family + cross-convention).
 
-Node count by family: theme 5, coverage 4, issue-body 2, criteria 6, wagon 8, feature 9,
-acceptance 13, wmbt 12, steps 1, appendix 1, artifact-naming 10, component 11, interface 8, train 7.
+Node count by family: theme 5, coverage 6, issue-body 2, criteria 6, wagon 8, feature 9,
+acceptance 13, wmbt 12, steps 4, appendix 5, artifact-naming 10, component 11, interface 8, train 7.
 
-### Remaining (optional, low priority)
-- `steps`, `appendix` and `coverage` were enriched in place and not split further; if exhaustive
-  section-splitting is wanted there too (e.g. an `appendix.types` catalog node), it is a small
-  follow-up. Enforcement metadata remains in legacy YAML + (future) gates by design.
+All fourteen legacy conventions are fully atomised into split section-nodes, including `steps`
+(+jtbd-taxonomy, linguistic-patterns, architecture-routing), `appendix` (+types, naming-pattern,
+storage, llm-guidelines) and `coverage` (+traceability-graph, rollout). Enforcement metadata is now
+carried on each node via `implementation` + `metadata` (no longer "out of nodes"); the legacy
+`*.convention.yaml` files remain the source of truth and are linked by `source` provenance.
