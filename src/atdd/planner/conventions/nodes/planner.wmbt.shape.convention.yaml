@@ -4,6 +4,8 @@ kind: rule
 status: active
 statement: A WMBT entry declares its id, its statement, and the artifacts that prove
   the statement.
+rationale: Declaring id, statement, and proving artifacts makes a WMBT a self-contained,
+  verifiable truth.
 terms:
 - term_id: wmbt_entry
   text: a What-Must-Be-True entry in a wagon decomposition

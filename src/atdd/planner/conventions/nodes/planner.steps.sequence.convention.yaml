@@ -4,6 +4,8 @@ kind: rule
 status: active
 statement: Steps are ordered and numbered, and each declares its pre-conditions and
   its outputs.
+rationale: Ordered, numbered steps with pre-conditions and outputs make a wagon procedure
+  reproducible and checkable.
 terms:
 - term_id: step
   text: a numbered unit of a wagon procedure

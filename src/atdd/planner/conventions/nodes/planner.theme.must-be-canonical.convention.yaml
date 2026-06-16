@@ -5,6 +5,8 @@ status: active
 statement: Every wagon theme and every train theme-digit must resolve to one of the
   five canonical themes (commons, plan, test, code, coach; digits 0-4); retired or
   undeclared themes are rejected.
+rationale: Constraining themes to the five canonical teams keeps ownership and routing
+  coherent across the repo.
 terms:
 - term_id: canonical_theme
   text: one of commons/plan/test/code/coach, digits 0-4

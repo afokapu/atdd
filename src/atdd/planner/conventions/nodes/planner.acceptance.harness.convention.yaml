@@ -4,6 +4,8 @@ kind: rule
 status: active
 statement: Each acceptance criterion declares a harness type (UNIT, INTEGRATION, SMOKE,
   ...).
+rationale: Declaring the harness type makes each acceptance's verification layer explicit,
+  so coverage and routing can reason about where a check runs.
 terms:
 - term_id: acceptance_criterion
   text: a Given/When/Then check that proves a WMBT

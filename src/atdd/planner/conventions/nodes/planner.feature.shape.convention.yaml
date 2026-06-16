@@ -3,6 +3,8 @@ rule_id: planner.feature.shape
 kind: rule
 status: active
 statement: Feature YAMLs declare a urn, a status, and a non-empty acceptance section.
+rationale: Requiring urn, status, and an acceptance section makes a feature a complete,
+  routable unit rather than a stub.
 terms:
 - term_id: feature_yaml
   text: a feature module file under a wagon

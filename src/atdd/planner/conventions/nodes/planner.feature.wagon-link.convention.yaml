@@ -3,6 +3,8 @@ rule_id: planner.feature.wagon-link
 kind: rule
 status: active
 statement: Each feature is registered under exactly one wagon's _features.yaml manifest.
+rationale: Registering each feature under exactly one wagon keeps ownership unambiguous
+  and the manifest authoritative.
 terms:
 - term_id: feature
   text: a capability slice of a wagon

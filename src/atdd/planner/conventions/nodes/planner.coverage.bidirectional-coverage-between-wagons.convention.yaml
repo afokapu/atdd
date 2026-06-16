@@ -4,6 +4,8 @@ kind: rule
 status: active
 statement: A wagon and its features must reference each other bidirectionally, leaving
   no orphan on either side.
+rationale: Bidirectional wagon-feature references prevent orphaned features that no
+  wagon owns.
 terms:
 - term_id: wagon
   text: a unit of work that owns features and WMBTs

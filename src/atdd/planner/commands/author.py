@@ -139,6 +139,8 @@ def create_convention_node(
     kind: str = "rule",
     status: str = "active",
     statement: str = "",
+    rationale: str | None = None,
+    notes: str | None = None,
     terms: list | None = None,
     root: Path | str | None = None,
     path: Path | str | None = None,
@@ -149,6 +151,8 @@ def create_convention_node(
     (spine) and node (schema) before writing; never writes a partial artifact.
     When ``path`` is given (e.g. an extension home) it is used verbatim;
     otherwise the core ``<root>/<role>/conventions/nodes/`` home is computed.
+    ``rationale`` and ``notes`` are the spec §5.3 optional-but-recommended
+    fields; each is emitted (in spec field order) only when provided.
     """
     if path is not None:
         path = Path(path)
@@ -159,14 +163,19 @@ def create_convention_node(
         home_root = str(root)
     validate_author_input(role, rule_id, path, home_root=home_root)
 
-    node = {
+    # spec §5.1 field order: ...statement, rationale, terms, notes.
+    node: dict = {
         "schema_version": "1.0.0",
         "rule_id": rule_id,
         "kind": kind,
         "status": status,
         "statement": statement,
-        "terms": terms or [],
     }
+    if rationale:
+        node["rationale"] = rationale
+    node["terms"] = terms or []
+    if notes:
+        node["notes"] = notes
     validate_convention_node(node, path)
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -198,6 +207,8 @@ def build_parser() -> argparse.ArgumentParser:
     cn.add_argument("--kind", default="rule", help=f"one of {', '.join(KINDS)}")
     cn.add_argument("--status", default="active", help=f"one of {', '.join(STATUSES)}")
     cn.add_argument("--statement", default="", help="one-sentence rule statement")
+    cn.add_argument("--rationale", default=None, help="why this convention exists (spec §5.3, optional)")
+    cn.add_argument("--note", dest="notes", default=None, help="optional clarification (spec §5.3 notes)")
     cn.add_argument(
         "--term", action="append", default=[], dest="terms",
         help="a term as 'term_id=text' (repeatable)",
@@ -369,7 +380,8 @@ def run(argv: list[str]) -> int:
         try:
             create_convention_node(
                 role, args.rule_id, kind=args.kind, status=args.status,
-                statement=args.statement, terms=_parse_terms(args.terms), path=path,
+                statement=args.statement, rationale=args.rationale, notes=args.notes,
+                terms=_parse_terms(args.terms), path=path,
             )
         except AuthorInputError as exc:
             logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})

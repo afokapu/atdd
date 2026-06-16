@@ -5,6 +5,9 @@ status: active
 statement: Every WMBT must declare at least one acceptance whose URN carries the SMOKE
   harness token, giving the lifecycle explicit real-infrastructure coverage before
   REFACTOR.
+rationale: Requiring a SMOKE acceptance closes the asymmetry where SMOKE tests were
+  checked for coverage but never required, ensuring real-infrastructure verification
+  before REFACTOR.
 terms:
 - term_id: smoke_acceptance
   text: an acceptance URN carrying the SMOKE harness token, acc:<wagon>:<wmbt_id>-SMOKE-NNN

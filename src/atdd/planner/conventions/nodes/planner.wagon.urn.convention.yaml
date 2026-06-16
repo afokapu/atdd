@@ -4,6 +4,8 @@ kind: rule
 status: active
 statement: Wagons declare a stable URN and live under plan/<wagon-slug>/ with the
   documented file layout.
+rationale: A stable wagon URN and fixed layout make wagons addressable and discoverable
+  by the graph and tooling.
 terms:
 - term_id: wagon_urn
   text: a wagon's stable URN

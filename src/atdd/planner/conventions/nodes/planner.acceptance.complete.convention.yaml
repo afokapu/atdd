@@ -3,6 +3,8 @@ rule_id: planner.acceptance.complete
 kind: rule
 status: active
 statement: Each acceptance criterion has Given/When/Then prose and a verifiable outcome.
+rationale: Given/When/Then prose plus a verifiable outcome is what lets a tester turn
+  an acceptance into a real, assertable test.
 terms:
 - term_id: given_when_then
   text: the structured prose stating context, action, and expected result

@@ -4,6 +4,8 @@ kind: constraint
 status: active
 statement: A wagon themed commons must not import atdd.coach; coach-only machinery
   must be themed coach.
+rationale: Keeping commons free of atdd.coach imports preserves the shared layer's
+  reusability and prevents coach machinery leaking into it.
 terms:
 - term_id: commons_theme
   text: the cross-team commons theme, digit 0

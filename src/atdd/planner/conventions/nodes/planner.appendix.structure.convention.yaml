@@ -4,6 +4,8 @@ kind: rule
 status: active
 statement: Appendix sections follow the documented heading order and link back to
   the main wagon body.
+rationale: A fixed appendix heading order and back-links keep large wagon documents
+  navigable and auditable.
 terms:
 - term_id: appendix_section
   text: a supplementary section of a wagon document

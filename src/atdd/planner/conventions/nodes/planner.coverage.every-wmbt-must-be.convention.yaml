@@ -3,6 +3,8 @@ rule_id: planner.coverage.every-wmbt-must-be
 kind: rule
 status: active
 statement: Every WMBT must be referenced by at least one feature.
+rationale: Requiring every WMBT to be referenced by a feature keeps the decomposition
+  connected, with no floating truths.
 terms:
 - term_id: wmbt
   text: a What-Must-Be-True entry in a wagon decomposition

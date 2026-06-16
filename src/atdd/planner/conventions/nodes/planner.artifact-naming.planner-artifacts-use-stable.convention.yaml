@@ -3,6 +3,8 @@ rule_id: planner.artifact-naming.planner-artifacts-use-stable
 kind: rule
 status: active
 statement: Planner artifacts use stable URN-based names matching the registered grammar.
+rationale: Stable URN-based names let the graph reference plan artifacts durably across
+  renames and refactors.
 terms:
 - term_id: planner_artifact
   text: 'a plan-side file: wagon, feature, WMBT, or train'
