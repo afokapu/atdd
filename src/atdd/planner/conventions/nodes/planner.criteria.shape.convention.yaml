@@ -1,0 +1,13 @@
+schema_version: 1.0.0
+rule_id: planner.criteria.shape
+kind: rule
+status: active
+statement: 'Criteria entries follow the documented shape: id, description, harness,
+  and expected_outcome.'
+rationale: A fixed criterion record shape lets tooling read criteria uniformly across
+  features and WMBTs.
+terms:
+- term_id: criteria_entry
+  text: an acceptance-criterion record on a feature or WMBT
+- term_id: documented_shape
+  text: the required fields id, description, harness, expected_outcome

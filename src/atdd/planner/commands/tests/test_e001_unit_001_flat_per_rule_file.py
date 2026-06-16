@@ -33,3 +33,33 @@ def test_creates_flat_schema_valid_node(tmp_path):
     assert node["status"] in ("draft", "active", "deprecated")
     # the written node validates against the schema (no raise)
     validate_convention_node(node, path)
+
+
+def test_optional_rationale_and_notes_emitted_in_spec_order(tmp_path):
+    # spec §5.3: rationale + notes are optional-but-recommended; the command
+    # emits them only when provided, in spec field order (statement→rationale→terms→notes).
+    path = create_convention_node(
+        role="coder",
+        rule_id="coder.green.component-urn-marker-is",
+        statement="Implementation files must declare the component URN marker.",
+        rationale="The marker is how the graph locates a file's owning component.",
+        notes="Legacy files without a marker are reported, not auto-fixed.",
+        terms=[{"term_id": "urn_marker", "text": "Every file declares a URN marker."}],
+        root=tmp_path,
+    )
+    node = yaml.safe_load(path.read_text())
+    assert node["rationale"].startswith("The marker")
+    assert node["notes"].startswith("Legacy files")
+    validate_convention_node(node, path)
+    keys = list(node.keys())
+    assert keys.index("rationale") < keys.index("terms") < keys.index("notes")
+
+
+def test_optional_fields_omitted_when_not_provided(tmp_path):
+    path = create_convention_node(
+        role="coder", rule_id="coder.green.no-extras",
+        statement="A node with no rationale or notes omits those keys.",
+        terms=[{"term_id": "x", "text": "y"}], root=tmp_path,
+    )
+    node = yaml.safe_load(path.read_text())
+    assert "rationale" not in node and "notes" not in node

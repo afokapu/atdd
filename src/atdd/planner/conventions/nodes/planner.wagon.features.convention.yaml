@@ -1,0 +1,12 @@
+schema_version: 1.0.0
+rule_id: planner.wagon.features
+kind: rule
+status: active
+statement: A wagon's _features.yaml lists every feature module and its current status.
+rationale: A complete _features.yaml index keeps a wagon's feature set and their statuses
+  authoritative in one place.
+terms:
+- term_id: wagon_features_manifest
+  text: the wagon's _features.yaml index
+- term_id: feature_status
+  text: each feature's current lifecycle status

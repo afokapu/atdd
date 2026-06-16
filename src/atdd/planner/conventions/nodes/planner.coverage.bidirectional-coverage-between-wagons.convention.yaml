@@ -1,0 +1,13 @@
+schema_version: 1.0.0
+rule_id: planner.coverage.bidirectional-coverage-between-wagons
+kind: rule
+status: active
+statement: A wagon and its features must reference each other bidirectionally, leaving
+  no orphan on either side.
+rationale: Bidirectional wagon-feature references prevent orphaned features that no
+  wagon owns.
+terms:
+- term_id: wagon
+  text: a unit of work that owns features and WMBTs
+- term_id: feature
+  text: a capability slice registered under a wagon

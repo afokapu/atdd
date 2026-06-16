@@ -1,0 +1,13 @@
+schema_version: 1.0.0
+rule_id: planner.coverage.bidirectional-coverage-between-trains
+kind: rule
+status: active
+statement: A train and its wagons must reference each other bidirectionally, leaving
+  no orphan on either side.
+rationale: Bidirectional train-wagon references prevent orphaned wagons and orphaned
+  trains that the journey would silently drop.
+terms:
+- term_id: train
+  text: an ordered journey composed of wagons
+- term_id: bidirectional_coverage
+  text: each side references the other, with no orphan

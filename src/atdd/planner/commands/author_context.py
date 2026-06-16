@@ -168,6 +168,18 @@ def relationship_home(ctx: AuthorContext, root: Path) -> Path:
     return root / _EXT_DIR / ctx.extension_id / "relationships.yaml"
 
 
+def relationship_graph_id(ctx: AuthorContext) -> str:
+    """The graph_id for the relationship graph in this context (spec §6.1).
+
+    Core uses the canonical convention-graph id; an extension uses a
+    package-scoped id so its graph composes distinctly with core — provenance,
+    layering precedence, and uninstall-by-graph all key off this id.
+    """
+    from atdd.planner.commands.author_registry import DEFAULT_GRAPH_ID
+
+    return DEFAULT_GRAPH_ID if ctx.is_core else f"{ctx.extension_id}.relationships"
+
+
 def scope_home(ctx: AuthorContext, scope_id: str, root: Path) -> Path:
     # V1: scope is primary — per-file under scopes/, selectors embedded.
     if ctx.is_core:

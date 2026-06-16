@@ -1,0 +1,14 @@
+schema_version: 1.0.0
+rule_id: planner.theme.theme-zero-mandatory
+kind: constraint
+status: active
+statement: 'Theme digit 0 (commons) is the mandatory, non-removable floor of every
+  resolved theme set: consumers may add or override themes 1-9 but must keep commons
+  at digit 0.'
+rationale: Pinning commons at digit 0 guarantees every repo shares the same non-removable
+  foundation theme.
+terms:
+- term_id: theme_zero
+  text: digit 0, the locked 'commons' theme
+- term_id: resolved_theme_set
+  text: the theme map after merging defaults with consumer overrides

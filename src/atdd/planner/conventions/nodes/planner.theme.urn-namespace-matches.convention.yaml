@@ -1,0 +1,13 @@
+schema_version: 1.0.0
+rule_id: planner.theme.urn-namespace-matches
+kind: rule
+status: active
+statement: A wagon's produced contract or telemetry URN theme-prefix must equal the
+  wagon theme.
+rationale: Aligning a produced URN's theme-prefix to the wagon theme prevents artifacts
+  being filed under the wrong team.
+terms:
+- term_id: produced_urn
+  text: a contract or telemetry URN a wagon produces
+- term_id: theme_prefix
+  text: the leading theme segment of the URN

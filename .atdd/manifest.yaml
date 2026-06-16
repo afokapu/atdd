@@ -2560,3 +2560,11 @@ sessions:
   created: '2026-06-14'
   archived: null
   branch: feat/author-atdd-substrate
+- id: '1107'
+  slug: atomize-planner-conventions-to-nodes
+  file: null
+  issue_number: 1107
+  type: migration
+  status: INIT
+  created: '2026-06-16'
+  archived: null

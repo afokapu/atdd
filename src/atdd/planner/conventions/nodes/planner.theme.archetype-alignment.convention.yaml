@@ -1,0 +1,14 @@
+schema_version: 1.0.0
+rule_id: planner.theme.archetype-alignment
+kind: rule
+status: active
+statement: The plan, test, and code themes align to the planner, tester, and coder
+  archetypes; a wagon whose implementation lives outside its matching archetype source
+  root is surfaced.
+rationale: Aligning plan/test/code themes to the planner/tester/coder archetypes surfaces
+  work living in the wrong source root.
+terms:
+- term_id: theme_archetype_alignment
+  text: the plan-planner, test-tester, code-coder mapping
+- term_id: source_root
+  text: the archetype directory a wagon's implementation lives under

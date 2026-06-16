@@ -1,0 +1,13 @@
+schema_version: 1.0.0
+rule_id: planner.wagon.urn
+kind: rule
+status: active
+statement: Wagons declare a stable URN and live under plan/<wagon-slug>/ with the
+  documented file layout.
+rationale: A stable wagon URN and fixed layout make wagons addressable and discoverable
+  by the graph and tooling.
+terms:
+- term_id: wagon_urn
+  text: a wagon's stable URN
+- term_id: wagon_layout
+  text: the plan/<wagon-slug>/ directory layout
