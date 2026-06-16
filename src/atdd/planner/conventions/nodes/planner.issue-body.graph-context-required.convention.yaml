@@ -1,0 +1,11 @@
+schema_version: 1.0.0
+rule_id: planner.issue-body.graph-context-required
+kind: rule
+status: active
+statement: Every parent issue body must carry a populated Graph Context section, neither
+  missing nor left as the injection placeholder.
+terms:
+- term_id: parent_issue_body
+  text: the body of an atdd parent issue
+- term_id: graph_context_section
+  text: the populated '### Graph Context' subsection of the issue body

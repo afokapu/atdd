@@ -1,0 +1,10 @@
+schema_version: 1.0.0
+rule_id: planner.coverage.every-wmbt-must-have
+kind: rule
+status: active
+statement: Every WMBT must have at least one acceptance criterion.
+terms:
+- term_id: wmbt
+  text: a What-Must-Be-True entry in a wagon decomposition
+- term_id: acceptance_criterion
+  text: a Given/When/Then check that proves the WMBT

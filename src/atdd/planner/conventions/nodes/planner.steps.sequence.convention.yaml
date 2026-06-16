@@ -1,0 +1,11 @@
+schema_version: 1.0.0
+rule_id: planner.steps.sequence
+kind: rule
+status: active
+statement: Steps are ordered and numbered, and each declares its pre-conditions and
+  its outputs.
+terms:
+- term_id: step
+  text: a numbered unit of a wagon procedure
+- term_id: preconditions_and_outputs
+  text: what a step requires before running and produces after

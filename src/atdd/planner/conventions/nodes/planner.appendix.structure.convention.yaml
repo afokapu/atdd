@@ -1,0 +1,11 @@
+schema_version: 1.0.0
+rule_id: planner.appendix.structure
+kind: rule
+status: active
+statement: Appendix sections follow the documented heading order and link back to
+  the main wagon body.
+terms:
+- term_id: appendix_section
+  text: a supplementary section of a wagon document
+- term_id: heading_order
+  text: the documented sequence the appendix headings must follow

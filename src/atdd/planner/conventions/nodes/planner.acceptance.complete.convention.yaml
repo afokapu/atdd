@@ -1,0 +1,10 @@
+schema_version: 1.0.0
+rule_id: planner.acceptance.complete
+kind: rule
+status: active
+statement: Each acceptance criterion has Given/When/Then prose and a verifiable outcome.
+terms:
+- term_id: given_when_then
+  text: the structured prose stating context, action, and expected result
+- term_id: verifiable_outcome
+  text: an outcome a test can assert against

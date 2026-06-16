@@ -1,0 +1,11 @@
+schema_version: 1.0.0
+rule_id: planner.issue-body.dependency-entries-must-be-classified
+kind: rule
+status: active
+statement: 'Every #N entry in an issue body''s Dependencies section must carry a classification
+  tag: prereq, merged, sibling, or parallel.'
+terms:
+- term_id: dependency_entry
+  text: a '#N' reference in the Dependencies section of an issue body
+- term_id: classification_tag
+  text: a trailing (prereq)/(merged)/(sibling)/(parallel) marker on the entry

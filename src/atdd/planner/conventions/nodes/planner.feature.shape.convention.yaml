@@ -1,0 +1,10 @@
+schema_version: 1.0.0
+rule_id: planner.feature.shape
+kind: rule
+status: active
+statement: Feature YAMLs declare a urn, a status, and a non-empty acceptance section.
+terms:
+- term_id: feature_yaml
+  text: a feature module file under a wagon
+- term_id: required_fields
+  text: urn, status, and a non-empty acceptance section

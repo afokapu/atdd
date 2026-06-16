@@ -1,0 +1,12 @@
+schema_version: 1.0.0
+rule_id: planner.wmbt.must-have-smoke-acceptance
+kind: rule
+status: active
+statement: Every WMBT must declare at least one acceptance whose URN carries the SMOKE
+  harness token, giving the lifecycle explicit real-infrastructure coverage before
+  REFACTOR.
+terms:
+- term_id: smoke_acceptance
+  text: an acceptance URN carrying the SMOKE harness token, acc:<wagon>:<wmbt_id>-SMOKE-NNN
+- term_id: real_infrastructure_coverage
+  text: verification against real infrastructure between GREEN and REFACTOR

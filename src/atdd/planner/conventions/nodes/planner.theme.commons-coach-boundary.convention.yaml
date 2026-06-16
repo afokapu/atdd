@@ -1,0 +1,11 @@
+schema_version: 1.0.0
+rule_id: planner.theme.commons-coach-boundary
+kind: constraint
+status: active
+statement: A wagon themed commons must not import atdd.coach; coach-only machinery
+  must be themed coach.
+terms:
+- term_id: commons_theme
+  text: the cross-team commons theme, digit 0
+- term_id: coach_import_boundary
+  text: the prohibition on a commons module importing atdd.coach
