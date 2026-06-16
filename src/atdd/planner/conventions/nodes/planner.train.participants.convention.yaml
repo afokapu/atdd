@@ -1,0 +1,27 @@
+schema_version: 1.1.0
+rule_id: planner.train.participants
+kind: family
+status: active
+name: Train participants
+statement: 'Participants are the actors in a train workflow: wagon:{id}, user:{role}, or system:{source};
+  each listed once.'
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: participants
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: participant_type
+  label: Participant types
+  text: type -> pattern.
+  values:
+    wagon: wagon:{wagon-id} (performs processing)
+    user: user:{role} (human actor)
+    system: system:{source} (external system/data source)
+    validation: ^(wagon|user|system):[a-z][a-z0-9-]*$

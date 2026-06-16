@@ -1,0 +1,28 @@
+schema_version: 1.1.0
+rule_id: planner.train.dependencies
+kind: rule
+status: active
+name: Train dependencies
+statement: A train references prerequisite trains as train:{train_id}; foundation (commons) trains often
+  precede others; data-flow consumers depend on producers; circular dependencies are forbidden.
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: dependencies
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - train:00-auth-session before train:30-match-solo (foundation_first)
+  - train:30-match-solo depends on train:21-scenario-curation (data_flow)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: dependency
+  text: a prerequisite train reference.
+  values:
+    pattern: ^train:[0-9]{2}-[a-z][a-z0-9-]*$
+    circular: forbidden

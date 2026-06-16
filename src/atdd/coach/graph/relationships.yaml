@@ -603,6 +603,177 @@ edges:
   target_ref: planner.theme.canonical-taxonomy
   type: requires
 - confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: train acceptances live in the spec file
+  source_ref: planner.train.acceptances
+  strength: minor
+  target_ref: planner.train.registry
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the category digit is part of the numbering scheme
+  source_ref: planner.train.categories
+  strength: important
+  target_ref: planner.train.numbering
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: dependencies are declared in the spec
+  source_ref: planner.train.dependencies
+  strength: minor
+  target_ref: planner.train.registry
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: linearity forbids loop/route elements in the sequence
+  source_ref: planner.train.linearity
+  strength: critical
+  target_ref: planner.train.sequence
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the train_id name follows the numbering prefix
+  source_ref: planner.train.naming
+  strength: important
+  target_ref: planner.train.numbering
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: registry + spec paths derive from the train_id
+  source_ref: planner.train.registry
+  strength: important
+  target_ref: planner.train.naming
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: start_to_start
+  reason: the train registry is what train-wagon coverage validates against
+  source_ref: planner.train.registry
+  strength: important
+  target_ref: planner.coverage.bidirectional-coverage-between-trains
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the one-journey scope is realized by the sequence
+  source_ref: planner.train.scope
+  strength: minor
+  target_ref: planner.train.sequence
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: each step carries a domain:resource artifact
+  source_ref: planner.train.sequence
+  strength: important
+  target_ref: planner.train.artifact-flow
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: each step transfers an artifact between participants
+  source_ref: planner.train.sequence
+  strength: important
+  target_ref: planner.train.participants
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: a train theme-digit must resolve to one of the five canonical themes
+  source_ref: planner.train.theme-alignment
+  strength: important
+  target_ref: planner.theme.must-be-canonical
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the primary theme is read from the first train-id digit
+  source_ref: planner.train.theme-alignment
+  strength: important
+  target_ref: planner.train.theme-ranges
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the orchestrator URN extends the train URN with a theme prefix
+  source_ref: planner.train.theme-orchestrator-urn
+  strength: minor
+  target_ref: planner.train.urn-naming
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: each theme range spans the four categories
+  source_ref: planner.train.theme-ranges
+  strength: minor
+  target_ref: planner.train.categories
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the theme digit is part of the numbering scheme
+  source_ref: planner.train.theme-ranges
+  strength: important
+  target_ref: planner.train.numbering
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the train URN embeds the numbered train_id
+  source_ref: planner.train.urn-naming
+  strength: important
+  target_ref: planner.train.numbering
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: validation enforces the train_id numbering
+  source_ref: planner.train.validation-rules
+  strength: important
+  target_ref: planner.train.numbering
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: validation enforces spec-file existence
+  source_ref: planner.train.validation-rules
+  strength: important
+  target_ref: planner.train.registry
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: variations populate a theme's category/variation slots
+  source_ref: planner.train.variation-strategies
+  strength: minor
+  target_ref: planner.train.theme-ranges
+  type: runs_alongside
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start

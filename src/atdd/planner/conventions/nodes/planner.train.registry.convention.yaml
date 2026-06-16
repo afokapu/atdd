@@ -1,0 +1,33 @@
+schema_version: 1.1.0
+rule_id: planner.train.registry
+kind: rule
+status: active
+name: Train registry (two-file pattern)
+statement: 'Each train needs two files: a registry entry in plan/_trains.yaml and a full spec at plan/_trains/{train_id}.yaml;
+  every registry entry MUST have a corresponding spec file.'
+implementation:
+  type: validator
+  ref: test_train_files_exist_for_registry_entries
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: registry
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+content:
+  normative_text: Registry is theme-category-grouped (nominal/error/alternate/exception). Validator SPEC-TRAIN-VAL-0003;
+    planner phase gate fails if a spec file is missing.
+  examples:
+  - 'registry: plan/_trains.yaml (train_id, description, path, wagons summary)'
+  - 'spec: plan/_trains/{train_id}.yaml (full workflow)'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: two_file_pattern
+  text: registry entry + spec file per train.
+  values:
+    registry: plan/_trains.yaml
+    spec: plan/_trains/{train_id}.yaml
