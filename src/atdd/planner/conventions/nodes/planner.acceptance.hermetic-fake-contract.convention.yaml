@@ -1,25 +1,45 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.hermetic-fake-contract
 kind: constraint
 status: active
+name: 'Acceptance: Hermetic Fake Contract'
+statement: When execution_kind is hermetic_integration AND permitted_fakes is non-empty,
+  the acceptance must carry the hermetic metadata block; that declaration IS the fidelity
+  contract that tester.acceptance-violation.hermetic-fake-must-declare-contract verifies.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
   legacy_sha: sha256:027e2d86ff127550
   extraction_mode: high_fidelity
-statement: When execution_kind is hermetic_integration AND permitted_fakes is non-empty,
-  the acceptance must carry the hermetic metadata block; that declaration IS the fidelity
-  contract that tester.acceptance-violation.hermetic-fake-must-declare-contract verifies.
-rationale: A hermetic acceptance that substitutes fakes for live infrastructure must
-  make its fidelity explicit, naming the boundaries it exercises, the fakes it substitutes,
-  the fidelity and known gaps of each fake, and whether a paired live_smoke sibling
-  is required — the declaration itself is the contract.
-notes: 'The downstream tester rule tester.acceptance-violation.hermetic-fake-must-declare-contract
+  legacy_section: hermetic-fake-contract
+content:
+  summary: A hermetic acceptance that substitutes fakes for live infrastructure must
+    make its fidelity explicit, naming the boundaries it exercises, the fakes it substitutes,
+    the fidelity and known gaps of each fake, and whether a paired live_smoke sibling
+    is required — the declaration itself is the contract.
+  operational_guidance: 'The downstream tester rule tester.acceptance-violation.hermetic-fake-must-declare-contract
 
-  consumes this declaration and rejects unknown boundary_kind values. This node only
+    consumes this declaration and rejects unknown boundary_kind values. This node
+    only
 
-  states the authoring requirement; it carries no validator field.
+    states the authoring requirement; it carries no validator field.
 
-  '
+    '
+  examples:
+  - "execution_kind: hermetic_integration\nhermetic:\n  exercised_boundaries: [http_wire]\n\
+    \  permitted_fakes: [\"users-api-cassette\"]\n  fake_contract_fidelity:\n    -\
+    \ name: \"users-api-cassette\"\n      fidelity: \"replays recorded 200/404 envelopes\"\
+    \n      known_gaps: [\"no rate-limit headers\"]\n  live_smoke_required: true\n\
+    \  live_smoke_reason: \"auth flow must be confirmed against live infra\"\n"
+  counter_examples:
+  - 'execution_kind: hermetic_integration with permitted_fakes set but no fake_contract_fidelity'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: required_when
   label: When the hermetic block is required
@@ -49,12 +69,3 @@ terms:
     rule.
   values:
     enforced_by_text: tester.acceptance-violation.hermetic-fake-must-declare-contract
-examples:
-  positive:
-  - "execution_kind: hermetic_integration\nhermetic:\n  exercised_boundaries: [http_wire]\n\
-    \  permitted_fakes: [\"users-api-cassette\"]\n  fake_contract_fidelity:\n    -\
-    \ name: \"users-api-cassette\"\n      fidelity: \"replays recorded 200/404 envelopes\"\
-    \n      known_gaps: [\"no rate-limit headers\"]\n  live_smoke_required: true\n\
-    \  live_smoke_reason: \"auth flow must be confirmed against live infra\"\n"
-  negative:
-  - 'execution_kind: hermetic_integration with permitted_fakes set but no fake_contract_fidelity'

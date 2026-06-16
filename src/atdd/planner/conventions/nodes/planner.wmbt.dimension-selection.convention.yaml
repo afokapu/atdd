@@ -1,21 +1,39 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.dimension-selection
 kind: rule
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
-  legacy_sha: sha256:040256ed5588a6c7
-  extraction_mode: high_fidelity
+name: 'Wmbt: Dimension Selection'
 statement: Every WMBT carries exactly one dimension chosen from the six canonical
   dimensions (Time, Effort, Likelihood, Frequency, Quantity/Amount, Financial Value);
   the dimension is selected by matching the user requirement's intent against each
   dimension's keywords.
-rationale: Naming the single core metric a WMBT optimizes keeps each truth focused
-  on one measurable outcome. The keyword-driven selection makes dimension choice reproducible
-  and the description/rationale anchor why that metric carries value to the job performer.
-notes: Selection procedure - identify the core metric the user wants to optimize,
-  match intent to a dimension via keywords, then decompose into dimension/actor/action/object.
-  A statement mixing multiple dimensions must be split (see planner.wmbt.splitting-rules).
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+  legacy_section: dimension-selection
+content:
+  summary: Naming the single core metric a WMBT optimizes keeps each truth focused
+    on one measurable outcome. The keyword-driven selection makes dimension choice
+    reproducible and the description/rationale anchor why that metric carries value
+    to the job performer.
+  operational_guidance: Selection procedure - identify the core metric the user wants
+    to optimize, match intent to a dimension via keywords, then decompose into dimension/actor/action/object.
+    A statement mixing multiple dimensions must be split (see planner.wmbt.splitting-rules).
+  examples:
+  - A WMBT optimizing onboarding speed selects dimension Time (keyword 'onboard')
+  - A WMBT reducing form rejections selects dimension Likelihood (keyword 'reject')
+  counter_examples:
+  - A WMBT statement combining 'fast AND reliable' (mixes Time and Likelihood — must
+    be split)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: dimension_selection_procedure
   label: How to pick the dimension
@@ -172,10 +190,3 @@ terms:
       - '(CFO): Minimize the financial impact of currency fluctuations on the company''s
         earnings.'
       - '(Fleet Manager): Minimize the annual cost of maintaining the vehicle fleet.'
-examples:
-  positive:
-  - A WMBT optimizing onboarding speed selects dimension Time (keyword 'onboard')
-  - A WMBT reducing form rejections selects dimension Likelihood (keyword 'reject')
-  negative:
-  - A WMBT statement combining 'fast AND reliable' (mixes Time and Likelihood — must
-    be split)

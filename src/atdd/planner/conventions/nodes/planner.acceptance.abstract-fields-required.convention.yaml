@@ -1,25 +1,44 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.abstract-fields-required
 kind: constraint
 status: active
+name: 'Acceptance: Abstract Fields Required'
+statement: Every acceptance must carry Gherkin-style abstract narratives in each section
+  — given.abstract, when.abstract, and then.abstract are all REQUIRED — so stakeholders
+  can review the acceptance in natural language alongside the machine-structured fields.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
   legacy_sha: sha256:027e2d86ff127550
   extraction_mode: high_fidelity
-statement: Every acceptance must carry Gherkin-style abstract narratives in each section
-  — given.abstract, when.abstract, and then.abstract are all REQUIRED — so stakeholders
-  can review the acceptance in natural language alongside the machine-structured fields.
-rationale: 'Abstract fields enable stakeholder review and WMBT verbosity with business-focused
+  legacy_section: abstract-fields-required
+content:
+  summary: 'Abstract fields enable stakeholder review and WMBT verbosity with business-focused
 
-  Gherkin narratives. They coexist with structured fields within the same section:
+    Gherkin narratives. They coexist with structured fields within the same section:
 
-  abstract serves stakeholders (Gherkin prose), structured serves machines (test
+    abstract serves stakeholders (Gherkin prose), structured serves machines (test
 
-  generation). identity.purpose already serves as the scenario name, so no separate
+    generation). identity.purpose already serves as the scenario name, so no separate
 
-  top-level name field is needed.
+    top-level name field is needed.
 
-  '
+    '
+  examples:
+  - "given:\n  abstract: [\"User is logged in\", \"Account has credits\"]\n  auth:\
+    \ {required: true, type: \"bearer\"}\nwhen:\n  abstract: \"User purchases a product\"\
+    \n  action: \"request\"\n  target: \"/api/purchase\"\nthen:\n  abstract: [\"Purchase\
+    \ succeeds\", \"Credits are deducted\"]\n  assertions: [{type: \"equals\", target:\
+    \ \"status\", value: 200}]\n"
+  counter_examples:
+  - A given/when/then block with structured fields but no abstract arrays/string
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: given_abstract
   label: given.abstract
@@ -66,12 +85,3 @@ terms:
   text: Abstract fields are complementary to and coexist with structured fields within
     the same section; abstract is for stakeholders (Gherkin), structured is for machines
     (test generation). All abstract fields are REQUIRED.
-examples:
-  positive:
-  - "given:\n  abstract: [\"User is logged in\", \"Account has credits\"]\n  auth:\
-    \ {required: true, type: \"bearer\"}\nwhen:\n  abstract: \"User purchases a product\"\
-    \n  action: \"request\"\n  target: \"/api/purchase\"\nthen:\n  abstract: [\"Purchase\
-    \ succeeds\", \"Credits are deducted\"]\n  assertions: [{type: \"equals\", target:\
-    \ \"status\", value: 200}]\n"
-  negative:
-  - A given/when/then block with structured fields but no abstract arrays/string

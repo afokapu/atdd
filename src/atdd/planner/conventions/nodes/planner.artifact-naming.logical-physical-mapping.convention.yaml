@@ -1,19 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.artifact-naming.logical-physical-mapping
 kind: pattern
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
-  legacy_sha: sha256:eca68a67c92694c9
-  extraction_mode: high_fidelity
+name: 'Artifact Naming: Logical Physical Mapping'
 statement: A logical artifact name maps to a physical contract path by splitting on
   colons and dots into directory levels and resolving a final target. The same plural
   aspect can resolve to one of three physical forms - a directory reference (no schema
   file), an array schema, or a singular schema - distinguished by whether the plural
   names a heterogeneous grouping or a homogeneous collection.
-rationale: Making the logical-to-physical mapping algorithmic, while naming the three
-  legitimate physical forms, lets every contract file location be derived from the
-  name and resolves the ambiguity of what a plural artifact points at.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+  legacy_section: logical-physical-mapping
+content:
+  summary: Making the logical-to-physical mapping algorithmic, while naming the three
+    legitimate physical forms, lets every contract file location be derived from the
+    name and resolves the ambiguity of what a plural artifact points at.
+  examples:
+  - scenario:fragment -> contracts/scenario/fragment/fragment.schema.json (singular
+    schema)
+  - scenario:fragments -> contracts/scenario/fragments/fragments.schema.json (array
+    schema)
+  - commons:ux:foundations -> contracts/commons/ux/foundations/ (directory reference)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: mapping_algorithm
   label: Logical-to-physical algorithm
@@ -127,10 +144,3 @@ terms:
     deep_with_variant:
       artifact: commons:ux:foundations:color.primary
       physical: contracts/commons/ux/foundations/color/primary.schema.json
-examples:
-  positive:
-  - scenario:fragment -> contracts/scenario/fragment/fragment.schema.json (singular
-    schema)
-  - scenario:fragments -> contracts/scenario/fragments/fragments.schema.json (array
-    schema)
-  - commons:ux:foundations -> contracts/commons/ux/foundations/ (directory reference)

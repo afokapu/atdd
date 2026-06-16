@@ -1,17 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.appendix.structure
 kind: rule
 status: active
+name: 'Appendix: Structure'
+statement: Appendices are typed multimodal artifacts named {artifact-name}_{type}_{filename}
+  and stored in an appendices/ subdirectory co-located with the artifact they describe.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/appendix.convention.yaml
   legacy_sha: sha256:01a95e1ebafe2eca
   extraction_mode: high_fidelity
   legacy_rule_id: planner.appendix.structure
-statement: Appendices are typed multimodal artifacts named {artifact-name}_{type}_{filename}
-  and stored in an appendices/ subdirectory co-located with the artifact they describe.
-rationale: A fixed appendix taxonomy, naming pattern, and storage location keep planner
-  outputs self-contained and let the planner agent reliably detect, read, and reference
-  supplementary content while reducing ambiguity.
+  legacy_section: rules
+content:
+  summary: A fixed appendix taxonomy, naming pattern, and storage location keep planner
+    outputs self-contained and let the planner agent reliably detect, read, and reference
+    supplementary content while reducing ambiguity.
+  normative_text: Appendix sections follow the documented heading order and link back
+    to the main wagon body
+metadata:
+  aliases:
+  - PLANNER-APPENDIX-STRUCTURE-001
+  severity: 1
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: appendix_types
   label: The recognized appendix types

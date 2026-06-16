@@ -1,21 +1,77 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.must-have-smoke-acceptance
 kind: rule
 status: active
+name: 'Wmbt: Must Have Smoke Acceptance'
+statement: Every WMBT must declare at least one acceptance whose URN carries the SMOKE
+  harness token (acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]) so the lifecycle has explicit
+  real-infrastructure coverage before REFACTOR, UNLESS the WMBT is genuinely docs-only
+  with no real infra to verify, in which case it may suppress the rule inline.
+implementation:
+  type: validator
+  ref: test_wmbt_has_smoke_acceptance::test_every_wmbt_has_smoke_acceptance
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
   legacy_sha: sha256:040256ed5588a6c7
   extraction_mode: high_fidelity
   legacy_rule_id: planner.wmbt.must-have-smoke-acceptance
-statement: Every WMBT must declare at least one acceptance whose URN carries the SMOKE
-  harness token (acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]) so the lifecycle has explicit
-  real-infrastructure coverage before REFACTOR, UNLESS the WMBT is genuinely docs-only
-  with no real infra to verify, in which case it may suppress the rule inline.
-rationale: Requiring a SMOKE acceptance closes the asymmetry where SMOKE tests were
-  checked for coverage but never required, ensuring real-infrastructure verification
-  between GREEN and REFACTOR. It mirrors tester.smoke.pres (#293); docs-only WMBTs
-  with nothing live to exercise are the one honest carve-out, expressed via a time-boxed
-  inline suppression marker.
+  legacy_section: rules
+content:
+  summary: Requiring a SMOKE acceptance closes the asymmetry where SMOKE tests were
+    checked for coverage but never required, ensuring real-infrastructure verification
+    between GREEN and REFACTOR. It mirrors tester.smoke.pres (#293); docs-only WMBTs
+    with nothing live to exercise are the one honest carve-out, expressed via a time-boxed
+    inline suppression marker.
+  normative_text: 'Every WMBT must declare at least one acceptance URN with the SMOKE
+    harness token (acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]) so the lifecycle has
+    explicit real-infrastructure coverage before REFACTOR. Mirrors tester.smoke.pres
+    (#293) — closes the asymmetry where tester checks coverage of SMOKE tests that
+    exist but no rule requires SMOKE acceptances be declared in the first place. Docs-only
+    WMBTs that have no real infra to verify can suppress inline with `# atdd:suppress(planner.wmbt.must-have-smoke-acceptance)
+    UNTIL=YYYY-MM-DD` on the WMBT''s urn: line.'
+  examples:
+  - WMBT with identity.urn wmbt:govern-lifecycle:E003 declaring acceptance acc:govern-lifecycle:E003-SMOKE-001-against-real-db
+  - 'docs-only WMBT: urn: "wmbt:docs-only:D001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance)
+    UNTIL=2026-08-12'
+  counter_examples:
+  - WMBT declaring only UNIT and HTTP acceptances and no SMOKE acceptance, with no
+    suppression marker
+  exceptions:
+  - 'A WMBT that is genuinely docs-only or pure metadata, with no real infrastructure
+    to verify, may suppress this rule with an inline marker on the WMBT urn: line.
+    The suppression is time-boxed (~90-day TTL) and must carry an explicit UNTIL deadline.'
+  fix_hint: "The named WMBT declares 0 acceptance URNs with a SMOKE harness token,\n\
+    so the lifecycle has no explicit real-infrastructure verification\nbetween GREEN\
+    \ and REFACTOR. Repair as follows\n(run `atdd repo resolve <wmbt-urn>` to inspect\
+    \ the WMBT file path,\n e.g. \"atdd repo resolve wmbt:govern-lifecycle:E003\"\
+    ):\n\n  1. Open the WMBT YAML named in the violation location\n     (e.g. \"plan/govern_lifecycle/E003.yaml:1\"\
+    ).\n  2. Add at least one acceptance whose identity.urn matches\n     \"acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]\"\
+    \ and whose\n     identity.phase is \"SMOKE\":\n       - identity:\n         \
+    \  urn: \"acc:<wagon>:<wmbt_id>-SMOKE-001-<slug>\"\n           id: \"AC-SMOKE-001\"\
+    \n           purpose: \"Verify <X> against real <infrastructure>\"\n         \
+    \  phase: \"SMOKE\"\n         harness:\n           type: \"integration\"\n   \
+    \        category: \"backend\"\n     Substitute:\n       - <wagon>    = the WMBT's\
+    \ wagon slug, e.g. \"govern-lifecycle\"\n       - <wmbt_id>  = the WMBT step+seq,\
+    \ e.g. \"E003\"\n       - <slug>     = kebab-case descriptor of what runs against\
+    \ real infra\n  3. If this WMBT is genuinely docs-only / metadata (no real infra\n\
+    \     to verify), add a suppression marker on the urn: line of the\n     WMBT\
+    \ YAML — substitute YYYY-MM-DD with today + 90 days\n     (e.g. \"2026-08-12\"\
+    ):\n       urn: \"wmbt:<wagon>:<wmbt_id>\"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance)\
+    \ UNTIL=YYYY-MM-DD\n  4. Re-run the validator to confirm clean\n     (run pytest\
+    \ src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py -v).\n\nSee src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001\n\
+    for the template pattern this rule mirrors, and issue #681 for the\nsubstrate-asymmetry\
+    \ incident this rule closes."
+metadata:
+  aliases: []
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.50.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: smoke_acceptance
   label: The required SMOKE acceptance
@@ -47,11 +103,3 @@ terms:
     ttl_policy: UNTIL = today + ~90 days
     example_line: 'urn: "wmbt:<wagon>:<wmbt_id>"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance)
       UNTIL=2026-08-12'
-examples:
-  positive:
-  - WMBT with identity.urn wmbt:govern-lifecycle:E003 declaring acceptance acc:govern-lifecycle:E003-SMOKE-001-against-real-db
-  - 'docs-only WMBT: urn: "wmbt:docs-only:D001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance)
-    UNTIL=2026-08-12'
-  negative:
-  - WMBT declaring only UNIT and HTTP acceptances and no SMOKE acceptance, with no
-    suppression marker

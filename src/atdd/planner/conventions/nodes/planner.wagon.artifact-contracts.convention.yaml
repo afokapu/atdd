@@ -1,16 +1,32 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wagon.artifact-contracts
 kind: rule
 status: active
+name: 'Wagon: Artifact Contracts'
+statement: A wagon's produced and consumed artifacts reference contract and telemetry
+  URNs of the form contract:{theme}(:{category})*:{aspect}(.{variant})? and telemetry:{theme}(:{category})*:{aspect}(.{variant})?.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
   legacy_sha: sha256:ee0a3e1d5af414c9
   extraction_mode: high_fidelity
-statement: A wagon's produced and consumed artifacts reference contract and telemetry
-  URNs of the form contract:{theme}(:{category})*:{aspect}(.{variant})? and telemetry:{theme}(:{category})*:{aspect}(.{variant})?.
-rationale: Contract and telemetry URNs give every artifact a stable, theme-rooted
-  address so that producers and consumers agree on shape and observability without
-  duplicating the contract bodies, which live in the planner artifact convention.
+  legacy_section: artifact-contracts
+content:
+  summary: Contract and telemetry URNs give every artifact a stable, theme-rooted
+    address so that producers and consumers agree on shape and observability without
+    duplicating the contract bodies, which live in the planner artifact convention.
+  examples:
+  - contract:commons:ux:foundations + telemetry:commons:ux:foundations on a produced
+    artifact
+  counter_examples:
+  - referencing an inline contract body instead of a contract URN
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: contract_urn_format
   label: contract URN grammar
@@ -46,9 +62,3 @@ terms:
   values:
     artifact_contracts: $ref conventions:planner:artifact#/artifact_contracts
     artifact_transformation: $ref conventions:planner:artifact#/artifact_transformation
-examples:
-  positive:
-  - contract:commons:ux:foundations + telemetry:commons:ux:foundations on a produced
-    artifact
-  negative:
-  - referencing an inline contract body instead of a contract URN

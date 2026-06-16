@@ -1,18 +1,44 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.complete
 kind: rule
 status: active
+name: 'Acceptance: Complete'
+statement: Each acceptance criterion has Given/When/Then prose and a verifiable outcome
+  that a tester can turn into a real, assertable test.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
   legacy_sha: sha256:027e2d86ff127550
   extraction_mode: high_fidelity
   legacy_rule_id: planner.acceptance.complete
-statement: Each acceptance criterion has Given/When/Then prose and a verifiable outcome
-  that a tester can turn into a real, assertable test.
-rationale: Given/When/Then prose plus a verifiable outcome is what lets a tester turn
-  an acceptance into a real, assertable test. The given captures only the preconditions
-  needed, the when is a single trigger, and the then is a list of assertions proving
-  the outcome.
+  legacy_section: rules
+content:
+  summary: Given/When/Then prose plus a verifiable outcome is what lets a tester turn
+    an acceptance into a real, assertable test. The given captures only the preconditions
+    needed, the when is a single trigger, and the then is a list of assertions proving
+    the outcome.
+  normative_text: Each acceptance criterion has Given/When/Then prose and a verifiable
+    outcome
+  examples:
+  - 'given.abstract: ["User is logged in", "Account has credits"]; when.abstract:
+    "User purchases a product"; then.abstract: ["Purchase succeeds", "Credits are
+    deducted"]'
+  counter_examples:
+  - acceptance with a when but no then assertions
+  - six acceptances on a single WMBT (exceeds the cap of 5)
+metadata:
+  aliases:
+  - PLANNER-ACCEPTANCE-COMPLETE-001
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: given_structure
   label: Given - setup and preconditions
@@ -76,11 +102,3 @@ terms:
   values:
     maximum: 5
     enforcement: schemas:planner:wmbt acceptance array maxItems
-examples:
-  positive:
-  - 'given.abstract: ["User is logged in", "Account has credits"]; when.abstract:
-    "User purchases a product"; then.abstract: ["Purchase succeeds", "Credits are
-    deducted"]'
-  negative:
-  - acceptance with a when but no then assertions
-  - six acceptances on a single WMBT (exceeds the cap of 5)

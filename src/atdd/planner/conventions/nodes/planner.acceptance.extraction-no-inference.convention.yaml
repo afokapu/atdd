@@ -1,17 +1,32 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.extraction-no-inference
 kind: rule
 status: active
+name: 'Acceptance: Extraction No Inference'
+statement: When acceptance context is missing, ask the user directly for it using
+  a pure conversational approach — no inference and no suggestions (e.g. "Which wagon
+  should this acceptance belong to?").
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
   legacy_sha: sha256:027e2d86ff127550
   extraction_mode: high_fidelity
-statement: When acceptance context is missing, ask the user directly for it using
-  a pure conversational approach — no inference and no suggestions (e.g. "Which wagon
-  should this acceptance belong to?").
-rationale: Acceptance authoring must reflect stakeholder intent rather than model
-  guesses; inferring or suggesting missing context risks encoding the wrong wagon
-  or precondition, so the extraction prompt mandates asking the user directly.
+  legacy_section: extraction-no-inference
+content:
+  summary: Acceptance authoring must reflect stakeholder intent rather than model
+    guesses; inferring or suggesting missing context risks encoding the wrong wagon
+    or precondition, so the extraction prompt mandates asking the user directly.
+  examples:
+  - 'Prompt the user: "Which wagon should this acceptance belong to?"'
+  counter_examples:
+  - Silently assigning the acceptance to a guessed wagon based on file location
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: no_inference
   label: Ask directly, do not infer
@@ -25,8 +40,3 @@ terms:
     should belong to.
   values:
     prompt: Which wagon should this acceptance belong to?
-examples:
-  positive:
-  - 'Prompt the user: "Which wagon should this acceptance belong to?"'
-  negative:
-  - Silently assigning the acceptance to a guessed wagon based on file location

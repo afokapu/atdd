@@ -1,21 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.statement-template
 kind: pattern
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
-  legacy_sha: sha256:040256ed5588a6c7
-  extraction_mode: high_fidelity
+name: 'Wmbt: Statement Template'
 statement: A WMBT statement is composed by the template "${direction} ${dimension}
   of ${object_of_control}" optionally suffixed with a context clarifier, binding together
   the selected direction, dimension, object-of-control, and clarifier into one canonical
   sentence.
-rationale: A single composition template makes every WMBT statement parse the same
-  way and forces each truth to name exactly one direction, one dimension, and one
-  object-of-control, which is what keeps WMBTs atomic and verifiable.
-notes: The slot values are produced by the direction, dimension, object-of-control,
-  and context-clarifier selection nodes. The clarifier suffix is conditional — only
-  appended when a clarifier exists.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+  legacy_section: statement-template
+content:
+  summary: A single composition template makes every WMBT statement parse the same
+    way and forces each truth to name exactly one direction, one dimension, and one
+    object-of-control, which is what keeps WMBTs atomic and verifiable.
+  operational_guidance: The slot values are produced by the direction, dimension,
+    object-of-control, and context-clarifier selection nodes. The clarifier suffix
+    is conditional — only appended when a clarifier exists.
+  examples:
+  - wmbt:resolve-dilemmas:E001 -> "minimize Time of dilemma-resolution"
+  counter_examples:
+  - A statement that omits the dimension or the object-of-control slot
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: statement_pattern
   label: The statement composition template
@@ -37,8 +52,3 @@ terms:
     negative:
     - Time dilemma-resolution (missing direction and "of")
     - minimize fast AND reliable of payment-flow (two dimensions in one statement)
-examples:
-  positive:
-  - wmbt:resolve-dilemmas:E001 -> "minimize Time of dilemma-resolution"
-  negative:
-  - A statement that omits the dimension or the object-of-control slot

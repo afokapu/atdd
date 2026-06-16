@@ -1,18 +1,29 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.interface.ownership-rules
 kind: rule
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
-  legacy_sha: sha256:3415a521b5eec18b
-  extraction_mode: high_fidelity
+name: 'Interface: Ownership Rules'
 statement: The wagon that declares an artifact in produce[] is its producer and generates
   the artifact contract; a wagon that declares the same artifact in consume[] is a
   consumer and references the existing contract. An optional contract field on each
   entry points to the contract path.
-rationale: Producer/consumer roles assign single ownership of each contract to the
-  producing wagon while letting consumers reference it, which is what makes bidirectional
-  coverage and orphan detection possible.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
+  legacy_sha: sha256:3415a521b5eec18b
+  extraction_mode: high_fidelity
+  legacy_section: ownership-rules
+content:
+  summary: Producer/consumer roles assign single ownership of each contract to the
+    producing wagon while letting consumers reference it, which is what makes bidirectional
+    coverage and orphan detection possible.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: producer_consumer
   label: Producer and consumer roles

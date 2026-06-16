@@ -1,16 +1,32 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.component.structure
 kind: rule
 status: active
+name: 'Component: Structure'
+statement: A generated component carries a complete structure — URN, required parent
+  feature, templated description, consumed/produced events (max 3 each), and dependencies.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/component.convention.yaml
   legacy_sha: sha256:8bfb25fd6c2bdb6e
   extraction_mode: high_fidelity
-statement: A generated component carries a complete structure — URN, required parent
-  feature, templated description, consumed/produced events (max 3 each), and dependencies.
-rationale: Pinning down the full required shape of a generated component — parent
-  feature, description, bounded events, and dependencies — ensures every component
-  the planner emits is complete and consistently structured for downstream phases.
+  legacy_section: structure
+content:
+  summary: Pinning down the full required shape of a generated component — parent
+    feature, description, bounded events, and dependencies — ensures every component
+    the planner emits is complete and consistently structured for downstream phases.
+  examples:
+  - Component with URN, required parent feature, templated description, ≤3 consumes,
+    ≤3 produces, dependencies listed
+  counter_examples:
+  - A component emitted with no parent feature or with 5 produced events
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: structure_urn
   label: Structure URN pattern
@@ -59,9 +75,3 @@ terms:
     example:
     - component:same:feature.other
     - wagon:external#io
-examples:
-  positive:
-  - Component with URN, required parent feature, templated description, ≤3 consumes,
-    ≤3 produces, dependencies listed
-  negative:
-  - A component emitted with no parent feature or with 5 produced events

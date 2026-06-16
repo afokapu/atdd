@@ -1,16 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.component.io-alignment
 kind: rule
 status: active
+name: 'Component: Io Alignment'
+statement: A component's consumed and produced events must be a subset of the owning
+  feature's ioSeeds; every event must be traceable to a feature ioSeed.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/component.convention.yaml
   legacy_sha: sha256:8bfb25fd6c2bdb6e
   extraction_mode: high_fidelity
-statement: A component's consumed and produced events must be a subset of the owning
-  feature's ioSeeds; every event must be traceable to a feature ioSeed.
-rationale: Constraining component events to the feature's ioSeeds keeps the component's
-  interface within its feature's declared contract, so no component can quietly invent
-  inputs or outputs the feature never promised.
+  legacy_section: io-alignment
+content:
+  summary: Constraining component events to the feature's ioSeeds keeps the component's
+    interface within its feature's declared contract, so no component can quietly
+    invent inputs or outputs the feature never promised.
+  examples:
+  - Component consumes [dilemma:presented] where feature.ioSeeds.consume includes
+    dilemma:presented
+  counter_examples:
+  - Component produces order:shipped but feature.ioSeeds.produce does not contain
+    it
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: events_subset
   label: Events subset of feature ioSeeds
@@ -46,10 +63,3 @@ terms:
     example:
     - component:same:feature.other
     - wagon:external#io
-examples:
-  positive:
-  - Component consumes [dilemma:presented] where feature.ioSeeds.consume includes
-    dilemma:presented
-  negative:
-  - Component produces order:shipped but feature.ioSeeds.produce does not contain
-    it

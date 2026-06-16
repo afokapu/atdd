@@ -1,18 +1,29 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.feature.hard-limits
 kind: constraint
 status: active
+name: 'Feature: Hard Limits'
+statement: A feature may introduce at most 2 new tables, at most 2 async jobs, and
+  at most 2 integrations; any feature exceeding a hard limit MUST be split, independent
+  of its footprint size.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/feature.convention.yaml
   legacy_sha: sha256:4a95544261fb9541
   extraction_mode: high_fidelity
-statement: A feature may introduce at most 2 new tables, at most 2 async jobs, and
-  at most 2 integrations; any feature exceeding a hard limit MUST be split, independent
-  of its footprint size.
-rationale: Tables, async jobs, and integrations each carry disproportionate, long-lived
-  cost — schema evolution, operational complexity, and uncontrolled external failure
-  points — so they are capped by absolute limits rather than absorbed into the footprint
-  score.
+  legacy_section: hard-limits
+content:
+  summary: Tables, async jobs, and integrations each carry disproportionate, long-lived
+    cost — schema evolution, operational complexity, and uncontrolled external failure
+    points — so they are capped by absolute limits rather than absorbed into the footprint
+    score.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: new_tables_limit
   label: At most 2 new tables

@@ -1,16 +1,32 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wagon.telemetry-filesystem
 kind: rule
 status: active
+name: 'Wagon: Telemetry Filesystem'
+statement: A telemetry URN maps to a filesystem directory of signal files at telemetry/{segments}/{signal-type}.{plane}[.{measure}].json,
+  where metric signals require a measure suffix and event signals do not.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
   legacy_sha: sha256:ee0a3e1d5af414c9
   extraction_mode: high_fidelity
-statement: A telemetry URN maps to a filesystem directory of signal files at telemetry/{segments}/{signal-type}.{plane}[.{measure}].json,
-  where metric signals require a measure suffix and event signals do not.
-rationale: Mapping telemetry URNs to a fixed directory-and-filename layout lets the
-  telemetry manifest be generated from the source signal files, keeping the URN, the
-  on-disk signals, and the generated manifest in lockstep.
+  legacy_section: telemetry-filesystem
+content:
+  summary: Mapping telemetry URNs to a fixed directory-and-filename layout lets the
+    telemetry manifest be generated from the source signal files, keeping the URN,
+    the on-disk signals, and the generated manifest in lockstep.
+  examples:
+  - telemetry:commons:ux:foundations:color → telemetry/commons/ux/foundations/color/
+    with metric.ui.render_latency.json and event.ui.json
+  counter_examples:
+  - hand-editing the generated manifest instead of the telemetry/ source files
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: urn_to_path
   label: URN-to-directory mapping
@@ -86,9 +102,3 @@ terms:
   values:
     source: telemetry/{domain}/{resource}/*.json
     output: Generated manifest aggregates all signal definitions
-examples:
-  positive:
-  - telemetry:commons:ux:foundations:color → telemetry/commons/ux/foundations/color/
-    with metric.ui.render_latency.json and event.ui.json
-  negative:
-  - hand-editing the generated manifest instead of the telemetry/ source files

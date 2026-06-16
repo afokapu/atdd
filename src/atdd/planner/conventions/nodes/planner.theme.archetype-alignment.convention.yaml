@@ -1,19 +1,44 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.theme.archetype-alignment
 kind: rule
 status: active
+name: 'Theme: Archetype Alignment'
+statement: The plan/test/code themes align to the planner/tester/coder archetypes
+  respectively; a wagon themed code whose implementation lives outside a coder-archetype
+  source root (or vice versa) is surfaced. This is an advisory (documentation-only)
+  alignment, not a blocking gate.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/theme.convention.yaml
   legacy_sha: sha256:2ae106d04d77b06e
   extraction_mode: high_fidelity
   legacy_rule_id: planner.theme.archetype-alignment
-statement: The plan/test/code themes align to the planner/tester/coder archetypes
-  respectively; a wagon themed code whose implementation lives outside a coder-archetype
-  source root (or vice versa) is surfaced. This is an advisory (documentation-only)
-  alignment, not a blocking gate.
-rationale: Aligning plan/test/code themes to the planner/tester/coder archetypes surfaces
-  work living in the wrong source root. Surfacing it advisorily keeps the theme-to-archetype
-  correspondence visible without blocking otherwise-valid plans.
+  legacy_section: rules
+content:
+  summary: Aligning plan/test/code themes to the planner/tester/coder archetypes surfaces
+    work living in the wrong source root. Surfacing it advisorily keeps the theme-to-archetype
+    correspondence visible without blocking otherwise-valid plans.
+  normative_text: 'The plan/test/code themes align to the planner/tester/coder archetypes
+    respectively: a wagon themed `code` whose implementation lives outside a coder-archetype
+    source root (or vice versa) is surfaced. Also exercises theme discovery across
+    plan/ described by wmbt:govern-lifecycle:L001.'
+  examples:
+  - 'theme: test wagon under the tester archetype source root'
+  counter_examples:
+  - 'theme: plan wagon implemented outside the planner source root (surfaced)'
+metadata:
+  aliases:
+  - PLANNER-THEME-ARCHETYPE-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 3.92.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: theme_archetype_map
   label: The plan/test/code -> planner/tester/coder mapping
@@ -37,8 +62,3 @@ terms:
   values:
     disposition: documentation-only
     exercises: wmbt:govern-lifecycle:L001
-examples:
-  positive:
-  - 'theme: test wagon under the tester archetype source root'
-  negative:
-  - 'theme: plan wagon implemented outside the planner source root (surfaced)'

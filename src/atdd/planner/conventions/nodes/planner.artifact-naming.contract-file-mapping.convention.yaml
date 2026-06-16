@@ -1,18 +1,34 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.artifact-naming.contract-file-mapping
 kind: rule
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
-  legacy_sha: sha256:eca68a67c92694c9
-  extraction_mode: high_fidelity
+name: 'Artifact Naming: Contract File Mapping'
 statement: 'An artifact name maps directly to a contract file path: split the name
   on colons and dots, make the theme the first directory, turn every segment into
   a subdirectory, make the final segment the filename, and append .schema.json - giving
   contracts/theme/seg1/seg2/aspect/variant.schema.json.'
-rationale: A deterministic name-to-path formula means the contract file location is
-  always derivable from the artifact name and vice versa, keeping the filesystem layout
-  in lock-step with the logical taxonomy.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+  legacy_section: contract-file-mapping
+content:
+  summary: A deterministic name-to-path formula means the contract file location is
+    always derivable from the artifact name and vice versa, keeping the filesystem
+    layout in lock-step with the logical taxonomy.
+  examples:
+  - sensory:feedback:haptic:pulse.short -> contracts/sensory/feedback/haptic/pulse/short.schema.json
+  counter_examples:
+  - 'commons:ux:foundations:color -> contracts/commons-ux-foundations-color.schema.json  #
+    separators must become directory boundaries'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: mapping_algorithm
   label: Name-to-path algorithm
@@ -68,9 +84,3 @@ terms:
     positive:
     - commons:identifiers.uuid -> contracts/commons/identifiers/uuid.schema.json
     - commons:ux:foundations:color.primary -> contracts/commons/ux/foundations/color/primary.schema.json
-examples:
-  positive:
-  - sensory:feedback:haptic:pulse.short -> contracts/sensory/feedback/haptic/pulse/short.schema.json
-  negative:
-  - 'commons:ux:foundations:color -> contracts/commons-ux-foundations-color.schema.json  #
-    separators must become directory boundaries'

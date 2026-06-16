@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "atdd:author:convention-node:1.0.0",
-  "title": "ATDD convention node (Convention Graph System v1.1 §5)",
+  "$id": "atdd:author:convention-node:1.1.0",
+  "title": "ATDD convention node (1.1.0)",
   "type": "object",
   "additionalProperties": true,
   "required": ["schema_version", "rule_id", "kind", "status", "statement", "terms"],
@@ -10,20 +10,64 @@
     "rule_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"},
     "kind": {"enum": ["family", "rule", "principle", "constraint", "exception", "pattern", "anti_pattern", "policy"]},
     "status": {"enum": ["draft", "active", "deprecated"]},
+    "name": {"type": "string"},
+    "statement": {"type": "string", "minLength": 1},
+    "implementation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["validator", "manual", "advisory", "none"]},
+        "ref": {"type": "string"}
+      }
+    },
     "source": {
       "type": "object",
       "additionalProperties": true,
       "properties": {
         "legacy_path": {"type": "string"},
-        "legacy_sha": {"type": "string"},
         "legacy_section": {"type": "string"},
         "legacy_rule_id": {"type": "string"},
+        "legacy_sha": {"type": "string"},
         "extraction_mode": {"enum": ["high_fidelity", "summary", "stub"]}
       }
     },
-    "statement": {"type": "string", "minLength": 1},
-    "rationale": {"type": "string"},
-    "notes": {"type": "string"},
+    "content": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "summary": {"type": "string"},
+        "normative_text": {"type": "string"},
+        "operational_guidance": {"type": "string"},
+        "examples": {"type": "array", "items": {"type": "string"}},
+        "counter_examples": {"type": "array", "items": {"type": "string"}},
+        "constraints": {"type": "array", "items": {"type": "string"}},
+        "exceptions": {"type": "array", "items": {"type": "string"}},
+        "fix_hint": {"type": "string"}
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "aliases": {"type": "array", "items": {"type": "string"}},
+        "severity": {"type": "integer"},
+        "disposition": {"type": "string"},
+        "introduced_in": {"type": "string"},
+        "suppression_deadline": {"type": "string"}
+      }
+    },
+    "parity": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "source_fragments_preserved": {"type": "boolean"},
+        "examples_preserved": {"type": "boolean"},
+        "implementation_preserved": {"type": "boolean"},
+        "fix_hint_preserved": {"type": "boolean"},
+        "reviewed_at": {"type": "string"}
+      }
+    },
     "terms": {
       "type": "array",
       "minItems": 1,
@@ -38,8 +82,7 @@
           "examples": {"$ref": "#/$defs/examples"}
         }
       }
-    },
-    "examples": {"$ref": "#/$defs/examples"}
+    }
   },
   "$defs": {
     "examples": {

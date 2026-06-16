@@ -1,15 +1,31 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.component.method-limit
 kind: constraint
 status: active
+name: 'Component: Method Limit'
+statement: A component must have at most 5 methods; split the component if more methods
+  are needed.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/component.convention.yaml
   legacy_sha: sha256:8bfb25fd6c2bdb6e
   extraction_mode: high_fidelity
-statement: A component must have at most 5 methods; split the component if more methods
-  are needed.
-rationale: Capping a component at 5 methods keeps it focused on a single business
-  capability; exceeding it signals the component is doing too much and should be split.
+  legacy_section: method-limit
+content:
+  summary: Capping a component at 5 methods keeps it focused on a single business
+    capability; exceeding it signals the component is doing too much and should be
+    split.
+  examples:
+  - 'OptionValidator with 3 methods: validate, isEligible, explain'
+  counter_examples:
+  - A component with 9 methods — split into focused components
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: max_methods
   label: Maximum methods per component
@@ -17,8 +33,3 @@ terms:
   values:
     max_methods: 5
     action: Split component if more methods needed
-examples:
-  positive:
-  - 'OptionValidator with 3 methods: validate, isEligible, explain'
-  negative:
-  - A component with 9 methods — split into focused components

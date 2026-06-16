@@ -1,25 +1,39 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.signal-telemetry-naming
 kind: constraint
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
-  legacy_sha: sha256:027e2d86ff127550
-  extraction_mode: high_fidelity
+name: 'Acceptance: Signal Telemetry Naming'
 statement: Every acceptance carries a REQUIRED signal block whose metrics, traces,
   logs, and events use artifact-based telemetry URN naming; operations/wagons go in
   attributes, NOT in the URN, and metric measures/event resources are constrained
   by the naming_rules.
-rationale: The signal block defines what metrics, traces, logs, and events prove the
-  acceptance works in production; enforcing artifact-based URN naming keeps telemetry
-  identifiers stable and tied to artifacts in contracts/_artifacts.yaml rather than
-  to volatile operation or wagon names.
-notes: 'Derive metrics from the ''then'' quantifiable expectations; derive events
-  from the
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_sha: sha256:027e2d86ff127550
+  extraction_mode: high_fidelity
+  legacy_section: signal-telemetry-naming
+content:
+  summary: The signal block defines what metrics, traces, logs, and events prove the
+    acceptance works in production; enforcing artifact-based URN naming keeps telemetry
+    identifiers stable and tied to artifacts in contracts/_artifacts.yaml rather than
+    to volatile operation or wagon names.
+  operational_guidance: 'Derive metrics from the ''then'' quantifiable expectations;
+    derive events from the
 
-  ''when'' user actions. Artifacts referenced must exist in contracts/_artifacts.yaml.
+    ''when'' user actions. Artifacts referenced must exist in contracts/_artifacts.yaml.
 
-  '
+    '
+  counter_examples:
+  - 'telemetry:metric:be:persist-order-wagon:created:duration  # operation/wagon in
+    URN'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: signal_required
   label: signal block (REQUIRED)
@@ -85,7 +99,3 @@ terms:
     positive:
     - telemetry:event:be:order:created
     - Order Created
-examples:
-  negative:
-  - 'telemetry:metric:be:persist-order-wagon:created:duration  # operation/wagon in
-    URN'

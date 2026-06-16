@@ -1,17 +1,34 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.interface.structure-rules
 kind: rule
 status: active
+name: 'Interface: Structure Rules'
+statement: An artifact's contract directory layout follows one of three structures
+  - FLAT, FACETED, or COLLECTION - determined by whether the name has a dot facet
+  and whether the resource holds multiple schema files.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/interface.convention.yaml
   legacy_sha: sha256:3415a521b5eec18b
   extraction_mode: high_fidelity
-statement: An artifact's contract directory layout follows one of three structures
-  - FLAT, FACETED, or COLLECTION - determined by whether the name has a dot facet
-  and whether the resource holds multiple schema files.
-rationale: A deterministic mapping from artifact name to physical layout lets the
-  contract path be derived from the logical name and keeps simple resources flat while
-  supporting faceted and multi-schema resources without ambiguity.
+  legacy_section: structure-rules
+content:
+  summary: A deterministic mapping from artifact name to physical layout lets the
+    contract path be derived from the logical name and keeps simple resources flat
+    while supporting faceted and multi-schema resources without ambiguity.
+  examples:
+  - 'ux:foundations.color -> contracts/commons/ux/foundations/color.schema.json  #
+    faceted, alternative to collection'
+  counter_examples:
+  - 'fragment:pool -> contracts/fragment/pool/pool.schema.json  # over-nested; single
+    resource must be flat'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: structure_determination
   label: How structure is determined
@@ -93,10 +110,3 @@ terms:
     rationale: Domain-based organization enables REST API mapping and clear ownership.
       Colon separator denotes hierarchy, dot separator denotes facet. Optional category
       supports nested resources.
-examples:
-  positive:
-  - 'ux:foundations.color -> contracts/commons/ux/foundations/color.schema.json  #
-    faceted, alternative to collection'
-  negative:
-  - 'fragment:pool -> contracts/fragment/pool/pool.schema.json  # over-nested; single
-    resource must be flat'

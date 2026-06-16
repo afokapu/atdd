@@ -1,17 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wagon.refinement-extraction
 kind: pattern
 status: active
+name: 'Wagon: Refinement Extraction'
+statement: Converting ambiguous input into a structured wagon proceeds by extracting
+  semantic fields (subject, action, goal, context, outcome, produce, consume, theme,
+  description) from the wagon name and requirements using fixed extraction prompts.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
   legacy_sha: sha256:ee0a3e1d5af414c9
   extraction_mode: high_fidelity
-statement: Converting ambiguous input into a structured wagon proceeds by extracting
-  semantic fields (subject, action, goal, context, outcome, produce, consume, theme,
-  description) from the wagon name and requirements using fixed extraction prompts.
-rationale: A fixed set of extraction prompts turns free-text requirements into the
-  structured wagon fields deterministically, so the refined wagon is consistent and
-  every field traces back to an explicit question over the input.
+  legacy_section: refinement-extraction
+content:
+  summary: A fixed set of extraction prompts turns free-text requirements into the
+    structured wagon fields deterministically, so the refined wagon is consistent
+    and every field traces back to an explicit question over the input.
+  examples:
+  - From requirements text, fill subject/action/goal/context/outcome, select one theme,
+    derive produce/consume, then synthesize the description one-liner.
+  counter_examples:
+  - Hand-authoring the structured wagon without extracting from ${inputs.requirements}
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: core_semantic_fields
   label: subject / action / goal / context / outcome
@@ -78,9 +94,3 @@ terms:
     description_min_length: 10
     wmbt: placeholder ({}); WMBTs generated via handoff to wmbt.action
     total: placeholder (0); count updated when WMBTs are added via wmbt.action
-examples:
-  positive:
-  - From requirements text, fill subject/action/goal/context/outcome, select one theme,
-    derive produce/consume, then synthesize the description one-liner.
-  negative:
-  - Hand-authoring the structured wagon without extracting from ${inputs.requirements}

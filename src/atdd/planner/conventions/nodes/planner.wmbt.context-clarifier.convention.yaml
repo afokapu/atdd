@@ -1,20 +1,35 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.context-clarifier
 kind: rule
 status: active
+name: 'Wmbt: Context Clarifier'
+statement: A WMBT carries a required context clarifier — a single-line situational
+  phrase extracted from the requirement that specifies when, where, or how the truth
+  applies.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
   legacy_sha: sha256:040256ed5588a6c7
   extraction_mode: high_fidelity
-statement: A WMBT carries a required context clarifier — a single-line situational
-  phrase extracted from the requirement that specifies when, where, or how the truth
-  applies.
-rationale: A context clarifier pins a WMBT to its applicable situation, preventing
-  an over-broad truth from being read as universal. Requiring it forces the planner
-  to state the conditions under which the optimization holds.
-notes: The clarifier is appended to the statement after the object-of-control when
-  present (see planner.wmbt.statement-template). It is marked required in the legacy
-  generator.
+  legacy_section: context-clarifier
+content:
+  summary: A context clarifier pins a WMBT to its applicable situation, preventing
+    an over-broad truth from being read as universal. Requiring it forces the planner
+    to state the conditions under which the optimization holds.
+  operational_guidance: The clarifier is appended to the statement after the object-of-control
+    when present (see planner.wmbt.statement-template). It is marked required in the
+    legacy generator.
+  examples:
+  - minimize Time of dilemma-resolution during high-load incidents (clarifier present)
+  counter_examples:
+  - A WMBT statement with no clarifier specifying when/where/how it applies
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: context_clarifier_form
   label: How the context clarifier is extracted
@@ -31,8 +46,3 @@ terms:
     - when the form is submitted offline
     negative:
     - a multi-paragraph explanation (exceeds one-line maximum)
-examples:
-  positive:
-  - minimize Time of dilemma-resolution during high-load incidents (clarifier present)
-  negative:
-  - A WMBT statement with no clarifier specifying when/where/how it applies

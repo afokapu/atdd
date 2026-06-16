@@ -1,19 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.component.artifact-derivation
 kind: rule
 status: active
+name: 'Component: Artifact Derivation'
+statement: Component names are derived from artifact resources by converting the resource
+  to PascalCase and adding a capability suffix chosen by the artifact type (events,
+  states, data, configs).
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/component.convention.yaml
   legacy_sha: sha256:8bfb25fd6c2bdb6e
   extraction_mode: high_fidelity
-statement: Component names are derived from artifact resources by converting the resource
-  to PascalCase and adding a capability suffix chosen by the artifact type (events,
-  states, data, configs).
-rationale: Deriving a component name mechanically from its artifact resource keeps
-  names predictable and traceable back to the artifact they handle, while the type-driven
-  suffix encodes the component's capability.
-notes: Component names come from artifact resources (the part after the colon). Components
-  describe the CAPABILITY to handle artifacts.
+  legacy_section: artifact-derivation
+content:
+  summary: Deriving a component name mechanically from its artifact resource keeps
+    names predictable and traceable back to the artifact they handle, while the type-driven
+    suffix encodes the component's capability.
+  operational_guidance: Component names come from artifact resources (the part after
+    the colon). Components describe the CAPABILITY to handle artifacts.
+  examples:
+  - Resource 'started' (event) → MatchStartedPublisher
+  - Resource 'remaining' (state) → TimebankTracker
+  counter_examples:
+  - Naming a component 'choiceHandler' (not PascalCase) or with a suffix unrelated
+    to the artifact type
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: pascalcase_conversion
   label: PascalCase conversion
@@ -120,10 +137,3 @@ terms:
       urn: component:resolve-dilemmas:make-choice.ChoicePersister.backend.integration
       purpose: Persists choice to database
       derivation: Resource 'choice' → ChoicePersister (persistence)
-examples:
-  positive:
-  - Resource 'started' (event) → MatchStartedPublisher
-  - Resource 'remaining' (state) → TimebankTracker
-  negative:
-  - Naming a component 'choiceHandler' (not PascalCase) or with a suffix unrelated
-    to the artifact type

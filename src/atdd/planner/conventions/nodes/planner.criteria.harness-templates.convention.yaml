@@ -1,20 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.criteria.harness-templates
 kind: pattern
 status: active
+name: 'Criteria: Harness Templates'
+statement: The harness field selects one of the documented acceptance-scaffolding
+  templates; each template fixes which architectural layers it covers and supplies
+  a default given/when/then skeleton the criterion specializes.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
   legacy_sha: sha256:db262e7f5fb06226
   extraction_mode: high_fidelity
-statement: The harness field selects one of the documented acceptance-scaffolding
-  templates; each template fixes which architectural layers it covers and supplies
-  a default given/when/then skeleton the criterion specializes.
-rationale: A fixed catalog of harness templates routes every criterion to consistent
-  test scaffolding, so authors fill in specifics rather than reinventing the given/when/then
-  shape per criterion, and tooling knows which layers each harness exercises.
-notes: Catalog of 13 harness templates extracted verbatim from the legacy harnesses
-  block, grouped here by transport family; the per-harness layers/when/then skeletons
-  live in each term's values.
+  legacy_section: harness-templates
+content:
+  summary: A fixed catalog of harness templates routes every criterion to consistent
+    test scaffolding, so authors fill in specifics rather than reinventing the given/when/then
+    shape per criterion, and tooling knows which layers each harness exercises.
+  operational_guidance: Catalog of 13 harness templates extracted verbatim from the
+    legacy harnesses block, grouped here by transport family; the per-harness layers/when/then
+    skeletons live in each term's values.
+  examples:
+  - 'harness: http  # uses the POST /api/example skeleton, asserts status 200 + body'
+  - 'harness: a11y  # presentation-only, asserts accessibility passes'
+  counter_examples:
+  - 'harness: rest  # not in the template catalog'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: http
   label: HTTP request/response harness
@@ -184,9 +200,3 @@ terms:
       then:
       - kind: security
         expect: granted
-examples:
-  positive:
-  - 'harness: http  # uses the POST /api/example skeleton, asserts status 200 + body'
-  - 'harness: a11y  # presentation-only, asserts accessibility passes'
-  negative:
-  - 'harness: rest  # not in the template catalog'

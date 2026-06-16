@@ -1,20 +1,37 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.lens-selection
 kind: pattern
 status: active
+name: 'Wmbt: Lens Selection'
+statement: Each WMBT is viewed through one quality lens drawn from the lens catalog,
+  which is organized into three families — social, functional, and emotional — each
+  enumerating named lenses with a definition and an example.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
   legacy_sha: sha256:040256ed5588a6c7
   extraction_mode: high_fidelity
-statement: Each WMBT is viewed through one quality lens drawn from the lens catalog,
-  which is organized into three families — social, functional, and emotional — each
-  enumerating named lenses with a definition and an example.
-rationale: A quality lens names the most relevant value attribute the work serves,
-  complementing the dimension (what is measured) with a perspective on why it matters
-  to the actor. A fixed three-family catalog keeps lens choice consistent across WMBTs.
-notes: Selection picks the single quality attribute most relevant to the work from
-  '${inputs.description}'. A WMBT carries one lens_ref alongside its single dimension
-  (see planner.wmbt.shape).
+  legacy_section: lens-selection
+content:
+  summary: A quality lens names the most relevant value attribute the work serves,
+    complementing the dimension (what is measured) with a perspective on why it matters
+    to the actor. A fixed three-family catalog keeps lens choice consistent across
+    WMBTs.
+  operational_guidance: Selection picks the single quality attribute most relevant
+    to the work from '${inputs.description}'. A WMBT carries one lens_ref alongside
+    its single dimension (see planner.wmbt.shape).
+  examples:
+  - A WMBT for staying in sync with teammates selects the social lens belong
+  - A WMBT for fewer-step workflows selects the functional lens efficiency
+  counter_examples:
+  - Selecting a lens id outside the three catalog families
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: lens_selection_procedure
   label: How to pick the lens
@@ -105,9 +122,3 @@ terms:
     anticipation:
       definition: Hopeful expectation while awaiting a desired outcome.
       example: Watching a progress indicator while a process nears completion.
-examples:
-  positive:
-  - A WMBT for staying in sync with teammates selects the social lens belong
-  - A WMBT for fewer-step workflows selects the functional lens efficiency
-  negative:
-  - Selecting a lens id outside the three catalog families

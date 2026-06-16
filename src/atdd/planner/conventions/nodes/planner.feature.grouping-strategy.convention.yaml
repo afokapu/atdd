@@ -1,17 +1,28 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.feature.grouping-strategy
 kind: pattern
 status: active
+name: 'Feature: Grouping Strategy'
+statement: WMBTs are grouped into features by a chosen strategy (by step, dimension,
+  object, or coherence), guided by cohesion heuristics, with each group capped at
+  10 WMBTs and no miscellaneous buckets.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/feature.convention.yaml
   legacy_sha: sha256:4a95544261fb9541
   extraction_mode: high_fidelity
-statement: WMBTs are grouped into features by a chosen strategy (by step, dimension,
-  object, or coherence), guided by cohesion heuristics, with each group capped at
-  10 WMBTs and no miscellaneous buckets.
-rationale: Cohesive grouping keeps every feature a user-facing, coherent slice rather
-  than an arbitrary bag of outcomes, and the per-group cap plus shared-object/metric/plane
-  heuristics make decomposition repeatable and bounded.
+  legacy_section: grouping-strategy
+content:
+  summary: Cohesive grouping keeps every feature a user-facing, coherent slice rather
+    than an arbitrary bag of outcomes, and the per-group cap plus shared-object/metric/plane
+    heuristics make decomposition repeatable and bounded.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: grouping_strategies
   label: The four grouping strategies

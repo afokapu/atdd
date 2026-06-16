@@ -40,7 +40,8 @@ def test_real_cli_authors_a_schema_valid_node(tmp_path):
     assert r.returncode == 0, r.stderr
     node = yaml.safe_load((tmp_path / "src/atdd/planner/conventions/nodes/planner.smoke.demo-rule.convention.yaml").read_text())
     jsonschema.validate(node, schema)        # real schema, real file
-    assert node["rationale"].startswith("Proves")
+    assert node["schema_version"] == "1.1.0"
+    assert node["content"]["summary"].startswith("Proves")
 
 
 def test_real_cli_core_and_extension_graphs_get_distinct_ids(tmp_path):
@@ -72,11 +73,14 @@ def test_committed_nodes_and_graph_are_coherent():
         node = yaml.safe_load(f.read_text())
         jsonschema.validate(node, schema)                # every committed node is schema-valid
         assert f.name == f"{node['rule_id']}.convention.yaml"
-        # every node carries auditable source provenance back to its legacy file
+        # 1.1.0 shape: identity + enforcement + provenance + parity tracking
+        assert node["schema_version"] == "1.1.0", f"{f.name}: not 1.1.0"
+        assert node["implementation"]["type"] in ("validator", "manual", "advisory", "none")
         src = node.get("source") or {}
         legacy = src.get("legacy_path", "")
         assert legacy and (_SRC.parent / legacy).exists(), f"{f.name}: bad source.legacy_path"
         assert src.get("extraction_mode") == "high_fidelity", f"{f.name}: missing extraction_mode"
+        assert node["parity"]["source_fragments_preserved"] is True, f"{f.name}: parity"
         node_ids.add(node["rule_id"])
 
     graph = yaml.safe_load(_CORE_GRAPH.read_text())

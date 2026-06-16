@@ -1,18 +1,45 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.coverage.every-wmbt-must-have
 kind: rule
 status: active
+name: 'Coverage: Every Wmbt Must Have'
+statement: Every WMBT must have at least one acceptance criterion, except WMBTs with
+  status draft.
+implementation:
+  type: validator
+  ref: test_hierarchy_coverage::test_all_wmbts_have_acceptances
 source:
   legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
   legacy_sha: sha256:27e800378c584902
   extraction_mode: high_fidelity
   legacy_rule_id: planner.coverage.every-wmbt-must-have
-statement: Every WMBT must have at least one acceptance criterion, except WMBTs with
-  status draft.
-rationale: A WMBT with no acceptance is unfalsifiable; requiring at least one keeps
-  every truth verifiable. Draft WMBTs are exempt because they are work-in-progress
-  and not yet ready for full coverage. This is the WMBT-to-Acceptance edge of the
-  coverage graph and is enforced strictly.
+  legacy_section: rules
+content:
+  summary: A WMBT with no acceptance is unfalsifiable; requiring at least one keeps
+    every truth verifiable. Draft WMBTs are exempt because they are work-in-progress
+    and not yet ready for full coverage. This is the WMBT-to-Acceptance edge of the
+    coverage graph and is enforced strictly.
+  normative_text: Every WMBT must have at least one acceptance criterion
+  examples:
+  - every non-draft WMBT has at least one acceptance criterion
+  counter_examples:
+  - 'a non-draft WMBT has acceptances: [] and is not allow-listed'
+  exceptions:
+  - WMBTs with status draft are exempt from the acceptance requirement because draft
+    artifacts are work-in-progress and not yet ready for full coverage.
+  - WMBT URNs that are allowed to exist without acceptance criteria. Used for draft
+    WMBTs or placeholder definitions.
+metadata:
+  aliases:
+  - COVERAGE-PLAN-2.4
+  severity: 3
+  disposition: strict
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: wmbt
   text: a What-Must-Be-True entry in a wagon decomposition
@@ -36,8 +63,3 @@ terms:
     name: wmbts_without_acceptance
     config_path: coverage.exceptions.wmbts_without_acceptance
     use_case: Draft WMBTs or placeholder definitions
-examples:
-  positive:
-  - every non-draft WMBT has at least one acceptance criterion
-  negative:
-  - 'a non-draft WMBT has acceptances: [] and is not allow-listed'

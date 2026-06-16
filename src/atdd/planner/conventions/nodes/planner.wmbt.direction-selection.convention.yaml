@@ -1,19 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.direction-selection
 kind: rule
 status: active
+name: 'Wmbt: Direction Selection'
+statement: The direction term of a WMBT statement is a single optimization verb selected
+  from the direction palette, whose four canonical keys (minimize, maximize, increase,
+  decrease) each carry a set of equivalent synonym verbs.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
   legacy_sha: sha256:040256ed5588a6c7
   extraction_mode: high_fidelity
-statement: The direction term of a WMBT statement is a single optimization verb selected
-  from the direction palette, whose four canonical keys (minimize, maximize, increase,
-  decrease) each carry a set of equivalent synonym verbs.
-rationale: Constraining the direction to a small palette of canonical verbs keeps
-  WMBT statements uniform and machine-readable, while the synonym sets let the planner
-  map natural-language optimization intent onto one canonical key.
-notes: The chosen direction fills the ${direction} slot of the statement template
-  (see planner.wmbt.statement-template).
+  legacy_section: direction-selection
+content:
+  summary: Constraining the direction to a small palette of canonical verbs keeps
+    WMBT statements uniform and machine-readable, while the synonym sets let the planner
+    map natural-language optimization intent onto one canonical key.
+  operational_guidance: The chosen direction fills the ${direction} slot of the statement
+    template (see planner.wmbt.statement-template).
+  examples:
+  - minimize Time of dilemma-resolution (direction = minimize)
+  - increase Likelihood of experiment-success (direction = increase)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: direction_selection_procedure
   label: How to pick the direction
@@ -54,7 +68,3 @@ terms:
     - '''boost'' maps to canonical direction maximize'
     negative:
     - '''optimize'' (ambiguous — not in any palette synonym set)'
-examples:
-  positive:
-  - minimize Time of dilemma-resolution (direction = minimize)
-  - increase Likelihood of experiment-success (direction = increase)

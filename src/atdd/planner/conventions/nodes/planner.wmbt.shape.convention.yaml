@@ -1,17 +1,42 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.shape
 kind: rule
 status: active
+name: 'Wmbt: Shape'
+statement: A WMBT entry declares its id (a step-coded URN), its statement, and the
+  artifacts (acceptances and tests) that prove the statement.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
   legacy_sha: sha256:040256ed5588a6c7
   extraction_mode: high_fidelity
   legacy_rule_id: planner.wmbt.shape
-statement: A WMBT entry declares its id (a step-coded URN), its statement, and the
-  artifacts (acceptances and tests) that prove the statement.
-rationale: Declaring id, statement, and proving artifacts makes a WMBT a self-contained,
-  verifiable truth. The id encodes the step (define/locate/.../conclude) and a sequence,
-  and the statement follows a direction+dimension+object-of-control construction.
+  legacy_section: rules
+content:
+  summary: Declaring id, statement, and proving artifacts makes a WMBT a self-contained,
+    verifiable truth. The id encodes the step (define/locate/.../conclude) and a sequence,
+    and the statement follows a direction+dimension+object-of-control construction.
+  normative_text: WMBT entries declare id, statement, and the artifacts that prove
+    the statement
+  examples:
+  - wmbt:resolve-dilemmas:E001 with statement "minimize Time of dilemma-resolution"
+    and >=1 proving acceptance
+  counter_examples:
+  - 'wmbt:user-mgmt:C23  # sequence not three-digit zero-padded'
+  - WMBT declaring a statement but no proving acceptances or tests
+metadata:
+  aliases:
+  - PLANNER-WMBT-SHAPE-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: wmbt_urn
   label: The step-coded WMBT URN
@@ -65,10 +90,3 @@ terms:
   text: The acceptances and tests collocated with the WMBT that verify the WMBT statement;
     each WMBT carries one dimension and one lens_ref, and acceptances inherit that
     context.
-examples:
-  positive:
-  - wmbt:resolve-dilemmas:E001 with statement "minimize Time of dilemma-resolution"
-    and >=1 proving acceptance
-  negative:
-  - 'wmbt:user-mgmt:C23  # sequence not three-digit zero-padded'
-  - WMBT declaring a statement but no proving acceptances or tests

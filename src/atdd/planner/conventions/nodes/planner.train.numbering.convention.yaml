@@ -1,19 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.train.numbering
 kind: rule
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/train.convention.yaml
-  legacy_sha: sha256:825602729f11a3a4
-  extraction_mode: high_fidelity
+name: 'Train: Numbering'
 statement: Every train carries a four-digit hierarchical prefix [Theme][Category][Variation]
   followed by a kebab-case name, matching ^[0-9]{4}-[a-z][a-z0-9-]*$ — first digit
   is the theme (0-9), second is the test category (0=nominal, 1=error, 2=alternate,
   3=exception), last two are the variation (01-99) within that category.
-rationale: A hierarchical theme-category-variation prefix makes every train_id self-describing
-  (theme, category, and variation are all readable from the number) and naturally
-  sorts trains in numeric order. The 4-category structure mirrors the WMBT test categories,
-  giving a flat namespace with a fixed capacity of 4,000 trains.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_sha: sha256:825602729f11a3a4
+  extraction_mode: high_fidelity
+  legacy_section: numbering
+content:
+  summary: A hierarchical theme-category-variation prefix makes every train_id self-describing
+    (theme, category, and variation are all readable from the number) and naturally
+    sorts trains in numeric order. The 4-category structure mirrors the WMBT test
+    categories, giving a flat namespace with a fixed capacity of 4,000 trains.
+  examples:
+  - 0001-auth-session-standard
+  - 2001-story-to-graph-perfect
+  counter_examples:
+  - AUTH_SESSION (not 4-digit-prefixed kebab-case)
+  - 001-auth (only 3 digits)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: prefix_shape
   label: Four-digit hierarchical prefix
@@ -205,10 +222,3 @@ terms:
     - train:2001-story-to-graph-perfect (theme=scenario, category=nominal, variation=1)
     - train:3301-fragment-pool-exhausted (theme=match, category=exception, variation=1)
     - train:0101-auth-service-offline (theme=commons, category=error, variation=1)
-examples:
-  positive:
-  - 0001-auth-session-standard
-  - 2001-story-to-graph-perfect
-  negative:
-  - AUTH_SESSION (not 4-digit-prefixed kebab-case)
-  - 001-auth (only 3 digits)

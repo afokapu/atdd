@@ -1,18 +1,35 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.artifact-naming.pluralization
 kind: rule
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
-  legacy_sha: sha256:eca68a67c92694c9
-  extraction_mode: high_fidelity
+name: 'Artifact Naming: Pluralization'
 statement: 'When choosing a plural aspect for a collection, pluralize per the pluralization
   guide: regular plurals add ''s'', irregular nouns follow English irregular forms,
   uncountable nouns use an explicit suffix instead of awkward forced plurals, and
   compound nouns pluralize the primary noun.'
-rationale: A consistent pluralization guide keeps collection names predictable and
-  avoids awkward or incorrect plurals (configs, datas) that would obscure the singular-vs-collection
-  signal carried by the aspect.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+  legacy_section: pluralization
+content:
+  summary: A consistent pluralization guide keeps collection names predictable and
+    avoids awkward or incorrect plurals (configs, datas) that would obscure the singular-vs-collection
+    signal carried by the aspect.
+  examples:
+  - 'scenario:fragments  # regular: fragment -> fragments'
+  - 'commons:ux:components:button-groups  # compound: pluralize primary noun'
+  counter_examples:
+  - 'match:configs  # awkward forced plural; prefer config.collection'
+  - 'commons:datas  # incorrect plural of uncountable; prefer data.items'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: regular_plurals
   label: Regular plurals
@@ -56,10 +73,3 @@ terms:
     - button-group -> button-groups
     - session-state -> session-states
     - color-palette -> color-palettes
-examples:
-  positive:
-  - 'scenario:fragments  # regular: fragment -> fragments'
-  - 'commons:ux:components:button-groups  # compound: pluralize primary noun'
-  negative:
-  - 'match:configs  # awkward forced plural; prefer config.collection'
-  - 'commons:datas  # incorrect plural of uncountable; prefer data.items'

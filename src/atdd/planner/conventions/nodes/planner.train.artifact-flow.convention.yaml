@@ -1,18 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.train.artifact-flow
 kind: rule
 status: active
+name: 'Train: Artifact Flow'
+statement: Artifacts flow between participants as the train executes, written {domain}:{resource}
+  matching ^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$; every artifact must be produced before
+  it is consumed in the sequence and should be defined in a participant wagon manifest.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
   legacy_sha: sha256:825602729f11a3a4
   extraction_mode: high_fidelity
-statement: Artifacts flow between participants as the train executes, written {domain}:{resource}
-  matching ^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$; every artifact must be produced before
-  it is consumed in the sequence and should be defined in a participant wagon manifest.
-rationale: A train is a chain of artifact transfers between participants, so naming
-  artifacts with a domain:resource shape keeps them addressable and lets the sequence
-  be checked. The produced-before-consumed invariant is what makes a linear sequence
-  executable — a step can only read an artifact an earlier step produced.
+  legacy_section: artifact-flow
+content:
+  summary: A train is a chain of artifact transfers between participants, so naming
+    artifacts with a domain:resource shape keeps them addressable and lets the sequence
+    be checked. The produced-before-consumed invariant is what makes a linear sequence
+    executable — a step can only read an artifact an earlier step produced.
+  examples:
+  - Step 1 produces material:raw-story before a later step consumes it
+  counter_examples:
+  - A step consuming scenario:material.steps before any step produces it
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: artifact_shape
   label: Artifact identifier form
@@ -77,8 +92,3 @@ terms:
       from: system:external
       to: wagon:prepare-materials
       artifact: material:raw-story
-examples:
-  positive:
-  - Step 1 produces material:raw-story before a later step consumes it
-  negative:
-  - A step consuming scenario:material.steps before any step produces it

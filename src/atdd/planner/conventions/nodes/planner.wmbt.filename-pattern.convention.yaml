@@ -1,19 +1,34 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.filename-pattern
 kind: rule
 status: active
+name: 'Wmbt: Filename Pattern'
+statement: A WMBT YAML file is named {STEP_CODE}{NNN}.yaml — the step-coded sequence
+  segment of the WMBT URN with no prefix and a .yaml extension.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
   legacy_sha: sha256:040256ed5588a6c7
   extraction_mode: high_fidelity
-statement: A WMBT YAML file is named {STEP_CODE}{NNN}.yaml — the step-coded sequence
-  segment of the WMBT URN with no prefix and a .yaml extension.
-rationale: Deriving the filename directly from the WMBT's step code and sequence makes
-  the on-disk artifact instantly identifiable and keeps file naming in lockstep with
-  the URN, so a wagon's WMBT directory reads as an ordered, phase-coded set.
-notes: STEP_CODE is one of the nine codes (see planner.wmbt.step-code-vocabulary)
-  and NNN is the same three-digit zero-padded sequence used in planner.wmbt.urn-naming.
-  No URN prefix or wagon segment appears in the filename.
+  legacy_section: filename-pattern
+content:
+  summary: Deriving the filename directly from the WMBT's step code and sequence makes
+    the on-disk artifact instantly identifiable and keeps file naming in lockstep
+    with the URN, so a wagon's WMBT directory reads as an ordered, phase-coded set.
+  operational_guidance: STEP_CODE is one of the nine codes (see planner.wmbt.step-code-vocabulary)
+    and NNN is the same three-digit zero-padded sequence used in planner.wmbt.urn-naming.
+    No URN prefix or wagon segment appears in the filename.
+  examples:
+  - wmbt:burn-timebank:M045 lives in file M045.yaml
+  counter_examples:
+  - A WMBT file named after the statement rather than the step-coded sequence
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: filename_form
   label: The WMBT filename pattern
@@ -29,8 +44,3 @@ terms:
     negative:
     - wmbt-E001.yaml (has a prefix)
     - E1.yaml (sequence not three-digit zero-padded)
-examples:
-  positive:
-  - wmbt:burn-timebank:M045 lives in file M045.yaml
-  negative:
-  - A WMBT file named after the statement rather than the step-coded sequence

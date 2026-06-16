@@ -1,17 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.criteria.defaults
 kind: rule
 status: active
+name: 'Criteria: Defaults'
+statement: Every acceptance criterion inherits a default given block that fixes auth
+  scopes, builders, time, a strict stubbing policy, and knobs, so each criterion only
+  declares the deviations from that baseline.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
   legacy_sha: sha256:db262e7f5fb06226
   extraction_mode: high_fidelity
-statement: Every acceptance criterion inherits a default given block that fixes auth
-  scopes, builders, time, a strict stubbing policy, and knobs, so each criterion only
-  declares the deviations from that baseline.
-rationale: A shared default given scaffold keeps criteria terse and uniform; authors
-  override only what differs, and the strict stubbing default forces dependencies
-  to be explicitly stubbed rather than implicitly faked.
+  legacy_section: defaults
+content:
+  summary: A shared default given scaffold keeps criteria terse and uniform; authors
+    override only what differs, and the strict stubbing default forces dependencies
+    to be explicitly stubbed rather than implicitly faked.
+  examples:
+  - given inherits defaults.given (auth.scopes [], stubbing strict) and overrides
+    only auth.scopes
+  counter_examples:
+  - criterion redefines the full given block instead of overriding the default
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: default_given
   label: The baseline given scaffold
@@ -46,9 +62,3 @@ terms:
     seeds) and defaults to empty; criteria set only the knobs they exercise.
   values:
     default: {}
-examples:
-  positive:
-  - given inherits defaults.given (auth.scopes [], stubbing strict) and overrides
-    only auth.scopes
-  negative:
-  - criterion redefines the full given block instead of overriding the default

@@ -1,17 +1,59 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.issue-body.dependency-entries-must-be-classified
 kind: rule
 status: active
+name: 'Issue Body: Dependency Entries Must Be Classified'
+statement: 'Every #N entry in an issue body''s ### Dependencies section must carry
+  a trailing classification tag: (prereq), (merged), (sibling), or (parallel).'
+implementation:
+  type: validator
+  ref: test_issue_deps_have_classification_tags::test_issue_deps_have_classification_tags
 source:
   legacy_path: src/atdd/planner/conventions/issue-body.convention.yaml
   legacy_sha: sha256:2de589954025b05e
   extraction_mode: high_fidelity
   legacy_rule_id: planner.issue-body.dependency-entries-must-be-classified
-statement: 'Every #N entry in an issue body''s ### Dependencies section must carry
-  a trailing classification tag: (prereq), (merged), (sibling), or (parallel).'
-rationale: 'A bare - #N entry makes atdd session-template add the dependency to the
-  merge-wait loop unconditionally; if #N is a sibling (parallel work in the same wave)
-  the loop never exits. The tag disambiguates blocking deps from non-blocking ones.'
+  legacy_section: rules
+content:
+  summary: 'A bare - #N entry makes atdd session-template add the dependency to the
+    merge-wait loop unconditionally; if #N is a sibling (parallel work in the same
+    wave) the loop never exits. The tag disambiguates blocking deps from non-blocking
+    ones.'
+  normative_text: 'Every `#N` entry in the `### Dependencies` section of a parent
+    issue body
+
+    must carry a trailing classification tag: `(prereq)`, `(merged)`, `(sibling)`,
+
+    or `(parallel)`. Bare `- #N` entries without a tag cause `atdd session-template`
+
+    to include the dep in the merge-wait loop unconditionally — if the dep is a
+
+    sibling issue (parallel work in the same wave) the loop will never exit.'
+  fix_hint: "Tag each bare `#N` entry in the `### Dependencies` section of the named\n\
+    issue with one of the four recognised tags:\n\n  - `#N (prereq)` — this PR must\
+    \ be merged before the current session can start\n  - `#N (merged)` — synonym\
+    \ for prereq; use when the PR is already closed\n  - `#N (sibling)` — parallel\
+    \ work in the same release wave; do NOT block on this\n  - `#N (parallel)` — synonym\
+    \ for sibling\n\nTo determine the correct tag:\n  1. Check whether #N is already\
+    \ merged: `gh pr list --state merged --search \"#N\"`\n     → merged → use `(merged)`\
+    \ or `(prereq)`\n  2. Check whether #N was filed in the same release wave (same\
+    \ day, same train):\n     → same wave → use `(sibling)`\n  3. Otherwise use `(prereq)`.\n\
+    \nEdit the issue body (e.g. for issue #828, ISSUE_NUMBER=828):\n  gh issue edit\
+    \ <N|828|831> --body \"$(gh issue view <N|828|831> --json body --jq .body | sed\
+    \ 's/- #N$/- #N (prereq)/')\"\n\nRe-run the validator to confirm clean:\n  pytest\
+    \ src/atdd/planner/validators/test_issue_deps_have_classification_tags.py -v"
+metadata:
+  aliases: []
+  severity: 2
+  disposition: advisory
+  introduced_in: 3.81.0
+  suppression_deadline: '2026-12-31'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: classification_tags
   label: The four dependency tags and their semantics

@@ -1,19 +1,47 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.theme.must-be-canonical
 kind: rule
 status: active
+name: 'Theme: Must Be Canonical'
+statement: Every wagon theme and every train theme-digit must resolve to one of the
+  five canonical themes (commons/plan/test/code/coach; digits 0-4); retired game-domain
+  themes (digits 5-9) and any undeclared theme are rejected.
+implementation:
+  type: validator
+  ref: test_theme_must_be_canonical::test_every_wagon_theme_is_canonical
 source:
   legacy_path: src/atdd/planner/conventions/theme.convention.yaml
   legacy_sha: sha256:2ae106d04d77b06e
   extraction_mode: high_fidelity
   legacy_rule_id: planner.theme.must-be-canonical
-statement: Every wagon theme and every train theme-digit must resolve to one of the
-  five canonical themes (commons/plan/test/code/coach; digits 0-4); retired game-domain
-  themes (digits 5-9) and any undeclared theme are rejected.
-rationale: Constraining themes to the five canonical themes keeps ownership and routing
-  coherent across the repo. The five themes form an ordered abstraction stack from
-  cross-team primitives up to the orchestrator, mirroring the existing train-numbering
-  scheme.
+  legacy_section: rules
+content:
+  summary: Constraining themes to the five canonical themes keeps ownership and routing
+    coherent across the repo. The five themes form an ordered abstraction stack from
+    cross-team primitives up to the orchestrator, mirroring the existing train-numbering
+    scheme.
+  normative_text: Every wagon `theme:` and every train theme-digit MUST resolve to
+    one of the five canonical themes (commons/plan/test/code/coach; digits 0-4). Retired
+    game-domain themes (digits 5-9) and any undeclared theme are rejected. Subsumes
+    the runtime theme-membership check described by wmbt:govern-lifecycle:E001 (which
+    is otherwise unbound).
+  examples:
+  - 'theme: commons  # resolves to canonical digit 0'
+  counter_examples:
+  - 'theme: arcade  # undeclared theme, rejected'
+  - 'theme: league  # retired digit-7 game-domain name'
+metadata:
+  aliases:
+  - PLANNER-THEME-CANONICAL-001
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.92.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: canonical_taxonomy
   label: The five canonical themes (ordered abstraction stack, digits 0-4)
@@ -62,9 +90,3 @@ terms:
     (which is otherwise unbound).
   values:
     subsumes: wmbt:govern-lifecycle:E001
-examples:
-  positive:
-  - 'theme: commons  # resolves to canonical digit 0'
-  negative:
-  - 'theme: arcade  # undeclared theme, rejected'
-  - 'theme: league  # retired digit-7 game-domain name'

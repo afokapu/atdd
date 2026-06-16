@@ -1,17 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.harness-code-vocabulary
 kind: constraint
 status: active
+name: 'Acceptance: Harness Code Vocabulary'
+statement: Each acceptance declares a harness whose authoritative UPPERCASE code comes
+  from the fixed 22-entry harness_codes catalog (unit->UNIT … smoke->SMOKE); only
+  these codes are valid in URNs and harness selection.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
   legacy_sha: sha256:027e2d86ff127550
   extraction_mode: high_fidelity
-statement: Each acceptance declares a harness whose authoritative UPPERCASE code comes
-  from the fixed 22-entry harness_codes catalog (unit->UNIT … smoke->SMOKE); only
-  these codes are valid in URNs and harness selection.
-rationale: The harness code is baked into the acceptance URN and drives routing, so
-  the lowercase harness name to UPPERCASE code mapping must be a closed, authoritative
-  vocabulary shared by URN generation, validation, and harness selection.
+  legacy_section: harness-code-vocabulary
+content:
+  summary: The harness code is baked into the acceptance URN and drives routing, so
+    the lowercase harness name to UPPERCASE code mapping must be a closed, authoritative
+    vocabulary shared by URN generation, validation, and harness selection.
+  examples:
+  - 'harness: e2e -> URN harness segment E2E'
+  - 'harness: edge_function -> URN harness segment EDGE'
+  counter_examples:
+  - harness code "API" (not in the 22-entry catalog)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: harness_codes
   label: Authoritative harness code map (22 entries)
@@ -136,9 +152,3 @@ terms:
       description: Storage operation tests
       typical_layers:
       - integration
-examples:
-  positive:
-  - 'harness: e2e -> URN harness segment E2E'
-  - 'harness: edge_function -> URN harness segment EDGE'
-  negative:
-  - harness code "API" (not in the 22-entry catalog)

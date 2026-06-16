@@ -1,19 +1,48 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.theme.theme-zero-mandatory
 kind: constraint
 status: active
+name: 'Theme: Theme Zero Mandatory'
+statement: 'Theme digit 0 (commons) is the mandatory, non-removable floor of every
+  resolved theme set: a consumer .atdd/config.yaml themes block may add or override
+  themes 1-9, but it must not remove digit 0 nor rename it away from the locked token
+  commons.'
+implementation:
+  type: validator
+  ref: test_theme_zero_mandatory::test_commons_is_always_in_resolved_theme_set
 source:
   legacy_path: src/atdd/planner/conventions/theme.convention.yaml
   legacy_sha: sha256:2ae106d04d77b06e
   extraction_mode: high_fidelity
   legacy_rule_id: planner.theme.theme-zero-mandatory
-statement: 'Theme digit 0 (commons) is the mandatory, non-removable floor of every
-  resolved theme set: a consumer .atdd/config.yaml themes block may add or override
-  themes 1-9, but it must not remove digit 0 nor rename it away from the locked token
-  commons.'
-rationale: Pinning commons at digit 0 guarantees every repo shares the same non-removable
-  foundation theme. The digit-0 name is the single flip point of the taxonomy, locked
-  by operator decision (#970).
+  legacy_section: rules
+content:
+  summary: Pinning commons at digit 0 guarantees every repo shares the same non-removable
+    foundation theme. The digit-0 name is the single flip point of the taxonomy, locked
+    by operator decision (#970).
+  normative_text: 'Theme digit 0 (commons) is the mandatory, non-removable floor of
+    every resolved theme set. A consumer .atdd/config.yaml `themes:` block may add
+    or override themes 1-9, but it MUST NOT remove digit 0 nor rename it away from
+    the locked token `commons`: any resolved theme map — defaults alone or defaults
+    merged with consumer overrides — MUST contain `commons` at digit 0. The resolver
+    pins digit 0 regardless of override input.'
+  examples:
+  - "themes:\n  '1': plan  # adds/overrides 1-9; commons stays pinned at digit 0"
+  counter_examples:
+  - 'themes: {}  # attempt to drop commons; resolver re-pins digit 0 to commons'
+  - "themes:\n  '0': platform  # rename away from commons, rejected"
+metadata:
+  aliases:
+  - PLANNER-THEME-ZERO-001
+  severity: 4
+  disposition: block
+  introduced_in: 3.92.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: theme_zero_token
   label: The locked digit-0 token
@@ -46,9 +75,3 @@ terms:
     or remaps digit 0 still resolves to commons at digit 0.
   values:
     behavior: resolver pins digit 0 to commons regardless of override input
-examples:
-  positive:
-  - "themes:\n  '1': plan  # adds/overrides 1-9; commons stays pinned at digit 0"
-  negative:
-  - 'themes: {}  # attempt to drop commons; resolver re-pins digit 0 to commons'
-  - "themes:\n  '0': platform  # rename away from commons, rejected"

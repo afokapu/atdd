@@ -1,19 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.artifact-naming.validation-rules
 kind: constraint
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
-  legacy_sha: sha256:eca68a67c92694c9
-  extraction_mode: high_fidelity
+name: 'Artifact Naming: Validation Rules'
 statement: 'An artifact name is valid only if it satisfies all three rule groups:
   format rules (lowercase kebab-case segments, colon for descent, dot for variant),
   semantic rules (approved theme, value-adding levels, concrete aspect, exact URN
   match, shallow variants), and technical rules (contract file exists, $id and consumers
   agree, path derivable by splitting on : and .).'
-rationale: Grouping the validation criteria into format, semantic, and technical layers
-  makes the checks a name must pass explicit and orthogonal, so a planner can verify
-  a name against each concern independently.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+  legacy_section: validation-rules
+content:
+  summary: Grouping the validation criteria into format, semantic, and technical layers
+    makes the checks a name must pass explicit and orthogonal, so a planner can verify
+    a name against each concern independently.
+  examples:
+  - 'commons:ux:foundations:color  # kebab-case, approved theme, concrete aspect,
+    derivable path'
+  counter_examples:
+  - 'Match:Config  # violates format: not lowercase kebab-case'
+  - 'foo:gesture.raw  # violates semantic: theme not from approved taxonomy'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: format_rules
   label: Format rules
@@ -46,10 +63,3 @@ terms:
     - $id in contract must be urn:contract:{artifact_name}
     - All consumers must reference the same artifact name
     - File path must be derivable from artifact name by splitting on: and .
-examples:
-  positive:
-  - 'commons:ux:foundations:color  # kebab-case, approved theme, concrete aspect,
-    derivable path'
-  negative:
-  - 'Match:Config  # violates format: not lowercase kebab-case'
-  - 'foo:gesture.raw  # violates semantic: theme not from approved taxonomy'

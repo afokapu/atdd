@@ -1,18 +1,34 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.interface.contract-urn
 kind: rule
 status: active
+name: 'Interface: Contract Urn'
+statement: Wagon artifacts carry a stable URN of the form contract:{domain}:{resource}[.{category}]
+  that links the artifact to its contract independently of contract version, and the
+  graph maintains bidirectional linkage between wagon URNs and contract IDs.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/interface.convention.yaml
   legacy_sha: sha256:3415a521b5eec18b
   extraction_mode: high_fidelity
-statement: Wagon artifacts carry a stable URN of the form contract:{domain}:{resource}[.{category}]
-  that links the artifact to its contract independently of contract version, and the
-  graph maintains bidirectional linkage between wagon URNs and contract IDs.
-rationale: URNs decouple wagon artifacts from contract versioning. URNs remain stable
-  while contract versions evolve (v1->v2) without requiring wagon YAML changes; wagons
-  declare WHAT (URN) while contracts define HOW (version, schema, API). This loose
-  coupling keeps domain language human-readable and free of version noise.
+  legacy_section: contract-urn
+content:
+  summary: URNs decouple wagon artifacts from contract versioning. URNs remain stable
+    while contract versions evolve (v1->v2) without requiring wagon YAML changes;
+    wagons declare WHAT (URN) while contracts define HOW (version, schema, API). This
+    loose coupling keeps domain language human-readable and free of version noise.
+  examples:
+  - 'mechanic:decision.choice -> contract:mechanic:decision.choice  # category preserved
+    as dot facet'
+  counter_examples:
+  - 'contract:mechanic.decision.choice  # legacy dot-for-hierarchy -> contract:mechanic:decision.choice'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: urn_pattern
   label: The contract URN format
@@ -101,9 +117,3 @@ terms:
     phase1: Add urn field to all wagon artifacts (this upgrade)
     phase2: Validate all URNs resolve to contracts
     phase3: Generate missing contracts for orphaned URNs
-examples:
-  positive:
-  - 'mechanic:decision.choice -> contract:mechanic:decision.choice  # category preserved
-    as dot facet'
-  negative:
-  - 'contract:mechanic.decision.choice  # legacy dot-for-hierarchy -> contract:mechanic:decision.choice'

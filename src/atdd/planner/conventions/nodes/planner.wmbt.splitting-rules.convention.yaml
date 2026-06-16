@@ -1,21 +1,40 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.splitting-rules
 kind: rule
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
-  legacy_sha: sha256:040256ed5588a6c7
-  extraction_mode: high_fidelity
+name: 'Wmbt: Splitting Rules'
 statement: A WMBT carries at most five acceptances; it must be split when it mixes
   dimensions, spans multiple actor-action pairs, or needs divergent acceptance gate
   modes, and must be kept together when the same truth is verified across layers or
   as a coherent sequence.
-rationale: The five-acceptance cap and the split/keep-together rules keep each WMBT
-  a single coherent truth. Beyond five acceptances, or once dimensions, actors, or
-  gate modes diverge, the entry has become multiple concerns that are better verified
-  as separate WMBTs.
-notes: Aligns with the acceptance convention cap of <=5 per WMBT (conventions:planner:acceptance:rules.acceptance_cap);
-  the cap is enforced via the schema's acceptance array maxItems.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+  legacy_section: splitting-rules
+content:
+  summary: The five-acceptance cap and the split/keep-together rules keep each WMBT
+    a single coherent truth. Beyond five acceptances, or once dimensions, actors,
+    or gate modes diverge, the entry has become multiple concerns that are better
+    verified as separate WMBTs.
+  operational_guidance: Aligns with the acceptance convention cap of <=5 per WMBT
+    (conventions:planner:acceptance:rules.acceptance_cap); the cap is enforced via
+    the schema's acceptance array maxItems.
+  examples:
+  - A single-dimension WMBT with 3 layered acceptances (UI/API/DB) kept together under
+    gate ALL
+  counter_examples:
+  - A WMBT with 6 acceptances (exceeds cap)
+  - A WMBT stating "minimize time while maximizing reliability" (mixed dimensions
+    — must split)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: acceptance_cap
   label: The acceptance cap
@@ -58,11 +77,3 @@ terms:
       indicator: Sequential steps of a single process
       example: Upload -> Validate -> Store -> Confirm
       note: Each acceptance tests one step, all must pass
-examples:
-  positive:
-  - A single-dimension WMBT with 3 layered acceptances (UI/API/DB) kept together under
-    gate ALL
-  negative:
-  - A WMBT with 6 acceptances (exceeds cap)
-  - A WMBT stating "minimize time while maximizing reliability" (mixed dimensions
-    — must split)

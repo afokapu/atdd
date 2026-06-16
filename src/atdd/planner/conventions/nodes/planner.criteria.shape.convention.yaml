@@ -1,17 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.criteria.shape
 kind: rule
 status: active
+name: 'Criteria: Shape'
+statement: 'Criteria entries follow the documented shape: id, description, harness,
+  and expected_outcome.'
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
   legacy_sha: sha256:db262e7f5fb06226
   extraction_mode: high_fidelity
   legacy_rule_id: planner.criteria.shape
-statement: 'Criteria entries follow the documented shape: id, description, harness,
-  and expected_outcome.'
-rationale: A fixed criterion record shape lets tooling read criteria uniformly across
-  features and WMBTs, and a fixed harness catalog routes each criterion to the right
-  test scaffolding.
+  legacy_section: rules
+content:
+  summary: A fixed criterion record shape lets tooling read criteria uniformly across
+    features and WMBTs, and a fixed harness catalog routes each criterion to the right
+    test scaffolding.
+  normative_text: Criteria entries follow the documented shape (id, description, harness,
+    expected_outcome)
+metadata:
+  aliases:
+  - PLANNER-CRITERIA-SHAPE-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: criteria_entry
   label: An acceptance-criterion record

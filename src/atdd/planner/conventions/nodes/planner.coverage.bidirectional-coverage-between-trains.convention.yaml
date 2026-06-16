@@ -1,18 +1,46 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.coverage.bidirectional-coverage-between-trains
 kind: rule
 status: active
+name: 'Coverage: Bidirectional Coverage Between Trains'
+statement: A train and its wagons must reference each other bidirectionally - every
+  wagon appears in at least one train's participants, and every train participant
+  resolves to a real wagon manifest - leaving no orphan on either side.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
   legacy_sha: sha256:27e800378c584902
   extraction_mode: high_fidelity
   legacy_rule_id: planner.coverage.bidirectional-coverage-between-trains
-statement: A train and its wagons must reference each other bidirectionally - every
-  wagon appears in at least one train's participants, and every train participant
-  resolves to a real wagon manifest - leaving no orphan on either side.
-rationale: Bidirectional train-wagon references prevent orphaned wagons that no journey
-  ever runs and dangling train participants that point at wagons which do not exist.
-  This is the top edge of the coverage graph from Train down to Acceptance.
+  legacy_section: rules
+content:
+  summary: Bidirectional train-wagon references prevent orphaned wagons that no journey
+    ever runs and dangling train participants that point at wagons which do not exist.
+    This is the top edge of the coverage graph from Train down to Acceptance.
+  normative_text: Bidirectional coverage between trains and wagons
+  examples:
+  - every wagon slug appears in some train.participants, and every participant has
+    a manifest
+  counter_examples:
+  - a wagon manifest exists but no train lists it in participants (and it is not draft
+    or allow-listed)
+  - a train lists a participant wagon slug that has no wagon manifest
+  exceptions:
+  - Wagon slugs that are allowed to exist without appearing in any train. Used for
+    utility wagons, shared infrastructure, or wagons under development.
+  - Wagons with status draft are exempt from the wagon -> train requirement because
+    draft artifacts are work-in-progress and not yet ready for full coverage.
+metadata:
+  aliases:
+  - COVERAGE-PLAN-2.1
+  disposition: documentation-only
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: train
   text: an ordered journey composed of wagons, listed via its participants
@@ -41,11 +69,3 @@ terms:
   values:
     exempted_status: draft
     exempted_from: COVERAGE-PLAN-2.1
-examples:
-  positive:
-  - every wagon slug appears in some train.participants, and every participant has
-    a manifest
-  negative:
-  - a wagon manifest exists but no train lists it in participants (and it is not draft
-    or allow-listed)
-  - a train lists a participant wagon slug that has no wagon manifest

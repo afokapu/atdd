@@ -1,17 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.criteria.plane-keywords
 kind: rule
 status: active
+name: 'Criteria: Plane Keywords'
+statement: Criterion text is routed to one of four planes (presentation, application,
+  domain, integration) by matching documented keyword lists, and each plane carries
+  a default sequence step.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
   legacy_sha: sha256:db262e7f5fb06226
   extraction_mode: high_fidelity
-statement: Criterion text is routed to one of four planes (presentation, application,
-  domain, integration) by matching documented keyword lists, and each plane carries
-  a default sequence step.
-rationale: Keyword routing lets the planner infer which architectural plane a criterion
-  exercises from its prose, so the right harness and sequence step are selected without
-  the author hand-classifying every criterion.
+  legacy_section: plane-keywords
+content:
+  summary: Keyword routing lets the planner infer which architectural plane a criterion
+    exercises from its prose, so the right harness and sequence step are selected
+    without the author hand-classifying every criterion.
+  examples:
+  - '"render the success modal" -> presentation plane (keyword: render/modal)'
+  - '"persist the order to the repository" -> integration plane (keyword: persist/repository)'
+  counter_examples:
+  - routing a "validate the invoice total" criterion to presentation
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: presentation_keywords
   label: Presentation-plane keywords
@@ -73,9 +89,3 @@ terms:
     application: use_case
     domain: validate
     integration: persist
-examples:
-  positive:
-  - '"render the success modal" -> presentation plane (keyword: render/modal)'
-  - '"persist the order to the repository" -> integration plane (keyword: persist/repository)'
-  negative:
-  - routing a "validate the invoice total" criterion to presentation

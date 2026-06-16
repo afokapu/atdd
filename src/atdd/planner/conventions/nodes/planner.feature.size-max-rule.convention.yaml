@@ -1,17 +1,28 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.feature.size-max-rule
 kind: constraint
 status: active
+name: 'Feature: Size Max Rule'
+statement: A feature's final size is the maximum of its WMBT-count size and its footprint
+  size; features MUST be S or smaller, and any M or larger feature must be split or
+  staged before execution.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/feature.convention.yaml
   legacy_sha: sha256:4a95544261fb9541
   extraction_mode: high_fidelity
-statement: A feature's final size is the maximum of its WMBT-count size and its footprint
-  size; features MUST be S or smaller, and any M or larger feature must be split or
-  staged before execution.
-rationale: Taking the max of the two independent sizing signals prevents either a
-  large outcome set or a heavy architectural footprint from slipping through, and
-  the hard S ceiling keeps each feature tractable for AI-agent work.
+  legacy_section: size-max-rule
+content:
+  summary: Taking the max of the two independent sizing signals prevents either a
+    large outcome set or a heavy architectural footprint from slipping through, and
+    the hard S ceiling keeps each feature tractable for AI-agent work.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: blended_max_rule
   label: Blended max sizing rule

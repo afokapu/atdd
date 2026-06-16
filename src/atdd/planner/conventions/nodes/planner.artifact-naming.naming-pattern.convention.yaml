@@ -1,19 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.artifact-naming.naming-pattern
 kind: pattern
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
-  legacy_sha: sha256:eca68a67c92694c9
-  extraction_mode: high_fidelity
+name: 'Artifact Naming: Naming Pattern'
 statement: An artifact name follows the grammar {theme}(:{category})*:{aspect}(.{variant})?
   where every segment is kebab-case matching ^[a-z][a-z0-9-]*$; theme is required
   and appears once, categories are zero or more colon-separated hierarchy segments,
   aspect is the required final leaf noun, and variant is an optional dot-separated
   lateral facet.
-rationale: A single fixed grammar with a strict per-segment regex makes names parseable,
-  collision-safe, and directly mappable to contract file paths, so the physical layout
-  is derivable from the logical name.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+  legacy_section: naming-pattern
+content:
+  summary: A single fixed grammar with a strict per-segment regex makes names parseable,
+    collision-safe, and directly mappable to contract file paths, so the physical
+    layout is derivable from the logical name.
+  examples:
+  - 'commons:telemetry:observability:traces:span:context  # 6 hierarchy levels'
+  - 'scenario:fragments  # simplest theme:aspect form'
+  counter_examples:
+  - 'Gesture.Raw  # not kebab-case, violates ^[a-z][a-z0-9-]*$'
+  - 'gesture.raw  # missing required theme segment'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: full_grammar
   label: The full naming grammar
@@ -157,10 +174,3 @@ terms:
     - sensory:gesture.raw
     - match:config.duel
     - commons:ux:foundations:color.primary
-examples:
-  positive:
-  - 'commons:telemetry:observability:traces:span:context  # 6 hierarchy levels'
-  - 'scenario:fragments  # simplest theme:aspect form'
-  negative:
-  - 'Gesture.Raw  # not kebab-case, violates ^[a-z][a-z0-9-]*$'
-  - 'gesture.raw  # missing required theme segment'

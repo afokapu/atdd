@@ -138,24 +138,29 @@ def create_convention_node(
     *,
     kind: str = "rule",
     status: str = "active",
+    name: str | None = None,
     statement: str = "",
-    rationale: str | None = None,
-    notes: str | None = None,
-    terms: list | None = None,
-    examples: dict | None = None,
+    implementation: dict | None = None,
     source: dict | None = None,
+    content: dict | None = None,
+    metadata: dict | None = None,
+    parity: dict | None = None,
+    terms: list | None = None,
     root: Path | str | None = None,
     path: Path | str | None = None,
 ) -> Path:
-    """Author one flat schema-valid convention-node file; return its path.
+    """Author one flat schema-valid convention-node (1.1.0); return its path.
 
     Per-rule_id file => conflict-free with sibling rules. Validates input
     (spine) and node (schema) before writing; never writes a partial artifact.
     When ``path`` is given (e.g. an extension home) it is used verbatim;
     otherwise the core ``<root>/<role>/conventions/nodes/`` home is computed.
-    ``rationale``, ``examples`` and ``notes`` are the §5.3 optional-but-
-    recommended fields; each is emitted (in §5.1 field order) only when
-    provided. ``terms`` may carry the §5.1 optional ``label``/``values``/
+
+    Emits the canonical 1.1.0 field order: identity (schema_version, rule_id,
+    kind, status, name), ``statement``, the ``implementation`` enforcement
+    binding, ``source`` provenance, the ``content`` body, ``metadata``,
+    ``parity`` tracking, then ``terms``. Every optional block is emitted only
+    when provided. ``terms`` may carry the optional ``label``/``values``/
     ``examples`` keys per term and are written through verbatim.
     """
     if path is not None:
@@ -167,24 +172,26 @@ def create_convention_node(
         home_root = str(root)
     validate_author_input(role, rule_id, path, home_root=home_root)
 
-    # field order: identity, source provenance, then §5.1 semantic body
-    # (statement, rationale, terms, examples, notes).
     node: dict = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "rule_id": rule_id,
         "kind": kind,
         "status": status,
     }
+    if name:
+        node["name"] = name
+    node["statement"] = statement
+    if implementation:
+        node["implementation"] = implementation
     if source:
         node["source"] = source
-    node["statement"] = statement
-    if rationale:
-        node["rationale"] = rationale
+    if content:
+        node["content"] = content
+    if metadata:
+        node["metadata"] = metadata
+    if parity:
+        node["parity"] = parity
     node["terms"] = terms or []
-    if examples:
-        node["examples"] = examples
-    if notes:
-        node["notes"] = notes
     validate_convention_node(node, path)
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -215,9 +222,17 @@ def build_parser() -> argparse.ArgumentParser:
     cn.add_argument("--rule-id", required=True, dest="rule_id", help="canonical rule_id")
     cn.add_argument("--kind", default="rule", help=f"one of {', '.join(KINDS)}")
     cn.add_argument("--status", default="active", help=f"one of {', '.join(STATUSES)}")
+    cn.add_argument("--name", default=None, help="human-readable display name")
     cn.add_argument("--statement", default="", help="one-sentence rule statement")
-    cn.add_argument("--rationale", default=None, help="why this convention exists (spec §5.3, optional)")
-    cn.add_argument("--note", dest="notes", default=None, help="optional clarification (spec §5.3 notes)")
+    cn.add_argument("--impl-type", default=None, dest="impl_type",
+                    choices=["validator", "manual", "advisory", "none"],
+                    help="implementation/enforcement type (1.1.0)")
+    cn.add_argument("--impl-ref", default=None, dest="impl_ref",
+                    help="implementation ref, e.g. <module>::<test> for type=validator")
+    cn.add_argument("--rationale", default=None, help="content.summary — why this convention exists")
+    cn.add_argument("--normative", default=None, help="content.normative_text — the full normative body")
+    cn.add_argument("--note", dest="notes", default=None, help="content.operational_guidance")
+    cn.add_argument("--fix-hint", dest="fix_hint", default=None, help="content.fix_hint — remediation guidance")
     cn.add_argument(
         "--term", action="append", default=[], dest="terms",
         help="a term as 'term_id=text' (repeatable)",
@@ -404,11 +419,25 @@ def run(argv: list[str]) -> int:
         else:
             role = args.rule_id.split(".", 1)[0]  # extension: derive role from rule_id
         path = node_home(ctx, role, args.rule_id, root)
-        examples: dict = {}
+        content: dict = {}
+        if args.rationale:
+            content["summary"] = args.rationale
+        if args.normative:
+            content["normative_text"] = args.normative
+        if args.notes:
+            content["operational_guidance"] = args.notes
         if args.examples_positive:
-            examples["positive"] = list(args.examples_positive)
+            content["examples"] = list(args.examples_positive)
         if args.examples_negative:
-            examples["negative"] = list(args.examples_negative)
+            content["counter_examples"] = list(args.examples_negative)
+        if args.fix_hint:
+            content["fix_hint"] = args.fix_hint
+        implementation: dict = {}
+        if args.impl_type:
+            implementation["type"] = args.impl_type
+        if args.impl_ref:
+            implementation.setdefault("type", "validator")
+            implementation["ref"] = args.impl_ref
         source: dict = {}
         for key in ("legacy_path", "legacy_section", "legacy_rule_id", "extraction_mode"):
             val = getattr(args, key)
@@ -417,9 +446,9 @@ def run(argv: list[str]) -> int:
         try:
             create_convention_node(
                 role, args.rule_id, kind=args.kind, status=args.status,
-                statement=args.statement, rationale=args.rationale, notes=args.notes,
-                terms=_parse_terms(args.terms), examples=examples or None,
-                source=source or None, path=path,
+                name=args.name, statement=args.statement,
+                implementation=implementation or None, source=source or None,
+                content=content or None, terms=_parse_terms(args.terms), path=path,
             )
         except AuthorInputError as exc:
             logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})

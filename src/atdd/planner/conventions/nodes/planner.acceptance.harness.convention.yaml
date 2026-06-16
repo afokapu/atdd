@@ -1,19 +1,45 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.harness
 kind: rule
 status: active
+name: 'Acceptance: Harness'
+statement: Each acceptance criterion declares a harness type (e.g. unit, http, e2e,
+  integration, smoke) so the verification layer is explicit and coverage/routing can
+  reason about where the check runs.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
   legacy_sha: sha256:027e2d86ff127550
   extraction_mode: high_fidelity
   legacy_rule_id: planner.acceptance.harness
-statement: Each acceptance criterion declares a harness type (e.g. unit, http, e2e,
-  integration, smoke) so the verification layer is explicit and coverage/routing can
-  reason about where the check runs.
-rationale: Declaring the harness type makes each acceptance's verification layer explicit,
-  so coverage and routing can reason about where a check runs. The harness code is
-  also baked into the acceptance URN (acc:{wagon}:{wmbt_id}-{HARNESS}-{NNN}) for quick
-  routing visibility.
+  legacy_section: rules
+content:
+  summary: Declaring the harness type makes each acceptance's verification layer explicit,
+    so coverage and routing can reason about where a check runs. The harness code
+    is also baked into the acceptance URN (acc:{wagon}:{wmbt_id}-{HARNESS}-{NNN})
+    for quick routing visibility.
+  normative_text: Each acceptance criterion declares a harness type (UNIT, INTEGRATION,
+    SMOKE, etc.)
+  examples:
+  - 'harness: {type: unit}    # -> URN facet UNIT, typical layers domain/application'
+  - 'harness: {type: e2e}     # -> URN facet E2E, drives the UI like a user'
+  - 'harness: {type: smoke}   # -> URN facet SMOKE, live-infrastructure tier'
+  counter_examples:
+  - 'harness: {type: api}     # not in the map; HTTP is the real code for http handlers'
+  - acceptance with no declared harness type
+metadata:
+  aliases:
+  - PLANNER-ACCEPTANCE-HARNESS-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: acceptance_criterion
   label: What declares a harness
@@ -75,11 +101,3 @@ terms:
     - integration
     integration:
     - integration
-examples:
-  positive:
-  - 'harness: {type: unit}    # -> URN facet UNIT, typical layers domain/application'
-  - 'harness: {type: e2e}     # -> URN facet E2E, drives the UI like a user'
-  - 'harness: {type: smoke}   # -> URN facet SMOKE, live-infrastructure tier'
-  negative:
-  - 'harness: {type: api}     # not in the map; HTTP is the real code for http handlers'
-  - acceptance with no declared harness type

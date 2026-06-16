@@ -1,17 +1,32 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.max-per-wmbt
 kind: constraint
 status: active
+name: 'Acceptance: Max Per Wmbt'
+statement: Keep acceptances to at most 5 per WMBT (max_per_wmbt = 5); if more are
+  needed, split the WMBT into clearer outcomes. Each acceptance maps 1:1 to a test
+  and to exactly one metric_id.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
   legacy_sha: sha256:027e2d86ff127550
   extraction_mode: high_fidelity
-statement: Keep acceptances to at most 5 per WMBT (max_per_wmbt = 5); if more are
-  needed, split the WMBT into clearer outcomes. Each acceptance maps 1:1 to a test
-  and to exactly one metric_id.
-rationale: A hard cap of five acceptances per WMBT forces authors to split overloaded
-  WMBTs into clearer outcomes instead of accreting criteria, keeping the acceptance-to-test
-  ratio tractable and review cohesive.
+  legacy_section: max-per-wmbt
+content:
+  summary: A hard cap of five acceptances per WMBT forces authors to split overloaded
+    WMBTs into clearer outcomes instead of accreting criteria, keeping the acceptance-to-test
+    ratio tractable and review cohesive.
+  examples:
+  - A WMBT with 4 acceptances, each bound to one metric_id
+  counter_examples:
+  - A WMBT with 7 acceptances (exceeds the cap of 5 — split the WMBT)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: acceptance_cap
   label: acceptance cap (<=5)
@@ -37,8 +52,3 @@ terms:
   label: collocation
   text: Store WMBT, acceptances, tests, and generated artifacts together to keep history
     and review cohesive.
-examples:
-  positive:
-  - A WMBT with 4 acceptances, each bound to one metric_id
-  negative:
-  - A WMBT with 7 acceptances (exceeds the cap of 5 — split the WMBT)

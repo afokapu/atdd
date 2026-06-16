@@ -1,18 +1,44 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.coverage.bidirectional-coverage-between-wagons
 kind: rule
 status: active
+name: 'Coverage: Bidirectional Coverage Between Wagons'
+statement: A wagon and its features must reference each other bidirectionally - every
+  feature file is referenced by its wagon manifest, and every features[] entry resolves
+  to a real feature YAML file - leaving no orphan on either side.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
   legacy_sha: sha256:27e800378c584902
   extraction_mode: high_fidelity
   legacy_rule_id: planner.coverage.bidirectional-coverage-between-wagons
-statement: A wagon and its features must reference each other bidirectionally - every
-  feature file is referenced by its wagon manifest, and every features[] entry resolves
-  to a real feature YAML file - leaving no orphan on either side.
-rationale: Bidirectional wagon-feature references prevent orphaned features that no
-  wagon owns and dangling features[] entries that point at YAML files which do not
-  exist. This is the Wagon-to-Feature edge of the coverage graph.
+  legacy_section: rules
+content:
+  summary: Bidirectional wagon-feature references prevent orphaned features that no
+    wagon owns and dangling features[] entries that point at YAML files which do not
+    exist. This is the Wagon-to-Feature edge of the coverage graph.
+  normative_text: Bidirectional coverage between wagons and features
+  examples:
+  - every feature YAML is listed in some wagon's features[], and every features[]
+    entry has a YAML file
+  counter_examples:
+  - a feature YAML file exists but no wagon manifest references it (and it is not
+    allow-listed)
+  - a wagon's features[] lists a URN with no corresponding feature YAML file
+  exceptions:
+  - Feature URNs that are allowed to exist without a wagon manifest reference. Used
+    for deprecated features being phased out, or experimental features.
+metadata:
+  aliases:
+  - COVERAGE-PLAN-2.2
+  disposition: documentation-only
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: wagon
   text: a unit of work that owns features via its features[] list and owns WMBTs
@@ -33,11 +59,3 @@ terms:
     name: features_orphaned
     config_path: coverage.exceptions.features_orphaned
     use_case: Deprecated features being phased out, or experimental features
-examples:
-  positive:
-  - every feature YAML is listed in some wagon's features[], and every features[]
-    entry has a YAML file
-  negative:
-  - a feature YAML file exists but no wagon manifest references it (and it is not
-    allow-listed)
-  - a wagon's features[] lists a URN with no corresponding feature YAML file

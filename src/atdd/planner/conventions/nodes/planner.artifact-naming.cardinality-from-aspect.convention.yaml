@@ -1,18 +1,34 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.artifact-naming.cardinality-from-aspect
 kind: rule
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
-  legacy_sha: sha256:eca68a67c92694c9
-  extraction_mode: high_fidelity
+name: 'Artifact Naming: Cardinality From Aspect'
 statement: 'The aspect - the final noun before any variant - determines cardinality:
   a plural aspect denotes a collection/array schema, a singular aspect denotes a single
   item. Category segments and variant segments never affect cardinality, even when
   they themselves are plural.'
-rationale: Anchoring cardinality on a single, well-defined position (the aspect) makes
-  the one-vs-many meaning of a name unambiguous and lets singular and plural forms
-  of the same resource coexist as distinct schemas.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+  legacy_section: cardinality-from-aspect
+content:
+  summary: Anchoring cardinality on a single, well-defined position (the aspect) makes
+    the one-vs-many meaning of a name unambiguous and lets singular and plural forms
+    of the same resource coexist as distinct schemas.
+  examples:
+  - 'scenario:fragments  # plural aspect -> array/collection'
+  - 'scenario:fragment  # singular aspect -> single item'
+  counter_examples:
+  - 'scenario:fragments  # treated as a single item (ignores plural aspect)'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: collection_indicator
   label: Plural aspect = collection
@@ -77,9 +93,3 @@ terms:
     - singular: commons:ux:foundations:color
       plural: commons:ux:foundations:colors
       difference: one color vs array of colors
-examples:
-  positive:
-  - 'scenario:fragments  # plural aspect -> array/collection'
-  - 'scenario:fragment  # singular aspect -> single item'
-  negative:
-  - 'scenario:fragments  # treated as a single item (ignores plural aspect)'

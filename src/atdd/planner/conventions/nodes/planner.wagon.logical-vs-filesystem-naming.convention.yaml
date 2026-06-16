@@ -1,17 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wagon.logical-vs-filesystem-naming
 kind: rule
 status: active
+name: 'Wagon: Logical Vs Filesystem Naming'
+statement: Logical identifiers (URNs, slug fields, YAML references) use kebab-case
+  with hyphens; the filesystem (directories, manifest files, feature files) uses snake_case
+  with underscores, derived by slug.replace('-', '_').
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
   legacy_sha: sha256:ee0a3e1d5af414c9
   extraction_mode: high_fidelity
-statement: Logical identifiers (URNs, slug fields, YAML references) use kebab-case
-  with hyphens; the filesystem (directories, manifest files, feature files) uses snake_case
-  with underscores, derived by slug.replace('-', '_').
-rationale: Consistent filesystem naming reduces conversion complexity and keeps a
-  clear separation between the logical plane (kebab) and the physical plane (snake),
-  so the same wagon is addressable by URN and locatable on disk without ambiguity.
+  legacy_section: logical-vs-filesystem-naming
+content:
+  summary: Consistent filesystem naming reduces conversion complexity and keeps a
+    clear separation between the logical plane (kebab) and the physical plane (snake),
+    so the same wagon is addressable by URN and locatable on disk without ambiguity.
+  examples:
+  - feature:authenticate-identity:verify-session → plan/authenticate_identity/ → _authenticate_identity.yaml
+    → features/verify_session.yaml
+  counter_examples:
+  - 'plan/authenticate-identity/_authenticate-identity.yaml  # both must be snake_case'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: logical_identifiers
   label: Kebab-case logical plane
@@ -87,9 +103,3 @@ terms:
     dirname_to_slug: dirname.replace('_', '-')
     feature_slug_to_filename: feature_slug.replace('-', '_') + '.yaml'
     feature_filename_to_slug: filename.replace('_', '-').replace('.yaml', '')
-examples:
-  positive:
-  - feature:authenticate-identity:verify-session → plan/authenticate_identity/ → _authenticate_identity.yaml
-    → features/verify_session.yaml
-  negative:
-  - 'plan/authenticate-identity/_authenticate-identity.yaml  # both must be snake_case'

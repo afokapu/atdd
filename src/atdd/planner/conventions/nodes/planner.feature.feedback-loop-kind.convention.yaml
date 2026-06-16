@@ -1,19 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.feature.feedback-loop-kind
 kind: rule
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
-  legacy_sha: sha256:4a95544261fb9541
-  extraction_mode: high_fidelity
+name: 'Feature: Feedback Loop Kind'
 statement: A feature may declare an optional kind field; the value feedback-loop marks
   a producer→consumer correction loop and triggers planner.smoke.feedback-loop-close-the-loop,
   which requires at least one SMOKE acceptance carrying a close_the_loop block (consumer_reacted
   and drift_resolved).
-rationale: Explicitly tagging the feedback-loop archetype lets validators activate
-  only for features that claim it (existing features without kind are unaffected),
-  and binding it to a close_the_loop SMOKE acceptance forces proof that the loop actually
-  closes rather than merely emitting a correction.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_sha: sha256:4a95544261fb9541
+  extraction_mode: high_fidelity
+  legacy_section: feedback-loop-kind
+content:
+  summary: Explicitly tagging the feedback-loop archetype lets validators activate
+    only for features that claim it (existing features without kind are unaffected),
+    and binding it to a close_the_loop SMOKE acceptance forces proof that the loop
+    actually closes rather than merely emitting a correction.
+  exceptions:
+  - For a docs-only feedback-loop feature, suppress the rule inline on the kind line
+    using the suppression comment with a mandatory UNTIL date.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: kind_field
   label: The optional kind field

@@ -1,19 +1,38 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.steps.sequence
 kind: rule
 status: active
+name: 'Steps: Sequence'
+statement: A wagon procedure is expressed as the ordered 9-step JTBD taxonomy (define,
+  locate, prepare, confirm, execute, monitor, modify, resolve, conclude); each step
+  declares its purpose, its guiding question, and its outputs.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/steps.convention.yaml
   legacy_sha: sha256:47795a1feaa5508c
   extraction_mode: high_fidelity
   legacy_rule_id: planner.steps.sequence
-statement: A wagon procedure is expressed as the ordered 9-step JTBD taxonomy (define,
-  locate, prepare, confirm, execute, monitor, modify, resolve, conclude); each step
-  declares its purpose, its guiding question, and its outputs.
-rationale: A single ordered 9-step taxonomy with minimal routable architecture mapping
-  makes a wagon procedure reproducible and checkable. Each step's purpose, question,
-  and outputs pin down what the step is for and what it must yield, rather than leaving
-  the sequence implicit.
+  legacy_section: rules
+content:
+  summary: A single ordered 9-step taxonomy with minimal routable architecture mapping
+    makes a wagon procedure reproducible and checkable. Each step's purpose, question,
+    and outputs pin down what the step is for and what it must yield, rather than
+    leaving the sequence implicit.
+  normative_text: Steps are ordered, numbered, and each declares pre-conditions and
+    outputs
+metadata:
+  aliases:
+  - PLANNER-STEPS-SEQUENCE-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: jtbd_step_taxonomy
   label: The ordered 9-step JTBD taxonomy

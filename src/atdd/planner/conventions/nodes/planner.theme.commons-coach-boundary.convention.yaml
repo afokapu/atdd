@@ -1,17 +1,48 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.theme.commons-coach-boundary
 kind: constraint
 status: active
+name: 'Theme: Commons Coach Boundary'
+statement: A wagon themed commons must not have any source module that imports atdd.coach;
+  coach-only machinery must be themed coach.
+implementation:
+  type: validator
+  ref: test_theme_commons_coach_boundary::test_commons_wagons_do_not_import_coach
 source:
   legacy_path: src/atdd/planner/conventions/theme.convention.yaml
   legacy_sha: sha256:2ae106d04d77b06e
   extraction_mode: high_fidelity
   legacy_rule_id: planner.theme.commons-coach-boundary
-statement: A wagon themed commons must not have any source module that imports atdd.coach;
-  coach-only machinery must be themed coach.
-rationale: The commons-vs-coach line is the one sharp ownership boundary in the theme
-  taxonomy. Keeping coach internals out of commons lets any non-coach archetype consume
-  commons artifacts without pulling in the orchestrator.
+  legacy_section: rules
+content:
+  summary: The commons-vs-coach line is the one sharp ownership boundary in the theme
+    taxonomy. Keeping coach internals out of commons lets any non-coach archetype
+    consume commons artifacts without pulling in the orchestrator.
+  normative_text: 'A wagon themed `commons` MUST NOT have any source module that imports
+    `atdd.coach`. Coach-only machinery (multiplexer/pane spawn, durable run persistence,
+    the Feed daemon, worker-decision mediation) MUST be themed `coach`. Known deferred
+    violation: mediate-worker-decisions (commons, imports coach) — suppressed UNTIL
+    the #951 co-land re-theme.'
+  examples:
+  - 'theme: commons  # worktree, graph, URN, config, telemetry — no coach import'
+  counter_examples:
+  - 'theme: commons  # but src imports atdd.coach (multiplexer, Feed daemon, durable
+    runs)'
+  exceptions:
+  - mediate-worker-decisions is themed commons but imports coach; the violation is
+    suppressed UNTIL the
+metadata:
+  aliases:
+  - PLANNER-THEME-BOUNDARY-001
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.92.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: commons_boundary_test
   label: The IFF definition of a commons wagon
@@ -41,9 +72,3 @@ terms:
   values:
     wagon: mediate-worker-decisions
     suppressed_until: '#951 co-land re-theme'
-examples:
-  positive:
-  - 'theme: commons  # worktree, graph, URN, config, telemetry — no coach import'
-  negative:
-  - 'theme: commons  # but src imports atdd.coach (multiplexer, Feed daemon, durable
-    runs)'

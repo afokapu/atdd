@@ -1,17 +1,40 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wagon.urn
 kind: rule
 status: active
+name: 'Wagon: Urn'
+statement: Wagons declare a stable URN of the form wagon:{kebab-case-name} and live
+  under plan/<wagon-slug>/ with the documented file layout.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
   legacy_sha: sha256:ee0a3e1d5af414c9
   extraction_mode: high_fidelity
   legacy_rule_id: planner.wagon.urn
-statement: Wagons declare a stable URN of the form wagon:{kebab-case-name} and live
-  under plan/<wagon-slug>/ with the documented file layout.
-rationale: A stable wagon URN and fixed layout make wagons addressable and discoverable
-  by the graph and tooling. Keeping logical identifiers in kebab-case and the filesystem
-  in snake_case reduces conversion complexity and keeps the two planes cleanly separated.
+  legacy_section: rules
+content:
+  summary: A stable wagon URN and fixed layout make wagons addressable and discoverable
+    by the graph and tooling. Keeping logical identifiers in kebab-case and the filesystem
+    in snake_case reduces conversion complexity and keeps the two planes cleanly separated.
+  normative_text: Wagons declare a stable URN and live under plan/<wagon-slug>/ with
+    the documented file layout
+  examples:
+  - 'urn: wagon:resolve-dilemmas  # → plan/resolve_dilemmas/_resolve_dilemmas.yaml'
+  counter_examples:
+  - 'urn: wagon:Resolve-Dilemmas  # uppercase not allowed'
+metadata:
+  aliases:
+  - PLANNER-WAGON-URN-001
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: wagon_urn
   label: The wagon URN grammar
@@ -66,8 +89,3 @@ terms:
     negative:
     - 'plan/authenticate_identity/_authenticate-identity.yaml  # manifest must match
       dirname'
-examples:
-  positive:
-  - 'urn: wagon:resolve-dilemmas  # → plan/resolve_dilemmas/_resolve_dilemmas.yaml'
-  negative:
-  - 'urn: wagon:Resolve-Dilemmas  # uppercase not allowed'

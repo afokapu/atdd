@@ -1,18 +1,40 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.artifact-naming.anti-patterns
 kind: anti_pattern
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
-  legacy_sha: sha256:eca68a67c92694c9
-  extraction_mode: high_fidelity
+name: 'Artifact Naming: Anti Patterns'
 statement: 'Artifact names must avoid the seven recognized anti-patterns: wrong_separator_for_hierarchy,
   wrong_separator_for_variant, missing_theme, too_many_dots, unnecessary_hierarchy,
   generic_aspect, and theme_in_aspect. Each has a canonical fix that restores correct
   separator semantics, a theme, the right depth, or a meaningful aspect.'
-rationale: Naming each failure mode with its bad form and fix turns vague style advice
-  into a checklist a planner can apply, catching separator misuse, missing ownership
-  context, over-specification, and vague or redundant aspects.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+  legacy_section: anti-patterns
+content:
+  summary: Naming each failure mode with its bad form and fix turns vague style advice
+    into a checklist a planner can apply, catching separator misuse, missing ownership
+    context, over-specification, and vague or redundant aspects.
+  examples:
+  - 'commons:ux:foundations:color  # colons for depth (corrects wrong_separator_for_hierarchy)'
+  - 'sensory:feedback.visual  # no theme repeated in aspect (corrects theme_in_aspect)'
+  counter_examples:
+  - 'commons:ux.foundations.color  # wrong_separator_for_hierarchy'
+  - 'sensory:gesture:raw  # wrong_separator_for_variant'
+  - 'gesture.raw  # missing_theme'
+  - 'commons:identifiers.uuid.v7.timestamp.encoded  # too_many_dots'
+  - 'match:config:base:standard  # unnecessary_hierarchy'
+  - 'match:data  # generic_aspect'
+  - 'sensory:sensory-feedback.visual  # theme_in_aspect'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: separator_anti_patterns
   label: Separator misuse
@@ -72,15 +94,3 @@ terms:
     - 'commons:identifiers.uuid.v7.timestamp.encoded  # too_many_dots -> commons:identifiers.uuid'
     - 'match:config:base:standard  # unnecessary_hierarchy -> match:config'
     - 'match:data  # generic_aspect -> match:state.committed'
-examples:
-  positive:
-  - 'commons:ux:foundations:color  # colons for depth (corrects wrong_separator_for_hierarchy)'
-  - 'sensory:feedback.visual  # no theme repeated in aspect (corrects theme_in_aspect)'
-  negative:
-  - 'commons:ux.foundations.color  # wrong_separator_for_hierarchy'
-  - 'sensory:gesture:raw  # wrong_separator_for_variant'
-  - 'gesture.raw  # missing_theme'
-  - 'commons:identifiers.uuid.v7.timestamp.encoded  # too_many_dots'
-  - 'match:config:base:standard  # unnecessary_hierarchy'
-  - 'match:data  # generic_aspect'
-  - 'sensory:sensory-feedback.visual  # theme_in_aspect'

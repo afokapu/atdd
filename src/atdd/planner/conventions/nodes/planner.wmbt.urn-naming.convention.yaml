@@ -1,20 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wmbt.urn-naming
 kind: rule
 status: active
+name: 'Wmbt: Urn Naming'
+statement: A WMBT URN is built as wmbt:{wagon}:{STEP_CODE}{NNN} where wagon is a kebab-case
+  parent-wagon identifier, STEP_CODE is one of the nine single-letter step codes (D|L|P|C|E|M|Y|R|K),
+  and NNN is a three-digit zero-padded sequence in the range 001-999.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
   legacy_sha: sha256:040256ed5588a6c7
   extraction_mode: high_fidelity
-statement: A WMBT URN is built as wmbt:{wagon}:{STEP_CODE}{NNN} where wagon is a kebab-case
-  parent-wagon identifier, STEP_CODE is one of the nine single-letter step codes (D|L|P|C|E|M|Y|R|K),
-  and NNN is a three-digit zero-padded sequence in the range 001-999.
-rationale: A step-coded URN makes every WMBT globally unique within its wagon and
-  encodes the phase of work directly in the identifier, so the id alone tells a reader
-  which step (define/locate/.../conclude) the truth belongs to and where it sits in
-  sequence.
-notes: Built by utils.graph.URNBuilder.wmbt(wagon_id, sequence). The step-code vocabulary
-  is catalogued in planner.wmbt.step-code-vocabulary.
+  legacy_section: urn-naming
+content:
+  summary: A step-coded URN makes every WMBT globally unique within its wagon and
+    encodes the phase of work directly in the identifier, so the id alone tells a
+    reader which step (define/locate/.../conclude) the truth belongs to and where
+    it sits in sequence.
+  operational_guidance: Built by utils.graph.URNBuilder.wmbt(wagon_id, sequence).
+    The step-code vocabulary is catalogued in planner.wmbt.step-code-vocabulary.
+  examples:
+  - wmbt:resolve-dilemmas:E001 (wagon resolve-dilemmas, step execute, sequence 001)
+  - wmbt:burn-timebank:M045 (wagon burn-timebank, step monitor, sequence 045)
+  counter_examples:
+  - wmbt:resolve-dilemmas:1 (missing step code and zero-padding)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: urn_pattern
   label: The WMBT URN template
@@ -48,9 +64,3 @@ terms:
     - 'wmbt:user-mgmt:C23  # sequence not three-digit zero-padded'
     - 'wmbt:UserMgmt:C023  # wagon not kebab-case'
     - 'wmbt:user-mgmt:X023  # X is not a valid step code'
-examples:
-  positive:
-  - wmbt:resolve-dilemmas:E001 (wagon resolve-dilemmas, step execute, sequence 001)
-  - wmbt:burn-timebank:M045 (wagon burn-timebank, step monitor, sequence 045)
-  negative:
-  - wmbt:resolve-dilemmas:1 (missing step code and zero-padding)

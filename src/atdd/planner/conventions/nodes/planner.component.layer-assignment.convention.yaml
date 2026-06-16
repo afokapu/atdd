@@ -1,17 +1,32 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.component.layer-assignment
 kind: rule
 status: active
+name: 'Component: Layer Assignment'
+statement: A component is assigned to an architectural layer based on its artifact
+  type and responsibility, using the typical-layer mapping for events, states, data,
+  and configs.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/component.convention.yaml
   legacy_sha: sha256:8bfb25fd6c2bdb6e
   extraction_mode: high_fidelity
-statement: A component is assigned to an architectural layer based on its artifact
-  type and responsibility, using the typical-layer mapping for events, states, data,
-  and configs.
-rationale: A typical-layer mapping per artifact type gives the planner a default,
-  defensible placement for each component so layer assignment is consistent rather
-  than guessed case by case.
+  legacy_section: layer-assignment
+content:
+  summary: A typical-layer mapping per artifact type gives the planner a default,
+    defensible placement for each component so layer assignment is consistent rather
+    than guessed case by case.
+  examples:
+  - A state tracker placed at backend.domain
+  counter_examples:
+  - An external event publisher placed at backend.domain
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: events_layers
   label: Layers for event components
@@ -60,8 +75,3 @@ terms:
     examples:
     - MatchConfigurator → backend.application (coordinates match setup)
     - ConfigLoader → backend.integration (loads from external config store)
-examples:
-  positive:
-  - A state tracker placed at backend.domain
-  negative:
-  - An external event publisher placed at backend.domain

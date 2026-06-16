@@ -1,16 +1,35 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.component.business-focus
 kind: rule
 status: active
+name: 'Component: Business Focus'
+statement: Each component must have a single business capability, and its name must
+  reflect that primary business purpose.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/component.convention.yaml
   legacy_sha: sha256:8bfb25fd6c2bdb6e
   extraction_mode: high_fidelity
-statement: Each component must have a single business capability, and its name must
-  reflect that primary business purpose.
-rationale: One business capability per component keeps responsibilities sharp and
-  makes the component's name a faithful index of what it does, so the graph stays
-  readable and components stay swappable.
+  legacy_section: business-focus
+content:
+  summary: One business capability per component keeps responsibilities sharp and
+    makes the component's name a faithful index of what it does, so the graph stays
+    readable and components stay swappable.
+  examples:
+  - option-validator
+  - decision-processor
+  - dilemma-display
+  - choice-persister
+  - result-publisher
+  counter_examples:
+  - 'manager-helper-util  # vague, no single business capability'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: single_capability
   label: Single business capability
@@ -44,12 +63,3 @@ terms:
   text: Component names follow the pattern {business-capability}-{layer-role}.
   values:
     pattern: '{business-capability}-{layer-role}'
-examples:
-  positive:
-  - option-validator
-  - decision-processor
-  - dilemma-display
-  - choice-persister
-  - result-publisher
-  negative:
-  - 'manager-helper-util  # vague, no single business capability'

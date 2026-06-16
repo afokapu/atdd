@@ -1,17 +1,28 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.feature.footprint-scoring
 kind: rule
 status: active
+name: 'Feature: Footprint Scoring'
+statement: A feature's architectural footprint is scored by summing each component's
+  count times the weight of its component type, rounding up to the nearest integer,
+  and mapping the total onto the XS/S/M/L/XL point brackets.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/feature.convention.yaml
   legacy_sha: sha256:4a95544261fb9541
   extraction_mode: high_fidelity
-statement: A feature's architectural footprint is scored by summing each component's
-  count times the weight of its component type, rounding up to the nearest integer,
-  and mapping the total onto the XS/S/M/L/XL point brackets.
-rationale: A component-centric, weight-based score replaces abstract screen/endpoint/table
-  metrics with granular component types, so footprint correlates directly with build/test/deploy
-  effort and the risk surface of persistence, async, and integration work.
+  legacy_section: footprint-scoring
+content:
+  summary: A component-centric, weight-based score replaces abstract screen/endpoint/table
+    metrics with granular component types, so footprint correlates directly with build/test/deploy
+    effort and the risk surface of persistence, async, and integration work.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: complexity_rubric
   label: Universal 0-3 complexity rubric

@@ -1,18 +1,36 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.given-when-then-structure
 kind: constraint
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
-  legacy_sha: sha256:027e2d86ff127550
-  extraction_mode: high_fidelity
+name: 'Acceptance: Given When Then Structure'
 statement: An acceptance's structured given/when/then must follow the canonical shape
   — given declares only needed preconditions, when carries the harness-specific trigger
   (REQUIRED, with harness-specific required fields), and then is a REQUIRED array
   of assertions drawn from the assertion_kinds catalog.
-rationale: The structured given/when/then is what drives deterministic test generation;
-  fixing the precondition fields, the per-harness required WHEN fields, and the closed
-  set of assertion kinds keeps generated tests well-formed and reviewable.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_sha: sha256:027e2d86ff127550
+  extraction_mode: high_fidelity
+  legacy_section: given-when-then-structure
+content:
+  summary: The structured given/when/then is what drives deterministic test generation;
+    fixing the precondition fields, the per-harness required WHEN fields, and the
+    closed set of assertion kinds keeps generated tests well-formed and reviewable.
+  examples:
+  - "when:\n  abstract: \"User creates an account\"\n  method: \"POST\"\n  path: \"\
+    /api/users\"\nthen:\n  abstract: [\"Account is created\"]\n  assertions: [{kind:\
+    \ status, expect: 200}]\n"
+  counter_examples:
+  - when (http) missing required method/path
+  - then with no assertions array
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: given_fields
   label: GIVEN — setup and preconditions
@@ -70,11 +88,3 @@ terms:
     - 'state_changed — e.g. {kind: state_changed, expect: {entity: User, field: status}}'
     - 'metric — e.g. {kind: metric, expect: {name: response_time, operator: ''<'',
       value: 1000}}'
-examples:
-  positive:
-  - "when:\n  abstract: \"User creates an account\"\n  method: \"POST\"\n  path: \"\
-    /api/users\"\nthen:\n  abstract: [\"Account is created\"]\n  assertions: [{kind:\
-    \ status, expect: 200}]\n"
-  negative:
-  - when (http) missing required method/path
-  - then with no assertions array

@@ -1,17 +1,28 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.feature.artifact-seeded-naming
 kind: rule
 status: active
+name: 'Feature: Artifact Seeded Naming'
+statement: Feature names are seeded from the wagon's produce/consume artifacts; the
+  artifact's type (event, state, data, or config) selects the verb, and the object
+  comes from the artifact's domain or resource, combined as {verb}-{object} in kebab-case.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/feature.convention.yaml
   legacy_sha: sha256:4a95544261fb9541
   extraction_mode: high_fidelity
-statement: Feature names are seeded from the wagon's produce/consume artifacts; the
-  artifact's type (event, state, data, or config) selects the verb, and the object
-  comes from the artifact's domain or resource, combined as {verb}-{object} in kebab-case.
-rationale: Deriving feature names from artifacts ties every feature to a concrete
-  unit of work the wagon actually moves, and type-specific verb lists keep naming
-  consistent and prevent vague or miscellaneous buckets.
+  legacy_section: artifact-seeded-naming
+content:
+  summary: Deriving feature names from artifacts ties every feature to a concrete
+    unit of work the wagon actually moves, and type-specific verb lists keep naming
+    consistent and prevent vague or miscellaneous buckets.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: seeding_overview
   label: Artifacts are the primary seeds

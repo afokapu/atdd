@@ -1,17 +1,28 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.interface.naming-patterns
 kind: rule
 status: active
+name: 'Interface: Naming Patterns'
+statement: Produce and consume artifacts are named domain:activity-verb for signals/events
+  and domain:data-noun for state/data, where events are past-tense verbs, state is
+  nouns/adjectives, and collections are plural.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/interface.convention.yaml
   legacy_sha: sha256:3415a521b5eec18b
   extraction_mode: high_fidelity
-statement: Produce and consume artifacts are named domain:activity-verb for signals/events
-  and domain:data-noun for state/data, where events are past-tense verbs, state is
-  nouns/adjectives, and collections are plural.
-rationale: A consistent produce/consume naming convention makes an artifact's nature
-  (event vs state vs collection) legible from its name alone, so consumers know whether
-  they are reacting to a signal or reading data.
+  legacy_section: naming-patterns
+content:
+  summary: A consistent produce/consume naming convention makes an artifact's nature
+    (event vs state vs collection) legible from its name alone, so consumers know
+    whether they are reacting to a signal or reading data.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: naming_convention
   label: Event vs state vs collection naming

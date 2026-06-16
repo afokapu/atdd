@@ -1,23 +1,34 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.urn-generation
 kind: rule
 status: active
+name: 'Acceptance: Urn Generation'
+statement: Acceptance URNs are generated via utils.graph.URNBuilder.acceptance and
+  must match the pattern acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}], validated
+  by the canonical regex; colon marks hierarchy and dash marks the facet cluster.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
   legacy_sha: sha256:027e2d86ff127550
   extraction_mode: high_fidelity
-statement: Acceptance URNs are generated via utils.graph.URNBuilder.acceptance and
-  must match the pattern acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}], validated
-  by the canonical regex; colon marks hierarchy and dash marks the facet cluster.
-rationale: '- Makes the WMBT tie explicit (wmbt_id = step code + seq, e.g. C004)
+  legacy_section: urn-generation
+content:
+  summary: '- Makes the WMBT tie explicit (wmbt_id = step code + seq, e.g. C004)
 
-  - Bakes in harness visibility for quick routing
+    - Bakes in harness visibility for quick routing
 
-  - Keeps per-harness sequence (NNN) and allows an optional slug for readability
+    - Keeps per-harness sequence (NNN) and allows an optional slug for readability
 
-  - Enforces colon = hierarchy, dash = facet cluster
+    - Enforces colon = hierarchy, dash = facet cluster
 
-  '
+    '
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: urn_builder
   label: URNBuilder method

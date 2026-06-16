@@ -1,17 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wagon.semantic-coherence
 kind: constraint
 status: active
+name: 'Wagon: Semantic Coherence'
+statement: A refined wagon must pass the semantic coherence checks — its subject,
+  action, goal, context, and outcome must align, its produce/consume artifact ownership
+  must be correct, and at least one produce artifact must be external.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
   legacy_sha: sha256:ee0a3e1d5af414c9
   extraction_mode: high_fidelity
-statement: A refined wagon must pass the semantic coherence checks — its subject,
-  action, goal, context, and outcome must align, its produce/consume artifact ownership
-  must be correct, and at least one produce artifact must be external.
-rationale: Coherence checks catch refinements that are internally inconsistent (an
-  actor that cannot perform its action, an outcome unrelated to the action) or that
-  declare artifacts incorrectly, before the wagon is committed to the plan.
+  legacy_section: semantic-coherence
+content:
+  summary: Coherence checks catch refinements that are internally inconsistent (an
+    actor that cannot perform its action, an outcome unrelated to the action) or that
+    declare artifacts incorrectly, before the wagon is committed to the plan.
+  examples:
+  - A wagon whose narrative fields align, whose produce artifacts it owns, whose consume
+    artifacts belong to other wagons, and which exposes at least one external artifact.
+  counter_examples:
+  - A wagon that only produces internal artifacts, or that consumes its own output.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: narrative_coherence
   label: subject/action/goal/context/outcome alignment
@@ -54,9 +70,3 @@ terms:
     - 'produce: [{name: commons:ux:foundations}]  # external by default'
     negative:
     - 'produce: [{name: internal:cache, to: internal}]  # no external artifact'
-examples:
-  positive:
-  - A wagon whose narrative fields align, whose produce artifacts it owns, whose consume
-    artifacts belong to other wagons, and which exposes at least one external artifact.
-  negative:
-  - A wagon that only produces internal artifacts, or that consumes its own output.

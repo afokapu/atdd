@@ -1,16 +1,35 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.feature.wagon-link
 kind: rule
 status: active
+name: 'Feature: Wagon Link'
+statement: Each feature is registered under exactly one wagon's _features.yaml manifest.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/feature.convention.yaml
   legacy_sha: sha256:4a95544261fb9541
   extraction_mode: high_fidelity
   legacy_rule_id: planner.feature.wagon-link
-statement: Each feature is registered under exactly one wagon's _features.yaml manifest.
-rationale: Registering each feature under exactly one wagon keeps ownership unambiguous
-  and the manifest authoritative. A feature URN's wagon segment must match the wagon
-  whose manifest lists it.
+  legacy_section: rules
+content:
+  summary: Registering each feature under exactly one wagon keeps ownership unambiguous
+    and the manifest authoritative. A feature URN's wagon segment must match the wagon
+    whose manifest lists it.
+  normative_text: Each feature is registered under exactly one wagon's _features.yaml
+    manifest
+metadata:
+  aliases:
+  - PLANNER-FEATURE-WAGON-LINK-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: feature
   label: A capability slice of a wagon

@@ -1,17 +1,35 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.artifact-naming.schema-identifier
 kind: rule
 status: active
+name: 'Artifact Naming: Schema Identifier'
+statement: 'The JSON Schema $id is the clean artifact name with no urn:contract: prefix
+  and no version suffix; the version is a separate top-level field in the schema,
+  not part of $id, so artifact identity stays stable across versions.'
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
   legacy_sha: sha256:eca68a67c92694c9
   extraction_mode: high_fidelity
-statement: 'The JSON Schema $id is the clean artifact name with no urn:contract: prefix
-  and no version suffix; the version is a separate top-level field in the schema,
-  not part of $id, so artifact identity stays stable across versions.'
-rationale: Keeping the version out of the $id preserves a single stable identity for
-  an artifact across its versions, so graph references and consumers do not break
-  when a new version ships.
+  legacy_section: schema-identifier
+content:
+  summary: Keeping the version out of the $id preserves a single stable identity for
+    an artifact across its versions, so graph references and consumers do not break
+    when a new version ships.
+  examples:
+  - '$id: commons:ux:foundations:color  with separate version: 1.0.0'
+  - 'contract:sensory:gesture.raw  # URN reference in a wagon manifest'
+  counter_examples:
+  - 'mechanic:timebank.exhausted:v1  # version must not be embedded in $id'
+  - 'urn:contract:commons:identifiers.uuid  # $id must not carry the urn:contract:
+    prefix'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: id_field
   label: The $id field
@@ -51,11 +69,3 @@ terms:
     counter_example:
       wrong: mechanic:timebank.exhausted:v1
       reason: Version in $id breaks artifact identity stability
-examples:
-  positive:
-  - '$id: commons:ux:foundations:color  with separate version: 1.0.0'
-  - 'contract:sensory:gesture.raw  # URN reference in a wagon manifest'
-  negative:
-  - 'mechanic:timebank.exhausted:v1  # version must not be embedded in $id'
-  - 'urn:contract:commons:identifiers.uuid  # $id must not carry the urn:contract:
-    prefix'

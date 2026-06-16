@@ -1,25 +1,39 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.acceptance.execution-kind
 kind: rule
 status: active
+name: 'Acceptance: Execution Kind'
+statement: 'execution_kind is an orthogonal runtime-environment axis (issue #690)
+  that classifies an acceptance as either hermetic_integration or live_smoke; authors
+  keep selecting harness_codes/harness_types/category as before and ADD execution_kind.'
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
   legacy_sha: sha256:027e2d86ff127550
   extraction_mode: high_fidelity
-statement: 'execution_kind is an orthogonal runtime-environment axis (issue #690)
-  that classifies an acceptance as either hermetic_integration or live_smoke; authors
-  keep selecting harness_codes/harness_types/category as before and ADD execution_kind.'
-rationale: 'execution_kind is a NEW orthogonal axis introduced by issue #690. The
-  existing
+  legacy_section: execution-kind
+content:
+  summary: 'execution_kind is a NEW orthogonal axis introduced by issue #690. The
+    existing
 
-  harness_codes, harness_types, and category enums are unchanged — authors continue
+    harness_codes, harness_types, and category enums are unchanged — authors continue
 
-  selecting those and add execution_kind purely as the live-infrastructure vs
+    selecting those and add execution_kind purely as the live-infrastructure vs
 
-  hermetic runtime classifier.
+    hermetic runtime classifier.
 
-  '
-notes: SMOKE remains the live-infrastructure confidence tier.
+    '
+  operational_guidance: SMOKE remains the live-infrastructure confidence tier.
+  examples:
+  - 'execution_kind: hermetic_integration  # real subject, recorded http_wire cassette'
+  - 'execution_kind: live_smoke  # hits real deployed endpoint'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: hermetic_integration
   label: 'execution_kind: hermetic_integration'
@@ -40,7 +54,3 @@ terms:
     - harness_codes
     - harness_types
     - category
-examples:
-  positive:
-  - 'execution_kind: hermetic_integration  # real subject, recorded http_wire cassette'
-  - 'execution_kind: live_smoke  # hits real deployed endpoint'

@@ -1,18 +1,34 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.train.registry-two-file
 kind: rule
 status: active
+name: 'Train: Registry Two File'
+statement: Each train requires two files — a registry entry in plan/_trains.yaml and
+  a per-train spec file at plan/_trains/{train_id}.yaml — and every registry entry
+  MUST have a corresponding spec file (the planner phase gate fails if it is missing).
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
   legacy_sha: sha256:825602729f11a3a4
   extraction_mode: high_fidelity
-statement: Each train requires two files — a registry entry in plan/_trains.yaml and
-  a per-train spec file at plan/_trains/{train_id}.yaml — and every registry entry
-  MUST have a corresponding spec file (the planner phase gate fails if it is missing).
-rationale: Splitting the central manifest from the per-train spec keeps _trains.yaml
-  a scannable, theme-category-grouped index while the full workflow lives in flat
-  per-train files that sort naturally by train_id. Requiring the spec file for every
-  registry entry stops the manifest from listing trains that do not exist.
+  legacy_section: registry-two-file
+content:
+  summary: Splitting the central manifest from the per-train spec keeps _trains.yaml
+    a scannable, theme-category-grouped index while the full workflow lives in flat
+    per-train files that sort naturally by train_id. Requiring the spec file for every
+    registry entry stops the manifest from listing trains that do not exist.
+  examples:
+  - plan/_trains.yaml lists 0001-auth-session-standard and plan/_trains/0001-auth-session-standard.yaml
+    exists
+  counter_examples:
+  - A registry entry for 0001-auth-session-standard with no plan/_trains/0001-auth-session-standard.yaml
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: two_file_pattern
   label: Registry entry plus spec file
@@ -51,9 +67,3 @@ terms:
     rule: Every registry entry MUST have a corresponding spec file
     validator: SPEC-TRAIN-VAL-0003 (test_train_files_exist_for_registry_entries)
     enforcement: Planner phase gate fails if spec file missing
-examples:
-  positive:
-  - plan/_trains.yaml lists 0001-auth-session-standard and plan/_trains/0001-auth-session-standard.yaml
-    exists
-  negative:
-  - A registry entry for 0001-auth-session-standard with no plan/_trains/0001-auth-session-standard.yaml

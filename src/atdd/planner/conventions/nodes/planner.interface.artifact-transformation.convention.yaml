@@ -1,18 +1,30 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.interface.artifact-transformation
 kind: rule
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
-  legacy_sha: sha256:3415a521b5eec18b
-  extraction_mode: high_fidelity
+name: 'Interface: Artifact Transformation'
 statement: Produce/consume artifacts (WHAT) seed feature names (HOW) by combining
   a verb with the domain or resource - {verb}-{domain} when the domain is the focus,
   {verb}-{resource} when the resource is the focus - with verb choice driven by the
   artifact type (event, state, data, or config).
-rationale: Artifacts describe WHAT is produced/consumed (entities, states, events)
-  while features describe HOW to work with them (actions, capabilities). A consistent
-  transformation makes feature names derivable from artifacts so the plan stays coherent.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
+  legacy_sha: sha256:3415a521b5eec18b
+  extraction_mode: high_fidelity
+  legacy_section: artifact-transformation
+content:
+  summary: Artifacts describe WHAT is produced/consumed (entities, states, events)
+    while features describe HOW to work with them (actions, capabilities). A consistent
+    transformation makes feature names derivable from artifacts so the plan stays
+    coherent.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: object_rules
   label: Domain-as-object vs resource-as-object

@@ -1,18 +1,34 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.criteria.metric-mapping
 kind: rule
 status: active
-source:
-  legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
-  legacy_sha: sha256:db262e7f5fb06226
-  extraction_mode: high_fidelity
+name: 'Criteria: Metric Mapping'
 statement: A criterion's improvement dimension (time, likelihood, effort, frequency,
   quantity/amount, financial value) maps to a fixed metric URN keyed by direction
   (minimize, maximize, decrease, increase), so measurable outcomes resolve to a canonical
   metric.
-rationale: Binding each dimension+direction pair to a stable metric URN lets the expected_outcome
-  of a criterion become a measurable target that tooling can chart and gate on, instead
-  of free-text "make it faster".
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
+  legacy_sha: sha256:db262e7f5fb06226
+  extraction_mode: high_fidelity
+  legacy_section: metric-mapping
+content:
+  summary: Binding each dimension+direction pair to a stable metric URN lets the expected_outcome
+    of a criterion become a measurable target that tooling can chart and gate on,
+    instead of free-text "make it faster".
+  examples:
+  - time + minimize -> metric:latency_p50
+  - financial value + maximize -> metric:net_margin
+  counter_examples:
+  - 'effort + maximize  # effort only defines a decrease metric'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: time
   label: Time dimension metrics
@@ -50,9 +66,3 @@ terms:
   values:
     minimize: metric:cost_per_unit
     maximize: metric:net_margin
-examples:
-  positive:
-  - time + minimize -> metric:latency_p50
-  - financial value + maximize -> metric:net_margin
-  negative:
-  - 'effort + maximize  # effort only defines a decrease metric'

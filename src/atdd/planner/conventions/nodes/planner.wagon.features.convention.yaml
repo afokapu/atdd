@@ -1,15 +1,35 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.wagon.features
 kind: rule
 status: active
+name: 'Wagon: Features'
+statement: A wagon's _features.yaml lists every feature module and its current status.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
   legacy_sha: sha256:ee0a3e1d5af414c9
   extraction_mode: high_fidelity
   legacy_rule_id: planner.wagon.features
-statement: A wagon's _features.yaml lists every feature module and its current status.
-rationale: A complete _features.yaml index keeps a wagon's feature set and their statuses
-  authoritative in one place, with each feature addressable by a URN of the form feature:{wagon-slug}:{feature-name}.
+  legacy_section: rules
+content:
+  summary: A complete _features.yaml index keeps a wagon's feature set and their statuses
+    authoritative in one place, with each feature addressable by a URN of the form
+    feature:{wagon-slug}:{feature-name}.
+  normative_text: Wagon _features.yaml lists every feature module and its current
+    status
+metadata:
+  aliases:
+  - PLANNER-WAGON-FEATURES-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: wagon_features_manifest
   label: The wagon's _features.yaml index

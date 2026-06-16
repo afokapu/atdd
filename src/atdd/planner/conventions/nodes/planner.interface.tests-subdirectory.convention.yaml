@@ -1,16 +1,27 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.interface.tests-subdirectory
 kind: constraint
 status: active
+name: 'Interface: Tests Subdirectory'
+statement: Every leaf directory under contracts/ or telemetry/ (one containing .schema.json
+  or signal .json files) must contain a tests/ subdirectory.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/interface.convention.yaml
   legacy_sha: sha256:3415a521b5eec18b
   extraction_mode: high_fidelity
-statement: Every leaf directory under contracts/ or telemetry/ (one containing .schema.json
-  or signal .json files) must contain a tests/ subdirectory.
-rationale: Contracts and telemetry follow a flexible directory pattern, but each leaf
-  holding a schema or signal must ship its conformance tests alongside it so platform
-  validation can verify the artifact against fixtures.
+  legacy_section: tests-subdirectory
+content:
+  summary: Contracts and telemetry follow a flexible directory pattern, but each leaf
+    holding a schema or signal must ship its conformance tests alongside it so platform
+    validation can verify the artifact against fixtures.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: tests_required_rule
   label: Leaf directories must have tests/

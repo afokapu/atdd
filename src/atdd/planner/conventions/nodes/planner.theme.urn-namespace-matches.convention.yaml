@@ -1,18 +1,44 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.theme.urn-namespace-matches
 kind: rule
 status: active
+name: 'Theme: Urn Namespace Matches'
+statement: A wagon's produced contract or telemetry URN theme-prefix must equal the
+  wagon theme; this catches commons:decision:* artifacts living under a coach-themed
+  wagon.
+implementation:
+  type: validator
+  ref: test_theme_urn_namespace_matches::test_produced_urn_prefix_matches_theme
 source:
   legacy_path: src/atdd/planner/conventions/theme.convention.yaml
   legacy_sha: sha256:2ae106d04d77b06e
   extraction_mode: high_fidelity
   legacy_rule_id: planner.theme.urn-namespace-matches
-statement: A wagon's produced contract or telemetry URN theme-prefix must equal the
-  wagon theme; this catches commons:decision:* artifacts living under a coach-themed
-  wagon.
-rationale: Aligning a produced URN's theme-prefix to the wagon theme prevents artifacts
-  being filed under the wrong team, keeping the URN namespace a faithful index of
-  wagon ownership.
+  legacy_section: rules
+content:
+  summary: Aligning a produced URN's theme-prefix to the wagon theme prevents artifacts
+    being filed under the wrong team, keeping the URN namespace a faithful index of
+    wagon ownership.
+  normative_text: 'A wagon''s produced contract/telemetry URN theme-prefix MUST equal
+    the wagon `theme:`. Catches `commons:decision:*` artifacts living under a `coach`-themed
+    wagon. Drives the commons:decision:* -> coach:decision:* migration tracking (deferred
+    to #951 co-land).'
+  examples:
+  - 'theme: commons -> produces commons:contract:* / commons:telemetry:*'
+  counter_examples:
+  - 'theme: coach wagon -> produces commons:decision:* (prefix mismatch, pending #951)'
+metadata:
+  aliases:
+  - PLANNER-THEME-URN-001
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.92.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: produced_urn
   label: A contract/telemetry URN the wagon produces
@@ -33,8 +59,3 @@ terms:
     from_prefix: commons:decision:*
     to_prefix: coach:decision:*
     deferred_to: '#951 co-land'
-examples:
-  positive:
-  - 'theme: commons -> produces commons:contract:* / commons:telemetry:*'
-  negative:
-  - 'theme: coach wagon -> produces commons:decision:* (prefix mismatch, pending #951)'

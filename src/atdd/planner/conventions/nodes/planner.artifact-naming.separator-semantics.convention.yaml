@@ -1,20 +1,37 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.artifact-naming.separator-semantics
 kind: principle
 status: active
+name: 'Artifact Naming: Separator Semantics'
+statement: In an artifact name, colon (:) means hierarchical descent and dot (.) means
+  lateral variation; the same separator always carries the same meaning, so the visual
+  shape of a name reveals its hierarchy depth versus its variant facet.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
   legacy_sha: sha256:eca68a67c92694c9
   extraction_mode: high_fidelity
-statement: In an artifact name, colon (:) means hierarchical descent and dot (.) means
-  lateral variation; the same separator always carries the same meaning, so the visual
-  shape of a name reveals its hierarchy depth versus its variant facet.
-rationale: 'Using one separator for depth and another for variation gives every name
-  a self-describing structure: a reader can see at a glance how many conceptual levels
-  are traversed (colons) and whether a lateral flavor/state is selected (dot), without
-  consulting any registry.'
-notes: 'Clarified in convention v2.1 (2025-10-28): hierarchy (colon) can be unlimited
-  depth, variants (dot) are typically shallow (0-1).'
+  legacy_section: separator-semantics
+content:
+  summary: 'Using one separator for depth and another for variation gives every name
+    a self-describing structure: a reader can see at a glance how many conceptual
+    levels are traversed (colons) and whether a lateral flavor/state is selected (dot),
+    without consulting any registry.'
+  operational_guidance: 'Clarified in convention v2.1 (2025-10-28): hierarchy (colon)
+    can be unlimited depth, variants (dot) are typically shallow (0-1).'
+  examples:
+  - 'commons:ux:foundations:color.primary  # 4 hierarchy levels + 1 variant'
+  - 'sensory:gesture.raw vs sensory:gesture.tapped  # different gestures via dot'
+  counter_examples:
+  - 'commons:ux.foundations.color  # dots used where colons (hierarchy) are meant'
+  - 'sensory:gesture:raw  # colon used where a dot (variant) is meant'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: colon_hierarchy
   label: Colon = hierarchical descent
@@ -64,10 +81,3 @@ terms:
     structure: "theme : category : subcategory : aspect . variant\n|-+-|   |----------+--------------------|\
       \   |--+--|\n  |                HIERARCHY                  VARIANT\n  |    \
       \         (vertical depth)          (lateral facet)\nNAMESPACE\n"
-examples:
-  positive:
-  - 'commons:ux:foundations:color.primary  # 4 hierarchy levels + 1 variant'
-  - 'sensory:gesture.raw vs sensory:gesture.tapped  # different gestures via dot'
-  negative:
-  - 'commons:ux.foundations.color  # dots used where colons (hierarchy) are meant'
-  - 'sensory:gesture:raw  # colon used where a dot (variant) is meant'

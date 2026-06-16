@@ -1,17 +1,35 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.feature.shape
 kind: rule
 status: active
+name: 'Feature: Shape'
+statement: Feature YAMLs declare a urn, a status, and a non-empty acceptance section,
+  and must be sized S or smaller within the documented hard limits.
+implementation:
+  type: advisory
 source:
   legacy_path: src/atdd/planner/conventions/feature.convention.yaml
   legacy_sha: sha256:4a95544261fb9541
   extraction_mode: high_fidelity
   legacy_rule_id: planner.feature.shape
-statement: Feature YAMLs declare a urn, a status, and a non-empty acceptance section,
-  and must be sized S or smaller within the documented hard limits.
-rationale: Requiring urn, status, and an acceptance section makes a feature a complete,
-  routable unit rather than a stub. Strict S-or-smaller sizing and hard limits keep
-  features tractable for AI-agent work and bound their build/test/deploy risk surface.
+  legacy_section: rules
+content:
+  summary: Requiring urn, status, and an acceptance section makes a feature a complete,
+    routable unit rather than a stub. Strict S-or-smaller sizing and hard limits keep
+    features tractable for AI-agent work and bound their build/test/deploy risk surface.
+  normative_text: Feature YAMLs declare urn, status, and a non-empty acceptance section
+metadata:
+  aliases:
+  - PLANNER-FEATURE-SHAPE-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: feature_urn
   label: The feature URN grammar

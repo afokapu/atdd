@@ -1,17 +1,41 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.component.urn
 kind: rule
 status: active
+name: 'Component: Urn'
+statement: A component URN follows the pattern component:{wagon}:{feature}:{name}:{side}:{layer}
+  with colon hierarchy separators, casing rules, no file extensions, and is built
+  via utils.graph.URNBuilder.component.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/component.convention.yaml
   legacy_sha: sha256:8bfb25fd6c2bdb6e
   extraction_mode: high_fidelity
-statement: A component URN follows the pattern component:{wagon}:{feature}:{name}:{side}:{layer}
-  with colon hierarchy separators, casing rules, no file extensions, and is built
-  via utils.graph.URNBuilder.component.
-rationale: A stable, colon-separated component URN ties every component back to its
-  owning wagon and feature and pins its deployment side and architectural layer, so
-  the graph can address components unambiguously and case-sensitively.
+  legacy_section: urn
+content:
+  summary: A stable, colon-separated component URN ties every component back to its
+    owning wagon and feature and pins its deployment side and architectural layer,
+    so the graph can address components unambiguously and case-sensitively.
+  examples:
+  - component:resolve-dilemmas:choose-option:OptionValidator:backend:domain
+  - component:manage-users:authenticate-user:LoginForm:frontend:presentation
+  - component:maintain-ux:assets-catalog:AssetIndexer:backend:integration
+  - 'component:navigate-domains:browse-hierarchy:composition:backend:assembly  # feature
+    composition (above layers)'
+  - 'component:trains:runner:TrainRunner:backend:assembly  # train infrastructure
+    (always assembly)'
+  counter_examples:
+  - 'component:resolve-dilemmas:choose-option:OptionValidator.py:backend:domain  #
+    file extension'
+  - 'component:Resolve-Dilemmas:choose-option:OptionValidator:backend:domain  # wagon
+    not kebab-lower'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: urn_pattern
   label: Component URN pattern
@@ -60,17 +84,3 @@ terms:
   text: The canonical lint regex a component URN must match.
   values:
     lint_regex: ^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|assembly)$
-examples:
-  positive:
-  - component:resolve-dilemmas:choose-option:OptionValidator:backend:domain
-  - component:manage-users:authenticate-user:LoginForm:frontend:presentation
-  - component:maintain-ux:assets-catalog:AssetIndexer:backend:integration
-  - 'component:navigate-domains:browse-hierarchy:composition:backend:assembly  # feature
-    composition (above layers)'
-  - 'component:trains:runner:TrainRunner:backend:assembly  # train infrastructure
-    (always assembly)'
-  negative:
-  - 'component:resolve-dilemmas:choose-option:OptionValidator.py:backend:domain  #
-    file extension'
-  - 'component:Resolve-Dilemmas:choose-option:OptionValidator:backend:domain  # wagon
-    not kebab-lower'

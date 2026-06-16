@@ -1,16 +1,32 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.component.layer-consistency
 kind: rule
 status: active
+name: 'Component: Layer Consistency'
+statement: A component belongs to exactly one architectural layer, and its URN must
+  contain a valid layer value.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/component.convention.yaml
   legacy_sha: sha256:8bfb25fd6c2bdb6e
   extraction_mode: high_fidelity
-statement: A component belongs to exactly one architectural layer, and its URN must
-  contain a valid layer value.
-rationale: Pinning each component to exactly one layer keeps the layered architecture
-  honest and lets the URN's layer segment be trusted as the single source of truth
-  for where a component lives.
+  legacy_section: layer-consistency
+content:
+  summary: Pinning each component to exactly one layer keeps the layered architecture
+    honest and lets the URN's layer segment be trusted as the single source of truth
+    for where a component lives.
+  examples:
+  - 'component:resolve-dilemmas:choose-option:OptionValidator:backend:domain  # one
+    valid layer'
+  counter_examples:
+  - A component URN with no layer segment or an invalid layer like "service"
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: one_layer
   label: Exactly one layer
@@ -73,9 +89,3 @@ terms:
         produces:
         - external calls
         - persistence operations
-examples:
-  positive:
-  - 'component:resolve-dilemmas:choose-option:OptionValidator:backend:domain  # one
-    valid layer'
-  negative:
-  - A component URN with no layer segment or an invalid layer like "service"

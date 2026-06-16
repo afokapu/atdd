@@ -1,16 +1,31 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.component.count-limit
 kind: constraint
 status: active
+name: 'Component: Count Limit'
+statement: A feature must have at most 8 components; beyond 8 indicates the feature
+  is too large and should be split.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/component.convention.yaml
   legacy_sha: sha256:8bfb25fd6c2bdb6e
   extraction_mode: high_fidelity
-statement: A feature must have at most 8 components; beyond 8 indicates the feature
-  is too large and should be split.
-rationale: A hard ceiling of 8 components per feature keeps features cohesive and
-  bounded, mirroring the WMBT acceptance limits, and forces oversized features to
-  be split rather than sprawl.
+  legacy_section: count-limit
+content:
+  summary: A hard ceiling of 8 components per feature keeps features cohesive and
+    bounded, mirroring the WMBT acceptance limits, and forces oversized features to
+    be split rather than sprawl.
+  examples:
+  - 'Feature with 8 components: 2 frontend + 3 backend + 3 shared'
+  counter_examples:
+  - Feature with 12 components — too large, must be split
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: max_per_feature
   label: Maximum components per feature
@@ -42,8 +57,3 @@ terms:
     - application
     - domain
     - integration
-examples:
-  positive:
-  - 'Feature with 8 components: 2 frontend + 3 backend + 3 shared'
-  negative:
-  - Feature with 12 components — too large, must be split

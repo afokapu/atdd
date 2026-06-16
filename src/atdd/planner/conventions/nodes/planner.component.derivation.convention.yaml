@@ -1,17 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.component.derivation
 kind: rule
 status: active
+name: 'Component: Derivation'
+statement: Components are derived from feature analysis — from ioSeeds triggers (events,
+  commands, queries) and from WMBT verbs (validate, process, display, persist, coordinate)
+  — each trigger generating a component with a business capability and layer.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/component.convention.yaml
   legacy_sha: sha256:8bfb25fd6c2bdb6e
   extraction_mode: high_fidelity
-statement: Components are derived from feature analysis — from ioSeeds triggers (events,
-  commands, queries) and from WMBT verbs (validate, process, display, persist, coordinate)
-  — each trigger generating a component with a business capability and layer.
-rationale: Deriving components from a feature's ioSeeds and WMBTs makes component
-  generation systematic and traceable, since every component exists because a concrete
-  trigger in the feature called for it.
+  legacy_section: derivation
+content:
+  summary: Deriving components from a feature's ioSeeds and WMBTs makes component
+    generation systematic and traceable, since every component exists because a concrete
+    trigger in the feature called for it.
+  examples:
+  - WMBT 'persist choice' → ChoicePersister at integration
+  - feature.ioSeeds.consume contains command:* → command-processing component at application
+  counter_examples:
+  - Inventing a component with no ioSeed or WMBT trigger behind it
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: from_io_seeds
   label: Derivation from ioSeeds
@@ -99,9 +115,3 @@ terms:
       - business_capability: result-display
         layer: presentation
         reason: WMBT mentions display
-examples:
-  positive:
-  - WMBT 'persist choice' → ChoicePersister at integration
-  - feature.ioSeeds.consume contains command:* → command-processing component at application
-  negative:
-  - Inventing a component with no ioSeed or WMBT trigger behind it

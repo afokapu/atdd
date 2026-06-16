@@ -1,18 +1,33 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.train.scope
 kind: rule
 status: active
+name: 'Train: Scope'
+statement: A train should tell ONE coherent journey with a clear outcome, sized at
+  a recommended 3-7 wagons; if you cannot state its outcome in one sentence without
+  "and", or decomposition signals appear, decompose it into focused trains.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
   legacy_sha: sha256:825602729f11a3a4
   extraction_mode: high_fidelity
-statement: A train should tell ONE coherent journey with a clear outcome, sized at
-  a recommended 3-7 wagons; if you cannot state its outcome in one sentence without
-  "and", or decomposition signals appear, decompose it into focused trains.
-rationale: Bounding a train to a single one-sentence outcome and 3-7 wagons keeps
-  it a readable narrative rather than an entire game loop. The one-journey test and
-  the decomposition signals are the operator's heuristics for catching trains that
-  have silently grown into multiple journeys and must be split.
+  legacy_section: scope
+content:
+  summary: Bounding a train to a single one-sentence outcome and 3-7 wagons keeps
+    it a readable narrative rather than an entire game loop. The one-journey test
+    and the decomposition signals are the operator's heuristics for catching trains
+    that have silently grown into multiple journeys and must be split.
+  examples:
+  - A 5-wagon train whose outcome is "Player sees domain impact from their decision"
+  counter_examples:
+  - A 16-wagon train doing setup AND exploration AND scoring AND logging
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: wagon_count
   label: Wagon-count sizing
@@ -53,8 +68,3 @@ terms:
     - Mix of exploratory (gesture) AND core mechanic flows
     - Multiple independent feedback loops
     - Participants from 3+ different themes
-examples:
-  positive:
-  - A 5-wagon train whose outcome is "Player sees domain impact from their decision"
-  negative:
-  - A 16-wagon train doing setup AND exploration AND scoring AND logging

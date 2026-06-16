@@ -1,18 +1,34 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.train.linearity
 kind: constraint
 status: active
+name: 'Train: Linearity'
+statement: Trains are strictly linear — sequences contain steps only, with no loops,
+  routes, or branching. A new journey that requires a different path MUST create a
+  new train instead of branching.
+implementation:
+  type: none
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
   legacy_sha: sha256:825602729f11a3a4
   extraction_mode: high_fidelity
-statement: Trains are strictly linear — sequences contain steps only, with no loops,
-  routes, or branching. A new journey that requires a different path MUST create a
-  new train instead of branching.
-rationale: Keeping trains strictly linear means a train always tells exactly one path
-  through a workflow, so it stays readable and addressable. Branching, looping, or
-  routing would fold multiple journeys into one train; those alternative paths belong
-  in new trains that can be numbered and referenced independently.
+  legacy_section: linearity
+content:
+  summary: Keeping trains strictly linear means a train always tells exactly one path
+    through a workflow, so it stays readable and addressable. Branching, looping,
+    or routing would fold multiple journeys into one train; those alternative paths
+    belong in new trains that can be numbered and referenced independently.
+  examples:
+  - A train whose sequence is a gapless ordered list of steps, each with exactly one
+    from and one to
+  counter_examples:
+  - A train sequence containing a loop or route element
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: linearity_rule
   label: Strictly linear sequence
@@ -31,9 +47,3 @@ terms:
     - A loop element repeating a sub-sequence until a condition
     - A route element branching on a condition
     - Step numbering with a gap (1, 2, 4)
-examples:
-  positive:
-  - A train whose sequence is a gapless ordered list of steps, each with exactly one
-    from and one to
-  negative:
-  - A train sequence containing a loop or route element
