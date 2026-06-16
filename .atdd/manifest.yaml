@@ -2576,3 +2576,11 @@ sessions:
   status: INIT
   created: '2026-06-16'
   archived: null
+- id: '1114'
+  slug: coach-convention-classification
+  file: null
+  issue_number: 1114
+  type: analysis
+  status: INIT
+  created: '2026-06-17'
+  archived: null
