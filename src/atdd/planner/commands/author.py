@@ -142,6 +142,7 @@ def create_convention_node(
     rationale: str | None = None,
     notes: str | None = None,
     terms: list | None = None,
+    examples: dict | None = None,
     root: Path | str | None = None,
     path: Path | str | None = None,
 ) -> Path:
@@ -151,8 +152,10 @@ def create_convention_node(
     (spine) and node (schema) before writing; never writes a partial artifact.
     When ``path`` is given (e.g. an extension home) it is used verbatim;
     otherwise the core ``<root>/<role>/conventions/nodes/`` home is computed.
-    ``rationale`` and ``notes`` are the spec §5.3 optional-but-recommended
-    fields; each is emitted (in spec field order) only when provided.
+    ``rationale``, ``examples`` and ``notes`` are the §5.3 optional-but-
+    recommended fields; each is emitted (in §5.1 field order) only when
+    provided. ``terms`` may carry the §5.1 optional ``label``/``values``/
+    ``examples`` keys per term and are written through verbatim.
     """
     if path is not None:
         path = Path(path)
@@ -163,7 +166,7 @@ def create_convention_node(
         home_root = str(root)
     validate_author_input(role, rule_id, path, home_root=home_root)
 
-    # spec §5.1 field order: ...statement, rationale, terms, notes.
+    # §5.1 field order: ...statement, rationale, terms, examples, notes.
     node: dict = {
         "schema_version": "1.0.0",
         "rule_id": rule_id,
@@ -174,6 +177,8 @@ def create_convention_node(
     if rationale:
         node["rationale"] = rationale
     node["terms"] = terms or []
+    if examples:
+        node["examples"] = examples
     if notes:
         node["notes"] = notes
     validate_convention_node(node, path)
@@ -212,6 +217,14 @@ def build_parser() -> argparse.ArgumentParser:
     cn.add_argument(
         "--term", action="append", default=[], dest="terms",
         help="a term as 'term_id=text' (repeatable)",
+    )
+    cn.add_argument(
+        "--example-positive", action="append", default=[], dest="examples_positive",
+        help="a node-level positive example (§5.1, repeatable)",
+    )
+    cn.add_argument(
+        "--example-negative", action="append", default=[], dest="examples_negative",
+        help="a node-level negative example (§5.1, repeatable)",
     )
 
     rel = sub.add_parser("relationship", help="author a relationship edge")
@@ -378,11 +391,16 @@ def run(argv: list[str]) -> int:
         else:
             role = args.rule_id.split(".", 1)[0]  # extension: derive role from rule_id
         path = node_home(ctx, role, args.rule_id, root)
+        examples: dict = {}
+        if args.examples_positive:
+            examples["positive"] = list(args.examples_positive)
+        if args.examples_negative:
+            examples["negative"] = list(args.examples_negative)
         try:
             create_convention_node(
                 role, args.rule_id, kind=args.kind, status=args.status,
                 statement=args.statement, rationale=args.rationale, notes=args.notes,
-                terms=_parse_terms(args.terms), path=path,
+                terms=_parse_terms(args.terms), examples=examples or None, path=path,
             )
         except AuthorInputError as exc:
             logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})

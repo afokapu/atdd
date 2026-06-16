@@ -63,3 +63,36 @@ def test_optional_fields_omitted_when_not_provided(tmp_path):
     )
     node = yaml.safe_load(path.read_text())
     assert "rationale" not in node and "notes" not in node
+    assert "examples" not in node
+
+
+def test_examples_and_term_values_emitted_in_spec_order(tmp_path):
+    # §5.1: a node may carry positive/negative examples, and a term may carry
+    # `values` (grammar / allowed-value maps) and its own positive/negative
+    # examples. node-level examples sit between terms and notes (§5.1 order).
+    path = create_convention_node(
+        role="coder",
+        rule_id="coder.green.component-urn-marker-is",
+        statement="Implementation files must declare the component URN marker.",
+        terms=[
+            {
+                "term_id": "urn_marker",
+                "text": "Every implementation file declares a component URN marker.",
+                "values": {"marker": "# URN:"},
+                "examples": {"negative": ["import os\n# URN: component:checkout:pay:Card:backend:domain"]},
+            },
+        ],
+        examples={
+            "positive": ["# URN: component:checkout:payment:AuthorizeCard:backend:domain"],
+            "negative": ["# Component: AuthorizeCard"],
+        },
+        notes="Legacy files without a marker are reported, not auto-fixed.",
+        root=tmp_path,
+    )
+    node = yaml.safe_load(path.read_text())
+    validate_convention_node(node, path)
+    assert node["examples"]["positive"][0].startswith("# URN:")
+    assert node["terms"][0]["values"]["marker"] == "# URN:"
+    assert node["terms"][0]["examples"]["negative"]
+    keys = list(node.keys())
+    assert keys.index("terms") < keys.index("examples") < keys.index("notes")
