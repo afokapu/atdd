@@ -102,6 +102,141 @@ edges:
   constraint: discretionary
   control: internal
   foundation: start_to_start
+  reason: anti-patterns are the negative companion to the validation rules
+  source_ref: planner.artifact-naming.anti-patterns
+  strength: minor
+  target_ref: planner.artifact-naming.validation-rules
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: cardinality is read from the aspect position in the pattern
+  source_ref: planner.artifact-naming.cardinality-from-aspect
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: colon usage is defined by the separator semantics
+  source_ref: planner.artifact-naming.colon-for-hierarchy
+  strength: important
+  target_ref: planner.artifact-naming.separator-semantics
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the contract-file formula is the file half of the logical-physical mapping
+  source_ref: planner.artifact-naming.contract-file-mapping
+  strength: important
+  target_ref: planner.artifact-naming.logical-physical-mapping
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: depth limits qualify the colon/dot separators
+  source_ref: planner.artifact-naming.depth-guidelines
+  strength: minor
+  target_ref: planner.artifact-naming.separator-semantics
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: dot usage is defined by the separator semantics
+  source_ref: planner.artifact-naming.dot-for-variant
+  strength: important
+  target_ref: planner.artifact-naming.separator-semantics
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the mapping splits the name produced by the pattern
+  source_ref: planner.artifact-naming.logical-physical-mapping
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: migration retargets legacy names onto the current pattern
+  source_ref: planner.artifact-naming.migration-guide
+  strength: minor
+  target_ref: planner.artifact-naming.naming-pattern
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the pattern composes hierarchy (colon) and variant (dot) separators
+  source_ref: planner.artifact-naming.naming-pattern
+  strength: critical
+  target_ref: planner.artifact-naming.separator-semantics
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the required theme component is drawn from the theme taxonomy
+  source_ref: planner.artifact-naming.naming-pattern
+  strength: important
+  target_ref: planner.artifact-naming.theme-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: stable URN-based names follow the naming pattern grammar
+  source_ref: planner.artifact-naming.planner-artifacts-use-stable
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: pluralization of the aspect is how cardinality is expressed
+  source_ref: planner.artifact-naming.pluralization
+  strength: important
+  target_ref: planner.artifact-naming.cardinality-from-aspect
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the $id and the URN reference share the artifact identity
+  source_ref: planner.artifact-naming.schema-identifier
+  strength: important
+  target_ref: planner.artifact-naming.urn-structure
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the URN exactly mirrors the artifact name
+  source_ref: planner.artifact-naming.urn-structure
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: validation enforces the naming pattern
+  source_ref: planner.artifact-naming.validation-rules
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
   reason: the same bidirectional-coverage invariant at the train-wagon and wagon-feature levels
   source_ref: planner.coverage.bidirectional-coverage-between-trains
   strength: minor

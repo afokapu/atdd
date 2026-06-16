@@ -1,12 +1,28 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.artifact-naming.planner-artifacts-use-stable
 kind: rule
 status: active
+name: Stable URN-based names
 statement: Planner artifacts use stable URN-based names matching the registered grammar.
-rationale: Stable URN-based names let the graph reference plan artifacts durably across
-  renames and refactors.
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: rules
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.artifact-naming.planner-artifacts-use-stable
+metadata:
+  aliases:
+  - PLANNER-ARTIFACT-NAMING-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
-- term_id: planner_artifact
-  text: 'a plan-side file: wagon, feature, WMBT, or train'
-- term_id: urn_name
-  text: a stable URN-based name matching the registered grammar
+- term_id: stable_name
+  text: a URN-based artifact name that stays constant across renames/refactors and matches the registered
+    grammar.

@@ -1,0 +1,29 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.migration-guide
+kind: principle
+status: active
+name: v1 -> v2 migration guide
+statement: Migrate legacy names to theme:hierarchy:aspect.variant by assigning a theme, separating hierarchy
+  (colons) from variants (dots), and realigning URNs, manifests, and contract files.
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: migration_guide
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  operational_guidance: 'Steps: identify names -> determine theme -> identify hierarchy -> separate hierarchy
+    from variants -> update wagon manifests -> update feature files -> update URNs -> reorganize contracts
+    -> update $id fields.'
+  examples:
+  - identifiers:uuid -> commons:identifiers.uuid
+  - ux.foundations.color -> commons:ux:foundations:color
+  - ux.foundations.color.primary -> commons:ux:foundations:color.primary
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: migration_step
+  text: one step in the v1->v2 artifact-name migration.

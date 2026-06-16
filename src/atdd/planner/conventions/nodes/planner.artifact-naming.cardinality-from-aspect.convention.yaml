@@ -1,0 +1,32 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.cardinality-from-aspect
+kind: rule
+status: active
+name: Cardinality from the aspect
+statement: 'The ASPECT (final noun before variant) determines cardinality: a plural aspect indicates a
+  collection/array; a singular aspect indicates one item. Categories and variants do not affect cardinality.'
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: cardinality_semantics
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - scenario:fragments -> plural aspect -> collection
+  - scenario:fragment -> singular aspect -> one item
+  - commons:ux:foundations:color -> 'foundations' is a category, 'color' singular -> one item
+  - commons:ux:foundations:colors -> 'colors' plural -> array of colors
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: cardinality
+  text: single-item vs collection, decided by the aspect's plurality.
+  values:
+    singular_aspect: single item schema
+    plural_aspect: collection/array schema or directory of items
+    category_position: does NOT affect cardinality
+    variant_position: does NOT affect cardinality

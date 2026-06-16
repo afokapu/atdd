@@ -1,0 +1,44 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.naming-pattern
+kind: rule
+status: active
+name: Artifact naming pattern
+statement: An artifact name is {theme}(:{category})*:{aspect}(.{variant})? — theme, optional hierarchy
+  categories, a leaf aspect, and an optional variant.
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: naming_pattern + visual_hierarchy + examples + purpose
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'Visual: theme : category : subcategory : aspect . variant — colons = HIERARCHY (vertical
+    depth), dot = VARIANT (lateral facet); theme = NAMESPACE.'
+  operational_guidance: Provides semantic clarity (theme-based), namespace safety (collision-free), unlimited
+    hierarchical depth (colons), lateral variants (dots), and alignment of artifact names with contract
+    file paths.
+  examples:
+  - commons:ux:foundations:color  (theme->subsystem->category->item)
+  - commons:identifiers.uuid  (aspect + variant)
+  - commons:ux:foundations:color.primary  (deep hierarchy + variant)
+  - 'match:config  (simple form: theme:aspect)'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: name_component
+  label: Name components
+  text: the four grammar parts of an artifact name.
+  values:
+    theme: top-level architectural theme; kebab-case ^[a-z][a-z0-9-]*$; required, exactly 1
+    category: hierarchical path segment navigating down the resource tree; kebab-case; optional, 0+
+    aspect: the final leaf resource noun; kebab-case; required, exactly 1
+    variant: lateral variation/facet/state of the aspect; kebab-case; optional, typically 0-1
+  examples:
+    positive:
+    - theme=commons
+    - category=foundations
+    - aspect=color
+    - variant=primary

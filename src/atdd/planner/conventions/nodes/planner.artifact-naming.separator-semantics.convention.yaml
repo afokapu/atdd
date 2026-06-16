@@ -1,0 +1,42 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.separator-semantics
+kind: family
+status: active
+name: Separator semantics (colon vs dot)
+statement: Colon means hierarchical descent (unlimited depth); dot means lateral variation (keep shallow).
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: separator_semantics
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: colon
+  label: 'Colon ( : )'
+  text: hierarchical descent — navigate deeper into the resource tree.
+  values:
+    purpose: Hierarchical descent
+    multiplicity: Unlimited
+    visual_weight: Strong boundary - different conceptual levels
+  examples:
+    positive:
+    - commons:ux:foundations:color
+    - scenario:catalog:primitives:actor
+- term_id: dot
+  label: Dot ( . )
+  text: lateral variation — different flavors/states of the same thing.
+  values:
+    purpose: Lateral variation
+    multiplicity: Typically 1, rarely 2
+    visual_weight: Soft boundary - same level, different facet
+    warning: Multiple dots (e.g. .uuid.v7.encoded) usually indicates over-specification
+  examples:
+    positive:
+    - sensory:gesture.raw
+    - player:session.active
+    - match:config.duel

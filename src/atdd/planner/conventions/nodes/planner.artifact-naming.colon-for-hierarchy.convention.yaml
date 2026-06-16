@@ -1,0 +1,25 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.colon-for-hierarchy
+kind: rule
+status: active
+name: Colon for hierarchical descent
+statement: 'Use a colon for hierarchical descent: different conceptual levels, navigating deeper, general->specific,
+  organizational subsystems.'
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: decision_rules.when_to_use_colon
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - commons:ux:foundations:color (theme->subsystem->category->item)
+  - scenario:catalog:primitives:actor (domain->collection->type->entity)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: hierarchical_descent
+  text: moving from general to specific down the resource tree, marked by a colon.
