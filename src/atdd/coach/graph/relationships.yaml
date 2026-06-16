@@ -396,6 +396,15 @@ edges:
   target_ref: planner.theme.must-be-canonical
   type: follows
 - confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: plan/test/code archetypes come from the taxonomy
+  source_ref: planner.theme.archetype-alignment
+  strength: minor
+  target_ref: planner.theme.canonical-taxonomy
+  type: requires
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_start
@@ -404,6 +413,24 @@ edges:
   strength: important
   target_ref: planner.theme.must-be-canonical
   type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: commons and coach are themes from the taxonomy
+  source_ref: planner.theme.commons-coach-boundary
+  strength: important
+  target_ref: planner.theme.canonical-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the canonical set is defined by the taxonomy
+  source_ref: planner.theme.must-be-canonical
+  strength: critical
+  target_ref: planner.theme.canonical-taxonomy
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -417,11 +444,29 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: digit 0 = commons is fixed by the taxonomy's theme_zero token
+  source_ref: planner.theme.theme-zero-mandatory
+  strength: critical
+  target_ref: planner.theme.canonical-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: matching a produced-URN theme-prefix to the wagon theme presupposes a canonical theme
   source_ref: planner.theme.urn-namespace-matches
   strength: important
   target_ref: planner.theme.must-be-canonical
   type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the theme-prefix must be a canonical theme
+  source_ref: planner.theme.urn-namespace-matches
+  strength: important
+  target_ref: planner.theme.canonical-taxonomy
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal

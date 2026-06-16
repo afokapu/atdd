@@ -1,14 +1,42 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.theme.must-be-canonical
 kind: rule
 status: active
-statement: Every wagon theme and every train theme-digit must resolve to one of the
-  five canonical themes (commons, plan, test, code, coach; digits 0-4); retired or
-  undeclared themes are rejected.
-rationale: Constraining themes to the five canonical teams keeps ownership and routing
-  coherent across the repo.
+name: Theme must be canonical
+statement: 'Every wagon theme: and every train theme-digit MUST resolve to one of the five canonical themes
+  (commons/plan/test/code/coach; digits 0-4); retired (5-9) and undeclared themes are rejected.'
+implementation:
+  type: validator
+  ref: test_theme_must_be_canonical::test_every_wagon_theme_is_canonical
+source:
+  legacy_path: src/atdd/planner/conventions/theme.convention.yaml
+  legacy_section: rules
+  legacy_sha: 2ae106d04d77b06e
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.theme.must-be-canonical
+content:
+  normative_text: Subsumes the runtime theme-membership check described by wmbt:govern-lifecycle:E001
+    (which is otherwise unbound).
+metadata:
+  aliases:
+  - PLANNER-THEME-CANONICAL-001
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.92.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
-- term_id: canonical_theme
-  text: one of commons/plan/test/code/coach, digits 0-4
-- term_id: theme_assignment
-  text: a wagon theme or a train theme-digit
+- term_id: canonical_resolution
+  text: a theme/digit resolving to the canonical set.
+  values:
+    allowed:
+    - commons
+    - plan
+    - test
+    - code
+    - coach
+    digits: 0-4

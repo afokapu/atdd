@@ -1,14 +1,32 @@
-schema_version: 1.0.0
+schema_version: 1.1.0
 rule_id: planner.theme.archetype-alignment
 kind: rule
 status: active
-statement: The plan, test, and code themes align to the planner, tester, and coder
-  archetypes; a wagon whose implementation lives outside its matching archetype source
-  root is surfaced.
-rationale: Aligning plan/test/code themes to the planner/tester/coder archetypes surfaces
-  work living in the wrong source root.
+name: Theme-archetype alignment
+statement: The plan/test/code themes align to the planner/tester/coder archetypes; a wagon whose implementation
+  lives outside its matching archetype source root is surfaced (advisory).
+source:
+  legacy_path: src/atdd/planner/conventions/theme.convention.yaml
+  legacy_section: rules
+  legacy_sha: 2ae106d04d77b06e
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.theme.archetype-alignment
+content:
+  normative_text: 'Documentation-only: it carries NO validator back-reference (reverse rule-coherence).
+    The advisory scan lives in test_theme_archetype_alignment.py but is not a bound enforcement gate.
+    Also exercises theme discovery across plan/ described by wmbt:govern-lifecycle:L001.'
+metadata:
+  aliases:
+  - PLANNER-THEME-ARCHETYPE-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 3.92.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
-- term_id: theme_archetype_alignment
-  text: the plan-planner, test-tester, code-coder mapping
-- term_id: source_root
-  text: the archetype directory a wagon's implementation lives under
+- term_id: archetype_alignment
+  text: the plan<->planner, test<->tester, code<->coder mapping.
