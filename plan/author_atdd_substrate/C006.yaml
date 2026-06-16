@@ -1,0 +1,72 @@
+urn: "wmbt:author-atdd-substrate:C006"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "malformed-package-manifest"
+context_clarifier: "the four-layer model ties an extension to a workspace provider and an implementation through a versioned contract; before any of those manifests is trusted, the structure (id grammar, kind, required fields) and the provider↔implementation contract compatibility must be checked so a malformed manifest or an incompatible contract_version is never accepted"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of accepting a malformed-package-manifest by validating the extension, workspace, and implementation manifests (id grammar, kind, contract fields) and refusing a contract_version that does not satisfy the declared range"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C006-UNIT-001-manifests-validated"
+      id: "AC-UNIT-001"
+      purpose: "the extension/workspace/implementation manifest validators accept canonical shapes and refuse a wrong kind, a wrong-scope id, or a missing contract_version"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Canonical extension, workspace, and implementation manifests, plus variants with a wrong kind, a wrong-scope workspace dependency, and a missing contract_version"
+    when:
+      abstract: "the per-kind manifest validators are called for each"
+    then:
+      abstract:
+        - "each canonical manifest is accepted"
+        - "an extension whose depends_on.workspaces entry is not a valid workspace id is refused"
+        - "a workspace manifest missing contract_version is refused"
+        - "an implementation manifest with the wrong kind is refused"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-16"
+  - identity:
+      urn: "acc:author-atdd-substrate:C006-UNIT-002-contract-compat"
+      id: "AC-UNIT-002"
+      purpose: "the provider↔implementation contract accepts compatible SemVer and refuses incompatible"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A provider contract_version + requires_contract range, an extension contract range, and implementation contract_versions both inside and outside those ranges"
+    when:
+      abstract: "contract_satisfies / extension_targets_satisfied_by / implementation_accepted_by are evaluated"
+    then:
+      abstract:
+        - "caret, tilde, exact, and x-range specs accept in-range versions and reject out-of-range ones"
+        - "an extension whose declared range excludes the provider's contract_version is reported incompatible"
+        - "an implementation whose contract_version is outside the provider's requires_contract is reported incompatible"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-16"
+  - identity:
+      urn: "acc:author-atdd-substrate:C006-SMOKE-001-cli-manifest-roundtrip"
+      id: "AC-SMOKE-001"
+      purpose: "a manifest written by the real CLI passes the validator, and the contract is enforced against it"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and a provider manifest scaffolded by the installed atdd author CLI"
+    when:
+      abstract: "the written manifest is loaded and validated, and implementations of differing contract_versions are checked against it"
+    then:
+      abstract:
+        - "the CLI-written workspace manifest passes validate_workspace_manifest"
+        - "an implementation inside the provider's requires_contract is accepted; one outside it is refused"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-16"

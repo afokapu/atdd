@@ -52,7 +52,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 14
+    total: 15
     D001: maximize likelihood of schema-valid substrate by defining one canonical
       schema and flat canonical home per artifact kind and freezing the controlled
       vocabularies
@@ -63,6 +63,8 @@ wagons:
     P002: maximize likelihood of a well-formed package-skeleton by scaffolding a new
       extension or workspace-provider package (manifest + canonical skeleton) from
       a validated namespaced id via `atdd author … init`
+    C006: minimize likelihood of accepting a malformed package manifest (extension/workspace/implementation)
+      or an incompatible provider↔implementation contract_version
     K001: minimize likelihood that authored artifacts are rejected or regressed by
       existing ATDD gates (authoring does not bypass validation)
     R001: minimize likelihood of an unresolved registry merge conflict by shipping

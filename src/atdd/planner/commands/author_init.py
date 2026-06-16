@@ -22,6 +22,10 @@ from atdd.planner.commands.author_context import (
     validate_workspace_id,
     workspace_package_home,
 )
+from atdd.planner.commands.author_manifest import (
+    validate_extension_manifest,
+    validate_workspace_manifest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +88,7 @@ def init_extension_package(
         "depends_on": {"core": [], "workspaces": []},
         "removal_policy": {"allowed_if_no_external_dependents": True},
     }
+    validate_extension_manifest(manifest)  # scaffold a valid manifest by construction
     return _scaffold(pkg, _EXTENSION_DIRS, "atdd.extension.yaml", manifest)
 
 
@@ -123,4 +128,5 @@ def init_workspace_package(
         "conformance": {"suite": "conformance/"},
         "governed_by_conventions": [],
     }
+    validate_workspace_manifest(manifest)  # scaffold a valid manifest by construction
     return _scaffold(pkg, _WORKSPACE_DIRS, "atdd.workspace.yaml", manifest)

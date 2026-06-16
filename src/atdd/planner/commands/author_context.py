@@ -29,12 +29,17 @@ _PKG_ID_RE = re.compile(
 _RESERVED_PUBLISHER = "atdd"  # only official ATDD packages may use it
 
 
-def _validate_package_id(value: str, *, expected_scope: str, field: str) -> None:
+def _validate_package_id(
+    value: str, *, expected_scope: str, field: str, allow_reserved: bool = False
+) -> None:
     """Validate a package id against ``<publisher>.<expected_scope>.<name>``.
 
     Shared spine for the scoped id classes (extension, workspace). The scope
-    segment must equal ``expected_scope`` and ``atdd`` is a reserved publisher
-    for official packages. Raises ``AuthorInputError(field=field)``.
+    segment must equal ``expected_scope``. The reserved-publisher (``atdd``)
+    rule is an *authoring* guard — it stops an end user claiming the official
+    namespace, but structural validation of an already-official manifest passes
+    ``allow_reserved=True`` so an official ``atdd.*`` id is accepted. Raises
+    ``AuthorInputError(field=field)``.
     """
     m = _PKG_ID_RE.match(value or "")
     if not m:
@@ -49,7 +54,7 @@ def _validate_package_id(value: str, *, expected_scope: str, field: str) -> None
             f"{field} ids must use the '{expected_scope}' scope "
             f"(got '{m.group('scope')}')",
         )
-    if m.group("publisher") == _RESERVED_PUBLISHER:
+    if not allow_reserved and m.group("publisher") == _RESERVED_PUBLISHER:
         raise AuthorInputError(
             field,
             f"the '{_RESERVED_PUBLISHER}' publisher is reserved for official ATDD "
@@ -57,25 +62,29 @@ def _validate_package_id(value: str, *, expected_scope: str, field: str) -> None
         )
 
 
-def validate_extension_id(extension_id: str) -> None:
+def validate_extension_id(extension_id: str, *, allow_reserved: bool = False) -> None:
     """Validate an ``--extension`` id against ``<publisher>.extension.<name>``.
 
     Per the locked package-namespace rule: the second segment must be
     ``extension`` (``--core`` owns ``.core.``), and ``atdd`` is a reserved
-    publisher for official packages. Raises ``AuthorInputError(field="extension")``.
+    publisher for official packages (``allow_reserved=True`` to accept official
+    ids during structural validation). Raises ``AuthorInputError(field="extension")``.
     """
-    _validate_package_id(extension_id, expected_scope="extension", field="extension")
+    _validate_package_id(extension_id, expected_scope="extension", field="extension",
+                         allow_reserved=allow_reserved)
 
 
-def validate_workspace_id(workspace_id: str) -> None:
+def validate_workspace_id(workspace_id: str, *, allow_reserved: bool = False) -> None:
     """Validate a workspace-provider id against ``<publisher>.workspace.<name>``.
 
     Workspace providers are first-class, reusable, domain-agnostic runtimes
     (e.g. ``acme.workspace.python-pytest``) that extensions target by id +
     contract version. Same grammar and reserved-publisher rule as extensions,
-    with the ``workspace`` scope. Raises ``AuthorInputError(field="workspace")``.
+    with the ``workspace`` scope. Pass ``allow_reserved=True`` to accept an
+    official ``atdd.*`` id. Raises ``AuthorInputError(field="workspace")``.
     """
-    _validate_package_id(workspace_id, expected_scope="workspace", field="workspace")
+    _validate_package_id(workspace_id, expected_scope="workspace", field="workspace",
+                         allow_reserved=allow_reserved)
 
 
 class AuthorContext:
