@@ -1,8 +1,8 @@
 urn: "feature:author-atdd-substrate:substrate-spine"
 wagon: "wagon:author-atdd-substrate"
-description: "The shared authoring substrate: one canonical schema and flat canonical home per artifact kind (convention-node, relationship, scope, gate), the four frozen controlled vocabularies the features consume (never redefine), and the `atdd author` CLI validation spine that refuses an invalid role/id/path before any write. (The re-sort/dedup git merge driver reused by the registry-class writers lives in its own feature:author-atdd-substrate:author-merge-driver.) Guarantees authored artifacts pass normal ATDD validation unmodified."
+description: "The shared authoring substrate: one canonical schema and flat canonical home per artifact kind (convention-node, relationship, scope, gate), the four frozen controlled vocabularies the features consume (never redefine), the `atdd author` CLI validation spine that refuses an invalid role/id/path before any write, and the `atdd author {extension,workspace} init` package scaffolders that create a new extension or workspace-provider boundary by construction. (The re-sort/dedup git merge driver reused by the registry-class writers lives in its own feature:author-atdd-substrate:author-merge-driver.) Guarantees authored artifacts pass normal ATDD validation unmodified."
 sizing:
-  wmbts: 4
+  wmbts: 6
   footprint_score: 10
   footprint_size: "S"
 frozen_vocabularies:
@@ -36,6 +36,8 @@ wmbts:
   - "wmbt:author-atdd-substrate:C001"
   - "wmbt:author-atdd-substrate:K001"
   - "wmbt:author-atdd-substrate:P001"
+  - "wmbt:author-atdd-substrate:P002"
+  - "wmbt:author-atdd-substrate:C006"
 components:
   backend:
     presentation:
@@ -44,8 +46,8 @@ components:
         rationale: "atdd author CLI dispatcher (shared spine: parse role/id/path, validate, route to per-kind writer)"
     application:
       - type: "use_cases"
-        count: 3
-        rationale: "validate_author_input(), load_schema(kind), load_frozen_vocabulary(name) spine functions"
+        count: 8
+        rationale: "validate_author_input(), load_schema(kind), load_frozen_vocabulary(name) spine functions + init_extension_package(), init_workspace_package() scaffolders + validate_{extension,workspace,implementation}_manifest() manifest validators + contract_satisfies() compatibility check"
     domain:
       - type: "value_objects"
         count: 5

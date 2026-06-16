@@ -252,6 +252,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="per-trigger gate file (default: src/atdd/coach/gates/<trigger-name>.yaml)",
     )
 
+    # `extension init` / `workspace init` — scaffold a new package (P002).
+    ext = sub.add_parser("extension", help="extension package operations")
+    ext_sub = ext.add_subparsers(dest="subcmd", required=True)
+    ei = ext_sub.add_parser("init", help="scaffold a new extension package")
+    ei.add_argument("--extension", required=True, dest="extension_id",
+                    help="<publisher>.extension.<name>")
+    ei.add_argument("--role", default="coder", choices=ROLES)
+    ei.add_argument("--flow-wagon", default="validate-source-surface", dest="flow_wagon")
+    ei.add_argument("--feature", default=None)
+    ei.add_argument("--root", default=None, help="repo root (default: cwd)")
+
+    ws = sub.add_parser("workspace", help="workspace provider operations")
+    ws_sub = ws.add_subparsers(dest="subcmd", required=True)
+    wi = ws_sub.add_parser("init", help="scaffold a new workspace provider package")
+    wi.add_argument("--workspace", required=True, dest="workspace_id",
+                    help="<publisher>.workspace.<name>")
+    wi.add_argument("--language", default="python")
+    wi.add_argument("--runner", default="pytest")
+    wi.add_argument("--command", default=None, help="run command (default: the runner)")
+    wi.add_argument("--root", default=None, help="repo root (default: cwd)")
+
     return parser
 
 
@@ -291,6 +312,32 @@ def run(argv: list[str]) -> int:
         merged = merge_registries(_read(args.base), _read(args.ours), _read(args.theirs))
         with open(args.ours, "w", encoding="utf-8") as fh:
             fh.write(merged)
+        return 0
+
+    # `init` scaffolds a NEW package boundary, so it needs no authoring context
+    # (it creates the package the other kinds then write into) — P002.
+    if args.cmd in ("extension", "workspace"):
+        from atdd.planner.commands.author_init import (
+            init_extension_package, init_workspace_package,
+        )
+
+        root = Path(args.root) if getattr(args, "root", None) else Path(os.getcwd())
+        try:
+            if args.cmd == "extension":
+                pkg = init_extension_package(
+                    args.extension_id, role=args.role,
+                    flow_wagon=args.flow_wagon, feature=args.feature, root=root,
+                )
+            else:
+                pkg = init_workspace_package(
+                    args.workspace_id, language=args.language,
+                    runner=args.runner, command=args.command, root=root,
+                )
+        except AuthorInputError as exc:
+            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        print(str(pkg))
         return 0
 
     # every author kind resolves an authoring context first (P001, spec §6).
