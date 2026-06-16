@@ -10,6 +10,17 @@
     "rule_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"},
     "kind": {"enum": ["family", "rule", "principle", "constraint", "exception", "pattern", "anti_pattern", "policy"]},
     "status": {"enum": ["draft", "active", "deprecated"]},
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "legacy_path": {"type": "string"},
+        "legacy_sha": {"type": "string"},
+        "legacy_section": {"type": "string"},
+        "legacy_rule_id": {"type": "string"},
+        "extraction_mode": {"enum": ["high_fidelity", "summary", "stub"]}
+      }
+    },
     "statement": {"type": "string", "minLength": 1},
     "rationale": {"type": "string"},
     "notes": {"type": "string"},

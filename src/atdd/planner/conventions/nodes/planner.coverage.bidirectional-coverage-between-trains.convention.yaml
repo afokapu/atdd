@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.coverage.bidirectional-coverage-between-trains
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
+  legacy_sha: sha256:27e800378c584902
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.coverage.bidirectional-coverage-between-trains
 statement: A train and its wagons must reference each other bidirectionally - every
   wagon appears in at least one train's participants, and every train participant
   resolves to a real wagon manifest - leaving no orphan on either side.

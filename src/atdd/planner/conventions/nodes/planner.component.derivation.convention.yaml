@@ -1,0 +1,107 @@
+schema_version: 1.0.0
+rule_id: planner.component.derivation
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/component.convention.yaml
+  legacy_sha: sha256:8bfb25fd6c2bdb6e
+  extraction_mode: high_fidelity
+statement: Components are derived from feature analysis — from ioSeeds triggers (events,
+  commands, queries) and from WMBT verbs (validate, process, display, persist, coordinate)
+  — each trigger generating a component with a business capability and layer.
+rationale: Deriving components from a feature's ioSeeds and WMBTs makes component
+  generation systematic and traceable, since every component exists because a concrete
+  trigger in the feature called for it.
+terms:
+- term_id: from_io_seeds
+  label: Derivation from ioSeeds
+  text: ioSeeds triggers generate components with event-publishing, event-handling,
+    command-processing, or query-handling capability.
+  values:
+    produce_events:
+      trigger: feature.ioSeeds.produce contains event:* or notification:*
+      generates: Component with event publishing capability
+      layer: application or integration
+    consume_events:
+      trigger: feature.ioSeeds.consume contains event:* or notification:*
+      generates: Component with event handling capability
+      layer: application or integration
+    consume_commands:
+      trigger: feature.ioSeeds.consume contains command:*
+      generates: Component with command processing capability
+      layer: application
+    produce_queries:
+      trigger: feature.ioSeeds.produce contains query:*
+      generates: Component with query handling capability
+      layer: application or domain
+- term_id: from_wmbt_analysis
+  label: Derivation from WMBT analysis
+  text: WMBT verbs generate validation, processing, presentation, persistence, or
+    coordination components with a business capability and layer.
+  values:
+    validation_needs:
+      trigger: WMBTs contain 'validate', 'verify', 'check'
+      generates: Validation component
+      business_capability: validator
+      layer: domain
+    processing_needs:
+      trigger: WMBTs contain 'process', 'compute', 'calculate'
+      generates: Processing component
+      business_capability: processor
+      layer: application or domain
+    presentation_needs:
+      trigger: WMBTs contain 'display', 'show', 'render'
+      generates: Presentation component
+      business_capability: display
+      layer: presentation
+    persistence_needs:
+      trigger: WMBTs contain 'store', 'save', 'persist'
+      generates: Persistence component
+      business_capability: persister
+      layer: integration
+    coordination_needs:
+      trigger: WMBTs contain 'coordinate', 'orchestrate', 'manage'
+      generates: Coordination component
+      business_capability: coordinator
+      layer: application
+- term_id: generation_strategy
+  label: Component generation strategy
+  text: The end-to-end strategy from feature analysis to validated components.
+  values:
+    step_1_analyze: Analyze feature ioSeeds and WMBTs
+    step_2_identify: Identify needed business capabilities
+    step_3_assign: Assign capabilities to appropriate layers
+    step_4_generate: Generate up to 8 components with complete structure
+    step_5_validate: Ensure all feature needs covered by components
+- term_id: mapping_example
+  label: Feature-to-component mapping example
+  text: A binary-choice feature with consume/produce ioSeeds and WMBTs maps to validator,
+    processor, and display components.
+  values:
+    binary_choice_feature:
+      input:
+        ioSeeds:
+          consume:
+          - dilemma:presented
+          produce:
+          - decision:made
+        wmbts:
+        - validate options
+        - process choice
+        - display result
+      output_components:
+      - business_capability: option-validator
+        layer: domain
+        reason: WMBT mentions validation
+      - business_capability: choice-processor
+        layer: application
+        reason: WMBT mentions processing
+      - business_capability: result-display
+        layer: presentation
+        reason: WMBT mentions display
+examples:
+  positive:
+  - WMBT 'persist choice' → ChoicePersister at integration
+  - feature.ioSeeds.consume contains command:* → command-processing component at application
+  negative:
+  - Inventing a component with no ioSeed or WMBT trigger behind it

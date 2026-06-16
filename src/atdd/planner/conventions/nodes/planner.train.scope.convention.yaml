@@ -1,0 +1,60 @@
+schema_version: 1.0.0
+rule_id: planner.train.scope
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_sha: sha256:825602729f11a3a4
+  extraction_mode: high_fidelity
+statement: A train should tell ONE coherent journey with a clear outcome, sized at
+  a recommended 3-7 wagons; if you cannot state its outcome in one sentence without
+  "and", or decomposition signals appear, decompose it into focused trains.
+rationale: Bounding a train to a single one-sentence outcome and 3-7 wagons keeps
+  it a readable narrative rather than an entire game loop. The one-journey test and
+  the decomposition signals are the operator's heuristics for catching trains that
+  have silently grown into multiple journeys and must be split.
+terms:
+- term_id: wagon_count
+  label: Wagon-count sizing
+  text: The recommended range is 3-7 wagons — a focused journey with a clear narrative.
+    Fewer or more is a warning sign that the train is too small to be a journey or
+    has grown into multiple journeys.
+  values:
+    recommended_range: 3-7 wagons
+    rationale: Trains should tell ONE coherent journey with clear outcome
+    guidelines:
+      minimum: 2 wagons (too simple, might just be a step)
+      sweet_spot: 3-7 wagons (focused journey with clear narrative)
+      warning: 8-12 wagons (review for multiple journeys)
+      antipattern: 13+ wagons (definitely multiple journeys - decompose)
+  examples:
+    positive:
+    - '1001-decision-standard: 5 wagons, one outcome (Domain impact visualization)'
+    - '1004-decision-with-domain-preview: 6 wagons, one outcome (Informed decision
+      after preview)'
+    negative:
+    - '3001-solo-match-complete: 16 wagons spanning setup AND exploration AND scoring
+      AND logging — decompose into 5-6 trains of 3-7 wagons'
+- term_id: one_journey_test
+  label: The one-sentence outcome test
+  text: Can you state the outcome in ONE sentence without "and"? If yes, the scope
+    is sound; if the outcome needs "and" conjunctions, the train is multiple journeys.
+  values:
+    description: Can you state the outcome in ONE sentence without 'and'?
+    pass: Player sees domain impact from their decision
+    fail: Player sets up match AND makes decisions AND sees impact AND gets scored
+- term_id: decomposition_signals
+  label: Signals to decompose
+  text: Indicators that a train spans multiple journeys and should be decomposed.
+  values:
+    decomposition_signals:
+    - Outcome description contains multiple 'AND' conjunctions
+    - Train has both setup AND teardown (match lifecycle)
+    - Mix of exploratory (gesture) AND core mechanic flows
+    - Multiple independent feedback loops
+    - Participants from 3+ different themes
+examples:
+  positive:
+  - A 5-wagon train whose outcome is "Player sees domain impact from their decision"
+  negative:
+  - A 16-wagon train doing setup AND exploration AND scoring AND logging

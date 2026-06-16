@@ -2,19 +2,22 @@ schema_version: 1.0.0
 rule_id: planner.issue-body.dependency-entries-must-be-classified
 kind: rule
 status: active
-statement: 'Every #N entry in an issue body''s ### Dependencies section must carry a trailing
-  classification tag: (prereq), (merged), (sibling), or (parallel).'
-rationale: >-
-  A bare - #N entry makes atdd session-template add the dependency to the merge-wait
-  loop unconditionally; if #N is a sibling (parallel work in the same wave) the loop never
-  exits. The tag disambiguates blocking deps from non-blocking ones.
+source:
+  legacy_path: src/atdd/planner/conventions/issue-body.convention.yaml
+  legacy_sha: sha256:2de589954025b05e
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.issue-body.dependency-entries-must-be-classified
+statement: 'Every #N entry in an issue body''s ### Dependencies section must carry
+  a trailing classification tag: (prereq), (merged), (sibling), or (parallel).'
+rationale: 'A bare - #N entry makes atdd session-template add the dependency to the
+  merge-wait loop unconditionally; if #N is a sibling (parallel work in the same wave)
+  the loop never exits. The tag disambiguates blocking deps from non-blocking ones.'
 terms:
 - term_id: classification_tags
   label: The four dependency tags and their semantics
-  text: >-
-    Each "#N" dependency carries exactly one tag whose meaning controls whether the
-    session blocks on it. prereq and merged block (must be merged first); sibling and
-    parallel do not block (same-wave concurrent work).
+  text: Each "#N" dependency carries exactly one tag whose meaning controls whether
+    the session blocks on it. prereq and merged block (must be merged first); sibling
+    and parallel do not block (same-wave concurrent work).
   values:
     prereq: this PR must be merged before the current session can start (blocks)
     merged: synonym for prereq; use when the PR is already closed/merged (blocks)
@@ -22,9 +25,8 @@ terms:
     parallel: synonym for sibling; do NOT block on this
 - term_id: dependency_entry
   label: A dependency list entry
-  text: >-
-    A "#N" reference under the ### Dependencies heading. It is valid only when followed
-    by one recognized classification tag; a bare entry with no tag is a violation.
+  text: 'A "#N" reference under the ### Dependencies heading. It is valid only when
+    followed by one recognized classification tag; a bare entry with no tag is a violation.'
   examples:
     positive:
     - '- #123 (sibling)'

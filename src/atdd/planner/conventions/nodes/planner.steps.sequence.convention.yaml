@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.steps.sequence
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/steps.convention.yaml
+  legacy_sha: sha256:47795a1feaa5508c
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.steps.sequence
 statement: A wagon procedure is expressed as the ordered 9-step JTBD taxonomy (define,
   locate, prepare, confirm, execute, monitor, modify, resolve, conclude); each step
   declares its purpose, its guiding question, and its outputs.

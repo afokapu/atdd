@@ -1,0 +1,62 @@
+schema_version: 1.0.0
+rule_id: planner.interface.naming-patterns
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
+  legacy_sha: sha256:3415a521b5eec18b
+  extraction_mode: high_fidelity
+statement: Produce and consume artifacts are named domain:activity-verb for signals/events
+  and domain:data-noun for state/data, where events are past-tense verbs, state is
+  nouns/adjectives, and collections are plural.
+rationale: A consistent produce/consume naming convention makes an artifact's nature
+  (event vs state vs collection) legible from its name alone, so consumers know whether
+  they are reacting to a signal or reading data.
+terms:
+- term_id: naming_convention
+  label: Event vs state vs collection naming
+  text: Events = past tense verbs; State = nouns/adjectives; Collections = plural.
+    Use domain:activity-verb for signals/events (e.g. match:started, pacing:exhausted)
+    and domain:data-noun for state/data (e.g. player:identity, match:config).
+  values:
+    naming_convention: Events = past tense verbs, State = nouns/adjectives, Collections
+      = plural
+    signal_event_pattern: domain:activity-verb (e.g. match:started, pacing:exhausted)
+    state_data_pattern: domain:data-noun (e.g. player:identity, match:config)
+  examples:
+    positive:
+    - 'match:started  # activity-verb pattern for signal'
+    - 'pacing:exhausted  # activity-verb signal'
+    - 'player:identity  # data-noun pattern for state'
+    - 'match:config  # data-noun state'
+- term_id: produce_naming
+  label: Produce-side naming
+  text: The produce block lists artifacts this wagon creates and owns, each an array
+    entry {name 'domain:artifact-name', to 'internal|external'} with visibility specified
+    via 'to'. Naming follows domain:activity-verb for signals/events and domain:data-noun
+    for state/data.
+  values:
+    prompt: 'What artifacts does this wagon create and own? Specify visibility with
+      ''to''. Follow naming pattern: domain:activity-verb for signals/events, domain:data-noun
+      for state/data'
+    pattern: 'array of {name: ''domain:artifact-name'', to: ''internal|external''}'
+  examples:
+    positive:
+    - 'decision:chosen, to external  # data-noun pattern'
+    - 'match:started, to external  # activity-verb pattern for signal'
+    - 'player:identity, to external  # data-noun pattern for state'
+- term_id: consume_naming
+  label: Consume-side naming
+  text: The consume block lists artifacts this wagon consumes, each an array entry
+    {name 'domain:artifact-name', from 'wagon:slug|system:external|internal'}. Naming
+    follows domain:activity-verb for signals/events and domain:data-noun for state/data.
+  values:
+    prompt: 'What artifacts does this wagon consume? Follow naming pattern: domain:activity-verb
+      for signals/events, domain:data-noun for state/data'
+    pattern: 'array of {name: ''domain:artifact-name'', from: ''wagon:slug|system:external|internal''}'
+  examples:
+    positive:
+    - 'match:dilemma.current, from wagon:pace-dilemmas  # data-noun'
+    - 'time:remaining, from wagon:burn-timebank  # data-noun'
+    - 'match:started, from wagon:play-match  # activity-verb signal'
+    - 'player:identity, from system:external  # data-noun from external train'

@@ -143,6 +143,7 @@ def create_convention_node(
     notes: str | None = None,
     terms: list | None = None,
     examples: dict | None = None,
+    source: dict | None = None,
     root: Path | str | None = None,
     path: Path | str | None = None,
 ) -> Path:
@@ -166,14 +167,17 @@ def create_convention_node(
         home_root = str(root)
     validate_author_input(role, rule_id, path, home_root=home_root)
 
-    # §5.1 field order: ...statement, rationale, terms, examples, notes.
+    # field order: identity, source provenance, then §5.1 semantic body
+    # (statement, rationale, terms, examples, notes).
     node: dict = {
         "schema_version": "1.0.0",
         "rule_id": rule_id,
         "kind": kind,
         "status": status,
-        "statement": statement,
     }
+    if source:
+        node["source"] = source
+    node["statement"] = statement
     if rationale:
         node["rationale"] = rationale
     node["terms"] = terms or []
@@ -226,6 +230,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--example-negative", action="append", default=[], dest="examples_negative",
         help="a node-level negative example (§5.1, repeatable)",
     )
+    cn.add_argument("--legacy-path", default=None, dest="legacy_path",
+                    help="source provenance: legacy convention path this node atomises")
+    cn.add_argument("--legacy-section", default=None, dest="legacy_section",
+                    help="source provenance: legacy section/key this node atomises")
+    cn.add_argument("--legacy-rule-id", default=None, dest="legacy_rule_id",
+                    help="source provenance: legacy rules[].id this node maps to (if any)")
+    cn.add_argument("--extraction-mode", default=None, dest="extraction_mode",
+                    choices=["high_fidelity", "summary", "stub"],
+                    help="source provenance: extraction fidelity")
 
     rel = sub.add_parser("relationship", help="author a relationship edge")
     ctx_flags(rel)
@@ -396,11 +409,17 @@ def run(argv: list[str]) -> int:
             examples["positive"] = list(args.examples_positive)
         if args.examples_negative:
             examples["negative"] = list(args.examples_negative)
+        source: dict = {}
+        for key in ("legacy_path", "legacy_section", "legacy_rule_id", "extraction_mode"):
+            val = getattr(args, key)
+            if val is not None:
+                source[key] = val
         try:
             create_convention_node(
                 role, args.rule_id, kind=args.kind, status=args.status,
                 statement=args.statement, rationale=args.rationale, notes=args.notes,
-                terms=_parse_terms(args.terms), examples=examples or None, path=path,
+                terms=_parse_terms(args.terms), examples=examples or None,
+                source=source or None, path=path,
             )
         except AuthorInputError as exc:
             logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})

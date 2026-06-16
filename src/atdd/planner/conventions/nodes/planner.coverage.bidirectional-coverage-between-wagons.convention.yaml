@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.coverage.bidirectional-coverage-between-wagons
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
+  legacy_sha: sha256:27e800378c584902
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.coverage.bidirectional-coverage-between-wagons
 statement: A wagon and its features must reference each other bidirectionally - every
   feature file is referenced by its wagon manifest, and every features[] entry resolves
   to a real feature YAML file - leaving no orphan on either side.
@@ -15,8 +20,7 @@ terms:
   text: a capability slice registered under a wagon, backed by a feature YAML file
 - term_id: feature_to_wagon
   label: Direction feature -> wagon
-  text: Every feature file must be referenced by its wagon manifest. Enforced by
-    test_all_features_in_wagon_manifest.
+  text: Every feature file must be referenced by its wagon manifest. Enforced by test_all_features_in_wagon_manifest.
 - term_id: wagon_to_feature
   label: Direction wagon -> feature
   text: Every features[] entry in a wagon manifest must have a corresponding feature

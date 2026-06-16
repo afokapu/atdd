@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.wmbt.must-have-smoke-acceptance
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.wmbt.must-have-smoke-acceptance
 statement: Every WMBT must declare at least one acceptance whose URN carries the SMOKE
   harness token (acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]) so the lifecycle has explicit
   real-infrastructure coverage before REFACTOR, UNLESS the WMBT is genuinely docs-only
@@ -18,12 +23,12 @@ terms:
     identity.phase is SMOKE, giving the lifecycle explicit real-infrastructure verification
     between GREEN and REFACTOR.
   values:
-    urn_pattern: 'acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]'
+    urn_pattern: acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]
     identity_phase: SMOKE
   examples:
     positive:
-    - 'acc:govern-lifecycle:E003-SMOKE-001-against-real-db'
-    - 'acc:authenticate-user:C004-SMOKE-019'
+    - acc:govern-lifecycle:E003-SMOKE-001-against-real-db
+    - acc:authenticate-user:C004-SMOKE-019
     negative:
     - 'acc:govern-lifecycle:E003-UNIT-001  # UNIT token, not SMOKE'
 - term_id: real_infrastructure_coverage
@@ -39,11 +44,14 @@ terms:
   values:
     marker: '# atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=YYYY-MM-DD'
     placement: 'on the urn: line of the WMBT YAML'
-    ttl_policy: 'UNTIL = today + ~90 days'
-    example_line: 'urn: "wmbt:<wagon>:<wmbt_id>"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-08-12'
+    ttl_policy: UNTIL = today + ~90 days
+    example_line: 'urn: "wmbt:<wagon>:<wmbt_id>"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance)
+      UNTIL=2026-08-12'
 examples:
   positive:
   - WMBT with identity.urn wmbt:govern-lifecycle:E003 declaring acceptance acc:govern-lifecycle:E003-SMOKE-001-against-real-db
-  - 'docs-only WMBT: urn: "wmbt:docs-only:D001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-08-12'
+  - 'docs-only WMBT: urn: "wmbt:docs-only:D001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance)
+    UNTIL=2026-08-12'
   negative:
-  - WMBT declaring only UNIT and HTTP acceptances and no SMOKE acceptance, with no suppression marker
+  - WMBT declaring only UNIT and HTTP acceptances and no SMOKE acceptance, with no
+    suppression marker

@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.theme.must-be-canonical
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/theme.convention.yaml
+  legacy_sha: sha256:2ae106d04d77b06e
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.theme.must-be-canonical
 statement: Every wagon theme and every train theme-digit must resolve to one of the
   five canonical themes (commons/plan/test/code/coach; digits 0-4); retired game-domain
   themes (digits 5-9) and any undeclared theme are rejected.
@@ -12,9 +17,9 @@ rationale: Constraining themes to the five canonical themes keeps ownership and 
 terms:
 - term_id: canonical_taxonomy
   label: The five canonical themes (ordered abstraction stack, digits 0-4)
-  text: The theme set is an ordered abstraction stack from cross-team primitives
-    (commons) up to the orchestrator (coach). Digits 1-3 align to the planner/tester/coder
-    archetypes. CANONICAL_THEME_0 in _theme_taxonomy.py mirrors the digit-0 name.
+  text: The theme set is an ordered abstraction stack from cross-team primitives (commons)
+    up to the orchestrator (coach). Digits 1-3 align to the planner/tester/coder archetypes.
+    CANONICAL_THEME_0 in _theme_taxonomy.py mirrors the digit-0 name.
   values:
     themes:
       '0': commons - cross-team primitives ANY archetype can consume without importing
@@ -35,16 +40,28 @@ terms:
     retains them for back-compat resolution only; this rule rejects them as theme
     assignments.
   values:
-    retired_digits: ['5', '6', '7', '8', '9']
-    retired_names: [sensory, player, league, audience, monetization, partnership]
+    retired_digits:
+    - '5'
+    - '6'
+    - '7'
+    - '8'
+    - '9'
+    retired_names:
+    - sensory
+    - player
+    - league
+    - audience
+    - monetization
+    - partnership
   examples:
     negative:
     - 'theme: sensory  # retired digit-5 game-domain name'
     - 'theme: monetization  # retired game-domain name'
 - term_id: subsumed_check
-  text: Subsumes the runtime theme-membership check described by
-    wmbt:govern-lifecycle:E001 (which is otherwise unbound).
-  values: {subsumes: 'wmbt:govern-lifecycle:E001'}
+  text: Subsumes the runtime theme-membership check described by wmbt:govern-lifecycle:E001
+    (which is otherwise unbound).
+  values:
+    subsumes: wmbt:govern-lifecycle:E001
 examples:
   positive:
   - 'theme: commons  # resolves to canonical digit 0'

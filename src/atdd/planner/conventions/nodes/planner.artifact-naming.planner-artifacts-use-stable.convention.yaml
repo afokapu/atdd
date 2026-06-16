@@ -2,19 +2,24 @@ schema_version: 1.0.0
 rule_id: planner.artifact-naming.planner-artifacts-use-stable
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.artifact-naming.planner-artifacts-use-stable
 statement: Planner artifacts use stable URN-based names matching the registered grammar
-  {theme}(:{category})*:{aspect}(.{variant})?, where colon descends the hierarchy and
-  dot marks a lateral variant.
+  {theme}(:{category})*:{aspect}(.{variant})?, where colon descends the hierarchy
+  and dot marks a lateral variant.
 rationale: Stable URN-based names let the graph reference plan artifacts durably across
-  renames and refactors, and map one-to-one to contract file paths so the physical layout
-  is derivable from the logical name.
+  renames and refactors, and map one-to-one to contract file paths so the physical
+  layout is derivable from the logical name.
 terms:
 - term_id: naming_grammar
   label: The artifact-name grammar
-  text: An artifact name is {theme}(:{category})*:{aspect}(.{variant})?. Theme is required
-    and appears exactly once; categories are zero or more hierarchy segments; aspect is
-    the required final leaf noun; variant is an optional lateral facet. Every segment is
-    kebab-case.
+  text: An artifact name is {theme}(:{category})*:{aspect}(.{variant})?. Theme is
+    required and appears exactly once; categories are zero or more hierarchy segments;
+    aspect is the required final leaf noun; variant is an optional lateral facet.
+    Every segment is kebab-case.
   values:
     full_pattern: '{theme}(:{category})*:{aspect}(.{variant})?'
     segment_regex: ^[a-z][a-z0-9-]*$
@@ -30,11 +35,12 @@ terms:
     - commons:ux:foundations:color.primary
 - term_id: separator_semantics
   label: Colon descends, dot varies
-  text: Colon is hierarchical descent (general to specific, unlimited depth); dot is lateral
-    variation (different flavor/state/type of the same aspect, kept shallow, typically
-    0-1). The two separators always mean the same thing.
+  text: Colon is hierarchical descent (general to specific, unlimited depth); dot
+    is lateral variation (different flavor/state/type of the same aspect, kept shallow,
+    typically 0-1). The two separators always mean the same thing.
   values:
-    colon: hierarchical descent (theme -> subsystem -> category -> item); unlimited depth
+    colon: hierarchical descent (theme -> subsystem -> category -> item); unlimited
+      depth
     dot: lateral variant (state/type/facet); typically 1, rarely 2 - keep shallow
   examples:
     positive:
@@ -43,9 +49,9 @@ terms:
     - 'player:session.active vs player:session.closed  # state variants via dot'
 - term_id: cardinality_from_aspect
   label: Plural aspect means a collection
-  text: The aspect (final noun before any variant) determines cardinality. A plural aspect
-    denotes a collection/array schema; a singular aspect denotes a single item. Category
-    and variant segments never affect cardinality, even when plural.
+  text: The aspect (final noun before any variant) determines cardinality. A plural
+    aspect denotes a collection/array schema; a singular aspect denotes a single item.
+    Category and variant segments never affect cardinality, even when plural.
   values:
     singular_aspect: single item schema (e.g. scenario:fragment)
     plural_aspect: collection/array schema or directory reference (e.g. scenario:fragments)
@@ -54,24 +60,26 @@ terms:
   examples:
     positive:
     - 'scenario:fragments  # plural aspect -> array'
-    - 'commons:ux:foundations:color  # foundations is a category; color singular -> one item'
+    - 'commons:ux:foundations:color  # foundations is a category; color singular ->
+      one item'
 - term_id: contract_path_mapping
   label: Name maps to contract file path
-  text: Splitting the name on colons and dots yields the contract file path under contracts/;
-    the URN is the artifact name prefixed with the contract scheme and preserves every
-    colon and dot exactly.
+  text: Splitting the name on colons and dots yields the contract file path under
+    contracts/; the URN is the artifact name prefixed with the contract scheme and
+    preserves every colon and dot exactly.
   values:
-    formula: 'theme:seg1:seg2:aspect.variant -> contracts/theme/seg1/seg2/aspect/variant.schema.json'
-    urn_pattern: 'contract:{artifact_name}'
+    formula: theme:seg1:seg2:aspect.variant -> contracts/theme/seg1/seg2/aspect/variant.schema.json
+    urn_pattern: contract:{artifact_name}
   examples:
     positive:
-    - 'commons:ux:foundations:color -> contracts/commons/ux/foundations/color.schema.json'
-    - 'sensory:gesture.raw -> contracts/sensory/gesture/raw.schema.json'
+    - commons:ux:foundations:color -> contracts/commons/ux/foundations/color.schema.json
+    - sensory:gesture.raw -> contracts/sensory/gesture/raw.schema.json
 - term_id: naming_anti_patterns
   label: Recognized naming anti-patterns
-  text: Names must avoid using dots for hierarchy (wrong_separator_for_hierarchy), omitting
-    the theme (missing_theme), over-specifying with deep dot chains (too_many_dots), using
-    a vague aspect (generic_aspect), or repeating the theme inside the aspect (theme_in_aspect).
+  text: Names must avoid using dots for hierarchy (wrong_separator_for_hierarchy),
+    omitting the theme (missing_theme), over-specifying with deep dot chains (too_many_dots),
+    using a vague aspect (generic_aspect), or repeating the theme inside the aspect
+    (theme_in_aspect).
   values:
     wrong_separator_for_hierarchy: dots used for depth that should be colons
     missing_theme: no theme prefix, owner unclear
@@ -90,4 +98,5 @@ examples:
   - 'commons:ux:foundations:color.primary  # 4 hierarchy levels + 1 variant'
   - 'contract:sensory:gesture.raw  # URN preserves colon and dot'
   negative:
-  - 'mechanic:timebank.exhausted:v1  # version belongs in a separate field, not the $id'
+  - 'mechanic:timebank.exhausted:v1  # version belongs in a separate field, not the
+    $id'

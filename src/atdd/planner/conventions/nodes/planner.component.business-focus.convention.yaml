@@ -1,0 +1,55 @@
+schema_version: 1.0.0
+rule_id: planner.component.business-focus
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/component.convention.yaml
+  legacy_sha: sha256:8bfb25fd6c2bdb6e
+  extraction_mode: high_fidelity
+statement: Each component must have a single business capability, and its name must
+  reflect that primary business purpose.
+rationale: One business capability per component keeps responsibilities sharp and
+  makes the component's name a faithful index of what it does, so the graph stays
+  readable and components stay swappable.
+terms:
+- term_id: single_capability
+  label: Single business capability
+  text: Each component must have a single business capability. Check that the component
+    name reflects its primary business purpose.
+  values:
+    rule: Each component must have single business capability
+    check: Component name reflects its primary business purpose
+- term_id: business_capabilities
+  label: Business capability vocabulary
+  text: Canonical business capabilities a component name can express, grouped by core
+    business, UI/UX, and integration concerns.
+  values:
+    core_business:
+      validator: Validates business rules and constraints
+      processor: Processes business logic and computations
+      coordinator: Coordinates multiple operations
+      transformer: Transforms data between formats
+      aggregator: Aggregates data from multiple sources
+    ui_ux:
+      display: Displays information to users
+      collector: Collects user input
+      navigator: Manages navigation flow
+    integration:
+      persister: Persists data to storage
+      fetcher: Fetches data from external sources
+      publisher: Publishes events/notifications
+      subscriber: Subscribes to events/notifications
+- term_id: naming_pattern
+  label: Component naming pattern
+  text: Component names follow the pattern {business-capability}-{layer-role}.
+  values:
+    pattern: '{business-capability}-{layer-role}'
+examples:
+  positive:
+  - option-validator
+  - decision-processor
+  - dilemma-display
+  - choice-persister
+  - result-publisher
+  negative:
+  - 'manager-helper-util  # vague, no single business capability'

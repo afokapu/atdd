@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.feature.wagon-link
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_sha: sha256:4a95544261fb9541
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.feature.wagon-link
 statement: Each feature is registered under exactly one wagon's _features.yaml manifest.
 rationale: Registering each feature under exactly one wagon keeps ownership unambiguous
   and the manifest authoritative. A feature URN's wagon segment must match the wagon
@@ -9,10 +14,10 @@ rationale: Registering each feature under exactly one wagon keeps ownership unam
 terms:
 - term_id: feature
   label: A capability slice of a wagon
-  text: A feature is a capability slice owned by exactly one wagon. Its URN
-    (feature:{wagon}:{feature}) carries the owning wagon's slug as its first segment.
+  text: A feature is a capability slice owned by exactly one wagon. Its URN (feature:{wagon}:{feature})
+    carries the owning wagon's slug as its first segment.
   values:
-    pattern: 'feature:{wagon}:{feature}'
+    pattern: feature:{wagon}:{feature}
 - term_id: wagon_manifest
   label: The owning wagon's _features.yaml
   text: Exactly one wagon's _features.yaml lists the feature. The wagon segment of
@@ -20,6 +25,6 @@ terms:
     appear in two wagons' manifests.
   examples:
     positive:
-    - 'feature:maintain-ux:provide-foundations listed in plan/maintain_ux/_maintain_ux.yaml'
+    - feature:maintain-ux:provide-foundations listed in plan/maintain_ux/_maintain_ux.yaml
     negative:
-    - 'feature:maintain-ux:provide-foundations also listed in plan/resolve_dilemmas/_resolve_dilemmas.yaml'
+    - feature:maintain-ux:provide-foundations also listed in plan/resolve_dilemmas/_resolve_dilemmas.yaml

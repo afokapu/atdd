@@ -3,7 +3,8 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: completeness and harness-type declaration are two required facets of the same acceptance
+  reason: completeness and harness-type declaration are two required facets of the
+    same acceptance
   source_ref: planner.acceptance.complete
   strength: important
   target_ref: planner.acceptance.harness
@@ -12,7 +13,8 @@ edges:
   constraint: discretionary
   control: internal
   foundation: start_to_start
-  reason: the same bidirectional-coverage invariant at the train-wagon and wagon-feature levels
+  reason: the same bidirectional-coverage invariant at the train-wagon and wagon-feature
+    levels
   source_ref: planner.coverage.bidirectional-coverage-between-trains
   strength: minor
   target_ref: planner.coverage.bidirectional-coverage-between-wagons
@@ -30,7 +32,8 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: a WMBT's required acceptance only counts if acceptances are complete (G/W/T + verifiable outcome)
+  reason: a WMBT's required acceptance only counts if acceptances are complete (G/W/T
+    + verifiable outcome)
   source_ref: planner.coverage.every-wmbt-must-have
   strength: important
   target_ref: planner.acceptance.complete
@@ -39,7 +42,8 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: the per-WMBT acceptance check presupposes a well-shaped WMBT (id, statement, proving artifacts)
+  reason: the per-WMBT acceptance check presupposes a well-shaped WMBT (id, statement,
+    proving artifacts)
   source_ref: planner.coverage.every-wmbt-must-have
   strength: important
   target_ref: planner.wmbt.shape
@@ -48,7 +52,8 @@ edges:
   constraint: discretionary
   control: internal
   foundation: start_to_start
-  reason: the criterion record shape and its prose/outcome are the same artifact from two angles
+  reason: the criterion record shape and its prose/outcome are the same artifact from
+    two angles
   source_ref: planner.criteria.shape
   strength: minor
   target_ref: planner.acceptance.complete
@@ -57,7 +62,8 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: a feature registered under one wagon presupposes the wagon's _features.yaml lists it
+  reason: a feature registered under one wagon presupposes the wagon's _features.yaml
+    lists it
   source_ref: planner.feature.wagon-link
   strength: important
   target_ref: planner.wagon.features
@@ -75,7 +81,8 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: the commons/coach import boundary is only checkable once a theme resolves to canonical
+  reason: the commons/coach import boundary is only checkable once a theme resolves
+    to canonical
   source_ref: planner.theme.commons-coach-boundary
   strength: important
   target_ref: planner.theme.must-be-canonical
@@ -93,7 +100,8 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: matching a produced-URN theme-prefix to the wagon theme presupposes a canonical theme
+  reason: matching a produced-URN theme-prefix to the wagon theme presupposes a canonical
+    theme
   source_ref: planner.theme.urn-namespace-matches
   strength: important
   target_ref: planner.theme.must-be-canonical
@@ -102,7 +110,8 @@ edges:
   constraint: discretionary
   control: internal
   foundation: start_to_start
-  reason: a wagon's stable URN is an instance of the stable-naming rule for planner artifacts
+  reason: a wagon's stable URN is an instance of the stable-naming rule for planner
+    artifacts
   source_ref: planner.wagon.urn
   strength: minor
   target_ref: planner.artifact-naming.planner-artifacts-use-stable
@@ -111,11 +120,167 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: a SMOKE acceptance is defined by carrying the SMOKE harness token, so it depends on the harness-type rule
+  reason: a SMOKE acceptance is defined by carrying the SMOKE harness token, so it
+    depends on the harness-type rule
   source_ref: planner.wmbt.must-have-smoke-acceptance
   strength: critical
   target_ref: planner.acceptance.harness#harness_type
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the {wagon} URN segment must resolve to a real wagon
+  source_ref: planner.component.urn
+  strength: critical
+  target_ref: planner.wagon.urn
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the {feature} URN segment must resolve to an owning feature
+  source_ref: planner.component.urn
+  strength: critical
+  target_ref: planner.feature.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: components are derived from the feature's ioSeeds and WMBTs
+  source_ref: planner.component.derivation
+  strength: important
+  target_ref: planner.feature.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: component events must be a subset of the feature's ioSeeds
+  source_ref: planner.component.io-alignment
+  strength: important
+  target_ref: planner.feature.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a generated component's structure is keyed by its component URN
+  source_ref: planner.component.structure
+  strength: important
+  target_ref: planner.component.urn
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: exceeding 8 components signals the feature should be split
+  source_ref: planner.component.count-limit
+  strength: minor
+  target_ref: planner.feature.shape
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the contract URN scheme is the interface-side application of the stable-naming
+    grammar
+  source_ref: planner.interface.contract-urn
+  strength: important
+  target_ref: planner.artifact-naming.planner-artifacts-use-stable
+  type: follows
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: FLAT/FACETED/COLLECTION layouts realise the colon/dot-to-path mapping
+  source_ref: planner.interface.structure-rules
+  strength: minor
+  target_ref: planner.artifact-naming.planner-artifacts-use-stable
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: orphan detection is defined via bidirectional-linkage resolution of the
+    contract URN
+  source_ref: planner.interface.orphan-detection
+  strength: important
+  target_ref: planner.interface.contract-urn
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: the tests/ rule targets the leaf directories produced by the layouts
+  source_ref: planner.interface.tests-subdirectory
+  strength: minor
+  target_ref: planner.interface.structure-rules
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: verb selection keys off the event/state/data/config naming classification
+  source_ref: planner.interface.artifact-transformation
+  strength: important
+  target_ref: planner.interface.naming-patterns
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: train acceptances must be complete, tester-verifiable acceptances
+  source_ref: planner.train.acceptance-invariants
+  strength: critical
+  target_ref: planner.acceptance.complete
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the measurability invariant requires harness.type or signal.metric+threshold
+  source_ref: planner.train.acceptance-invariants
+  strength: important
+  target_ref: planner.acceptance.harness
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: train acceptances mirror the WMBT acceptance shape
+  source_ref: planner.train.acceptance-invariants
+  strength: minor
+  target_ref: planner.wmbt.shape
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a train sequences 3-7 wagons referenced by wagon URN
+  source_ref: planner.train.scope
+  strength: important
+  target_ref: planner.wagon.urn
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the spec filename derives from the 4-digit numbering scheme
+  source_ref: planner.train.registry-two-file
+  strength: important
+  target_ref: planner.train.numbering
+  type: follows
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: dependency refs reuse the train:{train_id} URN form
+  source_ref: planner.train.dependencies-acyclic
+  strength: minor
+  target_ref: planner.train.numbering
+  type: follows
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0

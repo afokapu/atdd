@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.wagon.urn
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_sha: sha256:ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.wagon.urn
 statement: Wagons declare a stable URN of the form wagon:{kebab-case-name} and live
   under plan/<wagon-slug>/ with the documented file layout.
 rationale: A stable wagon URN and fixed layout make wagons addressable and discoverable
@@ -14,19 +19,19 @@ terms:
     the name is lowercase alphanumeric with hyphens and starts with a letter, ideally
     a verb-object phrase (e.g. resolve-dilemmas, commit-state).
   values:
-    pattern: 'wagon:{kebab-case-name}'
+    pattern: wagon:{kebab-case-name}
     regex: ^wagon:[a-z][a-z0-9-]*$
     must_start_with: lowercase letter
     allowed_chars: lowercase letters, digits, hyphens
     preference: verb-object
   examples:
     positive:
-    - 'wagon:resolve-dilemmas'
-    - 'wagon:burn-timebank'
-    - 'wagon:manage-users'
+    - wagon:resolve-dilemmas
+    - wagon:burn-timebank
+    - wagon:manage-users
     negative:
-    - 'wagon:Resolve_Dilemmas'
-    - 'wagon:1-manage-users'
+    - wagon:Resolve_Dilemmas
+    - wagon:1-manage-users
 - term_id: logical_vs_physical_naming
   label: Kebab-case logical identifiers vs snake_case filesystem
   text: Logical identifiers (URNs, slug fields, YAML references) use kebab-case with
@@ -40,8 +45,8 @@ terms:
     dirname_to_slug: dirname.replace('_', '-')
   examples:
     positive:
-    - 'feature:authenticate-identity → plan/authenticate_identity/ → _authenticate_identity.yaml'
-    - 'plan/authenticate_identity/features/verify_session.yaml'
+    - feature:authenticate-identity → plan/authenticate_identity/ → _authenticate_identity.yaml
+    - plan/authenticate_identity/features/verify_session.yaml
     negative:
     - 'plan/authenticate-identity/  # directories must be snake_case'
 - term_id: wagon_layout
@@ -56,10 +61,11 @@ terms:
     manifest_note: File name matches directory name, NOT slug
   examples:
     positive:
-    - 'plan/authenticate_identity/_authenticate_identity.yaml'
-    - 'plan/resolve_dilemmas/_resolve_dilemmas.yaml'
+    - plan/authenticate_identity/_authenticate_identity.yaml
+    - plan/resolve_dilemmas/_resolve_dilemmas.yaml
     negative:
-    - 'plan/authenticate_identity/_authenticate-identity.yaml  # manifest must match dirname'
+    - 'plan/authenticate_identity/_authenticate-identity.yaml  # manifest must match
+      dirname'
 examples:
   positive:
   - 'urn: wagon:resolve-dilemmas  # → plan/resolve_dilemmas/_resolve_dilemmas.yaml'

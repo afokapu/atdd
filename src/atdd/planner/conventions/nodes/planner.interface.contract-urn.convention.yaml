@@ -1,0 +1,109 @@
+schema_version: 1.0.0
+rule_id: planner.interface.contract-urn
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
+  legacy_sha: sha256:3415a521b5eec18b
+  extraction_mode: high_fidelity
+statement: Wagon artifacts carry a stable URN of the form contract:{domain}:{resource}[.{category}]
+  that links the artifact to its contract independently of contract version, and the
+  graph maintains bidirectional linkage between wagon URNs and contract IDs.
+rationale: URNs decouple wagon artifacts from contract versioning. URNs remain stable
+  while contract versions evolve (v1->v2) without requiring wagon YAML changes; wagons
+  declare WHAT (URN) while contracts define HOW (version, schema, API). This loose
+  coupling keeps domain language human-readable and free of version noise.
+terms:
+- term_id: urn_pattern
+  label: The contract URN format
+  text: A contract URN is contract:{domain}:{resource}[.{category}]. Domain is the
+    first part of the artifact name (before the first colon); resource is the second
+    part (after the first colon, before the dot if present); category is the optional
+    third part (after the dot). The colon is kept for hierarchy (domain:resource)
+    and the category is preserved as a dot facet when present.
+  values:
+    format: contract:{domain}:{resource}[.{category}]
+    domain: First part of artifact name (before first colon)
+    resource: Second part of artifact name (after first colon, before dot if present)
+    category: Optional third part (after dot)
+    conversion_rule: Keep colon for hierarchy (domain:resource); preserve category
+      as dot facet when present
+  examples:
+    positive:
+    - ux:foundations -> contract:ux:foundations
+    - ux:foundations.colors -> contract:ux:foundations.colors
+    - mechanic:decision.choice -> contract:mechanic:decision.choice
+    - match:result -> contract:match:result
+    - player:identity -> contract:player:identity
+- term_id: wagon_artifact_urn
+  label: URN field on wagon produce/consume entries
+  text: Artifacts in wagon YAML manifests (plan/{wagon}/*.yaml) carry an urn field
+    added to each produce/consume entry, linking the wagon artifact to a contract
+    without version coupling.
+  values:
+    urn_field: urn
+    location: Added to each produce/consume entry
+    purpose: Links wagon artifact to contract without version coupling
+  examples:
+    positive:
+    - 'maintain-ux produce: name ux:foundations, urn contract:ux:foundations, to external'
+    - 'maintain-ux produce: name ux:foundations.colors, urn contract:ux:foundations.colors,
+      to external'
+    - 'stage-characters consume: name ux:foundations, urn contract:ux:foundations,
+      from wagon:maintain-ux'
+- term_id: contract_artifact_id
+  label: Contract definition ID with version
+  text: Contract definitions in contracts/_artifacts.yaml carry an id of the form
+    {domain}:{resource}[.{category}]:v{version} as the authoritative source for schema,
+    version and API. A version-agnostic URN contract:{domain}:{resource}[.{category}]
+    maps to any version of the matching id.
+  values:
+    id_field: 'id: {domain}:{resource}[.{category}]:v{version}'
+    purpose: Authoritative source for contract schema, version, API
+    urn_mapping: URN contract:{domain}:{resource}[.{category}] maps to any version
+      of id {domain}:{resource}[.{category}]:v*
+  examples:
+    positive:
+    - id ux:foundations:v1 (version 1.0.0, path ux/foundations.json, producer wagon:maintain-ux)
+      matches urn contract:ux:foundations
+    - id ux:foundations.colors:v1 matches urn contract:ux:foundations.colors (category
+      preserved in both URN and ID)
+- term_id: bidirectional_linkage
+  label: Wagon<->contract linkage
+  text: Wagon URN resolves to a Contract ID via domain.resource matching, and a contract
+    producer field resolves back to a wagon name. A URN must resolve to a contract
+    in the registry.
+  values:
+    wagon_to_contract: Wagon URN -> Contract ID lookup via domain.resource matching
+    contract_to_wagon: Contract producer field -> Wagon name
+    validation: URN must resolve to contract in registry
+- term_id: urn_purpose
+  label: Why URNs exist
+  text: URNs decouple wagon artifacts from contract versioning so URNs stay stable
+    while contract versions evolve, separating WHAT (URN) from HOW (version, schema,
+    API) and keeping names human-readable.
+  values:
+    rationale: Decouple wagon artifacts from contract versioning
+    stability: URNs remain stable while contract versions evolve
+    separation_of_concerns: Wagons declare WHAT (URN), contracts define HOW (version,
+      schema, API)
+    loose_coupling: Contract evolution (v1->v2) doesn't require wagon YAML changes
+    human_readable: Clear domain language without version noise
+- term_id: legacy_urn_migration
+  label: Legacy URN separator refactor
+  text: Legacy URNs of the form contract:{domain}.{resource} migrate to contract:{domain}:{resource};
+    the category stays as a dot facet, i.e. contract:{domain}:{resource}.{category}.
+    The URN field is optional initially but required for new wagons.
+  values:
+    refactor_note: 'Legacy URNs contract:{domain}.{resource} -> contract:{domain}:{resource};
+      category stays as a dot facet: contract:{domain}:{resource}.{category}'
+    backward_compatibility: URN field optional initially, required for new wagons
+    phase1: Add urn field to all wagon artifacts (this upgrade)
+    phase2: Validate all URNs resolve to contracts
+    phase3: Generate missing contracts for orphaned URNs
+examples:
+  positive:
+  - 'mechanic:decision.choice -> contract:mechanic:decision.choice  # category preserved
+    as dot facet'
+  negative:
+  - 'contract:mechanic.decision.choice  # legacy dot-for-hierarchy -> contract:mechanic:decision.choice'

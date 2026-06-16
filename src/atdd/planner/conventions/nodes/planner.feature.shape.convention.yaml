@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.feature.shape
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_sha: sha256:4a95544261fb9541
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.feature.shape
 statement: Feature YAMLs declare a urn, a status, and a non-empty acceptance section,
   and must be sized S or smaller within the documented hard limits.
 rationale: Requiring urn, status, and an acceptance section makes a feature a complete,
@@ -13,12 +18,12 @@ terms:
   text: A feature is addressed by a URN following the pattern feature:{wagon}:{feature},
     kebab-case for both segments, each a verb-object phrase.
   values:
-    pattern: 'feature:{wagon}:{feature}'
+    pattern: feature:{wagon}:{feature}
     regex: ^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$
   examples:
     positive:
-    - 'feature:resolve-dilemmas:choose-option'
-    - 'feature:manage-users:authenticate-user'
+    - feature:resolve-dilemmas:choose-option
+    - feature:manage-users:authenticate-user
     negative:
     - 'feature:resolve-dilemmas  # missing feature segment'
 - term_id: required_fields
@@ -47,9 +52,9 @@ terms:
       XL: ≥26 points — split
   examples:
     positive:
-    - '2 controllers + 1 repository + 1 view = 5 points → S bracket'
+    - 2 controllers + 1 repository + 1 view = 5 points → S bracket
     negative:
-    - '11+ points → M bracket — must be decomposed or staged, never executed as-is'
+    - 11+ points → M bracket — must be decomposed or staged, never executed as-is
 - term_id: hard_limits
   label: Per-feature hard limits (tables / async jobs / integrations)
   text: A feature may introduce at most 2 new tables, 2 async jobs, and 2 integrations.
@@ -63,10 +68,9 @@ terms:
 - term_id: feedback_loop_kind
   label: The feedback-loop feature kind and its suppression syntax
   text: The optional kind field classifies a feature's system archetype. A value of
-    feedback-loop marks a producer→consumer correction loop and triggers
-    planner.smoke.feedback-loop-close-the-loop, which requires at least one SMOKE
-    acceptance with a close_the_loop block (consumer_reacted + drift_resolved). The
-    rule can be suppressed inline for docs-only features.
+    feedback-loop marks a producer→consumer correction loop and triggers planner.smoke.feedback-loop-close-the-loop,
+    which requires at least one SMOKE acceptance with a close_the_loop block (consumer_reacted
+    + drift_resolved). The rule can be suppressed inline for docs-only features.
   values:
     field: kind
     default_when_absent: producer-only
@@ -75,4 +79,5 @@ terms:
   examples:
     positive:
     - 'kind: feedback-loop'
-    - 'kind: feedback-loop  # atdd:suppress(planner.smoke.feedback-loop-close-the-loop) UNTIL=YYYY-MM-DD'
+    - 'kind: feedback-loop  # atdd:suppress(planner.smoke.feedback-loop-close-the-loop)
+      UNTIL=YYYY-MM-DD'

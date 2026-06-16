@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.criteria.shape
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
+  legacy_sha: sha256:db262e7f5fb06226
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.criteria.shape
 statement: 'Criteria entries follow the documented shape: id, description, harness,
   and expected_outcome.'
 rationale: A fixed criterion record shape lets tooling read criteria uniformly across
@@ -46,8 +51,8 @@ terms:
     - 'harness: rest  # not in the catalog'
 - term_id: stubbing_policy
   label: Strict stubbing default
-  text: The default given block sets stubbing policy strict, so dependencies must be
-    explicitly stubbed rather than implicitly faked; overrides are listed explicitly.
+  text: The default given block sets stubbing policy strict, so dependencies must
+    be explicitly stubbed rather than implicitly faked; overrides are listed explicitly.
   values:
     policy: strict
     overrides: []

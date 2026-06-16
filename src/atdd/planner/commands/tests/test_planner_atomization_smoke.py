@@ -64,17 +64,25 @@ def test_committed_nodes_and_graph_are_coherent():
     schema = json.loads(_NODE_SCHEMA.read_text())
     node_ids = set()
     node_files = sorted(_NODES.glob("planner.*.convention.yaml"))
-    assert len(node_files) == 23, f"expected 23 atomized nodes, found {len(node_files)}"
+    # all 11 rules-bearing conventions plus the three previously zero-node
+    # conventions (component/interface/train) are atomized; the count is a lower
+    # bound so the corpus can keep growing without churning this guard.
+    assert len(node_files) >= 49, f"expected >=49 atomized nodes, found {len(node_files)}"
     for f in node_files:
         node = yaml.safe_load(f.read_text())
         jsonschema.validate(node, schema)                # every committed node is schema-valid
         assert f.name == f"{node['rule_id']}.convention.yaml"
+        # every node carries auditable source provenance back to its legacy file
+        src = node.get("source") or {}
+        legacy = src.get("legacy_path", "")
+        assert legacy and (_SRC.parent / legacy).exists(), f"{f.name}: bad source.legacy_path"
+        assert src.get("extraction_mode") == "high_fidelity", f"{f.name}: missing extraction_mode"
         node_ids.add(node["rule_id"])
 
     graph = yaml.safe_load(_CORE_GRAPH.read_text())
     assert graph["graph_id"] == "atdd.convention.relationships"
     edges = graph["edges"]
-    assert len(edges) == 13
+    assert len(edges) >= 30
     # referential integrity: every edge endpoint (minus a #term suffix) is a real node
     for e in edges:
         for ref in (e["source_ref"], e["target_ref"]):

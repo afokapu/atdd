@@ -1,0 +1,43 @@
+schema_version: 1.0.0
+rule_id: planner.interface.ownership-rules
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
+  legacy_sha: sha256:3415a521b5eec18b
+  extraction_mode: high_fidelity
+statement: The wagon that declares an artifact in produce[] is its producer and generates
+  the artifact contract; a wagon that declares the same artifact in consume[] is a
+  consumer and references the existing contract. An optional contract field on each
+  entry points to the contract path.
+rationale: Producer/consumer roles assign single ownership of each contract to the
+  producing wagon while letting consumers reference it, which is what makes bidirectional
+  coverage and orphan detection possible.
+terms:
+- term_id: producer_consumer
+  label: Producer and consumer roles
+  text: A producer generates the artifact contract - it is the wagon that declares
+    the artifact in produce[]. A consumer references an existing contract - it is
+    the wagon that declares the artifact in consume[].
+  values:
+    producer: Generates artifact contract (wagon that declares artifact in produce[])
+    consumer: References existing contract (wagon that declares artifact in consume[])
+  examples:
+    positive:
+    - 'producer wagon resolve-dilemmas: produce name mechanic:decision.choice, to
+      external, contract contracts/artifacts/decision/choice.json'
+    - 'consumer wagon commit-state: consume name mechanic:decision.choice, from wagon:resolve-dilemmas,
+      contract contracts/artifacts/decision/choice.json'
+- term_id: contract_field
+  label: Optional contract field
+  text: The contract field is optional for backward compatibility but recommended
+    for the artifact-centric contract system. Existing wagons work without a contract
+    field (implicit contracts); new wagons should add explicit contract references.
+  values:
+    required: false
+    recommended: true
+    rationale: Optional for backward compatibility; recommended for artifact-centric
+      contract system
+    migration: Transition from implicit contracts (no contract field) to explicit
+      contracts (with contract field). Existing wagons work without contract field;
+      new wagons should add explicit contract references

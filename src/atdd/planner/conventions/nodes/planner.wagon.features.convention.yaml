@@ -2,18 +2,22 @@ schema_version: 1.0.0
 rule_id: planner.wagon.features
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_sha: sha256:ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.wagon.features
 statement: A wagon's _features.yaml lists every feature module and its current status.
 rationale: A complete _features.yaml index keeps a wagon's feature set and their statuses
-  authoritative in one place, with each feature addressable by a URN of the form
-  feature:{wagon-slug}:{feature-name}.
+  authoritative in one place, with each feature addressable by a URN of the form feature:{wagon-slug}:{feature-name}.
 terms:
 - term_id: wagon_features_manifest
   label: The wagon's _features.yaml index
   text: The wagon manifest enumerates every feature module under the wagon together
-    with its current lifecycle status. Each entry is addressed by a feature URN
-    following the pattern feature:{wagon-slug}:{feature-name}.
+    with its current lifecycle status. Each entry is addressed by a feature URN following
+    the pattern feature:{wagon-slug}:{feature-name}.
   values:
-    pattern: 'feature:{wagon-slug}:{feature-name}'
+    pattern: feature:{wagon-slug}:{feature-name}
 - term_id: features_listing_format
   label: urn_format (array) vs legacy object format
   text: The preferred urn_format lists features as an array of URN objects; the legacy
@@ -25,6 +29,7 @@ terms:
   examples:
     positive:
     - 'urn_format: [{urn: feature:maintain-ux:provide-foundations}, {urn: feature:maintain-ux:compose-primitives}]'
-    - 'legacy: {provide-foundations: Provide foundation design tokens, compose-primitives: Compose UI primitives}'
+    - 'legacy: {provide-foundations: Provide foundation design tokens, compose-primitives:
+      Compose UI primitives}'
     negative:
     - 'feature:maintain-ux  # missing the {feature-name} segment'

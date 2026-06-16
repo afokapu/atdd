@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.appendix.structure
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/appendix.convention.yaml
+  legacy_sha: sha256:01a95e1ebafe2eca
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.appendix.structure
 statement: Appendices are typed multimodal artifacts named {artifact-name}_{type}_{filename}
   and stored in an appendices/ subdirectory co-located with the artifact they describe.
 rationale: A fixed appendix taxonomy, naming pattern, and storage location keep planner
@@ -13,18 +18,18 @@ terms:
   text: An appendix is one of six types, each with its own file extensions and intended
     use during wagon/wmbt/feature/component/acceptance creation.
   values:
-    mockup: 'PNG/JPG/JPEG/SVG/GIF — UI designs, wireframes, prototypes; informs component
-      structure and harness selection'
-    spreadsheet: 'XLSX/CSV/TSV — data models, calculations, business rules; informs domain
-      model and acceptance criteria'
-    document: 'PDF/DOCX/MD/TXT — PRDs, specs, research findings; informs wagon description
-      and component contracts'
-    diagram: 'PNG/SVG/MERMAID/DRAWIO — architecture, ERDs, sequence/state diagrams; informs
-      4-layer structure and integration points'
-    audio: 'MP3/WAV/M4A/OGG — interviews, voice notes, requirement sessions; informs WMBT
-      scenarios and pain points'
-    video: 'MP4/MOV/WEBM/AVI — screen recordings, demos, user-testing sessions; informs
-      feature parity and reproduce steps'
+    mockup: PNG/JPG/JPEG/SVG/GIF — UI designs, wireframes, prototypes; informs component
+      structure and harness selection
+    spreadsheet: XLSX/CSV/TSV — data models, calculations, business rules; informs
+      domain model and acceptance criteria
+    document: PDF/DOCX/MD/TXT — PRDs, specs, research findings; informs wagon description
+      and component contracts
+    diagram: PNG/SVG/MERMAID/DRAWIO — architecture, ERDs, sequence/state diagrams;
+      informs 4-layer structure and integration points
+    audio: MP3/WAV/M4A/OGG — interviews, voice notes, requirement sessions; informs
+      WMBT scenarios and pain points
+    video: MP4/MOV/WEBM/AVI — screen recordings, demos, user-testing sessions; informs
+      feature parity and reproduce steps
 - term_id: naming_pattern
   label: The appendix filename pattern
   text: Appendix filenames follow {artifact-name}_{type}_{filename} to ensure uniqueness,
@@ -39,8 +44,9 @@ terms:
     - 'PaymentForm_mockup_states.png  # component'
 - term_id: storage_location
   label: Appendices live in an appendices/ subdirectory
-  text: Appendices are stored in an appendices/ subdirectory of the artifact they describe,
-    keeping artifacts self-contained and appendices co-located with what they describe.
+  text: Appendices are stored in an appendices/ subdirectory of the artifact they
+    describe, keeping artifacts self-contained and appendices co-located with what
+    they describe.
   values:
     wagon: '{output_dir}/wagons/{wagon-name}/appendices/'
     wmbt: '{output_dir}/wagons/{wagon-name}/plan/{wmbt-id}/appendices/'

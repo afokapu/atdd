@@ -1,0 +1,55 @@
+schema_version: 1.0.0
+rule_id: planner.component.io-alignment
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/component.convention.yaml
+  legacy_sha: sha256:8bfb25fd6c2bdb6e
+  extraction_mode: high_fidelity
+statement: A component's consumed and produced events must be a subset of the owning
+  feature's ioSeeds; every event must be traceable to a feature ioSeed.
+rationale: Constraining component events to the feature's ioSeeds keeps the component's
+  interface within its feature's declared contract, so no component can quietly invent
+  inputs or outputs the feature never promised.
+terms:
+- term_id: events_subset
+  label: Events subset of feature ioSeeds
+  text: Component events must be a subset of feature ioSeeds. Check that all consumed/produced
+    events are traceable to feature ioSeeds.
+  values:
+    rule: Component events must subset of feature ioSeeds
+    check: All consumed/produced events traceable to feature ioSeeds
+- term_id: event_limits
+  label: Consume/produce limits and sources
+  text: A component consumes events filtered from feature.ioSeeds.consume by its role
+    and produces events filtered from feature.ioSeeds.produce by its capability, each
+    capped at 3.
+  values:
+    consumes:
+      source: feature.ioSeeds.consume filtered by component role
+      maximum: 3
+      example:
+      - dilemma:presented
+      - user:authenticated
+    produces:
+      source: feature.ioSeeds.produce filtered by component capability
+      maximum: 3
+      example:
+      - decision:made
+      - validation:completed
+- term_id: dependencies
+  label: Component dependencies
+  text: Dependencies come from other components in the same feature plus external
+    dependencies.
+  values:
+    source: Other components in same feature + external dependencies
+    example:
+    - component:same:feature.other
+    - wagon:external#io
+examples:
+  positive:
+  - Component consumes [dilemma:presented] where feature.ioSeeds.consume includes
+    dilemma:presented
+  negative:
+  - Component produces order:shipped but feature.ioSeeds.produce does not contain
+    it

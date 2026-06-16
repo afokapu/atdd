@@ -1,0 +1,59 @@
+schema_version: 1.0.0
+rule_id: planner.train.acceptance-invariants
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_sha: sha256:825602729f11a3a4
+  extraction_mode: high_fidelity
+statement: When a train declares the optional acceptances block (mirroring the WMBT
+  acceptance shape), each acceptance must satisfy the required invariants — a valid
+  acc URN, a populated purpose and phase, and the measurability invariant — and must
+  omit the forbidden fields (top-level id:, disposition:) whose values derive mechanically.
+rationale: 'Train acceptances feed the registry via the repo-rule walker, so each
+  must carry enough to become a RuleMetadata-backed rule. Requiring an acc-shaped
+  URN, a purpose, a phase, and a measurable signal makes the acceptance turnable into
+  a real test; forbidding the id: and disposition: fields keeps the rule-id and strictness
+  deriving from the spec rather than being hand-set.'
+terms:
+- term_id: acceptances_block
+  label: Optional train-level acceptances
+  text: An optional block. When present, each acceptance contributes a derived rule
+    to the registry via the repo-rule walker. It mirrors the WMBT acceptance shape
+    from planner/conventions/acceptance.convention.yaml.
+  values:
+    optional: true
+    shape: Mirrors the WMBT acceptance shape (see planner/conventions/acceptance.convention.yaml).
+    rule_id_derivation: 'Per spec v12 §3.3: acc:<train-id>:<slug> -> repo.<train-id>.acc-<slug>'
+    walker: atdd.coach.utils.rule_binding.find_repo_rules
+- term_id: required_invariants
+  label: Invariants every train acceptance must hold
+  text: Each acceptance must carry a URN matching URNBuilder.PATTERNS['acc'] (train-acceptance
+    shape), a populated purpose, a populated phase, and satisfy the measurability
+    invariant (§4.3) — either harness.type or both signal.metric and signal.threshold.
+  values:
+    required_invariants:
+    - identity.urn matches URNBuilder.PATTERNS['acc'] (train-acceptance shape)
+    - identity.purpose populated (becomes RuleMetadata.description)
+    - identity.phase populated (RED|GREEN|SMOKE|REFACTOR)
+    - EITHER harness.type OR (signal.metric AND signal.threshold) populated (measurability
+      invariant §4.3)
+- term_id: forbidden_fields
+  label: Fields forbidden in repo YAML (derive mechanically)
+  text: 'A train acceptance must NOT declare id: at the acceptance-block top level
+    (the rule-id derives mechanically per §3.3) nor disposition: anywhere in repo
+    YAML (the walker sets it to ''strict'' per §4.4).'
+  values:
+    forbidden_fields:
+    - 'id: at acceptance-block top level (rule-id derives mechanically — see §3.3)'
+    - 'disposition: anywhere in repo YAML (walker sets to ''strict'' per §4.4)'
+examples:
+  positive:
+  - "acceptances:\n  - identity:\n      urn: \"acc:0001-self-compliance-validate:idempotent-on-retry\"\
+    \n      purpose: \"Re-running the train with the same idempotency key produces\
+    \ no duplicate side effects\"\n      phase: \"SMOKE\"\n    harness:\n      type:\
+    \ \"e2e\"\n    signal:\n      metric: \"duplicate_side_effects_on_retry\"\n  \
+    \    threshold: 0\n"
+  negative:
+  - 'An acceptance with id: AC-SMOKE-001 at the acceptance top level'
+  - 'An acceptance carrying disposition: strict in repo YAML'

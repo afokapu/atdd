@@ -1,0 +1,421 @@
+schema_version: 1.0.0
+rule_id: planner.component.type-catalog
+kind: pattern
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/component.convention.yaml
+  legacy_sha: sha256:8bfb25fd6c2bdb6e
+  extraction_mode: high_fidelity
+statement: The canonical component type catalog enumerates every component type by
+  side (backend|frontend), layer, file suffix per language, description, and complexity
+  weight, derived from the coder backend/frontend conventions.
+rationale: A single canonical catalog of component types, their file suffixes, and
+  complexity weights lets the planner derive components and estimate effort consistently
+  with the coder conventions, instead of inventing types or weights ad hoc.
+notes: Derived from .claude/conventions/coder/{backend,frontend}.convention.yaml.
+  Side and layer values for component URNs are defined by this catalog's structure.
+terms:
+- term_id: backend_catalog
+  label: Backend component types
+  text: All backend component types keyed by layer (presentation, application, domain,
+    integration), each with per-language file suffix, description, and complexity
+    weight.
+  values:
+    presentation:
+      controllers:
+        suffix:
+          python: '*_controller.py'
+          typescript: '*-controller.ts'
+        description: Request/response handlers for external interfaces
+        weight: 1
+      routes:
+        suffix:
+          python: '*_routes.py'
+          typescript: '*-routes.ts'
+        description: Routing configuration and endpoint definitions
+        weight: 0
+      serializers:
+        suffix:
+          python: '*_serializer.py'
+          typescript: '*-serializer.ts'
+        description: Input/output data serialization and formatting
+        weight: 0.5
+      validators:
+        suffix:
+          python: '*_validator.py'
+          typescript: '*-validator.ts'
+        description: Input validation at the edge
+        weight: 0.5
+      middleware:
+        suffix:
+          python: '*_middleware.py'
+          typescript: '*-middleware.ts'
+        description: Cross-cutting request/response processing
+        weight: 1
+      guards:
+        suffix:
+          python: '*_guard.py'
+          typescript: '*-guard.ts'
+        description: Authentication and authorization at transport layer
+        weight: 1
+      views:
+        suffix:
+          python: '*_view.py'
+          typescript: '*-view.ts'
+        description: Server-side rendered templates and UI components
+        weight: 1
+    application:
+      use_cases:
+        suffix:
+          python: '*_use_case.py'
+          typescript: '*-use-case.ts'
+        description: Application-specific business workflows
+        weight: 2
+      handlers:
+        suffix:
+          python: '*_handler.py'
+          typescript: '*-handler.ts'
+        description: Command, query, and event processing
+        weight: 1
+      ports:
+        suffix:
+          python: protocols.py, *_port.py
+          typescript: '*-port.ts'
+        description: Interfaces and protocols for integration layer
+        weight: 0
+      dtos:
+        suffix:
+          python: '*_dto.py'
+          typescript: '*-dto.ts'
+        description: Data transfer objects between layers
+        weight: 0
+      policies:
+        suffix:
+          python: '*_policy.py'
+          typescript: '*-policy.ts'
+        description: Application-level business policies and rules
+        weight: 1
+      workflows:
+        suffix:
+          python: '*_workflow.py, *_saga.py'
+          typescript: '*-workflow.ts'
+        description: Long-running processes and orchestrations
+        weight: 2
+    domain:
+      entities:
+        suffix:
+          python: '*.py'
+          typescript: '*.ts'
+        description: Core business objects with identity and lifecycle
+        weight: 1
+      value_objects:
+        suffix:
+          python: '*_vo.py, *.py'
+          typescript: '*-vo.ts'
+        description: Immutable types with equality-by-value semantics
+        weight: 0.5
+      aggregates:
+        suffix:
+          python: '*_aggregate.py'
+          typescript: '*-aggregate.ts'
+        description: Transactional consistency boundaries
+        weight: 2
+      services:
+        suffix:
+          python: '*_service.py'
+          typescript: '*-service.ts'
+        description: Domain services for cross-entity business logic
+        weight: 1
+      specifications:
+        suffix:
+          python: '*_spec.py'
+          typescript: '*-spec.ts'
+        description: Composable business rules and predicates
+        weight: 0.5
+      events:
+        suffix:
+          python: '*_event.py'
+          typescript: '*-event.ts'
+        description: Domain events representing facts that happened
+        weight: 0
+      exceptions:
+        suffix:
+          python: '*_exception.py'
+          typescript: '*-exception.ts'
+        description: Domain-specific errors and invariant violations
+        weight: 0
+    integration:
+      repositories:
+        suffix:
+          python: '*_repository.py'
+          typescript: '*-repository.ts'
+        description: Data persistence and retrieval adapters
+        weight: 2
+      clients:
+        suffix:
+          python: '*_client.py'
+          typescript: '*-client.ts'
+        description: External API and service clients
+        weight: 1
+      caches:
+        suffix:
+          python: '*_cache.py'
+          typescript: '*-cache.ts'
+        description: Caching implementations
+        weight: 0.5
+      engines:
+        suffix:
+          python: '*_engine.py'
+          typescript: '*-engine.ts'
+        description: Computational and processing engines (ML, graph, optimization)
+        weight: 3
+      formatters:
+        suffix:
+          python: '*_formatter.py'
+          typescript: '*-formatter.ts'
+        description: Output formatting and rendering services
+        weight: 1
+      notifiers:
+        suffix:
+          python: '*_notifier.py'
+          typescript: '*-notifier.ts'
+        description: Communication and notification services
+        weight: 1
+      queues:
+        suffix:
+          python: '*_queue.py'
+          typescript: '*-queue.ts'
+        description: Message queue and event streaming clients
+        weight: 2
+      stores:
+        suffix:
+          python: '*_store.py'
+          typescript: '*-store.ts'
+        description: File and object storage adapters
+        weight: 1
+      mappers:
+        suffix:
+          python: '*_mapper.py'
+          typescript: '*-mapper.ts'
+        description: Data transformation and mapping between layers
+        weight: 0.5
+      schedulers:
+        suffix:
+          python: '*_scheduler.py'
+          typescript: '*-scheduler.ts'
+        description: Background tasks and scheduled jobs
+        weight: 2
+      monitors:
+        suffix:
+          python: '*_monitor.py'
+          typescript: '*-monitor.ts'
+        description: Observability and infrastructure monitoring
+        weight: 1
+- term_id: frontend_catalog
+  label: Frontend component types
+  text: All frontend component types keyed by layer (presentation, application, domain,
+    integration), each with per-language file suffix, description, and complexity
+    weight.
+  values:
+    presentation:
+      views:
+        suffix:
+          dart: '*_page.dart'
+          typescript: '*-page.tsx'
+        description: Full-screen views and pages
+        weight: 1
+      components:
+        suffix:
+          dart: '*_widget.dart'
+          typescript: '*.tsx'
+        description: Reusable UI components
+        weight: 0.5
+      containers:
+        suffix:
+          typescript: '*-container.tsx'
+        description: Smart components connected to state
+        weight: 1
+      controllers:
+        suffix:
+          dart: '*_bloc.dart'
+          typescript: '*-store.ts'
+        description: UI state management and business logic
+        weight: 2
+      routes:
+        suffix:
+          dart: '*_router.dart'
+          typescript: '*-routes.ts'
+        description: Navigation and routing configuration
+        weight: 0
+      layouts:
+        suffix:
+          dart: '*_layout.dart'
+          typescript: '*-layout.tsx'
+        description: Page structure and composition templates
+        weight: 1
+      styles:
+        suffix:
+          dart: '*_theme.dart'
+          typescript: '*.css'
+        description: Design tokens, themes, and styling
+        weight: 0
+      animations:
+        suffix:
+          dart: '*_animation.dart'
+          typescript: '*-animation.ts'
+        description: UI animations and transitions
+        weight: 0.5
+      forms:
+        suffix:
+          dart: '*_form.dart'
+          typescript: '*-form.ts'
+        description: Form state management and validation
+        weight: 1
+      hooks:
+        suffix:
+          typescript: use-*.ts
+        description: Reusable stateful logic (React-style)
+        weight: 0.5
+      directives:
+        suffix:
+          typescript: '*-directive.ts'
+        description: Custom DOM/element behaviors (Vue/Angular)
+        weight: 0.5
+      filters:
+        suffix:
+          typescript: '*-filter.ts'
+        description: Data formatting pipes/filters
+        weight: 0.5
+    application:
+      use_cases:
+        suffix:
+          dart: '*_use_case.dart'
+          typescript: '*-use-case.ts'
+        description: Frontend-initiated workflows
+        weight: 2
+      ports:
+        suffix:
+          dart: '*_port.dart'
+          typescript: '*-port.ts'
+        description: Interfaces for data access and external services
+        weight: 0
+      policies:
+        suffix:
+          dart: '*_policy.dart'
+          typescript: '*-policy.ts'
+        description: Frontend business policies and rules
+        weight: 1
+      dtos:
+        suffix:
+          dart: '*_dto.dart'
+          typescript: '*-dto.ts'
+        description: Application-internal data structures
+        weight: 0
+    domain:
+      entities:
+        suffix:
+          dart: '*.dart'
+          typescript: '*.ts'
+        description: Domain models used on the client
+        weight: 1
+      value_objects:
+        suffix:
+          dart: '*_vo.dart'
+          typescript: '*-vo.ts'
+        description: Immutable typed values
+        weight: 0.5
+      services:
+        suffix:
+          dart: '*_service.dart'
+          typescript: '*-service.ts'
+        description: Pure domain logic services
+        weight: 1
+      specifications:
+        suffix:
+          dart: '*_spec.dart'
+          typescript: '*-spec.ts'
+        description: Composable rules and predicates
+        weight: 0.5
+      exceptions:
+        suffix:
+          dart: '*_exception.dart'
+          typescript: '*-exception.ts'
+        description: Domain-level errors
+        weight: 0
+    integration:
+      repositories:
+        suffix:
+          dart: '*_repository.dart'
+          typescript: '*-repository.ts'
+        description: Data access implementations
+        weight: 2
+      clients:
+        suffix:
+          dart: '*_client.dart'
+          typescript: '*-client.ts'
+        description: HTTP/WebSocket/GraphQL API clients
+        weight: 1
+      stores:
+        suffix:
+          dart: '*_store.dart'
+          typescript: '*-store.ts'
+        description: Local persistence implementations
+        weight: 1
+      serializers:
+        suffix:
+          dart: '*_serializer.dart'
+          typescript: '*-serializer.ts'
+        description: API data transformation
+        weight: 0.5
+      mappers:
+        suffix:
+          dart: '*_mapper.dart'
+          typescript: '*-mapper.ts'
+        description: Data transformation between layers
+        weight: 0.5
+      interceptors:
+        suffix:
+          dart: '*_interceptor.dart'
+          typescript: '*-interceptor.ts'
+        description: HTTP request/response middleware
+        weight: 1
+      caches:
+        suffix:
+          dart: '*_cache.dart'
+          typescript: '*-cache.ts'
+        description: Client-side caching implementations
+        weight: 0.5
+      synchronizers:
+        suffix:
+          dart: '*_sync.dart'
+          typescript: '*-sync.ts'
+        description: Offline sync and conflict resolution
+        weight: 2
+      monitors:
+        suffix:
+          dart: '*_monitor.dart'
+          typescript: '*-monitor.ts'
+        description: Client-side monitoring and telemetry
+        weight: 1
+      validators:
+        suffix:
+          dart: '*_validator.dart'
+          typescript: '*-validator.ts'
+        description: Client-side validation engines
+        weight: 0.5
+      workers:
+        suffix:
+          typescript: '*.worker.ts'
+        description: Background processing and web workers
+        weight: 2
+      connectors:
+        suffix:
+          dart: '*_connector.dart'
+          typescript: '*-connector.ts'
+        description: Real-time and streaming connections
+        weight: 1
+examples:
+  positive:
+  - backend.integration.engines → *_engine.py, weight 3 (highest complexity)
+  - backend.presentation.routes → *_routes.py, weight 0
+  - frontend.presentation.controllers → *_bloc.dart / *-store.ts, weight 2

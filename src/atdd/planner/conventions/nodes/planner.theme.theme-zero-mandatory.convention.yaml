@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.theme.theme-zero-mandatory
 kind: constraint
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/theme.convention.yaml
+  legacy_sha: sha256:2ae106d04d77b06e
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.theme.theme-zero-mandatory
 statement: 'Theme digit 0 (commons) is the mandatory, non-removable floor of every
   resolved theme set: a consumer .atdd/config.yaml themes block may add or override
   themes 1-9, but it must not remove digit 0 nor rename it away from the locked token
@@ -12,9 +17,9 @@ rationale: Pinning commons at digit 0 guarantees every repo shares the same non-
 terms:
 - term_id: theme_zero_token
   label: The locked digit-0 token
-  text: The digit-0 token is LOCKED to commons by operator decision (#970) - NOT
-    platform. This is the single source for the digit-0 name, mirrored by
-    CANONICAL_THEME_0 in src/atdd/planner/validators/_theme_taxonomy.py.
+  text: The digit-0 token is LOCKED to commons by operator decision (#970) - NOT platform.
+    This is the single source for the digit-0 name, mirrored by CANONICAL_THEME_0
+    in src/atdd/planner/validators/_theme_taxonomy.py.
   values:
     theme_zero_token: commons
     theme_zero_mandatory: true
@@ -23,7 +28,8 @@ terms:
 - term_id: non_removable_floor
   text: Themes 1-4 and consumer-added themes are configurable via .atdd/config.yaml,
     but digit 0 (commons) must always be present. Any resolved theme map - defaults
-    alone or defaults merged with consumer overrides - must contain commons at digit 0.
+    alone or defaults merged with consumer overrides - must contain commons at digit
+    0.
   values:
     config_path: .atdd/config.yaml (themes block)
     configurable: themes 1-9
@@ -38,10 +44,11 @@ terms:
 - term_id: resolver_pin
   text: The resolver pins digit 0 regardless of override input; a config that omits
     or remaps digit 0 still resolves to commons at digit 0.
-  values: {behavior: resolver pins digit 0 to commons regardless of override input}
+  values:
+    behavior: resolver pins digit 0 to commons regardless of override input
 examples:
   positive:
   - "themes:\n  '1': plan  # adds/overrides 1-9; commons stays pinned at digit 0"
   negative:
-  - "themes: {}  # attempt to drop commons; resolver re-pins digit 0 to commons"
+  - 'themes: {}  # attempt to drop commons; resolver re-pins digit 0 to commons'
   - "themes:\n  '0': platform  # rename away from commons, rejected"

@@ -2,26 +2,33 @@ schema_version: 1.0.0
 rule_id: planner.issue-body.graph-context-required
 kind: rule
 status: active
-statement: Every parent issue body must carry a populated Graph Context section (### Graph
-  Context or ## Graph Context), neither missing nor left as the literal injection placeholder.
-rationale: A populated Graph Context section forces each issue to state where it sits in
-  the dependency graph before work starts, instead of shipping an empty scaffold.
+source:
+  legacy_path: src/atdd/planner/conventions/issue-body.convention.yaml
+  legacy_sha: sha256:2de589954025b05e
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.issue-body.graph-context-required
+statement: Every parent issue body must carry a populated Graph Context section (###
+  Graph Context or
+rationale: A populated Graph Context section forces each issue to state where it sits
+  in the dependency graph before work starts, instead of shipping an empty scaffold.
 terms:
 - term_id: graph_context_section
   label: The required Graph Context section
-  text: A parent issue body must contain a Graph Context heading at H2 or H3 with real
-    content beneath it. The section is invalid if absent or if it still holds the literal
-    placeholder string injected at scaffold time.
+  text: A parent issue body must contain a Graph Context heading at H2 or H3 with
+    real content beneath it. The section is invalid if absent or if it still holds
+    the literal placeholder string injected at scaffold time.
   values:
     accepted_headings:
     - '### Graph Context'
     - '## Graph Context'
-    literal_placeholder: (graph context will be injected at creation by atdd issue <slug>)
+    literal_placeholder: (graph context will be injected at creation by atdd issue
+      <slug>)
 - term_id: suppression_carve_out
   label: Inline suppression carve-out
   text: An issue genuinely exempt from graph context (infrastructure-only, docs, hotfix)
-    may absorb the requirement by placing an inline suppression marker inside the issue
-    body. The marker carries an escape-hatch deadline; stale markers are flagged elsewhere.
+    may absorb the requirement by placing an inline suppression marker inside the
+    issue body. The marker carries an escape-hatch deadline; stale markers are flagged
+    elsewhere.
   values:
     marker: '# atdd:suppress(planner.issue-body.graph-context-required) UNTIL=2026-12-31'
     deadline: '2026-12-31'

@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.wmbt.shape
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.wmbt.shape
 statement: A WMBT entry declares its id (a step-coded URN), its statement, and the
   artifacts (acceptances and tests) that prove the statement.
 rationale: Declaring id, statement, and proving artifacts makes a WMBT a self-contained,
@@ -13,14 +18,14 @@ terms:
   text: The WMBT id is a URN of the form wmbt:{wagon}:{STEP_CODE}{NNN} where STEP_CODE
     is one of nine single-letter step codes and NNN is a three-digit zero-padded sequence.
   values:
-    pattern: 'wmbt:{wagon}:{STEP_CODE}{NNN}'
-    regex: '^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$'
+    pattern: wmbt:{wagon}:{STEP_CODE}{NNN}
+    regex: ^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$
     sequence_range: 001-999
   examples:
     positive:
-    - 'wmbt:resolve-dilemmas:E001'
-    - 'wmbt:burn-timebank:M045'
-    - 'wmbt:user-mgmt:C023'
+    - wmbt:resolve-dilemmas:E001
+    - wmbt:burn-timebank:M045
+    - wmbt:user-mgmt:C023
 - term_id: step_codes
   label: The nine step codes
   text: The single-letter step code in the URN names which phase of work the WMBT
@@ -41,9 +46,20 @@ terms:
     optionally followed by a context clarifier, where direction is an optimization
     verb and dimension is the metric being optimized.
   values:
-    pattern: '${direction} ${dimension} of ${object_of_control}${context_clarifier ? '' '' + context_clarifier : ''''}'
-    directions: [minimize, maximize, increase, decrease]
-    dimensions: [Time, Effort, Likelihood, Frequency, Quantity/Amount, Financial Value]
+    pattern: '${direction} ${dimension} of ${object_of_control}${context_clarifier
+      ? '' '' + context_clarifier : ''''}'
+    directions:
+    - minimize
+    - maximize
+    - increase
+    - decrease
+    dimensions:
+    - Time
+    - Effort
+    - Likelihood
+    - Frequency
+    - Quantity/Amount
+    - Financial Value
 - term_id: proving_artifacts
   label: Artifacts that prove the statement
   text: The acceptances and tests collocated with the WMBT that verify the WMBT statement;
@@ -51,8 +67,8 @@ terms:
     context.
 examples:
   positive:
-  - 'wmbt:resolve-dilemmas:E001 with statement "minimize Time of dilemma-resolution"
-    and >=1 proving acceptance'
+  - wmbt:resolve-dilemmas:E001 with statement "minimize Time of dilemma-resolution"
+    and >=1 proving acceptance
   negative:
   - 'wmbt:user-mgmt:C23  # sequence not three-digit zero-padded'
   - WMBT declaring a statement but no proving acceptances or tests

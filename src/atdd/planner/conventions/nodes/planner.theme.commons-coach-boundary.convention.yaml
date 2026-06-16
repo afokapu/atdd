@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.theme.commons-coach-boundary
 kind: constraint
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/theme.convention.yaml
+  legacy_sha: sha256:2ae106d04d77b06e
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.theme.commons-coach-boundary
 statement: A wagon themed commons must not have any source module that imports atdd.coach;
   coach-only machinery must be themed coach.
 rationale: The commons-vs-coach line is the one sharp ownership boundary in the theme
@@ -32,7 +37,7 @@ terms:
 - term_id: deferred_violation
   label: Known suppressed exception
   text: mediate-worker-decisions is themed commons but imports coach; the violation
-    is suppressed UNTIL the #951 co-land re-theme moves it to coach.
+    is suppressed UNTIL the
   values:
     wagon: mediate-worker-decisions
     suppressed_until: '#951 co-land re-theme'
@@ -40,4 +45,5 @@ examples:
   positive:
   - 'theme: commons  # worktree, graph, URN, config, telemetry — no coach import'
   negative:
-  - 'theme: commons  # but src imports atdd.coach (multiplexer, Feed daemon, durable runs)'
+  - 'theme: commons  # but src imports atdd.coach (multiplexer, Feed daemon, durable
+    runs)'

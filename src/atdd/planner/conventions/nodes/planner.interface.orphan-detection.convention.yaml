@@ -1,0 +1,35 @@
+schema_version: 1.0.0
+rule_id: planner.interface.orphan-detection
+kind: constraint
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
+  legacy_sha: sha256:3415a521b5eec18b
+  extraction_mode: high_fidelity
+statement: A wagon artifact URN that has no matching contract in the registry is a
+  violation (an orphaned URN).
+rationale: URNs are the bidirectional link between wagon artifacts and contracts.
+  A URN that resolves to no contract breaks that linkage, leaving the artifact's schema,
+  version and API undefined; orphan detection surfaces these gaps so missing contracts
+  can be generated.
+terms:
+- term_id: orphan_violation
+  label: Orphaned URN definition
+  text: A wagon URN without a matching contract in the registry is a violation. The
+    URN must resolve to a contract; an unresolved URN is an orphan.
+  values:
+    orphan_detection: Wagon URN without matching contract = violation
+    validation: URN must resolve to contract in registry
+  examples:
+    positive:
+    - 'contract:ux:foundations resolves to id ux:foundations:v1  # linked, not orphan'
+    negative:
+    - 'contract:ux:phantom with no contract id ux:phantom:v* in registry  # orphan
+      = violation'
+- term_id: orphan_remediation
+  label: Resolving orphaned URNs
+  text: Orphaned URNs are remediated by generating the missing contracts for them
+    (migration phase3), after first validating that all URNs resolve (phase2).
+  values:
+    phase2: Validate all URNs resolve to contracts
+    phase3: Generate missing contracts for orphaned URNs

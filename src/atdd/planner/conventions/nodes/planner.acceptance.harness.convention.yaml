@@ -2,6 +2,11 @@ schema_version: 1.0.0
 rule_id: planner.acceptance.harness
 kind: rule
 status: active
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_sha: sha256:027e2d86ff127550
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.acceptance.harness
 statement: Each acceptance criterion declares a harness type (e.g. unit, http, e2e,
   integration, smoke) so the verification layer is explicit and coverage/routing can
   reason about where the check runs.
@@ -46,16 +51,30 @@ terms:
   text: Guidance mapping common harness types to the architecture layers they typically
     exercise, used when routing the acceptance.
   values:
-    unit: [domain, application]
-    http: [integration, application]
-    event: [application, integration]
-    ws: [integration]
-    e2e: [presentation]
-    a11y: [presentation]
-    visual: [presentation]
-    metric: [application, integration]
-    db: [integration]
-    integration: [integration]
+    unit:
+    - domain
+    - application
+    http:
+    - integration
+    - application
+    event:
+    - application
+    - integration
+    ws:
+    - integration
+    e2e:
+    - presentation
+    a11y:
+    - presentation
+    visual:
+    - presentation
+    metric:
+    - application
+    - integration
+    db:
+    - integration
+    integration:
+    - integration
 examples:
   positive:
   - 'harness: {type: unit}    # -> URN facet UNIT, typical layers domain/application'

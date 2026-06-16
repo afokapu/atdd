@@ -1,0 +1,59 @@
+schema_version: 1.0.0
+rule_id: planner.train.registry-two-file
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_sha: sha256:825602729f11a3a4
+  extraction_mode: high_fidelity
+statement: Each train requires two files — a registry entry in plan/_trains.yaml and
+  a per-train spec file at plan/_trains/{train_id}.yaml — and every registry entry
+  MUST have a corresponding spec file (the planner phase gate fails if it is missing).
+rationale: Splitting the central manifest from the per-train spec keeps _trains.yaml
+  a scannable, theme-category-grouped index while the full workflow lives in flat
+  per-train files that sort naturally by train_id. Requiring the spec file for every
+  registry entry stops the manifest from listing trains that do not exist.
+terms:
+- term_id: two_file_pattern
+  label: Registry entry plus spec file
+  text: Each train needs a registry entry (central manifest with summary metadata)
+    and a spec file (full workflow definition). The registry lists summary metadata;
+    the spec carries the complete train definition.
+  values:
+    registry:
+      path: plan/_trains.yaml
+      purpose: Central manifest listing all trains with summary metadata
+      contains: train_id, description, path, wagons (summary list)
+    spec:
+      path: plan/_trains/{train_id}.yaml
+      purpose: Full train specification with complete workflow definition
+      contains: train_id, title, themes, participants, sequence, dependencies, test,
+        code, expectations
+- term_id: registry_organization
+  label: Theme-category-grouped registry
+  text: Trains are grouped in plan/_trains.yaml by theme, then by category (nominal/error/alternate/exception).
+    Files use a flat structure (no subdirectories); the train_id contains all metadata
+    and sorts naturally in numeric order, mirroring the 4 WMBT test categories.
+  values:
+    structure: theme-category-grouped
+    path_structure: plan/_trains/{train_id}.yaml
+    benefits:
+    - Flat file structure - no subdirectories needed
+    - Train ID contains all metadata (theme, category, variation)
+    - Simple file organization - all trains in single directory
+    - Natural sorting by train ID (numeric order)
+    - 4-category structure mirrors WMBT test categories
+- term_id: spec_file_required
+  label: Registry entry requires spec file
+  text: Every registry entry MUST have a corresponding spec file. The planner phase
+    gate fails if the spec file is missing.
+  values:
+    rule: Every registry entry MUST have a corresponding spec file
+    validator: SPEC-TRAIN-VAL-0003 (test_train_files_exist_for_registry_entries)
+    enforcement: Planner phase gate fails if spec file missing
+examples:
+  positive:
+  - plan/_trains.yaml lists 0001-auth-session-standard and plan/_trains/0001-auth-session-standard.yaml
+    exists
+  negative:
+  - A registry entry for 0001-auth-session-standard with no plan/_trains/0001-auth-session-standard.yaml
