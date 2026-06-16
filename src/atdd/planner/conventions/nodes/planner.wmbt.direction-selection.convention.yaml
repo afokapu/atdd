@@ -1,0 +1,60 @@
+schema_version: 1.0.0
+rule_id: planner.wmbt.direction-selection
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+statement: The direction term of a WMBT statement is a single optimization verb selected
+  from the direction palette, whose four canonical keys (minimize, maximize, increase,
+  decrease) each carry a set of equivalent synonym verbs.
+rationale: Constraining the direction to a small palette of canonical verbs keeps
+  WMBT statements uniform and machine-readable, while the synonym sets let the planner
+  map natural-language optimization intent onto one canonical key.
+notes: The chosen direction fills the ${direction} slot of the statement template
+  (see planner.wmbt.statement-template).
+terms:
+- term_id: direction_selection_procedure
+  label: How to pick the direction
+  text: From the requirement description, pick the most suitable direction verb for
+    the optimization goal, matching against schema enum keys via their synonyms.
+  values:
+    generator_prompt: From '${inputs.description}', pick the most suitable direction
+      verb for the optimization goal
+    pattern: single action verb matching schema enum
+    source: conventions:planner:wmbt:directions.palette
+- term_id: direction_palette
+  label: The direction palette
+  text: Four canonical direction keys, each with a list of equivalent synonym verbs
+    that map onto it.
+  values:
+    minimize:
+    - reduce
+    - decrease
+    - lower
+    - shrink
+    maximize:
+    - increase
+    - boost
+    - raise
+    - grow
+    increase:
+    - improve
+    - elevate
+    - accelerate
+    decrease:
+    - cut
+    - dampen
+    - slow
+    - limit
+  examples:
+    positive:
+    - '''reduce'' maps to canonical direction minimize'
+    - '''boost'' maps to canonical direction maximize'
+    negative:
+    - '''optimize'' (ambiguous — not in any palette synonym set)'
+examples:
+  positive:
+  - minimize Time of dilemma-resolution (direction = minimize)
+  - increase Likelihood of experiment-success (direction = increase)

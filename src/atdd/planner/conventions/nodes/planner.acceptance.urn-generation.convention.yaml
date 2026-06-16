@@ -1,0 +1,73 @@
+schema_version: 1.0.0
+rule_id: planner.acceptance.urn-generation
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_sha: sha256:027e2d86ff127550
+  extraction_mode: high_fidelity
+statement: Acceptance URNs are generated via utils.graph.URNBuilder.acceptance and
+  must match the pattern acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}], validated
+  by the canonical regex; colon marks hierarchy and dash marks the facet cluster.
+rationale: '- Makes the WMBT tie explicit (wmbt_id = step code + seq, e.g. C004)
+
+  - Bakes in harness visibility for quick routing
+
+  - Keeps per-harness sequence (NNN) and allows an optional slug for readability
+
+  - Enforces colon = hierarchy, dash = facet cluster
+
+  '
+terms:
+- term_id: urn_builder
+  label: URNBuilder method
+  text: Generate the URN using URNBuilder.acceptance(wagon_id, wmbt_id, harness_code,
+    seq, slug=None) from utils.graph.
+  values:
+    utility: utils.graph.URNBuilder
+    method: URNBuilder.acceptance(wagon_id, wmbt_id, harness_code, seq, slug=None)
+    pattern: acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]
+  examples:
+    positive:
+    - URNBuilder.acceptance("authenticate-user", "C004", "E2E", "019") -> acc:authenticate-user:C004-E2E-019
+    - URNBuilder.acceptance("maintain-ux", "C004", "E2E", "019", "user-connection")
+      -> acc:maintain-ux:C004-E2E-019-user-connection
+- term_id: urn_parts
+  label: URN parts
+  text: The URN decomposes into wagon, wmbt_id, harness, NNN, and optional slug.
+  values:
+    wagon: Parent wagon identifier (kebab-case)
+    wmbt_id: WMBT step code + seq (e.g., C004, E001)
+    harness: Harness code (UPPERCASE from harness_codes mapping)
+    NNN: Zero-padded per-harness acceptance sequence (001-999)
+    slug: Optional kebab-case descriptor for readability
+- term_id: urn_validation
+  label: Validation regex
+  text: The URN must match the canonical validation pattern, enforcing colon for hierarchy
+    (acc:wagon:wmbt_id) and dash-joined facet cluster (-harness-NNN[-slug]).
+  values:
+    pattern: ^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?$
+- term_id: legacy_format
+  label: Legacy URN format (migrating away)
+  text: The old format acc:{wagon}:{nnn}:{acceptance_id} is being migrated to the
+    new pattern.
+  values:
+    pattern: acc:{wagon}:{nnn}:{acceptance_id}
+    example: acc:authenticate-user:001:AC-EXEC-201
+    note: Old format - being migrated to new pattern
+- term_id: legacy_id_pattern
+  label: Legacy AC id (identity.id field)
+  text: The legacy acceptance id pattern AC-{STEP}-{NNN} is kept for backward compatibility
+    in the identity.id field, derived from the id_mapping step codes.
+  values:
+    pattern: AC-{STEP}-{NNN}
+    id_mapping:
+      define: DEF
+      locate: LOC
+      prepare: PREP
+      confirm: CONF
+      execute: EXEC
+      monitor: MON
+      modify: MOD
+      resolve: RES
+      conclude: CONC

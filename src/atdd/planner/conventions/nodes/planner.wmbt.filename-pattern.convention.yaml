@@ -1,0 +1,36 @@
+schema_version: 1.0.0
+rule_id: planner.wmbt.filename-pattern
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+statement: A WMBT YAML file is named {STEP_CODE}{NNN}.yaml — the step-coded sequence
+  segment of the WMBT URN with no prefix and a .yaml extension.
+rationale: Deriving the filename directly from the WMBT's step code and sequence makes
+  the on-disk artifact instantly identifiable and keeps file naming in lockstep with
+  the URN, so a wagon's WMBT directory reads as an ordered, phase-coded set.
+notes: STEP_CODE is one of the nine codes (see planner.wmbt.step-code-vocabulary)
+  and NNN is the same three-digit zero-padded sequence used in planner.wmbt.urn-naming.
+  No URN prefix or wagon segment appears in the filename.
+terms:
+- term_id: filename_form
+  label: The WMBT filename pattern
+  text: The filename is the single-letter step code followed by the three-digit zero-padded
+    sequence and the .yaml extension, with no prefix.
+  values:
+    pattern: '{STEP_CODE}{NNN}.yaml'
+  examples:
+    positive:
+    - E001.yaml
+    - L045.yaml
+    - K023.yaml
+    negative:
+    - wmbt-E001.yaml (has a prefix)
+    - E1.yaml (sequence not three-digit zero-padded)
+examples:
+  positive:
+  - wmbt:burn-timebank:M045 lives in file M045.yaml
+  negative:
+  - A WMBT file named after the statement rather than the step-coded sequence

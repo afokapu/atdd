@@ -1,0 +1,58 @@
+schema_version: 1.0.0
+rule_id: planner.criteria.metric-mapping
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
+  legacy_sha: sha256:db262e7f5fb06226
+  extraction_mode: high_fidelity
+statement: A criterion's improvement dimension (time, likelihood, effort, frequency,
+  quantity/amount, financial value) maps to a fixed metric URN keyed by direction
+  (minimize, maximize, decrease, increase), so measurable outcomes resolve to a canonical
+  metric.
+rationale: Binding each dimension+direction pair to a stable metric URN lets the expected_outcome
+  of a criterion become a measurable target that tooling can chart and gate on, instead
+  of free-text "make it faster".
+terms:
+- term_id: time
+  label: Time dimension metrics
+  text: The time dimension maps minimize to latency_p50 and maximize to latency_increase.
+  values:
+    minimize: metric:latency_p50
+    maximize: metric:latency_increase
+- term_id: likelihood
+  label: Likelihood dimension metrics
+  text: The likelihood dimension maps maximize to success_ratio and minimize to error_ratio.
+  values:
+    maximize: metric:success_ratio
+    minimize: metric:error_ratio
+- term_id: effort
+  label: Effort dimension metric
+  text: The effort dimension maps decrease to user_steps.
+  values:
+    decrease: metric:user_steps
+- term_id: frequency
+  label: Frequency dimension metric
+  text: The frequency dimension maps decrease to occurrence_rate.
+  values:
+    decrease: metric:occurrence_rate
+- term_id: quantity_amount
+  label: Quantity / amount dimension metrics
+  text: The quantity/amount dimension maps decrease to scrap_rate and maximize to
+    throughput.
+  values:
+    decrease: metric:scrap_rate
+    maximize: metric:throughput
+- term_id: financial_value
+  label: Financial value dimension metrics
+  text: The financial value dimension maps minimize to cost_per_unit and maximize
+    to net_margin.
+  values:
+    minimize: metric:cost_per_unit
+    maximize: metric:net_margin
+examples:
+  positive:
+  - time + minimize -> metric:latency_p50
+  - financial value + maximize -> metric:net_margin
+  negative:
+  - 'effort + maximize  # effort only defines a decrease metric'

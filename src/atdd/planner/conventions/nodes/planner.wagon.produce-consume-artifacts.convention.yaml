@@ -1,0 +1,71 @@
+schema_version: 1.0.0
+rule_id: planner.wagon.produce-consume-artifacts
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_sha: sha256:ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+statement: Produce artifacts carry name plus contract/telemetry URNs (optionally a
+  to visibility of internal|external, defaulting to external); consume artifacts carry
+  name plus an optional from source naming the owning wagon/system/appendix.
+rationale: A fixed field layout for produced and consumed artifacts makes a wagon's
+  boundary explicit — what it exposes (and to whom) and what it depends on (and from
+  where) — so the dependency graph between wagons can be derived from the manifests.
+terms:
+- term_id: produce_artifact_fields
+  label: produce artifact field spec
+  text: A produced artifact requires name, contract (URN or null), and telemetry (URN
+    or null). Optional fields are to (visibility internal|external, defaults to external),
+    urn (legacy artifact URN), and version (e.g. v1).
+  values:
+    required:
+      name: Artifact name, e.g. commons:ux:foundations
+      contract: Contract URN or null, e.g. contract:commons:ux:foundations
+      telemetry: Telemetry URN for observability and analytics, or null
+    optional:
+      to: Visibility (internal|external), defaults to external
+      urn: Legacy artifact URN
+      version: Version string, e.g. v1
+  examples:
+    positive:
+    - 'name: commons:ux:foundations; contract: contract:commons:ux:foundations; telemetry:
+      telemetry:commons:ux:foundations'
+    - 'name: internal:cache; contract: null; telemetry: null; to: internal'
+    negative:
+    - 'name: commons:ux:foundations  # missing contract/telemetry keys (use null)'
+- term_id: consume_artifact_fields
+  label: consume artifact field spec
+  text: A consumed artifact requires only name. Optional fields are from (source —
+    wagon:slug | system:service | appendix:type | internal), contract (URN or null),
+    telemetry (URN or null), urn (legacy artifact URN), and version (requirement).
+  values:
+    required:
+      name: Artifact name, e.g. appendix:mockup
+    optional:
+      from: Source (wagon:slug | system:service | appendix:type | internal)
+      contract: Contract URN or null
+      telemetry: Telemetry URN or null
+      urn: Legacy artifact URN
+      version: Version requirement
+  examples:
+    positive:
+    - 'name: appendix:mockup'
+    - 'name: commons:ux:foundations; from: wagon:maintain-ux; contract: contract:commons:ux:foundations;
+      telemetry: telemetry:commons:ux:foundations'
+    negative:
+    - 'from: wagon:maintain-ux  # missing the required name field'
+- term_id: visibility_to
+  label: to = external vs internal
+  text: The to field on a produce artifact sets its visibility; it defaults to external.
+    Internal artifacts (to internal) do not count toward the at-least-one-external-produce
+    coherence check.
+  values:
+    external: default; artifact visible to other wagons
+    internal: artifact private to this wagon
+examples:
+  positive:
+  - 'produce: [{name: commons:ux:foundations:color, contract: contract:commons:ux:foundations:color,
+    telemetry: telemetry:commons:ux:foundations:color}]'
+  negative:
+  - 'consume: [{from: wagon:maintain-ux}]  # name is required on consume entries'

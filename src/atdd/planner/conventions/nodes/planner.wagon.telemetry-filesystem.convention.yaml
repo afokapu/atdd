@@ -1,0 +1,94 @@
+schema_version: 1.0.0
+rule_id: planner.wagon.telemetry-filesystem
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_sha: sha256:ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+statement: A telemetry URN maps to a filesystem directory of signal files at telemetry/{segments}/{signal-type}.{plane}[.{measure}].json,
+  where metric signals require a measure suffix and event signals do not.
+rationale: Mapping telemetry URNs to a fixed directory-and-filename layout lets the
+  telemetry manifest be generated from the source signal files, keeping the URN, the
+  on-disk signals, and the generated manifest in lockstep.
+terms:
+- term_id: urn_to_path
+  label: URN-to-directory mapping
+  text: telemetry:{theme}:{segments} maps to the directory telemetry/{theme}/{segments}/,
+    and signal files within it follow telemetry/{segments}/{signal-type}.{plane}[.{measure}].json.
+  values:
+    pattern: telemetry/{segments}/{signal-type}.{plane}[.{measure}].json
+    urn_to_path: telemetry:{theme}:{segments} → telemetry/{theme}/{segments}/
+  examples:
+    positive:
+    - telemetry:mechanic:decision.choice → telemetry/mechanic/decision/choice/ (metric.db.count.json,
+      metric.be.duration.json, event.be.json)
+    - telemetry:commons:ux:foundations → telemetry/commons/ux/foundations/ (metric.ui.render_latency.json,
+      event.ui.json)
+    - telemetry:commons:ux:foundations:color → telemetry/commons/ux/foundations/color/
+    negative:
+    - 'telemetry/mechanic/decision.choice.json  # dotted URN segments become nested
+      directories'
+- term_id: signal_types
+  label: metric vs event
+  text: Signal files are one of two types — metric (observability metrics, OpenTelemetry)
+    which requires a measure suffix, or event (analytics events, Segment/Mixpanel)
+    which takes no measure suffix and follows {signal-type}.{plane}.json.
+  values:
+    metric: Observability metrics (OpenTelemetry) - requires measure suffix
+    event: Analytics events (Segment/Mixpanel) - no measure suffix
+    event_pattern: '{signal-type}.{plane}.json (no measure)'
+  examples:
+    positive:
+    - metric.db.count.json
+    - event.be.json
+    negative:
+    - 'event.be.count.json  # events take no measure suffix'
+- term_id: planes
+  label: The plane axis
+  text: The plane segment selects the technical plane the signal is emitted on, from
+    a fixed list.
+  values:
+    planes:
+    - ui
+    - ux
+    - be
+    - nw
+    - db
+    - st
+    - tm
+    - sc
+    - au
+    - fn
+    - if
+  examples:
+    positive:
+    - metric.ui.render_latency.json
+    negative:
+    - 'metric.gpu.count.json  # gpu is not a member of the plane list'
+- term_id: measures
+  label: The measure suffix (metrics only)
+  text: Metric files carry a measure suffix drawn from the metrics-only set; events
+    never carry a measure.
+  values:
+    metrics_only:
+    - count
+    - duration
+    - latency
+    - size
+    - rate
+    - percentage
+    not_for_events: Events use pattern {signal-type}.{plane}.json (no measure)
+- term_id: manifest_generation
+  label: Manifest generated from source
+  text: The telemetry manifest is generated from the telemetry/ source files; the
+    generated manifest aggregates all signal definitions found under the source tree.
+  values:
+    source: telemetry/{domain}/{resource}/*.json
+    output: Generated manifest aggregates all signal definitions
+examples:
+  positive:
+  - telemetry:commons:ux:foundations:color → telemetry/commons/ux/foundations/color/
+    with metric.ui.render_latency.json and event.ui.json
+  negative:
+  - hand-editing the generated manifest instead of the telemetry/ source files

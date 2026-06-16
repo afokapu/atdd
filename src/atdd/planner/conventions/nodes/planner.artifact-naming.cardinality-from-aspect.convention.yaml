@@ -1,0 +1,85 @@
+schema_version: 1.0.0
+rule_id: planner.artifact-naming.cardinality-from-aspect
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+statement: 'The aspect - the final noun before any variant - determines cardinality:
+  a plural aspect denotes a collection/array schema, a singular aspect denotes a single
+  item. Category segments and variant segments never affect cardinality, even when
+  they themselves are plural.'
+rationale: Anchoring cardinality on a single, well-defined position (the aspect) makes
+  the one-vs-many meaning of a name unambiguous and lets singular and plural forms
+  of the same resource coexist as distinct schemas.
+terms:
+- term_id: collection_indicator
+  label: Plural aspect = collection
+  text: Detection looks only at the final noun (aspect). If the aspect is plural the
+    name denotes a collection/array schema; if singular it denotes a single item.
+  values:
+    rule: The ASPECT (final noun before variant) determines cardinality
+    detection:
+    - Look at the final noun (aspect) in the artifact name
+    - If aspect ends in 's' (or is plural) -> collection schema
+    - If aspect is singular -> single item schema
+    - Categories in hierarchy do not affect cardinality
+    - Variants do not affect cardinality
+- term_id: aspect_position
+  label: Aspect position governs cardinality
+  text: The aspect sits at the final noun before the variant (or the final word if
+    no variant); its number drives cardinality.
+  values:
+    location: Final noun before variant (or final word if no variant)
+    affects_cardinality: true
+  examples:
+    positive:
+    - 'scenario:fragments  # aspect fragments -> plural -> collection'
+    - 'scenario:fragment  # aspect fragment -> singular -> one item'
+    - 'commons:ux:foundations  # aspect foundations -> plural -> collection'
+- term_id: category_position
+  label: Category position never affects cardinality
+  text: Any segment in the hierarchy except the final aspect is a category. A category
+    can be plural without making the name a collection.
+  values:
+    location: Any segment in hierarchy except final aspect
+    affects_cardinality: false
+  examples:
+    positive:
+    - 'commons:ux:foundations:color  # foundations plural category, color singular
+      -> one item'
+    - 'commons:ux:foundations:colors  # foundations category, colors plural aspect
+      -> collection'
+- term_id: variant_position
+  label: Variant position never affects cardinality
+  text: The segment after the dot is a variant; it can be plural but does not change
+    the aspect's cardinality.
+  values:
+    location: After dot separator
+    affects_cardinality: false
+  examples:
+    positive:
+    - 'scenario:fragment.colors  # aspect fragment singular; colors is just a variant
+      name -> one fragment'
+- term_id: coexistence
+  label: Singular and plural both valid
+  text: Singular-item and plural-collection forms of the same resource may both exist
+    as distinct schemas.
+  values:
+    pairs:
+    - singular: scenario:fragment
+      plural: scenario:fragments
+      difference: one vs many
+    - singular: commons:ux:foundation
+      plural: commons:ux:foundations
+      difference: item vs collection
+    - singular: commons:ux:foundations:color
+      plural: commons:ux:foundations:colors
+      difference: one color vs array of colors
+examples:
+  positive:
+  - 'scenario:fragments  # plural aspect -> array/collection'
+  - 'scenario:fragment  # singular aspect -> single item'
+  negative:
+  - 'scenario:fragments  # treated as a single item (ignores plural aspect)'

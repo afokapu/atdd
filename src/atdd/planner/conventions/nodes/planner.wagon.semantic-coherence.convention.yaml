@@ -1,0 +1,62 @@
+schema_version: 1.0.0
+rule_id: planner.wagon.semantic-coherence
+kind: constraint
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_sha: sha256:ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+statement: A refined wagon must pass the semantic coherence checks — its subject,
+  action, goal, context, and outcome must align, its produce/consume artifact ownership
+  must be correct, and at least one produce artifact must be external.
+rationale: Coherence checks catch refinements that are internally inconsistent (an
+  actor that cannot perform its action, an outcome unrelated to the action) or that
+  declare artifacts incorrectly, before the wagon is committed to the plan.
+terms:
+- term_id: narrative_coherence
+  label: subject/action/goal/context/outcome alignment
+  text: The narrative fields must hang together — the subject must be able to perform
+    the action, the action must serve the goal, the outcome must be a measurable result
+    of the action, and the context must make sense for when/where the action occurs.
+  values:
+    subject_action: subject and action must align (subject can perform the action)
+    action_goal: action and goal must align (action serves the goal)
+    outcome: outcome must be measurable result of action
+    context: context must make sense for when/where action occurs
+  examples:
+    positive:
+    - subject player:active applies an option (can perform), advancing the match (serves
+      goal); outcome 'state updated' is measurable
+    negative:
+    - 'subject: scoreboard; action: negotiates contracts  # subject cannot perform
+      the action'
+- term_id: artifact_ownership
+  label: produce/consume ownership rules
+  text: All produce artifacts must be owned by this wagon, and all consume artifacts
+    must be owned by a different wagon.
+  values:
+    produce_ownership: all produce artifacts must be owned by this wagon
+    consume_ownership: all consume artifacts must be owned by different wagons
+  examples:
+    positive:
+    - produce commons:ux:foundations (owned here); consume commons:ux:foundations
+      from wagon:maintain-ux (owned elsewhere)
+    negative:
+    - consuming an artifact the same wagon produces
+- term_id: external_produce_required
+  label: At least one external produce artifact
+  text: A wagon must produce at least one artifact whose visibility is external (to
+    / scope external); a wagon that produces nothing externally visible is not coherent.
+  values:
+    rule: at least one produce artifact must be external (scope 'external')
+  examples:
+    positive:
+    - 'produce: [{name: commons:ux:foundations}]  # external by default'
+    negative:
+    - 'produce: [{name: internal:cache, to: internal}]  # no external artifact'
+examples:
+  positive:
+  - A wagon whose narrative fields align, whose produce artifacts it owns, whose consume
+    artifacts belong to other wagons, and which exposes at least one external artifact.
+  negative:
+  - A wagon that only produces internal artifacts, or that consumes its own output.

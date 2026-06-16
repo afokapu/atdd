@@ -104,10 +104,36 @@ Per §5 / §D003 nodes deliberately exclude enforcement metadata — `severity`,
 the legacy `rules:` blocks and (eventually) in gates + validator source. They are recoverable from a
 node via its `rule_id`. Their absence from nodes is **not** a parity gap.
 
-## Status
+## Decisions taken
 
-- [x] Schema extended to §5.1 (`examples`, term `values`, term `examples`).
-- [x] 11 rules-bearing conventions re-atomised to high node parity (23 nodes, schema-valid).
-- [ ] **A** — atomise `component` / `interface` / `train` (zero-node).
-- [ ] **B** — embed remaining full legacy catalogs into `terms[].values`.
-- [ ] **C** — add the missing relationship edges.
+- **Schema depth:** large legacy reference catalogs are split into their own dedicated nodes
+  (one section → one node), with full tables embedded in `terms[].values`.
+- **Enforcement metadata** (`validator`/`severity`/`disposition`/`aliases`/`fix_hint`/`suppression`)
+  stays **out of nodes** (v1.1 D003/D010). Legacy YAML remains its source of truth; parity is made
+  auditable by a `source` provenance block on every node instead of duplicating it.
+- **Provenance:** every node carries `source: {legacy_path, legacy_sha, legacy_rule_id?,
+  extraction_mode: high_fidelity}`, stamped centrally and schema-validated.
+
+## Status — RESOLVED
+
+All flagged discrepancies are closed. The graph now carries **97 convention-nodes** and an
+**88-edge** relationship graph; every node is schema-valid, every filename equals its `rule_id`,
+every node carries a resolvable `source.legacy_path` (extraction_mode `high_fidelity`), and every
+edge endpoint resolves to a real node.
+
+- [x] Schema extended to §5.1 (`examples`, term `values`, term `examples`) + optional `source` block.
+- [x] 11 rules-bearing conventions re-atomised to high node parity.
+- [x] **A** — `component` (11), `interface` (8), `train` (7) atomised into split nodes.
+- [x] **B** — dense families expanded into full section-node sets:
+  acceptance +11, artifact-naming +9, wmbt +10, feature +7, wagon +6, criteria +5
+  (each large legacy catalog now its own node with the full table in `terms[].values`).
+- [x] Provenance `source` block stamped on all 97 nodes; smoke test guards it.
+- [x] **C** — relationship edges grown from 13 → 88 (intra-family + cross-convention).
+
+Node count by family: theme 5, coverage 4, issue-body 2, criteria 6, wagon 8, feature 9,
+acceptance 13, wmbt 12, steps 1, appendix 1, artifact-naming 10, component 11, interface 8, train 7.
+
+### Remaining (optional, low priority)
+- `steps`, `appendix` and `coverage` were enriched in place and not split further; if exhaustive
+  section-splitting is wanted there too (e.g. an `appendix.types` catalog node), it is a small
+  follow-up. Enforcement metadata remains in legacy YAML + (future) gates by design.

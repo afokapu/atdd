@@ -1,0 +1,77 @@
+schema_version: 1.0.0
+rule_id: planner.acceptance.abstract-fields-required
+kind: constraint
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_sha: sha256:027e2d86ff127550
+  extraction_mode: high_fidelity
+statement: Every acceptance must carry Gherkin-style abstract narratives in each section
+  — given.abstract, when.abstract, and then.abstract are all REQUIRED — so stakeholders
+  can review the acceptance in natural language alongside the machine-structured fields.
+rationale: 'Abstract fields enable stakeholder review and WMBT verbosity with business-focused
+
+  Gherkin narratives. They coexist with structured fields within the same section:
+
+  abstract serves stakeholders (Gherkin prose), structured serves machines (test
+
+  generation). identity.purpose already serves as the scenario name, so no separate
+
+  top-level name field is needed.
+
+  '
+terms:
+- term_id: given_abstract
+  label: given.abstract
+  text: Gherkin Given statements describing preconditions (REQUIRED). Each item describes
+    a single precondition or setup state.
+  values:
+    location: given.abstract
+    type: array of strings
+    constraint: 'minItems: 1'
+    required: true
+  examples:
+    positive:
+    - appendix.convention.yaml defines manifest structure
+    - User account exists in the database
+    - Valid credentials are provided
+- term_id: when_abstract
+  label: when.abstract
+  text: Gherkin When statement describing the trigger action (REQUIRED). Present tense,
+    clear actor and action.
+  values:
+    location: when.abstract
+    type: string
+    constraint: 'minLength: 5'
+    required: true
+  examples:
+    positive:
+    - User submits login form with credentials
+- term_id: then_abstract
+  label: then.abstract
+  text: Gherkin Then statements describing expected outcomes (REQUIRED). Each item
+    describes a single observable outcome.
+  values:
+    location: then.abstract
+    type: array of strings
+    constraint: 'minItems: 1'
+    required: true
+  examples:
+    positive:
+    - 'Wagon manifest includes appendices: [] array at root level'
+    - 'WMBT files include appendices: [] array'
+    - Resolver can resolve appendix paths using URN pattern
+- term_id: complementary_to_structured
+  label: Relationship to structured fields
+  text: Abstract fields are complementary to and coexist with structured fields within
+    the same section; abstract is for stakeholders (Gherkin), structured is for machines
+    (test generation). All abstract fields are REQUIRED.
+examples:
+  positive:
+  - "given:\n  abstract: [\"User is logged in\", \"Account has credits\"]\n  auth:\
+    \ {required: true, type: \"bearer\"}\nwhen:\n  abstract: \"User purchases a product\"\
+    \n  action: \"request\"\n  target: \"/api/purchase\"\nthen:\n  abstract: [\"Purchase\
+    \ succeeds\", \"Credits are deducted\"]\n  assertions: [{type: \"equals\", target:\
+    \ \"status\", value: 200}]\n"
+  negative:
+  - A given/when/then block with structured fields but no abstract arrays/string

@@ -1,0 +1,55 @@
+schema_version: 1.0.0
+rule_id: planner.artifact-naming.validation-rules
+kind: constraint
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+statement: 'An artifact name is valid only if it satisfies all three rule groups:
+  format rules (lowercase kebab-case segments, colon for descent, dot for variant),
+  semantic rules (approved theme, value-adding levels, concrete aspect, exact URN
+  match, shallow variants), and technical rules (contract file exists, $id and consumers
+  agree, path derivable by splitting on : and .).'
+rationale: Grouping the validation criteria into format, semantic, and technical layers
+  makes the checks a name must pass explicit and orthogonal, so a planner can verify
+  a name against each concern independently.
+terms:
+- term_id: format_rules
+  label: Format rules
+  text: Lexical constraints on each segment and separator.
+  values:
+    rules:
+    - Theme must be lowercase, no separators
+    - Category segments must be kebab-case
+    - Aspect must be kebab-case
+    - Variant must be kebab-case
+    - Use colon (:) for hierarchical descent
+    - Use dot (.) for lateral variants
+- term_id: semantic_rules
+  label: Semantic rules
+  text: Meaning-level constraints on themes, levels, aspects, variants, and URNs.
+  values:
+    rules:
+    - Theme must be from approved taxonomy
+    - Each hierarchy level should add clear semantic value
+    - Aspect should be a concrete noun
+    - Variant should describe a state, type, or facet
+    - URN must exactly match artifact name
+    - Avoid deep variant nesting (typically 0-1 dots)
+- term_id: technical_rules
+  label: Technical rules
+  text: Cross-artifact constraints binding name, contract file, $id, and consumers.
+  values:
+    rules:
+    - Contract file must exist at contracts/{path_segments}.schema.json
+    - $id in contract must be urn:contract:{artifact_name}
+    - All consumers must reference the same artifact name
+    - File path must be derivable from artifact name by splitting on: and .
+examples:
+  positive:
+  - 'commons:ux:foundations:color  # kebab-case, approved theme, concrete aspect,
+    derivable path'
+  negative:
+  - 'Match:Config  # violates format: not lowercase kebab-case'
+  - 'foo:gesture.raw  # violates semantic: theme not from approved taxonomy'

@@ -1,0 +1,48 @@
+schema_version: 1.0.0
+rule_id: planner.acceptance.boundary-kind-vocabulary
+kind: constraint
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_sha: sha256:027e2d86ff127550
+  extraction_mode: high_fidelity
+statement: An acceptance's exercised integration surfaces must be drawn from the controlled
+  10-entry boundary_kinds vocabulary; unknown values are rejected. golden is a harness_code,
+  NOT a boundary_kind (Decision
+rationale: boundary_kind is a closed controlled vocabulary of the named integration
+  surfaces an acceptance exercises, so that hermetic acceptances can declare exactly
+  which boundaries they cross and reviewers can reason about fidelity per surface.
+notes: 'Unknown boundary_kind values are rejected by
+
+  tester.acceptance-violation.hermetic-fake-must-declare-contract. golden is a
+
+  harness_code, NOT a boundary_kind (Decision #7).
+
+  '
+terms:
+- term_id: boundary_kinds
+  label: Controlled boundary_kinds vocabulary (10 surfaces)
+  text: The complete controlled vocabulary of named integration surfaces an acceptance
+    may exercise. Values outside this set are rejected.
+  values:
+    argv: Command-line argument vector passed to a process.
+    subprocess: A child process spawned and observed.
+    filesystem: Files and directories read or written.
+    git: A local git repository's objects, refs, and config.
+    http_wire: HTTP request/response envelopes (recorded via cassette when hermetic).
+    llm_wire: LLM prompt/response envelopes (recorded or deterministic when hermetic).
+    cmux_rpc: cmux RPC request/response messages.
+    env_config: Environment variables and configuration inputs.
+    db_wire: Database query/response envelopes.
+    event_wire: Event-bus publish/consume envelopes.
+- term_id: golden_is_not_boundary
+  label: golden exclusion (Decision
+  text: golden is a harness_code, not a boundary_kind; it must not appear in exercised_boundaries.
+  values:
+    decision: '#7'
+examples:
+  positive:
+  - 'exercised_boundaries: [http_wire, db_wire]'
+  negative:
+  - 'exercised_boundaries: [golden]   # golden is a harness_code, not a boundary_kind'
+  - 'exercised_boundaries: [grpc_wire]   # not in the controlled vocabulary'

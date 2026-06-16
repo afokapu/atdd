@@ -1,0 +1,75 @@
+schema_version: 1.0.0
+rule_id: planner.feature.size-max-rule
+kind: constraint
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_sha: sha256:4a95544261fb9541
+  extraction_mode: high_fidelity
+statement: A feature's final size is the maximum of its WMBT-count size and its footprint
+  size; features MUST be S or smaller, and any M or larger feature must be split or
+  staged before execution.
+rationale: Taking the max of the two independent sizing signals prevents either a
+  large outcome set or a heavy architectural footprint from slipping through, and
+  the hard S ceiling keeps each feature tractable for AI-agent work.
+terms:
+- term_id: blended_max_rule
+  label: Blended max sizing rule
+  text: Final feature size = max(WMBT size, Footprint size). Sizing strategy is blended;
+    the WMBT count gives one bracket and the footprint score another, and the larger
+    bracket wins.
+  values:
+    strategy: blended
+    rule: Final feature size = max(WMBT size, Footprint size)
+    final_size_rule: max(wmbt_count_size, footprint_size)
+- term_id: max_size_enforcement
+  label: Max size S and overflow action
+  text: Features MUST be S or smaller. A feature that computes to M or larger overflows
+    and must be split or staged before execution; M/L features are gated.
+  values:
+    max_size: S
+    overflow_action: Split or stage the feature before execution
+  examples:
+    positive:
+    - A feature computing to S after the max rule is accepted as-is
+    negative:
+    - A feature computing to M must be decomposed or staged, never executed as-is
+- term_id: wmbt_brackets
+  label: WMBT-count size brackets
+  text: WMBT count maps onto brackets XS (≤5), S (6-10), M (11-20, must be decomposed
+    or staged), L (>20, split immediately).
+  values:
+    XS:
+      max: 5
+      description: ≤5 WMBTs
+    S:
+      min: 6
+      max: 10
+      description: 6-10 WMBTs
+    M:
+      min: 11
+      max: 20
+      description: 11-20 WMBTs — must be decomposed or staged
+    L:
+      min: 21
+      description: '>20 WMBTs — split immediately'
+- term_id: two_pass_approach
+  label: Two-pass sizing approach
+  text: Pass 1 (Planning Pass) sizes by WMBT-count to unblock decomposition; pass
+    2 (Post-decomposition Pass) computes footprint, reclassifies size with the max
+    rule, and gates M/L features.
+  values:
+    pass1:
+      name: Planning Pass
+      description: Size by WMBT-count to unblock decomposition
+    pass2:
+      name: Post-decomposition Pass
+      description: Compute footprint, reclassify size with max rule, gate M/L features
+- term_id: component_event_constraints
+  label: Component and event ceilings
+  text: Each feature should have at most 8 components and emit/consume at most 3 new
+    events; features exceeding these limits must be split.
+  values:
+    max_components: 8
+    max_events: 3
+    max_new_events: 3

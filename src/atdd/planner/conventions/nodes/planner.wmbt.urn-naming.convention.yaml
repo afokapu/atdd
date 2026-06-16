@@ -1,0 +1,56 @@
+schema_version: 1.0.0
+rule_id: planner.wmbt.urn-naming
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+statement: A WMBT URN is built as wmbt:{wagon}:{STEP_CODE}{NNN} where wagon is a kebab-case
+  parent-wagon identifier, STEP_CODE is one of the nine single-letter step codes (D|L|P|C|E|M|Y|R|K),
+  and NNN is a three-digit zero-padded sequence in the range 001-999.
+rationale: A step-coded URN makes every WMBT globally unique within its wagon and
+  encodes the phase of work directly in the identifier, so the id alone tells a reader
+  which step (define/locate/.../conclude) the truth belongs to and where it sits in
+  sequence.
+notes: Built by utils.graph.URNBuilder.wmbt(wagon_id, sequence). The step-code vocabulary
+  is catalogued in planner.wmbt.step-code-vocabulary.
+terms:
+- term_id: urn_pattern
+  label: The WMBT URN template
+  text: The URN concatenates a fixed wmbt prefix, the parent wagon identifier, and
+    a step-coded sequence segment, separated by colons.
+  values:
+    pattern: wmbt:{wagon}:{STEP_CODE}{NNN}
+    utility: utils.graph.URNBuilder.wmbt(wagon_id, sequence)
+    parts:
+      wagon: Parent wagon identifier (kebab-case)
+      STEP_CODE: Single letter step code (D|L|P|C|E|M|Y|R|K)
+      NNN: Three-digit zero-padded sequence (001-999)
+  examples:
+    positive:
+    - wmbt:resolve-dilemmas:E001
+    - wmbt:burn-timebank:M045
+    - wmbt:user-mgmt:C023
+- term_id: urn_validation
+  label: The validation regex and sequence range
+  text: A WMBT URN must match the anchored regex; the step code must be one of the
+    nine allowed letters and the sequence must be a three-digit value in the inclusive
+    range 001-999.
+  values:
+    regex: ^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$
+    step_codes: 'Must be one of: D, L, P, C, E, M, Y, R, K'
+    sequence_range: 001-999
+  examples:
+    positive:
+    - wmbt:user-mgmt:C023
+    negative:
+    - 'wmbt:user-mgmt:C23  # sequence not three-digit zero-padded'
+    - 'wmbt:UserMgmt:C023  # wagon not kebab-case'
+    - 'wmbt:user-mgmt:X023  # X is not a valid step code'
+examples:
+  positive:
+  - wmbt:resolve-dilemmas:E001 (wagon resolve-dilemmas, step execute, sequence 001)
+  - wmbt:burn-timebank:M045 (wagon burn-timebank, step monitor, sequence 045)
+  negative:
+  - wmbt:resolve-dilemmas:1 (missing step code and zero-padding)

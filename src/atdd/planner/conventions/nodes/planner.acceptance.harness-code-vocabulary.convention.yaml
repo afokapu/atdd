@@ -1,0 +1,144 @@
+schema_version: 1.0.0
+rule_id: planner.acceptance.harness-code-vocabulary
+kind: constraint
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_sha: sha256:027e2d86ff127550
+  extraction_mode: high_fidelity
+statement: Each acceptance declares a harness whose authoritative UPPERCASE code comes
+  from the fixed 22-entry harness_codes catalog (unit->UNIT … smoke->SMOKE); only
+  these codes are valid in URNs and harness selection.
+rationale: The harness code is baked into the acceptance URN and drives routing, so
+  the lowercase harness name to UPPERCASE code mapping must be a closed, authoritative
+  vocabulary shared by URN generation, validation, and harness selection.
+terms:
+- term_id: harness_codes
+  label: Authoritative harness code map (22 entries)
+  text: The complete lowercase-harness-name to UPPERCASE-code mapping. This is the
+    catalog; the UPPERCASE codes are the only values accepted in the harness segment
+    of an acceptance URN.
+  values:
+    unit: UNIT
+    http: HTTP
+    event: EVENT
+    ws: WS
+    e2e: E2E
+    a11y: A11Y
+    visual: VIS
+    metric: METRIC
+    job: JOB
+    db: DB
+    sec: SEC
+    load: LOAD
+    script: SCRIPT
+    widget: WIDGET
+    golden: GOLDEN
+    bloc: BLOC
+    integration: INTEGRATION
+    rls: RLS
+    edge_function: EDGE
+    realtime: REALTIME
+    storage: STORAGE
+    smoke: SMOKE
+- term_id: harness_types
+  label: Harness types and typical usage
+  text: Each harness type carries a description, a selection prompt, and the layers
+    where it typically applies; select the harness that best exercises the outcome.
+  values:
+    unit:
+      description: Unit tests for isolated logic
+      typical_layers:
+      - domain
+      - application
+    http:
+      description: HTTP API endpoint tests
+      typical_layers:
+      - integration
+      - application
+    event:
+      description: Event-driven behavior tests
+      typical_layers:
+      - application
+      - integration
+    ws:
+      description: WebSocket real-time tests
+      typical_layers:
+      - integration
+    e2e:
+      description: End-to-end user journey tests
+      typical_layers:
+      - presentation
+    a11y:
+      description: Accessibility compliance tests
+      typical_layers:
+      - presentation
+    visual:
+      description: Visual regression tests
+      typical_layers:
+      - presentation
+    metric:
+      description: Performance metric tests
+      typical_layers:
+      - application
+      - integration
+    job:
+      description: Background job/task tests
+      typical_layers:
+      - application
+    db:
+      description: Database operation tests
+      typical_layers:
+      - integration
+    sec:
+      description: Security tests
+      typical_layers:
+      - application
+      - integration
+    load:
+      description: Load and stress tests
+      typical_layers:
+      - integration
+    script:
+      description: Script execution tests
+      typical_layers:
+      - application
+    widget:
+      description: Widget/component tests
+      typical_layers:
+      - presentation
+    golden:
+      description: Golden file tests
+      typical_layers:
+      - presentation
+      - application
+    bloc:
+      description: BLoC pattern tests
+      typical_layers:
+      - application
+    integration:
+      description: Integration tests
+      typical_layers:
+      - integration
+    rls:
+      description: Row-level security tests
+      typical_layers:
+      - integration
+    edge_function:
+      description: Edge function tests
+      typical_layers:
+      - integration
+    realtime:
+      description: Realtime subscription tests
+      typical_layers:
+      - integration
+    storage:
+      description: Storage operation tests
+      typical_layers:
+      - integration
+examples:
+  positive:
+  - 'harness: e2e -> URN harness segment E2E'
+  - 'harness: edge_function -> URN harness segment EDGE'
+  negative:
+  - harness code "API" (not in the 22-entry catalog)

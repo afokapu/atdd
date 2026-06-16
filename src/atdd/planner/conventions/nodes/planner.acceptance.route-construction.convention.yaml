@@ -1,0 +1,133 @@
+schema_version: 1.0.0
+rule_id: planner.acceptance.route-construction
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_sha: sha256:027e2d86ff127550
+  extraction_mode: high_fidelity
+statement: An acceptance's route.layers and route.sequence describe the layer transitions
+  it exercises in execution order using the {layer}.{action} pattern, flowing presentation
+  -> application -> domain -> integration as needed.
+rationale: The route makes the path an acceptance drives through the architecture
+  explicit and ordered, so reviewers and generators can see which layers and actions
+  participate and route the test to the right planes.
+terms:
+- term_id: route_pattern
+  label: '{layer}.{action} pattern'
+  text: Each route step is {layer}.{action}; populate route.layers and route.sequence
+    so actions flow presentation -> application -> domain -> integration as needed.
+  values:
+    pattern: '{layer}.{action}'
+- term_id: layer_routing
+  label: Valid {layer}.{action} steps by layer
+  text: The catalog of valid route steps keyed by layer.
+  values:
+    presentation:
+    - presentation.command
+    - presentation.query
+    - presentation.display
+    application:
+    - application.use_case
+    - application.query
+    - application.aggregate
+    domain:
+    - domain.create
+    - domain.validate
+    - domain.mutate
+    - domain.policy
+    integration:
+    - integration.read
+    - integration.persist
+    - integration.call_external
+- term_id: route_flow_examples
+  label: Canonical route sequences
+  text: Common end-to-end route sequences by flow type, in execution order.
+  values:
+    presentation_flow:
+    - presentation.command
+    - application.use_case
+    - domain.validate
+    - integration.persist
+    query_flow:
+    - presentation.query
+    - application.query
+    - integration.read
+    event_flow:
+    - integration.call_external
+    - application.aggregate
+    - domain.mutate
+    - integration.persist
+- term_id: planes_cues
+  label: Plane selection keyword cues
+  text: Keyword cues for selecting the test layer plane when routing.
+  values:
+    ui:
+    - display
+    - visible
+    - screen
+    - render
+    - animation
+    ux:
+    - understand
+    - clarity
+    - steps
+    - easy
+    - confusing
+    be:
+    - validate
+    - apply
+    - compute
+    - reconcile
+    - rule
+    nw:
+    - request
+    - response
+    - timeout
+    - websocket
+    - stream
+    db:
+    - query
+    - index
+    - transaction
+    - lock
+    - row
+    st:
+    - asset
+    - download
+    - upload
+    - cache
+    - blob
+    - cdn
+    tm:
+    - event
+    - metrics
+    - trace
+    - ingest
+    - drop
+    sc:
+    - schema
+    - contract
+    - version
+    - field
+    - json
+    au:
+    - login
+    - token
+    - permission
+    - rate-limit
+    - '403'
+    fn:
+    - price
+    - balance
+    - payout
+    - token
+    if:
+    - cpu
+    - memory
+    - pod
+    - node
+    - gpu
+examples:
+  positive:
+  - 'route.sequence: [presentation.command, application.use_case, integration.persist]'

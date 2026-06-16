@@ -1,0 +1,181 @@
+schema_version: 1.0.0
+rule_id: planner.wmbt.dimension-selection
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+statement: Every WMBT carries exactly one dimension chosen from the six canonical
+  dimensions (Time, Effort, Likelihood, Frequency, Quantity/Amount, Financial Value);
+  the dimension is selected by matching the user requirement's intent against each
+  dimension's keywords.
+rationale: Naming the single core metric a WMBT optimizes keeps each truth focused
+  on one measurable outcome. The keyword-driven selection makes dimension choice reproducible
+  and the description/rationale anchor why that metric carries value to the job performer.
+notes: Selection procedure - identify the core metric the user wants to optimize,
+  match intent to a dimension via keywords, then decompose into dimension/actor/action/object.
+  A statement mixing multiple dimensions must be split (see planner.wmbt.splitting-rules).
+terms:
+- term_id: dimension_selection_procedure
+  label: How to pick the dimension
+  text: Analyze the requirement to identify the core metric to optimize, use keywords
+    to match intent to one dimension, then decompose into dimension, actor, action,
+    and object using each dimension's description and rationale.
+  values:
+    generator_prompt: From '${inputs.description}', identify the primary dimension
+      being worked on
+    pattern: single dimension keyword
+    source: conventions:planner:wmbt:dimensions.options
+- term_id: dimension_catalog
+  label: The six canonical dimensions
+  text: Each dimension provides keywords for intent matching, a description of what
+    it measures, a rationale for its value, and worked examples.
+  values:
+    Time:
+      keywords:
+      - time
+      - duration
+      - fast
+      - slow
+      - quick
+      - speed
+      - delay
+      - wait
+      - rework
+      - onboard
+      - productive
+      description: Measures the duration associated with executing a job or any of
+        its steps. It encompasses speed, waiting, delays, and the time spent on rework
+        and corrections. It's a measure of the job performer's most finite resource.
+      rationale: Minimizing the time it takes to achieve a goal is a primary driver
+        of value. Solutions that give the job performer their time back are highly
+        valued, as that time can be reallocated to other tasks.
+      examples:
+      - '(Employee): Minimize the time it takes for a new employee to be fully onboarded
+        and productive.'
+      - '(Surgeon): Minimize the time it takes to complete a specific surgical procedure
+        safely.'
+    Effort:
+      keywords:
+      - effort
+      - physical
+      - mental
+      - cognitive
+      - easy
+      - intuitive
+      - concentration
+      - load
+      - force
+      - fatigue
+      - bug
+      description: Measures the physical or cognitive load the job performer must
+        endure to get a job done. Physical effort is muscular force; mental effort
+        is the amount of concentration, learning, memory, and decision-making required.
+      rationale: All actors are wired to conserve energy. Solutions that feel 'easy,'
+        'intuitive,' or 'effortless' are superior. High effort leads to frustration,
+        errors, fatigue, and potential abandonment of the task.
+      examples:
+      - '(Nurse): Minimize the physical effort required to move a patient from a bed
+        to a wheelchair.'
+      - '(Software Developer): Reduce the mental effort required to find a specific
+        bug in the code.'
+    Likelihood:
+      keywords:
+      - likelihood
+      - probability
+      - chance
+      - risk
+      - error
+      - failure
+      - success
+      - predictability
+      - control
+      - reliability
+      - reject
+      - usable
+      description: Measures the probability of a specific outcome occurring. It's
+        used to articulate the desire for predictability, control, and success. It
+        can be about increasing the probability of a desired outcome or decreasing
+        the probability of an undesired one.
+      rationale: Uncertainty creates stress, inefficiency, and risk. Increasing the
+        likelihood of success and reducing the likelihood of errors builds trust and
+        confidence.
+      examples:
+      - '(Scientist): Increase the likelihood that an experiment will produce a usable
+        result.'
+      - '(Citizen): Decrease the likelihood that a submitted application form will
+        be rejected due to an error.'
+    Frequency:
+      keywords:
+      - frequency
+      - often
+      - repetitive
+      - manual
+      - number of times
+      - switch
+      - resets
+      description: Measures the rate of occurrence of an event or action within the
+        execution of a job. It is most often used to reduce how often the job performer
+        must perform an undesirable, repetitive, or non-value-added task.
+      rationale: Repetitive tasks are a major source of frustration and wasted effort.
+        Reducing the frequency of these annoyances frees the job performer to focus
+        on what truly matters.
+      examples:
+      - '(System Admin): Reduce the frequency with which manual server resets are
+        required.'
+      - '(Call Center Agent): Minimize the number of times they have to switch between
+        different software applications to resolve one issue.'
+    Quantity / Amount:
+      keywords:
+      - quantity
+      - amount
+      - volume
+      - number
+      - resource
+      - consumed
+      - produced
+      - scrap
+      - leads
+      - spent
+      description: Measures the volume, number, or amount of a resource that is either
+        consumed or produced. It's about optimizing the tangible inputs and outputs
+        of a job to improve efficiency.
+      rationale: Every job performer operates with finite resources. Using fewer resources
+        (inputs) translates directly into higher efficiency. Conversely, increasing
+        the output from the same input is a universal measure of productivity.
+      examples:
+      - '(Factory Manager): Minimize the amount of scrap material generated per production
+        run.'
+      - '(Marketing Manager): Increase the number of qualified leads generated per
+        dollar spent.'
+    Financial Value:
+      keywords:
+      - financial
+      - value
+      - cost
+      - revenue
+      - money
+      - budget
+      - expense
+      - profit
+      - earnings
+      - currency
+      - fleet
+      description: Measures the monetary impact of getting the job done from the job
+        performer's perspective. It includes direct costs, operational expenses, opportunity
+        costs, revenue lost, or revenue gained.
+      rationale: Financial impact is a primary consideration in almost any organized
+        system. A solution that helps an organization operate more profitably or a
+        public institution to work more efficiently provides clear, quantifiable value.
+      examples:
+      - '(CFO): Minimize the financial impact of currency fluctuations on the company''s
+        earnings.'
+      - '(Fleet Manager): Minimize the annual cost of maintaining the vehicle fleet.'
+examples:
+  positive:
+  - A WMBT optimizing onboarding speed selects dimension Time (keyword 'onboard')
+  - A WMBT reducing form rejections selects dimension Likelihood (keyword 'reject')
+  negative:
+  - A WMBT statement combining 'fast AND reliable' (mixes Time and Likelihood — must
+    be split)

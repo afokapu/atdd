@@ -1,0 +1,50 @@
+schema_version: 1.0.0
+rule_id: planner.feature.hard-limits
+kind: constraint
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_sha: sha256:4a95544261fb9541
+  extraction_mode: high_fidelity
+statement: A feature may introduce at most 2 new tables, at most 2 async jobs, and
+  at most 2 integrations; any feature exceeding a hard limit MUST be split, independent
+  of its footprint size.
+rationale: Tables, async jobs, and integrations each carry disproportionate, long-lived
+  cost — schema evolution, operational complexity, and uncontrolled external failure
+  points — so they are capped by absolute limits rather than absorbed into the footprint
+  score.
+terms:
+- term_id: new_tables_limit
+  label: At most 2 new tables
+  text: A feature may introduce a maximum of 2 new tables. Tables carry high cost
+    for maintenance, schema evolution, and performance impact.
+  values:
+    maximum: 2
+    rationale: Carry high cost for maintenance, schema evolution, and performance
+      impact
+- term_id: async_jobs_limit
+  label: At most 2 async jobs
+  text: A feature may introduce a maximum of 2 async jobs. Async jobs add significant
+    operational complexity (monitoring, retry logic, data inconsistency).
+  values:
+    maximum: 2
+    rationale: Add significant operational complexity (monitoring, retry logic, data
+      inconsistency)
+- term_id: integrations_limit
+  label: At most 2 integrations
+  text: A feature may introduce a maximum of 2 integrations. Integrations introduce
+    external dependencies, security vulnerabilities, and uncontrolled failure points.
+  values:
+    maximum: 2
+    rationale: Introduce external dependencies, security vulnerabilities, and uncontrolled
+      failure points
+- term_id: split_enforcement
+  label: Exceeding a hard limit forces a split
+  text: Features exceeding any hard limit (tables, async jobs, or integrations) MUST
+    be split. This holds independent of footprint size — a small-footprint feature
+    that crosses a hard limit must still be split.
+  examples:
+    negative:
+    - A feature introducing 3 new tables must be split even if its footprint scores
+      S
+    - A feature with 3 integrations must be split even if it is otherwise small

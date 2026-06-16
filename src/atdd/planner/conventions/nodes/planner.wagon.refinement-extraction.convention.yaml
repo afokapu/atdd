@@ -1,0 +1,86 @@
+schema_version: 1.0.0
+rule_id: planner.wagon.refinement-extraction
+kind: pattern
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_sha: sha256:ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+statement: Converting ambiguous input into a structured wagon proceeds by extracting
+  semantic fields (subject, action, goal, context, outcome, produce, consume, theme,
+  description) from the wagon name and requirements using fixed extraction prompts.
+rationale: A fixed set of extraction prompts turns free-text requirements into the
+  structured wagon fields deterministically, so the refined wagon is consistent and
+  every field traces back to an explicit question over the input.
+terms:
+- term_id: core_semantic_fields
+  label: subject / action / goal / context / outcome
+  text: The five narrative fields are extracted from ${inputs.requirements} by asking
+    WHO/WHAT acts, the core ACTION verb, the WHY, the WHEN/WHERE, and the measurable
+    result.
+  values:
+    subject: Identify WHO or WHAT performs the main action (single actor); actor:role
+      or entity:state format preferred, e.g. player:active, engine:orchestrator
+    action: Extract the core ACTION verb as a single present-tense verb phrase, e.g.
+      'applies the chosen option'
+    goal: Identify the WHY/motivation as a single intent statement, e.g. 'advance
+      toward stable trajectory'
+    context: Determine WHEN/WHERE this action occurs as a situational phrase of comma-separated
+      conditions, e.g. 'in-match, timebank-active'
+    outcome: Define the measurable result as a single measurable progress statement,
+      e.g. 'choice applied and state updated'
+  examples:
+    positive:
+    - 'subject: player:active; action: applies the chosen option; goal: advance toward
+      stable trajectory; context: in-match, timebank-active; outcome: choice applied
+      and state updated'
+    negative:
+    - 'subject: the player and the engine and the audience  # subject must be a single
+      actor'
+- term_id: artifact_fields
+  label: produce / consume (delegated)
+  text: The produce and consume fields are extracted per the artifact naming patterns
+    delegated to the planner artifact convention; see planner.wagon.produce-consume-artifacts
+    and planner.wagon.artifact-contracts.
+  values:
+    produce: $ref conventions:planner:artifact#/naming_patterns/produce
+    consume: $ref conventions:planner:artifact#/naming_patterns/consume
+- term_id: theme_taxonomy
+  label: The ten theme categories
+  text: Select the single most appropriate theme category for the wagon from the fixed
+    taxonomy.
+  values:
+    mechanic: Core game rules, decision systems, and immediate feedback loops
+    scenario: Content ingestion, entity extraction, and narrative structure processing
+    match: Session orchestration, state management, and lifecycle control, Multi-player
+      coordination, turn management
+    sensory: UI rendering, audio mixing, gesture capture, and player interaction
+    player: Individual lifecycle, onboarding, progression, and session management
+    league: Competitive organization, bracket management, and tournament operations
+    audience: Spectator engagement, streaming infrastructure, and viewer participation
+    monetization: Token economy, wallet operations, and transaction processing
+    partnership: Sponsor/partner onboarding, delegation, and commercial integration
+    commons: Shared infrastructure, cross-cutting utilities, and platform services
+  examples:
+    positive:
+    - 'theme: mechanic  # a decision/feedback wagon'
+    - 'theme: commons  # shared platform service'
+    negative:
+    - 'theme: gameplay  # not a member of the taxonomy'
+- term_id: description_and_placeholders
+  label: description / wmbt / total
+  text: The description is a concise one-liner generated from the refined subject,
+    action, goal, and context (minimum length 10). The wmbt and total fields are placeholders
+    populated later via handoff to wmbt.action.
+  values:
+    description_template: Generate concise one-liner from refined understanding of
+      subject, action, goal, and context
+    description_min_length: 10
+    wmbt: placeholder ({}); WMBTs generated via handoff to wmbt.action
+    total: placeholder (0); count updated when WMBTs are added via wmbt.action
+examples:
+  positive:
+  - From requirements text, fill subject/action/goal/context/outcome, select one theme,
+    derive produce/consume, then synthesize the description one-liner.
+  negative:
+  - Hand-authoring the structured wagon without extracting from ${inputs.requirements}

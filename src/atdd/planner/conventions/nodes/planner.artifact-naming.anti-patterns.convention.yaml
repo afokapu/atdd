@@ -1,0 +1,86 @@
+schema_version: 1.0.0
+rule_id: planner.artifact-naming.anti-patterns
+kind: anti_pattern
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+statement: 'Artifact names must avoid the seven recognized anti-patterns: wrong_separator_for_hierarchy,
+  wrong_separator_for_variant, missing_theme, too_many_dots, unnecessary_hierarchy,
+  generic_aspect, and theme_in_aspect. Each has a canonical fix that restores correct
+  separator semantics, a theme, the right depth, or a meaningful aspect.'
+rationale: Naming each failure mode with its bad form and fix turns vague style advice
+  into a checklist a planner can apply, catching separator misuse, missing ownership
+  context, over-specification, and vague or redundant aspects.
+terms:
+- term_id: separator_anti_patterns
+  label: Separator misuse
+  text: wrong_separator_for_hierarchy uses dots where colons (depth) are meant; wrong_separator_for_variant
+    uses a colon where a dot (lateral variation) is meant.
+  values:
+    wrong_separator_for_hierarchy:
+      bad: commons:ux.foundations.color
+      why: Uses dots for hierarchy - visually suggests variants when it's actually
+        depth
+      fix: commons:ux:foundations:color (colons for hierarchical descent)
+    wrong_separator_for_variant:
+      bad: sensory:gesture:raw
+      why: Uses colon for variant - suggests hierarchy when it's lateral variation
+      fix: sensory:gesture.raw (dot for variant facet)
+  examples:
+    negative:
+    - 'commons:ux.foundations.color  # wrong_separator_for_hierarchy -> commons:ux:foundations:color'
+    - 'sensory:gesture:raw  # wrong_separator_for_variant -> sensory:gesture.raw'
+- term_id: theme_anti_patterns
+  label: Theme errors
+  text: missing_theme omits the owning theme so ownership is unclear; theme_in_aspect
+    redundantly repeats the theme inside the aspect.
+  values:
+    missing_theme:
+      bad: gesture.raw
+      why: No theme - unclear which system owns this
+      fix: sensory:gesture.raw (adds architectural context)
+    theme_in_aspect:
+      bad: sensory:sensory-feedback.visual
+      why: Theme repeated in aspect - redundant
+      fix: sensory:feedback.visual (theme already provides context)
+  examples:
+    negative:
+    - 'gesture.raw  # missing_theme -> sensory:gesture.raw'
+    - 'sensory:sensory-feedback.visual  # theme_in_aspect -> sensory:feedback.visual'
+- term_id: depth_and_clarity_anti_patterns
+  label: Depth and clarity errors
+  text: too_many_dots over-specifies by leaking internal detail into the public name;
+    unnecessary_hierarchy adds colon levels without semantic value; generic_aspect
+    uses a vague aspect that conveys nothing concrete.
+  values:
+    too_many_dots:
+      bad: commons:identifiers.uuid.v7.timestamp.encoded
+      why: Over-specified - internal details leak into public name
+      fix: commons:identifiers.uuid (v7, timestamp are internal)
+    unnecessary_hierarchy:
+      bad: match:config:base:standard
+      why: Adds hierarchy levels without semantic value
+      fix: match:config (keep it simple when hierarchy doesn't add clarity)
+    generic_aspect:
+      bad: match:data
+      why: Too vague - what kind of data?
+      fix: match:state.committed (specific and meaningful)
+  examples:
+    negative:
+    - 'commons:identifiers.uuid.v7.timestamp.encoded  # too_many_dots -> commons:identifiers.uuid'
+    - 'match:config:base:standard  # unnecessary_hierarchy -> match:config'
+    - 'match:data  # generic_aspect -> match:state.committed'
+examples:
+  positive:
+  - 'commons:ux:foundations:color  # colons for depth (corrects wrong_separator_for_hierarchy)'
+  - 'sensory:feedback.visual  # no theme repeated in aspect (corrects theme_in_aspect)'
+  negative:
+  - 'commons:ux.foundations.color  # wrong_separator_for_hierarchy'
+  - 'sensory:gesture:raw  # wrong_separator_for_variant'
+  - 'gesture.raw  # missing_theme'
+  - 'commons:identifiers.uuid.v7.timestamp.encoded  # too_many_dots'
+  - 'match:config:base:standard  # unnecessary_hierarchy'
+  - 'match:data  # generic_aspect'
+  - 'sensory:sensory-feedback.visual  # theme_in_aspect'

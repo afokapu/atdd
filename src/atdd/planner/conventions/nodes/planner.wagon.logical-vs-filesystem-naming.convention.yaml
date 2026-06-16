@@ -1,0 +1,95 @@
+schema_version: 1.0.0
+rule_id: planner.wagon.logical-vs-filesystem-naming
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_sha: sha256:ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+statement: Logical identifiers (URNs, slug fields, YAML references) use kebab-case
+  with hyphens; the filesystem (directories, manifest files, feature files) uses snake_case
+  with underscores, derived by slug.replace('-', '_').
+rationale: Consistent filesystem naming reduces conversion complexity and keeps a
+  clear separation between the logical plane (kebab) and the physical plane (snake),
+  so the same wagon is addressable by URN and locatable on disk without ambiguity.
+terms:
+- term_id: logical_identifiers
+  label: Kebab-case logical plane
+  text: URNs, slug fields in YAML, and references use kebab-case (lowercase alphanumeric
+    with hyphens). Slugs are derived from the wagon name by lowercasing and replacing
+    spaces/underscores with hyphens, preferring a verb-object phrase.
+  values:
+    format: kebab-case
+    slug_derivation: lowercase, replace spaces/underscores with hyphens
+    preference: verb-object (e.g. resolve-dilemmas, commit-state)
+  examples:
+    positive:
+    - wagon:maintain-ux
+    - maintain-ux
+    - resolve-dilemmas
+    - feature:authenticate-identity:verify-session
+    negative:
+    - 'wagon:maintain_ux  # underscores belong to the filesystem plane'
+- term_id: directories
+  label: snake_case wagon directories
+  text: A wagon directory lives at plan/{wagon_dirname}/ in snake_case, derived from
+    the slug by slug.replace('-', '_').
+  values:
+    format: snake_case
+    pattern: plan/{wagon_dirname}/
+    derivation: slug.replace('-', '_')
+  examples:
+    positive:
+    - plan/maintain_design/
+    - plan/resolve_dilemmas/
+    - plan/commit_state/
+    - plan/authenticate_identity/
+    negative:
+    - 'plan/authenticate-identity/  # directories must be snake_case'
+- term_id: manifest_files
+  label: Manifest filename matches dirname, not slug
+  text: A wagon manifest is named _{dirname}.yaml at plan/{dirname}/_{dirname}.yaml.
+    The filename matches the directory name (snake_case), NOT the slug.
+  values:
+    format: _{dirname}.yaml
+    pattern: plan/{dirname}/_{dirname}.yaml
+    note: File name matches directory name, NOT slug
+  examples:
+    positive:
+    - plan/maintain_design/_maintain_design.yaml
+    - plan/resolve_dilemmas/_resolve_dilemmas.yaml
+    - plan/authenticate_identity/_authenticate_identity.yaml
+    negative:
+    - 'plan/authenticate_identity/_authenticate-identity.yaml  # must match dirname'
+- term_id: feature_files
+  label: snake_case feature files
+  text: Feature modules live at plan/{wagon_dirname}/features/{feature_name}.yaml
+    in snake_case, derived by feature_slug.replace('-', '_') + '.yaml'. Feature file
+    names use underscores even though feature URNs use hyphens.
+  values:
+    format: snake_case
+    pattern: plan/{wagon_dirname}/features/{feature_name}.yaml
+    derivation: feature_slug.replace('-', '_') + '.yaml'
+  examples:
+    positive:
+    - plan/authenticate_identity/features/verify_session.yaml
+    - plan/authenticate_identity/features/link_match_user.yaml
+    - plan/burn_timebank/features/track_remaining.yaml
+    - plan/setup_match/features/configure_match.yaml
+    negative:
+    - 'plan/authenticate_identity/features/verify-session.yaml  # must be snake_case'
+- term_id: conversion_rules
+  label: The bidirectional conversion table
+  text: The four conversions between the logical and filesystem planes are total string
+    substitutions, so any identifier can be moved between planes mechanically.
+  values:
+    slug_to_dirname: slug.replace('-', '_')
+    dirname_to_slug: dirname.replace('_', '-')
+    feature_slug_to_filename: feature_slug.replace('-', '_') + '.yaml'
+    feature_filename_to_slug: filename.replace('_', '-').replace('.yaml', '')
+examples:
+  positive:
+  - feature:authenticate-identity:verify-session → plan/authenticate_identity/ → _authenticate_identity.yaml
+    → features/verify_session.yaml
+  negative:
+  - 'plan/authenticate-identity/_authenticate-identity.yaml  # both must be snake_case'

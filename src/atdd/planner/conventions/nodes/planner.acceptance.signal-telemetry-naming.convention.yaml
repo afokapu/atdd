@@ -1,0 +1,91 @@
+schema_version: 1.0.0
+rule_id: planner.acceptance.signal-telemetry-naming
+kind: constraint
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_sha: sha256:027e2d86ff127550
+  extraction_mode: high_fidelity
+statement: Every acceptance carries a REQUIRED signal block whose metrics, traces,
+  logs, and events use artifact-based telemetry URN naming; operations/wagons go in
+  attributes, NOT in the URN, and metric measures/event resources are constrained
+  by the naming_rules.
+rationale: The signal block defines what metrics, traces, logs, and events prove the
+  acceptance works in production; enforcing artifact-based URN naming keeps telemetry
+  identifiers stable and tied to artifacts in contracts/_artifacts.yaml rather than
+  to volatile operation or wagon names.
+notes: 'Derive metrics from the ''then'' quantifiable expectations; derive events
+  from the
+
+  ''when'' user actions. Artifacts referenced must exist in contracts/_artifacts.yaml.
+
+  '
+terms:
+- term_id: signal_required
+  label: signal block (REQUIRED)
+  text: Define what metrics, traces, logs, and events prove this acceptance works
+    in production. Extract operational expectations (latency, errors) -> metrics;
+    extract user actions (conversions, feature usage) -> events.
+  values:
+    required: true
+- term_id: metrics_naming
+  label: metrics naming_rules
+  text: OpenTelemetry metrics using artifact-based URN naming.
+  values:
+    naming_rules:
+    - 'Format: telemetry:metric:{plane}:{artifact}[.{category}]:{measure}'
+    - 'plane: ui | ux | be | db | nw | st | tm | sc | au | fn | if'
+    - 'artifact: domain:resource (e.g., decision:chosen, match:result, ux:foundations.colors)'
+    - 'category: optional third facet for nested resources'
+    - 'measure: latency | duration | throughput | error_rate | success_rate | count
+      | size | age | staleness | freshness'
+    - 'Entity artifacts (nouns) use: count, size, age, staleness, freshness'
+    - 'Event artifacts (past-tense verbs) use: latency, duration, throughput, error_rate,
+      success_rate'
+    - Operations/wagons go in attributes, NOT in URN
+  examples:
+    positive:
+    - telemetry:metric:be:order:created:duration
+- term_id: traces_naming
+  label: traces naming_rules
+  text: OpenTelemetry distributed trace spans using artifact-based URN naming, with
+    no measure segment.
+  values:
+    naming_rules:
+    - 'Format: telemetry:trace:{plane}:{artifact}[.{category}]'
+    - No measure segment (traces are execution flows, not metrics)
+    - 'category: optional facet for nested resources'
+  examples:
+    positive:
+    - telemetry:trace:be:order:created
+- term_id: logs_naming
+  label: logs naming_rules
+  text: OpenTelemetry structured logs with optional URN naming; body is required,
+    name is optional.
+  values:
+    naming_rules:
+    - 'Format (optional): telemetry:log:{plane}:{artifact}[.{category}]'
+    - name field is optional; body is required
+    - 'category: optional facet for nested resources'
+  examples:
+    positive:
+    - telemetry:log:be:order:created
+- term_id: events_naming
+  label: events naming_rules
+  text: Analytics events for product tracking or OTel events; resource must be a past-tense
+    verb from the lexicon.
+  values:
+    naming_rules:
+    - 'Telemetry URN: telemetry:event:{plane}:{artifact}[.{category}]'
+    - 'Analytics: Title Case with Spaces (e.g., ''Order Created'')'
+    - 'Resource must be past-tense verb from lexicon: started, finished, chosen, validated,
+      created, etc.'
+    - 'category: optional facet for nested resources'
+  examples:
+    positive:
+    - telemetry:event:be:order:created
+    - Order Created
+examples:
+  negative:
+  - 'telemetry:metric:be:persist-order-wagon:created:duration  # operation/wagon in
+    URN'

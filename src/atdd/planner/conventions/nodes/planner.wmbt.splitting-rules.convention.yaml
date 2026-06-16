@@ -1,0 +1,68 @@
+schema_version: 1.0.0
+rule_id: planner.wmbt.splitting-rules
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+statement: A WMBT carries at most five acceptances; it must be split when it mixes
+  dimensions, spans multiple actor-action pairs, or needs divergent acceptance gate
+  modes, and must be kept together when the same truth is verified across layers or
+  as a coherent sequence.
+rationale: The five-acceptance cap and the split/keep-together rules keep each WMBT
+  a single coherent truth. Beyond five acceptances, or once dimensions, actors, or
+  gate modes diverge, the entry has become multiple concerns that are better verified
+  as separate WMBTs.
+notes: Aligns with the acceptance convention cap of <=5 per WMBT (conventions:planner:acceptance:rules.acceptance_cap);
+  the cap is enforced via the schema's acceptance array maxItems.
+terms:
+- term_id: acceptance_cap
+  label: The acceptance cap
+  text: A WMBT may declare no more than five acceptances; exceeding five indicates
+    mixed concerns that belong in separate WMBTs.
+  values:
+    maximum: 5
+    rationale: Beyond 5 acceptances indicates mixed concerns that should be separate
+      WMBTs
+    enforcement: schemas:planner:wmbt enforces via acceptance array maxItems
+    consistency_with_acceptances:
+      reference: conventions:planner:acceptance:rules.acceptance_cap
+      note: This rule aligns with acceptance convention cap of <=5 per WMBT
+- term_id: when_to_split
+  label: Conditions that force a split
+  text: Split the WMBT when the statement mixes dimensions, when different actors
+    perform different actions, or when acceptances need divergent gate modes.
+  values:
+    mixed_dimensions:
+      indicator: Statement mentions multiple dimensions (e.g., 'fast AND reliable')
+      action: 'Create separate WMBTs: one for time dimension, one for likelihood'
+      example: Split 'Minimize time while maximizing reliability' into two WMBTs
+    multiple_actors:
+      indicator: Different actors performing different actions
+      action: One WMBT per actor-action pair
+      example: Split 'Manager approves and employee submits' into separate WMBTs
+    divergent_gates:
+      indicator: Different acceptances need different gate modes (ALL vs ANY)
+      action: Group acceptances by gate requirements into separate WMBTs
+- term_id: when_to_keep_together
+  label: Conditions to keep one WMBT
+  text: Keep acceptances in one WMBT when the same outcome is verified across multiple
+    layers, or when they form sequential steps of a single coherent process.
+  values:
+    single_truth_multiple_layers:
+      indicator: Same outcome verified at UI, API, and DB layers
+      example: Latency measured at presentation, application, integration
+      gate_mode: ALL - all layers must meet the requirement
+    coherent_sequence:
+      indicator: Sequential steps of a single process
+      example: Upload -> Validate -> Store -> Confirm
+      note: Each acceptance tests one step, all must pass
+examples:
+  positive:
+  - A single-dimension WMBT with 3 layered acceptances (UI/API/DB) kept together under
+    gate ALL
+  negative:
+  - A WMBT with 6 acceptances (exceeds cap)
+  - A WMBT stating "minimize time while maximizing reliability" (mixed dimensions
+    — must split)

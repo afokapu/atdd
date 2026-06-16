@@ -1,0 +1,102 @@
+schema_version: 1.0.0
+rule_id: planner.feature.artifact-seeded-naming
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_sha: sha256:4a95544261fb9541
+  extraction_mode: high_fidelity
+statement: Feature names are seeded from the wagon's produce/consume artifacts; the
+  artifact's type (event, state, data, or config) selects the verb, and the object
+  comes from the artifact's domain or resource, combined as {verb}-{object} in kebab-case.
+rationale: Deriving feature names from artifacts ties every feature to a concrete
+  unit of work the wagon actually moves, and type-specific verb lists keep naming
+  consistent and prevent vague or miscellaneous buckets.
+terms:
+- term_id: seeding_overview
+  label: Artifacts are the primary seeds
+  text: Feature names are derived from wagon produce/consume artifacts. The artifact
+    type determines which verbs are appropriate. Features follow the verb-object pattern
+    where the object comes from the artifact domain or resource.
+- term_id: event_verbs
+  label: Verbs for event artifacts
+  text: Past-tense artifacts indicate completed actions or state transitions. Pick
+    a verb from the event verb list.
+  values:
+    description: Past tense artifacts indicate completed actions or state transitions
+    verbs:
+    - publish
+    - emit
+    - start
+    - close
+    - trigger
+    - notify
+  examples:
+    positive:
+    - match:started → start-match (event 'started' suggests action 'start')
+    - wallet:credited → credit-wallet (event 'credited' suggests action 'credit')
+- term_id: state_verbs
+  label: Verbs for state artifacts
+  text: Adjectives or present participles indicating ongoing conditions. Pick a verb
+    from the state verb list.
+  values:
+    description: Adjectives or present participles indicating ongoing conditions
+    verbs:
+    - track
+    - monitor
+    - maintain
+    - update
+    - manage
+  examples:
+    positive:
+    - mechanic:timebank.remaining → track-timebank (state 'remaining' requires tracking)
+    - session:active → maintain-session (state 'active' requires maintenance)
+- term_id: data_verbs
+  label: Verbs for data artifacts
+  text: Nouns representing entities or information. Pick a verb from the data verb
+    list.
+  values:
+    description: Nouns representing entities or information
+    verbs:
+    - create
+    - manage
+    - process
+    - handle
+    - make
+    - generate
+  examples:
+    positive:
+    - mechanic:decision.choice → make-choice (data 'choice' is made/created)
+    - player:profile → manage-profile (data 'profile' is managed)
+- term_id: config_verbs
+  label: Verbs for config artifacts
+  text: Configuration or settings nouns. Pick a verb from the config verb list.
+  values:
+    description: Configuration or settings nouns
+    verbs:
+    - configure
+    - setup
+    - initialize
+    - define
+    - establish
+  examples:
+    positive:
+    - match:config → configure-match (config is configured/setup)
+    - league:config → define-league (config defines league parameters)
+- term_id: transformation_steps
+  label: Artifact-to-feature transformation
+  text: Step 1 identify artifact from wagon produce/consume; step 2 determine artifact
+    type (event, state, data, or config); step 3 select a verb from the type-specific
+    verb list; step 4 choose the object from domain OR resource depending on focus;
+    step 5 combine as {verb}-{object} in kebab-case.
+  values:
+    step_1: Identify artifact from wagon produce/consume
+    step_2: 'Determine artifact type: event, state, data, or config'
+    step_3: Select appropriate verb from type-specific verb list
+    step_4: 'Choose object: use domain OR resource depending on focus'
+    step_5: 'Combine as: {verb}-{object} in kebab-case'
+  examples:
+    positive:
+    - resolve-dilemmas / mechanic:decision.choice (data) → make-choice
+    - burn-timebank / mechanic:timebank.remaining (state) → track-timebank
+    - play-match / match:started (event) → start-match

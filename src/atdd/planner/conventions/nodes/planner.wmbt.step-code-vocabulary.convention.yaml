@@ -1,0 +1,44 @@
+schema_version: 1.0.0
+rule_id: planner.wmbt.step-code-vocabulary
+kind: pattern
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+statement: The single-letter step code embedded in a WMBT URN must be exactly one
+  of the nine canonical codes D, L, P, C, E, M, Y, R, K, each naming a distinct phase
+  of work from define through conclude.
+rationale: A fixed, closed vocabulary of nine step codes gives every WMBT an unambiguous
+  phase classification that other tooling (sequencing, the URN regex, filename pattern)
+  can rely on, instead of free-form or per-wagon step naming.
+notes: This catalogue is the source of truth for the [DLPCEMYRK] character class used
+  in planner.wmbt.urn-naming and planner.wmbt.filename-pattern.
+terms:
+- term_id: step_codes
+  label: The nine canonical step codes
+  text: Each step code maps to a verb name and a one-line definition describing the
+    phase of work the WMBT belongs to. Exactly one code appears per WMBT URN.
+  values:
+    D: define - Define requirements, criteria, or constraints
+    L: locate - Locate, discover, or find resources
+    P: prepare - Prepare, setup, or configure prerequisites
+    C: confirm - Confirm, verify, or validate conditions
+    E: execute - Execute, perform, or run the main action
+    M: monitor - Monitor, observe, or track progress
+    Y: modify - Modify, update, or adjust state
+    R: resolve - Resolve, fix, or handle issues
+    K: conclude - Conclude, complete, or finalize
+  examples:
+    positive:
+    - E -> execute -> wmbt:resolve-dilemmas:E001
+    - M -> monitor -> wmbt:burn-timebank:M045
+    - C -> confirm -> wmbt:user-mgmt:C023
+    negative:
+    - X (not in the nine-code vocabulary)
+    - S (not in the nine-code vocabulary)
+examples:
+  positive:
+  - D001 declares a "define" truth; K023 declares a "conclude" truth
+  negative:
+  - A WMBT URN using a two-letter or lowercase step code

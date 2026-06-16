@@ -1,0 +1,81 @@
+schema_version: 1.0.0
+rule_id: planner.criteria.plane-keywords
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
+  legacy_sha: sha256:db262e7f5fb06226
+  extraction_mode: high_fidelity
+statement: Criterion text is routed to one of four planes (presentation, application,
+  domain, integration) by matching documented keyword lists, and each plane carries
+  a default sequence step.
+rationale: Keyword routing lets the planner infer which architectural plane a criterion
+  exercises from its prose, so the right harness and sequence step are selected without
+  the author hand-classifying every criterion.
+terms:
+- term_id: presentation_keywords
+  label: Presentation-plane keywords
+  text: Prose mentioning UI rendering, screens, or interactive widgets routes the
+    criterion to the presentation plane.
+  values:
+    keywords:
+    - display
+    - visible
+    - screen
+    - render
+    - animation
+    - button
+    - form
+    - modal
+- term_id: application_keywords
+  label: Application-plane keywords
+  text: Prose mentioning orchestration, use cases, policies, or state machines routes
+    the criterion to the application plane.
+  values:
+    keywords:
+    - workflow
+    - orchestrate
+    - use case
+    - policy
+    - state
+    - saga
+- term_id: domain_keywords
+  label: Domain-plane keywords
+  text: Prose mentioning business rules, validation, aggregates, entities, or invariants
+    routes the criterion to the domain plane.
+  values:
+    keywords:
+    - rule
+    - validate
+    - aggregate
+    - entity
+    - invariant
+    - business
+- term_id: integration_keywords
+  label: Integration-plane keywords
+  text: Prose mentioning persistence, external systems, queues, APIs, or repositories
+    routes the criterion to the integration plane.
+  values:
+    keywords:
+    - database
+    - persist
+    - external
+    - queue
+    - api
+    - webhook
+    - repository
+- term_id: plane_default_sequence
+  label: Default sequence step per plane
+  text: Each plane carries a default sequence step that names the canonical action
+    the criterion drives when no explicit sequence is given.
+  values:
+    presentation: command
+    application: use_case
+    domain: validate
+    integration: persist
+examples:
+  positive:
+  - '"render the success modal" -> presentation plane (keyword: render/modal)'
+  - '"persist the order to the repository" -> integration plane (keyword: persist/repository)'
+  negative:
+  - routing a "validate the invoice total" criterion to presentation

@@ -1,0 +1,61 @@
+schema_version: 1.0.0
+rule_id: planner.artifact-naming.schema-identifier
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+statement: 'The JSON Schema $id is the clean artifact name with no urn:contract: prefix
+  and no version suffix; the version is a separate top-level field in the schema,
+  not part of $id, so artifact identity stays stable across versions.'
+rationale: Keeping the version out of the $id preserves a single stable identity for
+  an artifact across its versions, so graph references and consumers do not break
+  when a new version ships.
+terms:
+- term_id: id_field
+  label: The $id field
+  text: 'The $id in a schema file is the bare artifact name following the pattern
+    {theme}:{resource}[.{category}] - no urn:contract: prefix, no version suffix.'
+  values:
+    pattern: '{theme}:{resource}[.{category}]'
+    note: NO 'urn:contract:' prefix, NO version suffix - clean artifact identifier
+    examples:
+    - mechanic:timebank.exhausted
+    - commons:ux:foundations:color
+    - commons:identifiers.uuid
+    - sensory:gesture.raw
+- term_id: urn_reference
+  label: The contract URN reference
+  text: 'The URN used in wagon produce[]/consume[] declarations adds a contract: prefix
+    to the artifact name; it is used in wagon manifests (plan/*/_*.yaml) to reference
+    contract schemas.'
+  values:
+    pattern: contract:{artifact_name}
+    usage: Used in wagon manifests (plan/*/_*.yaml) to reference contract schemas
+    note: URN adds 'contract:' prefix for wagon produce/consume declarations
+    examples:
+    - contract:mechanic:timebank.exhausted
+    - contract:commons:ux:foundations:color
+    - contract:commons:identifiers.uuid
+- term_id: version_separation
+  label: Version is a separate field
+  text: The version is a separate top-level field in the schema, never embedded in
+    $id; embedding it (e.g. ...:v1) breaks artifact identity stability.
+  values:
+    rule: Version is SEPARATE top-level field in schema, NOT part of $id
+    rationale: Allows artifact identity to remain stable across versions
+    example:
+      $id: mechanic:timebank.exhausted
+      version: 1.0.0
+    counter_example:
+      wrong: mechanic:timebank.exhausted:v1
+      reason: Version in $id breaks artifact identity stability
+examples:
+  positive:
+  - '$id: commons:ux:foundations:color  with separate version: 1.0.0'
+  - 'contract:sensory:gesture.raw  # URN reference in a wagon manifest'
+  negative:
+  - 'mechanic:timebank.exhausted:v1  # version must not be embedded in $id'
+  - 'urn:contract:commons:identifiers.uuid  # $id must not carry the urn:contract:
+    prefix'

@@ -1,0 +1,76 @@
+schema_version: 1.0.0
+rule_id: planner.artifact-naming.contract-file-mapping
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+statement: 'An artifact name maps directly to a contract file path: split the name
+  on colons and dots, make the theme the first directory, turn every segment into
+  a subdirectory, make the final segment the filename, and append .schema.json - giving
+  contracts/theme/seg1/seg2/aspect/variant.schema.json.'
+rationale: A deterministic name-to-path formula means the contract file location is
+  always derivable from the artifact name and vice versa, keeping the filesystem layout
+  in lock-step with the logical taxonomy.
+terms:
+- term_id: mapping_algorithm
+  label: Name-to-path algorithm
+  text: The five-step algorithm and its resulting formula translate any artifact name
+    into its contract file path.
+  values:
+    algorithm:
+    - Split artifact name by colons and dots
+    - Theme becomes first directory
+    - All segments become subdirectories
+    - Final segment becomes filename
+    - Add .schema.json extension
+    formula: 'artifact: theme:seg1:seg2:aspect.variant
+
+      contract: contracts/theme/seg1/seg2/aspect/variant.schema.json
+
+      '
+- term_id: mapping_examples
+  label: Name-to-path examples
+  text: Worked mappings showing the segment breakdown for each artifact name.
+  values:
+    cases:
+    - artifact: commons:identifiers.uuid
+      contract: contracts/commons/identifiers/uuid.schema.json
+      breakdown:
+      - commons
+      - identifiers
+      - uuid
+    - artifact: commons:ux:foundations:color
+      contract: contracts/commons/ux/foundations/color.schema.json
+      breakdown:
+      - commons
+      - ux
+      - foundations
+      - color
+    - artifact: commons:ux:foundations:color.primary
+      contract: contracts/commons/ux/foundations/color/primary.schema.json
+      breakdown:
+      - commons
+      - ux
+      - foundations
+      - color
+      - primary
+    - artifact: sensory:feedback:haptic:pulse.short
+      contract: contracts/sensory/feedback/haptic/pulse/short.schema.json
+      breakdown:
+      - sensory
+      - feedback
+      - haptic
+      - pulse
+      - short
+  examples:
+    positive:
+    - commons:identifiers.uuid -> contracts/commons/identifiers/uuid.schema.json
+    - commons:ux:foundations:color.primary -> contracts/commons/ux/foundations/color/primary.schema.json
+examples:
+  positive:
+  - sensory:feedback:haptic:pulse.short -> contracts/sensory/feedback/haptic/pulse/short.schema.json
+  negative:
+  - 'commons:ux:foundations:color -> contracts/commons-ux-foundations-color.schema.json  #
+    separators must become directory boundaries'

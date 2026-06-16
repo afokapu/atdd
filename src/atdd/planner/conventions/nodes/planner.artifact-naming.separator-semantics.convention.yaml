@@ -1,0 +1,73 @@
+schema_version: 1.0.0
+rule_id: planner.artifact-naming.separator-semantics
+kind: principle
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+statement: In an artifact name, colon (:) means hierarchical descent and dot (.) means
+  lateral variation; the same separator always carries the same meaning, so the visual
+  shape of a name reveals its hierarchy depth versus its variant facet.
+rationale: 'Using one separator for depth and another for variation gives every name
+  a self-describing structure: a reader can see at a glance how many conceptual levels
+  are traversed (colons) and whether a lateral flavor/state is selected (dot), without
+  consulting any registry.'
+notes: 'Clarified in convention v2.1 (2025-10-28): hierarchy (colon) can be unlimited
+  depth, variants (dot) are typically shallow (0-1).'
+terms:
+- term_id: colon_hierarchy
+  label: Colon = hierarchical descent
+  text: Colon navigates deeper into the resource tree, moving from general to specific.
+    It carries a strong visual boundary (different conceptual levels) and has unlimited
+    multiplicity - as many levels as needed.
+  values:
+    symbol: ':'
+    purpose: Hierarchical descent - navigate deeper into resource tree
+    multiplicity: Unlimited - as many levels as needed
+    visual_weight: Strong boundary - indicates different conceptual levels
+    use_for:
+    - Moving from general to specific (ux -> foundations -> color)
+    - Navigating down organizational structure
+    - Different conceptual levels
+  examples:
+    positive:
+    - commons:ux:foundations:color (theme -> subsystem -> category -> item)
+    - commons:telemetry:observability:traces:span
+    - scenario:catalog:primitives:actor
+- term_id: dot_variant
+  label: Dot = lateral variation
+  text: Dot selects a different flavor, state, or type of the same thing at the same
+    level. It carries a soft visual boundary (same level, different facet) and is
+    kept shallow - typically 1, rarely 2. Multiple dots usually signal over-specification.
+  values:
+    symbol: .
+    purpose: Lateral variation - different flavors/states of same thing
+    multiplicity: Typically 1, rarely 2 - keep shallow
+    visual_weight: Soft boundary - indicates same level, different facet
+    use_for:
+    - State variations (session.active vs session.closed)
+    - Type variations (config.duel vs config.team)
+    - Facet variations (gesture.raw vs gesture.tapped)
+    warning: Multiple dots (e.g., .uuid.v7.encoded) usually indicates over-specification
+  examples:
+    positive:
+    - sensory:gesture.raw (aspect + variant)
+    - player:session.active (aspect + state variant)
+    - match:config.duel (aspect + type variant)
+- term_id: visual_hierarchy
+  label: Visual hierarchy of a name
+  text: 'A name reads as theme : category : subcategory : aspect . variant. The leading
+    theme is the namespace, the colon-separated middle is the vertical-depth hierarchy,
+    and the dot-separated tail is the lateral-facet variant.'
+  values:
+    structure: "theme : category : subcategory : aspect . variant\n|-+-|   |----------+--------------------|\
+      \   |--+--|\n  |                HIERARCHY                  VARIANT\n  |    \
+      \         (vertical depth)          (lateral facet)\nNAMESPACE\n"
+examples:
+  positive:
+  - 'commons:ux:foundations:color.primary  # 4 hierarchy levels + 1 variant'
+  - 'sensory:gesture.raw vs sensory:gesture.tapped  # different gestures via dot'
+  negative:
+  - 'commons:ux.foundations.color  # dots used where colons (hierarchy) are meant'
+  - 'sensory:gesture:raw  # colon used where a dot (variant) is meant'

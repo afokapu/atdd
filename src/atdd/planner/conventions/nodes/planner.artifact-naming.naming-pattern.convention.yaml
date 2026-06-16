@@ -1,0 +1,166 @@
+schema_version: 1.0.0
+rule_id: planner.artifact-naming.naming-pattern
+kind: pattern
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_sha: sha256:eca68a67c92694c9
+  extraction_mode: high_fidelity
+statement: An artifact name follows the grammar {theme}(:{category})*:{aspect}(.{variant})?
+  where every segment is kebab-case matching ^[a-z][a-z0-9-]*$; theme is required
+  and appears once, categories are zero or more colon-separated hierarchy segments,
+  aspect is the required final leaf noun, and variant is an optional dot-separated
+  lateral facet.
+rationale: A single fixed grammar with a strict per-segment regex makes names parseable,
+  collision-safe, and directly mappable to contract file paths, so the physical layout
+  is derivable from the logical name.
+terms:
+- term_id: full_grammar
+  label: The full naming grammar
+  text: The complete pattern is {theme}(:{category})*:{aspect}(.{variant})?. Each
+    segment independently matches the kebab-case regex ^[a-z][a-z0-9-]*$.
+  values:
+    full_pattern: '{theme}(:{category})*:{aspect}(.{variant})?'
+    segment_regex: ^[a-z][a-z0-9-]*$
+- term_id: theme_segment
+  label: theme
+  text: 'Top-level architectural theme grouping related artifacts. Kebab-case. Built-in
+    defaults (commons, mechanic, scenario, match, sensory, player, league, audience,
+    monetization, partnership) may be overridden via the themes: block in .atdd/config.yaml;
+    runtime resolves the effective map via get_theme_map(config), while JSON Schema
+    enforces kebab-case shape only.'
+  values:
+    format: kebab-case (^[a-z][a-z0-9-]*$)
+    multiplicity: Required, exactly 1
+    examples:
+    - commons
+    - match
+    - mechanic
+    - sensory
+    - player
+    - partnership
+    - scenario
+    - qualification
+    - security
+    - operations
+- term_id: category_segment
+  label: category
+  text: Hierarchical path segment(s) navigating down the resource tree between the
+    theme and the aspect, joined by colons.
+  values:
+    format: kebab-case
+    multiplicity: Optional, 0+ segments
+    examples:
+    - ux
+    - foundations
+    - telemetry
+    - observability
+    - catalog
+- term_id: aspect_segment
+  label: aspect
+  text: The final leaf resource noun; the required terminal segment of the colon hierarchy.
+  values:
+    format: kebab-case
+    multiplicity: Required, exactly 1
+    examples:
+    - color
+    - gesture
+    - session
+    - config
+    - identifiers
+- term_id: variant_segment
+  label: variant
+  text: An optional lateral variation, facet, or state of the aspect, attached after
+    a dot.
+  values:
+    format: kebab-case
+    multiplicity: Optional, typically 0-1 segments
+    examples:
+    - raw
+    - uuid
+    - active
+    - duel
+    - primary
+- term_id: worked_examples
+  label: Worked grammar examples
+  text: The four canonical name shapes - hierarchy-only, variant-only, hierarchy+variant,
+    and simple-form - each decompose into theme / hierarchy / aspect / variant and
+    map to a contract path.
+  values:
+    hierarchy_only:
+      commons:ux:foundations:color:
+        theme: commons
+        hierarchy:
+        - ux
+        - foundations
+        aspect: color
+        contract: contracts/commons/ux/foundations/color.schema.json
+      commons:telemetry:observability:span:
+        theme: commons
+        hierarchy:
+        - telemetry
+        - observability
+        aspect: span
+        contract: contracts/commons/telemetry/observability/span.schema.json
+      scenario:catalog:primitives:actor:
+        theme: scenario
+        hierarchy:
+        - catalog
+        - primitives
+        aspect: actor
+        contract: contracts/scenario/catalog/primitives/actor.schema.json
+    variant_only:
+      commons:identifiers.uuid:
+        theme: commons
+        aspect: identifiers
+        variant: uuid
+        contract: contracts/commons/identifiers/uuid.schema.json
+      sensory:gesture.raw:
+        theme: sensory
+        aspect: gesture
+        variant: raw
+        contract: contracts/sensory/gesture/raw.schema.json
+      match:config.duel:
+        theme: match
+        aspect: config
+        variant: duel
+        contract: contracts/match/config/duel.schema.json
+    hierarchy_and_variant:
+      commons:ux:foundations:color.primary:
+        theme: commons
+        hierarchy:
+        - ux
+        - foundations
+        aspect: color
+        variant: primary
+        contract: contracts/commons/ux/foundations/color/primary.schema.json
+      sensory:feedback:haptic:pulse.short:
+        theme: sensory
+        hierarchy:
+        - feedback
+        - haptic
+        aspect: pulse
+        variant: short
+        contract: contracts/sensory/feedback/haptic/pulse/short.schema.json
+    simple_form:
+      match:config:
+        theme: match
+        aspect: config
+        contract: contracts/match/config/config.schema.json
+      scenario:fragments:
+        theme: scenario
+        aspect: fragments
+        contract: contracts/scenario/fragments/fragments.schema.json
+  examples:
+    positive:
+    - commons:ux:foundations:color
+    - sensory:gesture.raw
+    - match:config.duel
+    - commons:ux:foundations:color.primary
+examples:
+  positive:
+  - 'commons:telemetry:observability:traces:span:context  # 6 hierarchy levels'
+  - 'scenario:fragments  # simplest theme:aspect form'
+  negative:
+  - 'Gesture.Raw  # not kebab-case, violates ^[a-z][a-z0-9-]*$'
+  - 'gesture.raw  # missing required theme segment'

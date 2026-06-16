@@ -1,0 +1,32 @@
+schema_version: 1.0.0
+rule_id: planner.acceptance.extraction-no-inference
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_sha: sha256:027e2d86ff127550
+  extraction_mode: high_fidelity
+statement: When acceptance context is missing, ask the user directly for it using
+  a pure conversational approach — no inference and no suggestions (e.g. "Which wagon
+  should this acceptance belong to?").
+rationale: Acceptance authoring must reflect stakeholder intent rather than model
+  guesses; inferring or suggesting missing context risks encoding the wrong wagon
+  or precondition, so the extraction prompt mandates asking the user directly.
+terms:
+- term_id: no_inference
+  label: Ask directly, do not infer
+  text: Ask the user directly for missing context; do not infer and do not suggest
+    values.
+  values:
+    approach: Pure conversational
+- term_id: wagon_inference_prompt
+  label: wagon extraction prompt
+  text: When the owning wagon is unknown, ask the user which wagon the acceptance
+    should belong to.
+  values:
+    prompt: Which wagon should this acceptance belong to?
+examples:
+  positive:
+  - 'Prompt the user: "Which wagon should this acceptance belong to?"'
+  negative:
+  - Silently assigning the acceptance to a guessed wagon based on file location

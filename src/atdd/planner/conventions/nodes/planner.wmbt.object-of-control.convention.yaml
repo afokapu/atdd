@@ -1,0 +1,37 @@
+schema_version: 1.0.0
+rule_id: planner.wmbt.object-of-control
+kind: rule
+status: active
+source:
+  legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
+  legacy_sha: sha256:040256ed5588a6c7
+  extraction_mode: high_fidelity
+statement: The object-of-control of a WMBT is the specific thing being controlled
+  or manipulated, expressed as a kebab-case noun phrase, synthesized from the requirement
+  description together with the WMBT's step.
+rationale: Naming a single concrete object-of-control grounds the WMBT statement in
+  what is actually being acted on, so the truth is about a definite subject rather
+  than an abstract goal. The kebab-case noun-phrase form keeps it consistent with
+  URN and artifact naming.
+notes: The object-of-control fills the ${object_of_control} slot in the statement
+  template (see planner.wmbt.statement-template).
+terms:
+- term_id: object_of_control_form
+  label: How the object-of-control is synthesized
+  text: From the requirement description and the WMBT step, synthesize what specific
+    thing is being controlled or manipulated, written as a kebab-case noun phrase.
+  values:
+    generator_prompt: From '${inputs.description}' and '${inputs.step}', synthesize
+      what specific thing is being controlled or manipulated
+    pattern: kebab-case noun phrase (e.g., 'user-profile', 'payment-flow')
+  examples:
+    positive:
+    - user-profile
+    - payment-flow
+    - dilemma-resolution
+    negative:
+    - User Profile (not kebab-case)
+    - the thing being optimized (not a concrete noun phrase)
+examples:
+  positive:
+  - minimize Time of dilemma-resolution (object-of-control = dilemma-resolution)
