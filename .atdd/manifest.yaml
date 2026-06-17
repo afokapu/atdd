@@ -2592,3 +2592,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1118'
+  slug: github-extension-migration-target
+  file: null
+  issue_number: 1118
+  type: analysis
+  status: INIT
+  created: '2026-06-17'
+  archived: null
