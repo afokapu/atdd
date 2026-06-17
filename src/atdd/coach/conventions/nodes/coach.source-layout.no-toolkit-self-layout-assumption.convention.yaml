@@ -15,6 +15,29 @@ source:
   legacy_sha: 9f9363a2305c91b2
   extraction_mode: high_fidelity
   legacy_rule_id: coach.source-layout.no-toolkit-self-layout-assumption
+content:
+  exceptions:
+  - Test files (test_*.py, *_test.py, */tests/, */test/)
+  - Fixture directories (*/fixtures/*) — intentional violations for validator testing
+  - 'Inline suppression: # atdd:suppress(COACH-PKG-LAYOUT-001) on the offending line'
+  operational_guidance: 'bad:
+
+    from atdd.coach.utils.repo import find_repo_root
+
+    REPO_ROOT = find_repo_root()
+
+    SCHEMA = REPO_ROOT / "src" / "atdd" / "coach" / "schemas" / "config.schema.json"
+
+
+    good:
+
+    from pathlib import Path
+
+    import atdd
+
+    ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+
+    SCHEMA = ATDD_PKG_DIR / "coach" / "schemas" / "config.schema.json"'
 metadata:
   aliases:
   - COACH-PKG-LAYOUT-001
@@ -33,3 +56,4 @@ terms:
 - term_id: three_layouts
   text: ATDD must work as toolkit-self repo (PYTHONPATH=src), editable install (pip install -e), and wheel
     install.
+notes: 'Incident refs: #341, #367'

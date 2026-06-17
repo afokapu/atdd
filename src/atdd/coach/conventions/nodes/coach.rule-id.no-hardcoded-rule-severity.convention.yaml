@@ -14,6 +14,9 @@ source:
   legacy_sha: 1babe0ea37eae533
   extraction_mode: high_fidelity
   legacy_rule_id: coach.rule-id.no-hardcoded-rule-severity
+content:
+  fix_hint: Remove the module-level RULE_SEVERITY/RULE_DESCRIPTION constants and call bind_rule(<id>)
+    at import time instead.
 metadata:
   aliases:
   - COACH-RULEID-BIND-001
@@ -26,7 +29,7 @@ parity:
   source_fragments_preserved: true
   examples_preserved: false
   implementation_preserved: true
-  fix_hint_preserved: false
+  fix_hint_preserved: true
   reviewed_at: '2026-06-17'
 terms:
 - term_id: bind_rule

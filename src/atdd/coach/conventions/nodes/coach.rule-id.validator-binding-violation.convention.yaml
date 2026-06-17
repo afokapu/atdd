@@ -14,6 +14,9 @@ source:
   legacy_sha: 1babe0ea37eae533
   extraction_mode: high_fidelity
   legacy_rule_id: coach.rule-id.validator-binding-violation
+content:
+  fix_hint: 'Either set validator: ''<module>::<func>'' on the rule and have that function call bind_rule(<id>),
+    or change disposition to documentation-only.'
 metadata:
   severity: 3
   disposition: strict
@@ -24,7 +27,7 @@ parity:
   source_fragments_preserved: true
   examples_preserved: false
   implementation_preserved: true
-  fix_hint_preserved: false
+  fix_hint_preserved: true
   reviewed_at: '2026-06-17'
 terms:
 - term_id: bidirectional_binding

@@ -14,6 +14,15 @@ source:
   legacy_sha: 1babe0ea37eae533
   extraction_mode: high_fidelity
   legacy_rule_id: coach.workflow-template.command-must-parse
+content:
+  fix_hint: "An emitted `run: atdd ...` line names a subcommand the live `atdd`\nCLI does not declare\
+    \ (argparse `invalid choice`, e.g. the stranded\n`atdd baseline update` emit), or a flag the subparser\
+    \ rejects\n(`unrecognized arguments`). This widens #473's flag-only drift guard\n(coach.initializer.template-cli-drift)\
+    \ to subcommand-level drift\nacross EVERY emitted `run: atdd ...` line, not just `atdd validate\n\
+    ...` (issue #481 — the `baseline update` emit failed silently on\nevery push to main). Repair:\n \
+    \ 1. Run the validator to see the offending workflow file +\n     invocation (run: pytest\n     src/atdd/coach/validators/test_workflow_template_command_drift.py\
+    \ -v).\n  2. Either correct the emit in\n     src/atdd/coach/commands/initializer.py to a real subcommand,\n\
+    \     or remove the emit if the job is retired.\n  3. Enumerate valid subcommands with `atdd --help`."
 metadata:
   aliases:
   - coach.initializer.template-cli-drift
@@ -27,7 +36,7 @@ parity:
   source_fragments_preserved: true
   examples_preserved: false
   implementation_preserved: true
-  fix_hint_preserved: false
+  fix_hint_preserved: true
   reviewed_at: '2026-06-17'
 terms:
 - term_id: emitted_cli

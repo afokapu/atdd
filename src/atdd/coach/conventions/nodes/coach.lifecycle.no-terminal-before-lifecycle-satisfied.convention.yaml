@@ -11,6 +11,25 @@ source:
   legacy_sha: 21da8901c7c6050b
   extraction_mode: high_fidelity
   legacy_rule_id: coach.pr.merge-blocks-on-pre-smoke-close
+content:
+  fix_hint: "The named open PR references an ATDD issue still at atdd:RED or\natdd:GREEN via an auto-closing\
+    \ keyword, so a merge would fire\nGitHub's auto-close before the issue ever reaches SMOKE+REFACTOR.\n\
+    Repair as follows (run `gh pr view <N>` to inspect the PR body and\n`gh issue view <issue> --json\
+    \ labels` to inspect labels; for atdd\nthe phase labels live under .atdd/labels.yaml):\n\n  1. Read\
+    \ the violation — it cites \"PR#<N>\" and names the linked\n     issue number and current phase label\n\
+    \     (e.g. \"PR#681 → issue #681 (phase=GREEN)\").\n  2. Drive the issue forward through the state\
+    \ machine — substitute\n     <issue> with the issue number from step 1 (e.g. \"681\"):\n       atdd\
+    \ issue <issue> --status SMOKE\n       atdd issue <issue> --status REFACTOR\n     This swaps the atdd:GREEN\
+    \ label for atdd:SMOKE then\n     atdd:REFACTOR (the legal exit phases for merge).\n  3. Re-run the\
+    \ validator on the same PR\n     (run pytest src/atdd/coach/validators/test_pr_merge_blocks_pre_smoke_close.py\
+    \ -v).\n  4. If the PR genuinely should NOT close the linked issue (the PR\n     is a partial step,\
+    \ the issue should stay open), edit the PR\n     body and remove the auto-closing keyword\n     (run\
+    \ `gh pr edit <N> --body \"<new-body>\"`):\n       - <N> = the PR number from step 1, e.g. \"681\"\
+    \n       Replace \"Closes #<issue>\" with \"Refs #<issue>\" so GitHub's\n       auto-close does not\
+    \ fire on merge.\n\nThis rule is strict by design — bypass is forbidden. The 2026-05-13\nincident\
+    \ shipped 8 PRs whose `Closes #N` fired at atdd:GREEN,\nskipping SMOKE+REFACTOR. See issue #681 and\n\
+    src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001\nfor the template pattern\
+    \ this rule mirrors."
 metadata:
   severity: 4
   disposition: documentation-only
@@ -19,7 +38,7 @@ parity:
   source_fragments_preserved: true
   examples_preserved: false
   implementation_preserved: false
-  fix_hint_preserved: false
+  fix_hint_preserved: true
   reviewed_at: '2026-06-17'
 terms:
 - term_id: pre_smoke_close

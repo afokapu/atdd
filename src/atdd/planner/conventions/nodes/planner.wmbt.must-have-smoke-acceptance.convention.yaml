@@ -28,6 +28,9 @@ content:
     \ UNTIL=YYYY-MM-DD\n  4. Re-run the validator to confirm clean\n     (pytest src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py\
     \ -v).\n\nSee src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001\nfor the template\
     \ pattern this rule mirrors, and issue #681 for the\nsubstrate-asymmetry incident this rule closes."
+  exceptions:
+  - 'Docs-only WMBTs that have no real infra to verify can suppress inline with `# atdd:suppress(planner.wmbt.must-have-smoke-acceptance)
+    UNTIL=YYYY-MM-DD` on the WMBT''s urn: line.'
 metadata:
   severity: 3
   disposition: suppress-and-clean

@@ -15,6 +15,27 @@ source:
   legacy_sha: 04c17739a5355f88
   extraction_mode: high_fidelity
   legacy_rule_id: coach.wheel-completeness.fixture-missing-from-wheel
+content:
+  exceptions:
+  - Editable install (``pip install -e``) — source is the wheel root.
+  - Cache-cruft files (``__pycache__/``, ``*.pyc``, ``*.pyo``, ``.pytest_cache``, ``.DS_Store``) — those
+    must NOT ship; the scan walks past them.
+  operational_guidance: 'bad:
+
+    # pyproject.toml — narrow glob misses non-coder phase fixtures
+
+    [tool.setuptools.package-data]
+
+    "atdd" = ["coder/validators/fixtures/**"]
+
+
+    good:
+
+    # pyproject.toml — recursive glob covers every phase''s fixtures
+
+    [tool.setuptools.package-data]
+
+    "atdd" = ["**/validators/fixtures/**"]'
 metadata:
   aliases:
   - COACH-WHEEL-COMPLETENESS-001
@@ -33,3 +54,4 @@ terms:
 - term_id: inverse_scan
   text: walk source-tree fixtures, compute expected install path, assert .exists() — false-negative-resistant,
     no code parsing.
+notes: 'Incident refs: #449, #451'

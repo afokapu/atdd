@@ -11,6 +11,8 @@ source:
   legacy_sha: ae693664e6e540ec
   extraction_mode: high_fidelity
   legacy_rule_id: coach.observer.token-silence
+content:
+  fix_hint: If blocked, escalate via `atdd agent escalate`.
 metadata:
   aliases:
   - coach.observer.unstructured-question
@@ -22,7 +24,7 @@ parity:
   source_fragments_preserved: true
   examples_preserved: false
   implementation_preserved: false
-  fix_hint_preserved: false
+  fix_hint_preserved: true
   reviewed_at: '2026-06-17'
 terms:
 - term_id: liveness

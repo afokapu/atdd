@@ -30,3 +30,4 @@ parity:
 terms:
 - term_id: archetype_alignment
   text: the plan<->planner, test<->tester, code<->coder mapping.
+notes: Also exercises theme discovery across plan/ described by wmbt:govern-lifecycle:L001.

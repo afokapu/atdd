@@ -37,3 +37,5 @@ parity:
 terms:
 - term_id: coach_import_boundary
   text: the prohibition on a commons module importing atdd.coach.
+notes: 'Known deferred violation: mediate-worker-decisions (commons, imports coach) — suppressed UNTIL
+  the #951 co-land re-theme.'
