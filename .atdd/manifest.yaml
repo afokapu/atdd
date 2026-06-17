@@ -2608,3 +2608,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1119'
+  slug: git-worktree-workspace-migration-target
+  file: null
+  issue_number: 1119
+  type: analysis
+  status: INIT
+  created: '2026-06-17'
+  archived: null
