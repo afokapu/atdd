@@ -2624,3 +2624,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1133'
+  slug: graph-composition-semantics-for-package-realizations
+  file: null
+  issue_number: 1133
+  type: implementation
+  status: INIT
+  created: '2026-06-17'
+  archived: null

@@ -102,6 +102,14 @@ def validate_extension_manifest(data: dict) -> None:
     validate_extension_id(data.get("extension_id", ""), allow_reserved=True)
     if not isinstance(data.get("owns"), dict):
         raise AuthorInputError("owns", "extension manifest must have an owns mapping")
+    # realizes (#1133): optional cross-package linkage — each entry maps an
+    # extension node onto the core node it realizes. Shape-only here; resolution +
+    # ownership are checked at composition time (compose.validate_realizes).
+    for entry in (data.get("realizes") or []):
+        if not isinstance(entry, dict) or not entry.get("extension_node") or not entry.get("core_node"):
+            raise AuthorInputError(
+                "realizes", "each realizes entry must be a mapping {extension_node, core_node}"
+            )
     for entry in ((data.get("depends_on") or {}).get("workspaces") or []):
         if not isinstance(entry, dict):
             raise AuthorInputError(
