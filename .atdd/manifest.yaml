@@ -2648,3 +2648,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1138'
+  slug: capability-based-workspace-manifest-validation
+  file: null
+  issue_number: 1138
+  type: implementation
+  status: INIT
+  created: '2026-06-17'
+  archived: null

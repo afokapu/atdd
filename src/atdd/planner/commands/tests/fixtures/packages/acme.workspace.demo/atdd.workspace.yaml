@@ -1,15 +1,20 @@
 schema_version: "1.0.0"
-# Fixture workspace provider for the composition smoke (#1130). Workspace-shaped:
-# a runtime + discovery/run contract, NO domain conventions.
+# Fixture workspace provider for the composition smoke. Capability-based (#1138):
+# a workspace declares typed capabilities; an execution runner is one capability.
 workspace_id: acme.workspace.demo
 kind: workspace
 version: "0.1.0"
 contract_version: "1.0.0"
 
-runtime:
-  language: python
-  runner: pytest
-  command: pytest
+capabilities:
+  - capability_id: execution.demo
+    domain: execution
+    type: test-runner
+    contract: atdd.workspace.capability.execution.command-runner.v1
+    runtime:
+      language: python
+      runner: pytest
+      command: pytest
 
 discovers:
   implementations:

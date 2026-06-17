@@ -29,6 +29,61 @@ _RANGE_RE = re.compile(
 )
 _RUNTIME_KEYS = ("language", "runner", "command")
 
+# ── Capability-based workspace contract (#1138) ─────────────────────────────
+# A workspace provides one or more typed CAPABILITIES. `domain` is a small closed
+# controlled vocabulary; `type` is package-specific; `contract` is a versioned ATDD
+# contract that defines the capability's required fields. Required fields are validated
+# from the CONTRACT, not from the domain.
+_CAPABILITY_DOMAINS = frozenset({
+    "execution",        # runs commands/tests/validators/fixers/generators
+    "environment",      # provides the execution context / isolation boundary
+    "source_control",   # VCS / commit / branch / trailer mechanics
+    "transport",        # moves messages/commands/events between systems/agents
+    "orchestration",    # manages sessions/processes/agent lifecycle/routing
+    "artifact",         # reads/writes reports, build outputs, logs, generated files
+    "security",         # credentials, policy, permission, command allow/deny
+    "observability",    # traces, logs, telemetry, runtime evidence
+})
+
+
+def _check_execution_command_runner(cap: dict) -> None:
+    rt = cap.get("runtime") or {}
+    for key in _RUNTIME_KEYS:
+        if not rt.get(key):
+            raise AuthorInputError("capabilities", f"execution capability runtime missing {key!r}")
+
+
+def _check_scm_commit_trailers(cap: dict) -> None:
+    if cap.get("vcs") != "git":
+        raise AuthorInputError("capabilities", "source_control commit-trailers capability requires vcs: git")
+
+
+# contract id -> required-field validator (the AUTHORITATIVE per-capability schema).
+_CAPABILITY_CONTRACTS = {
+    "atdd.workspace.capability.execution.command-runner.v1": _check_execution_command_runner,
+    "atdd.workspace.capability.environment.isolation.v1": lambda cap: None,
+    "atdd.workspace.capability.source-control.commit-trailers.v1": _check_scm_commit_trailers,
+    "atdd.workspace.capability.transport.command-feed.v1": lambda cap: None,
+    "atdd.workspace.capability.orchestration.agent-session.v1": lambda cap: None,
+}
+
+
+def _validate_capability(cap: dict) -> None:
+    if not isinstance(cap, dict):
+        raise AuthorInputError("capabilities", "each capability must be a mapping")
+    for field in ("capability_id", "domain", "type", "contract"):
+        if not cap.get(field):
+            raise AuthorInputError("capabilities", f"capability missing {field!r}")
+    domain = cap["domain"]
+    if domain == "experimental":
+        return  # escape hatch: core does not validate experimental capabilities
+    if domain not in _CAPABILITY_DOMAINS:
+        raise AuthorInputError("capabilities", f"unknown capability domain {domain!r}")
+    check = _CAPABILITY_CONTRACTS.get(cap["contract"])
+    if check is None:
+        raise AuthorInputError("capabilities", f"unknown capability contract {cap['contract']!r}")
+    check(cap)
+
 
 def _parse_version(value, *, field: str = "contract_version") -> tuple[int, int, int]:
     m = _SEMVER_RE.match(str(value or ""))
@@ -79,18 +134,40 @@ def contract_satisfies(version: str, spec: str) -> bool:
 
 
 def validate_workspace_manifest(data: dict) -> None:
-    """Validate an ``atdd.workspace.yaml`` provider manifest."""
-    if (data or {}).get("kind") != "workspace":
+    """Validate an ``atdd.workspace.yaml`` provider manifest.
+
+    Capability-based (#1138): a workspace declares one or more typed CAPABILITIES; an
+    execution runner is just one capability, not the definition of a workspace.
+    ``runtime.{language,runner,command}`` is required only for an execution capability —
+    an isolation/transport/orchestration provider needs no runner. The legacy
+    top-level-``runtime`` shape is still accepted (treated as one execution capability)
+    so providers migrate without breaking the composition gate.
+    """
+    data = data or {}
+    if data.get("kind") != "workspace":
         raise AuthorInputError("kind", "workspace manifest must have kind: workspace")
     validate_workspace_id(data.get("workspace_id", ""), allow_reserved=True)
-    _parse_version(data.get("contract_version"))
-    runtime = data.get("runtime") or {}
-    for key in _RUNTIME_KEYS:
-        if not runtime.get(key):
-            raise AuthorInputError("runtime", f"workspace runtime missing {key!r}")
-    discovers = data.get("discovers") or {}
-    if not discovers.get("implementations"):
-        raise AuthorInputError("discovers", "workspace must declare discovers.implementations")
+
+    capabilities = data.get("capabilities")
+    if not capabilities and data.get("runtime"):
+        # legacy back-compat: a top-level runtime is one implicit execution capability
+        capabilities = [{
+            "capability_id": "execution.legacy",
+            "domain": "execution",
+            "type": "command-runner",
+            "contract": "atdd.workspace.capability.execution.command-runner.v1",
+            "runtime": data["runtime"],
+        }]
+        _parse_version(data.get("contract_version"))  # legacy contract_version stays required
+
+    if not capabilities:
+        raise AuthorInputError("capabilities", "workspace must declare at least one capability")
+    if data.get("capabilities") and data.get("contract_version") is not None:
+        _parse_version(data["contract_version"])  # capability-mode: contract_version is optional
+    for cap in capabilities:
+        _validate_capability(cap)
+
+    discovers = data.get("discovers") or {}  # optional; validated only for shape
     if discovers.get("requires_contract") is not None:
         _parse_range(discovers["requires_contract"], field="requires_contract")
 
