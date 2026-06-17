@@ -52,7 +52,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 15
+    total: 17
     D001: maximize likelihood of schema-valid substrate by defining one canonical
       schema and flat canonical home per artifact kind and freezing the controlled
       vocabularies
@@ -81,6 +81,12 @@ wagons:
     E004: maximize likelihood of a schema-valid, deterministically-ordered per-trigger
       gate file when authoring a gate entry
     C005: minimize likelihood of accepting a malformed gate
+    C007: minimize likelihood of accepting an invalid package realization by validating
+      realizes mappings (owned extension_node, shipped core_node, no design_candidate
+      realized, derived targets) and refusing authored cross-package graph edges
+    E005: maximize likelihood of a faithful composed protocol view by materializing
+      realizes as derived edges with the provenance triple in composed mode only,
+      source-only in core mode, never executing runtime
   total: 0
   manifest: plan/author_atdd_substrate/_author_atdd_substrate.yaml
   path: plan/author_atdd_substrate/
