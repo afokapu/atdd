@@ -378,8 +378,14 @@ Phase descriptions:
         nargs="?",
         type=str,
         default="all",
-        choices=["all", "planner", "tester", "coder", "coach"],
-        help="Phase to validate (default: all)"
+        choices=["all", "planner", "tester", "coder", "coach", "package"],
+        help="Phase to validate, or 'package' to compose-validate an installed package (default: all)"
+    )
+    validate_parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Package directory (for 'atdd validate package <path>')"
     )
     validate_parser.add_argument(
         "--verbose", "-v",
@@ -1966,6 +1972,13 @@ Phase descriptions:
     # atdd validate [phase]
     elif args.command == "validate":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+
+        # atdd validate package <path> (#1133): compose-validate an installed
+        # extension/workspace package against core (package-relative core load;
+        # no runtime execution). Distinct from the pytest validator phases below.
+        if getattr(args, "phase", None) == "package":
+            from atdd.planner.commands.compose import validate_package_cli
+            return validate_package_cli(getattr(args, "path", None))
 
         # --diagnostics-only: read+print the most recent artifact without
         # invoking pytest. Must complete in <100 ms (issue #449).

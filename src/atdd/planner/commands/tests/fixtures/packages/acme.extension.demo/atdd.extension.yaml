@@ -9,11 +9,20 @@ owns:
   conventions:
     - conventions/demo.area.sample-rule.convention.yaml
 
+# realizes (#1133): the ONLY cross-package relation. An owned extension node realizes a
+# shipped core node. N:M is allowed — here one demo node realizes two core nodes.
+# depends_on.targets is DERIVED from this (must be a subset; the gate enforces it).
+realizes:
+  - extension_node: demo.area.sample-rule
+    core_node: coach.lifecycle.phase-machine
+  - extension_node: demo.area.sample-rule
+    core_node: coach.execution.atomic-registry-write
+
 depends_on:
   core:
     - atdd.core.convention-node-schema
-  # targets.coach_nodes reference REAL shipped core nodes — resolved by the smoke
-  # against src/atdd/coach/conventions/nodes/.
+  # targets.coach_nodes are DERIVED from realizes (every realized core_node). The
+  # composition gate fails if a target is not realized.
   targets:
     coach_nodes:
       - coach.lifecycle.phase-machine
