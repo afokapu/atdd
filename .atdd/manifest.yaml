@@ -2616,3 +2616,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1130'
+  slug: package-discovery-composition-smoke
+  file: null
+  issue_number: 1130
+  type: implementation
+  status: INIT
+  created: '2026-06-17'
+  archived: null

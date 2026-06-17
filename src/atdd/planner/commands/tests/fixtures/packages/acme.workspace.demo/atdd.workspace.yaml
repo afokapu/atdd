@@ -1,0 +1,17 @@
+schema_version: "1.0.0"
+# Fixture workspace provider for the composition smoke (#1130). Workspace-shaped:
+# a runtime + discovery/run contract, NO domain conventions.
+workspace_id: acme.workspace.demo
+kind: workspace
+version: "0.1.0"
+contract_version: "1.0.0"
+
+runtime:
+  language: python
+  runner: pytest
+  command: pytest
+
+discovers:
+  implementations:
+    - "**/atdd.implementation.yaml"
+  requires_contract: "^1.0.0"
