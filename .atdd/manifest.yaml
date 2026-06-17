@@ -2640,3 +2640,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1132'
+  slug: add-lightweight-package-validation-cli-for-extension-ecosystem-ci
+  file: null
+  issue_number: 1132
+  type: implementation
+  status: INIT
+  created: '2026-06-17'
+  archived: null
