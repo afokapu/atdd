@@ -413,3 +413,5 @@ tighten the coverage.
 | E029 GREEN | Retrofit test_e003_smoke_002 to remove _SYNTHETIC_AGENT | wmbt:govern-lifecycle:E029 |
 | E029 GREEN | Remove ATDD_RUN_SMOKE=1 opt-in gate from test_e004_smoke_001 | wmbt:govern-lifecycle:E029 |
 | L002 GREEN | Implement walk_all_smoke_acceptances_for_anti_patterns meta-walker | wmbt:govern-lifecycle:L002 |
+| acc:author-atdd-substrate:C007-SMOKE-001-validate-package-cli | real (subprocess `atdd validate package` against the installed toolkit + fixture/official package dir) | CLI exits 0, package valid against package-relatively-loaded core, no runtime executed | <path> -> discover_packages -> validate_by_kind -> validate_realizes -> compose_protocol_view | #1130/#1133 composition substrate |
+| acc:author-atdd-substrate:E005-SMOKE-001-package-composes | real (fixture package set + atdd-extensions/official when checked out beside core) | discover + validate-by-kind + separate source graph + composed view with derived realization edges, no runtime executed | package dir -> discover -> compose_protocol_view(composed) | #1133 |

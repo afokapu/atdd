@@ -17,6 +17,7 @@ features:
   - urn: "feature:author-atdd-substrate:author-relationship"
   - urn: "feature:author-atdd-substrate:author-scope"
   - urn: "feature:author-atdd-substrate:author-gate"
+  - urn: "feature:author-atdd-substrate:package-composition"
 
 produce:
   - name: commons:author:substrate-schemas
@@ -51,7 +52,7 @@ produce:
 consume: []
 
 wmbt:
-  total: 15
+  total: 17
   D001: "maximize likelihood of schema-valid substrate by defining one canonical schema and flat canonical home per artifact kind and freezing the controlled vocabularies"
   C001: "minimize likelihood of the shared atdd author spine accepting an invalid role, id, or path"
   P001: "minimize likelihood of wrong-authoring-context by resolving extension-vs-core (extension default; core only with --core)"
@@ -67,3 +68,5 @@ wmbt:
   C004: "minimize likelihood of accepting a malformed or empty scope"
   E004: "maximize likelihood of a schema-valid, deterministically-ordered per-trigger gate file when authoring a gate entry"
   C005: "minimize likelihood of accepting a malformed gate"
+  C007: "minimize likelihood of accepting an invalid package realization by validating realizes mappings (owned extension_node, shipped core_node, no design_candidate realized, derived targets) and refusing authored cross-package graph edges"
+  E005: "maximize likelihood of a faithful composed protocol view by materializing realizes as derived edges with the provenance triple in composed mode only, source-only in core mode, never executing runtime"

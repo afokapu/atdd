@@ -1,0 +1,52 @@
+urn: "wmbt:author-atdd-substrate:E005"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "composed-protocol-view"
+context_clarifier: "composing an extension over core must connect the two clean source graphs without mutating either: each realizes mapping becomes a DERIVED edge that exists only in the in-memory view, carrying the provenance triple (core authority + extension realization + workspace execution target); core mode stays source-only and composed mode adds the realizations, and composition never executes a runtime implementation"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of a faithful composed-protocol-view by materializing each realizes mapping as a derived edge carrying the provenance triple in composed mode only, leaving core mode source-only, and never executing a runtime implementation"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:E005-UNIT-001-composed-view-modes"
+      id: "AC-UNIT-001"
+      purpose: "compose_protocol_view yields no derived edges in core mode, and in composed mode materializes each realizes mapping as a derived edge with the provenance triple and a core_node→[extension nodes] reverse index, never executing runtime"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixture extension with realizes mappings onto shipped core nodes and the installed core node set"
+    when:
+      abstract: "compose_protocol_view is built in core mode and in composed mode"
+    then:
+      abstract:
+        - "core mode produces no derived edges (source-only)"
+        - "composed mode materializes one derived edge per realizes mapping, each carrying provenance {core_authority, extension_realization, execution_target}"
+        - "the realization index maps each realized core node to its realizing extension nodes"
+        - "executed_implementations is empty in both modes (composition never runs runtime)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-17"
+  - identity:
+      urn: "acc:author-atdd-substrate:E005-SMOKE-001-package-composes"
+      id: "AC-SMOKE-001"
+      purpose: "a real installed package set discovers, validates by kind, and composes into a protocol view with separate source graphs and derived realization edges"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The fixture package set (extension + workspace), and the official atdd-extensions/official packages when checked out beside core"
+    when:
+      abstract: "the packages are discovered, validated by kind, and composed against the installed core node set"
+    then:
+      abstract:
+        - "each extension and workspace manifest validates against its kind"
+        - "each extension's graph stays separate from the core graph (its own graph_id)"
+        - "the composed view exposes derived realization edges and resolves every target to a shipped core node"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-17"

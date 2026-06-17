@@ -2632,3 +2632,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1135'
+  slug: add-package-realization-composition
+  file: null
+  issue_number: 1135
+  type: implementation
+  status: INIT
+  created: '2026-06-17'
+  archived: null

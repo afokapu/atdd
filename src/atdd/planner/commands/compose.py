@@ -1,4 +1,4 @@
-# Component: component:author-atdd-substrate:substrate-spine:Compose:backend:application
+# Component: component:author-atdd-substrate:package-composition:Compose:backend:application
 """Package discovery + protocol-view composition (#1130, #1133).
 
 The consumption counterpart to the ``author_*`` substrate. Discovers installed
