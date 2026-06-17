@@ -22,6 +22,7 @@ Graph-composition semantics (#1133):
 """
 from __future__ import annotations
 
+import logging
 import pathlib
 
 import yaml
@@ -31,6 +32,8 @@ from atdd.planner.commands.author_manifest import (
     validate_extension_manifest,
     validate_workspace_manifest,
 )
+
+_log = logging.getLogger(__name__)
 
 EXTENSION_MANIFEST = "atdd.extension.yaml"
 WORKSPACE_MANIFEST = "atdd.workspace.yaml"
@@ -261,7 +264,8 @@ def validate_package_cli(path) -> int:
         return 2
     try:
         report = validate_package(path)
-    except Exception as exc:  # surfaced to the operator with a non-zero exit
+    except Exception as exc:  # top-level CLI boundary: log + surface + non-zero exit (not swallowed)
+        _log.warning("package validation failed", extra={"path": str(path), "error": str(exc)})
         print(f"✗ package validation failed: {exc}")
         return 1
     print(f"✓ {report['root']}: {len(report['packages'])} package(s) valid against core")
