@@ -1,0 +1,33 @@
+schema_version: 1.1.0
+rule_id: coach.rule-id.stale-suppression
+kind: rule
+status: active
+name: No stale suppression markers
+statement: Inline `# atdd:suppress(<id>) UNTIL=<date>` markers must not carry a past UNTIL date — fix
+  the violation or extend the deadline.
+implementation:
+  type: validator
+  ref: test_no_stale_suppressions::test_no_stale_suppressions
+source:
+  legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
+  legacy_section: rules
+  legacy_sha: 1babe0ea37eae533
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.rule-id.stale-suppression
+metadata:
+  aliases:
+  - COACH-RULEID-STALE-SUPPRESSION-001
+  severity: 3
+  disposition: strict
+  introduced_in: 2.0.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: suppression_marker
+  text: '`# atdd:suppress(<rule_id>) [UNTIL=<YYYY-MM-DD>]` bounding a known violation with a deadline.'

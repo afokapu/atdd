@@ -1,0 +1,31 @@
+schema_version: 1.1.0
+rule_id: coach.rule-id.fix-hint-completeness
+kind: rule
+status: active
+name: Fix-hint completeness contract
+statement: 'Every fix_hint (convention-declared or CLI-printed) must satisfy the C1-C4 completeness contract:
+  placeholder resolution, no deprecation contradiction, prerequisite disclosure, and runnable-as-printed.'
+implementation:
+  type: validator
+  ref: test_fix_hint_completeness::test_every_fix_hint_satisfies_completeness_contract
+source:
+  legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
+  legacy_section: rules
+  legacy_sha: 1babe0ea37eae533
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.rule-id.fix-hint-completeness
+metadata:
+  severity: 2
+  disposition: strict
+  introduced_in: 3.8.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: c1_c4
+  text: C1 placeholder-resolution, C2 no-deprecation-contradiction, C3 prerequisite-disclosure, C4 runnable-as-printed.

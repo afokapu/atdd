@@ -1,5 +1,239 @@
 edges:
 - confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: liveness and structured-ask drift are observed alongside scope drift
+  source_ref: coach.execution.agent-liveness-and-structured-asks
+  strength: minor
+  target_ref: coach.execution.out-of-contract-detection
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: registry writes accompany the lifecycle verbs that drive the sequence
+  source_ref: coach.execution.atomic-registry-write
+  strength: important
+  target_ref: coach.role.planner-tester-coder-sequence
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: dangerous decisions escalate to operator authority
+  source_ref: coach.execution.decisions-mediated-not-auto-executed
+  strength: critical
+  target_ref: coach.role.operator-decision-authority
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the leash corrects via the structured channel, never modal typing
+  source_ref: coach.execution.freedom-with-a-leash
+  strength: important
+  target_ref: coach.execution.structured-correction-and-escalation
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the leash is the same surface-not-auto-execute stance for destructive actions
+  source_ref: coach.execution.freedom-with-a-leash
+  strength: important
+  target_ref: coach.execution.decisions-mediated-not-auto-executed
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: one durable session is what surfaces decisions for mediation
+  source_ref: coach.execution.one-agent-per-delivery-unit
+  strength: important
+  target_ref: coach.execution.decisions-mediated-not-auto-executed
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: detection feeds the correction channel
+  source_ref: coach.execution.out-of-contract-detection
+  strength: important
+  target_ref: coach.execution.structured-correction-and-escalation
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: "the GREEN\u2192REFACTOR ordering is a phase-machine invariant"
+  source_ref: coach.lifecycle.no-green-to-refactor-without-smoke
+  strength: critical
+  target_ref: coach.lifecycle.phase-machine
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: terminal entry is gated by the phase machine
+  source_ref: coach.lifecycle.no-terminal-before-lifecycle-satisfied
+  strength: critical
+  target_ref: coach.lifecycle.phase-machine
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: required phases are a subset of the phase machine
+  source_ref: coach.lifecycle.session-type-required-phases
+  strength: important
+  target_ref: coach.lifecycle.phase-machine
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: single-step advance follows the state machine transitions
+  source_ref: coach.lifecycle.single-step-advance-on-delivery
+  strength: important
+  target_ref: coach.lifecycle.phase-machine
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: advancing one step must not overshoot a terminal state pre-SMOKE
+  source_ref: coach.lifecycle.single-step-advance-on-delivery
+  strength: important
+  target_ref: coach.lifecycle.no-terminal-before-lifecycle-satisfied
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: completion gates bind every phase of the machine
+  source_ref: coach.lifecycle.universal-completion-gates
+  strength: important
+  target_ref: coach.lifecycle.phase-machine
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: "the planner\u2192tester\u2192coder sequence is realized by the phase machine"
+  source_ref: coach.role.planner-tester-coder-sequence
+  strength: important
+  target_ref: coach.lifecycle.phase-machine
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: a reviewer edit is one out-of-contract case
+  source_ref: coach.role.reviewer-no-write
+  strength: minor
+  target_ref: coach.execution.out-of-contract-detection
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: disposition is a field of the per-rule schema
+  source_ref: coach.rule-id.disposition-required
+  strength: important
+  target_ref: coach.rule-id.grammar-and-schema
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: fix_hint is a schema field with a completeness contract
+  source_ref: coach.rule-id.fix-hint-completeness
+  strength: minor
+  target_ref: coach.rule-id.grammar-and-schema
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the playbook migrates conventions into the rule schema
+  source_ref: coach.rule-id.migration-playbook
+  strength: minor
+  target_ref: coach.rule-id.grammar-and-schema
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: severity is owned by the schema, not a code constant
+  source_ref: coach.rule-id.no-hardcoded-rule-severity
+  strength: important
+  target_ref: coach.rule-id.grammar-and-schema
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: suppression markers presuppose suppress-and-clean disposition
+  source_ref: coach.rule-id.stale-suppression
+  strength: minor
+  target_ref: coach.rule-id.disposition-required
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the binding contract is part of the rule schema (0007)
+  source_ref: coach.rule-id.validator-binding-violation
+  strength: important
+  target_ref: coach.rule-id.grammar-and-schema
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: binding presupposes resolving where the validator/implementation lives
+  source_ref: coach.rule-id.validator-binding-violation
+  strength: minor
+  target_ref: coach.graph.implementation-root-resolution
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: two halves of the package-relative distribution invariant
+  source_ref: coach.source-layout.no-bare-version-detection
+  strength: minor
+  target_ref: coach.source-layout.no-toolkit-self-layout-assumption
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the phase machine is the canonical home the template must point at, not duplicate
+  source_ref: coach.template.no-duplicated-convention
+  strength: important
+  target_ref: coach.lifecycle.phase-machine
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: both guard ATDD distribution integrity across source/editable/wheel
+  source_ref: coach.wheel-completeness.fixture-missing-from-wheel
+  strength: minor
+  target_ref: coach.source-layout.no-toolkit-self-layout-assumption
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: emitted workflow lines run the universal gate commands
+  source_ref: coach.workspace.emitted-cli-must-parse
+  strength: minor
+  target_ref: coach.lifecycle.universal-completion-gates
+  type: runs_alongside
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_start

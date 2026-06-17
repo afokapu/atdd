@@ -1,0 +1,27 @@
+schema_version: 1.1.0
+rule_id: coach.lifecycle.no-green-to-refactor-without-smoke
+kind: rule
+status: active
+name: No GREEN→REFACTOR without SMOKE
+statement: A phase transition from GREEN to REFACTOR without an intervening SMOKE is a phase-ordering
+  violation; real-infrastructure SMOKE must run before REFACTOR.
+source:
+  legacy_path: src/atdd/coach/conventions/observer.convention.yaml
+  legacy_section: drift_classifier_observer_rules
+  legacy_sha: ae693664e6e540ec
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.observer.smoke-skip
+metadata:
+  severity: 4
+  disposition: documentation-only
+  introduced_in: 3.21.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: smoke_gate
+  text: SMOKE verifies against real infrastructure between GREEN and REFACTOR; skipping it is ordering
+    drift.

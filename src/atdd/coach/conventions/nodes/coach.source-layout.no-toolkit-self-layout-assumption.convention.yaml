@@ -1,0 +1,35 @@
+schema_version: 1.1.0
+rule_id: coach.source-layout.no-toolkit-self-layout-assumption
+kind: rule
+status: active
+name: No toolkit-self layout assumption
+statement: Toolkit code must resolve ATDD package resources package-relatively (Path(atdd.__file__).parent/...),
+  never by concatenating 'src/atdd/' onto find_repo_root(); the latter raises FileNotFoundError in pip-installed
+  consumers.
+implementation:
+  type: validator
+  ref: test_toolkit_source_layout_assumptions::test_no_toolkit_self_layout_assumption
+source:
+  legacy_path: src/atdd/coach/conventions/source-layout.convention.yaml
+  legacy_section: rules
+  legacy_sha: 9f9363a2305c91b2
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.source-layout.no-toolkit-self-layout-assumption
+metadata:
+  aliases:
+  - COACH-PKG-LAYOUT-001
+  severity: 4
+  disposition: documentation-only
+  introduced_in: 3.85.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: three_layouts
+  text: ATDD must work as toolkit-self repo (PYTHONPATH=src), editable install (pip install -e), and wheel
+    install.

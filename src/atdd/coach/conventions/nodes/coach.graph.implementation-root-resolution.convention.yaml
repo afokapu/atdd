@@ -1,0 +1,31 @@
+schema_version: 1.1.0
+rule_id: coach.graph.implementation-root-resolution
+kind: rule
+status: active
+name: Config-driven implementation-root resolution
+statement: 'Implementation-root discovery must be config-driven rather than hardcoded in validator source,
+  so ATDD can resolve toolkit-self and consumer repository layouts without freezing a stack-specific path
+  model into core: roots are declared in .atdd/config.yaml::code, resolvers accept root as an argument,
+  and unknown stack keys are skipped (never crash).'
+source:
+  legacy_path: src/atdd/coach/conventions/code-roots.convention.yaml
+  legacy_section: config_surface + resolver_contract
+  legacy_sha: bd59ff9143684f19
+  extraction_mode: high_fidelity
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 3.85.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: config_driven
+  text: code roots are declared under `code:` in .atdd/config.yaml, not frozen as PYTHON_DIR/SUPABASE_DIR/WEB_DIR
+    constants.
+- term_id: skip_unknown
+  text: stack keys without a registered resolver (rust/go/dart) are skipped with a DEBUG log — validators
+    must not crash.

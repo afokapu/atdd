@@ -2584,3 +2584,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1116'
+  slug: atomize-core-coach-conventions
+  file: null
+  issue_number: 1116
+  type: migration
+  status: INIT
+  created: '2026-06-17'
+  archived: null

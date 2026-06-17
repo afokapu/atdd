@@ -1,0 +1,35 @@
+schema_version: 1.1.0
+rule_id: coach.workspace.emitted-cli-must-parse
+kind: rule
+status: active
+name: Emitted CLI must parse under the live CLI
+statement: 'Every `run: atdd ...` line the initializer writes into consumer workflow templates must resolve
+  to a real subcommand and parse cleanly under the live atdd argparse (flag- and subcommand-level drift).'
+implementation:
+  type: validator
+  ref: test_workflow_template_command_drift::test_every_run_line_parses_under_live_cli
+source:
+  legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
+  legacy_section: rules
+  legacy_sha: 1babe0ea37eae533
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.workflow-template.command-must-parse
+metadata:
+  aliases:
+  - coach.initializer.template-cli-drift
+  - coach.workflow-template.command-must-parse
+  severity: 2
+  disposition: strict
+  introduced_in: 3.11.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: emitted_cli
+  text: an `atdd ...` invocation baked into a consumer .github workflow by the initializer; must stay
+    valid as the CLI evolves.

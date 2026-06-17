@@ -1,0 +1,26 @@
+schema_version: 1.1.0
+rule_id: coach.role.operator-decision-authority
+kind: principle
+status: active
+name: Dangerous decisions require operator authority
+statement: A dangerous (deny-pattern) decision must not be auto-resolved; it defaults to escalation to
+  the operator, who holds decision authority. A fully-unattended operator may opt into a more permissive
+  policy.
+source:
+  legacy_path: src/atdd/coach/conventions/coach.convention.yaml
+  legacy_section: feed_mediation.dangerous_permission_policy
+  legacy_sha: 8ae03af96bef3f96
+  extraction_mode: high_fidelity
+metadata:
+  severity: 4
+  disposition: documentation-only
+  introduced_in: 4.0.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: escalate_default
+  text: the daemon's default dangerous_permission_policy is ESCALATE (supervised), surfacing to the operator.
