@@ -40,3 +40,4 @@ terms:
     - code
     - coach
     digits: 0-4
+notes: Subsumes the runtime theme-membership check wmbt:govern-lifecycle:E001 (which is otherwise unbound).

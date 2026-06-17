@@ -149,3 +149,45 @@ def test_no_non_core_leakage_into_coach_core_nodes():
             or legacy_file in core_files
         )
         assert traces, f"{f.name} does not trace to any core-classified row"
+
+
+def _find_legacy_rule(obj, rid):
+    if isinstance(obj, dict):
+        if obj.get("id") == rid:
+            return obj
+        for v in obj.values():
+            r = _find_legacy_rule(v, rid)
+            if r:
+                return r
+    elif isinstance(obj, list):
+        for v in obj:
+            r = _find_legacy_rule(v, rid)
+            if r:
+                return r
+    return None
+
+
+def test_nodes_do_not_drop_source_fix_hints():
+    """#1124 parity-depth guard: a node whose source legacy rule carries a `fix_hint`
+    MUST carry it in `content.fix_hint` (operational long-form not compressed away),
+    and `parity.fix_hint_preserved` MUST be honest (true iff content.fix_hint present).
+    Scans the planner + coach node sets. This is the guard whose absence let the
+    #1110/#1116 atomizations drop fix_hints/exceptions silently."""
+    node_dirs = [_SRC / "atdd" / "planner" / "conventions" / "nodes", _NODES]
+    dropped, lies = [], []
+    for nd in node_dirs:
+        for f in sorted(nd.glob("*.convention.yaml")):
+            n = yaml.safe_load(f.read_text())
+            content = n.get("content") or {}
+            parity = n.get("parity") or {}
+            if bool(parity.get("fix_hint_preserved")) != bool(content.get("fix_hint")):
+                lies.append(f"{f.name}: fix_hint_preserved={parity.get('fix_hint_preserved')} "
+                            f"but content.fix_hint {'present' if content.get('fix_hint') else 'absent'}")
+            src = n.get("source") or {}
+            lp, lr = src.get("legacy_path"), src.get("legacy_rule_id")
+            if lp and lr and (_REPO / lp).exists():
+                rule = _find_legacy_rule(yaml.safe_load((_REPO / lp).read_text()), lr)
+                if rule and rule.get("fix_hint") and not content.get("fix_hint"):
+                    dropped.append(f.name)
+    assert not dropped, f"nodes dropped a source fix_hint instead of carrying it: {dropped}"
+    assert not lies, f"parity.fix_hint_preserved inconsistent with content.fix_hint: {lies}"

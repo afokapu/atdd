@@ -2600,3 +2600,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1124'
+  slug: restore-node-operational-parity
+  file: null
+  issue_number: 1124
+  type: refactor
+  status: INIT
+  created: '2026-06-17'
+  archived: null

@@ -14,6 +14,17 @@ source:
   legacy_sha: 9f9363a2305c91b2
   extraction_mode: high_fidelity
   legacy_rule_id: coach.source-layout.no-bare-version-detection
+content:
+  exceptions:
+  - src/atdd/__init__.py — the canonical try/except wrapper
+  - Test files (test_*.py, *_test.py, */tests/, */test/)
+  - Fixture directories (*/fixtures/*)
+  - 'Inline suppression: # atdd:suppress(COACH-PKG-LAYOUT-002) on the offending line'
+  operational_guidance: "bad:\nfrom importlib.metadata import version\nAPP_VERSION = version(\"atdd\"\
+    )  # raises PackageNotFoundError from source\n\ngood:\nfrom atdd import __version__\nAPP_VERSION =\
+    \ __version__\n\npackage_init_only:\n# src/atdd/__init__.py — the *one* legitimate try/except wrapper\n\
+    from importlib.metadata import PackageNotFoundError, version\ntry:\n    __version__ = version(\"atdd\"\
+    )\nexcept PackageNotFoundError:\n    __version__ = \"0.0.0\""
 metadata:
   aliases:
   - COACH-PKG-LAYOUT-002
@@ -32,3 +43,4 @@ terms:
 - term_id: canonical_wrapper
   text: the one legitimate try/except in src/atdd/__init__.py that defaults __version__ to '0.0.0' from
     source.
+notes: 'Incident refs: #352'

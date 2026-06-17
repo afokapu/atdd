@@ -13,6 +13,8 @@ source:
   legacy_sha: 1babe0ea37eae533
   extraction_mode: high_fidelity
   legacy_rule_id: coach.rule-id.disposition-required
+content:
+  fix_hint: 'Add `disposition: <strict|suppress-and-clean|advisory|documentation-only>` to the rule body.'
 metadata:
   aliases:
   - COACH-RULEID-DISPOSITION-001
@@ -25,7 +27,7 @@ parity:
   source_fragments_preserved: true
   examples_preserved: false
   implementation_preserved: true
-  fix_hint_preserved: false
+  fix_hint_preserved: true
   reviewed_at: '2026-06-17'
 terms:
 - term_id: disposition

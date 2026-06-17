@@ -12,6 +12,8 @@ source:
   legacy_sha: ae693664e6e540ec
   extraction_mode: high_fidelity
   legacy_rule_id: coach.observer.out-of-scope-edit
+content:
+  fix_hint: Revert the out-of-scope change or escalate to widen scope.
 metadata:
   aliases:
   - coach.observer.completion-claim-without-commit
@@ -23,7 +25,7 @@ parity:
   source_fragments_preserved: true
   examples_preserved: false
   implementation_preserved: false
-  fix_hint_preserved: false
+  fix_hint_preserved: true
   reviewed_at: '2026-06-17'
 terms:
 - term_id: out_of_contract

@@ -11,6 +11,10 @@ source:
   legacy_sha: ae693664e6e540ec
   extraction_mode: high_fidelity
   legacy_rule_id: coach.observer.smoke-skip
+content:
+  fix_hint: 'Run SMOKE phase tests against real infrastructure before transitioning to REFACTOR.
+
+    See atdd-coach-spec-v9.md §6.4 (phase-ordering contract).'
 metadata:
   severity: 4
   disposition: documentation-only
@@ -19,7 +23,7 @@ parity:
   source_fragments_preserved: true
   examples_preserved: false
   implementation_preserved: false
-  fix_hint_preserved: false
+  fix_hint_preserved: true
   reviewed_at: '2026-06-17'
 terms:
 - term_id: smoke_gate

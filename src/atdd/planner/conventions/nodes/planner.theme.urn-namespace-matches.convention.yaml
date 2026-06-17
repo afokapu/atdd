@@ -31,3 +31,4 @@ parity:
 terms:
 - term_id: urn_theme_prefix
   text: the leading theme segment of a produced URN, which must equal the wagon theme.
+notes: 'Drives the commons:decision:* -> coach:decision:* migration tracking (deferred to #951 co-land).'

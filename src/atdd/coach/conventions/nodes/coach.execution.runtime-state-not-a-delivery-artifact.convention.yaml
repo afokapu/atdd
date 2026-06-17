@@ -11,6 +11,15 @@ source:
   legacy_sha: 21da8901c7c6050b
   extraction_mode: high_fidelity
   legacy_rule_id: coach.pr.runtime-artifacts-blocked
+content:
+  fix_hint: "The PR diff contains one or more paths under .atdd/runtime/. These are\nephemeral per-run\
+    \ artifacts that must never be committed. Repair:\n\n  1. Add .atdd/runtime/ to .gitignore (the full\
+    \ directory, not sub-paths).\n  2. Untrack any currently-tracked files:\n       git ls-files .atdd/runtime/\
+    \ | xargs git rm --cached\n  3. Commit the .gitignore change and the rm --cached deletions.\n  4.\
+    \ Verify no .atdd/runtime/ files remain tracked:\n       git ls-files .atdd/runtime/\n     (should\
+    \ print nothing)\n  5. Re-run atdd validate coach to confirm the violation is cleared.\n\nIf decisions.jsonl\
+    \ or other files were committed as intentional state:\nthat content belongs outside .atdd/runtime/\
+    \ (which is by definition\nephemeral). Relocate it to a non-runtime path and re-commit."
 metadata:
   severity: 4
   disposition: documentation-only
@@ -19,7 +28,7 @@ parity:
   source_fragments_preserved: true
   examples_preserved: false
   implementation_preserved: false
-  fix_hint_preserved: false
+  fix_hint_preserved: true
   reviewed_at: '2026-06-17'
 terms:
 - term_id: runtime_state
