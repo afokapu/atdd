@@ -1,0 +1,28 @@
+schema_version: "1.0.0"
+# Fixture extension for the composition smoke (#1130). Structurally faithful to
+# official/atdd.extension.github but minimal. Uses a non-reserved publisher.
+extension_id: acme.extension.demo
+kind: extension
+version: "0.1.0"
+
+owns:
+  conventions:
+    - conventions/demo.area.sample-rule.convention.yaml
+
+depends_on:
+  core:
+    - atdd.core.convention-node-schema
+  # targets.coach_nodes reference REAL shipped core nodes — resolved by the smoke
+  # against src/atdd/coach/conventions/nodes/.
+  targets:
+    coach_nodes:
+      - coach.lifecycle.phase-machine
+      - coach.execution.atomic-registry-write
+  # design_candidates are NOT shipped core nodes — kept out of targets so depends_on
+  # stays strictly resolvable. Loaded as non-normative references only.
+  design_candidates:
+    coach_nodes:
+      - coach.execution.work-provenance
+  workspaces:
+    - id: acme.workspace.demo
+      contract: "^1.0.0"
