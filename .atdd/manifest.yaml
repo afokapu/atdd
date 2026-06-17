@@ -2608,3 +2608,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1121'
+  slug: python-pytest-workspace-migration-target
+  file: null
+  issue_number: 1121
+  type: analysis
+  status: INIT
+  created: '2026-06-17'
+  archived: null
