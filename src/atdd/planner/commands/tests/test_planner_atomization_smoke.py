@@ -72,6 +72,12 @@ def test_committed_nodes_and_graph_are_coherent():
         assert f.name == f"{node['rule_id']}.convention.yaml"
         node_ids.add(node["rule_id"])
 
+    # the shared core graph spans roles (#1116): coach core nodes are valid
+    # endpoints too, so resolve referential integrity against the union.
+    _coach_nodes = _SRC / "atdd" / "coach" / "conventions" / "nodes"
+    for f in _coach_nodes.glob("coach.*.convention.yaml"):
+        node_ids.add(yaml.safe_load(f.read_text())["rule_id"])
+
     graph = yaml.safe_load(_CORE_GRAPH.read_text())
     assert graph["graph_id"] == "atdd.convention.relationships"
     edges = graph["edges"]

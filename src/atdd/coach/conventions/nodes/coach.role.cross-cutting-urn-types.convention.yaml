@@ -1,0 +1,29 @@
+schema_version: 1.1.0
+rule_id: coach.role.cross-cutting-urn-types
+kind: constraint
+status: active
+name: Cross-cutting URN types
+statement: 'appendix: and system: URNs are cross-cutting identifier types not owned by any planner archetype;
+  appendix:{type} names supplementary reference data and system:{service-name} names an external system
+  or service in consume references.'
+source:
+  legacy_path: src/atdd/coach/conventions/naming.convention.yaml
+  legacy_section: patterns.appendix + patterns.system
+  legacy_sha: f6f8c1be073d7405
+  extraction_mode: high_fidelity
+metadata:
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.66.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: appendix_urn
+  text: appendix:{type} (kebab-case), e.g. appendix:theme-catalog — supplementary reference data.
+- term_id: system_urn
+  text: system:{service-name} (kebab-case), e.g. system:posthog — an external system in wagon consume
+    references.
