@@ -2608,3 +2608,11 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1122'
+  slug: coach-design-candidate-tracker
+  file: null
+  issue_number: 1122
+  type: tracking
+  status: INIT
+  created: '2026-06-17'
+  archived: null
