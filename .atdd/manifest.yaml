@@ -2666,3 +2666,12 @@ sessions:
   archived: null
   branch: feat/substrate-admission
   train: 0004-admit-substrate
+- id: '1145'
+  slug: wagon-complexity-separability
+  file: null
+  issue_number: 1145
+  type: implementation
+  status: INIT
+  created: '2026-06-18'
+  archived: null
+  branch: feat/wagon-complexity-separability
