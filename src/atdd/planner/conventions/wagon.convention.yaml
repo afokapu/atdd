@@ -310,3 +310,9 @@ rules:
     disposition: documentation-only
     description: "Wagon sizing has two orthogonal axes: intrinsic footprint (size) and coupling complexity (separability). Complexity is super-linear in cross-wagon coupling, not additive in component count. Conceptual model behind no-consume-cycle (strict) and the advisory separability/granularity signals (Phase 2)."
     introduced_in: "3.117.0"
+  - id: "planner.wagon.coupling-complexity"
+    severity: 2
+    disposition: advisory
+    description: "Advisory reporter: per-wagon coupling complexity = fan_in x fan_out over the produce->consume name graph (Henry-Kafura proxy); flags wagons above a soft config threshold (planner.wagon.coupling_complexity_threshold, default 6). Non-blocking — the runnable surface for the complexity model."
+    validator: "test_wagon_coupling_complexity::test_wagon_coupling_complexity_reported"
+    introduced_in: "3.117.0"
