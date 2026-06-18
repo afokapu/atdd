@@ -321,4 +321,4 @@ rules:
     disposition: advisory
     description: "Advisory: a wagon should be separable — internal cohesion (intra-wagon shared-token WMBT edges) >= its tightest coupling to any single neighbor. Non-separable wagons emit a [MERGE] signal. Cohesion and coupling are measured on one WMBT shared-token graph (commensurable); vocabulary/min_shared/min-graph-size are config calibration knobs. Non-blocking."
     validator: "test_wagon_separability::test_wagon_separability_reported"
-    introduced_in: "3.118.0"
+    introduced_in: "3.119.0"
