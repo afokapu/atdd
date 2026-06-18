@@ -1,4 +1,81 @@
 wagons:
+- wagon: admit-substrate
+  description: 'The ATDD substrate front door: a small, explicit admission layer that
+    pulls external extension/workspace packages into a project''s local substrate
+    — validated, digest-pinned, locked, and non-executing. `pip install atdd` ships
+    only the core engine; `atdd add` admits substrate; core composes from `.atdd/substrate.lock.yaml`.
+    Admission resolves a ref/alias/path, validates the package manifest + owned files
+    + realizes/depends_on against core, composes an in-memory protocol view, records
+    a sha256 digest, and installs into a versioned home under `.atdd/`, writing user
+    intent (`substrate.yaml`) and resolved state (`substrate.lock.yaml`). It never
+    imports or executes extension implementation code — runtime binding is a later,
+    separate wagon. The public surface is exactly four commands: search, add, remove,
+    list. Distinct from `author-atdd-substrate`, which PRODUCES artifacts (subject
+    planner); this wagon ADMITS external artifacts (subject operator).'
+  theme: commons
+  subject: agent:operator
+  context: pip-installs-only-the-core-engine, capabilities-live-in-external-extension-and-workspace-packages
+  action: searches configured registries, then resolves a ref/alias/path, validates
+    the package manifest + owned files + realizes/depends_on against core, composes
+    a protocol view, records a sha256 digest, and installs into a versioned `.atdd/`
+    home — writing intent (substrate.yaml) and resolved state (substrate.lock.yaml)
+    — while never importing or executing extension implementation code
+  goal: make every admitted package explicit, validated, digest-pinned, locked, and
+    reviewable, and make core load substrate only from the lockfile (never an arbitrary
+    filesystem scan), without ever executing admitted runtime code
+  outcome: a `.atdd/substrate.yaml` (intent) plus `.atdd/substrate.lock.yaml` (resolved,
+    digested) admitted via `atdd search/add/remove/list`, with no runtime implementation
+    executed during admission
+  produce:
+  - name: commons:admit:substrate-schemas
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:admit:registry-reader
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:admit:artifact-resolver
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:admit:substrate-installer
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:admit:admission-cli
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:author:package-composition
+    contract: null
+    telemetry: null
+    from: external
+  wmbt:
+    total: 7
+    D001: maximize likelihood of schema-valid substrate intent and lock by defining
+      canonical substrate.yaml / substrate.lock.yaml / registry-index schemas and
+      validating both files against them
+    C001: minimize likelihood of executing extension runtime implementation code during
+      admission (search/add/remove/list) — admission inspects manifests, validates,
+      composes, and writes the lock, but never imports or runs an implementation module
+    L001: maximize likelihood of correct registry search results by resolving a query
+      against configured registry indexes by alias, canonical id, tags, and kind
+    C002: minimize likelihood of mis-resolving an ambiguous alias by requiring a unique
+      alias match and refusing with a candidate list when ambiguous
+    C003: minimize likelihood of admitting an invalid artifact by resolving and validating
+      the manifest, owned files, and realizes/depends_on against core and composing
+      a protocol view before install, refusing on any failure
+    E001: maximize likelihood of a reproducible installed substrate by installing
+      into a versioned `.atdd/{extensions,workspaces}/<id>/<version>/` home, recording
+      a sha256 digest, and writing a lock entry that `atdd list` reads
+    C004: minimize likelihood of breaking a depended-on artifact by refusing removal
+      when other admitted artifacts depend on it (unless --force) and pruning shared
+      workspaces only with --prune
+  total: 0
+  manifest: plan/admit_substrate/_admit_substrate.yaml
+  path: plan/admit_substrate/
 - wagon: author-atdd-substrate
   description: 'First-class authoring substrate for ATDD governance artifacts: a shared
     `atdd author` CLI validation spine plus deterministic writers for the four canonical
