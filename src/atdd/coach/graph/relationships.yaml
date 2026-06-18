@@ -1313,6 +1313,33 @@ edges:
   strength: important
   target_ref: planner.wmbt.step-code-vocabulary
   type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: footprint measures intrinsic volume; complexity adds interconnection shape (orthogonal sizing axes)
+  source_ref: planner.wagon.complexity-model
+  strength: minor
+  target_ref: planner.feature.footprint-scoring
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the advisory coupling-complexity reporter executes the complexity model's fan_in x fan_out metric
+  source_ref: planner.wagon.coupling-complexity
+  strength: important
+  target_ref: planner.wagon.complexity-model
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the strict no-consume-cycle invariant is the exact (acyclicity) case of the complexity model
+  source_ref: planner.wagon.no-consume-cycle
+  strength: important
+  target_ref: planner.wagon.complexity-model
+  type: requires
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0
