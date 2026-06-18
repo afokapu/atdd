@@ -1,0 +1,30 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.no-consume-cycle
+kind: constraint
+status: active
+name: No cross-wagon produce/consume cycle
+statement: The directed wagon graph built from produce->consume artifact NAMES must be acyclic; no strongly-connected component may span more than one wagon.
+implementation:
+  type: validator
+  ref: test_no_cross_wagon_consume_cycle::test_no_cross_wagon_consume_cycle
+source:
+  legacy_path: docs/recompose
+  legacy_section: complexity-sizing
+  extraction_mode: summary
+content:
+  normative_text: 'Build a directed graph whose nodes are wagons and whose edges go producer-wagon -> consumer-wagon whenever an artifact NAME produced by one wagon is consumed by another wagon. Run strongly-connected-component analysis; any SCC containing more than one wagon is a cross-wagon dependency cycle and a violation. The graph is keyed on artifact name, never on the contract field (contract is nullable corpus-wide).'
+  constraints:
+  - the cross-wagon produce/consume graph is a DAG
+  - edges are keyed on the produce/consume artifact name, not the nullable contract field
+metadata:
+  severity: 3
+  disposition: strict
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-18'
+terms:
+- term_id: consume_cycle
+  text: a strongly-connected component of the directed wagon produce/consume graph whose size exceeds one wagon.

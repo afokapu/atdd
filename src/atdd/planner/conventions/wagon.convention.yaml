@@ -299,3 +299,9 @@ rules:
     disposition: documentation-only
     description: "Wagon _features.yaml lists every feature module and its current status"
     introduced_in: "1.67.0"
+  - id: "planner.wagon.no-consume-cycle"
+    severity: 3
+    disposition: strict
+    description: "The directed wagon graph built from produce->consume artifact NAMES must be acyclic; no strongly-connected component may span more than one wagon (cross-wagon dependency cycle). Keyed on artifact name, not the nullable contract field."
+    validator: "test_no_cross_wagon_consume_cycle::test_no_cross_wagon_consume_cycle"
+    introduced_in: "3.117.0"
