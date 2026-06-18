@@ -1,0 +1,33 @@
+urn: "feature:admit-substrate:substrate-admission"
+wagon: "wagon:admit-substrate"
+description: "The substrate front door: admit external extension/workspace packages into a project's local substrate, validated and locked, without executing any runtime code. Four commands — `atdd search` (query configured registry indexes by alias/id/tags/kind), `atdd add` (resolve a ref/alias/path → validate manifest + owned files + realizes/depends_on against core → compose a protocol view → record a sha256 digest → install into a versioned `.atdd/` home → write intent + lock), `atdd remove` (withdraw from intent + lock, refusing on dependents unless forced), and `atdd list` (read the installed substrate from the lockfile). Two files: `.atdd/substrate.yaml` (user intent) and `.atdd/substrate.lock.yaml` (resolved, digested state). Admission reuses the package-composition seam read-only and NEVER imports or runs an extension implementation module; runtime binding is a later wagon."
+sizing:
+  wmbts: 7
+  footprint_score: 13
+  footprint_size: "M"
+wmbts:
+  - "wmbt:admit-substrate:D001"
+  - "wmbt:admit-substrate:C001"
+  - "wmbt:admit-substrate:L001"
+  - "wmbt:admit-substrate:C002"
+  - "wmbt:admit-substrate:C003"
+  - "wmbt:admit-substrate:E001"
+  - "wmbt:admit-substrate:C004"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 4
+        rationale: "atdd search / add / remove / list CLI bridges"
+    application:
+      - type: "use_cases"
+        count: 4
+        rationale: "search registries; admit (resolve→validate→compose→digest→install→lock); remove (dependency-checked); list (read lock)"
+    domain:
+      - type: "value_objects"
+        count: 3
+        rationale: "SubstrateIntent (substrate.yaml entry); LockEntry (id/kind/version/digest/installed_path/workspaces); RegistryEntry (canonical id + aliases + tags + versions)"
+    integration:
+      - type: "adapters"
+        count: 2
+        rationale: "registry-index reader/searcher; substrate installer (fetch/copy + sha256 digest + versioned home + atomic lock write)"

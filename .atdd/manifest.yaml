@@ -2656,6 +2656,16 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1142'
+  slug: substrate-admission
+  file: null
+  issue_number: 1142
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-18'
+  archived: null
+  branch: feat/substrate-admission
+  train: 0004-admit-substrate
 - id: '1145'
   slug: wagon-complexity-separability
   file: null
@@ -2664,6 +2674,17 @@ sessions:
   status: INIT
   created: '2026-06-18'
   archived: null
+  branch: feat/wagon-complexity-separability
+- id: '1148'
+  slug: no-orphan-convention-nodes
+  file: null
+  issue_number: 1148
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-18'
+  archived: null
+  branch: feat/no-orphan-convention-nodes
+  train: 0003-author-substrate
 - id: '1144'
   slug: atdd-author-plan-kinds
   file: null
@@ -2671,14 +2692,6 @@ sessions:
   type: implementation
   status: REFACTOR
   train: 0003-author-substrate
-  created: '2026-06-18'
-  archived: null
-- id: '1142'
-  slug: substrate-admission
-  file: null
-  issue_number: 1142
-  type: implementation
-  status: REFACTOR
   created: '2026-06-18'
   archived: null
 - id: '1139'

@@ -29,21 +29,21 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
-  foundation: finish_to_start
-  reason: the leash corrects via the structured channel, never modal typing
-  source_ref: coach.execution.freedom-with-a-leash
-  strength: important
-  target_ref: coach.execution.structured-correction-and-escalation
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
   foundation: start_to_start
   reason: the leash is the same surface-not-auto-execute stance for destructive actions
   source_ref: coach.execution.freedom-with-a-leash
   strength: important
   target_ref: coach.execution.decisions-mediated-not-auto-executed
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the leash corrects via the structured channel, never modal typing
+  source_ref: coach.execution.freedom-with-a-leash
+  strength: important
+  target_ref: coach.execution.structured-correction-and-escalation
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -62,6 +62,15 @@ edges:
   strength: important
   target_ref: coach.execution.structured-correction-and-escalation
   type: enables
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: "ephemeral runtime state coexists with\u2014but is distinct from\u2014the durable registry writes that drive the sequence"
+  source_ref: coach.execution.runtime-state-not-a-delivery-artifact
+  strength: minor
+  target_ref: coach.execution.atomic-registry-write
+  type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -92,6 +101,15 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: start_to_start
+  reason: advancing one step must not overshoot a terminal state pre-SMOKE
+  source_ref: coach.lifecycle.single-step-advance-on-delivery
+  strength: important
+  target_ref: coach.lifecycle.no-terminal-before-lifecycle-satisfied
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: finish_to_start
   reason: single-step advance follows the state machine transitions
   source_ref: coach.lifecycle.single-step-advance-on-delivery
@@ -102,19 +120,19 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: advancing one step must not overshoot a terminal state pre-SMOKE
-  source_ref: coach.lifecycle.single-step-advance-on-delivery
-  strength: important
-  target_ref: coach.lifecycle.no-terminal-before-lifecycle-satisfied
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
   reason: completion gates bind every phase of the machine
   source_ref: coach.lifecycle.universal-completion-gates
   strength: important
   target_ref: coach.lifecycle.phase-machine
+  type: runs_alongside
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: appendix/system URN types are cross-cutting identifiers not owned by any single role in the sequence
+  source_ref: coach.role.cross-cutting-urn-types
+  strength: minor
+  target_ref: coach.role.planner-tester-coder-sequence
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
@@ -180,15 +198,6 @@ edges:
   target_ref: coach.rule-id.disposition-required
   type: requires
 - confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the binding contract is part of the rule schema (0007)
-  source_ref: coach.rule-id.validator-binding-violation
-  strength: important
-  target_ref: coach.rule-id.grammar-and-schema
-  type: requires
-- confidence: 1.0
   constraint: discretionary
   control: internal
   foundation: start_to_start
@@ -197,6 +206,15 @@ edges:
   strength: minor
   target_ref: coach.graph.implementation-root-resolution
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the binding contract is part of the rule schema (0007)
+  source_ref: coach.rule-id.validator-binding-violation
+  strength: important
+  target_ref: coach.rule-id.grammar-and-schema
+  type: requires
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -233,6 +251,15 @@ edges:
   strength: minor
   target_ref: coach.lifecycle.universal-completion-gates
   type: runs_alongside
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: following the authoring guidelines is what yields a complete acceptance
+  source_ref: planner.acceptance.authoring-guidelines
+  strength: minor
+  target_ref: planner.acceptance.complete
+  type: enables
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -260,6 +287,24 @@ edges:
   strength: important
   target_ref: planner.acceptance.harness
   type: runs_alongside
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: extracting (not inferring) the missing context is what makes the acceptance complete and faithful
+  source_ref: planner.acceptance.extraction-no-inference
+  strength: minor
+  target_ref: planner.acceptance.complete
+  type: enables
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: the generator prompts compose the required abstract acceptance fields
+  source_ref: planner.acceptance.generator-prompts
+  strength: minor
+  target_ref: planner.acceptance.abstract-fields-required
+  type: enables
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -305,6 +350,15 @@ edges:
   strength: minor
   target_ref: planner.acceptance.urn-generation
   type: runs_alongside
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the per-WMBT acceptance cap is a sizing constraint applied alongside acceptance completeness
+  source_ref: planner.acceptance.max-per-wmbt
+  strength: minor
+  target_ref: planner.acceptance.complete
+  type: runs_alongside
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -341,6 +395,15 @@ edges:
   strength: important
   target_ref: planner.acceptance.harness-vocabulary
   type: requires
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: appendix structure and step sequencing are both plan-document structural rules
+  source_ref: planner.appendix.structure
+  strength: minor
+  target_ref: planner.steps.sequence
+  type: runs_alongside
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -570,20 +633,20 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: wmbt-acceptance coverage sits below wmbt-feature coverage
-  source_ref: planner.coverage.every-wmbt-must-have
-  strength: important
-  target_ref: planner.coverage.every-wmbt-must-be
-  type: follows
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
   reason: a WMBT's required acceptance only counts if acceptances are complete (G/W/T + verifiable outcome)
   source_ref: planner.coverage.every-wmbt-must-have
   strength: important
   target_ref: planner.acceptance.complete
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: wmbt-acceptance coverage sits below wmbt-feature coverage
+  source_ref: planner.coverage.every-wmbt-must-have
+  strength: important
+  target_ref: planner.coverage.every-wmbt-must-be
+  type: follows
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -747,15 +810,6 @@ edges:
   target_ref: planner.feature.hard-limits
   type: runs_alongside
 - confidence: 1.0
-  constraint: mandatory
-  control: external
-  foundation: finish_to_start
-  reason: a feature URN embeds its parent wagon slug
-  source_ref: planner.feature.urn-naming
-  strength: important
-  target_ref: planner.wagon.urn-naming
-  type: requires
-- confidence: 1.0
   constraint: discretionary
   control: internal
   foundation: start_to_start
@@ -764,6 +818,15 @@ edges:
   strength: minor
   target_ref: planner.feature.artifact-seeded-naming
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: a feature URN embeds its parent wagon slug
+  source_ref: planner.feature.urn-naming
+  strength: important
+  target_ref: planner.wagon.urn-naming
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -791,15 +854,33 @@ edges:
   strength: important
   target_ref: planner.wagon.features
   type: requires
-- confidence: 1.0
+- confidence: 0.9
   constraint: discretionary
   control: internal
-  foundation: finish_to_start
-  reason: plan/test/code archetype alignment presupposes a canonical theme
-  source_ref: planner.theme.archetype-alignment
+  foundation: start_to_start
+  reason: both are required, populated issue-body section rules enforced together
+  source_ref: planner.issue-body.graph-context-required
   strength: minor
-  target_ref: planner.theme.must-be-canonical
-  type: follows
+  target_ref: planner.issue-body.dependency-entries-must-be-classified
+  type: runs_alongside
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: no-orphan-node graph completeness is a planning-artifact integrity rule alongside acceptance completeness
+  source_ref: planner.relationship.no-orphan-nodes
+  strength: minor
+  target_ref: planner.acceptance.complete
+  type: runs_alongside
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: ordered step pre-conditions/outputs and the train artifact flow both sequence the plan
+  source_ref: planner.steps.sequence
+  strength: minor
+  target_ref: planner.train.artifact-flow
+  type: runs_alongside
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -810,12 +891,12 @@ edges:
   target_ref: planner.theme.canonical-taxonomy
   type: requires
 - confidence: 1.0
-  constraint: mandatory
+  constraint: discretionary
   control: internal
   foundation: finish_to_start
-  reason: the commons/coach import boundary is only checkable once a theme resolves to canonical
-  source_ref: planner.theme.commons-coach-boundary
-  strength: important
+  reason: plan/test/code archetype alignment presupposes a canonical theme
+  source_ref: planner.theme.archetype-alignment
+  strength: minor
   target_ref: planner.theme.must-be-canonical
   type: follows
 - confidence: 1.0
@@ -827,6 +908,15 @@ edges:
   strength: important
   target_ref: planner.theme.canonical-taxonomy
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the commons/coach import boundary is only checkable once a theme resolves to canonical
+  source_ref: planner.theme.commons-coach-boundary
+  strength: important
+  target_ref: planner.theme.must-be-canonical
+  type: follows
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -858,20 +948,20 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: matching a produced-URN theme-prefix to the wagon theme presupposes a canonical theme
-  source_ref: planner.theme.urn-namespace-matches
-  strength: important
-  target_ref: planner.theme.must-be-canonical
-  type: follows
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
   reason: the theme-prefix must be a canonical theme
   source_ref: planner.theme.urn-namespace-matches
   strength: important
   target_ref: planner.theme.canonical-taxonomy
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: matching a produced-URN theme-prefix to the wagon theme presupposes a canonical theme
+  source_ref: planner.theme.urn-namespace-matches
+  strength: important
+  target_ref: planner.theme.must-be-canonical
+  type: follows
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -892,15 +982,6 @@ edges:
   type: requires
 - confidence: 1.0
   constraint: discretionary
-  control: external
-  foundation: finish_to_start
-  reason: train data-flow dependencies follow wagon produce/consume artifacts
-  source_ref: planner.train.dependencies
-  strength: minor
-  target_ref: planner.wagon.produce-consume-artifacts
-  type: requires
-- confidence: 1.0
-  constraint: discretionary
   control: internal
   foundation: start_to_start
   reason: dependencies are declared in the spec
@@ -908,6 +989,15 @@ edges:
   strength: minor
   target_ref: planner.train.registry
   type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: external
+  foundation: finish_to_start
+  reason: train data-flow dependencies follow wagon produce/consume artifacts
+  source_ref: planner.train.dependencies
+  strength: minor
+  target_ref: planner.wagon.produce-consume-artifacts
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -926,15 +1016,15 @@ edges:
   strength: important
   target_ref: planner.train.numbering
   type: requires
-- confidence: 1.0
-  constraint: mandatory
+- confidence: 0.9
+  constraint: discretionary
   control: internal
-  foundation: finish_to_start
-  reason: registry + spec paths derive from the train_id
-  source_ref: planner.train.registry
-  strength: important
-  target_ref: planner.train.naming
-  type: requires
+  foundation: start_to_start
+  reason: production train execution carries the train's artifact flow
+  source_ref: planner.train.production-implementation
+  strength: minor
+  target_ref: planner.train.artifact-flow
+  type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: external
@@ -946,12 +1036,12 @@ edges:
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
-  control: external
+  control: internal
   foundation: finish_to_start
-  reason: a train's participants are wagons
-  source_ref: planner.train.scope
+  reason: registry + spec paths derive from the train_id
+  source_ref: planner.train.registry
   strength: important
-  target_ref: planner.wagon.urn-naming
+  target_ref: planner.train.naming
   type: requires
 - confidence: 1.0
   constraint: discretionary
@@ -962,6 +1052,15 @@ edges:
   strength: minor
   target_ref: planner.train.sequence
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: external
+  foundation: finish_to_start
+  reason: a train's participants are wagons
+  source_ref: planner.train.scope
+  strength: important
+  target_ref: planner.wagon.urn-naming
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -1071,6 +1170,24 @@ edges:
   target_ref: planner.artifact-naming.contract-file-mapping
   type: requires
 - confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: footprint measures intrinsic volume; complexity adds interconnection shape (orthogonal sizing axes)
+  source_ref: planner.wagon.complexity-model
+  strength: minor
+  target_ref: planner.feature.footprint-scoring
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the advisory coupling-complexity reporter executes the complexity model's fan_in x fan_out metric
+  source_ref: planner.wagon.coupling-complexity
+  strength: important
+  target_ref: planner.wagon.complexity-model
+  type: requires
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
@@ -1088,6 +1205,15 @@ edges:
   strength: important
   target_ref: planner.wagon.slug-dirname-conversion
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the strict no-consume-cycle invariant is the exact (acyclicity) case of the complexity model
+  source_ref: planner.wagon.no-consume-cycle
+  strength: important
+  target_ref: planner.wagon.complexity-model
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: external
@@ -1125,14 +1251,14 @@ edges:
   target_ref: planner.theme.canonical-taxonomy
   type: requires
 - confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: coherence validates the extracted refinement fields
+  constraint: discretionary
+  control: external
+  foundation: start_to_start
+  reason: a wagon produced-URN theme must match its theme
   source_ref: planner.wagon.semantic-coherence
-  strength: important
-  target_ref: planner.wagon.refinement-extraction
-  type: follows
+  strength: minor
+  target_ref: planner.theme.urn-namespace-matches
+  type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -1143,14 +1269,14 @@ edges:
   target_ref: planner.wagon.produce-consume-artifacts
   type: requires
 - confidence: 1.0
-  constraint: discretionary
-  control: external
-  foundation: start_to_start
-  reason: a wagon produced-URN theme must match its theme
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: coherence validates the extracted refinement fields
   source_ref: planner.wagon.semantic-coherence
-  strength: minor
-  target_ref: planner.theme.urn-namespace-matches
-  type: runs_alongside
+  strength: important
+  target_ref: planner.wagon.refinement-extraction
+  type: follows
 - confidence: 1.0
   constraint: mandatory
   control: external
@@ -1170,6 +1296,15 @@ edges:
   target_ref: planner.wagon.artifact-contracts
   type: requires
 - confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: a wagon's stable URN is an instance of the stable-naming rule for planner artifacts
+  source_ref: planner.wagon.urn
+  strength: minor
+  target_ref: planner.artifact-naming.planner-artifacts-use-stable
+  type: runs_alongside
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_start
@@ -1187,15 +1322,6 @@ edges:
   strength: important
   target_ref: planner.wagon.urn-naming
   type: requires
-- confidence: 1.0
-  constraint: discretionary
-  control: internal
-  foundation: start_to_start
-  reason: a wagon's stable URN is an instance of the stable-naming rule for planner artifacts
-  source_ref: planner.wagon.urn
-  strength: minor
-  target_ref: planner.artifact-naming.planner-artifacts-use-stable
-  type: runs_alongside
 - confidence: 1.0
   constraint: discretionary
   control: external
@@ -1234,15 +1360,6 @@ edges:
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the smoke-acceptance rule applies once a WMBT is shaped
-  source_ref: planner.wmbt.must-have-smoke-acceptance
-  strength: important
-  target_ref: planner.wmbt.shape
-  type: follows
-- confidence: 1.0
-  constraint: mandatory
   control: external
   foundation: finish_to_start
   reason: the SMOKE token is a harness code from the acceptance harness vocabulary
@@ -1250,6 +1367,15 @@ edges:
   strength: critical
   target_ref: planner.acceptance.harness-vocabulary#harness_code
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the smoke-acceptance rule applies once a WMBT is shaped
+  source_ref: planner.wmbt.must-have-smoke-acceptance
+  strength: important
+  target_ref: planner.wmbt.shape
+  type: follows
 - confidence: 1.0
   constraint: mandatory
   control: internal

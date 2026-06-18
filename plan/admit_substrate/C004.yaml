@@ -1,0 +1,51 @@
+urn: "wmbt:admit-substrate:C004"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "depended-on-artifact-breakage"
+context_clarifier: "`atdd remove` withdraws an artifact from intent and lock, but it must not silently strand a dependent: if another admitted artifact depends on the target (e.g. an extension depends_on a workspace being removed) removal is refused unless `--force`; shared workspaces are left installed unless `--prune` is passed, so removing one extension does not delete a workspace another still needs"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of depended-on-artifact-breakage by refusing removal when another admitted artifact depends on the target (unless --force) and pruning shared workspaces only when --prune is passed"
+acceptances:
+  - identity:
+      urn: "acc:admit-substrate:C004-UNIT-001-remove-dependency-refusal"
+      id: "AC-UNIT-001"
+      purpose: "removing a depended-on artifact is refused; --force overrides; a leaf artifact removes cleanly; a shared workspace stays unless --prune"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A locked substrate where an extension depends on a workspace, plus a second independent (leaf) extension"
+    when:
+      abstract: "remove is run on: the depended-on workspace (no flag), the same workspace with --force, the leaf extension, and the extension with --prune of its workspace"
+    then:
+      abstract:
+        - "removing the depended-on workspace without a flag is refused and names the dependent"
+        - "removing it with --force succeeds and updates intent + lock"
+        - "removing the leaf extension succeeds and leaves its shared workspace installed"
+        - "removing the extension with --prune also removes the workspace only when no other artifact depends on it"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:admit-substrate:C004-SMOKE-001-remove-cli"
+      id: "AC-SMOKE-001"
+      purpose: "`atdd remove <alias>` as a subprocess refuses on a dependent and succeeds on a leaf, updating the lockfile"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project with a locked substrate: an extension depending on a workspace, plus a leaf extension"
+    when:
+      abstract: "`atdd remove <workspace>` then `atdd remove <leaf-extension>` are invoked as subprocesses"
+    then:
+      abstract:
+        - "removing the depended-on workspace exits non-zero and leaves the lock unchanged"
+        - "removing the leaf extension exits zero and drops its entry from substrate.lock.yaml"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
