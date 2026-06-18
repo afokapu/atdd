@@ -2656,3 +2656,35 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1145'
+  slug: wagon-complexity-separability
+  file: null
+  issue_number: 1145
+  type: implementation
+  status: INIT
+  created: '2026-06-18'
+  archived: null
+- id: '1144'
+  slug: atdd-author-plan-kinds
+  file: null
+  issue_number: 1144
+  type: implementation
+  status: INIT
+  created: '2026-06-18'
+  archived: null
+- id: '1142'
+  slug: substrate-admission
+  file: null
+  issue_number: 1142
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-18'
+  archived: null
+- id: '1139'
+  slug: atdd-plan-core-decomposition-session
+  file: null
+  issue_number: 1139
+  type: implementation
+  status: INIT
+  created: '2026-06-17'
+  archived: null
