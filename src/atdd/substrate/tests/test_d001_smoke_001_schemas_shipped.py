@@ -9,6 +9,8 @@ installed toolkit (resolved package-relatively), so a real lockfile validates vi
 the public substrate-loading path with no repo checkout and no runtime executed."""
 from __future__ import annotations
 
+import os
+import pathlib
 import subprocess
 import sys
 import textwrap
@@ -46,8 +48,10 @@ def test_lockfile_validates_against_installed_schema(tmp_path) -> None:
         print("VALID")
         """
     )
+    src = pathlib.Path(__file__).resolve().parents[3]
+    env = {**os.environ, "PYTHONPATH": str(src) + os.pathsep + os.environ.get("PYTHONPATH", "")}
     proc = subprocess.run(
-        [sys.executable, "-c", script], capture_output=True, text=True
+        [sys.executable, "-c", script], capture_output=True, text=True, env=env
     )
     assert proc.returncode == 0, f"lockfile failed to validate: {proc.stdout}\n{proc.stderr}"
     assert "VALID" in proc.stdout

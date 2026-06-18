@@ -1,0 +1,14 @@
+schema_version: "1.0.0"
+extension_id: acme.extension.demo
+version: "0.1.0"
+kind: extension
+role: coder
+flow_wagon: validate-source-surface
+feature: demo
+owns:
+  conventions: []
+  implementations: []
+depends_on:
+  workspaces:
+    - id: atdd.workspace.python-pytest
+      contract: "^1.0.0"

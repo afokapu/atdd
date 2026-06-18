@@ -18,14 +18,18 @@ FIXTURE = pathlib.Path(__file__).parent / "fixtures" / "poisoned_extension"
 
 
 def test_atdd_add_does_not_execute_poisoned_implementation(tmp_path) -> None:
-    sentinel = tmp_path / "executed.sentinel"
-    env = {
-        "ATDD_C001_SENTINEL": str(sentinel),
-        "CI": "true",
-    }
     import os
 
-    env = {**os.environ, **env}
+    sentinel = tmp_path / "executed.sentinel"
+    # Resolve the repo src so the subprocess imports THIS branch's atdd (the
+    # installed toolkit may predate the substrate commands).
+    src = pathlib.Path(__file__).resolve().parents[3]
+    env = {
+        **os.environ,
+        "ATDD_C001_SENTINEL": str(sentinel),
+        "CI": "true",
+        "PYTHONPATH": str(src) + os.pathsep + os.environ.get("PYTHONPATH", ""),
+    }
     proc = subprocess.run(
         [sys.executable, "-m", "atdd", "add", "--path", str(FIXTURE)],
         cwd=str(tmp_path),

@@ -20,6 +20,7 @@ from pathlib import Path
 import yaml
 
 from atdd.planner.commands import compose
+from atdd.substrate import installer
 
 # Manifest filename → package kind. Inspecting a package reads ONLY these YAML
 # manifests; it never imports an implementation module.
@@ -63,6 +64,20 @@ def inspect_package(package_dir: str | Path) -> dict:
     raise AdmissionError(f"no package manifest (atdd.extension.yaml / atdd.workspace.yaml) in {d}")
 
 
+def _validate_owned_files(pkg: dict) -> None:
+    """Every path the manifest declares it ``owns`` must exist on disk."""
+    owns = pkg["manifest"].get("owns") or {}
+    pkg_dir = Path(pkg["dir"])
+    for category, paths in owns.items():
+        for rel in paths or []:
+            if not isinstance(rel, str):
+                continue
+            if not (pkg_dir / rel).exists():
+                raise AdmissionError(
+                    f"owns.{category} declares {rel!r} but it does not exist in the package"
+                )
+
+
 def validate_and_compose(
     package_dir: str | Path, *, core_ids: "set[str] | None" = None
 ) -> AdmissionResult:
@@ -76,6 +91,7 @@ def validate_and_compose(
     """
     pkg = inspect_package(package_dir)
     compose.validate_by_kind(pkg)  # manifest shape; raises on invalid
+    _validate_owned_files(pkg)     # files the manifest claims to own must exist
 
     if core_ids is None:
         core_ids = compose.installed_core_node_ids()
@@ -110,4 +126,80 @@ def admit(
     → write substrate intent + lock. Refuses (raises) on any validation failure,
     leaving the substrate unchanged. Never imports an implementation module.
     """
-    raise NotImplementedError("C001/C003/E001: admit not implemented (RED)")
+    # Validate + compose first (raises on any fault) — leaves substrate untouched.
+    composed = validate_and_compose(package_dir, core_ids=core_ids)
+    pkg = inspect_package(package_dir)
+    manifest = pkg["manifest"]
+    version = str(manifest.get("version") or "0.0.0")
+
+    digest = installer.compute_digest(package_dir)
+    dest = installer.install(
+        package_dir,
+        project_root,
+        kind=pkg["kind"],
+        package_id=composed.package_id,
+        version=version,
+    )
+    entry = {
+        "id": composed.package_id,
+        "kind": pkg["kind"],
+        "version": version,
+        "digest": digest,
+        "installed_path": str(Path(dest).relative_to(Path(project_root))),
+        "enabled": True,
+    }
+    deps = [{"id": w["id"]} for w in (manifest.get("depends_on", {}).get("workspaces", []) or []) if w.get("id")]
+    if deps:
+        entry["workspaces"] = deps
+    installer.upsert_lock_entry(project_root, entry)
+
+    return AdmissionResult(
+        package_id=composed.package_id,
+        kind=pkg["kind"],
+        installed_path=dest,
+        digest=digest,
+        composed=composed.composed,
+        executed_implementations=[],
+    )
+
+
+def remove(
+    ref: str, *, project_root: str | Path, force: bool = False, prune: bool = False
+) -> dict:
+    """Withdraw an artifact from the lock, refusing if others depend on it.
+
+    Refuses (raises ``AdmissionError``) when another admitted artifact depends on
+    the target, unless ``force``. With ``prune``, also removes the target's
+    workspaces when no remaining artifact depends on them. Returns
+    ``{removed, pruned}``.
+    """
+    arts = installer.list_substrate(project_root)
+    target = next((a for a in arts if a.get("id") == ref), None)
+    if target is None:
+        raise AdmissionError(f"{ref!r} is not in the installed substrate")
+
+    dependents = [
+        a["id"]
+        for a in arts
+        if a.get("id") != target["id"]
+        and any(w.get("id") == target["id"] for w in (a.get("workspaces") or []))
+    ]
+    if dependents and not force:
+        raise AdmissionError(
+            f"{target['id']} is depended on by {', '.join(dependents)}; pass --force to remove anyway"
+        )
+
+    installer.remove_lock_entry(project_root, target["id"])
+    pruned: list[str] = []
+    if prune:
+        remaining = installer.list_substrate(project_root)
+        for w in target.get("workspaces") or []:
+            wid = w.get("id")
+            still_needed = any(
+                any(dep.get("id") == wid for dep in (a.get("workspaces") or []))
+                for a in remaining
+            )
+            if not still_needed and any(a.get("id") == wid for a in remaining):
+                installer.remove_lock_entry(project_root, wid)
+                pruned.append(wid)
+    return {"removed": target["id"], "pruned": pruned}

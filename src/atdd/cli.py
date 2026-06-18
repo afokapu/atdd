@@ -654,9 +654,14 @@ Phase descriptions:
     # NOTE: 'session' subcommand removed in E009; replaced by top-level issue commands.
 
     # ----- atdd list -----
-    subparsers.add_parser(
+    list_parser = subparsers.add_parser(
         "list",
-        help="List all ATDD issues"
+        help="List all ATDD issues (or the installed substrate with --substrate)"
+    )
+    list_parser.add_argument(
+        "--substrate",
+        action="store_true",
+        help="List the installed substrate (.atdd/substrate.lock.yaml) instead of issues",
     )
 
     # ----- atdd archive <issue_number> -----
@@ -1894,6 +1899,36 @@ Phase descriptions:
         ),
     )
 
+    # ----- Substrate admission (wagon: admit-substrate) -----
+    search_parser = subparsers.add_parser(
+        "search", help="Search configured registries for admittable artifacts"
+    )
+    search_parser.add_argument("query", help="alias, canonical id, or tag substring")
+    search_parser.add_argument(
+        "--kind", choices=["extension", "workspace"], default=None,
+        help="restrict results to a kind",
+    )
+
+    add_cmd_parser = subparsers.add_parser(
+        "add", help="Admit an extension/workspace artifact into the local substrate"
+    )
+    add_cmd_parser.add_argument("ref", nargs="?", help="registry ref or alias")
+    add_cmd_parser.add_argument("--path", help="admit a local package directory directly")
+    add_cmd_parser.add_argument(
+        "--dry-run", action="store_true", help="validate + compose only; do not install"
+    )
+
+    remove_cmd_parser = subparsers.add_parser(
+        "remove", help="Withdraw an artifact from the local substrate"
+    )
+    remove_cmd_parser.add_argument("ref", help="artifact id to remove")
+    remove_cmd_parser.add_argument(
+        "--force", action="store_true", help="remove even if other artifacts depend on it"
+    )
+    remove_cmd_parser.add_argument(
+        "--prune", action="store_true", help="also remove now-unused workspaces"
+    )
+
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
 
     # Repository root override (not deprecated - still useful)
@@ -2164,8 +2199,35 @@ Phase descriptions:
 
     # atdd list (top-level shorthand)
     elif args.command == "list":
+        if getattr(args, "substrate", False):
+            from atdd.substrate import commands as substrate_cmd
+            return substrate_cmd.run_list(project_root=(args.repo or "."))
         manager = IssueManager()
         return manager.list()
+
+    # ----- Substrate admission (wagon: admit-substrate) -----
+    elif args.command == "search":
+        from atdd.substrate import commands as substrate_cmd
+        return substrate_cmd.run_search(
+            args.query, kind=args.kind, project_root=(args.repo or ".")
+        )
+
+    elif args.command == "add":
+        from atdd.substrate import commands as substrate_cmd
+        if not args.ref and not args.path:
+            print("error: `atdd add` needs a ref/alias or --path")
+            return 2
+        return substrate_cmd.run_add(
+            ref=args.ref, path=args.path,
+            project_root=(args.repo or "."), dry_run=args.dry_run,
+        )
+
+    elif args.command == "remove":
+        from atdd.substrate import commands as substrate_cmd
+        return substrate_cmd.run_remove(
+            args.ref, project_root=(args.repo or "."),
+            force=args.force, prune=args.prune,
+        )
 
     # atdd archive <issue_id> — DEPRECATED, delegates to atdd issue <N> --status COMPLETE
     elif args.command == "archive":
