@@ -2675,3 +2675,13 @@ sessions:
   created: '2026-06-18'
   archived: null
   branch: feat/wagon-complexity-separability
+- id: '1148'
+  slug: no-orphan-convention-nodes
+  file: null
+  issue_number: 1148
+  type: implementation
+  status: INIT
+  created: '2026-06-18'
+  archived: null
+  branch: feat/no-orphan-convention-nodes
+  train: 0003-author-substrate

@@ -52,8 +52,9 @@ produce:
 consume: []
 
 wmbt:
-  total: 17
+  total: 18
   D001: "maximize likelihood of schema-valid substrate by defining one canonical schema and flat canonical home per artifact kind and freezing the controlled vocabularies"
+  C008: "minimize likelihood of orphan-convention-nodes by asserting every convention node appears as a source_ref or target_ref of at least one relationship-graph edge (no node outside the graph), making graph integrity bidirectional"
   C001: "minimize likelihood of the shared atdd author spine accepting an invalid role, id, or path"
   P001: "minimize likelihood of wrong-authoring-context by resolving extension-vs-core (extension default; core only with --core)"
   P002: "maximize likelihood of a well-formed package-skeleton by scaffolding a new extension or workspace-provider package (manifest + canonical skeleton) from a validated namespaced id via `atdd author … init`"
