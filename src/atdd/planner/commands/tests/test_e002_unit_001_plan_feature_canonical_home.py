@@ -10,11 +10,19 @@ RED: create_feature does not exist yet.
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import yaml
 from jsonschema import validate
 
 from atdd.planner.commands.author import create_feature
-from atdd.planner.commands.author_schemas import load_schema
+
+_PLAN_SCHEMAS = Path(__file__).resolve().parents[2] / "schemas"
+
+
+def _plan_schema(kind):
+    return json.loads((_PLAN_SCHEMAS / f"{kind}.schema.json").read_text(encoding="utf-8"))
 
 
 def test_create_feature_writes_canonical_home(tmp_path):
@@ -25,9 +33,9 @@ def test_create_feature_writes_canonical_home(tmp_path):
         "sizing": {"wmbts": 1, "footprint_score": 4, "footprint_size": "S"},
         "wmbts": ["wmbt:demo-wagon:E001"],
         "components": {"backend": {"application": [
-            {"type": "use_cases", "count": 1, "rationale": "demo"}]}},
+            {"type": "use_cases", "count": 1, "rationale": "the create_feature write path"}]}},
     }
     path = create_feature(spec, root=tmp_path)
     assert path == tmp_path / "plan" / "demo_wagon" / "features" / "do_thing.yaml"
     assert path.exists()
-    validate(yaml.safe_load(path.read_text()), load_schema("feature"))
+    validate(yaml.safe_load(path.read_text()), _plan_schema("feature"))

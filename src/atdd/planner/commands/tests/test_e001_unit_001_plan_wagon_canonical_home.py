@@ -12,11 +12,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import json
+
 import yaml
 from jsonschema import validate
 
 from atdd.planner.commands.author import create_wagon
-from atdd.planner.commands.author_schemas import load_schema
+
+_PLAN_SCHEMAS = Path(__file__).resolve().parents[2] / "schemas"
+
+
+def _plan_schema(kind):
+    return json.loads((_PLAN_SCHEMAS / f"{kind}.schema.json").read_text(encoding="utf-8"))
 
 
 def test_create_wagon_writes_canonical_home_and_validates(tmp_path):
@@ -37,4 +44,4 @@ def test_create_wagon_writes_canonical_home_and_validates(tmp_path):
     # produce entry gains the schema-required null contract/telemetry keys by construction
     assert doc["produce"][0]["contract"] is None
     assert doc["produce"][0]["telemetry"] is None
-    validate(doc, load_schema("wagon"))
+    validate(doc, _plan_schema("wagon"))

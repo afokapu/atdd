@@ -184,6 +184,226 @@ def create_convention_node(
     return path
 
 
+# ---------------------------------------------------------------------------
+# Plan-layer authoring (wagon / feature / wmbt / train / acceptance).
+#
+# Sibling of the convention-substrate writers above: these author the *plan*
+# artifacts under plan/<slug>/ keyed by URN/slug/step-code (not role.rule_id).
+# They reuse the validate-then-write discipline: validate_plan_author_input
+# guards every write path so no malformed input reaches disk (WMBT C001).
+# ---------------------------------------------------------------------------
+
+_PLAN_ROOT = "plan"
+_SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+_WMBT_CODE_RE = re.compile(r"^[DLPCEMYRK][0-9]{3}$")
+_TRAIN_ID_RE = re.compile(r"^[0-9]{4}-[a-z][a-z0-9-]*$")
+_PLAN_URN_RE = re.compile(r"^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*(:[A-Za-z0-9-]+)*$")
+
+# Wagon manifest required header fields (consume + wmbt are defaulted by the
+# writer, so they are not required *inputs*).
+_WAGON_REQUIRED_INPUT = ("wagon", "description", "subject", "context", "action", "goal", "outcome", "produce")
+_FEATURE_REQUIRED = ("urn", "wagon", "description", "sizing", "wmbts", "components")
+_WMBT_REQUIRED = ("step", "direction", "dimension", "object_of_control", "lens", "statement")
+
+
+def _slug_to_dir(slug: str) -> str:
+    return slug.replace("-", "_")
+
+
+def validate_plan_author_input(
+    slug: str, ref: str, path: Path, *, plan_root: str = _PLAN_ROOT
+) -> None:
+    """Guard every plan-kind writer: reject a bad slug, URN, or out-of-plan path.
+
+    Raises ``AuthorInputError`` (with ``.field``) on the first violation:
+    slug not kebab-case; ref not a plan-artifact URN; path escaping ``plan_root``.
+    """
+    if not _SLUG_RE.match(slug or ""):
+        raise AuthorInputError("slug", f"invalid wagon slug {slug!r}; must be kebab-case")
+    if not _PLAN_URN_RE.match(ref or ""):
+        raise AuthorInputError("ref", f"invalid artifact ref {ref!r}; must be a colon URN")
+    home = os.path.normpath(str(plan_root))
+    norm = os.path.normpath(str(path))
+    if not (norm == home or norm.startswith(home + os.sep)):
+        raise AuthorInputError("path", f"path {str(path)!r} escapes the plan home {home}{os.sep}")
+
+
+def _plan_root(root: Path | str | None) -> Path:
+    return (Path(root) if root is not None else Path.cwd()) / _PLAN_ROOT
+
+
+def _write_yaml(path: Path, doc: dict) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as fh:
+        yaml.safe_dump(doc, fh, sort_keys=False, default_flow_style=False)
+    return path
+
+
+def validate_wagon(manifest: dict) -> None:
+    """Reject a structurally invalid wagon manifest before any write (WMBT C002)."""
+    for field in _WAGON_REQUIRED_INPUT:
+        if field not in manifest or manifest[field] in (None, "", []):
+            raise AuthorInputError(field, f"wagon manifest missing required field {field!r}")
+    for entry in manifest.get("produce", []):
+        if "name" not in entry or "contract" not in entry or "telemetry" not in entry:
+            raise AuthorInputError("produce", "produce entry must carry name/contract/telemetry")
+
+
+def create_wagon(spec: dict, *, root: Path | str | None = None) -> Path:
+    """Author a wagon manifest at plan/<slug>/_<slug>.yaml by construction (WMBT E001)."""
+    slug = spec.get("wagon", "")
+    plan = _plan_root(root)
+    dirname = _slug_to_dir(slug) if _SLUG_RE.match(slug or "") else slug
+    path = plan / dirname / f"_{dirname}.yaml"
+    validate_plan_author_input(slug, f"wagon:{slug}", path, plan_root=str(plan))
+
+    manifest: dict = {k: spec[k] for k in spec if k not in ("produce", "consume", "wmbt")}
+    manifest["produce"] = [
+        {"name": e.get("name"), "contract": e.get("contract"),
+         "telemetry": e.get("telemetry"), "to": e.get("to", "external")}
+        for e in spec.get("produce", [])
+    ]
+    manifest["consume"] = spec.get("consume", [])
+    manifest["wmbt"] = spec.get("wmbt", {"total": 0})
+    validate_wagon(manifest)
+    return _write_yaml(path, manifest)
+
+
+def validate_feature(feature: dict) -> None:
+    """Reject a structurally invalid feature before any write (WMBT C003)."""
+    for field in _FEATURE_REQUIRED:
+        if field not in feature or feature[field] in (None, "", []):
+            raise AuthorInputError(field, f"feature missing required field {field!r}")
+
+
+def create_feature(spec: dict, *, root: Path | str | None = None) -> Path:
+    """Author a feature at plan/<slug>/features/<name>.yaml by construction (WMBT E002)."""
+    urn = spec.get("urn", "")
+    parts = urn.split(":")
+    if len(parts) != 3 or parts[0] != "feature":
+        raise AuthorInputError("urn", f"invalid feature urn {urn!r}; expected feature:<wagon>:<name>")
+    wagon_slug, name = parts[1], parts[2]
+    plan = _plan_root(root)
+    path = plan / _slug_to_dir(wagon_slug) / "features" / f"{_slug_to_dir(name)}.yaml"
+    validate_plan_author_input(wagon_slug, urn, path, plan_root=str(plan))
+    validate_feature(spec)
+    return _write_yaml(path, dict(spec))
+
+
+def _seed_smoke_acceptance(wagon_slug: str, code: str) -> dict:
+    return {
+        "identity": {
+            "urn": f"acc:{wagon_slug}:{code}-SMOKE-001-seed",
+            "id": "AC-SMOKE-001",
+            "purpose": f"Verify the {code} behaviour against the real CLI in a checkout",
+            "phase": "SMOKE",
+        },
+        "harness": {"type": "integration", "category": "backend"},
+        "given": {"abstract": ["a real repo checkout and the installed atdd CLI"]},
+        "when": {"abstract": "the behaviour is exercised end-to-end"},
+        "then": {"abstract": ["the observable outcome holds"]},
+    }
+
+
+def validate_wmbt(wmbt: dict) -> None:
+    """Reject a structurally invalid WMBT before any write (WMBT C004)."""
+    for field in _WMBT_REQUIRED:
+        if field not in wmbt or wmbt[field] in (None, "", []):
+            raise AuthorInputError(field, f"wmbt missing required field {field!r}")
+    if wmbt["object_of_control"] not in wmbt.get("statement", ""):
+        raise AuthorInputError(
+            "statement",
+            f"statement must contain its object_of_control {wmbt['object_of_control']!r}",
+        )
+
+
+def create_wmbt(spec: dict, *, root: Path | str | None = None) -> Path:
+    """Author a WMBT at plan/<slug>/<CODE>.yaml in ODI grammar, seeding a SMOKE acc (WMBT E003)."""
+    wagon_slug = spec.get("wagon_slug", "")
+    code = spec.get("code", "")
+    if not _WMBT_CODE_RE.match(code or ""):
+        raise AuthorInputError("code", f"invalid wmbt code {code!r}; expected e.g. E001")
+    plan = _plan_root(root)
+    path = plan / _slug_to_dir(wagon_slug) / f"{code}.yaml"
+    validate_plan_author_input(wagon_slug, f"wmbt:{wagon_slug}:{code}", path, plan_root=str(plan))
+
+    wmbt: dict = {"urn": f"wmbt:{wagon_slug}:{code}"}
+    for k in ("step", "direction", "dimension", "object_of_control", "context_clarifier", "lens", "statement"):
+        if k in spec:
+            wmbt[k] = spec[k]
+    validate_wmbt(wmbt)
+    wmbt["acceptances"] = list(spec.get("acceptances") or []) or [_seed_smoke_acceptance(wagon_slug, code)]
+    return _write_yaml(path, wmbt)
+
+
+def validate_train(spec: dict) -> None:
+    """Reject a structurally invalid train before any write (WMBT C005)."""
+    tid = spec.get("train_id", "")
+    if not _TRAIN_ID_RE.match(tid or ""):
+        raise AuthorInputError("train_id", f"invalid train_id {tid!r}; expected NNNN-kebab-slug")
+
+
+def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
+    """Author a train: dedup-insert into _trains.yaml + write plan/_trains/<id>.yaml (WMBT E004)."""
+    validate_train(spec)
+    tid = spec["train_id"]
+    plan = _plan_root(root)
+    registry_path = plan / "_trains.yaml"
+    per_train = plan / "_trains" / f"{tid}.yaml"
+
+    registry = {}
+    if registry_path.exists():
+        registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    registry.setdefault("trains", {})
+    group = f"{tid[0]}-trains"
+    sub = f"{tid[0]}0-nominal"
+    bucket = registry["trains"].setdefault(group, {}).setdefault(sub, [])
+    if not any(isinstance(e, dict) and e.get("train_id") == tid for e in bucket):
+        bucket.append({
+            "train_id": tid,
+            "description": spec.get("description", ""),
+            "path": f"plan/_trains/{tid}.yaml",
+            "wagons": spec.get("wagons", []),
+        })
+        bucket.sort(key=lambda e: e.get("train_id", ""))
+    _write_yaml(registry_path, registry)
+
+    per_train.parent.mkdir(parents=True, exist_ok=True)
+    if not per_train.exists():
+        _write_yaml(per_train, {
+            "train_id": tid,
+            "title": spec.get("title", tid),
+            "description": spec.get("description", ""),
+            "participants": [f"wagon:{w}" for w in spec.get("wagons", [])],
+            "status": "planned",
+        })
+    return per_train
+
+
+def create_acceptance(wmbt_urn: str, block: dict, *, root: Path | str | None = None) -> Path:
+    """Append an acceptance into an existing WMBT's acceptances[], idempotent on urn (WMBT E005)."""
+    parts = (wmbt_urn or "").split(":")
+    if len(parts) != 3 or parts[0] != "wmbt":
+        raise AuthorInputError("wmbt", f"invalid wmbt urn {wmbt_urn!r}; expected wmbt:<wagon>:<CODE>")
+    wagon_slug, code = parts[1], parts[2]
+    plan = _plan_root(root)
+    path = plan / _slug_to_dir(wagon_slug) / f"{code}.yaml"
+    if not path.exists():
+        raise AuthorInputError("wmbt", f"target WMBT {wmbt_urn!r} not found at {path}")
+    acc_urn = (block.get("identity") or {}).get("urn")
+    if not acc_urn:
+        raise AuthorInputError("identity", "acceptance block missing identity.urn")
+    if (block.get("identity") or {}).get("phase") not in ("GREEN", "SMOKE", "RED", "REFACTOR"):
+        raise AuthorInputError("phase", "acceptance phase must be one of GREEN/SMOKE/RED/REFACTOR")
+
+    doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    accs = doc.setdefault("acceptances", [])
+    if not any((a.get("identity") or {}).get("urn") == acc_urn for a in accs):
+        accs.append(block)
+        _write_yaml(path, doc)
+    return path
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="atdd author",
