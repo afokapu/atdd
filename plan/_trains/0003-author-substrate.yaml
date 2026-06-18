@@ -6,6 +6,7 @@ themes:
 primary_wagon: author-atdd-substrate
 participants:
   - "wagon:author-atdd-substrate"
+  - "wagon:author-plan-substrate"
   - "system:atdd-cli"
 sequence:
   - step: 1
@@ -38,4 +39,9 @@ sequence:
     from: "wagon:author-atdd-substrate"
     to: "system:atdd-cli"
     artifact: "commons:author:gate-command"
+  - step: 7
+    intent: "Author the five plan-layer kinds (wagon/feature/wmbt/train/acceptance) under plan/, reusing the spine via a plan-artifact guard — the on-Confirm writer for atdd plan (#1139)"
+    from: "wagon:author-plan-substrate"
+    to: "system:atdd-cli"
+    artifact: "commons:author:wagon-command"
 status: planned

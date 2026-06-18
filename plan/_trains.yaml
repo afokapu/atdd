@@ -44,3 +44,4 @@ trains:
       path: plan/_trains/0003-author-substrate.yaml
       wagons:
       - author-atdd-substrate
+      - author-plan-substrate

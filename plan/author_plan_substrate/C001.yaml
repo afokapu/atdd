@@ -1,0 +1,71 @@
+urn: "wmbt:author-plan-substrate:C001"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "malformed-plan-author-input"
+context_clarifier: "when any plan-kind `atdd author` subcommand is invoked, the plan-artifact guard must validate the wagon slug, the artifact URN/step-code grammar, and that the resolved path stays under plan/ before routing to a per-kind writer, so no invalid input ever reaches a write path"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of malformed-plan-author-input by having the plan-artifact author guard reject a bad slug, URN, step-code, or out-of-plan/ path before any per-kind plan writer runs"
+acceptances:
+  - identity:
+      urn: "acc:author-plan-substrate:C001-UNIT-001-guard-rejects-bad-slug-and-path"
+      id: "AC-UNIT-001"
+      purpose: "the plan guard rejects a non-kebab slug and a path outside plan/ before dispatch"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A plan-author input with a non-kebab wagon slug and a target path outside plan/"
+    when:
+      abstract: "validate_plan_author_input(slug=..., ref=..., path=...) is called"
+    then:
+      abstract:
+        - "Validation fails citing the malformed slug"
+        - "Validation fails citing the out-of-plan/ path"
+        - "No per-kind plan writer is invoked"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:author-plan-substrate:C001-UNIT-002-guard-rejects-bad-urn-and-stepcode"
+      id: "AC-UNIT-002"
+      purpose: "the plan guard rejects a malformed artifact URN and an invalid step-code"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A plan-author input with a malformed URN and a step-code outside the DLPCEMYRK set"
+    when:
+      abstract: "validate_plan_author_input() is called"
+    then:
+      abstract:
+        - "Validation fails citing the malformed URN"
+        - "Validation fails citing the invalid step-code"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:author-plan-substrate:C001-SMOKE-001-cli-refuses-bad-plan-input"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author <plan-kind>` exits non-zero and writes nothing when given an invalid slug/URN/step-code/path against the real CLI"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+        - "An invocation carrying an invalid slug, URN, step-code, and path"
+    when:
+      abstract: "atdd author <plan-kind> is run with the invalid input"
+    then:
+      abstract:
+        - "The process exits non-zero with a validation error"
+        - "No artifact file under plan/ is created or modified"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"

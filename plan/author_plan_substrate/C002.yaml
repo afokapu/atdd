@@ -1,0 +1,70 @@
+urn: "wmbt:author-plan-substrate:C002"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "structurally-invalid-wagon"
+context_clarifier: "when authoring a wagon, the writer must reject a manifest that is missing a required header field, carries a produce/consume entry without the name/contract/telemetry keys, or uses a non-kebab slug — before it ever writes the file"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of accepting a structurally-invalid-wagon by validating the manifest against the wagon schema before any write"
+acceptances:
+  - identity:
+      urn: "acc:author-plan-substrate:C002-UNIT-001-rejects-missing-header-field"
+      id: "AC-UNIT-001"
+      purpose: "validate_wagon rejects a manifest missing a required header field (e.g. goal) and writes nothing"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A wagon input missing a required header field (goal)"
+    when:
+      abstract: "create_wagon(input) is called"
+    then:
+      abstract:
+        - "Validation fails citing the missing field"
+        - "No manifest file is written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:author-plan-substrate:C002-UNIT-002-rejects-produce-without-required-keys"
+      id: "AC-UNIT-002"
+      purpose: "a produce entry missing contract/telemetry is rejected (the wagon schema requires those keys)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A wagon input whose produce entry omits the contract and telemetry keys"
+    when:
+      abstract: "create_wagon(input) is called"
+    then:
+      abstract:
+        - "Validation fails citing the missing produce keys"
+        - "No manifest file is written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:author-plan-substrate:C002-SMOKE-001-cli-refuses-invalid-wagon"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author wagon` exits non-zero and writes nothing for a structurally invalid wagon against the real CLI"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+        - "An invocation that would produce a wagon missing a required field"
+    when:
+      abstract: "atdd author wagon is run with the invalid input"
+    then:
+      abstract:
+        - "The process exits non-zero with a validation error"
+        - "No manifest file is created under plan/"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
