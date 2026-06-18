@@ -1,0 +1,51 @@
+urn: "wmbt:author-atdd-substrate:C008"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "orphan-convention-nodes"
+context_clarifier: "the relationship graph (src/atdd/coach/graph/relationships.yaml) is the map of how convention nodes relate; an existing check already refuses dangling edges (an edge endpoint that is not a real node), but the reverse was unenforced — a convention node could be authored anywhere and never referenced by any edge, leaving it an orphan outside the map; graph integrity must be bidirectional so every node is covered, not merely every edge resolved"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of orphan-convention-nodes by asserting that every convention node (any *.convention.yaml carrying a top-level rule_id, test fixtures and demo.* excluded) appears as a source_ref or target_ref of at least one relationship-graph edge, refusing any node referenced by no edge so the graph covers every node"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C008-UNIT-001-orphan-detection"
+      id: "AC-UNIT-001"
+      purpose: "the orphan-detection logic flags a node referenced by no edge and clears a node referenced as either a source_ref or a target_ref"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A node-id set and a referenced-id set built from relationship edges, with mixed referenced and unreferenced node ids"
+    when:
+      abstract: "orphan_nodes(node_ids, referenced) is evaluated"
+    then:
+      abstract:
+        - "an unreferenced node id is returned as an orphan"
+        - "a node id present in the referenced set (whether it was a source or a target) is not an orphan"
+        - "only the unreferenced ids are returned for a mixed input"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:author-atdd-substrate:C008-SMOKE-001-no-orphan-nodes"
+      id: "AC-SMOKE-001"
+      purpose: "against the live corpus, every convention node is referenced in the relationship graph — the strict rule binds and reports zero orphans"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The live repository: every *.convention.yaml under src/atdd (fixtures/demo excluded) and the core relationship graph src/atdd/coach/graph/relationships.yaml"
+    when:
+      abstract: "the planner.relationship.no-orphan-nodes validator scans the live corpus through the disposition gate (strict)"
+    then:
+      abstract:
+        - "the rule binds (declared in a convention) and runs"
+        - "no convention node is reported as an orphan — every node appears as a source_ref or target_ref of some edge"
+        - "the existing forward check (no dangling edges) continues to pass, making graph integrity bidirectional"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
