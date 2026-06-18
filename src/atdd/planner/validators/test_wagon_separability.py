@@ -36,7 +36,8 @@ _VALIDATOR_ID = "wagon_separability"
 REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
 
-_DEFAULT_MIN_SHARED = 2
+_DEFAULT_MIN_SHARED = 3  # calibrated (#1147): >=3 shared tokens per edge — below this the
+                         # token graph is near-complete (ubiquitous words) and undiscriminative.
 _DEFAULT_MIN_SIZE = 3
 # grammar + ubiquitous domain words that would over-connect every WMBT
 _STOP = {
@@ -95,7 +96,7 @@ def _scan(
     for wagon, members in sorted(wagon_members.items()):
         if len(members) < min_size:
             continue  # min-graph-size guard: too small to assess internal structure
-        is_sep, coh, max_coupling, neighbor = separable(wagon, wagon_members, edges)
+        is_sep, coh_d, max_coupling_d, neighbor = separable(wagon, wagon_members, edges)
         if not is_sep:
             wd = wagon.replace("-", "_")
             violations.append(
@@ -104,8 +105,9 @@ def _scan(
                     severity=_RULE.severity,
                     location=f"plan/{wd}/_{wd}.yaml:1",
                     detail=(
-                        f"[MERGE] wagon '{wagon}' cohesion={coh} < coupling={max_coupling} "
-                        f"to '{neighbor}' — more bound to a neighbor than to itself"
+                        f"[MERGE] wagon '{wagon}' cohesion-density={coh_d:.3f} < "
+                        f"coupling-density={max_coupling_d:.3f} to '{neighbor}' — "
+                        f"more densely bound to a neighbor than to itself"
                     ),
                 )
             )

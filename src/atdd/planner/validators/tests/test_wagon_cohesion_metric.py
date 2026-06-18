@@ -10,7 +10,9 @@ import pytest
 from atdd.planner.validators._wagon_cohesion import (
     build_edges,
     cohesion,
+    cohesion_density,
     coupling,
+    coupling_density,
     separable,
 )
 
@@ -58,19 +60,27 @@ def test_coupling_counts_cross_edges():
     assert coupling(_W1, _W2, edges) == 1   # a-d only (de is intra-W2, not cross)
 
 
-def test_separable_when_cohesion_ge_coupling():
+def test_density_normalizes_for_size():
+    edges = build_edges(_TOKENS)
+    assert cohesion_density(_W1, edges) == pytest.approx(1.0)   # 3 / C(3,2)=3
+    assert cohesion_density(_W2, edges) == pytest.approx(1.0)   # 1 / C(2,2)=1
+    assert coupling_density(_W1, _W2, edges) == pytest.approx(1 / 6)  # 1 / (3*2)
+    assert cohesion_density({"solo"}, edges) == 0.0            # |W|<2 guard -> 0
+
+
+def test_separable_when_density_ge_coupling_density():
     edges = build_edges(_TOKENS)
     sep1, coh1, mc1, nb1 = separable("w1", _MEMBERS, edges)
-    assert (coh1, mc1, sep1) == (3, 1, True)
+    assert sep1 is True and coh1 == pytest.approx(1.0) and mc1 == pytest.approx(1 / 6)
     sep2, coh2, mc2, nb2 = separable("w2", _MEMBERS, edges)
-    assert (coh2, mc2, sep2) == (1, 1, True)   # tie counts as separable (>=)
+    assert sep2 is True and coh2 == pytest.approx(1.0)
 
 
-def test_merge_signal_when_coupling_exceeds_cohesion():
-    # A 1-WMBT wagon w3={f} that shares tokens with both w1 members but has no
-    # internal edge -> cohesion 0, coupling >=1 -> NOT separable (a MERGE signal).
+def test_merge_signal_when_coupling_density_exceeds_cohesion_density():
+    # A 1-WMBT wagon w3={f} sharing a token with all of w1 -> cohesion_density 0
+    # (no internal edge), coupling_density 1.0 -> NOT separable (a MERGE signal).
     toks = dict(_TOKENS, f={"x"})            # f shares "x" with a,b,c
     edges = build_edges(toks)
     members = dict(_MEMBERS, w3={"f"})
     sep, coh, mc, nb = separable("w3", members, edges)
-    assert coh == 0 and mc >= 1 and sep is False and nb == "w1"
+    assert coh == 0.0 and mc == pytest.approx(1.0) and sep is False and nb == "w1"

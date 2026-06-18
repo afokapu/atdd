@@ -44,24 +44,38 @@ def coupling(a: Set[str], b: Set[str], edges: Set[Edge]) -> int:
     return sum(1 for e in edges if len(e & a) == 1 and len(e & b) == 1)
 
 
+def cohesion_density(members: Set[str], edges: Set[Edge]) -> float:
+    """Intra-wagon edges / max possible (|W| choose 2). Size-invariant in [0,1]."""
+    n = len(members)
+    max_edges = n * (n - 1) // 2
+    return cohesion(members, edges) / max_edges if max_edges else 0.0
+
+
+def coupling_density(a: Set[str], b: Set[str], edges: Set[Edge]) -> float:
+    """Cross edges / max possible (|a| * |b|). Size-invariant in [0,1]."""
+    max_edges = len(a) * len(b)
+    return coupling(a, b, edges) / max_edges if max_edges else 0.0
+
+
 def separable(
     wagon: str,
     wagon_members: Dict[str, Set[str]],
     edges: Set[Edge],
-) -> Tuple[bool, int, int, Optional[str]]:
-    """Return (is_separable, cohesion, tightest_coupling, tightest_neighbor).
+) -> Tuple[bool, float, float, Optional[str]]:
+    """Return (is_separable, cohesion_density, tightest_coupling_density, neighbor).
 
-    A wagon is separable iff its internal cohesion is at least its tightest
-    coupling to any single neighbor (the MERGE-rule inverse).
+    A wagon is separable iff its internal edge DENSITY is at least its tightest
+    coupling density to any single neighbor (the MERGE-rule inverse, size-invariant
+    so a large wagon is not penalised for having more raw edges).
     """
     members = wagon_members[wagon]
-    coh = cohesion(members, edges)
-    best_coupling = 0
+    coh_d = cohesion_density(members, edges)
+    best_coupling = 0.0
     best_neighbor: Optional[str] = None
     for other, other_members in wagon_members.items():
         if other == wagon:
             continue
-        c = coupling(members, other_members, edges)
-        if c > best_coupling:
-            best_coupling, best_neighbor = c, other
-    return (coh >= best_coupling, coh, best_coupling, best_neighbor)
+        cd = coupling_density(members, other_members, edges)
+        if cd > best_coupling:
+            best_coupling, best_neighbor = cd, other
+    return (coh_d >= best_coupling, coh_d, best_coupling, best_neighbor)
