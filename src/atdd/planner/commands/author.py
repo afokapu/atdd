@@ -483,6 +483,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="per-trigger gate file (default: src/atdd/coach/gates/<trigger-name>.yaml)",
     )
 
+    # Plan-layer kinds — spec-driven (rich nested shape: produce[], components{},
+    # wmbts[], acceptances[]). The spec file holds the same input dict the
+    # create_<kind> functions accept; #1139 (atdd plan) writes it per locked unit.
+    for _kind in ("wagon", "feature", "wmbt", "train"):
+        pk = sub.add_parser(_kind, help=f"author a {_kind} (plan layer)")
+        pk.add_argument("--spec", required=True, help="path to a YAML/JSON file with the kind's input dict")
+        pk.add_argument("--root", default=None, help="repo root the plan/ home resolves against (default: cwd)")
+    pa = sub.add_parser("acceptance", help="append an acceptance into an existing WMBT (plan layer)")
+    pa.add_argument("--wmbt", required=True, dest="wmbt_urn", help="target WMBT urn (wmbt:<wagon>:<CODE>)")
+    pa.add_argument("--spec", required=True, help="path to a YAML/JSON file with the acceptance block")
+    pa.add_argument("--root", default=None, help="repo root the plan/ home resolves against (default: cwd)")
+
     # `extension init` / `workspace init` — scaffold a new package (P002).
     ext = sub.add_parser("extension", help="extension package operations")
     ext_sub = ext.add_subparsers(dest="subcmd", required=True)
@@ -569,6 +581,32 @@ def run(argv: list[str]) -> int:
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(pkg))
+        return 0
+
+    # Plan-layer kinds write under plan/ (not core/extension), so they need no
+    # authoring-context resolution — dispatch before resolve_context.
+    if args.cmd in ("wagon", "feature", "wmbt", "train", "acceptance"):
+        try:
+            spec = yaml.safe_load(Path(args.spec).read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError) as exc:
+            print(f"atdd author: cannot read --spec: {exc}", file=sys.stderr)
+            return 2
+        try:
+            if args.cmd == "wagon":
+                out = create_wagon(spec, root=args.root)
+            elif args.cmd == "feature":
+                out = create_feature(spec, root=args.root)
+            elif args.cmd == "wmbt":
+                out = create_wmbt(spec, root=args.root)
+            elif args.cmd == "train":
+                out = create_train(spec, root=args.root)
+            else:  # acceptance
+                out = create_acceptance(args.wmbt_urn, spec, root=args.root)
+        except AuthorInputError as exc:
+            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        print(str(out))
         return 0
 
     # every author kind resolves an authoring context first (P001, spec §6).
