@@ -10,9 +10,21 @@ from pathlib import Path
 
 import yaml
 
+from atdd.planner.commands.author_manifest import AuthorInputError
+from atdd.planner.commands.compose import CompositionError
 from atdd.substrate import admission, installer, registry, resolver
+from atdd.substrate.schemas import SubstrateSchemaError
 
 SUBSTRATE_FILE = "substrate.yaml"
+
+# The expected ways admission cleanly REFUSES a package — caught at the CLI
+# boundary and reported, not crashed on. Anything else is a real bug and propagates.
+_ADMISSION_REFUSALS = (
+    admission.AdmissionError,
+    AuthorInputError,
+    CompositionError,
+    SubstrateSchemaError,
+)
 
 
 def _load_registry_entries(project_root: str | Path) -> list[registry.RegistryEntry]:
@@ -83,7 +95,7 @@ def run_add(
             print(f"would admit {result.package_id} [{result.kind}] (dry-run; not installed)")
             return 0
         result = admission.admit(package_dir, project_root=project_root)
-    except (admission.AdmissionError, Exception) as exc:  # validation faults refuse cleanly
+    except _ADMISSION_REFUSALS as exc:
         print(f"error: refused — {exc}")
         return 1
     print(f"admitted {result.package_id} [{result.kind}] -> {result.installed_path}  {result.digest}")
