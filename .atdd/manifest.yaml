@@ -2680,7 +2680,7 @@ sessions:
   file: null
   issue_number: 1148
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-06-18'
   archived: null
   branch: feat/no-orphan-convention-nodes
