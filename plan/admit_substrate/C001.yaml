@@ -1,0 +1,51 @@
+urn: "wmbt:admit-substrate:C001"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "runtime-execution-during-admission"
+context_clarifier: "admission must be safe to run against untrusted packages: searching, adding, listing, and removing inspect manifests, validate, compose an in-memory protocol view, and write the lockfile, but they must never import or execute an extension's implementation modules — a package whose implementation code raises (or has side effects) on import or call must be admitted (or rejected for manifest reasons) without that code ever running, because runtime binding is a strictly later, separately-gated phase"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of runtime-execution-during-admission by ensuring search/add/remove/list inspect manifests, validate, compose, and write the lock without importing or executing any extension implementation module, so a poisoned implementation never runs during admission"
+acceptances:
+  - identity:
+      urn: "acc:admit-substrate:C001-UNIT-001-no-runtime-execution"
+      id: "AC-UNIT-001"
+      purpose: "admitting a package whose implementation module raises on import and on call completes without that module ever being imported or called"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixture extension package that is manifest-valid but ships a POISONED implementation module which raises RuntimeError at import time and at call time (and records a sentinel to a temp file if it ever executes)"
+    when:
+      abstract: "the admission path (resolve → validate manifest + owned files → compose protocol view) is run over the package"
+    then:
+      abstract:
+        - "admission completes (validates/composes) without raising the poisoned RuntimeError"
+        - "the poisoned module is never imported (absent from sys.modules) and the execution sentinel file is never written"
+        - "the composed view reports executed_implementations == [] (no runtime executed)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:admit-substrate:C001-SMOKE-001-add-does-not-execute"
+      id: "AC-SMOKE-001"
+      purpose: "`atdd add --path <poisoned-package>` as a subprocess installs/locks (or refuses on manifest grounds) without executing the poisoned implementation"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real on-disk extension package directory with a poisoned implementation module (raises + writes a sentinel on any execution) and a temp project root"
+    when:
+      abstract: "`atdd add --path <package>` is invoked as a subprocess against the temp project"
+    then:
+      abstract:
+        - "the command exits without the poisoned RuntimeError surfacing"
+        - "the execution sentinel file does not exist after the run"
+        - "if admitted, the lockfile entry exists; the package's implementation code was never run"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"

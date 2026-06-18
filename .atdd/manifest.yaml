@@ -2656,3 +2656,13 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1142'
+  slug: substrate-admission
+  file: null
+  issue_number: 1142
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-18'
+  archived: null
+  branch: feat/substrate-admission
+  train: 0004-admit-substrate

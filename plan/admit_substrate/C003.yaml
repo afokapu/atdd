@@ -1,0 +1,53 @@
+urn: "wmbt:admit-substrate:C003"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "invalid-artifact-admission"
+context_clarifier: "`atdd add` must not admit a package that does not compose against core: after resolving and locating the package it must validate the manifest by kind, confirm the files the manifest declares it owns exist, validate realizes/depends_on against installed core (reusing the package-composition seam), and compose an in-memory protocol view — refusing on any failure before a single file is installed or any lock entry is written, so a malformed or non-composing package is never admitted"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of invalid-artifact-admission by validating the manifest, owned files, and realizes/depends_on against core and composing a protocol view before install, refusing and leaving the substrate unchanged on any failure"
+acceptances:
+  - identity:
+      urn: "acc:admit-substrate:C003-UNIT-001-admission-validates"
+      id: "AC-UNIT-001"
+      purpose: "a well-formed package passes admission validation; variants with a malformed manifest, a missing owned file, and an unresolved realizes target are each refused with the substrate left unchanged"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A well-formed fixture extension package plus mutated variants: a manifest that fails kind validation, a manifest declaring an owned file that does not exist on disk, and a realizes mapping whose core_node is not a shipped core node"
+    when:
+      abstract: "the admission validator (resolve → validate manifest + owned files → validate_realizes → compose) is run over each"
+    then:
+      abstract:
+        - "the well-formed package passes and yields a composed view"
+        - "the malformed manifest is refused"
+        - "the missing owned file is refused"
+        - "the unresolved realizes target is refused"
+        - "on every refusal nothing is installed and the lockfile is unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:admit-substrate:C003-SMOKE-001-add-validates-cli"
+      id: "AC-SMOKE-001"
+      purpose: "`atdd add --path <invalid-package>` as a subprocess exits non-zero and installs nothing; `atdd validate package` still works unchanged"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project and a real on-disk extension package with a missing owned file"
+    when:
+      abstract: "`atdd add --path <package>` is invoked as a subprocess"
+    then:
+      abstract:
+        - "the command exits non-zero citing the validation failure"
+        - "no install directory is created and the lockfile is absent/unchanged"
+        - "`atdd validate package <path>` on a valid package still exits zero (admission does not regress it)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"

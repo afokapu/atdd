@@ -1,0 +1,32 @@
+schema_version: "1.0.0"
+entries:
+  - id: acme.extension.demo
+    kind: extension
+    aliases: [demo, component-header]
+    display_name: Demo Extension
+    summary: A demo extension fixture.
+    tags: [source, header]
+    trust: community
+    latest_version: "0.1.0"
+    versions: ["0.1.0"]
+  - id: acme.extension.alpha
+    kind: extension
+    aliases: [shared]
+    summary: Alpha — shares the 'shared' alias with beta.
+    tags: [misc]
+    trust: community
+    latest_version: "0.2.0"
+  - id: acme.extension.beta
+    kind: extension
+    aliases: [shared]
+    summary: Beta — shares the 'shared' alias with alpha.
+    tags: [misc]
+    trust: community
+    latest_version: "0.3.0"
+  - id: acme.workspace.runtime
+    kind: workspace
+    aliases: [ws]
+    summary: A workspace provider fixture.
+    tags: [runtime, pytest]
+    trust: community
+    latest_version: "1.0.0"
