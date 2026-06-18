@@ -2661,7 +2661,7 @@ sessions:
   file: null
   issue_number: 1142
   type: implementation
-  status: INIT
+  status: PLANNED
   created: '2026-06-18'
   archived: null
   branch: feat/substrate-admission
