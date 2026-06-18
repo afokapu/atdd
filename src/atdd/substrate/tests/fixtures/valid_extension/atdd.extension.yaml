@@ -8,6 +8,10 @@ feature: demo
 owns:
   conventions: []
   implementations: []
+  # Identifier category (selector-type names), NOT file paths — admission must not
+  # treat these as owned files to check on disk (regression: the github extension).
+  scopes:
+    - demo_scope
 depends_on:
   workspaces:
     - id: atdd.workspace.python-pytest

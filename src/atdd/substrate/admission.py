@@ -64,11 +64,24 @@ def inspect_package(package_dir: str | Path) -> dict:
     raise AdmissionError(f"no package manifest (atdd.extension.yaml / atdd.workspace.yaml) in {d}")
 
 
+# owns categories whose entries are FILE/DIR PATHS (checked for existence). Other
+# categories (e.g. `scopes`) list selector-type IDENTIFIERS, not paths.
+_PATH_OWNS_CATEGORIES = frozenset(
+    {"conventions", "relationships", "implementations", "schemas", "gates"}
+)
+
+
 def _validate_owned_files(pkg: dict) -> None:
-    """Every path the manifest declares it ``owns`` must exist on disk."""
+    """Every PATH the manifest declares it ``owns`` must exist on disk.
+
+    Only path-bearing categories are checked; identifier categories such as
+    ``scopes`` (selector-type names like ``github_issue``) are not file paths.
+    """
     owns = pkg["manifest"].get("owns") or {}
     pkg_dir = Path(pkg["dir"])
     for category, paths in owns.items():
+        if category not in _PATH_OWNS_CATEGORIES:
+            continue
         for rel in paths or []:
             if not isinstance(rel, str):
                 continue
