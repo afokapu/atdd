@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ATDD Substrate Intent Schema",
+  "description": "User intent for the local substrate: configured registries + requested artifact refs (.atdd/substrate.yaml).",
+  "type": "object",
+  "required": ["schema_version"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "registries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "source"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["git", "path", "https"] },
+          "source": { "type": "string" },
+          "path": { "type": "string" },
+          "trust": { "type": "string", "enum": ["official", "community", "local"] }
+        }
+      }
+    },
+    "substrate": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ref"],
+        "additionalProperties": false,
+        "properties": {
+          "ref": { "type": "string" },
+          "version": { "type": "string" }
+        }
+      }
+    }
+  }
+}

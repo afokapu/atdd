@@ -17,6 +17,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import yaml
+
+from atdd.planner.commands import compose
+
+# Manifest filename → package kind. Inspecting a package reads ONLY these YAML
+# manifests; it never imports an implementation module.
+_MANIFESTS = (("atdd.extension.yaml", "extension"), ("atdd.workspace.yaml", "workspace"))
+
+
+class AdmissionError(ValueError):
+    """A package could not be admitted (manifest, realization, or dependency fault)."""
+
 
 @dataclass(frozen=True)
 class AdmissionResult:
@@ -32,8 +44,23 @@ class AdmissionResult:
 
 
 def inspect_package(package_dir: str | Path) -> dict:
-    """Load a package manifest WITHOUT importing any of its code. (GREEN)"""
-    raise NotImplementedError("C003: inspect_package not implemented (RED)")
+    """Load a package's manifest WITHOUT importing any of its code.
+
+    Returns the discovery dict ``{kind, dir, manifest_path, manifest}`` (the shape
+    ``compose`` consumes). Only the YAML manifest is read — never an implementation
+    module.
+    """
+    d = Path(package_dir)
+    for name, kind in _MANIFESTS:
+        mp = d / name
+        if mp.exists():
+            return {
+                "kind": kind,
+                "dir": d,
+                "manifest_path": mp,
+                "manifest": yaml.safe_load(mp.read_text(encoding="utf-8")) or {},
+            }
+    raise AdmissionError(f"no package manifest (atdd.extension.yaml / atdd.workspace.yaml) in {d}")
 
 
 def validate_and_compose(
@@ -41,13 +68,33 @@ def validate_and_compose(
 ) -> AdmissionResult:
     """Validate a package and compose its protocol view — NO install, NO execution.
 
-    Resolve → validate manifest + owned files → validate realizes/depends_on →
-    compose protocol view. Returns an AdmissionResult whose
-    ``executed_implementations`` is always empty: this path reads manifests and
-    composes pure data and must never import an implementation module. Raises on
-    any validation failure. (GREEN)
+    Inspect manifest → validate manifest by kind → (extensions) validate realizes
+    against core + compose the protocol view. Reads manifests and composes pure
+    data only; it NEVER imports an implementation module, so
+    ``executed_implementations`` is always empty. Raises ``AuthorInputError`` /
+    ``AdmissionError`` on any validation failure.
     """
-    raise NotImplementedError("C001/C003: validate_and_compose not implemented (RED)")
+    pkg = inspect_package(package_dir)
+    compose.validate_by_kind(pkg)  # manifest shape; raises on invalid
+
+    if core_ids is None:
+        core_ids = compose.installed_core_node_ids()
+
+    composed: dict = {}
+    if pkg["kind"] == "extension":
+        compose.validate_realizes(pkg, core_ids)  # raises on bad realization
+        composed = compose.compose_protocol_view(core_ids, pkg, mode="composed")
+
+    manifest = pkg["manifest"]
+    package_id = manifest.get("extension_id") or manifest.get("workspace_id") or ""
+    # Admission never runs an implementation; surface that invariant explicitly.
+    executed = list(composed.get("executed_implementations", []))
+    return AdmissionResult(
+        package_id=package_id,
+        kind=pkg["kind"],
+        composed=composed,
+        executed_implementations=executed,
+    )
 
 
 def admit(

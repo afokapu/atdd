@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ATDD Substrate Lock Schema",
+  "description": "Resolved, digest-pinned installed substrate state (.atdd/substrate.lock.yaml). Core loads substrate from this file, not a filesystem scan.",
+  "type": "object",
+  "required": ["schema_version", "artifacts"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "version", "digest", "installed_path"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string", "enum": ["extension", "workspace"] },
+          "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+          "source": { "type": "string" },
+          "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "installed_path": { "type": "string" },
+          "enabled": { "type": "boolean" },
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "version": { "type": "string" },
+                "contract_version": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
