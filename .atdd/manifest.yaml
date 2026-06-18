@@ -2669,7 +2669,8 @@ sessions:
   file: null
   issue_number: 1144
   type: implementation
-  status: PLANNED
+  status: RED
+  train: 0003-author-substrate
   created: '2026-06-18'
   archived: null
 - id: '1142'
