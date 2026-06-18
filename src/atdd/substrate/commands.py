@@ -6,9 +6,12 @@ an extension implementation module.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 from atdd.planner.commands.author_manifest import AuthorInputError
 from atdd.planner.commands.compose import CompositionError
@@ -78,11 +81,13 @@ def run_add(
         try:
             entry = resolver.resolve(ref, entries)
         except resolver.AmbiguousAliasError as exc:
+            _log.warning("ambiguous alias refused", extra={"ref": ref, "candidates": exc.candidates})
             print(f"error: {exc}")
             for cid in exc.candidates:
                 print(f"  candidate: {cid}")
             return 1
         except resolver.ResolutionError as exc:
+            _log.warning("ref did not resolve", extra={"ref": ref, "error": str(exc)})
             print(f"error: {exc}")
             return 1
         package_dir = Path(entry.source)
@@ -96,6 +101,7 @@ def run_add(
             return 0
         result = admission.admit(package_dir, project_root=project_root)
     except _ADMISSION_REFUSALS as exc:
+        _log.warning("admission refused", extra={"package": str(package_dir), "error": str(exc)})
         print(f"error: refused — {exc}")
         return 1
     print(f"admitted {result.package_id} [{result.kind}] -> {result.installed_path}  {result.digest}")
@@ -108,6 +114,7 @@ def run_remove(
     try:
         out = admission.remove(ref, project_root=project_root, force=force, prune=prune)
     except admission.AdmissionError as exc:
+        _log.warning("remove refused", extra={"ref": ref, "error": str(exc)})
         print(f"error: {exc}")
         return 1
     msg = f"removed {out['removed']}"

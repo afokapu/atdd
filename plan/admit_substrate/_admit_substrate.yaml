@@ -35,11 +35,7 @@ produce:
     telemetry: null
     to: external
 
-consume:
-  - name: commons:author:package-composition
-    contract: null
-    telemetry: null
-    from: external
+consume: []
 
 wmbt:
   total: 7

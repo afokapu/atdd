@@ -47,11 +47,7 @@ wagons:
     contract: null
     telemetry: null
     to: external
-  consume:
-  - name: commons:author:package-composition
-    contract: null
-    telemetry: null
-    from: external
+  consume: []
   wmbt:
     total: 7
     D001: maximize likelihood of schema-valid substrate intent and lock by defining
