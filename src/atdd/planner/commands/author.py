@@ -239,11 +239,16 @@ def _write_yaml(path: Path, doc: dict) -> Path:
     return path
 
 
+def _require_fields(doc: dict, fields, label: str) -> None:
+    """Raise AuthorInputError(.field) for the first missing/empty required field."""
+    for field in fields:
+        if field not in doc or doc[field] in (None, "", []):
+            raise AuthorInputError(field, f"{label} missing required field {field!r}")
+
+
 def validate_wagon(manifest: dict) -> None:
     """Reject a structurally invalid wagon manifest before any write (WMBT C002)."""
-    for field in _WAGON_REQUIRED_INPUT:
-        if field not in manifest or manifest[field] in (None, "", []):
-            raise AuthorInputError(field, f"wagon manifest missing required field {field!r}")
+    _require_fields(manifest, _WAGON_REQUIRED_INPUT, "wagon manifest")
     for entry in manifest.get("produce", []):
         if "name" not in entry or "contract" not in entry or "telemetry" not in entry:
             raise AuthorInputError("produce", "produce entry must carry name/contract/telemetry")
@@ -271,9 +276,7 @@ def create_wagon(spec: dict, *, root: Path | str | None = None) -> Path:
 
 def validate_feature(feature: dict) -> None:
     """Reject a structurally invalid feature before any write (WMBT C003)."""
-    for field in _FEATURE_REQUIRED:
-        if field not in feature or feature[field] in (None, "", []):
-            raise AuthorInputError(field, f"feature missing required field {field!r}")
+    _require_fields(feature, _FEATURE_REQUIRED, "feature")
 
 
 def create_feature(spec: dict, *, root: Path | str | None = None) -> Path:
