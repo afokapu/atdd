@@ -19,7 +19,7 @@ metadata:
     - PLANNER-RELATIONSHIP-NO-ORPHAN-NODES-001
   severity: 3
   disposition: strict
-  introduced_in: 3.118.0
+  introduced_in: 3.119.0
 parity:
   source_fragments_preserved: true
 terms:
