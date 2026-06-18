@@ -305,3 +305,8 @@ rules:
     description: "The directed wagon graph built from produce->consume artifact NAMES must be acyclic; no strongly-connected component may span more than one wagon (cross-wagon dependency cycle). Keyed on artifact name, not the nullable contract field."
     validator: "test_no_cross_wagon_consume_cycle::test_no_cross_wagon_consume_cycle"
     introduced_in: "3.117.0"
+  - id: "planner.wagon.complexity-model"
+    severity: 2
+    disposition: documentation-only
+    description: "Wagon sizing has two orthogonal axes: intrinsic footprint (size) and coupling complexity (separability). Complexity is super-linear in cross-wagon coupling, not additive in component count. Conceptual model behind no-consume-cycle (strict) and the advisory separability/granularity signals (Phase 2)."
+    introduced_in: "3.117.0"
