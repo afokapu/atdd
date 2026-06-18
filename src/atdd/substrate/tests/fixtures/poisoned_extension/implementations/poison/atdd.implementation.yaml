@@ -1,0 +1,6 @@
+schema_version: "1.0.0"
+kind: implementation
+implementation_id: acme.extension.poison.impl
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.0.0"
+entrypoint: poison.py
