@@ -2669,7 +2669,7 @@ sessions:
   file: null
   issue_number: 1144
   type: implementation
-  status: SMOKE
+  status: REFACTOR
   train: 0003-author-substrate
   created: '2026-06-18'
   archived: null
