@@ -13,7 +13,11 @@ GREEN target: load ``binding-lock.schema.json`` and validate against it, mirrori
 """
 from __future__ import annotations
 
+import functools
+import json
 from pathlib import Path
+
+import jsonschema
 
 BINDING_LOCK_SCHEMA = "binding-lock.schema.json"
 
@@ -22,21 +26,25 @@ class BindingSchemaError(ValueError):
     """A binding plan failed validation against its canonical schema."""
 
 
-def _schema_dir() -> Path:  # pragma: no cover - trivial path helper (GREEN)
+def _schema_dir() -> Path:
     import atdd
 
     return Path(atdd.__file__).resolve().parent / "planner" / "schemas"
 
 
+@functools.lru_cache(maxsize=None)
 def load_binding_lock_schema() -> dict:
-    """Load the binding-lock JSON schema, resolved package-relatively. (GREEN)"""
-    raise NotImplementedError("D001: load binding-lock.schema.json (GREEN)")
+    """Load the binding-lock JSON schema, resolved package-relatively from the
+    installed ``atdd`` package (so a pip-installed core validates with no checkout)."""
+    return json.loads((_schema_dir() / BINDING_LOCK_SCHEMA).read_text(encoding="utf-8"))
 
 
 def validate_binding_lock(data: dict, *, source: str | Path = "<binding.lock.yaml>") -> None:
-    """Validate a binding plan against its canonical schema, raising on violation.
-
-    GREEN target: jsonschema.validate(data, load_binding_lock_schema()); on
-    ValidationError raise BindingSchemaError with the offending path + message.
-    """
-    raise NotImplementedError("D001: validate binding plan against binding-lock schema (GREEN)")
+    """Validate a binding plan against its canonical schema, raising on violation."""
+    try:
+        jsonschema.validate(instance=data, schema=load_binding_lock_schema())
+    except jsonschema.ValidationError as exc:
+        loc = ".".join(str(p) for p in exc.absolute_path) or "<root>"
+        raise BindingSchemaError(
+            f"{source}: schema violation at {loc}: {exc.message}"
+        ) from exc

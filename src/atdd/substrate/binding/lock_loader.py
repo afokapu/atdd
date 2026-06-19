@@ -38,11 +38,31 @@ class LoadedPackage:
 def verify_package_digest(project_root: str | Path, entry: dict) -> None:
     """Re-verify a lock entry's installed package against its recorded digest.
 
-    GREEN target: recompute installer.compute_digest(project_root / installed_path)
-    and raise DigestMismatchError if it != entry['digest'] (the tamper boundary).
-    Never imports an implementation module.
+    Recomputes the sha256 digest of the installed package directory and raises
+    ``DigestMismatchError`` when it differs from the lock entry's ``digest`` — the
+    tamper boundary, run BEFORE any package load. Never imports an implementation
+    module (digest is computed over file bytes only).
     """
-    raise NotImplementedError("C001: re-verify installed-package digest before loading (GREEN)")
+    from atdd.substrate import installer
+    from atdd.substrate.binding import DigestMismatchError
+
+    pkg_id = entry.get("id", "<unknown>")
+    expected = entry.get("digest")
+    if not expected:
+        raise DigestMismatchError(f"{pkg_id}: lock entry has no digest to verify against")
+
+    pkg_dir = Path(project_root) / entry["installed_path"]
+    if not pkg_dir.exists():
+        raise DigestMismatchError(
+            f"{pkg_id}: installed_path {entry['installed_path']!r} is missing on disk"
+        )
+
+    actual = installer.compute_digest(pkg_dir)
+    if actual != expected:
+        raise DigestMismatchError(
+            f"{pkg_id}: installed package was modified since admission "
+            f"(lock digest {expected}, on-disk {actual}) — refusing to load"
+        )
 
 
 def load_enabled_packages(project_root: str | Path) -> list[LoadedPackage]:
