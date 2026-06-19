@@ -2702,3 +2702,12 @@ sessions:
   status: INIT
   created: '2026-06-17'
   archived: null
+- id: '1147'
+  slug: wagon-separability-granularity
+  file: null
+  issue_number: 1147
+  type: implementation
+  status: INIT
+  created: '2026-06-18'
+  archived: null
+  branch: feat/wagon-separability-granularity

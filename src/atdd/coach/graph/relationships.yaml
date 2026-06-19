@@ -1439,6 +1439,24 @@ edges:
   strength: important
   target_ref: planner.wmbt.step-code-vocabulary
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: separability operationalizes the complexity model's cohesion-vs-coupling comparison on the WMBT graph
+  source_ref: planner.wagon.separability
+  strength: important
+  target_ref: planner.wagon.complexity-model
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: semantic coherence and graph separability are two views of whether a wagon is one job
+  source_ref: planner.wagon.separability
+  strength: minor
+  target_ref: planner.wagon.semantic-coherence
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0
