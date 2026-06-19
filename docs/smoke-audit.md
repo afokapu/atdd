@@ -188,6 +188,7 @@ of bypass patterns.
 | acc:govern-lifecycle:E005-SMOKE-001-real-validate-coach-runs-extended-drift-validator | real (atdd validate coach) | validator execution | N/A (meta-validator) | — |
 | acc:govern-lifecycle:E006-SMOKE-001-real-tester-suite-runs-both-validators | real (atdd validate tester) | validator discovery | N/A (meta-validator) | — |
 | acc:govern-lifecycle:E006-SMOKE-002-rules-resolve-against-real-registry | real (atdd rules) | rule resolution | N/A (meta-validator) | — |
+| acc:govern-lifecycle:E055-SMOKE-001-real-tester-suite-runs-live-smoke-validator | real (atdd validate tester) | live-smoke validator discovery + executes (not skipped) + rule resolves from rebuilt registry | N/A (meta-validator) | #1151 |
 | acc:govern-lifecycle:E008-SMOKE-001-registration-visible-cross-worktree | real (atdd manifest) | cross-worktree visibility | both ends (write + read) | — |
 | acc:govern-lifecycle:E009-SMOKE-001-real-validate-coach-runs-runtime-guard | real (atdd validate coach) | runtime guard | N/A (meta-validator) | — |
 | acc:govern-lifecycle:E010-SMOKE-001-real-branch-creation-starts-at-origin | real (atdd branch) | branch origin | N/A (single component) | — |

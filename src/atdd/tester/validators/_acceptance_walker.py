@@ -27,7 +27,7 @@ import re
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Optional, Sequence, Tuple
+from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 import yaml
 
@@ -304,6 +304,55 @@ def _is_truthy_env(value: Optional[str]) -> bool:
     return value.strip().lower() not in {"", "0", "false", "no", "off"}
 
 
+_ACCEPTANCE_HEADER_RE = re.compile(r"(?:#|//)\s*[Aa]cceptance:\s*(acc:[^\s]+)")
+_TEST_FILENAME_RE = re.compile(
+    r"^(?:test_.*\.py|.*_test\.py|.*\.test\.tsx?|.*\.spec\.ts|.*_test\.dart)$"
+)
+_TEST_EXTS = {".py", ".ts", ".tsx", ".dart"}
+_PRUNE_DIRS = {
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "dist",
+    "build",
+    ".tox",
+    ".pytest_cache",
+    ".mypy_cache",
+    "site-packages",
+}
+
+
+def scan_test_acceptance_headers(repo_root: Path) -> Dict[str, List[Path]]:
+    """Return ``{acceptance_urn: [test_file, ...]}`` for every anchored test.
+
+    Walks the repo for test files (pruning vendored/build dirs) and reads the
+    leading comment block of each for ``# Acceptance: acc:...`` headers. Shared
+    by the substrate enforcement validators that bind acceptances to their
+    anchored tests (e.g. validator-binding, live-smoke-execution) so the scan
+    lives in one place.
+    """
+    index: Dict[str, List[Path]] = {}
+    for dirpath, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = [d for d in dirnames if d not in _PRUNE_DIRS]
+        for fname in filenames:
+            ext = "." + fname.rsplit(".", 1)[-1] if "." in fname else ""
+            if ext.lower() not in _TEST_EXTS or not _TEST_FILENAME_RE.match(fname):
+                continue
+            test_file = Path(dirpath) / fname
+            try:
+                text = test_file.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            # Only the leading comment block — avoids false positives from
+            # prose mentioning "# Acceptance: acc:..." inside a test body/string.
+            head = "\n".join(text.split("\n", 30)[:30])
+            for match in _ACCEPTANCE_HEADER_RE.finditer(head):
+                index.setdefault(match.group(1).strip(), []).append(test_file)
+    return index
+
+
 __all__ = [
     "RawAcceptance",
     "SUBSTRATE_BACKLOG_ENV",
@@ -316,5 +365,6 @@ __all__ = [
     "iter_feature_files",
     "iter_repo_acceptances",
     "iter_repo_wmbts",
+    "scan_test_acceptance_headers",
     "yaml_path_str",
 ]

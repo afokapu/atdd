@@ -1,0 +1,102 @@
+urn: "wmbt:govern-lifecycle:E055"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "live-smoke-acceptances-whose-anchored-test-can-self-skip-and-thus-satisfy-smoke-without-ever-executing"
+context_clarifier: "when a planner authors an acceptance with execution_kind: live_smoke whose anchored test carries a self-skip mechanism (pytest.skip / pytest.importorskip / @pytest.mark.skip / @pytest.mark.skipif / a live_smoke_available()-style guard) so the test produces no passing outcome and the acceptance passes vacuously — the substrate emits Violations from test failure but never models absence-of-execution (#1076: C010-SMOKE-001 passed by skipping yet FAILED when run live), completing the chain after hermetic-live-smoke-required-must-have-paired-smoke-acceptance which requires the pairing but not the paired live_smoke actually executing"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of live-smoke-acceptances-whose-anchored-test-can-self-skip-and-thus-satisfy-smoke-without-ever-executing when a planner authors an execution_kind: live_smoke acceptance by declaring tester.acceptance-violation.live-smoke-acceptance-must-execute (strict) in acceptance-violation.convention.yaml with a paired validator test_live_smoke_execution reusing _acceptance_walker.iter_repo_acceptances and assert_substrate_strict to scan each live_smoke acceptance's anchored test for self-skip mechanisms and emit a Violation when found, plus a live-smoke-execution.recipe.yaml pointing the author at removing the self-skip or re-authoring as hermetic_integration"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E055-UNIT-001-convention-declares-live-smoke-execution-rule"
+      id: "AC-UNIT-001"
+      purpose: "acceptance-violation.convention.yaml declares tester.acceptance-violation.live-smoke-acceptance-must-execute (strict) whose recipe pointer names a recipe file that exists, and bind_rule() resolves it"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/tester/conventions/acceptance-violation.convention.yaml declares tester.acceptance-violation.live-smoke-acceptance-must-execute under rules: with disposition: strict and severity: 4"
+        - "Its recipe: field is live-smoke-execution and src/atdd/tester/conventions/live-smoke-execution.recipe.yaml exists on disk"
+    when:
+      abstract: "bind_rule('tester.acceptance-violation.live-smoke-acceptance-must-execute') is invoked"
+    then:
+      abstract:
+        - "bind_rule resolves the rule without raising RuleNotInRegistryError or AmbiguousRuleError"
+        - "The resolved RuleMetadata reports disposition strict and severity 4"
+        - "The rule's recipe pointer names a recipe file (live-smoke-execution.recipe.yaml) that exists on disk"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E055-INTEGRATION-001-evaluator-fires-on-self-skipping-live-smoke-test"
+      id: "AC-INTEGRATION-001"
+      purpose: "evaluate_live_smoke_execution emits exactly one Violation for a live_smoke acceptance anchored to a test that can self-skip, and stays silent for a live_smoke acceptance anchored to a test that cannot self-skip"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "evaluate_live_smoke_execution is the pure evaluator under src/atdd/tester/validators/test_live_smoke_execution.py"
+        - "One entry pairs a live_smoke acceptance urn with an anchored test source that calls pytest.skip via a live_smoke_available() guard"
+        - "A second entry pairs a live_smoke acceptance urn with an anchored test source that contains no self-skip mechanism"
+    when:
+      abstract: "evaluate_live_smoke_execution([entry_skipping, entry_clean]) is called"
+    then:
+      abstract:
+        - "Returns exactly one Violation whose rule_id is tester.acceptance-violation.live-smoke-acceptance-must-execute"
+        - "The Violation.location is the self-skipping test path and Violation.detail names the offending acceptance URN and the self-skip mechanism"
+        - "The clean entry contributes zero Violations"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E055-INTEGRATION-002-detect-self-skip-classifies-mechanisms"
+      id: "AC-INTEGRATION-002"
+      purpose: "detect_self_skip recognizes each self-skip mechanism (pytest.skip, pytest.importorskip, @pytest.mark.skip, @pytest.mark.skipif, live_smoke_available guard) and returns None for a clean test source"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "detect_self_skip is the source-scanning helper under src/atdd/tester/validators/test_live_smoke_execution.py"
+        - "Sample sources each isolate one self-skip mechanism, plus one clean source with a bare real-infrastructure assertion"
+    when:
+      abstract: "detect_self_skip is called on each sample source"
+    then:
+      abstract:
+        - "Each self-skip sample returns a non-None label naming the mechanism it found"
+        - "The clean source returns None"
+        - "A @pytest.mark.skipif decorator is classified distinctly from @pytest.mark.skip"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E055-SMOKE-001-real-tester-suite-runs-live-smoke-validator"
+      id: "AC-SMOKE-001"
+      purpose: "Running the real atdd validate tester suite on this repo collects and executes test_live_smoke_execution (eat-own-dog-food: the validator is alive in the real suite, not skipped), and bind_rule resolves the rule against the rebuilt registry"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "test_live_smoke_execution.py is registered under src/atdd/tester/validators/"
+        - "tester.acceptance-violation.live-smoke-acceptance-must-execute is declared in acceptance-violation.convention.yaml"
+        - "The convention registry is rebuilt by build_registry() from the repo root"
+    when:
+      abstract: "atdd validate tester --local --skip-api is invoked on this repo"
+    then:
+      abstract:
+        - "pytest collects test_live_smoke_execution.py and the gate test test_every_live_smoke_acceptance_executed runs (not skipped) against the real plan/ acceptances"
+        - "bind_rule('tester.acceptance-violation.live-smoke-acceptance-must-execute') resolves from the rebuilt registry with disposition strict, proving the rule is not orphaned"
+        - "If a verdict is failing, every offender carries a fix_hint naming the self-skip mechanism to remove"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
