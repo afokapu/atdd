@@ -1111,7 +1111,7 @@ sessions:
   status: COMPLETE
   train: 0001-self-compliance-validate
   created: '2026-05-18'
-  archived: null
+  archived: '2026-06-19'
 - id: '760'
   slug: reconcile-wmbt-schema-with-validation-reality
   file: null
