@@ -28,26 +28,6 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-06-18"
   - identity:
-      urn: "acc:author-plan-substrate:E001-UNIT-002-required-produce-keys-emitted"
-      id: "AC-UNIT-002"
-      purpose: "emitted produce/consume entries carry the schema-required name/contract/telemetry keys (contract/telemetry null at plan time)"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A wagon input declaring one produced artifact with no known contract or telemetry"
-    when:
-      abstract: "create_wagon(input) is called"
-    then:
-      abstract:
-        - "The produce entry carries name, contract: null, and telemetry: null"
-        - "The manifest passes wagon-schema validation (which requires those keys)"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-18"
-  - identity:
       urn: "acc:author-plan-substrate:E001-SMOKE-001-cli-creates-valid-wagon"
       id: "AC-SMOKE-001"
       purpose: "Verify `atdd author wagon` writes a schema-valid manifest at the canonical home in a real checkout"

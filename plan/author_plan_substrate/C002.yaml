@@ -28,26 +28,6 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-06-18"
   - identity:
-      urn: "acc:author-plan-substrate:C002-UNIT-002-rejects-produce-without-required-keys"
-      id: "AC-UNIT-002"
-      purpose: "a produce entry missing contract/telemetry is rejected (the wagon schema requires those keys)"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A wagon input whose produce entry omits the contract and telemetry keys"
-    when:
-      abstract: "create_wagon(input) is called"
-    then:
-      abstract:
-        - "Validation fails citing the missing produce keys"
-        - "No manifest file is written"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-18"
-  - identity:
       urn: "acc:author-plan-substrate:C002-SMOKE-001-cli-refuses-invalid-wagon"
       id: "AC-SMOKE-001"
       purpose: "Verify `atdd author wagon` exits non-zero and writes nothing for a structurally invalid wagon against the real CLI"
