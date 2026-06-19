@@ -15,10 +15,13 @@ core process. Violations come back over the provider contract shape
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+
+_log = logging.getLogger("atdd.substrate.binding")
 
 # Sentinel prefixing the child's single result line, so provider/pytest chatter on
 # stdout never collides with the structured payload.
@@ -83,6 +86,10 @@ def provider_spawn(
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
+        _log.warning(
+            "provider-spawn timed out",
+            extra={"implementation_id": implementation_id, "timeout_s": timeout},
+        )
         return SpawnResult(
             implementation_id=implementation_id,
             ran=False,
@@ -116,5 +123,6 @@ def _parse_result(stdout: str) -> dict | None:
             try:
                 return json.loads(line[len(_RESULT_TAG):])
             except json.JSONDecodeError:
+                _log.warning("provider-spawn emitted a malformed result line", extra={"line": line[:200]})
                 return None
     return None
