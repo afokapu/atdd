@@ -1108,7 +1108,7 @@ sessions:
   file: null
   issue_number: 761
   type: implementation
-  status: SMOKE
+  status: REFACTOR
   train: 0001-self-compliance-validate
   created: '2026-05-18'
   archived: null
