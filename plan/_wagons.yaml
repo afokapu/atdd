@@ -72,6 +72,103 @@ wagons:
   total: 0
   manifest: plan/admit_substrate/_admit_substrate.yaml
   path: plan/admit_substrate/
+- wagon: bind-substrate-runtime
+  description: 'The ATDD substrate runtime back end: the binder that turns a locked,
+    inert `.atdd/substrate.lock.yaml` into running, gating capabilities. Admission
+    (`admit-substrate`) installs packages but never executes them; this wagon is the
+    first layer that runs admitted code. It loads enabled packages from the lock by
+    `installed_path`, re-verifies each package''s sha256 digest against the lock before
+    loading (the tamper boundary), composes the capability graph and indexes implementations
+    by `realizes_convention`, selects which bound capabilities apply to a lifecycle
+    phase + blast radius, resolves the workspace each implementation targets (SemVer
+    contract check + materialized instance), and executes the implementation via PROVIDER-SPAWN
+    (a subprocess in the provider''s runtime — core imports no extension code) to produce
+    Violations. Those Violations are routed into core''s disposition gate so a bound
+    implementation gates a transition exactly like a legacy validator, SHADOWING the
+    matching legacy validator; on any failure gating FALLS BACK to legacy, loudly logged
+    — never fail-open. The binding plan is cached in `.atdd/binding.lock.yaml`, digest-keyed
+    off the substrate lock. The public surface is two commands: capabilities and bind
+    --check. Distinct from `admit-substrate`, which ADMITS non-executing; this wagon
+    BINDS and EXECUTES. The third and final substrate stage: author → admit → bind.'
+  theme: commons
+  subject: agent:operator
+  context: admit-substrate-installs-packages-into-a-locked-but-inert-substrate, capabilities-cannot-gate-anything-until-something-binds-the-lock-to-behavior
+  action: loads enabled packages from `.atdd/substrate.lock.yaml` by installed_path,
+    re-verifies each package's sha256 digest against the lock before loading, composes
+    the capability graph and indexes implementations by realizes_convention, selects
+    applicable capabilities for a lifecycle phase + blast radius, resolves the targeted
+    workspace (SemVer contract check + materialized instance), provider-spawns the
+    implementation entrypoint as an isolated subprocess to produce Violations, and
+    routes them into the disposition gate — shadowing the matching legacy validator
+    on success and falling back to legacy on any failure
+  goal: move gating out of core into admitted packages, executed reproducibly and in
+    subprocess isolation with core importing no extension code, so a locked capability
+    can gate a lifecycle transition exactly like a legacy validator while any bind
+    failure fails safe to legacy
+  outcome: enabled substrate becomes live gating capability driven entirely from `.atdd/substrate.lock.yaml`,
+    with a cached digest-keyed `.atdd/binding.lock.yaml`, `atdd capabilities` / `atdd
+    bind --check` surfaces, and a loud legacy-fallback path — never executing a tampered
+    or contract-incompatible package and never failing open
+  produce:
+  - name: commons:bind:lock-loader
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:bind:capability-composer
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:bind:scope-selector
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:bind:workspace-resolver
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:bind:implementation-binder
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:bind:violation-router
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:bind:binding-cli
+    contract: null
+    telemetry: null
+    to: external
+  consume: []
+  wmbt:
+    total: 7
+    D001: maximize likelihood of a schema-valid binding plan by defining one canonical
+      JSON schema for `.atdd/binding.lock.yaml` (which conventions are bound-owned
+      vs legacy-fallback, keyed by the substrate-lock digest) and validating it before
+      use
+    L001: maximize likelihood of loading exactly the live substrate by loading only
+      `enabled` packages from the lock by installed_path and indexing implementations
+      by realizes_convention, never loading a disabled or lock-absent package
+    C001: minimize likelihood of executing a tampered or unlocked package by re-verifying
+      each package's sha256 digest against the lock before loading and refusing on
+      mismatch — bind is the first layer that runs admitted code
+    C002: minimize likelihood of binding an implementation to an incompatible workspace
+      by refusing when the implementation contract_version is not SemVer-compatible
+      with the targeted provider's contract_version, or the targeted provider is absent
+      or not enabled in the lock
+    E001: maximize likelihood of isolated, import-clean execution by provider-spawning
+      the implementation entrypoint as a subprocess in the resolved workspace instance
+      and capturing Violations over the violation-output-contract, so core imports
+      no extension code
+    E002: maximize likelihood of correct gating by routing bound Violations into the
+      disposition gate with deterministic precedence, so a bound implementation shadows
+      the matching legacy validator for the same convention and gates a lifecycle transition
+      exactly like a legacy validator
+    M001: minimize likelihood of a silent bind failure by detecting a bound implementation
+      that crashes, times out, or emits malformed output and falling back to legacy
+      gating, surfaced loudly — never silently passing the gate (fail-safe, not fail-open)
+  total: 0
+  manifest: plan/bind_substrate_runtime/_bind_substrate_runtime.yaml
+  path: plan/bind_substrate_runtime/
 - wagon: author-atdd-substrate
   description: 'First-class authoring substrate for ATDD governance artifacts: a shared
     `atdd author` CLI validation spine plus deterministic writers for the four canonical

@@ -1,0 +1,46 @@
+train_id: "0005-bind-substrate"
+title: "Bind Substrate Runtime"
+description: "Binding substrate train: the runtime back end that turns a locked, inert .atdd/substrate.lock.yaml into running, gating capabilities. Define a binding-plan schema, load enabled packages from the lock by installed_path, re-verify each package's sha256 digest before loading, compose the capability graph and index implementations by realizes_convention, refuse contract-incompatible bindings, then provider-spawn the implementation as an isolated subprocess and route its Violations into the disposition gate — shadowing legacy on success and failing safe to legacy on any failure. The third and final substrate stage, downstream of the author-substrate and admit-substrate trains; this is the binding train the admit-substrate train explicitly defers to."
+themes:
+  - commons
+primary_wagon: bind-substrate-runtime
+participants:
+  - "wagon:bind-substrate-runtime"
+  - "system:atdd-cli"
+sequence:
+  - step: 1
+    intent: "Define the canonical binding-plan schema for .atdd/binding.lock.yaml (bound-owned vs legacy-fallback, keyed by the substrate-lock digest)"
+    from: "wagon:bind-substrate-runtime"
+    to: "system:atdd-cli"
+    artifact: "commons:bind:lock-loader"
+  - step: 2
+    intent: "Load enabled packages from the lock by installed_path and index implementations by realizes_convention"
+    from: "wagon:bind-substrate-runtime"
+    to: "system:atdd-cli"
+    artifact: "commons:bind:capability-composer"
+  - step: 3
+    intent: "Select which bound capabilities apply to a lifecycle phase and blast radius"
+    from: "wagon:bind-substrate-runtime"
+    to: "system:atdd-cli"
+    artifact: "commons:bind:scope-selector"
+  - step: 4
+    intent: "Re-verify the package digest, then resolve the targeted workspace (SemVer contract check + materialized instance)"
+    from: "wagon:bind-substrate-runtime"
+    to: "system:atdd-cli"
+    artifact: "commons:bind:workspace-resolver"
+  - step: 5
+    intent: "Provider-spawn the implementation entrypoint as an isolated subprocess and capture Violations over the violation-output-contract"
+    from: "wagon:bind-substrate-runtime"
+    to: "system:atdd-cli"
+    artifact: "commons:bind:implementation-binder"
+  - step: 6
+    intent: "Route bound Violations into the disposition gate — shadow legacy on success, fall back to legacy on any failure"
+    from: "wagon:bind-substrate-runtime"
+    to: "system:atdd-cli"
+    artifact: "commons:bind:violation-router"
+  - step: 7
+    intent: "Surface the binding commands (capabilities, bind --check) over the cached, digest-keyed binding plan"
+    from: "wagon:bind-substrate-runtime"
+    to: "system:atdd-cli"
+    artifact: "commons:bind:binding-cli"
+status: planned

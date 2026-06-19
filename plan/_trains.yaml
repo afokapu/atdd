@@ -55,3 +55,16 @@ trains:
       path: plan/_trains/0004-admit-substrate.yaml
       wagons:
       - admit-substrate
+    - train_id: 0005-bind-substrate
+      description: 'Binding substrate train: the runtime back end that turns a locked,
+        inert .atdd/substrate.lock.yaml into running, gating capabilities — define
+        a binding-plan schema, load enabled packages from the lock by installed_path,
+        re-verify each package''s sha256 digest before loading, compose the capability
+        graph and index implementations by realizes_convention, refuse contract-incompatible
+        bindings, then provider-spawn the implementation as an isolated subprocess
+        and route its Violations into the disposition gate — shadowing legacy on success
+        and failing safe to legacy on any failure. The third and final substrate stage;
+        the binding train the admit-substrate train explicitly defers to.'
+      path: plan/_trains/0005-bind-substrate.yaml
+      wagons:
+      - bind-substrate-runtime

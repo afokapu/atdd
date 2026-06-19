@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1157'
+  slug: substrate-binding
+  file: null
+  issue_number: 1157
+  type: implementation
+  status: INIT
+  created: '2026-06-19'
+  archived: null
+  branch: feat/substrate-binding
+  wagon: bind-substrate-runtime
+  feature: feature:bind-substrate-runtime:substrate-binding
+  train: 0005-bind-substrate
 - id: '958'
   slug: config-drive-four-tier-and-refactor-validators-toolkit-root
   file: null
