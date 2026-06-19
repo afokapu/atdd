@@ -1,0 +1,13 @@
+schema_version: 1.0.0
+rule_id: planner.decomposition.domain-vs-technology
+kind: principle
+status: active
+statement: Plan decomposes what the system does (user-facing jobs), not how it is
+  built. Implementation-flavored sources are reframed to user-facing jobs or routed
+  to tests/ADRs (e.g. 'use redis for caching' becomes 'browse catalog pages with instant
+  response').
+terms:
+- term_id: domain_capability
+  text: a user-facing job the system performs.
+- term_id: technology_choice
+  text: an implementation decision; reframed to the job it serves or routed to tests/ADRs.
