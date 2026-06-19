@@ -1,0 +1,28 @@
+urn: "feature:author-plan-substrate:author-wmbt"
+wagon: "wagon:author-plan-substrate"
+description: "Authoring of a WMBT as a single file at plan/<slug>/<CODE>.yaml in ODI grammar (step, direction, dimension, object_of_control, context_clarifier, lens, statement) with a seed SMOKE acceptance so the must-have-smoke rule holds by construction. Rejects an invalid step-code, a statement missing its object_of_control token, or a path outside the wagon home."
+sizing:
+  wmbts: 2
+  footprint_score: 6
+  footprint_size: "S"
+wmbts:
+  - "wmbt:author-plan-substrate:E003"
+  - "wmbt:author-plan-substrate:C004"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd author wmbt subcommand"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "create_wmbt() write path (seeds a SMOKE acceptance); validate_wmbt() guard"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "WmbtManifest (ODI fields + seed acceptance); WmbtHome (plan/<slug>/<CODE>.yaml)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "plan/<slug>/ step-coded single-file writer adapter"
