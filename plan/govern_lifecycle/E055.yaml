@@ -76,3 +76,27 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-18"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E055-SMOKE-001-real-tester-suite-runs-live-smoke-validator"
+      id: "AC-SMOKE-001"
+      purpose: "Running the real atdd validate tester suite on this repo collects and executes test_live_smoke_execution (eat-own-dog-food: the validator is alive in the real suite, not skipped), and bind_rule resolves the rule against the rebuilt registry"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "test_live_smoke_execution.py is registered under src/atdd/tester/validators/"
+        - "tester.acceptance-violation.live-smoke-acceptance-must-execute is declared in acceptance-violation.convention.yaml"
+        - "The convention registry is rebuilt by build_registry() from the repo root"
+    when:
+      abstract: "atdd validate tester --local --skip-api is invoked on this repo"
+    then:
+      abstract:
+        - "pytest collects test_live_smoke_execution.py and the gate test test_every_live_smoke_acceptance_executed runs (not skipped) against the real plan/ acceptances"
+        - "bind_rule('tester.acceptance-violation.live-smoke-acceptance-must-execute') resolves from the rebuilt registry with disposition strict, proving the rule is not orphaned"
+        - "If a verdict is failing, every offender carries a fix_hint naming the self-skip mechanism to remove"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
