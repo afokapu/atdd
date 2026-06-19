@@ -125,6 +125,31 @@ def extension_graph_edges(ext_pkg: dict) -> list[dict]:
     return (yaml.safe_load(gp.read_text()) or {}).get("edges") or []
 
 
+# Edge-endpoint keys across both edge schemas: core (source_ref/target_ref) and
+# the extension-local shorthand (from/to).
+_EDGE_ENDPOINT_KEYS = ("source_ref", "target_ref", "from", "to")
+
+
+def extension_orphan_nodes(ext_pkg: dict) -> set[str]:
+    """Extension-owned convention nodes referenced by no internal relationship edge.
+
+    Extends the core ``planner.relationship.no-orphan-nodes`` rule to extension
+    packages: every convention node an extension owns must be an endpoint of at
+    least one edge in the extension's own relationships.yaml. A node referenced by
+    no edge is an orphan in the extension's local graph.
+    """
+    # Exclude the demo.* sample namespace, mirroring the core
+    # planner.relationship.no-orphan-nodes rule (sample nodes are not real nodes).
+    owned = {rid for rid in extension_owned_node_ids(ext_pkg) if not rid.startswith("demo.")}
+    referenced: set[str] = set()
+    for edge in extension_graph_edges(ext_pkg):
+        for key in _EDGE_ENDPOINT_KEYS:
+            val = edge.get(key)
+            if val:
+                referenced.add(str(val).split("#", 1)[0])
+    return owned - referenced
+
+
 # ─── the realization gate ───────────────────────────────────────────────────
 def validate_realizes(ext_pkg: dict, core_ids: set[str]) -> set[str]:
     """Validate the extension's ``realizes`` block + cross-graph cleanliness. Raises
@@ -246,6 +271,12 @@ def validate_package(path, *, core_ids: "set[str] | None" = None) -> dict:
                     raise CompositionError(f"owns path missing: {rel}")
                 jsonschema.validate(yaml.safe_load(node_path.read_text()), node_schema)
             validate_realizes(p, core_ids)
+            orphans = extension_orphan_nodes(p)
+            if orphans:
+                raise CompositionError(
+                    "orphan convention node(s) referenced by no relationship edge: "
+                    + ", ".join(sorted(orphans))
+                )
             view = compose_protocol_view(core_ids, p, mode="composed")
             if view["executed_implementations"]:
                 raise CompositionError("composition must not execute runtime implementations")

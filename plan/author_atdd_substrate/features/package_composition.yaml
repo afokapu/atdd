@@ -2,12 +2,13 @@ urn: "feature:author-atdd-substrate:package-composition"
 wagon: "wagon:author-atdd-substrate"
 description: "How the substrate understands INSTALLED packages: discover extension/workspace packages, validate manifests by kind, and compose an extension into an in-memory protocol view over core. Cross-package linkage is expressed only as `realizes` (extension node → core node); depends_on.targets is derived from it; design_candidates may be referenced but never realized. The composed view materializes realizes mappings as DERIVED edges (composed mode only) carrying the provenance triple (core authority + extension realization + workspace execution target); core mode stays source-only; no runtime implementation is executed. Surfaced via `atdd validate package <path>`, which loads core package-relatively from the installed toolkit (no core checkout)."
 sizing:
-  wmbts: 2
-  footprint_score: 6
+  wmbts: 3
+  footprint_score: 7
   footprint_size: "S"
 wmbts:
   - "wmbt:author-atdd-substrate:C007"
   - "wmbt:author-atdd-substrate:E005"
+  - "wmbt:author-atdd-substrate:C009"
 components:
   backend:
     presentation:
