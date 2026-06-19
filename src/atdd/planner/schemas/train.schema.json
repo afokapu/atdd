@@ -29,6 +29,11 @@
       "minLength": 10,
       "description": "Concise description of the train's purpose and workflow"
     },
+    "family": {
+      "type": "string",
+      "enum": ["behavior", "delivery"],
+      "description": "Train family (planner.train.family): behavior (express/exercise a capability, no authority commit) or delivery (commits accepted-system state via an Acceptance Authority commit, terminating in platform:acceptance:commit-receipt). Orthogonal to the variant category; derived from the declared terminal contract; never encoded in the train id. Optional during the #1083 transition; to become required."
+    },
     "path": {
       "type": "string",
       "description": "Canonical path to the train YAML file relative to repo root"
