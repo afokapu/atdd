@@ -65,11 +65,59 @@ def verify_package_digest(project_root: str | Path, entry: dict) -> None:
         )
 
 
+_IMPLEMENTATION_MANIFEST = "atdd.implementation.yaml"
+
+
+def _discover_implementations(pkg_dir: Path) -> list[dict]:
+    """Read the implementation manifests a package ships, without executing code.
+
+    Returns the manifest dicts (implementation_id, targets_workspace,
+    contract_version, realizes_convention, entrypoint) for every
+    ``**/atdd.implementation.yaml`` under the package — YAML only, never an
+    implementation module.
+    """
+    import yaml
+
+    impls: list[dict] = []
+    for mp in sorted(pkg_dir.rglob(_IMPLEMENTATION_MANIFEST)):
+        try:
+            data = yaml.safe_load(mp.read_text(encoding="utf-8")) or {}
+        except (OSError, ValueError):
+            continue
+        if data.get("kind") != "implementation":
+            continue
+        if data.get("implementation_id") and data.get("realizes_convention"):
+            data["_manifest_path"] = str(mp)
+            impls.append(data)
+    return impls
+
+
 def load_enabled_packages(project_root: str | Path) -> list[LoadedPackage]:
     """Load every ``enabled`` lock artifact from its installed_path, digest-verified.
 
-    GREEN target: read_lock -> filter enabled -> verify_package_digest (refuse on
-    mismatch) -> inspect_package (manifest only) -> index implementations by
-    realizes_convention. A disabled or lock-absent package is never loaded.
+    read_lock -> filter ``enabled`` -> verify_package_digest (refuses a tampered
+    package, fail-closed) -> inspect_package (manifest only) -> discover the
+    implementations it ships. A disabled or lock-absent package is never loaded,
+    and no implementation module is imported.
     """
-    raise NotImplementedError("L001: load enabled packages from the lock (GREEN)")
+    from atdd.substrate import admission, installer
+
+    root = Path(project_root)
+    loaded: list[LoadedPackage] = []
+    for entry in installer.list_substrate(root):
+        if not entry.get("enabled", False):
+            continue
+        verify_package_digest(root, entry)  # tamper boundary (raises on mismatch)
+        pkg_dir = root / entry["installed_path"]
+        pkg = admission.inspect_package(pkg_dir)
+        loaded.append(
+            LoadedPackage(
+                id=entry["id"],
+                kind=entry["kind"],
+                version=entry["version"],
+                installed_path=pkg_dir,
+                manifest=pkg["manifest"],
+                implementations=_discover_implementations(pkg_dir),
+            )
+        )
+    return loaded
