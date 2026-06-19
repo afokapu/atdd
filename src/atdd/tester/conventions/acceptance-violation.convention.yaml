@@ -118,3 +118,20 @@ rules:
       Pairing scope is the parent WMBT only (Decision #5) — a live_smoke acceptance under a
       different WMBT does not satisfy the rule.
     recipe: hermetic-live-smoke-pairing
+
+  - id: tester.acceptance-violation.live-smoke-acceptance-must-execute
+    severity: 4
+    disposition: strict
+    validator: "test_live_smoke_execution::test_every_live_smoke_acceptance_executed"
+    description: "An execution_kind: live_smoke acceptance's anchored test must run-or-fail against real infrastructure — it MUST NOT be able to self-skip (pytest.skip / importorskip / mark.skip(if) / live_smoke_available guard); a skipped live_smoke test passes vacuously and never executes"
+    fix_hint: |
+      The live_smoke acceptance's anchored test can self-skip, so it can satisfy SMOKE
+      without ever executing against real infrastructure (a false green — see #1076). A
+      live_smoke acceptance asserts real-infra behavior; its test must run-or-fail. Either:
+        - Remove the self-skip mechanism (pytest.skip / pytest.importorskip / @pytest.mark.skip /
+          @pytest.mark.skipif / a live_smoke_available()-style guard) so the test runs inside the
+          workspace provider (the real runtime) and either passes or fails — never skips, or
+        - If the claim is genuinely not inducible against real infra (e.g. "survives OS power-loss"),
+          it is NOT a live_smoke acceptance — re-author it as execution_kind: hermetic_integration
+          (with declared fake_contract_fidelity / known_gaps) or a unit/review assertion.
+    recipe: live-smoke-execution
