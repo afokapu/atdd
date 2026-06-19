@@ -1116,7 +1116,8 @@ sessions:
   file: null
   issue_number: 760
   type: implementation
-  status: INIT
+  status: PLANNED
+  train: 0001-self-compliance-validate
   created: '2026-05-18'
   archived: null
 - id: '759'
