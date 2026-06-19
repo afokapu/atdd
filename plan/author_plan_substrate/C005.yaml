@@ -1,0 +1,50 @@
+urn: "wmbt:author-plan-substrate:C005"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "structurally-invalid-train"
+context_clarifier: "when authoring a train, the writer must reject a malformed train_id, a duplicate registry entry, or a per-train file path outside plan/_trains/, before any write"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of accepting a structurally-invalid-train by validating the train_id, registry uniqueness, and per-train path before any write"
+acceptances:
+  - identity:
+      urn: "acc:author-plan-substrate:C005-UNIT-001-rejects-bad-id-and-duplicate"
+      id: "AC-UNIT-001"
+      purpose: "validate_train rejects a malformed train_id and a duplicate registry entry, writing nothing"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A train input with a malformed train_id, and a second input duplicating an existing entry"
+    when:
+      abstract: "create_train(input) is called for each"
+    then:
+      abstract:
+        - "Validation fails citing the malformed train_id"
+        - "The duplicate insert is refused and _trains.yaml is unchanged on disk"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:author-plan-substrate:C005-SMOKE-001-cli-refuses-invalid-train"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author train` exits non-zero and leaves the registry unchanged for an invalid train against the real CLI"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+        - "An invocation carrying a malformed train_id"
+    when:
+      abstract: "atdd author train is run with the invalid input"
+    then:
+      abstract:
+        - "The process exits non-zero with a validation error"
+        - "plan/_trains.yaml is unchanged and no per-train file is created"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"

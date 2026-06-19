@@ -1,0 +1,50 @@
+urn: "wmbt:author-plan-substrate:C006"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "malformed-acceptance"
+context_clarifier: "when adding an acceptance, the writer must reject a missing target WMBT, a duplicate acceptance urn that differs in content, or a malformed phase/harness, before any write"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of accepting a malformed-acceptance by validating the target WMBT, urn uniqueness, and phase/harness before any append"
+acceptances:
+  - identity:
+      urn: "acc:author-plan-substrate:C006-UNIT-001-rejects-missing-target-and-bad-phase"
+      id: "AC-UNIT-001"
+      purpose: "validate_acceptance rejects a missing target WMBT and a malformed phase, writing nothing"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An acceptance input pointing at a non-existent WMBT, and another with a malformed phase value"
+    when:
+      abstract: "create_acceptance(input) is called for each"
+    then:
+      abstract:
+        - "Validation fails citing the missing target WMBT"
+        - "Validation fails citing the malformed phase; no file is modified"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:author-plan-substrate:C006-SMOKE-001-cli-refuses-malformed-acceptance"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author acceptance` exits non-zero and leaves the WMBT unchanged for a malformed acceptance against the real CLI"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+        - "An invocation targeting a non-existent WMBT"
+    when:
+      abstract: "atdd author acceptance is run with the invalid input"
+    then:
+      abstract:
+        - "The process exits non-zero with a validation error"
+        - "No WMBT file is created or modified"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"

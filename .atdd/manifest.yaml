@@ -2685,6 +2685,23 @@ sessions:
   archived: null
   branch: feat/no-orphan-convention-nodes
   train: 0003-author-substrate
+- id: '1144'
+  slug: atdd-author-plan-kinds
+  file: null
+  issue_number: 1144
+  type: implementation
+  status: COMPLETE
+  train: 0003-author-substrate
+  created: '2026-06-18'
+  archived: '2026-06-18'
+- id: '1139'
+  slug: atdd-plan-core-decomposition-session
+  file: null
+  issue_number: 1139
+  type: implementation
+  status: INIT
+  created: '2026-06-17'
+  archived: null
 - id: '1147'
   slug: wagon-separability-granularity
   file: null

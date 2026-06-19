@@ -44,6 +44,7 @@ trains:
       path: plan/_trains/0003-author-substrate.yaml
       wagons:
       - author-atdd-substrate
+      - author-plan-substrate
     - train_id: 0004-admit-substrate
       description: 'Admission substrate train: the front door that admits external
         extension/workspace packages into a project — define the substrate/lock/registry

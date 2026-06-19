@@ -1,0 +1,28 @@
+urn: "feature:author-plan-substrate:author-wagon"
+wagon: "wagon:author-plan-substrate"
+description: "Authoring of a wagon manifest as a single file at the canonical plan/<slug>/_<slug>.yaml home (dir snake_case, file _<dirname>.yaml). The writer emits a schema-valid header (wagon, description, subject, context, action, goal, outcome, produce[], consume[], wmbt.total) by construction — including the schema-required produce/consume name/contract/telemetry keys (contract/telemetry null at plan time) — and rejects an unknown slug, a non-kebab slug, or a path outside plan/."
+sizing:
+  wmbts: 2
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:author-plan-substrate:E001"
+  - "wmbt:author-plan-substrate:C002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd author wagon subcommand"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "create_wagon() write path; validate_wagon() guard"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "WagonManifest (header fields + produce/consume); WagonHome (plan/<slug>/_<slug>.yaml)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "plan/<slug>/ single-file writer adapter"
