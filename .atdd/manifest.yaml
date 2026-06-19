@@ -2699,7 +2699,7 @@ sessions:
   file: null
   issue_number: 1154
   type: implementation
-  status: SMOKE
+  status: REFACTOR
   created: '2026-06-19'
   archived: null
   branch: feat/composed-no-orphan-extension-nodes
