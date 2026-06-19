@@ -1,4 +1,4 @@
-urn: "wmbt:define-plans:D001"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-20
+urn: "wmbt:define-plans:D001"
 step: "define"
 direction: "minimize"
 dimension: "effort"
@@ -52,3 +52,23 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-20"
+  - identity:
+      urn: "acc:define-plans:D001-SMOKE-001-help-lists-flags"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real `atdd plan` CLI, --help lists the allowed flags and exposes no subcommands"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and the installed `atdd plan` CLI shell"
+    when:
+      abstract: "`atdd plan --help` is run via the installed CLI"
+    then:
+      abstract:
+        - "The help text lists --text, --brief-out, --json and --quiet"
+        - "No subcommand is exposed and the process exits 0"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"

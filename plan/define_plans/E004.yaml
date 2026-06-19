@@ -1,4 +1,4 @@
-urn: "wmbt:define-plans:E004"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-20
+urn: "wmbt:define-plans:E004"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -49,3 +49,23 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-20"
+  - identity:
+      urn: "acc:define-plans:E004-SMOKE-001-dir-codebase-live"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real CLI, a directory path is classified as a codebase source"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and the installed `atdd plan` CLI shell"
+    when:
+      abstract: "`atdd plan <dir> --json` is run"
+    then:
+      abstract:
+        - "The brief JSON sources[0].type == 'codebase'"
+        - "The process exits 0"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"
