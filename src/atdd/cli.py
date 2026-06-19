@@ -1929,6 +1929,23 @@ Phase descriptions:
         "--prune", action="store_true", help="also remove now-unused workspaces"
     )
 
+    # ----- Substrate binding (wagon: bind-substrate-runtime) -----
+    bind_cmd_parser = subparsers.add_parser(
+        "bind", help="Compose the runtime binding plan from the locked substrate"
+    )
+    bind_cmd_parser.add_argument(
+        "--check", action="store_true",
+        help="compose + validate the binding plan (never executes an implementation)",
+    )
+    bind_cmd_parser.add_argument(
+        "--no-write", action="store_true", help="do not write .atdd/binding.lock.yaml"
+    )
+
+    subparsers.add_parser(
+        "capabilities",
+        help="Show conventions gated by bound implementations vs legacy-fallback",
+    )
+
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
 
     # Repository root override (not deprecated - still useful)
@@ -2228,6 +2245,17 @@ Phase descriptions:
             args.ref, project_root=(args.repo or "."),
             force=args.force, prune=args.prune,
         )
+
+    # ----- Substrate binding (wagon: bind-substrate-runtime) -----
+    elif args.command == "bind":
+        from atdd.substrate.binding import commands as binding_cmd
+        return binding_cmd.run_bind_check(
+            project_root=(args.repo or "."), write=not args.no_write,
+        )
+
+    elif args.command == "capabilities":
+        from atdd.substrate.binding import commands as binding_cmd
+        return binding_cmd.run_capabilities(project_root=(args.repo or "."))
 
     # atdd archive <issue_id> — DEPRECATED, delegates to atdd issue <N> --status COMPLETE
     elif args.command == "archive":
