@@ -27,10 +27,9 @@ provider), that is the live-execution guarantee. Completes the chain after
 
 from __future__ import annotations
 
-import os
 import re
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import pytest
 
@@ -41,6 +40,7 @@ from atdd.tester.validators._acceptance_walker import (
     acceptance_urn,
     assert_substrate_strict,
     iter_repo_acceptances,
+    scan_test_acceptance_headers,
 )
 
 
@@ -66,25 +66,6 @@ _SELF_SKIP_PATTERNS: List[Tuple[re.Pattern, str]] = [
         "live_smoke_available() self-skip guard",
     ),
 ]
-
-_ACCEPTANCE_HEADER_RE = re.compile(r"(?:#|//)\s*[Aa]cceptance:\s*(acc:[^\s]+)")
-_TEST_FILENAME_RE = re.compile(
-    r"^(?:test_.*\.py|.*_test\.py|.*\.test\.tsx?|.*\.spec\.ts|.*_test\.dart)$"
-)
-_TEST_EXTS = {".py", ".ts", ".tsx", ".dart"}
-_PRUNE_DIRS = {
-    ".git",
-    "node_modules",
-    ".venv",
-    "venv",
-    "__pycache__",
-    "dist",
-    "build",
-    ".tox",
-    ".pytest_cache",
-    ".mypy_cache",
-    "site-packages",
-}
 
 
 def detect_self_skip(source: str) -> Optional[str]:
@@ -129,36 +110,10 @@ def evaluate_live_smoke_execution(
     return violations
 
 
-def _walk_files(root: Path) -> Iterator[Path]:
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in _PRUNE_DIRS]
-        for fname in filenames:
-            ext = "." + fname.rsplit(".", 1)[-1] if "." in fname else ""
-            if ext.lower() not in _TEST_EXTS:
-                continue
-            yield Path(dirpath) / fname
-
-
-def _scan_test_headers(repo_root: Path) -> Dict[str, List[Path]]:
-    """Return ``{acceptance_urn: [test_file, ...]}`` for every anchored test."""
-    index: Dict[str, List[Path]] = {}
-    for test_file in _walk_files(repo_root):
-        if not _TEST_FILENAME_RE.match(test_file.name):
-            continue
-        try:
-            text = test_file.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        head = "\n".join(text.split("\n", 30)[:30])
-        for match in _ACCEPTANCE_HEADER_RE.finditer(head):
-            index.setdefault(match.group(1).strip(), []).append(test_file)
-    return index
-
-
 def collect_violations(repo_root: Optional[Path] = None) -> List[Violation]:
     """Walk plan/ for live_smoke acceptances and scan their anchored tests."""
     root = Path(repo_root).resolve() if repo_root is not None else find_repo_root()
-    test_index = _scan_test_headers(root)
+    test_index = scan_test_acceptance_headers(root)
 
     entries: List[Tuple[str, str, List[Tuple[str, str]]]] = []
     for raw in iter_repo_acceptances(root):
