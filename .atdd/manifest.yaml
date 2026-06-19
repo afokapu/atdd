@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1157
   type: implementation
-  status: GREEN
+  status: SMOKE
   created: '2026-06-19'
   archived: null
   branch: feat/substrate-binding
