@@ -592,6 +592,7 @@ def run(argv: list[str]) -> int:
         try:
             spec = yaml.safe_load(Path(args.spec).read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError) as exc:
+            logger.warning("atdd author cannot read --spec", extra={"path": args.spec, "error": str(exc)})
             print(f"atdd author: cannot read --spec: {exc}", file=sys.stderr)
             return 2
         try:
