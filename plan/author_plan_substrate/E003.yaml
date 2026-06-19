@@ -1,0 +1,49 @@
+urn: "wmbt:author-plan-substrate:E003"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "wmbt-creation"
+context_clarifier: "when authoring a WMBT, the writer must create plan/<slug>/<CODE>.yaml in ODI grammar with a seed SMOKE acceptance so the must-have-smoke rule holds by construction"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of schema-valid wmbt-creation when authoring a WMBT with ODI fields and a seed SMOKE acceptance under plan/<slug>/<CODE>.yaml"
+acceptances:
+  - identity:
+      urn: "acc:author-plan-substrate:E003-UNIT-001-odi-file-with-seed-smoke"
+      id: "AC-UNIT-001"
+      purpose: "create_wmbt writes plan/<slug>/<CODE>.yaml in ODI grammar carrying a seed SMOKE acceptance"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A valid WMBT input (step, direction, dimension, object_of_control, lens) and a temp plan/ home"
+    when:
+      abstract: "create_wmbt(input) is called"
+    then:
+      abstract:
+        - "A file is written at plan/<slug>/<CODE>.yaml with the ODI fields"
+        - "The WMBT carries at least one SMOKE acceptance (must-have-smoke holds)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:author-plan-substrate:E003-SMOKE-001-cli-creates-valid-wmbt"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author wmbt` writes a schema-valid ODI WMBT with a SMOKE acceptance in a real checkout"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+    when:
+      abstract: "atdd author wmbt --wagon <slug> --code <CODE> ... is run"
+    then:
+      abstract:
+        - "A file appears at plan/<slug>/<CODE>.yaml in ODI grammar with a SMOKE acceptance"
+        - "atdd validate planner accepts the created WMBT without manual fixups"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"

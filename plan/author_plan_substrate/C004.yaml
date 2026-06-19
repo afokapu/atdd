@@ -1,0 +1,50 @@
+urn: "wmbt:author-plan-substrate:C004"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "structurally-invalid-wmbt"
+context_clarifier: "when authoring a WMBT, the writer must reject an invalid step-code, a statement that omits its object_of_control token, or a WMBT with no SMOKE acceptance, before it writes the file"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of accepting a structurally-invalid-wmbt by validating ODI grammar, the statement-contains-object-of-control rule, and the must-have-smoke rule before any write"
+acceptances:
+  - identity:
+      urn: "acc:author-plan-substrate:C004-UNIT-001-rejects-bad-stepcode-and-statement"
+      id: "AC-UNIT-001"
+      purpose: "validate_wmbt rejects an invalid step-code and a statement missing its object_of_control token, writing nothing"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A WMBT input with a step-code outside DLPCEMYRK and a statement that omits its object_of_control"
+    when:
+      abstract: "create_wmbt(input) is called"
+    then:
+      abstract:
+        - "Validation fails citing the bad step-code and the statement/object_of_control mismatch"
+        - "No WMBT file is written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:author-plan-substrate:C004-SMOKE-001-cli-refuses-invalid-wmbt"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author wmbt` exits non-zero and writes nothing for a WMBT with no SMOKE acceptance against the real CLI"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+        - "An invocation that would produce a WMBT without any SMOKE acceptance"
+    when:
+      abstract: "atdd author wmbt is run with the invalid input"
+    then:
+      abstract:
+        - "The process exits non-zero with a validation error"
+        - "No WMBT file is created under plan/"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
