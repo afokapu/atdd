@@ -1976,7 +1976,7 @@ sessions:
   file: null
   issue_number: 1042
   type: implementation
-  status: SMOKE
+  status: REFACTOR
   created: '2026-06-10'
   archived: null
   train: 0002-coach-drives-lifecycle
