@@ -1,0 +1,10 @@
+schema_version: 1.1.0
+rule_id: planner.train.terminal-contract
+kind: principle
+status: draft
+name: Train terminal contract
+statement: A train's terminal step declares exactly one primary artifact. That terminal contract is the source of truth for the train's family - if it requires an Acceptance Authority commit and terminates in platform:acceptance:commit-receipt the train is delivery, otherwise it is behavior.
+terms:
+- term_id: terminal-contract
+  label: Terminal contract
+  text: the declared primary artifact of a train's final step; family (behavior|delivery) is derived from it, never from the train id.

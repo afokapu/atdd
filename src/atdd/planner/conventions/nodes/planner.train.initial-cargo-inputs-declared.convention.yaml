@@ -1,0 +1,10 @@
+schema_version: 1.1.0
+rule_id: planner.train.initial-cargo-inputs-declared
+kind: rule
+status: draft
+name: Initial Cargo inputs declared
+statement: A train MUST declare every artifact Cargo may be seeded with - inputs.caller (caller-provided) and inputs.spec_materialized (deterministically materialized from the spec). Undeclared or missing required initial inputs are rejected before step 1. Pending binding - validator owned by D2 (#1086).
+terms:
+- term_id: initial-inputs
+  label: Declared initial inputs
+  text: inputs.{caller, spec_materialized}; seeded into Cargo and validated before the first wagon step.

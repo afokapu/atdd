@@ -982,7 +982,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 90
+    total: 91
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -1279,6 +1279,11 @@ wagons:
       mark.skip(if) / live_smoke_available guard) and emits a Violation, completing
       the #690 hermetic/live_smoke chain so a paired live_smoke actually executes
       against real infrastructure (#1151)'
+    E056: minimize likelihood of innocent-prs-blocked-by-another-prs-pre-smoke-violation
+      by resolving the PR under test from CI context (GITHUB_REF / PR_NUMBER / current
+      branch) and failing the strict coach.pr.merge-blocks-on-pre-smoke-close disposition
+      only on that PR's own violation, while still scanning and logging every offender
+      so each remains blocked on its own CI (#1165)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/

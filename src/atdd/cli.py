@@ -2012,6 +2012,14 @@ Phase descriptions:
         help=argparse.SUPPRESS  # Hide, use subcommand option instead
     )
 
+    # `atdd plan session <op> ...` — the gated decomposition-session harness (#1139)
+    # owns its own argparse (sub-flags like --id/--root/--step), so intercept before
+    # the brief-shell `plan` parser (which would reject them) and forward the remainder.
+    import sys as _sys
+    if _sys.argv[1:3] == ["plan", "session"]:
+        from atdd.planner.commands.plan_session_cli import run as _run_session
+        return _run_session(_sys.argv[3:])
+
     args = parser.parse_args()
 
     # ----- Handle modern subcommands -----
