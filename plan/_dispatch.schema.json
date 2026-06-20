@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Declared Dispatch Registry",
+  "description": "The divergence dispatch registry (G6: plan/_dispatch.yaml; #1043/#1034). Maps a produced divergence artifact_urn to the train_id that resolves it. The TrainRunner reports a `diverged` result; the Station Master routes by reading this declared registry (it holds no imperative map). A composite (artifact_urn, discriminant) -> train_id key is exceptional - permitted only when that discriminant value's resolution is behaviorally different (the canonical case: commons:decision:escalation.cause).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["dispatch"],
+  "properties": {
+    "dispatch": {
+      "type": "array",
+      "description": "Dispatch entries. Each routes a divergence artifact (optionally keyed by one discriminant value) to a resolving train.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_urn", "train_id"],
+        "properties": {
+          "artifact_urn": {
+            "type": "string",
+            "minLength": 3,
+            "description": "The produced divergence artifact URN (the primary that did not match the source step's declaration)."
+          },
+          "train_id": {
+            "type": "string",
+            "pattern": "^\\d{4}-[a-z0-9-]+$",
+            "description": "The train that resolves this divergence."
+          },
+          "discriminant": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 1,
+            "additionalProperties": {"type": "string"},
+            "description": "Composite key: a single {field: value} on the artifact's schema-declared discriminant. Exceptional - requires `behavioral_difference`."
+          },
+          "behavioral_difference": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Required when `discriminant` is present: the real behavioral difference that justifies a composite key (dispatch-composite-key-exceptional)."
+          }
+        }
+      }
+    }
+  }
+}
