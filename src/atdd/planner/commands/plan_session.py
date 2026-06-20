@@ -171,3 +171,26 @@ class PlanSession:
         results = [author_fn(u["kind"], u["spec"]) for u in self.kept_units()]
         self.advance(Step.AUTHORED)
         return results
+
+
+def build_author_fn(root: Path | str = "."):
+    """The on-Confirm deterministic dispatch: map a locked unit's kind to its
+    #1144 `atdd author` writer. atdd plan invokes this — the system, not the agent."""
+    from atdd.planner.commands.author import (
+        create_acceptance, create_feature, create_train, create_wagon, create_wmbt,
+    )
+
+    def _author(kind: str, spec: dict):
+        if kind == "wagon":
+            return create_wagon(spec, root=root)
+        if kind == "feature":
+            return create_feature(spec, root=root)
+        if kind == "wmbt":
+            return create_wmbt(spec, root=root)
+        if kind == "train":
+            return create_train(spec, root=root)
+        if kind == "acceptance":
+            return create_acceptance(spec["wmbt_urn"], spec["block"], root=root)
+        raise SessionGateError(f"no atdd author writer for plan kind {kind!r}")
+
+    return _author
