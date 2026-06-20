@@ -23,11 +23,6 @@ from typing import List, Optional
 
 from atdd.coach.utils.repo import find_repo_root
 
-try:  # pragma: no cover
-    import yaml
-except ImportError:  # pragma: no cover
-    yaml = None
-
 
 def check_entry_shape(entry: dict) -> Optional[str]:
     """Every dispatch entry routes a divergence artifact to a train."""
@@ -55,8 +50,12 @@ def check_composite_key_exceptional(entry: dict) -> Optional[str]:
 
 
 def _load_registry(repo_root: Path):
+    try:
+        import yaml
+    except ImportError:  # pragma: no cover
+        return None
     dpath = repo_root / "plan" / "_dispatch.yaml"
-    if yaml is None or not dpath.is_file():
+    if not dpath.is_file():
         return None
     return yaml.safe_load(dpath.read_text(encoding="utf-8"))
 
