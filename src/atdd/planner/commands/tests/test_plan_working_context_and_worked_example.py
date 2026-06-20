@@ -36,6 +36,16 @@ def _schema(kind):
     return json.loads((_SCHEMAS / f"{kind}.schema.json").read_text())
 
 
+def _op_resolver(choice):
+    from atdd.runtime.elicit import (ElicitResponse, ElicitStatus, ElicitRole, Participant, InlineClaudeElicitAdapter)
+    return InlineClaudeElicitAdapter(lambda r: ElicitResponse(elicit_id=r.elicit_id, status=ElicitStatus.RESOLVED, resolved_by=Participant(ElicitRole.OPERATOR, "user"), selections=[choice]))
+
+
+def _pivot_resolver(mod):
+    from atdd.runtime.elicit import (ElicitResponse, ElicitStatus, ElicitRole, Participant, InlineClaudeElicitAdapter)
+    return InlineClaudeElicitAdapter(lambda r: ElicitResponse(elicit_id=r.elicit_id, status=ElicitStatus.RESOLVED, resolved_by=Participant(ElicitRole.OPERATOR, "user"), selections=["pivot"], freeform=mod))
+
+
 def test_working_context_includes_session_protocol_nodes_and_edges():
     ctx = load_working_context(_REPO)
     g = ctx["guidelines"]
@@ -89,3 +99,65 @@ def test_worked_example_authors_wagon_feature_and_wmbt(tmp_path):
     validate(yaml.safe_load((base / "features" / "play_track.yaml").read_text()), _schema("feature"))
     wmbt = yaml.safe_load((base / "E001.yaml").read_text())
     assert "SMOKE" in [a["identity"]["phase"] for a in wmbt["acceptances"]]  # create_wmbt seeded it
+
+
+def test_full_decomposition_all_five_kinds_with_keep_pivot_kill(tmp_path):
+    """Comprehensive: a session that authors ALL FIVE plan kinds
+    (wagon/feature/wmbt/train/acceptance) and exercises keep + pivot + kill."""
+    (tmp_path / "plan" / "_trains").mkdir(parents=True)
+    (tmp_path / "plan" / "_trains.yaml").write_text("trains: {}\n", encoding="utf-8")
+    s = PlanSession("full", main_job="Listen to music while commuting")
+    s.advance(Step.LOCATE); s.sources.append({"type": "text", "value": "spec"})
+    s.advance(Step.PREPARE)
+    s.add_unit(Unit(kind="wagon", ref="full-demo", spec={
+        "wagon": "full-demo", "description": "the full demo wagon for all-kinds coverage",
+        "subject": "agent:planner", "context": "commute", "action": "does it",
+        "goal": "cover all kinds", "outcome": "all authored", "produce": [{"name": "commons:demo:thing"}]}))
+    s.add_unit(Unit(kind="feature", ref="do-it", spec={
+        "urn": "feature:full-demo:do-it", "wagon": "wagon:full-demo",
+        "description": "the do-it feature covering the wmbt end to end",
+        "sizing": {"wmbts": 1, "footprint_score": 4, "footprint_size": "S"},
+        "wmbts": ["wmbt:full-demo:E001"],
+        "components": {"backend": {"application": [{"type": "use_cases", "count": 1, "rationale": "the do-it path"}]}}}))
+    s.add_unit(Unit(kind="wmbt", ref="E001", spec={
+        "wagon_slug": "full-demo", "code": "E001", "step": "execute", "direction": "maximize",
+        "dimension": "likelihood", "object_of_control": "thing-creation",
+        "context_clarifier": "when doing it the thing is created without error",
+        "lens": "functional.effectiveness",
+        "statement": "maximize likelihood of thing-creation when doing it"}))
+    s.add_unit(Unit(kind="train", ref="0009-full-demo", spec={
+        "train_id": "0009-full-demo", "wagons": ["full-demo"], "description": "the full demo train"}))
+    s.add_unit(Unit(kind="acceptance", ref="extra-acc", spec={
+        "wmbt_urn": "wmbt:full-demo:E001",
+        "block": {"identity": {"urn": "acc:full-demo:E001-UNIT-002-extra", "id": "AC-UNIT-002",
+                               "purpose": "an appended acceptance", "phase": "GREEN"},
+                  "harness": {"type": "unit", "category": "backend"},
+                  "given": {"abstract": ["a"]}, "when": {"abstract": "b"}, "then": {"abstract": ["c"]}}}))
+    s.add_unit(Unit(kind="wagon", ref="kill-me", spec={"wagon": "kill-me"}))
+    s.add_unit(Unit(kind="wagon", ref="pivot-me", spec={"wagon": "pivot-me"}))
+    s.advance(Step.CONFIRM)
+
+    keep = _op_resolver("keep")
+    for ref in ("full-demo", "do-it", "E001", "0009-full-demo", "extra-acc"):
+        s.decide(ref, keep)
+    s.decide("kill-me", _op_resolver("kill"))
+    s.decide("pivot-me", _pivot_resolver("drop audio; focus on podcasts"))
+
+    # pivot recorded its modification; pivot+kill are not 'keep' so not authored
+    pm = s._unit("pivot-me")
+    assert pm["verdict"] == Verdict.PIVOT.value and pm["modification"] == "drop audio; focus on podcasts"
+    assert {u["ref"] for u in s.kept_units()} == {"full-demo", "do-it", "E001", "0009-full-demo", "extra-acc"}
+
+    s.confirm()
+    s.author(build_author_fn(tmp_path))
+
+    base = tmp_path / "plan" / "full_demo"
+    validate(yaml.safe_load((base / "_full_demo.yaml").read_text()), _schema("wagon"))
+    validate(yaml.safe_load((base / "features" / "do_it.yaml").read_text()), _schema("feature"))
+    wmbt = yaml.safe_load((base / "E001.yaml").read_text())
+    assert "SMOKE" in [a["identity"]["phase"] for a in wmbt["acceptances"]]            # wmbt + seeded smoke
+    assert "acc:full-demo:E001-UNIT-002-extra" in [a["identity"]["urn"] for a in wmbt["acceptances"]]  # acceptance appended
+    assert (tmp_path / "plan" / "_trains" / "0009-full-demo.yaml").exists()            # train
+    assert "0009-full-demo" in (tmp_path / "plan" / "_trains.yaml").read_text()
+    assert not (tmp_path / "plan" / "kill_me").exists()                                 # killed: not authored
+    assert not (tmp_path / "plan" / "pivot_me").exists()                                # pivoted (not keep): not authored
