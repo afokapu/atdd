@@ -1,0 +1,10 @@
+schema_version: 1.1.0
+rule_id: planner.train.acceptance-commit-failures-covered
+kind: rule
+status: draft
+name: Acceptance commit failures covered
+statement: Every platform:acceptance:commit-failure.cause (version_conflict, authorization_refused, idempotency_conflict, authority_unavailable) MUST be reachable, registered in the dispatch graph, resolvable, and terminating - or an explicit tracked-and-expiring deferral. Pending binding - validator owned by D5 (#1089).
+terms:
+- term_id: commit-failure-coverage
+  label: Commit-failure coverage
+  text: the four acceptance commit-failure causes are each reachable+resolvable+terminating, extending coverage to the Acceptance Authority boundary.

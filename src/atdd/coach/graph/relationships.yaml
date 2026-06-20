@@ -251,6 +251,24 @@ edges:
   strength: minor
   target_ref: coach.lifecycle.universal-completion-gates
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the acceptance commit is the delivery terminal contract
+  source_ref: coder.train.acceptance-commit-idempotent
+  strength: important
+  target_ref: planner.train.terminal-contract
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: fan-out at the Station Master preserves train linearity
+  source_ref: coder.train.station-master-owns-child-train-fanout
+  strength: important
+  target_ref: planner.train.linearity
+  type: requires
 - confidence: 0.9
   constraint: discretionary
   control: internal
@@ -973,6 +991,15 @@ edges:
   target_ref: planner.theme.canonical-taxonomy
   type: requires
 - confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: extends coverage to the Acceptance Authority boundary
+  source_ref: planner.train.acceptance-commit-failures-covered
+  strength: important
+  target_ref: planner.coverage.bidirectional-coverage-between-trains
+  type: runs_alongside
+- confidence: 1.0
   constraint: discretionary
   control: internal
   foundation: start_to_start
@@ -1008,6 +1035,42 @@ edges:
   strength: minor
   target_ref: planner.train.registry
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: family is derived from the declared terminal contract
+  source_ref: planner.train.family
+  strength: important
+  target_ref: planner.train.terminal-contract
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: family is a train classification axis orthogonal to the variant category
+  source_ref: planner.train.family
+  strength: important
+  target_ref: planner.train.categories
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the consistency rule checks the family against the terminal contract
+  source_ref: planner.train.family-matches-terminal-contract
+  strength: important
+  target_ref: planner.train.terminal-contract
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: declared initial inputs seed Cargo before the wagon sequence
+  source_ref: planner.train.initial-cargo-inputs-declared
+  strength: important
+  target_ref: planner.train.sequence
+  type: enables
 - confidence: 1.0
   constraint: mandatory
   control: internal
