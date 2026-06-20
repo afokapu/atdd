@@ -1,6 +1,30 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1157'
+  slug: substrate-binding
+  file: null
+  issue_number: 1157
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-19'
+  archived: null
+  branch: feat/substrate-binding
+  wagon: bind-substrate-runtime
+  feature: feature:bind-substrate-runtime:substrate-binding
+  train: 0005-bind-substrate
+- id: '1165'
+  slug: pre-smoke-gate-scope-to-pr-under-test
+  file: null
+  issue_number: 1165
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-20'
+  archived: null
+  branch: feat/pre-smoke-gate-scope-to-pr-under-test
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate
+  train: 0001-self-compliance-validate
 - id: '958'
   slug: config-drive-four-tier-and-refactor-validators-toolkit-root
   file: null
@@ -1976,9 +2000,10 @@ sessions:
   file: null
   issue_number: 1042
   type: implementation
-  status: INIT
+  status: REFACTOR
   created: '2026-06-10'
   archived: null
+  train: 0002-coach-drives-lifecycle
 - id: '1043'
   slug: declared-dispatch-registry
   file: null
@@ -2700,7 +2725,8 @@ sessions:
   file: null
   issue_number: 1139
   type: implementation
-  status: INIT
+  status: COMPLETE
+  train: 0001-self-compliance-validate
   created: '2026-06-17'
   archived: null
 - id: '1147'
@@ -2712,3 +2738,13 @@ sessions:
   created: '2026-06-18'
   archived: null
   branch: feat/wagon-separability-granularity
+- id: '1154'
+  slug: composed-no-orphan-extension-nodes
+  file: null
+  issue_number: 1154
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-19'
+  archived: null
+  branch: feat/composed-no-orphan-extension-nodes
+  train: 0003-author-substrate

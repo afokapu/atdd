@@ -1,0 +1,51 @@
+urn: "wmbt:bind-substrate-runtime:C001"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "tampered-package-execution"
+context_clarifier: "binding is the first layer that executes admitted code, so before loading a package from its installed_path the binder must re-compute the package's sha256 digest and compare it to the `digest` recorded in the lock — if the installed files have been mutated since admission (digest mismatch) the package must be refused and never loaded or spawned, because admit's validation only proves what was admitted, not what is on disk at bind time; an unlocked or digest-missing artifact is likewise refused"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of tampered-package-execution by re-verifying each package's sha256 digest against the lock before loading and refusing on mismatch, so a package mutated since admission is never loaded or spawned"
+acceptances:
+  - identity:
+      urn: "acc:bind-substrate-runtime:C001-UNIT-001-digest-mismatch-refused"
+      id: "AC-UNIT-001"
+      purpose: "a package whose installed files were mutated after admission (recomputed digest != lock digest) is refused before loading; an intact package binds"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project with two enabled lock artifacts installed under installed_path: one intact (recomputed digest matches the lock) and one whose installed files have been mutated after the lock was written (recomputed digest differs from the lock digest), plus a poisoned implementation in the mutated package that writes a sentinel if it ever runs"
+    when:
+      abstract: "the binder verifies each package's digest against the lock before loading"
+    then:
+      abstract:
+        - "the intact package passes verification and is loaded"
+        - "the mutated package is refused with a digest-mismatch error before loading"
+        - "the poisoned implementation never runs and its sentinel file is never written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"
+  - identity:
+      urn: "acc:bind-substrate-runtime:C001-SMOKE-001-tamper-refused-subprocess"
+      id: "AC-SMOKE-001"
+      purpose: "`atdd bind --check` as a subprocess refuses a real admitted package whose installed files were tampered after admission, before any implementation is spawned"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project where a real extension was admitted via `atdd add` (intact lock + installed_path), then a file under its installed_path is mutated on disk after admission"
+    when:
+      abstract: "`atdd bind --check` is invoked as a subprocess against the temp project"
+    then:
+      abstract:
+        - "the command refuses the tampered package with a digest-mismatch error"
+        - "no implementation subprocess is spawned for the tampered package"
+        - "the exit status is non-zero (or the plan marks the package refused)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"

@@ -1,0 +1,17 @@
+schema_version: 1.1.0
+rule_id: planner.train.family
+kind: family
+status: draft
+name: Train families
+statement: The family classifies a train as behavior or delivery, orthogonal to the variant category (0-3). The declared terminal contract is the source of truth; the family field is the validator-checked assertion and is never encoded in the train ID.
+rationale: Behavior trains express and exercise a capability (no authority commit); delivery trains govern accepted-system state via a durable Acceptance Authority commit. family and variant are two orthogonal classification axes (see #1083).
+terms:
+- term_id: family
+  label: Train families
+  text: train -> {family, definition}; family is orthogonal to the variant category (planner.train.categories, 0-3).
+  values:
+    behavior: Observe, exercise, classify, validate, recommend, or report a capability against a system under examination; produces no authority commit.
+    delivery: Govern accepted-system state through a durable Acceptance Authority commit; the declared terminal contract returns a platform:acceptance:commit-receipt.
+- term_id: family-source-of-truth
+  label: Terminal-contract source of truth
+  text: family is derived from the declared terminal contract -- requires an Acceptance Authority commit and terminates in platform:acceptance:commit-receipt => delivery, otherwise behavior. The family field is a mandatory, validator-checked assertion (planner.train.family-matches-terminal-contract), not a second source of truth, and is never an ID digit.

@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ATDD Binding Lock Schema",
+  "description": "Resolved substrate binding plan (.atdd/binding.lock.yaml). Keyed to a substrate-lock digest; records, per convention, whether gating is bound-owned by an admitted implementation/workspace or left to a legacy-fallback validator. Produced by the binder (atdd bind --check); never executes implementation code to build it.",
+  "type": "object",
+  "required": ["schema_version", "substrate_lock_digest", "conventions"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "substrate_lock_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "conventions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["convention_id", "disposition"],
+        "additionalProperties": false,
+        "properties": {
+          "convention_id": { "type": "string", "minLength": 1 },
+          "disposition": { "type": "string", "enum": ["bound", "legacy-fallback"] },
+          "implementation_id": { "type": "string", "minLength": 1 },
+          "workspace_id": { "type": "string", "minLength": 1 },
+          "contract_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }
+        },
+        "if": {
+          "properties": { "disposition": { "const": "bound" } }
+        },
+        "then": {
+          "required": ["implementation_id", "workspace_id", "contract_version"]
+        }
+      }
+    }
+  }
+}
