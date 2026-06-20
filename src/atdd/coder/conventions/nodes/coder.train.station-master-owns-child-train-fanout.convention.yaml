@@ -1,0 +1,10 @@
+schema_version: 1.1.0
+rule_id: coder.train.station-master-owns-child-train-fanout
+kind: rule
+status: draft
+name: Station Master owns child-train fan-out
+statement: Acceptance-set fan-out is owned by the Station Master (parent suspend/resume); a wagon MUST NOT start a child train, invoke the Station Master, or perform fan-out, and suspend/resume state lives in the durable run-log, not in TrainRunner. Pending binding - validator owned by D4 (#1088).
+terms:
+- term_id: fanout-ownership
+  label: Fan-out ownership
+  text: Station Master fans out child behavior-train runs and aggregates; TrainRunner stays one linear executor; linearity preserved.

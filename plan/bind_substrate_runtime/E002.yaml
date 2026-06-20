@@ -1,0 +1,51 @@
+urn: "wmbt:bind-substrate-runtime:E002"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "bound-violation-gating"
+context_clarifier: "the Violations a bound implementation produces must be routed into core's disposition gate so that a bound capability can BLOCK a lifecycle transition exactly like a legacy validator — and precedence must be deterministic: when a bound implementation realizes a convention that core also has a legacy built-in validator for, the bound implementation OWNS (shadows) that convention's gating for the run and the legacy validator is suppressed (and that shadowing is logged), so gating migrates out of core rather than double-counting; the routed Violations are evaluated against the convention's disposition just as legacy violations are"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of correct bound-violation-gating by routing bound Violations into the disposition gate with deterministic precedence, so a bound implementation shadows the matching legacy validator for the same convention and gates a lifecycle transition exactly like a legacy validator"
+acceptances:
+  - identity:
+      urn: "acc:bind-substrate-runtime:E002-UNIT-001-shadow-and-gate"
+      id: "AC-UNIT-001"
+      purpose: "bound Violations for a convention shadow the legacy validator (legacy suppressed + logged) and, under a strict disposition, block the transition; with no bound impl for a convention the legacy validator still runs"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A binding plan binding convention X to an implementation that emits a strict-disposition Violation, while convention X also has a legacy built-in validator; and a convention Y with no bound implementation but a legacy validator"
+    when:
+      abstract: "the violation-router routes bound Violations into the disposition gate for a candidate lifecycle transition"
+    then:
+      abstract:
+        - "convention X is gated by the bound Violation and the transition is blocked"
+        - "the legacy validator for convention X is suppressed and the shadowing is logged"
+        - "convention Y is still gated by its legacy validator (no bound impl, no shadow)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"
+  - identity:
+      urn: "acc:bind-substrate-runtime:E002-SMOKE-001-real-bound-gate-blocks"
+      id: "AC-SMOKE-001"
+      purpose: "a real provider-spawned github implementation produces a Violation that shadows the legacy validator and blocks a real lifecycle transition end to end"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project with the real github extension + python-pytest provider admitted, a binding plan binding the github convention to its implementation, and a repository state that makes the real implementation emit a blocking Violation"
+    when:
+      abstract: "a lifecycle transition gated by that convention is attempted through the bind execution path (real provider-spawn)"
+    then:
+      abstract:
+        - "the bound implementation's Violation is routed into the disposition gate"
+        - "the legacy validator for that convention is suppressed (shadowed) and the shadowing is logged"
+        - "the transition is blocked by the bound Violation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"

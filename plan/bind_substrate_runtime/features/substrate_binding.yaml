@@ -1,0 +1,33 @@
+urn: "feature:bind-substrate-runtime:substrate-binding"
+wagon: "wagon:bind-substrate-runtime"
+description: "The substrate runtime back end: bind a locked `.atdd/substrate.lock.yaml` to running, gating capabilities. The pipeline loads `enabled` packages from the lock by installed_path (`atdd bind --check` dry-runs it), re-verifies each package's sha256 digest against the lock before loading (the tamper boundary — bind is the first executor), composes the capability graph and indexes implementations by realizes_convention, selects which capabilities apply to a lifecycle phase + blast radius, resolves the workspace each implementation targets (SemVer contract check + materialized workspace instance), and PROVIDER-SPAWNS the implementation entrypoint as an isolated subprocess in the provider's runtime to produce Violations over the violation-output-contract — core imports no extension code. Bound Violations are normalized into core's disposition gate so a bound implementation SHADOWS the matching legacy validator for the same convention and gates a lifecycle transition; on any failure (digest mismatch, contract mismatch, crash, timeout, malformed output) gating FALLS BACK to legacy, loudly logged. The resolved plan is cached in `.atdd/binding.lock.yaml`, digest-keyed off the substrate lock. Two commands: `atdd capabilities` (render bound-owned vs legacy-fallback) and `atdd bind --check`. Runtime binding is strictly later than and separate from admission; this wagon never admits, installs, or re-validates the package manifest (admit owns that and locked the digest)."
+sizing:
+  wmbts: 7
+  footprint_score: 14
+  footprint_size: "M"
+wmbts:
+  - "wmbt:bind-substrate-runtime:D001"
+  - "wmbt:bind-substrate-runtime:L001"
+  - "wmbt:bind-substrate-runtime:C001"
+  - "wmbt:bind-substrate-runtime:C002"
+  - "wmbt:bind-substrate-runtime:E001"
+  - "wmbt:bind-substrate-runtime:E002"
+  - "wmbt:bind-substrate-runtime:M001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 2
+        rationale: "atdd capabilities (render bound-owned vs legacy-fallback) + atdd bind --check (compose + dry-run the plan) CLI bridges"
+    application:
+      - type: "use_cases"
+        count: 5
+        rationale: "load enabled packages from lock; compose+index capabilities by realizes_convention; scope-select for a phase+blast-radius; bind (digest-verify→resolve workspace→provider-spawn→capture violations); route violations into the disposition gate with shadow/fail-safe precedence"
+    domain:
+      - type: "value_objects"
+        count: 3
+        rationale: "BindingPlan (digest-keyed map of convention→bound-owned|legacy-fallback); BoundCapability (implementation_id + realizes_convention + targeted workspace + contract_version); WorkspaceInstance (resolved provider + materialized shared_runtime path + run command)"
+    integration:
+      - type: "adapters"
+        count: 2
+        rationale: "provider-spawn runner (subprocess in the workspace runtime; parses Violations over the violation-output-contract); violation-router (normalizes bound Violations into core's disposition gate, shadowing legacy, falling back on failure)"
