@@ -2738,3 +2738,13 @@ sessions:
   created: '2026-06-18'
   archived: null
   branch: feat/wagon-separability-granularity
+- id: '1154'
+  slug: composed-no-orphan-extension-nodes
+  file: null
+  issue_number: 1154
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-19'
+  archived: null
+  branch: feat/composed-no-orphan-extension-nodes
+  train: 0003-author-substrate
