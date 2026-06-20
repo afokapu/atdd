@@ -48,6 +48,7 @@ spawn_time:
       - "WebFetch"
     allowed_bash:
       - "Bash(pytest:*)"
+      - "Bash(python -m pytest:*)"
       - "Bash(atdd validate:*)"
       - "Bash(atdd repo:*)"
       - "Bash(atdd gate:*)"
