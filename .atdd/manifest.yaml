@@ -1,6 +1,30 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1157'
+  slug: substrate-binding
+  file: null
+  issue_number: 1157
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-19'
+  archived: null
+  branch: feat/substrate-binding
+  wagon: bind-substrate-runtime
+  feature: feature:bind-substrate-runtime:substrate-binding
+  train: 0005-bind-substrate
+- id: '1165'
+  slug: pre-smoke-gate-scope-to-pr-under-test
+  file: null
+  issue_number: 1165
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-20'
+  archived: null
+  branch: feat/pre-smoke-gate-scope-to-pr-under-test
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate
+  train: 0001-self-compliance-validate
 - id: '958'
   slug: config-drive-four-tier-and-refactor-validators-toolkit-root
   file: null
@@ -2701,7 +2725,8 @@ sessions:
   file: null
   issue_number: 1139
   type: implementation
-  status: INIT
+  status: COMPLETE
+  train: 0001-self-compliance-validate
   created: '2026-06-17'
   archived: null
 - id: '1147'

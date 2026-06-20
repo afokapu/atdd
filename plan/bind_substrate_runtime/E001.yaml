@@ -1,0 +1,51 @@
+urn: "wmbt:bind-substrate-runtime:E001"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "provider-spawned-violation-production"
+context_clarifier: "once a digest-verified, contract-compatible implementation is bound to a resolved workspace instance, the binder executes it by PROVIDER-SPAWN — the workspace provider runs the implementation entrypoint as a subprocess in its own runtime (for python-pytest: pytest invokes the implementation's test/entrypoint), and the implementation reports Violations back over the violation-output-contract (a structured stdout/jsonl stream) — so that core itself never imports the extension's implementation module, a crashing or side-effecting implementation cannot corrupt the core process, and the same mechanism generalizes to any provider runtime; the executed implementation's Violations are captured and parsed for routing"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of provider-spawned-violation-production by executing the bound implementation entrypoint as an isolated subprocess in the resolved workspace instance and capturing its Violations over the violation-output-contract, so core imports no extension code"
+acceptances:
+  - identity:
+      urn: "acc:bind-substrate-runtime:E001-UNIT-001-spawn-captures-violations"
+      id: "AC-UNIT-001"
+      purpose: "a bound implementation is executed via provider-spawn (subprocess) and its Violations are captured over the violation-output-contract; the implementation module is never imported into the core process"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A resolved workspace instance and a bound fixture implementation that, when run as a subprocess, emits two structured Violations over the violation-output-contract and records its own pid; the core test process records its own pid"
+    when:
+      abstract: "the implementation-binder provider-spawns the implementation and captures its output"
+    then:
+      abstract:
+        - "the two emitted Violations are captured and parsed"
+        - "the implementation ran in a subprocess (its recorded pid differs from the core process pid)"
+        - "the implementation module is absent from the core process sys.modules (core imported no extension code)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"
+  - identity:
+      urn: "acc:bind-substrate-runtime:E001-SMOKE-001-real-pytest-spawn"
+      id: "AC-SMOKE-001"
+      purpose: "the real python-pytest provider provider-spawns a real github implementation as a subprocess and its Violations are captured, with core importing no extension code"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project with the real github extension + python-pytest provider admitted via `atdd add`, and a repository state crafted so a real github implementation (e.g. the PR merge gate) produces at least one Violation when run"
+    when:
+      abstract: "`atdd bind --check` (or the bind execution path) provider-spawns the github implementation via the python-pytest provider as a real subprocess and captures its output"
+    then:
+      abstract:
+        - "the implementation runs as a real pytest subprocess (a child process is observed)"
+        - "its Violation(s) are captured over the violation-output-contract"
+        - "the github implementation module is never imported into the core process"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"

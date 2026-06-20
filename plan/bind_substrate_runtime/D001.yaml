@@ -1,0 +1,53 @@
+urn: "wmbt:bind-substrate-runtime:D001"
+step: "define"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "binding-plan-schema"
+context_clarifier: "the binder writes one project file — `.atdd/binding.lock.yaml` (the resolved binding plan: a substrate-lock digest the plan is keyed to, plus per-convention entries recording which `realizes_convention` is bound-owned by which implementation/workspace versus left to a legacy-fallback validator) — and it must have exactly one canonical JSON schema so a binding plan is structurally well-formed by construction and a malformed one (missing the keyed digest, a bound entry without an implementation_id or targeted workspace, an unknown disposition) is rejected before any binding step runs"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of a schema-valid binding-plan-schema by defining one canonical JSON schema for `.atdd/binding.lock.yaml` (substrate_lock_digest + per-convention bound-owned|legacy-fallback entries with implementation_id, targeted workspace, and contract_version) and validating the plan against it before use"
+acceptances:
+  - identity:
+      urn: "acc:bind-substrate-runtime:D001-UNIT-001-binding-plan-schema"
+      id: "AC-UNIT-001"
+      purpose: "a well-formed binding plan validates against its schema; malformed variants (missing the keyed digest, a bound entry missing implementation_id, an unknown disposition value, a non-SemVer contract_version) are refused"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A well-formed `.atdd/binding.lock.yaml` fixture (substrate_lock_digest plus convention entries: a bound-owned entry with implementation_id + targeted workspace + contract_version, and a legacy-fallback entry) plus mutated variants: a plan missing substrate_lock_digest, a bound entry missing implementation_id, an entry with an unknown disposition, and a bound entry with a non-SemVer contract_version"
+    when:
+      abstract: "each fixture is validated against the canonical binding-lock schema"
+    then:
+      abstract:
+        - "the well-formed plan validates"
+        - "the digest-less plan is refused"
+        - "the implementation_id-less bound entry is refused"
+        - "the unknown disposition is refused"
+        - "the non-SemVer contract_version is refused"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"
+  - identity:
+      urn: "acc:bind-substrate-runtime:D001-SMOKE-001-schema-shipped"
+      id: "AC-SMOKE-001"
+      purpose: "the binding-lock schema ships as package data and loads from the installed toolkit (no repo checkout), so a pip-installed core can validate a binding plan"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The installed atdd toolkit (the binding-lock schema ships under the planner schemas package data) and a real `.atdd/binding.lock.yaml` written by an `atdd bind --check` run"
+    when:
+      abstract: "the binding plan is validated against the installed binding-lock schema via the public binding-loading path, resolved package-relatively"
+    then:
+      abstract:
+        - "the schema is resolved from the installed package with no repo-root required"
+        - "the real binding plan validates against it"
+        - "no extension implementation is imported or executed during validation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"

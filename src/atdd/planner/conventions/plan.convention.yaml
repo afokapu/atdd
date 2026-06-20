@@ -1,0 +1,14 @@
+version: "1.0"
+name: "Plan Session Convention"
+description: "Rules for the atdd plan gated decomposition session (#1139). The decomposed node forms live at conventions/nodes/planner.plan.*; the session-lifecycle and in-session-no-issue nodes are documentation-only (no validator), so only the strict confirm-before-author rule carries a bindable registry entry here."
+
+# Legacy rules-list registry consumed by bind_rule. The decomposed node form lives
+# at conventions/nodes/planner.plan.confirm-before-author.convention.yaml (mirrors
+# the planner.relationship.no-orphan-nodes dual declaration).
+rules:
+  - id: "planner.plan.confirm-before-author"
+    severity: 4
+    disposition: strict
+    description: "Nothing is authored before the operator confirms the locked decomposition. The Confirm gate is the conversational-to-deterministic boundary: only on confirmation does atdd plan (the system, not the agent) invoke atdd author per locked unit."
+    validator: "test_plan_confirm_before_author::test_confirm_before_author_is_enforced"
+    introduced_in: "3.124.0"
