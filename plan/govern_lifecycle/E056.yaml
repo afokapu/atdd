@@ -1,0 +1,52 @@
+urn: "wmbt:govern-lifecycle:E056"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "innocent-prs-blocked-by-another-prs-pre-smoke-violation"
+context_clarifier: "the strict coach.pr.merge-blocks-on-pre-smoke-close gate scans every open PR and fails its disposition check if ANY open PR auto-closes a pre-SMOKE issue — so a clean PR's CI goes red purely because some other unrelated open PR references an issue still at INIT/PLANNED/RED/GREEN, and with parallel workers constantly opening such PRs the gate is almost never green and nothing can auto-merge; the gate must instead fail only when the PR UNDER TEST is itself the offender (resolved from GITHUB_REF / PR_NUMBER / the current branch), while every offending PR is still blocked on its own CI run, so the 2026-05-13 substrate-asymmetry incident defense is fully preserved and only the cross-PR coupling is removed"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of innocent-prs-blocked-by-another-prs-pre-smoke-violation by resolving the PR under test from CI context and failing the strict pre-smoke-close disposition only on that PR's own violation, while still scanning and logging every offender so each remains blocked on its own CI"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E056-UNIT-001-failure-scoped-to-pr-under-test"
+      id: "AC-UNIT-001"
+      purpose: "given a current PR, the gate fails only on that PR's pre-smoke-close violation: an offending current PR is blocked, a clean current PR is NOT blocked even when other PRs are offending; with no current PR the behavior is repo-wide"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A set of PR resolutions where PR A (the current PR) is clean and PR B is offending (auto-closes an issue at atdd:GREEN), plus a variant where PR B is the current PR, plus the current-PR resolver reading GITHUB_REF=refs/pull/<N>/merge and PR_NUMBER env"
+    when:
+      abstract: "the pre-smoke-close gate selects the blocking violations for the resolved current PR (and the resolver derives the current PR number from CI context)"
+    then:
+      abstract:
+        - "when the clean PR A is current, no blocking violation is selected (innocent passes) even though PR B is offending"
+        - "when the offending PR B is current, exactly its violation is selected (offender still blocked)"
+        - "the current-PR resolver returns the PR number from GITHUB_REF and from PR_NUMBER"
+        - "when no current PR is resolvable, all offenders' violations are selected (repo-wide back-compat)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-20"
+  - identity:
+      urn: "acc:govern-lifecycle:E056-SMOKE-001-real-gate-scopes-to-current-pr"
+      id: "AC-SMOKE-001"
+      purpose: "the real validator module, run with a current-PR CI context set, scopes its strict failure to that PR — a clean current PR yields no blocking violation even when other open PRs are offending"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The real coach.pr.merge-blocks-on-pre-smoke-close validator module and a real environment where GITHUB_REF / PR_NUMBER identify a clean PR while the scanned resolutions include an offending PR"
+    when:
+      abstract: "the validator's scoping path is exercised end to end against the real module (real env resolution, real evaluator)"
+    then:
+      abstract:
+        - "the current PR is resolved from the real environment"
+        - "the disposition gate receives only the current (clean) PR's violations and passes"
+        - "the offending PR's violation is still produced and logged for visibility"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-20"

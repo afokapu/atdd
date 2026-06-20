@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1165'
+  slug: pre-smoke-gate-scope-to-pr-under-test
+  file: null
+  issue_number: 1165
+  type: implementation
+  status: INIT
+  created: '2026-06-20'
+  archived: null
+  branch: feat/pre-smoke-gate-scope-to-pr-under-test
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate
+  train: 0001-self-compliance-validate
 - id: '958'
   slug: config-drive-four-tier-and-refactor-validators-toolkit-root
   file: null
