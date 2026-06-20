@@ -20,6 +20,8 @@ Run: ``atdd validate coach``
 from __future__ import annotations
 
 import logging
+import os
+import re
 from pathlib import Path
 from typing import Any, List, Optional, Sequence
 
@@ -142,6 +144,36 @@ def scan_open_prs_for_pre_smoke_close(
         resolutions.append(res)
 
     return evaluate_pr_merge_violations(resolutions)
+
+
+# ---------------------------------------------------------------------------
+# PR-under-test scoping (WMBT E056)
+# ---------------------------------------------------------------------------
+
+
+def _current_pr_number(repo_root: Optional[Path] = None) -> Optional[int]:
+    """Resolve the PR currently under test from CI context.
+
+    Order: ``ATDD_PR_NUMBER`` / ``PR_NUMBER`` env → ``GITHUB_REF`` of the form
+    ``refs/pull/<N>/merge`` (GitHub Actions pull_request event) → the current
+    branch's open PR via ``PRManager``. Returns None when none resolves (e.g. a
+    local repo-health run), in which case the gate stays repo-wide for back-compat.
+    """
+    raise NotImplementedError("E056: resolve the PR under test (GREEN)")
+
+
+def select_blocking_violations(
+    violations: Sequence[Violation], current_pr: Optional[int]
+) -> List[Violation]:
+    """Select the violations that should FAIL the strict gate on this CI run.
+
+    With a resolved ``current_pr``, only that PR's violation blocks (so an innocent
+    PR is not failed by other PRs' offenses, while an offending PR is still blocked
+    on its own CI). With no current PR (local repo-health), all violations block
+    (repo-wide back-compat). Non-current offenders are still returned-to-caller
+    nowhere here — the caller logs them via the scan; this only narrows what blocks.
+    """
+    raise NotImplementedError("E056: scope blocking violations to the PR under test (GREEN)")
 
 
 # ---------------------------------------------------------------------------
