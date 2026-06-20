@@ -1,0 +1,52 @@
+urn: "wmbt:bind-substrate-runtime:C002"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "incompatible-workspace-binding"
+context_clarifier: "each implementation declares the workspace it targets (`targets_workspace`) and the provider-contract version it satisfies (`contract_version`); the binder must only bind an implementation to a provider when that provider is present and enabled in the lock AND the implementation's contract_version is SemVer-compatible with the provider's declared contract_version — binding an implementation whose contract_version is incompatible (e.g. a major-version mismatch), or whose targeted provider is absent or disabled, must be refused before the workspace instance is resolved or the implementation is spawned, so a contract drift never silently runs against the wrong runtime"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of incompatible-workspace-binding by refusing when an implementation's contract_version is not SemVer-compatible with the targeted provider's contract_version, or the targeted provider is absent or not enabled in the lock"
+acceptances:
+  - identity:
+      urn: "acc:bind-substrate-runtime:C002-UNIT-001-contract-mismatch-refused"
+      id: "AC-UNIT-001"
+      purpose: "an implementation whose contract_version is SemVer-incompatible with its targeted provider is refused; one whose targeted provider is absent from the lock is refused; a compatible implementation binds"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A lock with a python-pytest provider declaring contract_version 1.0.0 and three implementations: one declaring a compatible contract_version (^1.0.0), one declaring an incompatible major (2.0.0), and one targeting a provider id that is absent from the lock"
+    when:
+      abstract: "the workspace-resolver checks each implementation's contract_version SemVer compatibility against its targeted provider and the provider's presence/enabled state in the lock"
+    then:
+      abstract:
+        - "the compatible implementation is bound to the provider"
+        - "the incompatible-major implementation is refused with a contract-mismatch error"
+        - "the implementation targeting an absent provider is refused with a provider-not-found error"
+        - "no workspace instance is resolved and no subprocess is spawned for the refused implementations"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"
+  - identity:
+      urn: "acc:bind-substrate-runtime:C002-SMOKE-001-real-contract-compatible"
+      id: "AC-SMOKE-001"
+      purpose: "binding the real github extension against the real python-pytest provider passes the SemVer contract check, because the shipped implementations declare a contract_version compatible with the provider"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project where the real github extension and the real python-pytest provider (contract_version 1.0.0) have been admitted via `atdd add`"
+    when:
+      abstract: "`atdd bind --check` is invoked as a subprocess and the workspace-resolver checks each github implementation's contract_version against the python-pytest provider"
+    then:
+      abstract:
+        - "every shipped github implementation passes the SemVer contract check against the provider"
+        - "the binding plan records the github implementations as bound to the python-pytest provider"
+        - "no contract-mismatch refusal is emitted for the real, compatible pairing"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"

@@ -1,0 +1,51 @@
+urn: "wmbt:bind-substrate-runtime:M001"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "silent-bind-failure"
+context_clarifier: "a bound implementation runs as an external subprocess, so it can fail in ways a legacy in-core validator cannot: it can crash (non-zero exit with no parseable Violations), hang (exceed a timeout), or emit malformed output that does not satisfy the violation-output-contract — and none of these may be treated as 'no violations / gate passes', because that would be FAIL-OPEN (a broken capability silently waving transitions through); instead each failure mode must be detected and the binder must FALL BACK to the legacy validator for that convention (fail-safe) while surfacing the failure loudly (a logged, attributable error), so a broken bound capability degrades to legacy gating rather than disabling the gate"
+lens: "functional.availability"
+statement: "minimize likelihood of silent-bind-failure by detecting a bound implementation that crashes, times out, or emits malformed output and falling back to legacy gating, surfaced loudly — never silently passing the gate"
+acceptances:
+  - identity:
+      urn: "acc:bind-substrate-runtime:M001-UNIT-001-fail-safe-to-legacy"
+      id: "AC-UNIT-001"
+      purpose: "a bound implementation that crashes, times out, or emits malformed output falls back to the legacy validator for its convention and surfaces a loud error — it never passes the gate by default"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A binding plan binding convention X to a provider-spawned implementation, exercised three ways — the implementation exits non-zero with no Violations, the implementation exceeds the configured timeout, and the implementation emits output that violates the violation-output-contract — with a legacy validator present for convention X and a log sink captured"
+    when:
+      abstract: "the violation-router evaluates convention X's gate for each failure mode"
+    then:
+      abstract:
+        - "in each failure mode the bound result is discarded and the legacy validator for convention X is run instead (fail-safe)"
+        - "a loud, attributable error is logged for each failure mode"
+        - "no failure mode results in the gate silently passing (never fail-open)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"
+  - identity:
+      urn: "acc:bind-substrate-runtime:M001-SMOKE-001-real-crash-falls-back"
+      id: "AC-SMOKE-001"
+      purpose: "a real bound implementation forced to crash under provider-spawn falls back to legacy gating and logs loudly, observed via `atdd bind --check` as a subprocess"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project with a real admitted extension + python-pytest provider where a bound implementation is made to crash (non-zero exit, no parseable Violations) under provider-spawn, and a legacy validator exists for the same convention"
+    when:
+      abstract: "`atdd bind --check` (or the bind execution path) is invoked as a subprocess and the implementation crashes"
+    then:
+      abstract:
+        - "the binder detects the crash and falls back to the legacy validator for that convention"
+        - "a loud, attributable error is emitted to the operator (logged / non-silent)"
+        - "the gate is not silently passed on account of the crashed bound implementation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"
