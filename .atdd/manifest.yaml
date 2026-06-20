@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1165
   type: implementation
-  status: PLANNED
+  status: REFACTOR
   created: '2026-06-20'
   archived: null
   branch: feat/pre-smoke-gate-scope-to-pr-under-test
