@@ -109,3 +109,15 @@ def test_killed_units_are_not_authored():
     authored = []
     s.author(lambda kind, spec: authored.append(spec["wagon"]))
     assert authored == ["keep-me"]
+
+
+def test_confirm_refuses_unresolved_pivot_until_re_resolved():
+    """A pivot is non-terminal: confirm refuses until it is re-resolved to keep/kill."""
+    s = PlanSession("s1", step=Step.CONFIRM.value)
+    s.add_unit(Unit(kind="wagon", ref="w"))
+    s.decide("w", _op_resolver("pivot"))
+    with pytest.raises(SessionGateError):
+        s.confirm()
+    s.decide("w", _op_resolver("keep"))   # operator re-drafts + re-decides
+    s.confirm()
+    assert s.locked is True

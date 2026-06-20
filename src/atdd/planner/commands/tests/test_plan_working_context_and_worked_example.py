@@ -24,7 +24,7 @@ from jsonschema import validate
 
 from atdd.planner.commands.plan_context import load_working_context
 from atdd.planner.commands.plan_session import (
-    PlanSession, Step, Unit, Verdict, build_author_fn,
+    PlanSession, SessionGateError, Step, Unit, Verdict, build_author_fn,
 )
 
 _REPO = Path(__file__).resolve().parents[5]
@@ -143,9 +143,14 @@ def test_full_decomposition_all_five_kinds_with_keep_pivot_kill(tmp_path):
     s.decide("kill-me", _op_resolver("kill"))
     s.decide("pivot-me", _pivot_resolver("drop audio; focus on podcasts"))
 
-    # pivot recorded its modification; pivot+kill are not 'keep' so not authored
+    # pivot records its modification and is NON-TERMINAL — confirm refuses it
     pm = s._unit("pivot-me")
     assert pm["verdict"] == Verdict.PIVOT.value and pm["modification"] == "drop audio; focus on podcasts"
+    import pytest as _pytest
+    with _pytest.raises(SessionGateError):
+        s.confirm()
+    # operator re-resolves the pivot (re-drafted, then kept or killed) — here: kill
+    s.decide("pivot-me", _op_resolver("kill"))
     assert {u["ref"] for u in s.kept_units()} == {"full-demo", "do-it", "E001", "0009-full-demo", "extra-acc"}
 
     s.confirm()

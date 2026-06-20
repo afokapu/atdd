@@ -153,13 +153,18 @@ class PlanSession:
         self.step = target.value
 
     def confirm(self) -> None:
-        """The Confirm gate: every unit must be resolved (no PENDING); then lock.
-        This is the conversational->deterministic boundary."""
+        """The Confirm gate: every unit must reach a TERMINAL verdict (keep or
+        kill) before locking. PENDING and PIVOT are non-terminal — a pivot names
+        a modification that must be re-drafted and re-decided (decide() again to
+        keep/kill) before confirm. This is the conversational->deterministic
+        boundary."""
         if Step(self.step) is not Step.CONFIRM:
             raise SessionGateError("confirm() is only valid in the Confirm step")
-        pending = [u["ref"] for u in self.units if u["verdict"] == Verdict.PENDING.value]
-        if pending:
-            raise SessionGateError(f"unresolved units (keep/pivot/kill required): {pending}")
+        unresolved = [u["ref"] for u in self.units
+                      if u["verdict"] in (Verdict.PENDING.value, Verdict.PIVOT.value)]
+        if unresolved:
+            raise SessionGateError(
+                f"unresolved units — keep or kill required (pivots must be re-resolved): {unresolved}")
         self.locked = True
 
     def author(self, author_fn) -> list:
