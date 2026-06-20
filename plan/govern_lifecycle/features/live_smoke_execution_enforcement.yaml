@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:live-smoke-execution-enforcement"
+wagon: "wagon:govern-lifecycle"
+description: "Completes the hermetic/live_smoke execution-kind substrate (#690) by requiring a paired live_smoke acceptance to actually EXECUTE. Declares one strict rule in the existing acceptance-violation.* family — tester.acceptance-violation.live-smoke-acceptance-must-execute — whose validator scans each execution_kind: live_smoke acceptance's anchored test for self-skip mechanisms (pytest.skip / pytest.importorskip / @pytest.mark.skip(if) / a live_smoke_available()-style guard) and emits a Violation when found, so a live_smoke acceptance cannot satisfy SMOKE by skipping (the #1076 false green). The validator reuses _acceptance_walker.iter_repo_acceptances and assert_substrate_strict; core states the rule, the workspace provider realizes runtime detection."
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E055"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — uses the existing atdd validate tester / atdd rules show entry points"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "evaluate_live_smoke_execution — the pure evaluator scanning a live_smoke acceptance's anchored tests for self-skip mechanisms"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Reuses the Violation domain dataclass; nothing new at runtime"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses _acceptance_walker.py to walk plan/ acceptances and the test-header scan to resolve anchored tests; assert_substrate_strict for strict-disposition plumbing; no new infrastructure"
