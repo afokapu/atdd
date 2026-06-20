@@ -881,6 +881,16 @@ edges:
   strength: minor
   target_ref: planner.issue-body.dependency-entries-must-be-classified
   type: runs_alongside
+- confidence: 1.0
+  reason: authoring-on-confirm lands artifacts in-session with no GitHub issue
+  source_ref: planner.plan.confirm-before-author
+  target_ref: planner.plan.in-session-no-issue
+  type: enables
+- confidence: 1.0
+  reason: the D/L/P/C lifecycle's Confirm gate enforces confirm-before-author
+  source_ref: planner.plan.session-lifecycle
+  target_ref: planner.plan.confirm-before-author
+  type: requires
 - confidence: 0.9
   constraint: discretionary
   control: internal
