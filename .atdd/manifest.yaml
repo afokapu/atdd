@@ -1976,9 +1976,10 @@ sessions:
   file: null
   issue_number: 1042
   type: implementation
-  status: PLANNED
+  status: RED
   created: '2026-06-10'
   archived: null
+  train: 0002-coach-drives-lifecycle
 - id: '1043'
   slug: declared-dispatch-registry
   file: null
@@ -1987,6 +1988,7 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+  train: 0002-coach-drives-lifecycle
 - id: '1044'
   slug: run-train-wagon-and-step-schema
   file: null
