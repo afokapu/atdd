@@ -28,11 +28,6 @@ from typing import List, Optional
 
 from atdd.coach.utils.repo import find_repo_root
 
-try:  # pragma: no cover - yaml is always present in the toolkit
-    import yaml
-except ImportError:  # pragma: no cover
-    yaml = None
-
 COMMIT_RECEIPT = "platform:acceptance:commit-receipt"
 VALID_FAMILIES = ("behavior", "delivery")
 
@@ -64,9 +59,13 @@ def check_family_matches_terminal(train: dict) -> Optional[str]:
 
 
 def _load_trains(repo_root: Path) -> List[dict]:
+    try:
+        import yaml
+    except ImportError:  # pragma: no cover
+        return []
     trains_dir = repo_root / "plan" / "_trains"
     trains: List[dict] = []
-    if yaml is None or not trains_dir.is_dir():
+    if not trains_dir.is_dir():
         return trains
     for f in sorted(trains_dir.glob("*.yaml")):
         data = yaml.safe_load(f.read_text(encoding="utf-8"))
