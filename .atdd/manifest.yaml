@@ -2699,7 +2699,7 @@ sessions:
   file: null
   issue_number: 1139
   type: implementation
-  status: GREEN
+  status: SMOKE
   train: 0001-self-compliance-validate
   created: '2026-06-17'
   archived: null
