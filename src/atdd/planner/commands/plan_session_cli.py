@@ -55,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     def with_id(sp):
         sp.add_argument("--id", required=True, dest="session_id")
 
+    sub.add_parser("guidelines", help="assemble the agent working context (session + decomposition protocol nodes)")
     s = sub.add_parser("start", help="create a new session"); with_id(s)
     s.add_argument("--main-job", default=None, dest="main_job")
     with_id(sub.add_parser("show", help="print session state"))
@@ -87,6 +88,9 @@ def run(argv: list[str]) -> int:
     args = build_parser().parse_args(argv)
     root = args.root
     try:
+        if args.op == "guidelines":
+            from atdd.planner.commands.plan_context import load_working_context
+            return _emit(load_working_context(root))
         if args.op == "start":
             s = PlanSession(args.session_id, main_job=args.main_job)
             s.save(root)
