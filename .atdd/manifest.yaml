@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1173
   type: cleanup
-  status: INIT
+  status: PLANNED
   created: '2026-06-21'
   archived: null
   branch: chore/restore-interim-manual-version-bump
