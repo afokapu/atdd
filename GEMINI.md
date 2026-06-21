@@ -61,14 +61,18 @@ git:
 # Release Gate (MANDATORY) — to move to release.convention.yaml per #916
 release:
   mandatory: true
+  # Version + tag + publish are FULLY AUTOMATED on merge. Do NOT bump the
+  # version or create tags by hand — CI does it.
   change_class:
     PATCH: "bug fixes, docs, refactors, internal changes"
     MINOR: "new feature, new validator, new command, new convention (non-breaking)"
     MAJOR: "breaking API/CLI/schema/convention change or behavior removal"
-  workflow:
-    - "Bump version in version file"
-    - "Commit: 'Bump version to {version}'"
-    - "Merge PR; then: git tag v{version} on merge commit + git push origin --tags"
+  automation:
+    bump_on_merge: "post-merge-lifecycle.yml bumps pyproject version on main from the branch prefix (feat/→MINOR, fix|chore|docs|refactor|devops/→PATCH, 'BREAKING CHANGE' or '<type>!:'→MAJOR), atomically with retries."
+    tag_and_publish: "publish.yml tags the new version and publishes to PyPI once the bump lands on main."
+  do_not:
+    - "Do NOT edit pyproject.toml::version — a manual bump SKIPS the auto-bump (legacy path) and causes version-line merge conflicts with parallel PRs."
+    - "Do NOT create or push git tags — CI tags on publish."
 
 # Issue Tracking (operator-facing CLI + the prohibition list — gh issue create /
 # gh pr create are forbidden because they bypass `atdd-issue` label-scoped
@@ -85,5 +89,23 @@ issues:
     - "gh issue create    → use: atdd issue <slug>"
     - "gh pr create       → use: atdd pr <N>"
 ---
+
+# Per-LLM convention context: Gemini
+
+## Rule-ID grammar
+
+Canonical rule IDs use `<archetype>.<convention_short_name>.<rule_name>`.
+
+Example: `coder.dead-code.reachability`.
+
+## bind_rule contract
+
+validators MUST call `bind_rule` at module-import time:
+
+```python
+_RULE = bind_rule("<canonical_id>")
+```
+
+The named rule MUST exist in a convention's `rules:` block. This is the bidirectional binding contract anchored by `SPEC-COACH-RULEID-0007`.
 
 # --- ATDD:END ---
