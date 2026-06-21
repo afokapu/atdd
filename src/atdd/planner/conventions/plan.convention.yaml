@@ -1,10 +1,10 @@
 version: "1.0"
 name: "Plan Session Convention"
-description: "Rules for the atdd plan gated decomposition session (#1139). The decomposed node forms live at conventions/nodes/planner.plan.*; the session-lifecycle and in-session-no-issue nodes are documentation-only (no validator), so only the strict confirm-before-author rule carries a bindable registry entry here."
+description: "Rules for the atdd plan gated decomposition session (#1139, #1171). The decomposed node forms live at conventions/nodes/planner.plan.*; the session-lifecycle node is documentation-only, so only the strict confirm-before-author and confirm-binds-an-issue rules carry bindable registry entries here."
 
-# Legacy rules-list registry consumed by bind_rule. The decomposed node form lives
-# at conventions/nodes/planner.plan.confirm-before-author.convention.yaml (mirrors
-# the planner.relationship.no-orphan-nodes dual declaration).
+# Legacy rules-list registry consumed by bind_rule. The decomposed node forms live
+# at conventions/nodes/planner.plan.*.convention.yaml (mirrors the
+# planner.relationship.no-orphan-nodes dual declaration).
 rules:
   - id: "planner.plan.confirm-before-author"
     severity: 4
@@ -12,3 +12,9 @@ rules:
     description: "Nothing is authored before the operator confirms the locked decomposition. The Confirm gate is the conversational-to-deterministic boundary: only on confirmation does atdd plan (the system, not the agent) invoke atdd author per locked unit."
     validator: "test_plan_confirm_before_author::test_confirm_before_author_is_enforced"
     introduced_in: "3.124.0"
+  - id: "planner.plan.confirm-binds-an-issue"
+    severity: 4
+    disposition: strict
+    description: "An atdd plan decomposition needs no pre-existing issue or up-front ceremony, but it must be bound to an ATDD issue before Confirm (a target issue or one minted from the main job) and authored as that issue's PLANNED substrate on its registered branch+worktree. Every authored plan modification is tracked by an issue+branch+worktree; the session removes the ceremony, not the issue. Supersedes planner.plan.in-session-no-issue."
+    validator: "test_plan_confirm_binds_issue::test_confirm_binds_an_issue_is_enforced"
+    introduced_in: "3.128.0"
