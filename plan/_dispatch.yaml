@@ -1,0 +1,12 @@
+# Declared dispatch registry (G6: plan/_dispatch.yaml) — #1043 / #1034.
+#
+# Maps a produced DIVERGENCE artifact_urn -> the train_id that resolves it.
+# The TrainRunner reports a `diverged` result; the Station Master routes by
+# reading THIS declared registry (no imperative routing in code).
+#
+# A composite (artifact_urn, discriminant) -> train_id key is EXCEPTIONAL:
+# permitted only when that discriminant value's resolution is behaviorally
+# different, and it MUST carry `behavioral_difference`. The canonical composite
+# case is commons:decision:escalation keyed by `cause` (#1083) — added when the
+# exception trains (e.g. 0301) land. Empty until divergence trains exist.
+dispatch: []

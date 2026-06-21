@@ -1,4 +1,5 @@
 train_id: "0002-coach-drives-lifecycle"
+family: behavior
 title: "Coach Drives Lifecycle"
 description: "Replace polling-and-trust with an event-driven, observer-augmented coach that drives the issue → merged-PR lifecycle (per atdd-coach-spec-v9.md). Absorbs valuable machinery from atdd orchestrate and atdd babysit; introduces durable state, two-tier verification, six judge call sites, and pre-coach issue review."
 themes:

@@ -1,0 +1,10 @@
+schema_version: 1.1.0
+rule_id: coder.train.acceptance-commit-idempotent
+kind: rule
+status: draft
+name: Acceptance commit idempotent
+statement: An Acceptance Authority commit MUST be idempotent - the same idempotency_key returns the original receipt with no second commit; the same key with a different payload fails loud; and a receipt is recoverable across the commit/receipt crash window. Pending binding - validator owned by D3 (#1087).
+terms:
+- term_id: commit-idempotency
+  label: Commit idempotency
+  text: atomic compare-and-set on expected_version + idempotency_key; replay-safe; the Acceptance Registry is the durable source of truth.
