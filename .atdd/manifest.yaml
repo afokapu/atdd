@@ -2120,6 +2120,7 @@ sessions:
   status: INIT
   created: '2026-06-10'
   archived: null
+  branch: feat/bind-unbound-substrate-validators
 - id: '1053'
   slug: coach-dashboard-worker-grid
   file: null
@@ -2748,3 +2749,11 @@ sessions:
   archived: null
   branch: feat/composed-no-orphan-extension-nodes
   train: 0003-author-substrate
+- id: '1169'
+  slug: stop-instructing-manual-version-bump
+  file: null
+  issue_number: 1169
+  type: cleanup
+  status: INIT
+  created: '2026-06-21'
+  archived: null
