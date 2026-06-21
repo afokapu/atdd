@@ -10,10 +10,10 @@ Two rules:
   ``behavioral_difference`` justification, and the discriminant is exactly one
   field:value (the canonical case is commons:decision:escalation.cause, #1083).
 
-PENDING BINDING (#1054): declared as convention nodes (status: draft) but not yet
-wired through ``bind_rule()`` - the legacy registry binder reads a ``rules:`` block
-and ``train.convention.yaml`` has none yet (owned by #1054). Add ``bind_rule`` +
-``assert_disposition_satisfied`` once #1054 lands the train ``rules:`` block.
+BOUND (#1054): both rules are declared in ``train.convention.yaml``'s ``rules:``
+block and wired through ``bind_rule()`` + ``assert_disposition_satisfied`` (strict
+disposition). Behaviour-preserving: the ``check_*`` logic is unchanged; real-registry
+violations now route through the disposition gate under their bound rule_ids.
 """
 from __future__ import annotations
 
@@ -21,7 +21,14 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+_RULE_MAP = bind_rule("planner.train.dispatch-map-is-registry")
+_RULE_COMPOSITE = bind_rule("planner.train.dispatch-composite-key-exceptional")
+_VALIDATOR_ID = "dispatch_registry"
 
 
 def check_entry_shape(entry: dict) -> Optional[str]:
@@ -80,12 +87,24 @@ def test_real_dispatch_registry_is_declared_and_schema_valid():
 def test_real_dispatch_entries_well_formed():
     repo = find_repo_root()
     registry = _load_registry(repo) or {"dispatch": []}
-    violations: List[str] = []
+    violations: List[Violation] = []
     for entry in registry.get("dispatch", []):
-        for v in (check_entry_shape(entry), check_composite_key_exceptional(entry)):
-            if v:
-                violations.append(v)
-    assert not violations, "dispatch registry violations:\n  " + "\n  ".join(violations)
+        loc = f"plan/_dispatch.yaml:{entry.get('artifact_urn', '<unknown>') if isinstance(entry, dict) else '<entry>'}"
+        shape = check_entry_shape(entry)
+        if shape:
+            violations.append(Violation(
+                rule_id=_RULE_MAP.rule_id, severity=_RULE_MAP.severity,
+                location=loc, detail=shape,
+                fix_hint_ref=getattr(_RULE_MAP, "fix_hint_ref", None),
+            ))
+        composite = check_composite_key_exceptional(entry) if isinstance(entry, dict) else None
+        if composite:
+            violations.append(Violation(
+                rule_id=_RULE_COMPOSITE.rule_id, severity=_RULE_COMPOSITE.severity,
+                location=loc, detail=composite,
+                fix_hint_ref=getattr(_RULE_COMPOSITE, "fix_hint_ref", None),
+            ))
+    assert_disposition_satisfied(validator_id=_VALIDATOR_ID, violations=violations)
 
 
 # --- unit fixtures: prove the composite-key rule ---
