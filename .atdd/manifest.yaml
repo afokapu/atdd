@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1169
   type: cleanup
-  status: INIT
+  status: PLANNED
   created: '2026-06-21'
   archived: null
   branch: chore/stop-instructing-manual-version-bump
