@@ -2142,9 +2142,10 @@ sessions:
   file: null
   issue_number: 1054
   type: implementation
-  status: INIT
+  status: GREEN
   created: '2026-06-10'
   archived: null
+  train: 0001-self-compliance-validate
 - id: '1053'
   slug: coach-dashboard-worker-grid
   file: null

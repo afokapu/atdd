@@ -1039,6 +1039,24 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: The composite-key exception is a constraint on entries within the dispatch registry.
+  source_ref: planner.train.dispatch-composite-key-exceptional
+  strength: important
+  target_ref: planner.train.dispatch-map-is-registry
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: Dispatch routes the produced-artifact divergence alongside the normal train artifact flow.
+  source_ref: planner.train.dispatch-map-is-registry
+  strength: important
+  target_ref: planner.train.artifact-flow
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: family is derived from the declared terminal contract
   source_ref: planner.train.family
   strength: important
