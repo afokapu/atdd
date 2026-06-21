@@ -31,6 +31,7 @@ def _state(s: PlanSession) -> dict:
         "session_id": s.session_id,
         "step": s.step,
         "main_job": s.main_job,
+        "issue_ref": s.issue_ref,
         "locked": s.locked,
         "sources": s.sources,
         "units": [
@@ -58,6 +59,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("guidelines", help="assemble the agent working context (session + decomposition protocol nodes)")
     s = sub.add_parser("start", help="create a new session"); with_id(s)
     s.add_argument("--main-job", default=None, dest="main_job")
+    s.add_argument("--issue", default=None, dest="issue_ref",
+                   help="bind the plan to this local ATDD issue (manifest slug; not a GitHub number)")
+    bi = sub.add_parser("bind-issue", help="bind the plan to a local ATDD issue (required before confirm)"); with_id(bi)
+    bi.add_argument("--issue", dest="issue_ref", required=True,
+                    help="local ATDD issue identity (manifest slug); the GitHub number is a synced projection")
     with_id(sub.add_parser("show", help="print session state"))
     mj = sub.add_parser("main-job", help="set the JTBD main job (Define)"); with_id(mj); mj.add_argument("text")
     sc = sub.add_parser("source", help="capture a source (Locate)"); with_id(sc); sc.add_argument("text")
@@ -92,14 +98,16 @@ def run(argv: list[str]) -> int:
             from atdd.planner.commands.plan_context import load_working_context
             return _emit(load_working_context(root))
         if args.op == "start":
-            s = PlanSession(args.session_id, main_job=args.main_job)
+            s = PlanSession(args.session_id, main_job=args.main_job, issue_ref=args.issue_ref)
             s.save(root)
             return _emit(_state(s))
 
         s = PlanSession.load(args.session_id, root)
         if args.op == "show":
             return _emit(_state(s))
-        if args.op == "main-job":
+        if args.op == "bind-issue":
+            s.issue_ref = args.issue_ref
+        elif args.op == "main-job":
             s.main_job = args.text
         elif args.op == "source":
             s.sources.append({"type": "text", "value": args.text})

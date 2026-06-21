@@ -2754,6 +2754,16 @@ sessions:
   train: 0001-self-compliance-validate
   created: '2026-06-17'
   archived: null
+- id: '1171'
+  slug: atdd-plan-binds-issue-at-confirm
+  file: null
+  issue_number: 1171
+  type: implementation
+  status: REFACTOR
+  train: 0001-self-compliance-validate
+  created: '2026-06-21'
+  archived: null
+  branch: feat/atdd-plan-binds-issue-at-confirm
 - id: '1147'
   slug: wagon-separability-granularity
   file: null

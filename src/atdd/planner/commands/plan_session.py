@@ -69,6 +69,9 @@ class PlanSession:
     sources: list = field(default_factory=list)   # captured source descriptors
     units: list = field(default_factory=list)     # list[Unit] (as dicts when persisted)
     locked: bool = False
+    issue_ref: str | None = None  # local issue identity (manifest slug) this plan binds to;
+    # the SoT is the local manifest/State Store record (#945/#1168), NOT a GitHub number — the
+    # GitHub issue number is a downstream projection the github extension syncs after install.
 
     # ---- persistence -------------------------------------------------------
     @staticmethod
@@ -165,6 +168,14 @@ class PlanSession:
         if unresolved:
             raise SessionGateError(
                 f"unresolved units — keep or kill required (pivots must be re-resolved): {unresolved}")
+        if self.issue_ref is None:
+            raise SessionGateError(
+                "confirm-binds-an-issue: the decomposition must be bound to a local ATDD issue "
+                "record (a target issue, or one minted from the main job) before lock — every "
+                "authored plan modification is tracked by an issue + branch + worktree (the "
+                "universal rule). The binding is the local manifest/State Store slug, NOT a GitHub "
+                "number (GitHub is a downstream extension). "
+                "Set it via `atdd plan session bind-issue --id <sess> --issue <slug>`.")
         self.locked = True
 
     def author(self, author_fn) -> list:
