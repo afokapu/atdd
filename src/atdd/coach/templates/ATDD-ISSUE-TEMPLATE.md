@@ -351,29 +351,24 @@ Reference: src/atdd/coach/conventions/issue.convention.yaml
 
 ---
 
-## Release Gate (AUTOMATED)
+## Release Gate (MANDATORY)
 
 <!--
-Version + tag + publish are FULLY AUTOMATED on merge. Do NOT bump the version
-or create tags by hand.
+INTERIM (see #1172): bump the version manually for now. The bump-on-merge automation
+(post-merge-lifecycle.yml) is currently NON-OPERATIONAL — its direct push to
+main is rejected by branch protection (GH006), so it has never successfully
+bumped. Until version handling moves to the State Store (#1168 / #1172), manual
+bumping is the working mechanism. Do NOT re-adopt the auto-bump until it works.
 
-- post-merge-lifecycle.yml bumps pyproject version on main from the branch
-  prefix (feat/→MINOR, fix|chore|docs|refactor|devops/→PATCH,
-  "BREAKING CHANGE" or "<type>!:"→MAJOR), atomically with retries.
-- publish.yml tags the new version and publishes to PyPI once the bump lands on main.
-
-A manual pyproject.toml::version edit SKIPS the auto-bump (legacy path) and
-causes version-line merge conflicts with parallel PRs.
-
-Change Class (what the branch prefix maps to — for reference only):
+Change Class (branch prefix → bump):
 - PATCH: bug fixes, docs, refactors, internal changes
 - MINOR: new feature, new validator, new command, new convention (non-breaking)
 - MAJOR: breaking API/CLI/schema/convention change or behavior removal
 -->
 
-- [ ] Do NOT edit pyproject.toml::version — CI bumps it on merge from the branch prefix
-- [ ] Do NOT create or push git tags — CI tags + publishes after the bump lands on main
-- [ ] Merge PR → confirm the `chore(release): bump version … [auto]` commit appears on main
+- [ ] Determine change class from branch prefix: PATCH / MINOR / MAJOR
+- [ ] Bump the version in pyproject.toml; commit "Bump version to X.Y.Z"
+- [ ] Merge PR → publish.yml tags + publishes from the version on main
 
 ---
 
