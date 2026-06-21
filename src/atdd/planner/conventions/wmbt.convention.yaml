@@ -220,7 +220,7 @@ splitting_rules:
   acceptance_cap:
     maximum: 5
     rationale: "Beyond 5 acceptances indicates mixed concerns that should be separate WMBTs"
-    enforcement: "schemas:planner:wmbt enforces via acceptance array maxItems"
+    enforcement: "Advisory guidance, not schema-enforced. wmbt.schema.json is NOT applied as a file-level gate (see #760); WMBT/acceptance validation happens in the Python content validators (test_wmbt_vocabulary, test_hierarchy_coverage, test_wmbt_has_smoke_acceptance, test_wmbt_consistency) plus acceptance.schema.json per acceptance."
 
   when_to_split:
     mixed_dimensions:
