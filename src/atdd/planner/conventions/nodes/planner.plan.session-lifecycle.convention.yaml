@@ -1,0 +1,16 @@
+schema_version: 1.0.0
+rule_id: planner.plan.session-lifecycle
+kind: policy
+status: active
+statement: 'atdd plan runs a gated decomposition session: Define -> Locate -> Prepare
+  -> Confirm (D/L/P/C), then author -> verify -> modify. Steps are gates not scripts
+  (free dialogue within a step; backtracking allowed); a step advances only when its
+  exit condition (proper state) holds.'
+terms:
+- term_id: dlpc
+  text: 'the four session gates: Define (main job kept), Locate (sources + plan/ state
+    captured), Prepare (candidate decomposition convention-shaped), Confirm (decomposition
+    locked by the operator).'
+- term_id: gate_not_script
+  text: within a step the conversation is dynamic; the gate only defines the exit
+    state; a pivot may reopen an earlier step.

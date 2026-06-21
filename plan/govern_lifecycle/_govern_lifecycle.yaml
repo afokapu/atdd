@@ -76,7 +76,7 @@ features:
   - urn: "feature:govern-lifecycle:live-smoke-execution-enforcement"
 
 wmbt:
-  total: 90
+  total: 91
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
@@ -167,3 +167,4 @@ wmbt:
   E053: "minimize likelihood of residual-projects-v2-substrate-surviving-after-the-board-path-is-deleted by removing projects_v2.py + PROJECT_TOKEN/project_token/resolve_project_config plumbing + .atdd/config.yaml project_id, deleting the Projects-v2 docs, rewriting CLAUDE.md issues.source_of_truth to labels + manifest, and retiring the 3 board-contract regression tests (#1051)"
   E054: "minimize likelihood of atdd-issue-reconcile-and-manifest-backfill-crashing-with-unboundlocalerror-because-issuemanager-is-shadowed-by-a-function-local-import by removing IssueManager from the two function-local imports in cli.py main() (the `atdd issue <slug> --dry-run` branch at l.2298 and the `manifest backfill` branch at l.2707) so it resolves to the module-level import (cli.py:52) on every dispatch path including reconcile (#1056)"
   E055: "minimize likelihood of live-smoke-acceptances-whose-anchored-test-can-self-skip-and-thus-satisfy-smoke-without-ever-executing by declaring tester.acceptance-violation.live-smoke-acceptance-must-execute (strict) in acceptance-violation.convention.yaml with a validator test_live_smoke_execution that reuses _acceptance_walker to scan each execution_kind: live_smoke acceptance's anchored test for self-skip mechanisms (pytest.skip / pytest.importorskip / mark.skip(if) / live_smoke_available guard) and emits a Violation, completing the #690 hermetic/live_smoke chain so a paired live_smoke actually executes against real infrastructure (#1151)"
+  E056: "minimize likelihood of innocent-prs-blocked-by-another-prs-pre-smoke-violation by resolving the PR under test from CI context (GITHUB_REF / PR_NUMBER / current branch) and failing the strict coach.pr.merge-blocks-on-pre-smoke-close disposition only on that PR's own violation, while still scanning and logging every offender so each remains blocked on its own CI (#1165)"

@@ -1,0 +1,51 @@
+urn: "wmbt:author-atdd-substrate:C009"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "orphan-extension-convention-nodes"
+context_clarifier: "the core relationship-graph integrity rule (planner.relationship.no-orphan-nodes) only covers core nodes against the core graph; an extension owns its own convention nodes and its own relationships.yaml, so an extension node could be declared and yet referenced by no edge in the extension's local graph — an orphan invisible to the core rule; the composition gate (atdd validate package) is where this must be caught so extension graphs are complete too"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of orphan-extension-convention-nodes by asserting, in atdd validate package, that every convention node an extension owns is an endpoint of at least one edge in the extension's relationships.yaml, refusing the package when an owned node is referenced by no edge"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C009-UNIT-001-extension-orphan-detection"
+      id: "AC-UNIT-001"
+      purpose: "extension_orphan_nodes flags an owned node referenced by no edge, counts both edge schemas (from/to and source_ref/target_ref), and is empty when all owned nodes are wired"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An extension package dir with owned convention nodes and a relationships.yaml whose edges cover some but not all of them, across both the extension-local (from/to) and core (source_ref/target_ref) edge schemas"
+    when:
+      abstract: "compose.extension_orphan_nodes is evaluated"
+    then:
+      abstract:
+        - "an owned node referenced by no edge is returned as an orphan"
+        - "a node referenced by either edge schema is not an orphan"
+        - "an empty edge set returns all owned nodes as orphans; full coverage returns the empty set"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"
+  - identity:
+      urn: "acc:author-atdd-substrate:C009-SMOKE-001-validate-refuses-orphan"
+      id: "AC-SMOKE-001"
+      purpose: "atdd validate package refuses an extension with an orphan owned node and passes when every owned node is wired into the local graph"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real extension package directory (valid manifest + schema-valid owned convention nodes + a relationships.yaml) built in two variants: one leaving an owned node referenced by no edge, one wiring every owned node"
+    when:
+      abstract: "compose.validate_package is invoked on each variant"
+    then:
+      abstract:
+        - "the orphan variant raises CompositionError naming the orphan node"
+        - "the fully-wired variant validates and returns a report"
+        - "no runtime implementation is executed during the check"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-19"

@@ -1,0 +1,13 @@
+schema_version: 1.0.0
+rule_id: planner.plan.in-session-no-issue
+kind: policy
+status: active
+statement: 'Creating a plan requires no GitHub issue: the whole flow lives in the
+  chat session and lands as authored artifacts in the worktree. If a post-commit validator
+  flags, the session re-opens for Modify (operator adjusts -> re-author -> re-commit).'
+terms:
+- term_id: no_issue
+  text: plan creation is in-session; no GitHub issue is opened to author substrate.
+- term_id: modify_loop
+  text: a post-commit validator failure re-opens the session for operator adjustment
+    and re-author.
