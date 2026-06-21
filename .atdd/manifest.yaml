@@ -2757,3 +2757,11 @@ sessions:
   status: INIT
   created: '2026-06-21'
   archived: null
+- id: '1171'
+  slug: atdd-plan-binds-issue-at-confirm
+  file: null
+  issue_number: 1171
+  type: implementation
+  status: INIT
+  created: '2026-06-21'
+  archived: null
