@@ -2118,7 +2118,7 @@ sessions:
   file: null
   issue_number: 1054
   type: implementation
-  status: INIT
+  status: PLANNED
   created: '2026-06-10'
   archived: null
 - id: '1053'
