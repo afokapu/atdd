@@ -2765,3 +2765,12 @@ sessions:
   status: INIT
   created: '2026-06-21'
   archived: null
+  branch: feat/atdd-plan-binds-issue-at-confirm
+- id: '1172'
+  slug: state-store-owns-version-source-of-truth
+  file: null
+  issue_number: 1172
+  type: planning
+  status: INIT
+  created: '2026-06-21'
+  archived: null
