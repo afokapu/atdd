@@ -16,6 +16,7 @@ import logging
 import os
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -78,6 +79,68 @@ class AuthorInputError(Exception):
     def __init__(self, field: str, message: str) -> None:
         super().__init__(message)
         self.field = field
+
+
+# ── canonical schema validation ──────────────────────────────────────────────
+# "Author schema-valid artifacts BY CONSTRUCTION" means exactly that: every built
+# artifact is validated against its canonical planner/schemas/<kind>.schema.json —
+# the SAME schema the planner validators enforce at gate-time — before it is written.
+# This is the single source of grammar truth (object_of_control kebab, lens
+# vocabulary, step/direction/dimension enums, URN patterns, required fields), so the
+# author writer and the validator can never drift, and a bad spec fails fast at
+# author-time naming ALL its violations rather than silently writing a file the
+# validator later rejects.
+_SCHEMA_DIR = Path(__file__).resolve().parent.parent / "schemas"
+
+# Plan kinds whose canonical JSON Schema matches what the writer emits (kind →
+# schema filename stem). NOTE: `train` and `acceptance` are intentionally absent —
+# their schemas (train.schema.json / acceptance.schema.json) currently model a
+# DIFFERENT shape than create_train/create_acceptance write, so validating against
+# them rejects the writer's own valid output. Reconciling that schema↔writer drift
+# is a separate follow-up; until then they keep their existing structural checks.
+_KIND_SCHEMA: dict[str, str] = {
+    "wagon": "wagon",
+    "feature": "feature",
+    "wmbt": "wmbt",
+}
+
+
+@lru_cache(maxsize=None)
+def _load_schema(stem: str) -> dict:
+    return json.loads((_SCHEMA_DIR / f"{stem}.schema.json").read_text(encoding="utf-8"))
+
+
+def _validate_against_schema(instance: dict, kind: str) -> None:
+    """Validate a built ``kind`` artifact against planner/schemas/<kind>.schema.json.
+
+    Raises :class:`AuthorInputError` listing EVERY violation plus the schema path, so
+    the grammar is read from (and enforced by) one source. A no-op for a kind without
+    a registered schema, or if ``jsonschema`` is unavailable (the import is optional so
+    this never hard-breaks authoring in a stripped environment).
+    """
+    stem = _KIND_SCHEMA.get(kind)
+    if stem is None:
+        return
+    try:
+        import jsonschema
+    except ImportError:  # pragma: no cover - jsonschema is a declared dependency
+        return
+    schema = _load_schema(stem)
+    validator_cls = jsonschema.validators.validator_for(schema)
+    errors = sorted(
+        validator_cls(schema).iter_errors(instance), key=lambda e: list(e.path)
+    )
+    if errors:
+        detail = "\n".join(
+            f"  - {'/'.join(str(p) for p in e.path) or '<root>'}: {e.message}"
+            for e in errors
+        )
+        raise AuthorInputError(
+            kind,
+            f"{kind} fails its canonical schema "
+            f"(src/atdd/planner/schemas/{stem}.schema.json) — "
+            f"{len(errors)} violation(s):\n{detail}",
+        )
 
 
 def validate_author_input(
@@ -429,6 +492,7 @@ def create_wagon(spec: dict, *, root: Path | str | None = None) -> Path:
     manifest["consume"] = spec.get("consume", [])
     manifest["wmbt"] = spec.get("wmbt", {"total": 0})
     validate_wagon(manifest)
+    _validate_against_schema(manifest, "wagon")
     return _write_yaml(path, manifest)
 
 
@@ -448,6 +512,7 @@ def create_feature(spec: dict, *, root: Path | str | None = None) -> Path:
     path = plan / _slug_to_dir(wagon_slug) / "features" / f"{_slug_to_dir(name)}.yaml"
     validate_plan_author_input(wagon_slug, urn, path, plan_root=str(plan))
     validate_feature(spec)
+    _validate_against_schema(dict(spec), "feature")
     return _write_yaml(path, dict(spec))
 
 
@@ -467,7 +532,13 @@ def _seed_smoke_acceptance(wagon_slug: str, code: str) -> dict:
 
 
 def validate_wmbt(wmbt: dict) -> None:
-    """Reject a structurally invalid WMBT before any write (WMBT C004)."""
+    """Reject a structurally invalid WMBT before any write (WMBT C004).
+
+    Required-field presence + the cross-field rule the schema cannot express (the
+    statement must contain its object_of_control). Field-grammar (object_of_control
+    kebab, lens vocabulary, step/direction/dimension enums, URN pattern) is enforced
+    in addition by the canonical wmbt.schema.json via ``_validate_against_schema``.
+    """
     for field in _WMBT_REQUIRED:
         if field not in wmbt or wmbt[field] in (None, "", []):
             raise AuthorInputError(field, f"wmbt missing required field {field!r}")
@@ -493,6 +564,12 @@ def create_wmbt(spec: dict, *, root: Path | str | None = None) -> Path:
         if k in spec:
             wmbt[k] = spec[k]
     validate_wmbt(wmbt)
+    # Validate the core WMBT (urn/step/direction/dimension/object_of_control/lens/
+    # statement) against the canonical schema BEFORE seeding acceptances: wmbt.schema
+    # .json models the behaviour header only (acceptances carry their own schema), so
+    # this catches the field-grammar the validators enforce without tripping on the
+    # acceptances block.
+    _validate_against_schema(wmbt, "wmbt")
     wmbt["acceptances"] = list(spec.get("acceptances") or []) or [_seed_smoke_acceptance(wagon_slug, code)]
     return _write_yaml(path, wmbt)
 
