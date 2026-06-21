@@ -1,0 +1,38 @@
+schema_version: 1.1.0
+rule_id: planner.plan.confirm-binds-an-issue
+kind: rule
+status: active
+statement: 'An atdd plan decomposition needs no PRE-EXISTING issue or up-front ceremony,
+  but it MUST be bound to a local ATDD issue record before Confirm: on Confirm, atdd plan
+  binds the locked decomposition to a target issue (or mints one from the main job) and
+  authors the plan as that issue''s PLANNED-phase substrate on its registered branch +
+  worktree. The binding identity is the LOCAL manifest/State Store record (its slug; #945/#1168),
+  not a GitHub issue number — GitHub is a downstream extension that syncs the number after
+  install, so the iron rule (issue + branch + worktree per repo modification) holds even
+  with no GitHub. The session removes the up-front ceremony, not the issue.'
+implementation:
+  type: validator
+  ref: test_plan_confirm_binds_issue::test_confirm_binds_an_issue_is_enforced
+content:
+  normative_text: The session must refuse to lock (confirm) a decomposition that is
+    not bound to an ATDD issue, so plan substrate is never authored on an untracked branch.
+  fix_hint: 'Bind before confirm — atdd plan session bind-issue --id <sess> --issue <slug>
+    (the local manifest/State Store slug of a target issue), or mint one from the main job.
+    PlanSession.confirm() raises until self.issue_ref is set. The slug is GitHub-agnostic; the
+    GitHub number is a synced projection. Corrects the earlier in-session-no-issue framing,
+    which wrongly read as ''no issue at all''.'
+metadata:
+  severity: 4
+  disposition: strict
+  introduced_in: 3.128.0
+  supersedes: planner.plan.in-session-no-issue
+terms:
+- term_id: no_upfront_ceremony
+  text: the session needs no pre-existing issue or brief; it starts conversationally
+    and decomposes before any issue paperwork.
+- term_id: bind_or_mint
+  text: on Confirm the plan binds to a target issue or mints one; the iron rule
+    (issue + branch + worktree per repo modification) always holds.
+- term_id: modify_loop
+  text: a post-commit validator failure re-opens the session for operator adjustment
+    and re-author.

@@ -882,9 +882,9 @@ edges:
   target_ref: planner.issue-body.dependency-entries-must-be-classified
   type: runs_alongside
 - confidence: 1.0
-  reason: authoring-on-confirm lands artifacts in-session with no GitHub issue
+  reason: the Confirm boundary both gates authoring and binds the plan to its tracking issue
   source_ref: planner.plan.confirm-before-author
-  target_ref: planner.plan.in-session-no-issue
+  target_ref: planner.plan.confirm-binds-an-issue
   type: enables
 - confidence: 1.0
   reason: the D/L/P/C lifecycle's Confirm gate enforces confirm-before-author

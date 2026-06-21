@@ -77,7 +77,7 @@ def test_decide_records_verdict_via_elicit():
 
 
 def test_confirm_requires_all_resolved_then_locks():
-    s = PlanSession("s1", main_job="x", step=Step.CONFIRM.value)
+    s = PlanSession("s1", main_job="x", step=Step.CONFIRM.value, issue_ref="my-plan")
     s.add_unit(Unit(kind="wagon", ref="play-audio"))  # PENDING
     with pytest.raises(SessionGateError):
         s.confirm()
@@ -87,7 +87,7 @@ def test_confirm_requires_all_resolved_then_locks():
 
 
 def test_confirm_before_author_refuses_authoring_until_locked():
-    s = PlanSession("s1", step=Step.CONFIRM.value)
+    s = PlanSession("s1", step=Step.CONFIRM.value, issue_ref="my-plan")
     s.add_unit(Unit(kind="wagon", ref="play-audio", spec={"wagon": "play-audio"}))
     authored = []
     with pytest.raises(SessionGateError):              # not locked yet
@@ -100,7 +100,7 @@ def test_confirm_before_author_refuses_authoring_until_locked():
 
 
 def test_killed_units_are_not_authored():
-    s = PlanSession("s1", step=Step.CONFIRM.value)
+    s = PlanSession("s1", step=Step.CONFIRM.value, issue_ref="my-plan")
     s.add_unit(Unit(kind="wagon", ref="keep-me", spec={"wagon": "keep-me"}))
     s.add_unit(Unit(kind="wagon", ref="kill-me", spec={"wagon": "kill-me"}))
     s.decide("keep-me", _op_resolver("keep"))
@@ -113,7 +113,7 @@ def test_killed_units_are_not_authored():
 
 def test_confirm_refuses_unresolved_pivot_until_re_resolved():
     """A pivot is non-terminal: confirm refuses until it is re-resolved to keep/kill."""
-    s = PlanSession("s1", step=Step.CONFIRM.value)
+    s = PlanSession("s1", step=Step.CONFIRM.value, issue_ref="my-plan")
     s.add_unit(Unit(kind="wagon", ref="w"))
     s.decide("w", _op_resolver("pivot"))
     with pytest.raises(SessionGateError):
