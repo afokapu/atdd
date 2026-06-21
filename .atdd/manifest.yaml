@@ -2774,3 +2774,11 @@ sessions:
   status: INIT
   created: '2026-06-21'
   archived: null
+- id: '1173'
+  slug: restore-interim-manual-version-bump
+  file: null
+  issue_number: 1173
+  type: cleanup
+  status: INIT
+  created: '2026-06-21'
+  archived: null
