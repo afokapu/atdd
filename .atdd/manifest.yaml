@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1169'
+  slug: stop-instructing-manual-version-bump
+  file: null
+  issue_number: 1169
+  type: cleanup
+  status: REFACTOR
+  created: '2026-06-21'
+  archived: null
+  branch: chore/stop-instructing-manual-version-bump
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate
+  train: 0001-self-compliance-validate
 - id: '1157'
   slug: substrate-binding
   file: null
