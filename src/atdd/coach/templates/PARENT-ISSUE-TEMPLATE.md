@@ -171,17 +171,18 @@
 
 ---
 
-## Release Gate (AUTOMATED)
+## Release Gate
 
-Version + tag + publish are fully automated on merge — do NOT bump the version
-or tag by hand. CI (`post-merge-lifecycle.yml`) bumps the pyproject version on
-main from the branch prefix (feat/→MINOR, fix|chore|docs|refactor|devops/→PATCH,
-BREAKING/!:→MAJOR), then `publish.yml` tags the new version and publishes to PyPI.
-A manual version edit SKIPS the auto-bump and causes version-line merge conflicts.
+INTERIM (see #1172): bump the version manually for now. The bump-on-merge
+automation (`post-merge-lifecycle.yml`) is currently NON-OPERATIONAL — its direct
+push to main is rejected by branch protection (GH006), so it has never
+successfully bumped. Until version handling moves to the State Store (#1168 /
+#1172), manual bumping is the working mechanism. `publish.yml` tags + publishes
+from the version on main.
 
-- [ ] Do NOT edit pyproject.toml::version — CI bumps it on merge from the branch prefix
-- [ ] Do NOT create or push git tags — CI tags + publishes after the bump lands on main
-- [ ] Merge PR → confirm the `chore(release): bump version … [auto]` commit appears on main
+- [ ] Rebase on main: `git pull origin main --rebase`
+- [ ] Bump version (feat/ → MINOR, fix|chore|docs/ → PATCH): edit pyproject.toml, commit "Bump version to X.Y.Z"
+- [ ] Merge PR → publish.yml tags + publishes from the version on main
 
 ---
 
