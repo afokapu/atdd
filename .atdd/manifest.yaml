@@ -2832,3 +2832,11 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1185'
+  slug: state-store-hub-trace-alignment
+  file: null
+  issue_number: 1185
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
