@@ -2780,7 +2780,7 @@ sessions:
   file: null
   issue_number: 1179
   type: implementation
-  status: INIT
+  status: PLANNED
   train: 0002-coach-drives-lifecycle
   created: '2026-06-22'
   archived: null
