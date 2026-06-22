@@ -33,6 +33,17 @@ STATE_STORE_RELATIVE = Path(ATDD_DIR) / "state" / "state.sqlite"
 #: Env override for the Control Root (resolver rule #1).
 CONTROL_ROOT_ENV = "ATDD_CONTROL_ROOT"
 
+#: Initialized-Control-Root signals inside a ``.atdd/`` (#1179). A ``.atdd/`` is
+#: a *real* Control Root only if it carries one of these — an explicit marker
+#: file, ``config.yaml``, ``manifest.yaml``, or the ``state/`` directory.
+#: Anything else (a ``.atdd/`` holding only scratch such as
+#: ``cache/`` / ``runtime/`` / ``diagnostics/``) is tool scratch, NOT a root,
+#: and must not be treated as a parent Control Root by the resolver.
+CONTROL_ROOT_MARKER_FILES = ("control-root.yaml", "config.yaml", "manifest.yaml")
+CONTROL_ROOT_MARKER_DIRS = ("state",)
+#: Subdirectories that, alone, mark a ``.atdd/`` as scratch-only (diagnostic).
+SCRATCH_ATDD_DIRS = ("cache", "runtime", "diagnostics")
+
 
 class LayoutMode(str, Enum):
     """How the Control Root relates to the Git worktree root."""
@@ -92,7 +103,33 @@ class ControlRootResolution:
 
 
 def _has_atdd(directory: Path) -> bool:
+    """A ``.atdd/`` directory exists here (presence only — may be scratch)."""
     return (directory / ATDD_DIR).is_dir()
+
+
+def is_control_root(directory: Path) -> bool:
+    """True if ``directory`` holds an *initialized* ``.atdd/`` Control Root (#1179).
+
+    A bare or scratch-only ``.atdd/`` (e.g. just ``cache/``/``runtime/``/
+    ``diagnostics/``, as tools leave at a flat-worktree parent) is NOT a Control
+    Root — it lacks any initialized-root signal. This is what keeps the resolver
+    from mistaking tool scratch for a parent Control Root.
+    """
+    atdd = directory / ATDD_DIR
+    if not atdd.is_dir():
+        return False
+    if any((atdd / name).is_dir() for name in CONTROL_ROOT_MARKER_DIRS):
+        return True
+    return any((atdd / name).is_file() for name in CONTROL_ROOT_MARKER_FILES)
+
+
+def is_scratch_atdd(directory: Path) -> bool:
+    """True if ``directory`` has a ``.atdd/`` that exists but is not a Control Root.
+
+    Used for diagnostics (``atdd state doctor`` reports an ignored scratch
+    ``.atdd/`` rather than failing on it).
+    """
+    return _has_atdd(directory) and not is_control_root(directory)
 
 
 def git_worktree_root(start: Path) -> Optional[Path]:
@@ -121,10 +158,16 @@ def resolve_control_root(
 
     1. ``ATDD_CONTROL_ROOT`` override, if set.
     2. Identify the enclosing Git worktree root.
-    3. worktree has ``.atdd/`` and parent does not → single-repo.
-    4. parent has ``.atdd/`` and current is a child worktree → sibling-worktree.
-    5. both parent and worktree ``.atdd/`` exist → fail loudly.
-    6. otherwise walk upward for any ``.atdd/`` (best-effort fallback) else raise.
+    3. worktree is a Control Root and parent is not → single-repo.
+    4. parent is a Control Root and current is a child worktree → sibling-worktree.
+    5. both parent and worktree are Control Roots → fail loudly.
+    6. otherwise walk upward for a Control Root (best-effort fallback) else raise.
+
+    "Control Root" here means an *initialized* ``.atdd/`` (see
+    :func:`is_control_root`), not merely a ``.atdd/`` directory: a scratch-only
+    ``.atdd/`` (e.g. a flat-worktree parent that tools filled with
+    ``cache/``/``runtime/``/``diagnostics/``) is ignored, so it never shadows a
+    real worktree Control Root nor triggers a false ambiguity (#1179).
     """
     env = os.environ if env is None else env
     start = Path(start).resolve()
@@ -148,23 +191,28 @@ def resolve_control_root(
     # Rule 2 — locate the enclosing Git worktree root.
     gwr = git_worktree_root(start)
     if gwr is not None:
-        worktree_has = _has_atdd(gwr)
+        worktree_root = is_control_root(gwr)
         parent = gwr.parent
-        parent_has = _has_atdd(parent)
+        parent_root = is_control_root(parent)
 
-        # Rule 5 — ambiguous parent + child .atdd/.
-        if worktree_has and parent_has:
+        # Rule 5 — ambiguous: BOTH parent and worktree are real Control Roots.
+        if worktree_root and parent_root:
             raise AmbiguousControlRootError(parent / ATDD_DIR, gwr / ATDD_DIR)
-        # Rule 3 — single-repo.
-        if worktree_has:
+        # Rule 3 — single-repo (a scratch parent .atdd/ is ignored, #1179).
+        if worktree_root:
+            if is_scratch_atdd(parent):
+                _log.debug(
+                    "ignoring scratch .atdd at worktree parent",
+                    extra={"scratch_atdd": str(parent / ATDD_DIR), "control_root": str(gwr)},
+                )
             return ControlRootResolution(gwr, gwr, LayoutMode.SINGLE_REPO)
         # Rule 4 — sibling-worktree (parent owns the Control Root).
-        if parent_has:
+        if parent_root:
             return ControlRootResolution(parent, gwr, LayoutMode.SIBLING_WORKTREE)
 
-    # Rule 6 — fallback: walk upward for any .atdd/.
+    # Rule 6 — fallback: walk upward for an initialized Control Root.
     for directory in (start, *start.parents):
-        if _has_atdd(directory):
+        if is_control_root(directory):
             mode = (
                 LayoutMode.SINGLE_REPO
                 if gwr is not None and gwr == directory

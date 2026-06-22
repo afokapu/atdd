@@ -22,6 +22,7 @@ from atdd.state.paths import (
     ControlRootNotFoundError,
     ControlRootResolution,
     check_layout,
+    is_scratch_atdd,
     resolve_control_root,
 )
 
@@ -79,6 +80,13 @@ def _cmd_doctor(root: Optional[str]) -> int:
     print(f"Git Worktree Root:  {gwr if gwr is not None else '(none — not in a git worktree)'}")
     print(f"Layout Mode:        {resolution.layout_mode.value}")
     print(f"State Store:        {resolution.state_store_path}")
+
+    # Diagnose (do not fail on) a scratch .atdd/ at the worktree parent that the
+    # resolver ignored — e.g. a flat-worktree parent tools filled with
+    # cache/runtime/diagnostics (#1179).
+    parent = resolution.control_root.parent
+    if is_scratch_atdd(parent):
+        print(f"Note:               ignored scratch .atdd at {parent / '.atdd'} (no Control Root marker)")
 
     violations = check_layout(resolution.control_root)
     if violations:
