@@ -2799,3 +2799,12 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+  branch: feat/distinguish-real-control-root-from-scratch-atdd
+- id: '1181'
+  slug: state-store-sqlite-schema-and-migrations
+  file: null
+  issue_number: 1181
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
