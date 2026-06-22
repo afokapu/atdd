@@ -2876,6 +2876,7 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+  branch: feat/y002-theater-live-smoke-and-suite-audit
 - id: '1193'
   slug: atdd-author-validate-against-canonical-schema
   file: null
@@ -2889,6 +2890,14 @@ sessions:
   file: null
   issue_number: 1194
   type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
+- id: '1198'
+  slug: smoke-fixture-e012-rca
+  file: null
+  issue_number: 1198
+  type: cleanup
   status: INIT
   created: '2026-06-22'
   archived: null
