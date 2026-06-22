@@ -2918,3 +2918,12 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+  branch: refactor/provider-agnostic-state-sync-engine
+- id: '1203'
+  slug: state-store-authoritative-work-item-lifecycle
+  file: null
+  issue_number: 1203
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
