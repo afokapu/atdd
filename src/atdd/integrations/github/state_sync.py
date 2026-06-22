@@ -1,59 +1,41 @@
-"""State Store ⇄ GitHub provider sync (#1168 Phase 5, #1184).
+"""GitHub sync provider for the State Store (#1184, refactored by #1201).
 
-Bridges the local State Store (operational truth) with GitHub (external
-side-effect truth) through the `outbox` / `inbox` queues and `external_refs`:
+GitHub is **one provider** behind the core provider-agnostic sync engine
+(:mod:`atdd.state.sync_engine`). This module holds only the GitHub-specific
+*remote* operations — `GhCliClient` (shells to ``gh``) and `GitHubSyncProvider`
+(maps outbox operations onto it and returns the external ref to record). The
+drain/apply/record machinery lives in core and has no GitHub knowledge.
 
-- **push** drains the `outbox` (local → GitHub): create issue / add label /
-  comment, each dispatched to a :class:`GitHubClient`; a created issue is
-  recorded back as an `external_ref`.
-- **apply** drains the `inbox` (GitHub → local): apply imported issue state to
-  the linked work item via its `external_ref`.
-
-The client is a Protocol so tests inject a fake — no live GitHub in CI. The real
-:class:`GhCliClient` shells to ``gh`` via :func:`atdd.integrations.github._gh.run_gh`.
-
-Layer direction: this module lives in ``atdd.integrations.github`` and imports
-``atdd.state`` (allowed). ``atdd.state`` never imports back (foundational layer).
+Layer direction: ``atdd.integrations.github`` imports ``atdd.state``; never the
+reverse (enforced by the layer-imports gate).
 """
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Protocol, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 from atdd.integrations.github._gh import run_gh
 from atdd.state.db import connect, init_state_store
 from atdd.state.paths import resolve_control_root
 from atdd.state.store import StateStore
+from atdd.state.sync_engine import PushOutcome, apply_inbox, push_outbox
 
 _log = logging.getLogger(__name__)
 
-GITHUB_PROVIDER = "github"
+PROVIDER_NAME = "github"
 
 
-class GitHubClient(Protocol):
-    """Minimal GitHub operations the outbox dispatches to."""
-
-    def create_issue(self, title: str, body: str, labels: Sequence[str]) -> str:
-        """Create an issue; return its number as a string."""
-
-    def add_label(self, issue_number: str, label: str) -> None: ...
-
-    def add_comment(self, issue_number: str, body: str) -> None: ...
-
-
-class GhCliClient:
-    """Real :class:`GitHubClient` backed by the ``gh`` CLI (not used in tests)."""
+class GitHubClient:
+    """Minimal GitHub operations (real ``gh``-backed; subbed by a fake in tests)."""
 
     def create_issue(self, title: str, body: str, labels: Sequence[str]) -> str:
         args = ["issue", "create", "--title", title, "--body", body]
         for label in labels:
             args += ["--label", label]
         url = run_gh(args)
-        return url.rstrip("/").rsplit("/", 1)[-1]  # trailing path segment = issue number
+        return url.rstrip("/").rsplit("/", 1)[-1]
 
     def add_label(self, issue_number: str, label: str) -> None:
         run_gh(["issue", "edit", str(issue_number), "--add-label", label])
@@ -62,112 +44,48 @@ class GhCliClient:
         run_gh(["issue", "comment", str(issue_number), "--body", body])
 
 
-@dataclass
-class PushResult:
-    pending: int
-    pushed: int
-    failed: int
-    errors: List[str] = field(default_factory=list)
+# The real ``gh``-backed client (alias kept for callers/tests).
+GhCliClient = GitHubClient
 
 
-@dataclass
-class ApplyResult:
-    pending: int
-    applied: int
-    skipped: int
-    notes: List[str] = field(default_factory=list)
+class GitHubSyncProvider:
+    """A :class:`atdd.state.sync_engine.SyncProvider` for GitHub."""
 
+    name = PROVIDER_NAME
 
-def push_outbox(store: StateStore, client: GitHubClient, *, dry_run: bool = False) -> PushResult:
-    """Drain the outbox to GitHub. A message stays pending if its op fails."""
-    pending = store.sync.pending_outbox()
-    pushed = failed = 0
-    errors: List[str] = []
-    for msg in pending:
-        if dry_run:
-            continue
-        try:
-            _dispatch_outbox(store, client, msg)
-            store.sync.mark_sent(msg.id)  # noqa: N+1 — one provider op per queued message
-            pushed += 1
-        except Exception as exc:  # noqa: BLE001 — per-message isolation; one failure must not abort the drain
-            failed += 1
-            errors.append(f"outbox#{msg.id} {msg.operation}: {exc}")
-            _log.warning("outbox push failed",
-                         extra={"outbox_id": msg.id, "operation": msg.operation, "error": str(exc)})
-    return PushResult(pending=len(pending), pushed=pushed, failed=failed, errors=errors)
+    def __init__(self, client: Optional[GitHubClient] = None) -> None:
+        self._client = client or GhCliClient()
 
-
-def _dispatch_outbox(store: StateStore, client: GitHubClient, msg) -> None:
-    op, p = msg.operation, msg.payload
-    if op == "create_issue":
-        number = client.create_issue(p.get("title", ""), p.get("body", ""), p.get("labels", []) or [])
-        object_uid = p.get("object_uid")
-        if object_uid:
-            store.external_refs.link(object_uid, GITHUB_PROVIDER, "issue", str(number),
-                                     data={"source": "outbox-create"})
-    elif op == "add_label":
-        client.add_label(str(p["issue_number"]), p["label"])
-    elif op == "comment":
-        client.add_comment(str(p["issue_number"]), p.get("body", ""))
-    else:
-        raise ValueError(f"unknown outbox operation: {op!r}")
-
-
-def apply_inbox(store: StateStore, *, dry_run: bool = False) -> ApplyResult:
-    """Drain the inbox (GitHub → local), applying each event to local state."""
-    pending = store.sync.pending_inbox()
-    applied = skipped = 0
-    notes: List[str] = []
-    for msg in pending:
-        kind = msg.payload.get("kind")
-        try:
-            handled = _apply_inbox_message(store, msg)
-        except Exception as exc:  # noqa: BLE001 — per-message isolation
-            skipped += 1
-            notes.append(f"inbox#{msg.id} {kind}: {exc}")
-            continue
-        if handled:
-            applied += 1
-        else:
-            skipped += 1
-            notes.append(f"inbox#{msg.id}: {kind} not applicable (no local object?)")
-        if not dry_run:
-            store.sync.mark_processed(msg.id)  # noqa: N+1 — one event per queued message
-    return ApplyResult(pending=len(pending), applied=applied, skipped=skipped, notes=notes)
-
-
-def _apply_inbox_message(store: StateStore, msg) -> bool:
-    """Return True if the message changed local state."""
-    p = msg.payload
-    kind = p.get("kind")
-    if kind == "issue_state":
-        ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", str(p["issue_number"]))
-        if ref is None:
-            return False
-        store.objects.set_state(ref.object_uid, p.get("state"))
-        return True
-    if kind == "issue_imported":
-        uid = p.get("slug") or f"github-issue-{p['issue_number']}"
-        store.objects.upsert(uid, "work_item", state=p.get("state"),
-                             data={"title": p.get("title")})
-        store.external_refs.link(uid, GITHUB_PROVIDER, "issue", str(p["issue_number"]),
-                                 data={"source": "inbox-import"})
-        return True
-    return False
+    def push(self, operation: str, payload: Dict[str, Any]) -> Optional[PushOutcome]:
+        if operation == "create_issue":
+            number = self._client.create_issue(
+                payload.get("title", ""), payload.get("body", ""), payload.get("labels", []) or [])
+            return PushOutcome(object_uid=payload.get("object_uid"), ref_kind="issue",
+                               ref_value=str(number), ref_data={"source": "outbox-create"})
+        if operation == "add_label":
+            self._client.add_label(str(payload.get("issue_number") or payload["ref_value"]),
+                                   payload["label"])
+            return None
+        if operation == "comment":
+            self._client.add_comment(str(payload.get("issue_number") or payload["ref_value"]),
+                                     payload.get("body", ""))
+            return None
+        raise ValueError(f"unknown github outbox operation: {operation!r}")
 
 
 # --------------------------------------------------------------------------- #
-# CLI entry — routed from `atdd state sync` by the top-level cli.py.
+# CLI — routed from `atdd state sync` by the top-level cli.py. Builds the GitHub
+# provider and calls the CORE engine (apply is provider-agnostic; push uses the
+# provider registry).
 # --------------------------------------------------------------------------- #
 def run_sync_cli(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="atdd state sync",
-        description="Sync the State Store with GitHub via outbox/inbox (#1184).",
+        description="Sync the State Store with providers via outbox/inbox (#1184/#1201).",
     )
     parser.add_argument("--root", default=None, help="Starting directory (default: cwd).")
     parser.add_argument("--push", action="store_true",
-                        help="Actually push the outbox to GitHub (default: report only).")
+                        help="Push the outbox to providers (default: report only).")
     parser.add_argument("--dry-run", action="store_true",
                         help="Report pending work without mutating local or remote state.")
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -185,13 +103,15 @@ def run_sync_cli(argv: Optional[Sequence[str]] = None) -> int:
             print(f"  - {n}")
 
         if args.push:
-            pushed = push_outbox(store, GhCliClient(), dry_run=args.dry_run)
-            print(f"outbox: {pushed.pushed} pushed, {pushed.failed} failed (of {pushed.pending} pending)")
+            providers = {PROVIDER_NAME: GitHubSyncProvider()}
+            pushed = push_outbox(store, providers, dry_run=args.dry_run)
+            print(f"outbox: {pushed.pushed} pushed, {pushed.failed} failed, "
+                  f"{pushed.skipped_no_provider} skipped-no-provider (of {pushed.pending} pending)")
             for e in pushed.errors:
                 print(f"  - {e}")
             return 1 if pushed.failed else 0
         pending = len(store.sync.pending_outbox())
-        print(f"outbox: {pending} pending (pass --push to send to GitHub)")
+        print(f"outbox: {pending} pending (pass --push to send via registered providers)")
         return 0
     finally:
         conn.close()
