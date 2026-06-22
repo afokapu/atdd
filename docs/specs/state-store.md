@@ -125,8 +125,33 @@ GitHub-specific schema):
 | `external_refs` | provider links (GitHub issue/PR, cmux session) — the projection of a local object onto a provider |
 | `inbox` / `outbox` | provider sync queues (GitHub→local / local→GitHub), populated in Phase 5 |
 
-Typed storage APIs over these tables (`ObjectStore`, `EventStore`, …) are
-Phase 3 (#1182).
+## Storage APIs + projections (Phase 3, #1182)
+
+Call sites never write raw SQL — they go through typed stores in
+`src/atdd/state/store.py`, bundled by the `StateStore(conn)` facade:
+
+| Store | Surface |
+|-------|---------|
+| `ObjectStore` | `upsert` / `get` / `list(kind=…)` / `set_state` / `delete` |
+| `RelationshipStore` | `add` / `list(src/dst/rel_type)` / `remove` (FK-cascades on object delete) |
+| `EventStore` | `append` (monotonic global `seq`) / `list(object_uid=…)` |
+| `ExternalRefStore` | `link` / `resolve(provider,kind,value)` / `for_object` / `all` |
+| `SyncStore` | `enqueue_outbox` / `pending_outbox` / `mark_sent` + inbox equivalents |
+
+JSON `data`/`payload` columns are (de)serialized at the store boundary, so
+callers pass and receive plain `dict`s and typed row dataclasses (`Object`,
+`Relationship`, `Event`, `ExternalRef`).
+
+Read-side **projections** (`src/atdd/state/projections.py`) are pure reads
+(bulk queries grouped in Python — no per-object N+1):
+
+- `work_item_projection` — `work_item` objects with external refs folded in
+  (e.g. `{"github": "1182"}`), the basis for a local Kanban/table view (#22).
+- `run_projection` — `run` objects with an event summary.
+- `evidence_projection` — `evidence` objects.
+
+Manifest import (Phase 4, #1183) and GitHub sync (Phase 5, #1184) build on these
+APIs.
 
 ## Field observation + resolution (#1177 → #1179)
 

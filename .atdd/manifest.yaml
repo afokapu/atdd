@@ -2795,6 +2795,16 @@ sessions:
   created: '2026-06-22'
   archived: null
   branch: feat/state-store-sqlite-schema-and-migrations
+- id: '1182'
+  slug: state-store-storage-apis
+  file: null
+  issue_number: 1182
+  type: implementation
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/state-store-storage-apis
 - id: '1147'
   slug: wagon-separability-granularity
   file: null
