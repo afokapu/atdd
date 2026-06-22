@@ -2765,6 +2765,16 @@ sessions:
   created: '2026-06-21'
   archived: null
   branch: feat/atdd-plan-binds-issue-at-confirm
+- id: '1177'
+  slug: state-store-control-root-resolver
+  file: null
+  issue_number: 1177
+  type: implementation
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/state-store-control-root-resolver
 - id: '1147'
   slug: wagon-separability-granularity
   file: null
