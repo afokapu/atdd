@@ -2808,3 +2808,11 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1182'
+  slug: state-store-storage-apis
+  file: null
+  issue_number: 1182
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
