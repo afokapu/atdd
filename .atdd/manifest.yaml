@@ -2824,3 +2824,11 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1184'
+  slug: state-store-github-provider-sync
+  file: null
+  issue_number: 1184
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
