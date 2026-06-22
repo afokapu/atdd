@@ -2815,6 +2815,16 @@ sessions:
   created: '2026-06-22'
   archived: null
   branch: feat/state-store-manifest-import-and-compatibility
+- id: '1184'
+  slug: state-store-github-provider-sync
+  file: null
+  issue_number: 1184
+  type: implementation
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/state-store-github-provider-sync
 - id: '1147'
   slug: wagon-separability-granularity
   file: null

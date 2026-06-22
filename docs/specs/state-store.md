@@ -152,6 +152,27 @@ Read-side **projections** (`src/atdd/state/projections.py`) are pure reads
 
 GitHub sync (Phase 5, #1184) builds on these APIs.
 
+## GitHub provider sync (Phase 5, #1184)
+
+`atdd state sync` bridges the State Store (operational truth) and GitHub
+(external side-effect truth) through the `outbox` / `inbox` queues and
+`external_refs` — implemented in `src/atdd/integrations/github/state_sync.py`
+(the integrations layer imports `atdd.state`; never the reverse — enforced by
+the `atdd.state` entry added to the layer-imports architecture gate).
+
+- **push** (`--push`) drains the `outbox` (local → GitHub): `create_issue` /
+  `add_label` / `comment`, each dispatched to a `GitHubClient`. A created issue
+  is recorded back as an `external_ref`. A failed op leaves its message
+  **pending** (retryable); failures are isolated per message.
+- **apply** (default) drains the `inbox` (GitHub → local): `issue_state` folds a
+  remote state change onto the linked work item (resolved via its
+  `external_ref`); `issue_imported` upserts a new work item + ref.
+
+The `GitHubClient` is a Protocol so tests inject a fake (no live `gh` in CI); the
+real `GhCliClient` shells to `gh`. `atdd state sync` applies the inbox and
+reports pending outbox by default; `--push` performs the real GitHub writes;
+`--dry-run` reports without mutating.
+
 ## Manifest import (Phase 4, #1183)
 
 `atdd state import-manifest` reads the `.atdd/manifest.yaml` `sessions` ledger and
