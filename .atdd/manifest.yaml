@@ -2810,7 +2810,7 @@ sessions:
   file: null
   issue_number: 1183
   type: implementation
-  status: GREEN
+  status: SMOKE
   train: 0002-coach-drives-lifecycle
   created: '2026-06-22'
   archived: null
