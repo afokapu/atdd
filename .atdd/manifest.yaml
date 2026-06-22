@@ -2785,6 +2785,16 @@ sessions:
   created: '2026-06-22'
   archived: null
   branch: feat/distinguish-real-control-root-from-scratch-atdd
+- id: '1181'
+  slug: state-store-sqlite-schema-and-migrations
+  file: null
+  issue_number: 1181
+  type: implementation
+  status: INIT
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/state-store-sqlite-schema-and-migrations
 - id: '1147'
   slug: wagon-separability-granularity
   file: null
