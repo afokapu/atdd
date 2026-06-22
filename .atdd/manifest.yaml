@@ -2835,6 +2835,16 @@ sessions:
   created: '2026-06-22'
   archived: null
   branch: feat/state-store-hub-trace-alignment
+- id: '1201'
+  slug: provider-agnostic-state-sync-engine
+  file: null
+  issue_number: 1201
+  type: refactor
+  status: INIT
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: refactor/provider-agnostic-state-sync-engine
 - id: '1147'
   slug: wagon-separability-granularity
   file: null

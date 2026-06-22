@@ -78,8 +78,22 @@ from atdd.state.store import (
     SyncMessage,
     SyncStore,
 )
+from atdd.state.sync_engine import (
+    ApplyResult,
+    PushOutcome,
+    PushResult,
+    SyncProvider,
+    apply_inbox,
+    push_outbox,
+)
 
 __all__ = [
+    "ApplyResult",
+    "PushOutcome",
+    "PushResult",
+    "SyncProvider",
+    "apply_inbox",
+    "push_outbox",
     "AmbiguousControlRootError",
     "CORE_MIGRATIONS",
     "ControlRootNotFoundError",

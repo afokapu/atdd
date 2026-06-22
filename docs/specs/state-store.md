@@ -152,26 +152,39 @@ Read-side **projections** (`src/atdd/state/projections.py`) are pure reads
 
 GitHub sync (Phase 5, #1184) builds on these APIs.
 
-## GitHub provider sync (Phase 5, #1184)
+## Provider-agnostic sync (Phase 5 #1184, made agnostic by #1201)
 
-`atdd state sync` bridges the State Store (operational truth) and GitHub
-(external side-effect truth) through the `outbox` / `inbox` queues and
-`external_refs` — implemented in `src/atdd/integrations/github/state_sync.py`
-(the integrations layer imports `atdd.state`; never the reverse — enforced by
-the `atdd.state` entry added to the layer-imports architecture gate).
+**Synchronization is provider-agnostic.** Core owns the queues (`outbox`/`inbox`)
+and the **engine** (`src/atdd/state/sync_engine.py`) that drains them — with **no
+GitHub (or any provider) knowledge**. Providers are needed only for the *remote*
+side of a push and are supplied as a registry keyed by name; extensions
+implement them.
 
-- **push** (`--push`) drains the `outbox` (local → GitHub): `create_issue` /
-  `add_label` / `comment`, each dispatched to a `GitHubClient`. A created issue
-  is recorded back as an `external_ref`. A failed op leaves its message
-  **pending** (retryable); failures are isolated per message.
-- **apply** (default) drains the `inbox` (GitHub → local): `issue_state` folds a
-  remote state change onto the linked work item (resolved via its
-  `external_ref`); `issue_imported` upserts a new work item + ref.
+- **`push_outbox(store, providers)`** (core) drains the outbox, dispatching each
+  message to the `SyncProvider` registered under `msg.provider`. The provider
+  performs the remote op and returns a `PushOutcome` (an optional external ref);
+  core records the ref and marks the message sent. A message whose provider is
+  **not registered** is left pending (`skipped_no_provider`) — core never
+  assumes a provider exists. Provider errors are isolated per message (stay
+  pending, retryable).
+- **`apply_inbox(store)`** (core) is **fully generic** — no provider needed.
+  Canonical events `external_state` (resolve `external_ref(provider, kind,
+  value)` → set object state) and `external_imported` (upsert object + link ref)
+  apply for any provider.
 
-The `GitHubClient` is a Protocol so tests inject a fake (no live `gh` in CI); the
-real `GhCliClient` shells to `gh`. `atdd state sync` applies the inbox and
-reports pending outbox by default; `--push` performs the real GitHub writes;
-`--dry-run` reports without mutating.
+A pure-local consumer with no provider installed still has a working sync
+substrate; **core never imports or needs GitHub.**
+
+**GitHub is one provider.** `GitHubSyncProvider` (in
+`src/atdd/integrations/github/state_sync.py`) implements `SyncProvider` by
+mapping outbox operations (`create_issue`/`add_label`/`comment`) onto the
+`gh`-backed `GhCliClient`. `atdd state sync` (routed from the top-level CLI)
+applies the inbox via core and, with `--push`, builds the `{ "github": … }`
+registry and calls the core engine. Future providers (Jira, cmux, …) plug in the
+same way — ideally as bound extensions — without touching core.
+
+(Layer direction: `integrations.github` imports `atdd.state`; never the reverse —
+enforced by the `atdd.state` entry in the layer-imports gate.)
 
 ## Hub trace alignment (Phase 6, #1185)
 
