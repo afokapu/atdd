@@ -2808,6 +2808,7 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+  branch: feat/state-store-sqlite-schema-and-migrations
 - id: '1182'
   slug: state-store-storage-apis
   file: null
@@ -2816,6 +2817,7 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+  branch: feat/state-store-storage-apis
 - id: '1183'
   slug: state-store-manifest-import-and-compatibility
   file: null
@@ -2837,6 +2839,14 @@ sessions:
   file: null
   issue_number: 1185
   type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
+- id: '1188'
+  slug: smoke-fixture-e012-decision-channel
+  file: null
+  issue_number: 1188
+  type: cleanup
   status: INIT
   created: '2026-06-22'
   archived: null
