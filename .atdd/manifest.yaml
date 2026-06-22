@@ -2884,3 +2884,11 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1194'
+  slug: train-acceptance-schema-writer-drift
+  file: null
+  issue_number: 1194
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
