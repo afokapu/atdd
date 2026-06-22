@@ -1214,6 +1214,21 @@ Phase descriptions:
         help="Forwarded to atdd.planner.commands.author",
     )
 
+    # ----- atdd state <subcommand> ... (#1168 State Store, Phase 1 — #1177) -----
+    # The State Store command surface (doctor / layout --check). argparse for the
+    # sub-subcommands lives in `atdd.state.cli.run`; we register `state` here with
+    # REMAINDER and forward argv so the surface stays in one place.
+    state_parser = subparsers.add_parser(
+        "state",
+        help="ATDD State Store — local operational data layout (#1168).",
+        add_help=False,
+    )
+    state_parser.add_argument(
+        "state_argv",
+        nargs=argparse.REMAINDER,
+        help="Forwarded to atdd.state.cli",
+    )
+
     # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
     # O1 (#501): single boundary for ambiguous coach v9 routing decisions.
     # Renders a prompt template, calls a structured-output LLM via the
@@ -2581,6 +2596,11 @@ Phase descriptions:
     elif args.command == "author":
         from atdd.planner.commands.author import run as run_author
         return run_author(list(getattr(args, "author_argv", []) or []))
+
+    # atdd state <doctor|layout --check> ...  (#1168 Phase 1 — #1177)
+    elif args.command == "state":
+        from atdd.state.cli import run as run_state
+        return run_state(list(getattr(args, "state_argv", []) or []))
 
     # atdd plan <source> ... (PLAN-1 — #758)
     elif args.command == "plan":
