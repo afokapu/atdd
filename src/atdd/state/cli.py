@@ -6,9 +6,10 @@ Phase 1 ships two enforcement commands described in #1168:
   root, layout mode, State Store path) and a status line.
 - ``atdd state layout --check`` — validate the filesystem layout is legal and
   exit non-zero on a violation (e.g. a per-worktree State Store).
+- ``atdd state init`` — create (if needed) and migrate the State Store SQLite
+  database at the resolved Control Root (#1181).
 
-``atdd state init`` / ``migrate-layout`` / the SQLite migrations are #1168
-Phases 2+ and are intentionally not implemented here.
+``atdd state migrate-layout`` and later-phase commands are #1168 Phases 3+.
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 
+from atdd.state.db import current_version, init_state_store
 from atdd.state.paths import (
     AmbiguousControlRootError,
     ControlRootNotFoundError,
@@ -42,6 +44,9 @@ def _build_parser() -> argparse.ArgumentParser:
     layout = sub.add_parser("layout", help="Layout guards.")
     layout.add_argument("--check", action="store_true", help="Validate the layout; non-zero on violation.")
     layout.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+
+    init = sub.add_parser("init", help="Create (if needed) and migrate the State Store SQLite database.")
+    init.add_argument("--root", default=None, help="Starting directory (default: cwd).")
 
     return parser
 
@@ -95,8 +100,8 @@ def _cmd_doctor(root: Optional[str]) -> int:
         print("Status:             INVALID")
         return 1
     if not resolution.state_store_exists:
-        # Phase 1 does not create the store; this is informational, not a failure.
-        print("Status:             OK (State Store not yet created — `atdd state init` lands in #1168 Phase 2)")
+        # Not created yet — informational, not a failure. Initialize with `atdd state init`.
+        print("Status:             OK (State Store not yet created — run `atdd state init`)")
         return 0
     print("Status:             OK")
     return 0
@@ -117,6 +122,28 @@ def _cmd_layout_check(root: Optional[str]) -> int:
     return 0
 
 
+def _cmd_init(root: Optional[str]) -> int:
+    start = _start_dir(root)
+    resolution, rc = _resolve_or_report(start)
+    if resolution is None:
+        return rc
+
+    existed = resolution.state_store_exists
+    db_path = init_state_store(db_path=resolution.state_store_path)
+    from atdd.state.db import connect  # local import: keep module import surface small
+
+    conn = connect(db_path)
+    try:
+        version = current_version(conn)
+    finally:
+        conn.close()
+    verb = "already initialized" if existed else "initialized"
+    print(f"ATDD State Store {verb}: {db_path}")
+    print(f"Control Root: {resolution.control_root}  ({resolution.layout_mode.value})")
+    print(f"Schema version: {version}")
+    return 0
+
+
 def run(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -128,6 +155,8 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
             parser.parse_args(["layout", "--help"])
             return 2
         return _cmd_layout_check(args.root)
+    if args.op == "init":
+        return _cmd_init(args.root)
 
     parser.print_help()
     return 2

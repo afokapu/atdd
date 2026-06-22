@@ -93,16 +93,40 @@ it never shadows a real worktree Control Root and never triggers a false
 ambiguity. This is what lets the resolver work correctly in the flat
 sibling-worktree dev layout (see below).
 
-## Commands (Phase 1)
+## Commands
 
 - `atdd state doctor [--root DIR]` — prints Control Root, Git worktree root,
   layout mode, and State Store path with a status line. Exit `0` OK, `1` layout
-  violation, `2` ambiguous/not-found.
+  violation, `2` ambiguous/not-found. (Phase 1, #1177/#1179.)
 - `atdd state layout --check [--root DIR]` — validates the layout; exit `1` on a
   violation (e.g. a per-worktree State Store), `2` on ambiguous/not-found.
+  (Phase 1.)
+- `atdd state init [--root DIR]` — creates (if needed) and migrates the State
+  Store SQLite database at the resolved Control Root; idempotent. (Phase 2, #1181.)
 
-`atdd state init` / `migrate-layout` and the SQLite schema are deferred to
-#1168 Phase 2+.
+`atdd state migrate-layout` is deferred to a later phase.
+
+## SQLite schema (Phase 2, #1181)
+
+The store opens with `PRAGMA foreign_keys = ON`, `journal_mode = WAL`,
+`busy_timeout = 5000`. Schema is versioned in `schema_migrations`; the migration
+runner (`src/atdd/state/db.py`) applies any migration in
+`src/atdd/state/migrations.py` whose version is not yet recorded, each in its own
+transaction. Migrations are append-only — never edit an applied one.
+
+Migration `0001` creates the **extensible core primitives** (not a Hub- or
+GitHub-specific schema):
+
+| Table | Purpose |
+|-------|---------|
+| `objects` | work items, runs, evidence, Hub sessions, … (`uid` = stable local identity, `kind`, JSON `data`) |
+| `relationships` | typed edges between objects (`parent_of`, `owns_worktree`, …), FK-cascading |
+| `events` | ordered event log (`seq`, `event_type`, JSON `payload`) |
+| `external_refs` | provider links (GitHub issue/PR, cmux session) — the projection of a local object onto a provider |
+| `inbox` / `outbox` | provider sync queues (GitHub→local / local→GitHub), populated in Phase 5 |
+
+Typed storage APIs over these tables (`ObjectStore`, `EventStore`, …) are
+Phase 3 (#1182).
 
 ## Field observation + resolution (#1177 → #1179)
 
