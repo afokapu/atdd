@@ -2844,6 +2844,7 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+  branch: feat/state-store-hub-trace-alignment
 - id: '1188'
   slug: smoke-fixture-e012-decision-channel
   file: null
@@ -2897,6 +2898,14 @@ sessions:
   slug: smoke-fixture-e012-rca
   file: null
   issue_number: 1198
+  type: cleanup
+  status: INIT
+  created: '2026-06-22'
+  archived: null
+- id: '1199'
+  slug: smoke-fixture-e012-rca2
+  file: null
+  issue_number: 1199
   type: cleanup
   status: INIT
   created: '2026-06-22'
