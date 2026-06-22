@@ -2860,3 +2860,11 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1191'
+  slug: safety-path-dangerous-escalate-no-live-coverage
+  file: null
+  issue_number: 1191
+  type: analysis
+  status: INIT
+  created: '2026-06-22'
+  archived: null
